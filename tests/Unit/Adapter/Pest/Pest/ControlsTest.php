@@ -90,7 +90,7 @@ it('runs a held unit\'s narrowed kill\'s control by the group that holds it, as 
     new Pest($at, $shell, PestCases::canary(), new CapDirectory(), Triage::standard()->bounds())
         ->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('holds:src/Money.php')));
 
-    expect(PestCases::controls($shell)[0]->arguments())->toContain('--group=holds:src/Money.php');
+    expect(PestCases::controls($shell)[0]->arguments())->toContain('holds:src/Money.php');
 });
 
 it('vouches for a narrowed kill whose order is known by replaying its run unmutated, and leaves it unjudged where the replay took another order', function (bool $sameOrder, MutantStatus $status): void {

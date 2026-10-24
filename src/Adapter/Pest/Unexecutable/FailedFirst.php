@@ -8,7 +8,6 @@ use DOMDocument;
 use DOMElement;
 
 use function explode;
-use function in_array;
 use function is_file;
 use function mb_strlen;
 use function mb_substr;
@@ -16,6 +15,7 @@ use function mb_substr;
 use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Format\Xml;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Test\Defect;
 
 use function str_starts_with;
 use function trim;
@@ -28,9 +28,6 @@ use function trim;
  */
 final readonly class FailedFirst
 {
-    /** What the log puts in a test case that failed an assertion, or errored. */
-    public const array OUTCOMES = ['failure', 'error'];
-
     private function __construct(private string $test, private string $said)
     {
     }
@@ -78,7 +75,7 @@ final readonly class FailedFirst
     private static function outcomeOf(DOMElement $case): DOMElement|NotGiven
     {
         for ($child = $case->firstElementChild; $child instanceof DOMElement; $child = $child->nextElementSibling) {
-            if (in_array($child->tagName, self::OUTCOMES, strict: true)) {
+            if (Defect::names($child->tagName)) {
                 return $child;
             }
         }

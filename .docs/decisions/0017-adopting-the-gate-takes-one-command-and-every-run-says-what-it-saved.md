@@ -454,7 +454,11 @@ would have cost without them.
       (triage, confirmation) fails the benchmark. Plain Infection skips a
       mutant whose tests take longer than its timeout, and its JSON log
       only counts those; its text log names each, so they are matched with
-      the gate's by file, line and mutator, and the skip explains them. A
+      the gate's by file, line and mutator, and the skip explains them.
+      Plain Infection times a mutant out at its own limit, five times its
+      tests' time within its `timeout`, where the patched Infection the gate
+      runs allows the gate's limit (ADR-0008); a mutant it timed out that
+      the gate killed or that survived is explained by the limit. A
       gate mutant the plain arm lacks is explained where a mutator of the
       gate's own sets made it (ADR-0021), or where it is uncovered and plain
       Infection, without `--with-uncovered`, makes no mutant on a line no

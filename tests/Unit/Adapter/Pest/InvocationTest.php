@@ -92,7 +92,8 @@ it('runs one group under coverage', function (): void {
         '--no-tia',
         '--coverage-php=/p/held/coverage.php',
         '--log-junit=/p/held/junit.xml',
-        '--group=holds:src/Held.php',
+        '--group',
+        'holds:src/Held.php',
         '--do-not-fail-on-empty-test-suite',
     ]);
 });
@@ -128,8 +129,9 @@ it('runs one test file under coverage across its processes', function (): void {
 it('runs the tests a filter names under coverage', function (): void {
     $request = CoverageRun::of(Filter::matching('HeldTest'), Path::of('held'));
 
-    expect(array_slice(invocation()->coverage($request, '/p/held', reach())->arguments(), -2))->toBe([
-        '--filter=HeldTest',
+    expect(array_slice(invocation()->coverage($request, '/p/held', reach())->arguments(), -3))->toBe([
+        '--filter',
+        'HeldTest',
         '--do-not-fail-on-empty-test-suite',
     ]);
 });
@@ -152,7 +154,8 @@ it('starts a run of no test as pest-plugin-mutate starts a mutant\'s own run, in
         '--no-tia',
         '--bail',
         '--colors=never',
-        '--filter=(?!)',
+        '--filter',
+        '(?!)',
         '--do-not-fail-on-empty-test-suite',
     ])->and($told)->toBe([
         'LARAVEL_PARALLEL_TESTING' => '1',
@@ -211,7 +214,8 @@ it('mutates a tree less its held paths, by a group and some mutators, by a deadl
         '--colors=never',
         '--path=src',
         '--ignore=src/Kernel.php,src/Boot',
-        '--group=holds:src',
+        '--group',
+        'holds:src',
         '--do-not-fail-on-empty-test-suite',
         '--mutator=Pest\Mutate\Mutators\Arithmetic\PlusToMinus,Pest\Mutate\Mutators\Logical\TrueToFalse',
     ])->and($command->deadline())->toEqual(Seconds::of(600.0));
@@ -271,7 +275,8 @@ it('judges one mutant by some test files, one after another, stopping at the fir
         '--no-tia',
         '--bail',
         '--colors=never',
-        '--group=holds:src/Money.php',
+        '--group',
+        'holds:src/Money.php',
         '--do-not-fail-on-empty-test-suite',
         'tests/MoneySpec.php',
         'tests/Unit/TaxSpec.php',

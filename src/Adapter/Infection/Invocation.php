@@ -97,7 +97,7 @@ final readonly class Invocation
             sprintf('--configuration=%s', $startUpConfig),
             PhpUnitOption::NoColors->value,
             ...$config->extraArguments(),
-            ...self::narrowedTo(Filter::nothing()),
+            ...self::selecting(Filter::nothing()),
             ...[PhpUnitOption::DoNotFailOnEmptyTestSuite->value],
         );
     }
@@ -126,7 +126,7 @@ final readonly class Invocation
             sprintf('--configuration=%s', $controlConfig),
             PhpUnitOption::NoColors->value,
             ...$config->extraArguments(),
-            ...self::narrowedTo($filter->compiles() ? $filter : WholeSuite::tests()),
+            ...self::selecting($filter->compiles() ? $filter : WholeSuite::tests()),
         );
     }
 
@@ -155,7 +155,7 @@ final readonly class Invocation
                 sprintf('%s=%s', PhpUnitOption::LogJunit->value, $directory->child(self::JUNIT)->value()),
                 PhpUnitOption::NoColors->value,
                 ...$config->extraArguments(),
-                ...($tests instanceof TestPaths ? self::filesOf($project, $tests) : self::narrowedTo($tests)),
+                ...($tests instanceof TestPaths ? self::filesOf($project, $tests) : self::selecting($tests)),
                 ...PhpUnitOption::inSuites($suites),
             ],
         )->with(['XDEBUG_MODE' => 'coverage']);
@@ -221,7 +221,29 @@ final readonly class Invocation
         return array_map($project->absolute(...), [...$tests->files()]);
     }
 
-    /** @return list<string> */
+    /**
+     * The tests PHPUnit runs, as arguments PHPUnit itself reads: each option
+     * and its value apart, since PHPUnit's reading of `--name=value` ends the
+     * value at its next `=`, as a data set named `a === b` holds.
+     *
+     * @return list<string>
+     */
+    private static function selecting(WholeSuite|Group|Filter $tests): array
+    {
+        return match (true) {
+            $tests instanceof Group => [PhpUnitOption::Group->value, $tests->name()],
+            $tests instanceof Filter => [PhpUnitOption::Filter->value, $tests->pattern()],
+            default => [],
+        };
+    }
+
+    /**
+     * The tests each mutant's run takes, as Infection reads them among the
+     * extra arguments it passes on: `--filter=` and `--group=`, which it
+     * finds by their names.
+     *
+     * @return list<string>
+     */
     private static function narrowedTo(WholeSuite|Group|Filter $tests): array
     {
         return match (true) {

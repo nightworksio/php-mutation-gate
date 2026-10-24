@@ -394,11 +394,18 @@ running it: why is this mutant here, and has it always been?
       and its evidence judges the kill.
     - A run that fails with no test failing or erroring names as its
       killers the tests that raised an issue its runner's configuration
-      fails the run on: a warning, notice or deprecation, a risky,
-      incomplete or skipped test, or a warning, notice or deprecation the
-      runner raised of a test, as the runner's own result counts them
-      (`failOnWarning`, `failOnRisky` and the rest). An issue raised
-      outside any test names no test.
+      fails the run on. Pest's plugin reads them from PHPUnit's own result:
+      a warning, notice or deprecation, a risky, incomplete or skipped
+      test, or a warning, notice or deprecation PHPUnit raised of a test
+      (`failOnWarning`, `failOnRisky` and the rest). Infection, which runs
+      each mutant with `failOnRisky` and `failOnWarning` where the project's
+      config sets neither, has the gate read them from what PHPUnit printed:
+      each risky test, each test PHPUnit warned of, and each test a warning
+      names as triggering it, or, for a warning raised in a test itself,
+      the test method its line is in. An issue raised outside any test
+      names no test. Decision 18 checks each on the original, with its
+      runner's configuration, so a test that raises the issue unmutated too
+      is never read as a kill.
     - A run that fails before any test runs, because collecting the tests
       failed, names as its killer the test whose dataset it broke, where
       the failure names that test (Pest's `DatasetMissing`: the test's

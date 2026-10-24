@@ -112,7 +112,7 @@ it('controls a kill by the tests that judged its run where Pest\'s filter is too
         sprintf('%s/results.jsonl', $at->root()),
     );
 
-    expect($shell->commands()[0]->arguments())->toContain('--group=holds:src/Money.php')
+    expect($shell->commands()[0]->arguments())->toContain('holds:src/Money.php')
         ->and(implode(' ', $shell->commands()[0]->arguments()))->not->toContain('--filter');
 });
 

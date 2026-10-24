@@ -69,8 +69,8 @@ it('runs only the tests that judge a held path under coverage', function (): voi
     $group = Invocation::coverage(invokedIn(), invoked('{}'), Group::named('holds:src/Kernel.php'), DiskPath::of('/c'), Suites::all(), CoverageFor::Mutation);
     $filter = Invocation::coverage(invokedIn(), invoked('{}'), Filter::matching('KernelTest'), DiskPath::of('/c'), Suites::all(), CoverageFor::Mutation);
 
-    expect(array_slice($group->arguments(), -1))->toBe(['--group=holds:src/Kernel.php'])
-        ->and(array_slice($filter->arguments(), -1))->toBe(['--filter=KernelTest']);
+    expect(array_slice($group->arguments(), -2))->toBe(['--group', 'holds:src/Kernel.php'])
+        ->and(array_slice($filter->arguments(), -2))->toBe(['--filter', 'KernelTest']);
 });
 
 it('runs some test files under coverage, by their paths on disk, in place of the config\'s suites', function (): void {
@@ -89,7 +89,8 @@ it('starts a run of no test on the config that loads none, with the project\'s a
         '--configuration=/project/.gate/infection/start-up/phpunit.xml',
         '--colors=never',
         '--testsuite=unit',
-        '--filter=(?!)',
+        '--filter',
+        '(?!)',
         '--do-not-fail-on-empty-test-suite',
     ]);
 });
@@ -100,6 +101,7 @@ it('runs a control on its config with the project\'s arguments, selecting its te
         TestId::of('Tests\\MoneyTest::testAdds'),
         TestId::of('Tests\\Tax/Test::testRate#0'),
         TestId::of('Tests\\TaxTest::testRate#384 bits'),
+        TestId::of('Tests\\TaxTest::testRate#rate === 0'),
         TestId::of('tests/money.phpt'),
     );
 
@@ -109,8 +111,10 @@ it('runs a control on its config with the project\'s arguments, selecting its te
         '--configuration=/project/.gate/infection/controls/0/phpunit.xml',
         '--colors=never',
         '--testsuite=unit',
-        '--filter=/^(?:Tests\\\\MoneyTest\:\:testAdds|Tests\\\\Tax\/Test\:\:testRate with data set \#0'
-            . '|Tests\\\\TaxTest\:\:testRate with data set "384 bits"|tests\/money\.phpt)(?: with data set .*)?$/',
+        '--filter',
+        '/^(?:Tests\\\\MoneyTest\:\:testAdds|Tests\\\\Tax\/Test\:\:testRate with data set \#0'
+            . '|Tests\\\\TaxTest\:\:testRate with data set "384 bits"|Tests\\\\TaxTest\:\:testRate with data set "rate \=\=\= 0"'
+            . '|tests\/money\.phpt)(?: with data set .*)?$/',
     ]);
 });
 
@@ -172,7 +176,7 @@ it('keeps the coverage run and each mutant\'s run to the suites the run names, q
     $coverage = Invocation::coverage(invokedIn(), invoked('{}'), Group::named('slow'), DiskPath::of('/c'), $suites, CoverageFor::Mutation);
     $mutation = Invocation::mutation(invokedIn(), invoked('{}'), Group::named('slow'), DiskPath::of('/c'), ProcessCount::of(1), ['/p'], $suites);
 
-    expect(array_slice($coverage->arguments(), -2))->toBe(['--group=slow', '--testsuite=Unit Tests,Contract'])
+    expect(array_slice($coverage->arguments(), -3))->toBe(['--group', 'slow', '--testsuite=Unit Tests,Contract'])
         ->and(array_slice($mutation->arguments(), -2))->toBe([
             '--test-framework-extra-args=--group="slow" --testsuite="Unit Tests,Contract"',
             '/p',

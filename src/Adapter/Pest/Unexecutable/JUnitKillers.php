@@ -7,11 +7,11 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Unexecutable;
 use DOMDocument;
 use DOMElement;
 
-use function in_array;
 use function is_file;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Selection;
 use NightWorksIO\MutationGate\Core\Format\Xml;
+use NightWorksIO\MutationGate\Core\Test\Defect;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestMethod;
@@ -65,7 +65,7 @@ final readonly class JUnitKillers
     private static function failed(DOMElement $case): bool
     {
         foreach ($case->childNodes as $child) {
-            if ($child instanceof DOMElement && in_array($child->tagName, FailedFirst::OUTCOMES, strict: true)) {
+            if ($child instanceof DOMElement && Defect::names($child->tagName)) {
                 return true;
             }
         }

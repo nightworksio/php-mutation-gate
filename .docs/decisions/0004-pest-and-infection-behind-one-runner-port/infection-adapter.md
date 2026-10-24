@@ -134,8 +134,12 @@ it in its fourth decision.
   never from a whole-suite map. The adapter runs PHPUnit under coverage
   narrowed to the holding tests, and Infection reads that run's directory.
   The narrowing also goes through `--test-framework-extra-args`.
-  - A group, `--group=holds:<path>`, narrows the opening run and every
-    mutant run.
+  - A group, `--group holds:<path>`, narrows the opening run and every
+    mutant run. PHPUnit, started by the adapter, takes each option and its
+    value apart, since its reading of `--name=value` ends the value at its
+    next `=`; among the extra arguments Infection passes on, the group and
+    the filter keep `--group=` and `--filter=`, by which Infection finds
+    them.
   - `#[Holds]` becomes a `--filter` naming the holding tests. It narrows the
     opening run, and each mutant run then executes only tests that run
     recorded. The adapter adds `--only-covering-test-cases`, so a mutant
@@ -164,9 +168,22 @@ it in its fourth decision.
   1 failure:` or `There were 2 errors:`. Each is named as the coverage map
   names it, `<class>::<method>` with `#<data set>` for a data set's test.
   Infection's mutant runs stop at the first defect, so that is the first
-  killer. A mutant killed by static analysis, an error or a timeout, or
-  with no such list, carries none, and one killed by static analysis
-  carries no rejection either, since the log names no finding.
+  killer. Where no test failed or met an error, the run failed on an issue:
+  Infection adds `failOnRisky` and `failOnWarning` to the project's PHPUnit
+  config where it sets neither, and PHPUnit fails a run on its own warnings
+  of a test unless `failOnPhpunitWarning` says not. The mutant then carries
+  the tests whose issues the config fails the run on, as the output lists
+  them: each test under `There was 1 risky test:` and `1 test triggered 1
+  PHPUnit warning:`, each test a warning under `1 test triggered 2 PHP
+  warnings:` or `… 1 warning:` lists after `Triggered by:`, and, for such a
+  warning raised in a test itself, which PHPUnit prints by its file and
+  line alone, each data set the coverage map knows of the test method that
+  line is in. Its unmutated control runs on a config that fails as the
+  mutant's run did, with the same two attributes added where the project's
+  sets neither, so a test whose issue it raises unmutated too never counts
+  as its killer. A mutant killed by static analysis, an error or a
+  timeout, or with no such list, carries none, and one killed by static
+  analysis carries no rejection either, since the log names no finding.
 - **Coverage** comes from `vendor/bin/phpunit --coverage-xml=<dir>/coverage-xml
   --log-junit=<dir>/junit.xml`, or `phpUnit.customPath`, with
   `initialTestsPhpOptions` as PHP options, then the pcov settings Pest's

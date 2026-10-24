@@ -31,6 +31,14 @@ final readonly class ProjectPhpUnit
         return NotGiven::value();
     }
 
+    /** The issues that fail a mutant's run on the config, as Infection shapes it; Infection's own on none. */
+    public static function failing(Project $project, OwnConfig $config): FailingIssues
+    {
+        $file = self::file($project, $config);
+
+        return FailingIssues::of($file instanceof NotGiven ? $file : XmlFile::document($file));
+    }
+
     /**
      * Where the config has PHP print errors: the last `display_errors` its
      * `<php>` sets, which PHPUnit sets as it starts, over the cap's ini

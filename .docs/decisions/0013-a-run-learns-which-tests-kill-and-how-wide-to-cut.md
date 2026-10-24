@@ -65,8 +65,8 @@ decides are accepted for that release too.
      adapter joins each line to its mutant by the mutated file's path
      (`Mutation::$modifiedSourcePath`). ADR-0004's Pest adapter records the
      plugin's jobs in a child.
-   - **Infection.** The adapter reads the failing test's id from each
-     killed mutant's `processOutput` in `logs.json`.
+   - **Infection.** The adapter reads the ids of the tests that killed each
+     killed mutant from its `processOutput` in `logs.json` (ADR-0014).
    - **The record.** Each mutant carries `killedBy`: a test id, or *unknown*
      for a mutant killed by a timeout, an error before any test failed, or
      static analysis.

@@ -278,7 +278,10 @@ final readonly class Invocation
     /**
      * The options that narrow a run to a group or a filter, where a run with
      * none of their tests passes: under `--parallel`, Pest can sum a run that
-     * ran every test of the group as one with no tests, and fail it.
+     * ran every test of the group as one with no tests, and fail it. Each
+     * option and its value stand apart, as Pest passes its own filter on,
+     * since PHPUnit's reading of `--name=value` ends the value at its next
+     * `=`.
      *
      * @return list<string>
      */
@@ -287,8 +290,8 @@ final readonly class Invocation
         $empty = PhpUnitOption::DoNotFailOnEmptyTestSuite->value;
 
         return match (true) {
-            $tests instanceof Group => [sprintf('%s=%s', PhpUnitOption::Group->value, $tests->name()), $empty],
-            $tests instanceof Filter => [sprintf('%s=%s', PhpUnitOption::Filter->value, $tests->pattern()), $empty],
+            $tests instanceof Group => [PhpUnitOption::Group->value, $tests->name(), $empty],
+            $tests instanceof Filter => [PhpUnitOption::Filter->value, $tests->pattern(), $empty],
             default => [],
         };
     }
