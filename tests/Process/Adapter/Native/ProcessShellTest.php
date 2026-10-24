@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
+use NightWorksIO\MutationGate\Tests\Support\Ended;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 $holds = [
@@ -109,11 +110,10 @@ it('stops a program at its deadline, with every process it started', function ()
         var_export($pids, return: true),
     );
     $ran = new ProcessShell(new LocalProcesses(new SystemClock()), Scratch::directory(), getenv())->run(Command::php('-r', $script)->within(Seconds::of(3.0)));
-    exec(sprintf('ps -o stat= -p %d', (int) file_get_contents($pids)), $state);
 
     expect($ran->ending())->toBe(Ending::Stopped)
         ->and($ran->duration() instanceof Seconds ? $ran->duration()->seconds() : 99.0)->toBeLessThan(20.0)
-        ->and(array_filter($state, static fn(string $line): bool => ! str_starts_with(trim($line), 'Z')))->toBe([]);
+        ->and(Ended::process((int) file_get_contents($pids)))->toBeTrue();
 })->group(...$holds);
 
 it('has a capped command\'s PHP scan the cap\'s directory after those it inherits, or PHP\'s own, and an uncapped one only those', function (): void {
