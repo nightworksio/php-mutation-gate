@@ -14,8 +14,8 @@ use const LOCK_EX;
 use NightWorksIO\MutationGate\Core\Native\Outcome;
 use NightWorksIO\MutationGate\Core\Test\RunIssues;
 use PHPUnit\Event\EventFacadeIsSealedException;
-use PHPUnit\Event\Facade;
 use PHPUnit\Event\UnknownSubscriberTypeException;
+use PHPUnit\Runner\Extension\Facade;
 
 /**
  * Appends to the results file each test that starts, before anything of it
@@ -37,10 +37,11 @@ final class Recorder
     }
 
     /**
-     * Records to a results file, subscribed to PHPUnit's events, where a file
-     * is named and PHPUnit still takes subscribers; otherwise records nothing,
-     * and the gate reads the mutant's run as one no test ran in. The tests
-     * whose issues failed the run are read from these issues.
+     * Records to a results file, subscribed to PHPUnit's events through the
+     * facade PHPUnit hands its extensions, where a file is named and PHPUnit
+     * still takes subscribers; otherwise records nothing, and the gate reads
+     * the mutant's run as one no test ran in. The tests whose issues failed
+     * the run are read from these issues.
      */
     public static function listening(string|false $results, Facade $events, RunIssues $issues): void
     {

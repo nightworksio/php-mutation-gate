@@ -6,13 +6,17 @@ use NightWorksIO\MutationGate\Adapter\PhpUnit\Extension;
 use NightWorksIO\MutationGate\Core\Native\Guard;
 use NightWorksIO\MutationGate\Core\Native\Variable;
 use NightWorksIO\MutationGate\Core\Runner\Opcache;
+use NightWorksIO\MutationGate\Tests\Support\Extending;
+use NightWorksIO\MutationGate\Tests\Support\PhpUnitEvents;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use PHPUnit\Event\Facade;
 use PHPUnit\Runner\Extension\ExtensionFacade;
 use PHPUnit\Runner\Extension\ParameterCollection;
 use PHPUnit\TextUI\Configuration\Registry;
 
 afterEach(function (): void {
     putenv(Variable::Guard->value);
+    putenv(Variable::Results->value);
     Scratch::sweep();
 });
 
@@ -22,6 +26,19 @@ it('records nothing in a PHPUnit the gate did not start for a mutant', function 
     new Extension()->bootstrap(Registry::get(), new ExtensionFacade(), ParameterCollection::fromArray([]));
 
     expect(getenv(Variable::Results->value))->toBeFalse();
+});
+
+it('records each test to the results file the gate names, through the facade PHPUnit hands it', function (): void {
+    $results = sprintf('%s/results.txt', Scratch::directory());
+    $events = new Facade();
+
+    putenv(sprintf('%s=%s', Variable::Results->value, $results));
+
+    new Extension()->bootstrap(Registry::get(), Extending::over($events), ParameterCollection::fromArray([]));
+    PhpUnitEvents::started($events);
+    PhpUnitEvents::finished($events);
+
+    expect(is_file($results) ? file($results) : [])->toHaveCount(2);
 });
 
 it('notes in the guard file whether opcache on its command line could serve an original', function (): void {

@@ -146,6 +146,11 @@
                 "mutant": "a6a05d04da17",
                 "reason": "Equivalent: TestFile::closingOf compares token indices, and a brace's index never equals the index of the class keyword, so > and >= pick the same brace.",
                 "expires": "2027-10-11"
+            },
+            {
+                "mutant": "c7c42a38046b",
+                "reason": "Unobservable in a test: killers() reads the registry and result of the PHPUnit it runs in, which in a passing suite hold no issue that fails it, so they name no test there. The phpunit runner contract starts PHPUnit with the extension on a project that fails on warnings and asserts the test it names.",
+                "expires": "2027-10-24"
             }
         ]
     }
