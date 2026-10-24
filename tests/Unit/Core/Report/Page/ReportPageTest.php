@@ -284,7 +284,7 @@ it('gives each mutant what its pane shows: its change, the tests that killed it,
         ->and(Decoded::at($data, 'files', $money, 'counts'))->toMatchArray(['escaped' => 1, 'untested' => 1, 'killed' => 1]);
 });
 
-it('says nothing of a killed or left-out mutant that the page shows nothing of: no hint, no command, and no count of a killed one\'s tests', function (string $outcome, array $unsaid): void {
+it('says nothing of a killed or left-out mutant that the page shows nothing of: no hint, no command, and no count of a killed one\'s tests', function (string $outcome, string $unsaid): void {
     $data = pageData(pageOf(everyJudged()));
     $settled = [];
 
@@ -297,10 +297,10 @@ it('says nothing of a killed or left-out mutant that the page shows nothing of: 
     }
 
     expect($settled)->not->toBeEmpty()
-        ->and(array_filter($settled, static fn(array $mutant): bool => array_intersect(array_keys($mutant), $unsaid) !== []))->toBe([]);
+        ->and(array_filter($settled, static fn(array $mutant): bool => array_intersect(array_keys($mutant), explode(' ', $unsaid)) !== []))->toBe([]);
 })->with([
-    'killed' => ['killed', ['hint', 'reproduce', 'covered', 'changed']],
-    'left out' => ['left-out', ['hint', 'reproduce']],
+    'killed' => ['killed', 'hint reproduce covered changed'],
+    'left out' => ['left-out', 'hint reproduce'],
 ]);
 
 it('names a survivor in the overview by where it is, linking to it, those on changed lines first', function (): void {
