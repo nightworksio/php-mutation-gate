@@ -29,7 +29,11 @@ it('says how many more mutants each set below its floor must catch to reach it',
 
 it('says to fix what keeps the gate from judging first, and each failure no floor decides last', function (): void {
     expect(NextSteps::of(Verdicts::named('cannot judge'))[0])->toBe('Fix what keeps the gate from judging, said above, then run it again.')
-        ->and(NextSteps::of(Verdicts::failing()))->toContain('Fix each failure said above: no floor decides it.');
+        ->and(NextSteps::of(Verdicts::failing()))->toBe([
+            'Catch 4 more of the mutants in src to bring its score up to its floor of 80.00%: each escaped or untested one says what test would catch it.',
+            'Catch 1 more of the mutants in New code to bring its score up to its floor of 100.00%: each escaped or untested one says what test would catch it.',
+            'Fix each failure said above: no floor decides it.',
+        ]);
 });
 
 it('says a run that passes needs nothing, and says nothing of a set that reaches its floor', function (): void {

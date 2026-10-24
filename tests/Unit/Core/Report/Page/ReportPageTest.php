@@ -221,7 +221,8 @@ it('grades every count in a word with why, never by colour alone, and says what 
         expect($page)->toContain(sprintf('<details class="term"><summary>What is this?</summary><p>%s <a href="%s">More in the guide</a></p></details>', str_replace(['`>`', '`>=`'], ['<code>&gt;</code>', '<code>&gt;=</code>'], $term->meaning()), sprintf($guide, $term->value)));
     }
 
-    expect(Decoded::at(pageData($page), 'carried'))->toBe(['meaning' => Term::Carried->meaning(), 'guide' => sprintf($guide, 'carried')]);
+    expect(Decoded::at(pageData($page), 'carried'))->toBe(['meaning' => Term::Carried->meaning(), 'guide' => sprintf($guide, 'carried')])
+        ->and($page)->toMatch('#<div class="terms"><span class="term-word">Score</span><details class="term">(?:(?!<span ).)*</details><span class="term-word">Floor</span>#s');
 });
 
 it('says what to do: how many more mutants a set below its floor must catch, or that a run that passes needs nothing', function (): void {

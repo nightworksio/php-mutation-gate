@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Cost\RunAccount;
+use NightWorksIO\MutationGate\Core\Cost\RunTime;
+use NightWorksIO\MutationGate\Core\Cost\RunTimings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest as FileDigest;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -24,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\Provenance;
@@ -268,10 +272,10 @@ it('details a mutant on a line the change did not make, with no line for what th
     ]));
 });
 
-it('names the first five tests that cover a mutant and counts the rest', function (): void {
+it('names the first five tests that cover a mutant and counts the rest', function (int $covering, array $more): void {
     $tests = [];
 
-    foreach (range(1, 7) as $each) {
+    foreach (range(1, $covering) as $each) {
         $tests[] = TestId::of(sprintf('MoneyTest::fits%d', $each));
     }
 
@@ -279,8 +283,34 @@ it('names the first five tests that cover a mutant and counts the rest', functio
     $lines = digestDetailLines(Verdicts::failing()->withMatrix($matrix), Verdicts::survivor()->mutant()->id()->value());
 
     expect(digestOpened($lines, 'test'))->toBe(['test MoneyTest::fits1', 'test MoneyTest::fits2', 'test MoneyTest::fits3', 'test MoneyTest::fits4', 'test MoneyTest::fits5'])
-        ->and(digestOpened($lines, 'covered'))->toBe(['covered 7'])
-        ->and(digestOpened($lines, 'more-tests'))->toBe(['more-tests 2']);
+        ->and(digestOpened($lines, 'covered'))->toBe([sprintf('covered %d', $covering)])
+        ->and(digestOpened($lines, 'more-tests'))->toBe($more);
+})->with([
+    'five' => [5, []],
+    'six' => [6, ['more-tests 1']],
+    'seven' => [7, ['more-tests 2']],
+]);
+
+it('details a mutant with why it came to what it did, and the cluster it is in, where the report says so', function (): void {
+    $unjudged = Verdicts::mutant('src/Order.php:5', 'DecrementInteger', MutatorFamily::Literal, Verdicts::diff('return 3;', 'return 4;'))->id()->value();
+    $clustered = Verdicts::named('clustered');
+    $cluster = JsonReport::of($clustered)['clusters'][0];
+
+    expect(digestOpened(digestDetailLines(Verdicts::failing(), $unjudged), 'reason'))->toBe(['reason The run\'s budget ran out before it.'])
+        ->and(digestOpened(digestDetailLines($clustered, $cluster['members'][0]), 'cluster'))->toBe([sprintf('cluster %s', $cluster['id'])]);
+});
+
+it('says how long the run took to the nearest second', function (float $wall, string $took): void {
+    $account = RunAccount::none()->withTimings(RunTimings::of('github:12345/1', RunTime::measured(Seconds::of($wall), Seconds::of(840.0))));
+
+    expect(digestOpened(digestLines(Verdicts::passing()->withAccount($account)), 'prov'))->toBe([sprintf('prov %s baseline=stale', $took)]);
+})->with([
+    'up' => [359.6, 'took=360s'],
+    'down' => [359.4, 'took=359s'],
+]);
+
+it('says each security set against its floor', function (): void {
+    expect(digestOpened(digestLines(Verdicts::secured()), 'set'))->toContain('set security . score=0.00% floor=100.00% verdict=failed');
 });
 
 it('counts every mutant of a file under its outcome', function (): void {
