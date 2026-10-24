@@ -8,6 +8,7 @@ use function array_key_exists;
 use function implode;
 use function mb_substr;
 
+use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Report\JsonReport;
 use NightWorksIO\MutationGate\Core\Report\ProvenanceJson;
 use NightWorksIO\MutationGate\Core\Verdict\BaselineState;
@@ -36,8 +37,6 @@ final readonly class Origin
     private const string COMMIT = 'commit <code title="%2$s">%1$s</code>';
 
     private const string RUNNER = '%s <span class="packages">%s</span>';
-
-    private const string PACKAGE = '%s %s';
 
     private const string TOOK = 'took %s';
 
@@ -86,7 +85,7 @@ final readonly class Origin
         $packages = [];
 
         foreach ($runner['packages'] as $package) {
-            $packages[] = Html::text(sprintf(self::PACKAGE, $package['package'], $package['version']));
+            $packages[] = Html::text(sprintf(Fit::JOINED, $package['package'], $package['version']));
         }
 
         return sprintf(self::RUNNER, Html::text($runner['name']), implode(', ', $packages));

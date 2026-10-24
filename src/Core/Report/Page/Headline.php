@@ -10,6 +10,7 @@ use function implode;
 use NightWorksIO\MutationGate\Core\Report\JsonReport;
 use NightWorksIO\MutationGate\Core\Report\SetText;
 use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
+use NightWorksIO\MutationGate\Core\Score\Percentage;
 use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 
@@ -41,7 +42,6 @@ final readonly class Headline
     /** What a run stopped before it judged every mutant says beside its verdict. */
     private const string CUT_SHORT = 'cut short';
 
-
     /** @param Report $report */
     public static function html(array $report): string
     {
@@ -64,10 +64,8 @@ final readonly class Headline
         return match ($judgement) {
             Judgement::Passed => 'Passed',
             Judgement::Failed => 'Failed',
-            Judgement::CannotJudge,
-            Judgement::NothingToMutate,
-            Judgement::Exempt,
-            Judgement::Undecided => 'Cannot judge',
+            Judgement::NothingToMutate, Judgement::Exempt,
+            Judgement::Undecided, Judgement::CannotJudge => 'Cannot judge',
         };
     }
 
@@ -100,7 +98,7 @@ final readonly class Headline
     private static function score(array $report): Score|NothingToMutate
     {
         return array_key_exists('score', $report)
-            ? Score::ofHundredths(Html::hundredths($report['score']))
+            ? Score::ofHundredths(Percentage::hundredthsOf($report['score']))
             : NothingToMutate::found();
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Report\JsonReport;
 use NightWorksIO\MutationGate\Core\Report\Page\ReportPage;
@@ -12,11 +13,16 @@ use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Score\Undeclared;
+use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\Provenance;
+use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
+use NightWorksIO\MutationGate\Tests\Support\Killings;
+use NightWorksIO\MutationGate\Tests\Support\Secured;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
 /** The page of a verdict, with a style and a script that stand for the shipped ones. */
@@ -93,6 +99,13 @@ it('says the verdict and why on top: each set below its floor, each failure, and
         ->and($page)->toContain('<li>The project scores 44.44%.</li>')
         ->and(pageOf(Verdicts::passing()))->toContain('<span class="status status--passed">Passed</span>')
         ->and(pageOf(Verdicts::passing()))->toContain('<ul class="why"><li>The project scores 100.00%.</li></ul>');
+});
+
+it('says a run cannot judge, and why, on top', function (): void {
+    $page = pageOf(Verdicts::named('cannot judge'));
+
+    expect($page)->toContain('<span class="status status--cannot-judge">Cannot judge</span>')
+        ->and($page)->toContain(sprintf('<li>%s</li>', Verdicts::UNJUDGED));
 });
 
 it('says a run was sampled, or stopped before it judged every mutant, beside its verdict', function (): void {
@@ -182,6 +195,22 @@ it('says where the verdict comes from: the gate, the commit, the runner, how lon
         ->and($page)->toContain('<li>took ')
         ->and($page)->toContain('mutation-gate.baseline.json is stale: a score rose above its floor')
         ->and(pageOf(Verdicts::empty()))->toContain('<footer class="provenance"><ul><li><span class="baseline baseline--current">the baseline is current</span></li></ul></footer>');
+});
+
+it('bars a set held to no floor with no floor marked, and says the baseline holds none for it', function (): void {
+    $unfloored = Secured::tree('src', Package::at(Path::root()), Undeclared::floor(), Secured::mutant(MutantJudgement::Killed), Secured::mutant(MutantJudgement::Survived, 2));
+    $page = pageOf(Verdict::of(TreeVerdicts::of($unfloored)));
+
+    expect($page)->toContain('<div class="bar" role="img" aria-label="Score 50.00%">')
+        ->and($page)->not->toContain('bar-floor')
+        ->and($page)->toContain('<span class="baseline baseline--missing">the baseline holds no floor for a set with a score</span>');
+});
+
+it('says what each suite alone kills, and why each is a lower bound where it is', function (): void {
+    $page = pageOf(Killings::suited(MatrixKind::FirstKiller));
+
+    expect($page)->toContain('<section><h3>Suites</h3><ul><li>unit alone kills at least 66.66% of the 3 mutants its tests cover.</li><li>feature alone kills at least 50.00% of the 2 mutants its tests cover.</li><li>Each is a lower bound, from first killers: `mutation-gate run --kill-matrix=full` makes it exact.</li></ul></section>')
+        ->and(pageOf(Killings::suited(MatrixKind::Full)))->not->toContain('lower bound');
 });
 
 it('folds away what the run warns of, why the change reached what it did and what failed it, or says it has nothing more', function (): void {

@@ -45,7 +45,6 @@ final readonly class Details
 
     private const string PHASE = 'The %s took %s, from %s.';
 
-
     /** @param Report $report */
     public static function html(array $report): string
     {
