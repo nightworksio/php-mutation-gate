@@ -277,24 +277,31 @@ it('gives each mutant what its pane shows: its change, the tests that killed it,
         'changed' => true,
         'diff' => Verdicts::BOUNDARY,
         'covered' => 0,
+        'hint' => 'Add a test that uses a value at the boundary of `$amount < $limit`. It is judged by `MoneyTest::fits`, `MoneyTest::refuses`, `PriceTest::adds` and 1 more.',
         'reproduce' => sprintf('vendor/bin/mutation-gate reproduce %s', $id),
     ])->and(Decoded::at($data, 'files', $money, 'mutants', 0))->not->toHaveKey('killedBy')
         ->and(Decoded::at($data, 'files', $money, 'mutators', 0))->toBe(Verdicts::LESS)
         ->and(Decoded::at($data, 'files', $money, 'counts'))->toMatchArray(['escaped' => 1, 'untested' => 1, 'killed' => 1]);
 });
 
-it('says nothing of a killed mutant that the page shows nothing of: no hint, no command and no count of its tests', function (): void {
-    $data = pageData(pageOf(Verdicts::failing()));
-    $money = pageFile($data, 'src/Money.php');
-    $mutants = Decoded::at($data, 'files', $money, 'mutants');
-    $killed = array_values(array_filter(
-        is_array($mutants) ? $mutants : [],
-        static fn(mixed $mutant): bool => is_array($mutant) && $mutant['outcome'] === 'killed',
-    ));
+it('says nothing of a killed or left-out mutant that the page shows nothing of: no hint, no command, and no count of a killed one\'s tests', function (string $outcome, array $unsaid): void {
+    $data = pageData(pageOf(everyJudged()));
+    $settled = [];
 
-    expect($killed)->toHaveCount(1)
-        ->and($killed[0])->not->toHaveKeys(['hint', 'reproduce', 'covered', 'changed']);
-});
+    foreach (array_keys(Decoded::column($data, 'path', 'files')) as $file) {
+        $mutants = Decoded::at($data, 'files', $file, 'mutants');
+
+        foreach (is_array($mutants) ? $mutants : [] as $mutant) {
+            $settled = is_array($mutant) && $mutant['outcome'] === $outcome ? [...$settled, $mutant] : $settled;
+        }
+    }
+
+    expect($settled)->not->toBeEmpty()
+        ->and(array_filter($settled, static fn(array $mutant): bool => array_intersect_key($mutant, array_flip($unsaid)) !== []))->toBe([]);
+})->with([
+    'killed' => ['killed', ['hint', 'reproduce', 'covered', 'changed']],
+    'left out' => ['left-out', ['hint', 'reproduce']],
+]);
 
 it('names a survivor in the overview by where it is, linking to it, those on changed lines first', function (): void {
     $page = pageOf(Verdicts::securedOnAChangedLine());

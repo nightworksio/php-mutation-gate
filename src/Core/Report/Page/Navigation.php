@@ -85,7 +85,7 @@ final readonly class Navigation
     {
         $files = [];
 
-        foreach ($this->files as $at => $file) {
+        foreach ($this->files as $file) {
             $ids = [];
 
             foreach ($file['mutants'] as $mutant) {
@@ -93,7 +93,6 @@ final readonly class Navigation
             }
 
             $files[] = [
-                'at' => $at,
                 'path' => $file['path'],
                 'carried' => $file['carried'],
                 'survivors' => $file['survivors'],
