@@ -79,3 +79,10 @@ it('writes a duration back in the largest units it holds, days among them', func
     'a week' => [604_800.0, '7d'],
     'a day and more' => [93_784.0, '1d2h3m4s'],
 ]);
+
+it('outlasts a run only until the run reaches it', function (): void {
+    $limit = Seconds::of(1.5);
+
+    expect([$limit->outlasts(Seconds::of(1.25)), $limit->outlasts(Seconds::of(1.5)), $limit->outlasts(Seconds::of(2.0))])
+        ->toBe([true, false, false]);
+});

@@ -4,22 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
-use function array_key_exists;
-
 use Closure;
 
 use function gc_collect_cycles;
 use function gc_disable;
 use function gc_enable;
-use function getrusage;
-use function is_array;
-use function is_int;
 use function max;
 use function min;
-
-use RuntimeException;
-
-use function sprintf;
 
 /**
  * How a piece of work grows with its size, for the tests that keep a hot path
@@ -44,16 +35,6 @@ final class Growth
 
     private const int RUNS = 3;
 
-    private const float MICROSECONDS = 1e6;
-
-    /** The fields of the CPU time spent, each with how many of it make a second. */
-    private const array SPENT = [
-        'ru_utime.tv_sec' => 1.0,
-        'ru_utime.tv_usec' => self::MICROSECONDS,
-        'ru_stime.tv_sec' => 1.0,
-        'ru_stime.tv_usec' => self::MICROSECONDS,
-    ];
-
     /**
      * How many times as long the work took at {@see SCALE} times the size.
      * Each size's work is made ready untimed, once, and then timed.
@@ -72,7 +53,7 @@ final class Growth
             $fastest = [min($fastest[0], self::seconds($small)), min($fastest[1], self::seconds($large))];
         }
 
-        return $fastest[1] / max($fastest[0], 1 / self::MICROSECONDS);
+        return $fastest[1] / max($fastest[0], 1 / CpuTime::MICROSECONDS);
     }
 
     /**
@@ -86,24 +67,10 @@ final class Growth
     {
         gc_collect_cycles();
         gc_disable();
-        $started = self::spent();
+        $started = CpuTime::spent();
         $work();
-        $spent = self::spent() - $started;
+        $spent = CpuTime::spent() - $started;
         gc_enable();
-
-        return $spent;
-    }
-
-    /** The CPU seconds this process has spent, in user and system time. */
-    private static function spent(): float
-    {
-        $usage = getrusage();
-        $spent = 0.0;
-
-        foreach (self::SPENT as $field => $per) {
-            $value = is_array($usage) && array_key_exists($field, $usage) ? $usage[$field] : null;
-            $spent += is_int($value) ? $value / $per : throw new RuntimeException(sprintf('getrusage() gave no %s.', $field));
-        }
 
         return $spent;
     }

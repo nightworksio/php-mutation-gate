@@ -4,16 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Native\Warm;
 
-use function clearstatcache;
-use function fclose;
-use function file_exists;
-use function filesize;
-use function fopen;
-use function fread;
-use function fseek;
-use function is_int;
-use function is_resource;
-use function is_string;
+use function file_get_contents;
+use function is_file;
 use function max;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
@@ -42,8 +34,8 @@ final readonly class Printed
     /** Where the worker in a place has printed to, so far: what a child forked now prints starts there. */
     public static function from(Workplace $workplace, int $place): self
     {
-        $out = self::sizeOf($workplace->out($place));
-        $err = self::sizeOf($workplace->err($place));
+        $out = FileSize::now($workplace->out($place));
+        $err = FileSize::now($workplace->err($place));
 
         return new self($place, $out, $out, $err, $err);
     }
@@ -54,9 +46,9 @@ final readonly class Printed
         return new self(
             $this->place,
             $this->outFrom,
-            self::sizeOf($workplace->out($this->place)),
+            FileSize::now($workplace->out($this->place)),
             $this->errFrom,
-            self::sizeOf($workplace->err($this->place)),
+            FileSize::now($workplace->err($this->place)),
         );
     }
 
@@ -97,26 +89,9 @@ final readonly class Printed
         );
     }
 
-    private static function sizeOf(string $file): int
+    /** The bytes of a file from one offset up to another: none where there is no file, false where it is unreadable. */
+    private function bytesOf(string $file, int $from, int $to): string|false
     {
-        clearstatcache(clear_realpath_cache: true, filename: $file);
-        $size = file_exists($file) ? filesize($file) : 0;
-
-        return is_int($size) ? $size : 0;
-    }
-
-    private function bytesOf(string $file, int $from, int $to): string
-    {
-        $handle = $to > $from ? fopen($file, 'r') : false;
-
-        if (! is_resource($handle)) {
-            return '';
-        }
-
-        fseek($handle, $from);
-        $bytes = fread($handle, max(1, $to - $from));
-        fclose($handle);
-
-        return is_string($bytes) ? $bytes : '';
+        return is_file($file) ? file_get_contents($file, offset: $from, length: max(0, $to - $from)) : '';
     }
 }

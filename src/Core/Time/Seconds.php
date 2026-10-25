@@ -86,6 +86,12 @@ final readonly class Seconds
         return $this->seconds;
     }
 
+    /** Whether this duration is longer than another: a limit outlasts a run that has yet to reach it. */
+    public function outlasts(self $other): bool
+    {
+        return $this->seconds > $other->seconds;
+    }
+
     /** The duration in whole nanoseconds, rounded. */
     public function nanoseconds(): int
     {
