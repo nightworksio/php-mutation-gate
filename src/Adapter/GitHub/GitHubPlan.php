@@ -178,7 +178,7 @@ final readonly class GitHubPlan implements CiPlan, Configurable
 
     private function payload(): Node|CannotTell
     {
-        $event = $this->job->variables()->valueOf('GITHUB_EVENT_PATH');
+        $event = $this->job->variables()->valueOf(Variables::GITHUB_EVENT_PATH);
         $payload = is_file($event) ? file_get_contents($event) : false;
 
         return $payload === false

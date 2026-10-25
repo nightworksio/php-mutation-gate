@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Config;
 
-use function array_values;
-
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
@@ -49,7 +47,7 @@ final readonly class Timeouts implements Setting
     public static function tighter(int $floor, string ...$mutators): self
     {
         $tighter = Json::object(
-            Member::of('mutators', Json::items(...array_values($mutators))),
+            Member::of('mutators', Json::items(...$mutators)),
             Member::of('floor', $floor),
         );
 

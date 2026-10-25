@@ -12,8 +12,12 @@ use Symfony\Component\Console\Output\BufferedOutput;
  *
  * @param list<string> $answers
  */
-function askingWith(array $answers, bool $interactive, Variables $environment): Asking
-{
+function askingWith(
+    array $answers,
+    bool $interactive,
+    Variables $environment,
+    BufferedOutput $output = new BufferedOutput(),
+): Asking {
     $input = new ArrayInput([]);
     $stream = fopen('php://memory', 'r+');
 
@@ -25,7 +29,7 @@ function askingWith(array $answers, bool $interactive, Variables $environment): 
 
     $input->setInteractive($interactive);
 
-    return Asking::at($input, new BufferedOutput(), $environment);
+    return Asking::at($input, $output, $environment);
 }
 
 it('takes the answers a person gives', function (): void {
@@ -41,6 +45,15 @@ it('takes each default where a person presses Enter', function (): void {
 
     expect($asking->choice('Which?', ['a', 'b'], 'b'))->toBe('b')
         ->and($asking->confirms('Sure?', default: true))->toBeTrue();
+});
+
+it('shows the answer a yes-or-no question takes on Enter in capitals', function (): void {
+    $output = new BufferedOutput();
+    $asking = askingWith(['', ''], interactive: true, environment: Variables::of([]), output: $output);
+    $asking->confirms('Sure?', default: true);
+    $asking->confirms('Again?', default: false);
+
+    expect($output->fetch())->toBe('Sure? [Y/n] Again? [y/N] ');
 });
 
 it('asks nobody, taking each default, without a terminal or in CI', function (bool $interactive, Variables $environment): void {

@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Cli\Init;
 
 use function array_diff;
 use function array_map;
-use function array_values;
 use function explode;
 use function implode;
 use function is_string;
@@ -59,7 +58,7 @@ final readonly class NextSteps
     {
         $gate = ComposerVendor::binaries($this->project)->child(Path::of(ThisPackage::NAME))->value();
         $next = sprintf(self::NEXT, ShellWord::of($gate), ShellWord::of($gate));
-        $written = array_values(array_diff(self::listed($this->project), $this->before));
+        $written = array_diff(self::listed($this->project), $this->before);
         sort($written);
 
         return $written === []
@@ -73,11 +72,14 @@ final readonly class NextSteps
         return self::PLUGIN;
     }
 
-    /** @return list<string> the files git would add, as the project names them; none outside a repository */
+    /**
+     * @return list<string> the files git would add, as the project names them, then the empty name after the NUL
+     *                      that ends the last; none outside a repository
+     */
     private static function listed(string $project): array
     {
         $listed = Git::in($project)->run(self::LISTED);
 
-        return is_string($listed) ? array_values(array_diff(explode("\0", $listed), [''])) : [];
+        return is_string($listed) ? explode("\0", $listed) : [];
     }
 }

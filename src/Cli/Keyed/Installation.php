@@ -35,7 +35,7 @@ final readonly class Installation
     {
         $vendor = realpath($this->vendor);
         $projects = realpath(sprintf('%s/vendor', $this->project));
-        $own = ! $this->throughComposer && ($vendor === false || $projects === false || $vendor !== $projects);
+        $own = ! $this->throughComposer && ($vendor === false || $vendor !== $projects);
 
         return $own ? NotGiven::value() : CannotJudge::because(sprintf(self::NOT_OWN, $command));
     }
