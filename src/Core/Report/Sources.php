@@ -36,6 +36,6 @@ final readonly class Sources
     /** What a file holds; nothing where the gate could not read it. */
     public function of(Path $file): Contents
     {
-        return $this->has($file) ? $this->files[$file->value()] : Contents::of('');
+        return $this->has($file) ? $this->files[$file->value()] : Contents::none();
     }
 }

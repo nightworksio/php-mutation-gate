@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Core\Config;
 
 use function array_keys;
 use function array_map;
-use function array_values;
 use function implode;
 use function is_string;
 
@@ -175,7 +174,7 @@ final readonly class Proofs implements Part
         return match ($store->use()->value()) {
             BuiltinStore::Directory->value => sprintf(
                 'Proofs::directory(%s)',
-                PhpCalls::literals(...array_values($texts)),
+                PhpCalls::literals(...$texts),
             ),
             BuiltinStore::S3->value, BuiltinStore::Gcs->value, BuiltinStore::Azure->value => sprintf(
                 'Proofs::%s(%s)',

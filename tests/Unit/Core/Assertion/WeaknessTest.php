@@ -63,3 +63,11 @@ it('names no weak test that covers a survivor but is outside the tests that judg
         ->toEqual(NoFinding::survivor())
         ->and([...Weakness::testFiles(Weakly::trees($held), Weakly::matrix())])->toEqual([Path::of(Weakly::TESTS)]);
 });
+
+it('finds a weak test that judges a survivor after a test the runner names no file for', function (): void {
+    $finding = Weakness::findings(Weakly::trees(Weakly::literal()), Weakly::matrix(Weakly::unnamedTest(), Weakly::weakTest()), Weakly::sources(), Weakly::testFiles())
+        ->of(Weakly::literal()->mutant()->id());
+
+    expect($finding instanceof WeaklyAsserted ? array_map(static fn(WeakTest $test): string => $test->test()->value(), [...$finding->tests()]) : [])
+        ->toBe([Weakly::weakTest()->value()]);
+});

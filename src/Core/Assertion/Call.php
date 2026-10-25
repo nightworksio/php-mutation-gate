@@ -100,17 +100,7 @@ final readonly class Call
     /** Whether an array opens at an index and holds a key. */
     private static function isKeyed(Tokens $tokens, int $at): bool
     {
-        if (! $tokens->is($at, '[')) {
-            return false;
-        }
-
-        for ($token = $at + 1; $token < $tokens->closing($at); ++$token) {
-            if ($tokens->is($token, T_DOUBLE_ARROW) && $tokens->enclosing($token) === $at) {
-                return true;
-            }
-        }
-
-        return false;
+        return $tokens->is($at, '[') && $tokens->inside($at, T_DOUBLE_ARROW) !== [];
     }
 
     /** An argument as PHP reads a constant written there; nothing where there is none. */

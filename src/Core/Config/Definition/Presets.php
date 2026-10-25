@@ -30,7 +30,7 @@ final readonly class Presets implements Shape
         $items = match ($at->kind()) {
             Kind::Text => [$at],
             Kind::List, Kind::Empty => $at->items(),
-            Kind::Map, Kind::Integer, Kind::Number, Kind::Boolean, Kind::Null, Kind::Nothing => [$at->field('')],
+            Kind::Map, Kind::Integer, Kind::Number, Kind::Boolean, Kind::Null, Kind::Nothing => [$at],
         };
         $names = array_map(static fn(Node $item): string => $item->kind() === Kind::Text ? $item->text() : '', $items);
 
