@@ -480,8 +480,9 @@ its parser attributes. Both change when the checkout moves.
        - a kill with no test named as its killer, or only tests that errored,
          does not count, as a helper a test calls by a name built at run time
          leaves. ADR-0036 amends this: a kill only tests that errored made
-         counts where the control below passes, which fails in that case
-         too, and runs again with every test file where it does not;
+         counts where the replay or the control below vouches for it, either
+         of which fails in that case too, and runs again with every test file
+         where it does not;
        - any other, where the run recorded the arguments Pest started it
          with, how many tests it took up to its last killer and the key of
          that order (ADR-0014), counts only where a replay of

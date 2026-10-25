@@ -32,11 +32,14 @@ catch from the files themselves.
 
 ## Decision
 
-1. **A narrowed kill only tests that errored made counts where its control
-   passes**, the check of its set of files on the unmutated code. It is
-   doubted, and runs again with every test file, only where its control
-   fails. It is never replayed, even where its order is known: a failed
-   replay would leave it unjudged, where the run again judges it.
+1. **A narrowed kill only tests that errored made counts where its replay
+   or its control vouches for it.** Where its order is known it is replayed,
+   as any other narrowed kill is: its run again on the unmutated code, in its
+   order, up to its last killer. Where its order is not known, its control
+   runs: the check of its set of files on the unmutated code. Where the
+   replay or the control does not vouch for it, it is doubted and runs again
+   with every test file, where a kill a failed assertion made is left
+   unjudged: the run again judges it.
 2. **A kill stays doubtful where its records cannot vouch for it at all:**
    where no test is named as its killer, or where the run left no readable
    record of it.
@@ -61,8 +64,9 @@ catch from the files themselves.
 - A kill that a helper missing from a narrowed run made fails its control,
   so it is still never counted on the narrowed run alone, and the run again
   with every test file judges it.
-- An errors-only kill with a known order runs its control, where any other
-  such kill runs a replay.
+- An errors-only kill with a known order runs its replay, which runs the
+  tests its run ran up to its last killer, not a control of every test in
+  the files its run loaded.
 
 ## Related
 
