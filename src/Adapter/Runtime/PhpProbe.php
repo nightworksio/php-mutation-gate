@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Adapter\Runtime;
 
 use function array_key_exists;
 use function array_keys;
-use function array_values;
 use function implode;
 use function is_file;
 use function is_string;
@@ -66,7 +65,7 @@ final readonly class PhpProbe
     /** The PHP, started with these options, or why it could not describe itself. */
     public function platform(Withheld $withheld, string ...$options): Platform|CannotJudge
     {
-        $arguments = [...array_values($options), ...Platform::describing()];
+        $arguments = [...$options, ...Platform::describing()];
         $environment = Withholding::of($withheld, $this->environment);
         $process = new Process([$this->binary, ...$arguments], null, $environment, null, $this->limit->seconds());
 
@@ -99,7 +98,7 @@ final readonly class PhpProbe
     /** @param array<string> $options */
     private function failed(array $options, string $said): CannotJudge
     {
-        $started = implode(' ', [...array_values($options), '-r']);
+        $started = implode(' ', [...$options, '-r']);
 
         return CannotJudge::because(sprintf(self::FAILED, $this->binary, $started, $said));
     }

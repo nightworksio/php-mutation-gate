@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Process;
 
-use function array_values;
 use function clearstatcache;
 
 use Closure;
@@ -21,6 +20,7 @@ use function is_file;
 use function is_int;
 use function is_resource;
 use function is_string;
+use function min;
 
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ChildProcess;
@@ -160,11 +160,11 @@ final class Running
         $closing = false;
 
         foreach ($running as $process) {
-            $read = [...$read, ...array_values($process->pipes)];
+            $read = [...$read, ...$process->pipes];
             $closing = $closing || $process->pipes === [];
         }
 
-        $wait = $closing && Polling::moment()->seconds() < $atMost->seconds() ? Polling::moment() : $atMost;
+        $wait = $closing ? Seconds::of(min(Polling::moment()->seconds(), $atMost->seconds())) : $atMost;
 
         if ($read === []) {
             usleep($wait->microseconds());
@@ -194,7 +194,6 @@ final class Running
      */
     public function endedBy(float $now): Ran|NotGiven
     {
-        $this->read();
         $status = proc_get_status($this->process);
 
         return match (true) {
@@ -206,7 +205,7 @@ final class Running
             ),
             $now >= $this->until => $this->stopped(Ran::stopped(...), $now, $status['pid']),
             $this->hasStalled($now) => $this->stopped(Ran::silenced(...), $now, $status['pid']),
-            default => NotGiven::value(),
+            default => $this->runningOn(),
         };
     }
 
@@ -255,21 +254,28 @@ final class Running
         }
 
         $file = $this->silence->progress();
-        clearstatcache(clear_realpath_cache: true, filename: $file);
-        $size = is_file($file) ? filesize($file) : 0;
-        $this->progress = $this->progress->read(is_int($size) ? $size : 0, $now);
+        clearstatcache();
+        $size = is_file($file) ? filesize($file) : null;
+        $this->progress = is_int($size) ? $this->progress->read($size, $now) : $this->progress;
 
         return $this->progress->hasStalled($now);
     }
 
-    /** Whatever each pipe holds now, kept; a pipe at its end is closed. */
+    /** Nothing, as it runs on, once what it printed so far is kept, so it never waits on a full pipe. */
+    private function runningOn(): NotGiven
+    {
+        $this->read();
+
+        return NotGiven::value();
+    }
+
+    /** Whatever each pipe holds now, kept; a pipe at its end is let go, which closes it. */
     private function read(): void
     {
         foreach ($this->pipes as $descriptor => $pipe) {
             $this->keep($descriptor, stream_get_contents($pipe));
 
             if (feof($pipe)) {
-                fclose($pipe);
                 unset($this->pipes[$descriptor]);
             }
         }
@@ -308,15 +314,10 @@ final class Running
         return $ended($this->output(), $this->printedOut)->took($this->since($now));
     }
 
-    /** What is left in its pipes kept, the pipes closed, and the process reaped. */
+    /** What is left in its pipes kept, the pipes let go, which closes them, and the process reaped. */
     private function close(): void
     {
         $this->read();
-
-        foreach ($this->pipes as $pipe) {
-            fclose($pipe);
-        }
-
         $this->pipes = [];
         proc_close($this->process);
     }

@@ -6,9 +6,8 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Unexecutable;
 
 use DOMDocument;
 
-use function filter_var;
 use function is_file;
-use function is_float;
+use function is_numeric;
 
 use NightWorksIO\MutationGate\Core\Format\Xml;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -36,9 +35,9 @@ final readonly class TestTimes
         $cases = $document->getElementsByTagName('testcase');
 
         foreach ($cases as $case) {
-            $time = filter_var($case->getAttribute(self::TIME), FILTER_VALIDATE_FLOAT);
+            $time = $case->getAttribute(self::TIME);
 
-            if (! is_float($time)) {
+            if (! is_numeric($time)) {
                 return Unmeasured::duration();
             }
 

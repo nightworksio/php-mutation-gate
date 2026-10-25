@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Process;
 
+use function array_diff_key;
 use function array_key_first;
 use function array_values;
 
@@ -106,15 +107,9 @@ final readonly class LocalProcesses implements Processes
             $at = array_key_first($waiting);
             $started = Running::start($waiting[$at], $place, $free[$place], $this->now());
             unset($waiting[$at]);
-
-            if ($started instanceof Ran) {
-                $ends[$at] = $started;
-
-                continue;
-            }
-
-            unset($free[$place]);
-            $running[$at] = $started;
+            [$free, $running, $ends] = $started instanceof Running
+                ? [array_diff_key($free, [$place => true]), $running + [$at => $started], $ends]
+                : [$free, $running, $ends + [$at => $started]];
         }
 
         return [$free, $waiting, $running, $ends];
