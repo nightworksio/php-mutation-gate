@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Opcache\Compiler;
 use NightWorksIO\MutationGate\Adapter\Opcache\Opcodes;
 use NightWorksIO\MutationGate\Adapter\Opcache\Uncompiled;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Tests\Support\CompilerChildren;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -85,4 +86,16 @@ it('says opcache dumped nothing of a program whose section of the dump is only s
 
     expect($compiler->compiled(['one' => Contents::of(CompilerChildren::PROGRAM), 'two' => Contents::of(CompilerChildren::PROGRAM)]))
         ->toBe(['one' => Uncompiled::NoOpcache, 'two' => Uncompiled::NoOpcache]);
+});
+
+it('pauses a moment between reads of the children it waits on', function (): void {
+    $pauses = new ArrayObject();
+    $compiler = new Compiler(PHP_BINARY, sprintf('%s/equivalence', Scratch::directory()), 30.0, 1, pause: static function (int $microseconds) use ($pauses): void {
+        $pauses->append($microseconds);
+    });
+
+    $compiler->compiled(['one' => Contents::of(CompilerChildren::PROGRAM)]);
+
+    expect($pauses->count())->toBeGreaterThan(0)
+        ->and(array_unique($pauses->getArrayCopy()))->toBe([Polling::moment()->microseconds()]);
 });

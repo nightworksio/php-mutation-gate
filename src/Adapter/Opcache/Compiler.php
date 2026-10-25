@@ -12,6 +12,9 @@ use function array_map;
 use function array_merge;
 use function array_replace;
 use function ceil;
+
+use Closure;
+
 use function count;
 use function dirname;
 use function explode;
@@ -25,6 +28,7 @@ use function min;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 
 use function realpath;
@@ -100,6 +104,8 @@ final readonly class Compiler
      * @param string      $directory where each process writes its programs, in a directory of its own the gate owns
      * @param int<1, max>  $parallel how many children compile side by side
      * @param list<string> $besides  settings the children take after the gate's own
+     * @param (Closure(int): void)|NotGiven $pause pauses this many microseconds between reads of the children, as
+     *                                             usleep does where none is given
      */
     public function __construct(
         private string $binary,
@@ -107,6 +113,7 @@ final readonly class Compiler
         private float $seconds,
         private int $parallel,
         private array $besides = [],
+        private Closure|NotGiven $pause = new NotGiven(),
     ) {
     }
 
@@ -211,6 +218,7 @@ final readonly class Compiler
     private function drained(array $children): void
     {
         $running = array_filter($children, static fn(Process|Uncompiled $child): bool => $child instanceof Process);
+        $pause = $this->pause instanceof Closure ? $this->pause : usleep(...);
 
         while ($running !== []) {
             $left = [];
@@ -220,7 +228,7 @@ final readonly class Compiler
             }
 
             $running = $left;
-            usleep(Polling::moment()->microseconds());
+            $pause(Polling::moment()->microseconds());
         }
     }
 
