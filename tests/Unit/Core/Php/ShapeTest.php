@@ -85,3 +85,13 @@ it('finds the parameter list and body of a method named with a semi-reserved wor
         ->and($shape->isSignature(Php::indexOf($source, '(', 1)))->toBeTrue()
         ->and($shape->isBody(Php::indexOf($source, '{', 2)))->toBeTrue();
 });
+
+it('takes no body for an abstract method from the method after it, nor for an arrow function from the match it returns', function (): void {
+    $source = Php::source('<?php abstract class C { abstract function a(); function b() { $g = fn ($x) => match ($x) { default => 1 }; } }');
+    $shape = $source->shape();
+
+    expect([$shape->bodyOf(Php::indexOf($source, 'function')), $shape->bodyOf(Php::indexOf($source, 'fn'))])
+        ->toBe([Tokens::NONE, Tokens::NONE])
+        ->and($shape->bodyOf(Php::indexOf($source, 'function', 1)))->toBe(Php::indexOf($source, '{', 1))
+        ->and($shape->isBody(Php::indexOf($source, '{', 2)))->toBeFalse();
+});

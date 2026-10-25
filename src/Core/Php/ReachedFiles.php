@@ -71,28 +71,37 @@ final readonly class ReachedFiles
      */
     public function from(string ...$starts): array
     {
-        $reach = '';
         $outside = [];
 
         foreach ($starts as $start) {
-            if (! array_key_exists($start, $this->reaches)) {
-                $outside[$start] = $start;
-
-                continue;
-            }
-
-            $reach |= $this->reaches[$start];
+            $outside = array_key_exists($start, $this->reaches) ? $outside : [...$outside, $start => $start];
         }
 
         $reached = [];
 
-        foreach (Bytes::chunks($reach, 1) as $byte => $bits) {
+        foreach (Bytes::chunks($this->packed(...$starts), 1) as $byte => $bits) {
             foreach ($this->offsets[ord($bits)] as $bit) {
                 $reached[] = $this->files[$byte * count(self::BIT) + $bit];
             }
         }
 
         return $outside === [] ? $reached : $this->sorted([...$reached, ...array_values($outside)]);
+    }
+
+    /**
+     * What the files of the graph among these reach, packed: a bit for each
+     * file of the graph, by its sorted place, eight to a byte, lowest bit
+     * first, up to the last a byte reached holds.
+     */
+    public function packed(string ...$starts): string
+    {
+        $reach = '';
+
+        foreach ($starts as $start) {
+            $reach |= array_key_exists($start, $this->reaches) ? $this->reaches[$start] : '';
+        }
+
+        return $reach;
     }
 
     /**
