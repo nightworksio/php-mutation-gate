@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Score;
 
-use function floor;
 use function intval;
 
 /**
@@ -53,7 +52,8 @@ final readonly class Floor
     public function written(): int|float
     {
         $percent = $this->percent();
+        $whole = intval($percent);
 
-        return floor($percent) === $percent ? intval($percent) : $percent;
+        return (float) $whole === $percent ? $whole : $percent;
     }
 }

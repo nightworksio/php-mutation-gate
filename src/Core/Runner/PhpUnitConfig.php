@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Core\Runner;
 
 use function array_filter;
 use function array_map;
-use function array_values;
 use function basename;
 use function in_array;
 
@@ -36,10 +35,10 @@ enum PhpUnitConfig: string
     {
         $names = array_map(static fn(self $config): string => $config->value, self::cases());
 
-        return Paths::of(...array_values(array_filter(
+        return Paths::of(...array_filter(
             [...$paths],
             static fn(Path $path): bool => in_array(basename($path->value()), $names, strict: true),
-        )));
+        ));
     }
 
     /** Where the config of this name would be in a directory. */

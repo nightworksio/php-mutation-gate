@@ -36,6 +36,8 @@ it('refuses a name either list gives that it does not declare, naming those it d
         ->toEqual(CannotJudge::because('tests.suites lists e2e, which names no test suite. The PHPUnit config declares: Unit, Process.'))
         ->and($declared('Unit', 'Process')->listing(JudgingSuites::holding(Suites::listed('Unit'), Suites::listed('Proc'))))
         ->toEqual(CannotJudge::because('tests.holding lists Proc, which names no test suite. The PHPUnit config declares: Unit, Process.'))
+        ->and($declared("Unit\e[31m", 'Process')->listing(JudgingSuites::judging(Suites::listed('e2e'))))
+        ->toEqual(CannotJudge::because('tests.suites lists e2e, which names no test suite. The PHPUnit config declares: Unit[31m, Process.'))
         ->and($declared()->listing(JudgingSuites::holding(Suites::all(), Suites::listed('Process'))))
         ->toEqual(CannotJudge::because('tests.holding lists Process, which names no test suite: the PHPUnit config declares none by name.'));
 });
