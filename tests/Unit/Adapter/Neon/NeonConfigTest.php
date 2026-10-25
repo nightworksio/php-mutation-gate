@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Config\ConfigReads;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Migration\Migrated;
 use NightWorksIO\MutationGate\Core\Migration\Migration;
 use NightWorksIO\MutationGate\Core\Migration\Migrations;
@@ -82,6 +83,13 @@ it('writes a config as NEON that reads back as the same config', function () use
         ->toBe("runner: pest\n")
         ->and($read($layer instanceof Layer ? new NeonConfig()->render($layer->written(ProjectRoot::origin())) : ''))
         ->toBe($config);
+});
+
+it('writes a map keyed from 0 up as a list, which NEON reads into the same array', function (): void {
+    $config = Json::parse('{"costs": {"secondsPerLine": {"0": 0.2, "1": 0.3}}}');
+
+    expect($config instanceof Json ? new NeonConfig()->render($config) : $config)
+        ->toBe("costs:\n    secondsPerLine:\n        - 0.2\n        - 0.3\n\n");
 });
 
 // NEON's `includes:` is no key of the gate's config, so a NEON config that

@@ -61,7 +61,13 @@ final readonly class Reply
 
     public function isAccepted(): bool
     {
-        return $this->status >= self::OK && $this->status < self::REDIRECT;
+        return self::accepts($this->status);
+    }
+
+    /** Whether a status accepts what was asked: one of the 2xx. */
+    public static function accepts(int $status): bool
+    {
+        return $status >= self::OK && $status < self::REDIRECT;
     }
 
     /** Whether it asks to be tried again: too many requests, or a server's error. */

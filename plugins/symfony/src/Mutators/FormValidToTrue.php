@@ -73,12 +73,17 @@ final readonly class FormValidToTrue implements Mutator
     /** Whether a receiver is a form, by its name. */
     private function isForm(Expr $receiver): bool
     {
-        $name = match (true) {
-            $receiver instanceof Variable && is_string($receiver->name) => $receiver->name,
-            $receiver instanceof PropertyFetch && $receiver->name instanceof Identifier => $receiver->name->toString(),
-            default => '',
+        return match (true) {
+            $receiver instanceof Variable && is_string($receiver->name) => $this->isFormName($receiver->name),
+            $receiver instanceof PropertyFetch && $receiver->name instanceof Identifier
+                => $this->isFormName($receiver->name->toString()),
+            default => false,
         };
+    }
 
+    /** Whether a name is a form's. */
+    private function isFormName(string $name): bool
+    {
         return $name === self::FORM || str_ends_with($name, self::FORM_ENDING);
     }
 }

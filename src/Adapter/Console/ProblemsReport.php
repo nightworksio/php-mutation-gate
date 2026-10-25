@@ -52,17 +52,15 @@ final readonly class ProblemsReport implements Configurable, Reporter
     public static function fromOptions(Options $options): self|Invalid
     {
         $only = $options->text(Key::of('only'));
-        $named = match (true) {
-            $only instanceof NotGiven => ProblemsShown::All->value,
-            is_string($only) => $only,
-            default => '',
+        $shown = match (true) {
+            $only instanceof NotGiven => ProblemsShown::All,
+            is_string($only) => ProblemsShown::tryFrom($only),
+            default => null,
         };
 
-        return match ($named) {
-            ProblemsShown::All->value => new self(new InertOutput(), Root::here(), ProblemsShown::All),
-            ProblemsShown::Changed->value => new self(new InertOutput(), Root::here(), ProblemsShown::Changed),
-            default => Invalid::because(Problem::at('only', self::ONLY)),
-        };
+        return $shown instanceof ProblemsShown
+            ? new self(new InertOutput(), Root::here(), $shown)
+            : Invalid::because(Problem::at('only', self::ONLY));
     }
 
     /** Say a judgement begins, so a background matcher clears what the last one showed. */

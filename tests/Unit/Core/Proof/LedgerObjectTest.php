@@ -47,3 +47,7 @@ it('percent-encodes each segment of a key as a URL\'s path, keeping its slashes'
     expect(LedgerObject::encoded('gate/refs/heads/feature/añadir #1/ledger.json.gz'))
         ->toBe('gate/refs/heads/feature/a%C3%B1adir%20%231/ledger.json.gz');
 });
+
+it('keeps a ledger at the top as under an empty prefix', function (): void {
+    expect(LedgerObject::top())->toEqual(LedgerObject::under(''));
+});

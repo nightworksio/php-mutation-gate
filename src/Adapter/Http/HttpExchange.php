@@ -65,11 +65,10 @@ final readonly class HttpExchange implements Exchange
         try {
             $response = $this->sent($request, $limits);
             $status = $response->getStatusCode();
-            $accepted = Reply::of($status, '', '')->isAccepted();
 
             return match (true) {
                 $status === self::NOT_FOUND => Ledger::empty(),
-                $accepted => $this->ledgerBytes($this->bodyOf($response, $limits), $limits, $from),
+                Reply::accepts($status) => $this->ledgerBytes($this->bodyOf($response, $limits), $limits, $from),
                 default => Unreadable::because(UnreadReason::Refused, $from, sprintf('HTTP %d', $status)),
             };
         } catch (TimeoutExceptionInterface) {

@@ -153,7 +153,7 @@ function provedCommits(array $commits, int $total = -1): array
         ]];
         $answers[sprintf('%s/git/commits/pr-%s', PULL_REQUESTS_API, $commit)] = ['tree' => ['sha' => sprintf('tree-%s', $commit)]];
         $answers[checkRuns(sprintf('pr-%s', $commit))] = [
-            'check_runs' => [verdictRun(1, 'lint', 'failure'), verdictRun(2, PULL_REQUESTS_CHECK, 'success')],
+            'check_runs' => [verdictRun(1, PULL_REQUESTS_CHECK, 'success'), verdictRun(2, 'lint', 'failure')],
         ];
     }
 
@@ -234,8 +234,8 @@ function spoilt(string $how, array $answers): array
         'GitHub cannot compare' => array_diff_key($answers, [sprintf('%s/compare/base...head', PULL_REQUESTS_API) => true]),
         'the count does not add up' => [...$answers, ...provedCommits(['one', 'two'], 3)],
         'no pull request is known' => array_diff_key($answers, [sprintf('%s/commits/two/pulls', PULL_REQUESTS_API) => true]),
-        'the pull request was not merged' => [...$answers, sprintf('%s/commits/two/pulls', PULL_REQUESTS_API) => [['merged_at' => null, 'head' => ['sha' => 'pr-two']]]],
-        'the pull request says nothing of a merge' => [...$answers, sprintf('%s/commits/two/pulls', PULL_REQUESTS_API) => [['head' => ['sha' => 'pr-two']]]],
+        'the pull request was not merged' => [...$answers, sprintf('%s/commits/two/pulls', PULL_REQUESTS_API) => [[...mergedInto('main', 'octo/gate', 'main'), 'merged_at' => null]]],
+        'the pull request says nothing of a merge' => [...$answers, sprintf('%s/commits/two/pulls', PULL_REQUESTS_API) => [array_diff_key(mergedInto('main', 'octo/gate', 'main'), ['merged_at' => true])]],
         'its head is another tree' => [...$answers, sprintf('%s/git/commits/pr-two', PULL_REQUESTS_API) => ['tree' => ['sha' => 'tree-other']]],
         'its head cannot be read' => array_diff_key($answers, [sprintf('%s/git/commits/pr-two', PULL_REQUESTS_API) => true]),
         'no check-run is known' => array_diff_key($answers, [checkRuns('pr-two') => true]),
@@ -244,6 +244,9 @@ function spoilt(string $how, array $answers): array
         ]],
         'a later run of the check failed' => [...$answers, checkRuns('pr-two') => [
             'check_runs' => [verdictRun(3, PULL_REQUESTS_CHECK, 'failure'), verdictRun(2, PULL_REQUESTS_CHECK, 'success')],
+        ]],
+        'the run of the check has no id' => [...$answers, checkRuns('pr-two') => [
+            'check_runs' => [['name' => PULL_REQUESTS_CHECK, 'conclusion' => 'success', 'app' => ['slug' => 'github-actions']]],
         ]],
         'another app ran the check' => [...$answers, checkRuns('pr-two') => [
             'check_runs' => [verdictRun(2, PULL_REQUESTS_CHECK, 'success', app: 'checks-writer')],
@@ -277,6 +280,7 @@ it('reads everything since the base when a commit cannot be proved', function (s
     'no check-run is known',
     'the check failed',
     'a later run of the check failed',
+    'the run of the check has no id',
     'another app ran the check',
     'the pull request has no number',
     'it was merged into another branch',
@@ -300,6 +304,18 @@ it('reads everything since the base when a pull request\'s ledger does not vouch
         fn(): Ledger => Ledger::empty()->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('pr-two'), PULL_REQUESTS_CHECK, 0)->onOwnScopeCoverage())),
     ],
 ]);
+
+it('reads everything since the base when a pull request has no number, whatever a ledger of number 0 says', function () use ($source): void {
+    $ledgers = passedLedgers(['one', 'two']);
+    $ledgers->write(Scope::pullRequest(0), Ledger::empty()->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('pr-two'), PULL_REQUESTS_CHECK, 0))));
+    $answers = [
+        ...provedCommits(['one', 'two']),
+        sprintf('%s/commits/two/pulls', PULL_REQUESTS_API) => [array_diff_key(mergedInto('main', 'octo/gate', 'main'), ['number' => true])],
+    ];
+
+    expect(trusting($source(), answering($answers), $ledgers)->changesSince(Revision::ref('base')))
+        ->toEqual(CannotTell::because('base is not a revision this repository has.'));
+});
 
 it('reads everything since the base when the pull requests\' ledgers cannot be read', function () use ($source): void {
     $ledgers = ProofStoreFake::unreadable(

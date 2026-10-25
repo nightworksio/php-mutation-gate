@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Tests\Support\Rechecks;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShardedPlan;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
+use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\JsonMockResponse;
 use Symfony\Component\HttpClient\Response\MockResponse;
@@ -213,6 +214,27 @@ it('reads its run from the environment and the event file, and its identity from
     expect($noToken->report(Verdicts::passing()))
         ->toEqual(NotWritten::because('GITHUB_TOKEN is not set, so no comment is written; the step summary carries it.'))
         ->and($noEvent->report(Verdicts::passing()))
+        ->toEqual(NotWritten::because('This run is not for a pull request, so there is no comment to write.'));
+});
+
+it('asks GitHub who it is where its options name no identity', function (): void {
+    $run = ['GITHUB_EVENT_NAME' => 'pull_request', 'GITHUB_EVENT_PATH' => null];
+    $read = Environment::during(
+        $run,
+        static fn(): PullRequestComment => PullRequestComment::fromOptions(Configs::options('{"identity": 3}')),
+    );
+    $asking = Environment::during(
+        $run,
+        static fn(): PullRequestComment => PullRequestComment::fromEnvironment(getenv(), HttpClient::create(), ''),
+    );
+
+    expect($read)->toEqual($asking);
+});
+
+it('reads no event where the environment names no event file', function (): void {
+    $comment = PullRequestComment::fromEnvironment(['GITHUB_EVENT_NAME' => 'pull_request', 'GITHUB_TOKEN' => 'secret'], new MockHttpClient([]), '');
+
+    expect($comment->report(Verdicts::passing()))
         ->toEqual(NotWritten::because('This run is not for a pull request, so there is no comment to write.'));
 });
 
