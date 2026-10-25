@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Native\Warm;
 
-use function escapeshellarg;
-use function exec;
 use function hrtime;
-use function implode;
 use function is_int;
 
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -21,7 +18,9 @@ use function pcntl_waitpid;
 use function pcntl_wexitstatus;
 use function pcntl_wifsignaled;
 use function pcntl_wtermsig;
-use function sprintf;
+
+use Symfony\Component\Process\Process;
+
 use function usleep;
 
 /**
@@ -98,25 +97,13 @@ final readonly class Waiting
     /** The child stopped with every process under it, deepest first, and reaped. */
     private function stop(): void
     {
-        ProcessTable::stop($this->child, function (array $command): string {
-            $printed = [];
-            exec($this->line($command), $printed);
+        ProcessTable::stop($this->child, static function (array $command): string {
+            $process = new Process($command);
+            $process->run();
 
-            return implode("\n", $printed);
+            return $process->getOutput();
         });
         pcntl_waitpid($this->child, $status);
-    }
-
-    /** @param list<string> $command */
-    private function line(array $command): string
-    {
-        $line = '';
-
-        foreach ($command as $word) {
-            $line = sprintf('%s %s', $line, escapeshellarg($word));
-        }
-
-        return $line;
     }
 
     private function seconds(): float

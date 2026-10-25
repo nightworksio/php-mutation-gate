@@ -64,7 +64,7 @@ final class PreparedBatch
     {
         $remaining = $this->remaining();
 
-        return $this->stopped || ($remaining instanceof Seconds && $remaining->seconds() <= 0.0);
+        return $this->stopped || ($remaining instanceof Seconds && ! $remaining->outlasts(Seconds::none()));
     }
 
     /**
