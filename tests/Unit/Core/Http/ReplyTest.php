@@ -13,6 +13,10 @@ it('holds the status, the Retry-After and the body it was answered with', functi
         ->and($reply->body())->toBe('slow down');
 });
 
+it('holds no Retry-After where the reply names none', function (): void {
+    expect(Reply::answered(200, 'ok'))->toEqual(Reply::of(200, '', 'ok'));
+});
+
 it('is accepted with a 2xx, and worth trying again after a 429 or a 5xx', function (int $status, bool $accepted, bool $again): void {
     expect(Reply::of($status, '', '')->isAccepted())->toBe($accepted)
         ->and(Reply::of($status, '', '')->isWorthRetrying())->toBe($again);

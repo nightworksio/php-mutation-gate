@@ -12,9 +12,9 @@ it('exports to the endpoint OpenTelemetry\'s variable names, or to a collector o
 });
 
 it('reads the headers as percent-encoded pairs, leaving out a pair it cannot read', function (): void {
-    $environment = OtelEnvironment::of(Variables::of(['OTEL_EXPORTER_OTLP_HEADERS' => 'api-key=a%20b, x-team = gate ,broken,=nameless']));
+    $environment = OtelEnvironment::of(Variables::of(['OTEL_EXPORTER_OTLP_HEADERS' => 'api-key=a%20b, x-team = gate ,broken,=nameless,token=YWJj==']));
 
-    expect($environment->headers())->toBe(['api-key' => 'a b', 'x-team' => 'gate'])
+    expect($environment->headers())->toBe(['api-key' => 'a b', 'x-team' => 'gate', 'token' => 'YWJj=='])
         ->and(OtelEnvironment::of(Variables::of([]))->headers())->toBe([]);
 });
 
