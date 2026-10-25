@@ -116,6 +116,16 @@ class Pairs(unittest.TestCase):
             [(3, "killed", "timed-out", True), (4, "escaped", "timed-out", False)],
         )
 
+    def test_explains_a_mutant_plain_infection_errored_on_that_the_gate_killed_or_timed_out_not_one_it_missed(self):
+        errored = [infection_entry(3), infection_entry(4), infection_entry(5)]
+        plain = bench.outcome({"errored": errored}, "infection", ROOT)
+        gate = bench.outcome({"mutants": [gate_mutant(3, "killed"), gate_mutant(4, "timed-out"),
+                                          gate_mutant(5, "survived")]}, "gate", ROOT)
+        self.assertEqual(
+            [(each["line"], each["plain"], each["gate"], each["explained"]) for each in bench.pairs(plain, gate)],
+            [(3, "errored", "killed", True), (4, "errored", "timed-out", True), (5, "errored", "survived", False)],
+        )
+
     def test_names_a_mutant_one_arm_lacks(self):
         plain = bench.outcome({"killed": [infection_entry(3), infection_entry(3)]}, "infection", ROOT)
         gate = bench.outcome({"mutants": [gate_mutant(3, "killed")]}, "gate", ROOT)
