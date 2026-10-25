@@ -38,3 +38,16 @@ it('holds nothing of files a worker never wrote', function (): void {
     expect(Printed::from($workplace, 2)->untilNow($workplace)->text($workplace))->toBe('')
         ->and(Printed::whole($workplace, 2))->toBe('');
 });
+
+it('holds only the bytes from where it starts to where it ends, whatever follows, and none where its ends run backwards', function (): void {
+    $workplace = Workplace::at(sprintf('%s/warm', Scratch::directory()));
+    $workplace->opened(Job::of('', NotGiven::value(), [], NotGiven::value(), []));
+    file_put_contents($workplace->out(0), 'first');
+    $from = Printed::from($workplace, 0);
+    file_put_contents($workplace->out(0), 'X', FILE_APPEND);
+    $one = $from->untilNow($workplace);
+    file_put_contents($workplace->out(0), ' and what follows', FILE_APPEND);
+
+    expect($one->text($workplace))->toBe('X')
+        ->and(Printed::read(Node::decode('{"place": 0, "out": [5, 2], "err": [0, 0]}'))->text($workplace))->toBe('');
+});

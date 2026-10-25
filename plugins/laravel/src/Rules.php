@@ -39,7 +39,7 @@ final readonly class Rules
     public static function isRuleOfAField(ArrayItem $rule): bool
     {
         $list = Ancestors::parent($rule);
-        $field = $list instanceof Array_ ? Ancestors::parent($list) : false;
+        $field = $list instanceof Array_ ? Ancestors::parent($list) : null;
 
         return $field instanceof ArrayItem && $field->value === $list && self::isField($field);
     }
@@ -64,8 +64,8 @@ final readonly class Rules
     private static function isField(ArrayItem $field): bool
     {
         $rules = Ancestors::parent($field);
-        $argument = $rules instanceof Array_ ? Ancestors::parent($rules) : false;
-        $call = $argument instanceof Arg ? Ancestors::parent($argument) : false;
+        $argument = $rules instanceof Array_ ? Ancestors::parent($rules) : null;
+        $call = $argument instanceof Arg ? Ancestors::parent($argument) : null;
 
         return $field->key instanceof Expr
             && ($call instanceof MethodCall || $call instanceof StaticCall)

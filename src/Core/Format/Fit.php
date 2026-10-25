@@ -94,7 +94,7 @@ final readonly class Fit
      */
     public static function plain(string $text): string
     {
-        return trim(self::verbatim(preg_replace(self::SPACE, ' ', mb_scrub($text, 'UTF-8')) ?? ''));
+        return trim(self::verbatim(sprintf('%s', preg_replace(self::SPACE, ' ', mb_scrub($text, 'UTF-8')))));
     }
 
     /**
@@ -105,7 +105,7 @@ final readonly class Fit
      */
     public static function verbatim(string $line): string
     {
-        return preg_replace(self::CONTROL, '', mb_scrub($line, 'UTF-8')) ?? '';
+        return sprintf('%s', preg_replace(self::CONTROL, '', mb_scrub($line, 'UTF-8')));
     }
 
     /**

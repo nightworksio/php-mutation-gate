@@ -46,3 +46,17 @@ it('accounts for nothing where the run pruned nothing, whatever the results carr
         ->and($none->carried())->toBe(0)
         ->and($none->saved()->seconds())->toBe(0.0);
 });
+
+it('accounts for a run that pruned nothing as none at all', function (): void {
+    $none = PruningAccount::none();
+
+    expect([
+        [...$none->mutators()],
+        $none->window()->mutants(),
+        $none->units(),
+        $none->carried(),
+        $none->audit()->seconds(),
+        $none->saved()->seconds(),
+        $none->lastOf(RunnerMutatorName::of('Plus')),
+    ])->toEqual([[], 0, 0, 0, 0.0, 0.0, NotGiven::value()]);
+});

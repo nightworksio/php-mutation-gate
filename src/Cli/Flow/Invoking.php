@@ -7,7 +7,6 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use function array_filter;
 use function array_map;
 use function array_slice;
-use function array_values;
 
 use Closure;
 
@@ -164,16 +163,11 @@ final readonly class Invoking
             return new Confirmed($mutants, MutantIds::none());
         }
 
-        $survivors = array_values(array_filter(
+        $survivors = array_filter(
             [...$mutants],
             static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::Survived
                 && ! $equivalent->has($mutant->id()),
-        ));
-
-        if ($survivors === []) {
-            return new Confirmed($mutants, MutantIds::none());
-        }
-
+        );
         $fitting = $this->fitting(count($survivors), $this->settings->triage()->limit());
         $left = $this->unjudged(array_slice($survivors, $fitting), OutOfTime::BeforeConfirming);
         $again = $this->again(

@@ -7,8 +7,10 @@ use NightWorksIO\MutationGate\Adapter\Native\Project;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Control\Control;
+use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -44,8 +46,9 @@ it('makes a mutant that changes nothing: the file as the project holds it, serve
     $made = controlMutantOf(controlMutantProject(), 5.0, 'MoneyTest::adds');
 
     expect($made->mutated()->text())->toBe("<?php\n\nreturn 1 + 1;\n")
-        ->and($made->location()->file())->toEqual(Path::of('src/Money.php'))
-        ->and($made->mutation()->diff())->toBe('');
+        ->and($made->location())->toEqual(Location::of(Path::of('src/Money.php'), Line::of(1), Line::of(1)))
+        ->and($made->mutation()->diff())->toBe('')
+        ->and($made->id()->value())->toBe('fd9f28135af3');
 });
 
 it('gives each control of a file an id of its own, and the same control the same id', function (): void {

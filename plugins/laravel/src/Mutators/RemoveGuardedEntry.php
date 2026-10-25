@@ -53,8 +53,8 @@ final readonly class RemoveGuardedEntry implements Mutator
 
     public function mutate(Node $node): Removal|Unchanged
     {
-        $list = $node instanceof ArrayItem ? Ancestors::parent($node) : false;
-        $property = $list instanceof Array_ ? Ancestors::parent($list) : false;
+        $list = $node instanceof ArrayItem ? Ancestors::parent($node) : null;
+        $property = $list instanceof Array_ ? Ancestors::parent($list) : null;
 
         return $property instanceof PropertyItem && $property->name->toString() === self::GUARDED
             ? Removal::item()

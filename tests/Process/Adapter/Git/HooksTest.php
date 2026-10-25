@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Hook\Hook;
 use NightWorksIO\MutationGate\Core\Hook\HookCall;
 use NightWorksIO\MutationGate\Core\Hook\Removed;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Repository;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -67,6 +68,16 @@ it('runs its hooks from the repository, or from a directory other repositories s
     $repository->git('config', 'core.hooksPath', Scratch::directory());
 
     expect([$inside, $fromLinked, $tracked, hooksFrom($repository->root)->isShared()])->toBe([false, false, false, true]);
+})->group(...$holds);
+
+it('runs its hooks from the repository where git is told where that is by a path relative to the working tree', function (): void {
+    $root = Scratch::directory();
+    mkdir(sprintf('%s/work', $root));
+    Repository::empty()->git('init', '--quiet', '--bare', sprintf('%s/repository.git', $root));
+    $git = Command::withholding(sprintf('%s/work', $root), Withheld::standard(), [...getenv(), 'GIT_DIR' => '../repository.git', 'GIT_WORK_TREE' => '.']);
+    $hooks = Hooks::of($git);
+
+    expect($hooks instanceof Hooks ? $hooks->isShared() : $hooks)->toBeFalse();
 })->group(...$holds);
 
 it('cannot tell where the repository is in a git directory without a working tree', function (): void {

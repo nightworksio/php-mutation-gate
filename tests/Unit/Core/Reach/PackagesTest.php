@@ -43,14 +43,14 @@ it('reaches a package and every package that depends on it, directly or through 
         $tree('packages/clock/src', Package::at(Path::of('packages/clock'))),
     ));
 
-    expect($packages->withDependents($core))->toEqual(Paths::of(
-        Path::of('packages/core'),
-        Path::of('packages/money'),
-        Path::of('packages/shop'),
-        Path::of('packages/audit'),
-        Path::of('.'),
-        Path::of('packages/ledger'),
-    ));
+    expect(array_map(static fn(Path $path): string => $path->value(), [...$packages->withDependents($core)]))->toBe([
+        'packages/core',
+        'packages/money',
+        'packages/shop',
+        'packages/audit',
+        '.',
+        'packages/ledger',
+    ]);
 });
 
 it('reaches a package that nothing depends on alone', function () use ($tree): void {
@@ -67,4 +67,13 @@ it('reaches each package once where two depend on each other', function () use (
     ));
 
     expect($packages->withDependents($money))->toEqual(Paths::of(Path::of('packages/money'), Path::of('packages/core')));
+});
+
+it('places a path in, and reaches, a package whatever its directory is named', function () use ($tree): void {
+    $path = Package::at(Path::of('path'));
+    $paths = Package::at(Path::of('paths'))->dependingOn(Path::of('path'));
+    $packages = Packages::of(Trees::of($tree('path/src', $path), $tree('paths/src', $paths)));
+
+    expect($packages->holding(Path::of('path/src/Money.php')))->toEqual($path)
+        ->and($packages->withDependents($path))->toEqual(Paths::of(Path::of('path'), Path::of('paths')));
 });

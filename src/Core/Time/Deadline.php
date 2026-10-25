@@ -24,6 +24,12 @@ final readonly class Deadline
         return new self(self::epochOf($started) + $budget->seconds());
     }
 
+    /** The deadline at this instant, in seconds since the epoch, as a wall clock reads it. */
+    public static function atEpoch(float $at): self
+    {
+        return new self($at);
+    }
+
     /** How much time is left at this moment, and none once the deadline has passed. */
     public function left(DateTimeImmutable $now): Seconds
     {

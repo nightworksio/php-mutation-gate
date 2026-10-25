@@ -97,6 +97,8 @@ final readonly class Reply
      */
     public static function unreached(string $to, string $why): NotWritten
     {
-        return NotWritten::because(sprintf(self::UNREACHED, $to, Fit::plain(preg_replace(self::URL, $to, $why) ?? '')));
+        $named = sprintf('%s', preg_replace(self::URL, $to, $why));
+
+        return NotWritten::because(sprintf(self::UNREACHED, $to, Fit::plain($named)));
     }
 }

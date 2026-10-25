@@ -33,7 +33,7 @@ final readonly class WarmWorkers
             {
             }
 
-            public function forked(WarmRun $run): int
+            public function forked(WarmRun $run): int|NotGiven
             {
                 $child = pcntl_fork();
 
@@ -42,7 +42,7 @@ final readonly class WarmWorkers
                     exit(127);
                 }
 
-                return $child;
+                return $child === -1 ? NotGiven::value() : $child;
             }
         };
     }

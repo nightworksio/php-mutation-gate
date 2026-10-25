@@ -100,13 +100,17 @@ final readonly class Blobs
      */
     private function batch(array $paths): ByPath|CannotTell
     {
+        if ($paths === []) {
+            return ByPath::none();
+        }
+
         $asked = '';
 
         foreach ($paths as $path) {
             $asked .= sprintf("%s\n", $this->spelt($path));
         }
 
-        $printed = $asked === '' ? '' : $this->git->feed(['cat-file', '--batch'], $asked);
+        $printed = $this->git->feed(['cat-file', '--batch'], $asked);
 
         return $printed instanceof CannotTell ? $printed : self::read($printed, Paths::of(...$paths));
     }
@@ -119,10 +123,13 @@ final readonly class Blobs
     private static function next(string $printed, int $offset, Path $path): array
     {
         $end = Bytes::find($printed, "\n", $offset);
-        $header = $end === false ? '' : Bytes::slice($printed, $offset, $end - $offset);
 
-        if ($end === false || preg_match(self::FOUND, $header, $found) !== 1) {
-            return [Missing::at($path), $end === false ? $offset : $end + 1];
+        if ($end === false) {
+            return [Missing::at($path), $offset];
+        }
+
+        if (preg_match(self::FOUND, Bytes::slice($printed, $offset, $end - $offset), $found) !== 1) {
+            return [Missing::at($path), $end + 1];
         }
 
         $size = intval($found['size']);
@@ -139,7 +146,7 @@ final readonly class Blobs
      */
     private function one(Path $path): Contents|Missing|CannotTell
     {
-        $entry = $this->git->run(['ls-tree', '-z', $this->commit, '--', sprintf('./%s', $path->value())]);
+        $entry = $this->git->run(['ls-tree', $this->commit, sprintf('./%s', $path->value())]);
 
         if ($entry instanceof CannotTell || preg_match(self::ENTRY, $entry, $found) !== 1) {
             return $entry instanceof CannotTell ? $entry : Missing::at($path);

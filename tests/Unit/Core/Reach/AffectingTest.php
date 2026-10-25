@@ -5,9 +5,12 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Config\ConfigReads;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Reach\AffectedTests;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Tests\Support\Affected;
 
 $modified = static fn(string $path): Change => Change::modified(Path::of($path), Lines::none());
@@ -34,6 +37,22 @@ it('lists for a changed source file the tests that run its lines, and those that
         ],
     ])->and($affected->isEvery())->toBeFalse()
         ->and([...$affected->unreached()])->toBe([]);
+});
+
+it('counts the lines of a changed source file each test file runs, each once however many of its tests run it', function () use (
+    $modified,
+): void {
+    $map = CoverageMap::empty()
+        ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds'))
+        ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds nothing'))
+        ->covered(Path::of('src/Money.php'), Line::of(13), TestId::of('MoneyTest::adds nothing'))
+        ->covered(Path::of('src/Money.php'), Line::of(9), TestId::of('RateTest::rates'));
+
+    expect(array_column(Affected::listed(Affected::running($map, Changes::of($modified('src/Money.php')))), null, 0)['tests/MoneyTest.php'])->toBe([
+        'tests/MoneyTest.php',
+        ['MoneyTest::adds', 'MoneyTest::adds nothing'],
+        ['`src/Money.php` changed, and these tests run 2 of its lines.'],
+    ]);
 });
 
 it('lists a changed test whole', function () use ($modified): void {

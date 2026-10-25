@@ -308,7 +308,7 @@ it('leaves a survivor unchecked, and says why, where its runner cannot give it, 
         ->and($unchecked->checks->histories()->of(checkedIdentity())->time()->checks())->toBe(2);
 });
 
-it('judges a printed survivor against its original printed the same way, analysed once for each file', function (): void {
+it('judges a printed survivor against its original printed the same way, analysed once for each file, and times every check', function (): void {
     $project = Scratch::directory();
     $mutants = checkedMutants();
     $money = checkedSurvivor($mutants, 'src/Money.php');
@@ -342,7 +342,8 @@ it('judges a printed survivor against its original printed the same way, analyse
         ->and($checked->mutants)->toEqual($mutants->with($again)->replacing(Mutants::of($money->rejected(Rejection::by('fake', $new)))))
         ->and(checkedWarnings($checked))->toBe([
             'Static analysis left 1 survivor unchecked, as their files analyse differently once printed as the runner prints its mutants: src/Held.php.',
-        ]);
+        ])
+        ->and($checked->checks->histories()->of(checkedIdentity())->time()->checks())->toBe(4);
 });
 
 it('runs nothing where the time budget has already run out, and leaves every survivor unchecked', function (): void {

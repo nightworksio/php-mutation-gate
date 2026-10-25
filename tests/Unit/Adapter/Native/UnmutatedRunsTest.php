@@ -179,6 +179,7 @@ it('starts each control through the launcher, and gives it the peak the launcher
     $arguments = $shell->commands()[0]->arguments();
 
     expect(array_slice($arguments, 0, 2))->toBe([PHP_BINARY, PeakLauncher::in($project->own(Control::DIRECTORY))])
+        ->and(file_get_contents($arguments[1]))->toBe(PeakLauncher::SCRIPT)
         ->and($arguments[3])->toBe(PHP_BINARY)
         ->and($runs->of(phpUnitControl('src/Money.php'))->peak())->toEqual(PeakLauncher::peakIn('20480', PHP_OS_FAMILY));
 });
@@ -200,4 +201,28 @@ it('gives a control no peak an earlier run left in its place, where the launcher
 
     expect($shell->commands()[0]->arguments()[2])->toBe(sprintf('%s/peak-0', $project->own(Control::DIRECTORY)))
         ->and($runs->of(phpUnitControl('src/Money.php'))->peak())->toEqual(NotGiven::value());
+});
+
+it('runs no control where it cannot write the launcher, saying why', function () use ($makeWhole): void {
+    $project = unmutatedPhpUnitProject();
+    Scratch::write(dirname($project->own(Control::DIRECTORY)), Control::DIRECTORY, 'a file where the directory goes');
+    $shell = controlPhpUnit(Outcome::Passed, Ran::finished(succeeded: true, output: ''));
+
+    $runs = controlled(unmutated($project, $shell), Controls::of(phpUnitControl('src/Money.php')), $makeWhole());
+
+    expect($runs->of(phpUnitControl('src/Money.php')))->toEqual(ControlRun::unrun(sprintf(
+        'The gate cannot write %s, which the run it starts reads.',
+        PeakLauncher::in($project->own(Control::DIRECTORY)),
+    )))->and($shell->commands())->toBe([]);
+});
+
+it('removes the memory cap its controls scanned once they have run', function () use ($makeWhole): void {
+    $project = unmutatedPhpUnitProject();
+    $shell = controlPhpUnit(Outcome::Passed, Ran::finished(succeeded: true, output: ''));
+    $scanned = $project->own(sprintf(MemoryCap::DIRECTORY, getmypid()));
+
+    controlled(unmutated($project, $shell), Controls::of(phpUnitControl('src/Money.php')), $makeWhole()->cappedAt(MemoryCap::standard()));
+
+    expect($shell->commands())->toHaveCount(1)
+        ->and(is_dir($scanned))->toBeFalse();
 });

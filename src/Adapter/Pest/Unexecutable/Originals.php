@@ -65,6 +65,6 @@ final class Originals
 
         return $held instanceof Source && ! $held->isTest()
             ? $held
-            : Source::code($file, Contents::of($text));
+            : Source::ofCode($file, Contents::of($text));
     }
 }

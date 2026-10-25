@@ -105,7 +105,7 @@ final class Objects
     {
         $name = $revision->name();
         $kind = $revision->isTree() ? self::AS_TREE : self::AS_COMMIT;
-        $resolving = ['rev-parse', '--verify', '--quiet', '--end-of-options', sprintf($kind, $name)];
+        $resolving = ['rev-parse', '--verify', sprintf($kind, $name)];
         $printed = str_starts_with($name, '-') ? $name : $this->git->run($resolving);
         $parsed = $printed instanceof CannotTell ? $printed : Commit::parse(trim($printed));
 
@@ -117,9 +117,9 @@ final class Objects
     /**
      * The tree merging a gone commit's two parents again gives, where it is
      * the tree the commit held: git 2.38 or newer merges them as a merge
-     * commit is made, with `merge-tree --write-tree`, and a merge that does
-     * not come out clean, or a parent git does not have, as after a
-     * force-push, gives none.
+     * commit is made, its `merge-tree` writing the tree two commits merge
+     * to, and a merge that does not come out clean, or a parent git does not
+     * have, as after a force-push, gives none.
      */
     private function rebuilt(JudgedCommit $judged): Revision|CannotTell
     {
@@ -139,9 +139,9 @@ final class Objects
             ),
             $first instanceof CannotTell => $first,
             $second instanceof CannotTell => $second,
-            default => $this->git->run(['merge-tree', '--write-tree', '--no-messages', $first, $second]),
+            default => $this->git->run(['merge-tree', $first, $second]),
         };
-        $tree = $merged instanceof CannotTell ? $merged : Tree::parse(trim(explode("\n", $merged)[0]));
+        $tree = $merged instanceof CannotTell ? $merged : Tree::parse(explode("\n", $merged)[0]);
 
         return match (true) {
             ! $tree instanceof Tree => $tree,

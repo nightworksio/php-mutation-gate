@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Native;
 
 use function array_intersect_key;
-use function array_values;
 use function file_get_contents;
 use function is_file;
 use function is_string;
@@ -35,13 +34,25 @@ final readonly class CoverageFile
     /** The map in a file, or why it cannot be read: reading runs it, so a map cut short is not read. */
     public static function read(Project $project, string $file): CoverageMap|CannotJudge
     {
-        $text = is_file($file) ? file_get_contents($file) : false;
+        return self::isFile($file) ? self::readFrom($project, $file) : PhpReport::missingAt($file);
+    }
+
+    /** @param non-empty-string $file */
+    private static function readFrom(Project $project, string $file): CoverageMap|CannotJudge
+    {
+        $text = file_get_contents($file);
 
         return match (true) {
-            $file === '' || ! is_string($text) => PhpReport::missingAt($file),
+            ! is_string($text) => PhpReport::missingAt($file),
             ! PhpReport::isWhole($text) => PhpReport::cutOffAt($file),
             default => self::unserialized($project, $file),
         };
+    }
+
+    /** @phpstan-assert-if-true non-empty-string $file */
+    private static function isFile(string $file): bool
+    {
+        return is_file($file);
     }
 
     /** @param non-empty-string $file */
@@ -74,7 +85,7 @@ final readonly class CoverageFile
 
             foreach ($covered as $line => $ran) {
                 if ($ran !== null) {
-                    $lines[] = CoveredLine::of($path, $line, ...array_values(array_intersect_key($tests, $ran)));
+                    $lines[] = CoveredLine::of($path, $line, ...array_intersect_key($tests, $ran));
                 }
             }
         }

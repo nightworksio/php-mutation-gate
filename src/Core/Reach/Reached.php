@@ -68,7 +68,7 @@ final readonly class Reached
     /** Whether a path is inside any of these, or is one. */
     public function anyAround(Path $path): bool
     {
-        return array_intersect_key([self::ROOT => true] + $this->downTo($path), $this->own) !== [];
+        return array_key_exists(self::ROOT, $this->own) || array_intersect_key($this->downTo($path), $this->own) !== [];
     }
 
     /**

@@ -19,8 +19,6 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
-use function trim;
-
 /**
  * `composer mutate [args]`: runs `vendor/bin/mutation-gate [args]`, by the
  * bin directory Composer links commands into, with no time limit, and exits
@@ -46,8 +44,6 @@ final class MutateCommand extends BaseCommand
 
     /** What parts the words of the command line, the first of which is the command's own name. */
     private const string WORD = ' ';
-
-    private const string CALL = '%s %s';
 
     private const string MISSING = <<<'SAID'
         <error>The gate is not installed. Install it: composer require --dev %s</error>
@@ -80,10 +76,10 @@ final class MutateCommand extends BaseCommand
             return self::CANNOT_RUN;
         }
 
-        $handed = implode(self::WORD, array_slice(explode(self::WORD, (string) $input), 1));
+        $handed = array_slice(explode(self::WORD, (string) $input), 1);
         ProcessExecutor::setTimeout(0);
 
         return new ProcessExecutor($this->getIO())
-            ->executeTty(trim(sprintf(self::CALL, ProcessExecutor::escape($gate), $handed)));
+            ->executeTty(implode(self::WORD, [ProcessExecutor::escape($gate), ...$handed]));
     }
 }

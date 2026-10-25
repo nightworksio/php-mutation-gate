@@ -26,7 +26,7 @@ final readonly class Packages
 
     public static function of(Trees $trees): self
     {
-        $packages = [Path::root()->value() => Package::at(Path::root())];
+        $packages = [];
 
         foreach ($trees as $tree) {
             $packages[$tree->package()->path()->value()] = $tree->package();
@@ -58,6 +58,6 @@ final readonly class Packages
             }
         }
 
-        return Paths::of(...array_values($reached));
+        return Paths::of(...$reached);
     }
 }

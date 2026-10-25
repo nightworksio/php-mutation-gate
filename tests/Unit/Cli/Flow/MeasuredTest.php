@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
+use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
@@ -127,6 +128,25 @@ it('judges each package\'s security set whose every tree was measured, and names
         ->and($measured instanceof Measured ? [...$measured->unmeasuredSecurity()] : $measured)->toEqual([Path::of('src')])
         ->and($none instanceof Measured ? $none->security() : $none)->toHaveCount(0)
         ->and($none instanceof Measured ? $none->unmeasuredSecurity() : $none)->toHaveCount(0);
+});
+
+it('judges the security set of every package whose every tree was measured', function () use ($proofOf): void {
+    $store = new ProofStoreFake();
+    $store->write(Scope::branch('main'), Ledger::empty()
+        ->withProof($proofOf('src/Money.php', '2026-09-29T10:00:00Z'))
+        ->withProof($proofOf('src/Held.php', '2026-09-29T10:00:00Z')));
+    $trees = new TreeSourceFake(Trees::of(
+        Tree::at(Path::of('src/Money.php'), Floor::of(50), Package::at(Path::root())),
+        Tree::at(Path::of('src/Held.php'), Floor::of(50), Package::at(Path::of('src'))),
+    ));
+    $adapters = Flows::adapters(Flows::project(), [], $store, $trees, NamedMutators::of('Plus'));
+
+    $measured = Measured::of($adapters, Flows::settings(), Baseline::none(), new DateTimeImmutable(Configs::NOW));
+
+    expect($measured instanceof Measured ? array_map(
+        static fn(SecurityVerdict $set): Path => $set->package()->path(),
+        [...$measured->security()],
+    ) : $measured)->toEqual([Path::root(), Path::of('src')]);
 });
 
 it('scores the results with uncovered mutants left out where the config says so', function () use (

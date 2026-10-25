@@ -57,9 +57,9 @@ final readonly class PeakLauncher
      * What a control found, with the peak the script wrote, where it wrote one
      * that reads as such on an operating system of this family.
      */
-    public static function measured(ControlRun $run, string $written, string $family): ControlRun
+    public static function measured(ControlRun $run, string|NotGiven $written, string $family): ControlRun
     {
-        $peak = self::peakIn($written, $family);
+        $peak = $written instanceof NotGiven ? $written : self::peakIn($written, $family);
 
         return $peak instanceof MemoryCap ? $run->withPeak($peak) : $run;
     }

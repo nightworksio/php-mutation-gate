@@ -245,7 +245,6 @@ services:
                 'NightWorksIO\MutationGateComposer\MutateCommand':
                     - PACKAGE # the Composer plugin names nothing of the gate (A7), not ThisPackage's
                     - GATE # the Composer plugin names nothing of the gate (A7), not ThisPackage's
-                    - CALL # a command and its arguments, not two joined phrases
                     - CANNOT_RUN # the plugin's own exit code, as the gate's is, from outside it
                 'NightWorksIO\MutationGate\Core\Migration\UnifiedDiff':
                     - CONTEXT # unchanged lines shown around a change, not letters per edit

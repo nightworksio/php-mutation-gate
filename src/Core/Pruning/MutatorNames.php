@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Pruning;
 
 use function array_unique;
-use function array_values;
 
 use ArrayIterator;
 
@@ -42,7 +41,7 @@ final readonly class MutatorNames implements Countable, IteratorAggregate
 
     public static function of(string ...$names): self
     {
-        $sorted = array_values(array_unique($names));
+        $sorted = array_unique($names);
         sort($sorted);
 
         return new self($sorted);

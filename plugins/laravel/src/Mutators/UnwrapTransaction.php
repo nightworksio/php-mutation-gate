@@ -45,7 +45,7 @@ final readonly class UnwrapTransaction implements Mutator
     {
         $callback = $node instanceof StaticCall && Calls::onFacade($node, Facade::Db, 'transaction')
             ? Calls::argument($node, 0)
-            : false;
+            : null;
 
         return $callback instanceof Node ? new FuncCall($callback) : Unchanged::node();
     }

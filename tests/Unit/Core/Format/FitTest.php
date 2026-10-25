@@ -8,13 +8,14 @@ it('keeps lines that fit as they are', function (): void {
     expect(Fit::lines(['one', 'two'], 7))->toBe("one\ntwo");
 });
 
-it('keeps the whole lines that fit with a line saying how many it left out', function (): void {
+it('keeps the whole lines that fit with a line saying how many it left out, and that line alone where not even it fits', function (): void {
     $lines = ['aaaaaaaaaa', 'bbbbbbbbbb', 'cccccccccc', 'dddddddddd'];
 
     expect(Fit::lines($lines, 35))->toBe("aaaaaaaaaa\nbbbbbbbbbb\nAnd 2 more.")
         ->and(Fit::lines($lines, 42))->toBe("aaaaaaaaaa\nbbbbbbbbbb\nAnd 2 more.")
         ->and(Fit::lines($lines, 43))->toBe(implode("\n", $lines))
         ->and(Fit::lines($lines, 11))->toBe('And 4 more.')
+        ->and(Fit::lines($lines, 5))->toBe('And 4 more.')
         ->and(mb_strlen(Fit::lines($lines, 22)))->toBeLessThanOrEqual(22);
 });
 

@@ -47,6 +47,28 @@ it('names the line of the bootstrap that autoloaded a file, the bootstrap for a 
         ->and(Boot::begun(Tree::at('vendor/autoload.php'), Facade::class)->done()->ran())->toBe(Tree::at('vendor/autoload.php'));
 });
 
+it('names the line of the bootstrap that autoloaded a file through an autoloader registered before the boot began', function (): void {
+    $root = (string) realpath(Scratch::directory());
+    $class = Declared::name('BootVendor');
+    $file = sprintf('%s/%s.php', $root, $class);
+    file_put_contents($file, sprintf("<?php\n\nfinal class %s {}\n", $class));
+    $bootstrap = sprintf('%s/bootstrap.php', $root);
+    file_put_contents($bootstrap, sprintf("<?php\nclass_exists('%s');\n", $class));
+    $loader = static function (string $asked) use ($class, $file): void {
+        if ($asked === $class) {
+            require $file;
+        }
+    };
+    spl_autoload_register($loader);
+    $boot = Boot::begun(Tree::at('vendor/autoload.php'), Facade::class);
+
+    require $bootstrap;
+    $boot = $boot->through($bootstrap)->done();
+    spl_autoload_unregister($loader);
+
+    expect($boot->whereLoaded($file))->toBe(sprintf('%s:2', $bootstrap));
+});
+
 it('names the autoloader for a file the bootstrap never loaded where there is no bootstrap', function (): void {
     $boot = Boot::begun(Tree::at('vendor/autoload.php'), Facade::class)->done();
 
@@ -76,9 +98,16 @@ it('names the bootstrap for a file autoloaded before the bootstrap ran, as when 
 
 it('says the boot started PHPUnit\'s events where it first loaded their class, and not where it was loaded before', function (): void {
     $events = Declared::name('BootEvents');
+    $loader = static function (string $class) use ($events): void {
+        if ($class === $events) {
+            Declared::class($events);
+        }
+    };
+    spl_autoload_register($loader);
     $boot = Boot::begun(Tree::at('vendor/autoload.php'), $events);
     $before = $boot->startedEvents();
-    Declared::class($events);
+    class_exists($events);
+    spl_autoload_unregister($loader);
 
     expect([$before, $boot->done()->startedEvents(), Boot::begun(Tree::at('vendor/autoload.php'), $events)->done()->startedEvents()])
         ->toBe([false, true, false])

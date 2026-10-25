@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Composer\Factory;
 use Composer\IO\BufferIO;
 use Composer\Util\Filesystem;
+use Composer\Util\Platform;
 use Composer\Util\ProcessExecutor;
 use NightWorksIO\MutationGateComposer\MutateCommand;
 use Symfony\Component\Console\Input\InputOption;
@@ -62,7 +63,10 @@ afterEach(function (): void {
 });
 
 it('runs the gate from the bin directory with the arguments as given, with no time limit, and exits as it does', function (): void {
+    $inherited = Platform::getEnv('COMPOSER_PROCESS_TIMEOUT');
+    Platform::putEnv('COMPOSER_PROCESS_TIMEOUT', '300');
     [$code, $output] = mutateRun(mutateInstalled(mutateProject()), ['run', '--budget=1s', 'two words']);
+    is_string($inherited) ? Platform::putEnv('COMPOSER_PROCESS_TIMEOUT', $inherited) : Platform::clearEnv('COMPOSER_PROCESS_TIMEOUT');
 
     expect($code)->toBe(3)
         ->and($output)->toBe("gate:run\ngate:--budget=1s\ngate:two words\n")

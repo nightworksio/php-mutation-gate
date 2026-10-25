@@ -57,10 +57,16 @@ final readonly class Source
         return new self($path, $test, $tokens, $scope, Shape::of($tokens, $scope));
     }
 
-    /** A file of code that is no test file, read. */
-    public static function code(Path $path, Contents $contents): self
+    /** A file of the code the tests judge, read. */
+    public static function ofCode(Path $path, Contents $contents): self
     {
         return self::read($path, $contents, test: false);
+    }
+
+    /** A test file, read. */
+    public static function ofTest(Path $path, Contents $contents): self
+    {
+        return self::read($path, $contents, test: true);
     }
 
     /** The scope a file's code ends in: the namespace it declares last, and what that imports. */

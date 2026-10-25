@@ -8,6 +8,7 @@ use function array_map;
 use function array_merge;
 use function array_pop;
 use function array_shift;
+use function array_splice;
 use function count;
 use function explode;
 use function in_array;
@@ -69,8 +70,8 @@ final readonly class Diff
 
         while (count($fields) > 1) {
             $kind = mb_substr(array_shift($fields), 0, 1);
-            $from = in_array($kind, self::PAIRED, strict: true) ? array_shift($fields) : '';
-            $changes[] = self::change($kind, $from, Path::of((string) array_shift($fields)), $lines);
+            $named = array_splice($fields, 0, in_array($kind, self::PAIRED, strict: true) ? 2 : 1);
+            $changes[] = self::change($kind, $named, $lines);
         }
 
         return Changes::of(...$changes);
@@ -128,13 +129,20 @@ final readonly class Diff
         return $paths;
     }
 
-    /** @param ByPath<Lines> $lines */
-    private static function change(string $kind, string $from, Path $path, ByPath $lines): Change
+    /**
+     * The change an entry of `--name-status` names: its kind, and its paths, where its file came from first where it
+     * names two.
+     *
+     * @param list<string>  $named
+     * @param ByPath<Lines> $lines
+     */
+    private static function change(string $kind, array $named, ByPath $lines): Change
     {
+        $path = Path::of($named[count($named) - 1]);
         $gained = $lines->at($path, Lines::none());
 
         return match ($kind) {
-            'R' => Change::renamed(Path::of($from), $path, $gained),
+            'R' => Change::renamed(Path::of($named[0]), $path, $gained),
             'A', 'C' => Change::added($path, $gained),
             'D' => Change::deleted($path),
             default => Change::modified($path, $gained),

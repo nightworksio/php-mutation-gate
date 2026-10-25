@@ -29,8 +29,10 @@ it('answers what git printed', function (): void {
     expect(Command::in(Repository::empty()->root)->run(['rev-parse', '--is-inside-work-tree']))->toBe("true\n");
 })->group(...$holds);
 
-it('runs git with settings that keep what it prints the same', function (string $setting, string $value): void {
-    expect(Command::in(Repository::empty()->root)->run(['config', $setting]))->toBe(sprintf("%s\n", $value));
+it('runs and feeds git with settings that keep what it prints the same', function (string $setting, string $value): void {
+    $git = Command::in(Repository::empty()->root);
+
+    expect([$git->run(['config', $setting]), $git->feed(['config', $setting], '')])->toBe([sprintf("%s\n", $value), sprintf("%s\n", $value)]);
 })->with([
     ['core.quotePath', 'false'],
     ['diff.noprefix', 'false'],
@@ -74,7 +76,7 @@ it('cannot tell where git stops before it reads its input, and writes nowhere it
     $answer = Command::in(Scratch::directory())->feed(['cat-file', '--batch'], str_repeat("HEAD:./src/Money.php\n", 800_000));
 
     expect($answer)->toBeInstanceOf(CannotTell::class)
-        ->and($answer instanceof CannotTell ? $answer->why() : '')->toStartWith('git cat-file --batch gave no answer: fatal: not a git repository');
+        ->and($answer instanceof CannotTell ? $answer->why() : '')->toMatch('/^git cat-file --batch gave no answer: fatal: not a git repository[^\n]*\z/');
 })->group(...$holds);
 
 it('leaves none of the files it hands git its input through', function (): void {
@@ -94,6 +96,7 @@ it('leaves none of the files it hands git its input through', function (): void 
 it('hands git none of the CI\'s credentials, running or fed alike', function (): void {
     putenv('AWS_SECRET_ACCESS_KEY=leaked');
     putenv('MUTATION_GATE_KEPT=kept');
+    $_SERVER['AWS_SECRET_ACCESS_KEY'] = 'leaked';
 
     try {
         $git = Command::in(Repository::empty()->root);
@@ -102,6 +105,7 @@ it('hands git none of the CI\'s credentials, running or fed alike', function ():
     } finally {
         putenv('AWS_SECRET_ACCESS_KEY');
         putenv('MUTATION_GATE_KEPT');
+        unset($_SERVER['AWS_SECRET_ACCESS_KEY']);
     }
 
     $environments = [is_string($printed) ? $printed : '', is_string($fed) ? $fed : ''];

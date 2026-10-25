@@ -36,7 +36,7 @@ final readonly class PhpVersion
         $required = Lenient::text($manifest->field('require')->field('php'));
         $version = $platform === '' ? self::lowestAllowed($required) : self::minorOf($platform);
 
-        return $version !== '' && version_compare($version, self::LOWEST, '>') ? $version : self::LOWEST;
+        return version_compare($version, self::LOWEST, '>') ? $version : self::LOWEST;
     }
 
     /** The lowest version of any alternative of a constraint; nothing where none names one. */

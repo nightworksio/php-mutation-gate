@@ -67,6 +67,19 @@ it('takes the floor a package declares from whichever of its trees carries it', 
         ->toBe(['packages/billing 7000 src/Auth.php:1,src/Auth.php:2']);
 });
 
+it('takes the floor of the first of a package\'s trees that carries one', function () use ($makeSecurity, $makeBilling, $described): void {
+    $security = $makeSecurity();
+    $billing = $makeBilling();
+
+    $trees = TreeVerdicts::of(
+        Secured::tree('packages/billing/src', $billing->withSecurityFloor(Floor::of(70)), Undeclared::floor(), Secured::mutant(MutantJudgement::Killed, 1)),
+        Secured::tree('packages/billing/lib', $billing->withSecurityFloor(Floor::of(60)), Undeclared::floor(), Secured::mutant(MutantJudgement::Killed, 2)),
+    );
+
+    expect($described(SecurityJudge::of(Baseline::none(), Uncovered::Count, Undeclared::floor())->judged($trees, $security)))
+        ->toBe(['packages/billing 7000 src/Auth.php:1,src/Auth.php:2']);
+});
+
 it('holds a set to its baseline entry, with the reason it was lowered, and judges a package the baseline holds though it has no security mutant', function () use ($makeSecurity, $makeRoot, $makeBilling): void {
     $security = $makeSecurity();
     $root = $makeRoot();

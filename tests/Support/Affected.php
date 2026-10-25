@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\File\Globs;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Php\Codebase;
 use NightWorksIO\MutationGate\Core\Php\Source;
 use NightWorksIO\MutationGate\Core\Reach\AffectedTest;
@@ -86,6 +87,12 @@ final class Affected
         }
 
         return self::over(self::layout(), $changes, $sources, [...$now, ...$unread]);
+    }
+
+    /** The answer for these changes in the fixture's project, where the tests run what this map says. */
+    public static function running(CoverageMap $map, Changes $changes): AffectedTests
+    {
+        return self::over(self::layout(), $changes, self::sources(self::FILES, self::FILES), self::FILES, $map);
     }
 
     /** The tests these changes reach in the fixture's project, where its config file reads these files beside itself. */
@@ -165,22 +172,29 @@ final class Affected
     }
 
     /**
-     * The tests these changes reach under a layout, with these sources, over a codebase of these files.
+     * The tests these changes reach under a layout, with these sources, over a codebase of these files, where the
+     * tests run what the fixture's map or this one says.
      *
      * @param array<string, string> $code
      */
-    private static function over(Layout $layout, Changes $changes, Sources $sources, array $code): AffectedTests
-    {
+    private static function over(
+        Layout $layout,
+        Changes $changes,
+        Sources $sources,
+        array $code,
+        CoverageMap|NotGiven $map = new NotGiven(),
+    ): AffectedTests {
         $trees = self::trees();
         $users = SupportUsers::in($layout, Packages::of($trees), $sources);
         $places = self::places();
-        $readers = new ReadingTests($places, self::map(), self::codebase($code), $users, $sources);
+        $run = $map instanceof CoverageMap ? $map : self::map();
+        $readers = new ReadingTests($places, $run, self::codebase($code), $users, $sources);
 
         return new Affecting(
             $layout,
             $trees,
             Globs::of(Glob::of('templates/**')),
-            new SourceTests($places, self::judges(), self::map(), $readers, $users, $sources),
+            new SourceTests($places, self::judges(), $run, $readers, $users, $sources),
             $users,
         )->of($changes, $sources, $places);
     }

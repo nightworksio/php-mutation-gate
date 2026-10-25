@@ -91,3 +91,36 @@ it('reaches the whole package where something that is no test names the changed 
 
     expect($found)->toEqual(Reason::that('`src/Wiring.php` names the changed support and is no test, so every unit of the project is reached.'));
 });
+
+it('lists the tests that use the changed support in the order they are on disk', function () use ($fake, $clockFake): void {
+    $found = supportUsersAmong([
+        'tests/Unit/LedgerTest.php' => "<?php\n\nuse Tests\\Support\\Clocks;\n\nit('books', fn () => new Clocks());\n",
+        'tests/Unit/ClockTest.php' => "<?php\n\nuse Tests\\Fakes\\ClockFake;\n\nit('ticks', fn () => new ClockFake());\n",
+        'tests/Support/Clocks.php' => "<?php\n\nnamespace Tests\\Support;\n\nuse Tests\\Fakes\\ClockFake;\n\nfinal class Clocks { public ClockFake \$clock; }\n",
+        'tests/Fakes/ClockFake.php' => $fake,
+    ])->of(Path::of('tests/Fakes/ClockFake.php'), $clockFake(), 'the project');
+
+    expect($found instanceof Paths ? array_map(static fn(Path $path): string => $path->value(), [...$found]) : $found)
+        ->toBe(['tests/Unit/LedgerTest.php', 'tests/Unit/ClockTest.php']);
+});
+
+it('names the first support on disk that runs code when it is loaded, however far from the changed support', function () use ($fake, $clockFake): void {
+    $found = supportUsersAmong([
+        'tests/Datasets/Ledgers.php' => "<?php\n\nuse Tests\\Support\\Clocks;\n\ndataset('ledgers', [new Clocks()]);\n",
+        'tests/Fakes/ClockFake.php' => $fake,
+        'tests/Support/Clocks.php' => "<?php\n\nnamespace Tests\\Support;\n\nuse Tests\\Fakes\\ClockFake;\n\nfinal class Clocks { public ClockFake \$clock; }\n",
+        'tests/Datasets/Clocks.php' => "<?php\n\nuse Tests\\Fakes\\ClockFake;\n\ndataset('clocks', [new ClockFake()]);\n",
+    ])->of(Path::of('tests/Fakes/ClockFake.php'), $clockFake(), 'the project');
+
+    expect($found)->toEqual(Reason::that('`tests/Datasets/Ledgers.php` runs code when it is loaded, so every unit of the project is reached.'));
+});
+
+it('follows support that names itself only once', function () use ($fake, $clockFake): void {
+    $found = supportUsersAmong([
+        'tests/Fakes/ClockFake.php' => $fake,
+        'tests/Support/Clocks.php' => "<?php\n\nnamespace Tests\\Support;\n\nuse Tests\\Fakes\\ClockFake;\n\nfinal class Clocks { public static function of(ClockFake \$fake): Clocks {} }\n",
+        'tests/Unit/LedgerTest.php' => "<?php\n\nuse Tests\\Support\\Clocks;\n\nit('books', fn () => Clocks::of());\n",
+    ])->of(Path::of('tests/Fakes/ClockFake.php'), $clockFake(), 'the project');
+
+    expect($found)->toEqual(Paths::of(Path::of('tests/Unit/LedgerTest.php')));
+});

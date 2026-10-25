@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\File\Workspace as GateDirectory;
 use NightWorksIO\MutationGate\Core\Reach\Sources;
 use NightWorksIO\MutationGate\Core\Written;
@@ -43,7 +44,7 @@ final readonly class DecidingConfig
     private function __construct(
         private Effective|Absent $effective,
         private CommandLine $given,
-        private string $project,
+        private Root $project,
         private Path|Absent $file,
     ) {
     }
@@ -51,13 +52,13 @@ final readonly class DecidingConfig
     /** The config file at this path from the project's root, read by a run given this command line. */
     public static function read(Effective $effective, CommandLine $given, string $project, Path $file): self
     {
-        return new self($effective, $given, $project, $file);
+        return new self($effective, $given, Root::of($project), $file);
     }
 
     /** A run that reads no config file, whose config no change leaves deciding alike. */
     public static function unread(): self
     {
-        return new self(Absent::setting(), CommandLine::nothing(), '', Absent::setting());
+        return new self(Absent::setting(), CommandLine::nothing(), Root::here(), Absent::setting());
     }
 
     /**
@@ -83,10 +84,10 @@ final readonly class DecidingConfig
     /** Whether the config file, holding what it held at the base, decides as now. */
     private function decidesAlike(Effective $effective, Path $named, Contents $before): bool
     {
-        $directory = Directory::at($this->project);
+        $directory = Directory::at($this->project->value());
         $copy = Path::of(sprintf(self::BASE, GateDirectory::root()->value(), basename($named->value())));
         $written = $directory->write($copy, $before);
-        $read = ConfigFile::copyOf($this->onDisk($copy), $this->onDisk($named), Path::of($this->project));
+        $read = ConfigFile::copyOf($this->onDisk($copy), $this->onDisk($named), Path::of($this->project->value()));
         $then = $written instanceof Written ? $effective->decidingOf($this->given, $read) : $written;
         $directory->remove($copy);
         $now = $effective->settings($this->given);
@@ -97,6 +98,6 @@ final readonly class DecidingConfig
     /** Where a path of the project is on disk. */
     private function onDisk(Path $path): Path
     {
-        return Path::of(sprintf('%s/%s', $this->project, $path->value()));
+        return Path::of($this->project->at($path)->value());
     }
 }

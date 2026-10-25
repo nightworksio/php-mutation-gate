@@ -46,7 +46,8 @@ final class Bucket
     /** @var array<string, int> the size each object says it has, where it says one, by its URL */
     private array $lengths = [];
 
-    public function __construct(private readonly int $failing = 0)
+    /** A bucket; one made failing answers every request with that status, and the error code given, where one is. */
+    public function __construct(private readonly int $failing = 0, private readonly string $code = '')
     {
     }
 
@@ -117,7 +118,10 @@ final class Bucket
         $this->record($method, $url, $options, $body);
 
         if ($this->failing !== 0) {
-            return new MockResponse('', ['http_code' => $this->failing]);
+            return new MockResponse(
+                $this->code === '' ? '' : sprintf('<?xml version="1.0" encoding="UTF-8"?><Error><Code>%s</Code><Message>Refused.</Message></Error>', $this->code),
+                ['http_code' => $this->failing],
+            );
         }
 
         if ($method === 'PUT') {

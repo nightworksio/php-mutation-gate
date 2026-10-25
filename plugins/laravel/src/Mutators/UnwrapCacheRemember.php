@@ -48,7 +48,7 @@ final readonly class UnwrapCacheRemember implements Mutator
     {
         $callback = $node instanceof StaticCall && Calls::onFacade($node, Facade::Cache, 'remember')
             ? Calls::argument($node, self::CALLBACK)
-            : false;
+            : null;
 
         return $callback instanceof Node ? new FuncCall($callback) : Unchanged::node();
     }

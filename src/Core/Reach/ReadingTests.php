@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Reach;
 
+use function array_keys;
 use function array_values;
 
 use NightWorksIO\MutationGate\Core\Change\Change;
@@ -139,7 +140,7 @@ final readonly class ReadingTests
 
         foreach ($versions as [$path, $contents]) {
             $symbols += $contents instanceof Contents
-                ? $this->declaredIn(Source::code($path, $contents))
+                ? $this->declaredIn(Source::ofCode($path, $contents))
                 : [];
         }
 
@@ -152,7 +153,7 @@ final readonly class ReadingTests
         $at = SymbolAt::in($source->tokens(), $source->shape());
         $symbols = [];
 
-        for ($token = 0; $token < $source->tokens()->count(); ++$token) {
+        foreach (array_keys($source->tokens()->texts()) as $token) {
             $symbol = $at->token($token);
             $symbols += $symbol instanceof Symbol ? [$symbol->described() => $symbol] : [];
         }

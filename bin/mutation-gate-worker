@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Adapter\Native\Warm\WarmRun;
 use NightWorksIO\MutationGate\Adapter\Native\Warm\Worker;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\PhpUnitBoot;
 use NightWorksIO\MutationGate\Core\Native\Guard;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use PHPUnit\TextUI\Application;
 
 $given = is_array($_SERVER['argv']) ? $_SERVER['argv'] : [];
@@ -45,9 +46,13 @@ if (! function_exists('pcntl_fork')) {
 }
 
 exit($worker->run(new PhpUnitBoot(), new class implements Forking {
-    public function forked(WarmRun $run): int
+    public function forked(WarmRun $run): int|NotGiven
     {
         $child = pcntl_fork();
+
+        if ($child === -1) {
+            return NotGiven::value();
+        }
 
         if ($child !== 0) {
             return $child;

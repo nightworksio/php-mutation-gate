@@ -28,7 +28,7 @@ final readonly class Aborts
     /** Whether a call stops the request on a condition with 401 or 403, written as a number. */
     public static function refuses(Expr $call): bool
     {
-        $code = $call instanceof FuncCall && self::stops($call) ? Calls::argument($call, self::CODE) : false;
+        $code = $call instanceof FuncCall && self::stops($call) ? Calls::argument($call, self::CODE) : null;
 
         return $code instanceof Int_ && in_array($code->value, self::REFUSING, strict: true);
     }

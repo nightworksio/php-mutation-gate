@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_key_exists;
-use function array_keys;
-use function array_slice;
+use function array_map;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Settings;
@@ -163,20 +162,14 @@ final readonly class Rechecking
      */
     private function made(Path $file, array $survivors, array $units): array|CannotJudge
     {
-        $mutators = [];
-
-        foreach ($survivors as $survivor) {
-            $mutators[$survivor->mutant()->mutator()] = true;
-        }
-
-        $names = array_keys($mutators);
+        $names = array_map(static fn(JudgedMutant $survivor): string => $survivor->mutant()->mutator(), $survivors);
         $judgedBy = $units[$file->value()]->judgedBy();
         $request = RunRequest::of($this->adapters, $this->settings, Paths::of($file), $judgedBy)
             ->across(Pool::of($this->adapters->processes(), $this->settings->runner()->workers()))
             ->reusingCoverage(Handed::maps(Workspace::verdictCoverage(), Workspace::coverage()));
         $result = $this->adapters->runner->mutate($request->narrowedTo(
             Paths::of($file),
-            $request->narrowing()->toMutators(Mutators::named($names[0], ...array_slice($names, 1))),
+            $request->narrowing()->toMutators(Mutators::named(...$names)),
         ));
 
         if ($result instanceof CannotJudge) {

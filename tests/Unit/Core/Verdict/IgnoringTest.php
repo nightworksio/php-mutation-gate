@@ -115,6 +115,15 @@ it('stops applying an entry whose day has passed, and names it with the day', fu
         ->toBe([sprintf('The ignore of %s expired on 2026-09-29, so its mutants count again.', $mutant->mutant()->id()->value())]);
 });
 
+it('applies the entries after one whose day has passed', function (): void {
+    $expired = Judged::mutant('a', MutantJudgement::Survived);
+    $kept = Judged::mutant('b', MutantJudgement::Survived, 'src/Tax.php');
+    $ignoring = ignoring(ignoreOf($expired, expires: '2026-09-29'), ignoreOf($kept));
+
+    expect([$ignoring->judged($expired)->judgement(), $ignoring->judged($kept)->judgement()])
+        ->toBe([MutantJudgement::Survived, MutantJudgement::Ignored]);
+});
+
 it('applies an entry through its last day, and names it in advance from fourteen days before', function (string $expires, bool $named): void {
     $mutant = Judged::mutant('a', MutantJudgement::Survived);
     $ignoring = ignoring(ignoreOf($mutant, expires: $expires));

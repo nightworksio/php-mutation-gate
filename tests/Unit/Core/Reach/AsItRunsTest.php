@@ -59,6 +59,10 @@ it('reads a line of spaces, however few, as a blank line of the block scalar it 
     expect(AsItRuns::text(Contents::of($text)))->toBe($text);
 });
 
+it('reads a line of spaces outside a block scalar as blank, so a comment line after it is still left out', function (): void {
+    expect(AsItRuns::text(Contents::of("a: 1\n  \n# note\nb: 2\n")))->toBe("a: 1\n  \nb: 2\n");
+});
+
 it('runs otherwise where a line it would leave out elsewhere is part of a value', function (string $before, string $after): void {
     expect(AsItRuns::alike(Contents::of($before), Contents::of($after)))->toBeFalse();
 })->with([

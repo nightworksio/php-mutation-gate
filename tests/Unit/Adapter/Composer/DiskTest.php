@@ -80,7 +80,18 @@ it('finds the directories a glob of the config matches, from the directory befor
         ->and($disk->directoriesMatching(Glob::of('libs/money')))->toEqual([Path::of('libs/money')])
         ->and($disk->directoriesMatching(Glob::of('packages/group/*')))
         ->toEqual([Path::of('packages/group/loop'), Path::of('packages/group/rates')])
-        ->and($disk->directoriesMatching(Glob::of('modules/*')))->toBe([]);
+        ->and($disk->directoriesMatching(Glob::of('modules/*')))->toBe([])
+        ->and($disk->directoriesMatching(Glob::of('*')))->toEqual([Path::of('libs'), Path::of('packages')]);
+});
+
+it('opens no directory as deep as a path the glob matches goes', function (): void {
+    $root = Project::with(['packages/money/composer.json' => '{}', 'packages/locked/composer.json' => '{}']);
+    chmod(sprintf('%s/packages/locked', $root), 0o000);
+
+    $found = Disk::at(Root::of($root))->directoriesMatching(Glob::of('packages/*'));
+    chmod(sprintf('%s/packages/locked', $root), 0o755);
+
+    expect($found)->toEqual([Path::of('packages/locked'), Path::of('packages/money')]);
 });
 
 it('finds the files a shell glob matches, spelt from the root', function (): void {
