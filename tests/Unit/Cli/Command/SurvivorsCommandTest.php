@@ -68,12 +68,18 @@ it('says after the survivors what each report it is configured with made of the 
     $project = FlowCommands::project('"reports": [{"use": "github-summary"}]');
     $composition = FlowCommands::composition($project, ScriptedRunner::fixture(), $store(), $feature());
     FlowCommands::run(PlanCommand::command($composition), '--shards=1');
+    $summary = sprintf('%s/summary.md', Scratch::directory());
+    $kept = getenv('GITHUB_STEP_SUMMARY');
+    putenv(sprintf('GITHUB_STEP_SUMMARY=%s', $summary));
 
-    $ran = FlowCommands::run(SurvivorsCommand::command($composition));
+    try {
+        $ran = FlowCommands::run(SurvivorsCommand::command($composition));
+    } finally {
+        putenv($kept === false ? 'GITHUB_STEP_SUMMARY' : sprintf('GITHUB_STEP_SUMMARY=%s', $kept));
+    }
 
-    expect($ran->output)->toEndWith(
-        "95e61bd8bf62\nGITHUB_STEP_SUMMARY is not set, so there is no step summary to write.\n",
-    );
+    expect($ran->output)->toEndWith(sprintf("95e61bd8bf62\nWrote %s.\n", $summary))
+        ->and(file_get_contents($summary))->toContain('49e02fb39669');
 });
 
 it('says why it re-checks none on the default branch, and exits 0', function () use ($store): void {
