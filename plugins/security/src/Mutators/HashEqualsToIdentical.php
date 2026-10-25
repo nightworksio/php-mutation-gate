@@ -66,8 +66,12 @@ final readonly class HashEqualsToIdentical implements Mutator, PinnedBySource
     public function mutate(Node $node): Node|Unchanged
     {
         $call = Calls::ofFunction($node, self::FUNCTION);
-        $known = $call === false ? false : Calls::argument($call, 0);
-        $user = $call === false ? false : Calls::argument($call, self::USER);
+        if ($call === false) {
+            return Unchanged::node();
+        }
+
+        $known = Calls::argument($call, 0);
+        $user = Calls::argument($call, self::USER);
 
         return $known instanceof Expr && $user instanceof Expr
             ? new Identical($known, $user)

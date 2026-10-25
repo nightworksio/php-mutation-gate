@@ -53,8 +53,12 @@ final readonly class FilterVarToInput implements Mutator
     public function mutate(Node $node): Node|Unchanged
     {
         $call = Calls::ofFunction($node, 'filter_var');
-        $value = $call === false ? false : Calls::argument($call, 0);
-        $filter = $call === false ? false : Calls::argument($call, self::FILTER);
+        if ($call === false) {
+            return Unchanged::node();
+        }
+
+        $value = Calls::argument($call, 0);
+        $filter = Calls::argument($call, self::FILTER);
 
         return $value instanceof Expr
             && $filter instanceof ConstFetch
