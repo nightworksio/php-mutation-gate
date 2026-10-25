@@ -141,7 +141,7 @@ final readonly class MigrationFiles
     private function read(Path $path): string|CannotJudge
     {
         $file = Root::of($this->project)->at($path)->value();
-        $text = is_file($file) ? file_get_contents($file) : false;
+        $text = is_file($file) ? file_get_contents($file) : null;
 
         return is_string($text) ? $text : CannotJudge::because(sprintf(self::UNREAD, $path->value()));
     }

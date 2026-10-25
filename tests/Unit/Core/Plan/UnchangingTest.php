@@ -124,6 +124,12 @@ it('plans where a renamed file mattered to the gate as it was, though not as it 
     'from the config' => ['mutation-gate.json', '%s decides how the gate runs.'],
 ]);
 
+it('plans where a renamed file matters to the gate as it is, though not as it was', function () use ($unchanging, $passed, $now, $why): void {
+    $renamed = Changes::of(Change::renamed(Path::of('docs/money.txt'), Path::of('src/Money.php'), Lines::none()));
+
+    expect($why($unchanging()->since($passed(), $renamed, UNCHANGING_CHECK, Listed::of(), $now())))->toBe('src/Money.php is PHP.');
+});
+
 it('plans where a deleted file mattered to the gate', function () use ($unchanging, $passed, $now, $why): void {
     $deleted = Changes::of(Change::deleted(Path::of('src/Gone.php')));
 

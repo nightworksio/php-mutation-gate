@@ -9,6 +9,10 @@ it('holds a duration in seconds', function (): void {
     expect(Seconds::of(12.4)->seconds())->toBe(12.4);
 });
 
+it('holds no time at all', function (): void {
+    expect(Seconds::none()->seconds())->toBe(0.0);
+});
+
 it('reads a duration written in days, hours, minutes and seconds', function (string $written, float $seconds): void {
     expect(Seconds::parse($written))->toEqual(Seconds::of($seconds));
 })->with([

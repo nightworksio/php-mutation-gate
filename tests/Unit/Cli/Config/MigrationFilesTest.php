@@ -181,3 +181,29 @@ it('reads a PHP config\'s baseline from a literal Baseline::at() alone, and the 
 
     expect($baseline instanceof Migrated ? $baseline->file() : $baseline)->toBe('mutation-gate.baseline.json');
 });
+
+it('reads the baseline a YAML or NEON config names where its library is installed, and the standard one where not', function (
+    string $name,
+    string $config,
+    bool $installed,
+    string $read,
+): void {
+    $project = Scratch::directory();
+    Scratch::write($project, $name, $config);
+    Scratch::write($project, 'mutation-gate.baseline.json', '{"format": 1, "floors": {}}');
+    Scratch::write($project, 'kept/baseline.json', '{"format": 1, "floors": {}}');
+    $baselines = Migrations::of(Migration::in('2.0.0', Rename::of('floors', 'trees')));
+    $baseline = migrationFilesIn($project, $installed)->baseline(CommandLine::nothing(), $baselines);
+
+    expect($baseline instanceof Migrated ? $baseline->file() : $baseline)->toBe($read);
+})->with([
+    'YAML, installed' => ['mutation-gate.yaml', "baseline:\n  path: kept/baseline.json\n", true, 'kept/baseline.json'],
+    'YAML, not installed' => ['mutation-gate.yaml', "baseline:\n  path: kept/baseline.json\n", false, 'mutation-gate.baseline.json'],
+    'NEON indented by a tab, which YAML refuses, installed' => [
+        'mutation-gate.neon',
+        "baseline:\n\tpath: kept/baseline.json\n",
+        true,
+        'kept/baseline.json',
+    ],
+    'NEON, not installed' => ['mutation-gate.neon', "baseline:\n\tpath: kept/baseline.json\n", false, 'mutation-gate.baseline.json'],
+]);
