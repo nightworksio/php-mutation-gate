@@ -25,6 +25,7 @@ it('prunes the mutators of a runner whose window is full and clean, less those n
     );
 
     expect([...$survival->pruned($pest, Window::of(2), MutatorNames::of('Secure'))])->toBe(['Plus'])
+        ->and([...$survival->pruned($pest, Window::of(1), MutatorNames::of('Secure'))])->toBe(['Plus', 'Short'])
         ->and([...$survival->pruned(Name::of('infection'), Window::of(2), MutatorNames::none())])->toBe([])
         ->and($survival->of($pest, RunnerMutatorName::of('Minus'))->last())->toBe('d')
         ->and($survival->of($pest, RunnerMutatorName::of('Minus'))->outcomes())->toBe('01');
@@ -55,6 +56,14 @@ it('reads its own windows before another ledger\'s, taking the other\'s only for
         ->and($read->of($pest, RunnerMutatorName::of('Minus'))->outcomes())->toBe('0')
         ->and($read->of(Name::of('infection'), RunnerMutatorName::of('Plus'))->outcomes())->toBe('0')
         ->and($read->of(Name::of('phpunit'), RunnerMutatorName::of('Plus'))->outcomes())->toBe('');
+});
+
+it('holds its runners sorted by name, whatever order it learned of them in', function (): void {
+    $survival = Survival::none()
+        ->with(Name::of('pest'), PruningCases::window('Plus', '0'))
+        ->with(Name::of('infection'), PruningCases::window('Plus', '0'));
+
+    expect(array_keys(iterator_to_array($survival, preserve_keys: true)))->toBe(['infection', 'pest']);
 });
 
 it('lists mutator names sorted and once each', function (): void {

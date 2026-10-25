@@ -438,6 +438,13 @@ it('refuses a revision named like an option, which git would read as one', funct
         ->and(file_exists($written))->toBeFalse();
 })->with(['--output=%s', '-h%s'])->group(...$holds);
 
+it('reads a file at a revision whose name ends in a dash', function (): void {
+    $repository = Repository::empty()->write('src/A.php', "<?php\n")->commit('The base.');
+    $repository->git('branch', 'feature-');
+
+    expect(Git::at($repository->root)->fileAt(Path::of('src/A.php'), Revision::ref('feature-')))->toEqual(Contents::of("<?php\n"));
+})->group(...$holds);
+
 it('reads the changes alike whatever copy detection the user\'s own config asks for', function (): void {
     $repository = Repository::empty()->write('src/A.php', "<?php\n\nfinal class A\n{\n    public function one(): int { return 1; }\n}\n")->commit('The base.');
     $repository->git('tag', 'base');

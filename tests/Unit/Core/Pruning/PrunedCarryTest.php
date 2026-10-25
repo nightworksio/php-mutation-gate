@@ -106,16 +106,17 @@ it('carries the kills a ledger proved of a pruned mutator, as it holds them, and
 
     $plus = ProvedKill::of(MutantId::hash(Path::of('src/A.php'), 'Plus', '-2', 0), Path::of('src/A.php'), Line::of(2), 'Plus', TestIds::none());
     $minus = ProvedKill::of(MutantId::hash(Path::of('src/A.php'), 'Minus', '-4', 0), Path::of('src/A.php'), Line::of(4), 'Minus', TestIds::none());
+    $plusAgain = ProvedKill::of(MutantId::hash(Path::of('src/A.php'), 'Plus', '-6', 0), Path::of('src/A.php'), Line::of(6), 'Plus', TestIds::none());
     $held = Proof::held(
         Digest::of('src-a'),
         Path::of('src/A.php'),
         Mutants::none(),
-        ProvedKills::of($plus, $minus),
+        ProvedKills::of($plus, $minus, $plusAgain),
         Run::of('main', Moment::at('2026-10-05T00:00:00Z'), Digest::of(str_repeat('b', 64))),
     )->withInputs(Inputs::of(Digest::sha256Of('a'), Digest::sha256Of('mutation')));
 
     expect(carriedIn(PrunedCarry::of($pruned, Proofs::of($held)->newest(), PruningCases::now(...['src/A.php' => 'a']))->into($fresh()))[0])
-        ->toBe([['Minus-3'], ['Plus'], 1]);
+        ->toBe([['Minus-3'], ['Plus', 'Plus'], 2]);
 });
 
 it('keeps a unit whose last result holds no mutant of a pruned mutator as the run left it', function () use ($fresh): void {

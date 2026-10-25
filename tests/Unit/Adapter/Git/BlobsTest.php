@@ -3,9 +3,16 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Git\Blobs;
+use NightWorksIO\MutationGate\Adapter\Git\Command;
+use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Tests\Support\FileTexts;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;
+
+afterEach(function (): void {
+    Scratch::sweep();
+});
 
 $makeBlob = static fn(): string => str_repeat('a', 40);
 
@@ -32,5 +39,9 @@ it('reads a name the batch printed nothing for as missing', function () use ($ma
 
     expect(FileTexts::of(Blobs::read(sprintf("%s blob 2\nok\n", $blob), Paths::of(Path::of('src/Ok.php'), Path::of('src/Cut.php')))))
         ->toBe(['src/Ok.php' => 'ok', 'src/Cut.php' => null])
-        ->and(FileTexts::of(Blobs::read('', Paths::of(Path::of('src/A.php')))))->toBe(['src/A.php' => null]);
+        ->and(FileTexts::of(Blobs::read('', Paths::of(Path::of('src/A.php'), Path::of('src/B.php')))))->toBe(['src/A.php' => null, 'src/B.php' => null]);
+});
+
+it('asks git nothing where no file is wanted', function (): void {
+    expect(Blobs::at(Command::in(Scratch::directory()), str_repeat('a', 40))->of(Paths::none()))->toEqual(ByPath::none());
 });
