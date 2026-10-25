@@ -25,6 +25,9 @@ final readonly class Bytes
     /** The bytes a line's indentation is made of: a space and a tab. */
     public const string BLANKS = " \t";
 
+    /** The byte of value zero: one no path holds, and what XOR makes of two bytes that are alike. */
+    public const string NUL = "\0";
+
     /** The encoding in which one character is one byte. */
     private const string ENCODING = '8bit';
 

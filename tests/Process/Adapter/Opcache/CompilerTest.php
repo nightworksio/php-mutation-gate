@@ -68,7 +68,11 @@ it('compiles a program that warns as it compiles, with no warning in its answer 
         ->and($compiled['warns'] instanceof Opcodes ? $compiled['warns']->text() : '')->not->toContain('Deprecated');
 })->group(...$holds);
 
-it('compiles at most a hundred programs in one child', function (int $programs, int $children): void {
+it('compiles at most a hundred programs in one child, sharing them out among the children side by side', function (
+    int $programs,
+    int $parallel,
+    int $children,
+): void {
     $log = sprintf('%s/children', Scratch::directory());
     $child = sprintf('%s/counting-php', Scratch::directory());
     file_put_contents($child, sprintf("#!/bin/sh\necho started >> %s\nexec %s \"$@\"\n", $log, PHP_BINARY));
@@ -79,11 +83,16 @@ it('compiles at most a hundred programs in one child', function (int $programs, 
         $listed[sprintf('p%d', $at)] = Contents::of(sprintf("<?php\nfunction p%d(): int { return %d; }\n", $at, $at));
     }
 
-    $compiled = new Compiler($child, sprintf('%s/equivalence', Scratch::directory()), 30.0, 1)->compiled($listed);
+    $compiled = new Compiler($child, sprintf('%s/equivalence', Scratch::directory()), 30.0, max(1, $parallel))
+        ->compiled($listed);
 
     expect(array_filter($compiled, static fn(Opcodes|Uncompiled $one): bool => ! $one instanceof Opcodes))->toBe([])
         ->and(substr_count((string) file_get_contents($log), 'started'))->toBe($children);
-})->with(['a hundred, in one child' => [100, 1], 'one more, in two' => [101, 2]])->group(...$holds);
+})->with([
+    'a hundred, in one child' => [100, 1, 1],
+    'one more, in two' => [101, 1, 2],
+    'four, three side by side, two to a child' => [4, 3, 2],
+])->group(...$holds);
 
 it('says opcache dumped nothing where it gives no opcodes, or cannot compile at all', function (string $setting): void {
     expect(compiledPrograms(['one' => Contents::of(CompilerChildren::PROGRAM)], besides: [$setting]))

@@ -7,9 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Opcache;
 use function array_map;
 
 use PhpParser\Node;
-use PhpParser\Node\ArrayItem;
 use PhpParser\Node\Expr;
-use PhpParser\Node\Expr\Array_;
 use PhpParser\Node\Expr\ArrowFunction;
 use PhpParser\Node\Expr\Closure;
 use PhpParser\Node\PropertyHook;
@@ -24,10 +22,10 @@ use PhpParser\NodeVisitorAbstract;
 
 /**
  * Takes each function's body out of a program, keeping what the body
- * declares (see Declarations): a body of statements keeps its static
- * variables, functions and classes as statements and its closures as
- * expressions, and a body that is one expression, as
- * an arrow function's or a short property hook's is, keeps them as a list.
+ * declares (see Declarations): its static variables, functions and classes
+ * as statements and its closures as expressions. A body that is one
+ * expression, as an arrow function's or a short property hook's is, keeps
+ * them as the statements of a closure in its place.
  * Bodies inside are taken out first, so what a body keeps is already
  * without its own.
  */
@@ -58,7 +56,7 @@ final class BodiesOut extends NodeVisitorAbstract
 
     private function expressed(ArrowFunction $function): Node
     {
-        $function->expr = $this->listed([$function->expr]);
+        $function->expr = $this->enclosed($function->expr);
 
         return $function;
     }
@@ -66,7 +64,7 @@ final class BodiesOut extends NodeVisitorAbstract
     private function hooked(PropertyHook $hook): Node
     {
         $hook->body = match (true) {
-            $hook->body instanceof Expr => $this->listed([$hook->body]),
+            $hook->body instanceof Expr => $this->enclosed($hook->body),
             $hook->body === null => null,
             default => $this->statements($hook->body),
         };
@@ -86,13 +84,9 @@ final class BodiesOut extends NodeVisitorAbstract
         );
     }
 
-    /** @param array<Node> $body */
-    private function listed(array $body): Array_
+    private function enclosed(Expr $body): Closure
     {
-        return new Array_(array_map(
-            static fn(Node $declared): ArrayItem => new ArrayItem($declared instanceof Expr ? $declared : new Array_()),
-            $this->declaredIn($body),
-        ));
+        return new Closure(['stmts' => $this->statements([$body])]);
     }
 
     /**

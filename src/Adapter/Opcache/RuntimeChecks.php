@@ -10,6 +10,10 @@ use function min;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
+
+use const PHP_INT_MAX;
+use const PHP_INT_MIN;
+
 use PhpParser\Error;
 use PhpParser\Node;
 use PhpParser\Node\Expr;
@@ -22,6 +26,9 @@ use PhpParser\NodeFinder;
 use PhpParser\NodeTraverser;
 use PhpParser\NodeVisitor\NodeConnectingVisitor;
 use PhpParser\ParserFactory;
+
+use function rtrim;
+use function strspn;
 
 /**
  * Where a program reads the PHP it runs on in a way opcache decides as it
@@ -36,6 +43,9 @@ use PhpParser\ParserFactory;
  */
 final readonly class RuntimeChecks
 {
+    /** The whole of a program, as a span: from before its first byte to past its last. */
+    private const array WHOLE = [PHP_INT_MIN, PHP_INT_MAX];
+
     /** @param list<array{int, int}> $spans each first and last byte opcache decides by a check */
     private function __construct(private string $original, private array $spans)
     {
@@ -47,7 +57,7 @@ final readonly class RuntimeChecks
         try {
             $statements = new ParserFactory()->createForNewestSupportedVersion()->parse($program->text()) ?? [];
         } catch (Error) {
-            return new self($program->text(), [[0, Bytes::length($program->text())]]);
+            return new self($program->text(), [self::WHOLE]);
         }
 
         new NodeTraverser(new NodeConnectingVisitor())->traverse($statements);
@@ -55,7 +65,7 @@ final readonly class RuntimeChecks
 
         foreach (new NodeFinder()->findInstanceOf($statements, Expr::class) as $expression) {
             if (self::isCheck($expression)) {
-                $spans[] = self::decidedBy($expression, Bytes::length($program->text()));
+                $spans[] = self::decidedBy($expression);
             }
         }
 
@@ -85,26 +95,15 @@ final readonly class RuntimeChecks
      */
     private function changed(string $mutant): array
     {
-        $shorter = min(Bytes::length($this->original), Bytes::length($mutant));
-        $first = 0;
+        $originalLength = Bytes::length($this->original);
+        $mutantLength = Bytes::length($mutant);
+        $shorter = min($originalLength, $mutantLength);
+        $first = strspn($this->original ^ $mutant, Bytes::NUL);
+        $ends = Bytes::from($this->original, $originalLength - $shorter)
+            ^ Bytes::from($mutant, $mutantLength - $shorter);
+        $fromEnd = min($shorter - Bytes::length(rtrim($ends, Bytes::NUL)), $shorter - $first);
 
-        while ($first < $shorter && $this->original[$first] === $mutant[$first]) {
-            ++$first;
-        }
-
-        $fromEnd = 0;
-
-        $originalLast = Bytes::length($this->original) - 1;
-        $mutantLast = Bytes::length($mutant) - 1;
-
-        while (
-            $fromEnd < $shorter - $first
-            && $this->original[$originalLast - $fromEnd] === $mutant[$mutantLast - $fromEnd]
-        ) {
-            ++$fromEnd;
-        }
-
-        return [$first, max($first, $originalLast - $fromEnd)];
+        return [$first, max($first, $originalLength - 1 - $fromEnd)];
     }
 
     private static function isCheck(Node $node): bool
@@ -125,7 +124,7 @@ final readonly class RuntimeChecks
      *
      * @return array{int, int}
      */
-    private static function decidedBy(Node $check, int $length): array
+    private static function decidedBy(Node $check): array
     {
         $top = $check;
         $parent = $check->getAttribute('parent');
@@ -137,6 +136,6 @@ final readonly class RuntimeChecks
 
         $decided = $parent instanceof FunctionLike ? $parent : $top;
 
-        return $parent instanceof Node ? [$decided->getStartFilePos(), $decided->getEndFilePos()] : [0, $length];
+        return $parent instanceof Node ? [$decided->getStartFilePos(), $decided->getEndFilePos()] : self::WHOLE;
     }
 }
