@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Mutator\Engine;
 
-use function array_diff_key;
-
 use NightWorksIO\MutationGate\Mutator\Removal;
 use PhpParser\Node;
 use PhpParser\Node\Stmt;
@@ -40,7 +38,9 @@ enum Offered
     public function replacing(Node $node, Node|Removal $change): Node|int
     {
         if ($change instanceof Node) {
-            $change->setAttributes(array_diff_key($change->getAttributes(), [self::ORIGINAL => true]));
+            $attributes = $change->getAttributes();
+            unset($attributes[self::ORIGINAL]);
+            $change->setAttributes($attributes);
 
             return $change;
         }
