@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_keys;
-use function array_values;
 use function dirname;
 use function file_get_contents;
 use function file_put_contents;
@@ -135,10 +134,13 @@ final readonly class UnmutatedRuns
         $slots = WorkerSlots::of($request->pool()->processes(), strval(getmypid()));
         $keys = array_keys($commands);
 
-        foreach ($this->shell->sideBySide($slots, $request->deadline(), ...array_values($commands)) as $at => $ran) {
+        foreach ($this->shell->sideBySide($slots, $request->deadline(), ...$commands) as $at => $ran) {
             [$control, $peak] = $peaks[$keys[$at]];
-            $written = is_file($peak) ? (string) file_get_contents($peak) : '';
-            $runs = $runs->with($control, PeakLauncher::measured(ControlRun::ofProcess($ran), $written, PHP_OS_FAMILY));
+            $run = ControlRun::ofProcess($ran);
+            $measured = is_file($peak)
+                ? PeakLauncher::measured($run, sprintf('%s', file_get_contents($peak)), PHP_OS_FAMILY)
+                : $run;
+            $runs = $runs->with($control, $measured);
         }
 
         return $runs;

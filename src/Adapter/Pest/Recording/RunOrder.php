@@ -21,7 +21,7 @@ final class RunOrder
 {
     private int $started = 0;
 
-    private string $last = '';
+    private string|NotGiven $last;
 
     private string $running = '';
 
@@ -31,6 +31,7 @@ final class RunOrder
     public function __construct(private readonly int $run)
     {
         $this->digest = OrderDigest::start();
+        $this->last = NotGiven::value();
     }
 
     /** A test that started, by its id. */
@@ -57,7 +58,7 @@ final class RunOrder
     /** Where a killer stands, by its id. */
     public function placed(string $test): Placed
     {
-        return $this->started > 0 && $test === $this->last
+        return $test === $this->last
             ? Placed::at($this->started, $this->digest->value(), $this->run)
             : Placed::unplaced($this->run);
     }

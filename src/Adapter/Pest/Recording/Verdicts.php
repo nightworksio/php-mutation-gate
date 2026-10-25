@@ -7,11 +7,9 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
 use function array_filter;
 use function array_flip;
 use function array_key_exists;
-use function clearstatcache;
 use function explode;
 use function file_get_contents;
 use function file_put_contents;
-use function hrtime;
 use function implode;
 use function is_file;
 use function is_string;
@@ -64,14 +62,8 @@ final class Verdicts
      */
     public static function await(string $file, Seconds $within): void
     {
-        $until = hrtime(as_number: true) + $within->nanoseconds();
-
-        while (! is_file($file) && hrtime(as_number: true) < $until) {
-            usleep(Polling::interval()->microseconds());
-            clearstatcache();
-        }
-
-        $text = is_file($file) ? file_get_contents($file) : false;
+        Polling::wait($within, static fn(): bool => is_file($file), usleep(...));
+        $text = is_file($file) ? file_get_contents($file) : null;
         self::$rejected = is_string($text)
             ? array_flip(array_filter(explode(self::LINE, $text), static fn(string $line): bool => $line !== ''))
             : [];

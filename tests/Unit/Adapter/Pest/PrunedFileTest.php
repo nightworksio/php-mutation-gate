@@ -30,3 +30,15 @@ it('leaves nothing out where no list is named, or none is there', function (): v
     expect(PrunedFile::leavesOut('', '/project/src/Money.php', 'Plus'))->toBeFalse()
         ->and(PrunedFile::leavesOut(sprintf('%s/missing.pruned', Scratch::directory()), '/project/src/Money.php', 'Plus'))->toBeFalse();
 });
+
+it('reads the list once in a process, keeping what it read though the file goes', function (): void {
+    $list = PrunedFile::write(
+        PrunedList::beside(sprintf('%s/results.jsonl', Scratch::directory())),
+        Pruned::of(MutatorNames::of('Plus'), Paths::of(Path::of('src/Money.php'))),
+        '/project',
+    );
+    $before = PrunedFile::leavesOut($list, '/project/src/Money.php', 'Plus');
+    unlink($list);
+
+    expect([$before, PrunedFile::leavesOut($list, '/project/src/Money.php', 'Plus')])->toBe([true, true]);
+});

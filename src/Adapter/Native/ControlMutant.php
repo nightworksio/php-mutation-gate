@@ -41,7 +41,7 @@ final readonly class ControlMutant
         $file = $control->file();
         $absolute = $project->absolute($file);
         $text = is_file($absolute) ? file_get_contents($absolute) : false;
-        $first = Line::of(1);
+        $first = Line::first();
 
         return $text === false
             ? CannotJudge::because(sprintf(Control::UNREAD, $file->value()))

@@ -78,6 +78,25 @@ it('holds a run to no limit before its tests begin, then stops it once no test h
         ->and(file_get_contents($results))->toBe(RecordLine::silent('/tmp/mutations/abc', 8.0));
 })->group(...$holds);
 
+it('records a stopped run after what the results hold, and nothing where the gate names an empty results file', function (): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    file_put_contents($results, "earlier\n");
+    $stopped = static function (string $mutated): void {
+        $process = silenceRun(0.0);
+        Silence::watch($process, ['T::a'], $mutated, '--filter="T::a"', 'P\\Plus');
+        silenceBeaten($process);
+        Silence::check($process, 1001.0);
+
+        expect(static fn() => Silence::check($process, 1010.0))->toThrow(ProcessTimedOutException::class);
+    };
+    putenv(sprintf('%s=%s', GateVariable::Results->value, $results));
+    $stopped('/tmp/mutations/first');
+    putenv(sprintf('%s=', GateVariable::Results->value));
+    $stopped('/tmp/mutations/second');
+
+    expect(file_get_contents($results))->toBe(sprintf("earlier\n%s", RecordLine::silent('/tmp/mutations/first', 8.0)));
+})->group(...$holds);
+
 it('never stops a run it does not watch, one watched again under tests the map did not time, nor one whose filter was left out', function (): void {
     $unwatched = silenceRun(0.0);
     $untimed = silenceRun(0.0);

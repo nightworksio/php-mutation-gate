@@ -52,13 +52,15 @@ it('reads the tests that raised each kind, by id, from the issues PHP or a test 
         phpunitDeprecations: [$tax->id() => []],
         skipped: [$skipped],
         incomplete: [$incomplete],
+        deprecations: [PhpUnitResults::issue($tax)],
+        phpNotices: [PhpUnitResults::issue($money)],
     );
     $read = array_map(static fn(IssueKind $kind): array => $kind->testsIn($result), IssueKind::cases());
 
     expect(array_combine(array_map(static fn(IssueKind $kind): string => $kind->name, IssueKind::cases()), $read))->toBe([
         'Warning' => [$money->id(), $tax->id()],
-        'Notice' => [$tax->id()],
-        'Deprecation' => [$money->id()],
+        'Notice' => [$tax->id(), $money->id()],
+        'Deprecation' => [$tax->id(), $money->id()],
         'Risky' => [$money->id()],
         'Incomplete' => [$incomplete->test()->id()],
         'Skipped' => [$skipped->test()->id()],

@@ -6,8 +6,9 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Unexecutable;
 
 use DOMDocument;
 
+use function filter_var;
 use function is_file;
-use function is_numeric;
+use function is_float;
 
 use NightWorksIO\MutationGate\Core\Format\Xml;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -27,21 +28,21 @@ final readonly class TestTimes
     {
         $document = new DOMDocument();
 
-        if (! is_file($log) || ! $document->load($log, Xml::QUIET)) {
-            return Unmeasured::duration();
+        if (is_file($log)) {
+            $document->load($log, Xml::QUIET);
         }
 
         $total = 0.0;
         $cases = $document->getElementsByTagName('testcase');
 
         foreach ($cases as $case) {
-            $time = $case->getAttribute(self::TIME);
+            $time = filter_var($case->getAttribute(self::TIME), FILTER_VALIDATE_FLOAT);
 
-            if (! is_numeric($time)) {
+            if (! is_float($time)) {
                 return Unmeasured::duration();
             }
 
-            $total += (float) $time;
+            $total += $time;
         }
 
         return $cases->length > 0 ? Seconds::of($total) : Unmeasured::duration();

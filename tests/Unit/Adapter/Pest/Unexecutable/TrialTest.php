@@ -454,6 +454,38 @@ it('judges nothing, and runs nothing, where the file the tests judge cannot be s
     'no longer parsing' => ['src/Broken.php', 'src/Broken.php does not parse'],
 ]);
 
+it('runs the tests on their own for each file that can be served, past one that cannot', function (): void {
+    $at = trialProject();
+    $shell = new ShellFake(trialAnswering('{"before":false,"loaded":true,"opcache":false}', Ran::finished(succeeded: false, output: '')));
+
+    $outcomes = trialOf($at, $shell)->ofEach(
+        TrialRun::of(Paths::of(Path::of('tests/A.php')), Path::of('src/Gone.php'), '/c1', Seconds::of(6.0)),
+        TrialRun::of(Paths::of(Path::of('tests/B.php')), Path::of('src/Money.php'), '/c2', Seconds::of(6.0)),
+    );
+
+    expect(array_map(static fn(Outcome $outcome): MutantStatus => $outcome->status(), $outcomes))
+        ->toBe([MutantStatus::Unjudged, MutantStatus::Killed]);
+});
+
+it('says a mutant whose run was not timed took no time', function (): void {
+    $at = trialProject();
+    $shell = new ShellFake(trialAnswering('{"before":false,"loaded":true,"opcache":false}', Ran::finished(succeeded: false, output: '')));
+
+    $outcome = trialOf($at, $shell)->of(Paths::of(Path::of('tests/MoneySpec.php')), Path::of('src/Money.php'), '/copies/n1.php', Seconds::of(6.0));
+
+    expect($outcome->duration())->toEqual(Seconds::of(0.0));
+});
+
+it('writes each run in a directory of its own under one not made yet', function (): void {
+    $at = trialProject();
+    $shell = new ShellFake(trialAnswering('{"before":false,"loaded":true,"opcache":false}', Ran::finished(succeeded: false, output: '')));
+    $trial = new Trial($at, $shell, Invocation::of($at), new WholeSuite(), Withheld::standard(), sprintf('%s/trials', $at->root()), uncappedScan($at), WorkerSlots::alone(), MatrixKind::FirstKiller);
+
+    expect($trial->of(Paths::of(Path::of('tests/MoneySpec.php')), Path::of('src/Money.php'), '/copies/n1.php', Seconds::of(6.0))->status())
+        ->toBe(MutantStatus::Killed)
+        ->and(is_file(sprintf('%s/trials/0/guard.json', $at->root())))->toBeTrue();
+});
+
 it('says of a mutant its tests that passed on their own, unmutated, took this long there, by the JUnit log of that run', function (): void {
     $at = trialProject();
     $log = sprintf('%s/0/junit.xml', $at->root());

@@ -122,9 +122,12 @@ it('records nothing where no results file is named, or PHPUnit takes no more sub
     $sealed->seal();
     $results = sprintf('%s/results.txt', Scratch::directory());
 
+    $unnamed = new Facade();
+
     Recorder::listening(results: false, events: Extending::over(new Facade()), issues: IssueKillers::ofThisRun());
-    Recorder::listening('', Extending::over(new Facade()), IssueKillers::ofThisRun());
+    Recorder::listening('', Extending::over($unnamed), IssueKillers::ofThisRun());
     Recorder::listening($results, Extending::over($sealed), IssueKillers::ofThisRun());
+    PhpUnitEvents::started($unnamed);
 
     expect(is_file($results))->toBeFalse();
 });

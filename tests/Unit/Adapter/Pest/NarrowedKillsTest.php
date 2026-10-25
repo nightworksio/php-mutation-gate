@@ -17,7 +17,6 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
 use NightWorksIO\MutationGate\Core\Mutant\Prefix;
-use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -281,8 +280,8 @@ it('replays each narrowed kill whose order is known, once for an order and file 
 })->with([
     'a replay that lets it stand' => [ReplayVerdict::Stands, []],
     'a replay that does not' => [ReplayVerdict::OtherOrder, fn(): array => [
-        ['native-1', MutantStatus::Unjudged, Reason::that(ReplayVerdict::OtherOrder->reason())],
-        ['native-3', MutantStatus::Unjudged, Reason::that(ReplayVerdict::OtherOrder->reason())],
+        ['native-1', MutantStatus::Unjudged, ReplayVerdict::OtherOrder->reason()],
+        ['native-3', MutantStatus::Unjudged, ReplayVerdict::OtherOrder->reason()],
     ]],
 ]);
 

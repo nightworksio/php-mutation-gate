@@ -210,7 +210,7 @@ final readonly class Judging
                 : [];
         }
 
-        foreach ($trial->ofEach(...array_values($trials)) as $position => $outcome) {
+        foreach ($trial->ofEach(...$trials) as $position => $outcome) {
             $found[array_keys($trials)[$position]] = $outcome;
         }
 
@@ -238,7 +238,7 @@ final readonly class Judging
         Original|CannotJudge|NotGiven $original,
         string $copy,
     ): Choice|NotGiven|Outcome {
-        $text = is_file($copy) ? file_get_contents($copy) : false;
+        $text = is_file($copy) ? file_get_contents($copy) : null;
 
         if ($original instanceof NotGiven || ! is_string($text)) {
             return Outcome::unjudged(self::MISSING);
