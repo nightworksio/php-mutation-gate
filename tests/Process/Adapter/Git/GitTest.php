@@ -208,10 +208,23 @@ it('keeps what a run withholds from git itself', function (): void {
         ->and($withholding->fingerprints())->toEqual(Fingerprints::none());
 })->group(...$holds);
 
+it('lists of some paths each file it does not ignore, tracked or not, on disk or not, each name read as it is', function (): void {
+    $repository = Repository::empty()->write('.gitignore', "/var/\n")->write('stubs/a.stub', '<?php')
+        ->write('gone.neon', 'parameters: {}')->commit('The base.');
+    unlink(sprintf('%s/gone.neon', $repository->root));
+    $repository->write('stubs/new.stub', '<?php')->write('var/cache/Container.xml', '<container/>')->write('[ab].neon', '{}')
+        ->write('a.neon', '{}')->write('-c.neon', '{}');
+
+    expect(Git::at($repository->root)->listed(Paths::of(Path::of('stubs'), Path::of('var/cache/Container.xml'), Path::of('gone.neon'), Path::of('[ab].neon'), Path::of('-c.neon'))))
+        ->toEqual(Paths::of(Path::of('-c.neon'), Path::of('[ab].neon'), Path::of('gone.neon'), Path::of('stubs/a.stub'), Path::of('stubs/new.stub')))
+        ->and(Git::at($repository->root)->listed(Paths::none()))->toEqual(Paths::none());
+})->group(...$holds);
+
 it('cannot tell anything outside a repository', function (): void {
     $directory = Scratch::directory();
 
     expect(Git::at($directory)->changesSince(Revision::ref('HEAD')))->toBeInstanceOf(CannotTell::class)
+        ->and(Git::at($directory)->listed(Paths::of(Path::of('phpstan.neon'))))->toBeInstanceOf(CannotTell::class)
         ->and(Git::at($directory)->fingerprints())->toBeInstanceOf(CannotTell::class)
         ->and(Git::at($directory)->unstaged())->toBeInstanceOf(CannotTell::class);
 })->group(...$holds);

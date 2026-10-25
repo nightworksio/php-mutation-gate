@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\ReferencedFiles;
+use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -72,4 +73,39 @@ it('reads a file outside the root where the analyser names it, by the path it wa
 
     expect(referencedIn($project, Path::of(sprintf('%s/shared.neon', $elsewhere))))
         ->toBe([sprintf('%s/shared.neon', $elsewhere) => hash('sha256', 'includes: []')]);
+});
+
+it('leaves out each file under the root version control does not list, as it ignores a generated cache', function (): void {
+    $project = Scratch::directory();
+    $elsewhere = Scratch::directory();
+    Scratch::write($project, 'phpstan.neon', 'parameters: {}');
+    Scratch::write($project, 'stubs/a.stub', '<?php class A {}');
+    Scratch::write($project, 'stubs/cache/b.stub', '<?php class B {}');
+    Scratch::write($project, 'var/cache/Container.xml', '<container/>');
+    Scratch::write($elsewhere, 'shared.neon', 'includes: []');
+    $shared = Path::of(sprintf('%s/shared.neon', $elsewhere));
+    $references = Paths::of(Path::of('phpstan.neon'), Path::of('stubs'), Path::of('var/cache/Container.xml'), Path::of('gone.neon'), $shared);
+    $listed = Paths::of(Path::of('phpstan.neon'), Path::of('stubs/a.stub'), Path::of('gone.neon'));
+    $digests = [];
+
+    foreach (ReferencedFiles::under(Root::of($project))->listing($listed)->digests($references) as $path => $digest) {
+        $digests[$path->value()] = $digest instanceof Digest ? $digest->value() : 'missing';
+    }
+
+    expect($digests)->toBe([
+        'phpstan.neon' => hash('sha256', 'parameters: {}'),
+        'stubs/a.stub' => hash('sha256', '<?php class A {}'),
+        'gone.neon' => 'missing',
+        $shared->value() => hash('sha256', 'includes: []'),
+    ])->and(ReferencedFiles::inside($references))
+        ->toEqual(Paths::of(Path::of('phpstan.neon'), Path::of('stubs'), Path::of('var/cache/Container.xml'), Path::of('gone.neon')))
+        ->and(ReferencedFiles::inside(Paths::of(Path::of('../shared.neon'))))->toEqual(Paths::none());
+});
+
+it('reads every file it is given where version control cannot say which it lists', function (): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'var/cache/Container.xml', '<container/>');
+
+    expect(ReferencedFiles::under(Root::of($project))->listing(CannotTell::because('git is not installed.'))
+        ->digests(Paths::of(Path::of('var/cache/Container.xml')))->count())->toBe(1);
 });

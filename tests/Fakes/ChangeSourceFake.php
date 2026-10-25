@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Fakes;
 
+use function array_any;
 use function array_filter;
 use function array_key_exists;
+use function array_keys;
 use function array_values;
 use function in_array;
 use function max;
@@ -213,6 +215,20 @@ final readonly class ChangeSourceFake implements ChangeSource
         }
 
         return $fingerprints;
+    }
+
+    /** Every file the working tree holds that is one of these paths or under one of them. */
+    public function listed(Paths $paths): Paths
+    {
+        $listed = Paths::none();
+
+        foreach (array_keys($this->files[Revision::workingTree()->name()]) as $path) {
+            $file = Path::of($path);
+            $named = array_any([...$paths], static fn(Path $asked): bool => $file->equals($asked) || $file->within($asked));
+            $listed = $named ? $listed->with($file) : $listed;
+        }
+
+        return $listed;
     }
 
     /** Every file the working tree changed, none of it staged. */

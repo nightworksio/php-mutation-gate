@@ -49,6 +49,9 @@
         "said": "the gate-pest arm, sharded at the shards.seconds of its config"
     },
     "scenarios": {
+        "generated": [
+            "storage/framework"
+        ],
         "edit": [
             {
                 "file": "app/Actions/Questions/UpdateQuestionHashtags.php",

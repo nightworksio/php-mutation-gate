@@ -102,6 +102,11 @@ final class ChangingCheckout implements ChangeSource
         return $now instanceof CannotTell ? $now : $now->fingerprints();
     }
 
+    public function listed(Paths $paths): Paths
+    {
+        return $this->now()->listed($paths);
+    }
+
     public function unstaged(): Paths
     {
         return $this->now()->unstaged();

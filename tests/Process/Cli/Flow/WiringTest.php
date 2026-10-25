@@ -494,15 +494,25 @@ function wiringPhpStanProject(string $include = 'parameters: {}', string $baseli
     return $project;
 }
 
-/** Who the analyser wired for a project is: PHPStan, read through its adapter, over the project's directory. */
+/**
+ * Who the analyser wired for a project is: PHPStan, read through its adapter, over the project's directory, from
+ * which the gate runs, as its version control does.
+ */
 function wiredAnalyserIn(string $project): AnalyserIdentity|NoAnalyser|CannotJudge
 {
     $registry = Wirings::registry()->withStaticChecker(
         Name::of('stand-in'),
         static fn(Options $options): PhpStan|Invalid => PhpStan::fromOptions($options, $project, new LocalProcesses(new SystemClock())),
     );
-    $adapters = new Wiring($registry, Variables::of([]), Wirings::detected())
-        ->adapters(Flows::settings(StaticCheck::uses('stand-in')), Directory::at($project));
+    $here = getcwd();
+    chdir($project);
+
+    try {
+        $adapters = new Wiring($registry, Variables::of([]), Wirings::detected())
+            ->adapters(Flows::settings(StaticCheck::uses('stand-in')), Directory::at($project));
+    } finally {
+        chdir(is_string($here) ? $here : $project);
+    }
 
     return $adapters instanceof Adapters ? $adapters->analyser : throw new RuntimeException('The adapters could not be wired.');
 }
@@ -573,6 +583,25 @@ it('carries no static kill once the analyser\'s baseline, an included config or 
     'an included config' => ['phpstan-extra.neon', "services:\n    - Acme\\StrictRule\n"],
     'a bootstrap file' => ['tests/bootstrap.php', "<?php\ndefine('ACME_STRICT', true);\n"],
 ])->group(...$holds);
+
+it('keys the analyser by no file it references that git ignores, so a static kill carries while only a generated cache changes', function (): void {
+    $project = wiringPhpStanProject();
+    Scratch::write($project, 'vendor/bin/params.json', sprintf(
+        '{"level": 9, "allConfigFiles": ["%1$s/phpstan.neon"], "scanFiles": ["%1$s/var/cache/Container.xml"]}',
+        $project,
+    ));
+    Scratch::write($project, '.gitignore', "/var/\n");
+    Scratch::write($project, 'var/cache/Container.xml', '<container built="1"/>');
+    exec(sprintf('git -C %s init --quiet', escapeshellarg($project)));
+    $then = wiredAnalyserIn($project);
+    Scratch::write($project, 'var/cache/Container.xml', '<container built="2"/>');
+    $now = wiredAnalyserIn($project);
+    Scratch::write($project, 'phpstan.neon', "parameters:\n    level: 8\n");
+    $edited = wiredAnalyserIn($project);
+
+    expect(wiringCarriesStaticKill($then, $now))->toBe(Carry::Stands)
+        ->and(wiringCarriesStaticKill($then, $edited))->toBe(Uncounted::MutationChanged);
+})->group(...$holds);
 
 it('keys the analyser alike for the same project at two roots', function (): void {
     expect(wiredAnalyserIn(wiringPhpStanProject()))->toEqual(wiredAnalyserIn(wiringPhpStanProject()));

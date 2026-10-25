@@ -103,6 +103,14 @@ it('fingerprints every file by what it holds', function (ChangeSource $source): 
         ->and($money)->not->toEqual($limit);
 })->with($sources)->group(...$holds);
 
+it('lists every file under a directory it does not ignore, and none of a path it does not hold', function (ChangeSource $source): void {
+    $listed = $source->listed(Paths::of(Path::of('src'), Path::of('nowhere.neon')));
+
+    expect($listed instanceof Paths ? $listed->has(Path::of('src/Money.php')) && $listed->has(Path::of('src/Limit.php')) : $listed)
+        ->toBeTrue()
+        ->and($listed instanceof Paths ? $listed->has(Path::of('nowhere.neon')) : $listed)->toBeFalse();
+})->with($sources)->group(...$holds);
+
 it('reads a file as it was at a revision, and says when it was not there', function (ChangeSource $source): void {
     expect($source->fileAt(Path::of('src/Money.php'), Revision::ref('fixture-base')))->toEqual(Contents::of("<?php\nreturn 1;\n"))
         ->and($source->fileAt(Path::of('src/Money.php'), Revision::workingTree()))->toEqual(Contents::of("<?php\nreturn 2;\n"))

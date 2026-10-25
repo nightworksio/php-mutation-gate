@@ -359,12 +359,14 @@ it('is a source of its own where the environment names the run', function () use
         ->toBeInstanceOf(PassedPullRequests::class);
 });
 
-it('reads files and fingerprints from the source underneath', function () use ($source): void {
+it('reads files, fingerprints and the files it lists from the source underneath', function () use ($source): void {
     $proved = trusting($source(), answering([]), passedLedgers([]));
 
     expect($proved->fileAt(Path::of('src/Money.php'), Revision::ref('base')))->toEqual(Contents::of('base'))
         ->and($proved->filesAt(Paths::of(Path::of('src/Money.php')), Revision::ref('base')))->toEqual($source()->filesAt(Paths::of(Path::of('src/Money.php')), Revision::ref('base')))
-        ->and($proved->fingerprints())->toEqual($source()->fingerprints());
+        ->and($proved->fingerprints())->toEqual($source()->fingerprints())
+        ->and($proved->listed(Paths::of(Path::of('src'))))->toEqual($source()->listed(Paths::of(Path::of('src'))))
+        ->and($proved->listed(Paths::of(Path::of('src'))))->not->toEqual(Paths::none());
 });
 
 it('says where the checkout stands as the source underneath says', function (): void {

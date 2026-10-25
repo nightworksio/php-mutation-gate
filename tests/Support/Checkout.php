@@ -57,6 +57,11 @@ final readonly class Checkout implements ChangeSource, Repository
         return $this->changes->fingerprints();
     }
 
+    public function listed(Paths $paths): Paths|CannotTell
+    {
+        return $this->changes->listed($paths);
+    }
+
     public function unstaged(): Paths|CannotTell
     {
         return $this->changes->unstaged();

@@ -120,6 +120,26 @@ final readonly class Git implements ChangeSource, Repository
         return $listed instanceof CannotTell ? $listed : $this->workingTree()->fingerprints(Diff::paths($listed));
     }
 
+    public function listed(Paths $paths): Paths|CannotTell
+    {
+        if (count($paths) === 0) {
+            return Paths::none();
+        }
+
+        $listed = $this->git->run([
+            '--literal-pathspecs',
+            'ls-files',
+            '--cached',
+            '--others',
+            '--exclude-standard',
+            '-z',
+            '--',
+            ...array_map(static fn(Path $path): string => $path->value(), [...$paths]),
+        ]);
+
+        return $listed instanceof CannotTell ? $listed : Paths::of(...array_map(Path::of(...), Diff::paths($listed)));
+    }
+
     public function unstaged(): Paths|CannotTell
     {
         $changed = $this->git->run(['diff', '--name-only', '--no-renames', '-z']);
@@ -209,7 +229,7 @@ final readonly class Git implements ChangeSource, Repository
 
     public function defaultBranch(): Scope|CannotTell
     {
-        $target = $this->git->run(['symbolic-ref', '--quiet', self::ORIGIN_HEAD]);
+        $target = $this->git->run(['symbolic-ref', self::ORIGIN_HEAD]);
 
         return $target instanceof CannotTell
             ? CannotTell::because(sprintf(self::NO_ORIGIN_HEAD, self::ORIGIN_HEAD))

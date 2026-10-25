@@ -435,7 +435,10 @@ would have cost without them.
         `--git-diff-lines`;
       - *unchanged re-run*, labelled as the trivial case it is.
     - Each scenario's commits are laid over the prepared project, whose
-      packages stay as its preparation installed them.
+      packages stay as its preparation installed them. Before every run, the
+      files git ignores in the directories the project names as where its
+      runs write build output, such as `pinkary.com`'s `storage/framework`,
+      are removed, as a CI job starts without them.
     - Every round of a warm full run starts from one commit and one ledger,
       and every unchanged re-run from a ledger that only grew, so no later
       round runs more units than its first. One that does fails the
