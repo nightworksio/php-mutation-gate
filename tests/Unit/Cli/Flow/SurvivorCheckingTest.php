@@ -301,7 +301,7 @@ it('leaves every survivor unchecked where the analyser cannot say who it is, or 
         ->and([$unidentified->mutants, $unwarmed->mutants])->toEqual([$mutants, $mutants]);
 });
 
-it('leaves a survivor unchecked, and says why, where its runner cannot give it, its file is out of scope, or its check cannot run', function (): void {
+it('leaves a survivor unchecked, and says why, where its runner cannot give it, within a deadline or not, its file is out of scope, or its check cannot run', function (): void {
     $project = Scratch::directory();
     $mutants = checkedMutants();
     $money = checkedSurvivor($mutants, 'src/Money.php');
@@ -309,11 +309,14 @@ it('leaves a survivor unchecked, and says why, where its runner cannot give it, 
     $refusing = ScriptedRunner::fixture()->checking(CannotJudge::because('Its diff does not apply.'));
 
     $ungiven = checking($project, checkedBy($project, []), $refusing, Unlimited::time())->checked($mutants, MutantIds::none());
+    $deadline = Deadline::after(new DateTimeImmutable('2026-01-01T00:00:00Z'), Seconds::of(600.0));
+    $ungivenInTime = checking($project, checkedBy($project, []), $refusing, $deadline)->checked($mutants, MutantIds::none());
     $unchecked = checking($project, $checker, ScriptedRunner::fixture(), Unlimited::time())->checked($mutants, MutantIds::none());
 
     expect(checkedWarnings($ungiven))->toBe([
         'Static analysis left 2 survivors unchecked, as the runner could not give their mutated code: src/Held.php, src/Money.php.',
     ])
+        ->and(checkedWarnings($ungivenInTime))->toBe(checkedWarnings($ungiven))
         ->and(checkedWarnings($unchecked))->toBe([
             'Static analysis left 1 survivor unchecked, as their files are outside the paths the analyser analyses: src/Money.php.',
             'Static analysis left 1 survivor unchecked, as the analyser could not check them: src/Held.php. '

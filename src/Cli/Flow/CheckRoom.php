@@ -50,13 +50,13 @@ final readonly class CheckRoom
      */
     public function fitting(array $offered, Seconds $each): array
     {
-        if (! $this->deadline instanceof Deadline) {
+        if (! $this->deadline instanceof Deadline || $offered === []) {
             return $offered;
         }
 
         $needed = $this->needed($offered);
         $room = $this->deadline->fitting(
-            array_last($needed) ?? 0,
+            array_last($needed),
             Seconds::of($each->seconds() / $this->side->count()),
             $this->clock->now(),
         );
@@ -67,19 +67,21 @@ final readonly class CheckRoom
     /**
      * How many checks the survivors need, up to and with each in turn.
      *
-     * @param  list<CheckableMutant> $offered
-     * @return list<int>
+     * @param  non-empty-list<CheckableMutant> $offered
+     * @return non-empty-list<int>
      */
     private function needed(array $offered): array
     {
         $needed = [];
         $printed = [];
+        $total = 0;
 
         foreach ($offered as $survivor) {
             $file = $survivor->mutant()->location()->file()->value();
             $first = $survivor->checkable()->original() instanceof Contents && ! array_key_exists($file, $printed);
             $printed[$file] = true;
-            $needed[] = (array_last($needed) ?? 0) + ($first ? self::WITH_ITS_PRINT : self::ALONE);
+            $total += $first ? self::WITH_ITS_PRINT : self::ALONE;
+            $needed[] = $total;
         }
 
         return $needed;
