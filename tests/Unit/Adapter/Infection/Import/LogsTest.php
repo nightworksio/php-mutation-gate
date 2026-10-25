@@ -41,3 +41,10 @@ it('takes the Stryker dashboard\'s report as the HTML report where no HTML log i
         ])
         ->and(Imports::keys(Logs::of(Node::decode('{}'))))->toBe([]);
 });
+
+it('drops a GitLab or JSON log named by no path, as a log the gate writes itself', function (): void {
+    expect(Imports::keys(Logs::of(Node::decode('{"logs": {"gitlab": "", "json": ""}}'))))->toBe([
+        '  logs.gitlab: dropped, because the gate writes Infection\'s logs itself, in the config it generates for each run',
+        '  logs.json: dropped, because the gate writes Infection\'s logs itself, in the config it generates for each run',
+    ]);
+});

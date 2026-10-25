@@ -16,7 +16,6 @@ use DOMXPath;
 use function file_put_contents;
 use function is_string;
 use function iterator_to_array;
-use function ltrim;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
@@ -300,7 +299,7 @@ final readonly class StartUpConfig
     {
         return preg_match(self::ABSOLUTE, $path) === 1
             ? $path
-            : str_replace('/./', '/', sprintf('%s/%s', $directory, ltrim($path, '\\/')));
+            : str_replace('/./', '/', sprintf('%s/%s', $directory, $path));
     }
 
     /** The file, once the document is written into it, as the adapter writes its other files. */

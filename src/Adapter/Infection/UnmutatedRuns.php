@@ -96,8 +96,11 @@ final readonly class UnmutatedRuns
 
         foreach ($this->shell->sideBySide($slots, $request->deadline(), ...$commands) as $index => $ran) {
             [$control, $peak] = $asked[$index];
-            $written = is_file($peak) ? (string) file_get_contents($peak) : '';
-            $runs = $runs->with($control, PeakLauncher::measured(ControlRun::ofProcess($ran), $written, PHP_OS_FAMILY));
+            $run = ControlRun::ofProcess($ran);
+            $measured = is_file($peak)
+                ? PeakLauncher::measured($run, sprintf('%s', file_get_contents($peak)), PHP_OS_FAMILY)
+                : $run;
+            $runs = $runs->with($control, $measured);
         }
 
         $scan->remove();

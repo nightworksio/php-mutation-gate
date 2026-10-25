@@ -130,7 +130,7 @@ final readonly class LedgerDirectory implements Configurable, ProofStore
             return Missing::at(Path::of($companion->value));
         }
 
-        $size = is_file($file->value()) ? filesize($file->value()) : false;
+        $size = is_file($file->value()) ? filesize($file->value()) : null;
 
         return is_int($size) && ! CompanionRead::limitsOf($companion)->admitsPacked($size)
             ? CompanionRead::unread($companion, $file->value(), CompanionRead::limitsOf($companion)->pastPacked())

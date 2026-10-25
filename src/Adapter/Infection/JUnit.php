@@ -12,6 +12,9 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 
 use function preg_match;
+
+use const PREG_UNMATCHED_AS_NULL;
+
 use function sprintf;
 
 /**
@@ -94,16 +97,11 @@ final readonly class JUnit
      */
     private static function idOf(string $name): string
     {
-        if (preg_match(self::DATA_SET, $name, $named) !== 1) {
+        if (preg_match(self::DATA_SET, $name, $named, PREG_UNMATCHED_AS_NULL) !== 1) {
             return $name;
         }
 
-        return sprintf(
-            '%s#%s%s',
-            $named['method'],
-            array_key_exists('number', $named) ? $named['number'] : '',
-            array_key_exists('name', $named) ? $named['name'] : '',
-        );
+        return sprintf('%s#%s%s', $named['method'], $named['number'], $named['name']);
     }
 
     private static function secondsOf(DOMElement $element): float

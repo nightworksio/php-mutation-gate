@@ -13,7 +13,8 @@ it('takes timeout as the seconds a mutant may run, and timeoutsAsEscaped as leav
         ->and(Imports::keys($import))->toBe([
             '  timeout: imported as timeouts.seconds: 20',
             '  timeoutsAsEscaped: imported as timeouts.mode: unjudged',
-        ]);
+        ])
+        ->and(Imports::written(Timeouts::of(Node::decode('{"timeout": 1}'))))->toBe('{"timeouts":{"seconds":1}}');
 });
 
 it('drops a timeout that is no whole number of seconds, and timeoutsAsEscaped false', function (): void {

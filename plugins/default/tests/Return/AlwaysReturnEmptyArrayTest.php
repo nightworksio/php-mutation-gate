@@ -54,6 +54,11 @@ it('leaves alone the code it is not written for', function (): void {
             return 1;
         }
 
+        function either(): int|false
+        {
+            return 1;
+        }
+
         function any()
         {
             return [1];

@@ -72,6 +72,7 @@ it('turns on no bridge to a mutator that stands down beside Infection\'s own mut
     'the default profile, where the block names none' => ['{}', '{"@default":true}'],
     'a profile that holds it' => ['{"@arithmetic": true}', '{"@arithmetic":true}'],
     'it by its class' => ['{"Infection\\\\Mutator\\\\Arithmetic\\\\Plus": true}', '{"Infection\\\\Mutator\\\\Arithmetic\\\\Plus":true}'],
+    'it with settings, which turn it on' => ['{"Plus": {"ignore": ["A"]}}', '{"Plus":{"ignore":["A"]}}'],
     'a profile that holds it, then it turned off' => ['{"@arithmetic": true, "Plus": false}', '{"@arithmetic":true,"Plus":false,"%s":true}'],
     'a profile that does not hold it, and a global ignore' => ['{"@boolean": true, "global-ignore": ["A"]}', '{"@boolean":true,"global-ignore":["A"],"%s":true}'],
     'a profile Infection does not have' => ['{"@nonsense": true}', '{"@nonsense":true,"%s":true}'],

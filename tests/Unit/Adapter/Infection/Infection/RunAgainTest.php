@@ -122,7 +122,7 @@ it('runs a retry on the coverage its mutation run left, and collects it again fo
     ])->toBe([1, 2, 4, 6]);
 });
 
-it('ends the runs of a retry, one after another, by the deadline its request set', function (): void {
+it('ends the runs of a retry, one after another, by the deadline its request set, and none past it', function (float $step, float $first, float $second): void {
     $at = InfectionCases::project();
     $money = sprintf('%s/src/Money.php', $at->root());
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->within(Seconds::of(100.0));
@@ -131,12 +131,16 @@ it('ends the runs of a retry, one after another, by the deadline its request set
         'escaped' => [InfectionRun::entry('Minus', $money, 12, '$a - $b', '$a + $b')],
     ]), LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0)), nativeMarkersAllowed: false, files: new CapDirectory())->mutate($request);
     $again = InfectionCases::shell($at, InfectionCases::killed($at));
-    $clock = new class implements Clock {
-        private int $read = 0;
+    $clock = new class ($step) implements Clock {
+        private int $read = 1;
+
+        public function __construct(private readonly float $step)
+        {
+        }
 
         public function nanoseconds(): int
         {
-            return 10 * Seconds::NANOSECONDS * $this->read++;
+            return (int) ($this->step * Seconds::NANOSECONDS) * $this->read++;
         }
     };
 
@@ -145,8 +149,11 @@ it('ends the runs of a retry, one after another, by the deadline its request set
     $runs = array_values(array_filter($again->commands(), static fn(Command $command): bool => $command->deadline() instanceof Seconds));
 
     expect(array_map(static fn(Command $command): Seconds|Unlimited => $command->deadline(), $runs))
-        ->toEqual([Seconds::of(90.0), Seconds::of(80.0)]);
-});
+        ->toEqual([Seconds::of($first), Seconds::of($second)]);
+})->with([
+    'within it' => [10.0, 90.0, 80.0],
+    'past it by the second run' => [60.0, 40.0, 0.0],
+]);
 
 it('runs nothing again for no mutant, and cannot judge a retry whose runs fail', function (): void {
     $at = InfectionCases::project();

@@ -137,7 +137,8 @@ it('caps each control\'s process at the request\'s memory cap, as a mutant\'s ru
 
     infectionControlled($at, $shell, Controls::of(infectionControl('src/Money.php')), $request->cappedAt(MemoryCap::of(64, MemoryUnit::Megabytes)));
 
-    expect($shell->commands()[0]->environment())->toHaveKey(MemoryCap::SCAN_DIR);
+    expect($shell->commands()[0]->environment())->toHaveKey(MemoryCap::SCAN_DIR)
+        ->and(is_dir(MemoryScan::directoryIn($at)))->toBeFalse();
 });
 
 it('never runs a control of a project with no PHPUnit config, saying why', function () use ($makeRequest): void {
@@ -199,5 +200,6 @@ it('starts each control through the launcher, and gives it the peak the launcher
 
     expect(array_slice($arguments, 0, 2))->toBe([PHP_BINARY, PeakLauncher::in($at->own(Control::DIRECTORY))])
         ->and($arguments[3])->toBe(PHP_BINARY)
+        ->and(file_get_contents(PeakLauncher::in($at->own(Control::DIRECTORY))))->toBe(PeakLauncher::SCRIPT)
         ->and($runs->of(infectionControl('src/Money.php'))->peak())->toEqual(PeakLauncher::peakIn('20480', PHP_OS_FAMILY));
 });

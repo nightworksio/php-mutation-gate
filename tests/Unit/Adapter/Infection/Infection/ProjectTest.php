@@ -212,10 +212,11 @@ it('cannot judge a run whose earlier reports or logs cannot be removed, or whose
     )));
 });
 
-it('cannot judge a run whose coverage run wrote no report', function (): void {
+it('cannot judge a run whose coverage run wrote no report, though an earlier run left one', function (): void {
     $at = InfectionCases::project();
     $silent = InfectionShellFake::answering(Ran::finished(succeeded: true, output: ''));
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
+    new Infection($at, InfectionCases::shell($at, InfectionCases::killed($at)), LimitBounds::between(Seconds::of(10.0), Seconds::of(10.0)), nativeMarkersAllowed: false, files: new CapDirectory())->mutate($request);
 
     expect(new Infection($at, $silent, LimitBounds::between(Seconds::of(10.0), Seconds::of(10.0)), nativeMarkersAllowed: false, files: new CapDirectory())->mutate($request))
         ->toEqual(CannotJudge::because(sprintf(

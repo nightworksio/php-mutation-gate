@@ -7,7 +7,6 @@ namespace NightWorksIO\MutationGate\Core\Coverage;
 use function ini_parse_quantity;
 use function intdiv;
 use function is_string;
-use function max;
 use function min;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -53,9 +52,13 @@ final readonly class HandoffLimits
     /** The limits for a process with this `memory_limit`, as `ini_get` answers it; -1, or none, is no limit. */
     public static function under(string|false $memoryLimit): self
     {
-        $memory = is_string($memoryLimit) ? ini_parse_quantity($memoryLimit) : -1;
+        $memory = is_string($memoryLimit) ? ini_parse_quantity($memoryLimit) : null;
 
-        return new self(self::PACKED, $memory < 0 ? self::UNLIMITED : intdiv($memory, self::PER_BYTE), self::RATIO);
+        return new self(
+            self::PACKED,
+            $memory === null || $memory < 0 ? self::UNLIMITED : intdiv($memory, self::PER_BYTE),
+            self::RATIO,
+        );
     }
 
     public static function of(int $packed, int $unpacked, int $ratio): self
@@ -82,7 +85,7 @@ final readonly class HandoffLimits
      */
     public function readable(): int
     {
-        return max(0, $this->packed) + 1;
+        return Bytes::onePast($this->packed);
     }
 
     /**

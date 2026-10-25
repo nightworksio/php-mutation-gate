@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Infection\Clock;
 use NightWorksIO\MutationGate\Adapter\Infection\Command;
 use NightWorksIO\MutationGate\Adapter\Infection\CoverageXml;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
+use NightWorksIO\MutationGate\Adapter\Infection\Invocation;
 use NightWorksIO\MutationGate\Adapter\Infection\Patch;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -280,10 +281,12 @@ it('names the files of the test classes whose tests cover a file, and none for a
     $at = InfectionCases::project();
     $map = CoverageMap::empty()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\MoneyTest::adds'))
-        ->covered(Path::of('src/Money.php'), Line::of(12), TestId::of('Tests\MoneyTest::adds with data set #1'));
+        ->covered(Path::of('src/Money.php'), Line::of(12), TestId::of('Tests\MoneyTest::adds with data set #1'))
+        ->covered(Path::of('src/Held.php'), Line::of(3), TestId::of('Tests\MoneyTest::adds'));
     $adapter = new Infection($at, InfectionCases::shell($at, []), LimitBounds::between(Seconds::of(10.0), Seconds::of(10.0)), nativeMarkersAllowed: false, files: new CapDirectory());
 
     expect($adapter->judges(Path::of('src/Money.php'), $map))->toEqual(Paths::of(Path::of('tests/MoneyTest.php')))
+        ->and($adapter->judges(Path::of('src/Held.php'), $map))->toEqual(Paths::of(Path::of('tests/MoneyTest.php')))
         ->and($adapter->judges(Path::of('src/Nowhere.php'), $map))->toEqual(Paths::none());
 });
 
@@ -416,6 +419,24 @@ it('never reads the logs an earlier run left', function (): void {
     expect(new Infection($at, $silent, LimitBounds::between(Seconds::of(10.0), Seconds::of(10.0)), nativeMarkersAllowed: false, files: new CapDirectory())
         ->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())))
         ->toEqual(CannotJudge::because("Infection wrote no log, so no mutant it ran has a result. Infection said:\nsaid"));
+});
+
+it('leaves no text log or silence record an earlier run left, and writes its config through no link', function (): void {
+    $at = InfectionCases::project();
+    $outside = sprintf('%s/outside.json5', Scratch::directory());
+    file_put_contents($outside, 'kept');
+    Scratch::write($at->root(), sprintf('.gate/infection/%s', Invocation::TEXT), 'stale');
+    Scratch::write($at->root(), sprintf('.gate/infection/%s', Invocation::SILENCED), 'stale');
+    symlink($outside, $at->own(Invocation::CONFIG));
+    new Infection($at, InfectionCases::shell($at, [], logs: false), LimitBounds::between(Seconds::of(10.0), Seconds::of(10.0)), nativeMarkersAllowed: false, files: new CapDirectory())
+        ->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()));
+
+    expect([
+        is_file($at->own(Invocation::TEXT)),
+        is_file($at->own(Invocation::SILENCED)),
+        is_link($at->own(Invocation::CONFIG)),
+        file_get_contents($outside),
+    ])->toBe([false, false, false, 'kept']);
 });
 
 it('cannot judge a run stopped at its deadline, a failed coverage run, or a config it refuses', function (): void {

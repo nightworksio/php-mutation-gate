@@ -46,7 +46,7 @@ final readonly class TextLog
     /** The log a run wrote; a run that wrote none names no mutant. */
     public static function at(string $file): self
     {
-        return self::read(is_file($file) ? sprintf('%s', file_get_contents($file)) : '');
+        return is_file($file) ? self::read(sprintf('%s', file_get_contents($file))) : new self([]);
     }
 
     public static function read(string $text): self
@@ -89,10 +89,10 @@ final readonly class TextLog
      */
     public function idOf(string $file, int $line, string $mutator, string $diff): string
     {
-        $change = MutantId::hash(Path::of($file), $mutator, $diff, 0)->value();
+        $change = MutantId::firstOf(Path::of($file), $mutator, $diff)->value();
 
         foreach ($this->entries as $entry) {
-            $logged = MutantId::hash(Path::of($file), $mutator, implode("\n", $entry['diff']), 0)->value();
+            $logged = MutantId::firstOf(Path::of($file), $mutator, implode("\n", $entry['diff']))->value();
 
             $there = $entry['file'] === $file && $entry['line'] === $line;
 
@@ -117,9 +117,9 @@ final readonly class TextLog
      */
     private static function headingAt(array $lines, int $index): string
     {
-        $below = array_key_exists($index + 1, $lines) ? $lines[$index + 1] : '';
-
-        return preg_match(self::HEADING, $lines[$index], $heading) === 1 && preg_match(self::UNDERLINE, $below) === 1
+        return array_key_exists($index + 1, $lines)
+            && preg_match(self::HEADING, $lines[$index], $heading) === 1
+            && preg_match(self::UNDERLINE, $lines[$index + 1]) === 1
             ? $heading['status']
             : '';
     }
