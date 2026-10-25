@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Php;
 
+use function array_keys;
+use function min;
+
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Migration\Migrated;
 use NightWorksIO\MutationGate\Core\Migration\Migrations;
@@ -46,12 +49,11 @@ final readonly class PhpMigration
             return CannotJudge::because(sprintf(self::UNPARSABLE, $file, $errors->getErrors()[0]->getMessage()));
         }
 
-        $resolved = new NodeTraverser(new NameResolver(options: ['replaceNodes' => false]))->traverse($original);
+        $resolved = new NodeTraverser(self::resolver())->traverse($original);
         $cut = ChainCuts::made($code, $resolved, $migrations);
         $statements = $parser->parse($cut) ?? [];
         $tree = new NodeTraverser(new CloningVisitor())->traverse($statements);
-        $resolving = new NameResolver(options: ['replaceNodes' => false]);
-        new NodeTraverser($resolving, new ParentConnectingVisitor())->traverse($tree);
+        new NodeTraverser(self::resolver(), new ParentConnectingVisitor())->traverse($tree);
         $respelling = new Respelling($migrations);
         $migrated = new NodeTraverser($respelling)->traverse($tree);
         $printed = new Standard()->printFormatPreserving($migrated, $statements, $parser->getTokens());
@@ -68,25 +70,30 @@ final readonly class PhpMigration
     {
         $parser = new ParserFactory()->createForNewestSupportedVersion();
         $statements = $parser->parse($code, new Collecting()) ?? [];
-        $resolved = new NodeTraverser(new NameResolver(options: ['replaceNodes' => false]))->traverse($statements);
+        $resolved = new NodeTraverser(self::resolver())->traverse($statements);
 
         $finder = new NodeFinder();
         $calls = [
             ...$finder->findInstanceOf($resolved, StaticCall::class),
             ...$finder->findInstanceOf($resolved, MethodCall::class),
         ];
-        $first = NotGiven::value();
-        $at = 0;
+        $pending = [];
 
         foreach ($calls as $call) {
             $retired = RetiredCall::of($call, $migrations);
-            $named = $call->name->getStartFilePos();
 
-            if ($retired instanceof Retired && ($first instanceof NotGiven || $named < $at)) {
-                [$first, $at] = [sprintf(self::PENDING, $file, RetiredCall::line($call), $retired->pending()), $named];
+            if ($retired instanceof Retired) {
+                $pending[$call->name->getStartFilePos()]
+                    = sprintf(self::PENDING, $file, RetiredCall::line($call), $retired->pending());
             }
         }
 
-        return $first;
+        return $pending === [] ? NotGiven::value() : $pending[min(array_keys($pending))];
+    }
+
+    /** What resolves each name by the file's imports, keeping it as the file writes it, so a rewrite prints it so. */
+    private static function resolver(): NameResolver
+    {
+        return new NameResolver(options: ['replaceNodes' => false]);
     }
 }

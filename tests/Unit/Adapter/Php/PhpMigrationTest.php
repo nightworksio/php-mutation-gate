@@ -164,6 +164,13 @@ it('names the first call a release retired that a config which cannot load still
         ->and(PhpMigration::pending('mutation-gate.php', "<?php\nreturn Gate::configure();\n", phpMigrationSteps()))->toEqual(NotGiven::value());
 });
 
+it('names a retired call of a class among the arguments where the chain makes none', function (): void {
+    $code = "<?php\nuse NightWorksIO\\MutationGate\\Config\\Gate;\nuse NightWorksIO\\MutationGate\\Config\\Reach;\n\nreturn Gate::configure()\n    ->with(Reach::hotSpot(0.5));\n";
+
+    expect(PhpMigration::pending('mutation-gate.php', $code, phpMigrationSteps()))
+        ->toBe('mutation-gate.php line 6: `reach.hotSpot` was removed (held code is warned of anyway) in 2.0.0: run `mutation-gate migrate`');
+});
+
 it('cannot migrate a file that is no PHP it can parse, saying why', function (): void {
     expect(PhpMigration::of('mutation-gate.php', "<?php\nreturn Gate::configure(\n", phpMigrationSteps()))
         ->toEqual(CannotJudge::because('mutation-gate.php cannot be migrated: it is not PHP the gate can parse (Syntax error, unexpected EOF on line 3).'));
