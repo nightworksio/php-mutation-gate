@@ -131,3 +131,10 @@ it('refuses JSON whose top is a scalar, and gives a value whose later lines stan
     expect(JsonDocument::parse('5'))->toEqual(CannotJudge::because('The file holds JSON, but not an object.'))
         ->and($value instanceof JsonFragment ? $value->text() : $value)->toBe("[\n1\n]");
 });
+
+it('reads JSON written with no space between its tokens, and a string that holds an escaped quote', function (): void {
+    $document = JsonDocument::parse('{"q":"x\\"y","c":{"d":1},"e":[1,2]}');
+
+    expect($document instanceof JsonDocument ? [$document->fragment(KeyPath::of('c.d')), $document->fragment(KeyPath::of('e'))] : [])
+        ->toEqual([JsonFragment::of('1'), JsonFragment::of('[1,2]')]);
+});

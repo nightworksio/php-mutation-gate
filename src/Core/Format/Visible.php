@@ -48,7 +48,7 @@ final readonly class Visible
             $unsafe,
             static fn(array $found): string => self::escaped($found[0]),
             mb_scrub($text, 'UTF-8'),
-        ) ?? throw NotEscaped::byPcre();
+        ) ?? throw FormatFault::pcre();
     }
 
     private static function escaped(string $character): string

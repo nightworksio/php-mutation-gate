@@ -27,6 +27,6 @@ final readonly class Printable
 
     public static function text(string $text): string
     {
-        return preg_replace(self::UNPRINTABLE, '', mb_scrub($text, self::UTF8)) ?? '';
+        return preg_replace(self::UNPRINTABLE, '', mb_scrub($text, self::UTF8)) ?? throw FormatFault::pcre();
     }
 }

@@ -78,3 +78,11 @@ it('leaves what follows a stream unread, wherever the stream ends', function (st
     'bytes that are not gzip' => ['xyz'],
     'a second stream' => [fn(): string => Gzip::pack('more')],
 ]);
+
+it('raises no warning of a broken stream, which it says it cannot unpack', function (): void {
+    error_clear_last();
+
+    expect(Gzip::unpackAtMost(substr_replace(Gzip::pack(str_repeat('abc', 20_000)), str_repeat("\xff", 64), 20, 64), 'the ledger', 1_000_000))
+        ->toEqual(CannotJudge::because('the ledger is not a whole gzip stream.'))
+        ->and(error_get_last())->toBeNull();
+});

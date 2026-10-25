@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Format;
 
+use function array_shift;
 use function gzencode;
 use function inflate_add;
 use function inflate_get_status;
@@ -45,7 +46,7 @@ final readonly class Gzip
     {
         $packed = gzencode($text);
 
-        return is_string($packed) ? $packed : '';
+        return is_string($packed) ? $packed : throw FormatFault::gzip();
     }
 
     /**
@@ -73,18 +74,17 @@ final readonly class Gzip
     ): string|CannotJudge|TooLarge {
         $whole = true;
         $text = '';
-        $offset = 0;
+        $steps = Bytes::chunks($bytes, self::STEP);
 
         while (
             $whole
-            && $offset < Bytes::length($bytes)
+            && $steps !== []
             && Bytes::length($text) <= $most
             && inflate_get_status($inflating) !== ZLIB_STREAM_END
         ) {
-            $step = self::added($inflating, Bytes::slice($bytes, $offset, self::STEP));
+            $step = self::added($inflating, array_shift($steps));
             $whole = is_string($step);
-            $text .= is_string($step) ? $step : '';
-            $offset += self::STEP;
+            $text = is_string($step) ? sprintf('%s%s', $text, $step) : $text;
         }
 
         return match (true) {
