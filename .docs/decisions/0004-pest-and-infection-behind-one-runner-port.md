@@ -235,7 +235,11 @@ its parser attributes. Both change when the checkout moves.
        inherits the environment the gate's PHP started with, where a variable
        set later by `putenv()` alone does not reach it. It inherits none of
        the variables that make a process a paratest worker or a mutant's run,
-       none of the gate's own, and none of the variables a request withholds.
+       none of the gate's own, none of those by which a tool prints for an AI
+       agent (each that `laravel/agent-detector` reads, such as `AI_AGENT`
+       and `CLAUDECODE`, and `laravel/pao`'s `PAO_FORCE`), so a run started
+       from an agent's shell prints as the gate parses it, and none of the
+       variables a request withholds.
        Every request withholds the CI's credentials (`AWS_*`, `ACTIONS_*`,
        `GITHUB_TOKEN`, `SONAR_TOKEN`, and the cloud stores' of ADR-0028:
        `GOOGLE_APPLICATION_CREDENTIALS`, `GOOGLE_GHA_CREDS_PATH`,

@@ -79,7 +79,7 @@ it('composes what every run withholds, each CI plan\'s credentials and the runne
         ->and([...Withheld::composed(Withheld::nothing())])->toBe([...Withheld::standard()]);
 });
 
-it('withholds what makes a process another run\'s worker or mutant', function (string $name, bool $withheld) use ($withholds): void {
+it('withholds what makes a process another run\'s worker or mutant, or print for an AI agent', function (string $name, bool $withheld) use ($withholds): void {
     expect($withholds(Withheld::otherRuns(), $name))->toBe($withheld);
 })->with([
     'the gate\'s own' => ['MUTATION_GATE_RESULTS', true],
@@ -91,4 +91,12 @@ it('withholds what makes a process another run\'s worker or mutant', function (s
     'Laravel\'s parallel testing' => ['LARAVEL_PARALLEL_TESTING', true],
     'a name that only ends in one' => ['MY_TEST_TOKEN', false],
     'the path' => ['PATH', false],
+    'an agent named by AI_AGENT' => ['AI_AGENT', true],
+    'Claude Code\'s' => ['CLAUDECODE', true],
+    'Claude Code\'s cowork mode' => ['CLAUDE_CODE_IS_COWORK', true],
+    'Cursor\'s' => ['CURSOR_AGENT', true],
+    'Codex\'s' => ['CODEX_SANDBOX', true],
+    'Copilot\'s' => ['COPILOT_CLI', true],
+    'pao forced on' => ['PAO_FORCE', true],
+    'pao turned off' => ['PAO_DISABLE', false],
 ]);

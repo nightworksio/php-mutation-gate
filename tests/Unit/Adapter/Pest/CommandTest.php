@@ -23,7 +23,7 @@ it('runs Pest on the PHP that runs the gate', function (): void {
     expect(Command::pest('vendor/pestphp/pest/bin/pest', Withheld::standard(), '--list-groups')->arguments())->toBe([PHP_BINARY, 'vendor/pestphp/pest/bin/pest', '--list-groups']);
 });
 
-it('puts that PHP first on Pest\'s path, and hands Pest none of another run\'s or the gate\'s variables it inherits', function (): void {
+it('puts that PHP first on Pest\'s path, and hands Pest none of another run\'s, the gate\'s or an AI agent\'s variables it inherits', function (): void {
     $inherited = [
         'PARATEST',
         'TEST_TOKEN',
@@ -33,6 +33,9 @@ it('puts that PHP first on Pest\'s path, and hands Pest none of another run\'s o
         'INFECTION_MUTANT',
         'MUTATION_GATE_RESULTS',
         'MUTATION_GATE_CANARY',
+        'AI_AGENT',
+        'CLAUDECODE',
+        'PAO_FORCE',
     ];
 
     foreach ($inherited as $name) {
