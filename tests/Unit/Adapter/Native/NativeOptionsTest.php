@@ -53,10 +53,12 @@ it('takes the test directories, the timeout, the most and the mutators the flows
         ->and(mutatingWith($options instanceof NativeOptions ? $options->engine() : CannotJudge::because('')))->toBe(['acme/PlusToMinus']);
 });
 
-it('finds the tests in tests where the flows write none', function (): void {
-    $options = NativeOptions::read(Configs::options('{"tests": []}'), BuiltinRunner::PhpUnit);
+it('finds the tests in tests where the flows write none, and in the one directory they write', function (): void {
+    $none = NativeOptions::read(Configs::options('{"tests": []}'), BuiltinRunner::PhpUnit);
+    $one = NativeOptions::read(Configs::options('{"tests": ["spec"]}'), BuiltinRunner::PhpUnit);
 
-    expect($options instanceof NativeOptions ? $options->tests() : $options)->toEqual(Paths::of(Path::of('tests')));
+    expect(array_map(static fn(NativeOptions|Invalid $options): Paths|Invalid => $options instanceof NativeOptions ? $options->tests() : $options, [$none, $one]))
+        ->toEqual([Paths::of(Path::of('tests')), Paths::of(Path::of('spec'))]);
 });
 
 it('cannot make a mutant with a class that is not a mutator', function (): void {

@@ -11,6 +11,8 @@ use NightWorksIO\MutationGate\Adapter\Native\Warm\Workforce;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Cost\Laps;
+use NightWorksIO\MutationGate\Core\Cost\Step;
+use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -146,7 +148,7 @@ it('runs one of the mutants that leave a file alike, and judges the rest as it, 
         ->and($shell->commands())->toHaveCount(2);
 });
 
-it('kills a covered mutant static analysis rejects before its tests, and its twins, with no run, offering each behind its covering tests\' own time, none where untimed, and no uncovered one', function () use ($makeCovered): void {
+it('kills a covered mutant static analysis rejects before its tests, and its twins, with no run and in no time, offering each behind its covering tests\' own time, none where untimed, and no uncovered one', function () use ($makeCovered): void {
     $covered = $makeCovered();
 
     [$run, $shell] = killingRun(library(), new PlusToMinus(), new PlusToMinusAlso(), new RemoveEcho());
@@ -169,6 +171,8 @@ it('kills a covered mutant static analysis rejects before its tests, and its twi
     ])
         ->and(array_map(static fn(Mutant $mutant): mixed => $mutant->reason(), $rejected))
         ->toEqual(array_fill(0, 2, PreCheckerFake::rejection(Path::of('src/Money.php'))))
+        ->and(array_map(static fn(Mutant $mutant): Seconds|Unmeasured => $mutant->duration(), $rejected))
+        ->toEqual([Seconds::of(0.0), Seconds::of(0.0)])
         ->and(array_map(static fn(string $offered): string => explode(' ', $offered)[0], $checker->offered()))
         ->toBe(['acme/RemoveEcho', 'acme/PlusToMinus'])
         ->and($checker->sides())->toBe([3])
@@ -266,16 +270,22 @@ it('makes no mutant of a mutator its request leaves out of a file, and every oth
         ->toBe([['src/Money.php', 'acme/RemoveEcho', 'killed'], ['src/Tax.php', 'acme/PlusToMinus', 'uncovered']]);
 });
 
-it('skips with no record every mutant past the request\'s deadline', function () use ($makeCovered): void {
+it('skips with no record, and writes no file for, every mutant past the request\'s deadline', function () use ($makeCovered): void {
     $covered = $makeCovered();
 
-    [$run, $shell] = killingRun(library());
+    $root = library();
+    [$run, $shell] = killingRun($root);
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->within(Seconds::of(0.0));
     $result = $run->of($request, $covered, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
 
     expect(judgedMutants($result))->toBe([])
         ->and($result instanceof MutationResult ? $result->skipped() : -1)->toBe(2)
-        ->and($shell->commands())->toBe([]);
+        ->and($shell->commands())->toBe([])
+        ->and(is_dir(sprintf('%s/.mutation-gate', $root)))->toBeFalse()
+        ->and($result instanceof MutationResult ? array_map(
+            static fn(StepTime $time): array => [$time->step(), $time->count()],
+            [...$result->steps()],
+        ) : [])->toBe([[Step::Preparing, 2], [Step::Mutation, 0]]);
 });
 
 it('cannot judge a request with a file that does not parse, or a mutant whose files it cannot write', function () use ($makeCovered): void {

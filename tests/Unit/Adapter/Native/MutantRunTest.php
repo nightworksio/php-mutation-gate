@@ -34,15 +34,18 @@ use NightWorksIO\MutationGate\Core\Runner\ErrorDisplay;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestMethod;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 use NightWorksIO\MutationGate\Mutator\Engine\MadeMutant;
@@ -268,6 +271,12 @@ it('judges a mutant by what its run recorded, ended as and served', function (st
     ],
     'unjudged, where stopped at its limit before the mutated file ran' => [
         '',
+        fn(): Ran => Ran::stopped(''),
+        '',
+        [MutantStatus::Unjudged, [], 'PHPUnit was stopped at the limit, and the mutated file never ran in its place.'],
+    ],
+    'unjudged, where stopped at its limit after a test failed but before the mutated file ran' => [
+        fn(): string => records(Outcome::Started->line('T::fails'), Outcome::Failed->line('T::fails')),
         fn(): Ran => Ran::stopped(''),
         '',
         [MutantStatus::Unjudged, [], 'PHPUnit was stopped at the limit, and the mutated file never ran in its place.'],
@@ -661,3 +670,18 @@ it('gives no evidence of a mutant its run did not kill', function (string $lines
     'survived' => [fn(): string => records(Outcome::Started->line('Tests\MoneySpec::addsTwoAmounts'), Outcome::Passed->line('Tests\MoneySpec::addsTwoAmounts')), fn(): Ran => Ran::finished(succeeded: true, output: '')],
     'timed out' => [fn(): string => records(Outcome::Started->line('Tests\MoneySpec::addsTwoAmounts')), fn(): Ran => Ran::stopped('')],
 ]);
+
+it('judges runs given side by side by name as it judges them given in turn', function () use ($makeAdds, $makeRequest): void {
+    $project = phpUnitProject();
+    $shell = recording(records(Outcome::Started->line($makeAdds()->value()), Outcome::Failed->line($makeAdds()->value())), Ran::finished(succeeded: false, output: ''));
+    $run = new MutantRun($project, $shell, new Invocation($project, '/gate/override.php', NativePhpUnit::in($project)), NativePhpUnit::in($project), PhpUnitScan::uncapped($project), NotGiven::value());
+    $prepared = $run->prepared(moneyMutant($project), TestIds::of($makeAdds()), $makeRequest(), Seconds::of(3.0));
+
+    $judged = $run->judgedSideBySide(
+        WorkerSlots::of(ProcessCount::single(), 'side'),
+        Unlimited::time(),
+        ...($prepared instanceof PreparedRun ? ['money' => $prepared] : []),
+    );
+
+    expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $judged->mutants()))->toBe([MutantStatus::Killed]);
+});

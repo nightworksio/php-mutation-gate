@@ -58,3 +58,18 @@ it('holds the tests whose classes these test files declare, or whose files are g
     expect($tests->testsIn($files, MapOfTests::of($asked)))
         ->toEqual(TestIds::of(TestId::of('Tests\Unit\MoneyTest::testAdds'), TestId::of('Tests\Unit\GoneTest::testGoes')));
 });
+
+it('holds the tests of the map it is asked about, map after map', function (): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'tests/MoneyTest.php', "<?php\nnamespace Tests;\nfinal class MoneyTest {}");
+    Scratch::write($root, 'tests/PriceTest.php', "<?php\nnamespace Tests;\nfinal class PriceTest {}");
+    $tests = new TestFiles(Project::at($root, Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.gate'), BuiltinRunner::PhpUnit));
+    $money = TestIds::of(TestId::of('Tests\MoneyTest::testAdds'));
+    $price = TestIds::of(TestId::of('Tests\PriceTest::testRounds'));
+    $files = Paths::of(Path::of('tests/MoneyTest.php'), Path::of('tests/PriceTest.php'));
+
+    expect([
+        $tests->testsIn($files, MapOfTests::of($money)),
+        $tests->testsIn($files, MapOfTests::of($price)),
+    ])->toEqual([$money, $price]);
+});

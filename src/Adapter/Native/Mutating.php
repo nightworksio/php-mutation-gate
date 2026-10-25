@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTimes;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
+use NightWorksIO\MutationGate\Core\Coverage\PhpReport;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
@@ -62,9 +63,6 @@ final readonly class Mutating
 
     /** What a map the framework runs is held under: the command's arguments, then the pattern of what it withholds. */
     private const string RAN = "run\n%s\n%s";
-
-    /** The map file a held run's command names; each run names its own, so the key names none. */
-    private const string NO_MAP_FILE = '';
 
     public function __construct(
         private Project $project,
@@ -131,7 +129,7 @@ final readonly class Mutating
 
         $result = $this->result(
             $request->narrowedTo(
-                Paths::of(...array_values($files)),
+                Paths::of(...$files),
                 $request->narrowing()->toMutators(Mutators::named(...array_values($mutators))),
             ),
             $bounds,
@@ -185,7 +183,7 @@ final readonly class Mutating
         $run = CoverageRun::of($request->judgedBy(), $this->project->ownPath(CoverageRun::OWN_DIRECTORY))
             ->withholding($request->withheld())
             ->amongSuites($request->narrowing()->suitesFor($request->judgedBy()));
-        $command = $invocation->coverage($run, self::NO_MAP_FILE);
+        $command = $invocation->coverage($run, PhpReport::NAME);
 
         return $this->held->readFrom(
             sprintf(self::RAN, implode("\n", $command->arguments()), $run->withheld()->pattern()),

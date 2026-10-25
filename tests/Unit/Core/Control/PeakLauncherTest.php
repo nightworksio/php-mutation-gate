@@ -29,7 +29,8 @@ it('gives a control the peak the script wrote, and leaves one without it where i
     $run = ControlRun::passed(Seconds::of(1.0));
 
     expect(PeakLauncher::measured($run, '4096', 'Linux')->peak())->toEqual(MemoryCap::of(4, MemoryUnit::Megabytes))
-        ->and(PeakLauncher::measured($run, '', 'Linux'))->toBe($run);
+        ->and(PeakLauncher::measured($run, '', 'Linux'))->toBe($run)
+        ->and(PeakLauncher::measured($run, NotGiven::value(), 'Linux'))->toBe($run);
 });
 
 it('writes its script in a directory of a runner\'s controls', function (): void {
