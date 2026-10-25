@@ -130,7 +130,9 @@ ledger = pathlib.Path('.mutation-gate/ledger')
 said = {'branch': branch, 'head': head, 'options': sys.argv[2:], 'ledger': ledger.read_text() if ledger.exists() else '',
         'owned': pathlib.Path('composer.json').read_text(), 'files': sorted(p.name for p in pathlib.Path('src').glob('*')),
         'origin': origin, 'source': pathlib.Path('src/A.php').read_text(),
-        'test': pathlib.Path('tests/ATest.php').read_text(), 'baseline': pathlib.Path('baseline.json').read_text()}
+        'test': pathlib.Path('tests/ATest.php').read_text(), 'baseline': pathlib.Path('baseline.json').read_text(),
+        'compiled': pathlib.Path('storage/views/compiled.php').exists(),
+        'kept': pathlib.Path('storage/views/.gitignore').exists()}
 with open(sys.argv[1], 'a') as log:
     log.write(json.dumps(said) + '\\n')
 ledger.parent.mkdir(exist_ok=True)
@@ -139,6 +141,7 @@ cache = pathlib.Path('.phpunit.cache/test-results')
 cache.parent.mkdir(exist_ok=True)
 cache.write_text(head)
 pathlib.Path('baseline.json').write_text('raised')
+pathlib.Path('storage/views/compiled.php').write_text(head)
 """
 
 
@@ -157,7 +160,8 @@ class Running(unittest.TestCase):
             project.mkdir()
             git(project, "init", "--quiet")
             commit(project, {"composer.json": "bench", "src/A.php": "<?php $x = 4;", **test,
-                             "baseline.json": "floor 0", ".gitignore": ".mutation-gate/\n"}, "prepared")
+                             "baseline.json": "floor 0", "storage/views/.gitignore": "*\n!.gitignore\n",
+                             ".gitignore": ".mutation-gate/\n"}, "prepared")
             log = Path(work) / "runs.jsonl"
             gate = Path(work) / "gate.py"
             gate.write_text(FAKE_GATE)
@@ -166,6 +170,7 @@ class Running(unittest.TestCase):
                 "arms": {"gate": {"said": "the gate", "report": "gate",
                                   "command": [sys.executable, str(gate), str(log)]}},
                 "scenarios": {
+                    "generated": ["storage/views"],
                     "edit": [{"file": "src/A.php", "rename": "x", "to": "y"},
                              {"file": "tests/ATest.php", "rename": "a", "to": "b"}],
                     "replay": [{"pull": 7, "base": base, "merge": merged}],
@@ -193,6 +198,7 @@ class Running(unittest.TestCase):
             ])
             self.assertEqual({each["owned"] for each in runs}, {"bench"})
             self.assertEqual([each["baseline"] for each in runs], ["floor 0"] * 7)
+            self.assertEqual({(each["compiled"], each["kept"]) for each in runs}, {(False, True)})
             self.assertEqual(runs[5]["files"], ["A.php", "Old.php"])
             self.assertEqual(runs[6]["files"], ["A.php"])
             self.assertEqual(runs[5]["origin"], runs[6]["origin"])

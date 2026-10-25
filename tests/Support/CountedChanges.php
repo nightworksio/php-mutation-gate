@@ -60,6 +60,11 @@ final class CountedChanges implements ChangeSource
         return $this->changes->fingerprints();
     }
 
+    public function listed(Paths $paths): Paths|CannotTell
+    {
+        return $this->changes->listed($paths);
+    }
+
     public function unstaged(): Paths|CannotTell
     {
         return $this->changes->unstaged();

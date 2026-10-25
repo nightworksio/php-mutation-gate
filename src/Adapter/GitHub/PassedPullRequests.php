@@ -107,6 +107,11 @@ final readonly class PassedPullRequests implements ChangeSource, Repository
         return $this->source->fingerprints();
     }
 
+    public function listed(Paths $paths): Paths|CannotTell
+    {
+        return $this->source->listed($paths);
+    }
+
     public function unstaged(): Paths|CannotTell
     {
         return $this->source->unstaged();

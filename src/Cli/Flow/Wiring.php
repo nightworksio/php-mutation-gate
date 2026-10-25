@@ -131,7 +131,9 @@ final readonly class Wiring
                 $runner,
                 $suite,
                 $checker,
-                $checker instanceof StaticChecker ? $this->identified($checker, $withheld, $project) : $checker,
+                $checker instanceof StaticChecker
+                    ? $this->identified($checker, $withheld, $project, $changes)
+                    : $checker,
                 $trees,
                 $proofs,
                 $costs,
@@ -161,20 +163,24 @@ final readonly class Wiring
     /**
      * Who the analyser is, its config's digest that of the configuration it
      * resolves and every file that references, where it can say them, and
-     * that of its config file where it cannot (ADR-0020).
+     * that of its config file where it cannot (ADR-0020). A referenced file
+     * under the root that version control ignores is none of them.
      */
     private function identified(
         StaticChecker $checker,
         Withheld $withheld,
         Directory $project,
+        ChangeSource $changes,
     ): AnalyserIdentity|CannotJudge {
         $identity = $checker->identity($withheld);
         $settings = $checker->configuration($withheld);
 
         return $identity instanceof AnalyserIdentity && $settings instanceof AnalyserSettings
-            ? $identity->configuredBy(
-                $settings->digest(ReferencedFiles::under($project->root())->digests($settings->references())),
-            )
+            ? $identity->configuredBy($settings->digest(
+                ReferencedFiles::under($project->root())
+                    ->listing($changes->listed(ReferencedFiles::inside($settings->references())))
+                    ->digests($settings->references()),
+            ))
             : $identity;
     }
 

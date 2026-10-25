@@ -18,7 +18,11 @@ commits:
   (`base`) and the commit that merged it (`merge`);
 - `gate`: the arms the scenarios run, each of them one of the gate's;
 - `diff`: where the runner is Infection, the plain arm that runs again
-  with Infection's own `--git-diff-lines` for each pull request.
+  with Infection's own `--git-diff-lines` for each pull request;
+- `generated`: the directories where the project's runs write build output
+  git ignores, such as a framework's compiled views, whose ignored files are
+  removed before every run, as a CI job starts without them: a view compiled
+  at one commit names templates another commit does not hold.
 
 The prepared project is a git repository of one commit. Each commit a
 scenario needs is fetched from the project's repository and laid over it:
@@ -215,6 +219,12 @@ def published(directory: Path) -> None:
     git(directory, "symbolic-ref", "refs/remotes/origin/HEAD", f"refs/remotes/origin/{MAIN}")
 
 
+def cleared(directory: Path, generated: list[str]) -> None:
+    """The files git ignores under each of these directories removed, those it tracks left."""
+    if generated:
+        git(directory, "clean", "--quiet", "--force", "-d", "-X", "--", *generated)
+
+
 def name_of(step: dict, at: int) -> str:
     return f"{step['scenario']}-{step['pull'] if 'pull' in step else at}"
 
@@ -299,6 +309,7 @@ def run(project: dict, directory: Path, out: Path, rounds: int, arm_seconds: flo
                 if step["scenario"] == "warm" and step["timed"]:
                     bench.removed(directory / ".mutation-gate")
                     shutil.copytree(snapshot, directory / ".mutation-gate")
+                cleared(directory, project["scenarios"].get("generated", []))
                 label = name_of(step, at)
                 report = out / f"{name}-{label}.json"
                 command = [bench.fill(part, report) for part in arm["command"]] + options

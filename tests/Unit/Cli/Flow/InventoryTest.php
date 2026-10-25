@@ -121,6 +121,11 @@ it('cannot find the units where anything it asks cannot answer', function (
                 return CannotTell::because('git ls-files failed.');
             }
 
+            public function listed(Paths $paths): CannotTell
+            {
+                return CannotTell::because('git ls-files failed.');
+            }
+
             public function unstaged(): Paths
             {
                 return Paths::none();

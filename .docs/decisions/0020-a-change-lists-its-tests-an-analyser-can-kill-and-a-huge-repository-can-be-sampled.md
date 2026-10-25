@@ -493,6 +493,13 @@ needs remain, and the runners' own behaviour shapes each answer.
       referenced, found without following a linked directory, is digested
       by its contents, and one that is not there as missing. A file outside
       the root keeps the path it is named by.
+    - Where version control lists the project's files, a referenced file
+      under the root that it does not list, tracked or untracked, is none of
+      them, as item 6 holds no file it ignores. A file git ignores is built
+      from what the keys read already, and is often stamped with the time it
+      was built, as Symfony stamps the container XML that PHPStan's Symfony
+      extension reads from `var/cache`: digested, it would change every key
+      whenever the cache was built again.
     - The config digest is the digest of the settings and of those files.
       An analyser that cannot say the configuration it runs with is keyed
       by the digest of its config file instead.

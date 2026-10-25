@@ -50,6 +50,13 @@ interface ChangeSource
     public function fingerprints(): Fingerprints|CannotTell;
 
     /**
+     * Of these paths, and of the files under those that are directories, each
+     * file version control does not ignore: tracked, or untracked and not
+     * ignored, whether or not it is on disk.
+     */
+    public function listed(Paths $paths): Paths|CannotTell;
+
+    /**
      * Every file whose content on disk is not what is staged: changed since
      * it was staged, or never added.
      */
