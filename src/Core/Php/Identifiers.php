@@ -74,8 +74,8 @@ final readonly class Identifiers
     {
         return self::is($tokens, $at - 1, T_FUNCTION)
             || (self::is($tokens, $at - 1, '&') && self::is($tokens, $at - 2, T_FUNCTION))
-            || (self::is($tokens, $at + 1, '=') && self::is($tokens, $at - 1, T_CONST))
-            || (self::is($tokens, $at + 1, '=') && self::is($tokens, $at - 2, T_CONST))
+            || (self::is($tokens, $at + 1, '=')
+                && (self::is($tokens, $at - 1, T_CONST) || self::is($tokens, $at - 2, T_CONST)))
             || (self::is($tokens, $at - 1, T_CASE) && self::is($tokens, $at + 1, ...self::AFTER_A_CASE));
     }
 

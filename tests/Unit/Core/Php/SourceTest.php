@@ -43,7 +43,8 @@ it('finds the first token a change to a print of the file writes differently, ca
     expect($source->changedAt($print, Contents::of('<?php f(1, 2); $a = 017 - 2; g(3);')))->toBe(Php::indexOf($source, '+'))
         ->and($source->changedAt($print, Contents::of('<?php f(1, 2); $a = 016 + 2; g(3);')))->toBe(Php::indexOf($source, '0o17'))
         ->and($source->changedAt($print, Contents::of('<?php f(1, 2); $a = 017;')))->toBe(Php::indexOf($source, '+'))
-        ->and($source->changedAt($print, $print))->toBe($source->tokens()->count());
+        ->and($source->changedAt($print, $print))->toBe($source->tokens()->count())
+        ->and($source->changedAt($print, Contents::of('<?php f(1, 2); $a = 017 + 2;')))->toBe(Php::indexOf($source, 'g'));
 });
 
 it('finds each name that may stand for a class, but not where it is declared, imported or a member', function (): void {

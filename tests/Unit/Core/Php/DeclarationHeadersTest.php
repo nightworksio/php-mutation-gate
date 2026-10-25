@@ -96,6 +96,12 @@ it('reads a function\'s signature and a constant outside a type, and a namespace
         ->and($same($functions, str_replace('namespace App {', 'namespace Other {', $functions)))->toBeFalse();
 });
 
+it('reads the body of each braced namespace a file declares, the second as the first', function () use ($same): void {
+    $script = "<?php\n\nnamespace App {\n    function one(): int { return 1; }\n}\n\nnamespace Other {\n    function two(): int { return 2; }\n}\n";
+
+    expect($same($script, str_replace('two(): int', 'two(): float', $script)))->toBeFalse();
+});
+
 it('reads no statement outside a type as declaring unless it declares, nor `Name::class` as a type', function () use (
     $same,
 ): void {

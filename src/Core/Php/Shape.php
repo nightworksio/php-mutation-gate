@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Php;
 
+use function array_flip;
 use function array_key_exists;
 use function array_values;
 
@@ -17,10 +18,15 @@ final readonly class Shape
     /**
      * @param array<int, ClassLike> $classes    each class-like declaration, by where its body opens
      * @param array<int, Signature> $signatures each parameter list, by where it opens
-     * @param array<int, true>      $bodies     where each function's body opens
+     * @param array<int, int>       $bodies     where each function's body opens, by where its `function` stands
+     * @param array<int, int>       $opened     where each function's `function` stands, by where its body opens
      */
-    private function __construct(private array $classes, private array $signatures, private array $bodies)
-    {
+    private function __construct(
+        private array $classes,
+        private array $signatures,
+        private array $bodies,
+        private array $opened,
+    ) {
     }
 
     public static function of(Tokens $tokens, Scope $scope): self
@@ -31,16 +37,14 @@ final readonly class Shape
 
         foreach ($tokens->indicesOf(T_FUNCTION, T_FN) as $at) {
             $list = self::parametersAfter($tokens, $at);
-            $body = $list === Tokens::NONE || $tokens->is($at, T_FN)
-                ? Tokens::NONE
-                : self::braceAfter($tokens, $at, $tokens->closing($list) + 1);
+            $body = $list === Tokens::NONE || $tokens->is($at, T_FN) ? Tokens::NONE : self::braceAfter($tokens, $at);
             $signatures = $list === Tokens::NONE
                 ? $signatures
                 : $signatures + [$list => self::signatureAt($tokens, $scope, $at, $classes)];
-            $bodies = $body === Tokens::NONE ? $bodies : $bodies + [$body => true];
+            $bodies = $body === Tokens::NONE ? $bodies : $bodies + [$at => $body];
         }
 
-        return new self($classes, $signatures, $bodies);
+        return new self($classes, $signatures, $bodies, array_flip($bodies));
     }
 
     /** Whether a class-like body opens at an index. */
@@ -70,7 +74,30 @@ final readonly class Shape
     /** Whether a function's, a method's or a closure's body opens at an index. */
     public function isBody(int $opener): bool
     {
-        return array_key_exists($opener, $this->bodies);
+        return array_key_exists($opener, $this->opened);
+    }
+
+    /** Where the body of the function whose `function` stands at an index opens; nowhere where it has none. */
+    public function bodyOf(int $keyword): int
+    {
+        return array_key_exists($keyword, $this->bodies) ? $this->bodies[$keyword] : Tokens::NONE;
+    }
+
+    /**
+     * Where the first brace after a declaring token opens at the token's own
+     * depth, before a `;` there ends its statement; nowhere where none does.
+     */
+    public static function braceAfter(Tokens $tokens, int $declaring): int
+    {
+        $depth = $tokens->enclosing($declaring);
+
+        foreach ($tokens->between($declaring, $tokens->count()) as $at => $token) {
+            if ($tokens->enclosing($at) === $depth && $token->is(['{', ';'])) {
+                return $token->is('{') ? $at : Tokens::NONE;
+            }
+        }
+
+        return Tokens::NONE;
     }
 
     /** @return list<ClassLike> every class-like the file declares, in order */
@@ -85,31 +112,13 @@ final readonly class Shape
         $classes = [];
 
         foreach ($tokens->indicesOf(...Tokens::CLASS_LIKE) as $at) {
-            $body = self::braceAfter($tokens, $at, $at);
+            $body = self::braceAfter($tokens, $at);
             $classes = $tokens->is($at - 1, T_DOUBLE_COLON) || $body === Tokens::NONE
                 ? $classes
                 : $classes + [$body => ClassLike::at($tokens, $scope, $at, $body)];
         }
 
         return $classes;
-    }
-
-    /**
-     * Where the first brace from an index opens at a declaring token's own
-     * depth, before a `;` there ends its statement, if one does.
-     */
-    private static function braceAfter(Tokens $tokens, int $declaring, int $from): int
-    {
-        $depth = $tokens->enclosing($declaring);
-        $end = $tokens->isEnclosed($declaring) ? $tokens->closing($depth) : $tokens->count();
-
-        for ($at = $from; $at < $end; $at++) {
-            if ($tokens->enclosing($at) === $depth && $tokens->is($at, '{', ';')) {
-                return $tokens->is($at, '{') ? $at : Tokens::NONE;
-            }
-        }
-
-        return Tokens::NONE;
     }
 
     /** Where the parameter list after `function` or `fn` opens, past a `&` and a name, if one does. */

@@ -73,6 +73,13 @@ it('cannot follow static:: where a subclass declares the constant anew, or a var
         ->and(staticReadsIn(Symbol::constant('App\Base', 'RATE'), '<?php $class::OTHER;')->isAmbiguous())->toBeFalse();
 });
 
+it('reads static:: of a constant nothing declares anew as it is, and nothing through a class that does not reach its owner', function (): void {
+    $plain = staticReadsIn(Symbol::constant('App\Base', 'RATE'), '<?php namespace App; class Cash extends Base { function a() { return static::RATE; } }');
+    $apart = staticReadsIn(Symbol::constant('App\Base', 'OWN'), '<?php namespace App; class Apart extends Other { function a() { return static::OWN; } }');
+
+    expect([Php::sites($plain), $plain->isAmbiguous(), Php::sites($apart), $apart->isAmbiguous()])->toBe([['src/Reader.php:1'], false, [], false]);
+});
+
 it('reads constant() with the name written out, and cannot follow any other', function (): void {
     $written = staticReadsIn(Symbol::constant('App\Base', 'RATE'), <<<'PHP'
         <?php
@@ -120,6 +127,7 @@ it('reads a static property through the owner and a class that reaches it, and n
         <?php
         namespace App;
         Money::$count;
+        Money::$total;
         Base::count;
         Other::$count;
         constant($name);

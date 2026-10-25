@@ -6,7 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Php;
 
 use function array_slice;
 use function count;
-use function ord;
+use function mb_ord;
 
 use PhpToken;
 
@@ -100,17 +100,18 @@ final readonly class Argument
 
     /**
      * The statements of the closure's body, an arrow function's expression
-     * read as one; none for an argument that is not a closure.
+     * read as one, and a function's closing brace as one that runs nothing;
+     * none for an argument that is not a closure.
      */
     public function body(): TopLevel
     {
         $closure = ClosureLiteral::at($this->read, 0);
-        $after = array_slice($this->tokens, $closure->opens() + 1);
+        $inside = $this->inside($closure);
 
         return match (true) {
             ! $this->isClosure() => TopLevel::of([]),
-            $closure->isArrow() => TopLevel::of([...$after, new PhpToken(ord(self::END[0]), self::END)]),
-            default => TopLevel::of(array_slice($after, 0, -1)),
+            $closure->isArrow() => TopLevel::of([...$inside, new PhpToken(mb_ord(self::END), self::END)]),
+            default => TopLevel::of($inside),
         };
     }
 
@@ -126,7 +127,7 @@ final readonly class Argument
 
         return match (true) {
             ! $this->isClosure() => false,
-            $closure->isArrow() => self::of(array_slice($this->tokens, $closure->opens() + 1))->runsNothing($own),
+            $closure->isArrow() => self::of($this->inside($closure))->runsNothing($own),
             default => $this->givesOnly($this->body(), $own),
         };
     }
@@ -158,6 +159,17 @@ final readonly class Argument
         }
 
         return true;
+    }
+
+    /**
+     * What follows where a closure's body opens: an arrow function's expression, or a function's statements and
+     * closing brace.
+     *
+     * @return list<PhpToken>
+     */
+    private function inside(ClosureLiteral $closure): array
+    {
+        return array_slice($this->tokens, $closure->opens() + 1);
     }
 
     /** Whether a closure's body declares nothing, and each of its statements returns or yields what runs nothing. */

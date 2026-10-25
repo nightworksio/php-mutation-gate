@@ -29,8 +29,9 @@ describe('Identifiers', function (): void {
             <?php
             $c = K::class;
             switch ($v) { case static::LIMIT: break; }
+            $m = $flags & static::MASK;
             $f = function () use ($c) { return list($a) = [1]; };
             $g = function &() { static $s; return $s; };
-            PHP))->toBe(['K', 'LIMIT']);
+            PHP))->toBe(['K', 'LIMIT', 'MASK']);
     });
 })->group('holds:src/Core/Php/Identifiers.php');

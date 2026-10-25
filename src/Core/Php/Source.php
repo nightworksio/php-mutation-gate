@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Php;
 
+use function array_diff_assoc;
 use function array_filter;
+use function array_keys;
 use function array_values;
+use function count;
 use function min;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -107,16 +110,12 @@ final readonly class Source
      */
     public function changedAt(Contents $print, Contents $changed): int
     {
-        $printed = Tokens::of(self::significant($print));
-        $other = Tokens::of(self::significant($changed));
-        $shorter = min($printed->count(), $other->count());
-        $at = 0;
+        $printed = Tokens::of(self::significant($print))->texts();
+        $other = Tokens::of(self::significant($changed))->texts();
+        $differ = array_keys(array_diff_assoc($printed, $other));
+        $at = $differ === [] ? count($printed) : min($differ);
 
-        while ($at < $shorter && $printed->text($at) === $other->text($at)) {
-            $at++;
-        }
-
-        return TokenAlignment::of($this->tokens->texts(), $printed->texts())->inFirst($at);
+        return TokenAlignment::of($this->tokens->texts(), $printed)->inFirst($at);
     }
 
     /** The class-like whose body encloses a token most closely, or none where no class-like does. */

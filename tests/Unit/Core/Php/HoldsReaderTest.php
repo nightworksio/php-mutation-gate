@@ -32,7 +32,7 @@ it('reads a #[Holds] on a class and on its methods, with PHPUnit\'s group beside
         final readonly class KernelTest extends TestCase
         {
             #[Holds('src/Boot.php')]
-            #[Unit\Group('holds:src/Boot.php')]
+            #[Unit\Group('holds:src/Boot.php'), Group('fast')]
             public function testBoots(): void {}
 
             #[Holds('src/Http'), Group('holds:src/Kernel.php'), Grouping('holds:src/Http')]

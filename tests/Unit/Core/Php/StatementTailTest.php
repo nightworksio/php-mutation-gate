@@ -141,3 +141,39 @@ it('spans the lines past a match (true) head in a method named with a semi-reser
 
     expect(statementTailLines(StatementTail::of($source, Php::indexOf($source, 'true'))))->toBe([8, 10]);
 });
+
+it('has no tail on a line of match arms whose head calls a function, nor on a line of a for loop\'s head', function (): void {
+    $source = Php::source(<<<'PHP'
+        <?php
+        function band(int $n): int
+        {
+            return match (abs($n)) {
+                1 => max(
+                    2,
+                ),
+                default => 3,
+            };
+        }
+        function loops(): void
+        {
+            for ($i = 0;
+                $i < max(
+                    1,
+                );
+                $i++) {
+            }
+        }
+        PHP);
+
+    expect(StatementTail::of($source, Php::indexOf($source, '1')))->toEqual(NotGiven::value())
+        ->and(StatementTail::of($source, Php::indexOf($source, '$i', 1)))->toEqual(NotGiven::value());
+});
+
+it('has no tail on a statement a file ends inside, on its line or with a bracket left open', function (string $code): void {
+    $source = Php::source($code);
+
+    expect(StatementTail::of($source, Php::indexOf($source, 'g')))->toEqual(NotGiven::value());
+})->with([
+    'on its last line' => ["<?php\nfunction f()\n{\n    g(1);"],
+    'with a bracket left open' => ["<?php\nfunction f()\n{\n    g(1,\n"],
+]);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Php\ClassLike;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Php\Signature;
+use NightWorksIO\MutationGate\Core\Php\Tokens;
 use NightWorksIO\MutationGate\Tests\Support\Php;
 
 it('finds every class-like body, but not the class a ::class names', function (): void {
@@ -49,6 +50,20 @@ it('finds each function\'s parameter list and body, and no signature in a functi
         ->and($shape->signatureOf($lists[3]))->toEqual(Signature::ofClosure())
         ->and($shape->signatureOf($lists[4]))->toEqual(Signature::ofClosure())
         ->and(array_map(static fn(int $at): int => $source->tokens()->line($at), $bodies))->toBe([4, 7, 7]);
+});
+
+it('finds the parameter list and body of a closure that returns by reference', function (): void {
+    $source = Php::source('<?php $f = function &($a) { return $a; };');
+
+    expect([$source->shape()->isSignature(Php::indexOf($source, '(')), $source->shape()->isBody(Php::indexOf($source, '{'))])
+        ->toBe([true, true]);
+});
+
+it('says where the body of the function at a keyword opens, and nowhere for one with none', function (): void {
+    $source = Php::source('<?php function f() { } interface I { public function g(); }');
+
+    expect([$source->shape()->bodyOf(Php::indexOf($source, 'function')), $source->shape()->bodyOf(Php::indexOf($source, 'function', 1))])
+        ->toBe([Php::indexOf($source, '{'), Tokens::NONE]);
 });
 
 it('finds a brace inside a bracket, and no body where a statement ends first', function (): void {

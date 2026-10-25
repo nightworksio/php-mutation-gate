@@ -78,6 +78,10 @@ it('names the innermost named function a line is in', function (int $line, strin
     'past the end' => [60, fn(): Nameless => Nameless::code()],
 ]);
 
+it('names the inner of two named functions that begin on one line', function (): void {
+    expect(Functions::in(Contents::of("<?php\nfunction outer() { function inner() {\n}\n}\n"))->around(Line::of(2)))->toBe('inner');
+});
+
 it('reads a file that is not PHP, or closes more than it opens, as declaring nothing', function (): void {
     expect(Functions::in(Contents::of('just text'))->around(Line::of(1)))->toEqual(Nameless::code())
         ->and(Functions::in(Contents::of("<?php\n}\n}\n"))->around(Line::of(2)))->toEqual(Nameless::code());

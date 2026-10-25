@@ -121,6 +121,12 @@ it('counts its tokens, and says whether a bracket encloses one', function () use
         ->and($read->isEnclosed(4))->toBeFalse();
 });
 
+it('gives the tokens from one index up to another, by their index', function () use ($tokens): void {
+    $texts = array_map(static fn(PhpToken $token): string => $token->text, $tokens('<?php f(a, b);')->between(2, 5));
+
+    expect($texts)->toBe([2 => 'a', 3 => ',', 4 => 'b']);
+});
+
 it('reads a file\'s significant tokens, each with the byte it begins at', function (): void {
     $tokens = Tokens::in(Contents::of("<?php\n// a comment\n\$é = 1;"));
 
@@ -140,12 +146,12 @@ it('reads a string literal without its quotes, each escaped backslash as one', f
         ->and($read->unquoted(4))->toBe('plain');
 });
 
-it('finds the name a function keyword declares, a semi-reserved word among them, and none for a closure', function () use ($tokens): void {
-    $read = $tokens('<?php function f() {} function &g() {} class C { function and() {} function for() {} } $h = function () {}; $i = function &() {}; $j = fn () => 1;');
+it('finds the name a function keyword declares, a semi-reserved word among them, and none for a closure or an import', function () use ($tokens): void {
+    $read = $tokens('<?php use function App\helper; function f() {} function &g() {} class C { function and() {} function for() {} } $h = function () {}; $i = function &() {}; $j = fn () => 1;');
     $names = array_map($read->functionName(...), $read->indicesOf(T_FUNCTION, T_FN));
 
     expect(array_map(static fn(int $at): string => $at === Tokens::NONE ? '' : $read->text($at), $names))
-        ->toBe(['f', 'g', 'and', 'for', '', '', '']);
+        ->toBe(['', 'f', 'g', 'and', 'for', '', '', '']);
 });
 
 it('says whether a name the file spells ends in a word, as written or in lower case, whatever its qualification', function () use ($tokens): void {
