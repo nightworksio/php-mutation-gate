@@ -37,7 +37,14 @@ for entry in app/*; do
   rest="${rest:+${rest}, }\"${entry}\""
 done
 bench_baselines app config routes
-jq -n --argjson rest "[${rest}]" '{runner: "pest", trees: [
+# The gate arm runs under pest.patch, so each run opens on the canary group, a
+# test of its own, with the coverage map the gate measured, not on the whole
+# suite under coverage again.
+mkdir -p tests/Unit/Canary
+printf '%s\n' '<?php' '' 'declare(strict_types=1);' '' \
+  "test('the patched mutation run opens on this group', fn () => expect(true)->toBeTrue())->group('mutation-canary');" \
+  > tests/Unit/Canary/MutationCanaryTest.php
+jq -n --argjson rest "[${rest}]" '{runner: "pest", pest: {patch: true}, trees: [
   {path: "app", exclude: $rest}, {path: "config", exclude: ["config/**"]}, {path: "routes", exclude: ["routes/**"]}
 ]}' > bench-pest.json
 bench_commit "pinkary.com"

@@ -394,6 +394,10 @@ would have cost without them.
       `symfony/demo`'s suite writes to one SQLite file, which processes that
       share it lock each other out of, so each worker runs on a copy of its
       own, by the `TEST_TOKEN` Infection and the gate give it.
+    - Where the gate's arm runs Pest, it runs under `pest.patch`, and the
+      harness adds a test of its own in the `mutation-canary` group: each
+      run opens on it with the map the gate measured, not on the whole
+      suite under coverage again.
     - `filamentphp/filament`, a Pest monorepo, joins once ecosystem
       discovery is built.
     - `bench/` is export-ignored.
