@@ -19,7 +19,7 @@ jq --arg gate "${GITHUB_WORKSPACE}" --arg phpunit "$(bench_locked phpunit/phpuni
   | .["prefer-stable"] = true' composer.json > composer.json.new
 mv composer.json.new composer.json
 composer update --no-interaction --no-progress
-composer show | grep -E '^(phpunit/phpunit|infection/infection|nightworksio/mutation-gate) '
+bench_versions phpunit/phpunit infection/infection nightworksio/mutation-gate
 # jwt's own PHPUnit is 11; PHPUnit 13 warns of its repeated `#[Uses]`
 # attributes and refuses `beStrictAboutTodoAnnotatedTests`. Infection's
 # initial run stops at its first defect in a random order, a PHPUnit warning

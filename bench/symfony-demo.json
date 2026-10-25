@@ -76,7 +76,18 @@
         "said": "the gate-infection arm, sharded at the shards.seconds of its config"
     },
     "scenarios": {
-        "week": "920d86dc809f837543cb519d3df5b364a2c36577",
+        "edit": [
+            {
+                "file": "src/Utils/Validator.php",
+                "rename": "plainPassword",
+                "to": "password"
+            },
+            {
+                "file": "tests/Utils/ValidatorTest.php",
+                "rename": "test",
+                "to": "value"
+            }
+        ],
         "replay": [
             {
                 "pull": 1644,

@@ -49,7 +49,18 @@
         "said": "the gate-pest arm, sharded at the shards.seconds of its config"
     },
     "scenarios": {
-        "week": "eeb8a060fb35216692493b4cb978b3438013e71a",
+        "edit": [
+            {
+                "file": "app/Actions/Questions/UpdateQuestionHashtags.php",
+                "rename": "matches",
+                "to": "found"
+            },
+            {
+                "file": "tests/Unit/Actions/UpdateQuestionHashtagsTest.php",
+                "rename": "synced",
+                "to": "result"
+            }
+        ],
         "replay": [
             {
                 "pull": 907,

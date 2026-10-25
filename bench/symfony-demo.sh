@@ -17,7 +17,7 @@ composer require --dev --no-interaction --no-progress --no-update \
   "phpunit/phpunit:$(bench_locked phpunit/phpunit)" "infection/infection:$(bench_locked infection/infection)" \
   'nightworksio/mutation-gate:@dev'
 composer update --no-interaction --no-progress --with-all-dependencies
-composer show | grep -E '^(phpunit/phpunit|infection/infection|nightworksio/mutation-gate) '
+bench_versions phpunit/phpunit infection/infection nightworksio/mutation-gate
 printf '.mutation-gate/\nbench-*.json\nbench-*.txt\ninfection.txt\ndata/database_test?*.sqlite\n' >> .gitignore
 # The suite writes to one SQLite file, and processes that share it lock each
 # other out, which fails tests a mutant never touched. Each process runs on a

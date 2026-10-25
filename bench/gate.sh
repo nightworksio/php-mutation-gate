@@ -9,6 +9,10 @@
 # housekeeping off, so no background gc repacks .git while a copy or a run
 # reads it; and a copy for the plain arm made before the gate patches its
 # runner.
+#   bench_versions <package>... each package's installed version, read from
+#                               Composer's JSON, which keeps every column at
+#                               any width, where its table drops all but the
+#                               name once a line is wider than the terminal
 #   bench_baselines <tree>...   floors of 0, so a score never fails a gate arm
 #   bench_commit <message>      git init and one commit, as a checkout is, the
 #                               same commit on every machine that prepares the
@@ -20,6 +24,11 @@ set -euo pipefail
 bench_locked() {
   jq -r --arg name "$1" '(.packages + ."packages-dev")[] | select(.name == $name) | .version' \
     "${GITHUB_WORKSPACE}/composer.lock"
+}
+
+bench_versions() {
+  composer show --format=json | jq -r --args \
+    '.installed[] | select(.name as $name | $ARGS.positional | index($name)) | "\(.name) \(.version)"' "$@"
 }
 
 bench_baselines() {

@@ -34,8 +34,9 @@ file and the step summary:
 - each mutant the arms named under `same` judge otherwise, or one of them
   lacks. Those arms mutate with the same tool and mutators, so a difference
   the gate's own statuses do not explain fails the benchmark. A mutant plain
-  Infection skipped, which its text log names, is explained by the skip, and
-  one it timed out that the gate ran to a kill or a survivor by the limit.
+  Infection skipped, which its text log names, is explained by the skip,
+  one it timed out that the gate ran to a kill or a survivor by the limit,
+  and one it killed that the gate timed out by both detecting it.
 
 `time` runs one command that many times and keeps the median of its wall
 time with the range, as `Pest start-up` measures what starting Pest costs.
@@ -101,6 +102,11 @@ SKIPPED = "skipped"
 # alone tells the two apart.
 TIMED_OUT = "timeouted"
 RAN_TO_AN_END = ("killed", "escaped")
+
+# The outcomes that both detect a mutant: one arm's kill and the other's
+# timeout tell the same thing, as where a mutant's tests read random data,
+# such as lcobucci/jwt's ECDSA signatures, and end it at once or loop on it.
+DETECTED = {"killed", "timed out"}
 
 # How a mutator of one of the gate's own sets is named, `<set>/<Name>`
 # (ADR-0021): the plain tool has no such mutator, so it lacks its mutants.
@@ -247,7 +253,8 @@ def pairs(plain: list[dict], gate: list[dict], named_only: bool = False, left_ou
     those by file, line and mutator, and a gate mutant it does not name is
     one it killed or timed out. A mutant plain Infection skipped is matched
     by file, line and mutator, and Infection's skip explains it; one it timed
-    out that the gate killed or that survived is explained by the limit. A gate
+    out that the gate killed or that survived is explained by the limit, and
+    one it killed that the gate timed out by both detecting it. A gate
     mutant the plain arm lacks is explained where a mutator of the gate's
     own sets made it, or where it is uncovered and the plain arm leaves
     uncovered mutants out.
@@ -272,6 +279,7 @@ def pairs(plain: list[dict], gate: list[dict], named_only: bool = False, left_ou
                 (one["outcome"], other["status"]) in EXPLAINED
                 or other.get("judgement") in EXPLAINING_JUDGEMENTS
                 or (one["status"] == TIMED_OUT and other["outcome"] in RAN_TO_AN_END)
+                or {one["outcome"], other["outcome"]} == DETECTED
             ) or (one is None and other is not None and (
                 GATE_SET in other["mutator"] or (left_out and other["outcome"] == "uncovered")
             ))
