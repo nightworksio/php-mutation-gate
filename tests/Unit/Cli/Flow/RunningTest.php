@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Config\Runner as ConfiguredRunner;
 use NightWorksIO\MutationGate\Config\StaticCheck;
 use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
+use NightWorksIO\MutationGate\Core\Analysis\Finding;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -72,6 +73,7 @@ use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
 use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
+use NightWorksIO\MutationGate\Tests\Support\Dooms;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
@@ -340,6 +342,35 @@ it('runs each survivor once more and keeps those killed then as flaky', function
             [...$retries[0][0], ...$retries[1][0]],
         ));
 })->with(['by a test' => [MutantStatus::Killed], 'by a static analyser' => [MutantStatus::KilledByStaticAnalysis]]);
+
+it('checks each survivor by static analysis before it runs again, and runs none again that static analysis kills', function () use ($makeResultIn): void {
+    $resultIn = $makeResultIn();
+
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture();
+    $survivor = Dooms::survivor('src/Money.php');
+    $new = Finding::error(Path::of('src/Money.php'), 'new', 'New.');
+    $checker = new StaticCheckerFake(AnalyserIdentity::of('fake', '1.0.0', Digest::sha256Of('')), Findings::none(), [
+        Workspace::checkedMutant($survivor->id())->value() => Findings::of($new),
+    ]);
+
+    new Running(Flows::adapters($project, [], $runner, $checker), Flows::settings(), Flows::setup())
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+    $outcome = $resultIn($project, 1);
+    $judged = $outcome instanceof ShardResult && $outcome->outcome() instanceof MutationResult
+        ? array_values(array_filter(
+            [...$outcome->outcome()->mutants()],
+            static fn(Mutant $mutant): bool => $mutant->id()->value() === $survivor->id()->value(),
+        ))
+        : [];
+
+    expect(array_map(
+        static fn(array $retry): array => array_map(static fn(Mutant $mutant): string => $mutant->nativeId(), [...$retry[0]]),
+        $runner->retries(),
+    ))->toBe([['Plus-11']])
+        ->and(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $judged))
+        ->toBe([MutantStatus::KilledByStaticAnalysis]);
+});
 
 it('keeps no survivor as flaky that survives again', function () use ($makeResultIn, $makeFlaky): void {
     $resultIn = $makeResultIn();

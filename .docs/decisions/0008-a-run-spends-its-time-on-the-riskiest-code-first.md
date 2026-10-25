@@ -309,7 +309,8 @@ presets for Laravel, Symfony and plain libraries.
 3. **Flaky triage: the same code giving two answers is reported, not averaged.**
    - **Survivor confirmation.** Each survived mutant is run once more, alone,
      before it counts. Killed the second time means **flaky**. Survived again
-     means a confirmed survivor. Survivors are few, so this is cheap. Under
+     means a confirmed survivor. A survivor static analysis kills
+     (ADR-0020), checked first, is not run again. Under
      Pest the survivors run again in one run of their files with their
      mutators, each still in a process of its own, so Pest's opening run is
      paid once rather than once for each file and mutator.
@@ -448,8 +449,8 @@ presets for Laravel, Symfony and plain libraries.
      baseline cannot be read. A run on a branch, a tag or a schedule also
      runs to its end, since later runs build on what it records.
    - **Doomed.** The run is certain to fail once one of its mutants is a
-     survivor the verdict will count. It did not prove flaky when run again,
-     no ignore leaves it out, and static analysis does not clear it: where
+     survivor the verdict will count. Static analysis does not clear it,
+     it did not prove flaky when run again, and no ignore leaves it out: where
      `equivalence.static` is true it is not proven equivalent (ADR-0013),
      and where a static check runs (ADR-0020), its check does not kill it.
      And one of two floors holds it at 100:
@@ -465,12 +466,11 @@ presets for Laravel, Symfony and plain libraries.
      in chunks of about two minutes of the work the cost model expects
      (ADR-0006), opening run included. A held unit runs alone, as in a
      budgeted run, and a chunk always starts with its first unit, however
-     large. After each chunk, its survivors confirmed and checked by static
-     analysis, the shard looks for a doomed survivor, and it stops at the
+     large. After each chunk, its survivors checked by static analysis and
+     confirmed, the shard looks for a doomed survivor, and it stops at the
      first. The analyser runs over the original files once for the shard,
      before the first chunk's survivors are checked, and each survivor is
-     checked once, so the check after the shard's last chunk takes up only
-     the survivors no chunk's check did. A shard that finds none runs every
+     checked once. A shard that finds none runs every
      unit, at the cost of one runner opening per chunk. One code path serves
      every runner. ADR-0032 grows the chunk to about fifteen minutes.
    - **What it leaves.** The shard's result names the survivor under

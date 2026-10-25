@@ -41,7 +41,6 @@ final readonly class Batched
         private Deadline|Unlimited $deadline,
         private Interruption $interruption,
         private Doom|Undoomed $doom,
-        private SurvivorChecking $checking,
     ) {
     }
 
@@ -79,25 +78,17 @@ final readonly class Batched
     }
 
     /**
-     * What was spent, and this batch: where the run stops once it cannot
-     * pass, its survivors checked by static analysis first, and stopped on
-     * the first one left that makes the run certain to fail, if one does.
+     * What was spent, and this batch, whose survivors static analysis checked
+     * already (see Invoking): where the run stops once it cannot pass,
+     * stopped on the first one left that makes the run certain to fail, if
+     * one does.
      */
     private function doomed(Spent $spent, Units $batch, Invoked $invoked): Spent
     {
-        if (! $this->doom instanceof Doom) {
-            return $spent->after($invoked);
-        }
-
-        $checked = $this->checking->checked($invoked->result->mutants(), $invoked->flaky);
-        $after = $spent
-            ->after(new Invoked(
-                $invoked->result->withMutants($checked->mutants),
-                $invoked->flaky,
-                $invoked->equivalent,
-            ))
-            ->checkedBy($checked);
-        $doomed = $this->doom->first($batch, $checked->mutants, $invoked->flaky, $invoked->equivalent);
+        $after = $spent->after($invoked);
+        $doomed = $this->doom instanceof Doom
+            ? $this->doom->first($batch, $invoked->result->mutants(), $invoked->flaky, $invoked->equivalent)
+            : $this->doom;
 
         return $doomed instanceof Doomed ? $after->doomedBy($doomed) : $after;
     }

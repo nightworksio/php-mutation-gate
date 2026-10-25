@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Tests\Support;
 
 use function array_map;
+use function count;
 use function file_get_contents;
 use function is_file;
 
@@ -48,6 +49,9 @@ final class RecordingChecker implements StaticChecker
 
     /** @var list<string> the pattern of what each check ran without */
     private array $withheld = [];
+
+    /** @var list<array{int, int}> how many checks each batch held, and how many it ran side by side */
+    private array $batches = [];
 
     public function __construct(private readonly StaticCheckerFake $answers, private readonly string $project)
     {
@@ -93,12 +97,19 @@ final class RecordingChecker implements StaticChecker
     public function checks(MutantChecks $checks, ProcessCount $side): CheckAnswers
     {
         $answers = [];
+        $this->batches[] = [count([...$checks]), $side->count()];
 
         foreach ($checks as $check) {
             $answers[] = $this->check($check);
         }
 
         return CheckAnswers::of(...$answers);
+    }
+
+    /** @return list<array{int, int}> how many checks each batch held, and how many it ran side by side */
+    public function batches(): array
+    {
+        return $this->batches;
     }
 
     /** @return list<Paths> */
