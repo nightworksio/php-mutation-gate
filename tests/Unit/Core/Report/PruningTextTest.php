@@ -52,6 +52,8 @@ it('says one of each in the singular, a thousands separator in a count, and an a
     'hours' => [1_001, 43_200.0, 'Pruned: 1 mutator on 1 unit; 1,001 mutants carried from runs of the last 12h.'],
     'a day and hours' => [2, 129_600.0, 'Pruned: 1 mutator on 1 unit; 2 mutants carried from runs of the last 36h.'],
     'days and hours' => [2, 216_000.0, 'Pruned: 1 mutator on 1 unit; 2 mutants carried from runs of the last 60h.'],
+    'two days' => [2, 172_800.0, 'Pruned: 1 mutator on 1 unit; 2 mutants carried from runs of the last 2 days.'],
+    'no time' => [2, 0.0, 'Pruned: 1 mutator on 1 unit; 2 mutants carried from runs of the last 0s.'],
 ]);
 
 it('says nothing where the run pruned nothing', function (): void {

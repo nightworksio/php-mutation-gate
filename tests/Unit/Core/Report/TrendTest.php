@@ -88,10 +88,11 @@ it('drops an entry that is not in shape, and reads text that is not a trend as n
         ['commit' => 'a score past 100', 'time' => '2026-09-30T10:00:00Z', 'trees' => ['src' => 101]],
         ['commit' => 'a floor below 0', 'time' => '2026-09-30T10:00:00Z', 'trees' => [], 'floors' => ['src' => -1]],
         ['commit' => 'an unknown verdict', 'time' => '2026-09-30T10:00:00Z', 'trees' => [], 'verdict' => 'fine'],
+        ['commit' => 'kept after', 'time' => '2026-09-30T11:00:00Z', 'score' => 90, 'trees' => ['src' => 90]],
     ]]));
 
-    expect(Decoded::column($trend->json(), 'commit', 'runs'))->toBe(['kept'])
-        ->and(iterator_to_array($trend->scores(), preserve_keys: false))->toBe([80.0])
+    expect(Decoded::column($trend->json(), 'commit', 'runs'))->toBe(['kept', 'kept after'])
+        ->and(iterator_to_array($trend->scores(), preserve_keys: false))->toBe([80.0, 90.0])
         ->and(iterator_to_array(Trend::decode('not json')->scores(), preserve_keys: false))->toBe([])
         ->and(iterator_to_array(Trend::decode('{"runs": "many"}')->scores(), preserve_keys: false))->toBe([]);
 });

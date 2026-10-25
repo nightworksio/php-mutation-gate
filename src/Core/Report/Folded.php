@@ -38,7 +38,7 @@ final readonly class Folded
 
             if (! array_key_exists($cluster->id()->value(), $shown)) {
                 $items[] = $cluster;
-                $shown[$cluster->id()->value()] = true;
+                $shown[$cluster->id()->value()] = $cluster;
             }
         }
 

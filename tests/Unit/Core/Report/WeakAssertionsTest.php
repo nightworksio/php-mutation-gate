@@ -20,13 +20,16 @@ use NightWorksIO\MutationGate\Tests\Support\Schema;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 use NightWorksIO\MutationGate\Tests\Support\Weakly;
 
-/** The Cart's two survivors of line 11, as the gate finds them: both let through by `it fits`. */
+/**
+ * The Cart's survivors as the gate finds them: its Boundary of line 7, no
+ * weak test's, then its two of line 11, both let through by `it fits`.
+ */
 function weaklyFound(): Verdict
 {
     $trees = Weakly::trees(
+        Weakly::boundary(),
         Weakly::literal(),
         Weakly::survivor(11, 'ReturnNull', MutatorFamily::ReturnValue, Verdicts::diff('return false;', 'return null;')),
-        Weakly::boundary(),
     );
 
     return Verdict::of($trees->found(Weakness::findings($trees, Weakly::matrix(), Weakly::sources(), Weakly::testFiles())))->withMatrix(Weakly::matrix());

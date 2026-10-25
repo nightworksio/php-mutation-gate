@@ -69,7 +69,7 @@ final readonly class Stryker
             $path = $at->value();
             $file = array_key_exists($path, $files)
                 ? $files[$path]
-                : ['language' => self::LANGUAGE, 'source' => $sources->of($at)->text(), 'mutants' => []];
+                : ['language' => self::LANGUAGE, 'source' => $sources->of($at)->text()];
             $file['mutants'][] = self::mutant($judged, $columns->in($at), $uncovered, $verdict->matrix());
             $files[$path] = $file;
         }

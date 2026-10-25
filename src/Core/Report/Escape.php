@@ -79,10 +79,13 @@ final readonly class Escape
     /** Text shown as a block of code, in a fence longer than any run of its fence character inside it. */
     public static function block(string $text, string $language): string
     {
-        $shown = preg_replace(self::UNSHOWN, '', mb_scrub($text, 'UTF-8')) ?? '';
+        $shown = (string) preg_replace(self::UNSHOWN, '', mb_scrub($text, 'UTF-8'));
         preg_match_all('/~+/', $shown, $runs);
-        $longest = max([0, ...array_map(mb_strlen(...), $runs[0])]);
-        $fence = str_repeat('~', max(mb_strlen(self::FENCE), $longest + 1));
+        $length = max([
+            mb_strlen(self::FENCE),
+            ...array_map(static fn(string $run): int => mb_strlen($run) + 1, $runs[0]),
+        ]);
+        $fence = str_repeat('~', $length);
 
         return sprintf("%s%s\n%s\n%s", $fence, $language, $shown, $fence);
     }
@@ -91,6 +94,6 @@ final readonly class Escape
     {
         $escaped = strtr(htmlspecialchars($text, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8'), self::ENTITIES);
 
-        return Fit::verbatim(preg_replace(array_keys(self::ADDRESSES), self::ADDRESSES, $escaped) ?? '');
+        return Fit::verbatim((string) preg_replace(array_keys(self::ADDRESSES), self::ADDRESSES, $escaped));
     }
 }

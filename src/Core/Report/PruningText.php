@@ -30,7 +30,7 @@ final readonly class PruningText
             self::counted(count($pruning->mutators()), 'mutator'),
             self::counted($pruning->units(), 'unit'),
             self::counted($pruning->carried(), 'mutant'),
-            self::since((int) $pruning->audit()->seconds()),
+            self::since($pruning->audit()),
         );
     }
 
@@ -41,14 +41,15 @@ final readonly class PruningText
     }
 
     /** How far back a carried result may come from: whole days, or the duration as a report says it. */
-    private static function since(int $seconds): string
+    private static function since(Seconds $audit): string
     {
+        $seconds = (int) $audit->seconds();
         $days = intdiv($seconds, Seconds::PER_DAY);
 
         return match (true) {
-            $days === 1 && $seconds % Seconds::PER_DAY === 0 => 'day',
-            $days > 1 && $seconds % Seconds::PER_DAY === 0 => sprintf('%d days', $days),
-            default => Seconds::of((float) $seconds)->text(),
+            $days === 0 || $seconds % Seconds::PER_DAY !== 0 => $audit->text(),
+            $days === 1 => 'day',
+            default => sprintf('%d days', $days),
         };
     }
 }

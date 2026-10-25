@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Report;
 
 use function array_filter;
+use function array_find_key;
 use function array_key_exists;
+use function array_key_last;
 use function array_keys;
 use function array_map;
+use function array_pop;
 use function array_slice;
 use function count;
 use function explode;
+use function is_int;
 use function mb_strlen;
 
 use NightWorksIO\MutationGate\Core\Cluster\Span;
@@ -98,7 +102,7 @@ final readonly class Columns
     {
         [$at, $length] = $this->placed($mutant);
 
-        if ($at < 0) {
+        if ($at === Tokens::NONE) {
             return Unplaced::mutant();
         }
 
@@ -119,8 +123,17 @@ final readonly class Columns
     public function span(Mutant $mutant): Span|Unplaced
     {
         [$at, $length] = $this->placed($mutant);
-        $inner = $at < 0 ? [] : array_slice($this->tokens, $at, $length);
-        $inner = $inner !== [] && $inner[count($inner) - 1]['text'] === ';' ? array_slice($inner, 0, -1) : $inner;
+
+        if ($at === Tokens::NONE) {
+            return Unplaced::mutant();
+        }
+
+        $inner = array_slice($this->tokens, $at, $length);
+        $last = array_key_last($inner);
+
+        if ($last !== null && $inner[$last]['text'] === ';') {
+            array_pop($inner);
+        }
 
         foreach ($inner as $token) {
             if ($token['bound']) {
@@ -128,15 +141,15 @@ final readonly class Columns
             }
         }
 
-        return $at < 0 ? Unplaced::mutant() : Span::of($at, $at + $length - 1);
+        return Span::of($at, $at + $length - 1);
     }
 
     /**
-     * Where among the file's tokens those a mutant changed begin, -1 where
-     * they are not found on its lines or it is a kill that keeps no diff,
-     * and how many there are.
+     * Where among the file's tokens those a mutant changed begin, no index
+     * where they are not found on its lines or it is a kill that keeps no
+     * diff, and how many there are.
      *
-     * @return array{int, int}
+     * @return array{int<-1, max>, int}
      */
     private function placed(Mutant|ProvedKill $mutant): array
     {
@@ -148,7 +161,7 @@ final readonly class Columns
         ));
         $found = $this->find(array_map(fn(int $at): string => $this->tokens[$at]['text'], $window), $changed);
 
-        return [$found < 0 ? -1 : $window[$found], count($changed)];
+        return [$found === Tokens::NONE ? Tokens::NONE : $window[$found], count($changed)];
     }
 
     /** @return array{int, int} the line a mutant starts on and the line it ends on, which is its first where unsaid */
@@ -161,20 +174,20 @@ final readonly class Columns
     }
 
     /**
-     * Where the first run of these texts spelt as the changed ones are begins; -1 where none is.
+     * Where the first run of these texts spelt as the changed ones are begins; no index where none is.
      *
-     * @param list<string> $texts
-     * @param list<string> $changed
+     * @param  list<string> $texts
+     * @param  list<string> $changed
+     * @return int<-1, max>
      */
     private function find(array $texts, array $changed): int
     {
-        for ($at = 0; $changed !== [] && $at + count($changed) <= count($texts); ++$at) {
-            if (array_slice($texts, $at, count($changed)) === $changed) {
-                return $at;
-            }
-        }
+        $found = array_find_key(
+            $texts,
+            static fn(string $text, int $at): bool => array_slice($texts, $at, count($changed)) === $changed,
+        );
 
-        return -1;
+        return $changed !== [] && is_int($found) ? $found : Tokens::NONE;
     }
 
     /** The column after the last character of a line; 1 for a line past the end of the file. */
