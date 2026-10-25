@@ -213,10 +213,10 @@ it('lists of some paths each file it does not ignore, tracked or not, on disk or
         ->write('gone.neon', 'parameters: {}')->commit('The base.');
     unlink(sprintf('%s/gone.neon', $repository->root));
     $repository->write('stubs/new.stub', '<?php')->write('var/cache/Container.xml', '<container/>')->write('[ab].neon', '{}')
-        ->write('a.neon', '{}');
+        ->write('a.neon', '{}')->write('-c.neon', '{}');
 
-    expect(Git::at($repository->root)->listed(Paths::of(Path::of('stubs'), Path::of('var/cache/Container.xml'), Path::of('gone.neon'), Path::of('[ab].neon'))))
-        ->toEqual(Paths::of(Path::of('[ab].neon'), Path::of('gone.neon'), Path::of('stubs/a.stub'), Path::of('stubs/new.stub')))
+    expect(Git::at($repository->root)->listed(Paths::of(Path::of('stubs'), Path::of('var/cache/Container.xml'), Path::of('gone.neon'), Path::of('[ab].neon'), Path::of('-c.neon'))))
+        ->toEqual(Paths::of(Path::of('-c.neon'), Path::of('[ab].neon'), Path::of('gone.neon'), Path::of('stubs/a.stub'), Path::of('stubs/new.stub')))
         ->and(Git::at($repository->root)->listed(Paths::none()))->toEqual(Paths::none());
 })->group(...$holds);
 
