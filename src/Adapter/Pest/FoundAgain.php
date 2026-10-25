@@ -94,8 +94,15 @@ final readonly class FoundAgain
         foreach ($asked as $mutant) {
             $native = $mutant->nativeId();
             $left = array_key_exists($native, $again) ? $again[$native] : [];
-            $at = self::onItsLine($left, $mutant);
-            $paired[] = array_key_exists($at, $left) ? [$mutant, $left[$at]] : [$mutant, null];
+            $at = array_key_first(self::onItsLine($left, $mutant));
+
+            if ($at === null) {
+                $paired[] = [$mutant, null];
+
+                continue;
+            }
+
+            $paired[] = [$mutant, $left[$at]];
             unset($again[$native][$at]);
         }
 
@@ -103,16 +110,15 @@ final readonly class FoundAgain
     }
 
     /**
-     * Where among the mutants found again with its Pest id a mutant is: the
-     * first left on its own line; none where none is.
+     * The mutants found again with its Pest id that are left on a mutant's own line, by where they are.
      *
-     * @param array<int, Mutant> $left
+     * @param  array<int, Mutant> $left
+     * @return array<int, Mutant>
      */
-    private static function onItsLine(array $left, Mutant $mutant): int
+    private static function onItsLine(array $left, Mutant $mutant): array
     {
         $line = $mutant->location()->start()->number();
-        $same = array_filter($left, static fn(Mutant $found): bool => $found->location()->start()->number() === $line);
 
-        return array_key_first($same) ?? -1;
+        return array_filter($left, static fn(Mutant $found): bool => $found->location()->start()->number() === $line);
     }
 }

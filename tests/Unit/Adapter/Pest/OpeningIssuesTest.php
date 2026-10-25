@@ -135,6 +135,18 @@ it('quotes an issue PHPUnit raised in a test by the test, and none it was told t
     )));
 });
 
+it('quotes an issue the log ends on with no message after it', function (): void {
+    $project = openingProject();
+    $shell = openingShell(sprintf('Test Runner Triggered PHP Warning () in %s/a.php:1', $project->root()));
+
+    expect(openingRead($project, $shell, openingRan()))->toEqual(CannotJudge::because(sprintf(
+        "%s Run again alone, the opening tests raised:\n  %s\n Pest said:\n%s",
+        OPENING_ENDED,
+        'PHP Warning in a.php:1: ',
+        OPENING_PASSED,
+    )));
+});
+
 it('quotes an issue raised again once, and the first few, saying how many more', function (): void {
     $project = openingProject();
     $warning = static fn(int $line): string => sprintf("Test Runner Triggered PHP Warning () in %s/a.php:%d\nsaid", $project->root(), $line);

@@ -34,3 +34,10 @@ it('reads no list where none is named, none is there or it is empty, so the run 
         ->and(OnlyList::in($empty))->toBe([])
         ->and(OnlyList::in($unwritten))->toBe([]);
 });
+
+it('reads a list past the line breaks around it', function (): void {
+    $file = sprintf('%s/edited.only', Scratch::directory());
+    file_put_contents($file, "\nn1\nn2\n");
+
+    expect(OnlyList::in($file))->toBe(['n1' => 0, 'n2' => 1]);
+});

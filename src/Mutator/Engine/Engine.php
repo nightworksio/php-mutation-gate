@@ -118,7 +118,7 @@ final readonly class Engine
         foreach ($changes as [$mutator, $edit]) {
             $name = $mutator->name()->value();
             $diff = Hunks::of($edit->changed());
-            $key = MutantId::hash($file, $name, $diff, 0)->value();
+            $key = MutantId::first($file, $name, $diff)->value();
             $occurrence = array_key_exists($key, $seen) ? $seen[$key] : 0;
             $seen[$key] = $occurrence + 1;
             $mutants[] = MadeMutant::of(

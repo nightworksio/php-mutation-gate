@@ -34,6 +34,12 @@ final readonly class MutationResult
         return new self($mutants, $skipped, Warnings::none(), StepTimes::none(), Evidences::none());
     }
 
+    /** These mutants, none skipped. */
+    public static function skippingNone(Mutants $mutants): self
+    {
+        return self::of($mutants, 0);
+    }
+
     /**
      * This result with these mutants in place of its own: what it skipped,
      * warned of and timed kept, and the evidence of each mutant given again

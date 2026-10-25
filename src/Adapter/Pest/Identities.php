@@ -28,7 +28,7 @@ final readonly class Identities
         foreach ($planned as $mutant) {
             $path = $root->relative($mutant->file()->value());
             $diff = Diff::fromPest($mutant->diff());
-            $key = MutantId::hash($path, $mutant->mutator(), $diff, 0)->value();
+            $key = MutantId::first($path, $mutant->mutator(), $diff)->value();
             $occurrence = array_key_exists($key, $seen) ? $seen[$key] : 0;
             $ids[] = MutantId::hash($path, $mutant->mutator(), $diff, $occurrence);
             $seen[$key] = $occurrence + 1;

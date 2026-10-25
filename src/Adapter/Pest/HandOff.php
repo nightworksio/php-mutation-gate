@@ -165,13 +165,15 @@ final class HandOff implements ProcessWatch
     /** A mutant as the analyser reads it: the mutated copy Pest serves, judged against the print of its file. */
     private function checkable(Contents|CannotJudge $print, PlannedMutant $mutant): Checkable|CannotJudge
     {
-        $copy = $print instanceof Contents ? file_get_contents($mutant->mutated()->value()) : false;
+        if ($print instanceof CannotJudge) {
+            return $print;
+        }
 
-        return match (true) {
-            $print instanceof CannotJudge => $print,
-            ! is_string($copy) => CannotJudge::because($mutant->mutated()->value()),
-            default => Checkable::printed($print, Contents::of($copy)),
-        };
+        $copy = file_get_contents($mutant->mutated()->value());
+
+        return is_string($copy)
+            ? Checkable::printed($print, Contents::of($copy))
+            : CannotJudge::because($mutant->mutated()->value());
     }
 
     private function seconds(Seconds|Unmeasured $took): Seconds

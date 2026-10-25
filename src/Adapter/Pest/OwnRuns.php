@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_key_exists;
 use function array_map;
+use function array_sum;
 use function count;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordField;
@@ -52,7 +53,7 @@ final class OwnRuns
     /** @var array<string, float> the silence limit each own run was stopped at, by the mutated copy it ran on */
     private array $silent = [];
 
-    /** @var array<string, int> how many tests the own runs on each mutated copy ran, together, by the copy */
+    /** @var array<string, non-empty-list<int>> how many tests each own run on a mutated copy ran, by the copy */
     private array $ran = [];
 
     /** @var array<string, Places> where each killer stood in its run's order, by the mutated copy it ran on */
@@ -76,7 +77,7 @@ final class OwnRuns
             array_key_exists($mutated, $this->narrowed) ? $this->narrowed[$mutated] : [],
             array_key_exists($mutated, $this->exhausted) ? $this->exhausted[$mutated] : NotGiven::value(),
             array_key_exists($mutated, $this->preloaded),
-            array_key_exists($mutated, $this->ran) ? $this->ran[$mutated] : NotGiven::value(),
+            array_key_exists($mutated, $this->ran) ? array_sum($this->ran[$mutated]) : NotGiven::value(),
         )->withEvidence(
             array_key_exists($mutated, $this->places) ? $this->places[$mutated] : Places::none(),
             $this->endingOf($mutated),
@@ -213,7 +214,7 @@ final class OwnRuns
             throw NotInShape::at($count->at(), 'a number of tests, which is never below 0');
         }
 
-        $this->ran[$mutated] = (array_key_exists($mutated, $this->ran) ? $this->ran[$mutated] : 0) + $count->integer();
+        $this->ran[$mutated][] = $count->integer();
     }
 
     /**

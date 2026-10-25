@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use Closure;
+
 use function count;
 use function file_get_contents;
 use function file_put_contents;
@@ -26,6 +28,17 @@ final readonly class PackageSource
     /** Patch the package in a vendor directory, and say what was done. */
     public static function applyIn(VendorPatch $patch, string $vendor): string|CannotJudge
     {
+        return self::applyWith($patch, $vendor, file_put_contents(...));
+    }
+
+    /**
+     * Patch the package in a vendor directory, writing each file it changes
+     * with this, and say what was done.
+     *
+     * @param Closure(string, string): (int|false) $write
+     */
+    public static function applyWith(VendorPatch $patch, string $vendor, Closure $write): string|CannotJudge
+    {
         $sources = self::read($patch, $vendor);
         $changed = $sources instanceof CannotJudge
             ? $sources
@@ -35,13 +48,13 @@ final readonly class PackageSource
             return $changed;
         }
 
-        $unwritten = 0;
+        $written = true;
 
         foreach ($changed as $file => $source) {
-            $unwritten += file_put_contents($patch->path($vendor, $file), $source) === false ? 1 : 0;
+            $written = $write($patch->path($vendor, $file), $source) !== false && $written;
         }
 
-        return $unwritten === 0 ? $patch->done(count($changed)) : $patch->unwritten($vendor);
+        return $written ? $patch->done(count($changed)) : $patch->unwritten($vendor);
     }
 
     /** Whether the package in a vendor directory carries every hunk, and no hunk another version wrote. */

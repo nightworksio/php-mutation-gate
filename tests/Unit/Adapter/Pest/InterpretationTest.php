@@ -348,7 +348,7 @@ it('leaves unjudged a mutant whose own process had loaded its file before the mu
         ), 0));
 });
 
-it('leaves unjudged a survivor whose own process ran no test, and judges every other as Pest did', function () use (
+it('leaves unjudged a survivor whose own processes ran no test, and judges every other as Pest did', function () use (
     $mutant,
     $plan,
     $read,
@@ -361,6 +361,7 @@ it('leaves unjudged a survivor whose own process ran no test, and judges every o
         $plan($root, 'n4', 'src/Money.php:14', 'amount'),
         PestRun::made(4),
         PestRun::ran('n1', 0),
+        PestRun::ran('n2', 0),
         PestRun::ran('n2', 3),
         PestRun::ran('n4', 0),
         PestRun::finished('n1', PestStatus::Untested, 0.25),

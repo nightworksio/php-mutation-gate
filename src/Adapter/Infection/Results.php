@@ -248,7 +248,7 @@ final readonly class Results
 
         foreach ($found as $mutant) {
             $file = $project->relative($mutant['file']);
-            $first = MutantId::hash($file, $mutant['mutator'], $mutant['diff'], 0)->value();
+            $first = MutantId::first($file, $mutant['mutator'], $mutant['diff'])->value();
             $occurrence = array_key_exists($first, $seen) ? $seen[$first] + 1 : 0;
             $seen[$first] = $occurrence;
             $line = Line::of($mutant['line']);
@@ -277,7 +277,7 @@ final readonly class Results
             $evidence = $evidence->with($recorded->id(), KillOutput::evidenceOf($recorded, $mutant['output']));
         }
 
-        return MutationResult::of(Mutants::of(...$mutants), 0)->withEvidence($evidence);
+        return MutationResult::skippingNone(Mutants::of(...$mutants))->withEvidence($evidence);
     }
 
     /** A timed-out mutant, saying its run was stopped at its silence limit where it was. */

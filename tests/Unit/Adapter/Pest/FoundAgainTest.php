@@ -41,3 +41,17 @@ it('hands the evidence of each kill found again to the mutant asked for, under i
         ->and($handed->of($found->id()))->toEqual(Evidence::none())
         ->and($handed)->toHaveCount(1);
 });
+
+it('matches each mutant asked for to the first found again on its line that no earlier one took, past one not found', function () use ($mutant): void {
+    [$first, $missing, $second] = [$mutant(11, 0), $mutant(30, 1), $mutant(11, 3)];
+    [$foundFirst, $foundSecond] = [$mutant(11, 4), $mutant(11, 5)];
+    [$early, $late] = [Evidence::none()->withPrefix(Prefix::at(1)), Evidence::none()->withPrefix(Prefix::at(2))];
+    $again = MutationResult::of(Mutants::of($foundFirst, $foundSecond), 0)
+        ->withEvidence(Evidences::none()->with($foundFirst->id(), $early)->with($foundSecond->id(), $late));
+
+    $handed = FoundAgain::evidenceAmong(Mutants::of($first, $missing, $second), $again);
+
+    expect($handed->of($first->id()))->toBe($early)
+        ->and($handed->of($second->id()))->toBe($late)
+        ->and($handed)->toHaveCount(2);
+});

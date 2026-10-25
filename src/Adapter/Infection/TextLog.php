@@ -89,10 +89,10 @@ final readonly class TextLog
      */
     public function idOf(string $file, int $line, string $mutator, string $diff): string
     {
-        $change = MutantId::hash(Path::of($file), $mutator, $diff, 0)->value();
+        $change = MutantId::first(Path::of($file), $mutator, $diff)->value();
 
         foreach ($this->entries as $entry) {
-            $logged = MutantId::hash(Path::of($file), $mutator, implode("\n", $entry['diff']), 0)->value();
+            $logged = MutantId::first(Path::of($file), $mutator, implode("\n", $entry['diff']))->value();
 
             $there = $entry['file'] === $file && $entry['line'] === $line;
 

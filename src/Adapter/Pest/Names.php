@@ -65,7 +65,7 @@ final readonly class Names
     /** The names in the file a run wrote, or why the run named nothing. */
     private static function written(Ran $ran, string $file): self|CannotJudge
     {
-        $text = $ran->succeeded() && is_file($file) ? file_get_contents($file) : false;
+        $text = $ran->succeeded() && is_file($file) ? file_get_contents($file) : null;
 
         return is_string($text) ? self::read($text) : CannotJudge::because(sprintf(self::UNNAMED, $ran->output()));
     }
