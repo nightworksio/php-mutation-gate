@@ -57,3 +57,14 @@ it('reads nothing of a run that never ended, or whose end is not one', function 
     expect(End::ranIn($workplace, 0))->toEqual(NotGiven::value())
         ->and(End::ranIn($workplace, 1))->toEqual(NotGiven::value());
 });
+
+it('writes a child stopped at its limit, or for its silence, marked so beside how long it ran and where its printing lies', function (): void {
+    [$workplace, $printed] = endsWorkplace();
+    End::stopped(4.0, $printed)->writtenTo($workplace->end(0));
+    End::silenced(2.5, $printed)->writtenTo($workplace->end(1));
+
+    expect([file_get_contents($workplace->end(0)), file_get_contents($workplace->end(1))])->toBe([
+        '{"stopped":true,"seconds":4.0,"place":1,"out":[7,11],"err":[0,1]}',
+        '{"silenced":true,"seconds":2.5,"place":1,"out":[7,11],"err":[0,1]}',
+    ]);
+});

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Native\Warm;
 
-use function array_map;
 use function class_exists;
 use function get_included_files;
 use function in_array;
@@ -40,7 +39,7 @@ final readonly class Boot
     {
         return new self(
             (string) realpath($autoloader),
-            array_map(static fn(string $file): string => (string) realpath($file), get_included_files()),
+            get_included_files(),
             NotGiven::value(),
             BootSpy::watching(),
             $events,

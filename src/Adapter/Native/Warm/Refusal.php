@@ -61,7 +61,7 @@ final readonly class Refusal
     /** The refusal a worker wrote, or none, where it wrote none or its file is not one. */
     public static function readFrom(string $file): self|NotGiven
     {
-        $text = is_file($file) ? file_get_contents($file) : false;
+        $text = is_file($file) ? file_get_contents($file) : NotGiven::value();
 
         try {
             $at = is_string($text) ? Node::decode($text) : NotGiven::value();

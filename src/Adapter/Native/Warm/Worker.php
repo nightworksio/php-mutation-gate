@@ -78,7 +78,7 @@ final readonly class Worker
 
     private function job(): Job|Refusal
     {
-        $text = is_file($this->workplace->job()) ? file_get_contents($this->workplace->job()) : false;
+        $text = is_file($this->workplace->job()) ? file_get_contents($this->workplace->job()) : NotGiven::value();
 
         try {
             return is_string($text)
@@ -118,7 +118,7 @@ final readonly class Worker
         $started = hrtime(as_number: true);
         $child = $forking->forked($run);
 
-        if ($child > 0) {
+        if (is_int($child)) {
             Waiting::for($child, $run->limit(), $started, $run->silence())
                 ->ended($printed, $this->workplace)
                 ->writtenTo($this->workplace->end($at));

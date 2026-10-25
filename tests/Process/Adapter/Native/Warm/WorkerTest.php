@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Native\Warm\End;
+use NightWorksIO\MutationGate\Adapter\Native\Warm\Forking;
+use NightWorksIO\MutationGate\Adapter\Native\Warm\WarmRun;
 use NightWorksIO\MutationGate\Adapter\Native\Warm\Worker;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\PhpUnitBoot;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -36,6 +38,21 @@ it('forks a child for each run it claims, and writes how each ended with what it
     expect($code)->toBe(0)
         ->and($first)->toEqual(Ran::exited(3, 'one')->took(Measured::of($first instanceof Ran ? $first : Ran::stopped(''))))
         ->and($second)->toEqual(Ran::exited(0, 'two')->took(Measured::of($second instanceof Ran ? $second : Ran::stopped(''))));
+})->group(...$holds);
+
+it('writes no end for a run it could start no child for, and claims the next run', function (): void {
+    $workplace = WarmWorkers::place([WarmWorkers::run([]), WarmWorkers::run([])]);
+    $forking = new class implements Forking {
+        public function forked(WarmRun $run): NotGiven
+        {
+            return NotGiven::value();
+        }
+    };
+
+    $code = Worker::at($workplace->directory(), 0)->run(new PhpUnitBoot(), $forking);
+
+    expect([$code, End::ranIn($workplace, 0), End::ranIn($workplace, 1), file_get_contents($workplace->claimed())])
+        ->toEqual([0, NotGiven::value(), NotGiven::value(), '2']);
 })->group(...$holds);
 
 it('stops a child at its limit with every process under it, reaps it, and says a child a signal ended was ended so', function (): void {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Native\Invocation;
 use NightWorksIO\MutationGate\Adapter\Native\MutantRun;
 use NightWorksIO\MutationGate\Adapter\Native\MutationRun;
+use NightWorksIO\MutationGate\Adapter\Native\PreparedRun;
 use NightWorksIO\MutationGate\Adapter\Native\Project;
 use NightWorksIO\MutationGate\Adapter\Native\WallClock;
 use NightWorksIO\MutationGate\Adapter\Native\Warm\Refusal;
@@ -15,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Cost\Laps;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Doctor\WarmRefusal;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -34,11 +36,13 @@ use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
+use NightWorksIO\MutationGate\Mutator\Engine\MadeMutants;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\RemoveEcho;
 use NightWorksIO\MutationGate\Tests\Support\NativePhpUnit;
@@ -352,4 +356,41 @@ it('gives each kill a worker\'s child made how far its run went, from the test i
     $expected = Prefix::keyedAt(1, Prefix::keyOf(Paths::none(), OrderDigest::of(TestId::of('Tests\MoneySpec::adds'))->value()));
 
     expect($prefixes)->toEqual([$expected, $expected]);
+});
+
+
+/**
+ * The deadline the workers are given for Money's two mutants, their runs
+ * allowed these limits, with the end at this reading of `hrtime`.
+ */
+function warmDeadline(int|float $end, float $first, float $second): Seconds|Unlimited
+{
+    $project = warmLibrary();
+    $shell = killingWorkers();
+    $framework = NativePhpUnit::in($project);
+    $invocation = new Invocation($project, '/gate/override.php', $framework);
+    $scan = PhpUnitScan::uncapped($project);
+    $run = new MutantRun($project, $shell, $invocation, $framework, $scan, NotGiven::value());
+    $made = Engine::with(new PlusToMinus(), new RemoveEcho())->mutantsOf(Path::of('src/Money.php'), Contents::of((string) file_get_contents($project->absolute(Path::of('src/Money.php')))));
+    $runs = [];
+
+    $limits = [$first, $second];
+
+    foreach ($made instanceof MadeMutants ? [...$made] : [] as $at => $mutant) {
+        $prepared = $run->prepared($mutant, TestIds::of(TestId::of('Tests\MoneySpec::adds')), forking(1), Seconds::of($limits[$at]));
+        $runs[] = $prepared instanceof PreparedRun ? $prepared : throw new LogicException('Money\'s mutant has no run.');
+    }
+
+    new Workforce($project, $shell, $invocation, $scan, $run, $framework)->judged(forking(1), $end, $runs);
+
+    return $shell->workers()[0]->deadline();
+}
+
+it('gives its workers the time left and the longest of the runs\' limits, the time left none once the end has passed', function (): void {
+    $started = hrtime(as_number: true);
+    $ahead = warmDeadline($started + Seconds::of(100.0)->nanoseconds(), 20.0, 5.0);
+    $spent = (hrtime(as_number: true) - $started) / Seconds::NANOSECONDS;
+
+    expect($ahead instanceof Seconds ? [$ahead->seconds() >= 180.0 - $spent, $ahead->seconds() <= 180.0] : $ahead)->toBe([true, true])
+        ->and(warmDeadline(hrtime(as_number: true) - Seconds::of(1.0)->nanoseconds(), 5.0, 20.0))->toEqual(Seconds::of(80.0));
 });

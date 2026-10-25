@@ -17,6 +17,13 @@ it('leaves the budget less what has passed, and nothing once it has passed', fun
         ->and($deadline->left(new DateTimeImmutable('2026-09-30T10:05:00Z')))->toEqual(Seconds::of(0.0));
 });
 
+it('falls at the moment a wall clock reads as so many seconds since the epoch', function (): void {
+    $deadline = Deadline::atEpoch(100.5);
+
+    expect($deadline->left(new DateTimeImmutable('@40')))->toEqual(Seconds::of(60.5))
+        ->and($deadline->hasPassed(new DateTimeImmutable('@101')))->toBeTrue();
+});
+
 it('says whether it has passed', function () use ($makeStarted): void {
     $started = $makeStarted();
 

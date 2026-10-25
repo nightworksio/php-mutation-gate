@@ -23,6 +23,17 @@ it('claims each run once, in order, across every worker, and none once all are c
         ->toEqual([0, 1, 2, NotGiven::value(), NotGiven::value()]);
 });
 
+it('claims runs while the job\'s end is still to come, counting past nine', function (): void {
+    $workplace = Workplace::at(sprintf('%s/warm', Scratch::directory()));
+    $job = WarmClaims::job(11, microtime(as_float: true) + 600.0);
+    $workplace->opened($job);
+    $claims = Claims::of($workplace, $job);
+
+    expect(array_map(static fn(): int|NotGiven => $claims->next(), range(0, 11)))
+        ->toEqual([...range(0, 10), NotGiven::value()])
+        ->and(file_get_contents($workplace->claimed()))->toBe('11');
+});
+
 it('claims no run once the job\'s end has come', function (): void {
     $workplace = Workplace::at(sprintf('%s/warm', Scratch::directory()));
     $job = WarmClaims::job(3, microtime(as_float: true) - 1.0);

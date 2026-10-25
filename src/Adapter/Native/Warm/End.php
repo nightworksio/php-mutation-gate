@@ -82,7 +82,7 @@ final readonly class End
     public static function ranIn(Workplace $workplace, int $at): Ran|NotGiven
     {
         $file = $workplace->end($at);
-        $text = is_file($file) ? file_get_contents($file) : false;
+        $text = is_file($file) ? file_get_contents($file) : NotGiven::value();
 
         try {
             return is_string($text) ? self::ran(Node::decode($text), $workplace) : NotGiven::value();

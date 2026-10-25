@@ -72,7 +72,7 @@ final class BootSpy
         $included = get_included_files();
 
         foreach ($this->asked as $loaded => $stack) {
-            $next = array_key_exists($loaded, $included) ? realpath($included[$loaded]) : false;
+            $next = array_key_exists($loaded, $included) ? realpath($included[$loaded]) : NotGiven::value();
             $at = $next === $file ? $this->frameIn($stack, $bootstrap) : $at;
         }
 
@@ -83,7 +83,7 @@ final class BootSpy
     private function frameIn(array $stack, string $bootstrap): string|NotGiven
     {
         foreach ($stack as $frame) {
-            $file = array_key_exists('file', $frame) ? realpath($frame['file']) : false;
+            $file = array_key_exists('file', $frame) ? realpath($frame['file']) : NotGiven::value();
 
             if ($file === $bootstrap && array_key_exists('line', $frame)) {
                 return sprintf('%s:%d', $bootstrap, $frame['line']);
