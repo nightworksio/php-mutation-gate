@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Verdict;
 
+use function array_any;
 use function array_key_exists;
 use function array_map;
 use function array_values;
@@ -13,6 +14,7 @@ use function implode;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Proof\Inputs;
 use NightWorksIO\MutationGate\Core\Proof\NewestProofs;
@@ -100,9 +102,9 @@ final readonly class ChangesSince
     private static function commitOf(Proof $proof, Digest $base): Revision|Uncommitted
     {
         $inputs = $proof->inputs();
-        $kills = count($proof->kills()) + self::killed($proof);
+        $holdsKill = count($proof->kills()) > 0 || self::killedAny($proof);
 
-        return $inputs instanceof Inputs && $kills > 0 && $proof->run()->base()->value() !== $base->value()
+        return $inputs instanceof Inputs && $holdsKill && $proof->run()->base()->value() !== $base->value()
             ? $inputs->commit()
             : Uncommitted::tree();
     }
@@ -113,15 +115,12 @@ final readonly class ChangesSince
         return implode(' ', array_map(static fn(Reason $reason): string => $reason->text(), [...$since->everything()]));
     }
 
-    /** How many of a result's reported mutants were killed, by a test or by static analysis. */
-    private static function killed(Proof $proof): int
+    /** Whether any of a result's reported mutants was killed, by a test or by static analysis. */
+    private static function killedAny(Proof $proof): bool
     {
-        $killed = 0;
-
-        foreach ($proof->reported() as $mutant) {
-            $killed += $mutant->status()->answer() === MutantStatus::Killed ? 1 : 0;
-        }
-
-        return $killed;
+        return array_any(
+            [...$proof->reported()],
+            static fn(Mutant $mutant): bool => $mutant->status()->answer() === MutantStatus::Killed,
+        );
     }
 }

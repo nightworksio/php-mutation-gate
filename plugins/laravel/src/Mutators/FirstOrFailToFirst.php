@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGateLaravel\Mutators;
 
 use function array_key_exists;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Mutator\Hint;
@@ -61,9 +62,9 @@ final readonly class FirstOrFailToFirst implements Mutator
     /** The call, of the method that returns null where the one it calls fails. */
     private function forgiving(MethodCall|StaticCall $call): Node|Unchanged
     {
-        $name = $call->name instanceof Identifier ? $call->name->toLowerString() : '';
+        $name = $call->name instanceof Identifier ? $call->name->toLowerString() : null;
 
-        if (! array_key_exists($name, self::FORGIVING)) {
+        if (! is_string($name) || ! array_key_exists($name, self::FORGIVING)) {
             return Unchanged::node();
         }
 

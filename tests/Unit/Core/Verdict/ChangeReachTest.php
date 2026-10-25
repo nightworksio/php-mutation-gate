@@ -126,7 +126,21 @@ it('reaches no unit that names nothing a change declares', function (): void {
 
     expect($reach->reaches(Path::of('src/Money.php'), Paths::none()))->toBeFalse()
         ->and($reach->everything())->toEqual(Reasons::of())
-        ->and($reach->reaches(Path::of('src/Tax.php'), Paths::none()))->toBeTrue();
+        ->and($reach->reaches(Path::of('src/Tax.php'), Paths::none()))->toBeTrue()
+        ->and($reach->reaches(Path::root(), Paths::none()))->toBeTrue();
+});
+
+it('reaches what names a class a change added, and the file a change renamed another to', function (): void {
+    $money = "<?php\nnamespace App;\n\nfinal class Money\n{\n    use Equals;\n}\n";
+    $added = reachOf(['src/Money.php' => $money, 'src/Equals.php' => REACH_EQUALS], [], [Change::added(Path::of('src/Equals.php'), Lines::none())]);
+    $renamed = reachOf(
+        ['src/Tax.php' => "<?php\nnamespace App;\n\nfinal class Tax\n{\n}\n"],
+        ['src/Levy.php' => "<?php\nnamespace App;\n\nfinal class Levy\n{\n}\n"],
+        [Change::renamed(Path::of('src/Levy.php'), Path::of('src/Tax.php'), Lines::none())],
+    );
+
+    expect($added->reaches(Path::of('src/Money.php'), Paths::none()))->toBeTrue()
+        ->and($renamed->reaches(Path::of('src/Tax.php'), Paths::none()))->toBeTrue();
 });
 
 it('reaches what named a class a change deleted, or renamed from under it', function (Change $change, string $renamedTo): void {

@@ -85,7 +85,7 @@ final readonly class Doomed
     /** Why the verdict fails, of the shard that stopped here. */
     public function said(int $shard): string
     {
-        $floor = (string) $this->floor->written();
+        $floor = $this->floor->written();
         $why = $this->by === DoomedBy::Tree
             ? sprintf(self::BY_TREE, $this->tree->value(), $floor)
             : sprintf(self::BY_NEW_CODE, $floor);
