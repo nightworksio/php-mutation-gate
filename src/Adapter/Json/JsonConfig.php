@@ -30,7 +30,7 @@ final readonly class JsonConfig implements ConfigLoader
     public function load(ConfigFile $file): Layer|Invalid|CannotJudge
     {
         $path = $file->file()->value();
-        $text = is_file($path) ? file_get_contents($path) : false;
+        $text = is_file($path) ? file_get_contents($path) : null;
 
         if (! is_string($text)) {
             return CannotJudge::because(sprintf('%s could not be read.', $path));
