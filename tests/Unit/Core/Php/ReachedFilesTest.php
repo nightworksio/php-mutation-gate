@@ -97,6 +97,6 @@ it('reaches nothing from nothing in an empty graph', function (): void {
 it('packs a reach a bit for each file by its sorted place, eight to a byte, lowest bit first', function (): void {
     $graph = ReachedFiles::over(['a' => ['j'], 'b' => [], 'c' => [], 'd' => [], 'e' => [], 'f' => [], 'g' => [], 'h' => [], 'i' => []]);
 
-    expect(array_map(sodium_bin2hex(...), [$graph->packed('a'), $graph->packed('h'), $graph->packed('i'), $graph->packed('b', 'g', 'z')]))
-        ->toBe(['0102', '80', '0001', '42']);
+    expect([$graph->packed('a'), $graph->packed('h'), $graph->packed('i'), $graph->packed('b', 'g', 'z')])
+        ->toBe(["\x01\x02", "\x80", "\x00\x01", "\x42"]);
 });
