@@ -13,4 +13,4 @@ it('beats on the process\'s error output, and on nothing else', function (): voi
     $php->run();
 
     expect([$php->getOutput(), $php->getErrorOutput()])->toBe(['', Silence::BEAT]);
-})->group('holds:src/Adapter/Pest/Recording/Heartbeat.php');
+});
