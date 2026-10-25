@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Proof;
 
 use function array_flip;
-use function array_keys;
 use function array_map;
 use function array_values;
 
@@ -21,7 +20,6 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 
 use function sprintf;
-use function strval;
 
 /**
  * What the digests of a ledger's proofs share, each written once in the
@@ -94,13 +92,13 @@ final readonly class InputsTable
             $mutation = $inputs->mutation()->value();
             $mutations += [$mutation => $mutation];
             $tests += self::testsOf($inputs);
-            $commits += $commit instanceof Revision ? [$commit->name() => true] : [];
+            $commits += $commit instanceof Revision ? [$commit->name() => $commit->name()] : [];
         }
 
         return new self(
             array_values($mutations),
             array_values($tests),
-            array_map(strval(...), array_keys($commits)),
+            array_values($commits),
         );
     }
 

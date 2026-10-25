@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Core\Test;
 
 use function array_key_exists;
 use function array_keys;
-use function array_values;
 
 use Closure;
 
@@ -56,7 +55,7 @@ final readonly class TestClassFiles
         $classes = [];
 
         foreach ($tests as $test) {
-            $classes[TestMethod::classOf($test)] = true;
+            $classes[TestMethod::classOf($test)] = $test;
         }
 
         return self::wanting(array_keys($classes));
@@ -113,7 +112,7 @@ final readonly class TestClassFiles
     /** Every file that declares a class found, in the order the files were read. */
     public function files(): Paths
     {
-        return Paths::of(...array_values($this->found));
+        return Paths::of(...$this->found);
     }
 
     /** Whether each of these tests is in a class found, so that each is in one of the files. */

@@ -72,6 +72,7 @@ it('reads a file whose only class is anonymous, or never closes, as Pest closure
 })->with([
     'anonymous' => ["<?php\n\n\$fake = new class {};\n"],
     'unclosed' => ["<?php\n\nfinal class CartTest\n{\n"],
+    'with no body' => ["<?php\n\nfinal class CartTest\n"],
 ]);
 
 it('writes a new file of one test: Pest\'s closures, or a PHPUnit class named for the file', function () use ($test, $method): void {

@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
+use NightWorksIO\MutationGate\Core\Php\Body;
 use NightWorksIO\MutationGate\Core\Php\Spec;
 use NightWorksIO\MutationGate\Core\Php\Tokens;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
@@ -120,17 +121,13 @@ final readonly class TestFile
         );
     }
 
-    /** Where the body of the class a keyword declares closes, as a byte offset. */
+    /** Where the body of the class a keyword declares closes, as a byte offset; none where it never closes. */
     private static function closingOf(Tokens $tokens, int $class): int
     {
-        $closing = Tokens::NONE;
+        $body = Body::after($tokens, $class);
+        $closing = $body === Tokens::NONE ? Tokens::NONE : $tokens->closing($body);
 
-        foreach ($tokens->inside($tokens->enclosing($class), '{') as $brace) {
-            $closes = $closing === Tokens::NONE && $brace > $class && $tokens->is($tokens->closing($brace), '}');
-            $closing = $closes ? $tokens->offset($tokens->closing($brace)) : $closing;
-        }
-
-        return $closing;
+        return $tokens->is($closing, '}') ? $tokens->offset($closing) : Tokens::NONE;
     }
 
     /** A test's lines indented as a class's members are, a blank line left blank. */

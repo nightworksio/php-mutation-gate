@@ -55,15 +55,7 @@ final readonly class PhpFile
     public static function read(Contents $source): self
     {
         $tokens = PhpToken::tokenize($source->text());
-        $reading = Reading::start();
-
-        foreach ($tokens as $token) {
-            if ($reading->refused()) {
-                break;
-            }
-
-            $reading = self::isSilent($token) ? $reading : $reading->then($token);
-        }
+        $reading = self::readingOf($tokens);
 
         return new self(
             ! $reading->refused(),
@@ -106,6 +98,27 @@ final readonly class PhpFile
     public function codeMentionsAnyOf(string ...$names): bool
     {
         return array_any($names, fn(string $name): bool => array_key_exists($name, $this->code));
+    }
+
+    /**
+     * The reading of these tokens, stopped at the first that does something
+     * at the top level.
+     *
+     * @param array<PhpToken> $tokens
+     */
+    private static function readingOf(array $tokens): Reading
+    {
+        $reading = Reading::start();
+
+        foreach ($tokens as $token) {
+            if ($reading->refused()) {
+                return $reading;
+            }
+
+            $reading = self::isSilent($token) ? $reading : $reading->then($token);
+        }
+
+        return $reading;
     }
 
     private static function isSilent(PhpToken $token): bool

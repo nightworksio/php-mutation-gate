@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Proof;
 
-use function array_key_first;
+use function array_keys;
 use function array_map;
 use function array_merge;
 use function is_string;
@@ -121,7 +121,7 @@ final readonly class LedgerFile
         unset($file);
         $proofs = [];
 
-        while (($key = array_key_first($entries)) !== null) {
+        foreach (array_keys($entries) as $key) {
             $proofs[] = self::proofsIn(sprintf('%s', $key), $entries[$key], $read);
             unset($entries[$key]);
         }
