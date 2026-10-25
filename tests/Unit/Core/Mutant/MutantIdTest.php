@@ -68,3 +68,8 @@ it('keys an id as text no merge or spread numbers afresh, an id of digits alone 
     expect(array_keys([...$keyed, 'other' => 'other']))->toBe(['m123456789012', 'm3f9a1c2b7d04', 'other'])
         ->and(array_keys(array_merge($keyed, ['other' => 'other'])))->toBe(['m123456789012', 'm3f9a1c2b7d04', 'other']);
 });
+
+it('keys the repeats of a change in a file by the id of its first', function (): void {
+    expect(MutantId::firstOf(Path::of('src/Money.php'), A_BOUNDARY_MUTATOR, A_BOUNDARY_DIFF))
+        ->toEqual(MutantId::hash(Path::of('src/Money.php'), A_BOUNDARY_MUTATOR, A_BOUNDARY_DIFF, 0));
+});

@@ -65,11 +65,14 @@ final readonly class Silenced
     /** The mutants a file records; none where there is no file, or a line is not in shape. */
     public static function in(string $file): self
     {
+        if (! is_file($file)) {
+            return self::none();
+        }
+
         $limits = [];
-        $text = is_file($file) ? (string) file_get_contents($file) : '';
 
         try {
-            foreach (explode("\n", trim($text)) as $line) {
+            foreach (explode("\n", trim(sprintf('%s', file_get_contents($file)))) as $line) {
                 $limits += $line === '' ? [] : self::read(Node::decode($line));
             }
         } catch (NotInShape) {
@@ -107,6 +110,6 @@ final readonly class Silenced
 
     private static function key(string $file, int $line, string $mutator, string $diff): string
     {
-        return implode("\0", [$file, (string) $line, $mutator, $diff]);
+        return implode("\0", [$file, $line, $mutator, $diff]);
     }
 }

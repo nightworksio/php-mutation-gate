@@ -57,6 +57,18 @@ it('keeps an empty object an object, and an empty list a list', function () use 
         ->toBe('{"x":[{}]}');
 });
 
+it('keeps a setting whole, an object or item under it emptied of what is not kept rather than dropped', function () use (
+    $affects,
+    $judges,
+): void {
+    $inner = Json::object(Member::of('z', 1));
+
+    expect(Canonical::of(Json::object(Member::of('x', Json::object(Member::of('y', $inner)))), ['x' => $affects, 'x.y.z' => $judges]))
+        ->toBe('{"x":{"y":{}}}')
+        ->and(Canonical::of(Json::object(Member::of('x', Json::items($inner))), ['x' => $affects, 'x[].z' => $judges]))
+        ->toBe('{"x":[{}]}');
+});
+
 it('writes a key that reads as a number as the key it is', function () use ($affects): void {
     $written = Json::object(Member::of('x', Json::object(Member::of('12', 1), Member::of('a', 2))));
 

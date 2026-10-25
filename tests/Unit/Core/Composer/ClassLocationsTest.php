@@ -17,13 +17,14 @@ it('maps a class to a file below each directory of every psr-4 and psr-0 prefix 
     $locations = ClassLocations::of(
         Path::of('packages/money'),
         Node::decode('{"psr-4": {"Acme\\\\": ["src/", "lib"], "Other\\\\": "other/"}, "psr-0": {"Acme_": "legacy/", "Acme\\\\": "old/"}}'),
-        Node::decode('{"psr-4": {"Acme\\\\Tests\\\\": "tests/", "": "fallback/"}}'),
+        Node::decode('{"psr-4": {"Acme\\\\Tests\\\\": "tests/", "Acme\\\\Money\\\\": "money/", "": "fallback/"}}'),
     );
 
     expect($files($locations, '\\Acme\\Money\\Cents'))->toBe([
         'packages/money/src/Money/Cents.php',
         'packages/money/lib/Money/Cents.php',
         'packages/money/old/Acme/Money/Cents.php',
+        'packages/money/money/Cents.php',
         'packages/money/fallback/Acme/Money/Cents.php',
     ])->and($files($locations, 'Acme_Money_Cents'))->toBe([
         'packages/money/legacy/Acme/Money/Cents.php',

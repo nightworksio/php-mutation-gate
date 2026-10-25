@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Config;
 
-use function array_values;
-
 use NightWorksIO\MutationGate\Core\Config\BuiltinTreeSource;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
@@ -28,7 +26,7 @@ final readonly class Source
             : new self(Json::object(Member::of('use', BuiltinTreeSource::PhpUnit->value))->with(
                 Member::of(
                     'with',
-                    Json::object(Member::of('fallback', Json::items(...array_values($fallback)))),
+                    Json::object(Member::of('fallback', Json::items(...$fallback))),
                 ),
             ));
     }

@@ -241,6 +241,13 @@ describe('Directory', function (): void {
             ->and($directory->readAtMost(Path::of('../four'), 3))->toBeInstanceOf(CannotJudge::class);
     });
 
+    it('reads a file under the filesystem root when the directory is the root', function (): void {
+        $root = Scratch::directory();
+        Scratch::write($root, 'kept', 'abc');
+
+        expect(Directory::at('/')->read(Path::of(ltrim(sprintf('%s/kept', $root), '/'))))->toEqual(Contents::of('abc'));
+    });
+
     it('cannot read up to a number of bytes a directory where a file should be', function (): void {
         $root = Scratch::directory();
         Scratch::write($root, 'inner/file', 'x');

@@ -248,7 +248,7 @@ final readonly class Results
 
         foreach ($found as $mutant) {
             $file = $project->relative($mutant['file']);
-            $first = MutantId::hash($file, $mutant['mutator'], $mutant['diff'], 0)->value();
+            $first = MutantId::firstOf($file, $mutant['mutator'], $mutant['diff'])->value();
             $occurrence = array_key_exists($first, $seen) ? $seen[$first] + 1 : 0;
             $seen[$first] = $occurrence;
             $line = Line::of($mutant['line']);

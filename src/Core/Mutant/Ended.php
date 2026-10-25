@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Mutant;
 
-use function max;
 use function mb_strcut;
 
 use NightWorksIO\MutationGate\Core\Format\Bytes;
@@ -134,7 +133,7 @@ final readonly class Ended
     private static function last(string $text, int $bytes): string
     {
         $length = Bytes::length($text);
-        $start = max(0, $length - $bytes);
+        $start = $length - $bytes;
         $tail = mb_strcut($text, $start, null, Printable::UTF8);
 
         while (Bytes::length($tail) > $bytes) {

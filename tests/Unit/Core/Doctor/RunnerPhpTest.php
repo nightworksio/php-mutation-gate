@@ -10,14 +10,15 @@ it('holds the extensions a PHP loads and offers, in any case, its settings and t
         ->loading('Core', 'Zend OPcache')
         ->offering('pcov')
         ->setting('xdebug.mode', 'develop')
-        ->seeing('XDEBUG_MODE', 'coverage');
+        ->seeing('XDEBUG_MODE', 'coverage')
+        ->seeing('XDEBUG_CONFIG', 'idekey=gate');
 
     expect($php->binary())->toBe('/usr/bin/php')
         ->and([$php->loads('zend opcache'), $php->loads('pcov'), $php->loads('xdebug')])->toBe([true, false, false])
         ->and([$php->offers('PCOV'), $php->offers('core'), $php->offers('xdebug')])->toBe([true, true, false])
         ->and($php->valueOf('xdebug.mode'))->toBe('develop')
         ->and($php->valueOf('opcache.enable_cli'))->toEqual(NotGiven::value())
-        ->and($php->variable('XDEBUG_MODE'))->toBe('coverage')
+        ->and([$php->variable('XDEBUG_MODE'), $php->variable('XDEBUG_CONFIG')])->toBe(['coverage', 'idekey=gate'])
         ->and($php->variable('PATH'))->toEqual(NotGiven::value());
 });
 

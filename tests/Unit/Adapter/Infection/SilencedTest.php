@@ -23,6 +23,24 @@ it('reads back each mutant a file records, by its file, line, mutator and diff',
         ->and($silenced->of('/p/src/A.php', 3, 'Plus', 'two'))->toEqual(NotGiven::value());
 });
 
+it('tells apart mutants on one line by their file and mutator, past a blank line and trailing blank space', function (): void {
+    $file = sprintf('%s/silenced.jsonl', Scratch::directory());
+    file_put_contents($file, implode("\n", [
+        '["/p/src/A.php",3,"Plus","one",8.0]',
+        '',
+        '["/p/src/B.php",3,"Plus","one",9.0]',
+        '["/p/src/A.php",3,"Minus","one",10.0]',
+        ' ',
+    ]));
+    $silenced = Silenced::in($file);
+
+    expect([
+        $silenced->of('/p/src/A.php', 3, 'Plus', 'one'),
+        $silenced->of('/p/src/B.php', 3, 'Plus', 'one'),
+        $silenced->of('/p/src/A.php', 3, 'Minus', 'one'),
+    ])->toEqual([Seconds::of(8.0), Seconds::of(9.0), Seconds::of(10.0)]);
+});
+
 it('records nothing where there is no file, or a line is not in shape', function (string $text): void {
     $file = sprintf('%s/silenced.jsonl', Scratch::directory());
     file_put_contents($file, $text);

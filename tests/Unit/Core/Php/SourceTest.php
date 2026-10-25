@@ -16,6 +16,7 @@ it('is a test or a source file at a path, read by its significant tokens', funct
     expect($source->path())->toEqual(Path::of('tests/ATest.php'))
         ->and($source->isTest())->toBeTrue()
         ->and(Php::source('<?php')->isTest())->toBeFalse()
+        ->and(Source::code(Path::of('src/A.php'), Contents::of('<?php'))->isTest())->toBeFalse()
         ->and($source->tokens()->count())->toBe(5)
         ->and($source->lineOf(Php::indexOf($source, 'A')))->toEqual(Line::of(3));
 });

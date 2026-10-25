@@ -35,10 +35,12 @@ it('leaves static analysis to the gate where the flows say it checks the survivo
 it('takes the timeout, the most, the native markers and the test directories the flows write', function (): void {
     $setup = Setup::of(Configs::options('{"timeout": 30, "most": 90, "nativeMarkers": "allow", "tests": ["tests/Unit", "tests/Feature"]}'));
     $refusing = Setup::of(Configs::options('{"nativeMarkers": "refuse"}'));
+    $one = Setup::of(Configs::options('{"tests": ["spec"]}'));
 
     expect($setup instanceof Setup ? [$setup->bounds(), $setup->allowsNativeMarkers(), $setup->tests()] : [])
         ->toEqual([LimitBounds::between(Seconds::of(30.0), Seconds::of(90.0))->tighterFor(TighterSilence::standard()), true, Paths::of(Path::of('tests/Unit'), Path::of('tests/Feature'))])
-        ->and($refusing instanceof Setup && ! $refusing->allowsNativeMarkers())->toBeTrue();
+        ->and($refusing instanceof Setup && ! $refusing->allowsNativeMarkers())->toBeTrue()
+        ->and($one instanceof Setup ? $one->tests() : Paths::none())->toEqual(Paths::of(Path::of('spec')));
 });
 
 it('is invalid where an option is not in its shape', function (): void {

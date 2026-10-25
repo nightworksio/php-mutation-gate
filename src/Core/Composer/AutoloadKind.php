@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Composer;
 
+use function array_pop;
+use function explode;
+use function implode;
 use function in_array;
 use function mb_strlen;
-use function mb_strrpos;
 use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -42,12 +44,11 @@ enum AutoloadKind: string
         }
 
         $name = $this === self::Psr4 ? mb_substr($class, mb_strlen($prefix)) : $class;
-        $at = mb_strrpos($name, '\\');
-        $namespace = $at === false ? '' : mb_substr($name, 0, $at + 1);
-        $short = $at === false ? $name : mb_substr($name, $at + 1);
+        $segments = explode('\\', $name);
+        $short = array_pop($segments);
         $short = $this === self::Psr0 ? str_replace('_', '/', $short) : $short;
 
-        return Paths::of(Path::of(sprintf('%s%s.php', str_replace('\\', '/', $namespace), $short)));
+        return Paths::of(Path::of(sprintf('%s.php', implode('/', [...$segments, $short]))));
     }
 
     /**
@@ -65,6 +66,6 @@ enum AutoloadKind: string
 
         $name = $this === self::Psr4 ? mb_substr($namespace, mb_strlen($prefix)) : $namespace;
 
-        return Paths::of(Path::of(str_replace('\\', '/', $name)));
+        return Paths::of(Path::of($name));
     }
 }

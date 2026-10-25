@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
+use function array_filter;
+
+use const ARRAY_FILTER_USE_BOTH;
+
 use Closure;
 
 use function count;
@@ -118,13 +122,13 @@ final readonly class PackageSource
         VendorPatch $patch,
         array $changed,
     ): string|CannotJudge {
-        $unwritten = 0;
+        $unwritten = array_filter(
+            $changed,
+            static fn(string $source, string $file): bool => $write($patch->path($vendor, $file), $source) === false,
+            ARRAY_FILTER_USE_BOTH,
+        );
 
-        foreach ($changed as $file => $source) {
-            $unwritten += $write($patch->path($vendor, $file), $source) === false ? 1 : 0;
-        }
-
-        return $unwritten === 0 ? $patch->done(count($changed)) : $patch->unwritten($vendor);
+        return $unwritten === [] ? $patch->done(count($changed)) : $patch->unwritten($vendor);
     }
 
     /**

@@ -32,7 +32,7 @@ final readonly class FileList
         return match (true) {
             $listed instanceof ChildProcess && $listed->wasStopped() && $limit instanceof Seconds
                 => CheckLimit::from($limit)->unfinished(),
-            $listed instanceof CannotJudge || $listed->exit() !== 0 => CannotJudge::because(sprintf(
+            $listed instanceof CannotJudge || ! $listed->succeeded() => CannotJudge::because(sprintf(
                 self::UNLISTED,
                 $listed instanceof CannotJudge ? $listed->why() : $listed->said(),
             )),

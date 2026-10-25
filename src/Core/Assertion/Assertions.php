@@ -25,31 +25,31 @@ use Traversable;
 final readonly class Assertions implements IteratorAggregate
 {
     /** @param list<Assertion> $assertions */
-    private function __construct(private array $assertions, private bool $assessed)
+    private function __construct(private array $assertions)
     {
     }
 
     public static function of(Assertion ...$assertions): self
     {
-        return new self(array_values($assertions), assessed: true);
+        return new self(array_values($assertions));
     }
 
-    /** The assertions of a test that makes one the table does not hold, or that was not found. */
+    /** The assertions of a test that makes one the table does not hold, or that was not found: none. */
     public static function notAssessed(): self
     {
-        return new self([], assessed: false);
+        return new self([]);
     }
 
     /** These, and one more. */
     public function with(Assertion $assertion): self
     {
-        return new self([...$this->assertions, $assertion], $this->assessed);
+        return new self([...$this->assertions, $assertion]);
     }
 
     /** Whether the test makes an assertion at least, and checks only that something is there, or its shape. */
     public function isWeak(): bool
     {
-        if (! $this->assessed || $this->assertions === []) {
+        if ($this->assertions === []) {
             return false;
         }
 

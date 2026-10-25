@@ -17,7 +17,6 @@ use function is_file;
 use function is_link;
 use function is_string;
 use function is_writable;
-use function max;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -102,7 +101,7 @@ final readonly class Directory
             $this->leadsOut($path) => $this->refused($path),
             ! file_exists($file) => Missing::at($path),
             is_dir($file) => false,
-            default => file_get_contents($file, length: max(0, $bytes) + 1),
+            default => file_get_contents($file, length: Bytes::onePast($bytes)),
         };
 
         return match (true) {

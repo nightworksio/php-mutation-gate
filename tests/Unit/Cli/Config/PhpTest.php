@@ -65,6 +65,7 @@ it('writes a config that reads back into the same effective config', function (a
         'ci' => [
             'plan' => 'gitlab',
             'defaultBranch' => 'trunk',
+            'trustMergedPullRequests' => true,
             'gitlab' => ['template' => '.gitlab/gate.yml'],
             'buildkite' => ['step' => ['agents' => ['queue' => 'mutation'], 'soft_fail' => true, 'tags' => ['a', 'b']]],
         ],

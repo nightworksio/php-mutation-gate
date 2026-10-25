@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
+use function is_string;
+
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Member;
@@ -49,9 +51,9 @@ final readonly class Url implements Shape
 
     public function read(Node $at): Reading
     {
-        $url = $at->kind() === Kind::Text ? $at->text() : '';
+        $url = $at->kind() === Kind::Text ? $at->text() : null;
 
-        return $url !== '' && preg_match(sprintf('#%s#', $this->pattern), $url) === 1
+        return is_string($url) && $this->admits($url)
             ? Reading::of($url)
             : Reading::refused($at->mismatch($this->expected));
     }
@@ -69,5 +71,15 @@ final readonly class Url implements Shape
     public function effects(): array
     {
         return [];
+    }
+
+    /**
+     * Whether this text is a URL the pattern allows.
+     *
+     * @phpstan-assert-if-true non-empty-string $url
+     */
+    private function admits(string $url): bool
+    {
+        return preg_match(sprintf('#%s#', $this->pattern), $url) === 1;
     }
 }

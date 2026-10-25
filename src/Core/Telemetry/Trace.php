@@ -72,7 +72,7 @@ final readonly class Trace
         $name = sprintf('shard %d', $shard->shard());
         $id = self::spanId($trace, $name);
         $own = [...$attributes, self::SHARD => $shard->shard()];
-        $spans = [Span::of($name, $id, '', $shard->whole(), $own)];
+        $spans = [self::top($trace, $name, $shard->whole(), $own)];
 
         foreach ($shard->steps() as $at => $step) {
             $path = sprintf(self::STEP, $name, $at, $step->step()->value);

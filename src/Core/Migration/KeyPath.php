@@ -49,7 +49,7 @@ final readonly class KeyPath implements IteratorAggregate
     /** The path of the object that holds it; none for a key at the top. */
     public function parent(): self|NotGiven
     {
-        $parent = array_slice($this->keys, 0, -1);
+        $parent = $this->parentKeys();
 
         return $parent === [] ? NotGiven::value() : new self($parent);
     }
@@ -57,7 +57,7 @@ final readonly class KeyPath implements IteratorAggregate
     /** Whether it stands under the same parent as another, both at the top among them. */
     public function isBeside(self $other): bool
     {
-        return $this->parentOf($this) === $this->parentOf($other);
+        return $this->parentKeys() === $other->parentKeys();
     }
 
     /** @return Traversable<int, string> */
@@ -66,10 +66,9 @@ final readonly class KeyPath implements IteratorAggregate
         yield from $this->keys;
     }
 
-    private function parentOf(self $path): string
+    /** @return list<string> the keys of the object that holds it; none for a key at the top */
+    private function parentKeys(): array
     {
-        $parent = $path->parent();
-
-        return $parent instanceof self ? $parent->value() : '';
+        return array_slice($this->keys, 0, -1);
     }
 }

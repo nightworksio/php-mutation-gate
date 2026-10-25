@@ -77,7 +77,8 @@ it('writes bridges that Infection applies by its own contract, named by their mu
         ->and($definition instanceof Definition ? $definition->getDescription() : $definition)
         ->toBe('acme/PlusToMinus')
         ->and(function_exists('infectionBridgesLoadedTheBootstrap'))->toBeTrue()
-        ->and(infectionBridges()->written(NotGiven::value()))->not->toContain('require_once');
+        ->and(sprintf("%snamespace {\n    require_once '%s';\n}\n", infectionBridges()->written(NotGiven::value()), $bootstrap))
+        ->toBe(infectionBridges()->written($bootstrap));
 });
 
 it('says why Infection cannot make mutants with what the options name, and nothing where it can', function (): void {

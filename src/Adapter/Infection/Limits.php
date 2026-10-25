@@ -66,7 +66,7 @@ final readonly class Limits
         $classes = [];
 
         foreach ($this->map->testsCovering($file, $line, $line) as $test) {
-            $classes[TestMethod::classOf($test)] = true;
+            $classes[TestMethod::classOf($test)] = null;
         }
 
         $time = 0.0;

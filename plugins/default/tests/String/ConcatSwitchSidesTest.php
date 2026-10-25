@@ -27,6 +27,7 @@ it('changes the code it is written for, as Pest does', function (): void {
         return 'a' . 'b';
         return A . B;
         return $a . 'b';
+        return a() . b();
         PHP;
 
     expect(iterator_to_array(Mutates::with(new ConcatSwitchSides(), $code)->underPest(), preserve_keys: false))->toBe([
@@ -34,6 +35,7 @@ it('changes the code it is written for, as Pest does', function (): void {
         "-return 'a' . 'b';\n+return 'b' . 'a';",
         "-return A . B;\n+return B . A;",
         "-return \$a . 'b';\n+return 'b' . \$a;",
+        "-return a() . b();\n+return b() . a();",
     ]);
 });
 

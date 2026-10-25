@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Config;
 
-use function array_values;
-
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 
@@ -26,7 +24,7 @@ final readonly class Option
 
     public static function list(string $key, string|int|float|bool ...$values): self
     {
-        return new self($key, Json::items(...array_values($values)));
+        return new self($key, Json::items(...$values));
     }
 
     /** An option whose value is an object of options. */

@@ -113,6 +113,50 @@ it('writes each report as Infection reads it: its path, a share of lines run, it
         ->and($read(sprintf('%s/coverage-xml/Held.php.xml', $directory), '/p:phpunit/p:file/@path'))->toBe('/');
 });
 
+it('writes the index, a file\'s report and the JUnit log to the byte, an untimed test at no seconds', function (): void {
+    $project = layoutProject();
+    $directory = sprintf('%s/coverage', $project->root());
+    $map = layoutMap()->covered(Path::of('Held.php'), Line::of(5), TestId::of('Tests\HeldTest::halves'));
+    CoverageLayout::write($project, $map, DiskPath::of($directory));
+    $written = static fn(string $file): string => str_replace(
+        $project->root(),
+        'ROOT',
+        (string) file_get_contents(sprintf('%s/%s', $directory, $file)),
+    );
+    $money = 'class="Tests\MoneyTest" file="ROOT/tests/MoneyTest.php"';
+    $held = 'class="Tests\HeldTest" file="ROOT/tests/Unit/HeldTest.php"';
+    $coverage = static fn(string $body): string => sprintf(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<phpunit xmlns=\"https://schema.phpunit.de/coverage/1.0\">%s</phpunit>\n",
+        $body,
+    );
+
+    expect([$written('coverage-xml/index.xml'), $written('coverage-xml/src/Money.php.xml'), $written('junit.xml')])->toBe([
+        $coverage(implode('', [
+            '<project source="ROOT"><directory name="/"><totals><lines executed="4"/></totals>',
+            '<file name="Money.php" href="src/Money.php.xml"/><file name="Held.php" href="Held.php.xml"/>',
+            '</directory></project>',
+        ])),
+        $coverage(implode('', [
+            '<file name="Money.php" path="/src"><totals><lines executed="2" percent="100"/></totals>',
+            '<class><method name="add" start="9" end="12" coverage="100"/>',
+            '<method name="large" start="14" end="17" coverage="100"/></class>',
+            '<coverage><line nr="11"><covered by="Tests\MoneyTest::adds"/></line>',
+            '<line nr="16"><covered by="Tests\MoneyTest::adds#0"/>',
+            '<covered by="Tests\MoneyTest::adds#small amounts"/></line></coverage></file>',
+        ])),
+        sprintf("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n%s\n", implode('', [
+            '<testsuites><testsuite name="Tests\MoneyTest" file="ROOT/tests/MoneyTest.php" time="0.437500">',
+            sprintf('<testcase name="adds" %s time="0.250000"/>', $money),
+            sprintf('<testcase name="adds with data set #0" %s time="0.125000"/>', $money),
+            sprintf('<testcase name="adds with data set &quot;small amounts&quot;" %s time="0.062500"/>', $money),
+            '</testsuite><testsuite name="Tests\HeldTest" file="ROOT/tests/Unit/HeldTest.php" time="1.500000">',
+            sprintf('<testcase name="doubles" %s time="1.500000"/>', $held),
+            sprintf('<testcase name="halves" %s time="0.000000"/>', $held),
+            '</testsuite></testsuites>',
+        ])),
+    ]);
+});
+
 it('writes an index that says a line ran, where the map holds none of this run\'s files', function (): void {
     $project = layoutProject();
     $directory = sprintf('%s/coverage', $project->root());
@@ -126,7 +170,7 @@ it('writes an index that says a line ran, where the map holds none of this run\'
 it('cannot write a map whose test class no test file declares, or over what an earlier run left and cannot be removed', function (): void {
     $project = layoutProject();
     $directory = sprintf('%s/coverage', $project->root());
-    $gone = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\GoneTest::adds'));
+    $gone = layoutMap()->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\GoneTest::adds'));
     CoverageLayout::write($project, layoutMap(), DiskPath::of($directory));
     chmod($directory, 0o555);
     $locked = CoverageLayout::write($project, layoutMap(), DiskPath::of($directory));

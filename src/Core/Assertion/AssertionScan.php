@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Php\OwnMember;
 use NightWorksIO\MutationGate\Core\Php\Spec;
 use NightWorksIO\MutationGate\Core\Php\Tokens;
 
+use function range;
 use function sprintf;
 use function str_starts_with;
 
@@ -65,7 +66,7 @@ final readonly class AssertionScan
         $scan = new self($tokens, $helpers, $spec);
         $assertions = Assertions::of();
 
-        for ($at = $from; $at <= $to; ++$at) {
+        foreach (range($from, $to) as $at) {
             foreach ($scan->madeAt($at) as $assertion) {
                 if ($assertion instanceof Unclassified) {
                     return Assertions::notAssessed();

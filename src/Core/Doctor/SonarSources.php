@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Core\Doctor;
 
 use function array_filter;
 use function array_map;
-use function array_values;
 use function explode;
 
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -39,10 +38,10 @@ final readonly class SonarSources
     public static function in(Properties $properties): self|NotGiven
     {
         $value = $properties->value(self::KEY);
-        $named = $value instanceof NotGiven ? [] : array_values(array_filter(
+        $named = $value instanceof NotGiven ? [] : array_filter(
             array_map(trim(...), explode(',', $value)),
             static fn(string $path): bool => $path !== '',
-        ));
+        );
 
         return $named === [] ? NotGiven::value() : self::of(...array_map(Path::of(...), $named));
     }

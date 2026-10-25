@@ -31,6 +31,16 @@ it('replaces the test files of a covered file judged again, and leaves the judge
         ->and($judges->filesRunBy(Path::of('tests/MoneyTest.php')))->toEqual(Paths::of(Path::of('src/Money.php')));
 });
 
+it('keeps a covered file judged again in the place it was first judged at, among those a test file runs', function (): void {
+    $judges = Judges::none()
+        ->judging(Path::of('src/Money.php'), Paths::of(Path::of('tests/LedgerTest.php')))
+        ->judging(Path::of('src/Clock.php'), Paths::of(Path::of('tests/LedgerTest.php')))
+        ->judging(Path::of('src/Money.php'), Paths::of(Path::of('tests/LedgerTest.php')));
+
+    expect(array_map(static fn(Path $file): string => $file->value(), [...$judges->filesRunBy(Path::of('tests/LedgerTest.php'))]))
+        ->toBe(['src/Money.php', 'src/Clock.php']);
+});
+
 it('answers the files each test file judges in time linear in their number', function (): void {
     $run = static function (int $size): Closure {
         $tests = array_map(static fn(int $at): Path => Path::of(sprintf('tests/T%dTest.php', $at)), range(0, $size - 1));

@@ -26,3 +26,7 @@ it('gives the bytes of a text from an offset to its end, counting each byte of a
         ->and(Bytes::from('aÜb', 2))->toBe("\x9Cb")
         ->and(Bytes::from('ab', 2))->toBe('');
 });
+
+it('has a reader take a byte past a limit, and one of a limit below none', function (): void {
+    expect([Bytes::onePast(3), Bytes::onePast(0), Bytes::onePast(-5)])->toBe([4, 1, 1]);
+});

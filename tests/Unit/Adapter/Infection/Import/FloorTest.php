@@ -13,6 +13,7 @@ $said = static fn(string $settings): array => Imports::keys(Floor::imported(Node
 
 it('takes minMsi as every tree\'s floor, truncated to two decimals', function () use ($said): void {
     expect(Floor::of(Node::decode('{"minMsi": 80.567, "minCoveredMsi": 90}')))->toEqual(TreeFloor::ofHundredths(8056))
+        ->and(Floor::of(Node::decode('{"minMsi": 0.01}')))->toEqual(TreeFloor::ofHundredths(1))
         ->and($said('{"minMsi": 80.567}'))->toBe(['  minMsi: imported as the floor of every tree, 80.56']);
 });
 

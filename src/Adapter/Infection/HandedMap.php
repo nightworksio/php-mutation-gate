@@ -25,7 +25,7 @@ final readonly class HandedMap
     {
         $file = $project->absolute(CoverageMapFile::in($directory));
         $limits = HandoffLimits::under(ini_get('memory_limit'));
-        $bytes = is_file($file) ? file_get_contents($file, length: $limits->readable()) : false;
+        $bytes = is_file($file) ? file_get_contents($file, length: $limits->readable()) : null;
 
         return is_string($bytes) ? CoverageMapFile::decode($bytes, $limits) : CoverageMapFile::missingAt($file);
     }

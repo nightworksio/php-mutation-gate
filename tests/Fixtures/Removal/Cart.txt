@@ -75,3 +75,12 @@ trait Counts
         echo 2;
     }
 }
+
+final class Tail
+{
+    private function stop(): void
+    {
+        echo 3;
+    }
+
+    public function go(): void { $this->stop(); } }

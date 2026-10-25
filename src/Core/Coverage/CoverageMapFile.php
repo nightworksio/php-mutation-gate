@@ -113,14 +113,16 @@ final readonly class CoverageMapFile
     public static function kept(string $bytes, MapLimits $limits): KeptMap|CannotJudge
     {
         $json = Gzip::unpackAtMost($bytes, self::NAMED, $limits->unpacked());
-        $file = Node::decode(is_string($json) ? $json : '');
 
-        return match (true) {
-            $json instanceof TooLarge => CannotJudge::because($json->why()),
-            $json instanceof CannotJudge => $json,
-            ! self::isThisFormat($file) => CannotJudge::because(self::UNREADABLE),
-            default => KeptMap::of(MapFileRead::read($file), MeasuredAt::readIn($file), EntryKeys::readIn($file)),
-        };
+        if (! is_string($json)) {
+            return $json instanceof TooLarge ? CannotJudge::because($json->why()) : $json;
+        }
+
+        $file = Node::decode($json);
+
+        return self::isThisFormat($file)
+            ? KeptMap::of(MapFileRead::read($file), MeasuredAt::readIn($file), EntryKeys::readIn($file))
+            : CannotJudge::because(self::UNREADABLE);
     }
 
     /** The map some bytes hold, read within these limits; or why none is read. */
@@ -132,13 +134,11 @@ final readonly class CoverageMapFile
             return CannotJudge::because($json->why());
         }
 
-        $file = Node::decode($json instanceof CannotJudge ? '' : $json);
+        $file = $json instanceof CannotJudge ? $json : Node::decode($json);
 
-        if (! self::isThisFormat($file)) {
-            return CannotJudge::because(self::UNREADABLE);
-        }
-
-        return MapFileRead::read($file);
+        return $file instanceof Node && self::isThisFormat($file)
+            ? MapFileRead::read($file)
+            : CannotJudge::because(self::UNREADABLE);
     }
 
     private static function isThisFormat(Node $file): bool

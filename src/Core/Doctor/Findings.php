@@ -15,8 +15,6 @@ use Countable;
 use IteratorAggregate;
 use Traversable;
 
-use function usort;
-
 /**
  * What every check found, the findings that fail a run first, then those
  * that slow it, then advice, each kind in the order the checks ran.
@@ -49,9 +47,14 @@ final readonly class Findings implements Countable, IteratorAggregate
             $findings = [...$findings, ...$other->findings];
         }
 
-        usort($findings, static fn(Finding $one, Finding $other): int => self::rank($one) <=> self::rank($other));
+        $all = new self($findings);
+        $ordered = [];
 
-        return new self($findings);
+        foreach (Severity::cases() as $severity) {
+            $ordered = [...$ordered, ...$all->thatAre($severity)->findings];
+        }
+
+        return new self($ordered);
     }
 
     /** The findings of one severity. */
@@ -78,14 +81,5 @@ final readonly class Findings implements Countable, IteratorAggregate
     public function getIterator(): Traversable
     {
         return new ArrayIterator($this->findings);
-    }
-
-    private static function rank(Finding $finding): int
-    {
-        return match ($finding->severity()) {
-            Severity::WillFail => 0,
-            Severity::Slow => 1,
-            Severity::Advice => 2,
-        };
     }
 }

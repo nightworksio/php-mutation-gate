@@ -215,7 +215,7 @@ final readonly class CoverageLayout
 
         foreach ($map->tests() as $test) {
             $method = TestMethod::of($test);
-            $classes += $method instanceof TestMethod ? [$method->className() => true] : [];
+            $classes += $method instanceof TestMethod ? [$method->className() => null] : [];
         }
 
         return array_keys($classes);

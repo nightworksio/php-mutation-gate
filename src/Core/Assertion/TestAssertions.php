@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Assertion;
 
+use function array_filter;
 use function array_key_exists;
-use function max;
+use function array_map;
+use function is_string;
 use function mb_strtolower;
 use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Php\Body;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Php\Names;
@@ -70,12 +73,15 @@ final readonly class TestAssertions
     private static function methods(Tokens $tokens, Helpers $helpers, Spec|Nameless $spec): array
     {
         $methods = [];
+        $names = array_filter(
+            array_map($tokens->functionName(...), $tokens->indicesOf(T_FUNCTION)),
+            static fn(int $named): bool => $named !== Tokens::NONE,
+        );
 
-        foreach ($tokens->indicesOf(T_FUNCTION) as $at) {
-            $named = $tokens->functionName($at);
-            $name = $named === Tokens::NONE ? '' : mb_strtolower($tokens->text($named));
+        foreach ($names as $named) {
+            $name = mb_strtolower($tokens->text($named));
 
-            if ($name !== '' && ! array_key_exists($name, $methods)) {
+            if (! array_key_exists($name, $methods)) {
                 $methods[$name] = self::bodyAfter($tokens, $helpers, $named, $spec);
             }
         }
@@ -89,14 +95,13 @@ final readonly class TestAssertions
     private static function pestTests(Tokens $tokens, Helpers $helpers): array
     {
         $tests = [];
-        $described = Tokens::NONE;
 
         foreach ($tokens->indicesOf(...Names::TOKENS) as $at) {
-            $function = mb_strtolower(Call::nameAt($tokens, $at));
-            $description = $at > $described ? self::declared($tokens, $at, $function) : '';
-            $described = self::describedTo($tokens, $at, $function, $described);
+            $description = self::declared($tokens, $at);
 
-            if ($description !== '' && ! array_key_exists($description, $tests)) {
+            $new = is_string($description) && ! array_key_exists($description, $tests);
+
+            if ($new && ! self::described($tokens, $at)) {
                 $arguments = $at + 1;
                 $end = AssertionScan::chainEnd($tokens, $tokens->closing($arguments));
                 $tests[$description] = AssertionScan::between($tokens, $helpers, $arguments, $end, Nameless::code());
@@ -106,12 +111,21 @@ final readonly class TestAssertions
         return $tests;
     }
 
-    /** Where the `describe()` blocks read so far end, with one that a call at an index declares. */
-    private static function describedTo(Tokens $tokens, int $at, string $function, int $described): int
+    /** Whether a call at an index stands inside the arguments of a `describe()` that declares a block. */
+    private static function described(Tokens $tokens, int $at): bool
     {
-        return $function === self::DESCRIBE && self::isDeclaring($tokens, $at)
-            ? max($described, $tokens->closing($at + 1))
-            : $described;
+        $opener = $tokens->enclosing($at);
+
+        return $opener !== Tokens::NONE
+            && (self::declaresBlock($tokens, $opener - 1) || self::described($tokens, $opener));
+    }
+
+    /** Whether the name at an index is of a `describe()` that declares a block by its description. */
+    private static function declaresBlock(Tokens $tokens, int $at): bool
+    {
+        return $tokens->is($at, ...Names::TOKENS)
+            && mb_strtolower(Call::nameAt($tokens, $at)) === self::DESCRIBE
+            && self::isDeclaring($tokens, $at);
     }
 
     /** Whether a call at an index declares something by a description, as `it('…', …)` does. */
@@ -122,12 +136,14 @@ final readonly class TestAssertions
             && $tokens->is($at + 2, T_CONSTANT_ENCAPSED_STRING);
     }
 
-    /** The description a call of a function at an index declares a Pest test with; nothing where it declares none. */
-    private static function declared(Tokens $tokens, int $at, string $function): string
+    /** The description a call at an index declares a Pest test with; none where it declares none. */
+    private static function declared(Tokens $tokens, int $at): string|NotGiven
     {
+        $function = mb_strtolower(Call::nameAt($tokens, $at));
+
         return array_key_exists($function, self::DECLARING) && self::isDeclaring($tokens, $at)
             ? sprintf('%s%s', self::DECLARING[$function], stripslashes(mb_substr($tokens->text($at + 2), 1, -1)))
-            : '';
+            : NotGiven::value();
     }
 
     /**

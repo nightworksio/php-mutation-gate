@@ -12,6 +12,8 @@ use function max;
 use NightWorksIO\MutationGate\Core\Report\Columns;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 
+use const PHP_INT_MIN;
+
 use function usort;
 
 /**
@@ -56,7 +58,7 @@ final readonly class Expressions
     private static function overlapping(array $placed): array
     {
         $groups = [];
-        $reach = -1;
+        $reach = PHP_INT_MIN;
 
         foreach ($placed as [$judged, $span]) {
             if ($span->first() > $reach) {

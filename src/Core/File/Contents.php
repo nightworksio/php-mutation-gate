@@ -16,6 +16,12 @@ final readonly class Contents
         return new self($text);
     }
 
+    /** No text, as a file not read is taken to hold. */
+    public static function none(): self
+    {
+        return new self('');
+    }
+
     public function text(): string
     {
         return $this->text;

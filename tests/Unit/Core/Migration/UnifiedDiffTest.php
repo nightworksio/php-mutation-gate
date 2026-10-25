@@ -46,5 +46,5 @@ it('joins two changes six unchanged lines apart into one hunk, as diff -u does, 
     $seven = UnifiedDiff::between('f', $lines('a', '1', '2', '3', '4', '5', '6', '7', 'b'), $lines('A', '1', '2', '3', '4', '5', '6', '7', 'B'));
 
     expect(substr_count($six, '@@ -'))->toBe(1)
-        ->and(substr_count($seven, '@@ -'))->toBe(2);
+        ->and($seven)->toBe("--- a/f\n+++ b/f\n@@ -1,4 +1,4 @@\n-a\n+A\n 1\n 2\n 3\n@@ -6,4 +6,4 @@\n 5\n 6\n 7\n-b\n+B\n");
 });

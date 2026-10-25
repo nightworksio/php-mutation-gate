@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGateDefault;
 
+use function array_any;
 use function array_filter;
-use function array_map;
 use function array_search;
 use function array_slice;
-use function in_array;
 
 use NightWorksIO\MutationGate\Mutator\Literals;
 use NightWorksIO\MutationGate\Mutator\Mutator;
@@ -104,10 +103,9 @@ final readonly class Returns
     /** Whether a type is a union with a type of this name, as written. */
     private static function unites(Node $type, string $name): bool
     {
-        return $type instanceof UnionType && in_array(
-            $name,
-            array_map(static fn(Node $one): string => $one instanceof Identifier ? $one->name : '', $type->types),
-            strict: true,
+        return $type instanceof UnionType && array_any(
+            $type->types,
+            static fn(Node $one): bool => $one instanceof Identifier && $one->name === $name,
         );
     }
 
