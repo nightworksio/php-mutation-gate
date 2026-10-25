@@ -139,7 +139,7 @@ final readonly class ReadingTests
 
         foreach ($versions as [$path, $contents]) {
             $symbols += $contents instanceof Contents
-                ? $this->declaredIn(Source::read($path, $contents, test: false))
+                ? $this->declaredIn(Source::code($path, $contents))
                 : [];
         }
 

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Control;
 
 use function array_key_exists;
-use function array_values;
 
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
@@ -31,7 +30,7 @@ final readonly class MutantControls
     /** Every control asked for, each once. */
     public function asked(): Controls
     {
-        return Controls::of(...array_values($this->controls));
+        return Controls::of(...$this->controls);
     }
 
     /**

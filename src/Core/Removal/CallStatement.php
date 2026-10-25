@@ -21,7 +21,8 @@ use NightWorksIO\MutationGate\Core\Php\Undeclared;
  */
 final readonly class CallStatement
 {
-    private function __construct(private Receiver $receiver, private string $class, private string $name)
+    /** @param string $first the statement's first token: the class it calls on, where it calls on one */
+    private function __construct(private Receiver $receiver, private string $first, private string $name)
     {
     }
 
@@ -35,9 +36,8 @@ final readonly class CallStatement
             && $tokens->is($named + 1, '(')
             && $tokens->closing($named + 1) === $tokens->count() - 2
             && $tokens->is($tokens->count() - 1, ';');
-        $class = $receiver === Receiver::AClass ? $tokens->text(0) : '';
 
-        return $whole ? new self($receiver, $class, $tokens->text($named)) : Nameless::code();
+        return $whole ? new self($receiver, $tokens->text(0), $tokens->text($named)) : Nameless::code();
     }
 
     /**
@@ -71,7 +71,7 @@ final readonly class CallStatement
 
     private function onAClass(Declarations $declarations, Source $source): Declared|Undeclared
     {
-        foreach ($source->scope()->resolve($this->class)->all() as $class) {
+        foreach ($source->scope()->resolve($this->first)->all() as $class) {
             $found = $declarations->method($class, $this->name);
 
             if ($found instanceof Declared) {

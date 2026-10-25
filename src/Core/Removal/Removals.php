@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Removal;
 
 use function array_all;
+use function array_filter;
 use function array_key_exists;
+use function array_keys;
 use function count;
 use function in_array;
 
@@ -52,12 +54,7 @@ final readonly class Removals
         TestFiles $tests,
     ): Findings {
         $removals = self::removals($verdicts);
-
-        if ($removals === []) {
-            return Findings::none();
-        }
-
-        $read = self::read($sources);
+        $read = $removals === [] ? [] : self::read($sources);
         $declarations = Declarations::of(...$read);
         $byFile = self::byFile($verdicts);
         $findings = Findings::none();
@@ -103,7 +100,7 @@ final readonly class Removals
         $read = [];
 
         foreach ($sources as $path => $contents) {
-            $read[$path->value()] = Source::read($path, $contents, test: false);
+            $read[$path->value()] = Source::code($path, $contents);
         }
 
         return $read;
@@ -153,13 +150,11 @@ final readonly class Removals
     private static function firstTokenOn(Source $source, int $line): int
     {
         $tokens = $source->tokens();
-        $at = 0;
 
-        while ($at < $tokens->count() && $tokens->line($at) < $line) {
-            ++$at;
-        }
-
-        return $at;
+        return count(array_filter(
+            array_keys($tokens->texts()),
+            static fn(int $at): bool => $tokens->line($at) < $line,
+        ));
     }
 
     /**

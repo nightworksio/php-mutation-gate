@@ -9,7 +9,6 @@ use function array_intersect_key;
 use function array_key_exists;
 use function array_keys;
 use function array_map;
-use function array_unique;
 
 use ArrayIterator;
 
@@ -195,7 +194,7 @@ final readonly class LineTests
         $sets = [];
 
         foreach (self::kept($this->linesOf($file), missed: false) as $number => $line) {
-            $places = array_unique([...$line]);
+            $places = [...$line];
             sort($places);
             $sets[$number] = TestSet::named(implode(self::SET_SEPARATOR, $places));
         }

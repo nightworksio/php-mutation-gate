@@ -50,7 +50,7 @@ final readonly class Outcomes
         $groups = [];
 
         foreach ($this->outcomes as $index => $outcome) {
-            $key = $outcome instanceof Mutant ? $outcome->status()->value : '';
+            $key = $outcome instanceof Mutant ? $outcome->status()->value : NotMade::class;
             $group = array_key_exists($key, $groups) ? $groups[$key] : [$outcome, [], TestIds::none()];
             $groups[$key] = [$group[0], [...$group[1], $index + 1], $this->killed($group[2], $outcome)];
         }

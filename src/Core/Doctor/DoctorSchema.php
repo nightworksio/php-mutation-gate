@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Doctor;
 
-use function array_map;
-
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Report\ReportSchema;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
@@ -23,10 +21,8 @@ final readonly class DoctorSchema
         $finding = [
             'type' => 'object',
             'properties' => [
-                'slug' => ['enum' => array_map(static fn(Slug $slug): string => $slug->value, Slug::cases())],
-                'severity' => [
-                    'enum' => array_map(static fn(Severity $severity): string => $severity->value, Severity::cases()),
-                ],
+                'slug' => ['enum' => Slug::cases()],
+                'severity' => ['enum' => Severity::cases()],
                 'found' => ReportSchema::TEXT,
                 'why' => ReportSchema::TEXT,
                 'fix' => ReportSchema::TEXT,

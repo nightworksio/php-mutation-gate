@@ -27,6 +27,7 @@ it('finds Xdebug slowing tests in any mode but coverage or off, the variable\'s 
     'a setting' => [fn(): RunnerPhp => $xdebug()->setting('xdebug.mode', 'debug'), 'debug'],
     'a variable over a setting' => [fn(): RunnerPhp => $xdebug()->setting('xdebug.mode', 'coverage')->seeing('XDEBUG_MODE', 'coverage,profile'), 'coverage,profile'],
     'an empty variable, then the setting' => [fn(): RunnerPhp => $xdebug()->setting('xdebug.mode', 'trace')->seeing('XDEBUG_MODE', ''), 'trace'],
+    'an empty setting, then Xdebug\'s default' => [fn(): RunnerPhp => $xdebug()->setting('xdebug.mode', ''), 'develop'],
 ]);
 
 it('finds Xdebug collecting coverage where pcov is installed beside it', function () use ($xdebug): void {

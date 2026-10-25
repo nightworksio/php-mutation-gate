@@ -49,7 +49,7 @@ final readonly class MeasuredAt
     {
         $json = $limits->inflated($bytes);
 
-        return self::readIn(Node::decode(is_string($json) ? $json : ''));
+        return is_string($json) ? self::readIn(Node::decode($json)) : Unplaced::map();
     }
 
     /** Where a decoded map says it was measured; unplaced where it says nothing that can be read. */

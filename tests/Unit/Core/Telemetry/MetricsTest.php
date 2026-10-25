@@ -80,6 +80,15 @@ it('emits each phase\'s duration, each shard\'s and its steps\', and the runner 
         ->and($metrics['mutation_gate.runner_minutes']->unit())->toBe('min');
 });
 
+it('emits the score of every tree, in their order, before the new-code sets\'', function () use ($byName, $points): void {
+    expect($points($byName(Metrics::of(Verdicts::secured()))['mutation_gate.score']))->toBe([
+        [44.44, ['mutation_gate.tree' => 'src']],
+        [0.0, ['mutation_gate.tree' => 'src/Auth.php']],
+        [100.0, ['mutation_gate.tree' => 'packages/billing/src']],
+        [0.0, ['mutation_gate.tree' => 'new code in .']],
+    ]);
+});
+
 it('leaves out the score of a set with nothing to mutate', function () use ($byName, $points): void {
     $verdict = Verdicts::empty()->withSets(HeldSets::newCodeOnly(NewCodeVerdicts::of(
         NewCodeVerdict::judged(Package::at(Path::root()), Floor::of(100), JudgedMutants::none(), Uncovered::Count),

@@ -23,8 +23,7 @@ it('spans the plan, each shard with each step its time went to under it, and the
         ->and($spans[2]->parent())->toBe($spans[1]->id())
         ->and($spans[3]->parent())->toBe($spans[1]->id())
         ->and($spans[6]->parent())->toBe($spans[4]->id())
-        ->and($spans[0]->parent())->toBe('')
-        ->and($spans[7]->parent())->toBe('')
+        ->and([$spans[0]->parent(), $spans[1]->parent(), $spans[7]->parent()])->toBe(['', '', ''])
         ->and($spans[0]->attributes())->toBe(['cicd.pipeline.run.id' => 'github:12345/1'])
         ->and($spans[5]->attributes())->toBe(['cicd.pipeline.run.id' => 'github:12345/1', 'mutation_gate.shard' => 2]);
 });

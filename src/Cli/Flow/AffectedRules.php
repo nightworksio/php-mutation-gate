@@ -142,6 +142,6 @@ final readonly class AffectedRules
     {
         $contents = $this->adapters->project->read($path);
 
-        return $contents instanceof Contents ? [Source::read($path, $contents, test: false)] : [];
+        return $contents instanceof Contents ? [Source::code($path, $contents)] : [];
     }
 }

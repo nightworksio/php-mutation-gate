@@ -115,6 +115,25 @@ describe('LineTests', function (): void {
         expect($read)->toBe([3 => ['A::a', 'B::b', 'C::c'], 4 => ['A::a']]);
     });
 
+    it('names one set for the lines of one set of tests, however each was placed, in line order', function () use ($makeMoney): void {
+        $money = $makeMoney();
+        $tests = TestIds::of(TestId::of('C::c'), TestId::of('A::a'), TestId::of('B::b'));
+
+        $sets = LineTests::placed(
+            $tests,
+            PlacedLine::of($money, 4, 2, 0, 2),
+            PlacedLine::of($money, 3, 0, 2),
+        )->setsOn($money);
+        $named = [];
+
+        foreach ($sets as $number => $set) {
+            $named[$number] = $set->name();
+        }
+
+        expect(array_keys($named))->toBe([3, 4])
+            ->and($named[3] ?? '')->toBe($named[4] ?? 'none');
+    });
+
     it('holds covered lines in time linear in how many tests they name, however many tests there are', function (): void {
         $holding = static function (int $size): Closure {
             $covered = array_map(
