@@ -15,7 +15,7 @@ composer config allow-plugins.infection/extension-installer false
 composer require --dev --no-interaction --no-progress --no-update \
   "infection/infection:${infection}" 'nightworksio/mutation-gate:@dev'
 composer update --no-interaction --no-progress
-composer show | grep -E '^(phpunit/phpunit|infection/infection|nightworksio/mutation-gate) '
+bench_versions phpunit/phpunit infection/infection nightworksio/mutation-gate
 printf '.mutation-gate/\nbench-*.json\nbench-*.txt\ninfection.txt\n' >> .gitignore
 bench_baselines src
 # Each arm mutates src/SourceLocator/Type alone, judged by the whole suite run
