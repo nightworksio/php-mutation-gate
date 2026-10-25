@@ -170,6 +170,7 @@ it('names the first weak test that lets a survivor through, each assertion it ma
 })->with([
     'one test, one assertion made twice' => [0, '`tests/MoneyTest.php::testFits` asserts only `assertNotNull`, which no change of value fails.', 'assertNotNull', 'assertNotNull'],
     'one test, three assertions' => [0, '`tests/MoneyTest.php::testFits` asserts only `->toBeInt()`, `->not->toBeNull()` and `->toBeArray()`, which no change of value fails.', '->toBeInt()', '->not->toBeNull()', '->toBeArray()'],
+    'two tests' => [1, '`tests/MoneyTest.php::testFits` and 1 more assert only `assertIsInt`, which no change of value fails.', 'assertIsInt'],
     'three tests' => [2, '`tests/MoneyTest.php::testFits` and 2 more assert only `assertIsInt`, which no change of value fails.', 'assertIsInt'],
 ]);
 

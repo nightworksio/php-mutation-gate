@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Hint;
 use function array_diff_assoc;
 use function array_filter;
 use function array_find_key;
+use function array_key_exists;
 use function array_keys;
 use function array_map;
 use function array_pop;
@@ -189,7 +190,7 @@ final readonly class Change
         $called = array_find_key(
             $tokens,
             static fn(PhpToken $token, int $at): bool => $token->is(Names::UNRELATIVE)
-                && array_slice($tokens, $at + 1, 1) !== []
+                && array_key_exists($at + 1, $tokens)
                 && $tokens[$at + 1]->is('('),
         );
 
@@ -212,7 +213,7 @@ final readonly class Change
     private static function tokensOf(string $code): array
     {
         return array_values(array_filter(
-            array_slice(PhpToken::tokenize($code), 1),
+            PhpToken::tokenize($code),
             static fn(PhpToken $token): bool => ! $token->isIgnorable(),
         ));
     }
