@@ -79,7 +79,7 @@ it('composes what every run withholds, each CI plan\'s credentials and the runne
         ->and([...Withheld::composed(Withheld::nothing())])->toBe([...Withheld::standard()]);
 });
 
-it('withholds what makes a process another run\'s worker or mutant', function (string $name, bool $withheld) use ($withholds): void {
+it('withholds what makes a process another run\'s worker or mutant, or print for an AI agent', function (string $name, bool $withheld) use ($withholds): void {
     expect($withholds(Withheld::otherRuns(), $name))->toBe($withheld);
 })->with([
     'the gate\'s own' => ['MUTATION_GATE_RESULTS', true],
@@ -91,4 +91,33 @@ it('withholds what makes a process another run\'s worker or mutant', function (s
     'Laravel\'s parallel testing' => ['LARAVEL_PARALLEL_TESTING', true],
     'a name that only ends in one' => ['MY_TEST_TOKEN', false],
     'the path' => ['PATH', false],
+    'pao turned off' => ['PAO_DISABLE', false],
+    'a name that only begins like an agent\'s' => ['OPENCODE_HOME', false],
+]);
+
+it('withholds each variable by which laravel/agent-detector finds an AI agent, and pao\'s that forces it', function (string $name) use ($withholds): void {
+    expect($withholds(Withheld::otherRuns(), $name))->toBeTrue();
+})->with([
+    'AI_AGENT',
+    'CLAUDECODE',
+    'CLAUDE_CODE',
+    'CLAUDE_CODE_IS_COWORK',
+    'CURSOR_AGENT',
+    'GEMINI_CLI',
+    'CODEX_SANDBOX',
+    'CODEX_CI',
+    'CODEX_THREAD_ID',
+    'AUGMENT_AGENT',
+    'OPENCODE',
+    'OPENCODE_CLIENT',
+    'AMP_CURRENT_THREAD_ID',
+    'REPL_ID',
+    'COPILOT_MODEL',
+    'COPILOT_ALLOW_ALL',
+    'COPILOT_GITHUB_TOKEN',
+    'COPILOT_CLI',
+    'ANTIGRAVITY_AGENT',
+    'PI_CODING_AGENT',
+    'KIRO_AGENT_PATH',
+    'PAO_FORCE',
 ]);

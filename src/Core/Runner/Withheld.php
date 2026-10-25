@@ -71,6 +71,37 @@ final readonly class Withheld implements IteratorAggregate
         'LARAVEL_PARALLEL_TESTING*',
     ];
 
+    /**
+     * What has a tool print for an AI agent rather than as it does in a
+     * terminal, so a runner's output reads as the gate parses it from an
+     * agent's shell too: each variable laravel/agent-detector reads, by which
+     * laravel/pao has Pest, PHPUnit and paratest print one line of JSON, and
+     * pao's own switch that forces it.
+     */
+    private const array AGENTS = [
+        'AI_AGENT',
+        'CLAUDECODE',
+        'CLAUDE_CODE*',
+        'CURSOR_AGENT',
+        'GEMINI_CLI',
+        'CODEX_SANDBOX',
+        'CODEX_CI',
+        'CODEX_THREAD_ID',
+        'AUGMENT_AGENT',
+        'OPENCODE',
+        'OPENCODE_CLIENT',
+        'AMP_CURRENT_THREAD_ID',
+        'REPL_ID',
+        'COPILOT_MODEL',
+        'COPILOT_ALLOW_ALL',
+        'COPILOT_GITHUB_TOKEN',
+        'COPILOT_CLI',
+        'ANTIGRAVITY_AGENT',
+        'PI_CODING_AGENT',
+        'KIRO_AGENT_PATH',
+        'PAO_FORCE',
+    ];
+
     /** @param list<string> $globs */
     private function __construct(private array $globs)
     {
@@ -103,11 +134,11 @@ final readonly class Withheld implements IteratorAggregate
     /**
      * The variables a process the gate starts never inherits from the gate,
      * whatever the config: those that would make it another run's worker or
-     * mutant. What its command sets, it still gets.
+     * mutant, or print for an AI agent. What its command sets, it still gets.
      */
     public static function otherRuns(): self
     {
-        return new self(self::OTHER_RUNS);
+        return new self([...self::OTHER_RUNS, ...self::AGENTS]);
     }
 
     public static function nothing(): self
