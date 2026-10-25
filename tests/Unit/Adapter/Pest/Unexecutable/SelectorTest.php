@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\CoverageMaps;
 use NightWorksIO\MutationGate\Tests\Support\MatchHeads;
+use NightWorksIO\MutationGate\Tests\Support\PestPrint;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Unexecutables;
 
@@ -102,6 +103,18 @@ it('judges a mutant of a match\'s head by the tests that run its arms alone, wit
     $selector = Selector::over($at, selectorMap($results), Paths::of($band));
     $original = $selector->original($band);
     $copy = Contents::of((string) file_get_contents(Recorder::mutantBeside($results, 'head')));
+
+    expect($original instanceof Original ? $selector->judging($original->source(), $original->source()->changedAt($original->printed(), $copy)) : $original)
+        ->toEqual(Choice::of(selectorTests('BandSpec'), Paths::none(), ambiguous: false));
+});
+
+it('judges a mutant of a statement\'s first line by the tests that run its other lines, though no match is in it', function (): void {
+    $at = MatchHeads::project();
+    $results = MatchHeads::run($at);
+    $band = Path::of('src/Band.php');
+    $selector = Selector::over($at, selectorMap($results), Paths::of($band));
+    $original = $selector->original($band);
+    $copy = Contents::of(PestPrint::of(str_replace('return strtoupper(', 'return strtolower(', MatchHeads::BAND)));
 
     expect($original instanceof Original ? $selector->judging($original->source(), $original->source()->changedAt($original->printed(), $copy)) : $original)
         ->toEqual(Choice::of(selectorTests('BandSpec'), Paths::none(), ambiguous: false));

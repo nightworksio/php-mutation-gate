@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_key_exists;
-use function array_keys;
+use function array_unique;
 use function explode;
 use function file_put_contents;
 use function getenv;
@@ -102,12 +102,10 @@ final class CoveringFiles
                 return [];
             }
 
-            foreach ($loaded->needs($file) as $needed) {
-                $files[$needed] = $needed;
-            }
+            $files = [...$files, ...$loaded->needs($file)];
         }
 
-        $paths = array_keys($files);
+        $paths = array_unique($files);
         sort($paths);
 
         return Ceiling::admits(implode(' ', $paths), $longest) ? $paths : [];
