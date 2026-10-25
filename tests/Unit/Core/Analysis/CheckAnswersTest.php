@@ -19,6 +19,7 @@ it('holds an answer in the place of each check, one that cannot judge where the 
         ->toEqual([Findings::none(), OutOfScope::of(Path::of('lib/Other.php')), $unanswered])
         ->and([...$answers->padded(MutantChecks::of($check, $check))])->toEqual([...$answers])
         ->and($answers->first())->toEqual(Findings::none())
+        ->and(CheckAnswers::of(OutOfScope::of(Path::of('lib/Other.php')))->first())->toEqual(OutOfScope::of(Path::of('lib/Other.php')))
         ->and(CheckAnswers::of()->first())->toEqual($unanswered)
         ->and($answers)->toHaveCount(2);
 });

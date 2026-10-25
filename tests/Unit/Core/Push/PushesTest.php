@@ -58,15 +58,26 @@ it('cannot read a line that is not a ref, its commit, a ref and its commit', fun
     'a quoted line' => [fn(): string => sprintf("'refs/heads/a %s refs/heads/a %s'", pushedCommit('1'), pushedCommit('2'))],
 ]);
 
+it('reads lines that end in a carriage return, and names one it cannot read without the space around it', function (): void {
+    $line = sprintf('refs/heads/a %s refs/heads/a %s', pushedCommit('1'), pushedCommit('2'));
+
+    expect([...pushesOf(sprintf("%s\r\n%s\r\n", $line, $line))])->toEqual([
+        PushedRef::of('refs/heads/a', pushedCommit('1'), pushedCommit('2')),
+        PushedRef::of('refs/heads/a', pushedCommit('1'), pushedCommit('2')),
+    ])->and(Pushes::read(sprintf("refs/heads/a HEAD \n%s\n", $line)))->toEqual(CannotJudge::because(
+        'The pre-push hook was handed a line that is not a local ref, its commit, a remote ref and its commit: "refs/heads/a HEAD".',
+    ));
+});
+
 it('judges each ref that sends the commit the working tree is at, once for each base, leaving deletions out', function (): void {
     $main = Revision::ref('refs/remotes/origin/main');
     [$head, $remote, $gone] = [pushedCommit('1'), pushedCommit('2'), pushedCommit('3')];
     $none = pushedCommit('0');
     $judged = pushesOf(implode("\n", [
+        sprintf('(delete) %s refs/heads/gone %s', $none, $gone),
         sprintf('refs/heads/a %s refs/heads/a %s', $head, $remote),
         sprintf('refs/heads/b %s refs/heads/b %s', $head, $remote),
         sprintf('refs/heads/c %s refs/heads/c %s', $head, $none),
-        sprintf('(delete) %s refs/heads/gone %s', $none, $gone),
         sprintf('refs/heads/d %s refs/heads/d %s', $head, str_repeat('0', 64)),
     ]))->judged(Revision::ref($head), $main);
 

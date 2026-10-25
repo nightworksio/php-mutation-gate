@@ -45,12 +45,12 @@ it('reads its own rates and time before another ledger\'s, and takes the other\'
         ->withRate(RejectionRate::of('Plus', 60, 30))
         ->withRate(RejectionRate::of('Minus', 5, 1))
         ->withTime(CheckTime::of(65, Seconds::of(13.0)));
-    $timed = $own->withTime(CheckTime::of(10, Seconds::of(1.0)));
+    $timed = $own->withTime(CheckTime::of(1, Seconds::of(1.0)));
 
     expect($own->and($other)->rateOf($plus))->toEqual(RejectionRate::of('Plus', 10, 2))
         ->and($own->and($other)->rateOf($minus))->toEqual(RejectionRate::of('Minus', 5, 1))
         ->and($own->and($other)->time())->toEqual(CheckTime::of(65, Seconds::of(13.0)))
-        ->and($timed->and($other)->time())->toEqual(CheckTime::of(10, Seconds::of(1.0)));
+        ->and($timed->and($other)->time())->toEqual(CheckTime::of(1, Seconds::of(1.0)));
 });
 
 it('keeps one rate of a mutator whose name reads as a number, this history\'s first', function (): void {
