@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -47,6 +48,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Origin;
 use NightWorksIO\MutationGate\Core\Verdict\Undoomed;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
+use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\PeakMemoryFake;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
@@ -158,14 +160,29 @@ it('cannot judge a shard the runner could not judge, saying why for every one', 
             SAID));
 });
 
-it('cannot judge a shard whose runner skipped mutants it kept no record of', function () use ($ran): void {
-    expect($ran(Flows::project(), ScriptedRunner::fixture()->answering(Mutants::none(), 3)))
-        ->toEqual(CannotJudge::because(<<<'SAID'
-            Shard 1 (money) skipped 3 mutants without a record of them, so they cannot be judged.
+it('cannot judge a shard whose runner skipped mutants it kept no record of, one of them or more', function (int $skipped) use ($ran): void {
+    expect($ran(Flows::project(), ScriptedRunner::fixture()->answering(Mutants::none(), $skipped)))
+        ->toEqual(CannotJudge::because(sprintf(<<<'SAID'
+            Shard 1 (money) skipped %1$d mutants without a record of them, so they cannot be judged.
             The runner leaves no mutant unjudged in a run the gate judges.
-            Shard 2 (held) skipped 3 mutants without a record of them, so they cannot be judged.
+            Shard 2 (held) skipped %1$d mutants without a record of them, so they cannot be judged.
             The runner leaves no mutant unjudged in a run the gate judges.
-            SAID));
+            SAID, $skipped)));
+})->with([1, 3]);
+
+it('takes as run every unit of a shard after one it did not run', function (): void {
+    $project = Flows::project();
+    $units = Units::of(Planned::held(), Planned::money());
+    $plan = Planned::handedIn($project, Planned::of(Shard::of(ShardId::of(1), Package::at(Path::root()), $units, Seconds::of(3.0), 'held first')));
+    $runner = new CoverageAsked(ScriptedRunner::fixture(), CoverageMap::empty());
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())->runAll($plan, Workspace::results());
+    $results = Results::read($plan, Workspace::results(), Directory::at($project));
+
+    expect($results instanceof Results ? array_map(
+        static fn(UnitResult $result): string => $result->unit()->path()->value(),
+        [...$results->units()],
+    ) : $results)->toBe(['src/Money.php'])
+        ->and($results instanceof Results ? count($results->misses()) : $results)->toBe(1);
 });
 
 it('reads the results from the directory it is handed', function (): void {

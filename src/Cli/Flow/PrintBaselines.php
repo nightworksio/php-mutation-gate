@@ -9,7 +9,6 @@ use function array_filter;
 use function array_key_exists;
 use function array_keys;
 use function array_map;
-use function array_values;
 use function count;
 
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
@@ -108,7 +107,7 @@ final readonly class PrintBaselines
     {
         $checks = array_filter($files, static fn(object $check): bool => $check instanceof MutantCheck);
         $unwritten = array_filter($files, static fn(object $check): bool => $check instanceof CannotJudge);
-        $answers = [...$this->warm->checker->checks(MutantChecks::of(...array_values($checks)), $side)];
+        $answers = [...$this->warm->checker->checks(MutantChecks::of(...$checks), $side)];
         $answered = count($answers) === count($checks) ? array_combine(array_keys($checks), $answers) : [];
 
         foreach ($checks as $check) {

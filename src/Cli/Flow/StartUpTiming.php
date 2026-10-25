@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_filter;
 use function array_push;
+use function min;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\StartUpSamples;
@@ -53,8 +54,7 @@ final readonly class StartUpTiming
 
         for ($run = 1; $run < $this->samples->runs() && $fastest instanceof Seconds; $run++) {
             $again = $this->adapters->runner->startUp($file, $this->adapters->withheld);
-            $faster = $again instanceof Seconds && $again->microseconds() < $fastest->microseconds();
-            $fastest = $faster || $again instanceof CannotJudge ? $again : $fastest;
+            $fastest = $again instanceof Seconds ? Seconds::of(min($fastest->seconds(), $again->seconds())) : $again;
         }
 
         return $fastest;

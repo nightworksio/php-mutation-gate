@@ -365,6 +365,20 @@ it('names the last round\'s map where every entry moved and the change names no 
     ]);
 });
 
+it('measures every test where the one test file there is moved', function (): void {
+    $files = array_filter(
+        keptFiles(['tests/MoneyTest.php' => "<?php\n\nit('adds', fn () => expect(2)->toBe(2));\n"]),
+        static fn(string $path): bool => $path !== 'tests/HeldTest.php',
+        ARRAY_FILTER_USE_KEY,
+    );
+    $map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds'));
+
+    expect(keptMeasured($files, new CoverageAsked(ScriptedRunner::fixture(), $map), keptMap($map, keptAt())))->toEqual([
+        KeptCoverage::built(),
+        "Coverage: measured 1 of 1 test files again; kept the rest from the default branch's map.",
+    ]);
+});
+
 it('measures nothing in a project of no test file, where the kept map holds no test', function (): void {
     $files = array_filter(keptFiles(), static fn(string $path): bool => ! str_starts_with($path, 'tests/'), ARRAY_FILTER_USE_KEY);
     $runner = new CoverageAsked(ScriptedRunner::fixture(), CoverageMap::empty());

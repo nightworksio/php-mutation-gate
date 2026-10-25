@@ -99,6 +99,19 @@ it('shows each reached tree against the base, judged by the local result for wha
     );
 });
 
+it('counts the unstaged files of the reached units alone', function () use ($onMain): void {
+    $store = new ProofStoreFake();
+    $store->write(Scope::branch('main'), $onMain('src/Money.php', 'src/Held.php'));
+    $checkout = new ChangeSourceFake(
+        Revision::ref(Flows::MAIN),
+        Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(11))), Change::modified(Path::of('composer.json'), Lines::none())),
+        [Revision::workingTree()->name() => Flows::FILES, Flows::MAIN => Flows::FILES],
+    );
+    $adapters = Flows::adapters(Flows::project(), [], $store, new CiPlanFake(RunOn::at(Scope::branch('feature'), Scope::branch('main'))), $checkout);
+
+    expect(new ScoreChanging($adapters, Flows::settings(), Flows::setup())->text())->toEndWith('The scores include unstaged changes in 1 file.');
+});
+
 it('carries the newest result for a reached unit with no local one, and counts it as unjudged', function () use (
     $feature,
     $onMain,

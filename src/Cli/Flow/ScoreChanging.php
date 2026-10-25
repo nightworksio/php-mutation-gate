@@ -4,10 +4,15 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function array_any;
+use function array_filter;
+use function count;
+
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Plan\Considering;
@@ -20,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
+use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\BaseScores;
 use NightWorksIO\MutationGate\Core\Verdict\Ignoring;
@@ -143,18 +149,13 @@ final readonly class ScoreChanging
     private function unstagedIn(Units $units): int
     {
         $unstaged = $this->adapters->changes->unstaged();
-        $counted = 0;
 
-        foreach ($unstaged instanceof Paths ? $unstaged : Paths::none() as $file) {
-            foreach ($units as $unit) {
-                if ($file->within($unit->path())) {
-                    ++$counted;
-
-                    break;
-                }
-            }
-        }
-
-        return $counted;
+        return count(array_filter(
+            $unstaged instanceof Paths ? [...$unstaged] : [],
+            static fn(Path $file): bool => array_any(
+                [...$units],
+                static fn(Unit $unit): bool => $file->within($unit->path()),
+            ),
+        ));
     }
 }

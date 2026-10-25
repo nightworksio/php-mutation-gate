@@ -34,7 +34,6 @@ use NightWorksIO\MutationGate\Core\Plan\Proving;
 use NightWorksIO\MutationGate\Core\Proof\Agreement;
 use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
-use NightWorksIO\MutationGate\Core\Proof\ReadsOnly;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Pruning\PrunedCarry;
 use NightWorksIO\MutationGate\Core\Pruning\PruningAccount;
@@ -509,7 +508,7 @@ final readonly class Judging
         return match (true) {
             $written instanceof Written => $written->said(),
             $written instanceof CannotJudge => $written,
-            $written instanceof NotWritten, $written instanceof ReadsOnly => $written->why(),
+            default => $written->why(),
         };
     }
 }

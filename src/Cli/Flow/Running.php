@@ -247,16 +247,19 @@ final readonly class Running
         $kept = HeldCoverage::kept($shard, $held->misses());
         $startUp = new StartUpTiming($this->adapters, StartUpSamples::standard())->of($map, $kept->units());
         $warmUp = new AnalyserWarmUp();
-        $preChecking = $this->settings->staticCheck()->before() ? new PreChecking(
-            $this->adapters,
-            $this->setup->clock,
-            $deadline,
-            $this->settings->staticCheck()->seconds(),
-            $this->known($plan),
-            $warmUp,
-            $stopwatch,
-            PreCheck::standard(),
-        ) : new NoPreCheck();
+        $analyser = $this->adapters->analyser;
+        $preChecking = $this->settings->staticCheck()->before() && $analyser instanceof AnalyserIdentity
+            ? new PreChecking(
+                $this->adapters,
+                $this->setup->clock,
+                $deadline,
+                $this->settings->staticCheck()->seconds(),
+                $this->known($plan, $analyser),
+                $warmUp,
+                $stopwatch,
+                PreCheck::standard(),
+            )
+            : new NoPreCheck();
         $invoking = new Invoking(
             $this->adapters,
             $this->settings,
@@ -346,17 +349,10 @@ final readonly class Running
 
     /**
      * What the ledgers the plan reads learned of the shard's analyser: its
-     * own scope's first, then the default branch's (ADR-0020);
-     * nothing where no analyser is wired.
+     * own scope's first, then the default branch's (ADR-0020).
      */
-    private function known(Plan $plan): AnalyserHistory
+    private function known(Plan $plan, AnalyserIdentity $identity): AnalyserHistory
     {
-        $identity = $this->adapters->analyser;
-
-        if (! $identity instanceof AnalyserIdentity) {
-            return AnalyserHistory::of('');
-        }
-
         $ledgers = Ledgers::read($this->adapters->proofs, Standing::planned($plan), Writing::Never);
 
         return $ledgers->own()->analysers()->of($identity)->and($ledgers->defaultBranch()->analysers()->of($identity));
