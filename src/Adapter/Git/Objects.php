@@ -105,7 +105,7 @@ final class Objects
     {
         $name = $revision->name();
         $kind = $revision->isTree() ? self::AS_TREE : self::AS_COMMIT;
-        $resolving = ['rev-parse', '--verify', sprintf($kind, $name)];
+        $resolving = ['rev-parse', sprintf($kind, $name)];
         $printed = str_starts_with($name, '-') ? $name : $this->git->run($resolving);
         $parsed = $printed instanceof CannotTell ? $printed : Commit::parse(trim($printed));
 

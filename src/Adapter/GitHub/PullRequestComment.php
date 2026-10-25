@@ -132,12 +132,11 @@ final readonly class PullRequestComment implements Configurable, Deferring, Repo
      */
     public static function fromEnvironment(array $environment, HttpClientInterface $client, string $identity): self
     {
-        $eventPath = array_key_exists(Variables::GITHUB_EVENT_PATH, $environment)
-            ? $environment[Variables::GITHUB_EVENT_PATH]
-            : '';
-        $event = $eventPath !== '' && is_file($eventPath) ? file_get_contents($eventPath) : '';
+        $path = Variables::GITHUB_EVENT_PATH;
+        $readable = array_key_exists($path, $environment) && is_file($environment[$path]);
+        $event = $readable ? sprintf('%s', file_get_contents($environment[$path])) : Node::NO_KEYS;
 
-        return self::inRun($environment, $event === false ? '' : $event, $client, $identity);
+        return self::inRun($environment, $event, $client, $identity);
     }
 
     public function report(Verdict $verdict): Written|NotWritten

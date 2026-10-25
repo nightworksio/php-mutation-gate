@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Native\Warm;
 
+use function exec;
 use function hrtime;
+use function implode;
 use function is_int;
 
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Runner\ProcessTable;
 use NightWorksIO\MutationGate\Core\Runner\Progress;
+use NightWorksIO\MutationGate\Core\Runner\ShellWords;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -18,9 +21,6 @@ use function pcntl_waitpid;
 use function pcntl_wexitstatus;
 use function pcntl_wifsignaled;
 use function pcntl_wtermsig;
-
-use Symfony\Component\Process\Process;
-
 use function usleep;
 
 /**
@@ -98,10 +98,10 @@ final readonly class Waiting
     private function stop(): void
     {
         ProcessTable::stop($this->child, static function (array $command): string {
-            $process = new Process($command);
-            $process->run();
+            $printed = [];
+            exec(ShellWords::line($command), $printed);
 
-            return $process->getOutput();
+            return implode("\n", $printed);
         });
         pcntl_waitpid($this->child, $status);
     }

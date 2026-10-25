@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_map;
 use function count;
-use function escapeshellarg;
 use function implode;
 use function is_file;
 
@@ -20,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\PcovReach;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
+use NightWorksIO\MutationGate\Core\Runner\ShellWords;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -264,7 +264,7 @@ final readonly class Invocation
         return $tests instanceof TestPaths && count($tests->files()) > 1 ? [] : [
             '--parallel',
             sprintf('--processes=%d', $request->processes()->count()),
-            sprintf(self::PASSED_ON, implode(' ', array_map(escapeshellarg(...), $reach->options()))),
+            sprintf(self::PASSED_ON, ShellWords::line($reach->options())),
         ];
     }
 

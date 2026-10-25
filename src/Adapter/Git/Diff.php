@@ -58,17 +58,18 @@ final readonly class Diff
     private const string HUNK = '~^@@ -\d+(?:,\d+)? \+(?<start>\d+)(?:,(?<count>\d+))? @@~m';
 
     /**
-     * Every changed path, from `git diff --name-status -z`, with the lines
-     * each gained.
+     * Every changed path, from `git diff --name-status -z`, whose every field
+     * ends in a NUL, with the lines each gained.
      *
      * @param ByPath<Lines> $lines the lines each path gained
      */
     public static function changes(string $status, ByPath $lines): Changes
     {
         $fields = explode("\0", $status);
+        array_pop($fields);
         $changes = [];
 
-        while (count($fields) > 1) {
+        while ($fields !== []) {
             $kind = mb_substr(array_shift($fields), 0, 1);
             $named = array_splice($fields, 0, in_array($kind, self::PAIRED, strict: true) ? 2 : 1);
             $changes[] = self::change($kind, $named, $lines);
