@@ -10,7 +10,7 @@ use function array_last;
 use function array_slice;
 use function count;
 
-use NightWorksIO\MutationGate\Core\Analysis\PreCheckable;
+use NightWorksIO\MutationGate\Core\Analysis\CheckableMutant;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Time\Deadline;
@@ -43,8 +43,10 @@ final readonly class CheckRoom
      * Of these survivors, in turn, those whose checks the time left has room
      * for, each check as long as this; every one without a deadline.
      *
-     * @param  list<PreCheckable> $offered
-     * @return list<PreCheckable>
+     * @template T of CheckableMutant
+     *
+     * @param  list<T> $offered
+     * @return list<T>
      */
     public function fitting(array $offered, Seconds $each): array
     {
@@ -65,7 +67,7 @@ final readonly class CheckRoom
     /**
      * How many checks the survivors need, up to and with each in turn.
      *
-     * @param  list<PreCheckable> $offered
+     * @param  list<CheckableMutant> $offered
      * @return list<int>
      */
     private function needed(array $offered): array

@@ -80,6 +80,21 @@ function checkedIdentity(): AnalyserIdentity
     return AnalyserIdentity::of('fake', '1.0.0', Digest::sha256Of('{}'));
 }
 
+/** A second survivor on the line of this one, in the same file. */
+function checkedAgain(Mutant $survivor): Mutant
+{
+    $diff = "@@ @@\n-return \$amount > 100;\n+return \$amount > 101;";
+
+    return Mutant::of(
+        MutantId::hash($survivor->location()->file(), 'Increment', $diff, 0),
+        'Increment-16',
+        $survivor->location(),
+        Mutation::of('Increment', MutatorFamily::Literal, $diff),
+        MutantStatus::Survived,
+        Seconds::of(0.1),
+    );
+}
+
 /** What the analyser finds in the originals: one error they already have. */
 function checkedOriginals(): Findings
 {
@@ -435,15 +450,7 @@ it('needs room for one check alone for a printed file\'s later survivors, whose 
     $project = Scratch::directory();
     $mutants = Flows::mutantsOf('src/Money.php');
     $money = checkedSurvivor($mutants, 'src/Money.php');
-    $diff = "@@ @@\n-return \$amount > 100;\n+return \$amount > 101;";
-    $again = Mutant::of(
-        MutantId::hash(Path::of('src/Money.php'), 'Increment', $diff, 0),
-        'Increment-16',
-        $money->location(),
-        Mutation::of('Increment', MutatorFamily::Literal, $diff),
-        MutantStatus::Survived,
-        Seconds::of(0.1),
-    );
+    $again = checkedAgain($money);
     $checker = checkedBy($project, [
         Workspace::checkedOriginal($money->id())->value() => checkedOriginals(),
         checkedAt($money) => checkedOriginals(),
@@ -531,3 +538,28 @@ it('times each round of checks on the shard\'s stopwatch, as a static check of t
     expect(array_map(static fn(StepTime $step): array => [$step->step(), $step->count()], [...$stopwatch->steps()]))
         ->toBe([[Step::StaticCheck, 2]]);
 });
+
+it('times the checks as the batch\'s seconds on as many of the 2 cores as it had checks for', function (
+    int $survivors,
+    float $seconds,
+): void {
+    $project = Scratch::directory();
+    $money = checkedSurvivor(checkedMutants(), 'src/Money.php');
+    $again = checkedAgain($money);
+    $mutants = [Flows::mutantsOf('src/Money.php'), checkedMutants(), checkedMutants()->with($again)][$survivors - 1];
+    $checker = checkedBy($project, array_fill_keys(
+        [checkedAt($money), checkedAt(checkedSurvivor(checkedMutants(), 'src/Held.php')), checkedAt($again)],
+        checkedOriginals(),
+    ));
+    $clock = new ScriptedClock('2026-01-01T00:00:00Z', 0, 1, 1, 5);
+
+    $time = checking($project, $checker, ScriptedRunner::fixture(), Unlimited::time(), $clock)
+        ->checked($mutants, MutantIds::none())
+        ->checks->histories()->of(checkedIdentity())->time();
+
+    expect([$time->checks(), $time->seconds()->seconds()])->toBe([$survivors, $seconds]);
+})->with([
+    'one check, on one core' => [1, 4.0],
+    'two checks, on both cores' => [2, 8.0],
+    'three checks, on both cores' => [3, 8.0],
+]);

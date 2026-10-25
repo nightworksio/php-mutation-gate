@@ -6,16 +6,16 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_slice;
 use function count;
-use function max;
 use function min;
 
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistory;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
+use NightWorksIO\MutationGate\Core\Analysis\CheckableSurvivor;
+use NightWorksIO\MutationGate\Core\Analysis\CheckTime;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
 use NightWorksIO\MutationGate\Core\Analysis\MutantChecks;
 use NightWorksIO\MutationGate\Core\Analysis\OutOfScope;
-use NightWorksIO\MutationGate\Core\Analysis\PreCheckable;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
 use NightWorksIO\MutationGate\Core\Analysis\Unchecked;
@@ -62,7 +62,7 @@ final readonly class SurvivorBatch
             $checkable = $this->adapters->runner->checkable($survivor);
 
             if ($checkable instanceof Checkable) {
-                $offered[] = PreCheckable::of($survivor, $checkable, Seconds::of(0.0));
+                $offered[] = CheckableSurvivor::of($survivor, $checkable);
 
                 continue;
             }
@@ -84,7 +84,7 @@ final readonly class SurvivorBatch
      * findings: a survivor whose original or code the analyser cannot read
      * is left, with why.
      *
-     * @param list<PreCheckable> $fitting
+     * @param list<CheckableSurvivor> $fitting
      */
     private function batched(
         WarmedUp $warm,
@@ -113,8 +113,8 @@ final readonly class SurvivorBatch
      * findings; a survivor whose original or code the analyser cannot read
      * left, with why.
      *
-     * @param  list<PreCheckable>                                                          $fitting
-     * @return array{list<MutantCheck>, list<array{PreCheckable, Findings}>, SurvivorChecks}
+     * @param  list<CheckableSurvivor>                                                            $fitting
+     * @return array{list<MutantCheck>, list<array{CheckableSurvivor, Findings}>, SurvivorChecks}
      */
     private function planned(WarmedUp $warm, array $fitting, SurvivorChecks $checks): array
     {
@@ -136,25 +136,20 @@ final readonly class SurvivorBatch
         return [$planned, $judged, $checks];
     }
 
-    /** What the checks taught of the analyser: each as long as the batch's time shared out among them. */
+    /** What the checks taught of the analyser: how many it made, and the time the cores spent on them together. */
     private function timed(WarmedUp $warm, Seconds $took, int $count): AnalyserHistory
     {
-        $history = AnalyserHistory::of($warm->identity->analyser());
-        $each = Seconds::of($took->seconds() * min($this->adapters->cores->count(), $count) / max($count, 1));
-
-        for ($check = 0; $check < $count; ++$check) {
-            $history = $history->checked($each);
-        }
-
-        return $history;
+        return AnalyserHistory::of($warm->identity->analyser())->withTime(
+            CheckTime::of($count, Seconds::of($took->seconds() * min($this->adapters->cores->count(), $count))),
+        );
     }
 
     /**
      * Each checked survivor killed by its first new error, or left as it
      * was, or left with why its check could not run.
      *
-     * @param list<array{PreCheckable, Findings}>   $judged
-     * @param list<Findings|OutOfScope|CannotJudge> $answers one in the place of each judged survivor's check
+     * @param list<array{CheckableSurvivor, Findings}> $judged
+     * @param list<Findings|OutOfScope|CannotJudge>   $answers one in the place of each judged survivor's check
      */
     private function answered(
         WarmedUp $warm,
@@ -191,7 +186,7 @@ final readonly class SurvivorBatch
      * A survivor written where its check reads it, with the dependents it
      * can break where the analyser reads them; or why it cannot be written.
      */
-    private function written(WarmedUp $warm, PreCheckable $survivor): MutantCheck|CannotJudge
+    private function written(WarmedUp $warm, CheckableSurvivor $survivor): MutantCheck|CannotJudge
     {
         $at = Workspace::checkedMutant($survivor->mutant()->id());
         $written = $this->adapters->project->write($at, $survivor->checkable()->mutant());
@@ -209,7 +204,7 @@ final readonly class SurvivorBatch
     }
 
     /** Why a survivor is left unchecked: what its original or its check came to. */
-    private function left(Unchecked|OutOfScope|CannotJudge $why, PreCheckable $survivor): UncheckedSurvivor
+    private function left(Unchecked|OutOfScope|CannotJudge $why, CheckableSurvivor $survivor): UncheckedSurvivor
     {
         $file = $survivor->mutant()->location()->file();
 

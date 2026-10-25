@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  * mutant, as its analyser reads it, and how long the tests that would judge
  * it take, which a rejection saves.
  */
-final readonly class PreCheckable
+final readonly class PreCheckable implements CheckableMutant
 {
     private function __construct(private Mutant $mutant, private Checkable $checkable, private Seconds $tests)
     {
