@@ -419,8 +419,13 @@ would have cost without them.
       untested and uncovered mutants, so its others are reconciled by count.
     - **The scenarios:**
       - *cold full*: an empty ledger and no timings;
-      - *warm full*: a full run at the pinned commit on the ledger of a full
-        run at the newest commit a week or more older;
+      - *warm full*: a full run at the pinned commit with a scripted edit
+        on the ledger of a full run at the pinned commit without it. The
+        edit renames a local variable throughout one source file and one
+        test file the project names: its code changes and its behaviour
+        does not, so the keys of what reads either file change and no
+        verdict does, and what the run reuses is what a small change
+        leaves alone;
       - *PR replay*: the project's last 20 merged pull requests, or those
         of them whose code runs on the packages the preparation installs
         (15 for `lcobucci/jwt`, whose older ones predate its PHPUnit 13

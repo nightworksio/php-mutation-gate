@@ -13,7 +13,10 @@ PROJECT = {
     "version": "1.0.0",
     "commit": "p" * 40,
     "scenarios": {
-        "week": "w" * 40,
+        "edit": [
+            {"file": "src/Money.php", "rename": "amount", "to": "sum"},
+            {"file": "tests/MoneyTest.php", "rename": "money", "to": "paid"},
+        ],
         "replay": [
             {"pull": 1, "base": "a" * 40, "merge": "b" * 40},
             {"pull": 2, "base": "a" * 40, "merge": "c" * 40},
@@ -45,20 +48,32 @@ class Deciding(unittest.TestCase):
         self.assertEqual(written, {"src/A.php", "src/New.php"})
         self.assertEqual(removed, {"src/Gone.php"})
 
+    def test_renames_every_use_of_a_variable_and_no_longer_name_it_begins(self):
+        text = "<?php foreach ($this->formatters as $formatter) { $claims = $formatter->format($claims); }"
+        self.assertEqual(bench_scenarios.renamed(text, "formatter", "each"),
+                         "<?php foreach ($this->formatters as $each) { $claims = $each->format($claims); }")
+
+    def test_refuses_a_rename_that_finds_nothing_or_would_join_two_variables(self):
+        with self.assertRaisesRegex(ValueError, r"\$gone is not in the text"):
+            bench_scenarios.renamed("<?php $a = 1;", "gone", "b")
+        with self.assertRaisesRegex(ValueError, r"\$b is already in the text"):
+            bench_scenarios.renamed("<?php $a = $b;", "a", "b")
+
     def test_plans_each_arm_s_runs_in_order(self):
         steps = [
-            (step["scenario"], step["at"][:1], step["branch"], step["full"], step["timed"], step.get("fresh", False))
+            (step["scenario"], step["at"][:1], step.get("edited", False), step["branch"], step["full"],
+             step["timed"], step.get("fresh", False))
             for step in bench_scenarios.plan(PROJECT)
         ]
         self.assertEqual(steps, [
-            ("warm", "w", "main", True, False, True),
-            ("warm", "p", "main", True, True, False),
-            ("unchanged", "p", "main", True, True, False),
-            ("replay", "a", "main", True, False, True),
-            ("replay", "b", "pull-1", False, True, False),
-            ("replay", "c", "pull-2", False, True, False),
-            ("replay", "d", "main", False, False, False),
-            ("replay", "e", "pull-3", False, True, False),
+            ("warm", "p", False, "main", True, False, True),
+            ("warm", "p", True, "main", True, True, False),
+            ("unchanged", "p", True, "main", True, True, False),
+            ("replay", "a", False, "main", True, False, True),
+            ("replay", "b", False, "pull-1", False, True, False),
+            ("replay", "c", False, "pull-2", False, True, False),
+            ("replay", "d", False, "main", False, False, False),
+            ("replay", "e", False, "pull-3", False, True, False),
         ])
 
     def test_replays_with_no_pull_request_as_warm_and_unchanged_alone(self):
@@ -82,6 +97,8 @@ class Deciding(unittest.TestCase):
         self.assertIn("| gate | 12.0 s (11.0–14.0) | 2.0 s (2.0–3.0) | 4.0 s | 6.0 s | 1 of 3 |", text)
         self.assertIn("| infection | - | - | 40.0 s | 60.0 s | 0 of 3 |", text)
         self.assertIn("the last 3 merged pull requests", text)
+        self.assertIn("with the scripted edit, `$amount` renamed `$sum` in `src/Money.php` and `$money` renamed "
+                      "`$paid` in `tests/MoneyTest.php`, on the ledger of one without it.", text)
 
 
 def git(directory: Path, *arguments: str) -> str:
@@ -112,7 +129,8 @@ origin = subprocess.run(['git', 'rev-parse', 'origin/HEAD'], capture_output=True
 ledger = pathlib.Path('.mutation-gate/ledger')
 said = {'branch': branch, 'head': head, 'options': sys.argv[2:], 'ledger': ledger.read_text() if ledger.exists() else '',
         'owned': pathlib.Path('composer.json').read_text(), 'files': sorted(p.name for p in pathlib.Path('src').glob('*')),
-        'origin': origin}
+        'origin': origin, 'source': pathlib.Path('src/A.php').read_text(),
+        'test': pathlib.Path('tests/ATest.php').read_text()}
 with open(sys.argv[1], 'a') as log:
     log.write(json.dumps(said) + '\\n')
 ledger.parent.mkdir(exist_ok=True)
@@ -130,14 +148,15 @@ class Running(unittest.TestCase):
             upstream.mkdir()
             git(upstream, "init", "--quiet")
             git(upstream, "config", "uploadpack.allowAnySHA1InWant", "true")
-            week = commit(upstream, {"composer.json": "project", "src/A.php": "a1"}, "week")
-            base = commit(upstream, {"composer.json": "project", "src/A.php": "a2", "src/Old.php": "o"}, "base")
-            merged = commit(upstream, {"composer.json": "project", "src/A.php": "a3"}, "merged")
-            pinned = commit(upstream, {"composer.json": "project", "src/A.php": "a4"}, "pinned")
+            test = {"tests/ATest.php": "<?php $a = new A();"}
+            base = commit(upstream, {"composer.json": "project", "src/A.php": "<?php $x = 2;", "src/Old.php": "o",
+                                     **test}, "base")
+            merged = commit(upstream, {"composer.json": "project", "src/A.php": "<?php $x = 3;", **test}, "merged")
+            pinned = commit(upstream, {"composer.json": "project", "src/A.php": "<?php $x = 4;", **test}, "pinned")
             project.mkdir()
             git(project, "init", "--quiet")
-            commit(project, {"composer.json": "bench", "src/A.php": "a4", ".gitignore": ".mutation-gate/\n"},
-                   "prepared")
+            commit(project, {"composer.json": "bench", "src/A.php": "<?php $x = 4;", **test,
+                             ".gitignore": ".mutation-gate/\n"}, "prepared")
             log = Path(work) / "runs.jsonl"
             gate = Path(work) / "gate.py"
             gate.write_text(FAKE_GATE)
@@ -145,20 +164,32 @@ class Running(unittest.TestCase):
                 "project": "acme/money", "version": "1.0.0", "commit": pinned, "repository": f"file://{upstream}",
                 "arms": {"gate": {"said": "the gate", "report": "gate",
                                   "command": [sys.executable, str(gate), str(log)]}},
-                "scenarios": {"week": week, "replay": [{"pull": 7, "base": base, "merge": merged}], "gate": ["gate"]},
+                "scenarios": {
+                    "edit": [{"file": "src/A.php", "rename": "x", "to": "y"},
+                             {"file": "tests/ATest.php", "rename": "a", "to": "b"}],
+                    "replay": [{"pull": 7, "base": base, "merge": merged}],
+                    "gate": ["gate"],
+                },
             }
             bench_scenarios.run(described, project, out, rounds=2)
             runs = [json.loads(line) for line in log.read_text().splitlines()]
+            edited = f"{pinned} with the scripted edit"
             self.assertEqual([(each["branch"], each["head"], each["options"][:1]) for each in runs], [
-                ("main", week, ["--full"]),
                 ("main", pinned, ["--full"]),
-                ("main", pinned, ["--full"]),
-                ("main", pinned, ["--full"]),
-                ("main", pinned, ["--full"]),
+                ("main", edited, ["--full"]),
+                ("main", edited, ["--full"]),
+                ("main", edited, ["--full"]),
+                ("main", edited, ["--full"]),
                 ("main", base, ["--full"]),
                 ("pull-7", merged, [f"--changed-since={runs[6]['origin']}"]),
             ])
-            self.assertEqual([each["ledger"] for each in runs], ["", week, week, pinned, pinned, "", base])
+            self.assertEqual([each["ledger"] for each in runs], ["", pinned, pinned, edited, edited, "", base])
+            self.assertEqual([(each["source"], each["test"]) for each in runs], [
+                ("<?php $x = 4;", "<?php $a = new A();"),
+                *[("<?php $y = 4;", "<?php $b = new A();")] * 4,
+                ("<?php $x = 2;", "<?php $a = new A();"),
+                ("<?php $x = 3;", "<?php $a = new A();"),
+            ])
             self.assertEqual({each["owned"] for each in runs}, {"bench"})
             self.assertEqual(runs[5]["files"], ["A.php", "Old.php"])
             self.assertEqual(runs[6]["files"], ["A.php"])

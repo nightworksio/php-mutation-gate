@@ -6,10 +6,12 @@ Usage:
   bench_scenarios.py report <project file> <out directory> <result file>
 
 Run by `bench.yml` once the project is prepared at its pinned commit, as
-`bench.py run` is. The project file's `scenarios` names the commits:
+`bench.py run` is. The project file's `scenarios` names the edit and the
+commits:
 
-- `week`: the newest commit of the default branch a week or more older
-  than the pinned one;
+- `edit`: the scripted edit, one source file and one test file, each with
+  a local variable renamed throughout: a change to code whose behaviour
+  stays the same, so it changes the keys of what reads it and no verdict;
 - `replay`: the project's last 20 merged pull requests up to the pinned
   commit, or those of them whose code runs on the packages the preparation
   installs, oldest first, each by its number, the commit it merged into
@@ -30,10 +32,11 @@ so a pull request's run reads the default branch's ledger.
 
 For each gate arm, from an empty `.mutation-gate`:
 
-- **warm full**: a full run at `week`, untimed, then a full run at the
-  pinned commit on what it left, timed, each round from that same ledger;
+- **warm full**: a full run at the pinned commit, untimed, then a full run
+  at the pinned commit with the scripted edit on what it left, timed, each
+  round from that same ledger;
 - **unchanged re-run**: the trivial case, a full run at the pinned commit
-  on the ledger the warm full run left, timed;
+  with the scripted edit on the ledger the warm full run left, timed;
 - **PR replay**: a full run at the first pull request's base, untimed;
   then for each pull request, the default branch brought to its base by a
   run of what changed since the default branch's last commit, untimed, and
@@ -49,6 +52,7 @@ with a verdict.
 import json
 import math
 import os
+import re
 import shutil
 import statistics
 import subprocess
@@ -85,19 +89,37 @@ def laid(tracked: set[str], tree: set[str], kept: set[str]) -> tuple[set[str], s
     return tree - kept, tracked - tree - kept
 
 
+def renamed(text: str, name: str, to: str) -> str:
+    """The text with every `$name` variable renamed `$to`; an error where it has none or already has a `$to`."""
+    if re.search(rf"\${re.escape(to)}\b", text):
+        raise ValueError(f"${to} is already in the text")
+    edited, count = re.subn(rf"\${re.escape(name)}\b", f"${to}", text)
+    if count == 0:
+        raise ValueError(f"${name} is not in the text")
+    return edited
+
+
+def scripted(directory: Path, edit: list[dict]) -> None:
+    """The scripted edit made: each of its files with its variable renamed."""
+    for each in edit:
+        path = directory / each["file"]
+        path.write_text(renamed(path.read_text(encoding="utf-8"), each["rename"], each["to"]), encoding="utf-8")
+
+
 def plan(project: dict) -> list[dict]:
     """
     Every run of the scenarios for one arm, in order: the commit it runs at,
-    on `main` or on a pull request's own branch, whether it is a full run or
-    one of what changed since the default branch's last commit, whether it
-    is timed, and whether it starts from an empty `.mutation-gate`.
+    whether with the scripted edit, on `main` or on a pull request's own
+    branch, whether it is a full run or one of what changed since the
+    default branch's last commit, whether it is timed, and whether it starts
+    from an empty `.mutation-gate`.
     """
     scenarios = project["scenarios"]
     full = {"branch": MAIN, "full": True}
     steps = [
-        {**full, "scenario": "warm", "at": scenarios["week"], "timed": False, "fresh": True},
-        {**full, "scenario": "warm", "at": project["commit"], "timed": True},
-        {**full, "scenario": "unchanged", "at": project["commit"], "timed": True},
+        {**full, "scenario": "warm", "at": project["commit"], "timed": False, "fresh": True},
+        {**full, "scenario": "warm", "at": project["commit"], "edited": True, "timed": True},
+        {**full, "scenario": "unchanged", "at": project["commit"], "edited": True, "timed": True},
     ]
     pulls = scenarios.get("replay", [])
     main = ""
@@ -193,7 +215,10 @@ def name_of(step: dict, at: int) -> str:
 
 
 class Checkout:
-    """The prepared repository as a scenario moves it: the commit `main` is at, and the project's commit it holds."""
+    """
+    The prepared repository as a scenario moves it: the commit `main` is at,
+    the project's commit it holds, and whether with the scripted edit.
+    """
 
     def __init__(self, directory: Path, source: Source, kept: set[str], start: str):
         self.directory = directory
@@ -202,21 +227,30 @@ class Checkout:
         self.start = start
         self.head = start
         self.at = ""
+        self.edited = False
 
     def reset(self) -> None:
         """`main` back at the prepared commit, with nothing the gate kept."""
         checkout(self.directory, MAIN, self.start)
         bench.removed(self.directory / ".mutation-gate")
-        self.head, self.at = self.start, ""
+        self.head, self.at, self.edited = self.start, "", False
         published(self.directory)
 
-    def main(self, commit: str) -> str:
-        """`main` at the project's commit, laid over its last one where it holds another; the commit it was at."""
+    def main(self, commit: str, edit: list[dict] | None = None) -> str:
+        """
+        `main` at the project's commit, with this scripted edit where one is
+        given, laid over its last one where it holds another; the commit it
+        was at.
+        """
         before = self.head
         checkout(self.directory, MAIN, self.head)
-        if commit != self.at:
-            overlay(self.directory, self.source.tree(commit), self.kept)
-            self.head, self.at = committed(self.directory, commit), commit
+        if (commit, bool(edit)) != (self.at, self.edited):
+            if commit != self.at or self.edited:
+                overlay(self.directory, self.source.tree(commit), self.kept)
+            if edit:
+                scripted(self.directory, edit)
+            self.head = committed(self.directory, f"{commit} with the scripted edit" if edit else commit)
+            self.at, self.edited = commit, bool(edit)
         published(self.directory)
         return before
 
@@ -244,12 +278,12 @@ def run(project: dict, directory: Path, out: Path, rounds: int, arm_seconds: flo
         for to, copied in arm.get("copy", {}).items():
             shutil.copyfile(directory / copied, directory / to)
         moved = Checkout(directory, source, kept | set(arm.get("copy", {})), committed(directory, name))
-        snapshot = work / f"{name}.week"
+        snapshot = work / f"{name}.warm"
         for step in plan(project):
             if step.get("fresh"):
                 moved.reset()
             if step["branch"] == MAIN:
-                since = moved.main(step["at"])
+                since = moved.main(step["at"], project["scenarios"]["edit"] if step.get("edited") else None)
             else:
                 since = moved.pull(step["branch"], step["at"])
             options = ["--full"] if step["full"] else [f"--changed-since={since}"]
@@ -343,13 +377,15 @@ def replayed(runs: list[dict]) -> dict:
 
 def summary(project: dict, arms: dict[str, dict]) -> str:
     """The step summary: each arm's warm full and unchanged re-run, and its PR replay."""
+    edited = " and ".join(f"`${each['rename']}` renamed `${each['to']}` in `{each['file']}`"
+                          for each in project["scenarios"]["edit"])
     lines = [
         f"## {project['project']} {project['version']}: scenarios",
         "",
-        f"Warm full: a full run at {project['commit'][:12]} on the ledger of one at "
-        f"{project['scenarios']['week'][:12]}, a week or more older. Unchanged re-run: the trivial case, "
-        f"the same full run again. PR replay: the last {len(project['scenarios'].get('replay', []))} merged "
-        "pull requests, each run on what it changed, from its base, with the default branch's ledger.",
+        f"Warm full: a full run at {project['commit'][:12]} with the scripted edit, {edited}, on the ledger "
+        "of one without it. Unchanged re-run: the trivial case, the same full run again. PR replay: the last "
+        f"{len(project['scenarios'].get('replay', []))} merged pull requests, each run on what it changed, "
+        "from its base, with the default branch's ledger.",
         "",
         "| arm | warm full, median (range) | unchanged re-run, median (range) | PR replay, median | PR replay, p90 "
         "| pull requests with no verdict |",
@@ -401,7 +437,7 @@ def report(project: dict, out: Path, result: Path) -> int:
         "project": project["project"],
         "version": project["version"],
         "commit": project["commit"],
-        "week": scenarios["week"],
+        "edit": scenarios["edit"],
         "replay": scenarios.get("replay", []),
         "gate": os.environ.get("GITHUB_SHA", ""),
         "machine": bench.machine(),

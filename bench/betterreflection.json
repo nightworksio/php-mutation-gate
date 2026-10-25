@@ -77,7 +77,18 @@
         "said": "the gate-infection arm, sharded at the shards.seconds of its config"
     },
     "scenarios": {
-        "week": "16c3e975f6ffbde125d8ab3ba42bb26976e45ba0",
+        "edit": [
+            {
+                "file": "src/SourceLocator/Type/AggregateSourceLocator.php",
+                "rename": "located",
+                "to": "reflection"
+            },
+            {
+                "file": "test/unit/SourceLocator/Type/AggregateSourceLocatorTest.php",
+                "rename": "aggregate",
+                "to": "aggregated"
+            }
+        ],
         "replay": [
             {
                 "pull": 1573,
