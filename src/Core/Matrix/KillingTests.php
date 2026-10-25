@@ -51,7 +51,7 @@ final readonly class KillingTests implements IteratorAggregate
         $slowest = 0.0;
 
         foreach ($this->tests as $test) {
-            $slowest = max($slowest, $test->secondsOr(Seconds::of(0.0))->seconds());
+            $slowest = max($slowest, $test->secondsOr(Seconds::of($slowest))->seconds());
         }
 
         return Seconds::of($slowest);

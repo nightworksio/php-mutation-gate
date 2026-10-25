@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\NotGiven;
 
 use function scandir;
 use function sprintf;
@@ -52,7 +53,7 @@ final readonly class Disk
             return Missing::at($file);
         }
 
-        $text = is_readable($on) ? file_get_contents($on) : false;
+        $text = is_readable($on) ? file_get_contents($on) : NotGiven::value();
 
         return is_string($text) ? $text : CannotJudge::because(sprintf('%s could not be read.', $file->value()));
     }
@@ -148,8 +149,8 @@ final readonly class Disk
     private function below(Path $directory, Glob $glob): array
     {
         $on = $this->on($directory);
-        $depth = $directory->equals(Path::root()) ? 0 : count(explode('/', $directory->value()));
-        $entries = $depth < $glob->depth() && is_dir($on) && ! is_link($on) ? scandir($on) : [];
+        $segments = $directory->equals(Path::root()) ? [] : explode('/', $directory->value());
+        $entries = count($segments) < $glob->depth() && is_dir($on) && ! is_link($on) ? scandir($on) : [];
 
         return array_values(array_diff(is_array($entries) ? $entries : [], ['.', '..']));
     }

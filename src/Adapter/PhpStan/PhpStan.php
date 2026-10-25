@@ -124,7 +124,7 @@ final readonly class PhpStan implements StaticChecker
         $version = $this->ran($withheld, ['--version']);
         $contents = $config instanceof Path && is_file($this->absolute($config))
             ? file_get_contents($this->absolute($config))
-            : false;
+            : NotGiven::value();
 
         return match (true) {
             $config instanceof CannotJudge => $config,

@@ -46,6 +46,15 @@ it('stops inflating a small stream that inflates without end soon past the limit
         ->and(memory_get_peak_usage() - $before)->toBeLessThan(16_000_000);
 });
 
+it('inflates a stream 4,096 compressed bytes at a time, never reading past the step that takes it past the limit', function (): void {
+    $prefix = substr(Gzip::pack(str_repeat("\0", 10_000_000)), 0, 4_096);
+    $inflating = inflate_init(ZLIB_ENCODING_GZIP);
+    $most = $inflating instanceof InflateContext ? strlen((string) inflate_add($inflating, substr($prefix, 0, 4_095))) : 0;
+
+    expect(Gzip::unpackAtMost(sprintf('%s%s', $prefix, "\xff"), 'the ledger', $most))
+        ->toEqual(TooLarge::because(sprintf('the ledger inflates to more than %d bytes.', $most)));
+});
+
 it('cannot unpack within a limit what is not a whole gzip stream', function (string $bytes): void {
     expect(Gzip::unpackAtMost($bytes, 'the ledger', 1_000_000))
         ->toEqual(CannotJudge::because('the ledger is not a whole gzip stream.'));
