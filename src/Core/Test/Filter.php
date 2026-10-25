@@ -66,7 +66,7 @@ final readonly class Filter
         set_error_handler(static fn(): bool => true, E_WARNING);
 
         try {
-            return preg_match($expression, '') !== false;
+            return preg_match($expression, $expression) !== false;
         } finally {
             restore_error_handler();
         }

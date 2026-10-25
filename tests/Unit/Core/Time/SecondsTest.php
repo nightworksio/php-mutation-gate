@@ -32,6 +32,7 @@ it('says a duration to the nearest unit it shows', function (float $seconds, str
     'nothing' => [0.0, '0s'],
     'under a second' => [0.4, '0s'],
     'seconds' => [45.0, '45s'],
+    'seconds, rounded up' => [44.6, '45s'],
     'just under a minute' => [59.4, '59s'],
     'a minute, rounded up' => [59.6, '1m'],
     'minutes' => [370.0, '6m'],
@@ -45,6 +46,7 @@ it('says a test\'s duration to the hundredth of a second under a minute', functi
 })->with([
     [0.254, '0.25s'],
     [12.0, '12.00s'],
+    [59.2, '59.20s'],
     [59.6, '1m'],
     [6060.0, '1h 41m'],
 ]);
@@ -52,13 +54,15 @@ it('says a test\'s duration to the hundredth of a second under a minute', functi
 it('says its length in whole nanoseconds, rounded, and in minutes', function (): void {
     expect(Seconds::of(40.25)->nanoseconds())->toBe(40_250_000_000)
         ->and(Seconds::of(0.0000000015)->nanoseconds())->toBe(2)
+        ->and(Seconds::of(0.0000000014)->nanoseconds())->toBe(1)
         ->and(Seconds::of(840.0)->inMinutes())->toBe(14.0)
         ->and(Seconds::of(90.0)->inMinutes())->toBe(1.5);
 });
 
 it('says its length in whole microseconds, rounded', function (): void {
     expect(Seconds::of(1.5)->microseconds())->toBe(1_500_000)
-        ->and(Seconds::of(0.0000015)->microseconds())->toBe(2);
+        ->and(Seconds::of(0.0000015)->microseconds())->toBe(2)
+        ->and(Seconds::of(0.0000014)->microseconds())->toBe(1);
 });
 
 it('measures the time from one moment to a later one, to the microsecond', function (): void {

@@ -15,8 +15,10 @@ it('holds a floor in hundredths, truncated rather than rounded', function (float
     'none' => [0, 0],
 ]);
 
-it('gives back the percentage it holds', function (): void {
+it('gives back the percentage it holds, and writes a whole one as a whole number', function (): void {
     expect(Floor::of(61.2)->percent())->toBe(61.2)
+        ->and(Floor::of(83.0)->written())->toBe(83)
+        ->and(Floor::of(83.41)->written())->toBe(83.41)
         ->and(Floor::ofHundredths(8341)->percent())->toBe(83.41);
 });
 
