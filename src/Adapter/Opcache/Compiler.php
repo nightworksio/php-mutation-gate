@@ -11,7 +11,6 @@ use function array_keys;
 use function array_map;
 use function array_merge;
 use function array_replace;
-use function array_values;
 use function ceil;
 use function count;
 use function dirname;
@@ -26,6 +25,7 @@ use function min;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\Runner\Polling;
 
 use function realpath;
 use function rmdir;
@@ -56,9 +56,6 @@ final readonly class Compiler
 {
     /** The programs one child compiles, few enough that opcache's memory never fills. */
     private const int PER_CHILD = 100;
-
-    /** How long to wait between reads of the children, in microseconds. */
-    private const int POLL = 1000;
 
     /** Each program's name in its directory. */
     private const string PROGRAM = 'program.php';
@@ -175,13 +172,12 @@ final readonly class Compiler
     private function written(array $programs, string $directory): array
     {
         $paths = [];
-        $index = 0;
 
-        foreach ($programs as $key => $program) {
-            $own = sprintf('%s/%d', $directory, $index++);
+        foreach (array_keys($programs) as $index => $key) {
+            $own = sprintf('%s/%d', $directory, $index);
             mkdir($own, recursive: true);
             $path = sprintf('%s/%s', $own, self::PROGRAM);
-            file_put_contents($path, $program->text());
+            file_put_contents($path, $programs[$key]->text());
             $paths[$key] = (string) realpath($path);
         }
 
@@ -224,17 +220,17 @@ final readonly class Compiler
             }
 
             $running = $left;
-            usleep(self::POLL);
+            usleep(Polling::moment()->microseconds());
         }
     }
 
-    /** Whether a child runs on within its time; one past it is stopped, and fails. */
+    /** Whether a child runs on within its time; one past it is stopped, so it runs no longer, and fails. */
     private function stillRunning(Process $child): bool
     {
         try {
             $child->checkTimeout();
         } catch (ExceptionInterface) {
-            return false;
+            return $child->isRunning();
         }
 
         return $child->isRunning();
@@ -261,7 +257,7 @@ final readonly class Compiler
                     '-r',
                     self::SCRIPT,
                     self::BETWEEN,
-                    ...array_values($paths),
+                    ...$paths,
                 ],
                 timeout: $this->seconds,
             );

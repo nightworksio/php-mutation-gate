@@ -4,15 +4,17 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Php;
 
-use function array_fill;
 use function array_key_exists;
-use function array_keys;
 use function array_values;
 use function chr;
 use function count;
 use function intdiv;
+
+use NightWorksIO\MutationGate\Core\Format\Bytes;
+
 use function ord;
 use function sort;
+use function sprintf;
 use function str_repeat;
 
 /**
@@ -24,16 +26,14 @@ use function str_repeat;
  */
 final readonly class ReachedFiles
 {
-    /** How many files one byte of a reach holds. */
-    private const int BITS = 8;
-
     /** Each bit of a byte, by its place, lowest first. */
     private const array BIT = [1, 2, 4, 8, 16, 32, 64, 128];
 
     /**
-     * @param list<string>          $files    every file of the graph, sorted
-     * @param array<string, string> $reaches  each file's reach, one bit per file, by its path
-     * @param list<list<int>>       $offsets  the bits each byte value sets, by the value
+     * @param list<string>           $files   every file of the graph, sorted
+     * @param array<string, string>  $reaches each file's reach, one bit per file, by its path, as long as its last
+     *                                        bit asks
+     * @param array<int, list<int>>  $offsets the bits each byte value sets, by the value
      */
     private function __construct(private array $files, private array $reaches, private array $offsets)
     {
@@ -52,15 +52,9 @@ final readonly class ReachedFiles
             }
         }
 
-        $sorted = array_values($files);
-        sort($sorted, SORT_STRING);
-        $places = [];
+        sort($files, SORT_STRING);
 
-        foreach ($sorted as $place => $file) {
-            $places[$file] = $place;
-        }
-
-        return new self($sorted, self::reachesOf($edges, $sorted, $places), self::offsets());
+        return new self($files, self::reachesOf($edges, $files), self::offsets());
     }
 
     /** @return list<string> every file of the graph, sorted */
@@ -77,8 +71,7 @@ final readonly class ReachedFiles
      */
     public function from(string ...$starts): array
     {
-        $bytes = intdiv(count($this->files) + self::BITS - 1, self::BITS);
-        $reach = str_repeat(chr(0), $bytes);
+        $reach = '';
         $outside = [];
 
         foreach ($starts as $start) {
@@ -93,9 +86,9 @@ final readonly class ReachedFiles
 
         $reached = [];
 
-        for ($byte = 0; $byte < $bytes; $byte++) {
-            foreach ($this->offsets[ord($reach[$byte])] as $bit) {
-                $reached[] = $this->files[$byte * self::BITS + $bit];
+        foreach (Bytes::chunks($reach, 1) as $byte => $bits) {
+            foreach ($this->offsets[ord($bits)] as $bit) {
+                $reached[] = $this->files[$byte * count(self::BIT) + $bit];
             }
         }
 
@@ -108,18 +101,18 @@ final readonly class ReachedFiles
      *
      * @param  array<string, list<string>> $edges
      * @param  list<string>                $files
-     * @param  array<string, int>          $places
      * @return array<string, string>
      */
-    private static function reachesOf(array $edges, array $files, array $places): array
+    private static function reachesOf(array $edges, array $files): array
     {
-        $empty = str_repeat(chr(0), intdiv(count($files) + self::BITS - 1, self::BITS));
         $reaches = [];
 
-        foreach ($files as $file) {
-            $at = intdiv($places[$file], self::BITS);
-            $reaches[$file] = $empty;
-            $reaches[$file][$at] = chr(self::BIT[$places[$file] % self::BITS]);
+        foreach ($files as $place => $file) {
+            $reaches[$file] = sprintf(
+                '%s%s',
+                str_repeat(chr(0), intdiv($place, count(self::BIT))),
+                chr(self::BIT[$place % count(self::BIT)]),
+            );
         }
 
         do {
@@ -156,17 +149,18 @@ final readonly class ReachedFiles
     }
 
     /**
-     * The bits each byte value sets, lowest first, by the value.
+     * The bits each byte value sets, lowest first, by the value: each value
+     * made of a lower one and one bit more.
      *
-     * @return list<list<int>>
+     * @return array<int, list<int>>
      */
     private static function offsets(): array
     {
-        $offsets = array_fill(0, 1 << self::BITS, []);
+        $offsets = [0 => []];
 
-        foreach (array_keys($offsets) as $value) {
-            for ($bit = 0; $bit < self::BITS; $bit++) {
-                $offsets[$value] = ($value & self::BIT[$bit]) === 0 ? $offsets[$value] : [...$offsets[$value], $bit];
+        foreach (self::BIT as $bit => $value) {
+            foreach ($offsets as $lower => $bits) {
+                $offsets[$lower | $value] = [...$bits, $bit];
             }
         }
 

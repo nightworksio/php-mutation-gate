@@ -77,10 +77,10 @@ final readonly class Declarations
     {
         $tokens = $source->tokens();
         $named = $tokens->functionName($at);
-        $body = $named === Tokens::NONE ? Tokens::NONE : self::bodyAfter($source, $tokens->closing($named + 1));
-        $key = $body === Tokens::NONE ? '' : self::keyOf($source, $at, $tokens->text($named));
+        $body = $named === Tokens::NONE ? Tokens::NONE : $source->shape()->bodyOf($at);
+        $key = $body === Tokens::NONE ? Nameless::code() : self::keyOf($source, $at, $tokens->text($named));
 
-        return $key === '' ? [] : [$key => Declared::in(
+        return $key instanceof Nameless ? [] : [$key => Declared::in(
             $source->path(),
             $tokens->text($named),
             Line::of($tokens->line($body)),
@@ -88,22 +88,8 @@ final readonly class Declarations
         )];
     }
 
-    /** Where the body after a parameter list that closes at an index opens; nowhere where a `;` ends it first. */
-    private static function bodyAfter(Source $source, int $closer): int
-    {
-        $tokens = $source->tokens();
-
-        for ($at = $closer + 1; $at < $tokens->count() && ! $tokens->is($at, ';'); ++$at) {
-            if ($tokens->is($at, '{')) {
-                return $source->shape()->isBody($at) ? $at : Tokens::NONE;
-            }
-        }
-
-        return Tokens::NONE;
-    }
-
-    /** The key of what a `function` keyword at an index declares by a name; nothing for an anonymous class's method. */
-    private static function keyOf(Source $source, int $at, string $name): string
+    /** The key of what a `function` keyword at an index declares; nameless for an anonymous class's method. */
+    private static function keyOf(Source $source, int $at, string $name): string|Nameless
     {
         $enclosing = $source->tokens()->enclosing($at);
 
@@ -113,6 +99,6 @@ final readonly class Declarations
 
         $class = $source->shape()->classOf($enclosing)->key();
 
-        return $class instanceof Nameless ? '' : sprintf(self::METHOD, $class, mb_strtolower($name));
+        return $class instanceof Nameless ? $class : sprintf(self::METHOD, $class, mb_strtolower($name));
     }
 }

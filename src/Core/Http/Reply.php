@@ -43,6 +43,12 @@ final readonly class Reply
         return new self($status, $retryAfter, $body);
     }
 
+    /** A reply that names no `Retry-After`. */
+    public static function answered(int $status, string $body): self
+    {
+        return new self($status, '', $body);
+    }
+
     public function status(): int
     {
         return $this->status;

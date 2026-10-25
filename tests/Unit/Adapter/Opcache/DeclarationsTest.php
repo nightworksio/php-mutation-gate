@@ -26,12 +26,14 @@ const DECLARING = <<<'PHP'
         public int $count = 3;
         public static array $seen = [1, 2];
         public int $hooked { get => $this->count * 2; }
+        public object $made { get => new class { public const MADE = 'hooked'; }; }
 
         #[Tag(5)]
         public function run(int $a = 4, int ...$rest): int
         {
             static $calls = 7;
             $double = fn(int $x): int => $x * 2;
+            $make = fn(): object => new class { public const MADE = 'arrow'; };
             $named = new class { public const KIND = 'named'; };
             $closure = static function (int $y): int { return $y + 1; };
 
@@ -88,6 +90,8 @@ it('declares something else where a declaration changed, which the opcodes do no
     'a parameter default' => ['int $a = 4', 'int $a = 5'],
     'a static variable' => ['static $calls = 7', 'static $calls = 8'],
     'an anonymous class\'s constant' => ["KIND = 'named'", "KIND = 'other'"],
+    'a class an arrow function makes' => ["MADE = 'arrow'", "MADE = 'other'"],
+    'a class a short hook makes' => ["MADE = 'hooked'", "MADE = 'other'"],
     'a closure\'s signature' => ['static function (int $y)', 'static function (float $y)'],
     'an arrow function\'s signature' => ['fn(int $x): int', 'fn(int $x): float'],
     'a method\'s visibility' => ['private function hidden', 'protected function hidden'],

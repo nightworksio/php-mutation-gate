@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Otlp;
 
 use function array_diff_key;
 use function array_key_exists;
+use function count;
 use function explode;
 
 use NightWorksIO\MutationGate\Core\Ci\Variables;
@@ -13,7 +14,6 @@ use NightWorksIO\MutationGate\Core\Runner\GateSecret;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 
 use function rawurldecode;
-use function str_contains;
 use function trim;
 
 /**
@@ -85,10 +85,10 @@ final readonly class OtelEnvironment
         $pairs = [];
 
         foreach (explode(',', $list) as $pair) {
-            [$key, $value] = str_contains($pair, '=') ? explode('=', $pair, 2) : ['', ''];
-            $key = trim($key);
-            if ($key !== '') {
-                $pairs[$key] = rawurldecode(trim($value));
+            $parts = explode('=', $pair, 2);
+            $key = trim($parts[0]);
+            if ($key !== '' && count($parts) === 2) {
+                $pairs[$key] = rawurldecode(trim($parts[1]));
             }
         }
 

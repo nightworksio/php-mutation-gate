@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Order;
 
+use function array_flip;
+use function array_intersect_key;
 use function array_key_exists;
 use function array_slice;
 use function array_values;
@@ -153,22 +155,15 @@ final readonly class KillHistory
      */
     public function keeping(MutantIds $held, Bound $mutants, Bound $functions): self
     {
-        $ids = [];
-        $kept = [];
+        $keys = [];
 
         foreach ($held as $id) {
-            $ids[$id->key()] = true;
-        }
-
-        foreach ($this->mutants as $key => $mutant) {
-            if (array_key_exists($key, $ids)) {
-                $kept[$key] = $mutant;
-            }
+            $keys[] = $id->key();
         }
 
         return new self(
-            array_slice($kept, -$mutants->count(), preserve_keys: true),
-            array_slice($this->functions, -$functions->count(), preserve_keys: true),
+            array_slice(array_intersect_key($this->mutants, array_flip($keys)), -$mutants->count()),
+            array_slice($this->functions, -$functions->count()),
         );
     }
 

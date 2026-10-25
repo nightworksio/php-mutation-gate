@@ -52,24 +52,37 @@ it('writes a gauge\'s points as doubles and a sum\'s as 64-bit integers, this ru
         Moment::at('2026-09-30T12:00:00Z'),
     );
 
-    expect(Decoded::at($json, 'resourceMetrics', 0, 'scopeMetrics', 0, 'metrics'))->toBe([
-        [
-            'name' => 'mutation_gate.score',
-            'unit' => '%',
-            'gauge' => ['dataPoints' => [[
-                'asDouble' => 37.5,
-                'timeUnixNano' => '1790769600000000000',
-                'attributes' => [['key' => 'mutation_gate.tree', 'value' => ['stringValue' => 'src']]],
-            ]]],
-        ],
-        [
-            'name' => 'mutation_gate.mutants',
-            'unit' => '1',
-            'sum' => ['aggregationTemporality' => 1, 'isMonotonic' => true, 'dataPoints' => [[
-                'asInt' => '3',
-                'timeUnixNano' => '1790769600000000000',
-                'attributes' => [['key' => 'mutation_gate.status', 'value' => ['stringValue' => 'survived']]],
-            ]]],
-        ],
-    ]);
+    expect(Decoded::at($json, 'resourceMetrics', 0, 'resource'))
+        ->toBe(['attributes' => [['key' => 'service.name', 'value' => ['stringValue' => 'mutation-gate']]]])
+        ->and(Decoded::at($json, 'resourceMetrics', 0, 'scopeMetrics', 0, 'metrics'))->toBe([
+            [
+                'name' => 'mutation_gate.score',
+                'unit' => '%',
+                'gauge' => ['dataPoints' => [[
+                    'asDouble' => 37.5,
+                    'timeUnixNano' => '1790769600000000000',
+                    'attributes' => [['key' => 'mutation_gate.tree', 'value' => ['stringValue' => 'src']]],
+                ]]],
+            ],
+            [
+                'name' => 'mutation_gate.mutants',
+                'unit' => '1',
+                'sum' => ['aggregationTemporality' => 1, 'isMonotonic' => true, 'dataPoints' => [[
+                    'asInt' => '3',
+                    'timeUnixNano' => '1790769600000000000',
+                    'attributes' => [['key' => 'mutation_gate.status', 'value' => ['stringValue' => 'survived']]],
+                ]]],
+            ],
+        ]);
+});
+
+it('stamps points at the epoch where now is no moment of the calendar', function (): void {
+    $json = OtlpJson::metrics(
+        [Metric::of('mutation_gate.mutants', '1', MetricKind::Sum, [DataPoint::of(3, [])])],
+        [],
+        Moment::at('2026-02-30T12:00:00Z'),
+    );
+
+    expect(Decoded::at($json, 'resourceMetrics', 0, 'scopeMetrics', 0, 'metrics', 0, 'sum', 'dataPoints', 0, 'timeUnixNano'))
+        ->toBe('0');
 });

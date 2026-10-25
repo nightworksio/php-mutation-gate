@@ -53,20 +53,20 @@ final readonly class PhpReads
     {
         $file = IncludePaths::real($config->file()->value());
 
-        return new self(IncludePaths::in($config->project()->value()), new Unnamed())->read($file, [$file]);
+        return new self(IncludePaths::in($config->project()->value()), new Unnamed())->read($file, []);
     }
 
     /**
      * What a PHP file reads, the files it includes read in turn, none twice along one chain of includes.
      *
-     * @param list<string> $seen the files on the chain that led here, this one among them
+     * @param list<string> $seen the files on the chain that led here
      */
     private function read(string $file, array $seen): ConfigReads
     {
-        $code = is_file($file) ? file_get_contents($file) : false;
+        $code = is_file($file) ? file_get_contents($file) : null;
         $parsed = is_string($code) ? $this->parsed($code, $file) : [];
 
-        return $parsed instanceof ConfigReads ? $parsed : $this->readIn($parsed, $file, $seen);
+        return $parsed instanceof ConfigReads ? $parsed : $this->readIn($parsed, $file, [...$seen, $file]);
     }
 
     /**
@@ -156,7 +156,7 @@ final readonly class PhpReads
 
         return in_array($candidate, $seen, strict: true)
             ? $named
-            : $named->and($this->read($candidate, [...$seen, $candidate]));
+            : $named->and($this->read($candidate, $seen));
     }
 
     private function unnamedBy(string $file, string $what, Node $node): ConfigReads

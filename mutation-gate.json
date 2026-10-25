@@ -118,26 +118,6 @@
                 "expires": "2027-10-06"
             },
             {
-                "mutant": "5bdc57555f6c",
-                "reason": "Equivalent: the pause between two reads of the opcache children only sets how often they are read. Every child is read until it ends or runs out of time, so what each compiled reads the same at any pause.",
-                "expires": "2027-10-06"
-            },
-            {
-                "mutant": "733b9a6646e6",
-                "reason": "Equivalent: the pause between two reads of the opcache children only sets how often they are read. Every child is read until it ends or runs out of time, so what each compiled reads the same at any pause.",
-                "expires": "2027-10-06"
-            },
-            {
-                "mutant": "145e5b58299f",
-                "reason": "Unobservable in a test: telling a 60-second limit from 59 or 61 takes a child that compiles for about a minute. The Compiler's own tests stop a child that runs past a limit of a fraction of a second.",
-                "expires": "2027-10-06"
-            },
-            {
-                "mutant": "92ddcc5fb393",
-                "reason": "Unobservable in a test: telling a 60-second limit from 59 or 61 takes a child that compiles for about a minute. The Compiler's own tests stop a child that runs past a limit of a fraction of a second.",
-                "expires": "2027-10-06"
-            },
-            {
                 "mutant": "46649b4dd3ea",
                 "reason": "Equivalent: reproduce declares its id argument required, so Symfony refuses a run without one before the command's code runs, and the id it reads is always a string; the text in place of a missing one is never read.",
                 "expires": "2027-10-21"

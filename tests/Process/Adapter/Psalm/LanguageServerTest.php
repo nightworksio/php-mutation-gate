@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Psalm\LanguageServer;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\FakeAnalyser;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -82,4 +83,36 @@ it('reads a server that frames each message with its length alone, from its firs
     $uri = sprintf('file://%s/src/Money.php', implode('/', array_map(rawurlencode(...), explode('/', $project))));
 
     expect(languageServerVersions($server->analysed([$money => "<?php\n// error: A first\n"])))->toBe([$uri => 1]);
+})->group(...$holds);
+
+it('initialises the server with the gate\'s process, the project\'s root and what the gate reads', function (): void {
+    $project = FakeAnalyser::psalm('Psalm 6.19.1@abc');
+    languageServerIn($project);
+    $initialized = json_decode((string) file_get_contents(sprintf('%s/vendor/bin/server-initialize.json', $project)), associative: true);
+
+    expect($initialized)->toBe([
+        'processId' => getmypid(),
+        'rootUri' => sprintf('file://%s', implode('/', array_map(rawurlencode(...), explode('/', $project)))),
+        'capabilities' => ['textDocument' => ['publishDiagnostics' => ['versionSupport' => true, 'dataSupport' => true]]],
+    ]);
+})->group(...$holds);
+
+it('lets the server end on its own once its input ends, before it stops it', function (): void {
+    $project = FakeAnalyser::psalm('Psalm 6.19.1@abc');
+    Scratch::write($project, 'vendor/bin/server.mode', 'lingers');
+    $server = languageServerIn($project);
+    unset($server);
+
+    expect((string) file_get_contents(sprintf('%s/vendor/bin/server-got.txt', $project)))->toEndWith("closed\n");
+})->group(...$holds);
+
+it('waits as long as a check with no limit takes, after a start within one', function (): void {
+    $project = FakeAnalyser::psalm('Psalm 6.19.1@abc');
+    Scratch::write($project, 'vendor/bin/server.mode', 'slow');
+    $server = LanguageServer::started([PHP_BINARY, 'vendor/bin/psalm-language-server'], $project, [], Seconds::of(1.0));
+    $money = sprintf('%s/src/Money.php', $project);
+    $uri = sprintf('file://%s/src/Money.php', implode('/', array_map(rawurlencode(...), explode('/', $project))));
+
+    expect(languageServerVersions($server instanceof LanguageServer ? $server->analysed([$money => "<?php\n"]) : $server))
+        ->toBe([$uri => 1]);
 })->group(...$holds);

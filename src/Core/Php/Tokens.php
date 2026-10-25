@@ -128,7 +128,8 @@ final readonly class Tokens implements Countable
         $found = [];
 
         foreach ($kinds as $kind) {
-            $found = [...$found, ...$this->indexed($kind)];
+            $index = is_string($kind) ? $this->byText : $this->byId;
+            $found = [...$found, ...array_key_exists($kind, $index) ? $index[$kind] : []];
         }
 
         sort($found);
@@ -247,12 +248,22 @@ final readonly class Tokens implements Countable
         $spelt = '';
         $end = PHP_INT_MAX;
 
-        foreach (array_slice($this->tokens, $from, $to - $from) as $token) {
+        foreach ($this->between($from, $to) as $token) {
             $spelt = sprintf('%s%s%s', $spelt, $token->pos > $end ? ' ' : '', $token->text);
             $end = $token->pos + Bytes::length($token->text);
         }
 
         return $spelt;
+    }
+
+    /**
+     * The tokens from one index up to another, by their index.
+     *
+     * @return array<int, PhpToken>
+     */
+    public function between(int $from, int $to): array
+    {
+        return array_slice($this->tokens, $from, $to - $from, preserve_keys: true);
     }
 
     /**
@@ -271,15 +282,4 @@ final readonly class Tokens implements Countable
         return [$last => true, mb_strtolower($last) => true];
     }
 
-    /**
-     * Where each token of a kind stands, by its id or by its text.
-     *
-     * @return list<int>
-     */
-    private function indexed(int|string $kind): array
-    {
-        $index = is_string($kind) ? $this->byText : $this->byId;
-
-        return array_key_exists($kind, $index) ? $index[$kind] : [];
-    }
 }

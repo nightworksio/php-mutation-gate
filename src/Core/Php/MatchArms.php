@@ -60,8 +60,9 @@ final readonly class MatchArms
     {
         $closer = $tokens->closing($opener);
         $first = $tokens->line($opener) + 1;
-        $last = $tokens->is($closer, '}') ? $tokens->line($closer) : $first - 1;
 
-        return $last >= $first ? new self(Line::of($first), Line::of($last)) : NotGiven::value();
+        return $tokens->is($closer, '}') && $tokens->line($closer) >= $first
+            ? new self(Line::of($first), Line::of($tokens->line($closer)))
+            : NotGiven::value();
     }
 }

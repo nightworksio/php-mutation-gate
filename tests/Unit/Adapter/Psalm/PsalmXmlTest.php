@@ -80,6 +80,19 @@ it('analyses the files its project files name, less those they ignore, from the 
         ->toBeTrue();
 });
 
+it('analyses the files of a directory named by a pattern with a slash at its end', function (): void {
+    expect(psalmXml('<psalm><projectFiles><directory name="modules/*/Domain/"/></projectFiles></psalm>')->holds('/work/modules/Billing/Domain/Invoice.php'))
+        ->toBeTrue();
+});
+
+it('names the file every include pulls in', function (): void {
+    $config = '<psalm xmlns:xi="http://www.w3.org/2001/XInclude"><xi:include href="a.xml"/><xi:include href="b.xml"/></psalm>';
+    $settings = psalmXml($config)->settings('/work');
+
+    expect($settings instanceof AnalyserSettings ? $settings->references() : $settings)
+        ->toEqual(Paths::of(Path::of('psalm.xml'), Path::of('a.xml'), Path::of('b.xml')));
+});
+
 it('names the file itself, and the baseline, autoloader, stubs, file plugins and includes it reads, under the root', function () use ($config): void {
     $settings = psalmXml($config)->settings('/work');
 

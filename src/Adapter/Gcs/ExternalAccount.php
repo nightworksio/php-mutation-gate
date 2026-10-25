@@ -117,7 +117,7 @@ final readonly class ExternalAccount
     /** The file at this path, or why the store refuses it. */
     public static function at(string $path): self|Invalid
     {
-        $text = is_file($path) ? file_get_contents($path) : false;
+        $text = is_file($path) ? file_get_contents($path) : null;
 
         return is_string($text)
             ? self::read(Node::decode($text, StoreVariable::GoogleCredentials->value))

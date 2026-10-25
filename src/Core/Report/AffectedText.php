@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Report;
 use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Format\Inert;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
@@ -29,9 +30,6 @@ use function sprintf;
  */
 final readonly class AffectedText
 {
-    /** What ends each file of `files0`: a byte no path holds. */
-    private const string NUL = "\0";
-
     private const string NO_IDS
         = '`%s` holds no test the coverage map names, so --format=ids cannot select it: give --format=files.';
 
@@ -65,7 +63,7 @@ final readonly class AffectedText
                 return CannotJudge::because(sprintf(self::COMMAND, 'file', JsonText::text($path)));
             }
 
-            $text .= sprintf(self::ENDED, $path, $lines ? PhpUnitOption::LINE_END : self::NUL);
+            $text .= sprintf(self::ENDED, $path, $lines ? PhpUnitOption::LINE_END : Bytes::NUL);
         }
 
         return $text;

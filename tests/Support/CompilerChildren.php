@@ -26,14 +26,18 @@ final readonly class CompilerChildren
         return $written;
     }
 
-    /** A child that compiles nothing, but answers both of two programs compiled, writes this dump, and exits so. */
-    public static function child(string $dump, int $exit): string
+    /**
+     * A child that compiles nothing, but gives these answers, by default that both of two programs compiled,
+     * writes this dump, and exits so.
+     */
+    public static function child(string $dump, int $exit, string $answers = '11'): string
     {
         $child = sprintf('%s/fake-php', Scratch::directory());
         file_put_contents($child, sprintf(
-            "#!%s\n<?php\nfwrite(STDERR, %s);\necho '11';\nexit(%d);\n",
+            "#!%s\n<?php\nfwrite(STDERR, %s);\necho %s;\nexit(%d);\n",
             PHP_BINARY,
             var_export($dump, return: true),
+            var_export($answers, return: true),
             $exit,
         ));
         chmod($child, 0o755);

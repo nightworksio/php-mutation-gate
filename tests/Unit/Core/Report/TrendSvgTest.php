@@ -27,6 +27,10 @@ it('draws one run as a point, and none as an empty line', function () use ($tren
         ->and(TrendSvg::of(Trend::none()))->toContain('points=""');
 });
 
+it('draws two runs at either end of the width', function () use ($trend): void {
+    expect(TrendSvg::of($trend(50.0, 60.0)))->toContain('points="0.0,20.0 240.0,16.0"');
+});
+
 it('holds no script', function () use ($trend): void {
     expect(TrendSvg::of($trend(50.0, 60.0)))->not->toContain('<script');
 });

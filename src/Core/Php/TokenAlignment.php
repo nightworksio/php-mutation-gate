@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Php;
 
-use function array_key_exists;
+use function array_filter;
+use function array_keys;
 use function count;
-use function range;
+use function max;
 
 /**
  * Which token of one text each token of another stands for, where the two
@@ -42,19 +43,21 @@ final readonly class TokenAlignment
     /** Where the token at an index of the second stands in the first, or past the first's last where none follows. */
     public function inFirst(int $at): int
     {
-        for ($before = $at; $before >= 0; $before--) {
-            if (array_key_exists($before, $this->shared)) {
-                return $before === $at ? $this->shared[$at] : $this->shared[$before] + 1;
-            }
+        $before = array_filter(array_keys($this->shared), static fn(int $shared): bool => $shared <= $at);
+
+        if ($before === []) {
+            return 0;
         }
 
-        return 0;
+        $last = max($before);
+
+        return $last === $at ? $this->shared[$at] : $this->shared[$last] + 1;
     }
 
     /**
      * How far along the first each diagonal reached before each step of the
-     * diff, up to the step that reaches the end of both, which no more steps
-     * than the two hold tokens between them can miss.
+     * diff, up to the step that reaches the end of both, which comes within
+     * as many steps as the two hold tokens between them.
      *
      * @param list<string> $first
      * @param list<string> $second
@@ -65,14 +68,11 @@ final readonly class TokenAlignment
     {
         $reached = self::START;
         $trace = [];
+        $done = false;
 
-        foreach (range(0, count($first) + count($second)) as $step) {
+        for ($step = 0; ! $done; $step++) {
             $trace[] = $reached;
             [$reached, $done] = self::step($reached, $step, $first, $second);
-
-            if ($done) {
-                break;
-            }
         }
 
         return $trace;

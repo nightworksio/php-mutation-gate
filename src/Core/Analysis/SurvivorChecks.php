@@ -158,7 +158,7 @@ final readonly class SurvivorChecks implements IteratorAggregate
     /** @param non-empty-list<string> $files each unchecked survivor's file */
     private function warning(Unchecked $why, array $files, string|NotGiven $reason): Warning
     {
-        $distinct = array_values(array_unique($files));
+        $distinct = array_unique($files);
         sort($distinct);
         $left = sprintf(
             self::LEFT,

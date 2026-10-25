@@ -68,6 +68,9 @@ it('names what the original calls where it changed', function (string $removed, 
     'a qualified function' => ['return \\App\\total($xs);', 'return $xs;', 'total'],
     'a static call removed' => ['Log::write($line);', '', 'write'],
     'no call at all' => ['return 3;', 'return 4;', fn(): Nameless => Nameless::code()],
+    'a call removed whose arguments go on past the line' => ['$this->save(', '', 'save'],
+    'a name changed, whose call goes on alike' => ['return array_values($xs);', 'return array_keys($xs);', fn(): Nameless => Nameless::code()],
+    'an operator before a call' => ['return $a + f($b);', 'return $a - f($b);', fn(): Nameless => Nameless::code()],
 ]);
 
 it('takes a diff without a header whole, and one that only removes', function (): void {
@@ -90,7 +93,8 @@ it('joins a change over several lines', function (): void {
     $change = Change::of("@@ @@\n-        return \$a\n-            + \$b;\n+        return \$a\n+            - \$b;\n");
 
     expect($change->removed())->toBe('return $a + $b;')
-        ->and($change->expression())->toBe('$a + $b');
+        ->and($change->expression())->toBe('$a + $b')
+        ->and(Change::of("@@ @@\n-return 1;\n-\n+return 2;\n")->removed())->toBe('return 1;');
 });
 
 it('says the code a mutant replaced and what it put there, nothing for a side it left alone', function (string $removed, string $added, string $replaced, string $mutated): void {
@@ -104,4 +108,6 @@ it('says the code a mutant replaced and what it put there, nothing for a side it
     'a token added' => ['if ($found) {', 'if (! $found) {', '', '!'],
     'a token removed' => ['if (! $found) {', 'if ($found) {', '!', ''],
     'a line removed' => ['return null;', '', 'return null;', ''],
+    'a token added after one like it' => ['$a = [1, 1];', '$a = [1, 1, 1];', '', ', 1'],
+    'a token removed after one like it' => ['$a = [1, 1, 1];', '$a = [1, 1];', ', 1', ''],
 ]);

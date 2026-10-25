@@ -68,9 +68,11 @@ it('reads a constant through a reflection of one constant only where it is built
         new \ReflectionClassConstant(Base::class, $name);
         new \ReflectionClassConstant(Base::class, 'OTHER');
         new \ReflectionClassConstant(Other::class, 'RATE');
+        new \ReflectionClassConstant('App\Base', 'RATE');
+        new \ReflectionClassConstant('App\Base', 'OTHER');
         PHP);
 
-    expect(Php::sites($read))->toBe(['src/Reader.php:3', 'src/Reader.php:4']);
+    expect(Php::sites($read))->toBe(['src/Reader.php:3', 'src/Reader.php:4', 'src/Reader.php:7']);
 });
 
 it('reads a constant through a reflection of a class it cannot name only where the file names the owner', function (string $argument): void {
@@ -96,7 +98,12 @@ it('reads nothing where a reflection class is named but not built, or something 
         function described(ReflectionClass $class): string { return $class->getName(); }
         ReflectionClass::class;
         new Base();
+        new \ReflectionClass;
         PHP);
 
     expect(Php::sites($read))->toBe([]);
+});
+
+it('reads nothing through a reflection built with a class\'s constant, which names no class, where the file names no owner', function (): void {
+    expect(Php::sites(reflectionsIn("<?php\nnamespace App;\nnew \\ReflectionClass(Money::RATE);\n")))->toBe([]);
 });

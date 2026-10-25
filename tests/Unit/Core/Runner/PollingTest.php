@@ -8,3 +8,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 it('looks at a running process a hundred times a second', function (): void {
     expect(Polling::interval())->toEqual(Seconds::of(0.01));
 });
+
+it('waits a millisecond for a process to be seen to end', function (): void {
+    expect(Polling::moment())->toEqual(Seconds::of(0.001));
+});

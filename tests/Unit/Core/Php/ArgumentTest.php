@@ -80,6 +80,7 @@ it('reads a closure that only returns or yields what runs nothing as only giving
     expect(writtenArgument($written)->onlyGives(OwnVariables::none()))->toBeTrue();
 })->with([
     'an arrow function' => ['fn (): array => [[1], [2]]'],
+    'an arrow function that returns static' => ['fn (): static => self::NONE'],
     'a return' => ['function (): array { return [[1], [2]]; }'],
     'yields, keyed or not' => ["function (): iterable { yield 'one' => [1]; yield [2]; yield from [[3]]; }"],
     'rows that are closures, which run as the test runs' => ['fn () => [fn () => new Money()]'],
@@ -92,6 +93,9 @@ it('reads any other argument as not only giving', function (string $written): vo
     'a closure that runs more' => ["function (): array { putenv('A=1'); return [[1]]; }"],
     'an arrow function that returns what runs code' => ["fn () => [getenv('A')]"],
     'a function that returns what runs code' => ["function () { return [getenv('A')]; }"],
+    'a function that returns what ends in a variable' => ['function () { return 1 + $amount; }'],
+    'a function that returns what begins with a variable' => ['function () { return $amount + 1; }'],
+    'an arrow function that returns a call' => ['fn () => make()'],
     'a closure that returns nothing' => ['function () { return; }'],
     'a closure that declares a function' => ['function () { function shared() {} return [[1]]; }'],
     'a closure that loops' => ['function () { foreach ([1] as $a) { yield [$a]; } }'],

@@ -2,10 +2,15 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Matrix\NotFull;
 use NightWorksIO\MutationGate\Core\Report\ReportSchema;
 use NightWorksIO\MutationGate\Core\Report\TestsReport;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Killings;
 use NightWorksIO\MutationGate\Tests\Support\Schema;
@@ -133,4 +138,10 @@ it('says in every form why it names no useless test where the verdict holds no c
         ->and(Decoded::at(TestsReport::json(Killings::verdict(MatrixKind::Full))))->not->toHaveKey('noCoverage')
         ->and(TestsReport::markdown(Verdicts::failing()))->toContain(sprintf("\n\n%s\n\n## Removable\n\n", TestsReport::NO_COVERAGE))
         ->and(TestsReport::markdown(Verdicts::failing()))->not->toContain('Kills nothing it covers');
+});
+
+it('judges tests by what they kill where the coverage map holds a single test', function (): void {
+    $coverage = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(1), TestId::of('MoneyTest::adds'));
+
+    expect(TestsReport::hasCoverage(Verdicts::failing()->withMatrix(KillMatrix::of(MatrixKind::Full, $coverage))))->toBeTrue();
 });

@@ -159,6 +159,14 @@ describe('PhpFile', function (): void {
         expect($file->constants()->all())->toBe(['reach_amount', 'reach_other', 'reach_defined', 'reach_qualified', 'reach_rooted', 'held']);
     });
 
+    it('reads a file that ends inside a constant\'s declaration, naming one that is given its value', function (string $code, array $constants): void {
+        expect(PhpFile::read(Contents::of($code))->constants()->all())->toBe($constants);
+    })->with([
+        'at its name' => ["<?php\nconst LIMIT", []],
+        'at its =' => ["<?php\nconst LIMIT =", ['limit']],
+        'at define(' => ["<?php\n\$set = true;\ndefine(", []],
+    ]);
+
     it('mentions every name a class and a function imported under one alias stand for', function (): void {
         $file = PhpFile::read(Contents::of("<?php\nnamespace Billing;\n\nuse App\\{Equals};\nuse function Lib\\equals;\n\nfinal class Money\n{\n    use Equals;\n}\n"));
 

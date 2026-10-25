@@ -76,7 +76,7 @@ final readonly class MemoryCap
         $largest = $unit;
 
         foreach (MemoryUnit::cases() as $larger) {
-            $largest = $larger->bytes() > $largest->bytes() && $bytes % $larger->bytes() === 0 ? $larger : $largest;
+            $largest = $bytes % $larger->bytes() === 0 ? $larger : $largest;
         }
 
         return new self(intdiv($bytes, $largest->bytes()), $largest);
@@ -121,7 +121,7 @@ final readonly class MemoryCap
         return $this->unit instanceof MemoryUnit ? sprintf('%d%s', $this->number, $this->unit->value) : self::NONE;
     }
 
-    /** How many of its unit it is, where it caps anything. */
+    /** How many of its unit it is: none where it caps nothing. */
     public function number(): int
     {
         return $this->number;

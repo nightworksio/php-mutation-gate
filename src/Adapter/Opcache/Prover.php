@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Opcache;
 
 use function array_key_exists;
+use function array_map;
 use function hash;
 use function in_array;
 
@@ -59,10 +60,9 @@ final readonly class Prover
     public function proven(array $pairs): array|Uncompiled
     {
         $pairs = $this->undecided($pairs);
-        $programs = [];
+        $programs = $this->originals($pairs);
 
-        foreach ($pairs as [$key, $original, $mutant]) {
-            $programs[$this->originalOf($original)] = $original;
+        foreach ($pairs as [$key, , $mutant]) {
             $programs[sprintf(self::MUTANT, $key)] = $mutant;
         }
 
@@ -82,14 +82,12 @@ final readonly class Prover
      */
     private function undecided(array $pairs): array
     {
-        $checks = [];
+        $checks = array_map(RuntimeChecks::in(...), $this->originals($pairs));
         $undecided = [];
 
         foreach ($pairs as $pair) {
             [, $original, $mutant] = $pair;
-            $named = $this->originalOf($original);
-            $reached = ($checks[$named] ??= RuntimeChecks::in($original))->reached($mutant);
-            $undecided = $reached ? $undecided : [...$undecided, $pair];
+            $undecided = $checks[$this->originalOf($original)]->reached($mutant) ? $undecided : [...$undecided, $pair];
         }
 
         return $undecided;
@@ -105,17 +103,20 @@ final readonly class Prover
      */
     private function declaringTheSame(array $pairs, array $compiled): array
     {
-        $declared = [];
+        $same = [];
+
+        foreach ($pairs as $pair) {
+            [$key, $original] = $pair;
+            $same = $this->sameOpcodes($compiled, $this->originalOf($original), sprintf(self::MUTANT, $key))
+                ? [...$same, $pair]
+                : $same;
+        }
+
+        $declared = array_map(Declarations::of(...), $this->originals($same));
         $proven = [];
 
-        foreach ($pairs as [$key, $original, $mutant]) {
-            $named = $this->originalOf($original);
-
-            if (! $this->sameOpcodes($compiled, $named, sprintf(self::MUTANT, $key))) {
-                continue;
-            }
-
-            $before = $declared[$named] ??= Declarations::of($original);
+        foreach ($same as [$key, $original, $mutant]) {
+            $before = $declared[$this->originalOf($original)];
             $after = Declarations::of($mutant);
             $proven = $before instanceof Declarations && $after instanceof Declarations && $before->same($after)
                 ? [...$proven, $key]
@@ -123,6 +124,23 @@ final readonly class Prover
         }
 
         return $proven;
+    }
+
+    /**
+     * Each original of these pairs once, by its name among the programs.
+     *
+     * @param  list<array{string, Contents, Contents}> $pairs
+     * @return array<string, Contents>
+     */
+    private function originals(array $pairs): array
+    {
+        $originals = [];
+
+        foreach ($pairs as [, $original]) {
+            $originals[$this->originalOf($original)] = $original;
+        }
+
+        return $originals;
     }
 
     /** @param array<string, Opcodes|Uncompiled> $compiled by program */

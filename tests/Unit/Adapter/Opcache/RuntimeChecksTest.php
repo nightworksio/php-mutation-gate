@@ -100,3 +100,9 @@ it('reaches what a check decides where a change takes away the bytes just before
 
     expect(runtimeReached($program, "\nf();", ''))->toBeTrue();
 });
+
+it('reaches what a check decides where a mutant changes it and code in a function before it', function (): void {
+    $program = "<?php\n\nfunction a(): int { return 1; }\nfunction b(): int { return PHP_INT_SIZE; }\n";
+
+    expect(runtimeReached($program, '(): int', '(): Int'))->toBeTrue();
+});

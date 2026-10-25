@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Report\TestsReport;
 use NightWorksIO\MutationGate\Core\Report\TestsText;
@@ -59,4 +61,21 @@ it('says why it names no useless test where the verdict holds no coverage', func
 
         TEXT)
         ->and(TestsReport::text(Verdicts::failing()))->toBe(TestsText::of(Verdicts::failing()));
+});
+
+it('names no removable test, under a blank line, where a full matrix finds none', function (): void {
+    expect(TestsText::of(Verdicts::failing()->withMatrix(KillMatrix::of(MatrixKind::Full, CoverageMap::empty()))))->toBe(<<<'TEXT'
+        Tests mutation cannot see
+        This judges mutation kills only, and never fails anything.
+
+        The verdict holds no coverage map, so no test can be judged by what it kills.
+
+        Removable (0)
+          None.
+          The kept set is a small one, not the smallest.
+
+        Asserts only existence or shape (0)
+          None.
+
+        TEXT);
 });

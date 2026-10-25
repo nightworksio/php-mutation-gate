@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Php;
 
+use function array_any;
 use function array_push;
 use function count;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
+use PhpToken;
 
 use function sprintf;
 
@@ -102,14 +104,11 @@ final readonly class DeclarationHeaders
      */
     private static function declares(Tokens $tokens, int $scope, int $from, int $to, array $kinds): bool
     {
-        for ($at = $from; $at < $to; $at++) {
-            $direct = $tokens->enclosing($at) === $scope;
-
-            if ($direct && $tokens->is($at, ...$kinds) && ! $tokens->is($at - 1, T_DOUBLE_COLON)) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any(
+            $tokens->between($from, $to),
+            static fn(PhpToken $token, int $at): bool => $tokens->enclosing($at) === $scope
+                && $token->is($kinds)
+                && ! $tokens->is($at - 1, T_DOUBLE_COLON),
+        );
     }
 }

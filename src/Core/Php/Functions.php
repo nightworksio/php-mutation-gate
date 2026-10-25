@@ -62,17 +62,17 @@ final readonly class Functions
     /** The innermost named function a line is in, or nothing where it is in none. */
     public function around(Line $line): string|Nameless
     {
-        $at = $this->innermost($line);
+        $span = $this->innermost($line);
 
-        return $at < 0 ? Nameless::code() : $this->spans[$at][0];
+        return $span instanceof Nameless ? $span : $span[0];
     }
 
     /** The line the innermost named function a line is in begins on, which tells it from any other of its file. */
     public function startAround(Line $line): Line|Nameless
     {
-        $at = $this->innermost($line);
+        $span = $this->innermost($line);
 
-        return $at < 0 ? Nameless::code() : Line::of($this->spans[$at][1]);
+        return $span instanceof Nameless ? $span : Line::of($span[1]);
     }
 
     /**
@@ -87,18 +87,21 @@ final readonly class Functions
         return $opened !== [] && $opened[0] !== '' ? [[$opened[0], $opened[1], $closes]] : [];
     }
 
-    /** Where among the spans the innermost function a line is in stands; -1 where it is in none. */
-    private function innermost(Line $line): int
+    /**
+     * The span of the innermost function a line is in: the first around it, as a block inside another closes
+     * first; nothing where it is in none.
+     *
+     * @return array{string, int, int}|Nameless
+     */
+    private function innermost(Line $line): array|Nameless
     {
-        $found = -1;
-        $first = 0;
-
-        foreach ($this->spans as $at => [, $from, $to]) {
-            $inside = $from <= $line->number() && $line->number() <= $to && $from >= $first;
-            [$found, $first] = $inside ? [$at, $from] : [$found, $first];
+        foreach ($this->spans as $span) {
+            if ($span[1] <= $line->number() && $line->number() <= $span[2]) {
+                return $span;
+            }
         }
 
-        return $found;
+        return Nameless::code();
     }
 
     /** The name after a `function` keyword, past a `&`; nothing for a closure. */

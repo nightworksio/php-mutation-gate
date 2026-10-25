@@ -69,12 +69,14 @@ it('reads a dependency on another class\'s method, its class as the file names i
 
         use PHPUnit\Framework\Attributes\DependsExternal;
         use PHPUnit\Framework\Attributes\DependsExternalUsingDeepClone;
+        use PHPUnit\Framework\Attributes\DependsExternalUsingShallowClone;
         use App\Fixtures\KeysTest as Keys;
 
         final class TokenTest extends TestCase
         {
             #[DependsExternal(Keys::class, 'testMakes')]
             #[DependsExternalUsingDeepClone(className: \Other\ClockTest::class, methodName: 'testTicks')]
+            #[DependsExternalUsingShallowClone(\Other\ClockTest::class, 'testStops')]
             public function testSigns(): void {}
         }
         CODE;
@@ -83,6 +85,7 @@ it('reads a dependency on another class\'s method, its class as the file names i
         'Tests\TokenTest::testSigns',
         'App\Fixtures\KeysTest::testMakes',
         'Other\ClockTest::testTicks',
+        'Other\ClockTest::testStops',
     ]);
 });
 
@@ -103,7 +106,10 @@ it('reads no dependency an attribute does not name by a literal, of a whole clas
             #[Depends(self::BUILDS)]
             #[DependsOnClass(KeysTest::class)]
             #[DependsExternal('Tests\KeysTest', 'testMakes')]
+            #[DependsExternal(static::class, 'testMakes')]
+            #[Depends('test' . 'Builds')]
             #[Leans('testBuilds')]
+            #[Leans(KeysTest::class, 'testMakes')]
             #[Depends]
             public function testSigns(): void {}
         }

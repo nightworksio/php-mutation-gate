@@ -150,16 +150,19 @@ final class LanguageServer
     }
 
     /**
-     * These files' texts sent again, with nothing awaited: diagnostics are
-     * read only at the version a later check sends, so none is stale.
+     * The server, sent these files' texts again, with nothing awaited:
+     * diagnostics are read only at the version a later check sends, so none
+     * is stale.
      *
      * @param array<string, string> $texts each file's text, by its absolute path
      */
-    public function restore(array $texts): void
+    public function restore(array $texts): self
     {
         foreach ($texts as $path => $text) {
             $this->sent(Diagnostics::uriOf($path), $text);
         }
+
+        return $this;
     }
 
     /** Whether the server was stopped because it did not answer within a limit, and answers nothing more. */
@@ -286,29 +289,41 @@ final class LanguageServer
         $method = Lenient::text($message->field('method'));
         $id = $message->field('id');
 
-        if ($method === self::PUBLISHED) {
-            $this->keptPublished($message->field('params'));
-
-            return [];
-        }
-
-        if ($method !== '' && $id->isPresent()) {
-            $this->write(JsonText::object([
-                'jsonrpc' => JsonText::text(self::VERSION),
-                'id' => Lenient::json($id),
-                'result' => 'null',
-            ]));
-
-            return [];
-        }
-
-        return $id->kind() === Kind::Integer ? [Lenient::integer($id) => true] : [];
+        return match (true) {
+            $method === self::PUBLISHED => $this->keptPublished($message->field('params')),
+            $method !== '' && $id->isPresent() => $this->answeredWithNothing($id),
+            $id->kind() === Kind::Integer => [Lenient::integer($id) => true],
+            default => [],
+        };
     }
 
-    private function keptPublished(Node $params): void
+    /**
+     * Keep the diagnostics a message publishes, which answers none of the gate's requests.
+     *
+     * @return array{}
+     */
+    private function keptPublished(Node $params): array
     {
         $version = Lenient::integer($params->field('version'));
         $this->published[Lenient::text($params->field('uri'))] = [$version, $params];
+
+        return [];
+    }
+
+    /**
+     * Answer a request of the server's with nothing; it answers none of the gate's.
+     *
+     * @return array{}
+     */
+    private function answeredWithNothing(Node $id): array
+    {
+        $this->write(JsonText::object([
+            'jsonrpc' => JsonText::text(self::VERSION),
+            'id' => Lenient::json($id),
+            'result' => 'null',
+        ]));
+
+        return [];
     }
 
     /** Make a request of the server, and say its id. */

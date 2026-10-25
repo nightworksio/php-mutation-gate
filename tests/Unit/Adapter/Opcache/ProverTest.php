@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Opcache\Compiler;
 use NightWorksIO\MutationGate\Adapter\Opcache\Opcodes;
 use NightWorksIO\MutationGate\Adapter\Opcache\Prover;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -13,6 +14,13 @@ use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
     Scratch::sweep();
+});
+
+it('gives each child a minute to compile, with what the tests\' PHP disables disabled', function (): void {
+    $directory = Root::of(Scratch::directory())->at(Path::of('equivalence'));
+
+    expect(Prover::of(PHP_BINARY, $directory, ProcessCount::of(3), 'exec,system'))
+        ->toEqual(new Prover(new Compiler(PHP_BINARY, $directory->value(), 60.0, 3, ['disable_functions=exec,system'])));
 });
 
 it('proves none where there is nothing to check', function (): void {

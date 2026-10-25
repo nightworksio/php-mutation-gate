@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Mutant\IdPrefix;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
+use NightWorksIO\MutationGate\Core\Mutant\Reason as MutantReason;
 use NightWorksIO\MutationGate\Core\Proof\Records;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
@@ -20,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Report\Explanations;
 use NightWorksIO\MutationGate\Core\Report\ExplanationText;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
+use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -142,3 +144,14 @@ it('names the tests that judge a mutant only where they are not the tests that c
     'the covering test' => ['MoneyTest::adds', 'killed', 'Unit:'],
     'another test' => ['MoneyTest::fits', 'not-run', "Judged by: MoneyTest::fits\n"],
 ]);
+
+it('gives the reason a mutant stands, and the group that judges a held unit whose mutant names no test', function (): void {
+    $judged = JudgedMutant::of(
+        Explained::mutant(MutantStatus::Survived)->because(MutantReason::that('No test covers it.')),
+        MutantJudgement::Survived,
+    );
+    $held = JudgedUnit::of(Unit::held(Path::of('src/Money.php'), Group::named('holds:src/Money.php')), Origin::Run);
+
+    expect(explainedIn($judged, $held, Reasons::of()))->toContain("\n    Why: No test covers it.\n")
+        ->toContain("\n    Covered by: no test\n    Judged by: the tests in the group holds:src/Money.php\n");
+});

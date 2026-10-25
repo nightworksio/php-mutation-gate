@@ -250,13 +250,7 @@ final class Psalm implements StaticChecker
     {
         $published = $server->analysed($sent->texts(), $check->limit());
 
-        if ($server->wasStopped()) {
-            $this->server = NotGiven::value();
-
-            return $published;
-        }
-
-        $server->restore($sent->restoring());
+        $this->server = $server->wasStopped() ? NotGiven::value() : $server->restore($sent->restoring());
 
         return $published;
     }
@@ -303,7 +297,7 @@ final class Psalm implements StaticChecker
     private function configText(Path $config): Contents|CannotJudge
     {
         $at = $this->absolute($config);
-        $text = is_file($at) ? file_get_contents($at) : false;
+        $text = is_file($at) ? file_get_contents($at) : null;
 
         return is_string($text) ? Contents::of($text) : CannotJudge::because(sprintf(self::UNREAD, $config->value()));
     }

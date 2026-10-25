@@ -143,7 +143,7 @@ final readonly class Sent
     private static function read(Root $root, Path $file): string|CannotJudge
     {
         $at = $root->at($file)->value();
-        $text = is_file($at) ? file_get_contents($at) : false;
+        $text = is_file($at) ? file_get_contents($at) : null;
 
         return is_string($text) ? $text : CannotJudge::because(sprintf(self::NO_TEXT, $file->value()));
     }

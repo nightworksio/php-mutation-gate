@@ -113,16 +113,21 @@ final readonly class Engine
     private function identified(Path $file, array $changes): MadeMutants
     {
         $mutants = [];
-        $seen = [];
+        $made = [];
 
         foreach ($changes as [$mutator, $edit]) {
             $name = $mutator->name()->value();
             $diff = Hunks::of($edit->changed());
-            $key = MutantId::hash($file, $name, $diff, 0)->value();
-            $occurrence = array_key_exists($key, $seen) ? $seen[$key] : 0;
-            $seen[$key] = $occurrence + 1;
+            $occurrence = 0;
+
+            while (array_key_exists(MutantId::hash($file, $name, $diff, $occurrence)->value(), $made)) {
+                $occurrence++;
+            }
+
+            $id = MutantId::hash($file, $name, $diff, $occurrence);
+            $made[$id->value()] = $id;
             $mutants[] = MadeMutant::of(
-                MutantId::hash($file, $name, $diff, $occurrence),
+                $id,
                 Location::of($file, $edit->start(), $edit->end()),
                 Mutation::of($name, $mutator->family(), $diff, $this->hintOf($mutator)),
                 Contents::of($edit->mutated()),

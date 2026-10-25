@@ -15,8 +15,10 @@ use NightWorksIO\MutationGate\Core\Report\Mutator;
 use NightWorksIO\MutationGate\Core\Report\Overview;
 use NightWorksIO\MutationGate\Core\Report\Percent;
 use NightWorksIO\MutationGate\Core\Report\SetText;
+use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Score;
+use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Verdict\Failure;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
@@ -39,9 +41,12 @@ final readonly class AlertLines
     /** The longest text the project wrote an alert repeats, a path or a reason, before it is cut. */
     private const int LONGEST = 120;
 
-    private const string BELOW = '%s: %s, below its floor of %s%s.';
+    /** A tree's or a set's line: its name, its score, how it stands against its floor, and what it was. */
+    private const string LINE = '%s: %s%s%s.';
 
-    private const string AGAINST = '%s: %s against its floor of %s%s.';
+    private const string BELOW = ', below its floor of %s';
+
+    private const string AGAINST = ' against its floor of %s';
 
     private const string WAS = '; it was %s';
 
@@ -106,10 +111,10 @@ final readonly class AlertLines
             $floor = $set->floor();
             $lines = $set->judgement() === Judgement::Failed
                 ? [...$lines, sprintf(
-                    self::BELOW,
+                    self::LINE,
                     $chat->text(Fit::line(SetText::securityName($set), self::LONGEST)),
                     Percent::of($set->score()),
-                    $floor instanceof Floor ? Percent::of($floor) : '',
+                    self::against($floor, self::BELOW),
                     '',
                 )]
                 : $lines;
@@ -125,12 +130,18 @@ final readonly class AlertLines
         $was = $alert->previous()->scoreOf($path);
 
         return sprintf(
-            $tree->judgement() === Judgement::Failed ? self::BELOW : self::AGAINST,
+            self::LINE,
             $chat->code(Fit::line($path->value(), self::LONGEST)),
             Percent::of($tree->score()),
-            $floor instanceof Floor ? Percent::of($floor) : '',
+            self::against($floor, $tree->judgement() === Judgement::Failed ? self::BELOW : self::AGAINST),
             $was instanceof Score ? sprintf(self::WAS, Percent::of($was)) : '',
         );
+    }
+
+    /** How a score stands against a floor, said this way; nothing where no floor holds it. */
+    private static function against(Floor|Exempt|Undeclared $floor, string $standing): string
+    {
+        return $floor instanceof Floor ? sprintf($standing, Percent::of($floor)) : '';
     }
 
     /**
