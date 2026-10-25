@@ -64,6 +64,18 @@ it('re-checks the branch\'s last survivors, says what became of each, writes no 
         ->and($proofs->read(Scope::branch('main')))->toEqual(Ledger::empty());
 })->with(['with the plan' => '--plan=.mutation-gate/plan.json', 'planning first' => '']);
 
+it('says after the survivors what each report it is configured with made of the re-check', function () use ($store, $feature): void {
+    $project = FlowCommands::project('"reports": [{"use": "github-summary"}]');
+    $composition = FlowCommands::composition($project, ScriptedRunner::fixture(), $store(), $feature());
+    FlowCommands::run(PlanCommand::command($composition), '--shards=1');
+
+    $ran = FlowCommands::run(SurvivorsCommand::command($composition));
+
+    expect($ran->output)->toEndWith(
+        "95e61bd8bf62\nGITHUB_STEP_SUMMARY is not set, so there is no step summary to write.\n",
+    );
+});
+
 it('says why it re-checks none on the default branch, and exits 0', function () use ($store): void {
     $project = FlowCommands::project();
     $composition = FlowCommands::composition($project, ScriptedRunner::fixture(), $store(), Flows::ci());

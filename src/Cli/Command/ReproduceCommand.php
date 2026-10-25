@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Command;
 
-use function is_string;
-
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
@@ -41,7 +39,11 @@ final readonly class ReproduceCommand
     {
         return new Command('reproduce')
             ->setDescription('Run one mutant again and show why it survives')
-            ->addArgument('id', InputArgument::REQUIRED, 'The mutant\'s id, or its first six or more characters')
+            ->addArgument(
+                Argument::Id->value,
+                InputArgument::REQUIRED,
+                'The mutant\'s id, or its first six or more characters',
+            )
             ->setCode(static function (InputInterface $input, OutputInterface $output) use ($composition): int {
                 $composed = $composition->compose($input);
                 $sought = self::sought($input);
@@ -61,9 +63,7 @@ final readonly class ReproduceCommand
     /** The id, or the start of one, the command names. */
     private static function sought(InputInterface $input): IdPrefix|CannotJudge
     {
-        $id = $input->getArgument('id');
-
-        return IdPrefix::parse(is_string($id) ? $id : '');
+        return IdPrefix::parse(CommandText::argument($input, Argument::Id));
     }
 
     private static function shown(OutputInterface $output, Reproduced $reproduced): int

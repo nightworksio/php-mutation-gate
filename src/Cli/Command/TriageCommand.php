@@ -56,7 +56,7 @@ final readonly class TriageCommand
     {
         return new Command('triage')
             ->setDescription('Run a unit n times and list every mutant whose result varied')
-            ->addArgument('path', InputArgument::REQUIRED, 'The unit: a file of a tree, or a held path')
+            ->addArgument(Argument::Path->value, InputArgument::REQUIRED, 'The unit: a file of a tree, or a held path')
             ->addOption(
                 self::REPEAT,
                 mode: InputOption::VALUE_REQUIRED,
@@ -90,10 +90,9 @@ final readonly class TriageCommand
         int $runs,
         TestOrder $order,
     ): int {
-        $path = $input->getArgument('path');
         $aside = Aside::of($output);
         $triaged = new Triaging($composed->adapters, $composed->settings)->triaged(
-            Path::of(is_string($path) ? $path : ''),
+            Path::of(CommandText::argument($input, Argument::Path)),
             $runs,
             $order,
             static function (int $run, MutationResult $result) use ($aside, $runs): void {
@@ -115,11 +114,12 @@ final readonly class TriageCommand
     /** @return int<2, max>|CannotJudge */
     private static function runs(InputInterface $input): int|CannotJudge
     {
-        $asked = $input->getOption(self::REPEAT);
-        $text = is_string($asked) ? $asked : '';
-        $runs = WholeNumber::isPositive($text) ? intval($text) : 0;
+        $text = CommandText::option($input, self::REPEAT);
+        $runs = intval($text);
 
-        return $runs >= self::FEWEST ? $runs : CannotJudge::because(sprintf(self::REPEAT_WHAT, $text));
+        return WholeNumber::isPositive($text) && $runs >= self::FEWEST
+            ? $runs
+            : CannotJudge::because(sprintf(self::REPEAT_WHAT, $text));
     }
 
     private static function order(InputInterface $input, Composed $composed): TestOrder|CannotJudge

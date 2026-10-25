@@ -19,7 +19,6 @@ use NightWorksIO\MutationGate\Cli\Flow\Mode;
 use NightWorksIO\MutationGate\Cli\Flow\PlanMade;
 use NightWorksIO\MutationGate\Cli\Flow\Planning;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
-use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
@@ -159,12 +158,9 @@ final readonly class WatchCommand
                 ownMap: $ownMap,
             );
         $plan = $made instanceof PlanMade ? $made->plan() : $made;
-        $results = Workspace::results();
-        $ran = $plan instanceof Plan ? $running->runAllBy($plan, $results, $running->deadline()) : $plan;
-        $judged = match (true) {
-            $ran instanceof CannotJudge => $ran,
-            $plan instanceof Plan => VerdictCommand::judgedOf($composed, $plan, $results, HeldTo::NewCode),
-        };
+        $judged = $plan instanceof Plan
+            ? VerdictCommand::ranAndJudged($running, $composed, $plan, $running->deadline(), HeldTo::NewCode)
+            : $plan;
 
         if ($arrived->arrived()) {
             $this->printing->note(self::ARRIVED, $this->output);

@@ -50,12 +50,10 @@ final readonly class EditorFiles
     public static function asked(InputInterface $input): Editor|NotGiven|CannotJudge
     {
         $named = $input->getOption(self::EDITOR);
-        $editor = Editor::tryFrom(is_string($named) ? $named : '');
 
         return match (true) {
             ! is_string($named) => NotGiven::value(),
-            $editor instanceof Editor => $editor,
-            default => CannotJudge::because(sprintf(self::UNKNOWN, $named)),
+            default => Editor::tryFrom($named) ?? CannotJudge::because(sprintf(self::UNKNOWN, $named)),
         };
     }
 

@@ -10,7 +10,12 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Hook\HookCall;
 use NightWorksIO\MutationGate\Core\Hook\HookFramework;
 use NightWorksIO\MutationGate\Core\Hook\HookRecipe;
+use NightWorksIO\MutationGate\Core\Hook\HookSetup;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Console\Input\InputDefinition;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -99,3 +104,31 @@ it('says why a config it cannot write is not set up', function (): void {
 
     expect($made instanceof CannotJudge ? $made->why() : $made)->toEndWith('.pre-commit-config.yaml could not be written.');
 });
+
+/** The options `init` takes to set the hooks up. */
+function hookOptions(): InputDefinition
+{
+    return HookFrameworkFiles::option(new Command('init'))->getDefinition();
+}
+
+it('reads where the hooks are set up from --hook and --no-hook', function (
+    array $given,
+    HookSetup|NotGiven|string $asked,
+): void {
+    $read = HookFrameworkFiles::asked(new ArrayInput($given, hookOptions()));
+
+    expect($read instanceof CannotJudge ? $read->why() : $read)->toEqual($asked);
+})->with([
+    'neither' => [[], NotGiven::value()],
+    '--no-hook' => [['--no-hook' => true], HookSetup::None],
+    '--hook naming nowhere' => [['--hook' => null], HookSetup::Git],
+    '--hook naming a manager' => [['--hook' => 'captainhook'], HookSetup::CaptainHook],
+    'both' => [
+        ['--hook' => null, '--no-hook' => true],
+        '--hook and --no-hook each answer the hook question; pass one of them.',
+    ],
+    '--hook naming a manager it does not know' => [
+        ['--hook' => 'husky'],
+        'husky is nowhere init --hook sets hooks up. Name one of git|captainhook|grumphp|pre-commit|none.',
+    ],
+]);

@@ -5,8 +5,13 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Cli\Command\EditorFiles;
 use NightWorksIO\MutationGate\Cli\Command\Output;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Editor\Editor;
 use NightWorksIO\MutationGate\Core\Editor\VsCode;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Console\Input\InputDefinition;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -53,3 +58,19 @@ it('says why a file it cannot read is not set up', function (string $unreadable)
     expect($made instanceof CannotJudge ? $made->why() : $made)
         ->toBe(sprintf('%s/%s could not be read.', $project, $unreadable));
 })->with(['the tasks' => ['.vscode/tasks.json'], 'the recommendations' => ['.vscode/extensions.json']]);
+
+/** The options `init` takes to set an editor up. */
+function editorOptions(): InputDefinition
+{
+    return EditorFiles::option(new Command('init'))->getDefinition();
+}
+
+it('reads the editor --editor names', function (array $given, Editor|NotGiven|string $asked): void {
+    $read = EditorFiles::asked(new ArrayInput($given, editorOptions()));
+
+    expect($read instanceof CannotJudge ? $read->why() : $read)->toEqual($asked);
+})->with([
+    'none' => [[], NotGiven::value()],
+    'VS Code' => [['--editor' => 'vscode'], Editor::VsCode],
+    'one init does not know' => [['--editor' => 'vim'], 'vim is no editor init --editor sets up. Name vscode.'],
+]);

@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -20,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
+use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
 use NightWorksIO\MutationGate\Tests\Support\ChangingCheckout;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
@@ -165,6 +167,60 @@ it('builds the map again after a round that could not plan, and says why each ro
     expect($ran->code)->toBe(0)
         ->and(substr_count($ran->errors, '1 test failed.'))->toBe(2)
         ->and($kinds($runner))->toBe([CoverageRun::class, CoverageRun::class]);
+});
+
+/**
+ * `watch` in a project whose working tree is dirty, so its proofs keep no
+ * coverage map, for this many rounds, each after the one before edits
+ * src/Money.php.
+ */
+$dirtyRounds = static function (string $project, CoverageAsked $runner, int $rounds): void {
+    $files = [...Flows::FILES, 'tests/HeldTest.php' => "<?php\n\nit('doubles', fn () => expect(2)->toBe(2));\n"];
+    Scratch::write($project, 'tests/HeldTest.php', $files['tests/HeldTest.php']);
+    $checkout = ChangingCheckout::holding($files, ChangingCheckout::with('src/Money.php', "<?php\n\n// changed\n", $files));
+    $composition = FlowCommands::reading(
+        Flows::trees(),
+        $project,
+        $runner,
+        new ProofStoreFake(),
+        Flows::ci(),
+        Variables::of([]),
+        RepositoryFake::onMain(Revision::ref(Flows::HEAD))->changed(),
+        $checkout,
+    );
+    $waits = waitsChanging($checkout, $rounds - 1);
+    $edits = 0;
+
+    FlowCommands::run(WatchCommand::command($composition, static function () use ($waits, $project, &$edits): bool {
+        ++$edits;
+        Scratch::write($project, 'src/Money.php', sprintf("<?php\n\n// edit %d\n", $edits));
+
+        return $waits();
+    }));
+};
+
+it('measures a round after the first against the map the last round left, which the proofs do not keep', function () use (
+    $dirtyRounds,
+    $kinds,
+): void {
+    $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
+
+    $dirtyRounds(FlowCommands::project(), $runner, 2);
+
+    expect($kinds($runner))->toBe([CoverageRun::class, sprintf('%s tests/MoneyTest.php', TestPaths::class), CoverageRead::class]);
+});
+
+it('measures its first round, and each after a round that could not plan, without a map an earlier watch left', function () use (
+    $dirtyRounds,
+    $kinds,
+): void {
+    $project = FlowCommands::project();
+    $dirtyRounds($project, new CoverageAsked(ScriptedRunner::fixture(), Flows::map()), 1);
+    $failing = new CoverageAsked(ScriptedRunner::fixture(), CannotJudge::because('1 test failed.'));
+
+    $dirtyRounds($project, $failing, 2);
+
+    expect($kinds($failing))->toBe([CoverageRun::class, CoverageRun::class]);
 });
 
 it('waits on through a change outside the trees and the tests', function () use ($changing, $kinds): void {

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Command;
 
 use function implode;
-use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Git\Command as Git;
 use NightWorksIO\MutationGate\Adapter\Git\Hooks;
@@ -39,8 +38,6 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 final readonly class HookCommand
 {
-    private const string ACTION = 'action';
-
     /** Why the command does nothing with an action it does not know. */
     private const string UNKNOWN = 'mutation-gate hook takes install or uninstall, not "%s".';
 
@@ -63,15 +60,14 @@ final readonly class HookCommand
     {
         return new Command('hook')
             ->setDescription('Add or remove the pre-push hook: hook install, hook uninstall')
-            ->addArgument(self::ACTION, InputArgument::REQUIRED, 'install or uninstall')
+            ->addArgument(Argument::Action->value, InputArgument::REQUIRED, 'install or uninstall')
             ->addOption(
                 Hook::PreCommit->value,
                 mode: InputOption::VALUE_NONE,
                 description: 'Also add the pre-commit hook, which shows the score change and never blocks',
             )
             ->setCode(static function (InputInterface $input, OutputInterface $output) use ($project): int {
-                $asked = $input->getArgument(self::ACTION);
-                $named = is_string($asked) ? $asked : '';
+                $named = CommandText::argument($input, Argument::Action);
                 $action = HookAction::tryFrom($named);
                 $hooks = Hooks::of(Git::in($project));
 

@@ -46,7 +46,7 @@ final readonly class StubCommand
         return new Command('stub')
             ->setDescription('Print, or with --write add, a failing test for a survivor or an uncovered mutant')
             ->addArgument(
-                'id',
+                Argument::Id->value,
                 InputArgument::REQUIRED,
                 'The mutant\'s id, or its first six or more characters; or a cluster\'s id',
             )
@@ -62,8 +62,7 @@ final readonly class StubCommand
             )
             ->setCode(static function (InputInterface $input, OutputInterface $output) use ($composition): int {
                 $composed = $composition->compose($input);
-                $id = $input->getArgument('id');
-                $sought = ClusterId::orMutant(is_string($id) ? $id : '');
+                $sought = ClusterId::orMutant(CommandText::argument($input, Argument::Id));
                 $style = self::style($input);
 
                 return match (true) {
@@ -84,12 +83,11 @@ final readonly class StubCommand
     private static function style(InputInterface $input): AssertionStyle|Absent|CannotJudge
     {
         $asked = $input->getOption(self::STYLE);
-        $written = is_string($asked) ? $asked : '';
-        $style = is_string($asked) ? AssertionStyle::tryFrom($asked) : Absent::setting();
 
-        return $style instanceof AssertionStyle || $style instanceof Absent
-            ? $style
-            : CannotJudge::because(sprintf(self::UNKNOWN_STYLE, $written));
+        return match (true) {
+            ! is_string($asked) => Absent::setting(),
+            default => AssertionStyle::tryFrom($asked) ?? CannotJudge::because(sprintf(self::UNKNOWN_STYLE, $asked)),
+        };
     }
 
     private static function done(

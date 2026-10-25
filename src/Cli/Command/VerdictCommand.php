@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Judged;
 use NightWorksIO\MutationGate\Cli\Flow\Judging;
 use NightWorksIO\MutationGate\Cli\Flow\LastRun;
 use NightWorksIO\MutationGate\Cli\Flow\Results;
+use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\UnchangedVerdict;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -21,6 +22,8 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Unchanged;
+use NightWorksIO\MutationGate\Core\Time\Deadline;
+use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Verdict\HeldTo;
 
 use function sprintf;
@@ -76,6 +79,23 @@ final readonly class VerdictCommand
         $plan = LastRun::planAt($composed->adapters->project, $file);
 
         return $plan instanceof Missing ? CannotJudge::because(sprintf(self::NO_PLAN, $file->value())) : $plan;
+    }
+
+    /**
+     * A plan run whole by this deadline, and its results judged, held to
+     * these floors; or why it could not be run.
+     */
+    public static function ranAndJudged(
+        Running $running,
+        Composed $composed,
+        Plan $plan,
+        Deadline|Unlimited $deadline,
+        HeldTo $heldTo,
+    ): Judged|Invalid|CannotJudge {
+        $results = Workspace::results();
+        $ran = $running->runAllBy($plan, $results, $deadline);
+
+        return $ran instanceof CannotJudge ? $ran : self::judgedOf($composed, $plan, $results, $heldTo);
     }
 
     /**
