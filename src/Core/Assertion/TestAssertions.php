@@ -123,9 +123,7 @@ final readonly class TestAssertions
     /** Whether the name at an index is of a `describe()` that declares a block by its description. */
     private static function declaresBlock(Tokens $tokens, int $at): bool
     {
-        return $tokens->is($at, ...Names::TOKENS)
-            && mb_strtolower(Call::nameAt($tokens, $at)) === self::DESCRIBE
-            && self::isDeclaring($tokens, $at);
+        return mb_strtolower(Call::nameAt($tokens, $at)) === self::DESCRIBE && self::isDeclaring($tokens, $at);
     }
 
     /** Whether a call at an index declares something by a description, as `it('…', …)` does. */
