@@ -16,6 +16,12 @@ final readonly class Line
         return new self($number);
     }
 
+    /** The first line of every file. */
+    public static function first(): self
+    {
+        return new self(1);
+    }
+
     public function number(): int
     {
         return $this->number;

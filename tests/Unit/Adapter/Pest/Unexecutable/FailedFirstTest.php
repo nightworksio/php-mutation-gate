@@ -41,6 +41,12 @@ it('keeps what PHPUnit said whole where it does not begin with the test\'s name,
         ->toBe(['tests/A.php::it fails', 'Failed asserting.']);
 });
 
+it('takes the first line PHPUnit said past the line break after the test\'s name', function (): void {
+    $failed = FailedFirst::in(failedFirstLog("<testcase name=\"it fails\" file=\"tests/A.php::it fails\"><failure>it fails\nFailed.\nat x</failure></testcase>"));
+
+    expect($failed instanceof FailedFirst ? $failed->said() : '')->toBe('Failed.');
+});
+
 it('reads past the text and the output a test case holds before its failure', function (): void {
     $failed = FailedFirst::in(failedFirstLog(
         "<testcase name=\"it fails\" file=\"tests/A.php::it fails\">\n  <system-out>printed</system-out>\n  <failure>it failsFailed.</failure></testcase>",

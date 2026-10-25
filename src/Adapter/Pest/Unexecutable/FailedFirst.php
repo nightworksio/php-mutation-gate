@@ -37,8 +37,8 @@ final readonly class FailedFirst
     {
         $document = new DOMDocument();
 
-        if (! is_file($log) || ! $document->load($log, Xml::QUIET)) {
-            return NotGiven::value();
+        if (is_file($log)) {
+            $document->load($log, Xml::QUIET);
         }
 
         foreach ($document->getElementsByTagName('testcase') as $case) {

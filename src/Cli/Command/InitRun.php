@@ -55,9 +55,9 @@ final readonly class InitRun
     /** What was made, and what to do next, said; or why not all of it could be made. */
     public function said(InfectionFile|NotGiven $from): string|Invalid|CannotJudge
     {
-        $format = $this->input->getOption('format');
         $given = CommandLine::from($this->input);
-        $destination = Destination::of($this->setting->project, $given->config, is_string($format) ? $format : '');
+        $format = CommandText::option($this->input, FormOption::FORMAT);
+        $destination = Destination::of($this->setting->project, $given->config, $format);
 
         return $destination instanceof CannotJudge ? $destination : $this->into($destination, $given, $from);
     }

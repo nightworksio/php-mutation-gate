@@ -86,7 +86,7 @@ it('never hands the PHP a variable withheld, nor sees Xdebug\'s mode where that 
 })->group(...$holds);
 
 it('cannot judge a PHP that fails to describe itself, describes itself in another form, or cannot start', function (): void {
-    $failing = sprintf('%s/php', FakePhp::printing('broken', exit: 3));
+    $failing = sprintf('%s/php', FakePhp::printing("broken\n", exit: 3));
     $silent = sprintf('%s/php', FakePhp::printing("Deprecated: something\n"));
     $garbled = sprintf('%s/php', FakePhp::printing("mutation-gate platform {\"php\": 8}\n"));
 

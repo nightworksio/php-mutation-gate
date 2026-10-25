@@ -28,7 +28,8 @@ it('sums the time of each test case a JUnit log names, and leaves out the time o
         </testsuite></testsuites>
         XML);
 
-    expect(TestTimes::in($log))->toEqual(Seconds::of(1.75));
+    expect(TestTimes::in($log))->toEqual(Seconds::of(1.75))
+        ->and(TestTimes::in(testTimesLog('<testsuites><testcase name="a" time="0.25"/></testsuites>')))->toEqual(Seconds::of(0.25));
 });
 
 it('times nothing where there is no log', function (): void {

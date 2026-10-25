@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Command;
 
-use function is_string;
-
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
@@ -40,14 +38,13 @@ final readonly class ExplainCommand
         return FormOption::on(new Command(self::NAME))
             ->setDescription('Explain one mutant or cluster from the ledgers and the last run, running nothing')
             ->addArgument(
-                'id',
+                Argument::Id->value,
                 InputArgument::REQUIRED,
                 'The mutant\'s id, or its first six or more characters; or a cluster\'s id',
             )
             ->setCode(static function (InputInterface $input, OutputInterface $output) use ($composition): int {
                 $composed = $composition->compose($input);
-                $id = $input->getArgument('id');
-                $sought = ClusterId::orMutant(is_string($id) ? $id : '');
+                $sought = ClusterId::orMutant(CommandText::argument($input, Argument::Id));
                 $form = FormOption::asked($input, self::NAME);
 
                 return match (true) {

@@ -567,6 +567,8 @@ services:
                     - FLOOR # a field of the baseline
                 'NightWorksIO\MutationGate\Core\Test\TestNamesRecord':
                     - FILE # a field of the plan's test names
+                'NightWorksIO\MutationGate\Core\Unit\UnitRecord':
+                    - PATH # a field of a unit's record
                 'NightWorksIO\MutationGate\Core\Plan\EstimateRecord':
                     - OPENING # a field of a planned shard
                 'NightWorksIO\MutationGate\Cli\Console':

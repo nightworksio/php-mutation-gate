@@ -4,14 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
-use function array_keys;
-use function array_values;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\Format\Printable;
 
 use function sprintf;
-use function str_replace;
+use function strtr;
 
 /**
  * One GitHub Actions workflow command, such as `::error file=…,line=…::…`,
@@ -40,6 +38,6 @@ final readonly class WorkflowCommand
     /** @param array<string, string> $escapes */
     private static function escaped(string $text, array $escapes): string
     {
-        return str_replace(array_keys($escapes), array_values($escapes), Printable::text($text));
+        return strtr(Printable::text($text), $escapes);
     }
 }

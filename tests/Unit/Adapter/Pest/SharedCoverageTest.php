@@ -78,6 +78,20 @@ it('writes a map as --coverage-php writes one, which reads back as the same map,
     ))->and($read instanceof CoverageFile ? $read->seconds() : 0.0)->toBe(0.75);
 });
 
+it('writes each timed test\'s result as --coverage-php does, of unknown size and passed', function (): void {
+    $at = sharedProject();
+    $target = sprintf('%s/shared.coverage.php', $at->root());
+
+    SharedCoverage::write(sharedMap(), $at, $target);
+
+    $written = require $target;
+
+    expect(is_array($written) ? $written['testResults'] : $written)->toBe([
+        'MoneyTest::adds' => ['size' => 'unknown', 'status' => 'success', 'time' => 0.25],
+        'MoneyTest::subtracts' => ['size' => 'unknown', 'status' => 'success', 'time' => 0.5],
+    ]);
+});
+
 it('hands each line the tests that cover it, wherever they stand among the map\'s tests', function (): void {
     $at = sharedProject();
     $target = sprintf('%s/shared.coverage.php', $at->root());

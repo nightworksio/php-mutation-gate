@@ -19,7 +19,7 @@ it('is always held where a store needs none', function (): void {
 });
 
 it('lists every variable the store reads, those it needs first, and needs only those', function (): void {
-    $credentials = Credentials::needing('KEY', 'SECRET')->reading('TOKEN', 'ROLE');
+    $credentials = Credentials::needing('KEY', 'SECRET')->reading('TOKEN')->reading('ROLE');
 
     expect([...$credentials->variables()])->toBe(['KEY', 'SECRET', 'TOKEN', 'ROLE'])
         ->and($credentials->heldIn(Variables::of(['KEY' => 'k', 'SECRET' => 's'])))->toBeTrue()

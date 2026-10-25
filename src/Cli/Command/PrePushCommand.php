@@ -19,7 +19,6 @@ use NightWorksIO\MutationGate\Cli\Flow\Planning;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\ScoreChanging;
 use NightWorksIO\MutationGate\Cli\Flow\Standing;
-use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
@@ -123,8 +122,7 @@ final readonly class PrePushCommand
         }
 
         $stream = $this->input instanceof StreamableInputInterface ? $this->input->getStream() : null;
-        $read = stream_get_contents($stream ?? STDIN);
-        $handed = is_string($read) ? $read : '';
+        $handed = sprintf('%s', stream_get_contents($stream ?? STDIN));
 
         return trim($handed) === '' ? PreCommitPush::line($this->environment, $head) : $handed;
     }
@@ -211,13 +209,10 @@ final readonly class PrePushCommand
             MatrixKind::FirstKiller,
         );
         $plan = $made instanceof PlanMade ? $made->plan() : $made;
-        $results = Workspace::results();
-        $ran = $plan instanceof Plan ? $this->running()->runAllBy($plan, $results, $deadline) : $plan;
 
-        return match (true) {
-            $ran instanceof CannotJudge => $ran,
-            $plan instanceof Plan => VerdictCommand::judgedOf($composed, $plan, $results, HeldTo::TreesAndNewCode),
-        };
+        return $plan instanceof Plan
+            ? VerdictCommand::ranAndJudged($this->running(), $composed, $plan, $deadline, HeldTo::TreesAndNewCode)
+            : $plan;
     }
 
     private function running(): Running

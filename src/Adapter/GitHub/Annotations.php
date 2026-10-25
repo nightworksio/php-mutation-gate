@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
+use function array_filter;
+
 use Closure;
 
 use function count;
@@ -27,7 +29,6 @@ use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Port\Reporter;
 
 use function sprintf;
-use function usort;
 
 /**
  * The reporter `github-annotations`: line annotations as workflow commands,
@@ -75,22 +76,24 @@ final readonly class Annotations implements Configurable, Reporter
 
     /**
      * An error for each surviving mutant or cluster in a failing set, then a
-     * warning for each other, the furthest forward first at each level.
+     * warning for each other; at each level those on a changed line first,
+     * then security mutants (ADR-0021), a cluster where any member is.
      *
      * @return list<string>
      */
     private function mutantCommands(Verdict $verdict): array
     {
         $overview = Overview::of($verdict);
-        $ranked = Folded::of($overview->survivors(), $verdict->trees()->clusters());
-        $order = static fn(JudgedMutant|Cluster $one, JudgedMutant|Cluster $other): int
-            => self::rank($other, $overview) <=> self::rank($one, $overview);
-        usort($ranked, $order);
+        $secured = $this->forward(
+            Folded::of($overview->survivors(), $verdict->trees()->clusters()),
+            static fn(JudgedMutant|Cluster $item): bool => self::isAny($item, $overview->isSecurity(...)),
+        );
+        $ranked = $this->forward($secured, static fn(JudgedMutant|Cluster $item): bool => $item->isOnChangedLine());
         $errors = [];
         $warnings = [];
 
         foreach ($ranked as $item) {
-            $failing = self::isFailing($item, $overview);
+            $failing = $this->isFailing($item, $overview);
             $level = $failing ? 'error' : 'warning';
             $line = $item instanceof Cluster ? $this->clusterCommand($level, $item) : $this->command($level, $item);
             [$errors, $warnings] = $failing
@@ -119,22 +122,22 @@ final readonly class Annotations implements Configurable, Reporter
     }
 
     /**
-     * How far forward a mutant or cluster goes, compared in order: on a
-     * changed line, then a security mutant (ADR-0021), then in a
-     * set that failed; a cluster is each where any member is.
+     * These mutants and clusters, those that are so first, each part in the
+     * order it had.
      *
-     * @return array{int, int, int} 1 where it is, 0 where it is not
+     * @param  list<JudgedMutant|Cluster>          $items
+     * @param  Closure(JudgedMutant|Cluster): bool $is
+     * @return list<JudgedMutant|Cluster>
      */
-    private static function rank(JudgedMutant|Cluster $item, Overview $overview): array
+    private function forward(array $items, Closure $is): array
     {
         return [
-            $item->isOnChangedLine() ? 1 : 0,
-            self::isAny($item, $overview->isSecurity(...)) ? 1 : 0,
-            self::isFailing($item, $overview) ? 1 : 0,
+            ...array_filter($items, $is),
+            ...array_filter($items, static fn(JudgedMutant|Cluster $item): bool => ! $is($item)),
         ];
     }
 
-    private static function isFailing(JudgedMutant|Cluster $item, Overview $overview): bool
+    private function isFailing(JudgedMutant|Cluster $item, Overview $overview): bool
     {
         return self::isAny($item, $overview->isFailing(...));
     }

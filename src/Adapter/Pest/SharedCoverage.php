@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use SebastianBergmann\CodeCoverage\Data\ProcessedCodeCoverageData;
+use SebastianBergmann\CodeCoverage\Driver\Driver;
 use SebastianBergmann\CodeCoverage\Serialization\Serializer;
 
 use function serialize;
@@ -65,7 +66,7 @@ final readonly class SharedCoverage
     {
         $file = $project->absolute(CoverageMapFile::in($directory));
         $limits = HandoffLimits::under(ini_get('memory_limit'));
-        $bytes = is_file($file) ? file_get_contents($file, length: $limits->readable()) : false;
+        $bytes = is_file($file) ? file_get_contents($file, length: $limits->readable()) : null;
 
         return is_string($bytes) ? CoverageMapFile::decode($bytes, $limits) : CoverageMapFile::missingAt($file);
     }
@@ -145,7 +146,7 @@ final readonly class SharedCoverage
             $hits = [];
 
             foreach ($covered as $test) {
-                $hits += array_key_exists($test, $places) ? [$places[$test] => 1] : [];
+                $hits += array_key_exists($test, $places) ? [$places[$test] => Driver::LINE_EXECUTED] : [];
             }
 
             if ([...$covered] !== []) {

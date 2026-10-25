@@ -13,14 +13,15 @@ use NightWorksIO\MutationGate\Core\Import\Import;
 
 it('lays each import over the ones before it, and says every key, the notes, and the keys to delete', function (): void {
     $import = Import::of(Layer::of(Setup::of(presets: Listed::of('library'))), Carried::imported('minMsi', 'the floor of every tree, 80.00'))
+        ->noting('infection.json5 names src.')
         ->and(Import::of(
             Layer::of(Setup::of(runner: Choice::of('infection', Options::none()))),
             Carried::imported('mutators.Plus.ignore', 'an ignore'),
             Carried::stays('mutators.Plus.ignore', 'a pattern stays'),
             Carried::dropped('maxTimeouts', 'timeouts are triaged'),
             Carried::stays('threads', 'the gate overrides it'),
-        ))
-        ->noting('phpunit.xml names lib.');
+        )->noting('phpunit.xml names lib.'))
+        ->noting('composer.json names tests.');
 
     expect($import->layer()->written(ProjectRoot::origin())->line())->toBe('{"preset":"library","runner":"infection"}')
         ->and($import->report('infection.json5'))->toBe(implode("\n", [
@@ -30,7 +31,9 @@ it('lays each import over the ones before it, and says every key, the notes, and
             '  mutators.Plus.ignore: stays in infection.json5, because a pattern stays',
             '  maxTimeouts: dropped, because timeouts are triaged',
             '  threads: stays in infection.json5, because the gate overrides it',
+            'infection.json5 names src.',
             'phpunit.xml names lib.',
+            'composer.json names tests.',
             'Delete these keys from infection.json5, since the gate no longer reads them there: minMsi, maxTimeouts.',
             'Run mutation-gate locally once.',
             'It writes the baseline at what the gate measures, and says if a tree is below the imported floor.',

@@ -27,8 +27,8 @@ final readonly class TestTimes
     {
         $document = new DOMDocument();
 
-        if (! is_file($log) || ! $document->load($log, Xml::QUIET)) {
-            return Unmeasured::duration();
+        if (is_file($log)) {
+            $document->load($log, Xml::QUIET);
         }
 
         $total = 0.0;
@@ -41,7 +41,7 @@ final readonly class TestTimes
                 return Unmeasured::duration();
             }
 
-            $total += (float) $time;
+            $total += $time;
         }
 
         return $cases->length > 0 ? Seconds::of($total) : Unmeasured::duration();

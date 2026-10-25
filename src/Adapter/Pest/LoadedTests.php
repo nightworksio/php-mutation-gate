@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_filter;
 use function array_key_exists;
-use function array_map;
 use function file_get_contents;
 use function get_declared_classes;
 use function get_included_files;
@@ -73,14 +72,20 @@ final class LoadedTests
         $inside = static fn(string $file): bool => str_starts_with($file, $under);
         $classes = [];
 
-        foreach (get_declared_classes() as $class) {
-            $file = is_subclass_of($class, TestCase::class) ? self::onDisk(Naming::fileOfClass($class)) : '';
-            $classes = $inside($file) ? [...$classes, mb_strtolower($class) => $file] : $classes;
+        $tests = array_filter(
+            get_declared_classes(),
+            static fn(string $class): bool => is_subclass_of($class, TestCase::class),
+        );
+
+        foreach ($tests as $class) {
+            foreach (array_filter(self::onDisk(Naming::fileOfClass($class)), $inside) as $file) {
+                $classes[mb_strtolower($class)] = $file;
+            }
         }
 
         $reads = [];
 
-        foreach (array_filter(array_map(self::onDisk(...), get_included_files()), $inside) as $file) {
+        foreach (array_filter(get_included_files(), $inside) as $file) {
             $reads[$file] = PhpFile::read(Contents::of(sprintf('%s', file_get_contents($file))));
         }
 
@@ -140,11 +145,15 @@ final class LoadedTests
         return DatasetInfo::isADatasetsFile($file) || DatasetInfo::isInsideADatasetsDirectory($file);
     }
 
-    /** The file by its real path, where it is one on disk. */
-    private static function onDisk(string $file): string
+    /**
+     * The file by its real path, where it is one on disk; none where it is not.
+     *
+     * @return list<string>
+     */
+    private static function onDisk(string $file): array
     {
-        $real = is_file($file) ? realpath($file) : false;
+        $real = realpath($file);
 
-        return is_string($real) ? $real : '';
+        return is_string($real) && is_file($real) ? [$real] : [];
     }
 }

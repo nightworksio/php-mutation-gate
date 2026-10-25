@@ -82,6 +82,7 @@ const CONTENT_KEY_VERSIONS = [['pestphp/pest-plugin-mutate', '5.0.1', 'r2'], ['p
  * @param list<string>                         $analyser the analyser that checks the mutants, its version and its
  *                                                       config's digest; none where empty
  * @param bool                                 $coverageBase whether to answer what every coverage entry's key reads
+ * @param list<string>                         $definitions the files outside the tests that define the runner
  */
 function contentKeyOf(
     string $gateVersion = '1.0.0',
@@ -105,6 +106,7 @@ function contentKeyOf(
     string $filter = '',
     array $analyser = [],
     bool $coverageBase = false,
+    array $definitions = [],
 ): Digest|Unkeyed {
     $files = [];
 
@@ -145,7 +147,12 @@ function contentKeyOf(
                 CiDefinition::at(Path::of('.github/workflows/mutation.yml'), Contents::of($ci)),
                 CiDefinition::at(Path::of('.gitlab/template.yml'), Contents::of($template)),
             ),
-        Exceptions::of(Path::of('mutation-gate.json'), Path::of('mutation-gate-baseline.json'), Ignored::globs('docs/**'), Paths::none()),
+        Exceptions::of(
+            Path::of('mutation-gate.json'),
+            Path::of('mutation-gate-baseline.json'),
+            Ignored::globs('docs/**'),
+            contentKeyPaths($definitions),
+        ),
     );
 
     return $coverageBase
@@ -692,6 +699,17 @@ it('keeps what decides a mutant set when a source changes, and changes it with t
         ->and(contentDigestsOf($units, '{"runner":"infection"}')->mutation())->not->toEqual($digests->mutation())
         ->and(contentDigestsOf($units, source: [...CONTENT_KEY_SOURCE, 'phpunit.xml' => 'x8'])->mutation())
         ->not->toEqual($digests->mutation());
+});
+
+it('keys every coverage entry on each file that defines the runner, PHP or not, framed as its format writes it', function (): void {
+    $defined = static fn(string $digest): Digest|Unkeyed => contentKeyOf(
+        source: [...CONTENT_KEY_SOURCE, 'bootstrap.php' => $digest],
+        coverageBase: true,
+        definitions: ['bootstrap.php'],
+    );
+
+    expect($defined('s1'))->not->toEqual($defined('s2'))
+        ->and(contentKeyOf(coverageBase: true))->toEqual(Digest::of('e36d4689d6e476a14307040512e1e8b8072d5adef6726a2933768a2b9848decb'));
 });
 
 it('keys every coverage entry on what each reads, and leaves a PHP source and the tests to the entries that read them', function (): void {

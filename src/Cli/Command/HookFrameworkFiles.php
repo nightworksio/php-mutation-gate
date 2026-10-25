@@ -72,15 +72,14 @@ final readonly class HookFrameworkFiles
     {
         $named = $input->getOption(self::HOOK);
         $declined = $input->getOption(self::NO_HOOK) === true;
-        $setup = HookSetup::tryFrom(is_string($named) ? $named : '');
 
         return match (true) {
             $declined && $named !== false => CannotJudge::because(self::BOTH),
             $declined => HookSetup::None,
             $named === false => NotGiven::value(),
             ! is_string($named) => HookSetup::Git,
-            $setup instanceof HookSetup => $setup,
-            default => CannotJudge::because(sprintf(self::UNKNOWN, $named, HookSetup::names())),
+            default => HookSetup::tryFrom($named)
+                ?? CannotJudge::because(sprintf(self::UNKNOWN, $named, HookSetup::names())),
         };
     }
 

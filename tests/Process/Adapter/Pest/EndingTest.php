@@ -37,13 +37,17 @@ function endedRun(string $output, string $error, int $code): Process
     return $process;
 }
 
-it('records how an own run ended by its mutated copy, its code and that no signal ended it, and nothing it printed', function (): void {
+it('records how each own run ended by its mutated copy, its code and that no signal ended it, and nothing it printed', function (): void {
     $results = sprintf('%s/results.jsonl', Scratch::directory());
     putenv(sprintf('%s=%s', GateVariable::Results->value, $results));
 
     Ending::record(endedRun('a printed secret', 'PHP Fatal error', 2), '/tmp/mutations/abc');
+    Ending::record(endedRun('', '', 0), '/tmp/mutations/def');
 
-    expect(file_get_contents($results))->toBe("{\"event\":\"ended\",\"mutated\":\"/tmp/mutations/abc\",\"code\":2,\"signalled\":false}\n");
+    expect(file($results, FILE_IGNORE_NEW_LINES))->toBe([
+        '{"event":"ended","mutated":"/tmp/mutations/abc","code":2,"signalled":false}',
+        '{"event":"ended","mutated":"/tmp/mutations/def","code":0,"signalled":false}',
+    ]);
 })->group(...$holds);
 
 it('records nothing where the gate names no results file', function (): void {

@@ -499,3 +499,25 @@ it('cannot judge a retry whose run failed', function (): void {
 
     expect($retried)->toEqual(CannotJudge::because("Pest's mutation run failed. Pest said:\nbroken"));
 });
+
+it('runs a mutant a narrowed run killed with no killer again only while some time is left', function (float $deadline, int $commands): void {
+    $at = PestCases::project();
+    $shell = PestCases::loadedNothing($at);
+    $clock = new class implements Clock {
+        private float $read = -10.0;
+
+        public function seconds(): float
+        {
+            $this->read = min($this->read + 10.0, 10.0);
+
+            return $this->read;
+        }
+    };
+
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), Triage::standard()->bounds(), $clock)->mutate(PestCases::money()->within(Seconds::of($deadline)));
+
+    expect($shell->commands())->toHaveCount($commands);
+})->with([
+    'none left' => [10.0, 1],
+    'half a second left' => [10.5, 2],
+]);

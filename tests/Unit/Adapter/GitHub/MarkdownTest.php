@@ -41,10 +41,13 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
+use NightWorksIO\MutationGate\Core\Verdict\HeldSets;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnits;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
+use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdicts;
+use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
@@ -53,6 +56,7 @@ use NightWorksIO\MutationGate\Tests\Support\Judged;
 use NightWorksIO\MutationGate\Tests\Support\Killings;
 use NightWorksIO\MutationGate\Tests\Support\PruningCases;
 use NightWorksIO\MutationGate\Tests\Support\Sampled;
+use NightWorksIO\MutationGate\Tests\Support\Secured;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
 $run = 'https://github.com/octo/gate/actions/runs/7';
@@ -441,6 +445,20 @@ it('comments on the security survivors in a section before the trees, and lists 
         ->and(substr_count($comment, '<code>src/Auth.php:3</code>'))->toBe(1)
         ->and($comment)->toContain("### Floors that can rise\n\n- <code>security set of packages/billing</code> to 100.00%")
         ->and(Markdown::summary(Verdicts::secured(), $run, Verdicts::monthAgo()))->toContain('- Security scores 0.00%, below its floor of 100.00%.');
+});
+
+it('comments on up to 20 security survivors, then says how many more', function (): void {
+    $survivors = array_map(static fn(int $line): JudgedMutant => Secured::mutant(MutantJudgement::Survived, $line), range(1, 25));
+    $verdict = Verdict::of(TreeVerdicts::of(Secured::tree('src/Auth.php', Package::at(Path::root()), Floor::of(0), ...$survivors)))
+        ->withSets(HeldSets::of(NewCodeVerdicts::none(), SecurityVerdicts::of(
+            Secured::set('.', Floor::of(100), Unrecorded::floor(), ...$survivors),
+        )));
+    $comment = Markdown::comment($verdict);
+
+    expect(substr_count($comment, '<details>'))->toBe(20)
+        ->and($comment)->toContain('<code>src/Auth.php:1</code>')
+        ->and($comment)->toContain('### Security survivors (25)')
+        ->and($comment)->toContain('And 5 more; the JSON report lists every one.');
 });
 
 it('lists a security survivor on a changed line only among the security survivors', function (): void {

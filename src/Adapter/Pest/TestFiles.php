@@ -141,7 +141,7 @@ final class TestFiles
      */
     public function holdingAny(TestIds $tests): Paths
     {
-        $classes = array_values(array_unique(array_map(TestMethod::classOf(...), [...$tests])));
+        $classes = array_unique(array_map(TestMethod::classOf(...), [...$tests]));
         sort($classes);
         $key = implode("\n", $classes);
 

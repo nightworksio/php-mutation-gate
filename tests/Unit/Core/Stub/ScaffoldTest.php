@@ -79,6 +79,18 @@ it('expects the exception the removed code throws, by its class, in each style',
         ]);
 });
 
+it('expects the class of the first exception the removed code makes, never one it makes after', function (): void {
+    $mutant = Verdicts::mutant(
+        'src/Cart.php:7',
+        'Throw_',
+        MutatorFamily::Exception,
+        Verdicts::diff('throw new \DomainException((new Message($amount))->text());', ''),
+    );
+
+    expect(Scaffold::of($mutant, Nameless::code(), AssertionStyle::Pest)[1])
+        ->toBe('expect(fn () => /* the code it changes */)->toThrow(\DomainException::class);');
+});
+
 it('runs the code, then reads its file for what the pin names, where only a test that reads the source kills the mutant', function () use ($fits, $phpUnit): void {
     $pin = SourcePin::call('hash_equals');
     $read = "file_get_contents((new \\ReflectionMethod(Cart::class, 'fits'))->getFileName())";

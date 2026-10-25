@@ -6,11 +6,13 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 
 use function in_array;
 
+use NightWorksIO\MutationGate\Core\Analysis\AsWritten;
 use NightWorksIO\MutationGate\Core\Analysis\Finding;
 use NightWorksIO\MutationGate\Core\Analysis\PreCheckables;
 use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\Analysis\Rejections;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 
@@ -27,6 +29,9 @@ final class PreCheckerFake implements PreChecker
 
     /** @var list<float> the seconds each offered mutant's tests take, in the order offered */
     private array $tests = [];
+
+    /** @var list<Contents|AsWritten> the original each offered mutant is judged against, in the order offered */
+    private array $originals = [];
 
     /** @param list<string> $rejecting the mutators whose mutants it rejects */
     public function __construct(private readonly array $rejecting)
@@ -48,6 +53,7 @@ final class PreCheckerFake implements PreChecker
             $mutant = $offered->mutant();
             $this->offered[] = sprintf('%s %s', $mutant->mutator(), $offered->checkable()->mutant()->text());
             $this->tests[] = $offered->tests()->seconds();
+            $this->originals[] = $offered->checkable()->original();
             $rejections = in_array($mutant->mutator(), $this->rejecting, strict: true)
                 ? $rejections->with($mutant->id(), self::rejection($mutant->location()->file()))
                 : $rejections;
@@ -72,5 +78,11 @@ final class PreCheckerFake implements PreChecker
     public function tests(): array
     {
         return $this->tests;
+    }
+
+    /** @return list<Contents|AsWritten> */
+    public function originals(): array
+    {
+        return $this->originals;
     }
 }

@@ -87,6 +87,7 @@ it('kills and spares the mutants of a file whose tests read alike through the ov
 
 it('kills no mutant of a file whose tests fail whenever the override serves a file, leaving each unjudged, with Pest', function (): void {
     $judged = overrideJudged('WrappedSpec.php');
+    $failed = ReplayVerdict::Failed->reason();
 
     expect(array_map(static fn(array $each): array => array_slice($each, 0, 3), $judged))->toBe([
         [10, 'IncrementInteger', MutantStatus::Unjudged],
@@ -94,6 +95,6 @@ it('kills no mutant of a file whose tests fail whenever the override serves a fi
         [16, 'SmallerToSmallerOrEqual', MutantStatus::Unjudged],
     ])
         ->and($judged[0][3])->toStartWith('the selected tests fail on their own (')
-        ->and([$judged[1][3], $judged[2][3]])->each->toBe(ReplayVerdict::Failed->reason())
+        ->and([$judged[1][3], $judged[2][3]])->each->toBe($failed instanceof Reason ? $failed->text() : '')
         ->and(array_column($judged, 4))->toBe([[], [], []]);
 })->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);

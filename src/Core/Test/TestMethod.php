@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Test;
 
 use function in_array;
+use function mb_strlen;
 use function mb_strpos;
 use function mb_substr;
 
@@ -77,7 +78,7 @@ final readonly class TestMethod
         $at = mb_strpos($id, self::SEPARATOR);
 
         while ($at !== false && in_array(mb_substr($id, $at + 2, 1), ['', '#'], strict: true)) {
-            $at = mb_strpos($id, self::SEPARATOR, $at + 1);
+            $at = mb_strpos($id, self::SEPARATOR, $at + mb_strlen(self::SEPARATOR));
         }
 
         return $at === false ? $id : mb_substr($id, 0, $at);

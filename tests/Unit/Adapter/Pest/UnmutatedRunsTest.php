@@ -158,13 +158,14 @@ it('runs the controls side by side in the request\'s pool, none started once its
         ->and($runs->of(pestControl('src/Money.php'))->why())->toBe(ControlRuns::NOT_RUN);
 });
 
-it('caps each control\'s process at the request\'s memory cap, as a mutant\'s own run is', function (): void {
+it('caps each control\'s process at the request\'s memory cap, as a mutant\'s own run is, and removes the cap once they ran', function (): void {
     $at = unmutatedProject();
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
 
     unmutatedRuns($at, $shell, Controls::of(pestControl('src/Money.php')), unmutatedRequest()->cappedAt(MemoryCap::of(64, MemoryUnit::Megabytes)));
 
-    expect($shell->commands()[0]->environment())->toHaveKey(MemoryCap::SCAN_DIR);
+    expect($shell->commands()[0]->environment())->toHaveKey(MemoryCap::SCAN_DIR)
+        ->and(is_dir(MemoryScan::directoryBeside(sprintf('%s/.mutation-gate/pest/controls/runs', $at->root()))))->toBeFalse();
 });
 
 it('cannot run the controls where an earlier run left a file in their place that cannot be removed', function (): void {

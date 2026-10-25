@@ -114,16 +114,19 @@ it('writes no hook into a directory other repositories run their hooks from, and
         ->and(file_exists(sprintf('%s/pre-commit', $shared)))->toBeFalse();
 })->group(...$holds);
 
-it('uninstalls only the hooks it wrote', function (): void {
-    $repository = Repository::empty()->write('.git/hooks/pre-commit', "#!/bin/sh\nnpm test\n");
-    Commands::run($repository->root, 'hook', ['action' => 'install']);
+it('uninstalls only the hooks it wrote, whichever comes first', function (string $ours, string $theirs): void {
+    $repository = Repository::empty()->write(sprintf('.git/hooks/%s', $theirs), "#!/bin/sh\nnpm test\n");
+    Commands::run($repository->root, 'hook', ['action' => 'install', '--pre-commit' => true]);
 
     $printed = Commands::run($repository->root, 'hook', ['action' => 'uninstall']);
 
-    expect([$printed->code, $printed->output])->toBe([0, sprintf("Removed %s.\n", hookFile($repository, 'pre-push'))])
-        ->and(hookOf($repository, 'pre-push'))->toBe('')
-        ->and(hookOf($repository, 'pre-commit'))->toBe("#!/bin/sh\nnpm test\n");
-})->group(...$holds);
+    expect([$printed->code, $printed->output])->toBe([0, sprintf("Removed %s.\n", hookFile($repository, $ours))])
+        ->and(hookOf($repository, $ours))->toBe('')
+        ->and(hookOf($repository, $theirs))->toBe("#!/bin/sh\nnpm test\n");
+})->with([
+    'its own pre-push hook' => ['pre-push', 'pre-commit'],
+    'its own pre-commit hook' => ['pre-commit', 'pre-push'],
+])->group(...$holds);
 
 it('says so when there is no hook of its own to uninstall, naming none of anybody else\'s', function (): void {
     $printed = Commands::run(
@@ -144,13 +147,21 @@ it('refuses an action it does not know, and a project outside a repository', fun
         ->and($outside->errors)->toContain('not a git repository');
 })->group(...$holds);
 
-it('stops when a hook cannot be written', function (): void {
+it('stops when a hook cannot be written, after saying what it wrote', function (): void {
     $repository = Repository::empty();
     mkdir(sprintf('%s/.git/hooks/pre-push', $repository->root));
+    $second = Repository::empty();
+    mkdir(sprintf('%s/.git/hooks/pre-commit', $second->root));
 
     $printed = Commands::run($repository->root, 'hook', ['action' => 'install']);
+    $after = Commands::run($second->root, 'hook', ['action' => 'install', '--pre-commit' => true]);
 
-    expect([$printed->code, $printed->errors])->toBe([2, sprintf("%s could not be written.\n", hookFile($repository, 'pre-push'))]);
+    expect([$printed->code, $printed->errors])->toBe([2, sprintf("%s could not be written.\n", hookFile($repository, 'pre-push'))])
+        ->and([$after->code, $after->errors])->toBe([2, sprintf(
+            "Wrote %s.\n%s could not be written.\n",
+            hookFile($second, 'pre-push'),
+            hookFile($second, 'pre-commit'),
+        )]);
 })->group(...$holds);
 
 it('stops when a hook of its own cannot be removed', function (): void {

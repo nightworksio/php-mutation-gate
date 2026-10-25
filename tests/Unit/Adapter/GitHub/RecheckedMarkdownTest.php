@@ -44,6 +44,9 @@ it('lists up to 20 of each, then says how many more', function (): void {
     foreach (range(1, 22) as $line) {
         $survivor = Rechecks::judged(sprintf('src/Money.php:%d', $line), MutantJudgement::Survived);
         $rechecks[] = Recheck::found($survivor, $survivor);
+    }
+
+    foreach (range(1, 21) as $line) {
         $rechecks[] = Recheck::gone(Rechecks::judged(sprintf('src/Cart.php:%d', $line), MutantJudgement::Survived));
     }
 
@@ -51,7 +54,8 @@ it('lists up to 20 of each, then says how many more', function (): void {
 
     expect(substr_count($comment, '<details><summary>'))->toBe(20)
         ->and(substr_count($comment, '- <code>src/Cart.php:'))->toBe(20)
-        ->and(substr_count($comment, 'And 2 more'))->toBe(2);
+        ->and(substr_count($comment, 'And 2 more'))->toBe(1)
+        ->and(substr_count($comment, 'And 1 more'))->toBe(1);
 });
 
 it('writes a place a ledger holds as text, never as markup or a link', function (): void {

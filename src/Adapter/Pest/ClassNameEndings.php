@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
-use function array_reverse;
+use function array_reduce;
 use function array_values;
 use function count;
-use function implode;
 use function ksort;
 use function mb_str_split;
+use function sprintf;
 use function str_starts_with;
 use function strcmp;
 use function usort;
@@ -67,7 +67,11 @@ final readonly class ClassNameEndings
     /** A name spelt backwards, character by character. */
     private static function backwards(string $name): string
     {
-        return implode('', array_reverse(mb_str_split($name)));
+        return array_reduce(
+            mb_str_split($name),
+            static fn(string $reversed, string $character): string => sprintf('%s%s', $character, $reversed),
+            '',
+        );
     }
 
     /** Whether the name spelt backwards at an index begins with a start, where there is one. */

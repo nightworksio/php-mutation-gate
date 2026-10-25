@@ -9,6 +9,9 @@ use NightWorksIO\MutationGate\Mutator\Tags;
 use NightWorksIO\MutationGate\Mutator\Testing\Mutates;
 use NightWorksIO\MutationGate\Mutator\Unchanged;
 use NightWorksIO\MutationGateSymfony\Mutators\RemoveIsGrantedAttribute;
+use PhpParser\Node\Attribute;
+use PhpParser\Node\AttributeGroup;
+use PhpParser\Node\Name;
 use PhpParser\Node\Stmt\Nop;
 
 it('is named in the symfony set, a removed call, about security, with its own hint', function (): void {
@@ -76,6 +79,14 @@ it('leaves alone an attribute of another namespace and another attribute', funct
         PHP;
 
     expect(Mutates::with(new RemoveIsGrantedAttribute(), $code)->underPest())->toHaveCount(0);
+});
+
+it('keeps the attributes it does not remove as a list', function (): void {
+    $route = new Attribute(new Name('Symfony\\Component\\Routing\\Attribute\\Route'));
+    $isGranted = new Attribute(new Name('Symfony\\Component\\Security\\Http\\Attribute\\IsGranted'));
+
+    expect(new RemoveIsGrantedAttribute()->mutate(new AttributeGroup([$isGranted, $route])))
+        ->toEqual(new AttributeGroup([$route]));
 });
 
 it('leaves alone a node it does not handle', function (): void {

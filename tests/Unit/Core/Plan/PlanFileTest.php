@@ -251,11 +251,11 @@ it('reads a plan that names no default branch as one that cannot tell it', funct
         ->and($plan instanceof Plan ? $plan->runOn()->scope() : $plan)->toEqual(Detached::head());
 });
 
-it('writes and reads back the lines a change added or modified, and why it reached what it did', function (): void {
+it('writes and reads back the lines a change added or modified, from the first, and why it reached what it did', function (): void {
     $plan = planFileEmpty()->on(RunOn::detached(Scope::branch('main')))->considering(
         Considered::everything()->reaching(
             Changes::of(
-                Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(3), Line::of(4))),
+                Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(1), Line::of(4))),
                 Change::modified(Path::of('src/Renamed.php'), Lines::none()),
             ),
             Reasons::of(Reason::that('`src/Money.php` changed, so its unit is reached.')),
@@ -266,7 +266,7 @@ it('writes and reads back the lines a change added or modified, and why it reach
     $changed = <<<'JSON'
         "changed": {
                 "src/Money.php": [
-                    3,
+                    1,
                     4
                 ],
         JSON;

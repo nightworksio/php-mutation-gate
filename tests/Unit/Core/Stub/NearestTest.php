@@ -47,6 +47,13 @@ it('follows the covering file named for the class, however few of the tests it h
         ->toBe('tests/Unit/MoneyTest.php');
 });
 
+it('follows the file named for the class that holds the most covering tests, the first by path among equals', function (): void {
+    expect(nearestFor(['a' => 'tests/Unit/MoneyTest.php', 'b' => 'tests/Feature/MoneyTest.php', 'c' => 'tests/Unit/MoneyTest.php']))
+        ->toBe('tests/Unit/MoneyTest.php')
+        ->and(nearestFor(['a' => 'tests/Unit/MoneyTest.php', 'b' => 'tests/Feature/MoneyTest.php']))
+        ->toBe('tests/Feature/MoneyTest.php');
+});
+
 it('follows the file that holds the most covering tests where none is named for the class, the first by path among equals', function (): void {
     expect(nearestFor(['a' => 'tests/BTest.php', 'b' => 'tests/CTest.php', 'c' => 'tests/CTest.php']))->toBe('tests/CTest.php')
         ->and(nearestFor(['a' => 'tests/CTest.php', 'b' => 'tests/BTest.php']))->toBe('tests/BTest.php');

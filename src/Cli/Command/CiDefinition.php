@@ -99,9 +99,7 @@ final readonly class CiDefinition
     {
         $plan = $request->plan();
         $shard = $settings->shards()->seconds();
-        $estimate = $plan === BuiltinCiPlan::GitHub && ! $request->workflow() instanceof GitHubWorkflow
-            ? LineCountEstimate::of($this->extensions, $this->project, $settings)
-            : CannotJudge::because('it is not estimated');
+        $estimate = LineCountEstimate::of($this->extensions, $this->project, $settings);
         $workflow = $this->workflow($request->workflow(), $estimate, $shard);
         $templates = CiTemplate::for($plan, $workflow);
         $values = $this->values($settings, $plan);

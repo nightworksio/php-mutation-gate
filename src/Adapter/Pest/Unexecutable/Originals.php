@@ -47,7 +47,7 @@ final class Originals
     private function reading(Path $file): Original|CannotJudge|NotGiven
     {
         $path = $this->project->absolute($file);
-        $text = is_file($path) ? file_get_contents($path) : false;
+        $text = is_file($path) ? file_get_contents($path) : null;
 
         if (! is_string($text)) {
             return NotGiven::value();

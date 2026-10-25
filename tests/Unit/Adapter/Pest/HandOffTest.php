@@ -167,3 +167,42 @@ it('reads each mutant static analysis rejected, and its twin, as killed by it, w
     ])->and($result instanceof MutationResult ? [...$result->mutants()][0]->reason() : null)
         ->toEqual(PreCheckerFake::rejection(Path::of('src/Money.php')));
 });
+
+it('offers each covered mutant, past one no test covers before it, against its file printed once, with its tests\' time', function (): void {
+    [$project, $results, [$plus, $twin, $minus, $uncovered]] = handedProject();
+    $early = PlannedMutant::of('early', $plus->file(), Line::of(3), Line::of(3), PlusToMinus::class, $uncovered->diff(), $uncovered->mutated());
+    $checker = new PreCheckerFake([PlusToMinus::class, MinusToPlus::class]);
+    $handOff = handOff($project, $results, $checker);
+    file_put_contents($results, implode('', [
+        ...array_map(
+            static fn(PlannedMutant $mutant): string => RecordLine::planned($mutant, $mutant->isTwin() ? RecordEvent::Twin : RecordEvent::Planned),
+            [$early, $plus, $twin, $minus, $uncovered],
+        ),
+        RecordLine::made(4, Seconds::of(1.0)),
+    ]));
+
+    $handOff->look();
+    [$plusPrint, $minusPrint] = $checker->originals();
+
+    expect($checker->offered())->toBe([sprintf('%s <?php // plus', PlusToMinus::class), sprintf('%s <?php // minus', MinusToPlus::class)])
+        ->and($plusPrint)->toBe($minusPrint)
+        ->and($checker->tests())->toBe([0.0, 0.0])
+        ->and($handOff->rejectionOf($plus))->toBeInstanceOf(Rejection::class)
+        ->and($handOff->rejectionOf($minus))->toBeInstanceOf(Rejection::class);
+});
+
+it('offers nothing of a file it cannot read', function (): void {
+    [$project, $results, $planned] = handedProject();
+    $checker = new PreCheckerFake([PlusToMinus::class]);
+    handedRecords($results, $planned, made: true);
+    unlink(sprintf('%s/src/Money.php', $project->root()));
+    set_error_handler(static fn(): bool => true);
+
+    try {
+        handOff($project, $results, $checker)->look();
+    } finally {
+        restore_error_handler();
+    }
+
+    expect($checker->offered())->toBe([]);
+});

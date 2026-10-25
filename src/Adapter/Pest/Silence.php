@@ -7,9 +7,11 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 use function array_key_exists;
 use function file_put_contents;
 use function getenv;
+use function is_float;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Progress;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -34,7 +36,11 @@ final class Silence
     public const string BEAT = "\x06";
 
 
-    /** @var array<int, array{float, string, float}> each run's limit, mutated copy and last beat, by its process */
+    /**
+     * Each run's limit, mutated copy and last beat, none before its first, by its process.
+     *
+     * @var array<int, array{float, string, float|NotGiven}>
+     */
     private static array $watched = [];
 
     /**
@@ -53,7 +59,7 @@ final class Silence
         unset(self::$watched[spl_object_id($process)]);
 
         if ($limit instanceof Seconds && Selection::passable($filter)) {
-            self::$watched[spl_object_id($process)] = [$limit->seconds(), $mutated, 0.0];
+            self::$watched[spl_object_id($process)] = [$limit->seconds(), $mutated, NotGiven::value()];
         }
     }
 
@@ -76,7 +82,7 @@ final class Silence
         $beat = str_contains($process->getIncrementalErrorOutput(), self::BEAT) ? $now : $beat;
         self::$watched[$id] = [$limit, $mutated, $beat];
 
-        if ($beat > 0.0 && $now - $beat > $limit) {
+        if (is_float($beat) && $now - $beat > $limit) {
             unset(self::$watched[$id]);
             self::recorded($mutated, $limit);
             $process->setTimeout(Progress::RUN_PAST);

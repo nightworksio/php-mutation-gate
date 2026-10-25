@@ -68,8 +68,7 @@ final readonly class AffectedCommand
                 default: AffectedFormat::Files->value,
             )
             ->setCode(static function (InputInterface $input, OutputInterface $output) use ($composition): int {
-                $asked = $input->getOption(FormOption::FORMAT);
-                $written = is_string($asked) ? $asked : '';
+                $written = CommandText::option($input, FormOption::FORMAT);
                 $format = AffectedFormat::tryFrom($written);
 
                 if (! $format instanceof AffectedFormat) {

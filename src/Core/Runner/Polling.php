@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
+use Closure;
+
+use function intdiv;
+
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /** How often the gate looks at a process it waits on to end by a deadline. */
@@ -26,5 +30,22 @@ final readonly class Polling
     public static function moment(): Seconds
     {
         return Seconds::of(self::MOMENT);
+    }
+
+    /**
+     * Waits until a condition holds, this long at most: it looks, and pauses
+     * an interval between looks, for as many intervals as fit in the wait.
+     *
+     * @param Closure(): bool    $holds
+     * @param Closure(int): void $pause pauses this many microseconds, as usleep does
+     */
+    public static function wait(Seconds $within, Closure $holds, Closure $pause): void
+    {
+        $step = self::interval()->microseconds();
+        $looks = intdiv($within->microseconds(), $step);
+
+        for ($look = 0; ! $holds() && $look < $looks; $look++) {
+            $pause($step);
+        }
     }
 }

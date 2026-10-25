@@ -59,6 +59,12 @@ final readonly class Configuring
         return $this->built(PhpHandler::class);
     }
 
+    /** @return list<Emitter> where the loader and the handler emit, as their constructors take it: none before 13.4 */
+    public function told(): array
+    {
+        return version_compare($this->version, self::TOLD, '>=') ? [$this->unheard()] : [];
+    }
+
     /**
      * One of the two, told where to emit where its constructor takes that.
      * Its class is named at run time because PHPUnit's releases declare its
@@ -73,12 +79,6 @@ final readonly class Configuring
     private function built(string $class): object
     {
         return new $class(...$this->told());
-    }
-
-    /** @return list<Emitter> where the loader and the handler emit, as their constructors take it */
-    private function told(): array
-    {
-        return version_compare($this->version, self::TOLD, '>=') ? [$this->unheard()] : [];
     }
 
     /** An emitter of the boot's own, apart from PHPUnit's facade, with nothing subscribed to it. */

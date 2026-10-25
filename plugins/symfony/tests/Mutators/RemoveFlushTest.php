@@ -25,13 +25,13 @@ it('removes the flush of an entity manager, by name or as either registry method
 
         final class Orders
         {
-            public function save($em, $objectManager, $manager)
+            public function save($em, $orderObjectManager, $manager)
             {
                 $em->flush();
                 $this->entityManager->flush();
                 $this->doctrine->getManager()->flush();
                 $this->registry->getEntityManager()->flush();
-                $objectManager->flush();
+                $orderObjectManager->flush();
                 $manager->flush();
             }
         }
@@ -43,7 +43,7 @@ it('removes the flush of an entity manager, by name or as either registry method
         "-        \$this->entityManager->flush();",
         "-        \$this->doctrine->getManager()->flush();",
         "-        \$this->registry->getEntityManager()->flush();",
-        "-        \$objectManager->flush();",
+        "-        \$orderObjectManager->flush();",
         "-        \$manager->flush();",
     ])
         ->and(iterator_to_array($mutates->underInfection(), preserve_keys: false))->toBe([
@@ -51,18 +51,20 @@ it('removes the flush of an entity manager, by name or as either registry method
             "-        \$this->entityManager->flush();\n+        ",
             "-        \$this->doctrine->getManager()->flush();\n+        ",
             "-        \$this->registry->getEntityManager()->flush();\n+        ",
-            "-        \$objectManager->flush();\n+        ",
+            "-        \$orderObjectManager->flush();\n+        ",
             "-        \$manager->flush();\n+        ",
         ]);
 });
 
-it('leaves alone a flush of another object, another method and a flush whose result is used', function (): void {
+it('leaves alone a flush of another object, of an unnamed one, another method and a flush whose result is used', function (): void {
     $code = <<<'PHP'
         <?php
 
         $stream->flush();
         $item->flush();
         $this->cache->flush();
+        $this->registry()->flush();
+        $$name->flush();
         $em->persist($order);
         $flushed = $em->flush();
         PHP;

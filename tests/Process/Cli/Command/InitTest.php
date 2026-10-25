@@ -353,18 +353,22 @@ it('imports the file import names, as init --from does', function () use ($file)
         ->and(json_decode($file($project, 'mutation-gate.json'), associative: true))->toMatchArray(['timeouts' => ['seconds' => 9]]);
 })->group(...$holds);
 
-it('writes nothing from an Infection config it cannot take over from, or one that is not there', function () use ($init, $file): void {
+it('writes nothing from an Infection config it cannot take over from, or one that is not there, named or not', function () use ($init, $file): void {
     $project = Scratch::copy('tests/Fixtures/Projects/Library');
     Scratch::write($project, 'infection.json5', '{testFramework: "phpspec"}');
     $refused = $init($project, ['--from' => null]);
     $missing = $init($project, ['--from' => 'nowhere.json5']);
     $none = $init(Scratch::copy('tests/Fixtures/Projects/Library'), ['--from' => null]);
+    $bare = Scratch::copy('tests/Fixtures/Projects/Library');
+    chdir($bare);
+    $unnamed = Commands::run($bare, 'import', []);
 
     expect([$refused->code, $refused->errors])->toBe([
         2,
         "infection.json5 sets testFramework to phpspec. The gate runs Infection with PHPUnit alone, so it cannot judge that suite.\n",
     ])->and([$missing->code, $missing->errors])->toBe([2, "nowhere.json5 is not here to import from.\n"])
         ->and([$none->code, $none->errors])->toBe([2, "There is no infection.json5, infection.json or .dist of either here to import from.\n"])
+        ->and([$unnamed->code, $unnamed->errors])->toBe([$none->code, $none->errors])
         ->and($file($project, 'mutation-gate.php'))->toBe('');
 })->group(...$holds);
 
@@ -439,12 +443,12 @@ it('picks the GitHub definition a full run\'s estimate fits, where neither is as
 })->with([
     'within one shard' => [
         '0.5',
-        'It is the one-step action: a full run is estimated at',
+        "It is the one-step action: a full run is estimated at 2s from its lines of code, within shards.seconds (10m).\n",
         'mutation / verdict',
     ],
     'more than one shard' => [
         '1000',
-        'It is the reusable workflow: a full run is estimated at',
+        "It is the reusable workflow: a full run is estimated at 50m from its lines of code, more than shards.seconds (10m).\n",
         'mutation / verdict',
     ],
 ])->group(...$holds);

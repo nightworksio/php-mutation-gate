@@ -55,7 +55,7 @@ final class CoveringFiles
      */
     public static function of(array $tests, string $mutated = '', int $longest = Ceiling::BYTES): array
     {
-        $paths = getenv(GateVariable::Narrow->value) === '1' ? self::needed($tests, $longest) : [];
+        $paths = getenv(GateVariable::Narrow->value) === '1' && $tests !== [] ? self::needed($tests, $longest) : [];
         $results = getenv(GateVariable::Results->value);
 
         $recorded = $paths !== [] && $mutated !== '' && is_string($results) && $results !== ''
@@ -87,15 +87,11 @@ final class CoveringFiles
     }
 
     /**
-     * @param  list<string> $tests
+     * @param  non-empty-list<string> $tests
      * @return list<string>
      */
     private static function needed(array $tests, int $longest): array
     {
-        if ($tests === []) {
-            return [];
-        }
-
         $loaded = self::loaded();
         $files = [];
 
@@ -107,7 +103,7 @@ final class CoveringFiles
             }
 
             foreach ($loaded->needs($file) as $needed) {
-                $files[$needed] = true;
+                $files[$needed] = $needed;
             }
         }
 

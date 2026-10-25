@@ -54,7 +54,7 @@ final readonly class OnlyList
      */
     public static function in(string $file): array
     {
-        $listed = $file !== '' && is_file($file) ? file_get_contents($file) : false;
+        $listed = is_file($file) ? file_get_contents($file) : null;
         $text = is_string($listed) ? trim($listed) : '';
 
         return $text === '' ? [] : array_flip(explode(self::LINE, $text));

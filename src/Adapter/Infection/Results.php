@@ -277,7 +277,7 @@ final readonly class Results
             $evidence = $evidence->with($recorded->id(), KillOutput::evidenceOf($recorded, $mutant['output']));
         }
 
-        return MutationResult::of(Mutants::of(...$mutants), 0)->withEvidence($evidence);
+        return MutationResult::skippingNone(Mutants::of(...$mutants))->withEvidence($evidence);
     }
 
     /** A timed-out mutant, saying its run was stopped at its silence limit where it was. */

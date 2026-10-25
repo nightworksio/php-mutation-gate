@@ -43,6 +43,12 @@ final readonly class Seconds
         return new self($seconds);
     }
 
+    /** No time at all. */
+    public static function none(): self
+    {
+        return new self(0.0);
+    }
+
     /** The time from one moment to a later one. */
     public static function between(DateTimeImmutable $start, DateTimeImmutable $end): self
     {

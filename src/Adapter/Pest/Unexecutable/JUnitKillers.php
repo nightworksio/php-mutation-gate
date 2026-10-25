@@ -48,8 +48,8 @@ final readonly class JUnitKillers
     {
         $document = new DOMDocument();
 
-        if (! is_file($log) || ! $document->load($log, Xml::QUIET)) {
-            return TestIds::none();
+        if (is_file($log)) {
+            $document->load($log, Xml::QUIET);
         }
 
         $killers = [];
@@ -105,7 +105,7 @@ final readonly class JUnitKillers
     /** The method Pest makes of a test's description. */
     private static function evaluable(string $description): string
     {
-        $method = sprintf('%s%s', Selection::EVALUABLE, str_replace(' ', '_', str_replace('_', '__', $description)));
+        $method = sprintf('%s%s', Selection::EVALUABLE, str_replace('_', '__', $description));
 
         return preg_replace(self::UNNAMEABLE, '_', $method) ?? $method;
     }

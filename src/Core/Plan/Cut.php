@@ -68,7 +68,7 @@ final readonly class Cut
     /** Exactly this many shards, as `--shards=<n>` asks. */
     public static function exactly(int $count): self
     {
-        return new self(Absent::setting(), $count, exact: true, target: Absent::setting(), overhead: Seconds::of(0.0));
+        return new self(Absent::setting(), $count, exact: true, target: Absent::setting(), overhead: Seconds::none());
     }
 
     /** This cut, where each shard's runner first spends this long on its opening run. */
@@ -118,7 +118,7 @@ final readonly class Cut
         };
         $counts = $this->countsAt($packages, $size);
 
-        while (array_sum($counts) > $this->most && array_sum($counts) > count($packages)) {
+        while (array_sum($counts) > max($this->most, count($packages))) {
             $size = $size * array_sum($counts) / $this->most;
             $counts = $this->countsAt($packages, $size);
         }
@@ -165,7 +165,7 @@ final readonly class Cut
     private function sizeToFit(Seconds $target, float $cost): float
     {
         $room = $target->seconds() - $this->overhead->seconds();
-        $count = $room > 0.0 ? (int) ceil($cost / $room) : $this->most;
+        $count = $room > 0.0 ? ceil($cost / $room) : $this->most;
 
         return $cost / max(1, min($count, $this->most));
     }

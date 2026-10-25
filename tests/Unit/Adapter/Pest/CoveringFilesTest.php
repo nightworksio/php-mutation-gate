@@ -78,6 +78,34 @@ it('needs each loaded test file that is not inert, and each that declares a func
         ->and($loaded->fileOf('never\loaded'))->toBe('');
 });
 
+it('names the file of a test case class under the test directory alone, never of another class', function () use ($suite): void {
+    [$namespace, , $root] = $suite();
+    $loaded = LoadedTests::inThisProcess($root);
+
+    expect($loaded->fileOf(mb_strtolower(sprintf('%s\Fake', $namespace))))->toBe('')
+        ->and($loaded->fileOf(mb_strtolower('P\Tests\Unit\Adapter\Pest\CoveringFilesTest')))->toBe('');
+});
+
+it('needs every loaded test file whose loading acts on others, each apart', function (): void {
+    $namespace = sprintf('Acting%d', hrtime(as_number: true));
+    $root = Scratch::directory();
+    $sources = [
+        'LoneTest.php' => 'final class LoneTest extends \PHPUnit\Framework\TestCase { public function testIt(): void {} }',
+        'SetsOneTest.php' => '$GLOBALS[\'one\'] = 1; final class SetsOneTest extends \PHPUnit\Framework\TestCase {}',
+        'SetsTwoTest.php' => '$GLOBALS[\'two\'] = 2; final class SetsTwoTest extends \PHPUnit\Framework\TestCase {}',
+    ];
+    $files = [];
+
+    foreach ($sources as $name => $source) {
+        Scratch::write($root, $name, sprintf("<?php\nnamespace %s;\n%s\n", $namespace, $source));
+        require_once sprintf('%s/%s', $root, $name);
+        $files[$name] = (string) realpath(sprintf('%s/%s', $root, $name));
+    }
+
+    expect(LoadedTests::inThisProcess($root)->needs($files['LoneTest.php']))
+        ->toBe([$files['LoneTest.php'], $files['SetsOneTest.php'], $files['SetsTwoTest.php']]);
+});
+
 it('reads no loaded test file where the test directory is not there', function () use ($suite): void {
     [$namespace, $files, $root] = $suite();
     $loaded = LoadedTests::inThisProcess(sprintf('%s/missing', $root));
@@ -148,10 +176,31 @@ it('narrows a run only once it records the files it loads by the mutant\'s mutat
 
     $paths = CoveringFiles::of([$child], '/tmp/mutations/abc');
     CoveringFiles::of(['Never\Loaded::test'], '/tmp/mutations/whole');
+    CoveringFiles::of([$child], '/tmp/mutations/def');
 
     expect([$unnamed, $empty, $uncopied, $unwritten])->toBe([[], [], [], []])
         ->and($paths)->toContain(sprintf('%s/%s/ChildTest.php', (string) realpath($root), $namespace))
-        ->and(file_get_contents($results))->toBe(RecordLine::narrowed('/tmp/mutations/abc', $paths));
+        ->and(file_get_contents($results))
+        ->toBe(sprintf('%s%s', RecordLine::narrowed('/tmp/mutations/abc', $paths), RecordLine::narrowed('/tmp/mutations/def', $paths)));
+});
+
+it('reads the suite once until it is forgotten, so a test loaded since is not read', function () use ($suite): void {
+    [$namespace, , $root] = $suite();
+    putenv(sprintf('%s=1', GateVariable::Narrow->value));
+    putenv(sprintf('%s=%s/results.jsonl', GateVariable::Results->value, Scratch::directory()));
+    CoveringFiles::of([sprintf('%s\ChildTest::testIt', $namespace)], '/tmp/mutations/abc');
+    $late = sprintf('%s/%s/LateTest.php', $root, $namespace);
+    Scratch::write($root, sprintf('%s/LateTest.php', $namespace), sprintf(
+        "<?php\nnamespace %s;\nfinal class LateTest extends \\PHPUnit\\Framework\\TestCase { public function testIt(): void {} }\n",
+        $namespace,
+    ));
+    require_once $late;
+    $before = CoveringFiles::of([sprintf('%s\LateTest::testIt', $namespace)], '/tmp/mutations/late');
+    CoveringFiles::forget($root);
+
+    expect($before)->toBe([])
+        ->and(CoveringFiles::of([sprintf('%s\LateTest::testIt', $namespace)], '/tmp/mutations/late'))
+        ->toContain((string) realpath($late));
 });
 
 it('narrows a run of a test its class takes from a trait to the class\'s file and the trait\'s', function () use ($suite): void {

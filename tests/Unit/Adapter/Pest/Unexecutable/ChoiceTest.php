@@ -61,6 +61,7 @@ it('runs a small fallback alone where an ambiguous scan found no read, and judge
 
     expect($small->first($theme))->toEqual(choiceTests(10))
         ->and($small->then($theme))->toEqual(Paths::none())
+        ->and(Choice::of(Paths::none(), choiceTests(1), ambiguous: true)->first($theme))->toEqual(choiceTests(1))
         ->and(Choice::of(Paths::none(), choiceTests(11), ambiguous: true)->first($theme))
         ->toEqual(Outcome::unjudged('ambiguous reference; src/Theme.php is covered by 11 test files'));
 });

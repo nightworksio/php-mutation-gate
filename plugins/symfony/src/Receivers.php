@@ -50,11 +50,11 @@ final readonly class Receivers
     /** Whether a receiver is an entity manager: a variable or a property of `$this` by its name, or one handed out. */
     public static function isEntityManager(Expr $receiver): bool
     {
-        $name = mb_strtolower(self::nameOf($receiver));
-
         return ($receiver instanceof MethodCall && Calls::named($receiver->name, ...self::HANDING_OUT))
-            || in_array($name, self::MANAGERS, strict: true)
-            || array_any(self::MANAGER_ENDINGS, static fn(string $ending): bool => str_ends_with($name, $ending));
+            || array_any(
+                self::namesOf($receiver),
+                static fn(string $name): bool => self::isManagerName(mb_strtolower($name)),
+            );
     }
 
     /**
@@ -63,25 +63,38 @@ final readonly class Receivers
      */
     public static function isMessageBus(Expr $receiver): bool
     {
-        $name = self::nameOf($receiver);
         $function = Ancestors::nearest($receiver, FunctionLike::class);
         $class = Ancestors::nearest($receiver, Class_::class);
 
-        return match (true) {
-            $receiver instanceof Variable => $function instanceof FunctionLike && self::declares($function, $name),
-            default => $class instanceof Class_ && self::holds($class, $name),
-        };
+        return array_any(
+            self::namesOf($receiver),
+            static fn(string $name): bool => match (true) {
+                $receiver instanceof Variable => $function instanceof FunctionLike && self::declares($function, $name),
+                default => $class instanceof Class_ && self::holds($class, $name),
+            },
+        );
     }
 
-    /** The name of a variable, or of a property of `$this`; none for anything else. */
-    private static function nameOf(Expr $receiver): string
+    /** Whether a name in lower case is an entity manager's. */
+    private static function isManagerName(string $name): bool
+    {
+        return in_array($name, self::MANAGERS, strict: true)
+            || array_any(self::MANAGER_ENDINGS, static fn(string $ending): bool => str_ends_with($name, $ending));
+    }
+
+    /**
+     * The name of a variable, or of a property of `$this`; none for anything else.
+     *
+     * @return list<string>
+     */
+    private static function namesOf(Expr $receiver): array
     {
         return match (true) {
-            $receiver instanceof Variable && is_string($receiver->name) => $receiver->name,
+            $receiver instanceof Variable && is_string($receiver->name) => [$receiver->name],
             $receiver instanceof PropertyFetch
                 && Receiver::isThis($receiver->var)
-                && $receiver->name instanceof Identifier => $receiver->name->toString(),
-            default => '',
+                && $receiver->name instanceof Identifier => [$receiver->name->toString()],
+            default => [],
         };
     }
 

@@ -12,11 +12,11 @@ use function is_array;
 use function is_file;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Format\Xml;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Tree\Package;
@@ -145,17 +145,16 @@ final readonly class PhpUnitTrees implements TreeSource
         };
     }
 
-    /** The project's PHPUnit config, read; missing, by the first name it could have, where it has none. */
-    private function xml(): SimpleXMLElement|Missing|CannotJudge
+    /** The project's PHPUnit config, read; none where it has none. */
+    private function xml(): SimpleXMLElement|NotGiven|CannotJudge
     {
-        $candidates = [...PhpUnitConfig::candidatesIn(Path::root())];
         $config = array_find(
-            $candidates,
+            [...PhpUnitConfig::candidatesIn(Path::root())],
             fn(Path $candidate): bool => is_file($this->root->at($candidate)->value()),
         );
 
         if (! $config instanceof Path) {
-            return Missing::at($candidates[0]);
+            return NotGiven::value();
         }
 
         $xml = simplexml_load_string(
@@ -169,7 +168,7 @@ final readonly class PhpUnitTrees implements TreeSource
     }
 
     /** The paths the nodes a query finds name, in their order, each `<directory>` glob expanded. */
-    private function paths(SimpleXMLElement|Missing $xml, string $query): Paths
+    private function paths(SimpleXMLElement|NotGiven $xml, string $query): Paths
     {
         $nodes = $xml instanceof SimpleXMLElement ? $xml->xpath($query) : [];
         $paths = [];
