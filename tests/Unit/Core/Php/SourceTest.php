@@ -20,6 +20,13 @@ it('is a test or a source file at a path, read by its significant tokens', funct
         ->and($source->lineOf(Php::indexOf($source, 'A')))->toEqual(Line::of(3));
 });
 
+it('reads a file of the code the tests judge as no test, and a test file as one', function (): void {
+    $read = [Source::ofCode(Path::of('src/A.php'), Contents::of('<?php')), Source::ofTest(Path::of('tests/ATest.php'), Contents::of('<?php'))];
+
+    expect(array_map(static fn(Source $source): array => [$source->path()->value(), $source->isTest()], $read))
+        ->toBe([['src/A.php', false], ['tests/ATest.php', true]]);
+});
+
 it('reads the scope a file\'s code ends in from its contents alone', function (): void {
     $scope = Source::scopeOf(Contents::of("<?php\n// a comment\nnamespace Shop\\Cart;\n\nfinal class Line {}\n"));
 

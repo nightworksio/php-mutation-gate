@@ -115,7 +115,7 @@ final readonly class AffectedRules
         foreach ($this->inventory->suite->files() as $file) {
             $path = $file->fingerprint()->path();
             $contents = $suite->now($path);
-            $read[$path->value()] = $contents instanceof Contents ? [Source::read($path, $contents, test: true)] : [];
+            $read[$path->value()] = $contents instanceof Contents ? [Source::ofTest($path, $contents)] : [];
         }
 
         foreach ([...$this->map->files(), ...$this->changedPhp($asked)] as $path) {
@@ -142,6 +142,6 @@ final readonly class AffectedRules
     {
         $contents = $this->adapters->project->read($path);
 
-        return $contents instanceof Contents ? [Source::read($path, $contents, test: false)] : [];
+        return $contents instanceof Contents ? [Source::ofCode($path, $contents)] : [];
     }
 }

@@ -91,7 +91,7 @@ final readonly class Affecting
             ),
             $deciding instanceof Path => $none->all($this->why(self::DECIDES, $deciding)),
             $definition instanceof Path => $this->definitionChanged($none, $change, $definition, $files),
-            $this->isSource($path) => $this->sources->of($change, $this->named($package)),
+            $this->isSource($path) => $this->sources->of($change, TestReach::named($package)),
             $this->layout->isTest($inPackage) => $change->kind() === ChangeKind::Deleted
                 ? $none->because($this->why(self::GONE, $path))
                 : $none->wholly($path, $this->why(self::TEST, $path)),
@@ -142,7 +142,7 @@ final readonly class Affecting
         Package $package,
     ): AffectedTests {
         $path = $change->path();
-        $users = $this->users->ofChanged($change, $files, $this->named($package));
+        $users = $this->users->ofChanged($change, $files, TestReach::named($package));
 
         if ($users instanceof Reason) {
             return $none->all($this->why(self::UNTOLD, $path));
@@ -160,11 +160,5 @@ final readonly class Affecting
     private function why(string $reason, Path $path): Reason
     {
         return Reason::that(sprintf($reason, $path->value()));
-    }
-
-    /** A package as a reason of the support rules names it. */
-    private function named(Package $package): string
-    {
-        return $package->path()->equals(Path::root()) ? TestReach::PROJECT : $package->path()->value();
     }
 }

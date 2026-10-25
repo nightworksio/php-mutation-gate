@@ -62,14 +62,14 @@ final readonly class AsItRuns
     {
         $kept = [];
         $last = Unread::line();
-        $inBlock = false;
+        $block = NotGiven::value();
 
         foreach ($lines as $line) {
             $indent = DefinitionLine::read($line)->indent();
-            $inBlock = self::staysInBlock($inBlock, $last, $line, $indent);
+            $block = self::blockHolding($block, $line, $indent);
             $carried = self::carriesOn($last, $indent);
 
-            if ($inBlock || self::keptAsWritten($line, $carried)) {
+            if ($block instanceof DefinitionLine || self::keptAsWritten($line, $carried)) {
                 $kept[] = $line;
 
                 continue;
@@ -84,7 +84,7 @@ final readonly class AsItRuns
             if ($read instanceof DefinitionLine) {
                 $kept[] = $line;
                 $last = $read;
-                $inBlock = $read->role() === LineRole::StartsBlock;
+                $block = self::blockStartedBy($read);
             }
         }
 
@@ -92,18 +92,23 @@ final readonly class AsItRuns
     }
 
     /**
-     * Whether a line, so indented, is a line of the block scalar the last line read starts, where the line before
-     * was in it: blank, or written deeper.
+     * The line that starts the block scalar a line, so indented, stands in, where the line before stood in it: blank,
+     * or written deeper than that line; none where it stands in none.
      */
-    private static function staysInBlock(
-        bool $inBlock,
-        DefinitionLine|Unread $header,
+    private static function blockHolding(
+        DefinitionLine|NotGiven $header,
         string $line,
         int $indent,
-    ): bool {
-        return $inBlock
-            && $header instanceof DefinitionLine
-            && (trim($line, ' ') === '' || $indent > $header->indent());
+    ): DefinitionLine|NotGiven {
+        return $header instanceof DefinitionLine && (trim($line, ' ') === '' || $indent > $header->indent())
+            ? $header
+            : NotGiven::value();
+    }
+
+    /** A line read, where it starts a block scalar; none where it starts none. */
+    private static function blockStartedBy(DefinitionLine $read): DefinitionLine|NotGiven
+    {
+        return $read->role() === LineRole::StartsBlock ? $read : NotGiven::value();
     }
 
     /** Whether a line so indented carries on the value of the last line read, where one was read. */

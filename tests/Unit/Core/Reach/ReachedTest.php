@@ -34,6 +34,10 @@ it('says whether any path it holds is a directory or inside it', function (strin
     'a file inside the file' => ['src/Http/Kernel.php/x', false],
 ]);
 
+it('holds even one path inside the root', function (): void {
+    expect(Reached::none()->and(Paths::of(Path::of('src/A.php')))->anyWithin(Path::root()))->toBeTrue();
+});
+
 it('says whether a path is one it holds or inside one', function (string $path, bool $around): void {
     $trees = Reached::none()->and(Paths::of(Path::of('packages/money/src'), Path::of('123')));
 

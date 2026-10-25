@@ -103,7 +103,7 @@ final readonly class Removals
         $read = [];
 
         foreach ($sources as $path => $contents) {
-            $read[$path->value()] = Source::read($path, $contents, test: false);
+            $read[$path->value()] = Source::ofCode($path, $contents);
         }
 
         return $read;

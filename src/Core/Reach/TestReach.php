@@ -84,6 +84,12 @@ final readonly class TestReach
         };
     }
 
+    /** A package as a reason names it: the project at the root, and any other by its path. */
+    public static function named(Package $package): string
+    {
+        return $package->path()->equals(Path::root()) ? self::PROJECT : $package->path()->value();
+    }
+
     private function testChanged(Reach $reach, Change $change, Package $package): Reach
     {
         $path = $change->path();
@@ -92,7 +98,7 @@ final readonly class TestReach
         if ($gone || $this->coverage instanceof NoMap) {
             return $reach->wholly(
                 Paths::of($package->path()),
-                Reason::that(sprintf($gone ? self::GONE : self::NO_MAP, $path->value(), $this->named($package))),
+                Reason::that(sprintf($gone ? self::GONE : self::NO_MAP, $path->value(), self::named($package))),
             );
         }
 
@@ -105,12 +111,12 @@ final readonly class TestReach
     private function supportChanged(Reach $reach, Change $change, Package $package): Reach
     {
         $path = $change->path();
-        $users = $this->users->ofChanged($change, $this->sources, $this->named($package));
+        $users = $this->users->ofChanged($change, $this->sources, self::named($package));
 
         if ($users instanceof Reason || $this->coverage instanceof NoMap) {
             $why = $users instanceof Reason
                 ? $users
-                : Reason::that(sprintf(self::NO_MAP, $path->value(), $this->named($package)));
+                : Reason::that(sprintf(self::NO_MAP, $path->value(), self::named($package)));
 
             return $reach->wholly(Paths::of($package->path()), $why);
         }
@@ -149,10 +155,5 @@ final readonly class TestReach
         }
 
         return $reach;
-    }
-
-    private function named(Package $package): string
-    {
-        return $package->path()->equals(Path::root()) ? self::PROJECT : $package->path()->value();
     }
 }
