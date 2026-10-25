@@ -39,11 +39,7 @@ final readonly class Claims
         return new self($workplace->claimed(), $job->count(), is_float($end) ? Deadline::atEpoch($end) : $end);
     }
 
-    /**
-     * The position of the next run, now this worker's; or none, where none is
-     * left or the end has come. The counter only grows, so each count written
-     * over it covers the one before, and the lock goes as the file closes.
-     */
+    /** The position of the next run, now this worker's; or none, where none is left or the end has come. */
     public function next(): int|NotGiven
     {
         $file = is_file($this->counter) ? fopen($this->counter, 'c+') : NotGiven::value();
