@@ -229,7 +229,7 @@ final readonly class Git implements ChangeSource, Repository
 
     public function defaultBranch(): Scope|CannotTell
     {
-        $target = $this->git->run(['symbolic-ref', '--quiet', self::ORIGIN_HEAD]);
+        $target = $this->git->run(['symbolic-ref', self::ORIGIN_HEAD]);
 
         return $target instanceof CannotTell
             ? CannotTell::because(sprintf(self::NO_ORIGIN_HEAD, self::ORIGIN_HEAD))
