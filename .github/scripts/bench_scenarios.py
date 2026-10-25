@@ -42,6 +42,11 @@ For each gate arm, from an empty `.mutation-gate`:
   run of what changed since the default branch's last commit, untimed, and
   a run of what the pull request changed, on a branch of its own, timed.
 
+Each round of a warm full or unchanged re-run starts from the same commit,
+with nothing a round before it changed of what the repository tracks: a
+local full run writes each floor it raises into the baseline, which a later
+round would otherwise be judged against and key its units by.
+
 Each timed run keeps its report and wall time in the out directory, as
 `<arm>-<scenario>-<round or pull request>`. `report` writes the result file
 and the step summary: each warm full and unchanged re-run as the median of
@@ -289,6 +294,8 @@ def run(project: dict, directory: Path, out: Path, rounds: int, arm_seconds: flo
             options = ["--full"] if step["full"] else [f"--changed-since={since}"]
             times = rounds if step["timed"] and step["scenario"] in ROUNDED else 1
             for at in range(1, times + 1):
+                if times > 1:
+                    checkout(directory, MAIN, moved.head)
                 if step["scenario"] == "warm" and step["timed"]:
                     bench.removed(directory / ".mutation-gate")
                     shutil.copytree(snapshot, directory / ".mutation-gate")
