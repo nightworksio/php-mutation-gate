@@ -31,7 +31,7 @@ final readonly class Origin
         $port = parse_url($url, PHP_URL_PORT);
 
         return match (true) {
-            ! is_string($scheme) || ! is_string($host) || $host === '' => self::UNREAD,
+            ! is_string($scheme) || ! is_string($host) => self::UNREAD,
             is_int($port) => sprintf('%s://%s:%d', $scheme, $host, $port),
             default => sprintf('%s://%s', $scheme, $host),
         };

@@ -103,6 +103,14 @@ it('says why the bucket gave no ledger, and where it asked', function () use ($s
     ]);
 });
 
+it('says the error code the bucket refused with', function () use ($store): void {
+    expect(LedgerRead::unread($store(new Bucket(403, 'AccessDenied'))->read(Scope::branch('main'))))->toBe([
+        UnreadReason::Refused,
+        'The ledger is unreadable from s3://ledgers/mutation-gate/refs/heads/main/ledger.json.gz: HTTP 403, AccessDenied. '
+        . 'The run judges without it.',
+    ]);
+});
+
 it('says an object the bucket keeps is no ledger this gate reads', function () use ($store): void {
     $bucket = new Bucket()->holding(IN_THE_BUCKET, 'not a ledger');
 

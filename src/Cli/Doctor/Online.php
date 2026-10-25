@@ -104,7 +104,7 @@ final readonly class Online
     {
         $host = parse_url($this->environment->valueOf('GITHUB_SERVER_URL'), PHP_URL_HOST);
 
-        return is_string($host) && $host !== '' ? $host : self::GITHUB;
+        return is_string($host) ? $host : self::GITHUB;
     }
 
     private function api(): Api

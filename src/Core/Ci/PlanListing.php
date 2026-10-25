@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Ci;
 
-use function array_diff_key;
 use function array_map;
 
 use NightWorksIO\MutationGate\Core\Format\JsonText;
@@ -37,7 +36,8 @@ final readonly class PlanListing
         $shards = [];
 
         foreach ($listed['shards'] as $shard) {
-            $shards[] = array_diff_key($shard, ['units' => true]);
+            unset($shard['units']);
+            $shards[] = $shard;
         }
 
         return JsonText::compact([...$listed, 'shards' => $shards]);

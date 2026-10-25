@@ -38,6 +38,12 @@ it('suggests the registered name a missing one was most likely meant to be', fun
         ->and($entries->find(Name::of('slack')))->toEqual(CannotJudge::because('No reporter is registered as "slack".'));
 });
 
+it('suggests a registered name that is a number as the name it is', function (): void {
+    $entries = new Entries(ExtensionPoint::Reporter)->with(registeredEntry('42', 'acme/a', Name::of('the answer')));
+
+    expect($entries->find(Name::of('43')))->toEqual(CannotJudge::because('No reporter is registered as "43". Did you mean "42"?'));
+});
+
 it('keeps each entry\'s name, package and value', function (): void {
     $entry = registeredEntry('sarif', 'acme/a', Name::of('the sarif reporter'));
 

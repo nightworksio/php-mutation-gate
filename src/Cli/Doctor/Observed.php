@@ -113,11 +113,13 @@ final readonly class Observed
         $withheld = $settings instanceof Settings
             ? $chosen->withheld($settings->ci(), $settings->runner()->withhold(), $settings->reports())
             : $chosen->withheld(Ci::none(), Withheld::nothing(), Listed::of());
-        $runner = $settings instanceof Settings ? $settings->runner()->choice()->use()->value() : '';
-        $own = $runner === BuiltinRunner::Infection->value ? OwnConfig::in($this->infectionProject()) : [];
+        $runner = $settings instanceof Settings
+            ? BuiltinRunner::tryFrom($settings->runner()->choice()->use()->value())
+            : null;
+        $own = $runner === BuiltinRunner::Infection ? OwnConfig::in($this->infectionProject()) : [];
         $php = $this->php->describe($withheld, ...($own instanceof OwnConfig ? $own->phpOptions() : []));
 
-        $native = BuiltinRunner::tryFrom($runner)?->makesItsOwnMutants() === false;
+        $native = $runner?->makesItsOwnMutants() === false;
 
         return $php instanceof RunnerPhp && $native ? $php->turningOpcacheOff() : $php;
     }

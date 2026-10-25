@@ -8,6 +8,8 @@ use Composer\InstalledVersions;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 
+use function sprintf;
+
 /** The gate as Composer installed it: its version and the commit it was installed from. */
 final readonly class InstalledGate
 {
@@ -15,8 +17,8 @@ final readonly class InstalledGate
     {
         return Version::of(
             ThisPackage::COMPOSER,
-            InstalledVersions::getPrettyVersion(ThisPackage::COMPOSER) ?? '',
-            InstalledVersions::getReference(ThisPackage::COMPOSER) ?? '',
+            sprintf('%s', InstalledVersions::getPrettyVersion(ThisPackage::COMPOSER)),
+            sprintf('%s', InstalledVersions::getReference(ThisPackage::COMPOSER)),
         );
     }
 }
