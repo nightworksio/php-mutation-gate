@@ -76,3 +76,14 @@ it('leaves out every item of an array named a coincidence', function (): void {
         'Large.php' => plantedClass('Large', "public const string WORD = 'large';"),
     ]))->toBe([]);
 });
+
+it('tells a value that is not UTF-8 from the ASCII it holds, and writes its bytes escaped', function (): void {
+    expect(oneHomeOver([
+        'Bytes.php' => plantedClass('Bytes', 'public const string RANGE = "\x80..\xBF";'),
+        'Path.php' => plantedClass('Path', "public const string UP = '..';"),
+        'Copy.php' => plantedClass('Copy', 'public const string RANGE = "\x80..\xBF";'),
+    ]))->toBe([
+        "Bytes.php:9 D9 — Planted\\Bytes::RANGE holds '\\200..\\277', and so does Planted\\Copy::RANGE",
+        "Copy.php:9 D9 — Planted\\Copy::RANGE holds '\\200..\\277', and so does Planted\\Bytes::RANGE",
+    ]);
+});
