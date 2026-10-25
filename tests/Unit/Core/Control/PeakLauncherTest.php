@@ -37,3 +37,8 @@ it('gives a control the peak the script wrote, and leaves one without it where i
 it('writes its script in a directory of a runner\'s controls', function (): void {
     expect(PeakLauncher::in('/work/unmutated'))->toBe('/work/unmutated/launcher.php');
 });
+
+it('says where it could not be written, as the reason no control runs', function (): void {
+    expect(PeakLauncher::unwritten('/work/launcher.php')->why())
+        ->toBe('The gate cannot write /work/launcher.php, the launcher each control is started through.');
+});

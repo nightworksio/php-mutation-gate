@@ -203,3 +203,17 @@ it('starts each control through the launcher, and gives it the peak the launcher
         ->and(file_get_contents(PeakLauncher::in($at->own(Control::DIRECTORY))))->toBe(PeakLauncher::SCRIPT)
         ->and($runs->of(infectionControl('src/Money.php'))->peak())->toEqual(PeakLauncher::peakIn('20480', PHP_OS_FAMILY));
 });
+
+it('runs no control where the launcher cannot be written, saying where', function () use ($makeRequest): void {
+    $at = controlledInfection();
+    $launcher = PeakLauncher::in($at->own(Control::DIRECTORY));
+    mkdir($launcher, recursive: true);
+    $shell = InfectionShellFake::answering(Ran::finished(succeeded: true, output: ''));
+
+    set_error_handler(static fn(): bool => true);
+    $runs = new UnmutatedRuns($at, $shell, new CapDirectory())->of($makeRequest(), Controls::of(infectionControl('src/Money.php')));
+    restore_error_handler();
+
+    expect($runs)->toEqual(PeakLauncher::unwritten($launcher))
+        ->and($shell->commands())->toBe([]);
+});

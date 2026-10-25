@@ -119,7 +119,7 @@ it('reads where the hooks are set up from --hook and --no-hook', function (
 
     expect($read instanceof CannotJudge ? $read->why() : $read)->toEqual($asked);
 })->with([
-    'neither' => [[], NotGiven::value()],
+    'neither' => [[], fn(): NotGiven => NotGiven::value()],
     '--no-hook' => [['--no-hook' => true], HookSetup::None],
     '--hook naming nowhere' => [['--hook' => null], HookSetup::Git],
     '--hook naming a manager' => [['--hook' => 'captainhook'], HookSetup::CaptainHook],

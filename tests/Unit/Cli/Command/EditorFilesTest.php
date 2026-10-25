@@ -70,7 +70,7 @@ it('reads the editor --editor names', function (array $given, Editor|NotGiven|st
 
     expect($read instanceof CannotJudge ? $read->why() : $read)->toEqual($asked);
 })->with([
-    'none' => [[], NotGiven::value()],
+    'none' => [[], fn(): NotGiven => NotGiven::value()],
     'VS Code' => [['--editor' => 'vscode'], Editor::VsCode],
     'one init does not know' => [['--editor' => 'vim'], 'vim is no editor init --editor sets up. Name vscode.'],
 ]);

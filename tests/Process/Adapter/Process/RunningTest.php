@@ -215,7 +215,7 @@ it('ends at once a program its tree\'s stop missed, whatever other signal it cat
 
     expect((hrtime(as_number: true) - $from) / Seconds::NANOSECONDS)->toBeLessThan(2.0)
         ->and($ran)->toEqual(Ran::stopped('up', 'up')->took(Seconds::of(100.0)));
-})->skip(! function_exists('pcntl_signal'), 'catching a signal takes pcntl')->group(...$holds);
+})->skip(fn(): bool => ! function_exists('pcntl_signal'), 'catching a signal takes pcntl')->group(...$holds);
 
 it('waits on as a signal this process catches cuts a wait short, saying nothing of it', function () use ($started): void {
     $running = $started('sleep(30);');
@@ -232,4 +232,4 @@ it('waits on as a signal this process catches cuts a wait short, saying nothing 
 
     expect(error_get_last())->toBeNull()
         ->and($running->endedBy(100.0))->toBeInstanceOf(Ran::class);
-})->skip(! function_exists('pcntl_alarm'), 'raising a signal takes pcntl')->group(...$holds);
+})->skip(fn(): bool => ! function_exists('pcntl_alarm'), 'raising a signal takes pcntl')->group(...$holds);

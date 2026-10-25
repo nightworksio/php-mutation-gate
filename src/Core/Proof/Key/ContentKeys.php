@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Proof\Key;
 
 use function array_filter;
 use function array_key_exists;
+use function array_map;
 use function count;
 use function hash_copy;
 use function hash_update;
@@ -20,6 +21,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Fingerprint;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Missing;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
@@ -364,7 +366,9 @@ final readonly class ContentKeys
     /** One value for a set of test files, whatever order they come in. */
     private function setOf(Paths $judges): string
     {
-        return Digest::sha256Of(self::framed(...$judges->inByteOrder()))->value();
+        $values = array_map(static fn(Path $path): string => $path->value(), [...$judges->inByteOrder()]);
+
+        return Digest::sha256Of(self::framed(...$values))->value();
     }
 
     /** Files of the test directories, each by its digest, in byte order, framed as a key reads them. */

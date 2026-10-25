@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Control;
 
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MaxRss;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
@@ -40,6 +41,9 @@ final readonly class PeakLauncher
     /** Where a runner writes the script, in a directory of its controls. */
     private const string FILE = '%s/launcher.php';
 
+    /** Why a runner runs no control: the script could not be written where it starts them through it. */
+    private const string UNWRITTEN = 'The gate cannot write %s, the launcher each control is started through.';
+
     /**
      * The peak the script wrote, on an operating system of this family; none
      * where it wrote nothing that reads as one.
@@ -68,5 +72,11 @@ final readonly class PeakLauncher
     public static function in(string $directory): string
     {
         return sprintf(self::FILE, $directory);
+    }
+
+    /** Why no control runs where a runner could not write the script to this file. */
+    public static function unwritten(string $file): CannotJudge
+    {
+        return CannotJudge::because(sprintf(self::UNWRITTEN, $file));
     }
 }

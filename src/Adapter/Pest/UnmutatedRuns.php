@@ -10,6 +10,7 @@ use function file_get_contents;
 use function file_put_contents;
 use function getmypid;
 use function is_file;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Control\Control;
@@ -57,14 +58,26 @@ final readonly class UnmutatedRuns
             return $beside;
         }
 
-        $scan = MemoryScan::beside($this->project, $beside, $request->memory(), $this->files);
+        $launcher = $this->launcher();
+        $scan = $launcher instanceof CannotJudge
+            ? $launcher
+            : MemoryScan::beside($this->project, $beside, $request->memory(), $this->files);
 
-        if ($scan instanceof CannotJudge) {
-            return $scan;
-        }
+        return match (true) {
+            $launcher instanceof CannotJudge => $launcher,
+            $scan instanceof CannotJudge => $scan,
+            default => $this->controlled($controls, $request, $scan, $beside, $launcher),
+        };
+    }
 
-        $launcher = PeakLauncher::in(dirname($beside));
-        file_put_contents($launcher, PeakLauncher::SCRIPT);
+    /** What each control found, started through the launcher, and the memory cap the scan wrote removed. */
+    private function controlled(
+        Controls $controls,
+        MutationRequest $request,
+        MemoryScan $scan,
+        string $beside,
+        string $launcher,
+    ): ControlRuns {
         [$runs, $commands, $peaks] = $this->prepared($controls, $request, $scan, dirname($beside), $launcher);
         $runs = $commands === [] ? $runs : $this->ended($runs, $request, $commands, $peaks);
         $scan->remove();
@@ -120,6 +133,16 @@ final readonly class UnmutatedRuns
             $request->withheld(),
             ...PhpUnitOption::inSuites($request->narrowing()->suitesFor($judgedBy)),
         )->within($control->limit());
+    }
+
+    /** The launcher each control starts through, written among the adapter's own files; or why it cannot be. */
+    private function launcher(): string|CannotJudge
+    {
+        $launcher = $this->project->fresh(PeakLauncher::in(dirname(self::BESIDE)));
+
+        return is_string($launcher) && file_put_contents($launcher, PeakLauncher::SCRIPT) === false
+            ? PeakLauncher::unwritten($launcher)
+            : $launcher;
     }
 
     /**

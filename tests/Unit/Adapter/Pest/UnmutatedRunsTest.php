@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Control\PeakLauncher;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Runner\Leftover;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
@@ -205,4 +206,46 @@ it('starts each control through the launcher, and gives it the peak the launcher
         ->and(file_get_contents($arguments[1]))->toBe(PeakLauncher::SCRIPT)
         ->and($arguments[3])->toBe(PHP_BINARY)
         ->and($runs->of(pestControl('src/Money.php'))->peak())->toEqual(PeakLauncher::peakIn('20480', PHP_OS_FAMILY));
+});
+
+it('runs no control where something it cannot clear stands where the launcher goes, saying what', function (): void {
+    $at = unmutatedProject();
+    $launcher = sprintf('%s/.mutation-gate/%s', $at->root(), PeakLauncher::in('pest/controls'));
+    mkdir($launcher, recursive: true);
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+
+    $runs = new UnmutatedRuns($at, $shell, new CapDirectory())->of(unmutatedRequest(), Controls::of(pestControl('src/Money.php')));
+
+    expect($runs)->toEqual(Leftover::at($launcher))
+        ->and($shell->commands())->toBe([]);
+});
+
+it('writes the launcher each control starts through', function (): void {
+    $at = unmutatedProject();
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+
+    unmutatedRuns($at, $shell, Controls::of(pestControl('src/Money.php')), unmutatedRequest());
+
+    expect(file_get_contents(sprintf('%s/.mutation-gate/%s', $at->root(), PeakLauncher::in('pest/controls'))))
+        ->toBe(PeakLauncher::SCRIPT);
+});
+
+it('runs no control where the launcher cannot be written, saying where', function (): void {
+    $at = unmutatedProject();
+    $controls = sprintf('%s/.mutation-gate/pest/controls', $at->root());
+    mkdir($controls, recursive: true);
+    chmod($controls, 0o555);
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+
+    set_error_handler(static fn(): bool => true);
+
+    try {
+        $runs = new UnmutatedRuns($at, $shell, new CapDirectory())->of(unmutatedRequest(), Controls::of(pestControl('src/Money.php')));
+    } finally {
+        restore_error_handler();
+        chmod($controls, 0o755);
+    }
+
+    expect($runs)->toEqual(PeakLauncher::unwritten(PeakLauncher::in($controls)))
+        ->and($shell->commands())->toBe([]);
 });
