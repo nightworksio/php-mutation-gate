@@ -12,7 +12,8 @@ it('reads the limit PHP says a process ran out of, in bytes, wherever the text h
 
     expect(Exhaustion::in($fatal))->toEqual(MemoryCap::of(64, MemoryUnit::Megabytes))
         ->and(Exhaustion::in("Tests: 1 failed\nAllowed memory size of 1024 bytes exhausted"))
-        ->toEqual(MemoryCap::of(1, MemoryUnit::Kilobytes));
+        ->toEqual(MemoryCap::of(1, MemoryUnit::Kilobytes))
+        ->and(Exhaustion::in('Allowed memory size of 1 bytes exhausted'))->toEqual(MemoryCap::of(1, MemoryUnit::Bytes));
 });
 
 it('reads no limit from text without PHP\'s fatal error, or with a limit PHP never names', function (string $text): void {
