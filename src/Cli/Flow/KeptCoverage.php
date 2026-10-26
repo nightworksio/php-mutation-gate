@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\Coverage\Remeasured;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Access;
@@ -274,7 +275,7 @@ final readonly class KeptCoverage
             ? $this->adapters->project->write(
                 CoverageMapFile::in(Workspace::coverage()),
                 Contents::of(CoverageMapFile::encode(
-                    Remeasured::over($kept->map(), $moving->held(), $measured),
+                    Remeasured::over($kept->map(), $moving->held(), $measured, $this->changedSince($kept)),
                     Measuring::now($this->adapters),
                 )),
             )
@@ -290,6 +291,29 @@ final readonly class KeptCoverage
             $from === KeptFrom::OwnScope => $merged->fromOwnScope(),
             default => $merged,
         };
+    }
+
+    /**
+     * Every path changed since the commit a map was measured at, by the name
+     * it had at that commit, as the map names it; none where that cannot be
+     * told.
+     */
+    private function changedSince(KeptMap $kept): Paths|NotGiven
+    {
+        $at = $kept->measuredAt();
+        $changes = $at instanceof MeasuredAt ? $this->adapters->changes->changesFrom($at->commit()) : NotGiven::value();
+
+        if (! $changes instanceof Changes) {
+            return NotGiven::value();
+        }
+
+        $paths = Paths::none();
+
+        foreach ($changes as $change) {
+            $paths = $paths->with($change->previousPath());
+        }
+
+        return $paths;
     }
 
     /** The whole suite measured, with the line that says why. */

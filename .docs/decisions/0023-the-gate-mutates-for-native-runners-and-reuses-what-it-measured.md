@@ -74,6 +74,18 @@ manual.
      The map carries each test file's key beside its entries.
    - A test file whose key moved is re-measured, a new one is measured, and
      a deleted one's entries are dropped.
+   - A re-measured test keeps the lines its kept entry ran in every file
+     unchanged since the kept map's commit, where the change since then can
+     be told. A framework runs its boot code, such as Symfony's
+     `Kernel.php` while it builds its container, only while its cache is
+     cold, so a re-measure on a warm cache misses lines an earlier measure
+     of the same file saw run. Without them, a file no entry runs any
+     longer moves into the base every key reads (ADR-0007, item 6), and
+     every proof is lost though no code changed. A file that changed keeps
+     only what the re-measure ran, and where the change cannot be told the
+     re-measure replaces the entry whole. The lines a test keeps this way
+     are ones it ran on that same code; at worst it is asked to judge a
+     mutant there it no longer reaches, which costs time and never a kill.
    - Every test is measured where nothing is kept, the kept map cannot be
      read, was measured in a dirty working tree or does not say where, holds
      a test that no test file holds now, or every key moved. A run says once
