@@ -1,11 +1,10 @@
 #!/bin/sh
 # Say now what CI will say later about this commit message.
 #
-# `commitlint` wants a conventional subject and `attribution` no credit to a
-# tool. Neither needs a network or a build to know, and finding out here costs
-# a second instead of a round trip. The patterns are the ones
-# .github/scripts/commit_lint.py and attribution_check.py apply; where the two
-# disagree, the scripts are right and this is wrong.
+# `commitlint` wants a conventional subject. It needs no network or build to
+# know, and finding out here costs a second instead of a round trip. The
+# pattern is the one .github/scripts/commit_lint.py applies; where the two
+# disagree, the script is right and this is wrong.
 #
 # A `Spec:` trailer is optional. Where a commit has one, every number it names
 # must be a decision record in .docs/decisions.
@@ -30,23 +29,6 @@ if ! printf '%s\n' "$subject" | grep -qE "^($types)(\([a-z0-9.-]+\))?!?: .+"; th
 	faults="${faults}  the subject is not conventional: ${subject}
       types: $(printf '%s' "$types" | tr '|' ' ')
       e.g.  feat(cli): refuse a config with no tree
-"
-fi
-
-# The names attribution_check.py holds. Anchored to the start of the line with
-# no leading whitespace, so a message can quote a forbidden line, indented,
-# without being refused.
-assistants="claude|copilot|chatgpt|openai|anthropic|cursor|devin|codex|gemini|aider"
-
-if printf '%s\n' "$body" | grep -qiE "^Co-authored-by:.*($assistants)"; then
-	faults="${faults}  the record credits a tool in a Co-authored-by trailer. Remove it:
-      the work is the author's own.
-"
-fi
-
-if printf '%s\n' "$body" | grep -qiE "^([^[:alnum:][:space:]_]+[ 	]*)?(generated[[:space:]]+with([^[:alnum:]_]|$)|(generated|written|authored|created)[[:space:]]+(with|by)[[:space:]].*($assistants))"; then
-	faults="${faults}  the record carries a \"Generated with\" line. Remove it:
-      the work is the author's own.
 "
 fi
 

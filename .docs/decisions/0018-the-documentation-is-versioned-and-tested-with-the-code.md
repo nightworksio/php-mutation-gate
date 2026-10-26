@@ -200,10 +200,7 @@ adopt the gate from. What exists, read at source and through GitHub's API:
       - a tour of `ARCHITECTURE.md` and the ADRs;
       - how to add an adapter, a preset or an extension.
     - A contribution needs:
-      - a conventional pull request title and commits;
-      - no assistant credited in a trailer or a line. CONTRIBUTING says so
-        plainly, because otherwise a contributor using an assistant meets it
-        as a red check.
+      - a conventional pull request title and commits.
     - `Spec:` is asked for in the pull request body, which becomes the
       squash commit's message.
     - Contributors are not required to sign commits. `main` receives only

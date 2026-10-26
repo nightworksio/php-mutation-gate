@@ -10,5 +10,4 @@ Spec:
 ## Local gates
 
 - [ ] The title and every commit subject are conventional: `type(scope): subject`.
-- [ ] No commit, and nothing in this description, credits an assistant or a tool.
 - [ ] The local gates for what this changes pass, as CONTRIBUTING.md lists them.

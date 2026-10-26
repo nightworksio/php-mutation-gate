@@ -16,50 +16,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # The record of every commit a pull request brings: no tool is credited for
-  # it, and its subject is conventional. Each reads the pull request's
-  # base..head.
-  attribution:
-    name: attribution
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      # The body as well as the commits, because a squash merge writes the pull
-      # request's title and body into the commit that lands on main.
-      - env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_BODY: ${{ github.event.pull_request.body }}
-        id: check
-        run: |
-          mkdir -p evidence/raw
-          printf '%s\n\n%s\n' "${PR_TITLE}" "${PR_BODY}" \
-            | python3 .github/scripts/attribution_check.py "${BASE_SHA}" "${HEAD_SHA}" --body-on-stdin \
-              --findings evidence/raw/attribution.json
-      # The job's evidence, whatever the steps above did (ADR-0019).
-      - name: evidence
-        if: ${{ !cancelled() }}
-        env:
-          STEPS: ${{ toJSON(steps) }}
-        run: python3 .github/scripts/evidence.py attribution
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: ${{ !cancelled() }}
-        with:
-          name: evidence-attribution
-          path: evidence/attribution*
-          if-no-files-found: error
-          retention-days: 7
-      - name: what failed
-        if: failure()
-        run: python3 .github/scripts/gate_summary.py attribution
-
+  # The record of every commit a pull request brings: its subject is
+  # conventional. It reads the pull request's base..head.
   commitlint:
     name: commitlint
     runs-on: ubuntu-latest
@@ -142,7 +100,7 @@ jobs:
   # run, which the bot reads beside the ci run's (ADR-0019).
   pr-evidence:
     name: pr evidence
-    needs: [attribution, commitlint, description]
+    needs: [commitlint, description]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     permissions:

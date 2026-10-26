@@ -30,7 +30,7 @@ This ADR inventories the in-house project's toolchain. Its main parts are:
   be refused;
 - an `ARCHITECTURE.md` with each rule beside the test that enforces it;
 - a floors suite, SonarCloud, and shared reusable workflows, kept in another
-  repository, for hygiene, security, commitlint and attribution.
+  repository, for hygiene, security and commitlint.
 
 Much of that is generic PHP discipline and carries over as it is. Some of it is
 about Laravel, NativePHP or the project's modules, and does not.
@@ -108,7 +108,7 @@ about Laravel, NativePHP or the project's modules, and does not.
    | SonarCloud | a project, its properties file, a `sonar` job, and a gate job that allows no open issue | **Adapted** | A SonarCloud project of this repository's own, fed the clover and JUnit reports the tests job writes. Its token is the `SONAR_TOKEN` secret. The `sonar` job and its gate, allowing no open issue, are required from the start. |
    | typos, actionlint, markdownlint, lychee | config files, run by a shared hygiene workflow in another repository | **Adapted** | The config files are copied. The jobs are this repository's own `hygiene` workflow. |
    | gitleaks, osv-scanner | a shared security workflow in another repository | **Adapted** | This repository's own `security` workflow |
-   | commitlint, attribution | shared workflows in another repository, plus `.githooks/commit-msg` | **Adapted** | This repository's own workflows and the scripts they run, plus its own `.githooks/commit-msg` |
+   | commitlint | a shared workflow in another repository, plus `.githooks/commit-msg` | **Adapted** | This repository's own workflow and the script it runs, plus its own `.githooks/commit-msg` |
    | Signed commits | branch protection `required_signatures` | **Copied** | The ruleset on `main` requires signed commits |
    | CODEOWNERS | the one maintainer | **Copied** | `* @lessevv` |
    | Dependabot | Composer weekly in groups, Actions daily with a cooldown, commit prefix `build` | **Adapted** | The same cadence, with groups for this package's tools |
@@ -151,7 +151,7 @@ about Laravel, NativePHP or the project's modules, and does not.
    | Job | Runs | Required |
    |-----|------|----------|
    | what changed | Skips the PHP jobs for a documentation-only change | yes |
-   | commitlint, attribution, description | Every commit's conventional subject and trailers, the title and the body; in the `pr` workflow, which also runs on an edited title or body, where `description` checks the `Spec:` numbers and a breaking change's *Migration* section (ADR-0019) | yes |
+   | commitlint, description | Every commit's conventional subject and trailers, the title and the body; in the `pr` workflow, which also runs on an edited title or body, where `description` checks the `Spec:` numbers and a breaking change's *Migration* section (ADR-0019) | yes |
    | hygiene | actionlint, typos, lychee (links), markdownlint and zizmor | yes |
    | scripts | `python3 -m unittest` over the deciding halves of `.github/scripts` and of the action's script in `resources/action` (ADR-0019) | yes |
    | security | gitleaks and osv-scanner | yes |
@@ -337,9 +337,7 @@ about Laravel, NativePHP or the project's modules, and does not.
      the same setup steps and the same CLI.
 
 9. **Commits and releases.**
-   - **Every commit:**
-     - uses a conventional-commit subject;
-     - carries no AI co-author trailer (the attribution check).
+   - **Every commit uses a conventional-commit subject.**
    - **Every commit on `main` is signed.** `main` takes only squash commits,
      which GitHub signs, so a contributor's own commits need not be
      (ADR-0018).
@@ -381,7 +379,7 @@ about Laravel, NativePHP or the project's modules, and does not.
 |--------|-------------|
 | **Gate the package with a released version of itself** | The gate would judge each change with the previous code, so a change to the gate would only be proved one release later. Using the same commit proves a change by itself. |
 | **A floor below 100 for the package** | It would ask users for a rigour the package does not keep. The in-house project declares 100 for all its trees but four, and each of those four says in its manifest why it is 0. |
-| **Calling the in-house project's shared workflows** for hygiene, security, commitlint and attribution | Ties this package's CI to another organisation's repository: a change there would change what this repository's checks do, with no commit here. Own copies cost keeping them current, which Dependabot does for their actions. |
+| **Calling the in-house project's shared workflows** for hygiene, security and commitlint | Ties this package's CI to another organisation's repository: a change there would change what this repository's checks do, with no commit here. Own copies cost keeping them current, which Dependabot does for their actions. |
 | **Ship the generic PHPStan rules and arch presets in this package** | Makes them public API of a mutation tool, and ties their versioning to the gate's. A rules package of their own is the place, if they are shared. |
 | **Renaming the copied rules to slugs** (`no-else`, `method-cap`) instead of rule IDs (`C5`, `H3`) | `TheRulesAreRealTest` and Guards match on `<ID> —` at the start of each message, and the rules are copied as they are, so IDs stay. They identify code rules, not requirements: the widened check refuses requirement IDs (`<AREA>-R<n>`), and a rule ID in a comment beside an expectation stays allowed. |
 | **Deptrac for layer rules** | Pest arch and PHPStan already run in the suite, and Guards proves each of their rules refuses a violation. |
