@@ -45,7 +45,7 @@ final readonly class ChangeSourceFake implements ChangeSource
      * @param array<string, string>                $changedAt when each committed file last changed, by its path
      * @param list<string>                         $unchanged the revisions nothing changed since, by name
      * @param list<string>                         $alike     the revisions the same changed since as since the base, by name
-     * @param array<string, Changes>               $from      what changed from each of these revisions itself, by name
+     * @param array<string, Changes|CannotTell>    $from      what changed from each revision itself, or why not, by name
      * @param array<string, Tree>                  $rebuilt   each gone commit whose merge makes again a tree, by name
      * @param list<string>                         $unknown   the commits git cannot say what they were made of, by name
      * @param array<string, string>                $commits   the commit each ref is at, by the ref's name, where it is not its own
