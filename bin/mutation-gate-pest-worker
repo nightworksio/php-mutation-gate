@@ -10,7 +10,8 @@ declare(strict_types=1);
 // alone, and serves from a process of its own, which the system takes on once
 // the one Pest started ends, as it does once the worker has written its
 // process id, so a worker that ends is reaped and seen gone. Each child it forks takes on its run's
-// environment, directory and command line, is handed the worker's baseline
+// environment, and no other variable, its directory and command line, with
+// `$_ENV` filled as PHP fills it at start-up, is handed the worker's baseline
 // of its test databases, and runs Pest's script as a fresh process runs it.
 
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\Baseline;
@@ -65,11 +66,19 @@ exit(Worker::at($directory, (int) $place, (int) $parent, usleep(...))->served(ne
             return $child;
         }
 
-        foreach ($request->environment() as $name => $value) {
+        $environment = $request->environment();
+
+        foreach (array_keys(array_diff_key(getenv(), $environment)) as $stale) {
+            putenv($stale);
+            unset($_SERVER[$stale]);
+        }
+
+        foreach ($environment as $name => $value) {
             putenv(sprintf('%s=%s', $name, $value));
-            $_ENV[$name] = $value;
             $_SERVER[$name] = $value;
         }
+
+        $_ENV = str_contains((string) ini_get('variables_order'), 'E') ? $environment : [];
 
         chdir($request->directory());
         $script = implode('', array_slice($request->argv(), 0, 1));

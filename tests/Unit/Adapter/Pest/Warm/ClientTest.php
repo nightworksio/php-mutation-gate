@@ -135,6 +135,7 @@ $runs = static function (int $pid): bool {
 
 it('prints what its worker\'s child printed, on the stream it printed it on, as it printed it, and ends as it ended', function () use ($ran, $serving, $script): void {
     $directory = $serving();
+    $before = $ran($directory, $script("echo 'printed before';"));
     $answered = $ran($directory, $script(<<<'PHP'
         echo 'a';
         usleep(300_000);
@@ -147,17 +148,18 @@ it('prints what its worker\'s child printed, on the stream it printed it on, as 
     $left = glob(sprintf('%s/1.*', $directory));
     WarmDirectory::cleared(sprintf('%s/results.jsonl', dirname($directory)));
 
-    expect($answered)->toBe([
-        'code' => 3,
-        'out' => 'ac--bail --filter=adds',
-        'errors' => 'b',
-        'paused' => [Polling::interval()->microseconds()],
-        'warned' => [],
-    ])->and($left)->toBe([
-        Seat::at($directory, 1)->err(),
-        Seat::at($directory, 1)->out(),
-        Seat::at($directory, 1)->pid(),
-    ]);
+    expect($before['out'])->toBe('printed before')
+        ->and($answered)->toBe([
+            'code' => 3,
+            'out' => 'ac--bail --filter=adds',
+            'errors' => 'b',
+            'paused' => [Polling::interval()->microseconds()],
+            'warned' => [],
+        ])->and($left)->toBe([
+            Seat::at($directory, 1)->err(),
+            Seat::at($directory, 1)->out(),
+            Seat::at($directory, 1)->pid(),
+        ]);
 });
 
 it('ends by the signal that ended its run, with the code a shell gives it', function () use ($ran, $standIn, $taking): void {

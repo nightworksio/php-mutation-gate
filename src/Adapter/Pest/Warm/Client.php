@@ -95,16 +95,8 @@ final readonly class Client
 
         while ($finish instanceof NotGiven && PidFile::isRunning($this->seat->pid())) {
             ($this->pause)(Polling::interval()->microseconds());
-            $printed = $printed instanceof Offsets
-                ? $this->copied($printed, Offsets::now($this->seat))
-                : Offsets::readFrom($this->seat->started($request->id()));
             $finish = Finish::readFrom($this->seat->ended($request->id()));
-        }
-
-        $from = $printed instanceof Offsets ? $printed : Offsets::readFrom($this->seat->started($request->id()));
-
-        if ($finish instanceof Finish && ! $finish->isRefused() && $from instanceof Offsets) {
-            $this->copied($from, $finish->to());
+            $printed = $this->printed($request, $printed, $finish);
         }
 
         if ($finish instanceof NotGiven) {
@@ -114,6 +106,21 @@ final readonly class Client
         $this->forgotten($request);
 
         return $finish;
+    }
+
+    /**
+     * Where the run's printing stands once what it printed since is
+     * printed: up to where the files stood as its child ended, once it has,
+     * else up to where they stand now; nowhere before its worker said where
+     * it started.
+     */
+    private function printed(Request $request, Offsets|NotGiven $printed, Finish|NotGiven $finish): Offsets|NotGiven
+    {
+        $from = $printed instanceof Offsets ? $printed : Offsets::readFrom($this->seat->started($request->id()));
+
+        return $from instanceof Offsets
+            ? $this->copied($from, $finish instanceof Finish ? $finish->to() : Offsets::now($this->seat))
+            : $from;
     }
 
     /** Prints what the worker's files grew by between the offsets, each on its stream: where they stand now. */

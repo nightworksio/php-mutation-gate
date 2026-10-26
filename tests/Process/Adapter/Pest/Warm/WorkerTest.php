@@ -36,7 +36,7 @@ afterEach(function (): void {
  * The fixture run through place 1's warm worker of the run that records to
  * these results, ending as told, with these variables too, not yet started.
  *
- * @param array<string, string> $variables
+ * @param array<string, string|false> $variables
  */
 function warmRun(string $results, string $end, array $variables = []): Process
 {
@@ -62,6 +62,12 @@ function isThere(int $pid): bool
     $state = trim($asked->getOutput());
 
     return $state !== '' && ! str_starts_with($state, 'Z');
+}
+
+/** What the fixture run said of its environment. */
+function environmentOf(Process $run): string
+{
+    return preg_match('/^env (.+)$/m', $run->getOutput(), $said) === 1 ? $said[1] : '';
 }
 
 /** The parent process the fixture run said it had. */
@@ -220,4 +226,24 @@ it('starts a run fresh, and stops nothing, where its worker went before forking 
     $run->run();
 
     expect($run->getExitCode())->toBe(6);
+})->group(...$holds);
+
+it('hands a child its run\'s environment alone, with `$_ENV` as a fresh process has it', function (): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    putenv('FIXTURE_STALE=1');
+
+    try {
+        warmRun($results, 'code:0')->run();
+    } finally {
+        putenv('FIXTURE_STALE');
+    }
+
+    $warm = warmRun($results, 'code:0', ['FIXTURE_STALE' => false]);
+    $warm->run();
+    $fresh = new Process([PHP_BINARY, Tree::at('tests/Fixtures/Warm/run')], env: ['FIXTURE_END' => 'code:0', 'FIXTURE_STALE' => false]);
+    $fresh->run();
+
+    expect(parentOf($warm))->toBe(warmWorker($results))
+        ->and(environmentOf($warm))->toBe(environmentOf($fresh))
+        ->and(environmentOf($warm))->toEndWith(' clean');
 })->group(...$holds);
