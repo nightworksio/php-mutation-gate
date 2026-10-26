@@ -52,6 +52,7 @@
         "generated": [
             "storage/framework"
         ],
+        "replayJobs": 4,
         "edit": [
             {
                 "file": "app/Actions/Questions/UpdateQuestionHashtags.php",

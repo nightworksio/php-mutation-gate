@@ -3,6 +3,8 @@
 
 Usage:
   bench_scenarios.py run <project file> <project directory> <out directory> [--rounds N] [--arm-seconds S]
+                         [--part P]
+  bench_scenarios.py parts <project file>
   bench_scenarios.py report <project file> <out directory> <result file>
 
 Run by `bench.yml` once the project is prepared at its pinned commit, as
@@ -19,6 +21,14 @@ commits:
 - `gate`: the arms the scenarios run, each of them one of the gate's;
 - `diff`: where the runner is Infection, the plain arm that runs again
   with Infection's own `--git-diff-lines` for each pull request;
+- `replayJobs`: how many jobs the PR replay is cut into, where one job
+  cannot run every scenario in the time a job has: the warm full and
+  unchanged re-runs then take a job of their own, `warm`, and the pull
+  requests are cut into that many runs of consecutive ones,
+  `replay-1` and on, each starting from a full run at its first base, as
+  the whole replay does. `parts` prints the parts as a JSON list, `all`
+  where the replay is not cut, and `run --part` runs one part; `report`
+  reads what every part left in one out directory;
 - `generated`: the directories where the project's runs write build output
   git ignores, such as a framework's compiled views, whose ignored files are
   removed before every run, as a CI job starts without them: a view compiled
@@ -81,6 +91,9 @@ VERDICTS = (0, 1)
 # The scenarios whose timed run is repeated once a round; a PR replay runs each pull request once.
 ROUNDED = ("warm", "unchanged")
 
+# The part of the scenarios that is every one of them, where the replay is not cut into jobs.
+ALL = "all"
+
 
 def percentile(values: list[float], share: float) -> float:
     """The value at this share of the sorted values, by the nearest rank; none of no values is 0."""
@@ -115,24 +128,46 @@ def scripted(directory: Path, edit: list[dict]) -> None:
         path.write_text(renamed(path.read_text(encoding="utf-8"), each["rename"], each["to"]), encoding="utf-8")
 
 
-def plan(project: dict) -> list[dict]:
+def parts(project: dict) -> list[str]:
     """
-    Every run of the scenarios for one arm, in order: the commit it runs at,
-    whether with the scripted edit, on `main` or on a pull request's own
-    branch, whether it is a full run or one of what changed since the
-    default branch's last commit, whether it is timed, and whether it starts
-    from an empty `.mutation-gate`.
+    The jobs the scenarios run in: `all` where the replay is not cut, and
+    otherwise `warm` and each cut of the replay, `replay-1` on.
     """
-    scenarios = project["scenarios"]
+    cuts = min(project["scenarios"].get("replayJobs", 0), len(project["scenarios"].get("replay", [])))
+    return ["warm", *[f"replay-{at}" for at in range(1, cuts + 1)]] if cuts > 0 else [ALL]
+
+
+def pulls_of(project: dict, part: str) -> list[dict]:
+    """
+    The pull requests a part replays, in order: every one for `all`, none
+    for `warm`, and for `replay-<n>` the n-th of the replay's consecutive
+    cuts, each as long as the longest needs to be.
+    """
+    pulls = project["scenarios"].get("replay", [])
+    if part in (ALL, "warm"):
+        return pulls if part == ALL else []
+    cuts = len(parts(project)) - 1
+    size = math.ceil(len(pulls) / cuts)
+    at = int(part.removeprefix("replay-")) - 1
+    return pulls[at * size:(at + 1) * size]
+
+
+def plan(project: dict, part: str = ALL) -> list[dict]:
+    """
+    Every run of a part of the scenarios for one arm, in order: the commit
+    it runs at, whether with the scripted edit, on `main` or on a pull
+    request's own branch, whether it is a full run or one of what changed
+    since the default branch's last commit, whether it is timed, and
+    whether it starts from an empty `.mutation-gate`.
+    """
     full = {"branch": MAIN, "full": True}
     steps = [
         {**full, "scenario": "warm", "at": project["commit"], "timed": False, "fresh": True},
         {**full, "scenario": "warm", "at": project["commit"], "edited": True, "timed": True},
         {**full, "scenario": "unchanged", "at": project["commit"], "edited": True, "timed": True},
-    ]
-    pulls = scenarios.get("replay", [])
+    ] if part in (ALL, "warm") else []
     main = ""
-    for pull in pulls:
+    for pull in pulls_of(project, part):
         if not main:
             steps.append({**full, "scenario": "replay", "at": pull["base"], "timed": False, "fresh": True})
         elif pull["base"] != main:
@@ -277,8 +312,9 @@ class Checkout:
         return self.head
 
 
-def run(project: dict, directory: Path, out: Path, rounds: int, arm_seconds: float | None = None) -> None:
-    """Every gate arm's scenarios, and the plain arm's runs of each pull request's change where it has one."""
+def run(project: dict, directory: Path, out: Path, rounds: int, arm_seconds: float | None = None,
+        part: str = ALL) -> None:
+    """A part of every gate arm's scenarios, and the plain arm's runs of each of its pull requests' changes."""
     out.mkdir(parents=True, exist_ok=True)
     environment = bench.local()
     work = Path(tempfile.mkdtemp(prefix="bench-scenarios-"))
@@ -294,7 +330,7 @@ def run(project: dict, directory: Path, out: Path, rounds: int, arm_seconds: flo
             shutil.copyfile(directory / copied, directory / to)
         moved = Checkout(directory, source, kept | set(arm.get("copy", {})), committed(directory, name))
         snapshot = work / f"{name}.warm"
-        for step in plan(project):
+        for step in plan(project, part):
             if step.get("fresh"):
                 moved.reset()
             if step["branch"] == MAIN:
@@ -321,12 +357,12 @@ def run(project: dict, directory: Path, out: Path, rounds: int, arm_seconds: flo
             if step["scenario"] == "warm" and not step["timed"]:
                 shutil.copytree(directory / ".mutation-gate", snapshot, dirs_exist_ok=True)
     checkout(directory, MAIN, prepared)
-    diffed(project, directory, out, source, kept, environment, arm_seconds)
+    diffed(project, directory, out, source, kept, environment, arm_seconds, pulls_of(project, part))
 
 
 def diffed(project: dict, directory: Path, out: Path, source: Source, kept: set[str], environment: dict,
-           arm_seconds: float | None) -> None:
-    """The plain arm run on each pull request's change alone, with its tool's own diff option, where it has one."""
+           arm_seconds: float | None, pulls: list[dict]) -> None:
+    """The plain arm run on each of these pull requests' changes alone, with its tool's diff option, if it has one."""
     name = project["scenarios"].get("diff")
     if not name:
         return
@@ -335,7 +371,7 @@ def diffed(project: dict, directory: Path, out: Path, source: Source, kept: set[
     out.mkdir(parents=True, exist_ok=True)
     git(place, "branch", "--quiet", "-M", MAIN)
     start = git(place, "rev-parse", "HEAD").strip()
-    for pull in project["scenarios"].get("replay", []):
+    for pull in pulls:
         checkout(place, f"pull-{pull['pull']}", start)
         overlay(place, source.tree(pull["base"]), kept)
         base = committed(place, pull["base"])
@@ -466,6 +502,9 @@ def report(project: dict, out: Path, result: Path) -> int:
 
 
 def main(argv: list[str]) -> int:
+    if argv[:1] == ["parts"] and len(argv) == 2:
+        print(json.dumps(parts(json.loads(Path(argv[1]).read_text(encoding="utf-8")))))
+        return 0
     if len(argv) < 4 or argv[0] not in ("run", "report"):
         print(__doc__, file=sys.stderr)
         return 2
@@ -473,7 +512,11 @@ def main(argv: list[str]) -> int:
     if argv[0] == "run":
         rounds = int(argv[argv.index("--rounds") + 1]) if "--rounds" in argv else 3
         arm_seconds = float(argv[argv.index("--arm-seconds") + 1]) if "--arm-seconds" in argv else None
-        run(project, Path(argv[2]).resolve(), Path(argv[3]).resolve(), rounds, arm_seconds)
+        part = argv[argv.index("--part") + 1] if "--part" in argv else ALL
+        if part not in parts(project):
+            print(f"{part} is no part of {argv[1]}'s scenarios: {', '.join(parts(project))}", file=sys.stderr)
+            return 2
+        run(project, Path(argv[2]).resolve(), Path(argv[3]).resolve(), rounds, arm_seconds, part)
         return 0
     return report(project, Path(argv[2]).resolve(), Path(argv[3]))
 

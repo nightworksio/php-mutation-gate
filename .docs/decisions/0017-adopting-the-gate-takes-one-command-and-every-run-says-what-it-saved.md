@@ -457,7 +457,13 @@ would have cost without them.
       project and prepare it with `bench/prepare.sh`.
     - All arms of one project run in one job on one machine, interleaved,
       three times. The result is the median with its range. The scenarios
-      past a cold full run take a job of their own.
+      past a cold full run take a job of their own. Where one job cannot
+      hold them, the project's `replayJobs` cuts its PR replay into that
+      many runs of consecutive pull requests, each a job that starts from a
+      full run at its first base, as the whole replay does, beside a job
+      for the warm full and unchanged re-runs; a last job reports them
+      together. `pinkary.com`, each of whose pull requests runs about as long as
+      a full run, cuts its replay into four.
     - The sharded arm runs as a plan job, a matrix of one job a shard, each
       shard three times from the one plan, and a verdict job that judges
       each round. It says how many machines it ran on.
