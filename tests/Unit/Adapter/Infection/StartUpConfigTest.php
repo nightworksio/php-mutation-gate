@@ -37,6 +37,9 @@ function startingProject(): Project
                     <directory>../src</directory>
                     <directory>C:\lib</directory>
                     <directory>phar://tools.phar/src</directory>
+                    <directory>
+                        lib
+                    </directory>
                 </include>
             </source>
             <coverage>
@@ -100,6 +103,7 @@ it('shapes the project\'s config as Infection shapes a mutant\'s, with one suite
         ->and($xpath->evaluate('string(/phpunit/source/include/directory[2])'))->toBe(sprintf('%s/config/../src', $root))
         ->and($xpath->evaluate('string(/phpunit/source/include/directory[3])'))->toBe('C:\lib')
         ->and($xpath->evaluate('string(/phpunit/source/include/directory[4])'))->toBe('phar://tools.phar/src')
+        ->and($xpath->evaluate('string(/phpunit/source/include/directory[5])'))->toBe(sprintf('%s/config/lib', $root))
         ->and($xpath->evaluate('string(/phpunit/php/ini/@value)'))->toBe('512M')
         ->and($xpath->evaluate('count(/phpunit/@failOnRisky|/phpunit/@failOnWarning)'))->toEqual(0);
 });

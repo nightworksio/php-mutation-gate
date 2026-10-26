@@ -93,6 +93,7 @@ it('keeps four times its tail of what a process printed, and whether it cut any,
         ->and($kept)->toEndWith('éend')
         ->and(is_string($kept) && mb_check_encoding($kept, 'UTF-8'))->toBeTrue()
         ->and($ended->wasCut())->toBeTrue()
+        ->and(Ended::screened($ended, 'end')->wasCut())->toBeFalse()
         ->and(Ended::of(1, signalled: false, printed: str_repeat('a', 8192))->wasCut())->toBeFalse();
 });
 

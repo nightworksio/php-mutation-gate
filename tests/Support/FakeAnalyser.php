@@ -71,13 +71,18 @@ final readonly class FakeAnalyser
      * `src/` but not `src/Excluded.php`, it publishes a diagnostic for each
      * `// error: Type message` or `// info: Type message` line of the text,
      * with the version it read; it answers every `$/` request with the error
-     * the protocol gives one it does not implement. It writes to its error
-     * stream as it starts. `server.mode` makes it end at once (`ends`), end
-     * once a file is sent, saying it gave up (`ends-on-file`), publish each
-     * file with the version before the one it read (`stale`), frame each
-     * message with its `Content-Length` alone, as the protocol allows
-     * (`bare`), never answer `initialize` (`mute-start`), or never answer a
-     * `$/` request (`mute`).
+     * the protocol gives one it does not implement. It keeps the parameters
+     * the gate initialises it with in `server-initialize.json`, and ends,
+     * saying why, at a message that is not JSON-RPC 2.0 or an answer that
+     * holds neither a result nor an error. It writes to its error stream as
+     * it starts. `server.mode` makes it end at once (`ends`), end once a file
+     * is sent, saying it gave up (`ends-on-file`), publish each file with the
+     * version before the one it read (`stale`), frame each message with its
+     * `Content-Length` alone, as the protocol allows (`bare`), never answer
+     * `initialize` (`mute-start`), never answer a `$/` request (`mute`),
+     * answer one two seconds late (`slow`), or ignore SIGTERM and, once its
+     * input ends, take a moment before it writes `closed` to `server-got.txt`
+     * and ends (`lingers`).
      */
     private const string SERVER = <<<'PHP'
         <?php
@@ -88,6 +93,9 @@ final readonly class FakeAnalyser
         if ($mode === 'ends') {
             fwrite(STDERR, 'no server here');
             exit(1);
+        }
+        if ($mode === 'lingers') {
+            pcntl_signal(SIGTERM, SIG_IGN);
         }
         $type = $mode === 'bare' ? '' : "Content-Type: application/vscode-jsonrpc; charset=utf8\r\n";
         $send = static function (array $message) use ($type): void {
@@ -103,9 +111,15 @@ final readonly class FakeAnalyser
             }
             $message = json_decode((string) fread(STDIN, $length), true);
             $method = $message['method'] ?? '';
+            $unanswered = $method === '' && ! array_key_exists('result', $message) && ! array_key_exists('error', $message);
+            if (($message['jsonrpc'] ?? '') !== '2.0' || $unanswered) {
+                fwrite(STDERR, 'not a JSON-RPC 2.0 message');
+                exit(1);
+            }
             $document = $message['params']['textDocument'] ?? [];
             file_put_contents("$here/server-got.txt", sprintf("%s %s %s %s\n", $method === '' ? 'answer' : $method, $message['id'] ?? '-', $document['uri'] ?? '-', $document['version'] ?? '-'), FILE_APPEND);
             if ($method === 'initialize') {
+                file_put_contents("$here/server-initialize.json", json_encode($message['params'] ?? null, JSON_UNESCAPED_SLASHES));
                 fwrite(STDERR, 'starting');
                 $send(['method' => 'window/logMessage', 'params' => ['type' => 3, 'message' => 'Starting']]);
                 $send(['id' => 'ask', 'method' => 'workspace/configuration', 'params' => ['items' => []]]);
@@ -113,6 +127,9 @@ final readonly class FakeAnalyser
                     $send(['id' => $message['id'], 'result' => ['capabilities' => []]]);
                 }
                 $send(['method' => 'telemetry/event', 'params' => ['type' => 3, 'message' => 'running']]);
+            }
+            if (str_starts_with($method, '$/') && $mode === 'slow') {
+                sleep(2);
             }
             if (str_starts_with($method, '$/') && $mode !== 'mute') {
                 $send(['id' => $message['id'], 'error' => ['code' => -32601, 'message' => "Method $method is not implemented"]]);
@@ -134,6 +151,10 @@ final readonly class FakeAnalyser
                     $send(['method' => 'textDocument/publishDiagnostics', 'params' => ['uri' => $document['uri'], 'version' => $document['version'] - ($mode === 'stale' ? 1 : 0), 'diagnostics' => $diagnostics]]);
                 }
             }
+        }
+        if ($mode === 'lingers') {
+            usleep(200000);
+            file_put_contents("$here/server-got.txt", "closed\n", FILE_APPEND);
         }
         PHP;
 

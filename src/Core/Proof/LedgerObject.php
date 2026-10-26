@@ -28,6 +28,12 @@ final readonly class LedgerObject
     {
     }
 
+    /** At the top, under no prefix. */
+    public static function top(): self
+    {
+        return new self([]);
+    }
+
     /** Under this prefix, whose empty segments count for nothing. */
     public static function under(string $prefix): self
     {

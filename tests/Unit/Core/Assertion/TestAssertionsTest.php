@@ -89,6 +89,18 @@ it('reads a test inside a describe() whose description is not written out as a t
     expect(readAssertions($text, 'it runs inside'))->toBe([['->toBe() value'], false]);
 });
 
+it('reads an assertion a bitwise and comes before as a call, not as the name of a function it declares', function (): void {
+    $text = "<?php\n\nfinal class BitsTest extends TestCase\n{\n    public function testMasks(): void\n    {\n        \$kept = 1 & assertTrue(true);\n    }\n}\n";
+
+    expect(readAssertions($text, 'testMasks'))->toBe([['assertTrue existence'], true]);
+});
+
+it('declares no test by a call of a method named as Pest declares one', function (): void {
+    $text = "<?php\n\nit('records', function () {\n    \$recorder->it('replays', fn () => expect(1)->toBe(1));\n});\n";
+
+    expect(readAssertions($text, 'it replays'))->toBe([[], false]);
+});
+
 it('reads what Pest chains after expect(), qualified or not, as each call checks', function (string $description, array $read): void {
     expect(readAssertions(PEST_CART_TEST, $description))->toBe($read);
 })->with([

@@ -69,7 +69,7 @@ final readonly class WorkingTree
         $text = match (true) {
             is_link($file) => readlink($file),
             is_file($file) => file_get_contents($file),
-            default => false,
+            default => Missing::at($path),
         };
 
         return is_string($text) ? Contents::of($text) : Missing::at($path);
@@ -104,16 +104,16 @@ final readonly class WorkingTree
         $links = array_values(array_filter($paths, fn(string $path): bool => is_link($this->onDiskAt($path))));
         $input = $this->input($files);
         $hashed = match (true) {
-            $files === [] => '',
             $input instanceof CannotTell => $input,
-            default => $this->git->feed(['hash-object', '--no-filters', '--stdin-paths'], $input),
+            $files === [] => [],
+            default => $this->lines($this->git->feed(['hash-object', '--no-filters', '--stdin-paths'], $input)),
         };
         $linked = $this->linksHashed($links);
 
         return match (true) {
             $hashed instanceof CannotTell => $hashed,
             $linked instanceof CannotTell => $linked,
-            default => Fingerprints::of(...$this->fingerprinted($files, $this->lines($hashed)), ...$linked),
+            default => Fingerprints::of(...$this->fingerprinted($files, $hashed), ...$linked),
         };
     }
 
@@ -179,12 +179,16 @@ final readonly class WorkingTree
     }
 
     /**
-     * The lines of what git printed, each ended by a line break.
+     * The lines of what git printed, each ended by a line break; or why it printed nothing.
      *
-     * @return list<string>
+     * @return list<string>|CannotTell
      */
-    private function lines(string $printed): array
+    private function lines(string|CannotTell $printed): array|CannotTell
     {
+        if ($printed instanceof CannotTell) {
+            return $printed;
+        }
+
         $lines = explode("\n", $printed);
         array_pop($lines);
 
@@ -194,8 +198,6 @@ final readonly class WorkingTree
     /** The path a link points to, as git stores it. */
     private function linkTarget(string $link): string
     {
-        $target = readlink($this->onDiskAt($link));
-
-        return $target === false ? '' : $target;
+        return sprintf('%s', readlink($this->onDiskAt($link)));
     }
 }

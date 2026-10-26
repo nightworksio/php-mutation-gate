@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Command;
 
-use function is_string;
-
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Report\Form;
 
@@ -36,8 +34,7 @@ final readonly class FormOption
     /** The form asked for, or why the command of this name refuses it. */
     public static function asked(InputInterface $input, string $command): Form|CannotJudge
     {
-        $asked = $input->getOption(self::FORMAT);
-        $written = is_string($asked) ? $asked : '';
+        $written = CommandText::option($input, self::FORMAT);
         $form = Form::tryFrom($written);
 
         return $form instanceof Form ? $form : CannotJudge::because(sprintf(self::UNKNOWN, $written, $command));

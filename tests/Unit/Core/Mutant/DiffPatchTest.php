@@ -55,6 +55,12 @@ describe('DiffPatch', function (): void {
             ->and($text($patched($diff, 10)))->toContain("function add(int \$a, int \$b): int\n{\n    return \$a + \$b;\n}");
     });
 
+    it('reads a hunk header that names the function it is in, as git writes one', function () use ($patched, $text): void {
+        $diff = "@@ -10,3 +10,3 @@ function sum(int \$a, int \$b): int\n {\n-    return \$a + \$b;\n+    return \$a - \$b;\n }";
+
+        expect(explode("\n", $text($patched($diff, 10)))[9])->toBe('    return $a - $b;');
+    });
+
     it('puts each later hunk after the one before', function () use ($patched, $text): void {
         $diff = "@@ @@\n-    return \$a + \$b;\n+    return \$a;\n@@ @@\n-    return \$a + \$b;\n+    return \$b;";
 

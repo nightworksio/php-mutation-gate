@@ -25,7 +25,7 @@ final readonly class PruningAccount
     private function __construct(
         private MutatorNames $mutators,
         private Survival $survival,
-        private Name $runner,
+        private Name|NotGiven $runner,
         private Window $window,
         private int $units,
         private int $carried,
@@ -40,7 +40,7 @@ final readonly class PruningAccount
         return new self(
             MutatorNames::none(),
             Survival::none(),
-            Name::of(''),
+            NotGiven::value(),
             Window::of(0),
             0,
             0,
@@ -104,7 +104,9 @@ final readonly class PruningAccount
     /** The id of the last mutant a pruned mutator let through; none where it never let one through. */
     public function lastOf(RunnerMutatorName $mutator): string|NotGiven
     {
-        return $this->survival->of($this->runner, $mutator)->last();
+        return $this->runner instanceof Name
+            ? $this->survival->of($this->runner, $mutator)->last()
+            : NotGiven::value();
     }
 
     /** How many units it carried a pruned mutator's results into. */

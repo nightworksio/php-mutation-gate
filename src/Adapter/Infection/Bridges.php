@@ -157,8 +157,7 @@ final readonly class Bridges
     public function runnable(Mutators $mutators, NamedMutators $infection): array
     {
         $isOwn = static fn(string $mutator): bool => NamedMutators::of($mutator)->meet($infection);
-        $own = array_values(array_filter([...$mutators], $isOwn));
-        $bridged = $this->besides(NamedMutators::of(...$own))->mutators;
+        $bridged = $this->besides(NamedMutators::of(...array_filter([...$mutators], $isOwn)))->mutators;
 
         return array_values(array_filter(
             [...$mutators],
@@ -187,7 +186,7 @@ final readonly class Bridges
     /** A bridged mutator's own sentence for its survivors, by its name; nothing where the family's is used. */
     public function hintOf(string $mutator): string|NotGiven
     {
-        $hint = array_key_exists($mutator, $this->mutators) ? $this->mutators[$mutator]->hint() : false;
+        $hint = array_key_exists($mutator, $this->mutators) ? $this->mutators[$mutator]->hint() : null;
 
         return $hint instanceof Hint ? $hint->sentence() : NotGiven::value();
     }

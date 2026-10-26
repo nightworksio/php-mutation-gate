@@ -163,15 +163,15 @@ final readonly class MergedHeads
         ));
 
         $latest = 0;
-        $conclusion = '';
+        $succeeded = false;
 
         foreach ($runs instanceof Answer ? $runs->items('check_runs') : [] as $run) {
             $later = $this->isVerdict($run) && $run->number('id') > $latest;
             $latest = $later ? $run->number('id') : $latest;
-            $conclusion = $later ? $run->text('conclusion') : $conclusion;
+            $succeeded = $later ? $run->text('conclusion') === 'success' : $succeeded;
         }
 
-        return $conclusion === 'success';
+        return $succeeded;
     }
 
     /** Whether a check-run is the verdict's: named `ci.check`, and run by GitHub Actions. */

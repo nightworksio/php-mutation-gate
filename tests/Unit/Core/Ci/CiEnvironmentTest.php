@@ -24,10 +24,10 @@ it('shows a marker set to true, one set to anything, and never none', function (
     'no marker' => [fn(): CiMarker => CiMarker::none(), 'true', false],
 ]);
 
-it('names the variable a marker reads, and how it reads it', function (): void {
+it('names the variable a marker reads, and how it reads it, and none for no CI\'s', function (): void {
     expect([CiMarker::saying('GITLAB_CI')->variable(), CiMarker::saying('GITLAB_CI')->marking()])
         ->toBe(['GITLAB_CI', Marking::SaysTrue])
         ->and([CiMarker::setting('JENKINS_URL')->variable(), CiMarker::setting('JENKINS_URL')->marking()])
         ->toBe(['JENKINS_URL', Marking::IsSet])
-        ->and(CiMarker::none()->marking())->toBe(Marking::Never);
+        ->and([CiMarker::none()->variable(), CiMarker::none()->marking()])->toBe(['', Marking::Never]);
 });

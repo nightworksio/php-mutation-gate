@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Config\Baseline;
 use NightWorksIO\MutationGate\Config\Option;
 use NightWorksIO\MutationGate\Config\Proofs;
 use NightWorksIO\MutationGate\Config\Report;
+use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -123,12 +124,12 @@ function keyedNarrowedTo(Mutators $narrowedTo): Digest
     return keyedNarrowing(Narrowing::none()->toMutators($narrowedTo));
 }
 
-/** The base of a run narrowed so. */
-function keyedNarrowing(Narrowing $narrowing): Digest
+/** The base of a run narrowed so, under the flows' config or this one. */
+function keyedNarrowing(Narrowing $narrowing, Settings|NotGiven $settings = new NotGiven()): Digest
 {
     $keying = Keying::of(
         Flows::adapters(Flows::project(), [], keyingRunner('fake'), $narrowing),
-        Flows::settings(),
+        $settings instanceof Settings ? $settings : Flows::settings(),
         Flows::setup(),
         keyingSuite('1'),
         keyingMap(),
@@ -158,6 +159,12 @@ it('keys a run narrowed to some mutators apart from one of every mutator, and ap
     expect($secured)->not->toEqual(keyedNarrowedTo(Mutators::all()))
         ->and($secured)->not->toEqual(keyedNarrowedTo(Mutators::named('default/Plus')))
         ->and($secured)->toEqual(keyedNarrowedTo(Mutators::named('security/HashEqualsToTrue')));
+});
+
+it('keys a narrowed run by its config too', function (): void {
+    $secured = Narrowing::none()->toMutators(Mutators::named('security/HashEqualsToTrue'));
+
+    expect(keyedNarrowing($secured))->not->toEqual(keyedNarrowing($secured, Flows::settings(Timeouts::seconds(20))));
 });
 
 it('keys a run of one suite\'s tests apart from one of every test, and apart from one of another suite', function (): void {

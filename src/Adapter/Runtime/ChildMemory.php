@@ -29,8 +29,9 @@ final readonly class ChildMemory implements PeakMemory
     public function peak(): MemoryCap|NotGiven
     {
         $usage = getrusage(self::CHILDREN);
-        $maximum = is_array($usage) && is_int($usage[self::MAXIMUM]) ? $usage[self::MAXIMUM] : 0;
 
-        return $maximum > 0 ? MemoryCap::atLeast(MaxRss::bytes($maximum, PHP_OS_FAMILY)) : NotGiven::value();
+        return is_array($usage) && is_int($usage[self::MAXIMUM])
+            ? MaxRss::peak($usage[self::MAXIMUM], PHP_OS_FAMILY)
+            : NotGiven::value();
     }
 }

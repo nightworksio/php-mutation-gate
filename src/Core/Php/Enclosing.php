@@ -42,17 +42,15 @@ final readonly class Enclosing
     ) {
     }
 
-    /** The function or method around a line of a file; nothing where the line is in none. */
+    /** The innermost function or method around a line of a file, the last of those around it; nothing where none is. */
     public static function in(Contents $file, Line $line): self|Nameless
     {
         $tokens = Tokens::in($file);
         $found = Nameless::code();
-        $first = 0;
 
         foreach ($tokens->indicesOf(T_FUNCTION) as $keyword) {
             $read = self::read($tokens, $keyword, $line);
-            $inner = $read instanceof self && $tokens->line($keyword) >= $first;
-            [$found, $first] = $inner ? [$read, $tokens->line($keyword)] : [$found, $first];
+            $found = $read instanceof self ? $read : $found;
         }
 
         return $found;
@@ -146,8 +144,8 @@ final readonly class Enclosing
             return Nameless::code();
         }
 
-        $body = self::after($tokens, $keyword, $tokens->closing($opener));
-        $holds = $tokens->is($body, '{')
+        $body = Shape::braceAfter($tokens, $keyword);
+        $holds = $body !== Tokens::NONE
             && $tokens->line($keyword) <= $line->number()
             && $line->number() <= $tokens->line($tokens->closing($body));
 
@@ -180,27 +178,11 @@ final readonly class Enclosing
         $class = Nameless::code();
 
         foreach ($tokens->is($body, '{') ? $tokens->indicesOf(...self::CLASSES) : [] as $declaring) {
-            $opens = self::after($tokens, $declaring, $declaring) === $body && $tokens->is($declaring + 1, T_STRING);
+            $opens = Shape::braceAfter($tokens, $declaring) === $body && $tokens->is($declaring + 1, T_STRING);
             $class = $opens ? $tokens->text($declaring + 1) : $class;
         }
 
         return $class;
-    }
-
-    /**
-     * Where the body of what a keyword declares opens: the first `{` or `;`
-     * at the keyword's depth past an index, such as a function's parameters
-     * and return type, or a class's name and parents.
-     */
-    private static function after(Tokens $tokens, int $keyword, int $past): int
-    {
-        $found = Tokens::NONE;
-
-        foreach ($tokens->inside($tokens->enclosing($keyword), '{', ';') as $at) {
-            $found = $found === Tokens::NONE && $at > $past ? $at : $found;
-        }
-
-        return $found;
     }
 
     /** Whether the modifiers before a `function` keyword make it static. */
@@ -208,7 +190,7 @@ final readonly class Enclosing
     {
         $static = false;
 
-        for ($each = $keyword - 1; $each >= 0 && $tokens->is($each, ...self::MODIFIERS); $each--) {
+        for ($each = $keyword - 1; $tokens->is($each, ...self::MODIFIERS); $each--) {
             $static = $static || $tokens->is($each, T_STATIC);
         }
 

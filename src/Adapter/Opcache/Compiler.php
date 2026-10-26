@@ -11,8 +11,10 @@ use function array_keys;
 use function array_map;
 use function array_merge;
 use function array_replace;
-use function array_values;
 use function ceil;
+
+use Closure;
+
 use function count;
 use function dirname;
 use function explode;
@@ -26,6 +28,8 @@ use function min;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\Polling;
 
 use function realpath;
 use function rmdir;
@@ -56,9 +60,6 @@ final readonly class Compiler
 {
     /** The programs one child compiles, few enough that opcache's memory never fills. */
     private const int PER_CHILD = 100;
-
-    /** How long to wait between reads of the children, in microseconds. */
-    private const int POLL = 1000;
 
     /** Each program's name in its directory. */
     private const string PROGRAM = 'program.php';
@@ -103,6 +104,8 @@ final readonly class Compiler
      * @param string      $directory where each process writes its programs, in a directory of its own the gate owns
      * @param int<1, max>  $parallel how many children compile side by side
      * @param list<string> $besides  settings the children take after the gate's own
+     * @param (Closure(int): void)|NotGiven $pause pauses this many microseconds between reads of the children, as
+     *                                             usleep does where none is given
      */
     public function __construct(
         private string $binary,
@@ -110,6 +113,7 @@ final readonly class Compiler
         private float $seconds,
         private int $parallel,
         private array $besides = [],
+        private Closure|NotGiven $pause = new NotGiven(),
     ) {
     }
 
@@ -175,13 +179,12 @@ final readonly class Compiler
     private function written(array $programs, string $directory): array
     {
         $paths = [];
-        $index = 0;
 
-        foreach ($programs as $key => $program) {
-            $own = sprintf('%s/%d', $directory, $index++);
+        foreach (array_keys($programs) as $index => $key) {
+            $own = sprintf('%s/%d', $directory, $index);
             mkdir($own, recursive: true);
             $path = sprintf('%s/%s', $own, self::PROGRAM);
-            file_put_contents($path, $program->text());
+            file_put_contents($path, $programs[$key]->text());
             $paths[$key] = (string) realpath($path);
         }
 
@@ -215,6 +218,7 @@ final readonly class Compiler
     private function drained(array $children): void
     {
         $running = array_filter($children, static fn(Process|Uncompiled $child): bool => $child instanceof Process);
+        $pause = $this->pause instanceof Closure ? $this->pause : usleep(...);
 
         while ($running !== []) {
             $left = [];
@@ -224,17 +228,17 @@ final readonly class Compiler
             }
 
             $running = $left;
-            usleep(self::POLL);
+            $pause(Polling::moment()->microseconds());
         }
     }
 
-    /** Whether a child runs on within its time; one past it is stopped, and fails. */
+    /** Whether a child runs on within its time; one past it is stopped, so it runs no longer, and fails. */
     private function stillRunning(Process $child): bool
     {
         try {
             $child->checkTimeout();
         } catch (ExceptionInterface) {
-            return false;
+            return $child->isRunning();
         }
 
         return $child->isRunning();
@@ -261,7 +265,7 @@ final readonly class Compiler
                     '-r',
                     self::SCRIPT,
                     self::BETWEEN,
-                    ...array_values($paths),
+                    ...$paths,
                 ],
                 timeout: $this->seconds,
             );

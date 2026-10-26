@@ -148,6 +148,13 @@ it('runs a template\'s list of commands first', function () use ($stepsIn): void
     expect(array_slice($stepsIn($printed), 1))->toEqual(buildkiteVerdicts([], 'composer install', 'make warm'));
 });
 
+it('takes a template\'s list of commands from its options', function () use ($stepsIn): void {
+    $plan = BuildkitePlan::fromOptions(Configs::options('{"step": {"command": ["composer install", "make warm"]}, "definition": "ci.yml"}'));
+    $printed = $plan instanceof BuildkitePlan ? $plan->publish(ShardedPlan::of(0))->text() : '';
+
+    expect(array_slice($stepsIn($printed), 1))->toEqual(buildkiteVerdicts([], 'composer install', 'make warm'));
+});
+
 it('refuses a template whose command is neither a command nor a list of them', function (string $command): void {
     expect(BuildkitePlan::fromOptions(Configs::options(sprintf('{"step": {"command": %s}, "definition": "ci.yml"}', $command))))
         ->toEqual(Invalid::because(Problem::at('step.command', 'expected a command, or a list of commands, as text')));

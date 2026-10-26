@@ -19,3 +19,12 @@ it('says why a program in a directory that is not there is not started', functio
     expect($ran)->toEqual(Ran::finished(succeeded: false, output: 'The provided cwd "/nowhere/at/all" does not exist.')
         ->took(Seconds::of(0.0)));
 });
+
+it('says no process could be started for a program that is not there, quietly', function (): void {
+    error_clear_last();
+    $ran = Running::start(ProcessCommand::of(Scratch::directory(), '/nowhere/program'), 0, WorkerSlot::alone(), 0.0);
+
+    expect($ran)->toEqual(Ran::finished(succeeded: false, output: 'No process could be started for /nowhere/program.')
+        ->took(Seconds::of(0.0)))
+        ->and(error_get_last())->toBeNull();
+});

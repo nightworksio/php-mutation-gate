@@ -109,15 +109,10 @@ final readonly class Selector
     public function judging(Source $source, int $changed): Choice|NotGiven
     {
         $symbol = $source->symbolAt($changed);
-        $tail = $symbol instanceof Executable ? StatementTail::of($source, $changed) : NotGiven::value();
-        $arms = $symbol instanceof Executable ? MatchArms::of($source->tokens(), $changed) : NotGiven::value();
 
-        return match (true) {
-            ! $symbol instanceof Executable => $this->choose($symbol, $source->path()),
-            $tail instanceof StatementTail => $this->running($tail->first(), $tail->last(), $source->path()),
-            $arms instanceof MatchArms => $this->running($arms->first(), $arms->last(), $source->path()),
-            default => NotGiven::value(),
-        };
+        return $symbol instanceof Executable
+            ? $this->runningAfter($source, $changed)
+            : $this->choose($symbol, $source->path());
     }
 
     /**
@@ -172,7 +167,29 @@ final readonly class Selector
             }
         }
 
-        return Choice::of($reading, $this->covering($file, 1, self::WHOLE), $references->isAmbiguous());
+        return Choice::of(
+            $reading,
+            $this->covering($file, Line::first()->number(), self::WHOLE),
+            $references->isAmbiguous(),
+        );
+    }
+
+    /**
+     * Which test files judge a mutant on an executable line by the lines that
+     * run only after it: the statement's other lines, or the lines of the
+     * arms of a `match` whose head it is in; none where there are none.
+     */
+    private function runningAfter(Source $source, int $changed): Choice|NotGiven
+    {
+        $tail = StatementTail::of($source, $changed);
+
+        if ($tail instanceof StatementTail) {
+            return $this->running($tail->first(), $tail->last(), $source->path());
+        }
+
+        $arms = MatchArms::of($source->tokens(), $changed);
+
+        return $arms instanceof MatchArms ? $this->running($arms->first(), $arms->last(), $source->path()) : $arms;
     }
 
     /**
@@ -254,7 +271,7 @@ final readonly class Selector
     private static function read(Project $project, Path $file, bool $test): array
     {
         $path = $project->absolute($file);
-        $text = is_file($path) ? file_get_contents($path) : false;
+        $text = is_file($path) ? file_get_contents($path) : null;
 
         return is_string($text) ? [Source::read($file, Contents::of($text), $test)] : [];
     }

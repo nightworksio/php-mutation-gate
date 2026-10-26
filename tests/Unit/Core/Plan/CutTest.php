@@ -250,7 +250,36 @@ it('cuts to a target wall time the fewest shards whose overhead and share of the
     ],
     'more than the most shards there may be' => [fn(): Cut => Cut::toTarget(Seconds::of(150.0), Seconds::of(100.0), 2), 2],
     'an overhead past the target' => [fn(): Cut => Cut::toTarget(Seconds::of(60.0), Seconds::of(100.0), 3), 3],
+    'an overhead just past the target' => [fn(): Cut => Cut::toTarget(Seconds::of(99.5), Seconds::of(100.0), 3), 3],
+    'an overhead that fills the target' => [fn(): Cut => Cut::toTarget(Seconds::of(100.0), Seconds::of(100.0), 3), 3],
 ]);
+
+it('cuts to a target that leaves a second or less of room by the room\'s share of the cost', function () use (
+    $weighed,
+    $makeSrc,
+    $shards,
+): void {
+    $work = Workload::of(...array_map(
+        static fn(string $name): Weighed => $weighed(sprintf('src/%s.php', $name), 0.5),
+        ['A', 'B', 'C', 'D', 'E', 'F'],
+    ));
+
+    expect(array_column($shards(Cut::toTarget(Seconds::of(1.25), Seconds::of(0.25), 20)->cut($work, $makeSrc())), 2))
+        ->toBe([1.0, 1.0, 1.0]);
+});
+
+it('cuts fewer shards where an overhead of a second leaves a share below twice it', function () use (
+    $weighed,
+    $makeSrc,
+    $shards,
+): void {
+    $work = Workload::of(...array_map(
+        static fn(string $name): Weighed => $weighed(sprintf('src/%s.php', $name), 0.5),
+        ['A', 'B', 'C', 'D', 'E'],
+    ));
+
+    expect(array_column($shards(Cut::bySize(1, Seconds::of(0.5), 20)->cut($work, $makeSrc())), 2))->toBe([1.5, 1.0]);
+});
 
 it('never cuts a package into shards that would each cost less than twice their overhead, unless asked for a count', function (
     Cut $cut,

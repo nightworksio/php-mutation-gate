@@ -8,6 +8,7 @@ use function file_get_contents;
 use function file_put_contents;
 use function getmypid;
 use function is_file;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Control\Control;
@@ -51,9 +52,7 @@ final readonly class UnmutatedRuns
         $scan = $config instanceof CannotJudge
             ? $config
             : MemoryScan::in($this->project, $request->memory(), $this->files);
-        $launcher = $scan instanceof CannotJudge
-            ? $scan
-            : $this->project->fresh(PeakLauncher::in($this->project->own(Control::DIRECTORY)));
+        $launcher = $scan instanceof CannotJudge ? $scan : $this->launcher();
 
         return match (true) {
             $config instanceof CannotJudge => $config,
@@ -61,6 +60,16 @@ final readonly class UnmutatedRuns
             $launcher instanceof CannotJudge => $launcher,
             default => $this->controlled($request, $controls, $config, $scan, $launcher),
         };
+    }
+
+    /** The launcher each control starts through, written among the adapter's own files; or why it cannot be. */
+    private function launcher(): string|CannotJudge
+    {
+        $launcher = $this->project->fresh(PeakLauncher::in($this->project->own(Control::DIRECTORY)));
+
+        return is_string($launcher) && file_put_contents($launcher, PeakLauncher::SCRIPT) === false
+            ? PeakLauncher::unwritten($launcher)
+            : $launcher;
     }
 
     /**
@@ -74,7 +83,6 @@ final readonly class UnmutatedRuns
         MemoryScan $scan,
         string $launcher,
     ): ControlRuns {
-        file_put_contents($launcher, PeakLauncher::SCRIPT);
         $runs = ControlRuns::none();
         $asked = [];
         $commands = [];
@@ -96,8 +104,11 @@ final readonly class UnmutatedRuns
 
         foreach ($this->shell->sideBySide($slots, $request->deadline(), ...$commands) as $index => $ran) {
             [$control, $peak] = $asked[$index];
-            $written = is_file($peak) ? (string) file_get_contents($peak) : '';
-            $runs = $runs->with($control, PeakLauncher::measured(ControlRun::ofProcess($ran), $written, PHP_OS_FAMILY));
+            $run = ControlRun::ofProcess($ran);
+            $measured = is_file($peak)
+                ? PeakLauncher::measured($run, sprintf('%s', file_get_contents($peak)), PHP_OS_FAMILY)
+                : $run;
+            $runs = $runs->with($control, $measured);
         }
 
         $scan->remove();

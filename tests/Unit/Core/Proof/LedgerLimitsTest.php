@@ -45,7 +45,9 @@ it('fits as many proofs as the tighter limit allows in proportion, always fewer,
         ->and($limits->fitting(40, str_repeat('t', 1_000), str_repeat('b', 101)))->toBe(39)
         ->and($limits->fitting(40, str_repeat('t', 1_000), str_repeat('b', 100)))->toBe(39)
         ->and($limits->fitting(1, str_repeat('t', 9_000), str_repeat('b', 900)))->toBe(0)
-        ->and($limits->fitting(0, '', ''))->toBe(0);
+        ->and($limits->fitting(0, '', ''))->toBe(0)
+        ->and(LedgerLimits::of(1, 1_000, 60.0)->fitting(3, 't', 'b'))->toBe(2)
+        ->and(LedgerLimits::of(1_000, 1, 60.0)->fitting(3, 't', 'b'))->toBe(2);
 });
 
 it('gathers a ledger\'s pieces up to the limit, to the byte, and takes none past the piece that passes it', function (): void {

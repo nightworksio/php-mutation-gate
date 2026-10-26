@@ -120,3 +120,23 @@ it('ends a change that runs onto the next line at the end of its last token ther
         'end' => ['line' => 3, 'column' => 10],
     ]);
 });
+
+it('places a mutant on the line of the opening tag, and one at the file\'s first token', function () use ($mutant): void {
+    $oneLine = Columns::in(Contents::of('<?php return $a + $b;'));
+    $first = Columns::in(Contents::of("<?php\nf(); g();\n"));
+    $removed = $mutant(2, Line::of(2), "@@ @@\n-f(); g();\n+g();\n");
+
+    expect($oneLine->of($mutant(1, Line::of(1), Verdicts::diff('return $a + $b;', 'return $a - $b;'))))->toBe([
+        'start' => ['line' => 1, 'column' => 17],
+        'end' => ['line' => 1, 'column' => 18],
+    ])
+        ->and($first->of($removed))->toBe(['start' => ['line' => 2, 'column' => 1], 'end' => ['line' => 2, 'column' => 5]])
+        ->and($first->span($removed))->toEqual(Span::of(0, 3));
+});
+
+it('spans a mutant it cannot place on a file\'s last line, which no line break ends, to past its end', function () use ($mutant): void {
+    expect(Columns::in(Contents::of("<?php\nreturn 3;"))->of($mutant(2, Line::of(2), Verdicts::diff('return 42;', 'return 43;'))))->toBe([
+        'start' => ['line' => 2, 'column' => 1],
+        'end' => ['line' => 2, 'column' => 10],
+    ]);
+});

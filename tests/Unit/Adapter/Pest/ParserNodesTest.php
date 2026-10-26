@@ -24,3 +24,11 @@ it('names each node class a mutator handles, and each subclass of one, the ones 
 it('names only the classes a mutator handles where the vendor directory holds no php-parser', function (): void {
     expect(ParserNodes::in('/nowhere')->handled(NodeClasses::of(BinaryOp::class)))->toBe([BinaryOp::class]);
 });
+
+it('names the subclasses of a class a mutator handles in byte order, however the directory lists them', function (): void {
+    $subclasses = array_slice(ParserNodes::in(Tree::at('vendor'))->handled(NodeClasses::of(BinaryOp::class)), 1);
+    $sorted = $subclasses;
+    sort($sorted);
+
+    expect($subclasses)->toBe($sorted);
+});

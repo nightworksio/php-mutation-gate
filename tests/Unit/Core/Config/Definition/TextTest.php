@@ -34,3 +34,7 @@ it('admits text as its pattern allows it whole, and never nothing', function (st
     'more after the name' => ["auto\n", false],
     'another name' => ['Auto', false],
 ]);
+
+it('admits no empty text, though its pattern matches nothing', function (string $text): void {
+    expect(Text::matching('anything', '^.*$')->admits($text))->toBeFalse();
+})->with(['nothing' => ['']]);

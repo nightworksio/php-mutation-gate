@@ -9,12 +9,14 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Plan\EstimateRecord;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
-it('writes a guess as its opening run alone, and anything more as each basis', function (): void {
+it('writes a guess as its opening run alone, and anything more as each basis, however small', function (): void {
     $guessed = ShardEstimate::none()->with(Estimated::of(Seconds::of(3.0), CostBasis::Guessed))->opening(Seconds::of(5.0));
     $mixed = $guessed->with(Estimated::of(Seconds::of(2.0), CostBasis::Learned));
 
     expect(EstimateRecord::of($guessed))->toBe(['opening' => 5.0])
         ->and(EstimateRecord::of($mixed))->toBe(['learned' => 2.0, 'guessed' => 3.0, 'opening' => 5.0])
+        ->and(EstimateRecord::of(ShardEstimate::none()->with(Estimated::of(Seconds::of(0.5), CostBasis::Learned))))
+        ->toBe(['learned' => 0.5])
         ->and(EstimateRecord::of(ShardEstimate::none()))->toBe([]);
 });
 

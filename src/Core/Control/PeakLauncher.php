@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Control;
 
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MaxRss;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
@@ -40,6 +41,9 @@ final readonly class PeakLauncher
     /** Where a runner writes the script, in a directory of its controls. */
     private const string FILE = '%s/launcher.php';
 
+    /** Why a runner runs no control: the script could not be written where it starts them through it. */
+    private const string UNWRITTEN = 'The gate cannot write %s, the launcher each control is started through.';
+
     /**
      * The peak the script wrote, on an operating system of this family; none
      * where it wrote nothing that reads as one.
@@ -48,18 +52,16 @@ final readonly class PeakLauncher
     {
         $peak = trim($written);
 
-        return (string) (int) $peak === $peak && (int) $peak > 0
-            ? MemoryCap::atLeast(MaxRss::bytes((int) $peak, $family))
-            : NotGiven::value();
+        return (string) (int) $peak === $peak ? MaxRss::peak((int) $peak, $family) : NotGiven::value();
     }
 
     /**
      * What a control found, with the peak the script wrote, where it wrote one
      * that reads as such on an operating system of this family.
      */
-    public static function measured(ControlRun $run, string $written, string $family): ControlRun
+    public static function measured(ControlRun $run, string|NotGiven $written, string $family): ControlRun
     {
-        $peak = self::peakIn($written, $family);
+        $peak = $written instanceof NotGiven ? $written : self::peakIn($written, $family);
 
         return $peak instanceof MemoryCap ? $run->withPeak($peak) : $run;
     }
@@ -68,5 +70,11 @@ final readonly class PeakLauncher
     public static function in(string $directory): string
     {
         return sprintf(self::FILE, $directory);
+    }
+
+    /** Why no control runs where a runner could not write the script to this file. */
+    public static function unwritten(string $file): CannotJudge
+    {
+        return CannotJudge::because(sprintf(self::UNWRITTEN, $file));
     }
 }

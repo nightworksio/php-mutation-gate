@@ -77,7 +77,8 @@ it('writes bridges that Infection applies by its own contract, named by their mu
         ->and($definition instanceof Definition ? $definition->getDescription() : $definition)
         ->toBe('acme/PlusToMinus')
         ->and(function_exists('infectionBridgesLoadedTheBootstrap'))->toBeTrue()
-        ->and(infectionBridges()->written(NotGiven::value()))->not->toContain('require_once');
+        ->and(sprintf("%snamespace {\n    require_once '%s';\n}\n", infectionBridges()->written(NotGiven::value()), $bootstrap))
+        ->toBe(infectionBridges()->written($bootstrap));
 });
 
 it('says why Infection cannot make mutants with what the options name, and nothing where it can', function (): void {
@@ -99,14 +100,16 @@ it('keeps each bridge but those to a mutator that stands down beside Infection\'
         ->and(Bridges::refusing($why)->besides(NamedMutators::of('Plus'))->refusal())->toBe($why);
 });
 
-it('runs the named mutators of Infection\'s own, and those bridged that do not stand down beside them', function (): void {
+it('runs the named mutators of Infection\'s own, and those bridged that do not stand down beside them, whatever names only another runner has', function (): void {
     $bridges = Bridges::to(Enabled::of(MutatorSet::of(PlusToMinusToo::class, RemoveEcho::class)));
     $infection = NamedMutators::of('Plus', 'Minus');
 
     expect($bridges->runnable(Mutators::named('acme/PlusToMinusToo', 'acme/RemoveEcho', 'default/Plus', 'Minus'), $infection))
         ->toBe(['acme/PlusToMinusToo', 'acme/RemoveEcho', 'Minus'])
         ->and($bridges->runnable(Mutators::named('acme/PlusToMinusToo', 'Plus', PlusToMinus::class), $infection))
-        ->toBe(['Plus']);
+        ->toBe(['Plus'])
+        ->and($bridges->runnable(Mutators::named('acme/PlusToMinusToo', 'Plus'), NamedMutators::of('Minus')))
+        ->toBe(['acme/PlusToMinusToo']);
 });
 
 it('bridges no mutator pinned by source, whose mutant Infection shows only to an include', function (): void {

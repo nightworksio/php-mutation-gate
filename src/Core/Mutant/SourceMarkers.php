@@ -4,13 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Mutant;
 
-use function array_find;
-use function array_find_key;
 use function array_slice;
 use function array_values;
-use function count;
-use function mb_strpos;
-use function mb_substr;
+use function mb_strstr;
 use function mb_substr_count;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -19,6 +15,9 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Order\Enclosing;
 use NightWorksIO\MutationGate\Core\Php\Functions;
 use PhpToken;
+
+use function sprintf;
+use function str_contains;
 
 /**
  * A runner's ignore marker wherever a comment of a PHP file holds it, each at
@@ -37,10 +36,9 @@ final readonly class SourceMarkers
         $markers = Markers::none();
 
         foreach ($tokens as $at => $token) {
-            $offset = $token->is([T_COMMENT, T_DOC_COMMENT]) ? mb_strpos($token->text, $marker) : false;
-
-            if ($offset !== false) {
-                $line = Line::of($token->line + mb_substr_count(mb_substr($token->text, 0, $offset), "\n"));
+            if ($token->is([T_COMMENT, T_DOC_COMMENT]) && str_contains($token->text, $marker)) {
+                $before = sprintf('%s', mb_strstr($token->text, $marker, before_needle: true));
+                $line = Line::of($token->line + mb_substr_count($before, "\n"));
                 $enclosing = Enclosing::of($file, $functions->around(self::spokenFor($tokens, $at, $line)));
                 $markers = $markers->with(Marker::inSource($file, $line, $marker, $enclosing));
             }
@@ -57,13 +55,16 @@ final readonly class SourceMarkers
      */
     private static function spokenFor(array $tokens, int $at, Line $line): Line
     {
-        $after = $tokens[$at]->is(T_DOC_COMMENT) ? array_slice($tokens, $at + 1) : [];
-        $ends = array_find_key($after, static fn(PhpToken $token): bool => $token->is(self::ENDS));
-        $function = array_find(
-            array_slice($after, 0, $ends ?? count($after)),
-            static fn(PhpToken $token): bool => $token->is(T_FUNCTION),
-        );
+        foreach ($tokens[$at]->is(T_DOC_COMMENT) ? array_slice($tokens, $at) : [] as $token) {
+            if ($token->is(self::ENDS)) {
+                break;
+            }
 
-        return $function instanceof PhpToken ? Line::of($function->line) : $line;
+            if ($token->is(T_FUNCTION)) {
+                return Line::of($token->line);
+            }
+        }
+
+        return $line;
     }
 }

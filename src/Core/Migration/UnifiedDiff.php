@@ -12,7 +12,6 @@ use function end;
 use function explode;
 use function implode;
 use function max;
-use function min;
 use function sprintf;
 
 /** Two versions of a file, as `diff -u` shows them: each changed line, with three lines around it. */
@@ -57,7 +56,7 @@ final readonly class UnifiedDiff
 
         foreach ($changed as $at) {
             $from = max(0, $at - self::CONTEXT);
-            $to = min(count($lines) - 1, $at + self::CONTEXT);
+            $to = $at + self::CONTEXT;
             $last = count($ranges) - 1;
             $touches = $last >= 0 && $from <= $ranges[$last][1] + 1;
             $ranges = $touches

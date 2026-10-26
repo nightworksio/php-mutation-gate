@@ -28,6 +28,15 @@ it('names, by its id, the test whose missing dataset an own run printed, as the 
     ));
 });
 
+it('names the test where the run styled its file, reading past the styles', function (): void {
+    $printed = missingDataset('it names the test where the run styled its file, reading past the styles', sprintf("\e[2m%s\e[22m", __FILE__));
+
+    expect(CollectionKiller::in($printed))->toBe(sprintf(
+        '%s::__pest_evaluable_it_names_the_test_where_the_run_styled_its_file__reading_past_the_styles',
+        COLLECTED_HERE,
+    ));
+});
+
 it('names a test whose description holds [brackets], "quotes" and under_scores', function (): void {
     $printed = missingDataset('it names a test whose description holds [brackets], "quotes" and under_scores', __FILE__);
 

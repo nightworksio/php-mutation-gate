@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Php;
 
 use function array_any;
+use function array_flip;
 use function array_key_exists;
 use function array_map;
 use function array_push;
@@ -191,12 +192,7 @@ final readonly class NamedFiles
      */
     public function mentioning(string ...$names): array
     {
-        $asked = [];
-
-        foreach ($names as $name) {
-            $asked[$name] = true;
-        }
-
+        $asked = array_flip($names);
         $mentioning = [];
 
         foreach ($this->mentions as $file => $mentioned) {

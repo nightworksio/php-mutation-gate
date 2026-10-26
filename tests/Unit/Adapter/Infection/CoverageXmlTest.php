@@ -81,6 +81,20 @@ it('reads the methods of a file\'s classes some test ran, as Infection reads the
     ],
 ]);
 
+it('reads a report at its own path where the index names no project source', function (): void {
+    $root = (string) realpath(Scratch::directory());
+    Scratch::write($root, 'coverage/coverage-xml/index.xml', '<?xml version="1.0"?><phpunit xmlns="https://schema.phpunit.de/coverage/1.0"><directory name="/"><file name="A.php" href="A.php.xml"/></directory></phpunit>');
+    Scratch::write($root, 'coverage/coverage-xml/A.php.xml', sprintf(
+        '<?xml version="1.0"?><phpunit xmlns="https://schema.phpunit.de/coverage/1.0"><file name="A.php" path="%s"><coverage><line nr="3"><covered by="T::a"/></line></coverage></file></phpunit>',
+        $root,
+    ));
+    Scratch::write($root, 'coverage/junit.xml', '<testsuites/>');
+    $project = Project::at(Root::of($root), Paths::none(), Path::of('.gate'));
+
+    expect(CoverageXml::read($project, DiskPath::of(sprintf('%s/coverage', $root))))
+        ->toEqual(CoverageMap::empty()->covered(Path::of('A.php'), Line::of(3), TestId::of('T::a')));
+});
+
 it('cannot judge coverage whose index names a file report that is not there', function (): void {
     $root = (string) realpath(Scratch::directory());
     InfectionRun::coverage(sprintf('%s/coverage', $root), $root, ['A.php' => [3 => ['T::a']]], [], []);

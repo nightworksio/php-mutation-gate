@@ -36,9 +36,6 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  */
 final readonly class PassedPullRequests implements ChangeSource, Repository
 {
-    /** Where GitHub's API is, unless `GITHUB_API_URL` says otherwise. */
-    private const string API = 'https://api.github.com';
-
     private function __construct(private ChangeSource&Repository $source, private MergedHeads $heads)
     {
     }
@@ -60,14 +57,13 @@ final readonly class PassedPullRequests implements ChangeSource, Repository
         $read = static fn(string $name): string => array_key_exists($name, $environment) ? $environment[$name] : '';
         $repository = $read('GITHUB_REPOSITORY');
         $head = $read('GITHUB_SHA');
-        $api = $read('GITHUB_API_URL');
 
         if ($repository === '' || $head === '' || $check === '') {
             return $source;
         }
 
         $heads = MergedHeads::of(
-            Api::at($client, $api === '' ? self::API : $api, $read('GITHUB_TOKEN')),
+            Api::at($client, $read('GITHUB_API_URL'), $read('GITHUB_TOKEN')),
             $repository,
             $head,
             $check,

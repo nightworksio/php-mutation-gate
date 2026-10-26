@@ -78,3 +78,7 @@ it('keeps the evidence of each mutant it is given again as it was, and none of o
         ->and($again->evidence()->of($replaced->id()))->toEqual(Evidence::none())
         ->and($again->evidence())->toHaveCount(1);
 });
+
+it('skips none of a result of these mutants alone', function (): void {
+    expect(MutationResult::skippingNone(Mutants::none()))->toEqual(MutationResult::of(Mutants::none(), 0));
+});

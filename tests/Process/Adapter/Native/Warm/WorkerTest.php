@@ -3,12 +3,15 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Native\Warm\End;
+use NightWorksIO\MutationGate\Adapter\Native\Warm\Forking;
+use NightWorksIO\MutationGate\Adapter\Native\Warm\WarmRun;
 use NightWorksIO\MutationGate\Adapter\Native\Warm\Worker;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\PhpUnitBoot;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Tests\Support\CpuTime;
 use NightWorksIO\MutationGate\Tests\Support\Ended;
 use NightWorksIO\MutationGate\Tests\Support\Measured;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -37,9 +40,24 @@ it('forks a child for each run it claims, and writes how each ended with what it
         ->and($second)->toEqual(Ran::exited(0, 'two')->took(Measured::of($second instanceof Ran ? $second : Ran::stopped(''))));
 })->group(...$holds);
 
-it('stops a child at its limit with every process under it, and says a child a signal ended was ended so', function (): void {
+it('writes no end for a run it could start no child for, and claims the next run', function (): void {
+    $workplace = WarmWorkers::place([WarmWorkers::run([]), WarmWorkers::run([])]);
+    $forking = new class implements Forking {
+        public function forked(WarmRun $run): NotGiven
+        {
+            return NotGiven::value();
+        }
+    };
+
+    $code = Worker::at($workplace->directory(), 0)->run(new PhpUnitBoot(), $forking);
+
+    expect([$code, End::ranIn($workplace, 0), End::ranIn($workplace, 1), file_get_contents($workplace->claimed())])
+        ->toEqual([0, NotGiven::value(), NotGiven::value(), '2']);
+})->group(...$holds);
+
+it('stops a child at its limit with every process under it, reaps it, and says a child a signal ended was ended so', function (): void {
     $workplace = WarmWorkers::place([WarmWorkers::run(['ACT' => 'stop'], 2.0), WarmWorkers::run(['ACT' => 'kill'])]);
-    $script = 'if [ "$ACT" = stop ]; then sleep 30 & echo $! > "$1.under"; sleep 30; else kill -9 $$; fi';
+    $script = 'if [ "$ACT" = stop ]; then echo $$ > "$1.child"; sleep 30 & echo $! > "$1.under"; sleep 30; else kill -9 $$; fi';
 
     Worker::at($workplace->directory(), 0)->run(new PhpUnitBoot(), WarmWorkers::forking($script, $workplace->out(0)));
     $stopped = End::ranIn($workplace, 0);
@@ -47,7 +65,8 @@ it('stops a child at its limit with every process under it, and says a child a s
 
     expect($stopped instanceof Ran ? [$stopped->wasStopped(), Measured::of($stopped)->seconds() < 20.0] : [])->toBe([true, true])
         ->and($killed instanceof Ran ? [$killed->endedBySignal(), $killed->exitCode()] : [])->toBe([true, 137])
-        ->and(Ended::process((int) file_get_contents(sprintf('%s.under', $workplace->out(0)))))->toBeTrue();
+        ->and(Ended::process((int) file_get_contents(sprintf('%s.under', $workplace->out(0)))))->toBeTrue()
+        ->and(pcntl_waitpid((int) file_get_contents(sprintf('%s.child', $workplace->out(0))), $status, WNOHANG))->toBe(-1);
 })->group(...$holds);
 
 // The child writes to its progress file as a test of it starts or ends.
@@ -62,7 +81,7 @@ it('stops a child that has made no progress for its silence limit since it last 
     ]);
     $script = <<<'SH'
         case "$ACT" in
-            stall) echo started >> "$PROGRESS"; sleep 30 ;;
+            stall) echo $$ > "$PROGRESS.child"; echo started >> "$PROGRESS"; sleep 30 ;;
             wait) sleep 30 ;;
             beat) for at in 1 2 3 4 5 6; do echo ended >> "$PROGRESS"; sleep 0.2; done ;;
         esac
@@ -75,7 +94,18 @@ it('stops a child that has made no progress for its silence limit since it last 
         static fn(Ran|NotGiven $ran): array => $ran instanceof Ran ? [$ran->wasSilenced(), $ran->wasStopped(), $ran->succeeded()] : [],
         $ends,
     ))->toBe([[true, true, false], [false, true, false], [false, false, true]])
-        ->and($ends[0] instanceof Ran ? Measured::of($ends[0])->seconds() : 30.0)->toBeLessThan(20.0);
+        ->and($ends[0] instanceof Ran ? Measured::of($ends[0])->seconds() : 30.0)->toBeLessThan(20.0)
+        ->and(Ended::process((int) file_get_contents(sprintf('%s.child', $progress('stalls')))))->toBeTrue();
+})->group(...$holds);
+
+it('waits on a child without spinning: it looks at it a hundred times a second, not as often as it can', function (): void {
+    $workplace = WarmWorkers::place([WarmWorkers::run(['CODE' => '0'])]);
+    $before = CpuTime::spent();
+
+    Worker::at($workplace->directory(), 0)->run(new PhpUnitBoot(), WarmWorkers::forking('sleep 1; exit "$CODE"', $workplace->out(0)));
+
+    expect(CpuTime::spent() - $before)->toBeLessThan(0.1)
+        ->and(End::ranIn($workplace, 0) instanceof Ran)->toBeTrue();
 })->group(...$holds);
 
 it('boots as PHPUnit\'s config says, its variables and its bootstrap, and forks from a boot the guard lets it', function (): void {

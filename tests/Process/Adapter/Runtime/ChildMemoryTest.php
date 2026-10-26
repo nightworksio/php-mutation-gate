@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Runtime\ChildMemory;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MaxRss;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
@@ -29,4 +30,13 @@ it('counts the memory of a process it waited for, rather than its own', function
 
     expect($peak)->toBeInstanceOf(MemoryCap::class)
         ->and($peak instanceof MemoryCap && $cleared->isExceededBy($peak))->toBeTrue();
+})->group(...$holds);
+
+it('counts none in a process that has waited for none', function (): void {
+    $peak = new Process([PHP_BINARY, '-r', sprintf(
+        'require %s; echo get_class(new NightWorksIO\MutationGate\Adapter\Runtime\ChildMemory()->peak());',
+        var_export(sprintf('%s/vendor/autoload.php', dirname(__DIR__, 4)), return: true),
+    )]);
+
+    expect($peak->mustRun()->getOutput())->toBe(NotGiven::class);
 })->group(...$holds);

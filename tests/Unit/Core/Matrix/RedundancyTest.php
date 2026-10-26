@@ -91,3 +91,24 @@ it('keeps the faster of two tests that keep kills at the same rate, and the firs
         ->and($removable[0]->test()->value())->toBe('tests/HTest.php::it does H')
         ->and(iterator_to_array($removable[0], preserve_keys: false))->toEqual([KeptKill::of(Killings::mutantAt(3), Killings::name('G'))]);
 });
+
+it('keeps every test that must stay, however many follow one, and the best of the rest', function (): void {
+    $redundancy = Redundancy::of(Killings::untimedVerdict());
+
+    expect(array_map(static fn(TestName|TestId $test): string => $test->value(), iterator_to_array($redundancy->kept(), preserve_keys: false)))
+        ->toBe(['tests/ETest.php::it does E', 'tests/GTest.php::it does G', 'tests/ATest.php::it does A'])
+        ->and(array_map(static fn(RemovableTest $test): string => $test->test()->value(), iterator_to_array($redundancy->removable(), preserve_keys: false)))
+        ->toBe(['tests/DTest.php::it does D']);
+});
+
+it('credits each kill of a test not kept to the first kept test that makes it too', function (): void {
+    $removable = array_map(
+        static fn(RemovableTest $test): array => [$test->test()->value(), array_map(
+            static fn(KeptKill $kill): array => [$kill->mutant()->value(), $kill->keptBy()->value()],
+            iterator_to_array($test, preserve_keys: false),
+        )],
+        iterator_to_array(Redundancy::of(Killings::sharedVerdict())->removable(), preserve_keys: false),
+    );
+
+    expect($removable)->toBe([['tests/BTest.php::it does B', [[Killings::mutantAt(3)->value(), 'tests/ATest.php::it does A']]]]);
+});

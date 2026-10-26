@@ -366,8 +366,7 @@ final readonly class ContentKeys
     /** One value for a set of test files, whatever order they come in. */
     private function setOf(Paths $judges): string
     {
-        $values = array_map(static fn(Path $path): string => $path->value(), [...$judges]);
-        sort($values, SORT_STRING);
+        $values = array_map(static fn(Path $path): string => $path->value(), [...$judges->inByteOrder()]);
 
         return Digest::sha256Of(self::framed(...$values))->value();
     }

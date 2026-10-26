@@ -245,7 +245,6 @@ services:
                 'NightWorksIO\MutationGateComposer\MutateCommand':
                     - PACKAGE # the Composer plugin names nothing of the gate (A7), not ThisPackage's
                     - GATE # the Composer plugin names nothing of the gate (A7), not ThisPackage's
-                    - CALL # a command and its arguments, not two joined phrases
                     - CANNOT_RUN # the plugin's own exit code, as the gate's is, from outside it
                 'NightWorksIO\MutationGate\Core\Migration\UnifiedDiff':
                     - CONTEXT # unchanged lines shown around a change, not letters per edit
@@ -281,7 +280,6 @@ services:
                 'NightWorksIO\MutationGate\Core\Native\Command':
                     - WRITING # the shell's flag that takes its script, not git's flag that takes a setting
                 'NightWorksIO\MutationGate\Core\Php\ReachedFiles':
-                    - BITS # the bits of a byte, not a seed's first byte
                     - BIT # each bit of a byte by its place, not an exit code, a status or a length
                 'NightWorksIO\MutationGate\Adapter\PhpSpec\CommandLine':
                     - RUN # PhpSpec's own command and options, not a record's field or a verdict's origin
@@ -567,6 +565,8 @@ services:
                     - FLOOR # a field of the baseline
                 'NightWorksIO\MutationGate\Core\Test\TestNamesRecord':
                     - FILE # a field of the plan's test names
+                'NightWorksIO\MutationGate\Core\Unit\UnitRecord':
+                    - PATH # a field of a unit's record
                 'NightWorksIO\MutationGate\Core\Plan\EstimateRecord':
                     - OPENING # a field of a planned shard
                 'NightWorksIO\MutationGate\Cli\Console':
@@ -610,8 +610,6 @@ services:
             awaiting:
                 'NightWorksIO\MutationGate\Core\Proof\Key\Exceptions':
                     - OWN # owner: flows (Workspace::root())
-                'NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests':
-                    - API # owner: flows (Api::at() gives GitHub's own)
                 'NightWorksIO\MutationGate\Cli\Console':
                     - NAME # owner: flows (ThisPackage::NAME)
         tags:

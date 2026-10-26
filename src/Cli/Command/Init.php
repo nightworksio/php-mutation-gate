@@ -100,7 +100,7 @@ final readonly class Init
         return FullRunEstimate::options(self::formatted(new Command('import')))
             ->setDescription('Write a config from an Infection config and what zero-config found')
             ->addArgument(
-                'file',
+                Argument::File->value,
                 mode: InputArgument::OPTIONAL,
                 description: 'The Infection config, where it is not the one Infection would read',
                 default: '',
@@ -114,14 +114,13 @@ final readonly class Init
                 $gate,
                 $composition,
             ): int {
-                $file = $input->getArgument('file');
                 $setting = new Setting($project, $extensions, $effective, $formats, $now, $gate);
 
                 return self::run(
                     $input,
                     $output,
                     $setting,
-                    InfectionFile::named(is_string($file) ? $file : ''),
+                    InfectionFile::named(CommandText::argument($input, Argument::File)),
                     Additions::none(),
                     NotGiven::value(),
                     new FullRunEstimate($composition, $extensions, $project),
@@ -132,7 +131,7 @@ final readonly class Init
     private static function formatted(Command $command): Command
     {
         return $command->addOption(
-            'format',
+            FormOption::FORMAT,
             mode: InputOption::VALUE_REQUIRED,
             description: Format::words(),
             default: Format::Php->value,

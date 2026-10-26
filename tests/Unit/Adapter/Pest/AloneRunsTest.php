@@ -13,9 +13,11 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\JudgingSuites;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShellFake;
@@ -94,4 +96,41 @@ it('runs a control of no test file over the judging suites, and one of test file
 
     expect($shell->commands()[0]->arguments())->toContain('--testsuite=Unit')
         ->and(implode(' ', $shell->commands()[1]->arguments()))->not->toContain('--testsuite');
+});
+
+it('runs no control where no time is left, and each where some is', function (float $left, bool $runs): void {
+    $root = (string) realpath(Scratch::directory());
+    Scratch::write($root, 'src/Money.php', "<?php\n\nfinal class Money\n{\n}\n");
+    $at = Project::at($root, Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'));
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+
+    $passed = new AloneRuns($at, $shell, new Remembered())->pass(
+        [Control::of(Path::of('src/Money.php'), Paths::of(Path::of('tests/MoneySpec.php')), WholeSuite::tests())],
+        MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()),
+        Seconds::of($left),
+        sprintf('%s/results.jsonl', $root),
+    );
+
+    expect($passed)->toBe([$runs])
+        ->and($shell->commands())->toHaveCount($runs ? 1 : 0)
+        ->and(is_dir(sprintf('%s/originals', $root)))->toBe($runs);
+})->with([
+    'none left, serving no copy' => [0.0, false],
+    'half a second left' => [0.5, true],
+]);
+
+it('remembers a control\'s run apart for each set of withheld variables', function (): void {
+    $root = (string) realpath(Scratch::directory());
+    Scratch::write($root, 'src/Money.php', "<?php\n\nfinal class Money\n{\n}\n");
+    $at = Project::at($root, Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'));
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+    $runs = new AloneRuns($at, $shell, new Remembered());
+    $controls = [Control::of(Path::of('src/Money.php'), Paths::of(Path::of('tests/MoneySpec.php')), WholeSuite::tests())];
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
+
+    $runs->pass($controls, $request, Unlimited::time(), sprintf('%s/results.jsonl', $root));
+    $runs->pass($controls, $request, Unlimited::time(), sprintf('%s/results.jsonl', $root));
+    $runs->pass($controls, $request->withholding(Withheld::of('DEPLOY_*')), Unlimited::time(), sprintf('%s/results.jsonl', $root));
+
+    expect($shell->commands())->toHaveCount(2);
 });

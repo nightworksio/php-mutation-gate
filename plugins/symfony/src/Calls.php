@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGateSymfony;
 
 use function array_map;
 use function in_array;
-use function is_string;
 use function mb_strtolower;
 
 use NightWorksIO\MutationGate\Mutator\Receiver;
@@ -38,12 +37,7 @@ final readonly class Calls
     /** Whether a name, as written, is one of these, as PHP compares names. */
     public static function named(Identifier|Expr|string $name, string ...$names): bool
     {
-        $written = match (true) {
-            $name instanceof Identifier => $name->toLowerString(),
-            is_string($name) => mb_strtolower($name),
-            default => '',
-        };
-
-        return in_array($written, array_map(mb_strtolower(...), $names), strict: true);
+        return ! $name instanceof Expr
+            && in_array(mb_strtolower((string) $name), array_map(mb_strtolower(...), $names), strict: true);
     }
 }

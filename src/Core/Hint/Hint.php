@@ -12,7 +12,6 @@ use function count;
 use function implode;
 use function in_array;
 use function is_string;
-use function iterator_to_array;
 use function mb_str_split;
 use function mb_substr;
 
@@ -292,7 +291,7 @@ final readonly class Hint
     /** Up to three tests, in backticks, then how many more. */
     private static function named(TestIds $tests): string
     {
-        $all = iterator_to_array($tests, preserve_keys: false);
+        $all = [...$tests];
         $named = array_map(
             static fn(TestId $test): string => sprintf('`%s`', $test->value()),
             array_slice($all, 0, self::NAMED),

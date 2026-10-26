@@ -19,6 +19,7 @@ it('reads the peak the script wrote in kilobytes, or in bytes on macOS, and none
 })->with([
     'kilobytes on Linux' => ["2048\n", 'Linux', fn(): MemoryCap => MemoryCap::of(2, MemoryUnit::Megabytes)],
     'bytes on macOS' => ['2097152', 'Darwin', fn(): MemoryCap => MemoryCap::of(2, MemoryUnit::Megabytes)],
+    'one kilobyte, rounded up' => ['1', 'Linux', fn(): MemoryCap => MemoryCap::of(1, MemoryUnit::Megabytes)],
     'nothing' => ['', 'Linux', fn(): NotGiven => NotGiven::value()],
     'nought' => ['0', 'Linux', fn(): NotGiven => NotGiven::value()],
     'not a number' => ['12k', 'Linux', fn(): NotGiven => NotGiven::value()],
@@ -29,9 +30,15 @@ it('gives a control the peak the script wrote, and leaves one without it where i
     $run = ControlRun::passed(Seconds::of(1.0));
 
     expect(PeakLauncher::measured($run, '4096', 'Linux')->peak())->toEqual(MemoryCap::of(4, MemoryUnit::Megabytes))
-        ->and(PeakLauncher::measured($run, '', 'Linux'))->toBe($run);
+        ->and(PeakLauncher::measured($run, '', 'Linux'))->toBe($run)
+        ->and(PeakLauncher::measured($run, NotGiven::value(), 'Linux'))->toBe($run);
 });
 
 it('writes its script in a directory of a runner\'s controls', function (): void {
     expect(PeakLauncher::in('/work/unmutated'))->toBe('/work/unmutated/launcher.php');
+});
+
+it('says where it could not be written, as the reason no control runs', function (): void {
+    expect(PeakLauncher::unwritten('/work/launcher.php')->why())
+        ->toBe('The gate cannot write /work/launcher.php, the launcher each control is started through.');
 });

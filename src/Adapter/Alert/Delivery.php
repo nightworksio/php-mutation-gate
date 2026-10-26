@@ -96,7 +96,7 @@ final readonly class Delivery
 
             return Reply::of(
                 $response->getStatusCode(),
-                array_key_exists('retry-after', $answered) ? implode(',', $answered['retry-after']) : '',
+                implode(',', array_key_exists('retry-after', $answered) ? $answered['retry-after'] : []),
                 $response->getContent(throw: false),
             );
         } catch (ExceptionInterface $unreached) {
@@ -108,12 +108,11 @@ final readonly class Delivery
     private function waitFor(Reply $reply): int
     {
         $after = $reply->retryAfter();
+        $now = $this->clock->now();
         $date = DateTimeImmutable::createFromFormat(self::HTTP_DATE, $after);
-        $seconds = match (true) {
-            is_numeric($after) => (int) $after,
-            $date instanceof DateTimeImmutable => $date->getTimestamp() - $this->clock->now()->getTimestamp(),
-            default => 0,
-        };
+        $seconds = is_numeric($after)
+            ? (int) $after
+            : ($date instanceof DateTimeImmutable ? $date : $now)->getTimestamp() - $now->getTimestamp();
 
         return min(max(0, $seconds), self::LONGEST_WAIT);
     }

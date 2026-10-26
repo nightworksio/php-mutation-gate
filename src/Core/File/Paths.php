@@ -14,6 +14,9 @@ use function count;
 
 use Countable;
 use IteratorAggregate;
+
+use function ksort;
+
 use Traversable;
 
 /**
@@ -76,6 +79,15 @@ final readonly class Paths implements Countable, IteratorAggregate
     public function count(): int
     {
         return count($this->paths);
+    }
+
+    /** These paths in the byte order of their values, whatever order they were added in. */
+    public function inByteOrder(): self
+    {
+        $paths = $this->paths;
+        ksort($paths, SORT_STRING);
+
+        return new self($paths);
     }
 
     /** @return Traversable<int, Path> */

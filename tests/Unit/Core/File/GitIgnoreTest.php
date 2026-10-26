@@ -15,3 +15,7 @@ it('names a directory with or without its slashes, and not where no line names i
     'only within another pattern' => ['.mutation-gate/cache', false],
     'nothing' => ['', false],
 ]);
+
+it('names a directory asked after from the root, with its leading slash', function (): void {
+    expect(GitIgnore::of(".mutation-gate/\n")->names(Path::of('/.mutation-gate')))->toBeTrue();
+});

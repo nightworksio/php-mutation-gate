@@ -2,12 +2,14 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Order\OnSeeding;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Seeder;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Tests\Support\GateEnvironment;
 use NightWorksIO\MutationGate\Tests\Support\Orders;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use Pest\Mutate\Event\Events\TestSuite\StartMutationSuiteSubscriber;
 use Pest\Mutate\Event\Facade;
 
 use function Pest\version;
@@ -34,6 +36,15 @@ it('orders nothing unless the adapter names an order directory and a results fil
         ->and($listening('/o', '/r/results.jsonl', '/p/src/Money.php'))->toBe(Off::Ordering)
         ->and(Seeder::fromEnvironment())->toBe(Off::Ordering)
         ->and($listening('/o', '/r/results.jsonl', mutant: false))->toBeInstanceOf(Seeder::class);
+});
+
+it('subscribes to the start of Pest\'s mutation suite, to seed each mutant\'s order before any runs', function (): void {
+    $events = new Facade();
+    $seeder = Seeder::listening('/o', '/r/results.jsonl', mutant: false, events: $events, root: Root::of('/p'));
+
+    expect($events->subscribers())->toEqual(
+        $seeder instanceof Seeder ? [StartMutationSuiteSubscriber::class => [new OnSeeding($seeder)]] : [],
+    )->and($seeder)->toBeInstanceOf(Seeder::class);
 });
 
 it('writes each mutant\'s order: its function\'s likely killers first, and every covering test\'s time', function (): void {

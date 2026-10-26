@@ -7,7 +7,6 @@ namespace NightWorksIO\MutationGate\Core\Config;
 use function array_flip;
 use function array_key_exists;
 use function array_map;
-use function array_values;
 use function count;
 
 use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
@@ -156,7 +155,7 @@ final readonly class Setup implements Part
     {
         return Choice::of(
             BuiltinTreeSource::PhpUnit->value,
-            Options::of(Json::object(Member::of(self::FALLBACK, Json::items(...array_values($fallback))))),
+            Options::of(Json::object(Member::of(self::FALLBACK, Json::items(...$fallback)))),
         );
     }
 

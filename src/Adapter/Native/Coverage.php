@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Coverage\PhpReport;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Native\Framework;
 use NightWorksIO\MutationGate\Core\Native\Shell;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CoverageFailure;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
@@ -56,7 +57,7 @@ final readonly class Coverage
     {
         $file = $this->project->absolute(CoverageMapFile::in($request->directory()));
         $limits = HandoffLimits::under(ini_get('memory_limit'));
-        $bytes = is_file($file) ? file_get_contents($file, length: $limits->readable()) : false;
+        $bytes = is_file($file) ? file_get_contents($file, length: $limits->readable()) : NotGiven::value();
 
         return is_string($bytes) ? CoverageMapFile::decode($bytes, $limits) : CoverageMapFile::missingAt($file);
     }

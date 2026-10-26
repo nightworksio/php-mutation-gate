@@ -49,9 +49,7 @@ final readonly class PhpUnitIni
     /** The last value the config sets the setting of this name to; none where it sets none or is not XML. */
     private static function lastIn(string $config, string $name): string|NotGiven
     {
-        $xml = $config === ''
-            ? false
-            : simplexml_load_string($config, options: Xml::QUIET);
+        $xml = simplexml_load_string($config, options: Xml::QUIET);
         $values = $xml instanceof SimpleXMLElement ? $xml->xpath(sprintf(self::INI, $name)) : [];
 
         return is_array($values) && $values !== [] ? (string) array_last($values) : NotGiven::value();

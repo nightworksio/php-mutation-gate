@@ -57,6 +57,19 @@ it('fetches a ledger\'s bytes, an empty ledger where none is there, and why the 
         ))->toEqual(Unreadable::because(UnreadReason::TooLarge, 'gs://ledgers/large', 'it is larger than 25 bytes'));
 });
 
+it('stops an answer once its body passes the limits\' bytes', function (): void {
+    $progress = new ArrayObject();
+    $client = new MockHttpClient(new MockResponse(str_split(str_repeat('x', 30), 10)))->withOptions([
+        'on_progress' => static function (int $done, int $size, array $info) use ($progress): void {
+            $progress->append($info['canceled'] === true ? 'canceled' : 'streaming');
+        },
+    ]);
+
+    HttpExchange::over($client)->fetch(Request::get('https://ledgers.example/large'), LedgerLimits::of(25, 38_000_000, 60.0), 'gs://ledgers/large');
+
+    expect($progress->getArrayCopy())->toContain('canceled');
+});
+
 it('says a ledger it could not fetch was unreachable, or did not come in time', function (): void {
     $unreached = new MockHttpClient(new MockResponse('', ['error' => 'Could not resolve host']));
     $slow = new MockHttpClient(new MockResponse((static function (): Generator {

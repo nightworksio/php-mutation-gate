@@ -12,6 +12,7 @@ use function is_string;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Delivery\Deferring;
@@ -131,10 +132,11 @@ final readonly class PullRequestComment implements Configurable, Deferring, Repo
      */
     public static function fromEnvironment(array $environment, HttpClientInterface $client, string $identity): self
     {
-        $eventPath = array_key_exists('GITHUB_EVENT_PATH', $environment) ? $environment['GITHUB_EVENT_PATH'] : '';
-        $event = $eventPath !== '' && is_file($eventPath) ? file_get_contents($eventPath) : '';
+        $path = Variables::GITHUB_EVENT_PATH;
+        $readable = array_key_exists($path, $environment) && is_file($environment[$path]);
+        $event = $readable ? sprintf('%s', file_get_contents($environment[$path])) : Node::NO_KEYS;
 
-        return self::inRun($environment, $event === false ? '' : $event, $client, $identity);
+        return self::inRun($environment, $event, $client, $identity);
     }
 
     public function report(Verdict $verdict): Written|NotWritten

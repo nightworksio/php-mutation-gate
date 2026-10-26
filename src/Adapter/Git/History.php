@@ -19,7 +19,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 
-use function ord;
+use function sodium_bin2hex;
 use function sprintf;
 use function str_starts_with;
 
@@ -50,7 +50,7 @@ final readonly class History
             'log',
             '--stdin',
             '-z',
-            sprintf('--format=%%x%02x%%ct', ord(self::COMMIT[0])),
+            sprintf('--format=%%x%s%%ct', sodium_bin2hex(self::COMMIT)),
             '--name-only',
             '--no-renames',
             '--relative',

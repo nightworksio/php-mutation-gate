@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
 
 use Closure;
 
-use function defined;
 use function fwrite;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Silence;
@@ -23,13 +22,11 @@ final readonly class Heartbeat
     {
     }
 
-    /** Beats on the process's error output, where it has one. */
+    /** Beats on the error output of a mutant's own process, which Pest starts on the command line. */
     public static function onErrorOutput(): self
     {
         return new self(static function (string $beat): void {
-            if (defined('STDERR')) {
-                fwrite(STDERR, $beat);
-            }
+            fwrite(STDERR, $beat);
         });
     }
 

@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Core\Order;
 
 use function array_slice;
 use function array_splice;
-use function array_values;
 
 use ArrayIterator;
 
@@ -45,10 +44,9 @@ final readonly class Ranking implements Countable, IteratorAggregate
     /** These kills, most first, the five most; of two with as many, the one given first. */
     public static function of(Kills ...$kills): self
     {
-        $ranked = array_values($kills);
-        usort($ranked, static fn(Kills $one, Kills $other): int => $other->count() <=> $one->count());
+        usort($kills, static fn(Kills $one, Kills $other): int => $other->count() <=> $one->count());
 
-        return new self(array_slice($ranked, 0, self::TOP));
+        return new self(array_slice($kills, 0, self::TOP));
     }
 
     /** This ranking, with one more kill by a test, placed ahead of every test with as many. */

@@ -41,7 +41,7 @@ final readonly class Clustering
         $memberships = [];
 
         foreach ($byFile as $path => $mutants) {
-            $memberships += self::inFile($mutants, $sources->at(Path::of(strval($path)), Contents::of('')));
+            $memberships += self::inFile($mutants, $sources->at(Path::of(strval($path)), Contents::none()));
         }
 
         return $memberships;

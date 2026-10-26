@@ -13,6 +13,9 @@ final readonly class Variables
     /** Set to `true` by GitHub Actions in every job it runs. */
     public const string GITHUB_ACTIONS = 'GITHUB_ACTIONS';
 
+    /** Set by GitHub Actions, in every job it runs, to the file of the event that started the workflow. */
+    public const string GITHUB_EVENT_PATH = 'GITHUB_EVENT_PATH';
+
     /** Set to `true` by GitLab CI in every job it runs. */
     public const string GITLAB_CI = 'GITLAB_CI';
 

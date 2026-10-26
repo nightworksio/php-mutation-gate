@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Baseline;
 
 use function array_filter;
-use function array_values;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -71,10 +70,10 @@ final readonly class Lowering
             );
         }
 
-        return Failures::of(...array_values(array_filter(
+        return Failures::of(...array_filter(
             $failures,
             static fn(Failure|Kept $failure): bool => $failure instanceof Failure,
-        )));
+        ));
     }
 
     /** @param string|Kept $left why the entry may not leave the file, or that it may */

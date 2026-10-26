@@ -43,8 +43,10 @@ final readonly class DefaultBranch
     /** The default branch the event payload `GITHUB_EVENT_PATH` names; empty where there is none. */
     private static function payloadNameIn(Variables $environment): string
     {
-        $event = $environment->valueOf('GITHUB_EVENT_PATH');
-        $payload = $event === '' ? '' : Directory::at(dirname($event))->read(Path::of(basename($event)));
+        $event = $environment->valueOf(Variables::GITHUB_EVENT_PATH);
+        $payload = $environment->has(Variables::GITHUB_EVENT_PATH)
+            ? Directory::at(dirname($event))->read(Path::of(basename($event)))
+            : null;
 
         try {
             return $payload instanceof Contents

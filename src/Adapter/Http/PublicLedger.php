@@ -75,7 +75,7 @@ final readonly class PublicLedger implements ProofStore
         return new self(
             HttpExchange::over($client),
             NotGiven::value(),
-            LedgerObject::under(''),
+            LedgerObject::top(),
             LedgerLimits::standard(),
             NotGiven::value(),
         );

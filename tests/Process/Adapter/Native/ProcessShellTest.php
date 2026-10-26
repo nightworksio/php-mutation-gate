@@ -57,6 +57,12 @@ it('runs PHP in another directory once moved there, with the running PHP first o
     expect($ran->output())->toBe(sprintf('%s %s%s/usr/bin', $directory, dirname(PHP_BINARY), PATH_SEPARATOR));
 })->group(...$holds);
 
+it('puts the running PHP alone on the PATH where it inherits none', function (): void {
+    $ran = new ProcessShell(new LocalProcesses(new SystemClock()), '/', [])->run(Command::php('-r', 'echo getenv("PATH");'));
+
+    expect($ran->output())->toBe(sprintf('%s%s', dirname(PHP_BINARY), PATH_SEPARATOR));
+})->group(...$holds);
+
 it('says a program failed where it exits with an error, with its exit code, or cannot start, with none', function (): void {
     $failed = new ProcessShell(new LocalProcesses(new SystemClock()), Scratch::directory(), [])->run(Command::php('-r', 'exit(3);'));
     $unstarted = new ProcessShell(new LocalProcesses(new SystemClock()), '/no/such/directory', [])->run(Command::php('-r', 'echo 1;'));

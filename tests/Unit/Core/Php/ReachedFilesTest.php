@@ -93,3 +93,10 @@ it('sorts byte by byte, so paths that read as numbers keep one order in the whol
 it('reaches nothing from nothing in an empty graph', function (): void {
     expect(NamedFiles::byName([], [])->reaches()->from())->toBe([]);
 });
+
+it('packs a reach a bit for each file by its sorted place, eight to a byte, lowest bit first', function (): void {
+    $graph = ReachedFiles::over(['a' => ['j'], 'b' => [], 'c' => [], 'd' => [], 'e' => [], 'f' => [], 'g' => [], 'h' => [], 'i' => []]);
+
+    expect([$graph->packed('a'), $graph->packed('h'), $graph->packed('i'), $graph->packed('b', 'g', 'z')])
+        ->toBe(["\x01\x02", "\x80", "\x00\x01", "\x42"]);
+});

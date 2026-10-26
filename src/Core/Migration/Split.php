@@ -7,7 +7,6 @@ namespace NightWorksIO\MutationGate\Core\Migration;
 use function array_values;
 
 use NightWorksIO\MutationGate\Core\Format\JsonDocument;
-use NightWorksIO\MutationGate\Core\Format\JsonFragment;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
@@ -35,12 +34,6 @@ final readonly class Split implements Step
 
     public function applied(JsonDocument $file): JsonDocument
     {
-        $written = $file->fragment($this->from);
-
-        if (! $written instanceof JsonFragment || ! $written->isObject()) {
-            return $file;
-        }
-
         foreach ($this->parts as $part) {
             $file = $file->has($part->to()) ? $file : $file->moved($part->under($this->from), $part->to());
         }

@@ -42,7 +42,7 @@ final readonly class UnwrapEscape implements Mutator
 
     public function mutate(Node $node): Node|Unchanged
     {
-        $escaped = $node instanceof FuncCall && Calls::ofFunction($node, 'e') ? Calls::argument($node, 0) : false;
+        $escaped = $node instanceof FuncCall && Calls::ofFunction($node, 'e') ? Calls::argument($node, 0) : null;
 
         return $escaped instanceof Node ? $escaped : Unchanged::node();
     }

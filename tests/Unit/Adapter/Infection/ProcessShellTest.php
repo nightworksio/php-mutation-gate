@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Adapter\Infection\ProcessShell;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\WorkerVariable;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Fakes\ProcessesFake;
 use NightWorksIO\MutationGate\Tests\Support\InfectionShells;
@@ -39,4 +40,16 @@ it('runs a command through the processes, in its directory, with its deadline, a
         ->and($command->directory())->toBe('/project')
         ->and([...$command->arguments()])->toBe([PHP_BINARY, '-v'])
         ->and($command->deadline())->toEqual(Seconds::of(4.0));
+});
+
+it('tells a process only what it must not inherit, that it is no worker, and its PATH, PHP\'s first', function (): void {
+    $processes = new ProcessesFake(static fn(): Ran => Ran::exited(0, ''));
+    new ProcessShell($processes, '/project', ['HOME' => '/home', 'MUTATION_GATE_PROBE' => 'other run'])->run(Command::php('-v'));
+    [$command] = $processes->ran();
+
+    expect(iterator_to_array($command->environment(), preserve_keys: true))->toBe([
+        'MUTATION_GATE_PROBE' => false,
+        ...array_fill_keys(WorkerVariable::names(), value: false),
+        'PATH' => sprintf('%s%s', dirname(PHP_BINARY), PATH_SEPARATOR),
+    ]);
 });

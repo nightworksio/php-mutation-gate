@@ -127,7 +127,7 @@ final readonly class MutationRun
     public function of(MutationRequest $request): MutationResult|CannotJudge
     {
         if (count($request->files()) === 0 || $this->bridges->appliesNone($request->narrowing()->mutators())) {
-            return MutationResult::of(Mutants::none(), 0);
+            return MutationResult::skippingNone(Mutants::none());
         }
 
         $started = $this->clock->seconds();
@@ -316,7 +316,7 @@ final readonly class MutationRun
         $left = $this->left($request, $started);
         $unconfirmed = Reason::that(self::NO_TIME_TO_CONFIRM);
         $again = $left instanceof Seconds && $left->seconds() <= 0.0
-            ? MutationResult::of(FoundAgain::among($doubtful, Mutants::none(), $unconfirmed), 0)
+            ? MutationResult::skippingNone(FoundAgain::among($doubtful, Mutants::none(), $unconfirmed))
             : $this->whole()->again($doubtful, $left instanceof Seconds ? $request->within($left) : $request);
         $runs = new AloneRuns($this->project, $this->shell, $this->remembered);
         $again = $again instanceof CannotJudge
@@ -352,21 +352,20 @@ final readonly class MutationRun
         $natives = [];
 
         foreach ($mutants as $mutant) {
-            $files[$mutant->location()->file()->value()] = $mutant->location()->file();
+            $files[] = $mutant->location()->file();
             $mutators[$mutant->mutation()->mutator()] = $mutant->mutation()->mutator();
             $natives[] = $mutant->nativeId();
         }
 
         $result = $this->only(...$natives)->of(
             $request->narrowedTo(
-                Paths::of(...array_values($files)),
+                Paths::of(...$files),
                 $request->narrowing()->toMutators(Mutators::named(...array_values($mutators))),
             ),
         );
 
-        return $result instanceof CannotJudge ? $result : MutationResult::of(
+        return $result instanceof CannotJudge ? $result : MutationResult::skippingNone(
             FoundAgain::among($mutants, $result->mutants(), Reason::that(self::NOT_MADE_TO_CONFIRM)),
-            0,
         )->withEvidence(FoundAgain::evidenceAmong($mutants, $result));
     }
 

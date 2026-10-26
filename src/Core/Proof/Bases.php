@@ -49,13 +49,13 @@ final readonly class Bases implements Countable, IteratorAggregate
     /** These bases, with this one seen most recently of all. */
     public function seen(Digest $base): self
     {
-        return self::of($base, ...array_values($this->bases));
+        return new self([$base->value() => $base] + $this->bases);
     }
 
     /** These bases, and those of another after them. */
     public function and(self $other): self
     {
-        return self::of(...array_values($this->bases), ...array_values($other->bases));
+        return new self($this->bases + $other->bases);
     }
 
     public function has(Digest $base): bool

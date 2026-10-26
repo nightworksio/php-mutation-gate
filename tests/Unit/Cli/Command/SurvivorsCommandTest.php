@@ -64,6 +64,24 @@ it('re-checks the branch\'s last survivors, says what became of each, writes no 
         ->and($proofs->read(Scope::branch('main')))->toEqual(Ledger::empty());
 })->with(['with the plan' => '--plan=.mutation-gate/plan.json', 'planning first' => '']);
 
+it('says after the survivors what each report it is configured with made of the re-check', function () use ($store, $feature): void {
+    $project = FlowCommands::project('"reports": [{"use": "github-summary"}]');
+    $composition = FlowCommands::composition($project, ScriptedRunner::fixture(), $store(), $feature());
+    FlowCommands::run(PlanCommand::command($composition), '--shards=1');
+    $summary = sprintf('%s/summary.md', Scratch::directory());
+    $kept = getenv('GITHUB_STEP_SUMMARY');
+    putenv(sprintf('GITHUB_STEP_SUMMARY=%s', $summary));
+
+    try {
+        $ran = FlowCommands::run(SurvivorsCommand::command($composition));
+    } finally {
+        putenv($kept === false ? 'GITHUB_STEP_SUMMARY' : sprintf('GITHUB_STEP_SUMMARY=%s', $kept));
+    }
+
+    expect($ran->output)->toEndWith(sprintf("95e61bd8bf62\nWrote %s.\n", $summary))
+        ->and(file_get_contents($summary))->toContain('49e02fb39669');
+});
+
 it('says why it re-checks none on the default branch, and exits 0', function () use ($store): void {
     $project = FlowCommands::project();
     $composition = FlowCommands::composition($project, ScriptedRunner::fixture(), $store(), Flows::ci());

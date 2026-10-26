@@ -29,6 +29,7 @@ it('is clean only where its newest mutants fill the window and none let the chan
     'a survivor among the newest' => ['010', 3, false],
     'a survivor older than the window' => ['1000', 3, true],
     'too few to fill it' => ['00', 3, false],
+    'a window of one' => ['10', 1, true],
     'no window' => ['0', 0, false],
 ]);
 

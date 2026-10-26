@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\NotGiven;
+
 /**
  * What a replay of a kill's own run, unmutated, says of the kill (ADR-0004):
  * it stands only where the replay ran as many tests as the run did up to its
@@ -56,18 +59,18 @@ enum ReplayVerdict
     private const string OTHER_ORDER
         = 'Killed, but its run, replayed unmutated, took its tests in another order, so it vouches for nothing.';
 
-    /** Why a kill this verdict does not let stand is unjudged; nothing for one it lets stand. */
-    public function reason(): string
+    /** Why a kill this verdict does not let stand is unjudged; none for one it lets stand. */
+    public function reason(): Reason|NotGiven
     {
         return match ($this) {
-            self::Stands => '',
-            self::NoTime => self::NO_TIME,
-            self::OverLimit => self::OVER_LIMIT,
-            self::Unserved => self::UNSERVED,
-            self::OtherCount => self::OTHER_COUNT,
-            self::Failed => self::FAILED,
-            self::FailedRun => self::FAILED_RUN,
-            self::OtherOrder => self::OTHER_ORDER,
+            self::Stands => NotGiven::value(),
+            self::NoTime => Reason::that(self::NO_TIME),
+            self::OverLimit => Reason::that(self::OVER_LIMIT),
+            self::Unserved => Reason::that(self::UNSERVED),
+            self::OtherCount => Reason::that(self::OTHER_COUNT),
+            self::Failed => Reason::that(self::FAILED),
+            self::FailedRun => Reason::that(self::FAILED_RUN),
+            self::OtherOrder => Reason::that(self::OTHER_ORDER),
         };
     }
 }

@@ -25,6 +25,13 @@ it('adds a path it does not hold, and leaves itself alone for one it does', func
         ->and($paths)->toHaveCount(1);
 });
 
+it('orders its paths by the bytes of their values, whatever order they came in', function (): void {
+    $paths = Paths::of(Path::of('tests/b'), Path::of('9'), Path::of('tests/B'), Path::of('10'));
+
+    expect(array_map(static fn(Path $path): string => $path->value(), [...$paths->inByteOrder()]))
+        ->toBe(['10', '9', 'tests/B', 'tests/b']);
+});
+
 it('says whether it holds a path', function (): void {
     $paths = Paths::of(Path::of('src/A.php'));
 

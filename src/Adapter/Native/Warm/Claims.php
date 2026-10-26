@@ -4,16 +4,17 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Native\Warm;
 
-use function fclose;
+use DateTimeImmutable;
+
 use function flock;
 use function fopen;
-use function ftruncate;
 use function fwrite;
 use function is_file;
+use function is_float;
 use function is_resource;
-use function microtime;
 
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Time\Deadline;
 
 use function rewind;
 use function stream_get_contents;
@@ -27,35 +28,39 @@ use function strval;
  */
 final readonly class Claims
 {
-    private function __construct(private string $counter, private int $count, private float|NotGiven $end)
+    private function __construct(private string $counter, private int $count, private Deadline|NotGiven $end)
     {
     }
 
     public static function of(Workplace $workplace, Job $job): self
     {
-        return new self($workplace->claimed(), $job->count(), $job->end());
+        $end = $job->end();
+
+        return new self($workplace->claimed(), $job->count(), is_float($end) ? Deadline::atEpoch($end) : $end);
     }
 
     /** The position of the next run, now this worker's; or none, where none is left or the end has come. */
     public function next(): int|NotGiven
     {
-        $file = is_file($this->counter) ? fopen($this->counter, 'c+') : false;
+        $file = is_file($this->counter) ? fopen($this->counter, 'c+') : NotGiven::value();
 
         if (! is_resource($file) || ! flock($file, LOCK_EX)) {
             return NotGiven::value();
         }
 
         $at = (int) stream_get_contents($file);
-        $open = $at < $this->count && ($this->end instanceof NotGiven || microtime(as_float: true) < $this->end);
+        $open = $at < $this->count && ! $this->endHasCome();
 
         if ($open) {
             rewind($file);
-            ftruncate($file, 0);
             fwrite($file, strval($at + 1));
         }
 
-        fclose($file);
-
         return $open ? $at : NotGiven::value();
+    }
+
+    private function endHasCome(): bool
+    {
+        return $this->end instanceof Deadline && $this->end->hasPassed(new DateTimeImmutable());
     }
 }

@@ -56,6 +56,12 @@ final readonly class MutantId
         return new self(mb_substr(Digest::sha256Of($canonical)->value(), 0, self::LENGTH));
     }
 
+    /** The id of a change's first mutant in a file: the key its repeats there are counted by. */
+    public static function firstOf(Path $file, string $mutator, string $diff): self
+    {
+        return self::hash($file, $mutator, $diff, 0);
+    }
+
     /** An id as a config, a report or a command line writes it. */
     public static function parse(string $id): self|CannotJudge
     {

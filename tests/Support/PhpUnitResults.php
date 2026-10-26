@@ -74,6 +74,9 @@ final class PhpUnitResults
      * @param list<Skipped>                                $skipped
      * @param list<MarkedIncomplete>                       $incomplete
      * @param list<WarningTriggered>                       $runnerWarnings
+     * @param list<Issue>                                $deprecations
+     * @param list<Issue>                                $phpNotices
+     * @param array{self: int<0, max>, direct: int<0, max>, indirect: int<0, max>, unknown: int<0, max>} $byTrigger by trigger
      */
     public static function result(
         array $warnings = [],
@@ -88,6 +91,9 @@ final class PhpUnitResults
         array $skipped = [],
         array $incomplete = [],
         array $runnerWarnings = [],
+        array $deprecations = [],
+        array $phpNotices = [],
+        array $byTrigger = ['self' => 0, 'direct' => 0, 'indirect' => 0, 'unknown' => 0],
     ): TestResult {
         return new TestResult(
             1,
@@ -114,14 +120,14 @@ final class PhpUnitResults
             [],
             [],
             [],
-            [],
+            $deprecations,
             $notices,
             $warnings,
             $phpDeprecations,
-            [],
+            $phpNotices,
             $phpWarnings,
             0,
-            ['self' => 0, 'direct' => 0, 'indirect' => 0, 'unknown' => 0],
+            $byTrigger,
         );
     }
 

@@ -24,7 +24,6 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Prefix;
-use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Test\Filter;
@@ -136,8 +135,8 @@ final readonly class NarrowedKills
 
         foreach ($keys as $at => $key) {
             $verdict = array_key_exists($at, $said) ? $said[$at] : ReplayVerdict::NoTime;
-            $reason = Reason::that($verdict->reason());
-            $unvouched = $verdict === ReplayVerdict::Stands ? $unvouched : [...$unvouched, ...array_map(
+            $reason = $verdict->reason();
+            $unvouched = $reason instanceof NotGiven ? $unvouched : [...$unvouched, ...array_map(
                 static fn(Mutant $mutant): Mutant => Interpretation::unjudged($mutant, $reason),
                 $this->replayed[$key],
             )];

@@ -50,7 +50,7 @@ final readonly class Profiles
     /** Every mutator Infection has, by its name. */
     public function named(): NamedMutators
     {
-        return NamedMutators::of(...array_values($this->names));
+        return NamedMutators::of(...$this->names);
     }
 
     /**
@@ -136,13 +136,10 @@ final readonly class Profiles
         $names = [];
 
         foreach (MutatorFamily::cases() as $family) {
-            $members = array_values(array_filter(
-                $this->names,
-                static fn(string $name): bool => Families::of($name) === $family,
-            ));
+            $members = array_filter($this->names, static fn(string $name): bool => Families::of($name) === $family);
             $whole = $family->isKind() && $members !== [] && array_diff($members, $mutators) === [];
             $names = $whole ? [...$names, $family->value] : $names;
-            $mutators = $whole ? array_values(array_diff($mutators, $members)) : $mutators;
+            $mutators = $whole ? array_diff($mutators, $members) : $mutators;
         }
 
         return [...$names, ...$mutators];

@@ -93,10 +93,10 @@ final readonly class LocalProcesses implements Processes
      * Each waiting command, in turn, started in a free place while
      * one is free; one that cannot start ends at once and frees its place.
      *
-     * @param  array<int, WorkerSlot> $free    by position
-     * @param  array<int, ProcessCommand>                                     $waiting by position
-     * @param  array<int, Running>                                            $running by position
-     * @param  array<int, Ran>                                                $ends    by position
+     * @param  array<int, WorkerSlot>     $free    by position
+     * @param  array<int, ProcessCommand> $waiting by position
+     * @param  array<int, Running>        $running by position
+     * @param  array<int, Ran>            $ends    by position
      * @return array{array<int, WorkerSlot>, array<int, ProcessCommand>, array<int, Running>, array<int, Ran>}
      */
     private function started(array $free, array $waiting, array $running, array $ends): array
@@ -107,14 +107,14 @@ final readonly class LocalProcesses implements Processes
             $started = Running::start($waiting[$at], $place, $free[$place], $this->now());
             unset($waiting[$at]);
 
-            if ($started instanceof Ran) {
-                $ends[$at] = $started;
+            if (! $started instanceof Running) {
+                $ends += [$at => $started];
 
                 continue;
             }
 
             unset($free[$place]);
-            $running[$at] = $started;
+            $running += [$at => $started];
         }
 
         return [$free, $waiting, $running, $ends];

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Coverage;
 
 use function array_filter;
-use function array_values;
 
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -32,10 +31,7 @@ final readonly class Remeasured
         $lines = [];
 
         foreach ($kept->lines() as $line) {
-            $staying = array_values(array_filter(
-                [...$line],
-                static fn(string $test): bool => ! $tests->has(TestId::of($test)),
-            ));
+            $staying = array_filter([...$line], static fn(string $test): bool => ! $tests->has(TestId::of($test)));
             $lines[] = CoveredLine::of($line->file(), $line->line(), ...$staying);
         }
 

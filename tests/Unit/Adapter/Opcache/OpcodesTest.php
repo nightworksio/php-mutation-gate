@@ -47,13 +47,18 @@ it('reads a program whose code stands on other lines as another, since it can re
         ->and($one instanceof Opcodes && $two instanceof Opcodes && $one->same($two))->toBeFalse();
 });
 
-it('names the program\'s directory alike, as written and as the dump escapes it', function (): void {
-    $dump = opcodesDump('/a/b"c/program.php', '1', '0000 RETURN string("/a/b\\"c")');
+it('names the program\'s path and directory alike, as written and as the dump escapes them', function (): void {
+    $body = implode("\n", ['0000 ECHO string("/a/b\\"c/program.php")', '0001 ECHO string("/a/b\\"c")', '0002 ECHO /a/b"c', '0003 RETURN int(1)']);
 
-    $opcodes = Opcodes::dumped($dump, '/a/b"c/program.php');
+    $opcodes = Opcodes::dumped(opcodesDump('/a/b"c/program.php', '1', $body), '/a/b"c/program.php');
 
-    expect($opcodes instanceof Opcodes ? $opcodes->text() : $opcodes)
-        ->toEndWith(sprintf('0000 RETURN string("%s")', Opcodes::DIRECTORY));
+    expect($opcodes instanceof Opcodes ? $opcodes->text() : $opcodes)->toEndWith(implode("\n", [
+        sprintf('     ; %s:1-1', Opcodes::FILE),
+        sprintf('0000 ECHO string("%s")', Opcodes::FILE),
+        sprintf('0001 ECHO string("%s")', Opcodes::DIRECTORY),
+        sprintf('0002 ECHO %s', Opcodes::DIRECTORY),
+        '0003 RETURN int(1)',
+    ]));
 });
 
 it('keeps every literal and opcode line as it is, so a changed one never compares equal', function (string $before, string $after): void {

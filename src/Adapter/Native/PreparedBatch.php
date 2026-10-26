@@ -62,7 +62,9 @@ final class PreparedBatch
     /** Whether no more mutants are judged: the deadline has come, or a batch's runs could not all start by it. */
     public function hasRunOut(): bool
     {
-        return $this->stopped || hrtime(as_number: true) >= $this->end;
+        $remaining = $this->remaining();
+
+        return $this->stopped || ($remaining instanceof Seconds && ! $remaining->outlasts(Seconds::none()));
     }
 
     /**
@@ -112,7 +114,7 @@ final class PreparedBatch
         }
 
         $positions = array_keys($this->waiting);
-        $ended = $this->run->judgedSideBySide($this->slots, $this->remaining(), ...array_values($this->waiting));
+        $ended = $this->run->judgedSideBySide($this->slots, $this->remaining(), ...$this->waiting);
 
         foreach ($ended->mutants() as $at => $mutant) {
             $this->judged[$positions[$at]] = $mutant;

@@ -9,11 +9,15 @@ use NightWorksIO\MutationGate\Core\Config\Ignores;
 use NightWorksIO\MutationGate\Core\Config\Local;
 use NightWorksIO\MutationGate\Core\Config\Part;
 use NightWorksIO\MutationGate\Core\Config\Pest;
+use NightWorksIO\MutationGate\Core\Config\PhpCalls;
+use NightWorksIO\MutationGate\Core\Config\Price;
+use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\Proofs;
 use NightWorksIO\MutationGate\Core\Config\Reach;
 use NightWorksIO\MutationGate\Core\Config\Reports;
 use NightWorksIO\MutationGate\Core\Config\Setup;
 use NightWorksIO\MutationGate\Core\Config\Shards;
+use NightWorksIO\MutationGate\Core\Config\Table;
 use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -51,4 +55,25 @@ describe('Shards', function (): void {
         ],
         'neither, later' => [fn(): Shards => Shards::of(seconds: Seconds::of(600)), fn(): Shards => Shards::of(max: 3), fn(): Shards => Shards::of(seconds: Seconds::of(600), max: 3)],
     ]);
+
+    it('writes each setting it holds as the PHP config calls it, each rate a line costs before the price of a minute', function (): void {
+        $shards = Shards::of(
+            seconds: Seconds::of(600),
+            max: 3,
+            target: Seconds::of(1800),
+            setup: Seconds::of(180),
+            secondsPerLine: Table::row('', 0.25)->merged(Table::row('src/Legacy', 2)),
+            perRunnerMinute: Price::of(0.008, 'USD'),
+        );
+
+        expect($shards->php(ProjectRoot::origin()))->toEqual(PhpCalls::inWith(
+            'Shards::seconds(600)',
+            'Shards::max(3)',
+            "Shards::target('30m')",
+            "Shards::setup('3m')",
+            "Shards::secondsPerLine('', 0.25)",
+            "Shards::secondsPerLine('src/Legacy', 2)",
+            "Shards::perRunnerMinute(0.008, 'USD')",
+        ));
+    });
 })->group('holds:src/Core/Config/Shards.php');

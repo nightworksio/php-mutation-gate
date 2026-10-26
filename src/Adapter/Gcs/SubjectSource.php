@@ -63,7 +63,7 @@ final readonly class SubjectSource
 
     private function read(string $file): string|CannotJudge
     {
-        $text = is_file($file) ? file_get_contents($file) : false;
+        $text = is_file($file) ? file_get_contents($file) : null;
 
         return is_string($text) ? $text : CannotJudge::because(sprintf(self::UNREAD, $file));
     }

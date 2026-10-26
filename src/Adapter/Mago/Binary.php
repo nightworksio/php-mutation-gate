@@ -36,7 +36,7 @@ final readonly class Binary
     public static function in(string $vendor): string|CannotJudge
     {
         $file = Installed::fileIn(Path::of($vendor));
-        $text = is_file($file->value()) ? file_get_contents($file->value()) : false;
+        $text = is_file($file->value()) ? file_get_contents($file->value()) : null;
         $installed = is_string($text) ? Installed::decode(Contents::of($text), $file) : Installed::missingAt($file);
 
         if ($installed instanceof CannotJudge) {

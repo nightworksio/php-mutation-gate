@@ -60,6 +60,8 @@ it('offers every command the command-line reference lists', function (string $co
     'config:show',
     'config:schema',
     'pest:patch',
+    'infection:patch',
+    'migrate',
     'doctor',
 ]);
 

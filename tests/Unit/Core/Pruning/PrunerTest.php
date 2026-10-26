@@ -60,6 +60,12 @@ it('prunes the clean mutators, less those never pruned, in each unit whose newes
     expect(prunedOver($pruner(), $proofs))->toBe([['src/A.php'], ['Plus']]);
 });
 
+it('prunes in every unit whose newest result stands', function () use ($pruner, $makeProofs): void {
+    $proofs = $makeProofs()->with(PruningCases::proof('src/E.php', '2026-10-05T00:00:00Z', 'e', Mutants::none()));
+
+    expect(prunedOver($pruner(), $proofs))->toBe([['src/A.php', 'src/E.php'], ['Plus']]);
+});
+
 it('prunes in no unit whose result is of another mutant set', function () use ($pruner): void {
     $proofs = Proofs::of(PruningCases::proof('src/A.php', '2026-10-05T00:00:00Z', 'a', Mutants::none(), mutation: 'other mutators'));
 

@@ -130,7 +130,7 @@ final readonly class LedgerDirectory implements Configurable, ProofStore
             return Missing::at(Path::of($companion->value));
         }
 
-        $size = is_file($file->value()) ? filesize($file->value()) : false;
+        $size = is_file($file->value()) ? filesize($file->value()) : null;
 
         return is_int($size) && ! CompanionRead::limitsOf($companion)->admitsPacked($size)
             ? CompanionRead::unread($companion, $file->value(), CompanionRead::limitsOf($companion)->pastPacked())
@@ -186,7 +186,7 @@ final readonly class LedgerDirectory implements Configurable, ProofStore
     /** Where a scope's ledger is, for a scope that is a branch's or a pull request's ref and nothing else. */
     private function fileOf(Scope $scope): ProjectPath|CannotJudge
     {
-        $key = LedgerObject::under('')->of($scope);
+        $key = LedgerObject::top()->of($scope);
 
         return is_string($key) ? $this->path->child($key) : $key;
     }
@@ -194,7 +194,7 @@ final readonly class LedgerDirectory implements Configurable, ProofStore
     /** Where an object beside a scope's ledger is, for a scope that is a branch's or a pull request's ref. */
     private function companionFile(Scope $scope, Companion $companion): ProjectPath|CannotJudge
     {
-        $key = LedgerObject::under('')->companionOf($scope, $companion);
+        $key = LedgerObject::top()->companionOf($scope, $companion);
 
         return is_string($key) ? $this->path->child($key) : $key;
     }

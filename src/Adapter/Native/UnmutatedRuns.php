@@ -5,12 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Native;
 
 use function file_get_contents;
-use function file_put_contents;
 use function getmypid;
-use function is_dir;
 use function is_file;
 use function is_string;
-use function mkdir;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Control\Control;
@@ -21,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Control\PeakLauncher;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Native\Framework;
 use NightWorksIO\MutationGate\Core\Native\Shell;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
@@ -129,14 +127,13 @@ final readonly class UnmutatedRuns
         array $prepared,
         array $asked,
     ): ControlRuns {
-        $directory = $this->project->own(Control::DIRECTORY);
+        $launcher = $this->project->written(PeakLauncher::in(Control::DIRECTORY), PeakLauncher::SCRIPT);
 
-        if (! is_dir($directory)) {
-            mkdir($directory, recursive: true);
+        if ($launcher instanceof CannotJudge) {
+            return $this->unrun($runs, $asked, $launcher);
         }
 
-        $launcher = PeakLauncher::in($directory);
-        file_put_contents($launcher, PeakLauncher::SCRIPT);
+        $directory = $this->project->own(Control::DIRECTORY);
         $slots = WorkerSlots::of($request->pool()->processes(), strval(getmypid()));
         $commands = [];
 
@@ -147,11 +144,25 @@ final readonly class UnmutatedRuns
 
         foreach ($this->shell->sideBySide($slots, $request->deadline(), ...$commands) as $at => $ran) {
             $peak = sprintf(self::PEAK, $directory, $at);
-            $written = is_file($peak) ? (string) file_get_contents($peak) : '';
+            $written = is_file($peak) ? (string) file_get_contents($peak) : NotGiven::value();
             $runs = $runs->with(
                 $asked[$at],
                 PeakLauncher::measured($this->found($judging, $prepared[$at], $ran), $written, PHP_OS_FAMILY),
             );
+        }
+
+        return $runs;
+    }
+
+    /**
+     * Each of these controls unrun, for this reason, beside what the others found.
+     *
+     * @param list<Control> $asked
+     */
+    private function unrun(ControlRuns $runs, array $asked, CannotJudge $why): ControlRuns
+    {
+        foreach ($asked as $control) {
+            $runs = $runs->with($control, ControlRun::unrun($why->why()));
         }
 
         return $runs;

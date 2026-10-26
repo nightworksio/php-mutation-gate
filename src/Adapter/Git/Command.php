@@ -6,8 +6,6 @@ namespace NightWorksIO\MutationGate\Adapter\Git;
 
 use function array_filter;
 use function array_key_exists;
-use function array_map;
-use function fclose;
 use function file_get_contents;
 use function file_put_contents;
 use function fopen;
@@ -15,10 +13,10 @@ use function getenv;
 use function getmypid;
 use function implode;
 use function is_dir;
-use function is_resource;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ChildProcess;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Withholding;
@@ -173,11 +171,9 @@ final readonly class Command
             $this->directory,
             $this->environment,
         );
-        $printed = $git === false ? false : stream_get_contents($pipes[1]);
+        $printed = $git === false ? NotGiven::value() : stream_get_contents($pipes[1]);
         $succeeded = $git !== false && proc_close($git) === 0;
         $said = $git === false ? self::NOT_STARTED : trim(sprintf('%s', file_get_contents($errors)));
-
-        array_map(fclose(...), array_filter([$reading, $writing], is_resource(...)));
 
         return $succeeded && is_string($printed) ? $printed : $this->refused($arguments, $said);
     }

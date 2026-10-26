@@ -11,13 +11,14 @@ use PhpParser\Node\Name;
 use PhpParser\Node\Name\FullyQualified;
 use PhpParser\PrettyPrinter\Standard;
 
-it('writes true, false, null and an empty array as code writes them', function (): void {
+it('writes true, false, null and an empty array as code writes them, the array short whatever a printer writes by default', function (): void {
     $printer = new Standard();
 
     expect($printer->prettyPrintExpr(Literals::true()))->toBe('true')
         ->and($printer->prettyPrintExpr(Literals::false()))->toBe('false')
         ->and($printer->prettyPrintExpr(Literals::null()))->toBe('null')
-        ->and($printer->prettyPrintExpr(Literals::emptyArray()))->toBe('[]');
+        ->and($printer->prettyPrintExpr(Literals::emptyArray()))->toBe('[]')
+        ->and(new Standard(['shortArraySyntax' => false])->prettyPrintExpr(Literals::emptyArray()))->toBe('[]');
 });
 
 it('recognises true and false only as written in lower case and unqualified', function (): void {

@@ -62,7 +62,7 @@ final readonly class Workplace
     /** The workplace removed, with every file in it. */
     public function removed(): void
     {
-        $files = is_dir($this->directory) ? scandir($this->directory) : false;
+        $files = is_dir($this->directory) ? scandir($this->directory) : [];
 
         foreach (is_array($files) ? $files : [] as $file) {
             $path = $this->in($file);

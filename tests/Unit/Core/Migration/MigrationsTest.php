@@ -55,6 +55,16 @@ it('leaves for a hand edit each change a migrated file still needs', function ()
         ->and(migrationReleases()->left(migrationsDocument('{"runner": "pest"}')))->toEqual(NotGiven::value());
 });
 
+it('leaves every change a migrated file still needs for a hand edit, in their order', function (): void {
+    $releases = Migrations::of(Migration::in('2.0.0', Rename::of('runr', 'runner'), Rename::of('presets', 'preset')));
+    $both = $releases->applied(migrationsDocument('{"runr": "pest", "runner": "phpunit", "presets": [], "preset": []}'));
+
+    expect($releases->left($both))->toEqual(Invalid::because(
+        Problem::at('runr', '`runr` became `runner` in 2.0.0, and migrate cannot make that change here: edit it by hand'),
+        Problem::at('presets', '`presets` became `preset` in 2.0.0, and migrate cannot make that change here: edit it by hand'),
+    ));
+});
+
 it('holds no change of the gate\'s own before a release first retires a key or a baseline format', function (): void {
     expect([...Migrations::config()])->toBe([])
         ->and([...Migrations::baseline()])->toBe([]);

@@ -76,7 +76,7 @@ final readonly class Trend
     {
         $runs = [...$this->runs, TrendRecord::of($verdict, $commit, $time)];
 
-        return new self(array_slice($runs, count($runs) > self::KEPT ? count($runs) - self::KEPT : 0));
+        return new self(array_slice($runs, -self::KEPT));
     }
 
     public function json(): string

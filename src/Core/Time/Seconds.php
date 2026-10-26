@@ -43,6 +43,12 @@ final readonly class Seconds
         return new self($seconds);
     }
 
+    /** No time at all. */
+    public static function none(): self
+    {
+        return new self(0.0);
+    }
+
     /** The time from one moment to a later one. */
     public static function between(DateTimeImmutable $start, DateTimeImmutable $end): self
     {
@@ -84,6 +90,12 @@ final readonly class Seconds
     public function seconds(): float
     {
         return $this->seconds;
+    }
+
+    /** Whether this duration is longer than another: a limit outlasts a run that has yet to reach it. */
+    public function outlasts(self $other): bool
+    {
+        return $this->seconds > $other->seconds;
     }
 
     /** The duration in whole nanoseconds, rounded. */

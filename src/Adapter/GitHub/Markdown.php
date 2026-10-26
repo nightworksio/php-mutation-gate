@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
 use function array_filter;
-use function array_map;
 use function array_slice;
 
 use Closure;
@@ -13,11 +12,9 @@ use Closure;
 use function count;
 use function implode;
 use function intdiv;
-use function iterator_to_array;
 use function max;
 use function mb_strlen;
 
-use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Matrix\SuiteScores;
@@ -350,10 +347,11 @@ final readonly class Markdown
      */
     private static function reasons(Obstacles $obstacles): array
     {
-        $reasons = array_map(
-            static fn(CannotJudge $obstacle): string => sprintf('- %s', Escape::text($obstacle->why())),
-            iterator_to_array($obstacles, preserve_keys: false),
-        );
+        $reasons = [];
+
+        foreach ($obstacles as $obstacle) {
+            $reasons[] = sprintf('- %s', Escape::text($obstacle->why()));
+        }
 
         return array_filter([implode("\n", $reasons)], static fn(string $list): bool => $list !== '');
     }

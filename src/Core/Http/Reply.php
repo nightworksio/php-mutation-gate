@@ -43,6 +43,12 @@ final readonly class Reply
         return new self($status, $retryAfter, $body);
     }
 
+    /** A reply that names no `Retry-After`. */
+    public static function answered(int $status, string $body): self
+    {
+        return new self($status, '', $body);
+    }
+
     public function status(): int
     {
         return $this->status;
@@ -61,7 +67,13 @@ final readonly class Reply
 
     public function isAccepted(): bool
     {
-        return $this->status >= self::OK && $this->status < self::REDIRECT;
+        return self::accepts($this->status);
+    }
+
+    /** Whether a status accepts what was asked: one of the 2xx. */
+    public static function accepts(int $status): bool
+    {
+        return $status >= self::OK && $status < self::REDIRECT;
     }
 
     /** Whether it asks to be tried again: too many requests, or a server's error. */
@@ -85,6 +97,8 @@ final readonly class Reply
      */
     public static function unreached(string $to, string $why): NotWritten
     {
-        return NotWritten::because(sprintf(self::UNREACHED, $to, Fit::plain(preg_replace(self::URL, $to, $why) ?? '')));
+        $named = sprintf('%s', preg_replace(self::URL, $to, $why));
+
+        return NotWritten::because(sprintf(self::UNREACHED, $to, Fit::plain($named)));
     }
 }

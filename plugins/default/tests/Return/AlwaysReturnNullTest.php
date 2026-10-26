@@ -60,6 +60,11 @@ it('leaves alone the code it is not written for', function (): void {
             return null;
         }
 
+        function either(): int|string
+        {
+            return 1;
+        }
+
         function any($a)
         {
             if ($a) {

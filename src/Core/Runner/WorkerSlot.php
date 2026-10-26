@@ -21,8 +21,7 @@ final readonly class WorkerSlot
     /** What a flag that a process is a parallel worker holds, as paratest and Laravel set it. */
     private const string ON = '1';
 
-    /** @param positive-int|NotShared $number */
-    private function __construct(private int|NotShared $number, private string $run)
+    private function __construct(private Environment $told)
     {
     }
 
@@ -34,27 +33,21 @@ final readonly class WorkerSlot
      */
     public static function of(int $number, string $run): self
     {
-        return new self($number, $run);
+        return new self(Environment::telling(WorkerVariable::Paratest->value, self::ON)
+            ->and(Environment::telling(WorkerVariable::TestToken->value, strval($number)))
+            ->and(Environment::telling(WorkerVariable::UniqueTestToken->value, sprintf('%d_%s', $number, $run)))
+            ->and(Environment::telling(WorkerVariable::LaravelParallelTesting->value, self::ON)));
     }
 
     /** The one place of a runner that runs one process at a time. */
     public static function alone(): self
     {
-        return new self(NotShared::Place, '');
+        return new self(Environment::none());
     }
 
     /** What a process started here is told. */
     public function variables(): Environment
     {
-        if ($this->number instanceof NotShared) {
-            return Environment::none();
-        }
-
-        $unique = sprintf('%d_%s', $this->number, $this->run);
-
-        return Environment::telling(WorkerVariable::Paratest->value, self::ON)
-            ->and(Environment::telling(WorkerVariable::TestToken->value, strval($this->number)))
-            ->and(Environment::telling(WorkerVariable::UniqueTestToken->value, $unique))
-            ->and(Environment::telling(WorkerVariable::LaravelParallelTesting->value, self::ON));
+        return $this->told;
     }
 }

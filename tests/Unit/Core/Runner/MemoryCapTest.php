@@ -72,7 +72,7 @@ it('is a whole number of a unit, as the builder writes it, or no cap', function 
     $cap = MemoryCap::of(512, MemoryUnit::Megabytes);
 
     expect([$cap->written(), $cap->number(), $cap->unit()])->toBe(['512M', 512, MemoryUnit::Megabytes])
-        ->and(MemoryCap::none()->unit())->toBe(Uncapped::Memory)
+        ->and([MemoryCap::none()->unit(), MemoryCap::none()->number(), MemoryCap::none()->bytes()])->toBe([Uncapped::Memory, 0, 0])
         ->and(MemoryCap::parse('512M'))->toEqual($cap);
 });
 

@@ -41,6 +41,9 @@ final class PhpUnitShellFake implements Shell
     /** @var list<int> how many commands each run side by side was given */
     private array $batches = [];
 
+    /** @var list<Seconds|Unlimited> the time each run side by side was given to start its commands in */
+    private array $within = [];
+
     /** How many commands of each run side by side start, as a deadline would cut it; every one where not given. */
     private int|NotGiven $starting;
 
@@ -79,6 +82,7 @@ final class PhpUnitShellFake implements Shell
     public function sideBySide(WorkerSlots $slots, Seconds|Unlimited $startingWithin, Command ...$commands): ProcessEnds
     {
         $this->batches[] = count($commands);
+        $this->within[] = $startingWithin;
         $places = [...$slots];
         $ends = [];
         $starting = $startingWithin instanceof Unlimited || $startingWithin->seconds() > 0.0 ? $commands : [];
@@ -96,6 +100,12 @@ final class PhpUnitShellFake implements Shell
     public function batches(): array
     {
         return $this->batches;
+    }
+
+    /** @return list<Seconds|Unlimited> the time each run side by side was given to start its commands in, in order */
+    public function within(): array
+    {
+        return $this->within;
     }
 
     /** @return list<WorkerSlot> the place each command run side by side ran in, in order */

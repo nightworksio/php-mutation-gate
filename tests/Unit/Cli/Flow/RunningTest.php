@@ -703,7 +703,7 @@ it('lays each request on no start-up where a run of no test cannot run, so each 
         ->each->toEqual(Pool::of(ProcessCount::single(), Workers::Fork));
 });
 
-it('checks mutants before their tests only where staticCheck.before asks, and otherwise leaves the analyser to the survivors', function () use (
+it('checks mutants before their tests only where staticCheck.before asks and an analyser is wired, and otherwise leaves the analyser to the survivors', function () use (
     $makeTicking,
 ): void {
     $ticking = $makeTicking();
@@ -731,5 +731,5 @@ it('checks mutants before their tests only where staticCheck.before asks, and ot
 
     expect(array_unique($after->preCheckers()))->toBe([NoPreCheck::class])
         ->and(array_unique($before->preCheckers()))->toBe([PreChecking::class])
-        ->and(array_unique($unwired->preCheckers()))->toBe([PreChecking::class]);
+        ->and(array_unique($unwired->preCheckers()))->toBe([NoPreCheck::class]);
 });

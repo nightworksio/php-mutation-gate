@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Stub;
 
-use function array_key_exists;
-use function array_values;
-use function min;
+use function array_count_values;
+use function array_filter;
+use function array_key_first;
+use function arsort;
+use function ksort;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
@@ -30,17 +32,31 @@ final readonly class Nearest
     public static function file(KillMatrix $matrix, JudgedMutant $mutant): Path|Nameless
     {
         $named = sprintf(self::FOR, $mutant->mutant()->location()->file()->stem());
-        $ranked = [];
+        $files = [];
+        $paths = [];
 
         foreach ($matrix->coveredBy($mutant) as $test) {
             $name = $matrix->names()->testOf($test);
-            $file = $name instanceof TestName ? $name->file()->value() : '';
-            $tests = array_key_exists($file, $ranked) ? $ranked[$file][1] - 1 : -1;
-            $ranked[$file] = [Path::of($file)->stem() === $named ? 0 : 1, $tests, $file];
+
+            if ($name instanceof TestName) {
+                $files[] = $name->file()->value();
+                $paths[$name->file()->value()] = $name->file();
+            }
         }
 
-        unset($ranked['']);
+        $held = array_count_values($files);
+        ksort($held, SORT_STRING);
+        arsort($held);
+        $forTheClass = array_filter(
+            $held,
+            static fn(int|string $file): bool => $paths[$file]->stem() === $named,
+            ARRAY_FILTER_USE_KEY,
+        );
 
-        return $ranked === [] ? Nameless::code() : Path::of(min(array_values($ranked))[2]);
+        return match (true) {
+            $forTheClass !== [] => $paths[array_key_first($forTheClass)],
+            $held !== [] => $paths[array_key_first($held)],
+            default => Nameless::code(),
+        };
     }
 }

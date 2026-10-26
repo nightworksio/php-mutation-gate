@@ -59,3 +59,11 @@ it('counts what the default branch saved lately, this run among them, and nothin
         ->and(RunAccount::none()->after(Trend::none())->savedSince($since))->toEqual(NoHistory::yet())
         ->and(RunAccount::none()->withTimings($timed)->after(Trend::none())->savedSince($since))->toEqual(NoHistory::yet());
 });
+
+it('counts a run that spent more than its full run would have as saving nothing', function (): void {
+    $slow = RunTimings::of('github:1/1', RunTime::measured(Seconds::of(60.0), Seconds::of(500.0)));
+    $savings = Savings::of(Seconds::of(400.0), Percentage::of(Floor::of(100)), Seconds::of(300.0), Seconds::of(0.0));
+
+    expect(RunAccount::none()->withTimings($slow)->withSavings($savings)->after(Trend::none())->savedSince(Moment::at('2026-08-31T12:00:00Z')))
+        ->toEqual(Seconds::of(0.0));
+});

@@ -8,7 +8,7 @@ use function array_combine;
 use function array_diff_key;
 use function array_filter;
 use function array_key_exists;
-use function array_values;
+use function array_push;
 use function count;
 use function in_array;
 use function ksort;
@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Php\Names;
 use NightWorksIO\MutationGate\Core\Php\PhpFile;
 use NightWorksIO\MutationGate\Core\Test\Role;
@@ -152,7 +153,7 @@ final readonly class SupportUsers
                 fn(int $place): bool => in_array($this->files[$place][2], self::SUPPORT, strict: true),
             );
             $support += $found;
-            $unread = $this->declaredAnew($found, $names);
+            $unread = $this->declaredBy($found);
             $names += array_combine($unread, $unread);
         }
 
@@ -160,31 +161,28 @@ final readonly class SupportUsers
     }
 
     /**
-     * What these files declare that is not among these names.
+     * What these files declare.
      *
-     * @param  array<int, int>       $places
-     * @param  array<string, string> $names
+     * @param  array<int, int> $places
      * @return list<string>
      */
-    private function declaredAnew(array $places, array $names): array
+    private function declaredBy(array $places): array
     {
-        $anew = [];
+        $declared = [];
 
         foreach ($places as $place) {
-            $declared = $this->files[$place][1]->declares()->all();
-            $anew += array_diff_key(array_combine($declared, $declared), $names);
+            array_push($declared, ...$this->files[$place][1]->declares()->all());
         }
 
-        return array_values($anew);
+        return $declared;
     }
 
     /**
-     * The first of these, by place, that runs code when it is loaded, or the places themselves where none does.
+     * The first of these, by place, that runs code when it is loaded; none where none does.
      *
-     * @param  array<int, int>       $support
-     * @return Path|array<int, int>
+     * @param array<int, int> $support
      */
-    private function runningAny(array $support): Path|array
+    private function runningAny(array $support): Path|NotGiven
     {
         ksort($support);
 
@@ -196,7 +194,7 @@ final readonly class SupportUsers
             }
         }
 
-        return $support;
+        return NotGiven::value();
     }
 
     /**

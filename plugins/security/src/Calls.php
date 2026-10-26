@@ -36,7 +36,11 @@ final readonly class Calls
     public static function unwrapped(Node $node, string ...$functions): Expr|Unchanged
     {
         $call = self::ofFunction($node, ...$functions);
-        $value = $call === false ? false : self::argument($call, 0);
+        if ($call === false) {
+            return Unchanged::node();
+        }
+
+        $value = self::argument($call, 0);
 
         return $value instanceof Expr ? $value : Unchanged::node();
     }

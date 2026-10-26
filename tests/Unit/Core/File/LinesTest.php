@@ -17,10 +17,10 @@ it('keeps each line once, in ascending order', function (): void {
         ->and($lines)->toHaveCount(3);
 });
 
-it('adds a line without changing the lines it came from', function (): void {
+it('adds a line in its order, without changing the lines it came from', function (): void {
     $lines = Lines::of(Line::of(3));
 
-    expect($lines->with(Line::of(1)))->toHaveCount(2)
+    expect(array_map(static fn(Line $line): int => $line->number(), [...$lines->with(Line::of(1))]))->toBe([1, 3])
         ->and($lines)->toHaveCount(1);
 });
 

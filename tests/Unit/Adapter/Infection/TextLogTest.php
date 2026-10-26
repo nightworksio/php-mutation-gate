@@ -96,3 +96,17 @@ it('reads a heading only with its underline, and a line before any mutant as no 
         ]])
         ->and($log->under('')[0]['diff'])->toBe('');
 });
+
+it('reads a heading on the log\'s last two lines as a heading, not as the diff before it, nor one cut short', function (): void {
+    $escaped = ['Escaped mutants:', '================', '', '1) /p/src/A.php:3    [M] Plus [ID] e1', '-a', '+b', ''];
+    $diff = static fn(string ...$lines): array => array_column(TextLog::read(implode("\n", $lines))->under('Escaped'), 'diff');
+
+    expect([
+        ...$diff(...$escaped, ...['Timed Out mutants:', '==================']),
+        ...$diff(...$escaped, ...['Killed mutants:']),
+    ])->toBe(["-a\n+b", "-a\n+b\n\nKilled mutants:"]);
+});
+
+it('names no mutant of a log that is not there', function (): void {
+    expect(TextLog::at(sprintf('%s/none.log', Scratch::directory())))->toEqual(TextLog::read(''));
+});

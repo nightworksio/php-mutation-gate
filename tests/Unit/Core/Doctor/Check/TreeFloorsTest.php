@@ -62,6 +62,12 @@ it('advises where no CI definition runs the gate, or none was read', function ()
         ->toBe(Severity::Advice);
 });
 
+it('names every tree with no floor, in their order', function () use ($observed): void {
+    $found = [...TreeFloors::in($observed(Paths::none(), Baseline::none()))];
+
+    expect($found[0]->found())->toBe('Neither the config nor the baseline gives a floor to src, lib.');
+});
+
 it('finds nothing where every tree has a floor, the baseline cannot be read, or nothing was observed', function () use ($observed): void {
     $floored = Trees::of(Tree::at(Path::of('app'), Floor::of(80), Package::at(Path::root())));
 

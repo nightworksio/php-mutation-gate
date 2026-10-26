@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnits;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
@@ -189,4 +190,22 @@ it('ranks a security survivor after changed lines and before the others of a set
     );
 
     expect(array_slice($files, 0, 3))->toBe(['src/Money.php:7', 'src/Auth.php:3', 'src/Money.php:12']);
+});
+
+it('lists the errors before the warnings, a warning on a changed line too', function () use ($printed): void {
+    $reach = Reach::nothing(Packages::of(Trees::none()))->withLines(Path::of('lib/Changed.php'), Lines::of(Line::of(3)));
+    $judged = static fn(string $tree, Floor $floor, JudgedMutant $mutant): TreeVerdict => TreeVerdict::judged(
+        Tree::at(Path::of($tree), $floor, Package::at(Path::root())),
+        Unrecorded::floor(),
+        JudgedUnits::none(),
+        JudgedMutants::of($mutant),
+        Uncovered::Count,
+    );
+    $verdict = Verdict::of(TreeVerdicts::of(
+        $judged('src', Floor::of(80), JudgedMutant::of(Verdicts::mutant('src/Money.php:7', 'Plus', MutatorFamily::None, ''), MutantJudgement::Survived)),
+        $judged('lib', Floor::of(0), JudgedMutant::of(Verdicts::mutant('lib/Changed.php:3', 'Plus', MutatorFamily::None, ''), MutantJudgement::Survived)->within($reach)),
+    ));
+
+    expect(array_map(static fn(string $line): string => explode(',', $line)[0], $printed($verdict)))
+        ->toBe(['::error file=src/Money.php', '::warning file=lib/Changed.php']);
 });

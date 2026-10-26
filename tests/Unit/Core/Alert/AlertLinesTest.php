@@ -14,16 +14,21 @@ use NightWorksIO\MutationGate\Core\Report\TrendEntry;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Score;
+use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
+use NightWorksIO\MutationGate\Core\Verdict\HeldSets;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnits;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
+use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdict;
+use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
+use NightWorksIO\MutationGate\Tests\Support\Secured;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
 $makeWas = static fn(): TrendEntry => TrendEntry::none()->withScore(Path::of('src'), Score::ofHundredths(8_100))->withFloor(Path::of('src'), Floor::of(90));
@@ -101,4 +106,31 @@ it('names each security set below its floor when a run fails', function () use (
     $groups = AlertLines::of(Alert::of(AlertEvent::Failed, Verdicts::secured(), $was), Chat::Slack);
 
     expect($groups[1] ?? null)->toBe(['Security below its floor', ['Security: 0.00%, below its floor of 100.00%.']]);
+});
+
+it('names every security set below its floor, each on its own line', function (): void {
+    $failing = Verdicts::failing();
+    $set = static fn(string $package, string $file): SecurityVerdict => Secured::set(
+        $package,
+        Floor::of(100),
+        Unrecorded::floor(),
+        Secured::mutant(MutantJudgement::Survived, file: $file),
+    );
+    $verdict = $failing->withSets(HeldSets::of($failing->sets()->newCode(), SecurityVerdicts::of(
+        $set('.', 'src/Auth.php'),
+        $set('packages/billing', 'packages/billing/src/Refund.php'),
+    )));
+
+    expect(AlertLines::of(Alert::of(AlertEvent::Failed, $verdict, TrendEntry::none()), Chat::Slack)[1] ?? null)->toBe([
+        'Security below its floor',
+        ['Security: 0.00%, below its floor of 100.00%.', 'Security in packages/billing: 0.00%, below its floor of 100.00%.'],
+    ]);
+});
+
+it('says of a recovery a passing tree no floor holds by its score alone', function (): void {
+    $killed = Secured::mutant(MutantJudgement::Killed);
+    $verdict = Verdict::of(TreeVerdicts::of(Secured::tree('src', Package::at(Path::root()), Undeclared::floor(), $killed)));
+
+    expect(AlertLines::of(Alert::of(AlertEvent::Recovered, $verdict, TrendEntry::none()), Chat::Slack))
+        ->toBe([['Trees', ['`src`: 100.00%.']]]);
 });

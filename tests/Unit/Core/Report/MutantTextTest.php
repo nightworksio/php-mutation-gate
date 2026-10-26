@@ -139,3 +139,7 @@ it('names the callee a removal may be deleted with in its block, and nothing of 
     expect($blocks[0])->toContain(sprintf("\n%sRemovable: record()\n", MutantText::INDENT))
         ->and(implode("\n", array_slice($blocks, 1)))->not->toContain('Removable:');
 });
+
+it('indents each line under its heading and leaves no line ending in a space', function (): void {
+    expect(MutantText::indented('src/Money.php:7', '-a', '', ' ', '+b '))->toBe("src/Money.php:7\n    -a\n\n\n    +b");
+});

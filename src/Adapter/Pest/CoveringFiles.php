@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_key_exists;
-use function array_keys;
+use function array_unique;
 use function explode;
 use function file_put_contents;
 use function getenv;
@@ -55,7 +55,7 @@ final class CoveringFiles
      */
     public static function of(array $tests, string $mutated = '', int $longest = Ceiling::BYTES): array
     {
-        $paths = getenv(GateVariable::Narrow->value) === '1' ? self::needed($tests, $longest) : [];
+        $paths = getenv(GateVariable::Narrow->value) === '1' && $tests !== [] ? self::needed($tests, $longest) : [];
         $results = getenv(GateVariable::Results->value);
 
         $recorded = $paths !== [] && $mutated !== '' && is_string($results) && $results !== ''
@@ -87,15 +87,11 @@ final class CoveringFiles
     }
 
     /**
-     * @param  list<string> $tests
+     * @param  non-empty-list<string> $tests
      * @return list<string>
      */
     private static function needed(array $tests, int $longest): array
     {
-        if ($tests === []) {
-            return [];
-        }
-
         $loaded = self::loaded();
         $files = [];
 
@@ -106,12 +102,10 @@ final class CoveringFiles
                 return [];
             }
 
-            foreach ($loaded->needs($file) as $needed) {
-                $files[$needed] = true;
-            }
+            $files = [...$files, ...$loaded->needs($file)];
         }
 
-        $paths = array_keys($files);
+        $paths = array_unique($files);
         sort($paths);
 
         return Ceiling::admits(implode(' ', $paths), $longest) ? $paths : [];

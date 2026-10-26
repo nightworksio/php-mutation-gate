@@ -216,8 +216,20 @@ it('never reads a scope an earlier warm-up kept once a later one cannot say its 
 
     expect($phpstan->findings(Paths::none(), Withheld::standard()))->toBeInstanceOf(CannotJudge::class)
         ->and(is_file(sprintf('%s/.mutation-gate/phpstan/scope.json', $project)))->toBeFalse()
+        ->and(explode("\n", (string) file_get_contents(sprintf('%s/vendor/bin/argv.txt', $project))))
+        ->toBe(['dump-parameters', '--json', sprintf('--configuration=%s/.mutation-gate/phpstan/check.neon', $project), 'withheld'])
         ->and($phpstan->check(MutantCheck::of(Path::of('src/Money.php'), Path::of('/tmp/mutant.php'))))
         ->toEqual(CannotJudge::because('PHPStan\'s run over the originals has not said which files it analyses.'));
+})->group(...$holds);
+
+it('warms up again in place of the scope an earlier warm-up kept', function (): void {
+    $project = FakeAnalyser::phpstan('PHPStan - PHP Static Analysis Tool 2.2.16');
+    Scratch::write($project, 'vendor/bin/answer.json', '{"totals": {}, "files": {}, "errors": []}');
+    Scratch::write($project, 'vendor/bin/answer.exit', '0');
+    $phpstan = PhpStanProjects::in($project);
+    $phpstan->findings(Paths::none(), Withheld::standard());
+
+    expect($phpstan->findings(Paths::none(), Withheld::standard()))->toEqual(Findings::none());
 })->group(...$holds);
 
 it('cannot warm up where it cannot remove the scope an earlier warm-up kept', function (): void {

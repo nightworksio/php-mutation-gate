@@ -221,6 +221,7 @@ it('cannot judge with an output it cannot print, a config it cannot read, or a r
     string $config,
     string $options,
     bool $blocked,
+    string $why,
 ) use ($composed, $pushed): void {
     $project = FlowCommands::project($config);
 
@@ -230,12 +231,11 @@ it('cannot judge with an output it cannot print, a config it cannot read, or a r
 
     $ran = FlowCommands::handed(prePushIn($composed($project)), $pushed(), $options);
 
-    expect([$ran->code, $ran->output])->toBe([2, ''])
-        ->and($ran->errors)->not->toBe('');
+    expect([$ran->code, $ran->output, $ran->errors])->toBe([2, '', sprintf($why, $project)]);
 })->with([
-    'an output' => ['', '--output=nowhere', false],
-    'a config' => ['"floors": 5', '', false],
-    'a run' => ['', '', true],
+    'an output' => ['', '--output=nowhere', false, "--output is console or problems, not \"nowhere\".\n"],
+    'a config' => ['"floors": 5', '', false, "floors: unknown key\n"],
+    'a run' => ['', '', true, "%s/.mutation-gate/results/1.json could not be written.\n"],
 ]);
 
 it('cannot judge a push whose run cannot be planned, and prints no score change', function () use ($pushed): void {

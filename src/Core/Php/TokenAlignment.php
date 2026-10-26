@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Php;
 
-use function array_key_exists;
+use function array_filter;
+use function array_keys;
 use function count;
+use function max;
 use function range;
 
 /**
@@ -42,13 +44,15 @@ final readonly class TokenAlignment
     /** Where the token at an index of the second stands in the first, or past the first's last where none follows. */
     public function inFirst(int $at): int
     {
-        for ($before = $at; $before >= 0; $before--) {
-            if (array_key_exists($before, $this->shared)) {
-                return $before === $at ? $this->shared[$at] : $this->shared[$before] + 1;
-            }
+        $before = array_filter(array_keys($this->shared), static fn(int $shared): bool => $shared <= $at);
+
+        if ($before === []) {
+            return 0;
         }
 
-        return 0;
+        $last = max($before);
+
+        return $last === $at ? $this->shared[$at] : $this->shared[$last] + 1;
     }
 
     /**

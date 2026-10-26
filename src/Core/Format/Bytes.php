@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Format;
 
+use function max;
 use function mb_str_split;
 use function mb_strlen;
 use function mb_strpos;
@@ -25,6 +26,9 @@ final readonly class Bytes
     /** The bytes a line's indentation is made of: a space and a tab. */
     public const string BLANKS = " \t";
 
+    /** The byte of value zero: one no path holds, and what XOR makes of two bytes that are alike. */
+    public const string NUL = "\0";
+
     /** The encoding in which one character is one byte. */
     private const string ENCODING = '8bit';
 
@@ -32,6 +36,16 @@ final readonly class Bytes
     public static function length(string $text): int
     {
         return mb_strlen($text, self::ENCODING);
+    }
+
+    /**
+     * The most bytes a reader takes to know a text is past this limit: one past it, and one for a limit below none.
+     *
+     * @return positive-int
+     */
+    public static function onePast(int $limit): int
+    {
+        return max(0, $limit) + 1;
     }
 
     /** Where this first occurs from a byte offset on, as a byte offset, or false where it does not. */

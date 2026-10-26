@@ -3,8 +3,10 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Opcache\Compiler;
+use NightWorksIO\MutationGate\Adapter\Opcache\Opcodes;
 use NightWorksIO\MutationGate\Adapter\Opcache\Uncompiled;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Tests\Support\CompilerChildren;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -68,3 +70,48 @@ it('says each program failed where its child\'s dump does not read back whole, r
     'fewer sections than programs' => [fn(): string => CompilerChildren::dump("\n\$_main:\n0000 RETURN int(1)\n"), 0],
     'sections that are not dumps' => [fn(): string => CompilerChildren::dump("Opcache cannot allocate shared memory\n", "Opcache cannot allocate shared memory\n"), 0],
 ]);
+
+it('reads the answers of a child apart from the space around them', function (): void {
+    $dump = CompilerChildren::dump("\n\$_main:\n0000 RETURN int(1)\n", "\n\$_main:\n0000 RETURN int(2)\n");
+    $compiler = new Compiler(CompilerChildren::child($dump, 0, "11\n"), sprintf('%s/equivalence', Scratch::directory()), 30.0, 1);
+
+    expect(array_map(static fn(Opcodes|Uncompiled $one): string => $one instanceof Opcodes ? $one->text() : $one->name, $compiler->compiled([
+        'one' => Contents::of(CompilerChildren::PROGRAM),
+        'two' => Contents::of(CompilerChildren::PROGRAM),
+    ])))->toBe(['one' => "\n\$_main:\n0000 RETURN int(1)\n", 'two' => "\n\$_main:\n0000 RETURN int(2)\n"]);
+});
+
+it('says opcache dumped nothing of a program whose section of the dump is only space', function (): void {
+    $compiler = new Compiler(CompilerChildren::child(CompilerChildren::dump("\n", " \n"), 0), sprintf('%s/equivalence', Scratch::directory()), 30.0, 1);
+
+    expect($compiler->compiled(['one' => Contents::of(CompilerChildren::PROGRAM), 'two' => Contents::of(CompilerChildren::PROGRAM)]))
+        ->toBe(['one' => Uncompiled::NoOpcache, 'two' => Uncompiled::NoOpcache]);
+});
+
+it('pauses a moment between reads of the children it waits on', function (): void {
+    $pauses = new ArrayObject();
+    $compiler = new Compiler(PHP_BINARY, sprintf('%s/equivalence', Scratch::directory()), 30.0, 1, pause: static function (int $microseconds) use ($pauses): void {
+        $pauses->append($microseconds);
+    });
+
+    $compiler->compiled(['one' => Contents::of(CompilerChildren::PROGRAM)]);
+
+    expect($pauses->count())->toBeGreaterThan(0)
+        ->and(array_unique($pauses->getArrayCopy()))->toBe([Polling::moment()->microseconds()]);
+});
+
+it('waits on every child of a wave, though one that started after it ends first', function (): void {
+    $child = sprintf('%s/slow-or-fast-php', Scratch::directory());
+    file_put_contents($child, sprintf(
+        "#!%s\n<?php\n\$slow = str_contains((string) file_get_contents(end(\$argv)), 'slow');\nif (\$slow) { sleep(1); }\nfwrite(STDERR, %s);\necho '1';\n",
+        PHP_BINARY,
+        var_export(CompilerChildren::dump("\n\$_main:\n0000 RETURN int(1)\n"), return: true),
+    ));
+    chmod($child, 0o755);
+    $compiler = new Compiler($child, sprintf('%s/equivalence', Scratch::directory()), 30.0, 2);
+
+    $compiled = $compiler->compiled(['slow' => Contents::of("<?php // slow\n"), 'fast' => Contents::of("<?php // fast\n")]);
+
+    expect(array_map(static fn(Opcodes|Uncompiled $one): bool => $one instanceof Opcodes, $compiled))
+        ->toBe(['slow' => true, 'fast' => true]);
+});

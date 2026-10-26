@@ -68,18 +68,7 @@ final readonly class DependsReader
 
     public static function in(Contents $contents): TestDependencies
     {
-        if (mb_stripos($contents->text(), self::SPELT) === false) {
-            return TestDependencies::none();
-        }
-
-        $significant = [];
-
-        foreach (PhpToken::tokenize($contents->text()) as $token) {
-            if (! $token->isIgnorable() && ! $token->is(T_CLOSE_TAG)) {
-                $significant[] = $token;
-            }
-        }
-
+        $significant = mb_stripos($contents->text(), self::SPELT) === false ? [] : self::significant($contents);
         $tokens = Tokens::of($significant);
         $reader = new self($tokens, TopLevel::of($significant)->scope());
         $found = TestDependencies::none();
@@ -89,6 +78,24 @@ final readonly class DependsReader
         }
 
         return $found;
+    }
+
+    /**
+     * A file's significant tokens: every token but whitespace, comments and a closing tag.
+     *
+     * @return list<PhpToken>
+     */
+    private static function significant(Contents $contents): array
+    {
+        $significant = [];
+
+        foreach (PhpToken::tokenize($contents->text()) as $token) {
+            if (! $token->isIgnorable() && ! $token->is(T_CLOSE_TAG)) {
+                $significant[] = $token;
+            }
+        }
+
+        return $significant;
     }
 
     /** These, with what each `#[Depends]` of a run of attributes on a test method names. */

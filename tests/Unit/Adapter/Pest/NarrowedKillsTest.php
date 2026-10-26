@@ -17,7 +17,6 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
 use NightWorksIO\MutationGate\Core\Mutant\Prefix;
-use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -234,7 +233,7 @@ it('replays each narrowed kill whose order is known, once for an order and file 
         PestRun::killedAt('native-1', 'T::a', Placed::at(2, $order, 9)),
         PestRun::narrowed('native-1', [$loaded]),
         rtrim(RecordLine::arguments(PestRun::mutated('native-1'), ['vendor/bin/pest', '--bail', '--filter=ASpec', $loaded])),
-        rtrim(RecordLine::limited(PestRun::mutated('native-1'), 2.0)),
+        rtrim(RecordLine::limited(PestRun::mutated('native-1'), 0.5)),
         PestRun::killed('native-2', 'T::b'),
         PestRun::narrowed('native-2', [$loaded]),
         PestRun::killedAt('native-3', 'T::a', Placed::at(2, $order, 9)),
@@ -281,12 +280,12 @@ it('replays each narrowed kill whose order is known, once for an order and file 
 })->with([
     'a replay that lets it stand' => [ReplayVerdict::Stands, []],
     'a replay that does not' => [ReplayVerdict::OtherOrder, fn(): array => [
-        ['native-1', MutantStatus::Unjudged, Reason::that(ReplayVerdict::OtherOrder->reason())],
-        ['native-3', MutantStatus::Unjudged, Reason::that(ReplayVerdict::OtherOrder->reason())],
+        ['native-1', MutantStatus::Unjudged, ReplayVerdict::OtherOrder->reason()],
+        ['native-3', MutantStatus::Unjudged, ReplayVerdict::OtherOrder->reason()],
     ]],
 ]);
 
-it('replays the narrowed kills of one order once for each file they change, and those of one file once for each order', function (): void {
+it('replays the narrowed kills of one order once for each file they change, and those of one file once for each order, leaving unjudged the kills of each replay that does not let them stand', function (): void {
     $at = PestCases::project();
     $loaded = sprintf('%s/tests/ASpec.php', $at->root());
     $first = OrderDigest::of(TestId::of('T::x'), TestId::of('T::a'))->value();
@@ -320,10 +319,10 @@ it('replays the narrowed kills of one order once for each file they change, and 
     ), 0), $file, $at);
     $asked = [];
 
-    $kills->unvouched(static function (array $replays) use (&$asked): array {
+    $unvouched = $kills->unvouched(static function (array $replays) use (&$asked): array {
         $asked = $replays;
 
-        return array_fill(0, count($replays), ReplayVerdict::Stands);
+        return [ReplayVerdict::OtherOrder, ReplayVerdict::OtherOrder, ReplayVerdict::Stands];
     });
     $files = Paths::of(Path::of('tests/ASpec.php'));
     $replay = static fn(string $changed, string $native, string $order): PrefixReplay => PrefixReplay::of(
@@ -341,6 +340,7 @@ it('replays the narrowed kills of one order once for each file they change, and 
         $replay('src/Money.php', 'native-2', $second),
         $replay('src/Other.php', 'native-3', $first),
     ])
+        ->and(array_map(static fn(Mutant $mutant): string => $mutant->nativeId(), [...$unvouched]))->toBe(['native-1', 'native-2'])
         ->and($kills->sets())->toBe(3);
 });
 

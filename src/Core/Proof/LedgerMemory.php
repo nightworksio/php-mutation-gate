@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Proof;
 
-use function intdiv;
+use function ceil;
 
 use NightWorksIO\MutationGate\Core\Format\Bytes;
 
@@ -50,7 +50,7 @@ final readonly class LedgerMemory
     /** The bytes of memory a run may need, as the least whole number of PHP's `M` that holds them. */
     public function mebibytes(): int
     {
-        return intdiv($this->bytes() + Bytes::PER_MEBIBYTE - 1, Bytes::PER_MEBIBYTE);
+        return (int) ceil($this->bytes() / Bytes::PER_MEBIBYTE);
     }
 
     /** Whether a memory_limit of this many bytes, or none at all as -1, gives a run what it may need. */

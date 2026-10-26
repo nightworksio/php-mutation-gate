@@ -32,7 +32,7 @@ final readonly class ConfigShow
         return new Command('config:show')
             ->setDescription('Print the effective config')
             ->addOption(
-                'format',
+                FormOption::FORMAT,
                 mode: InputOption::VALUE_REQUIRED,
                 description: Format::words(),
                 default: Format::Json->value,
@@ -56,8 +56,7 @@ final readonly class ConfigShow
         InputInterface $input,
     ): string|Invalid|CannotJudge {
         $settings = $effective->settings(CommandLine::from($input));
-        $format = $input->getOption('format');
-        $chosen = Formats::chosen(is_string($format) ? $format : '');
+        $chosen = Formats::chosen(CommandText::option($input, FormOption::FORMAT));
 
         return match (true) {
             ! $settings instanceof Settings => $settings,

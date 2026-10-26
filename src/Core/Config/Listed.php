@@ -56,13 +56,13 @@ final readonly class Listed implements Countable, IteratorAggregate
         $seen = [];
 
         foreach ($this->entries as $entry) {
-            $seen[$identity($entry)] = true;
+            $seen[$identity($entry)] = null;
         }
 
         foreach ($later->entries as $entry) {
             if (! array_key_exists($identity($entry), $seen)) {
                 $entries[] = $entry;
-                $seen[$identity($entry)] = true;
+                $seen[$identity($entry)] = null;
             }
         }
 

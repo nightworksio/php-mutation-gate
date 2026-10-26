@@ -147,3 +147,17 @@ it('says it could not write a package whose changed file would not be written, t
     )))
         ->and(file_get_contents($runner))->toBe($patched);
 });
+
+it('writes nothing where another version of the gate patched a file it leaves alone, and says to reinstall first', function () use ($source): void {
+    $at = InfectionSource::pristine()->vendor();
+    Patch::applyIn($at);
+    $marked = sprintf('%s/infection/infection/src/Other.php', $at);
+    file_put_contents($marked, "<?php\n// mutation-gate infection:patch: a hunk of another version.\n");
+    $before = array_map(static fn(string $file): string => $source($at, $file), InfectionSource::FILES);
+
+    expect(Patch::applyIn($at))->toEqual(CannotJudge::because(sprintf(
+        "infection:patch patched nothing: %s holds another gate's patch. Run composer reinstall infection/infection.",
+        $marked,
+    )))->and(Patch::isAppliedIn($at))->toBeFalse()
+        ->and(array_map(static fn(string $file): string => $source($at, $file), InfectionSource::FILES))->toBe($before);
+});

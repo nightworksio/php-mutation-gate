@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
+use Symfony\Component\Console\Input\ArgvInput;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Input\InputDefinition;
 use Symfony\Component\Console\Input\InputOption;
@@ -47,6 +48,11 @@ it('sets nothing a command line does not say', function () use ($definition): vo
         ->and($given)->toEqual(CommandLine::nothing())
         ->and($given->written()->line())->toBe('{}')
         ->and($given->layer())->toEqual(Layer::none());
+});
+
+it('reads --no-extensions before the end of the options, not as an argument after it', function (): void {
+    expect(CommandLine::from(new ArgvInput(['mutation-gate', '--no-extensions', 'run']))->firstPartyOnly)->toBeTrue()
+        ->and(CommandLine::from(new ArgvInput(['mutation-gate', 'run', '--', '--no-extensions']))->firstPartyOnly)->toBeFalse();
 });
 
 it('reads nothing from an option a command does not take', function (): void {

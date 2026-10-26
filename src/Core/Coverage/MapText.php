@@ -58,7 +58,7 @@ final readonly class MapText
         $kept = [];
 
         foreach ($files as $file) {
-            $kept[$file->value()] = true;
+            $kept[$file->value()] = null;
         }
 
         return new self(

@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Test\DeclaredSuite;
 use NightWorksIO\MutationGate\Core\Test\DeclaredSuites;
 use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
@@ -105,7 +106,7 @@ it('counts a held unit\'s mutants only for its group\'s tests', function () use 
     ]);
 });
 
-it('scores no suite where the project declares none, and says a run whose tests the runner named none is unplaced', function () use (
+it('scores no suite where the project declares none, and says a run whose tests the runner named none is unplaced, one it named one of placed', function () use (
     $makeSuites,
 ): void {
     $suites = $makeSuites();
@@ -113,8 +114,12 @@ it('scores no suite where the project declares none, and says a run whose tests 
     $unnamed = Killings::verdict(MatrixKind::FirstKiller);
     $unnamed = $unnamed->withMatrix(KillMatrix::of(MatrixKind::FirstKiller, $unnamed->matrix()->coverage())->grouping($suites()));
 
+    $named = KillMatrix::of(MatrixKind::FirstKiller, $unnamed->matrix()->coverage())
+        ->named(TestNames::none()->with(Killings::id('A'), Killings::name('A')));
+
     expect(SuiteScores::of(Killings::verdict(MatrixKind::FirstKiller)))->toHaveCount(0)
         ->and(SuiteScores::of($unnamed)->arePlaced())->toBeFalse()
+        ->and(SuiteScores::of($unnamed->withMatrix($named))->arePlaced())->toBeTrue()
         ->and(iterator_to_array(SuiteScores::of($unnamed), preserve_keys: false)[0]->covered())->toBe(0);
 });
 
@@ -143,4 +148,13 @@ it('counts for no suite a mutant the score leaves out, as a survivor the config 
         ['unit', 0, 0, 'nothing to mutate', true],
         ['feature', 0, 0, 'nothing to mutate', true],
     ]);
+});
+
+it('counts as covered by a suite a mutant whose one killer is elsewhere, though the first killer matrix never ran the suite\'s test', function () use (
+    $grouped,
+    $summary,
+): void {
+    $suites = DeclaredSuites::of(DeclaredSuite::named('b', Paths::of(Path::of('tests/BTest.php')), Paths::none()));
+
+    expect($summary(SuiteScores::of($grouped(Killings::verdict(MatrixKind::FirstKiller), $suites))))->toBe([['b', 3, 0, 0, false]]);
 });

@@ -113,7 +113,7 @@ final readonly class Interpretation
             $evidence = $evidence->with($judged->id(), $this->evidenceOf($judged, $mutant, $records));
         }
 
-        return MutationResult::of(Mutants::of(...$mutants), 0)->withEvidence($evidence);
+        return MutationResult::skippingNone(Mutants::of(...$mutants))->withEvidence($evidence);
     }
 
     /**

@@ -726,6 +726,20 @@ it('hands a full pull request plan the lines changed since the default branch, f
     expect($planned instanceof Plan ? $planned->considered()->changed() : $planned)->toEqual($changed);
 });
 
+it('hands a full run of a branch no lines for new code, whatever changed since the default branch', function () use (
+    $plan,
+): void {
+    $changed = Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(3))));
+    $checkout = new ChangeSourceFake(Revision::ref(Flows::MAIN), $changed, [
+        Revision::workingTree()->name() => Flows::FILES,
+        Flows::MAIN => Flows::FILES,
+    ]);
+
+    $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $checkout);
+
+    expect($planned instanceof Plan ? $planned->considered()->changed() : $planned)->toEqual(Changes::none());
+});
+
 it('cannot plan a full pull request run where git cannot tell what changed since the default branch', function () use (
     $plan,
 ): void {

@@ -103,8 +103,7 @@ final readonly class Recorded
     {
         $killers = $this->killers();
         $order = [];
-        $first = 0;
-        $last = 0;
+        $first = $last = 0;
 
         foreach ($this->started as $test) {
             $order[] = $test;

@@ -38,6 +38,6 @@ final readonly class FileColumns
     {
         return array_key_exists($file->value(), $this->columns)
             ? $this->columns[$file->value()]
-            : Columns::in(Contents::of(''));
+            : Columns::in(Contents::none());
     }
 }

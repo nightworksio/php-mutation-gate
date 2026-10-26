@@ -16,8 +16,16 @@ it('is a test or a source file at a path, read by its significant tokens', funct
     expect($source->path())->toEqual(Path::of('tests/ATest.php'))
         ->and($source->isTest())->toBeTrue()
         ->and(Php::source('<?php')->isTest())->toBeFalse()
+        ->and(Source::ofCode(Path::of('src/A.php'), Contents::of('<?php'))->isTest())->toBeFalse()
         ->and($source->tokens()->count())->toBe(5)
         ->and($source->lineOf(Php::indexOf($source, 'A')))->toEqual(Line::of(3));
+});
+
+it('reads a file of the code the tests judge as no test, and a test file as one', function (): void {
+    $read = [Source::ofCode(Path::of('src/A.php'), Contents::of('<?php')), Source::ofTest(Path::of('tests/ATest.php'), Contents::of('<?php'))];
+
+    expect(array_map(static fn(Source $source): array => [$source->path()->value(), $source->isTest()], $read))
+        ->toBe([['src/A.php', false], ['tests/ATest.php', true]]);
 });
 
 it('reads the scope a file\'s code ends in from its contents alone', function (): void {
@@ -43,7 +51,8 @@ it('finds the first token a change to a print of the file writes differently, ca
     expect($source->changedAt($print, Contents::of('<?php f(1, 2); $a = 017 - 2; g(3);')))->toBe(Php::indexOf($source, '+'))
         ->and($source->changedAt($print, Contents::of('<?php f(1, 2); $a = 016 + 2; g(3);')))->toBe(Php::indexOf($source, '0o17'))
         ->and($source->changedAt($print, Contents::of('<?php f(1, 2); $a = 017;')))->toBe(Php::indexOf($source, '+'))
-        ->and($source->changedAt($print, $print))->toBe($source->tokens()->count());
+        ->and($source->changedAt($print, $print))->toBe($source->tokens()->count())
+        ->and($source->changedAt($print, Contents::of('<?php f(1, 2); $a = 017 + 2;')))->toBe(Php::indexOf($source, 'g'));
 });
 
 it('finds each name that may stand for a class, but not where it is declared, imported or a member', function (): void {

@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Otlp;
 use function count;
 use function explode;
 use function getenv;
+use function implode;
 
 use NightWorksIO\MutationGate\Core\Ci\CiRun;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
@@ -33,7 +34,6 @@ use Psr\Clock\ClockInterface;
 
 use function rtrim;
 use function sprintf;
-use function str_contains;
 
 use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
@@ -219,7 +219,7 @@ final readonly class OtlpReporter implements Deferring, Reporter
                 'max_duration' => self::TIMEOUT,
                 'max_redirects' => 0,
             ]);
-            $reply = Reply::of($response->getStatusCode(), '', $response->getContent(throw: false));
+            $reply = Reply::answered($response->getStatusCode(), $response->getContent(throw: false));
 
             return $reply->isAccepted() ? Written::to($to) : $reply->refusedBy($to);
         } catch (ExceptionInterface $unreached) {
@@ -230,8 +230,9 @@ final readonly class OtlpReporter implements Deferring, Reporter
     /** The URL of one signal under the endpoint: its path added before any query the endpoint holds. */
     private function signal(string $endpoint, string $path): string
     {
-        [$base, $query] = str_contains($endpoint, '?') ? explode('?', $endpoint, 2) : [$endpoint, ''];
+        $parts = explode('?', $endpoint);
+        $parts[0] = sprintf('%s%s', rtrim($parts[0], '/'), $path);
 
-        return sprintf('%s%s%s', rtrim($base, '/'), $path, $query === '' ? '' : sprintf('?%s', $query));
+        return implode('?', $parts);
     }
 }

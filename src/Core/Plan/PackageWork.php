@@ -61,8 +61,12 @@ final readonly class PackageWork
      */
     public function runs(int $count): array
     {
+        if ($this->units === []) {
+            return [];
+        }
+
         $costs = array_map(static fn(Weighed $unit): float => $unit->cost()->seconds(), $this->units);
-        $tooSmall = max([0.0, ...$costs]);
+        $tooSmall = max($costs);
         $holds = $this->cost()->seconds();
         $middle = ($tooSmall + $holds) / 2;
 

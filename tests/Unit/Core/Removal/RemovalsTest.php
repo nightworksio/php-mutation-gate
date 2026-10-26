@@ -30,6 +30,18 @@ it('suggests deleting the callee of a whole-statement call its class, imports or
     'a global function, named fully qualified' => ['\\total($amount);', 'total'],
 ]);
 
+it('suggests deleting the callee of a call on the last line of its file, in the class around it', function (): void {
+    $removal = JudgedMutant::of(Verdicts::mutant(
+        sprintf('%s:%d', Removing::CART, Removing::lineOf(Removing::CART, '$this->stop();')),
+        'RemoveMethodCall',
+        MutatorFamily::RemovedCall,
+        Verdicts::diff('$this->stop();', ''),
+    ), MutantJudgement::Survived);
+    $body = Removing::mutantOf(Removing::CART, 'echo 3;', MutantJudgement::Survived);
+
+    expect(removableName(Removing::found($removal, [$body], Removing::strong())))->toBe('stop');
+});
+
 it('suggests nothing of a call no name leads to a callee the project declares', function (string $statement): void {
     expect(Removing::found(Removing::removal($statement), Removing::bodies(), Removing::strong()))->toEqual(NoFinding::survivor());
 })->with([

@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_keys;
-use function array_values;
 use function dirname;
 use function file_get_contents;
 use function file_put_contents;
 use function getmypid;
 use function is_file;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Control\Control;
@@ -58,14 +58,26 @@ final readonly class UnmutatedRuns
             return $beside;
         }
 
-        $scan = MemoryScan::beside($this->project, $beside, $request->memory(), $this->files);
+        $launcher = $this->launcher();
+        $scan = $launcher instanceof CannotJudge
+            ? $launcher
+            : MemoryScan::beside($this->project, $beside, $request->memory(), $this->files);
 
-        if ($scan instanceof CannotJudge) {
-            return $scan;
-        }
+        return match (true) {
+            $launcher instanceof CannotJudge => $launcher,
+            $scan instanceof CannotJudge => $scan,
+            default => $this->controlled($controls, $request, $scan, $beside, $launcher),
+        };
+    }
 
-        $launcher = PeakLauncher::in(dirname($beside));
-        file_put_contents($launcher, PeakLauncher::SCRIPT);
+    /** What each control found, started through the launcher, and the memory cap the scan wrote removed. */
+    private function controlled(
+        Controls $controls,
+        MutationRequest $request,
+        MemoryScan $scan,
+        string $beside,
+        string $launcher,
+    ): ControlRuns {
         [$runs, $commands, $peaks] = $this->prepared($controls, $request, $scan, dirname($beside), $launcher);
         $runs = $commands === [] ? $runs : $this->ended($runs, $request, $commands, $peaks);
         $scan->remove();
@@ -123,6 +135,16 @@ final readonly class UnmutatedRuns
         )->within($control->limit());
     }
 
+    /** The launcher each control starts through, written among the adapter's own files; or why it cannot be. */
+    private function launcher(): string|CannotJudge
+    {
+        $launcher = $this->project->fresh(PeakLauncher::in(dirname(self::BESIDE)));
+
+        return is_string($launcher) && file_put_contents($launcher, PeakLauncher::SCRIPT) === false
+            ? PeakLauncher::unwritten($launcher)
+            : $launcher;
+    }
+
     /**
      * What each control found, run side by side, with the peak its launcher
      * wrote.
@@ -135,10 +157,13 @@ final readonly class UnmutatedRuns
         $slots = WorkerSlots::of($request->pool()->processes(), strval(getmypid()));
         $keys = array_keys($commands);
 
-        foreach ($this->shell->sideBySide($slots, $request->deadline(), ...array_values($commands)) as $at => $ran) {
+        foreach ($this->shell->sideBySide($slots, $request->deadline(), ...$commands) as $at => $ran) {
             [$control, $peak] = $peaks[$keys[$at]];
-            $written = is_file($peak) ? (string) file_get_contents($peak) : '';
-            $runs = $runs->with($control, PeakLauncher::measured(ControlRun::ofProcess($ran), $written, PHP_OS_FAMILY));
+            $run = ControlRun::ofProcess($ran);
+            $measured = is_file($peak)
+                ? PeakLauncher::measured($run, sprintf('%s', file_get_contents($peak)), PHP_OS_FAMILY)
+                : $run;
+            $runs = $runs->with($control, $measured);
         }
 
         return $runs;

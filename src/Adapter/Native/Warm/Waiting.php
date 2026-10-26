@@ -4,20 +4,16 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Native\Warm;
 
-use function array_map;
-use function clearstatcache;
-use function escapeshellarg;
 use function exec;
-use function filesize;
 use function hrtime;
 use function implode;
-use function is_file;
 use function is_int;
 
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Runner\ProcessTable;
 use NightWorksIO\MutationGate\Core\Runner\Progress;
+use NightWorksIO\MutationGate\Core\Runner\ShellWords;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -37,7 +33,7 @@ final readonly class Waiting
 {
     private function __construct(
         private int $child,
-        private float $limit,
+        private Seconds $limit,
         private int|float $started,
         private SilenceLimit|NotGiven $silence,
     ) {
@@ -46,7 +42,7 @@ final readonly class Waiting
     /** A wait for the child with this process id, allowed this many seconds from when it started, and this silence. */
     public static function for(int $child, float $limit, int|float $started, SilenceLimit|NotGiven $silence): self
     {
-        return new self($child, $limit, $started, $silence);
+        return new self($child, Seconds::of($limit), $started, $silence);
     }
 
     /**
@@ -55,11 +51,10 @@ final readonly class Waiting
      */
     public function ended(Printed $from, Workplace $workplace): End
     {
-        $status = 0;
         $progress = $this->firstProgress();
         $waited = pcntl_waitpid($this->child, $status, WNOHANG);
 
-        while ($waited === 0 && $this->seconds() < $this->limit) {
+        while ($waited === 0 && $this->limit->outlasts(Seconds::of($this->seconds()))) {
             $progress = $this->read($progress);
 
             if ($progress instanceof Progress && $progress->hasStalled($this->seconds())) {
@@ -96,30 +91,19 @@ final readonly class Waiting
             return $progress;
         }
 
-        $file = $this->silence->progress();
-        clearstatcache(clear_realpath_cache: true, filename: $file);
-        $size = is_file($file) ? filesize($file) : 0;
-
-        return $progress->read(is_int($size) ? $size : 0, $this->seconds());
+        return $progress->read(FileSize::now($this->silence->progress()), $this->seconds());
     }
 
     /** The child stopped with every process under it, deepest first, and reaped. */
     private function stop(): void
     {
-        ProcessTable::stop($this->child, function (array $command): string {
+        ProcessTable::stop($this->child, static function (array $command): string {
             $printed = [];
-            exec($this->line($command), $printed);
+            exec(ShellWords::line($command), $printed);
 
             return implode("\n", $printed);
         });
-        $status = 0;
         pcntl_waitpid($this->child, $status);
-    }
-
-    /** @param list<string> $command */
-    private function line(array $command): string
-    {
-        return implode(' ', array_map(escapeshellarg(...), $command));
     }
 
     private function seconds(): float

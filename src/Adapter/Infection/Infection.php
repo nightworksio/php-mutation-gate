@@ -252,7 +252,7 @@ final readonly class Infection implements Runner
         }
 
         if ($config->mutators()->appliesNone($request->narrowing()->mutators(), $this->bridges)) {
-            return MutationResult::of(Mutants::none(), 0);
+            return MutationResult::skippingNone(Mutants::none());
         }
 
         $this->held->forget();

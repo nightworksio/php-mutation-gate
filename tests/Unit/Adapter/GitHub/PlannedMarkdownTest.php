@@ -67,29 +67,31 @@ it('says there is nothing to mutate where the plan has no units', function (): v
         Percentage::of(Floor::of(0)),
     );
 
-    $comment = PlannedMarkdown::comment($work, '');
+    expect(PlannedMarkdown::comment($work, ''))->toBe(<<<'MD'
+        <!-- mutation-gate -->
 
-    expect($comment)->toContain(
-        "## mutation-gate: planned\n\nNothing to mutate: the change reaches no unit, or a proof covers every unit it reaches.\n",
-    )->and($comment)->not->toContain('<details>');
+        ## mutation-gate: planned
+
+        Nothing to mutate: the change reaches no unit, or a proof covers every unit it reaches.
+
+        MD);
 });
 
-it('lists 20 units and 20 lines, and says how many more there are', function (): void {
+it('lists 20 units and 20 lines, and says how many more there are where there are more', function (): void {
     $lines = [];
 
-    foreach (range(1, 23) as $number) {
+    foreach (range(1, 20) as $number) {
         $lines[] = Line::of($number);
     }
 
     $comment = PlannedMarkdown::comment(
-        ShardedPlan::planned(22)->withUncovered(Path::of('src/1.php'), Lines::of(...$lines)),
+        ShardedPlan::planned(21)->withUncovered(Path::of('src/1.php'), Lines::of(...$lines)),
         '',
     );
 
-    expect($comment)->toContain('<summary>Units (22)</summary>')
-        ->and($comment)->toContain("- <code>src/20.php</code>\n\nAnd 2 more.\n\n</details>")
+    expect($comment)->toContain('<summary>Units (21)</summary>')
+        ->and($comment)->toContain("- <code>src/20.php</code>\n\nAnd 1 more.\n\n</details>")
         ->and($comment)->not->toContain('src/21.php')
-        ->and($comment)->toContain("### Changed lines no test covers (23)\n\n")
-        ->and($comment)->toContain("- <code>src/1.php:20</code>\n\nAnd 3 more.\n")
-        ->and($comment)->not->toContain('src/1.php:21');
+        ->and($comment)->toContain("### Changed lines no test covers (20)\n\n")
+        ->and($comment)->toEndWith("- <code>src/1.php:20</code>\n");
 });

@@ -11,7 +11,7 @@ use function file_get_contents;
 use function getmypid;
 use function hrtime;
 use function in_array;
-use function is_array;
+use function max;
 
 use NightWorksIO\MutationGate\Adapter\Native\Warm\Forked;
 use NightWorksIO\MutationGate\Adapter\Native\Warm\Workforce;
@@ -100,21 +100,28 @@ final readonly class MutationRun
         $end = $this->endOf($request->deadline());
         $from = $this->laps->now();
         $made = $this->made($request);
-        $twins = Twins::of(is_array($made) ? $made : []);
+
+        if ($made instanceof CannotJudge) {
+            return $made;
+        }
+
+        $twins = Twins::of($made);
         $checked = PreChecked::of($twins->first(), $map, $preChecker, $request->pool()->processes());
-        $queue = $made instanceof CannotJudge ? $made : $this->queued($checked->left, $request, $map, $bounds, $end);
-        $preparing = $this->laps->lap(Step::Preparing, $from, is_array($made) ? count($made) : 0);
+        $queue = $this->queued($checked->left, $request, $map, $bounds, $end);
+        $preparing = $this->laps->lap(Step::Preparing, $from, count($made));
         $from = $this->laps->now();
         $judged = $queue instanceof CannotJudge ? $queue : $this->judgedAll($queue, $request, $end);
-        $mutants = $judged instanceof CannotJudge ? [] : $twins->joined([...$checked->rejected, ...$judged->mutants()]);
 
-        return match (true) {
-            $judged instanceof CannotJudge => $judged,
-            default => MutationResult::of(Mutants::of(...$mutants), count($made) - count($mutants))
-                ->withWarnings($judged->warnings())
-                ->withEvidence($twins->evidence($judged->evidence()))
-                ->withSteps(StepTimes::of($preparing, $this->laps->lap(Step::Mutation, $from, count($queue)))),
-        };
+        if ($judged instanceof CannotJudge) {
+            return $judged;
+        }
+
+        $mutants = $twins->joined([...$checked->rejected, ...$judged->mutants()]);
+
+        return MutationResult::of(Mutants::of(...$mutants), count($made) - count($mutants))
+            ->withWarnings($judged->warnings())
+            ->withEvidence($twins->evidence($judged->evidence()))
+            ->withSteps(StepTimes::of($preparing, $this->laps->lap(Step::Mutation, $from, count($queue))));
     }
 
     /**
@@ -135,8 +142,8 @@ final readonly class MutationRun
         $queue = [];
 
         foreach ($made as $mutant) {
-            if (hrtime(as_number: true) >= $end) {
-                break;
+            if (max(0, $end - hrtime(as_number: true)) === 0) {
+                return $queue;
             }
 
             $prepared = $this->prepared($mutant, $map, $request, $bounds);

@@ -9,6 +9,10 @@ it('holds a duration in seconds', function (): void {
     expect(Seconds::of(12.4)->seconds())->toBe(12.4);
 });
 
+it('holds no time at all', function (): void {
+    expect(Seconds::none()->seconds())->toBe(0.0);
+});
+
 it('reads a duration written in days, hours, minutes and seconds', function (string $written, float $seconds): void {
     expect(Seconds::parse($written))->toEqual(Seconds::of($seconds));
 })->with([
@@ -79,3 +83,10 @@ it('writes a duration back in the largest units it holds, days among them', func
     'a week' => [604_800.0, '7d'],
     'a day and more' => [93_784.0, '1d2h3m4s'],
 ]);
+
+it('outlasts a run only until the run reaches it', function (): void {
+    $limit = Seconds::of(1.5);
+
+    expect([$limit->outlasts(Seconds::of(1.25)), $limit->outlasts(Seconds::of(1.5)), $limit->outlasts(Seconds::of(2.0))])
+        ->toBe([true, false, false]);
+});

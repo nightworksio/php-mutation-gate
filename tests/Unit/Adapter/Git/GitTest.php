@@ -27,6 +27,13 @@ it('reads the version git prints, and one it cannot read as older than every ver
     'not a version' => ['hub version 2.40.0', false],
 ]);
 
+it('reads a version it cannot read as the first of all, 0.0', function (): void {
+    $unread = GitVersion::printed('hub version 2.40.0');
+
+    expect([$unread->isAtLeast(GitVersion::printed('git version 0.0')), $unread->isAtLeast(GitVersion::printed('git version 0.1'))])
+        ->toBe([true, false]);
+});
+
 it('reads a commit\'s tree and parents from its headers alone, never from its message', function (): void {
     $printed = sprintf(
         "tree %s\nparent %s\nparent %s\nauthor Gate <gate@example.com> 1 +0000\n\nMerge\n\nparent %s\ntree %s\n",

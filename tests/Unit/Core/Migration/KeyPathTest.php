@@ -20,5 +20,8 @@ it('stands beside a path under the same parent, the top among them', function ()
     expect(KeyPath::of('reach.everything')->isBeside(KeyPath::of('reach.all')))->toBeTrue()
         ->and(KeyPath::of('runner')->isBeside(KeyPath::of('preset')))->toBeTrue()
         ->and(KeyPath::of('reach.everything')->isBeside(KeyPath::of('scope.everything')))->toBeFalse()
-        ->and(KeyPath::of('reach.everything')->isBeside(KeyPath::of('everything')))->toBeFalse();
+        ->and(KeyPath::of('reach.everything')->isBeside(KeyPath::of('everything')))->toBeFalse()
+        ->and(KeyPath::of('ci.gitlab.template')->isBeside(KeyPath::of('ci.buildkite.template')))->toBeFalse()
+        ->and(KeyPath::of('ci.gitlab.template')->isBeside(KeyPath::of('reach.gitlab.template')))->toBeFalse()
+        ->and(KeyPath::of('.runner')->isBeside(KeyPath::of('preset')))->toBeFalse();
 });

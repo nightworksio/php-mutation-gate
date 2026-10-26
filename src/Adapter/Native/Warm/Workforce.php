@@ -190,15 +190,11 @@ final readonly class Workforce
      * How long the workers may run: until the end, then the longest run's
      * limit and some slack; with no deadline, where there is no end.
      *
-     * @param array<int, PreparedRun> $runs
+     * @param non-empty-array<int, PreparedRun> $runs
      */
     private function deadlineOf(int|float $end, array $runs): Seconds|Unlimited
     {
-        $longest = 0.0;
-
-        foreach ($runs as $run) {
-            $longest = max($longest, $run->limit()->seconds());
-        }
+        $longest = max(array_map(static fn(PreparedRun $run): float => $run->limit()->seconds(), $runs));
 
         return $end === PHP_INT_MAX
             ? Unlimited::time()
@@ -230,6 +226,6 @@ final readonly class Workforce
             $reasons += $reason === '' ? [] : [$reason => $reason];
         }
 
-        return Warnings::of(...array_map(Warning::that(...), array_values($reasons)));
+        return Warnings::of(...array_map(Warning::that(...), $reasons));
     }
 }

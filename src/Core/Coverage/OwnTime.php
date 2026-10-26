@@ -43,7 +43,7 @@ final readonly class OwnTime
      */
     public static function slowest(CoverageMap $map, TestIds $tests): Seconds|Unmeasured
     {
-        $slowest = 0.0;
+        $durations = [];
 
         foreach ($tests as $test) {
             $duration = $map->durationOf($test);
@@ -52,9 +52,9 @@ final readonly class OwnTime
                 return $duration;
             }
 
-            $slowest = max($slowest, $duration->seconds());
+            $durations[] = $duration->seconds();
         }
 
-        return count($tests) > 0 ? Seconds::of($slowest) : Unmeasured::duration();
+        return $durations === [] ? Unmeasured::duration() : Seconds::of(max($durations));
     }
 }

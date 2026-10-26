@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Config\Definition\MisreadSetting;
 use NightWorksIO\MutationGate\Core\Config\Definition\Reading;
 use NightWorksIO\MutationGate\Core\Config\Definition\Text;
+use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 it('refuses to hand on a value it does not hold', function (): void {
@@ -17,4 +18,10 @@ it('refuses to hand on a value it does not hold', function (): void {
 
 it('hands on the value it holds', function (): void {
     expect(Reading::of('trunk')->must())->toBe('trunk');
+});
+
+it('holds every problem it is refused for, in their order', function (): void {
+    $problems = [Problem::at('a', 'expected a, got b'), Problem::at('c', 'expected c, got d')];
+
+    expect(Reading::refused(...$problems)->problems())->toEqual($problems);
 });

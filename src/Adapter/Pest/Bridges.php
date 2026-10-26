@@ -174,7 +174,11 @@ final readonly class Bridges
     /** A bridged mutator's own sentence for its survivors, by its name; nothing where the family's is used. */
     public function hintOf(string $mutator): string|NotGiven
     {
-        $hint = array_key_exists($mutator, $this->mutators) ? $this->mutators[$mutator]->hint() : false;
+        if (! array_key_exists($mutator, $this->mutators)) {
+            return NotGiven::value();
+        }
+
+        $hint = $this->mutators[$mutator]->hint();
 
         return $hint instanceof Hint ? $hint->sentence() : NotGiven::value();
     }

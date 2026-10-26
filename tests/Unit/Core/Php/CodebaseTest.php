@@ -77,6 +77,25 @@ it('follows a loop of declarations once round', function () use ($codebase): voi
         ->and($loop->isAmbiguous())->toBeFalse();
 });
 
+it('follows a loop of three declarations once round, and one a chain runs into', function (): void {
+    $loops = Codebase::of(Php::source(<<<'PHP'
+        <?php
+        namespace App;
+        class Loops {
+            const A = self::C;
+            const B = self::A;
+            const C = self::B;
+            const D = 1;
+            const E = self::D + self::F;
+            const F = self::E;
+        }
+        PHP, 'src/Loops.php'));
+    $round = $loops->references(Symbol::constant('App\Loops', 'A'));
+    $into = $loops->references(Symbol::constant('App\Loops', 'D'));
+
+    expect([Php::sites($round), $round->isAmbiguous(), Php::sites($into), $into->isAmbiguous()])->toBe([[], false, [], false]);
+});
+
 it('cannot follow a value no reference names at all', function () use ($codebase): void {
     $read = $codebase()->references(Unnamed::of(SymbolKind::AttributeArgument));
 

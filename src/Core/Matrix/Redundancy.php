@@ -116,11 +116,7 @@ final readonly class Redundancy
         $ours = count($one->kills()->without($killed)) * $otherSeconds;
         $theirs = count($other->kills()->without($killed)) * $seconds;
 
-        return match (true) {
-            $ours !== $theirs => $ours > $theirs,
-            $seconds !== $otherSeconds => $seconds < $otherSeconds,
-            default => $one->test()->value() < $other->test()->value(),
-        };
+        return ([$ours, $otherSeconds, $other->test()->value()] <=> [$theirs, $seconds, $one->test()->value()]) === 1;
     }
 
     /**

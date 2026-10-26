@@ -32,6 +32,16 @@ it('names none where the run passes, or a test failed or errored, whose killer i
         ->and(IssueKillers::of(PhpUnitResults::configured('--fail-on-warning'), $errored))->toBe([]);
 });
 
+it('names none where PHPUnit passes the run, though a kind it fails on was raised', function (): void {
+    $money = PhpUnitEvents::test(TestCase::class, 'money');
+    $direct = PhpUnitResults::result(
+        phpDeprecations: [PhpUnitResults::issue($money)],
+        byTrigger: ['self' => 0, 'direct' => 1, 'indirect' => 0, 'unknown' => 0],
+    );
+
+    expect(IssueKillers::of(PhpUnitResults::configured('--fail-on-self-deprecation'), $direct))->toBe([]);
+});
+
 it('names none for an issue raised outside any test, though it fails the run', function (): void {
     $result = PhpUnitResults::result(runnerWarnings: [PhpUnitResults::runnerWarning()]);
 

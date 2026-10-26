@@ -103,7 +103,7 @@ final readonly class Mago implements StaticChecker
             return $this->identified($withheld, Digest::ofNothing());
         }
 
-        $contents = is_file($this->absolute($config)) ? file_get_contents($this->absolute($config)) : false;
+        $contents = is_file($this->absolute($config)) ? file_get_contents($this->absolute($config)) : null;
 
         return is_string($contents)
             ? $this->identified($withheld, Digest::sha256Of($contents))
@@ -135,7 +135,7 @@ final readonly class Mago implements StaticChecker
         return match (true) {
             $outside instanceof OutOfScope => CannotJudge::because(sprintf(self::OUTSIDE, $outside->file()->value())),
             $outside instanceof CannotJudge => $outside,
-            default => $this->analysed($withheld, FindingFiles::under($this->root), []),
+            default => $this->analysed($withheld, FindingFiles::under($this->root)),
         };
     }
 
@@ -290,15 +290,10 @@ final readonly class Mago implements StaticChecker
         };
     }
 
-    /**
-     * What Mago reports of the whole workspace, each finding in the file it
-     * sits in, given these arguments.
-     *
-     * @param list<string> $arguments
-     */
-    private function analysed(Withheld $withheld, FindingFiles $files, array $arguments): Findings|CannotJudge
+    /** What Mago reports of the whole workspace, each finding in the file it sits in. */
+    private function analysed(Withheld $withheld, FindingFiles $files): Findings|CannotJudge
     {
-        $ran = $this->mago($withheld, ['--threads=1', 'analyze', '--reporting-format=json', ...$arguments]);
+        $ran = $this->mago($withheld, ['--threads=1', 'analyze', '--reporting-format=json']);
 
         return $ran instanceof CannotJudge ? $ran : Report::of($ran, $files);
     }

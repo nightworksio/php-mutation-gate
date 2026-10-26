@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
+use NightWorksIO\MutationGate\Tests\Support\CountedLooks;
 use NightWorksIO\MutationGate\Tests\Support\Ended;
 use NightWorksIO\MutationGate\Tests\Support\Measured;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -156,4 +157,15 @@ it('starts no command at the moment its time to start runs out', function (): vo
     $said = ProcessCommand::of(Scratch::directory(), PHP_BINARY, '-r', 'echo "said";');
 
     expect([...new LocalProcesses($clock)->sideBySide(WorkerSlots::alone(), Seconds::of(50.0), $said, $said)])->toBe([]);
+})->group(...$holds);
+
+it('looks at a program while it runs, waiting a moment between looks, and never at one that could not start', function (): void {
+    $waited = new CountedLooks();
+    $unstarted = new CountedLooks();
+
+    new LocalProcesses(new SystemClock())->run(ProcessCommand::of(Scratch::directory(), PHP_BINARY, '-r', 'usleep(200000);'), $waited);
+    new LocalProcesses(new SystemClock())->run(ProcessCommand::of('/nowhere/at/all', PHP_BINARY, '-v'), $unstarted);
+
+    expect($waited->looks)->toBeGreaterThanOrEqual(1)->toBeLessThan(1000)
+        ->and($unstarted->looks)->toBe(0);
 })->group(...$holds);

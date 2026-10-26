@@ -10,11 +10,9 @@ use function array_slice;
 use function array_values;
 use function count;
 use function file_get_contents;
-use function is_dir;
 use function is_file;
 use function is_string;
 use function ksort;
-use function mkdir;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
@@ -152,7 +150,7 @@ final class Trial
 
         $ends = $runs === []
             ? []
-            : [...$this->shell->sideBySide($this->slots, Unlimited::time(), ...array_values($runs))];
+            : [...$this->shell->sideBySide($this->slots, Unlimited::time(), ...$runs)];
 
         foreach (array_keys($runs) as $position => $at) {
             $outcomes[$at] = $this->found($trials[$at], $ends[$position], $position)->needing($needs[$at]);
@@ -264,13 +262,7 @@ final class Trial
     /** Where a run at a position in the batch writes its files, made where it is not there. */
     private function directoryOf(int $position): string
     {
-        $directory = sprintf(self::POSITION, $this->directory, $position);
-
-        if (! is_dir($directory)) {
-            mkdir($directory, recursive: true);
-        }
-
-        return $directory;
+        return $this->project->directory(Path::of(sprintf(self::POSITION, $this->directory, $position)));
     }
 
     /** The guard a run at a position in the batch writes. */
@@ -305,7 +297,7 @@ final class Trial
     private function guarded(Ran $ran, TrialRun $trial, int $position): Outcome
     {
         $guard = $this->guardOf($position);
-        $text = is_file($guard) ? file_get_contents($guard) : false;
+        $text = is_file($guard) ? file_get_contents($guard) : null;
 
         return match (true) {
             is_string($text) => $this->read(Node::decode($text), $ran, $trial, $position),

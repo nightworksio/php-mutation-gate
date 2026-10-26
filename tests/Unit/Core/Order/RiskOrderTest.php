@@ -178,7 +178,6 @@ it('puts the most recently changed first among the least risky, those no commit 
         ->knowing(ByPath::none()
             ->with(Path::of('src/Held'), $at('2026-09-01T10:00:00Z'))
             ->with(Path::of('src/Settled.php'), $at('2026-09-20T10:00:00Z'))
-            ->with(Path::of('src/KilledByTimeout.php'), $at('2026-09-01T10:00:00Z'))
             ->with(Path::of('src/Survivor.php'), $at('2026-09-29T10:00:00Z')))
         ->ordered(Units::of(
             Unit::file(Path::of('src/Unlogged.php')),

@@ -25,12 +25,13 @@ it('says to git add each file init changed or wrote, in byte order, and none git
         ->write('composer.json', "{\"scripts\": {}}\n")
         ->write('mutation-gate.json', "{}\n")
         ->write('.github/workflows/mutation.yml', "on: push\n")
+        ->write('mutation notes.md', "Kept.\n")
         ->write('ignored/cache.json', "{}\n");
 
     expect($next->said())->toBe(implode("\n", [
         'Next:',
         '  vendor/bin/mutation-gate doctor',
         '  vendor/bin/mutation-gate',
-        '  git add .github/workflows/mutation.yml composer.json mutation-gate.json',
+        "  git add .github/workflows/mutation.yml composer.json 'mutation notes.md' mutation-gate.json",
     ]));
 })->group(...$holds);

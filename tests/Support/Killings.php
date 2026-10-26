@@ -192,6 +192,41 @@ final class Killings
     }
 
     /**
+     * A full matrix of three mutants of `src/Money.php`: line 1 covered and
+     * killed by `A` alone, line 2 by `E` alone, and line 3 covered and killed
+     * by `A`, `E` and `B`, each untimed.
+     */
+    public static function sharedVerdict(): Verdict
+    {
+        $money = Path::of('src/Money.php');
+        $coverage = CoverageMap::empty()
+            ->covered($money, Line::of(1), self::id('A'))
+            ->covered($money, Line::of(2), self::id('E'))
+            ->covered($money, Line::of(3), self::id('A'))
+            ->covered($money, Line::of(3), self::id('E'))
+            ->covered($money, Line::of(3), self::id('B'));
+        $names = TestNames::none();
+
+        foreach (['A', 'B', 'E'] as $test) {
+            $names = $names->with(self::id($test), self::name($test));
+        }
+
+        $tree = TreeVerdict::judged(
+            Tree::at(Path::of('src'), Floor::of(80), Package::at(Path::root())),
+            Unrecorded::floor(),
+            JudgedUnits::none(),
+            JudgedMutants::of(
+                self::mutant(1, MutantStatus::Killed, self::ids('A')),
+                self::mutant(2, MutantStatus::Killed, self::ids('E')),
+                self::mutant(3, MutantStatus::Killed, self::ids('A', 'E', 'B')),
+            ),
+            Uncovered::Count,
+        );
+
+        return Verdict::of(TreeVerdicts::of($tree))->withMatrix(KillMatrix::of(MatrixKind::Full, $coverage)->named($names));
+    }
+
+    /**
      * The verdict, its tests in two suites: `A` and `B` in `unit`, which
      * alone kills two of the three mutants they cover, and `C`, `D` and `E`
      * in `feature`, which alone kills one of two.

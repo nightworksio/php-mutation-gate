@@ -81,8 +81,8 @@ final readonly class Import
         $staying = [];
 
         foreach ($this->keys as $key) {
-            $named[$key->key()] = true;
-            $staying = $key->fate()->deletes() ? $staying : [...$staying, $key->key() => true];
+            $named[$key->key()] = $key;
+            $staying = $key->fate()->deletes() ? $staying : [...$staying, $key->key() => $key];
         }
 
         $deleted = array_keys(array_diff_key($named, $staying));

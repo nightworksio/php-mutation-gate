@@ -202,10 +202,10 @@ final readonly class Section implements Shape
             $properties = $properties->with(Member::of($field->key(), $field->schema($default)));
         }
 
-        $required = array_values(array_map(
+        $required = array_map(
             static fn(Field $field): string => $field->key(),
             array_filter($this->fields, static fn(Field $field): bool => $field->isRequired()),
-        ));
+        );
         $schema = $this->fields === [] ? $schema : $schema->with(Member::of('properties', $properties));
         $schema = $required === [] ? $schema : $schema->with(Member::of('required', Json::items(...$required)));
         $schema = $schema->with(Member::of('additionalProperties', value: false));
@@ -275,10 +275,10 @@ final readonly class Section implements Shape
      */
     private function together(Node $at): array
     {
-        $written = array_values(array_filter(
+        $written = array_filter(
             $this->exclusive,
             static fn(string $key): bool => $at->field($key)->kind() !== Kind::Nothing,
-        ));
+        );
 
         return count($written) > 1
             ? [Problem::at($at->at(), sprintf('expected either %s, but not both', implode(' or ', $written)))]
