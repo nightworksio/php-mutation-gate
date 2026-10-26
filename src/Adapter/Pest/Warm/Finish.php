@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
 
 /**
  * How a warm worker's child ran a mutant's run, as the worker writes it once
@@ -28,7 +29,7 @@ final readonly class Finish
     private const string REFUSED = 'unforked';
 
     private function __construct(
-        private int|NotGiven $code,
+        private int $code,
         private int|NotGiven $signal,
         private string|NotGiven $refused,
         private Offsets $to,
@@ -47,7 +48,7 @@ final readonly class Finish
     {
         $written = Json::object(Member::of(self::SIGNAL, $signal), ...$to->members());
 
-        return new self(NotGiven::value(), $signal, NotGiven::value(), $to, $written);
+        return new self(Ran::SIGNALLED + $signal, $signal, NotGiven::value(), $to, $written);
     }
 
     /** No child forked for the run, for this reason. */
@@ -55,7 +56,7 @@ final readonly class Finish
     {
         $written = Json::object(Member::of(self::REFUSED, $reason));
 
-        return new self(NotGiven::value(), NotGiven::value(), $reason, Offsets::none(), $written);
+        return new self(Ran::UNSTARTED, NotGiven::value(), $reason, Offsets::none(), $written);
     }
 
     /** The finish a worker wrote to this file; none where it has written none whole. */
@@ -82,8 +83,12 @@ final readonly class Finish
         return is_string($this->refused);
     }
 
-    /** The code the child exited with; none where a signal ended it or none ran. */
-    public function code(): int|NotGiven
+    /**
+     * The code the run ended with, as a shell gives it: the one the child
+     * exited with, past the signal's number where a signal ended it, and a
+     * script's that could not start where no child ran.
+     */
+    public function exitCode(): int
     {
         return $this->code;
     }

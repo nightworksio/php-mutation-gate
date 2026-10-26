@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Warm;
 
-use function clearstatcache;
 use function filesize;
 use function is_file;
 
@@ -40,8 +39,6 @@ final readonly class Offsets
     /** Where the place's output files stand now. */
     public static function now(Seat $seat): self
     {
-        clearstatcache();
-
         return new self(self::sizeOf($seat->out()), self::sizeOf($seat->err()));
     }
 

@@ -56,7 +56,7 @@ it('runs a run in a child it forks, and writes how the child ended where the run
     $finish = Finish::readFrom($at->ended('42-1'));
 
     expect($served)->toBe(0)
-        ->and($finish instanceof Finish ? $finish->code() : $finish)->toBe(3)
+        ->and($finish instanceof Finish ? $finish->exitCode() : $finish)->toBe(3)
         ->and($paused->count())->toBeGreaterThan(0)
         ->and($paused->lengths())->toBe([Polling::interval()->microseconds()])
         ->and(is_file($at->started('42-1')) && is_file($at->child('42-1')))->toBeTrue();

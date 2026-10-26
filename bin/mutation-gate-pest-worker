@@ -6,9 +6,10 @@ declare(strict_types=1);
 // A warm worker of a Pest run (ADR-0023), which Pest's parent process starts
 // on its own PHP, in its own directory, with the directory the run's workers
 // share, the worker's place and the parent's process id, in that order. It
-// loads the gate's own classes alone, and serves from a process of its own,
-// which the system takes on once the one Pest started ends, so a worker that
-// ends is reaped and seen gone. Each child it forks takes on its run's
+// starts only where PHP has pcntl and posix, loads the gate's own classes
+// alone, and serves from a process of its own, which the system takes on once
+// the one Pest started ends, as it does once the worker has written its
+// process id, so a worker that ends is reaped and seen gone. Each child it forks takes on its run's
 // environment, directory and command line, is handed the worker's baseline
 // of its test databases, and runs Pest's script as a fresh process runs it.
 
@@ -17,8 +18,11 @@ use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\WarmDatabase;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Forking;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\GateClasses;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Request;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\Seat;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Worker;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\Polling;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 require sprintf('%s/src/Adapter/Pest/Warm/GateClasses.php', dirname(__DIR__));
 
@@ -33,12 +37,19 @@ foreach ($given as $argument) {
 
 [, $directory, $place, $parent] = [...$arguments, '', '', '', ''];
 
+if (! function_exists('pcntl_fork') || ! function_exists('posix_kill')) {
+    exit(1);
+}
+
 ini_set('opcache.enable', '0');
 
 $own = pcntl_fork();
+$seat = Seat::at($directory, (int) $place);
 
 if ($own !== 0) {
-    exit($own === -1 ? 1 : 0);
+    Polling::wait(Seconds::of(Seat::WAIT), static fn(): bool => is_file($seat->pid()), usleep(...));
+
+    exit($own !== -1 && is_file($seat->pid()) ? 0 : 1);
 }
 
 exit(Worker::at($directory, (int) $place, (int) $parent, usleep(...))->served(new class implements Forking {

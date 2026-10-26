@@ -40,7 +40,7 @@ afterEach(function (): void {
  */
 function warmRun(string $results, string $end, array $variables = []): Process
 {
-    putenv(sprintf('%s=%s', GateVariable::Warm->value, WarmDirectory::beside($results)));
+    putenv(sprintf('%s=%s', GateVariable::Warm->value, WarmDirectory::made($results)));
 
     return new Process(
         [...Pool::prefix(1), Tree::at('tests/Fixtures/Warm/run'), '--bail', '--filter=adds'],
@@ -78,7 +78,6 @@ it('runs each mutant\'s run in a child its place\'s worker forked, printing what
     $second->run();
 
     expect($first->getExitCode())->toBe(3)
-        ->and(fileperms(WarmDirectory::beside($results)) & 0o777)->toBe(0o700)
         ->and(glob(sprintf('%s/1.*-*', WarmDirectory::beside($results))))->toBe([])
         ->and(parentOf($first))->toBe(warmWorker($results))
         ->and($first->getErrorOutput())->toBe("argv --bail --filter=adds\n")
@@ -163,7 +162,7 @@ it('forks no child for a run whose asker is gone before the worker takes it, and
 })->group(...$holds);
 
 it('ends a worker once Pest\'s process is gone', function (): void {
-    $directory = sprintf('%s/warm', Scratch::directory());
+    $directory = WarmDirectory::made(sprintf('%s/results.jsonl', Scratch::directory()));
     $pest = new Process(
         [PHP_BINARY, '-r', sprintf('require %s; %s::prefix(1);', var_export(Tree::at('vendor/autoload.php'), return: true), Pool::class)],
         env: [GateVariable::Warm->value => $directory],

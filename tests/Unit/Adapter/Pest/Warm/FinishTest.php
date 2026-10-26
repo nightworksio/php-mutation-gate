@@ -13,7 +13,7 @@ it('reads back a run that exited, with where the output files stood', function (
     $read = Finish::readFrom($file);
 
     expect($read)->toEqual(Finish::exited(3, Offsets::of(10, 20)))
-        ->and($read instanceof Finish ? [$read->code(), $read->signal(), $read->isRefused(), $read->to()] : [])
+        ->and($read instanceof Finish ? [$read->exitCode(), $read->signal(), $read->isRefused(), $read->to()] : [])
         ->toEqual([3, NotGiven::value(), false, Offsets::of(10, 20)]);
 });
 
@@ -23,7 +23,7 @@ it('reads back a run a signal ended', function (): void {
     $read = Finish::readFrom($file);
 
     expect($read)->toEqual(Finish::signalled(15, Offsets::of(1, 2)))
-        ->and($read instanceof Finish ? [$read->signal(), $read->code()] : [])->toEqual([15, NotGiven::value()]);
+        ->and($read instanceof Finish ? [$read->signal(), $read->exitCode()] : [])->toEqual([15, 143]);
 });
 
 it('reads back a run the worker forked no child for', function (): void {
@@ -31,7 +31,8 @@ it('reads back a run the worker forked no child for', function (): void {
     Finish::refused('The warm worker could not fork, so a mutant ran fresh.')->writtenTo($file);
     $read = Finish::readFrom($file);
 
-    expect($read instanceof Finish && $read->isRefused())->toBeTrue();
+    expect($read instanceof Finish && $read->isRefused())->toBeTrue()
+        ->and($read instanceof Finish ? [$read->exitCode(), $read->to()] : [])->toEqual([127, Offsets::none()]);
 });
 
 it('reads no finish where none is written whole', function (): void {

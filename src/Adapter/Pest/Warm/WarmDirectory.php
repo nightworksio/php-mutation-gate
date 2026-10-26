@@ -14,13 +14,13 @@ use function file_get_contents;
 use function is_array;
 use function is_dir;
 use function is_file;
+use function mkdir;
 
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
-use function posix_kill;
 use function rmdir;
 use function scandir;
 use function sprintf;
@@ -43,10 +43,28 @@ final readonly class WarmDirectory
 
     private const string PID = '.pid';
 
+    private const int OWNER_ONLY = 0o700;
+
     /** The directory of the warm workers of the run that records to these results. */
     public static function beside(string $results): string
     {
         return sprintf(self::BESIDE, $results);
+    }
+
+    /**
+     * The directory of the warm workers of the run that records to these
+     * results made, its owner's alone, as each request holds its run's
+     * environment: its path.
+     */
+    public static function made(string $results): string
+    {
+        $directory = self::beside($results);
+
+        if (! is_dir($directory)) {
+            mkdir($directory, self::OWNER_ONLY);
+        }
+
+        return $directory;
     }
 
     /**
@@ -60,7 +78,7 @@ final readonly class WarmDirectory
         $directory = self::beside($results);
 
         if (is_dir($directory)) {
-            touch(Seat::at($directory, 0)->stop());
+            touch(Seat::stopIn($directory));
         }
 
         Polling::wait(
@@ -77,9 +95,7 @@ final readonly class WarmDirectory
     /** Whether the file is a worker's process id, and that process is still there. */
     private static function isRunning(string $file): bool
     {
-        $pid = str_ends_with($file, self::PID) ? (int) file_get_contents($file) : 0;
-
-        return $pid > 0 && posix_kill($pid, 0);
+        return str_ends_with($file, self::PID) && PidFile::isRunning($file);
     }
 
     /** One warning for each reason a worker forked a mutant's run no child. */
@@ -94,7 +110,7 @@ final readonly class WarmDirectory
 
         $reasons = array_filter(array_unique($reasons), static fn(string $reason): bool => $reason !== '');
 
-        return Warnings::of(...array_map(Warning::that(...), array_values($reasons)));
+        return Warnings::of(...array_map(Warning::that(...), $reasons));
     }
 
     /** The directory removed, with every file in it. */

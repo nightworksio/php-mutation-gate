@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Pool;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
 use NightWorksIO\MutationGate\Tests\Support\GateEnvironment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
@@ -38,7 +39,7 @@ function refreshed(string $directory, bool $dirties): string
  */
 function refreshing(string $directory, array $variables): Process
 {
-    putenv(sprintf('%s=%s/warm', GateVariable::Warm->value, $directory));
+    putenv(sprintf('%s=%s', GateVariable::Warm->value, WarmDirectory::made(sprintf('%s/results.jsonl', $directory))));
 
     return new Process(
         [...Pool::prefix(1), Tree::at('tests/Fixtures/Laravel/refresh-database')],

@@ -11,6 +11,7 @@ it('names each file of a place, apart from every other place\'s, in the director
         $seat->directory(),
         $seat->place(),
         $seat->stop(),
+        Seat::stopIn('/run/warm'),
         $seat->pid(),
         $seat->request(),
         $seat->started('42-1'),
@@ -22,6 +23,7 @@ it('names each file of a place, apart from every other place\'s, in the director
     ])->toBe([
         '/run/warm',
         2,
+        '/run/warm/stop',
         '/run/warm/stop',
         '/run/warm/2.pid',
         '/run/warm/2.request',

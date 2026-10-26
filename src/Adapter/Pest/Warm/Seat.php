@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Warm;
 
+use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
+
 use function sprintf;
 
 /**
@@ -15,9 +17,10 @@ use function sprintf;
  */
 final readonly class Seat
 {
-    /** The seconds a worker is given to start, and to end once told the run is done. */
-    public const float WAIT = 10.0;
-    private const string STOP = 'stop';
+    /** The seconds a worker is given to start, and to end once told the run is done, as a mutant's run is to start. */
+    public const float WAIT = MutantLimit::START_UP;
+
+    private const string STOP = '%s/stop';
 
     private function __construct(private string $directory, private int $place)
     {
@@ -41,7 +44,13 @@ final readonly class Seat
     /** Where the gate says the run's workers are done. */
     public function stop(): string
     {
-        return sprintf('%s/%s', $this->directory, self::STOP);
+        return self::stopIn($this->directory);
+    }
+
+    /** Where the gate says the workers sharing this directory are done. */
+    public static function stopIn(string $directory): string
+    {
+        return sprintf(self::STOP, $directory);
     }
 
     /** The worker's process id, as its parent started it. */

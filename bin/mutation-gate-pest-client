@@ -22,6 +22,12 @@ foreach ($given as $argument) {
     $arguments[] = is_string($argument) ? $argument : '';
 }
 
-[, $directory, $place] = [...$arguments, '', '', ''];
+[, $directory, $place, $script] = [...$arguments, '', '', '', ''];
+$out = static function (string $bytes): void {
+    fwrite(STDOUT, $bytes);
+};
+$errors = static function (string $bytes): void {
+    fwrite(STDERR, $bytes);
+};
 
-exit(Client::at($directory, (int) $place)->ran(array_slice($arguments, 3)));
+exit(Client::at($directory, (int) $place, usleep(...), $out, $errors)->ran($script, array_slice($arguments, 4)));
