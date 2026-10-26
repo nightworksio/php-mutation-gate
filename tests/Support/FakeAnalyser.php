@@ -80,7 +80,7 @@ final readonly class FakeAnalyser
      * version before the one it read (`stale`), frame each message with its
      * `Content-Length` alone, as the protocol allows (`bare`), never answer
      * `initialize` (`mute-start`), never answer a `$/` request (`mute`),
-     * answer one two seconds late (`slow`), or ignore SIGTERM and, once its
+     * answer one three seconds late (`slow`), or ignore SIGTERM and, once its
      * input ends, take a moment before it writes `closed` to `server-got.txt`
      * and ends (`lingers`).
      */
@@ -129,7 +129,7 @@ final readonly class FakeAnalyser
                 $send(['method' => 'telemetry/event', 'params' => ['type' => 3, 'message' => 'running']]);
             }
             if (str_starts_with($method, '$/') && $mode === 'slow') {
-                sleep(2);
+                sleep(3);
             }
             if (str_starts_with($method, '$/') && $mode !== 'mute') {
                 $send(['id' => $message['id'], 'error' => ['code' => -32601, 'message' => "Method $method is not implemented"]]);

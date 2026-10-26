@@ -43,6 +43,7 @@ it('fits as many runs as their whole length allows in the time left, every one t
         ->and($deadline->fitting(3, Seconds::of(20.0), $started))->toBe(3)
         ->and($deadline->fitting(5, Seconds::of(30.0), $started))->toBe(3)
         ->and($deadline->fitting(5, Seconds::of(20.0), new DateTimeImmutable('2026-09-30T10:01:20.250000Z')))->toBe(0)
+        ->and($deadline->fitting(500, Seconds::of(0.5), $started))->toBe(180)
         ->and($deadline->fitting(5, Seconds::of(0.0), $started))->toBe(5)
         ->and($deadline->fitting(5, Seconds::of(0.0), new DateTimeImmutable('2026-09-30T10:05:00Z')))->toBe(0);
 });

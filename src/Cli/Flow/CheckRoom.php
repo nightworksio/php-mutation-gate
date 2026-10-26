@@ -79,7 +79,7 @@ final readonly class CheckRoom
         foreach ($offered as $survivor) {
             $file = $survivor->mutant()->location()->file()->value();
             $first = $survivor->checkable()->original() instanceof Contents && ! array_key_exists($file, $printed);
-            $printed[$file] = true;
+            $printed[$file] = $file;
             $total += $first ? self::WITH_ITS_PRINT : self::ALONE;
             $needed[] = $total;
         }

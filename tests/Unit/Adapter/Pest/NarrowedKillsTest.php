@@ -392,33 +392,37 @@ it('neither replays nor controls a kill of a run no file narrowed, though its or
     expect([$asked, $controls, [...$unvouched->unjudged()], [...$doubted], $kills->sets()])->toBe([[], [], [], [], 0]);
 });
 
-it('leaves unjudged the kills a failed assertion made, and doubts those only errors made, of one replay that does not let them stand', function () use ($mutant): void {
+it('leaves unjudged the kills a failed assertion made, and doubts those only errors made, of each replay that does not let them stand, past one that does', function () use ($mutant): void {
     $at = PestCases::project();
     $loaded = sprintf('%s/tests/ASpec.php', $at->root());
-    $order = OrderDigest::of(TestId::of('T::x'), TestId::of('T::a'))->value();
     $arguments = ['vendor/bin/pest', '--bail', '--filter=ASpec', $loaded];
+    $order = static fn(string $before): string => OrderDigest::of(TestId::of($before), TestId::of('T::a'))->value();
+    $kill = static fn(string $native, string $record): array => [
+        $record,
+        PestRun::narrowed($native, [$loaded]),
+        rtrim(RecordLine::arguments(PestRun::mutated($native), $arguments)),
+        rtrim(RecordLine::limited(PestRun::mutated($native), 2.0)),
+    ];
     $file = narrowedResults(
-        PestRun::erroredAt('native-1', 'T::a', Placed::at(2, $order, 9)),
-        PestRun::narrowed('native-1', [$loaded]),
-        rtrim(RecordLine::arguments(PestRun::mutated('native-1'), $arguments)),
-        rtrim(RecordLine::limited(PestRun::mutated('native-1'), 2.0)),
-        PestRun::killedAt('native-3', 'T::a', Placed::at(2, $order, 9)),
-        PestRun::narrowed('native-3', [$loaded]),
-        rtrim(RecordLine::arguments(PestRun::mutated('native-3'), $arguments)),
-        rtrim(RecordLine::limited(PestRun::mutated('native-3'), 2.0)),
+        ...$kill('native-1', PestRun::erroredAt('native-1', 'T::a', Placed::at(2, $order('T::w'), 9))),
+        ...$kill('native-2', PestRun::erroredAt('native-2', 'T::a', Placed::at(2, $order('T::x'), 9))),
+        ...$kill('native-3', PestRun::killedAt('native-3', 'T::a', Placed::at(2, $order('T::x'), 9))),
+        ...$kill('native-4', PestRun::erroredAt('native-4', 'T::a', Placed::at(2, $order('T::y'), 9))),
     );
-    $kills = NarrowedKills::in(
-        MutationResult::of(Mutants::of($mutant(1, MutantStatus::Killed, 'T::a'), $mutant(3, MutantStatus::Killed, 'T::a')), 0),
-        $file,
-        $at,
-    );
+    $kills = NarrowedKills::in(MutationResult::of(Mutants::of(
+        ...array_map(static fn(int $line): Mutant => $mutant($line, MutantStatus::Killed, 'T::a'), [1, 2, 3, 4]),
+    ), 0), $file, $at);
 
-    $unvouched = $kills->unvouched(static fn(array $replays): array => array_fill(0, count($replays), ReplayVerdict::OtherOrder));
+    $unvouched = $kills->unvouched(static fn(): array => [
+        ReplayVerdict::Stands,
+        ReplayVerdict::OtherOrder,
+        ReplayVerdict::OtherOrder,
+    ]);
     $doubted = $kills->doubted(WholeSuite::tests(), static fn(): array => [], $unvouched);
 
     expect(array_map(static fn(Mutant $each): array => [$each->nativeId(), $each->status()], [...$unvouched->unjudged()]))
         ->toBe([['native-3', MutantStatus::Unjudged]])
         ->and(array_map(static fn(Mutant $each): array => [$each->nativeId(), $each->status()], [...$doubted]))
-        ->toBe([['native-1', MutantStatus::Killed]])
-        ->and($kills->sets())->toBe(1);
+        ->toBe([['native-2', MutantStatus::Killed], ['native-4', MutantStatus::Killed]])
+        ->and($kills->sets())->toBe(3);
 });
