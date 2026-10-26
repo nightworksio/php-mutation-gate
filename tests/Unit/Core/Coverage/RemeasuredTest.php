@@ -9,6 +9,8 @@ use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethods;
 use NightWorksIO\MutationGate\Core\Coverage\Remeasured;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -84,3 +86,50 @@ it('takes none of the lines the new measure missed, which ran some tests alone',
         ['src/Money.php', 12, ['MoneyTest::adds']],
     ]);
 });
+
+it('keeps the lines a test measured again ran in a file unchanged since the kept map, as boot code a warm cache skips, and none in a changed file or of a test the new measure no longer holds', function (Paths|NotGiven $changed, array $lines): void {
+    $kept = CoverageMap::empty()
+        ->covered(Path::of('src/Kernel.php'), Line::of(20), TestId::of('CommandTest::adds'))
+        ->covered(Path::of('src/Kernel.php'), Line::of(21), TestId::of('GoneTest::goes'))
+        ->covered(Path::of('src/Validator.php'), Line::of(8), TestId::of('CommandTest::adds'))
+        ->covered(Path::of('src/Validator.php'), Line::of(9), TestId::of('CommandTest::adds'));
+    $measured = CoverageMap::empty()
+        ->covered(Path::of('src/Validator.php'), Line::of(9), TestId::of('CommandTest::adds'));
+
+    $merged = Remeasured::over(
+        $kept,
+        TestIds::of(TestId::of('CommandTest::adds'), TestId::of('GoneTest::goes')),
+        $measured,
+        $changed,
+    );
+
+    expect(linesOfMap($merged))->toBe($lines);
+})->with([
+    'the validator changed' => [
+        fn(): Paths => Paths::of(Path::of('src/Validator.php')),
+        [
+            ['src/Kernel.php', 20, ['CommandTest::adds']],
+            ['src/Validator.php', 9, ['CommandTest::adds']],
+            ['src/Kernel.php', 21, []],
+            ['src/Validator.php', 8, []],
+        ],
+    ],
+    'nothing changed' => [
+        fn(): Paths => Paths::none(),
+        [
+            ['src/Kernel.php', 20, ['CommandTest::adds']],
+            ['src/Validator.php', 8, ['CommandTest::adds']],
+            ['src/Validator.php', 9, ['CommandTest::adds']],
+            ['src/Kernel.php', 21, []],
+        ],
+    ],
+    'what changed unknown' => [
+        fn(): NotGiven => NotGiven::value(),
+        [
+            ['src/Validator.php', 9, ['CommandTest::adds']],
+            ['src/Kernel.php', 20, []],
+            ['src/Kernel.php', 21, []],
+            ['src/Validator.php', 8, []],
+        ],
+    ],
+]);

@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Coverage;
 use NightWorksIO\MutationGate\Config\Setting;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
@@ -34,6 +35,7 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Access;
@@ -206,7 +208,8 @@ it('measures again only the test files whose entries moved, and writes the kept 
 ): void {
     $files = keptFiles([$changed => "<?php\n\n// changed\n"]);
     $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map())->runningFiles(remeasuredMoney());
-    [$kept, $inventory, $project] = keptFlow($files, $runner, Changes::none());
+    $since = Changes::of(Change::modified(Path::of($changed), Lines::none()));
+    [$kept, $inventory, $project] = keptFlow($files, $runner, $since);
     $measured = $inventory instanceof Inventory
         ? $kept->measuring($kept->entries($inventory), keptMap(Flows::map(), keptAt()), KeptFrom::DefaultBranch, NotGiven::value())
         : $inventory;
@@ -218,12 +221,59 @@ it('measures again only the test files whose entries moved, and writes the kept 
         ->and(keptAsked($runner))->toBe([$file])
         ->and($runner->ran()[0]->directory())->toEqual(Workspace::remeasuredCoverage())
         ->and(keptWritten($project))->toEqual(
-            Remeasured::over(Flows::map(), TestIds::of(TestId::of($test)), remeasuredMoney()),
+            Remeasured::over(Flows::map(), TestIds::of(TestId::of($test)), remeasuredMoney(), Paths::of(Path::of($changed))),
         );
 })->with([
     'a test file' => ['tests/MoneyTest.php', 'tests/MoneyTest.php', 'MoneyTest::adds'],
     'a source only one test file executed' => ['src/Held.php', 'tests/HeldTest.php', 'HeldTest::doubles'],
 ]);
+
+it('keeps a re-measured test\'s lines in a file unchanged since the kept map, and none in a file renamed away from', function (): void {
+    $files = keptFiles(['tests/MoneyTest.php' => "<?php\n\n// changed\n"]);
+    $map = Flows::map()
+        ->covered(Path::of('src/Old.php'), Line::of(3), TestId::of('MoneyTest::adds'))
+        ->covered(Path::of('src/Boot.php'), Line::of(7), TestId::of('MoneyTest::adds'));
+    $runner = new CoverageAsked(ScriptedRunner::fixture(), $map)->runningFiles(remeasuredMoney());
+    $since = Changes::of(
+        Change::modified(Path::of('tests/MoneyTest.php'), Lines::none()),
+        Change::renamed(Path::of('src/Old.php'), Path::of('src/New.php'), Lines::none()),
+    );
+    [$kept, $inventory, $project] = keptFlow($files, $runner, $since);
+
+    if ($inventory instanceof Inventory) {
+        $kept->measuring($kept->entries($inventory), keptMap($map, keptAt()), KeptFrom::DefaultBranch, NotGiven::value());
+    }
+
+    $written = keptWritten($project);
+    $adds = TestId::of('MoneyTest::adds');
+
+    expect($written instanceof CoverageMap && $written->testsCovering(Path::of('src/Old.php'), Line::of(3), Line::of(3))->has($adds))->toBeFalse()
+        ->and($written instanceof CoverageMap && $written->testsCovering(Path::of('src/Boot.php'), Line::of(7), Line::of(7))->has($adds))->toBeTrue()
+        ->and($written instanceof CoverageMap && $written->testsCovering(Path::of('src/Money.php'), Line::of(15), Line::of(15))->has($adds))->toBeTrue();
+});
+
+it('replaces a re-measured test\'s entries whole where the change since the kept map cannot be told', function (): void {
+    $files = keptFiles(['tests/MoneyTest.php' => "<?php\n\n// changed\n"]);
+    $map = Flows::map()->covered(Path::of('src/Boot.php'), Line::of(7), TestId::of('MoneyTest::adds'));
+    $runner = new CoverageAsked(ScriptedRunner::fixture(), $map)->runningFiles(remeasuredMoney());
+    $project = keptProject($files);
+    $checkout = new ChangeSourceFake(Revision::ref(Flows::HEAD), Changes::none(), [
+        Revision::workingTree()->name() => $files,
+        Flows::HEAD => keptFiles(),
+    ], from: [Flows::HEAD => CannotTell::because('the history is shallow')]);
+    $adapters = Flows::adapters($project, [], $runner, $checkout);
+    $kept = new KeptCoverage($adapters, Flows::settings(), Flows::setup());
+    $inventory = Inventory::of($adapters, Flows::settings());
+
+    if ($inventory instanceof Inventory) {
+        $kept->measuring($kept->entries($inventory), keptMap($map, keptAt()), KeptFrom::DefaultBranch, NotGiven::value());
+    }
+
+    $written = keptWritten($project);
+
+    expect($written instanceof CoverageMap ? [...$written->testsCovering(Path::of('src/Boot.php'), Line::of(7), Line::of(7))] : $written)
+        ->toBe([]);
+});
 
 it('measures no test where no entry moved, and writes the kept map as measured now', function (): void {
     $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
@@ -724,6 +774,7 @@ it('measures again only the moved test files of a suite that judges, so a suite 
             Flows::map(),
             TestIds::of(TestId::of('MoneyTest::adds'), TestId::of('HeldTest::doubles')),
             remeasuredMoney(),
+            Paths::none(),
         ));
 });
 
