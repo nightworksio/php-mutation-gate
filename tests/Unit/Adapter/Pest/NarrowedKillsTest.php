@@ -362,7 +362,7 @@ it('replays the narrowed kills of one order once for each file they change, and 
         $replay('src/Money.php', 'native-2', $second),
         $replay('src/Other.php', 'native-3', $first),
     ])
-        ->and(array_map(static fn(Mutant $mutant): string => $mutant->nativeId(), [...$unvouched]))->toBe(['native-1', 'native-2'])
+        ->and(array_map(static fn(Mutant $mutant): string => $mutant->nativeId(), [...$unvouched->unjudged()]))->toBe(['native-1', 'native-2'])
         ->and($kills->sets())->toBe(3);
 });
 

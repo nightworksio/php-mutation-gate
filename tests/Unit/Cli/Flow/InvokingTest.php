@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Cli\Flow\Invoked;
 use NightWorksIO\MutationGate\Cli\Flow\Invoking;
 use NightWorksIO\MutationGate\Cli\Flow\Stopwatch;
+use NightWorksIO\MutationGate\Cli\Flow\SurvivorChecking;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -49,14 +50,18 @@ function invokedMutant(string $file, string $nativeId, MutantStatus $status): Mu
 function invokedWithin(ScriptedRunner $runner, Seconds $left, CoverageMap $map): Invoked
 {
     $clock = new StoppedClock('2026-09-30T12:00:00+00:00');
+    $adapters = Flows::adapters(Flows::project(), [], $runner);
+    $deadline = Deadline::after($clock->now(), $left);
+    $stopwatch = new Stopwatch($clock, $clock->now());
     $invoked = new Invoking(
-        Flows::adapters(Flows::project(), [], $runner),
+        $adapters,
         Flows::settings(),
         $clock,
-        Deadline::after($clock->now(), $left),
-        new Stopwatch($clock, $clock->now()),
+        $deadline,
+        $stopwatch,
         $map,
         HeldCovered::none(),
+        new SurvivorChecking($adapters, $clock, $deadline, Seconds::of(60.0), $stopwatch),
     )->invoked(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()));
 
     return $invoked instanceof Invoked ? $invoked : throw new LogicException($invoked->why());
