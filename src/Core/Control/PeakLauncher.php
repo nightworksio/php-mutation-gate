@@ -52,9 +52,7 @@ final readonly class PeakLauncher
     {
         $peak = trim($written);
 
-        return (string) (int) $peak === $peak && (int) $peak > 0
-            ? MemoryCap::atLeast(MaxRss::bytes((int) $peak, $family))
-            : NotGiven::value();
+        return (string) (int) $peak === $peak ? MaxRss::peak((int) $peak, $family) : NotGiven::value();
     }
 
     /**

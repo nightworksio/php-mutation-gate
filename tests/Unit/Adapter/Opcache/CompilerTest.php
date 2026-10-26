@@ -99,3 +99,19 @@ it('pauses a moment between reads of the children it waits on', function (): voi
     expect($pauses->count())->toBeGreaterThan(0)
         ->and(array_unique($pauses->getArrayCopy()))->toBe([Polling::moment()->microseconds()]);
 });
+
+it('waits on every child of a wave, though one that started after it ends first', function (): void {
+    $child = sprintf('%s/slow-or-fast-php', Scratch::directory());
+    file_put_contents($child, sprintf(
+        "#!%s\n<?php\n\$slow = str_contains((string) file_get_contents(end(\$argv)), 'slow');\nif (\$slow) { sleep(1); }\nfwrite(STDERR, %s);\necho '1';\n",
+        PHP_BINARY,
+        var_export(CompilerChildren::dump("\n\$_main:\n0000 RETURN int(1)\n"), return: true),
+    ));
+    chmod($child, 0o755);
+    $compiler = new Compiler($child, sprintf('%s/equivalence', Scratch::directory()), 30.0, 2);
+
+    $compiled = $compiler->compiled(['slow' => Contents::of("<?php // slow\n"), 'fast' => Contents::of("<?php // fast\n")]);
+
+    expect(array_map(static fn(Opcodes|Uncompiled $one): bool => $one instanceof Opcodes, $compiled))
+        ->toBe(['slow' => true, 'fast' => true]);
+});

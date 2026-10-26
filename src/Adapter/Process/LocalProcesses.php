@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Process;
 
-use function array_diff_key;
 use function array_key_first;
 use function array_values;
 
@@ -94,10 +93,10 @@ final readonly class LocalProcesses implements Processes
      * Each waiting command, in turn, started in a free place while
      * one is free; one that cannot start ends at once and frees its place.
      *
-     * @param  array<int, WorkerSlot> $free    by position
-     * @param  array<int, ProcessCommand>                                     $waiting by position
-     * @param  array<int, Running>                                            $running by position
-     * @param  array<int, Ran>                                                $ends    by position
+     * @param  array<int, WorkerSlot>     $free    by position
+     * @param  array<int, ProcessCommand> $waiting by position
+     * @param  array<int, Running>        $running by position
+     * @param  array<int, Ran>            $ends    by position
      * @return array{array<int, WorkerSlot>, array<int, ProcessCommand>, array<int, Running>, array<int, Ran>}
      */
     private function started(array $free, array $waiting, array $running, array $ends): array
@@ -107,9 +106,15 @@ final readonly class LocalProcesses implements Processes
             $at = array_key_first($waiting);
             $started = Running::start($waiting[$at], $place, $free[$place], $this->now());
             unset($waiting[$at]);
-            [$free, $running, $ends] = $started instanceof Running
-                ? [array_diff_key($free, [$place => true]), $running + [$at => $started], $ends]
-                : [$free, $running, $ends + [$at => $started]];
+
+            if (! $started instanceof Running) {
+                $ends += [$at => $started];
+
+                continue;
+            }
+
+            unset($free[$place]);
+            $running += [$at => $started];
         }
 
         return [$free, $waiting, $running, $ends];
