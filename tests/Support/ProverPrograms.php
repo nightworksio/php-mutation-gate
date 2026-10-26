@@ -20,4 +20,26 @@ final readonly class ProverPrograms
             }
         }
         PHP;
+
+    /** A program whose opcodes print some of its values only in part: an array and a float. */
+    public const string VALUED = <<<'PHP'
+        <?php
+
+        final class Rates
+        {
+            public function rate(string $code, int $a): float
+            {
+                if (in_array($code, ['', '0'], true)) {
+                    return 0.1234567;
+                }
+
+                return $a * 2 / 3;
+            }
+
+            public function flags(): array
+            {
+                return ['pinned' => false];
+            }
+        }
+        PHP;
 }

@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Opcache;
 
 use function addcslashes;
+use function array_any;
 use function dirname;
 use function ltrim;
+use function str_contains;
 use function str_replace;
 use function str_starts_with;
 
@@ -16,9 +18,10 @@ use function str_starts_with;
  * the path the program was compiled at, wherever the dump names its
  * file or directory. The lines each function spans and the line in each
  * closure's name are kept, since a program can read them, as an
- * exception's line or a closure's name, and a literal the program
- * writes is kept as it is, so a mutant that moves code or changes a
- * literal never compares equal.
+ * exception's line or a closure's name, so a mutant that moves code never
+ * compares equal. The dump prints an integer, a string, a boolean and null
+ * in full, but an array as `array(...)`, a float to six significant digits
+ * and a constant expression by its type alone.
  */
 final readonly class Opcodes
 {
@@ -31,6 +34,9 @@ final readonly class Opcodes
 
     /** What the program's own directory is named in its place, as its path is. */
     public const string DIRECTORY = "\x1Edirectory\x1E";
+
+    /** How the dump prints the values it prints only in part: an array, a float and a constant expression. */
+    private const array IN_PART = [' array(...)', ' float(', ' zval(type='];
 
     /** The header opcache dumps a program's own code under, on a line of its own before any function's. */
     private const string MAIN = "\$_main:\n";
@@ -57,6 +63,12 @@ final readonly class Opcodes
     public function same(self $other): bool
     {
         return $this->text === $other->text;
+    }
+
+    /** Whether the dump prints any value only in part, so that two programs can differ in it and compare equal. */
+    public function hidesValues(): bool
+    {
+        return array_any(self::IN_PART, fn(string $printed): bool => str_contains($this->text, $printed));
     }
 
     public function text(): string

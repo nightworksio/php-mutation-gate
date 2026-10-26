@@ -246,6 +246,15 @@ decides are accepted for that release too.
       initial value. So each file is also printed by php-parser with every
       function body taken out, keeping each signature and what a body
       declares, and the two prints must be identical.
+    - **Values the dump prints in part.** The dump prints an integer, a
+      string, a boolean and null in full, but an array as `array(...)`, a
+      float to six significant digits and a constant expression by its type
+      alone. Opcache folds constant expressions, and constants it carries
+      through variables, into such values. So where the dump prints any of
+      them, the mutant must also write the constant expressions its original
+      writes, each printed whole by php-parser, in the same order: a mutant
+      that removes an item of a constant array, or changes a float's seventh
+      digit, is never proven.
     - **The child.** It runs as `php -n`, so no php.ini setting of the
       project's, such as `auto_prepend_file`, `opcache.preload` or a lowered
       optimization level, reaches it. It is the PHP binary the gate and the

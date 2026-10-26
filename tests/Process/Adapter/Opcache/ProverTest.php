@@ -44,6 +44,22 @@ it('proves a mutant that compiles to its original and declares what it declares,
     ]))->toBe(['same', 'again', '123456789012']);
 })->group(...$holds);
 
+it('proves no mutant that changes a value its opcodes print only in part, and still one that keeps them', function (): void {
+    $prover = Prover::of(PHP_BINARY, Root::of(Scratch::directory())->at(Path::of('equivalence')), ProcessCount::of(2), disabled: false);
+    $valued = static fn(string $key, string $from, string $to): array => [
+        $key,
+        Contents::of(ProverPrograms::VALUED),
+        Contents::of(str_replace($from, $to, ProverPrograms::VALUED)),
+    ];
+
+    expect($prover->proven([
+        $valued('array item', "['', '0']", "['0']"),
+        $valued('array value', "['pinned' => false]", "['pinned' => true]"),
+        $valued('float digit', '0.1234567', '0.1234568'),
+        $valued('kept', '$a * 2', '2 * $a'),
+    ]))->toBe(['kept']);
+})->group(...$holds);
+
 it('says opcache dumped nothing, and proves none, where it gives no opcodes', function (): void {
     $compiler = new Compiler(PHP_BINARY, Scratch::directory(), 30.0, 1, ['opcache.opt_debug_level=0']);
 

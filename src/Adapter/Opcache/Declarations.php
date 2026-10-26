@@ -17,12 +17,16 @@ use PhpParser\PrettyPrinter\Standard;
  * properties, cases, attributes and modifiers, every function's signature,
  * and, from each body, the static variables and the classes and closures it
  * declares. A literal `__LINE__` among them is written as the line it
- * stands for. Two programs whose opcodes and declarations are the same are
- * one program.
+ * stands for. Besides, the constant expressions the program writes, which
+ * opcache folds into values its dump prints only in part (see Constants).
+ * Two programs whose opcodes and declarations are the same are one
+ * program, where the dump prints every value in full or both write the
+ * same constant expressions.
  */
 final readonly class Declarations
 {
-    private function __construct(private string $printed)
+    /** @param list<string> $constants */
+    private function __construct(private string $printed, private array $constants)
     {
     }
 
@@ -35,14 +39,24 @@ final readonly class Declarations
             return Uncompiled::Failed;
         }
 
+        $parsed = $statements ?? [];
+        $printer = new Standard();
+        $constants = new Constants($printer);
+        new NodeTraverser($constants)->traverse($parsed);
         $traverser = new NodeTraverser(new BodiesOut());
 
-        return new self(new Standard()->prettyPrintFile($traverser->traverse($statements ?? [])));
+        return new self($printer->prettyPrintFile($traverser->traverse($parsed)), $constants->printed());
     }
 
     /** Whether another program declares the same. */
     public function same(self $other): bool
     {
         return $this->printed === $other->printed;
+    }
+
+    /** Whether another program writes the same constant expressions, in the same order. */
+    public function writesTheSameConstants(self $other): bool
+    {
+        return $this->constants === $other->constants;
     }
 }
