@@ -57,16 +57,12 @@ final readonly class TimeoutControls implements ControlJudge
 
         foreach ($mutants as $mutant) {
             $limit = $mutant->limit();
-            $location = $mutant->location();
-            $tests = $held->judgingAmong(
-                $location->file(),
-                $map->testsCovering($location->file(), $location->start(), $location->last()),
-            );
+            $tests = Control::judging($mutant, $map, $held);
             $controls += $mutant->status() === MutantStatus::TimedOut
                 && $limit instanceof Seconds
                 && ! $mutant->unmutatedNeed() instanceof Seconds
                 && count($tests) > 0
-                ? [$mutant->id()->key() => Control::of($location->file(), $tests, $limit)]
+                ? [$mutant->id()->key() => Control::of($mutant->location()->file(), $tests, $limit)]
                 : [];
         }
 

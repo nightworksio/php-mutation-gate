@@ -19,6 +19,8 @@ use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Control\ControlRun;
+use NightWorksIO\MutationGate\Core\Control\UnnamedKillControls;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
@@ -671,7 +673,7 @@ it('leaves each kill\'s evidence beside its mutant in the shard\'s result, keepi
         ->toEqual([255, false, NotGiven::value()]);
 });
 
-it('leaves a kill no test is named for unjudged in the shard\'s result, saying how its process ended, unless a signal or a fatal error ended it', function (Ended $ended, MutantStatus $status, string $reason) use ($makeResultIn): void {
+it('lets a kill no test is named for stand in the shard\'s result where a signal, a fatal error or its unmutated control vouches for it, and leaves it unjudged, saying why, where none does', function (Ended $ended, ControlRun $control, MutantStatus $status, string $reason) use ($makeResultIn): void {
     $resultIn = $makeResultIn();
 
     $project = Flows::project();
@@ -682,7 +684,7 @@ it('leaves a kill no test is named for unjudged in the shard\'s result, saying h
         MutationResult::of($mutants->replacing(Mutants::of($unnamed)), 0)
             ->withEvidence(Evidences::none()->with($unnamed->id(), Evidence::none()->withEnded($ended))),
         MutationResult::of(Mutants::none(), 0),
-    );
+    )->controlling($control);
 
     new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
         ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
@@ -695,16 +697,33 @@ it('leaves a kill no test is named for unjudged in the shard\'s result, saying h
         $judged += $mutant->id()->value() === $unnamed->id()->value() ? [$mutant->status(), $said instanceof Reason ? $said->text() : ''] : [];
     }
 
-    expect($judged)->toBe([$status, $reason])
-        ->and($outcome instanceof MutationResult ? $outcome->evidence()->of($unnamed->id())->ended() : null)->toBeInstanceOf(Ended::class);
+    expect($judged)->toBe([$status, $reason]);
 })->with([
-    'an exit code and what it printed' => [
+    'an exit code its control vouches for' => [
         fn(): Ended => Ended::of(1, signalled: false, printed: "boom\n")->withFatal(fatal: false),
-        MutantStatus::Unjudged,
-        "No test is named as its killer, and no signal or fatal error PHP recorded ended its process: it exited with code 1. Its output ended:\nboom\n",
+        fn(): ControlRun => ControlRun::passed(Seconds::of(0.1)),
+        MutantStatus::Killed,
+        '',
     ],
-    'a signal' => [fn(): Ended => Ended::unprinted(139, signalled: true), MutantStatus::Killed, ''],
-    'a fatal error' => [fn(): Ended => Ended::unprinted(255, signalled: false)->withFatal(fatal: true), MutantStatus::Killed, ''],
+    'an exit code whose tests fail unmutated too' => [
+        fn(): Ended => Ended::of(1, signalled: false, printed: "boom\n")->withFatal(fatal: false),
+        fn(): ControlRun => ControlRun::failed(),
+        MutantStatus::Unjudged,
+        UnnamedKillControls::FAILS_UNMUTATED,
+    ],
+    'an exit code whose control never ran' => [
+        fn(): Ended => Ended::of(1, signalled: false, printed: "boom\n")->withFatal(fatal: false),
+        fn(): ControlRun => ControlRun::unrun('the file is gone'),
+        MutantStatus::Unjudged,
+        fn(): string => sprintf(UnnamedKillControls::UNRUN, 'the file is gone'),
+    ],
+    'a signal' => [fn(): Ended => Ended::unprinted(139, signalled: true), fn(): ControlRun => ControlRun::failed(), MutantStatus::Killed, ''],
+    'a fatal error' => [
+        fn(): Ended => Ended::unprinted(255, signalled: false)->withFatal(fatal: true),
+        fn(): ControlRun => ControlRun::failed(),
+        MutantStatus::Killed,
+        '',
+    ],
 ]);
 
 it('times a run of no test once before the first mutant, the fastest of three on the shard\'s first file, and lays every request on it', function (): void {

@@ -24,9 +24,11 @@ use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Control\KillControls;
 use NightWorksIO\MutationGate\Core\Control\MemoryControls;
 use NightWorksIO\MutationGate\Core\Control\TimeoutControls;
+use NightWorksIO\MutationGate\Core\Control\UnnamedKillControls;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
+use NightWorksIO\MutationGate\Core\Mutant\Evidences;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
@@ -92,15 +94,17 @@ final readonly class Invoking
         $equivalent = $this->equivalent($result->mutants());
         $checked = $this->checking->checked($result->mutants(), MutantIds::none());
         $again = $this->confirmed($checked->mutants, $equivalent, $request);
-        $controlled = $again instanceof CannotJudge ? $again : $this->controlled($again->mutants, $request);
+        $controlled = $again instanceof CannotJudge
+            ? $again
+            : $this->controlled($again->mutants, $request, $result->evidence());
 
         return match (true) {
             $again instanceof CannotJudge => $again,
             $controlled instanceof CannotJudge => $controlled,
             default => new Invoked(
-                MutationResult::of($controlled, $result->skipped())
+                MutationResult::of($controlled->mutants, $result->skipped())
                     ->withWarnings($result->warnings())
-                    ->withEvidence($result->evidence()),
+                    ->withEvidence($controlled->evidence),
                 $again->flaky,
                 $equivalent,
                 $checked->checks,
@@ -202,14 +206,16 @@ final readonly class Invoking
     }
 
     /**
-     * The mutants, each timeout, each kill a test is named for and each
-     * mutant out of memory judged by its unmutated control (see
-     * TimeoutControls, KillControls and MemoryControls), a control
+     * The mutants, each timeout, each kill a test is named for, each kill no
+     * test is named for whose ending does not vouch for it, and each mutant
+     * out of memory judged by its unmutated control (see TimeoutControls,
+     * KillControls, UnnamedKillControls and MemoryControls), with the
+     * evidence of each unnamed kill its control vouches for, a control
      * two of them share run once: those that fit in the time left run side
      * by side, in the request's pool, and the rest are unjudged. Under
      * `timeouts.mode: unjudged` no timeout has a control.
      */
-    private function controlled(Mutants $mutants, MutationRequest $request): Mutants|CannotJudge
+    private function controlled(Mutants $mutants, MutationRequest $request, Evidences $evidence): Controlled|CannotJudge
     {
         $timeouts = TimeoutControls::of(
             $this->settings->triage()->timeouts() === TimeoutMode::Unjudged ? Mutants::none() : $mutants,
@@ -219,10 +225,16 @@ final readonly class Invoking
         $bounds = $request->pool()->bounding($this->settings->triage()->bounds());
         $kills = KillControls::of($mutants, $this->map, $bounds);
         $memory = MemoryControls::of($mutants, $this->map, $this->held, $bounds);
-        $asked = [...Controls::of(...[...$timeouts->asked(), ...$kills->asked(), ...$memory->asked()])];
+        $unnamed = UnnamedKillControls::of($mutants, $evidence, $this->map, $this->held, $bounds);
+        $asked = [...Controls::of(...[
+            ...$timeouts->asked(),
+            ...$kills->asked(),
+            ...$unnamed->asked(),
+            ...$memory->asked(),
+        ])];
 
         if ($asked === []) {
-            return $mutants;
+            return new Controlled($mutants, $evidence);
         }
 
         [$runs, $left] = $this->ranOf($asked, $request);
@@ -234,10 +246,21 @@ final readonly class Invoking
         return match (true) {
             $runs instanceof CannotJudge => $runs,
             $again instanceof CannotJudge => $again,
-            default => $memory->applied(
-                $kills->applied($timeouts->applied($mutants, $runs, $left), $runs->and($again), $left->and($leftAgain)),
-                $runs,
-                $left,
+            default => new Controlled(
+                $unnamed->applied(
+                    $memory->applied(
+                        $kills->applied(
+                            $timeouts->applied($mutants, $runs, $left),
+                            $runs->and($again),
+                            $left->and($leftAgain),
+                        ),
+                        $runs,
+                        $left,
+                    ),
+                    $runs,
+                    $left,
+                ),
+                $unnamed->vouching($mutants, $evidence, $runs, $left),
             ),
         };
     }

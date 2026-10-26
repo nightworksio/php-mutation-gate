@@ -6,8 +6,10 @@ namespace NightWorksIO\MutationGate\Core\Control;
 
 use function array_key_exists;
 
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
+use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
  * The unmutated control each of some mutants is judged by, by the mutant's
@@ -25,6 +27,14 @@ final readonly class MutantControls
     public static function of(array $controls): self
     {
         return new self($controls);
+    }
+
+    /** The control a mutant is judged by; none where it has none. */
+    public function controlOf(Mutant $mutant): Control|NotGiven
+    {
+        $key = $mutant->id()->key();
+
+        return array_key_exists($key, $this->controls) ? $this->controls[$key] : NotGiven::value();
     }
 
     /** Every control asked for, each once. */

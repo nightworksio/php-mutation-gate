@@ -13,8 +13,9 @@ use function sprintf;
 /**
  * A kill needs evidence (ADR-0014). A mutant a runner reports
  * killed, once the runner has run again what it doubts, stands where a test
- * is named as its killer, or where its process ended by a signal or by a
- * fatal error PHP recorded in it. Any other kill is unjudged, and its reason
+ * is named as its killer, where its process ended by a signal or by a
+ * fatal error PHP recorded in it, or where an unmutated control of its
+ * tests passed (see UnnamedKillControls). Any other kill is unjudged, and its reason
  * says how its process ended: the code it exited with and the end of what it
  * printed, as the screen for secrets kept it (see Secrets), where the runner
  * gave them.
@@ -39,7 +40,7 @@ final readonly class Unevidenced
         $judged = [];
 
         foreach ($mutants as $mutant) {
-            $judged[] = self::stands($mutant, $evidence->of($mutant->id()))
+            $judged[] = ! self::needsVouching($mutant, $evidence->of($mutant->id()))
                 ? $mutant
                 : $mutant->unjudged(Reason::that(self::reasonOf($evidence->of($mutant->id())->ended())));
         }
@@ -47,14 +48,19 @@ final readonly class Unevidenced
         return Mutants::of(...$judged);
     }
 
-    /** Whether a mutant's result stands: any but a kill, a kill a test is named for, or one its ending vouches for. */
-    private static function stands(Mutant $mutant, Evidence $evidence): bool
+    /**
+     * Whether a mutant is a kill that stands only where an unmutated control
+     * vouches for it: one no test is named for, whose ending says neither a
+     * signal nor a fatal error ended it, and that no control has vouched for.
+     */
+    public static function needsVouching(Mutant $mutant, Evidence $evidence): bool
     {
         $ended = $evidence->ended();
 
-        return $mutant->status() !== MutantStatus::Killed
-            || count($mutant->killers()) > 0
-            || ($ended instanceof Ended && ($ended->signalled() === true || $ended->fatal() === true));
+        return $mutant->status() === MutantStatus::Killed
+            && count($mutant->killers()) === 0
+            && (!$ended instanceof Ended || $ended->signalled() !== true && $ended->fatal() !== true)
+            && ! $evidence->isVouched();
     }
 
     /** Why a kill is unjudged, saying how its process ended, as far as the runner told. */

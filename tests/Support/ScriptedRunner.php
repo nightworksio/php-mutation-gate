@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
 use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Control\ControlRun;
 use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -98,8 +99,8 @@ final class ScriptedRunner implements Runner
     /** How it gives a mutant as an analyser checks it: as the fake does, or always so. */
     private Checkable|CannotJudge|RunnerFake $checking;
 
-    /** What its unmutated controls find: as the fake's do, or always so. */
-    private ControlRuns|CannotJudge|RunnerFake $controlling;
+    /** What its unmutated controls find: as the fake's do, always so, or each control alike. */
+    private ControlRuns|ControlRun|CannotJudge|RunnerFake $controlling;
 
     /** @var list<array{Controls, MutationRequest}> every set of controls it was asked to run, in order */
     private array $controlled = [];
@@ -274,7 +275,7 @@ final class ScriptedRunner implements Runner
     }
 
     /** This runner, its unmutated controls finding this, or unable to run. */
-    public function controlling(ControlRuns|CannotJudge $answer): self
+    public function controlling(ControlRuns|ControlRun|CannotJudge $answer): self
     {
         $scripted = clone $this;
         $scripted->controlling = $answer;
@@ -484,7 +485,7 @@ final class ScriptedRunner implements Runner
     {
         $this->controlled[] = [$controls, $request];
 
-        if (! $this->controlling instanceof ControlRuns) {
+        if ($this->controlling instanceof RunnerFake || $this->controlling instanceof CannotJudge) {
             return $this->controlling instanceof RunnerFake
                 ? $this->controlling->controls($request, $controls)
                 : $this->controlling;
@@ -493,7 +494,10 @@ final class ScriptedRunner implements Runner
         $found = ControlRuns::none();
 
         foreach ($controls as $control) {
-            $found = $found->with($control, $this->controlling->of($control));
+            $found = $found->with(
+                $control,
+                $this->controlling instanceof ControlRun ? $this->controlling : $this->controlling->of($control),
+            );
         }
 
         return $found;
