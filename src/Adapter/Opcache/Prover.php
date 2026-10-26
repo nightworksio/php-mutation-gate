@@ -11,6 +11,7 @@ use function in_array;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 
 use function sprintf;
@@ -18,10 +19,11 @@ use function sprintf;
 /**
  * Which mutants are their original program (ADR-0013): those
  * that compile to their original's optimized opcodes and declare what it
- * declares. Each original is compiled once however many of its mutants are
- * checked, and declarations are compared only for a mutant whose opcodes
- * are its original's, which few are. Opcache that dumps nothing proves none
- * of them.
+ * declares, and, where the opcodes print a value only in part, write the
+ * constant expressions it writes. Each original is compiled once however
+ * many of its mutants are checked, and declarations are compared only for a
+ * mutant whose opcodes are its original's, which few are. Opcache that
+ * dumps nothing proves none of them.
  */
 final readonly class Prover
 {
@@ -95,7 +97,9 @@ final readonly class Prover
 
     /**
      * Of the pairs whose mutant compiled to its original's opcodes, the keys
-     * of those whose mutant also declares what its original declares.
+     * of those whose mutant also declares what its original declares, and,
+     * where the opcodes print a value only in part, writes the constant
+     * expressions its original writes.
      *
      * @param  list<array{string, Contents, Contents}> $pairs
      * @param  array<string, Opcodes|Uncompiled>       $compiled by program
@@ -104,12 +108,16 @@ final readonly class Prover
     private function declaringTheSame(array $pairs, array $compiled): array
     {
         $same = [];
+        $hiding = [];
 
         foreach ($pairs as $pair) {
             [$key, $original] = $pair;
-            $same = $this->sameOpcodes($compiled, $this->originalOf($original), sprintf(self::MUTANT, $key))
-                ? [...$same, $pair]
-                : $same;
+            $opcodes = $this->sharedOpcodes($compiled, $this->originalOf($original), sprintf(self::MUTANT, $key));
+
+            if ($opcodes instanceof Opcodes) {
+                $same[] = $pair;
+                $hiding[$key] = $opcodes->hidesValues();
+            }
         }
 
         $declared = array_map(Declarations::of(...), $this->originals($same));
@@ -119,6 +127,7 @@ final readonly class Prover
             $before = $declared[$this->originalOf($original)];
             $after = Declarations::of($mutant);
             $proven = $before instanceof Declarations && $after instanceof Declarations && $before->same($after)
+                && (! $hiding[$key] || $before->writesTheSameConstants($after))
                 ? [...$proven, $key]
                 : $proven;
         }
@@ -143,13 +152,19 @@ final readonly class Prover
         return $originals;
     }
 
-    /** @param array<string, Opcodes|Uncompiled> $compiled by program */
-    private function sameOpcodes(array $compiled, string $original, string $mutant): bool
+    /**
+     * The opcodes an original and its mutant both compiled to; none where they differ or either did not compile.
+     *
+     * @param array<string, Opcodes|Uncompiled> $compiled by program
+     */
+    private function sharedOpcodes(array $compiled, string $original, string $mutant): Opcodes|NotGiven
     {
         $before = array_key_exists($original, $compiled) ? $compiled[$original] : Uncompiled::Failed;
         $after = array_key_exists($mutant, $compiled) ? $compiled[$mutant] : Uncompiled::Failed;
 
-        return $before instanceof Opcodes && $after instanceof Opcodes && $before->same($after);
+        return $before instanceof Opcodes && $after instanceof Opcodes && $before->same($after)
+            ? $before
+            : NotGiven::value();
     }
 
     /** An original's name among the programs, one for every mutant of the same text. */

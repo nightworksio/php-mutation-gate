@@ -80,3 +80,17 @@ it('reads what does not begin with the program\'s own code as no dump, which pro
     'a function before the program' => ["\nApp\\f:\n0000 RETURN int(1)\n\n\$_main:\n0000 RETURN int(1)\n"],
     'the header alone, run on' => ['$_main: 0000 RETURN int(1)'],
 ]);
+
+it('hides the values it prints only in part: an array, a float and a constant expression', function (string $body, bool $hides): void {
+    $opcodes = Opcodes::dumped(opcodesDump('/a/program.php', '1', $body), '/a/program.php');
+
+    expect($opcodes instanceof Opcodes && $opcodes->hidesValues())->toBe($hides);
+})->with(fn(): array => [
+    'an array' => ['0000 RETURN array(...)', true],
+    'a float' => ['0000 RETURN float(0.123457)', true],
+    'a constant expression' => ['0000 CV0($x) = RECV_INIT 1 zval(type=11)', true],
+    'an integer, a string, a boolean and null' => [
+        "0000 ECHO int(1)\n0001 ECHO string(\"float\")\n0002 ECHO bool(true)\n0003 RETURN null",
+        false,
+    ],
+]);

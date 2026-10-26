@@ -105,3 +105,14 @@ it('declares something else where a declaration changed, which the opcodes do no
 it('proves nothing of a program that does not parse', function (): void {
     expect(Declarations::of(Contents::of('<?php function (')))->toBe(Uncompiled::Failed);
 });
+
+it('compares the constant expressions two programs write, in their bodies too', function (string $other, bool $same): void {
+    $one = Declarations::of(Contents::of("<?php function f(\$x) { return in_array(\$x, ['', '0'], true); }"));
+    $two = Declarations::of(Contents::of(sprintf('<?php function f($x) { return %s; }', $other)));
+
+    expect($one instanceof Declarations && $two instanceof Declarations && $one->writesTheSameConstants($two))->toBe($same);
+})->with(fn(): array => [
+    'the same' => ["in_array(\$x, ['', '0'], true)", true],
+    'an item fewer' => ["in_array(\$x, ['0'], true)", false],
+    'another order' => ["in_array(\$x, ['0', ''], true)", false],
+]);
