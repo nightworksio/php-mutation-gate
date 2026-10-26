@@ -76,6 +76,49 @@ class Deciding(unittest.TestCase):
             ("replay", "e", False, "pull-3", False, True, False),
         ])
 
+    def test_runs_every_scenario_in_one_part_where_the_replay_is_not_cut(self):
+        self.assertEqual(bench_scenarios.parts(PROJECT), ["all"])
+        self.assertEqual(bench_scenarios.plan(PROJECT, "all"), bench_scenarios.plan(PROJECT))
+
+    def test_cuts_the_replay_into_consecutive_parts_beside_a_warm_part_each_from_a_full_run_at_its_first_base(self):
+        cut = {**PROJECT, "scenarios": {**PROJECT["scenarios"], "replayJobs": 2}}
+        steps = {part: [(step["scenario"], step["at"][:1], step["branch"], step["full"], step.get("fresh", False))
+                        for step in bench_scenarios.plan(cut, part)]
+                 for part in bench_scenarios.parts(cut)}
+        self.assertEqual(list(steps), ["warm", "replay-1", "replay-2"])
+        self.assertEqual(steps["warm"], [("warm", "p", "main", True, True), ("warm", "p", "main", True, False),
+                                         ("unchanged", "p", "main", True, False)])
+        self.assertEqual(steps["replay-1"], [
+            ("replay", "a", "main", True, True),
+            ("replay", "b", "pull-1", False, False),
+            ("replay", "c", "pull-2", False, False),
+        ])
+        self.assertEqual(steps["replay-2"], [
+            ("replay", "d", "main", True, True),
+            ("replay", "e", "pull-3", False, False),
+        ])
+
+    def test_cuts_the_replay_into_no_more_parts_than_it_has_pull_requests(self):
+        cut = {**PROJECT, "scenarios": {**PROJECT["scenarios"], "replayJobs": 5}}
+        self.assertEqual(bench_scenarios.parts(cut), ["warm", "replay-1", "replay-2", "replay-3"])
+        self.assertEqual([[pull["pull"] for pull in bench_scenarios.pulls_of(cut, part)]
+                          for part in bench_scenarios.parts(cut)], [[], [1], [2], [3]])
+        none = {**PROJECT, "scenarios": {**PROJECT["scenarios"], "replay": [], "replayJobs": 2}}
+        self.assertEqual(bench_scenarios.parts(none), ["all"])
+
+    def test_prints_the_parts_and_refuses_to_run_one_the_scenarios_do_not_have(self):
+        with tempfile.TemporaryDirectory() as work:
+            described = Path(work) / "project.json"
+            described.write_text(json.dumps({**PROJECT, "scenarios": {**PROJECT["scenarios"], "replayJobs": 2}}))
+            printed = subprocess.run([sys.executable, "bench_scenarios.py", "parts", str(described)],
+                                     capture_output=True, text=True, check=True, cwd=Path(__file__).parent)
+            refused = subprocess.run([sys.executable, "bench_scenarios.py", "run", str(described), work, work,
+                                      "--part", "replay-3"], capture_output=True, text=True,
+                                     cwd=Path(__file__).parent)
+        self.assertEqual(json.loads(printed.stdout), ["warm", "replay-1", "replay-2"])
+        self.assertEqual(refused.returncode, 2)
+        self.assertIn("replay-3 is no part of", refused.stderr)
+
     def test_replays_with_no_pull_request_as_warm_and_unchanged_alone(self):
         project = {**PROJECT, "scenarios": {**PROJECT["scenarios"], "replay": []}}
         self.assertEqual([step["scenario"] for step in bench_scenarios.plan(project)], ["warm", "warm", "unchanged"])
@@ -230,7 +273,8 @@ class Running(unittest.TestCase):
                 "scenarios": {"diff": "infection", "replay": [{"pull": 9, "base": base, "merge": merged}]},
             }
             source = bench_scenarios.Source(described["repository"], Path(work) / "source")
-            bench_scenarios.diffed(described, Path(work) / "project", out, source, {"composer.json"}, {}, None)
+            bench_scenarios.diffed(described, Path(work) / "project", out, source, {"composer.json"}, {}, None,
+                                   described["scenarios"]["replay"])
             run = json.loads(said.read_text())
             self.assertEqual(run["head"], merged)
             self.assertEqual(run["argv"][1], "--git-diff-lines")
