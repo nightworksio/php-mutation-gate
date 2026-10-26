@@ -260,17 +260,6 @@ final readonly class Running
                 PreCheck::standard(),
             )
             : new NoPreCheck();
-        $invoking = new Invoking(
-            $this->adapters,
-            $this->settings,
-            $this->setup->clock,
-            $deadline,
-            $stopwatch,
-            $map,
-            $held->covered(),
-            $preChecking,
-        );
-        $doom = new Dooming($this->adapters, $this->settings, $this->setup->clock)->of($plan);
         $checking = new SurvivorChecking(
             $this->adapters,
             $this->setup->clock,
@@ -279,7 +268,19 @@ final readonly class Running
             $stopwatch,
             $warmUp,
         );
-        $batched = new Batched($invoking, $this->setup->clock, $deadline, $this->interruption, $doom, $checking);
+        $invoking = new Invoking(
+            $this->adapters,
+            $this->settings,
+            $this->setup->clock,
+            $deadline,
+            $stopwatch,
+            $map,
+            $held->covered(),
+            $checking,
+            $preChecking,
+        );
+        $doom = new Dooming($this->adapters, $this->settings, $this->setup->clock)->of($plan);
+        $batched = new Batched($invoking, $this->setup->clock, $deadline, $this->interruption, $doom);
         $batching = Batching::opening($map->suiteDuration());
         $pruned = $plan->considered()->pruned();
         $requestFor = fn(Units $units): MutationRequest => $this->requestFor(
@@ -305,11 +306,7 @@ final readonly class Running
 
         $secrets = Secrets::withheldIn($this->adapters->environment, $this->adapters->withheld);
         $evidence = Hidden::in($spent->evidence, $spent->mutants, $secrets);
-        $checked = $checking->checked(
-            Unevidenced::judged($spent->mutants, $evidence),
-            $spent->flaky->and($spent->checked),
-        );
-        $mutants = $checked->mutants;
+        $mutants = Unevidenced::judged($spent->mutants, $evidence);
 
         return new Mutated(
             MutationResult::of($mutants, $spent->skipped)
@@ -318,7 +315,7 @@ final readonly class Running
             $spent->flaky,
             $held,
             $spent->unjudged,
-            $spent->checks->plus($checked->checks)->plus(
+            $spent->checks->plus(
                 $preChecking instanceof PreChecking ? $preChecking->checks() : SurvivorChecks::none(),
             ),
             $spent->doomed,

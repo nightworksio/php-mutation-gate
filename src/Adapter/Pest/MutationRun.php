@@ -168,8 +168,8 @@ final readonly class MutationRun
     ): MutationResult|CannotJudge {
         $kills = NarrowedKills::in($result, $results, $this->project);
         $from = $laps->now();
-        $unvouched = $this->unvouched($kills, $request, $results, $started);
-        $doubtful = $this->doubted($kills, $request, $results, $started);
+        $replayed = $this->unvouched($kills, $request, $results, $started);
+        $doubtful = $this->doubted($kills, $request, $results, $started, $replayed);
         $baselines = StepTimes::of($laps->lap(Step::Baselines, $from, $kills->sets()));
         $controls = Controls::of(
             $this->project,
@@ -178,14 +178,19 @@ final readonly class MutationRun
             fn(): Covering|CannotJudge => $this->coveringOf($shared, $results),
         );
 
-        $replayed = $result->withMutants(FoundAgain::replacing($result->mutants(), $unvouched))->withSteps($baselines);
+        $vouched = $result->withMutants(FoundAgain::replacing($result->mutants(), $replayed->unjudged()))
+            ->withSteps($baselines);
 
-        return $this->confirmed($replayed, $request, $results, $started, $controls, $laps);
+        return $this->confirmed($vouched, $request, $results, $started, $controls, $laps);
     }
 
-    /** A narrowed run's kills whose replay, unmutated, does not let them stand, unjudged (see PrefixReplays). */
-    private function unvouched(NarrowedKills $kills, MutationRequest $request, string $results, float $started): Mutants
-    {
+    /** What the replays, unmutated, leave of a narrowed run's kills whose order is known (see PrefixReplays). */
+    private function unvouched(
+        NarrowedKills $kills,
+        MutationRequest $request,
+        string $results,
+        float $started,
+    ): ReplayedKills {
         return $kills->unvouched(
             /**
              * @param  non-empty-list<PrefixReplay> $replays
@@ -197,8 +202,13 @@ final readonly class MutationRun
     }
 
     /** A narrowed run's kills that must run again with every test file before they count. */
-    private function doubted(NarrowedKills $kills, MutationRequest $request, string $results, float $started): Mutants
-    {
+    private function doubted(
+        NarrowedKills $kills,
+        MutationRequest $request,
+        string $results,
+        float $started,
+        ReplayedKills $replayed,
+    ): Mutants {
         return $kills->doubted(
             $request->judgedBy(),
             /**
@@ -207,6 +217,7 @@ final readonly class MutationRun
              */
             fn(array $controls): array => new AloneRuns($this->project, $this->shell, $this->remembered)
                 ->pass($controls, $request, $this->left($request, $started), $results),
+            $replayed,
         );
     }
 

@@ -41,13 +41,13 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  * PrefixReplay), or else where its control passes: the tests of the files it
  * loaded, loaded alone, with the file it changes served unmutated through
  * Pest's override as the mutant's copy was (see Control). A kill only tests
- * that errored made is judged by its control alone (ADR-0036), so that one
- * whose control fails is doubted and runs again with every test file, where
- * a replay that failed would leave it unjudged. A file left out can hold what
- * a test needs without a name, such as a hook `pest()->in()` registers, state
- * its loading sets or a helper a test calls by a name built at run time, and
- * a test can fail only while the override serves a file; either would pass as
- * a killer, and either fails the control too.
+ * that errored made is vouched for the same way, but one its replay does not
+ * let stand is doubted and runs again with every test file, where a kill a
+ * failed assertion made is left unjudged (ADR-0036). A file left out can hold
+ * what a test needs without a name, such as a hook `pest()->in()` registers,
+ * state its loading sets or a helper a test calls by a name built at run
+ * time, and a test can fail only while the override serves a file; either
+ * would pass as a killer, and either fails the replay and the control too.
  * Mutants that share Pest's id share their own run, and so its doubt. A
  * kill of a mutant Pest left uncovered is the trial's (ADR-0004),
  * which ran no own process of Pest's and first ran its tests alone on the
@@ -64,13 +64,17 @@ final readonly class NarrowedKills
      *                                              file each changes and the files its run loaded, joined
      * @param array<string, PrefixReplay> $replays  the replay of each narrowed own run whose order is known, by the
      *                                              file its mutant changes and the key of its order, joined
-     * @param array<string, list<Mutant>> $replayed the kills each replay vouches for, by the same key
+     * @param array<string, list<Mutant>> $replayed the kills a failed assertion made that each replay vouches
+     *                                              for, by the same key
+     * @param array<string, list<Mutant>> $errored  the kills only tests that errored made that each replay vouches
+     *                                              for, by the same key
      */
     private function __construct(
         private array $doubtful,
         private array $narrowed,
         private array $replays = [],
         private array $replayed = [],
+        private array $errored = [],
     ) {
     }
 
@@ -94,7 +98,7 @@ final readonly class NarrowedKills
             $replay = self::replayOf($mutant, $run, $copy, $limit, $project);
 
             if ($replay instanceof PrefixReplay) {
-                $replaying[] = [$mutant, $replay, $limit];
+                $replaying[] = [$mutant, $replay, $limit, $run->killedByErrorsOnly()];
 
                 continue;
             }
@@ -105,9 +109,9 @@ final readonly class NarrowedKills
             }
         }
 
-        [$replays, $replayed] = self::byOrder($replaying);
+        [$replays, $replayed, $errored] = self::byOrder($replaying);
 
-        return new self($doubtful, $narrowed, $replays, $replayed);
+        return new self($doubtful, $narrowed, $replays, $replayed, $errored);
     }
 
     /**
@@ -120,29 +124,38 @@ final readonly class NarrowedKills
     }
 
     /**
-     * Each narrowed kill whose replay does not let it stand, unjudged with
-     * why (see ReplayVerdict), all the replays asked at once, so they can run
-     * side by side.
+     * What the replays leave of the narrowed kills whose order is known: each
+     * kill a failed assertion made whose replay does not let it stand,
+     * unjudged with why (see ReplayVerdict), and each kill only tests that
+     * errored made whose replay does not let it stand, doubted. All the
+     * replays are asked at once, so they can run side by side.
      *
      * @param Closure(non-empty-list<PrefixReplay>): list<ReplayVerdict> $replay what each replay says, in order
      */
-    public function unvouched(Closure $replay): Mutants
+    public function unvouched(Closure $replay): ReplayedKills
     {
         $keys = array_keys($this->replays);
         $replays = array_values($this->replays);
         $said = $replays === [] ? [] : $replay($replays);
-        $unvouched = [];
+        $unjudged = [];
+        $doubted = [];
 
         foreach ($keys as $at => $key) {
             $verdict = array_key_exists($at, $said) ? $said[$at] : ReplayVerdict::NoTime;
             $reason = $verdict->reason();
-            $unvouched = $reason instanceof NotGiven ? $unvouched : [...$unvouched, ...array_map(
+
+            if ($reason instanceof NotGiven) {
+                continue;
+            }
+
+            $unjudged = [...$unjudged, ...array_map(
                 static fn(Mutant $mutant): Mutant => Interpretation::unjudged($mutant, $reason),
                 $this->replayed[$key],
             )];
+            $doubted = [...$doubted, ...$this->errored[$key]];
         }
 
-        return Mutants::of(...$unvouched);
+        return ReplayedKills::of(Mutants::of(...$unjudged), Mutants::of(...$doubted));
     }
 
     /**
@@ -151,11 +164,13 @@ final readonly class NarrowedKills
      * it changes served unmutated, all asked at once, so the runs that answer
      * can run side by side.
      *
-     * @param Closure(non-empty-list<Control>): list<bool> $pass whether each control passes, in the order given
+     * @param Closure(non-empty-list<Control>): list<bool> $pass     whether each control passes, in the order given
+     * @param ReplayedKills                                $replayed the kills only tests that errored made that their
+     *                                                               replays doubt
      */
-    public function doubted(WholeSuite|Group|Filter $judgedBy, Closure $pass): Mutants
+    public function doubted(WholeSuite|Group|Filter $judgedBy, Closure $pass, ReplayedKills $replayed): Mutants
     {
-        $doubted = $this->doubtful;
+        $doubted = [...$this->doubtful, ...$replayed->doubted()];
         $keys = array_keys($this->narrowed);
         $passed = $keys === [] ? [] : $pass(array_map(
             static function (string $key) use ($judgedBy): Control {
@@ -181,30 +196,42 @@ final readonly class NarrowedKills
     /**
      * The replay each kill's narrowed own run asks for, by the file its
      * mutant changes and the key of its order, joined, and the kills each
-     * vouches for, by the same key.
+     * vouches for, by the same key: those a failed assertion made, and those
+     * only tests that errored made.
      *
-     * @param list<array{Mutant, PrefixReplay, Seconds|Unmeasured}> $replaying each kill, its replay and its limit
+     * @param list<array{Mutant, PrefixReplay, Seconds|Unmeasured, bool}> $replaying each kill, its replay, its limit,
+     *                                                                         and whether only errors made it
      *
-     * @return array{array<string, PrefixReplay>, array<string, list<Mutant>>}
+     * @return array{array<string, PrefixReplay>, array<string, list<Mutant>>, array<string, list<Mutant>>}
      */
     private static function byOrder(array $replaying): array
     {
         $replays = [];
         $replayed = [];
+        $errored = [];
 
-        foreach ($replaying as [$mutant, $replay, $limit]) {
+        foreach ($replaying as [$mutant, $replay, $limit, $errorsOnly]) {
             $key = implode(self::BETWEEN, [$mutant->location()->file()->value(), $replay->key()]);
+
             $replays[$key] = array_key_exists($key, $replays) ? $replays[$key]->alsoFor($limit) : $replay;
+            $replayed += [$key => []];
+            $errored += [$key => []];
+
+            if ($errorsOnly) {
+                $errored[$key][] = $mutant;
+
+                continue;
+            }
+
             $replayed[$key][] = $mutant;
         }
 
-        return [$replays, $replayed];
+        return [$replays, $replayed, $errored];
     }
 
     /**
-     * The replay of a kill's narrowed own run, where its order is known and
-     * a test failed an assertion in it: the key of that order, how far it
-     * went, and the arguments it started with.
+     * The replay of a kill's narrowed own run, where its order is known: the
+     * key of that order, how far it went, and the arguments it started with.
      */
     private static function replayOf(
         Mutant $mutant,
@@ -223,8 +250,7 @@ final readonly class NarrowedKills
         $reach = $run->reach();
         $arguments = $run->arguments();
 
-        return ! $run->killedByErrorsOnly()
-            && is_string($key)
+        return is_string($key)
             && is_int($reach)
             && $reach > 0
             && is_array($arguments)

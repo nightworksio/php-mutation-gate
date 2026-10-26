@@ -348,16 +348,16 @@ needs remain, and the runners' own behaviour shapes each answer.
 
 11. **Each mutant is checked where it pays: before its tests, after them, or
     both.**
-    - Every survivor that is not flaky is checked after its tests, in its
-      shard, once the shard's invocations are done; in a shard that stops
-      once its run cannot pass, after each chunk's invocation instead, so
-      a survivor its check kills dooms nothing (ADR-0008). The
-      analyser runs over the originals once for the shard, and each survivor
-      is checked once. The checks count
+    - Every survivor is checked after its tests, in its invocation, before
+      it runs again (ADR-0008), so a survivor its check kills is never run
+      again, and dooms nothing. The analyser runs over the originals once
+      for the shard, and each survivor is checked once. An invocation's
+      checks run side by side on the machine's cores: first the print of
+      each printed file, then every survivor. The checks count
       against the time budget (ADR-0008). The run over the originals starts
-      only while time is left, and each check only where the time left has
-      room for it: as long as the checks so far took on average, or, before
-      the first, as long as the run over the originals took. A printed
+      only while time is left, and an invocation's survivors are checked in
+      turn while the time left has room for their checks, each as long as
+      the run over the originals took, the cores sharing them. A printed
       file's first survivor needs room for both its checks, the print's and
       the mutant's. A survivor the time left has no room for stays a
       survivor.

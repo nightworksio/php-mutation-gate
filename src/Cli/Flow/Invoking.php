@@ -42,8 +42,10 @@ use Psr\Clock\ClockInterface;
 
 /**
  * One runner invocation of a shard, as the shard makes it: each survivor
- * proven equivalent where `equivalence.static` asks, and each other run once
- * more, where `flaky.confirmSurvivors` asks for it (ADR-0008). A
+ * proven equivalent where `equivalence.static` asks, each checked by static
+ * analysis (see SurvivorChecking), and each other one neither proves equivalent
+ * nor kills run once more, where `flaky.confirmSurvivors` asks for it
+ * (ADR-0008), so a survivor static analysis kills never runs again. A
  * mutant whose time ran out is never run again; its tests run unmutated, as
  * its control, under the same limit (see TimeoutControls), unless
  * `timeouts.mode: unjudged` makes every timeout too slow to judge, and so do
@@ -67,20 +69,32 @@ final readonly class Invoking
         private Stopwatch $stopwatch,
         private CoverageMap $map,
         private HeldCovered $held,
+        private SurvivorChecking $checking,
         private PreChecker $preChecker = new NoPreCheck(),
     ) {
     }
 
-    /** One invocation, its survivors run once more; or the first cannot judge. */
+    /** One invocation, its survivors checked and run once more; or the first cannot judge. */
     public function invoked(MutationRequest $request): Invoked|CannotJudge
     {
         $result = $this->mutated($request);
-        $equivalent = $result instanceof CannotJudge ? MutantIds::none() : $this->equivalent($result->mutants());
-        $again = $result instanceof CannotJudge ? $result : $this->confirmed($result->mutants(), $equivalent, $request);
+
+        return $result instanceof CannotJudge ? $result : $this->triaged($result, $request);
+    }
+
+    /**
+     * An invocation's mutants triaged: its survivors proven equivalent, then
+     * checked by static analysis, then the rest run once more, and each
+     * mutant a control judges controlled.
+     */
+    private function triaged(MutationResult $result, MutationRequest $request): Invoked|CannotJudge
+    {
+        $equivalent = $this->equivalent($result->mutants());
+        $checked = $this->checking->checked($result->mutants(), MutantIds::none());
+        $again = $this->confirmed($checked->mutants, $equivalent, $request);
         $controlled = $again instanceof CannotJudge ? $again : $this->controlled($again->mutants, $request);
 
         return match (true) {
-            $result instanceof CannotJudge => $result,
             $again instanceof CannotJudge => $again,
             $controlled instanceof CannotJudge => $controlled,
             default => new Invoked(
@@ -89,6 +103,8 @@ final readonly class Invoking
                     ->withEvidence($result->evidence()),
                 $again->flaky,
                 $equivalent,
+                $checked->checks,
+                $checked->examinedIds(),
             ),
         };
     }

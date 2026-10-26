@@ -11,11 +11,11 @@ use function array_keys;
 use function array_map;
 use function count;
 
+use NightWorksIO\MutationGate\Core\Analysis\CheckableMutant;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
 use NightWorksIO\MutationGate\Core\Analysis\MutantChecks;
 use NightWorksIO\MutationGate\Core\Analysis\OutOfScope;
-use NightWorksIO\MutationGate\Core\Analysis\PreCheckable;
 use NightWorksIO\MutationGate\Core\Analysis\Unchecked;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -24,8 +24,8 @@ use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
- * What each mutant's original analyses to, for a check before the tests
- * (ADR-0020): the warm-up's findings for a file as written, and
+ * What each mutant's original analyses to, for a check before or after its
+ * tests (ADR-0020): the warm-up's findings for a file as written, and
  * for one its runner prints, the print's, checked once for each file, side by
  * side, where they are the warm-up's. A file whose print analyses otherwise
  * leaves its mutants to their tests.
@@ -45,7 +45,7 @@ final readonly class PrintBaselines
      * These baselines, with the print of each file these mutants are printed
      * from analysed once.
      *
-     * @param list<PreCheckable> $mutants
+     * @param list<CheckableMutant> $mutants
      */
     public function of(array $mutants, ProcessCount $side): self
     {
@@ -70,7 +70,7 @@ final readonly class PrintBaselines
     }
 
     /** What a mutant's original analyses to; or why its mutants are left to their tests. */
-    public function baseline(PreCheckable $mutant): Findings|Unchecked|CannotJudge
+    public function baseline(CheckableMutant $mutant): Findings|Unchecked|CannotJudge
     {
         $file = $mutant->mutant()->location()->file()->value();
 
@@ -85,7 +85,7 @@ final readonly class PrintBaselines
      * The files a mutant can break, read against its original as its runner
      * gives it: the print, or the file as it is written.
      */
-    public static function dependents(Adapters $adapters, WarmedUp $warm, PreCheckable $mutant): Paths
+    public static function dependents(Adapters $adapters, WarmedUp $warm, CheckableMutant $mutant): Paths
     {
         $original = $mutant->checkable()->original();
         $file = $mutant->mutant()->location()->file();

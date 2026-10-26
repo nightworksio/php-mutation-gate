@@ -63,8 +63,8 @@ final readonly class Spent
             $this->warnings->and($invoked->result->warnings()),
             $this->evidence->and($invoked->result->evidence()),
             $this->doomed,
-            $this->checks,
-            $this->checked,
+            $this->checks->plus($invoked->checks),
+            $this->checked->and($invoked->checked),
         );
     }
 
@@ -103,22 +103,6 @@ final readonly class Spent
             $doomed,
             $this->checks,
             $this->checked,
-        );
-    }
-
-    /** What was spent, and what static analysis's checks of a chunk's survivors came to. */
-    public function checkedBy(Checked $checked): self
-    {
-        return new self(
-            $this->mutants,
-            $this->flaky,
-            $this->skipped,
-            $this->unjudged,
-            $this->warnings,
-            $this->evidence,
-            $this->doomed,
-            $this->checks->plus($checked->checks),
-            $this->checked->and($checked->examinedIds()),
         );
     }
 }
