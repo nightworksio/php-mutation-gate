@@ -420,10 +420,17 @@ running it: why is this mutant here, and has it always been?
       unmutated, is collected and passes, as every named killer is
       checked on the original, so the unmutated suite collects cleanly where the
       mutant's does not.
+    - A kill no test is named for whose ending vouches for nothing stands
+      where its tests pass on the unmutated code (decision 18): the
+      mutant's run failed and the original's does not, so the mutant is
+      told from its original, and the kill stands with its killer unknown.
+      This judges a mutant that breaks what records its run, as one of the
+      gate's own recorder breaks the record of its killer, by its tests.
     - Any other kill is unjudged. Its reason says how its process ended: the
       code it exited with, where the runner read one, and the tail of what it
-      printed as the screen for secrets kept it, or that none is kept. The
-      record keeps the evidence beside the unjudged mutant.
+      printed as the screen for secrets kept it, or that none is kept; or,
+      where its unmutated control did not pass, why. The record keeps the
+      evidence beside the unjudged mutant.
     - The reason is project text, and every report keeps it as text, as it
       keeps any other reason.
     - A registered runner that names no killer and gives no ending leaves
@@ -448,9 +455,17 @@ running it: why is this mutant here, and has it always been?
       out of its limit or never runs, the kill is unjudged, and its reason
       says which. Under a time budget a kill whose control does not fit in
       the time left is unjudged, and more time judges it.
-    - A kill no test is named for has no control; its evidence judges it.
-      Infection names a killer only under `infection:patch`, so an
-      unpatched Infection's kills are judged by their evidence alone.
+    - A kill no test is named for, where a signal or a fatal error PHP
+      recorded ended its process, needs no control: its evidence judges it.
+    - Any other kill no test is named for gets one unmutated control too:
+      the tests that judge it, those covering its lines as the coverage map
+      names them, and of a held unit only those that hold it, run with its
+      file served unmutated, allowed the standard mutant limit of their
+      time. The kill stands, its killer unknown, where the control passes.
+      Where it fails, runs out of the cap or the limit, or never runs, the
+      kill is unjudged, and its reason says which: a red unmutated run
+      tells nothing about the mutant. Infection names a killer only under
+      `infection:patch`, so an unpatched Infection's kills are judged so.
 
 ## Alternatives considered
 

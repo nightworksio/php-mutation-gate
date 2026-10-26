@@ -94,9 +94,10 @@ interface Runner
      * names the tests that killed each mutant it kills, and gives the evidence
      * of its kills, as far as it saw it run, through
      * `MutationResult::withEvidence()`, leaving out what it cannot tell
-     * (ADR-0014). A kill that names no killer stands only where
-     * its ending says a signal or a fatal error PHP recorded ended it, and is
-     * unjudged otherwise (ADR-0014). A runner that can keep a
+     * (ADR-0014). A kill that names no killer stands where
+     * its ending says a signal or a fatal error PHP recorded ended it, or
+     * where its tests pass on the unmutated code, and is unjudged otherwise
+     * (ADR-0014). A runner that can keep a
      * mutant from its run asks the pre-checker once, before any mutant runs,
      * and runs none it rejects: each is killed by static analysis, with its
      * rejection (ADR-0020). One that cannot leaves every

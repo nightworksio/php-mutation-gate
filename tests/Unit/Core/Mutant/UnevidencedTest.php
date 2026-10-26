@@ -59,7 +59,7 @@ it('says where the runner read no exit code and kept none of the output', functi
     'an ending that printed nothing' => [fn(): Evidence => Evidence::none()->withEnded(Ended::of(NotGiven::value(), NotGiven::value(), ''))],
 ]);
 
-it('lets a kill stand that a test is named for, or that a signal or a fatal error PHP recorded ended', function (Mutant $killed, Evidence $evidence) use ($judged): void {
+it('lets a kill stand that a test is named for, that a signal or a fatal error PHP recorded ended, or that an unmutated control vouched for', function (Mutant $killed, Evidence $evidence) use ($judged): void {
     expect($judged($killed, $evidence))->toBe([MutantStatus::Killed, null]);
 })->with([
     'a killer named' => [
@@ -70,6 +70,10 @@ it('lets a kill stand that a test is named for, or that a signal or a fatal erro
     'ended by a fatal error' => [
         fn(): Mutant => $mutant(10, MutantStatus::Killed),
         fn(): Evidence => Evidence::none()->withEnded(Ended::unprinted(255, signalled: false)->withFatal(fatal: true)),
+    ],
+    'vouched for by its control' => [
+        fn(): Mutant => $mutant(10, MutantStatus::Killed),
+        fn(): Evidence => Evidence::none()->withEnded(Ended::unprinted(1, signalled: false)->withFatal(fatal: false))->vouched(),
     ],
 ]);
 

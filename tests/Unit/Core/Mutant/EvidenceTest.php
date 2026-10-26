@@ -169,3 +169,13 @@ it('keeps the evidence of a mutant whose id reads as a number under that id, joi
         ->and($numeric instanceof MutantId && $other instanceof MutantId ? Evidences::none()->with($numeric, $evidence)
             ->and(Evidences::none()->with($other, $evidence))->of($numeric) : null)->toBe($evidence);
 });
+
+it('keeps that an unmutated control vouched, whatever is added after, and so is not empty', function (): void {
+    $vouched = Evidence::none()->vouched();
+    $then = $vouched->withPrefix(Prefix::keyedAt(2, '0123456789ab'))->withEnded(Ended::unprinted(1, signalled: false));
+
+    expect([Evidence::none()->isVouched(), $vouched->isVouched(), $then->isVouched(), $vouched->isEmpty()])
+        ->toBe([false, true, true, false])
+        ->and(Evidence::none()->withPrefix(Prefix::keyedAt(2, '0123456789ab'))->isVouched())->toBeFalse()
+        ->and(Evidence::none()->withEnded(Ended::unprinted(1, signalled: false))->isVouched())->toBeFalse();
+});

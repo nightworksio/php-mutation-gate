@@ -33,7 +33,7 @@ use function sprintf;
  * of killers, and stands only where its own passes; where that fails,
  * runs out of the limit or never runs, nothing tells the mutant from
  * its original, and it is unjudged, saying why. A kill no test is named
- * for has no control: its evidence judges it (see Unevidenced).
+ * for is controlled by its covering tests instead (see UnnamedKillControls).
  */
 final readonly class KillControls implements ControlJudge
 {
