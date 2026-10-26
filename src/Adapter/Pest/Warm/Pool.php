@@ -39,6 +39,15 @@ final class Pool
 
     private const string CLIENT = 'mutation-gate-pest-client';
 
+    private const string SHELL = '/bin/sh';
+
+    /**
+     * Starts the worker reading nothing and appending to its place's output
+     * files, which the shell opens, as a stream wrapper a test or a mutant's
+     * run puts over files hands PHP no descriptor to give a process.
+     */
+    private const string REDIRECTED = 'out=$1; err=$2; shift 2; exec "$@" < /dev/null >> "$out" 2>> "$err"';
+
     /** The mode of the workers' directory: its owner's alone, as each request holds its run's environment. */
     private const int OWNER_ONLY = 0o700;
 
@@ -77,14 +86,19 @@ final class Pool
     {
         $made = is_dir($seat->directory()) || mkdir($seat->directory(), self::OWNER_ONLY, recursive: true);
         $command = [
+            self::SHELL,
+            '-c',
+            self::REDIRECTED,
+            'sh',
+            $seat->out(),
+            $seat->err(),
             PHP_BINARY,
             ThisPackage::script(self::WORKER),
             $seat->directory(),
             strval($seat->place()),
             strval(getmypid()),
         ];
-        $streams = [['file', '/dev/null', 'r'], ['file', $seat->out(), 'a'], ['file', $seat->err(), 'a']];
-        $worker = $made ? proc_open($command, $streams, $pipes) : false;
+        $worker = $made ? proc_open($command, [], $pipes) : false;
         $left = is_resource($worker) && proc_close($worker) === 0;
 
         if ($left) {
