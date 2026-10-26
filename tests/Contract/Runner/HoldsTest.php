@@ -62,8 +62,8 @@ function shapesLines(string $trace): array
 
 /**
  * Runs the fixture's Pest over a holds: group with these arguments, as the
- * gate narrows a run to one, and answers its exit code and what the tests it
- * ran traced.
+ * gate narrows a run to one, its caches kept out of the library's own, and
+ * answers its exit code and what the tests it ran traced.
  *
  * @return array{int, list<string>}
  */
@@ -71,7 +71,13 @@ function shapesRun(string ...$arguments): array
 {
     $trace = sprintf('%s/trace', Scratch::directory());
     $process = new Process(
-        [PHP_BINARY, 'vendor/bin/pest', ...$arguments, PhpUnitOption::DoNotFailOnEmptyTestSuite->value],
+        [
+            PHP_BINARY,
+            'vendor/bin/pest',
+            ...$arguments,
+            PhpUnitOption::DoNotFailOnEmptyTestSuite->value,
+            PhpUnitOption::caching(sprintf('%s/cache', Scratch::directory())),
+        ],
         Tree::at(Library::DIRECTORY),
         ['LIBRARY_TRACE' => $trace, 'PARATEST' => false, 'TEST_TOKEN' => false, 'UNIQUE_TEST_TOKEN' => false],
     );
