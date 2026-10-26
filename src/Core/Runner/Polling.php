@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
+use function array_pad;
+
 use Closure;
 
 use function intdiv;
+use function max;
 
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -42,10 +45,13 @@ final readonly class Polling
     public static function wait(Seconds $within, Closure $holds, Closure $pause): void
     {
         $step = self::interval()->microseconds();
-        $looks = intdiv($within->microseconds(), $step);
 
-        for ($look = 0; ! $holds() && $look < $looks; $look++) {
-            $pause($step);
+        foreach (array_pad([], max(0, intdiv($within->microseconds(), $step)), $step) as $wait) {
+            if ($holds()) {
+                return;
+            }
+
+            $pause($wait);
         }
     }
 }

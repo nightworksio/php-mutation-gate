@@ -26,3 +26,15 @@ it('waits for a condition an interval at a time, as many intervals as fit, and n
     expect($never)->toBe([10_000, 10_000, 10_000, 10_000])
         ->and($pauses->getArrayCopy())->toBe([10_000, 10_000]);
 });
+
+it('waits not at all where no interval fits in the wait, or the wait is already past', function (): void {
+    $pauses = new ArrayObject();
+    $pause = static function (int $microseconds) use ($pauses): void {
+        $pauses->append($microseconds);
+    };
+
+    Polling::wait(Seconds::of(0.009), static fn(): bool => false, $pause);
+    Polling::wait(Seconds::of(-0.05), static fn(): bool => false, $pause);
+
+    expect($pauses->getArrayCopy())->toBe([]);
+});
