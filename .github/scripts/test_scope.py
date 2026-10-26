@@ -50,6 +50,8 @@ class Outputs(unittest.TestCase):
             "src/Core/Native/Framework.php": ["codeception", "phpspec", "phpunit"],
             "src/Adapter/PhpUnit/PhpUnitFramework.php": ["phpunit"],
             "bin/mutation-gate-worker": ["phpunit"],
+            "bin/mutation-gate-pest-worker": ["pest"],
+            "bin/mutation-gate-pest-client": ["pest"],
             "src/Adapter/PhpSpec/PhpSpecFramework.php": ["phpspec"],
             "bin/mutation-gate-phpspec": ["phpspec"],
             "tests/Contract/Runner/phpspec-fixture/composer.lock": ["phpspec"],

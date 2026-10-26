@@ -109,6 +109,8 @@ LEGS = {
     "pest": (
         *RUN_ISSUES,
         "src/Adapter/Pest/",
+        "bin/mutation-gate-pest-worker",
+        "bin/mutation-gate-pest-client",
         "src/Adapter/PhpUnit/IssueKillers.php",
         "src/Adapter/PhpUnit/IssueKind.php",
         "src/Attribute/",

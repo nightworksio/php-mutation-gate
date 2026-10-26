@@ -12,6 +12,7 @@ use function count;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
 use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
 use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -252,6 +253,7 @@ final readonly class MutationRun
         $ran = $this->shell->run($command->with($told), $handOff instanceof HandOff ? $handOff : new Unwatched());
         $mutation = $laps->lap(Step::Mutation, $from);
         $scan->remove();
+        $warm = WarmDirectory::cleared($results);
         $coverage = $this->coveringOf($shared, $results);
         $opensOn = $this->patching->opensOn($request->judgedBy(), $shared instanceof CoverageMap);
         $left = fn(): Seconds|Unlimited => $this->left($request, $started);
@@ -272,7 +274,9 @@ final readonly class MutationRun
         return $result instanceof CannotJudge || $coverage instanceof CannotJudge
             ? $result
             : new Trials($this->project, $this->shell, $this->files, $bounds, $this->remembered)->of(
-                $result->withSteps(StepTimes::of(StepTime::counted($mutation, count($result->mutants())), $reading)),
+                $result
+                    ->withSteps(StepTimes::of(StepTime::counted($mutation, count($result->mutants())), $reading))
+                    ->withWarnings($warm),
                 $request,
                 $results,
                 $coverage,

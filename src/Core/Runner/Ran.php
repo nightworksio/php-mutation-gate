@@ -18,10 +18,10 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  */
 final readonly class Ran
 {
-    private const string UNTIMED = 'The run was not timed, so how long it took cannot be told.';
-
     /** What a shell adds to a signal's number for the exit code of a process that signal ended. */
-    private const int SIGNALLED = 128;
+    public const int SIGNALLED = 128;
+
+    private const string UNTIMED = 'The run was not timed, so how long it took cannot be told.';
 
     /** The highest signal number there is: Linux's SIGRTMAX. */
     private const int LAST_SIGNAL = 64;

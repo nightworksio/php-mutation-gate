@@ -25,6 +25,8 @@ parameters:
         - phpstan
         - bin/mutation-gate
         - bin/mutation-gate-worker
+        - bin/mutation-gate-pest-worker
+        - bin/mutation-gate-pest-client
         - bin/mutation-gate-phpspec
 
     # The runner contract suite's fixture is a project of its own, with its own
@@ -196,6 +198,9 @@ services:
                 - src/Adapter/PhpSpec/Extension.php # PhpSpec's Extension takes its config's parameters untyped
                 - src/Adapter/Codeception/Extension.php # Codeception hands an extension its settings and options untyped
                 - src/Adapter/Codeception/Told.php # Codeception hands an extension its settings untyped
+                - src/Adapter/Pest/Warm/Database/Laravel.php # Laravel's container hands its services untyped
+                - src/Adapter/Pest/Warm/Database/LaravelConfig.php # Laravel holds a connection's config untyped
+                - src/Adapter/Pest/Warm/Database/PdoStatements.php # PDO hands a row's values untyped
                 - tests/Support/Bucket.php
                 - tests/Support/Cloud.php # Symfony's MockHttpClient hands a responder request options untyped
                 - tests/Support/Commands.php

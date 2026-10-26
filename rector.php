@@ -16,6 +16,8 @@ return RectorConfig::configure()
         __DIR__ . '/bin/mutation-gate',
         __DIR__ . '/bin/mutation-gate-worker',
         __DIR__ . '/bin/mutation-gate-phpspec',
+        __DIR__ . '/bin/mutation-gate-pest-worker',
+        __DIR__ . '/bin/mutation-gate-pest-client',
     ])
     ->withPhpSets()
     ->withPreparedSets(
@@ -39,6 +41,8 @@ return RectorConfig::configure()
             __DIR__ . '/src/Core/Assertion/AssertionStyle.php',
             // A spec's parent as each file spells it, which a class constant would spell one way.
             __DIR__ . '/tests/Unit/Core/Stub/TestFileTest.php',
+            // A warm worker's child reads Laravel's testing by its names, and the gate requires no Laravel (A1).
+            __DIR__ . '/src/Adapter/Pest/Warm/Database/Laravel.php',
         ],
         // Pest binds a closure in a dataset to the test case before calling it,
         // and the closure of a static method cannot be bound.

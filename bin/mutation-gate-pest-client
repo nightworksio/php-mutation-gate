@@ -1,0 +1,27 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+// A mutant's own run where its place has a warm worker (ADR-0023), which
+// Pest's parent process starts in place of Pest's script, with the directory
+// the run's workers share and the place before Pest's command line. It loads
+// the gate's own classes alone.
+
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\Client;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\GateClasses;
+
+require sprintf('%s/src/Adapter/Pest/Warm/GateClasses.php', dirname(__DIR__));
+
+GateClasses::register(sprintf('%s/src', dirname(__DIR__)));
+
+$given = is_array($_SERVER['argv']) ? $_SERVER['argv'] : [];
+$arguments = [];
+
+foreach ($given as $argument) {
+    $arguments[] = is_string($argument) ? $argument : '';
+}
+
+[, $directory, $place] = [...$arguments, '', '', ''];
+
+exit(Client::at($directory, (int) $place)->ran(array_slice($arguments, 3)));

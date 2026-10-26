@@ -1,0 +1,76 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+// A warm worker of a Pest run (ADR-0023), which Pest's parent process starts
+// on its own PHP, in its own directory, with the directory the run's workers
+// share, the worker's place and the parent's process id, in that order. It
+// loads the gate's own classes alone, and serves from a process of its own,
+// which the system takes on once the one Pest started ends, so a worker that
+// ends is reaped and seen gone. Each child it forks takes on its run's
+// environment, directory and command line, is handed the worker's baseline
+// of its test databases, and runs Pest's script as a fresh process runs it.
+
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\Baseline;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\WarmDatabase;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\Forking;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\GateClasses;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\Request;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\Worker;
+use NightWorksIO\MutationGate\Core\NotGiven;
+
+require sprintf('%s/src/Adapter/Pest/Warm/GateClasses.php', dirname(__DIR__));
+
+GateClasses::register(sprintf('%s/src', dirname(__DIR__)));
+
+$given = is_array($_SERVER['argv']) ? $_SERVER['argv'] : [];
+$arguments = [];
+
+foreach ($given as $argument) {
+    $arguments[] = is_string($argument) ? $argument : '';
+}
+
+[, $directory, $place, $parent] = [...$arguments, '', '', '', ''];
+
+ini_set('opcache.enable', '0');
+
+$own = pcntl_fork();
+
+if ($own !== 0) {
+    exit($own === -1 ? 1 : 0);
+}
+
+exit(Worker::at($directory, (int) $place, (int) $parent)->served(new class implements Forking {
+    public function forked(Request $request, Baseline|NotGiven $baseline, string $report): int|NotGiven
+    {
+        $child = pcntl_fork();
+
+        if ($child === -1) {
+            return NotGiven::value();
+        }
+
+        if ($child !== 0) {
+            return $child;
+        }
+
+        foreach ($request->environment() as $name => $value) {
+            putenv(sprintf('%s=%s', $name, $value));
+            $_ENV[$name] = $value;
+            $_SERVER[$name] = $value;
+        }
+
+        chdir($request->directory());
+        $script = implode('', array_slice($request->argv(), 0, 1));
+        $_SERVER['argv'] = $request->argv();
+        $_SERVER['argc'] = count($request->argv());
+        $_SERVER['SCRIPT_NAME'] = $script;
+        $_SERVER['SCRIPT_FILENAME'] = $script;
+        $_SERVER['PHP_SELF'] = $script;
+        WarmDatabase::handed($baseline, $report);
+
+        require $script;
+
+        exit(0);
+    }
+}));

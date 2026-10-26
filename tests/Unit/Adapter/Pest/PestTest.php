@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\Pest\PrunedFile;
 use NightWorksIO\MutationGate\Adapter\Pest\ShardMap;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
 use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
@@ -60,12 +61,14 @@ use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\PcovReach;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
 use NightWorksIO\MutationGate\Core\Runner\TighterVariables;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\JudgingSuites;
@@ -455,6 +458,25 @@ it('tells a patched run the start-up the request\'s pool measured, which each mu
     new Pest($at, $shell, PestCases::canary(), new CapDirectory(), Triage::standard()->bounds())->mutate($request);
 
     expect($shell->commands()[0]->environment())->toMatchArray(['MUTATION_GATE_MUTANT_START_UP' => '2.500000']);
+});
+
+it('tells a patched run where its warm workers share their files, where the request\'s pool forks', function (): void {
+    $at = PestCases::project();
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('holds:src/Money.php'))
+        ->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
+    $told = static function (Patching $patching, Workers $workers) use ($at, $request): array {
+        $shell = new ShellFake(static fn(Command $command): Ran => PestCases::killed($command, $at));
+        new Pest($at, $shell, $patching, new CapDirectory(), Triage::standard()->bounds())
+            ->mutate($request->across(Pool::of(ProcessCount::single(), $workers)));
+
+        return $shell->commands()[0]->environment();
+    };
+
+    expect($told(PestCases::canary(), Workers::Fork))->toMatchArray([
+        'MUTATION_GATE_WARM' => WarmDirectory::beside(PestCases::results($at)),
+    ])
+        ->and($told(PestCases::canary(), Workers::Fresh))->toMatchArray(['MUTATION_GATE_WARM' => false])
+        ->and($told(Patching::off(), Workers::Fork))->toMatchArray(['MUTATION_GATE_WARM' => false]);
 });
 
 it('opens a patched shard on the canary group, with the planning job\'s map written again for its Pest', function (): void {
