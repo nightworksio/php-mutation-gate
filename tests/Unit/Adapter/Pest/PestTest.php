@@ -479,6 +479,24 @@ it('tells a patched run where its warm workers share their files, where the requ
         ->and($told(Patching::off(), Workers::Fork))->toMatchArray(['MUTATION_GATE_WARM' => false]);
 });
 
+it('makes the directory its warm workers share, its owner\'s alone, while Pest runs, and removes it once Pest returns', function (): void {
+    $at = PestCases::project();
+    $directory = WarmDirectory::beside(PestCases::results($at));
+    $mode = 0;
+    $shell = new ShellFake(static function (Command $command) use ($at, $directory, &$mode): Ran {
+        $mode = is_dir($directory) ? fileperms($directory) & 0o777 : $mode;
+
+        return PestCases::killed($command, $at);
+    });
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('holds:src/Money.php'))
+        ->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')))
+        ->across(Pool::of(ProcessCount::single(), Workers::Fork));
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), Triage::standard()->bounds())->mutate($request);
+
+    expect($mode)->toBe(0o700)
+        ->and(is_dir($directory))->toBeFalse();
+});
+
 it('opens a patched shard on the canary group, with the planning job\'s map written again for its Pest', function (): void {
     $at = PestCases::patched();
     $written = ShardMap::fileFor(PestCases::results($at), PestCases::money()->files());

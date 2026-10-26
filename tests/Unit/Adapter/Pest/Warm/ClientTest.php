@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Warm\Client;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Finish;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Offsets;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Pool;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\Request;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Seat;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
@@ -27,16 +28,16 @@ afterEach(function (): void {
 
 /**
  * What the client of place 1 answered for a run of this script with these
- * arguments, what it printed on each stream, how many times it paused, and
- * each warning PHP raised meanwhile, as starting a script that cannot start
+ * arguments, pausing as this does, what it printed on each stream, and each
+ * warning PHP raised meanwhile, as starting a script that cannot start
  * raises one.
  *
- * @return array{code: int, out: string, errors: string, paused: list<int>, warned: list<string>}
+ * @param  Closure(int): void                                              $pause
+ * @return array{code: int, out: string, errors: string, warned: list<string>}
  */
-$ran = static function (string $directory, string $script, string ...$arguments): array {
+$running = static function (Closure $pause, string $directory, string $script, string ...$arguments): array {
     $warned = [];
     $printed = ['out' => '', 'errors' => ''];
-    $pauses = new Pauses();
     set_error_handler(static function (int $level, string $message) use (&$warned): bool {
         $warned[] = $message;
 
@@ -47,7 +48,7 @@ $ran = static function (string $directory, string $script, string ...$arguments)
         $code = Client::at(
             $directory,
             1,
-            $pauses->pausing(),
+            $pause,
             static function (string $bytes) use (&$printed): void {
                 $printed['out'] = sprintf('%s%s', $printed['out'], $bytes);
             },
@@ -59,13 +60,41 @@ $ran = static function (string $directory, string $script, string ...$arguments)
         restore_error_handler();
     }
 
-    return [
-        'code' => $code,
-        'out' => $printed['out'],
-        'errors' => $printed['errors'],
-        'paused' => $pauses->count() > 0 ? $pauses->lengths() : [],
-        'warned' => $warned,
-    ];
+    return ['code' => $code, 'out' => $printed['out'], 'errors' => $printed['errors'], 'warned' => $warned];
+};
+
+/**
+ * The same, pausing for no time, with each length it asked to pause for.
+ *
+ * @return array{code: int, out: string, errors: string, warned: list<string>, paused: list<int>}
+ */
+$ran = static function (string $directory, string $script, string ...$arguments) use ($running): array {
+    $pauses = new Pauses();
+
+    return [...$running($pauses->pausing(), $directory, $script, ...$arguments), 'paused' => $pauses->lengths()];
+};
+
+/**
+ * A pause that stands in for place 1's worker of this directory: at each
+ * pause, in turn, it takes the client's request and writes what the worker
+ * would, by these steps, each handed the seat and the request's id.
+ *
+ * @param  Closure(Seat, string): void ...$steps
+ * @return Closure(int): void
+ */
+$working = static function (string $directory, Closure ...$steps): Closure {
+    $seat = Seat::at($directory, 1);
+    $id = '';
+    $taken = 0;
+
+    return static function () use ($seat, &$id, &$taken, $steps): void {
+        $request = Request::takenFrom($seat->request());
+        $id = $request instanceof Request ? $request->id() : $id;
+        $step = array_key_exists($taken, $steps) ? $steps[$taken] : static function (): void {
+        };
+        $step($seat, $id);
+        $taken++;
+    };
 };
 
 /**
@@ -153,8 +182,8 @@ it('prints what its worker\'s child printed, on the stream it printed it on, as 
             'code' => 3,
             'out' => 'ac--bail --filter=adds',
             'errors' => 'b',
-            'paused' => [Polling::interval()->microseconds()],
             'warned' => [],
+            'paused' => [Polling::interval()->microseconds()],
         ])->and($left)->toBe([
             Seat::at($directory, 1)->err(),
             Seat::at($directory, 1)->out(),
@@ -257,4 +286,35 @@ it('stops the child its worker forked before it went, then starts the run fresh'
 
     expect($answered['code'])->toBe(127)
         ->and($runs((int) file_get_contents($child)))->toBeFalse();
+});
+
+it('prints only what its run\'s child printed, nothing its worker printed past the child\'s end', function () use ($running, $working): void {
+    $directory = WarmDirectory::made(sprintf('%s/results.jsonl', Scratch::directory()));
+    file_put_contents(Seat::at($directory, 1)->pid(), (string) Passing::for('5'));
+    $answered = $running($working($directory, static function (Seat $seat, string $id): void {
+        file_put_contents($seat->out(), 'w:child!!');
+        touch($seat->err());
+        Offsets::of(2, 0)->writtenTo($seat->started($id));
+        Finish::exited(0, Offsets::of(7, 0))->writtenTo($seat->ended($id));
+    }), $directory, 'vendor/bin/pest');
+
+    expect($answered)->toBe(['code' => 0, 'out' => 'child', 'errors' => '', 'warned' => []]);
+});
+
+it('prints nothing twice, and fails at nothing, where it printed past its child\'s end before it read that end', function () use ($running, $working): void {
+    $directory = WarmDirectory::made(sprintf('%s/results.jsonl', Scratch::directory()));
+    file_put_contents(Seat::at($directory, 1)->pid(), (string) Passing::for('5'));
+    $answered = $running($working(
+        $directory,
+        static function (Seat $seat, string $id): void {
+            file_put_contents($seat->out(), 'w:child!!');
+            touch($seat->err());
+            Offsets::of(2, 0)->writtenTo($seat->started($id));
+        },
+        static function (Seat $seat, string $id): void {
+            Finish::exited(0, Offsets::of(7, 0))->writtenTo($seat->ended($id));
+        },
+    ), $directory, 'vendor/bin/pest');
+
+    expect($answered)->toBe(['code' => 0, 'out' => 'child!!', 'errors' => '', 'warned' => []]);
 });
