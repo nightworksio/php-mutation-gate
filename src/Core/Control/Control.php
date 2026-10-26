@@ -6,8 +6,14 @@ namespace NightWorksIO\MutationGate\Core\Control;
 
 use function array_map;
 
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\OwnTime;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
+use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -33,6 +39,26 @@ final readonly class Control
     public static function of(Path $file, TestIds $tests, Seconds $limit): self
     {
         return new self($file, $tests, $limit);
+    }
+
+    /** The control of these tests on this file, allowed the standard mutant limit of their time in a map. */
+    public static function standard(Path $file, TestIds $tests, CoverageMap $map, LimitBounds $bounds): self
+    {
+        return new self($file, $tests, MutantLimit::standard()->of(OwnTime::of($map, $tests), $bounds));
+    }
+
+    /**
+     * The tests that judge a mutant: those covering its lines as a map names
+     * them, and of a held unit only those that hold it.
+     */
+    public static function judging(Mutant $mutant, CoverageMap $map, HeldCovered $held): TestIds
+    {
+        $location = $mutant->location();
+
+        return $held->judgingAmong(
+            $location->file(),
+            $map->testsCovering($location->file(), $location->start(), $location->last()),
+        );
     }
 
     /** The file the mutant changes, served unmutated. */

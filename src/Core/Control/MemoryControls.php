@@ -7,7 +7,6 @@ namespace NightWorksIO\MutationGate\Core\Control;
 use function count;
 
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
-use NightWorksIO\MutationGate\Core\Coverage\OwnTime;
 use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
@@ -16,7 +15,6 @@ use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
-use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
 
 use function sprintf;
 
@@ -61,19 +59,11 @@ final readonly class MemoryControls implements ControlJudge
         $controls = [];
 
         foreach ($mutants as $mutant) {
-            $location = $mutant->location();
-            $tests = $held->judgingAmong(
-                $location->file(),
-                $map->testsCovering($location->file(), $location->start(), $location->last()),
-            );
+            $tests = Control::judging($mutant, $map, $held);
             $controls += $mutant->status() === MutantStatus::OutOfMemory
                 && $mutant->limit() instanceof MemoryCap
                 && count($tests) > 0
-                ? [$mutant->id()->key() => Control::of(
-                    $location->file(),
-                    $tests,
-                    MutantLimit::standard()->of(OwnTime::of($map, $tests), $bounds),
-                )]
+                ? [$mutant->id()->key() => Control::standard($mutant->location()->file(), $tests, $map, $bounds)]
                 : [];
         }
 

@@ -8,19 +8,11 @@ use function array_key_exists;
 use function count;
 
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
-use NightWorksIO\MutationGate\Core\Coverage\OwnTime;
-use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
-use NightWorksIO\MutationGate\Core\Mutant\Reason;
-use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
-use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
-use NightWorksIO\MutationGate\Core\Test\TestIds;
-
-use function sprintf;
 
 /**
  * The unmutated control of each kill a test is named for (ADR-0014):
@@ -75,7 +67,7 @@ final readonly class KillControls implements ControlJudge
             }
 
             $file = $mutant->location()->file();
-            $kills[$mutant->id()->key()] = self::control($file, $killers, $map, $bounds);
+            $kills[$mutant->id()->key()] = Control::standard($file, $killers, $map, $bounds);
             $byFile[$file->value()] = array_key_exists($file->value(), $byFile)
                 ? $byFile[$file->value()]->and($killers)
                 : $killers;
@@ -85,7 +77,7 @@ final readonly class KillControls implements ControlJudge
 
         foreach ($kills as $key => $own) {
             $file = $own->file();
-            $files[$key] = self::control($file, $byFile[$file->value()], $map, $bounds);
+            $files[$key] = Control::standard($file, $byFile[$file->value()], $map, $bounds);
         }
 
         return new self($files, $kills);
@@ -144,22 +136,8 @@ final readonly class KillControls implements ControlJudge
     /** A kill as what its control found judges it. */
     public function judged(Mutant $mutant, ControlRun $run, Control $control): Mutant
     {
-        $why = $run->why();
-
-        return match ($run->end()) {
-            ControlEnd::Passed => $mutant,
-            ControlEnd::Failed => $mutant->unjudged(Reason::that(self::FAILS_UNMUTATED)),
-            ControlEnd::OutOfMemory => $mutant->unjudged(Reason::that(self::OUT_OF_MEMORY)),
-            ControlEnd::RanOut => $mutant->unjudged(Reason::that(self::RAN_OUT)),
-            ControlEnd::Unrun => $mutant->unjudged(
-                Reason::that(sprintf(self::UNRUN, $why instanceof NotGiven ? ControlRuns::NOT_RUN : $why)),
-            ),
-        };
+        return KillReasons::of(self::FAILS_UNMUTATED, self::OUT_OF_MEMORY, self::RAN_OUT, self::UNRUN)
+            ->judged($mutant, $run);
     }
 
-    /** The control of these tests on this file, allowed the standard mutant limit of their time within these bounds. */
-    private static function control(Path $file, TestIds $tests, CoverageMap $map, LimitBounds $bounds): Control
-    {
-        return Control::of($file, $tests, MutantLimit::standard()->of(OwnTime::of($map, $tests), $bounds));
-    }
 }
