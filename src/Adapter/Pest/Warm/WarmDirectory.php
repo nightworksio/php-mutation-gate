@@ -25,6 +25,7 @@ use function rmdir;
 use function scandir;
 use function sprintf;
 use function str_ends_with;
+use function touch;
 use function unlink;
 use function usleep;
 
@@ -50,19 +51,22 @@ final readonly class WarmDirectory
 
     /**
      * What the workers of the run that records to these results warned of,
-     * read once every worker has ended, or the wait for them has, before
-     * their directory is removed with every file in it. Pest's process tells
-     * the workers the run is done as it ends.
+     * read once they are told the run is done and every worker has ended, or
+     * the wait for them has, before their directory is removed with every
+     * file in it.
      */
     public static function cleared(string $results): Warnings
     {
         $directory = self::beside($results);
+
+        if (is_dir($directory)) {
+            touch(Seat::at($directory, 0)->stop());
+        }
+
         Polling::wait(
             Seconds::of(Seat::WAIT),
             static fn(): bool => ! array_any(self::files($directory), self::isRunning(...)),
-            static function (int $microseconds): void {
-                usleep($microseconds);
-            },
+            usleep(...),
         );
         $warnings = self::warnings($directory);
         self::removed($directory);

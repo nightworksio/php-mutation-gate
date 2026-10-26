@@ -37,7 +37,7 @@ use function usleep;
  * readies its test databases from the baseline the worker keeps, and the
  * worker keeps what the child reports. A run of a mutant of a file the worker
  * loaded, one of the gate's own, starts fresh. The worker ends once its
- * parent is gone, or says the run is done.
+ * parent is gone, or the gate says the run is done.
  */
 final readonly class Worker
 {

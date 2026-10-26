@@ -22,9 +22,7 @@ use const PHP_BINARY;
 
 use function proc_close;
 use function proc_open;
-use function register_shutdown_function;
 use function strval;
-use function touch;
 use function usleep;
 
 /**
@@ -32,9 +30,8 @@ use function usleep;
  * the gate names a directory for them and PHP can fork, the first mutant's
  * run of each place starts that place's worker, and every mutant's run of
  * the place is asked of it through a client, which stands for the run as
- * Pest's process and prints what the run prints. Once the parent ends, the
- * workers are told the run is done. A place whose worker could not start
- * runs its mutants as Pest ships them.
+ * Pest's process and prints what the run prints. A place whose worker could
+ * not start runs its mutants as Pest ships them.
  */
 final class Pool
 {
@@ -45,7 +42,7 @@ final class Pool
     /** The mode of the workers' directory: its owner's alone, as each request holds its run's environment. */
     private const int OWNER_ONLY = 0o700;
 
-    /** @var array<string, array<int, bool>> whether each place's worker started, by place, by the workers' directory */
+    /** @var array<string, bool> whether each place's worker started, by the file of its process id */
     private static array $started = [];
 
     /**
@@ -58,18 +55,14 @@ final class Pool
     public static function prefix(int $place): array
     {
         $directory = (string) getenv(GateVariable::Warm->value);
+        $seat = Seat::at($directory, $place);
         $warm = $directory !== '' && self::canFork();
 
-        if ($warm && ! array_key_exists($directory, self::$started)) {
-            self::$started[$directory] = [];
-            register_shutdown_function(self::stopped(...), Seat::at($directory, $place));
+        if ($warm && ! array_key_exists($seat->pid(), self::$started)) {
+            self::$started[$seat->pid()] = self::started($seat);
         }
 
-        if ($warm && ! array_key_exists($place, self::$started[$directory])) {
-            self::$started[$directory][$place] = self::started(Seat::at($directory, $place));
-        }
-
-        return $warm && self::$started[$directory][$place]
+        return $warm && self::$started[$seat->pid()]
             ? [PHP_BINARY, ThisPackage::script(self::CLIENT), $directory, strval($place)]
             : [];
     }
@@ -98,21 +91,11 @@ final class Pool
             Polling::wait(
                 Seconds::of(Seat::WAIT),
                 static fn(): bool => is_file($seat->pid()),
-                static function (int $microseconds): void {
-                    usleep($microseconds);
-                },
+                usleep(...),
             );
         }
 
         return $left && is_file($seat->pid());
-    }
-
-    /** The run's workers told it is done, where their directory is still there. */
-    private static function stopped(Seat $seat): void
-    {
-        if (is_dir($seat->directory())) {
-            touch($seat->stop());
-        }
     }
 
     /** Whether PHP can fork a worker's children, and tell whether a process is still there. */

@@ -28,3 +28,10 @@ it('reads back the offsets it wrote, and none where none are written whole', fun
         ->and($read)->toEqual(Offsets::of(3, 4))
         ->and(Offsets::readFrom($file))->toEqual(NotGiven::value());
 });
+
+it('reads no offsets from a file that holds other JSON', function (): void {
+    $file = sprintf('%s/1.42-1.started', Scratch::directory());
+    file_put_contents($file, '{"out": "three"}');
+
+    expect(Offsets::readFrom($file))->toEqual(NotGiven::value());
+});

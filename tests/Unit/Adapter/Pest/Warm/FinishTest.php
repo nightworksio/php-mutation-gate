@@ -43,3 +43,10 @@ it('reads no finish where none is written whole', function (): void {
 
     expect(Finish::readFrom($file))->toEqual(NotGiven::value());
 });
+
+it('reads no finish from a file that holds other JSON', function (): void {
+    $file = sprintf('%s/1.42-1.ended', Scratch::directory());
+    file_put_contents($file, '[3]');
+
+    expect(Finish::readFrom($file))->toEqual(NotGiven::value());
+});

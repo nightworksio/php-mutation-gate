@@ -41,3 +41,7 @@ it('names the file its run mutates, and none for a run that mutates none', funct
         ->and($request()->directory())->toBe('/app')
         ->and($request()->argv())->toBe(['vendor/bin/pest', '--bail', '--filter="Money"']);
 });
+
+it('hands its child the environment its run was asked with', function () use ($request): void {
+    expect($request()->environment())->toBe([Recorder::MUTANT => '/app/src/Money.php', 'TEST_TOKEN' => '2']);
+});

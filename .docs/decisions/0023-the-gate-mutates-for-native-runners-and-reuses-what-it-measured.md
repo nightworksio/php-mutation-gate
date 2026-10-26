@@ -528,8 +528,8 @@ manual.
       the system takes on, so a worker that ends is reaped and its clients
       see it gone. It stops a child, with every process under it, once the
       client waiting on it is gone, and ends once Pest's process is gone or
-      says the run is done. The gate removes the workers' directory once
-      Pest returns.
+      the gate says the run is done, as Pest returns, before it removes the
+      workers' directory.
     - A worker holds no database connection. Its first child migrates as a
       fresh process does; the moment `RefreshDatabase` has migrated, before
       its first transaction, the child takes every database Laravel holds a

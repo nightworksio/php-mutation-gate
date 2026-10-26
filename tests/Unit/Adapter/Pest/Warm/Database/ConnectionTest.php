@@ -36,3 +36,10 @@ it('cannot open a connection to a database that refuses it', function (): void {
 
     expect(Databases::refusesOpening($connection))->toBeTrue();
 });
+
+it('asks its database to search the schemas its config names, which SQLite, having none, refuses', function (): void {
+    $file = sprintf('%s/testing.sqlite', Scratch::directory());
+    Databases::made(sprintf('sqlite:%s', $file), 'CREATE TABLE users (id INTEGER PRIMARY KEY)');
+
+    expect(Databases::refusesOpening(Connection::of(Driver::Sqlite, sprintf('sqlite:%s', $file), '', '', [], ['public'])))->toBeTrue();
+});

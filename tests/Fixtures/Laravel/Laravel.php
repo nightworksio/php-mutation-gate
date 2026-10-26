@@ -23,6 +23,12 @@ namespace Illuminate\Foundation\Testing {
         {
             self::$migrated = true;
         }
+
+        /** Cleared, as in a process that has not migrated yet. */
+        public static function forget(): void
+        {
+            self::$migrated = false;
+        }
     }
 }
 
@@ -83,6 +89,12 @@ namespace Illuminate\Container {
         public static function serving(DatabaseManager $manager): void
         {
             self::$managers = [$manager];
+        }
+
+        /** No current application, as before Laravel boots one. */
+        public static function leaving(): void
+        {
+            self::$managers = [];
         }
 
         public static function getInstance(): self

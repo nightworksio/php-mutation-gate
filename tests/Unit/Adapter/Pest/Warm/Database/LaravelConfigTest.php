@@ -41,3 +41,11 @@ it('reaches no database held in memory, or of a kind the worker cannot tell', fu
         ->and(LaravelConfig::connection(['driver' => 'sqlsrv', 'database' => 'testing']))->toEqual(NotGiven::value())
         ->and(LaravelConfig::connection([]))->toEqual(NotGiven::value());
 });
+
+it('searches no schemas a PostgreSQL config names by neither a list nor text', function (): void {
+    $config = ['driver' => 'pgsql', 'host' => 'db', 'port' => '5432', 'database' => 'testing', 'search_path' => 5];
+
+    expect(LaravelConfig::connection($config))->toEqual(
+        Connection::of(Driver::Postgres, 'pgsql:host=db;port=5432;dbname=testing', '', '', [], []),
+    );
+});

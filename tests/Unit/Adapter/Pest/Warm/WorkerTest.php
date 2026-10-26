@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\Baseline;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Finish;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Forking;
@@ -12,18 +13,97 @@ use NightWorksIO\MutationGate\Adapter\Pest\Warm\Worker;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
+use NightWorksIO\MutationGate\Tests\Support\Passing;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\ShellForking;
+use NightWorksIO\MutationGate\Tests\Support\Tree;
 
 afterEach(function (): void {
     Scratch::sweep();
 });
 
-it('starts fresh, and warns of it, a run whose child the system no longer tells of', function (): void {
-    $results = sprintf('%s/results.jsonl', Scratch::directory());
-    $seat = Seat::at(WarmDirectory::beside($results), 1);
+/** The seat of place 1 of a run's warm workers, its directory made. */
+$seat = static function (): Seat {
+    $seat = Seat::at(WarmDirectory::beside(sprintf('%s/results.jsonl', Scratch::directory())), 1);
     mkdir($seat->directory());
-    Request::of('42-1', (int) getmypid(), ['vendor/bin/pest'], [], (string) getcwd())->leftIn($seat->request());
-    $served = Worker::at($seat->directory(), 1, (int) getmypid())->served(new readonly class ($seat) implements Forking {
+
+    return $seat;
+};
+
+/** A run's request, asked by this process, of a mutant of this file, or of none. */
+$request = static fn(int $asker, string $mutated = ''): Request => Request::of(
+    '42-1',
+    $asker,
+    ['vendor/bin/pest'],
+    $mutated === '' ? [] : [Recorder::MUTANT => $mutated],
+    (string) getcwd(),
+);
+
+/** What the worker of this seat warned of, its own process id forgotten, since it is this process's. */
+$warned = static function (Seat $seat): Warnings {
+    unlink($seat->pid());
+
+    return WarmDirectory::cleared(sprintf('%s/results.jsonl', dirname($seat->directory())));
+};
+
+it('runs a run in a child it forks, and writes how the child ended where the run\'s asker reads it', function () use ($seat, $request): void {
+    $at = $seat();
+    $request((int) getmypid())->leftIn($at->request());
+    $served = Worker::at($at->directory(), 1, (int) getmypid())->served(ShellForking::running($at, 'sleep 0.2; exit 3'));
+    $finish = Finish::readFrom($at->ended('42-1'));
+
+    expect($served)->toBe(0)
+        ->and($finish instanceof Finish ? $finish->code() : $finish)->toBe(3)
+        ->and(is_file($at->started('42-1')) && is_file($at->child('42-1')))->toBeTrue();
+});
+
+it('stops a child, with every process under it, once the run\'s asker is gone', function () use ($seat, $request): void {
+    $at = $seat();
+    $request(Passing::for('0.3'))->leftIn($at->request());
+    Worker::at($at->directory(), 1, (int) getmypid())->served(ShellForking::running($at, 'sleep 30'));
+    $finish = Finish::readFrom($at->ended('42-1'));
+
+    expect($finish instanceof Finish ? $finish->signal() : $finish)->toBe(SIGKILL);
+});
+
+it('forks no child for a run whose asker is gone, and serves on until its parent is gone', function () use ($seat, $request): void {
+    $at = $seat();
+    $request(Passing::NONE)->leftIn($at->request());
+    $served = Worker::at($at->directory(), 1, Passing::for('0.3'))->served(ShellForking::none($at));
+
+    expect($served)->toBe(0)
+        ->and(is_file($at->request()) || is_file($at->started('42-1')) || is_file($at->ended('42-1')))->toBeFalse()
+        ->and(is_file($at->stop()))->toBeFalse();
+});
+
+it('starts fresh, and warns of it, the run of a mutant of a file it loaded', function () use ($seat, $request, $warned): void {
+    $at = $seat();
+    $mutated = (string) realpath(Tree::at('src/Adapter/Pest/Warm/Worker.php'));
+    $request((int) getmypid(), $mutated)->leftIn($at->request());
+    Worker::at($at->directory(), 1, Passing::for('0.3'))->served(ShellForking::none($at));
+    $finish = Finish::readFrom($at->ended('42-1'));
+
+    expect($finish instanceof Finish && $finish->isRefused())->toBeTrue()
+        ->and($warned($at))->toEqual(Warnings::of(Warning::that(sprintf(
+            'The warm worker had loaded %s, which a mutant changes, so its mutants ran fresh.',
+            $mutated,
+        ))));
+});
+
+it('starts fresh, and warns of it, a run it could fork no child for', function () use ($seat, $request, $warned): void {
+    $at = $seat();
+    $request((int) getmypid())->leftIn($at->request());
+    Worker::at($at->directory(), 1, (int) getmypid())->served(ShellForking::none($at));
+    $finish = Finish::readFrom($at->ended('42-1'));
+
+    expect($finish instanceof Finish && $finish->isRefused())->toBeTrue()
+        ->and($warned($at))->toEqual(Warnings::of(Warning::that('The warm worker could not fork, so a mutant ran fresh.')));
+});
+
+it('starts fresh, and warns of it, a run whose child the system no longer tells of', function () use ($seat, $request, $warned): void {
+    $at = $seat();
+    $request((int) getmypid())->leftIn($at->request());
+    $served = Worker::at($at->directory(), 1, (int) getmypid())->served(new readonly class ($at) implements Forking {
         public function __construct(private Seat $seat)
         {
         }
@@ -35,10 +115,9 @@ it('starts fresh, and warns of it, a run whose child the system no longer tells 
             return 1;
         }
     });
-    $finish = Finish::readFrom($seat->ended('42-1'));
-    unlink($seat->pid());
+    $finish = Finish::readFrom($at->ended('42-1'));
 
     expect($served)->toBe(0)
         ->and($finish instanceof Finish && $finish->isRefused())->toBeTrue()
-        ->and(WarmDirectory::cleared($results))->toEqual(Warnings::of(Warning::that('The warm worker lost track of a child, so its mutant ran fresh.')));
+        ->and($warned($at))->toEqual(Warnings::of(Warning::that('The warm worker lost track of a child, so its mutant ran fresh.')));
 });

@@ -139,6 +139,7 @@ it('starts fresh the run of a mutant of a file the worker loaded, and warns of i
     ];
     $runs[0]->run();
     $runs[1]->run();
+    $worker = warmWorker($results);
 
     expect(parentOf($runs[0]))->toBe(getmypid())
         ->and(parentOf($runs[1]))->toBe(getmypid())
@@ -146,7 +147,8 @@ it('starts fresh the run of a mutant of a file the worker loaded, and warns of i
             'The warm worker had loaded %s, which a mutant changes, so its mutants ran fresh.',
             $mutated,
         ))))
-        ->and(is_dir(WarmDirectory::beside($results)))->toBeFalse();
+        ->and(is_dir(WarmDirectory::beside($results)))->toBeFalse()
+        ->and(isThere($worker))->toBeFalse();
 })->group(...$holds);
 
 it('forks no child for a run whose asker is gone before the worker takes it, and serves the next', function (): void {
@@ -166,15 +168,19 @@ it('forks no child for a run whose asker is gone before the worker takes it, and
         ->and(parentOf($next))->toBe(warmWorker($results));
 })->group(...$holds);
 
-it('tells its workers the run is done as Pest\'s process ends', function (): void {
+it('ends a worker once Pest\'s process is gone', function (): void {
     $directory = sprintf('%s/warm', Scratch::directory());
     $pest = new Process(
         [PHP_BINARY, '-r', sprintf('require %s; %s::prefix(1);', var_export(Tree::at('vendor/autoload.php'), return: true), Pool::class)],
         env: [GateVariable::Warm->value => $directory],
     );
     $pest->mustRun();
+    $worker = (string) file_get_contents(Seat::at($directory, 1)->pid());
+    $gone = new Process(
+        ['sh', '-c', 'for _ in $(seq 100); do kill -0 "$1" 2> /dev/null || exit 0; sleep 0.1; done; exit 1', 'sh', $worker],
+    );
 
-    expect(is_file(Seat::at($directory, 1)->stop()))->toBeTrue();
+    expect($gone->run())->toBe(0);
 })->group(...$holds);
 
 it('finds a script Pest names without a directory on the system\'s path, as it starts a run fresh', function (): void {

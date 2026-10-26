@@ -102,9 +102,7 @@ final readonly class Laravel
     /** @return list<mixed> each connection the current application's database manager holds open */
     private static function open(): array
     {
-        $application = class_exists(self::CONTAINER, autoload: false)
-            ? self::called(self::CONTAINER, 'getInstance')
-            : null;
+        $application = self::called(self::CONTAINER, 'getInstance');
         $manager = self::called($application, 'bound', 'db') === true
             ? self::called($application, 'make', 'db')
             : null;

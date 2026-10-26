@@ -38,7 +38,7 @@ final readonly class Seat
         return $this->place;
     }
 
-    /** Where the parent says the run's workers are done. */
+    /** Where the gate says the run's workers are done. */
     public function stop(): string
     {
         return sprintf('%s/%s', $this->directory, self::STOP);

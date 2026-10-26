@@ -74,6 +74,21 @@ final readonly class PdoStatements implements Statements
         return is_string($quoted) ? $quoted : $value;
     }
 
+    /**
+     * A value PDO hands, other than none, as text: a boolean as 1 or 0, a
+     * stream as its bytes, and anything PDO does not hand as empty text.
+     */
+    public static function text(mixed $value): string
+    {
+        return match (true) {
+            is_string($value) => $value,
+            is_int($value), is_float($value) => (string) $value,
+            is_bool($value) => $value ? '1' : '0',
+            is_resource($value) => (string) stream_get_contents($value),
+            default => '',
+        };
+    }
+
     /** @return list<list<string|null>> */
     private function read(string $query): array
     {
@@ -87,17 +102,6 @@ final readonly class PdoStatements implements Statements
         return $rows;
     }
 
-    /** @param list<string|null> $row */
-    private function digestOf(array $row): string
-    {
-        return Digest::sha256Of(implode(self::BETWEEN, array_map($this->marked(...), $row)))->value();
-    }
-
-    private function marked(mixed $value): string
-    {
-        return is_string($value) ? Digest::sha256Of($value)->value() : Bytes::NUL;
-    }
-
     /**
      * @param  list<mixed>         $values
      * @return list<string|null>
@@ -107,16 +111,20 @@ final readonly class PdoStatements implements Statements
         $texts = [];
 
         foreach ($values as $value) {
-            $texts[] = match (true) {
-                $value === null => null,
-                is_string($value) => $value,
-                is_int($value), is_float($value) => (string) $value,
-                is_bool($value) => $value ? '1' : '0',
-                is_resource($value) => (string) stream_get_contents($value),
-                default => '',
-            };
+            $texts[] = $value === null ? null : self::text($value);
         }
 
         return $texts;
+    }
+
+    /** @param list<string|null> $row */
+    private function digestOf(array $row): string
+    {
+        return Digest::sha256Of(implode(self::BETWEEN, array_map($this->marked(...), $row)))->value();
+    }
+
+    private function marked(mixed $value): string
+    {
+        return is_string($value) ? Digest::sha256Of($value)->value() : Bytes::NUL;
     }
 }

@@ -52,3 +52,12 @@ it('refuses a query the database cannot run', function () use ($kept): void {
     expect(Databases::refuses(PdoStatements::over($kept()), 'SELECT * FROM missing'))->toBeTrue()
         ->and(Databases::refuses(PdoStatements::over($kept()), 'SELECT * FROM kept'))->toBeFalse();
 });
+
+it('reads a boolean as 1 or 0, a stream as its bytes, and what PDO never hands as empty text', function (): void {
+    $stream = fopen('php://memory', 'w+b');
+    $written = is_resource($stream) && fwrite($stream, "\x00bytes") !== false && rewind($stream);
+
+    expect($written)->toBeTrue()
+        ->and(array_map(PdoStatements::text(...), [true, false, 1.5, $stream, new stdClass()]))
+        ->toBe(['1', '0', '1.5', "\x00bytes", '']);
+});
