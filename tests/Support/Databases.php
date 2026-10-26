@@ -34,6 +34,16 @@ final readonly class Databases
         return $pdo;
     }
 
+    /** A connection to an empty database held in memory, told to stay silent where a query fails. */
+    public static function silenced(): PDO
+    {
+        try {
+            return new PDO('sqlite::memory:', options: [PDO::ATTR_ERRMODE => PDO::ERRMODE_SILENT]);
+        } catch (PDOException $refused) {
+            throw self::mistaken($refused);
+        }
+    }
+
     /** These statements run on the database, in order. */
     public static function ran(PDO $pdo, string ...$statements): void
     {

@@ -166,6 +166,8 @@ parameters:
             message: "B7 — waiting blocks the one process that plans and judges, and a test that sleeps is slow and still flaky. Only an adapter polling something outside waits (B7)."
             allowIn:
                 - src/Adapter/*
+                # A Pest run's warm worker hands its own process's pause to the worker that polls its directory (ADR-0023).
+                - bin/mutation-gate-pest-worker
 
         # --- P3: a method's parameters are its signature --------------------------
         -

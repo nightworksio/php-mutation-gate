@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Warm;
 
-use function is_int;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordField;
@@ -33,23 +32,30 @@ final readonly class Finish
         private int|NotGiven $signal,
         private string|NotGiven $refused,
         private Offsets $to,
+        private Json $written,
     ) {
     }
 
     public static function exited(int $code, Offsets $to): self
     {
-        return new self($code, NotGiven::value(), NotGiven::value(), $to);
+        $written = Json::object(Member::of(self::CODE, $code), ...$to->members());
+
+        return new self($code, NotGiven::value(), NotGiven::value(), $to, $written);
     }
 
     public static function signalled(int $signal, Offsets $to): self
     {
-        return new self(NotGiven::value(), $signal, NotGiven::value(), $to);
+        $written = Json::object(Member::of(self::SIGNAL, $signal), ...$to->members());
+
+        return new self(NotGiven::value(), $signal, NotGiven::value(), $to, $written);
     }
 
     /** No child forked for the run, for this reason. */
     public static function refused(string $reason): self
     {
-        return new self(NotGiven::value(), NotGiven::value(), $reason, Offsets::of(0, 0));
+        $written = Json::object(Member::of(self::REFUSED, $reason));
+
+        return new self(NotGiven::value(), NotGiven::value(), $reason, Offsets::none(), $written);
     }
 
     /** The finish a worker wrote to this file; none where it has written none whole. */
@@ -67,7 +73,7 @@ final readonly class Finish
     /** Written whole, under its name only once it is all there. */
     public function writtenTo(string $file): void
     {
-        WholeFile::written($file, $this->written()->line());
+        WholeFile::written($file, $this->written->line());
     }
 
     /** Whether the worker forked the run no child, so it starts fresh. */
@@ -100,23 +106,10 @@ final readonly class Finish
         $signal = $at->field(self::SIGNAL);
         $refused = $at->field(self::REFUSED);
 
-        return $refused->isPresent() ? self::refused($refused->text()) : new self(
-            $code->isPresent() ? $code->integer() : NotGiven::value(),
-            $signal->isPresent() ? $signal->integer() : NotGiven::value(),
-            NotGiven::value(),
-            Offsets::read($at),
-        );
-    }
-
-    private function written(): Json
-    {
         return match (true) {
-            is_string($this->refused) => Json::object(Member::of(self::REFUSED, $this->refused)),
-            is_int($this->signal) => Json::object(Member::of(self::SIGNAL, $this->signal), ...$this->to->members()),
-            default => Json::object(
-                Member::of(self::CODE, is_int($this->code) ? $this->code : 0),
-                ...$this->to->members(),
-            ),
+            $refused->isPresent() => self::refused($refused->text()),
+            $signal->isPresent() => self::signalled($signal->integer(), Offsets::read($at)),
+            default => self::exited($code->integer(), Offsets::read($at)),
         };
     }
 }

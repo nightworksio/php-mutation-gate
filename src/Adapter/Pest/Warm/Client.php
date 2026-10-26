@@ -18,6 +18,8 @@ use function is_file;
 use function is_int;
 use function max;
 
+use NightWorksIO\MutationGate\Core\Format\Kind;
+use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
@@ -120,11 +122,10 @@ final readonly class Client
      */
     private function orphanStopped(Request $request): void
     {
-        $file = $this->seat->child($request->id());
-        $child = is_file($file) ? (int) file_get_contents($file) : 0;
+        $child = WholeFile::read($this->seat->child($request->id()));
 
-        if ($child > 0) {
-            WholeTree::stopped($child);
+        if ($child instanceof Node && $child->kind() === Kind::Integer) {
+            WholeTree::stopped($child->integer());
         }
     }
 

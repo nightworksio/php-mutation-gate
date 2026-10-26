@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Warm;
 
-use function array_map;
+use Closure;
+
 use function file_put_contents;
 use function get_included_files;
 use function getmypid;
@@ -26,7 +27,6 @@ use function posix_kill;
 use function realpath;
 use function sprintf;
 use function strval;
-use function usleep;
 
 /**
  * A warm worker of a Pest run (ADR-0023), in one place among
@@ -47,14 +47,20 @@ final readonly class Worker
 
     private const string LOST = 'The warm worker lost track of a child, so its mutant ran fresh.';
 
-    private function __construct(private Seat $seat, private int $parent)
+    /** @param Closure(int): void $pause pauses this many microseconds between looks, as usleep does */
+    private function __construct(private Seat $seat, private int $parent, private Closure $pause)
     {
     }
 
-    /** The worker in this place of the directory the run's workers share, for this parent. */
-    public static function at(string $directory, int $place, int $parent): self
+    /**
+     * The worker in this place of the directory the run's workers share, for
+     * this parent, pausing as this does between looks.
+     *
+     * @param Closure(int): void $pause pauses this many microseconds, as usleep does
+     */
+    public static function at(string $directory, int $place, int $parent, Closure $pause): self
     {
-        return new self(Seat::at($directory, $place), $parent);
+        return new self(Seat::at($directory, $place), $parent, $pause);
     }
 
     /** Serves each run asked for until the run is done, its process id written for its clients: its exit code. */
@@ -121,9 +127,9 @@ final readonly class Worker
     private function loaded(string $mutated): string
     {
         $real = realpath($mutated);
-        $loaded = array_map(realpath(...), get_included_files());
+        $isLoaded = $real !== false && in_array($real, get_included_files(), strict: true);
 
-        return $real !== false && in_array($real, $loaded, strict: true) ? sprintf(self::LOADED, $real) : '';
+        return $isLoaded ? sprintf(self::LOADED, $real) : '';
     }
 
     /**
@@ -135,12 +141,8 @@ final readonly class Worker
         $waited = pcntl_waitpid($child, $status, WNOHANG);
 
         while ($waited === 0 && $this->isAlive($asker)) {
-            usleep(Polling::interval()->microseconds());
+            ($this->pause)(Polling::interval()->microseconds());
             $waited = pcntl_waitpid($child, $status, WNOHANG);
-        }
-
-        if ($waited === -1) {
-            return NotGiven::value();
         }
 
         if ($waited === 0) {
@@ -148,11 +150,15 @@ final readonly class Worker
             pcntl_waitpid($child, $status);
         }
 
+        if ($waited === -1 || ! is_int($status)) {
+            return NotGiven::value();
+        }
+
         $to = Offsets::now($this->seat);
 
-        return is_int($status) && pcntl_wifsignaled($status)
+        return pcntl_wifsignaled($status)
             ? Finish::signalled((int) pcntl_wtermsig($status), $to)
-            : Finish::exited(is_int($status) ? (int) pcntl_wexitstatus($status) : 1, $to);
+            : Finish::exited((int) pcntl_wexitstatus($status), $to);
     }
 
     /** Whether the run still wants the worker: its directory is there, it is not done, and the parent lives. */
@@ -163,7 +169,7 @@ final readonly class Worker
 
     private function idled(Baseline|NotGiven $baseline): Baseline|NotGiven
     {
-        usleep(Polling::interval()->microseconds());
+        ($this->pause)(Polling::interval()->microseconds());
 
         return $baseline;
     }

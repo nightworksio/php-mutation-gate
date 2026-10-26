@@ -53,7 +53,7 @@ $serving = static function (string $directory, string $script): void {
         $worker = pcntl_fork();
 
         if ($worker === 0) {
-            Worker::at($directory, 1, $parent)->served(ShellForking::running($seat, $script));
+            Worker::at($directory, 1, $parent, new ArrayObject()->append(...))->served(ShellForking::running($seat, $script));
             pcntl_exec('/usr/bin/true');
         }
 
@@ -63,6 +63,36 @@ $serving = static function (string $directory, string $script): void {
 
     pcntl_waitpid($between, $status);
 };
+
+/**
+ * Place 1's worker of this directory stood in for by this shell script, run
+ * with the directory and these arguments, in a process of its own outside
+ * the suite, which the system reaps.
+ */
+$standIn = static function (string $directory, string $script, string ...$arguments): void {
+    $between = pcntl_fork();
+
+    if ($between === 0) {
+        $worker = pcntl_fork();
+
+        if ($worker === 0) {
+            pcntl_exec('/bin/sh', ['-c', $script, 'sh', $directory, ...array_values($arguments)]);
+        }
+
+        file_put_contents(Seat::at($directory, 1)->pid(), (string) $worker);
+        pcntl_exec('/usr/bin/true');
+    }
+
+    pcntl_waitpid($between, $status);
+};
+
+/** The shell that takes the request a client leaves for place 1, setting `id` to its id. */
+$taking = <<<'SH'
+    until [ -f "$1/1.request" ]; do sleep 0.02; done
+    id=$(sed 's/^{"id":"\([^"]*\)".*/\1/' "$1/1.request")
+    rm "$1/1.request"
+
+    SH;
 
 /** Whether a process still runs: `ps` lists it, and not as one ended and waiting to be reaped. */
 $runs = static function (int $pid): bool {
@@ -80,38 +110,47 @@ it('ends as the run its place\'s worker ran ended', function () use ($ran, $serv
     expect($ran($directory, 'vendor/bin/pest'))->toBe(['code' => 3, 'warned' => []]);
 });
 
-it('ends by the signal that ended its run, with the code a shell gives it', function () use ($ran): void {
+it('ends by the signal that ended its run, with the code a shell gives it', function () use ($ran, $standIn, $taking): void {
     $directory = WarmDirectory::beside(sprintf('%s/results.jsonl', Scratch::directory()));
     mkdir($directory);
     $started = sprintf('%s/started', Scratch::directory());
     $ended = sprintf('%s/ended', Scratch::directory());
     Offsets::of(0, 0)->writtenTo($started);
     Finish::signalled(SIGWINCH, Offsets::of(0, 0))->writtenTo($ended);
-    $answering = <<<'SH'
-        until [ -f "$1/1.request" ]; do sleep 0.02; done
-        id=$(sed 's/^{"id":"\([^"]*\)".*/\1/' "$1/1.request")
-        rm "$1/1.request"
+    $standIn($directory, sprintf('%s%s', $taking, <<<'SH'
         cp "$2" "$1/1.$id.started"
         cp "$3" "$1/1.$id.writing" && mv "$1/1.$id.writing" "$1/1.$id.ended"
         sleep 5
-        SH;
-    $between = pcntl_fork();
+        SH), $started, $ended);
 
-    if ($between === 0) {
-        $worker = pcntl_fork();
+    $caught = [];
+    pcntl_signal(SIGWINCH, static function (int $signal) use (&$caught): void {
+        $caught[] = $signal;
+    });
 
-        if ($worker === 0) {
-            pcntl_exec('/bin/sh', ['-c', $answering, 'sh', $directory, $started, $ended]);
-        }
-
-        file_put_contents(Seat::at($directory, 1)->pid(), (string) $worker);
-        pcntl_exec('/usr/bin/true');
+    try {
+        $answered = $ran($directory, 'vendor/bin/pest');
+        pcntl_signal_dispatch();
+    } finally {
+        pcntl_signal(SIGWINCH, SIG_DFL);
     }
 
-    pcntl_waitpid($between, $status);
-
-    expect($ran($directory, 'vendor/bin/pest'))->toBe(['code' => 128 + SIGWINCH, 'warned' => []]);
+    expect($answered)->toBe(['code' => 128 + SIGWINCH, 'warned' => []])
+        ->and($caught)->toBe([SIGWINCH]);
 });
+
+it('stops no child, and starts the run fresh, where its worker went with no child it forked for the run', function (string $child) use ($ran, $standIn, $taking): void {
+    $directory = WarmDirectory::beside(sprintf('%s/results.jsonl', Scratch::directory()));
+    mkdir($directory);
+    $standIn($directory, sprintf('%s%s', $taking, 'printf "%s" "$2" > "$1/1.$id.child"; [ -n "$2" ] || rm "$1/1.$id.child"'), $child);
+    $answered = $ran($directory, sprintf('%s/missing/pest', Scratch::directory()));
+
+    expect($answered['code'])->toBe(127)
+        ->and($answered['warned'])->toHaveCount(1);
+})->with([
+    'none written' => [''],
+    'one not a process id' => ['"none"'],
+]);
 
 it('starts a run fresh where its place has no worker, ending as a shell does where it cannot', function () use ($ran): void {
     $directory = WarmDirectory::beside(sprintf('%s/results.jsonl', Scratch::directory()));

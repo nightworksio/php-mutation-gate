@@ -45,3 +45,11 @@ it('sets back only the counters that moved, waiting for no lock long', function 
 
     expect($statements->ran())->toBe(['SET SESSION lock_wait_timeout = 10', 'ALTER TABLE `users` AUTO_INCREMENT = 3']);
 });
+
+it('sets a counter back only to a whole number, whatever else a baseline holds', function () use ($database): void {
+    $statements = $database();
+
+    Databases::restored(new MySqlDialect(), $statements, ['`users`' => '3; DROP TABLE `users`'], ['`users`' => '5']);
+
+    expect($statements->ran())->toBe(['SET SESSION lock_wait_timeout = 10', 'ALTER TABLE `users` AUTO_INCREMENT = 3']);
+});

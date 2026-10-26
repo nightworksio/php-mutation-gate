@@ -25,13 +25,13 @@ it('reads each sequence\'s last value, and none for one never drawn from', funct
     expect(Databases::counters(new PostgresDialect(), $database()))->toBe(['public.users_id_seq' => '2', 'public.unused_seq' => '']);
 });
 
-it('sets a drawn sequence back to its value and restarts one that was never drawn from, leaving the rest', function () use ($database): void {
+it('sets a drawn sequence back to its value, a whole number, and restarts one never drawn from, leaving the rest', function () use ($database): void {
     $statements = $database();
 
     Databases::restored(
         new PostgresDialect(),
         $statements,
-        ['public.users_id_seq' => '2', 'public.unused_seq' => '', 'public.same_seq' => '4', 'public.gone_seq' => '1'],
+        ['public.same_seq' => '4', 'public.users_id_seq' => '2; DROP TABLE users', 'public.gone_seq' => '1', 'public.unused_seq' => ''],
         ['public.users_id_seq' => '6', 'public.unused_seq' => '1', 'public.same_seq' => '4'],
     );
 

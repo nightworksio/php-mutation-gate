@@ -41,7 +41,7 @@ if ($own !== 0) {
     exit($own === -1 ? 1 : 0);
 }
 
-exit(Worker::at($directory, (int) $place, (int) $parent)->served(new class implements Forking {
+exit(Worker::at($directory, (int) $place, (int) $parent, usleep(...))->served(new class implements Forking {
     public function forked(Request $request, Baseline|NotGiven $baseline, string $report): int|NotGiven
     {
         $child = pcntl_fork();

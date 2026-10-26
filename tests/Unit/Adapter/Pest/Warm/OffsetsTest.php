@@ -35,3 +35,7 @@ it('reads no offsets from a file that holds other JSON', function (): void {
 
     expect(Offsets::readFrom($file))->toEqual(NotGiven::value());
 });
+
+it('stands at the start of output files nothing is printed to yet', function (): void {
+    expect(Offsets::none())->toEqual(Offsets::of(0, 0));
+});

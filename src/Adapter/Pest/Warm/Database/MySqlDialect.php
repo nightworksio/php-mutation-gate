@@ -69,7 +69,7 @@ final readonly class MySqlDialect implements Dialect
 
         foreach ($stood as $table => $value) {
             if (array_key_exists($table, $now) && $now[$table] !== $value) {
-                $database->run(sprintf(self::RESTORE, $table, (int) $value));
+                $database->run(sprintf(self::RESTORE, $table, $value));
             }
         }
     }

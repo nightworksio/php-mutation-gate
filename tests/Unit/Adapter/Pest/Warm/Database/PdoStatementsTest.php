@@ -61,3 +61,7 @@ it('reads a boolean as 1 or 0, a stream as its bytes, and what PDO never hands a
         ->and(array_map(PdoStatements::text(...), [true, false, 1.5, $stream, new stdClass()]))
         ->toBe(['1', '0', '1.5', "\x00bytes", '']);
 });
+
+it('refuses a query the database cannot run, though the connection was told to stay silent', function (): void {
+    expect(Databases::refuses(PdoStatements::over(Databases::silenced()), 'SELECT * FROM missing'))->toBeTrue();
+});

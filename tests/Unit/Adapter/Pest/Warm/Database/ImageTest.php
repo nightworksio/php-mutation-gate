@@ -53,3 +53,20 @@ it('reads back the image it wrote', function () use ($mysql): void {
 
     expect(Image::read(Node::decode($image->written()->line())))->toEqual($image);
 });
+
+it('shows a database alike whichever order it lists its tables and counters in', function (): void {
+    $listed = static fn(bool $reversed): AnsweredStatements => new AnsweredStatements([
+        "SHOW FULL TABLES WHERE Table_type = 'BASE TABLE'" => $reversed
+            ? [['posts', 'BASE TABLE'], ['users', 'BASE TABLE']]
+            : [['users', 'BASE TABLE'], ['posts', 'BASE TABLE']],
+        'SELECT * FROM `users`' => [['1', 'a']],
+        'SELECT * FROM `posts`' => [['1', 'b']],
+        "SELECT TABLE_NAME, AUTO_INCREMENT FROM information_schema.TABLES\nWHERE TABLE_SCHEMA = DATABASE() AND AUTO_INCREMENT IS NOT NULL" => $reversed
+            ? [['posts', '2'], ['users', '2']]
+            : [['users', '2'], ['posts', '2']],
+    ]);
+    $image = Databases::imaged($listed(reversed: false), new MySqlDialect());
+    $reversed = Databases::imaged($listed(reversed: true), new MySqlDialect());
+
+    expect($image->isAlike($reversed))->toBeTrue();
+});

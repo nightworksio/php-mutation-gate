@@ -43,3 +43,10 @@ it('asks its database to search the schemas its config names, which SQLite, havi
 
     expect(Databases::refusesOpening(Connection::of(Driver::Sqlite, sprintf('sqlite:%s', $file), '', '', [], ['public'])))->toBeTrue();
 });
+
+it('sets the schemas PostgreSQL searches, each quoted as a name, and none where its config names none', function (): void {
+    $connection = static fn(string ...$search): Connection => Connection::of(Driver::Postgres, 'pgsql:host=db', '', '', [], array_values($search));
+
+    expect($connection('tenant "a"', 'public')->searching())->toBe(['SET search_path TO "tenant ""a""", "public"'])
+        ->and($connection()->searching())->toBe([]);
+});

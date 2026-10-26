@@ -114,11 +114,24 @@ final readonly class Connection
     {
         $statements = PdoStatements::over(new PDO($this->dsn, $this->username, $this->password, $this->options));
 
-        if ($this->search !== []) {
-            $statements->run(sprintf(self::SEARCH, implode(', ', array_map($this->quoted(...), $this->search))));
+        foreach ($this->searching() as $statement) {
+            $statements->run($statement);
         }
 
         return $statements;
+    }
+
+    /**
+     * The statement that sets the schemas PostgreSQL searches, each quoted
+     * as a name; none where the config names none.
+     *
+     * @return list<string>
+     */
+    public function searching(): array
+    {
+        return $this->search === []
+            ? []
+            : [sprintf(self::SEARCH, implode(', ', array_map($this->quoted(...), $this->search)))];
     }
 
     private function quoted(string $schema): string

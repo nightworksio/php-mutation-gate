@@ -31,6 +31,12 @@ final readonly class Offsets
         return new self($out, $err);
     }
 
+    /** Where output files stand before anything is printed to them. */
+    public static function none(): self
+    {
+        return new self(0, 0);
+    }
+
     /** Where the place's output files stand now. */
     public static function now(Seat $seat): self
     {

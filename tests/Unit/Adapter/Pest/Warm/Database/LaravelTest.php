@@ -25,18 +25,22 @@ it('tells whether RefreshDatabase holds its database migrated, and tells it so',
         ->and(RefreshDatabaseState::isMigrated())->toBeTrue();
 });
 
-it('calls back as RefreshDatabase asks for its transactions\' manager, and not before', function (): void {
+it('calls back as RefreshDatabase asks for its transactions\' manager, before any other autoloader can load it, and not before', function (): void {
     $called = 0;
-    $spies = LaravelTesting::spiesOf(static function () use (&$called): void {
+    $first = false;
+    $spies = LaravelTesting::spiesOf(static function () use (&$called, &$first): void {
+        $before = spl_autoload_functions();
         Laravel::beforeFirstTransaction(static function () use (&$called): void {
             $called++;
         });
+        $first = ! in_array(spl_autoload_functions()[0], $before, strict: true);
         class_exists('Illuminate\Foundation\Testing\RefreshDatabase');
         class_exists(LaravelTesting::TRANSACTIONS);
     });
 
     expect($called)->toBe(1)
-        ->and($spies)->toBe(1);
+        ->and($spies)->toBe(1)
+        ->and($first)->toBeTrue();
 });
 
 it('reaches again each connection the application holds open outside a transaction', function (): void {

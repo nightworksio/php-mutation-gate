@@ -40,10 +40,10 @@ final readonly class Laravel
 
     private const string CONTAINER = 'Illuminate\Container\Container';
 
-    /** Whether `RefreshDatabase` holds its test database migrated; not where it never loaded. */
+    /** Whether `RefreshDatabase` holds its test database migrated; not where Laravel's testing is not installed. */
     public static function migrated(): bool
     {
-        $state = self::loaded(self::STATE, autoload: false);
+        $state = self::loaded(self::STATE);
 
         return is_string($state) && new ReflectionProperty($state, self::MIGRATED)->getValue() === true;
     }
@@ -51,7 +51,7 @@ final readonly class Laravel
     /** `RefreshDatabase` told its test database is migrated, where Laravel's testing is installed. */
     public static function markMigrated(): void
     {
-        $state = self::loaded(self::STATE, autoload: true);
+        $state = self::loaded(self::STATE);
 
         if (is_string($state)) {
             new ReflectionProperty($state, self::MIGRATED)->setValue(objectOrValue: null, value: true);
@@ -124,13 +124,13 @@ final readonly class Laravel
     }
 
     /**
-     * The class by this name, where it is loaded, or can be where autoloading is asked for; none where it is not.
+     * The class by this name, loaded where it is not yet; none where there is no such class.
      *
      * @return class-string|NotGiven
      */
-    private static function loaded(string $name, bool $autoload): string|NotGiven
+    private static function loaded(string $name): string|NotGiven
     {
-        return class_exists($name, $autoload) ? $name : NotGiven::value();
+        return class_exists($name) ? $name : NotGiven::value();
     }
 
     /** What a method of an object, or a static one of a class, answers; nothing where there is no such method. */

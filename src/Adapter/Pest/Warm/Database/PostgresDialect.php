@@ -70,7 +70,7 @@ final readonly class PostgresDialect implements Dialect
             $database->run(
                 $value === self::UNDRAWN
                     ? sprintf(self::RESTART, $sequence)
-                    : sprintf(self::SET, $database->quoted($sequence), (int) $value),
+                    : sprintf(self::SET, $database->quoted($sequence), $value),
             );
         }
     }
