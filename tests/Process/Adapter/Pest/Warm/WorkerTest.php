@@ -17,16 +17,10 @@ use Symfony\Component\Process\Exception\ProcessSignaledException;
 use Symfony\Component\Process\Process;
 
 $holds = [
-    'holds:src/Adapter/Pest/Warm/Worker.php',
-    'holds:src/Adapter/Pest/Warm/Client.php',
     'holds:src/Adapter/Pest/Warm/Pool.php',
     'holds:src/Adapter/Pest/Warm/Request.php',
-    'holds:src/Adapter/Pest/Warm/Finish.php',
-    'holds:src/Adapter/Pest/Warm/Offsets.php',
     'holds:src/Adapter/Pest/Warm/Seat.php',
     'holds:src/Adapter/Pest/Warm/WarmDirectory.php',
-    'holds:src/Adapter/Pest/Warm/GateClasses.php',
-    'holds:src/Adapter/Pest/Warm/WholeTree.php',
 ];
 
 beforeEach(function (): void {

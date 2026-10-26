@@ -9,14 +9,6 @@ use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 use Symfony\Component\Process\Process;
 
-$holds = [
-    'holds:src/Adapter/Pest/Warm/Database/WarmDatabase.php',
-    'holds:src/Adapter/Pest/Warm/Database/Laravel.php',
-    'holds:src/Adapter/Pest/Warm/Database/LaravelConfig.php',
-    'holds:src/Adapter/Pest/Warm/Database/Baseline.php',
-    'holds:src/Adapter/Pest/Warm/Database/Snapshot.php',
-];
-
 beforeEach(function (): void {
     GateEnvironment::clear();
 });
@@ -71,7 +63,7 @@ it('starts each child on a database alike to the one freshly migrated, migrating
         ->and(foundBy($warm))->not->toBe('')
         ->and($warm)->toEndWith("made 3\n")
         ->and($fresh)->toEndWith("made 3\n");
-})->group(...$holds);
+});
 
 it('migrates again in the child after one whose test dirtied the database, so nothing it left reaches the next mutant', function (): void {
     $directory = Scratch::directory();
@@ -83,7 +75,7 @@ it('migrates again in the child after one whose test dirtied the database, so no
         ->and($after)->toStartWith("migrated\n")
         ->and(foundBy($after))->toBe(foundBy($fresh))
         ->and($after)->toEndWith("made 3\n");
-})->group(...$holds);
+});
 
 it('starts the child after one stopped at its limit on the baseline that one took, migrating nothing', function (): void {
     $directory = Scratch::directory();
@@ -97,7 +89,7 @@ it('starts the child after one stopped at its limit on the baseline that one too
         ->and($next)->not->toContain('migrated')
         ->and(foundBy($next))->toBe(foundBy($stopped->getOutput()))
         ->and($next)->toEndWith("made 3\n");
-})->group(...$holds);
+});
 
 it('takes no baseline where a connection is inside a transaction as RefreshDatabase begins its first', function (): void {
     $directory = Scratch::directory();
@@ -107,4 +99,4 @@ it('takes no baseline where a connection is inside a transaction as RefreshDatab
 
     expect($open->getOutput())->toStartWith("migrated\n")
         ->and($next)->toStartWith("migrated\n");
-})->group(...$holds);
+});
