@@ -220,6 +220,50 @@ class Pest(unittest.TestCase):
         )
 
 
+    def test_matches_an_analyser_s_kill_with_the_mutant_pest_names_as_escaped_and_drops_one_it_does_not(self):
+        found, _ = bench.pest(PEST_PRINTED)
+        gate = [
+            {"file": "app/Actions/Follow.php", "line": 12, "mutator": "RemoveMethodCall", "diff": (),
+             "status": "killed-by-static-analysis", "outcome": "killed"},
+            {"file": "app/Actions/Unfollow.php", "line": 7, "mutator": "AlwaysReturnNull", "diff": (),
+             "status": "uncovered", "outcome": "uncovered"},
+            {"file": "app/Actions/Block.php", "line": 3, "mutator": "RemoveMethodCall", "diff": (),
+             "status": "killed-by-static-analysis", "outcome": "killed"},
+        ]
+        self.assertEqual(
+            [(each["file"], each["plain"], each["gate"], each["explained"])
+             for each in bench.pairs(found, gate, named_only=True)],
+            [("app/Actions/Follow.php", "untested", "killed-by-static-analysis", True)],
+        )
+
+    def test_explains_a_survivor_pest_does_not_name_whose_run_outlasts_pest_s_limit_by_the_mutants_it_timed_out(self):
+        found, _ = bench.pest(PEST_PRINTED)
+        survivor = {"line": 3, "mutator": "RemoveMethodCall", "diff": (), "status": "survived", "outcome": "escaped"}
+        gate = [
+            {"file": "app/Actions/Follow.php", "line": 12, "mutator": "RemoveMethodCall", "diff": (),
+             "status": "survived", "outcome": "escaped", "seconds": 1.0},
+            {"file": "app/Actions/Unfollow.php", "line": 7, "mutator": "AlwaysReturnNull", "diff": (),
+             "status": "uncovered", "outcome": "uncovered"},
+            {**survivor, "file": "app/Actions/Block.php", "seconds": 84.0},
+            {**survivor, "file": "app/Actions/Mute.php", "seconds": 83.9},
+        ]
+        explained = [(each["file"], each["explained"])
+                     for each in bench.pairs(found, gate, named_only=True, plain_limit=84.0, plain_timeouts=1)]
+        outnumbered = [(each["file"], each["explained"])
+                       for each in bench.pairs(found, [*gate, {**gate[2], "file": "app/Actions/Ban.php"}],
+                                               named_only=True, plain_limit=84.0, plain_timeouts=1)]
+        self.assertEqual(explained, [("app/Actions/Block.php", True), ("app/Actions/Mute.php", False)])
+        self.assertEqual(outnumbered, [("app/Actions/Ban.php", False), ("app/Actions/Block.php", False),
+                                       ("app/Actions/Mute.php", False)])
+
+    def test_reads_pest_s_limit_from_the_suite_s_first_run(self):
+        printed = "  Tests:    1362 passed\n  Duration: 70.56s\n\n  Mutations: 1 timeout\n  Duration:  1,343.74s\n"
+        self.assertEqual(bench.pest_limit(printed), 84.0)
+        self.assertEqual(bench.pest_limit("  Duration: 10s\n"), 15.0)
+        self.assertEqual(bench.pest_limit("  Duration: 1,000.0s\n"), 1200.0)
+        self.assertIsNone(bench.pest_limit(PEST_PRINTED))
+
+
 class Spread(unittest.TestCase):
     def test_gives_the_median_and_range_of_the_rounds(self):
         self.assertEqual(

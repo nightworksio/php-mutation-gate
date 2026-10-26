@@ -25,7 +25,9 @@ and coverage timings are kept with the artifact.
 
 Plain Pest, run in parallel, names only its untested and uncovered mutants,
 and counts the rest: its killed and timed-out mutants come to the totals
-alone, and its mutants are matched with the gate's by file, line and mutator. `reconcile` writes the result
+alone, and its mutants are matched with the gate's by file, line and mutator.
+A survivor of the gate's that Pest does not name, whose run took longer
+than Pest lets one take, is one Pest timed out. `reconcile` writes the result
 file and the step summary:
 
 - each arm's wall time, as the median of the rounds with their range;
@@ -89,6 +91,7 @@ EXPLAINED = {
     ("escaped", "killed-by-static-analysis"),
 }
 EXPLAINING_JUDGEMENTS = {"flaky", "equivalent"}
+EXPLAINING_STATUSES = {status for _, status in EXPLAINED}
 
 # Infection's status of a mutant it never ran, since the tests that cover it
 # took longer than its timeout to run once. Its JSON log only counts them;
@@ -138,6 +141,7 @@ def relative(path: str, root: str) -> str:
 # Plain Pest's lines: a mutant it names, and its counts of what it ran.
 PEST_NAMED = re.compile(r"^\s*(UNTESTED|UNCOVERED)\s+(\S+)\s+>\s+Line (\d+): (\S+) - ID: (\S+)")
 PEST_COUNTS = re.compile(r"^\s*Mutations:\s+(.*)$")
+PEST_SUITE = re.compile(r"^\s*Duration:\s+([\d,.]+)s", re.MULTILINE)
 PEST_COUNTED = {"untested": "escaped", "uncovered": "uncovered", "timeout": "timed out", "tested": "killed",
                 "pending": "other"}
 
@@ -167,6 +171,19 @@ def pest(printed: str) -> tuple[list[dict], dict[str, int]]:
     return found, counts
 
 
+def pest_limit(printed: str) -> float | None:
+    """
+    How long plain Pest lets a mutant's run take before it times it out:
+    as long as the suite's first run took, and a fifth more, at least five
+    seconds more; none where the output gives no first run.
+    """
+    first = PEST_SUITE.search(printed)
+    if not first:
+        return None
+    took = float(first.group(1).replace(",", ""))
+    return float(int(took + max(5.0, took * 0.2)))
+
+
 def outcome(report: dict, kind: str, root: str) -> list[dict]:
     """Every mutant of a report: where it is, its mutator and diff, its status and what that comes to."""
     found = []
@@ -192,6 +209,7 @@ def outcome(report: dict, kind: str, root: str) -> list[dict]:
             "diff": changed(str(mutant.get("diff", ""))),
             "status": status,
             "judgement": str(mutant.get("judgement", "")),
+            "seconds": float(mutant.get("seconds") or 0.0),
             "outcome": GATE_STATUSES.get(status, "other"),
         })
     return found
@@ -251,13 +269,18 @@ def leaves_uncovered_out(arm: dict) -> bool:
     return arm["report"] == "infection" and "--with-uncovered" not in arm["command"]
 
 
-def pairs(plain: list[dict], gate: list[dict], named_only: bool = False, left_out: bool = False) -> list[dict]:
+def pairs(plain: list[dict], gate: list[dict], named_only: bool = False, left_out: bool = False,
+          plain_limit: float | None = None, plain_timeouts: int = 0) -> list[dict]:
     """
     Each mutant two arms of the same tool judge otherwise, or one lacks, and
     whether the gate explains it. Where the plain arm names only its escaped
     and uncovered mutants, as plain Pest does, the gate's are matched with
     those by file, line and mutator, and a gate mutant it does not name is
-    one it killed or timed out. A mutant plain Infection skipped is matched
+    one it killed or timed out. A gate mutant an analyser killed is matched
+    too, since it explains one the plain arm names as escaped. A survivor it
+    does not name whose own run in the gate took longer than the plain arm's
+    limit is explained by that limit, where the plain arm timed out at least
+    as many mutants as there are such survivors. A mutant plain Infection skipped is matched
     by file, line and mutator, and Infection's skip explains it; one it timed
     out that the gate killed or that survived is explained by the limit, and
     one it killed or errored on that the gate killed or timed out by both
@@ -267,7 +290,8 @@ def pairs(plain: list[dict], gate: list[dict], named_only: bool = False, left_ou
     uncovered mutants out.
     """
     if named_only:
-        gate = [mutant for mutant in gate if mutant["outcome"] in ("escaped", "uncovered")]
+        gate = [mutant for mutant in gate
+                if mutant["outcome"] in ("escaped", "uncovered") or mutant["status"] in EXPLAINING_STATUSES]
     skips, plain, gate = unskipped(plain, gate)
     left: dict[tuple, list[dict]] = {}
     right: dict[tuple, list[dict]] = {}
@@ -282,6 +306,10 @@ def pairs(plain: list[dict], gate: list[dict], named_only: bool = False, left_ou
             other = theirs[at] if at < len(theirs) else None
             if one and other and one["outcome"] == other["outcome"]:
                 continue
+            if named_only and one is None and other is not None and other["outcome"] not in ("escaped", "uncovered"):
+                continue
+            outlasted = (named_only and one is None and other is not None and plain_limit is not None
+                         and other["outcome"] == "escaped" and other.get("seconds", 0.0) >= plain_limit)
             explained = bool(one and other) and (
                 (one["outcome"], other["status"]) in EXPLAINED
                 or other.get("judgement") in EXPLAINING_JUDGEMENTS
@@ -298,7 +326,12 @@ def pairs(plain: list[dict], gate: list[dict], named_only: bool = False, left_ou
                 "plain": one["status"] if one else ("killed or timed out" if named_only else "absent"),
                 "gate": other["status"] if other else "absent",
                 "explained": explained,
+                "outlasted": outlasted,
             })
+    outlasting = [each for each in found if each.pop("outlasted")]
+    if len(outlasting) <= plain_timeouts:
+        for each in outlasting:
+            each["explained"] = True
     return sorted([*skips, *found], key=lambda each: (each["file"], each["line"], each["mutator"]))
 
 
@@ -333,7 +366,8 @@ def summary(project: dict, arms: dict[str, dict], differences: list[dict], machi
             + f" | {', '.join(str(code) for code in arm['exits'])} |"
         )
     order = ", ".join(OUTCOMES)
-    lines += ["", f"Each arm's mutants per file, from its first round that left a report (generated, then {order}):", ""]
+    told_per_file = f"Each arm's mutants per file, from its first round that left a report (generated, then {order}):"
+    lines += ["", told_per_file, ""]
     lines += ["| file | " + " | ".join(names) + " |", "|---|" + "---|" * len(names)]
     files = sorted({file for arm in arms.values() for file in arm["files"] if file != "total"})
     for file in files:
@@ -475,6 +509,7 @@ def reconcile(project: dict, out: Path, result: Path, root: str) -> int:
     """The result file and the step summary; 1 where the same tool's arms differ in a way the gate does not explain."""
     arms: dict[str, dict] = {}
     first: dict[str, list[dict]] = {}
+    limits: dict[str, tuple[float | None, int] | None] = {}
     for name, arm in project["arms"].items():
         times = sorted(out.glob(f"{name}-*.time"), key=lambda path: int(path.stem.rsplit("-", 1)[1]))
         runs = [json.loads(path.read_text()) for path in times]
@@ -483,10 +518,13 @@ def reconcile(project: dict, out: Path, result: Path, root: str) -> int:
         report = report_of(out, name, arm, at)
         place = str((Path(root) / arm.get("directory", ".")).resolve())
         totals = None
+        limits[name] = None
         if not report.exists():
             first[name] = []
         elif arm["report"] == "pest":
-            first[name], totals = pest(report.read_text(encoding="utf-8", errors="replace"))
+            printed = report.read_text(encoding="utf-8", errors="replace")
+            first[name], totals = pest(printed)
+            limits[name] = (pest_limit(printed), totals["timed out"])
         else:
             first[name] = outcome(json.loads(report.read_text()), arm["report"], place)
             text = out / f"{name}-{at}.txt"
@@ -502,7 +540,9 @@ def reconcile(project: dict, out: Path, result: Path, root: str) -> int:
     same = project.get("same", [])
     named_only = any(project["arms"][name]["report"] == "pest" for name in same)
     left_out = bool(same) and leaves_uncovered_out(project["arms"][same[0]])
-    differences = pairs(first[same[0]], first[same[1]], named_only, left_out) if len(same) == 2 else []
+    plain_limit, plain_timeouts = (limits.get(same[0]) or (None, 0)) if same else (None, 0)
+    differences = pairs(first[same[0]], first[same[1]], named_only, left_out, plain_limit,
+                        plain_timeouts) if len(same) == 2 else []
     found = machine()
     result.parent.mkdir(parents=True, exist_ok=True)
     result.write_text(json.dumps({
