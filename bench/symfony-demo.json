@@ -76,6 +76,9 @@
         "said": "the gate-infection arm, sharded at the shards.seconds of its config"
     },
     "scenarios": {
+        "generated": [
+            "var/cache"
+        ],
         "edit": [
             {
                 "file": "src/Utils/Validator.php",
