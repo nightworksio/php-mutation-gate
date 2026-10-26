@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Tests\Support\Passing;
+use NightWorksIO\MutationGate\Tests\Support\Pauses;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShellForking;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
@@ -40,11 +41,6 @@ $request = static fn(int $asker, string $mutated = ''): Request => Request::of(
     (string) getcwd(),
 );
 
-/** A pause that pauses for no time, keeping each pause it was asked for. */
-$pausing = static fn(ArrayObject $paused): Closure => static function (int $microseconds) use ($paused): void {
-    $paused->append($microseconds);
-};
-
 /** What the worker of this seat warned of, its own process id forgotten, since it is this process's. */
 $warned = static function (Seat $seat): Warnings {
     unlink($seat->pid());
@@ -52,45 +48,47 @@ $warned = static function (Seat $seat): Warnings {
     return WarmDirectory::cleared(sprintf('%s/results.jsonl', dirname($seat->directory())));
 };
 
-it('runs a run in a child it forks, and writes how the child ended where the run\'s asker reads it', function () use ($seat, $request, $pausing): void {
+it('runs a run in a child it forks, and writes how the child ended where the run\'s asker reads it', function () use ($seat, $request): void {
     $at = $seat();
     $request((int) getmypid())->leftIn($at->request());
-    $served = Worker::at($at->directory(), 1, (int) getmypid(), $pausing($paused = new ArrayObject()))->served(ShellForking::running($at, 'sleep 0.2; exit 3'));
+    $paused = new Pauses();
+    $served = Worker::at($at->directory(), 1, (int) getmypid(), $paused->pausing())->served(ShellForking::running($at, 'sleep 0.2; exit 3'));
     $finish = Finish::readFrom($at->ended('42-1'));
 
     expect($served)->toBe(0)
         ->and($finish instanceof Finish ? $finish->code() : $finish)->toBe(3)
         ->and($paused->count())->toBeGreaterThan(0)
-        ->and(array_unique($paused->getArrayCopy()))->toBe([Polling::interval()->microseconds()])
+        ->and($paused->lengths())->toBe([Polling::interval()->microseconds()])
         ->and(is_file($at->started('42-1')) && is_file($at->child('42-1')))->toBeTrue();
 });
 
-it('stops a child, with every process under it, once the run\'s asker is gone', function () use ($seat, $request, $pausing): void {
+it('stops a child, with every process under it, once the run\'s asker is gone', function () use ($seat, $request): void {
     $at = $seat();
     $request(Passing::for('0.3'))->leftIn($at->request());
-    Worker::at($at->directory(), 1, (int) getmypid(), $pausing($paused = new ArrayObject()))->served(ShellForking::running($at, 'sleep 30'));
+    Worker::at($at->directory(), 1, (int) getmypid(), new Pauses()->pausing())->served(ShellForking::running($at, 'sleep 30'));
     $finish = Finish::readFrom($at->ended('42-1'));
 
     expect($finish instanceof Finish ? $finish->signal() : $finish)->toBe(SIGKILL);
 });
 
-it('forks no child for a run whose asker is gone, and serves on until its parent is gone', function () use ($seat, $request, $pausing): void {
+it('forks no child for a run whose asker is gone, and serves on until its parent is gone', function () use ($seat, $request): void {
     $at = $seat();
     $request(Passing::NONE)->leftIn($at->request());
-    $served = Worker::at($at->directory(), 1, Passing::for('0.3'), $pausing($paused = new ArrayObject()))->served(ShellForking::none($at));
+    $paused = new Pauses();
+    $served = Worker::at($at->directory(), 1, Passing::for('0.3'), $paused->pausing())->served(ShellForking::none($at));
 
     expect($served)->toBe(0)
         ->and(is_file($at->request()) || is_file($at->started('42-1')) || is_file($at->ended('42-1')))->toBeFalse()
         ->and($paused->count())->toBeGreaterThan(0)
-        ->and(array_unique($paused->getArrayCopy()))->toBe([Polling::interval()->microseconds()])
+        ->and($paused->lengths())->toBe([Polling::interval()->microseconds()])
         ->and(is_file($at->stop()))->toBeFalse();
 });
 
-it('starts fresh, and warns of it, the run of a mutant of a file it loaded', function () use ($seat, $request, $warned, $pausing): void {
+it('starts fresh, and warns of it, the run of a mutant of a file it loaded', function () use ($seat, $request, $warned): void {
     $at = $seat();
     $mutated = (string) realpath(Tree::at('src/Adapter/Pest/Warm/Worker.php'));
     $request((int) getmypid(), $mutated)->leftIn($at->request());
-    Worker::at($at->directory(), 1, Passing::for('0.3'), $pausing($paused = new ArrayObject()))->served(ShellForking::none($at));
+    Worker::at($at->directory(), 1, Passing::for('0.3'), new Pauses()->pausing())->served(ShellForking::none($at));
     $finish = Finish::readFrom($at->ended('42-1'));
 
     expect($finish instanceof Finish && $finish->isRefused())->toBeTrue()
@@ -100,20 +98,20 @@ it('starts fresh, and warns of it, the run of a mutant of a file it loaded', fun
         ))));
 });
 
-it('starts fresh, and warns of it, a run it could fork no child for', function () use ($seat, $request, $warned, $pausing): void {
+it('starts fresh, and warns of it, a run it could fork no child for', function () use ($seat, $request, $warned): void {
     $at = $seat();
     $request((int) getmypid())->leftIn($at->request());
-    Worker::at($at->directory(), 1, (int) getmypid(), $pausing($paused = new ArrayObject()))->served(ShellForking::none($at));
+    Worker::at($at->directory(), 1, (int) getmypid(), new Pauses()->pausing())->served(ShellForking::none($at));
     $finish = Finish::readFrom($at->ended('42-1'));
 
     expect($finish instanceof Finish && $finish->isRefused())->toBeTrue()
         ->and($warned($at))->toEqual(Warnings::of(Warning::that('The warm worker could not fork, so a mutant ran fresh.')));
 });
 
-it('starts fresh, and warns of it, a run whose child the system no longer tells of', function () use ($seat, $request, $warned, $pausing): void {
+it('starts fresh, and warns of it, a run whose child the system no longer tells of', function () use ($seat, $request, $warned): void {
     $at = $seat();
     $request((int) getmypid())->leftIn($at->request());
-    $served = Worker::at($at->directory(), 1, (int) getmypid(), $pausing($paused = new ArrayObject()))->served(new readonly class ($at) implements Forking {
+    $served = Worker::at($at->directory(), 1, (int) getmypid(), new Pauses()->pausing())->served(new readonly class ($at) implements Forking {
         public function __construct(private Seat $seat)
         {
         }

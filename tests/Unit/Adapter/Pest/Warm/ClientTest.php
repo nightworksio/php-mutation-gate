@@ -2,17 +2,23 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Client;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Finish;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Offsets;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\Pool;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Seat;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
-use NightWorksIO\MutationGate\Adapter\Pest\Warm\Worker;
+use NightWorksIO\MutationGate\Tests\Support\GateEnvironment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
-use NightWorksIO\MutationGate\Tests\Support\ShellForking;
 use Symfony\Component\Process\Process;
 
+beforeEach(function (): void {
+    GateEnvironment::clear();
+});
+
 afterEach(function (): void {
+    GateEnvironment::restore();
     Scratch::sweep();
 });
 
@@ -40,28 +46,24 @@ $ran = static function (string $directory, string ...$command): array {
 };
 
 /**
- * Place 1's worker of this directory, serving each run as this shell script
- * in a process of its own outside the suite, which the system reaps.
+ * Place 1's worker of the run that records to results in a scratch
+ * directory, started as Pest's process starts it, for this process, which
+ * it outlives by no more than a look: the workers' directory.
  */
-$serving = static function (string $directory, string $script): void {
-    mkdir($directory);
-    $seat = Seat::at($directory, 1);
-    $parent = (int) getmypid();
-    $between = pcntl_fork();
+$serving = static function (): string {
+    $directory = WarmDirectory::beside(sprintf('%s/results.jsonl', Scratch::directory()));
+    putenv(sprintf('%s=%s', GateVariable::Warm->value, $directory));
+    Pool::prefix(1);
 
-    if ($between === 0) {
-        $worker = pcntl_fork();
+    return $directory;
+};
 
-        if ($worker === 0) {
-            Worker::at($directory, 1, $parent, new ArrayObject()->append(...))->served(ShellForking::running($seat, $script));
-            pcntl_exec('/usr/bin/true');
-        }
+/** A PHP script in a scratch file of its own, which a worker's child runs as it runs Pest's: its path. */
+$script = static function (string $code): string {
+    $file = sprintf('%s/script.php', Scratch::directory());
+    file_put_contents($file, sprintf("<?php\n\n%s\n", $code));
 
-        file_put_contents($seat->pid(), (string) $worker);
-        pcntl_exec('/usr/bin/true');
-    }
-
-    pcntl_waitpid($between, $status);
+    return $file;
 };
 
 /**
@@ -88,7 +90,8 @@ $standIn = static function (string $directory, string $script, string ...$argume
 
 /** The shell that takes the request a client leaves for place 1, setting `id` to its id. */
 $taking = <<<'SH'
-    until [ -f "$1/1.request" ]; do sleep 0.02; done
+    for _ in $(seq 250); do [ -f "$1/1.request" ] && break; sleep 0.02; done
+    [ -f "$1/1.request" ] || exit 1
     id=$(sed 's/^{"id":"\([^"]*\)".*/\1/' "$1/1.request")
     rm "$1/1.request"
 
@@ -103,11 +106,12 @@ $runs = static function (int $pid): bool {
     return $state !== '' && ! str_starts_with($state, 'Z');
 };
 
-it('ends as the run its place\'s worker ran ended', function () use ($ran, $serving): void {
-    $directory = WarmDirectory::beside(sprintf('%s/results.jsonl', Scratch::directory()));
-    $serving($directory, 'exit 3');
+it('ends as the run its place\'s worker ran ended', function () use ($ran, $serving, $script): void {
+    $directory = $serving();
+    $answered = $ran($directory, $script('exit(3);'));
+    WarmDirectory::cleared(sprintf('%s/results.jsonl', dirname($directory)));
 
-    expect($ran($directory, 'vendor/bin/pest'))->toBe(['code' => 3, 'warned' => []]);
+    expect($answered)->toBe(['code' => 3, 'warned' => []]);
 });
 
 it('ends by the signal that ended its run, with the code a shell gives it', function () use ($ran, $standIn, $taking): void {
@@ -181,11 +185,14 @@ it('starts fresh a script found on the system\'s path where Pest names it withou
         ->and($unfound['warned'][0])->toContain('(errno 2)');
 });
 
-it('stops the child its worker forked before it went, then starts the run fresh', function () use ($ran, $serving, $runs): void {
-    $directory = WarmDirectory::beside(sprintf('%s/results.jsonl', Scratch::directory()));
+it('stops the child its worker forked before it went, then starts the run fresh', function () use ($ran, $serving, $script, $runs): void {
+    $directory = $serving();
     $child = sprintf('%s/child', Scratch::directory());
-    $serving($directory, sprintf('echo $$ > %s; sleep 0.2; kill -KILL $PPID; exec sleep 30', escapeshellarg($child)));
-    $answered = $ran($directory, sprintf('%s/missing/pest', Scratch::directory()));
+    $orphaning = $script(sprintf(
+        'file_put_contents(%s, (string) getmypid()); usleep(200_000); posix_kill(posix_getppid(), SIGKILL); sleep(30);',
+        var_export($child, return: true),
+    ));
+    $answered = $ran($directory, $orphaning);
 
     expect($answered['code'])->toBe(127)
         ->and($runs((int) file_get_contents($child)))->toBeFalse();
