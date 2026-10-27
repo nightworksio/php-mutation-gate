@@ -250,18 +250,18 @@ jobs:
         run: COMPOSER_ROOT_VERSION="${TAG#v}" composer phar
       - name: Sign the PHAR with the release key
         env:
-          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
-          RELEASE_SIGNING_PASSPHRASE: ${{ secrets.RELEASE_SIGNING_PASSPHRASE }}
+          RELEASE_GPG_KEY: ${{ secrets.RELEASE_GPG_KEY }}
+          RELEASE_GPG_PASSPHRASE: ${{ secrets.RELEASE_GPG_PASSPHRASE }}
         run: |
           set -euo pipefail
-          if [ -z "${RELEASE_SIGNING_KEY}" ] || [ -z "${RELEASE_SIGNING_PASSPHRASE}" ]; then
-            echo "::error::The release environment holds no RELEASE_SIGNING_KEY and RELEASE_SIGNING_PASSPHRASE, so the PHAR cannot be signed and nothing is released."
+          if [ -z "${RELEASE_GPG_KEY}" ] || [ -z "${RELEASE_GPG_PASSPHRASE}" ]; then
+            echo "::error::The release environment holds no RELEASE_GPG_KEY and RELEASE_GPG_PASSPHRASE, so the PHAR cannot be signed and nothing is released."
             exit 1
           fi
           GNUPGHOME="$(mktemp -d)"
           export GNUPGHOME
-          printf '%s' "${RELEASE_SIGNING_KEY}" | gpg --batch --quiet --import
-          printf '%s' "${RELEASE_SIGNING_PASSPHRASE}" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+          printf '%s' "${RELEASE_GPG_KEY}" | gpg --batch --quiet --import
+          printf '%s' "${RELEASE_GPG_PASSPHRASE}" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
             --armor --detach-sign --output build/mutation-gate.phar.asc build/mutation-gate.phar
           gpg --batch --verify build/mutation-gate.phar.asc build/mutation-gate.phar
           rm -rf "${GNUPGHOME}"
