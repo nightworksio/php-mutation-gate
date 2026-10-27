@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnits;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
+use NightWorksIO\MutationGate\Core\Verdict\OwnerFloorVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
@@ -142,5 +143,15 @@ it('names each owner below its floor when a run fails, and none that meets it', 
     expect($groups[1] ?? null)->toBe([
         'Owners below their floor',
         ['Code owned by @acme/payments: 33.33%, below its floor of 50.00%.'],
+    ]);
+});
+
+it('names every owner below its floor, each on its own line', function (): void {
+    $floors = OwnerFloorVerdicts::of(Owners::trees(), Owners::codeOwners(), Uncovered::Count, Owners::floorsOf(['@acme/payments' => 50, '@jo' => 50]));
+    $verdict = Verdict::of(Owners::trees())->withSets(HeldSets::none()->owned(Owners::verdicts())->floored($floors));
+
+    expect(AlertLines::of(Alert::of(AlertEvent::Failed, $verdict, TrendEntry::none()), Chat::Slack)[1] ?? null)->toBe([
+        'Owners below their floor',
+        ['Code owned by @acme/payments: 33.33%, below its floor of 50.00%.', 'Code owned by @jo: 33.33%, below its floor of 50.00%.'],
     ]);
 });
