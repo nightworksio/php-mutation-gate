@@ -18,6 +18,7 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
 ACTION = os.path.join(ROOT, "action.yml")
 WORKFLOW = os.path.join(ROOT, ".github", "workflows", "mutation-gate.yml")
 RELEASE = os.path.join(ROOT, ".github", "workflows", "release.yml")
+PUBLISH_SCRIPT = os.path.join(ROOT, "resources", "action", "publish.sh")
 
 # More than any one argument, and every argument together, may hold on Linux
 # (128 KiB) and macOS (1 MiB).
@@ -141,8 +142,9 @@ class Publish(unittest.TestCase):
                 "BODY": body,
             }
 
+            self.assertIn('run: bash "${GATE_ACTION}/resources/action/publish.sh"', [line.strip() for line in publishing])
             ran = subprocess.run(
-                ["bash", "-c", script(publishing)],
+                ["bash", PUBLISH_SCRIPT],
                 cwd=directory,
                 env=environment,
                 stdin=subprocess.DEVNULL,

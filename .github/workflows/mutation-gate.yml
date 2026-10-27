@@ -978,41 +978,14 @@ jobs:
         with:
           name: mutation-gate-publish
           path: publish
-      # The first publish makes the branch: an orphan commit that holds the
-      # files and nothing else. Every later one puts each changed file through
-      # the contents API.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: ${{ env.GATE_ACTION }}
+          persist-credentials: false
       - name: Publish the badge and the trend
         env:
           GH_TOKEN: ${{ github.token }}
           MESSAGE: 'chore: publish the mutation score'
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          files=(publish/*)
-          if [ "${#files[@]}" -eq 0 ]; then
-            echo "The verdict wrote nothing to publish."
-            exit 0
-          fi
-          repository="repos/${GITHUB_REPOSITORY}"
-          if ! gh api "${repository}/branches/${PUBLISHED}" --silent 2>/dev/null; then
-            for path in "${files[@]}"; do
-              jq -n --arg path "$(basename "${path}")" --rawfile content "${path}" \
-                '{path: $path, mode: "100644", type: "blob", content: $content}'
-            done | jq -s '{tree: .}' > "${RUNNER_TEMP}/tree.json"
-            tree="$(gh api "${repository}/git/trees" --input "${RUNNER_TEMP}/tree.json" --jq .sha)"
-            commit="$(jq -n --arg tree "${tree}" --arg message "${MESSAGE}" '{message: $message, tree: $tree, parents: []}' \
-              | gh api "${repository}/git/commits" --input - --jq .sha)"
-            gh api "${repository}/git/refs" -f ref="refs/heads/${PUBLISHED}" -f sha="${commit}" --silent
-            exit 0
-          fi
-          for path in "${files[@]}"; do
-            file="$(basename "${path}")"
-            published="$(gh api "${repository}/contents/${file}?ref=${PUBLISHED}" --jq .sha 2>/dev/null || true)"
-            if [ "${published}" = "$(git hash-object "${path}")" ]; then
-              continue
-            fi
-            jq -n --arg message "${MESSAGE}" --arg branch "${PUBLISHED}" --arg sha "${published}" --rawfile content "${path}" \
-              '{message: $message, branch: $branch, content: ($content | @base64)}
-              + (if $sha == "" then {} else {sha: $sha} end)' \
-              | gh api --method PUT "${repository}/contents/${file}" --input - --silent
-          done
+        run: bash "${GATE_ACTION}/resources/action/publish.sh"
