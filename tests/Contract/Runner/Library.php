@@ -60,6 +60,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Support\NativeCodeception;
 use NightWorksIO\MutationGate\Tests\Support\NativePhpSpec;
 use NightWorksIO\MutationGate\Tests\Support\NativePhpUnit;
+use NightWorksIO\MutationGate\Tests\Support\NativeTesto;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 use NightWorksIO\MutationGateDefault\DefaultExtension;
 use Pest\Mutate\Mutators\Arithmetic\MinusToPlus;
@@ -113,6 +114,13 @@ final class Library
      * vendor directory, one level up, its own runner contracts steps install.
      */
     public const string CODECEPTION_DIRECTORY = 'tests/Contract/Runner/codeception-fixture/library';
+
+    /**
+     * The Testo runner's library, the same code, tested by Testo, in the
+     * Testo runner's fixture, whose vendor directory, one level up, its own
+     * runner contracts steps install.
+     */
+    public const string TESTO_DIRECTORY = 'tests/Contract/Runner/testo-fixture/library';
 
     public const string CANARY = 'mutation-canary';
 
@@ -238,6 +246,12 @@ final class Library
     /** @var array<string, string> what the Codeception runner names each test it is asked, by the test's id */
     private const array CODECEPTION_NAMES = [
         'CodeceptionLibrary\\MoneyTest::testAddsTwoAmounts' => 'tests/MoneyTest.php::testAddsTwoAmounts',
+        'Nowhere\\GoneTest::gone' => 'Nowhere\\GoneTest::gone',
+    ];
+
+    /** @var array<string, string> what the Testo runner names each test it is asked, by the test's id */
+    private const array TESTO_NAMES = [
+        'TestoLibrary\\MoneyTest::addsTwoAmounts' => 'tests/MoneyTest.php::addsTwoAmounts',
         'Nowhere\\GoneTest::gone' => 'Nowhere\\GoneTest::gone',
     ];
 
@@ -490,6 +504,56 @@ final class Library
         return is_dir(Tree::at(sprintf('%s/../vendor', self::CODECEPTION_DIRECTORY)));
     }
 
+    /**
+     * The Testo runner over its installed library, making its mutants with
+     * the default set, keeping each mutant's limit within the standard
+     * bounds. It has no ignore marker of its own, prints what Testo printed,
+     * its totals last, and names its test files as Testo's tests are named.
+     */
+    public static function testo(): self
+    {
+        return self::testoWithin(Triage::standard()->bounds(), 'testo');
+    }
+
+    /** The Testo runner over its installed library, keeping each mutant's limit within these bounds, by this name. */
+    public static function testoWithin(LimitBounds $kept, string $name): self
+    {
+        $root = Tree::at(self::TESTO_DIRECTORY);
+        $testo = static function (string $root) use ($kept): NativeRunner {
+            $project = NativeProject::at($root, self::testsIn($root, SuiteConfig::Testo), Path::of('../vendor'), Path::of('.mutation-gate'), BuiltinRunner::Testo);
+
+            return new NativeRunner(
+                $project,
+                new NativeShell(new LocalProcesses(new SystemClock()), $root, getenv()),
+                NativeTesto::in($project),
+                self::defaultSet(),
+                $kept,
+                new CapDirectory(),
+            );
+        };
+
+        return new self(
+            $name,
+            $testo($root),
+            self::NATIVE,
+            endsReported: true,
+            defining: Paths::of(Path::of('testo.php')),
+            naming: self::TESTO_NAMES,
+            outside: $testo(dirname($root)),
+            package: Path::of(basename($root)),
+            root: $root,
+            markers: [],
+            prints: 'Total',
+            suite: SuiteConfig::Testo,
+            suffix: 'Test.php',
+        );
+    }
+
+    public static function isTestoInstalled(): bool
+    {
+        return is_dir(Tree::at(sprintf('%s/../vendor', self::TESTO_DIRECTORY)));
+    }
+
     /** The Pest adapter over the installed library, with `pest:patch` off or on. */
     public static function pest(Patching $patching): self
     {
@@ -526,6 +590,7 @@ final class Library
             $runner === 'phpunit' && self::isPhpUnitInstalled() => self::phpunit(),
             $runner === 'phpspec' && self::isPhpSpecInstalled() => self::phpspec(),
             $runner === 'codeception' && self::isCodeceptionInstalled() => self::codeception(),
+            $runner === 'testo' && self::isTestoInstalled() => self::testo(),
             default => Assert::markTestSkipped(sprintf('the runner contracts job for %s installs its library', $runner)),
         };
     }

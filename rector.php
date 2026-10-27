@@ -16,6 +16,8 @@ return RectorConfig::configure()
         __DIR__ . '/bin/mutation-gate',
         __DIR__ . '/bin/mutation-gate-worker',
         __DIR__ . '/bin/mutation-gate-phpspec',
+        __DIR__ . '/bin/mutation-gate-testo',
+        __DIR__ . '/bin/mutation-gate-testo-config.php',
         __DIR__ . '/bin/mutation-gate-pest-worker',
         __DIR__ . '/bin/mutation-gate-pest-client',
     ])

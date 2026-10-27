@@ -20,6 +20,7 @@ enum Package: string
     case PhpSpec = 'phpspec/phpspec';
     case Codeception = 'codeception/codeception';
     case Testo = 'testo/testo';
+    case TestoCodecov = 'testo/codecov';
     case PhpStan = 'phpstan/phpstan';
     case Mago = 'carthage-software/mago';
     case Laravel = 'laravel/framework';

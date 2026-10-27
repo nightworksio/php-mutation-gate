@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Native\Command;
+use NightWorksIO\MutationGate\Core\Native\CoverageReport;
 use NightWorksIO\MutationGate\Core\Native\Framework;
 use NightWorksIO\MutationGate\Core\Native\Selection as SelectionFile;
 use NightWorksIO\MutationGate\Core\Native\Shell;
@@ -141,6 +142,12 @@ final readonly class PhpUnitFramework implements Framework
     public function startUp(string $selection): array
     {
         return $this->commandLine->startUp($selection);
+    }
+
+    /** php-code-coverage's PHP report, which times each test. */
+    public function report(): CoverageReport
+    {
+        return CoverageReport::Php;
     }
 
     public function coverage(CoverageRun $request, string $map): array

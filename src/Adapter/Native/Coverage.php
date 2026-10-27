@@ -14,10 +14,14 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\HandoffLimits;
-use NightWorksIO\MutationGate\Core\Coverage\PhpReport;
+use NightWorksIO\MutationGate\Core\Coverage\PhpUnitXml;
+use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\Native\CoverageReport;
 use NightWorksIO\MutationGate\Core\Native\Framework;
 use NightWorksIO\MutationGate\Core\Native\Shell;
+use NightWorksIO\MutationGate\Core\Native\TestTimes;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CoverageFailure;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
@@ -65,28 +69,59 @@ final readonly class Coverage
     /** The report a run the project started in this job left in a directory, or why there is none to read. */
     private function reportIn(Path $directory): CoverageMap|CannotJudge
     {
-        $report = $directory->child(Path::of(PhpReport::NAME));
-
-        return CoverageFile::read($this->project, $this->project->absolute($report));
+        return $this->read($this->mapIn($directory));
     }
 
     /** A run under coverage into the request's directory, with no earlier run's map left there. */
     private function measured(CoverageRun $request): CoverageMap|CannotJudge
     {
-        $map = $this->project->absolute($request->directory()->child(Path::of(PhpReport::NAME)));
+        $map = $this->mapIn($request->directory());
+        $left = [$this->framework->report()->written($map), CoverageReport::timesBeside($map)];
 
-        if (is_file($map)) {
-            unlink($map);
+        foreach ($left as $file) {
+            if (is_file($file)) {
+                unlink($file);
+            }
         }
 
-        if (file_exists($map)) {
-            return Leftover::at($map);
+        if (file_exists($left[0])) {
+            return Leftover::at($left[0]);
         }
 
         $ran = $this->shell->run($this->invocation->coverage($request, $map));
 
         return $ran->succeeded()
-            ? CoverageFile::read($this->project, $map)
+            ? $this->read($map)
             : CoverageFailure::said($this->framework->program(), $ran->output());
+    }
+
+    /** Where the framework's map is in a directory of the project, on disk. */
+    private function mapIn(Path $directory): string
+    {
+        return $this->project->absolute($directory->child(Path::of($this->framework->report()->value)));
+    }
+
+    /**
+     * The map the framework wrote: its PHP report, or its XML coverage timed
+     * as the gate's recorder timed each test.
+     */
+    private function read(string $map): CoverageMap|CannotJudge
+    {
+        if ($this->framework->report() === CoverageReport::Php) {
+            return CoverageFile::read($this->project, $map);
+        }
+
+        $xml = PhpUnitXml::read(
+            Root::of($this->project->root()),
+            DiskPath::of($map),
+            static fn(DiskPath $file): string|false => is_file($file->value())
+                ? file_get_contents($file->value())
+                : false,
+        );
+        $times = CoverageReport::timesBeside($map);
+
+        return $xml instanceof CannotJudge
+            ? $xml
+            : $xml->timedEach(...TestTimes::read(is_file($times) ? file_get_contents($times) : false));
     }
 }

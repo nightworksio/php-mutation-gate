@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Native\CoverageReport;
 use NightWorksIO\MutationGate\Core\Native\Framework;
 use NightWorksIO\MutationGate\Core\Native\Selection;
 use NightWorksIO\MutationGate\Core\Native\Shell;
@@ -95,6 +96,11 @@ final readonly class WithoutWorkers implements Framework
     public function startUp(string $selection): array
     {
         return $this->framework->startUp($selection);
+    }
+
+    public function report(): CoverageReport
+    {
+        return $this->framework->report();
     }
 
     public function coverage(CoverageRun $request, string $map): array

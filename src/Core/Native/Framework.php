@@ -87,6 +87,9 @@ interface Framework
      */
     public function coverage(CoverageRun $request, string $map): array;
 
+    /** The coverage map its coverage run writes, which the native runner reads back. */
+    public function report(): CoverageReport;
+
     /** These suites' tests and the groups each is in, listed by the framework into this file and none run. */
     public function listing(Shell $shell, Withheld $withheld, Suites $suites, string $file): TestListing|CannotJudge;
 

@@ -483,7 +483,7 @@ jobs:
       matrix:
         # The runners whose legs this run reaches, every one where `what
         # changed` could not say.
-        runner: ${{ fromJSON(needs.scope.outputs.runners || '["pest", "infection-13", "infection-12", "phpunit", "phpspec", "codeception", "analysers"]') }}
+        runner: ${{ fromJSON(needs.scope.outputs.runners || '["pest", "infection-13", "infection-12", "phpunit", "phpspec", "codeception", "testo", "analysers"]') }}
         resolution: [highest, lowest]
     env:
       LEG: ${{ matrix.runner }}-${{ matrix.resolution }}
@@ -530,6 +530,12 @@ jobs:
       #   tests and a Cest, at the highest Codeception its lock holds and the
       #   lowest the runner supports (ADR-0027), its lowest pinned as the
       #   PhpSpec fixture's is.
+      # - testo: the Testo runner's fixture, whose library/ tests the code
+      #   every runner's contract mutates with Testo, at the one Testo release
+      #   its manifest pins, which is its lowest too: the runner drives one
+      #   Testo series until Testo is stable (ADR-0027). Testo measures with
+      #   its own XML coverage, so the leg needs no php-code-coverage of the
+      #   package's.
       # - analysers: Mago, PHPStan and Psalm, each at its lowest with every
       #   other package raised again to the highest that allows them, as a
       #   project requiring that analyser installs it: Psalm 6.14.0's lowest
@@ -559,6 +565,9 @@ jobs:
           codeception)
             dir=tests/Contract/Runner/codeception-fixture filter=Codeception contracts=codeception analysers='' lowest=coverage
             packages='codeception/codeception|phpunit/php-code-coverage' ;;
+          testo)
+            dir=tests/Contract/Runner/testo-fixture filter=Testo contracts=testo analysers='' lowest=own
+            packages='testo/testo|testo/codecov' ;;
           analysers)
             dir=tests/Contract/StaticChecker/fixture filter=StaticChecker contracts='' analysers=1 lowest=analysers
             packages='carthage-software/mago|phpstan/phpstan|vimeo/psalm' ;;

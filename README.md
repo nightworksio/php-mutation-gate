@@ -43,7 +43,8 @@ sentence saying what the tests miss.
     `phpunit/php-code-coverage` 14;
   - **Codeception**: `codeception/codeception` 5.3.6 or later, with
     `phpunit/php-code-coverage` 14, for the suites that run in the test's
-    own process.
+    own process;
+  - **Testo**: `testo/testo` 0.10, and no other series until Testo 1.0.
 
   Infection and the PHPUnit runner do not run Pest suites, so a Pest project
   uses Pest's own mutation testing.
@@ -183,7 +184,7 @@ The first release is tagged when every row says *yes*.
 | | Infection as well as Pest | yes | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 | | A native runner for PHPUnit, on the gate's own mutants | yes | [0023](.docs/decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) |
 | | Native runners for PhpSpec and Codeception, on the gate's own mutants | yes | [0027](.docs/decisions/0027-codeception-phpspec-and-testo-get-native-runners.md) |
-| | A native runner for Testo | not yet | [0027](.docs/decisions/0027-codeception-phpspec-and-testo-get-native-runners.md) |
+| | A native runner for Testo 0.10 | yes | [0027](.docs/decisions/0027-codeception-phpspec-and-testo-get-native-runners.md) |
 | | Weak assertions, found and paired with the survivors they let through | yes | [0025](.docs/decisions/0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions.md) |
 | | A score per test suite | yes | [0025](.docs/decisions/0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions.md) |
 | | Survivors grouped by code owner, with owners mentioned and floors per owner | not yet | [0022](.docs/decisions/0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md) |

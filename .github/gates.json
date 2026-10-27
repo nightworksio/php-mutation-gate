@@ -185,6 +185,8 @@
         {"step": "phpspec-lowest", "tool": "pest", "raw": "evidence/raw/phpspec-lowest.xml"},
         {"step": "codeception-highest", "tool": "pest", "raw": "evidence/raw/codeception-highest.xml"},
         {"step": "codeception-lowest", "tool": "pest", "raw": "evidence/raw/codeception-lowest.xml"},
+        {"step": "testo-highest", "tool": "pest", "raw": "evidence/raw/testo-highest.xml"},
+        {"step": "testo-lowest", "tool": "pest", "raw": "evidence/raw/testo-lowest.xml"},
         {"step": "analysers-highest", "tool": "pest", "raw": "evidence/raw/analysers-highest.xml"},
         {"step": "analysers-lowest", "tool": "pest", "raw": "evidence/raw/analysers-lowest.xml"}
       ],

@@ -333,6 +333,9 @@ parameters:
                 - src/Adapter/PhpSpec/Example.php
                 # Codeception's extension reads #[Holds] from the test's class and method Codeception hands it (ADR-0027).
                 - src/Adapter/Codeception/Test.php
+                # Testo's plugin reads #[Group] and #[Holds] from the function and class of the test Testo hands it
+                # (ADR-0027).
+                - src/Adapter/Testo/TestoTest.php
                 # A warm worker's child reads and sets RefreshDatabase's static state, by name, since the gate does
                 # not require Laravel (ADR-0023).
                 - src/Adapter/Pest/Warm/Database/Laravel.php

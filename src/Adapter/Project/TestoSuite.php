@@ -22,10 +22,12 @@ use NightWorksIO\MutationGate\Core\Test\TestsDirectory;
 use PhpParser\Error;
 use PhpParser\Node;
 use PhpParser\Node\Arg;
+use PhpParser\Node\ArrayItem;
 use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\Array_;
 use PhpParser\Node\Expr\BinaryOp\Concat;
 use PhpParser\Node\Expr\New_;
+use PhpParser\Node\Identifier;
 use PhpParser\Node\Name;
 use PhpParser\Node\Scalar\MagicConst\Dir;
 use PhpParser\Node\Scalar\String_;
@@ -35,6 +37,10 @@ use PhpParser\NodeVisitor\NameResolver;
 use PhpParser\ParserFactory;
 
 use function sprintf;
+
+use Testo\Application\Config\ApplicationConfig;
+use Testo\Application\Config\FinderConfig;
+use Testo\Application\Config\SuiteConfig;
 
 /**
  * The tests a Testo config declares, read from its code and never run: the
@@ -48,11 +54,11 @@ use function sprintf;
  */
 final readonly class TestoSuite
 {
-    private const string SUITE = 'Testo\\Application\\Config\\SuiteConfig';
+    private const string SUITE = SuiteConfig::class;
 
-    private const string FINDER = 'Testo\\Application\\Config\\FinderConfig';
+    private const string FINDER = FinderConfig::class;
 
-    private const string APPLICATION = 'Testo\\Application\\Config\\ApplicationConfig';
+    private const string APPLICATION = ApplicationConfig::class;
 
     /** Each argument the gate reads, by its name and its position. */
     private const array LOCATION = ['location', 1];
@@ -139,7 +145,7 @@ final readonly class TestoSuite
      */
     private static function declared(array $included, array $excluded): TestSuite
     {
-        $paths = array_map(static fn(string $path): Path => Path::of($path), $included);
+        $paths = array_map(Path::of(...), $included);
 
         return TestSuite::of(
             array_values(array_map(
@@ -148,7 +154,7 @@ final readonly class TestoSuite
             )),
             self::under(TestsDirectory::conventional()),
             Paths::of(...array_filter($paths, static fn(Path $path): bool => $path->isPhp())),
-            Paths::of(...array_map(static fn(string $path): Path => Path::of($path), $excluded)),
+            Paths::of(...array_map(Path::of(...), $excluded)),
             DeclaredSuites::none(),
         );
     }
@@ -180,7 +186,9 @@ final readonly class TestoSuite
         return match (true) {
             $paths instanceof NotGiven => [],
             $paths instanceof Array_ => array_values(array_map(
-                static fn(Node\ArrayItem $item): Expr => $item->key === null && ! $item->unpack ? $item->value : $paths,
+                static fn(ArrayItem $item): Expr => ! $item->key instanceof Expr && ! $item->unpack
+                    ? $item->value
+                    : $paths,
                 $paths->items,
             )),
             default => [$paths],
@@ -220,7 +228,7 @@ final readonly class TestoSuite
         $given = array_find(
             array_values($call->args),
             static fn(Node $arg, int $index): bool => $arg instanceof Arg
-                && ($arg->name === null ? $index === $position : $arg->name->toString() === $name),
+                && ($arg->name instanceof Identifier ? $arg->name->toString() === $name : $index === $position),
         );
 
         return $given instanceof Arg ? $given->value : NotGiven::value();

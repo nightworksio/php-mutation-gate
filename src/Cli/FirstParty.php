@@ -60,6 +60,8 @@ use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Adapter\Psalm\Psalm;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
+use NightWorksIO\MutationGate\Adapter\Testo\Installation as TestoInstallation;
+use NightWorksIO\MutationGate\Adapter\Testo\TestoFramework;
 use NightWorksIO\MutationGate\Cli\Config\KeyedStore;
 use NightWorksIO\MutationGate\Cli\Config\PublicBucket;
 use NightWorksIO\MutationGate\Cli\Config\Registered;
@@ -283,6 +285,18 @@ final readonly class FirstParty implements Extension
                     BuiltinRunner::Codeception,
                     static fn(string $root, Path $vendor, TestLayout $tests): CodeceptionFramework
                         => new CodeceptionFramework(CodeceptionInstallation::at($root, $vendor), $tests),
+                    ComposerVendor::of(self::HERE),
+                    new CapDirectory(),
+                    $processes,
+                ),
+            )
+            ->withRunner(
+                BuiltinRunner::Testo->named(),
+                static fn(Options $options): NativeRunner|Invalid => NativeRunner::fromOptions(
+                    $options,
+                    BuiltinRunner::Testo,
+                    static fn(string $root, Path $vendor, TestLayout $tests): TestoFramework
+                        => new TestoFramework(TestoInstallation::at($root, $vendor), $tests),
                     ComposerVendor::of(self::HERE),
                     new CapDirectory(),
                     $processes,

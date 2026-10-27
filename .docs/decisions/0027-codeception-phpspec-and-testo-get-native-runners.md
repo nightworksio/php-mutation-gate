@@ -121,20 +121,34 @@ the test process never reaches that process.
    - **Listing.** A run that selects no example lists every example and its
      holding groups to a file.
 
-5. **Testo: supported at 1.0, pinned exactly.**
-   - **The pin.** `composer.json` declares a `conflict` outside the Testo
-     releases the Runner contract suite has passed, as it does for
-     pest-plugin-mutate (ADR-0004), and the daily runner canary
-     (ADR-0017) names the `conflict` line to write when a newer
+5. **Testo: one series pinned exactly, widened to 1.0 once the contract
+   suite passes on it.**
+   - **The pin.** 0.1.0 supports Testo 0.10 and no other series:
+     `composer.json` declares a `conflict` outside it, as it does for
+     pest-plugin-mutate (ADR-0004), and the runner refuses another series
+     in a project's vendor directory by name. A minor release widens the
+     pin to Testo 1.0 once the Runner contract suite passes on it. The daily
+     runner canary (ADR-0017) names the `conflict` line to write when a newer
      release passes.
-   - **The first failure.** A gate Testo plugin answers the first failing
-     `TestFinished` by cancelling the tests that remain (`CancelTest`). The
-     first step of the build proves that a plugin can do so. If it cannot, a
-     mutant runs its covering tests to the end, and the first failure is still
-     its first killer.
-   - **Selection** is `--filter Class::method` and `--path`, **groups** are
-     Testo's own, **coverage** is `--coverage-xml` and **timings** come from
-     `--log-junit`.
+   - **The plugin.** One gate Testo plugin does the runner's work. The
+     gate starts Testo through its own launcher, `bin/mutation-gate-testo`,
+     which runs Testo's `run` over a config of the gate's. That config loads
+     the project's own `testo.php` unchanged and adds the plugin. Ahead of
+     everything that prepares or repeats a test, so a data set never stands
+     for its test, the plugin:
+     - runs exactly the tests whose ids a file lists, and none other;
+     - records each test it runs to the file `MUTATION_GATE_RESULTS` names,
+       as it starts and as it ended;
+     - once a test has failed or errored, answers every later test as
+       cancelled without running it, unless the request asks for every
+       killer;
+     - in a listing run, lists every test with its `#[Group]` groups and the
+       holding groups its `#[Holds]` names, and runs none.
+   - **Coverage and timings.** Coverage is Testo's own `--coverage-xml`.
+     `Core\Coverage\PhpUnitXml` reads it for both the native runner and the
+     Infection adapter, so no adapter names another. The XML holds no
+     times, so each test's time comes from the plugin's own record of the
+     coverage run.
 
 6. **Each native runner is chosen by name, or by zero-config when it alone
    fits.** `runner: codeception`, `runner: phpspec` and `runner: testo` name
