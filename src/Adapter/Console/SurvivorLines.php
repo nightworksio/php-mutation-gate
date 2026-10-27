@@ -45,7 +45,7 @@ final readonly class SurvivorLines
                     sprintf('%s (%d)', Fit::plain($group->name()), $part->survivors()),
                     ...Indented::lines($blocks),
                 ]
-                : [...$lines, ...$blocks];
+                : $blocks;
         }
 
         return $lines;
