@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Ci;
 
 use NightWorksIO\MutationGate\Core\Composer\Installed;
+use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 
 use function preg_match;
@@ -13,7 +14,8 @@ use function sprintf;
 /**
  * The gate's own release as a CI definition pins it (ADR-0015):
  * the commit Composer installed it from, with its version, read from the
- * project's `vendor/composer/installed.json`. A gate Composer did not
+ * project's `vendor/composer/installed.json`; or, under the gate's PHAR, the
+ * commit and version built into it (ADR-0022). A gate Composer did not
  * install, such as its own checkout, pins nothing, and says so.
  */
 final readonly class GatePin
@@ -41,15 +43,26 @@ final readonly class GatePin
     public static function in(Installed $installed): self
     {
         foreach ($installed->versionsOf(ThisPackage::COMPOSER) as $version) {
-            $pinned = preg_match(self::COMMIT, $version->reference()) === 1
-                && preg_match(self::VERSION, $version->version()) === 1;
+            $pin = self::of($version);
 
-            if ($pinned) {
-                return new self($version->reference(), $version->version(), $version->isRelease());
+            if ($pin->isKnown()) {
+                return $pin;
             }
         }
 
         return self::unknown();
+    }
+
+    /**
+     * The gate at this version, as its PHAR has it built in; unknown where it names no full commit, or a version
+     * with more than letters, digits and `.`, `_`, `+` and `-` in it.
+     */
+    public static function of(Version $version): self
+    {
+        $pinned = preg_match(self::COMMIT, $version->reference()) === 1
+            && preg_match(self::VERSION, $version->version()) === 1;
+
+        return $pinned ? new self($version->reference(), $version->version(), $version->isRelease()) : self::unknown();
     }
 
     public static function unknown(): self

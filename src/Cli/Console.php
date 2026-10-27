@@ -48,6 +48,7 @@ use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
 use NightWorksIO\MutationGate\Core\Migration\Migrations;
+use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
 use NightWorksIO\MutationGate\Core\Watch\Poll;
 use NightWorksIO\MutationGate\Extension\Extensions;
@@ -139,7 +140,11 @@ final readonly class Console
         $application->addCommand(AffectedCommand::command($composition));
         $formats = new Formats(class_exists(...));
         $installed = $detected->installed();
-        $gate = $installed instanceof Installed ? GatePin::in($installed) : GatePin::unknown();
+        $gate = match (true) {
+            OwnArchive::running() instanceof OwnArchive => GatePin::of(InstalledGate::version()),
+            $installed instanceof Installed => GatePin::in($installed),
+            default => GatePin::unknown(),
+        };
         $application->addCommand(
             Init::command(
                 $project,

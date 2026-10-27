@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\Ci\GatePin;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Runner\Version;
 
 /**
  * The gate's pin, where Composer lists these packages installed.
@@ -63,3 +64,15 @@ it('pins a branch Composer installed by its commit alone, since its version name
 
     expect([$pin->isKnown(), $pin->pin()])->toBe([true, GATE_COMMIT]);
 })->with(['a branch' => ['dev-main'], 'an aliased branch' => ['2.x-dev']]);
+
+it('pins the commit and version built into the gate\'s PHAR, and nothing where it names no commit', function (): void {
+    $built = GatePin::of(Version::of('nightworksio/mutation-gate', '1.2.0', GATE_COMMIT));
+    $branch = GatePin::of(Version::of('nightworksio/mutation-gate', 'dev-main', GATE_COMMIT));
+    $unpinned = GatePin::of(Version::of('nightworksio/mutation-gate', '1.2.0', 'abc123'));
+    $spaced = GatePin::of(Version::of('nightworksio/mutation-gate', '1.2 beta', GATE_COMMIT));
+
+    expect($built->pin())->toBe(sprintf('%s # 1.2.0', GATE_COMMIT))
+        ->and($branch->pin())->toBe(GATE_COMMIT)
+        ->and($unpinned->isKnown())->toBeFalse()
+        ->and($spaced->isKnown())->toBeFalse();
+});
