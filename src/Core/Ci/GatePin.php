@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Ci;
 
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Runner\Version;
+use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 
 use function preg_match;
@@ -37,12 +39,15 @@ final readonly class GatePin
     }
 
     /**
-     * The gate as Composer lists it; unknown where Composer does not list it, or names no full commit, as a path
-     * repository does, or a version with more than letters, digits and `.`, `_`, `+` and `-` in it.
+     * The gate as Composer lists it; unknown where Composer lists nothing that can be read, does not list it, or
+     * names no full commit, as a path repository does, or a version with more than letters, digits and `.`, `_`, `+`
+     * and `-` in it.
      */
-    public static function in(Installed $installed): self
+    public static function in(Installed|CannotJudge $installed): self
     {
-        foreach ($installed->versionsOf(ThisPackage::COMPOSER) as $version) {
+        $versions = $installed instanceof Installed ? $installed->versionsOf(ThisPackage::COMPOSER) : Versions::none();
+
+        foreach ($versions as $version) {
             $pin = self::of($version);
 
             if ($pin->isKnown()) {

@@ -23,11 +23,14 @@ $archive = static function (string $directory, string ...$arguments): Process {
     return $process;
 };
 
-/** A copy of the fixture, committed in a repository of its own, which installs no copy of the gate. */
+/**
+ * A copy of the fixture, committed in a repository of its own, which installs no copy of the gate. The commit starts
+ * no background gc, which would still be packing as the test's directory is swept.
+ */
 $project = static function (): string {
     $root = Scratch::copy('tests/Fixtures/Archive');
 
-    foreach ([['init', '--quiet'], ['add', '--all'], ['-c', 'user.name=gate', '-c', 'user.email=gate@example.com', '-c', 'commit.gpgsign=false', 'commit', '--quiet', '--message=fixture']] as $git) {
+    foreach ([['init', '--quiet'], ['add', '--all'], ['-c', 'user.name=gate', '-c', 'user.email=gate@example.com', '-c', 'commit.gpgsign=false', '-c', 'gc.auto=0', '-c', 'maintenance.auto=false', 'commit', '--quiet', '--message=fixture']] as $git) {
         new Process(['git', ...$git], $root)->mustRun();
     }
 

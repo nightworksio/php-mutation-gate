@@ -190,7 +190,7 @@ function ciTemplateGate(): GatePin
         Path::of('vendor/composer/installed.json'),
     );
 
-    return $installed instanceof Installed ? GatePin::in($installed) : GatePin::unknown();
+    return GatePin::in($installed);
 }
 
 /**

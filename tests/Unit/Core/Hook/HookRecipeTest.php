@@ -76,7 +76,7 @@ it('lists the pre-commit framework\'s hooks from the repository, pinned to the g
     );
     $pinned = HookRecipe::of(
         HookCall::of(Path::root(), GateCommand::at(Path::of('vendor/bin/mutation-gate'))),
-        $installed instanceof Installed ? GatePin::in($installed) : GatePin::unknown(),
+        GatePin::in($installed),
     );
 
     expect($pinned->whole(HookFramework::PreCommit))->toBe(sprintf(<<<'YAML'

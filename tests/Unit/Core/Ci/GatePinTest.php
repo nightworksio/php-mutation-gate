@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\GatePin;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -20,7 +21,7 @@ function gatePinOf(array $packages): GatePin
         Path::of('vendor/composer/installed.json'),
     );
 
-    return $installed instanceof Installed ? GatePin::in($installed) : GatePin::unknown();
+    return GatePin::in($installed);
 }
 
 const GATE_COMMIT = '0123456789abcdef0123456789abcdef01234567';
@@ -41,6 +42,7 @@ it('pins nothing it can name where Composer does not list the gate, or names no 
     expect([$pin->commit(), $pin->version(), $pin->isKnown(), $pin->pin()])
         ->toBe(['<the commit of a release>', '<its version>', false, '<the commit of a release>']);
 })->with([
+    'nothing Composer lists can be read' => [fn(): GatePin => GatePin::in(CannotJudge::because('vendor/composer/installed.json is not there.'))],
     'not listed' => [fn(): GatePin => gatePinOf([['name' => 'acme/other', 'version' => 'v9.0.0', 'source' => ['reference' => 'ffff']]])],
     'no commit' => [fn(): GatePin => gatePinOf([['name' => 'nightworksio/mutation-gate', 'version' => 'dev-main']])],
     'an empty commit' => [fn(): GatePin => gatePinOf([
