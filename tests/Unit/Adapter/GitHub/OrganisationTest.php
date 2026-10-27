@@ -66,6 +66,36 @@ it('reads no page past one that holds fewer than a page can', function (): void 
     expect(array_map(static fn(Listing $listing): string => $listing->name(), is_array($listings) ? $listings : []))->toBe(['api']);
 });
 
+it('reads the first 50 pages of repositories, and none past them', function (): void {
+    $answers = [];
+
+    foreach (range(1, 51) as $page) {
+        $repositories = [];
+
+        foreach (range(1, 100) as $at) {
+            $repositories[] = Dashboards::repository(sprintf('other-%d-%d', $page, $at), []);
+        }
+
+        $repositories[0] = Dashboards::repository(sprintf('on-page-%d', $page), ['mutation-gate']);
+        $answers[Dashboards::page($page)] = Dashboards::json($repositories);
+    }
+
+    $listings = acme($answers)->listings('mutation-gate', new Absent());
+    $names = array_map(static fn(Listing $listing): string => $listing->name(), is_array($listings) ? $listings : []);
+
+    expect($names)->toHaveCount(50)
+        ->and($names)->toContain('on-page-50')
+        ->and($names)->not->toContain('on-page-51');
+});
+
+it('names the organisation in GitHub\'s address as a path segment', function (): void {
+    $listings = Organisation::of(Api::at(GitHubAnswering::client([
+        '/orgs/acme%2Flabs/repos?type=all&per_page=100&page=1' => Dashboards::json([Dashboards::repository('api', ['mutation-gate'])]),
+    ]), '', 'secret'), 'acme/labs')->listings('mutation-gate', new Absent());
+
+    expect(array_map(static fn(Listing $listing): string => $listing->name(), is_array($listings) ? $listings : []))->toBe(['api']);
+});
+
 it('says why a repository published nothing it can read', function (): void {
     $listings = acme([
         Dashboards::page(1) => Dashboards::json([Dashboards::repository('api', ['mutation-gate'])]),
