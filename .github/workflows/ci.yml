@@ -367,10 +367,11 @@ jobs:
         run: |
           mkdir -p evidence/raw
           composer test:network -- --log-junit=evidence/raw/tests-network.xml
-      # Whatever the run holds, saved even where a host failed, so each schema
-      # fetched once is never fetched again while its pin stands.
+      # The whole set, saved only where every schema was there to validate
+      # against: a set a host's failure left short would be the newest, and
+      # each run after it would fetch what it lacks again.
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: ${{ !cancelled() }}
+        if: ${{ steps.network.outcome == 'success' }}
         with:
           path: /tmp/mutation-gate-schema-*.json
           key: schemas-${{ hashFiles('tests/Unit/Core/Ci/CiTemplateTest.php', 'tests/Unit/Core/Report/SarifTest.php') }}-${{ github.run_id }}-${{ github.job }}
@@ -437,10 +438,11 @@ jobs:
       - id: network
         if: ${{ !cancelled() }}
         run: composer test:network -- --log-junit=evidence/raw/lowest-network.xml
-      # Whatever the run holds, saved even where a host failed, so each schema
-      # fetched once is never fetched again while its pin stands.
+      # The whole set, saved only where every schema was there to validate
+      # against: a set a host's failure left short would be the newest, and
+      # each run after it would fetch what it lacks again.
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: ${{ !cancelled() }}
+        if: ${{ steps.network.outcome == 'success' }}
         with:
           path: /tmp/mutation-gate-schema-*.json
           key: schemas-${{ hashFiles('tests/Unit/Core/Ci/CiTemplateTest.php', 'tests/Unit/Core/Report/SarifTest.php') }}-${{ github.run_id }}-${{ github.job }}
