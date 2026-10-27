@@ -16,6 +16,7 @@
                 "src/Adapter/Pest/Plugin.php",
                 "src/Adapter/Pest/Recording/Guard.php",
                 "src/Adapter/Pest/Recording/Killers.php",
+                "src/Adapter/Pest/Recording/LastError.php",
                 "src/Adapter/Pest/Recording/Naming.php",
                 "src/Adapter/Pest/Recording/OnFailed.php",
                 "src/Adapter/Pest/Recording/Placed.php",
