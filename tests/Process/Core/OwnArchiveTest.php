@@ -10,9 +10,14 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-/** The gate's PHAR, as composer phar builds it, run in a directory with these arguments. */
+/**
+ * The gate's PHAR, as composer phar builds it, copied to a file named as the image and Phive name it, with no
+ * `.phar`, and run in a directory with these arguments.
+ */
 $archive = static function (string $directory, string ...$arguments): Process {
-    $process = new Process([PHP_BINARY, Tree::at('build/mutation-gate.phar'), ...$arguments], $directory, timeout: 600);
+    $installed = sprintf('%s/mutation-gate', Scratch::directory());
+    copy(Tree::at('build/mutation-gate.phar'), $installed);
+    $process = new Process([PHP_BINARY, $installed, ...$arguments], $directory, timeout: 600);
     $process->run();
 
     return $process;
