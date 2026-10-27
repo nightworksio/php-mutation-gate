@@ -66,6 +66,13 @@ it('says a repository that has no tree below its floor, no score and no history 
         ->and($page($quiet))->toContain('<td data-value="">no history yet</td>');
 });
 
+it('lists each tree below its floor in the row', function () use ($page): void {
+    $below = Listing::of('api', 'https://github.com/acme/api', private: false, published: Published::read('{"format": 1, "commit": "a", "time": "2026-09-30T10:00:00Z", "verdict": "failed", "score": 10, '
+        . '"trees": [{"path": "src", "floor": 80, "score": 10}, {"path": "lib", "floor": 50, "score": 20}], "newCode": {"floor": 100}}'), trend: Trend::none());
+
+    expect($page($below))->toContain('<td data-value="2"><ul><li><code>src</code> 10.00%, below 80.00%</li><li><code>lib</code> 20.00%, below 50.00%</li></ul></td>');
+});
+
 it('marks a private repository, links none GitHub gave no address over HTTPS for, and says why one published nothing', function () use ($page, $published): void {
     $unpublished = Listing::of('docs', 'https://github.com/acme/docs', private: false, published: CannotJudge::because('It has published no summary.json.'), trend: Trend::none());
 

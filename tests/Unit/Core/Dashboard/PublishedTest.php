@@ -47,6 +47,16 @@ it('reads a project with nothing to mutate and no history of what it saved', fun
         ->and($published instanceof Published ? $published->belowFloor() : $published)->toBe([]);
 });
 
+it('reads a run that could not judge, saved nothing, and left every tree below its floor', function (): void {
+    $published = Published::read('{"format": 1, "commit": "a", "time": "2026-09-30T10:00:00Z", "verdict": "cannot-judge", "score": 10, '
+        . '"trees": [{"path": "src", "floor": 80, "score": 10}, {"path": "lib", "floor": 50, "score": 20}], "newCode": {"floor": 100}, "savings": {"last30Days": 0}}');
+
+    expect($published instanceof Published ? $published->verdict() : $published)->toBe(Judgement::CannotJudge)
+        ->and($published instanceof Published ? $published->saved() : $published)->toEqual(Seconds::of(0.0))
+        ->and($published instanceof Published ? array_map(static fn(TreeBelow $tree): string => $tree->path(), $published->belowFloor()) : $published)
+        ->toBe(['src', 'lib']);
+});
+
 it('refuses whole what is not a summary in the shape of format 1, and says why', function (string $json, string $why): void {
     expect(Published::read($json))->toEqual(CannotJudge::because($why));
 })->with([
@@ -56,7 +66,7 @@ it('refuses whole what is not a summary in the shape of format 1, and says why',
     'a time not in UTC' => ['{"format": 1, "commit": "a", "time": "yesterday", "verdict": "passed", "trees": [], "newCode": {"floor": 100}}', 'Its summary.json is not one this gate reads: summary.json.time is not an instant in UTC.'],
     'a score past 100' => ['{"format": 1, "commit": "a", "time": "2026-09-30T10:00:00Z", "verdict": "passed", "score": 101, "trees": [], "newCode": {"floor": 100}}', 'Its summary.json is not one this gate reads: summary.json.score is not a percentage from 0 to 100.'],
     'a tree\'s floor below 0' => ['{"format": 1, "commit": "a", "time": "2026-09-30T10:00:00Z", "verdict": "passed", "trees": [{"path": "src", "floor": -1}], "newCode": {"floor": 100}}', 'Its summary.json is not one this gate reads: summary.json.trees[0].floor is not a percentage from 0 to 100.'],
-    'savings below nothing' => ['{"format": 1, "commit": "a", "time": "2026-09-30T10:00:00Z", "verdict": "passed", "trees": [], "newCode": {"floor": 100}, "savings": {"last30Days": -5}}', 'Its summary.json is not one this gate reads: summary.json.savings.last30Days is not a number of seconds.'],
+    'savings below nothing' => ['{"format": 1, "commit": "a", "time": "2026-09-30T10:00:00Z", "verdict": "passed", "trees": [], "newCode": {"floor": 100}, "savings": {"last30Days": -1}}', 'Its summary.json is not one this gate reads: summary.json.savings.last30Days is not a number of seconds.'],
     'no floor for new code' => ['{"format": 1, "commit": "a", "time": "2026-09-30T10:00:00Z", "verdict": "passed", "trees": []}', 'Its summary.json is not one this gate reads: summary.json.newCode.floor is missing.'],
 ]);
 

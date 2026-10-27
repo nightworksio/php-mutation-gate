@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Dashboard;
 
-use function array_values;
-
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Score\Score;
@@ -46,7 +44,7 @@ final readonly class Dashboard
 
     public static function of(string $organisation, Instant $time, Listing ...$listings): self
     {
-        $named = array_values($listings);
+        $named = $listings;
         usort($named, static fn(Listing $one, Listing $other): int => strcmp($one->name(), $other->name()));
 
         return new self($organisation, $time, $named);
