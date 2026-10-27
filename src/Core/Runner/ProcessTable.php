@@ -6,8 +6,6 @@ namespace NightWorksIO\MutationGate\Core\Runner;
 
 use function array_diff;
 use function array_key_exists;
-use function array_map;
-use function array_values;
 
 use Closure;
 
@@ -33,6 +31,13 @@ final readonly class ProcessTable
 
     /** The command that freezes processes where they stand, so none starts another, before their ids. */
     private const array FREEZE = ['kill', '-STOP'];
+
+    /**
+     * The lowest id that names one process the gate may stop: 1 is the
+     * system's own first process, 0 the caller's whole process group, and
+     * -1 every process the caller may signal.
+     */
+    private const int LOWEST = 2;
 
     /** @param array<int, list<int>> $children each process's children, by its id */
     private function __construct(private array $children)
@@ -73,12 +78,17 @@ final readonly class ProcessTable
      * on its own: the process frozen first, then each process found under it,
      * listing by listing until a listing finds none it has not frozen, so no
      * process can start another between the listing and the kill; then all of
-     * them killed, deepest first.
+     * them killed, deepest first. An id that names no one process stops
+     * nothing.
      *
      * @param Closure(list<string>): string $run runs a command, and answers what it printed
      */
     public static function stop(int $pid, Closure $run): void
     {
+        if ($pid < self::LOWEST) {
+            return;
+        }
+
         $run(self::signalling(self::FREEZE, $pid));
         $frozen = [];
 
@@ -96,7 +106,8 @@ final readonly class ProcessTable
     }
 
     /**
-     * The command that stops these processes at once.
+     * The command that stops these processes at once, leaving out each id
+     * that names no one process.
      *
      * @return list<string>
      */
@@ -111,6 +122,12 @@ final readonly class ProcessTable
      */
     private static function signalling(array $command, int ...$pids): array
     {
-        return [...$command, ...array_map(static fn(int $pid): string => sprintf('%d', $pid), array_values($pids))];
+        $named = [];
+
+        foreach ($pids as $pid) {
+            $named = $pid < self::LOWEST ? $named : [...$named, sprintf('%d', $pid)];
+        }
+
+        return [...$command, ...$named];
     }
 }

@@ -609,6 +609,8 @@ services:
                     - MEASURED # a field of a shard result
                 'NightWorksIO\MutationGate\Core\Time\Budgets':
                     - PRE_PUSH_MINUTES # a budget, in minutes
+                'NightWorksIO\MutationGate\Core\Runner\ProcessTable':
+                    - LOWEST # the lowest process id that names one process, not an exit code or an argument
                 'NightWorksIO\MutationGate\Core\Runner\Headroom':
                     - TIMES # times a suite's peak memory a cap holds
             # Constants still to refer to their value's one home, by the builder whose area holds them.

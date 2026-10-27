@@ -41,3 +41,31 @@ it('freezes a process, then each process a listing finds under it, until a listi
         'kill -KILL 102 101 100',
     ]);
 });
+
+it('stops nothing by an id that names no one process: init, the caller\'s process group, or every process', function (int $pid): void {
+    $ran = [];
+
+    ProcessTable::stop($pid, static function (array $command) use (&$ran): string {
+        $ran[] = implode(' ', $command);
+
+        return '';
+    });
+
+    expect($ran)->toBe([]);
+})->with([1, 0, -1]);
+
+it('stops the lowest id that names one process', function (): void {
+    $ran = [];
+
+    ProcessTable::stop(2, static function (array $command) use (&$ran): string {
+        $ran[] = implode(' ', $command);
+
+        return '';
+    });
+
+    expect($ran)->toBe(['kill -STOP 2', 'ps -A -o pid= -o ppid=', 'kill -KILL 2']);
+});
+
+it('leaves every id that names no one process out of what it signals', function (): void {
+    expect(ProcessTable::killing(1, 101, 0, 2, -1))->toBe(['kill', '-KILL', '101', '2']);
+});

@@ -48,7 +48,7 @@ it('hands git what it reads from its input', function (): void {
 })->group(...$holds);
 
 it('feeds git where a stream wrapper of PHP code serves file://, as Pest\'s does in a mutant\'s own run', function (): void {
-    $root = Repository::empty()->root;
+    $git = Command::in(Repository::empty()->root);
     $copy = sprintf('%s/Money.php', Scratch::directory());
     $guard = sprintf('%s/guard.txt', Scratch::directory());
     file_put_contents($copy, '<?php');
@@ -56,7 +56,7 @@ it('feeds git where a stream wrapper of PHP code serves file://, as Pest\'s does
     MutantFile::serve(__FILE__, $copy, $guard, Guard::SERVED);
 
     expect(FileWrapper::changed())->toBeTrue()
-        ->and(Command::in($root)->feed(['hash-object', '--stdin'], "hello\n"))->toBe("ce013625030ba8dba906f756967f9e9ca394464a\n");
+        ->and($git->feed(['hash-object', '--stdin'], "hello\n"))->toBe("ce013625030ba8dba906f756967f9e9ca394464a\n");
 })->group(...$holds);
 
 it('cannot tell where git gives no answer, and says what git said', function (): void {

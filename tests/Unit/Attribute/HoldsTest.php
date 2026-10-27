@@ -5,11 +5,13 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Attribute\Holds;
 use NightWorksIO\MutationGate\Tests\Support\Holding;
 
+$holds = 'holds:src/Attribute/Holds.php';
+
 // The canary a patched shard opens on (pest.patch, ADR-0004): quick, and in a
 // file that rarely changes, since every proof key reads it.
 it('holds the path a test spells', function (): void {
     expect(new Holds('src/Kernel.php')->path())->toBe('src/Kernel.php');
-})->group('mutation-canary');
+})->group('mutation-canary', $holds);
 
 it('stands on a class, a method or a function, as often as a test needs', function (): void {
     $attribute = new ReflectionClass(Holds::class)->getAttributes(Attribute::class)[0]->newInstance();
@@ -17,7 +19,7 @@ it('stands on a class, a method or a function, as often as a test needs', functi
     expect($attribute->flags)->toBe(
         Attribute::TARGET_CLASS | Attribute::TARGET_METHOD | Attribute::TARGET_FUNCTION | Attribute::IS_REPEATABLE,
     );
-});
+})->group($holds);
 
 it('is read from a test written with it', function (): void {
     $test = Holding::kernelAndHttp();
@@ -28,4 +30,4 @@ it('is read from a test written with it', function (): void {
     }
 
     expect($paths)->toBe(['src/Kernel.php', 'src/Http']);
-});
+})->group($holds);

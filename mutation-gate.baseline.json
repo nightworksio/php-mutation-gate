@@ -6,7 +6,7 @@
         "plugins/laravel/src": { "floor": 100 },
         "plugins/security/src": { "floor": 100 },
         "plugins/symfony/src": { "floor": 100 },
-        "src": { "floor": 99.93 }
+        "src": { "floor": 100 }
     },
     "security": {
         ".": { "floor": 100 }

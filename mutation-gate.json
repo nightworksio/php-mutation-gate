@@ -79,24 +79,5 @@
     "tests": {
         "suites": ["Unit", "Plugins"],
         "holding": ["Process", "Contract"]
-    },
-    "ignores": {
-        "entries": [
-            {
-                "mutant": "96b0928628e8",
-                "reason": "Equivalent: whether PCRE compiles a pattern does not depend on the subject it is matched against, so any text in place of '' gives the same answer.",
-                "expires": "2027-10-13"
-            },
-            {
-                "mutant": "46649b4dd3ea",
-                "reason": "Equivalent: reproduce declares its id argument required, so Symfony refuses a run without one before the command's code runs, and the id it reads is always a string; the text in place of a missing one is never read.",
-                "expires": "2027-10-21"
-            },
-            {
-                "mutant": "a6a05d04da17",
-                "reason": "Equivalent: TestFile::closingOf compares token indices, and a brace's index never equals the index of the class keyword, so > and >= pick the same brace.",
-                "expires": "2027-10-11"
-            }
-        ]
     }
 }

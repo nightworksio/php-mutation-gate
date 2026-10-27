@@ -51,7 +51,9 @@ function warmRun(string $results, string $end, array $variables = []): Process
 /** The process id of place 1's warm worker of the run that records to these results. */
 function warmWorker(string $results): int
 {
-    return (int) file_get_contents(Seat::at(WarmDirectory::beside($results), 1)->pid());
+    $pid = (int) file_get_contents(Seat::at(WarmDirectory::beside($results), 1)->pid());
+
+    return $pid > 1 ? $pid : throw new RuntimeException('The worker wrote no process id, so no test signals one.');
 }
 
 /** Whether a process still runs: `ps` lists it, and not as one ended and waiting to be reaped. */
@@ -149,6 +151,19 @@ it('starts fresh the run of a mutant of a file the worker loaded, and warns of i
         ->and(is_dir(WarmDirectory::beside($results)))->toBeFalse()
         ->and(isThere($worker))->toBeFalse();
 })->group(...$holds);
+
+it('starts fresh the first run of a mutant of a file the worker loads as it readies the run', function (string $file): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    $mutated = (string) realpath(Tree::at($file));
+    $run = warmRun($results, 'code:0', [Recorder::MUTANT => $mutated]);
+    $run->run();
+
+    expect(parentOf($run))->toBe(getmypid())
+        ->and(WarmDirectory::cleared($results))->toEqual(Warnings::of(Warning::that(sprintf(
+            'The warm worker had loaded %s, which a mutant changes, so its mutants ran fresh.',
+            $mutated,
+        ))));
+})->with(['src/Adapter/Pest/Warm/Offsets.php', 'src/Core/Format/Json.php'])->group(...$holds);
 
 it('forks no child for a run whose asker is gone before the worker takes it, and serves the next', function (): void {
     $results = sprintf('%s/results.jsonl', Scratch::directory());
