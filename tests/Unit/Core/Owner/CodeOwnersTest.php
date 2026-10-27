@@ -48,6 +48,13 @@ it('reads a rule whose owners an inline comment ends, and one with only a commen
         ->and($owners->groupOf(Path::of('web/app.js'))->name())->toBe('@js-owner');
 });
 
+it('reads a pattern that ends in a `#` as a path, and only one that starts with it as a comment', function (): void {
+    $owners = CodeOwners::read(Path::of('CODEOWNERS'), "* @octocat\n/notes# @scribe\n");
+
+    expect($owners->groupOf(Path::of('notes#'))->name())->toBe('@scribe')
+        ->and($owners->groupOf(Path::of('notes'))->name())->toBe('@octocat');
+});
+
 it('reads spaces and tabs between a pattern and its owners, and a carriage return at the end of a line', function (): void {
     $owners = CodeOwners::read(Path::of('CODEOWNERS'), "  src/\t @jo \t@acme/payments\r\n");
 
@@ -87,8 +94,8 @@ it('names an owner it refuses with no character that could colour a terminal', f
 });
 
 it('does not read a file over 3 MB, as GitHub does not', function (): void {
-    $over = CodeOwners::read(Path::of('CODEOWNERS'), sprintf("* @octocat\n%s", str_repeat('#', CodeOwners::MOST_BYTES)));
-    $at = CodeOwners::read(Path::of('CODEOWNERS'), sprintf("* @octocat\n%s", str_repeat('#', CodeOwners::MOST_BYTES - 11)));
+    $over = CodeOwners::read(Path::of('CODEOWNERS'), sprintf("* @octocat\n%s", str_repeat('#', 3 * 1024 * 1024 - 10)));
+    $at = CodeOwners::read(Path::of('CODEOWNERS'), sprintf("* @octocat\n%s", str_repeat('#', 3 * 1024 * 1024 - 11)));
 
     expect($over->wasRead())->toBeFalse()
         ->and($over->groupOf(Path::of('src/Money.php'))->isUnowned())->toBeTrue()
