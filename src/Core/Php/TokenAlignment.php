@@ -9,6 +9,7 @@ use function array_key_exists;
 use function array_keys;
 use function count;
 use function max;
+use function range;
 
 /**
  * Which token of one text each token of another stands for, where the two
@@ -57,8 +58,9 @@ final readonly class TokenAlignment
 
     /**
      * How far along the first each diagonal reached before each step of the
-     * diff, up to the step that reaches the end of both, which comes within
-     * as many steps as the two hold tokens between them.
+     * diff, up to the step whose path along the diagonal that ends at the end
+     * of both reaches the end of the first, which comes within as many steps
+     * as the two hold tokens between them.
      *
      * @param list<string> $first
      * @param list<string> $second
@@ -69,28 +71,18 @@ final readonly class TokenAlignment
     {
         $reached = self::START;
         $trace = [];
+        $end = count($first) - count($second);
 
-        while (! self::reachesTheEnd($reached, $first, $second)) {
+        foreach (range(0, count($first) + count($second)) as $step) {
             $trace[] = $reached;
-            $reached = self::step($reached, count($trace) - 1, $first, $second);
+            $reached = self::step($reached, $step, $first, $second);
+
+            if (array_key_exists($end, $reached) && $reached[$end] === count($first)) {
+                break;
+            }
         }
 
         return $trace;
-    }
-
-    /**
-     * Whether a path reaches the end of both: the diagonal that ends at the
-     * last token of each reaches the end of the first.
-     *
-     * @param array<int, int> $reached
-     * @param list<string>    $first
-     * @param list<string>    $second
-     */
-    private static function reachesTheEnd(array $reached, array $first, array $second): bool
-    {
-        $end = count($first) - count($second);
-
-        return array_key_exists($end, $reached) && $reached[$end] >= count($first);
     }
 
     /**
