@@ -181,6 +181,7 @@
         "deps": "composer-dependency-analyser",
         "lint": "pint --test --parallel",
         "lint:fix": "pint --parallel",
+        "phar": "bash scripts/phar.sh",
         "refactor": "rector process --dry-run",
         "refactor:fix": "rector process",
         "report:schema": "@php scripts/report-schema.php",

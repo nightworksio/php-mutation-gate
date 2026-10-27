@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Native\Selection;
 use NightWorksIO\MutationGate\Core\Native\Variable;
+use NightWorksIO\MutationGate\Core\OwnScript;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
@@ -21,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Tests\Support\NativePhpUnit;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\Tree;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -106,7 +108,7 @@ it('runs the coverage run with pcov collecting from the whole project but its ve
 it('starts a warm worker as a mutant\'s own run starts PHP, on the worker\'s script, the autoloader and its place, writing its output to its files', function () use ($project): void {
     $at = $project();
     $workplace = Workplace::at(sprintf('%s/warm', $at->root()));
-    $command = new Invocation($at, '/gate/override.php', NativePhpUnit::in($at))->worker('/gate/bin/worker', $workplace, 2, Withheld::of('SECRET'));
+    $command = new Invocation($at, '/gate/override.php', NativePhpUnit::in($at))->worker(OwnScript::Worker, $workplace, 2, Withheld::of('SECRET'));
 
     expect($command->arguments())->toBe([
         '/bin/sh',
@@ -120,7 +122,7 @@ it('starts a warm worker as a mutant\'s own run starts PHP, on the worker\'s scr
         'opcache.enable_cli=0',
         '-d',
         'auto_prepend_file=/gate/override.php',
-        '/gate/bin/worker',
+        Tree::at('bin/mutation-gate-worker'),
         sprintf('%s/vendor/autoload.php', $at->root()),
         $workplace->directory(),
         '2',

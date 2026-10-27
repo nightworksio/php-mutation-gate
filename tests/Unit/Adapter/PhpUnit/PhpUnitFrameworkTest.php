@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Native\Selection;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\KillSearch;
 use NightWorksIO\MutationGate\Core\Order\Ordering;
+use NightWorksIO\MutationGate\Core\OwnScript;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\ErrorDisplay;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
@@ -95,7 +96,7 @@ it('runs the script and the config the project installed, and boots its warm wor
         ->and($framework->script())->toBe(sprintf('%s/vendor/bin/phpunit', $real))
         ->and($framework->config())->toBe(sprintf('%s/phpunit.xml', $real))
         ->and($framework->errorDisplay())->toBe(ErrorDisplay::Nowhere)
-        ->and($framework->workerScript())->toBe(Tree::at('bin/mutation-gate-worker'))
+        ->and($framework->workerScript())->toBe(OwnScript::Worker)
         ->and(is_file(Tree::at('bin/mutation-gate-worker')))->toBeTrue()
         ->and(phpUnitFramework()->config())->toEqual(NotGiven::value());
 });

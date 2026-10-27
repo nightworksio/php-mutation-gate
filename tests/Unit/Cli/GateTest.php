@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Gate;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Tests\Fakes\ExtensionFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Symfony\Component\Console\Input\ArgvInput;
@@ -27,7 +28,7 @@ it('hands the command line to the console once the extensions are found', functi
     $output = new BufferedOutput();
     $errors = new BufferedOutput();
 
-    expect(Gate::in($project, sprintf('%s/vendor', $project))->run(new ArrayInput(['command' => 'triage', 'path' => 'src', '--repeat' => '1']), $output, $errors))->toBe(2)
+    expect(Gate::in($project, sprintf('%s/vendor', $project), NotGiven::value())->run(new ArrayInput(['command' => 'triage', 'path' => 'src', '--repeat' => '1']), $output, $errors))->toBe(2)
         ->and($output->fetch())->toBe("--repeat takes a whole number of 2 or more, not \"1\".\n")
         ->and($errors->fetch())->toBe('');
 });
@@ -37,7 +38,7 @@ it('stops before any command when the extensions cannot be loaded', function () 
     $output = new BufferedOutput();
     $errors = new BufferedOutput();
 
-    expect(Gate::in($project, sprintf('%s/vendor', $project))->run(new ArrayInput(['command' => 'triage', 'path' => 'src', '--repeat' => '1']), $output, $errors))->toBe(2)
+    expect(Gate::in($project, sprintf('%s/vendor', $project), NotGiven::value())->run(new ArrayInput(['command' => 'triage', 'path' => 'src', '--repeat' => '1']), $output, $errors))->toBe(2)
         ->and($output->fetch())->toBe('')
         ->and($errors->fetch())->toBe("Two packages register a runner named \"fake\": acme/one and acme/two. Remove one of the packages, or run with --no-extensions.\n");
 });
@@ -46,7 +47,7 @@ it('loads this package\'s own extension alone under --no-extensions', function (
     $project = $conflicted();
     $output = new BufferedOutput();
 
-    expect(Gate::in($project, sprintf('%s/vendor', $project))->run(new ArrayInput(['--no-extensions' => true, 'command' => 'triage', 'path' => 'src', '--repeat' => '1']), $output, new BufferedOutput()))->toBe(2)
+    expect(Gate::in($project, sprintf('%s/vendor', $project), NotGiven::value())->run(new ArrayInput(['--no-extensions' => true, 'command' => 'triage', 'path' => 'src', '--repeat' => '1']), $output, new BufferedOutput()))->toBe(2)
         ->and($output->fetch())->toBe("--repeat takes a whole number of 2 or more, not \"1\".\n");
 });
 
@@ -54,7 +55,7 @@ it('reads --no-extensions as an option only before the end of the options', func
     $project = $conflicted();
     $errors = new BufferedOutput();
 
-    Gate::in($project, sprintf('%s/vendor', $project))->run(new ArgvInput(['mutation-gate', 'reproduce', '--', '--no-extensions']), new BufferedOutput(), $errors);
+    Gate::in($project, sprintf('%s/vendor', $project), NotGiven::value())->run(new ArgvInput(['mutation-gate', 'reproduce', '--', '--no-extensions']), new BufferedOutput(), $errors);
 
     expect($errors->fetch())->toContain('Two packages register a runner named "fake"');
 });

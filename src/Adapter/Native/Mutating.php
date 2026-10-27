@@ -29,6 +29,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Native\Framework;
 use NightWorksIO\MutationGate\Core\Native\Shell;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
@@ -93,7 +94,7 @@ final readonly class Mutating
         }
 
         $laps = Laps::from($this->clock->seconds(...));
-        $override = Override::writtenFor($this->project);
+        $override = Override::writtenFor($this->project, OwnArchive::running());
         $invocation = is_string($override) ? new Invocation($this->project, $override, $this->framework) : $override;
         $from = $laps->now();
         $map = $invocation instanceof Invocation ? $this->mapOf($request, $invocation) : $invocation;

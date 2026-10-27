@@ -31,7 +31,8 @@ parameters:
 
     # The runner contract suite's fixture is a project of its own, with its own
     # dependencies, written as a user's library is rather than to these rules.
-    # The static checker's fixture holds mutants, which are wrong on purpose.
+    # The static checker's fixture holds mutants, which are wrong on purpose. The
+    # PHAR's smoke suite judges a project of its own too.
     excludePaths:
         analyseAndScan:
             - tests/Contract/Runner/fixture
@@ -46,6 +47,7 @@ parameters:
             - tests/Contract/Runner/phpspec-fixture
             - tests/Contract/Runner/codeception-fixture
             - tests/Contract/StaticChecker/fixture
+            - tests/Fixtures/Archive
 
     # Pest's own annotation, corrected. See the stub.
     stubFiles:

@@ -8,11 +8,14 @@ use function array_values;
 
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Runner\Uncapped;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
+
+use function sprintf;
 
 /**
  * A program the adapter runs on the PHP that runs the gate: its arguments,
@@ -22,6 +25,8 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
  */
 final readonly class Command
 {
+    /** The setting that has PHP load a script before the one it runs. */
+    public const string PREPENDED = 'auto_prepend_file=%s';
     /**
      * The shell, and its script, that run a program with its standard output
      * and error written to two files, which the two arguments after the
@@ -45,9 +50,29 @@ final readonly class Command
     ) {
     }
 
+    /** PHP running these, from wherever this process runs the gate from (see phpFrom). */
     public static function php(string ...$arguments): self
     {
-        return new self(array_values($arguments), [], Withheld::standard(), Unlimited::time(), Uncapped::Memory);
+        return self::phpFrom(OwnArchive::running(), ...$arguments);
+    }
+
+    /**
+     * PHP running these; from the gate's PHAR, loading the archive's
+     * autoloader first, so the gate's classes a framework's run loads are
+     * found (ADR-0022). A run that prepends a script of its own later has
+     * that script load it.
+     */
+    public static function phpFrom(OwnArchive|NotGiven $archive, string ...$arguments): self
+    {
+        $loading = $archive instanceof OwnArchive ? ['-d', sprintf(self::PREPENDED, $archive->autoloader())] : [];
+
+        return new self(
+            [...$loading, ...array_values($arguments)],
+            [],
+            Withheld::standard(),
+            Unlimited::time(),
+            Uncapped::Memory,
+        );
     }
 
     public function telling(Variable $variable, string $value): self

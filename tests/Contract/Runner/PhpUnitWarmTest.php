@@ -124,7 +124,7 @@ function warmRuns(Project $project, MutantRun $run, MutationRequest $request, Se
 function warmlyAndFreshly(string $root, int $places = 1, float $limit = 30.0): array
 {
     $project = Project::at($root, Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'), BuiltinRunner::PhpUnit);
-    $override = Override::writtenFor($project);
+    $override = Override::writtenFor($project, NotGiven::value());
     $shell = new ProcessShell(new LocalProcesses(new SystemClock()), $root, getenv());
     $invocation = new Invocation($project, $override instanceof CannotJudge ? '' : $override, NativePhpUnit::in($project));
     $scan = PhpUnitScan::uncapped($project);

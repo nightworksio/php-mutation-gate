@@ -161,6 +161,19 @@
         "error": "A test threw against the lowest dependencies: a lower bound in composer.json no longer works."
       }
     },
+    "phar": {
+      "check": "phar",
+      "checks": "The gate's PHAR builds as a release builds it, says its version, prints the committed config schema, judges an Infection project that installs no copy of the gate, and refuses the Pest runner.",
+      "reproduce": "composer phar && composer install --working-dir=tests/Fixtures/Archive && vendor/bin/pest --group=phar",
+      "evidence": [
+        {"step": "smoke", "tool": "pest", "raw": "evidence/raw/phar.xml"}
+      ],
+      "rules": {
+        "pest": "The PHAR did not build, or its smoke suite did not run to the end, so it wrote no log of its tests.",
+        "failure": "The PHAR ran, and did not do what its smoke suite expects of it.",
+        "error": "The PHAR could not be run, or a step of its smoke suite threw."
+      }
+    },
     "runner-contract": {
       "check": "runner contract",
       "checks": "One leg of runner contracts: one runner's contracts, Pest's, Infection's with PHPUnit 13 or 12, PHPUnit's, PhpSpec's, Codeception's or the analysers', at one resolution of its fixture, the highest its committed lock holds or the lowest the package supports.",

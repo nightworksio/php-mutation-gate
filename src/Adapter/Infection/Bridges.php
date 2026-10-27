@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\Hint;
 use NightWorksIO\MutationGate\Mutator\Mutator;
@@ -33,7 +34,10 @@ use function var_export;
  * name, so its mutants carry that name in Infection's logs. The gate writes
  * them into one file, which the config it writes names as Infection's
  * `bootstrap`, and which then loads the project's own bootstrap. A bridged
- * mutant carries its mutator's own family.
+ * mutant carries its mutator's own family. Under the gate's PHAR, the file
+ * is written whether or not there are bridges, and begins by loading the
+ * archive's autoloader behind Infection's own, so Infection's packages win
+ * over the archive's and the gate's classes are found (ADR-0022).
  */
 final readonly class Bridges
 {
@@ -88,12 +92,33 @@ final readonly class Bridges
 
         PHP;
 
+    /** The archive's autoloader, loaded after every autoloader Infection's process has. */
+    private const string ARCHIVE = <<<'PHP'
+        namespace {
+            (static function (): void {
+                $archive = require %s;
+                $archive->unregister();
+                $archive->register(false);
+            })();
+        }
+
+        PHP;
+
     /**
      * @param array<string, Mutator> $mutators by name; none, where no registered mutator is turned on
      * @param CannotJudge|NotGiven   $refusal  why Infection cannot make mutants with what the options name, if so
      */
-    public function __construct(private array $mutators = [], private CannotJudge|NotGiven $refusal = new NotGiven())
+    public function __construct(
+        private array $mutators = [],
+        private CannotJudge|NotGiven $refusal = new NotGiven(),
+        private OwnArchive|NotGiven $archive = new NotGiven(),
+    ) {
+    }
+
+    /** These bridges, written so that they load the gate's PHAR's autoloader, where the gate runs from one. */
+    public function loading(OwnArchive|NotGiven $archive): self
     {
+        return new self($this->mutators, $this->refusal, $archive);
     }
 
     /**
@@ -144,6 +169,12 @@ final readonly class Bridges
     public function isEmpty(): bool
     {
         return $this->mutators === [];
+    }
+
+    /** Whether the gate writes the file and names it as Infection's `bootstrap`: for bridges, or a PHAR to load. */
+    public function isWritten(): bool
+    {
+        return ! $this->isEmpty() || $this->archive instanceof OwnArchive;
     }
 
     /**
@@ -220,8 +251,11 @@ final readonly class Bridges
         }
 
         return sprintf(
-            '%s%s%s',
+            '%s%s%s%s',
             self::HEADER,
+            $this->archive instanceof OwnArchive
+                ? sprintf(self::ARCHIVE, var_export($this->archive->autoloader(), return: true))
+                : '',
             implode('', $bridges),
             $bootstrap instanceof NotGiven ? '' : sprintf(self::BOOTSTRAP, var_export($bootstrap, return: true)),
         );

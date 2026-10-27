@@ -29,6 +29,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
@@ -139,11 +141,19 @@ it('is Pest in the project the gate runs in, as its options say, or the options\
         $bounds->tighterFor(TighterSilence::standard()),
     );
 
-    expect(Pest::fromOptions(Options::none(), Path::of('lib/vendor'), new CapDirectory(), new LocalProcesses(new SystemClock())))->toEqual($pest(LimitBounds::between(Seconds::of(10.0), Seconds::of(300.0))))
-        ->and(Pest::fromOptions(Configs::options('{"timeout": 30, "most": 60}'), Path::of('lib/vendor'), new CapDirectory(), new LocalProcesses(new SystemClock())))->toEqual($pest(LimitBounds::between(Seconds::of(30.0), Seconds::of(60.0))))
-        ->and(Pest::fromOptions(Configs::options('{"patch": 1}'), Path::of('vendor'), new CapDirectory(), new LocalProcesses(new SystemClock())))->toEqual(Invalid::because(
+    expect(Pest::fromOptions(Options::none(), Path::of('lib/vendor'), new CapDirectory(), new LocalProcesses(new SystemClock()), NotGiven::value()))->toEqual($pest(LimitBounds::between(Seconds::of(10.0), Seconds::of(300.0))))
+        ->and(Pest::fromOptions(Configs::options('{"timeout": 30, "most": 60}'), Path::of('lib/vendor'), new CapDirectory(), new LocalProcesses(new SystemClock()), NotGiven::value()))->toEqual($pest(LimitBounds::between(Seconds::of(30.0), Seconds::of(60.0))))
+        ->and(Pest::fromOptions(Configs::options('{"patch": 1}'), Path::of('vendor'), new CapDirectory(), new LocalProcesses(new SystemClock()), NotGiven::value()))->toEqual(Invalid::because(
             Problem::at('patch', 'expected true or false, got 1'),
         ));
+});
+
+it('is refused by the gate\'s PHAR, since only the Composer package installs the gate\'s Pest plugin', function (): void {
+    expect(Pest::fromOptions(Options::none(), Path::of('vendor'), new CapDirectory(), new LocalProcesses(new SystemClock()), OwnArchive::at('/opt/mutation-gate.phar')))
+        ->toEqual(Invalid::because(Problem::at(
+            '',
+            'Pest runs the gate\'s plugin, which only the Composer package installs: composer require --dev nightworksio/mutation-gate -W',
+        )));
 });
 
 it('is defined by tests/Pest.php and the PHPUnit config in the project\'s root, by any of its names', function (): void {

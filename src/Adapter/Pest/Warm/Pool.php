@@ -11,7 +11,7 @@ use function is_resource;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
-use NightWorksIO\MutationGate\Core\ThisPackage;
+use NightWorksIO\MutationGate\Core\OwnScript;
 
 use const PHP_BINARY;
 
@@ -29,10 +29,6 @@ use function strval;
  */
 final class Pool
 {
-    private const string WORKER = 'mutation-gate-pest-worker';
-
-    private const string CLIENT = 'mutation-gate-pest-client';
-
     private const string SHELL = '/bin/sh';
 
     /**
@@ -67,7 +63,7 @@ final class Pool
         }
 
         return self::$started[$seat->pid()]
-            ? [PHP_BINARY, ThisPackage::script(self::CLIENT), $directory, strval($place)]
+            ? [PHP_BINARY, ...OwnScript::PestClient->started(), $directory, strval($place)]
             : [];
     }
 
@@ -87,7 +83,7 @@ final class Pool
             $seat->out(),
             $seat->err(),
             PHP_BINARY,
-            ThisPackage::script(self::WORKER),
+            ...OwnScript::PestWorker->started(),
             $seat->directory(),
             strval($seat->place()),
             strval(getmypid()),

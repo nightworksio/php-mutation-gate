@@ -227,6 +227,16 @@ verdict reaches and how.
     - Under the PHAR, key item 2 (the gate's version and source reference,
       ADR-0007) comes from the version built into the PHAR,
       because `installed.json` is not in it.
+    - Every PHP process the gate starts for a framework loads the archive's
+      autoloader first, through `auto_prepend_file`; a mutant's run, whose
+      override takes that setting, has the override load it. Infection
+      refuses `auto_prepend_file`, so the bootstrap the gate writes for it
+      loads the archive's autoloader after Infection's own. A script of the
+      gate's own is started as the archive with the script's name first,
+      since PHP starts no script inside an archive by its path.
+    - The gate's files that run inside a project's own process, among the
+      project's packages, and those that write PHP for another process to
+      run, stay unscoped.
 
 12. **The PHAR is signed twice: an attestation and a GPG signature.**
     - A GitHub artifact attestation proves which workflow built the PHAR

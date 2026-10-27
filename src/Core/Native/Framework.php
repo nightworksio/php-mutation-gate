@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\OwnScript;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\ErrorDisplay;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
@@ -56,8 +57,8 @@ interface Framework
     /** The script a mutant's run starts, by its absolute path, from which a warm worker's child reads its arguments. */
     public function script(): string;
 
-    /** The script a warm worker runs, by its absolute path; none where the framework has no warm workers. */
-    public function workerScript(): string|NotGiven;
+    /** The gate's script a warm worker runs; none where the framework has no warm workers. */
+    public function workerScript(): OwnScript|NotGiven;
 
     /** How a mutant's run selects these tests; or why no test file places them. */
     public function selection(TestIds $tests): Selection|Reason;

@@ -62,6 +62,12 @@ The whole suite runs locally too, more slowly:
 | `composer test:guards` | a planted violation of every rule, which each rule must refuse (`guards`) |
 | `composer ci` | validate, normalize, audit, lint, analyse, refactor, deps, `test:guards` and `test:report`, in that order |
 
+`composer phar` builds the gate's PHAR into `build/mutation-gate.phar` as a
+release builds it (ADR-0022), with Box at the release `scripts/phar.sh` pins.
+Its smoke suite, which CI's `phar` job runs, runs against it with
+`vendor/bin/pest --group=phar`, once `composer install
+--working-dir=tests/Fixtures/Archive` has installed the project it judges.
+
 Leave these to CI:
 
 - `lowest dependencies`, because it rewrites `composer.lock` and `vendor`;

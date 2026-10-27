@@ -1,0 +1,23 @@
+{
+    "$schema": "https://raw.githubusercontent.com/box-project/box/4.7.0/res/schema.json",
+    "output": "build/mutation-gate.phar",
+    "alias": "mutation-gate.phar",
+    "directories": [
+        "resources"
+    ],
+    "files": [
+        "bin/mutation-gate-pest-client",
+        "bin/mutation-gate-pest-worker",
+        "bin/mutation-gate-phpspec",
+        "bin/mutation-gate-worker",
+        "LICENSE"
+    ],
+    "algorithm": "SHA512",
+    "compression": "GZ",
+    "compactors": [
+        "KevinGH\\Box\\Compactor\\Php",
+        "KevinGH\\Box\\Compactor\\PhpScoper"
+    ],
+    "force-autodiscovery": true,
+    "exclude-composer-files": false
+}

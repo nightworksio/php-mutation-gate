@@ -178,7 +178,7 @@ final readonly class MutationRun
     private function prepared(MutationRequest $request, Seconds $cap): Targets|CannotJudge
     {
         $targets = Targets::of($this->project, $request->files(), $request->leftOut());
-        $bridged = ! $this->bridges->isEmpty();
+        $bridged = $this->bridges->isWritten();
         $files = [
             $this->project->own(Invocation::JSON),
             $this->project->own(Invocation::TEXT),

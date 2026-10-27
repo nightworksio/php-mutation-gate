@@ -202,7 +202,7 @@ it('registers Pest as a runner, in the vendor directory Composer installed the p
     $registry,
 ): void {
     expect(Lookup::in($registry())->runner(Name::of('pest'), Options::none()))
-        ->toEqual(Pest::fromOptions(Options::none(), ComposerVendor::of('.'), new CapDirectory(), new LocalProcesses(new SystemClock())));
+        ->toEqual(Pest::fromOptions(Options::none(), ComposerVendor::of('.'), new CapDirectory(), new LocalProcesses(new SystemClock()), NotGiven::value()));
 });
 
 it('registers the PHPUnit runner, in the vendor directory Composer installed the project into, from the options the flows write', function () use (

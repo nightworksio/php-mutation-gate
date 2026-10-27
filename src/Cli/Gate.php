@@ -10,6 +10,8 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Discovery\Discovery;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\OwnArchive;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -30,10 +32,14 @@ final readonly class Gate
     ) {
     }
 
-    /** The gate for a project, with the Composer vendor directory it was installed into. */
-    public static function in(string $project, string $vendor): self
+    /**
+     * The gate for a project, with the Composer vendor directory of its
+     * packages, and the gate's PHAR where it runs from one.
+     */
+    public static function in(string $project, string $vendor, OwnArchive|NotGiven $archive): self
     {
-        $discovery = new Discovery(Directory::at($project), Directory::at($vendor));
+        $own = $archive instanceof OwnArchive ? Directory::at($archive->root()) : $archive;
+        $discovery = new Discovery(Directory::at($project), Directory::at($vendor), $own);
 
         return new self($discovery, $project, $vendor, new SystemClock(), Variables::of(getenv()));
     }

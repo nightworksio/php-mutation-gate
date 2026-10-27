@@ -34,6 +34,7 @@ use NightWorksIO\MutationGate\Core\Native\Selection;
 use NightWorksIO\MutationGate\Core\Native\Shell;
 use NightWorksIO\MutationGate\Core\Native\TestLayout;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
@@ -195,7 +196,7 @@ final readonly class NativeRunner implements Runner
      */
     public function startUp(Path $file, Withheld $withheld): Seconds|CannotJudge
     {
-        $override = Override::writtenFor($this->project);
+        $override = Override::writtenFor($this->project, OwnArchive::running());
         $selection = $this->framework->selection(TestIds::none());
         $files = match (true) {
             ! is_string($override) => $override,
