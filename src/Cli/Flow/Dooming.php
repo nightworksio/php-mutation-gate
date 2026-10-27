@@ -11,7 +11,6 @@ use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Verdict\Doom;
 use NightWorksIO\MutationGate\Core\Verdict\Ignoring;
 use NightWorksIO\MutationGate\Core\Verdict\Undoomed;
-use Psr\Clock\ClockInterface;
 
 /**
  * Whether a shard of a plan stops once its run cannot pass (ADR-0008), and
@@ -26,7 +25,7 @@ use Psr\Clock\ClockInterface;
  */
 final readonly class Dooming
 {
-    public function __construct(private Adapters $adapters, private Settings $settings, private ClockInterface $clock)
+    public function __construct(private Adapters $adapters, private Settings $settings, private Setup $setup)
     {
     }
 
@@ -37,14 +36,14 @@ final readonly class Dooming
         }
 
         $trees = $this->adapters->trees->trees();
-        $baseline = new Baselines($this->adapters, $this->settings->floors()->baseline())->committed();
+        $baseline = Baselines::of($this->adapters, $this->settings, $this->setup)->committed();
 
         return $trees instanceof CannotJudge || $baseline instanceof CannotJudge ? Undoomed::run() : Doom::over(
             $trees,
             $baseline,
             $plan->considered()->lines(Packages::of($trees)),
             $this->settings->floors()->newCode(),
-            Ignoring::of($this->settings->ignores()->entries(), $this->clock->now()),
+            Ignoring::of($this->settings->ignores()->entries(), $this->setup->clock->now()),
         );
     }
 

@@ -10,6 +10,7 @@ use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Format\JsonDocument;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use Traversable;
 
@@ -23,26 +24,32 @@ use Traversable;
 final readonly class Migrations implements IteratorAggregate
 {
     /** @param list<Migration> $migrations */
-    private function __construct(private array $migrations)
+    private function __construct(private array $migrations, private GateCommand $gate)
     {
     }
 
     /** These releases' changes, the oldest release first. */
     public static function of(Migration ...$migrations): self
     {
-        return new self(array_values($migrations));
+        return new self(array_values($migrations), GateCommand::installed());
     }
 
     /** What the gate's releases changed in what a config writes; none before a key is first renamed or removed. */
     public static function config(): self
     {
-        return new self([]);
+        return self::of();
     }
 
     /** What the gate's releases changed in what a baseline writes; none before its format first changes. */
     public static function baseline(): self
     {
-        return new self([]);
+        return self::of();
+    }
+
+    /** These, each change naming `migrate` as the gate was started. */
+    public function startedAs(GateCommand $gate): self
+    {
+        return new self($this->migrations, $gate);
     }
 
     /** The file with every change made that applies to it, the oldest first. */
@@ -88,7 +95,7 @@ final readonly class Migrations implements IteratorAggregate
     {
         foreach ($this->migrations as $migration) {
             foreach ($migration as $step) {
-                yield Retired::of($step, $migration);
+                yield Retired::of($step, $migration, $this->gate);
             }
         }
     }

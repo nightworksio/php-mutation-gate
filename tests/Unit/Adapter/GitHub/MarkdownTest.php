@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\Ended;
 use NightWorksIO\MutationGate\Core\Mutant\Evidence;
@@ -188,7 +189,7 @@ it('writes what each suite alone kills in the step summary, and never in the com
         '|---|---|---|---|',
         '| <code>unit</code> | 3 | 2 | at least 66.66% |',
         "| <code>feature</code> | 2 | 1 | at least 50.00% |\n",
-        'Each is a lower bound, from first killers: <code>mutation-gate run --kill-matrix=full</code> makes it exact.',
+        'Each is a lower bound, from first killers: <code>vendor/bin/mutation-gate run --kill-matrix=full</code> makes it exact.',
     ]))
         ->and(Markdown::summary(Killings::suited(MatrixKind::Full), $run, Verdicts::monthAgo()))
         ->toContain('| <code>unit</code> | 3 | 2 | 66.66% |')
@@ -317,7 +318,7 @@ it('lets nothing the project wrote become markup, a link, a mention or a new cel
         ->toBe([sprintf(
             '| <code>src/&lt;img src=x&gt;&#124;&#64;octocat.php:3</code> | &#91;x&#93;(https:&#47;&#47;evil) | flaky | %s | <code>%s</code> |',
             'Its tests killed it on one run and let it survive on another, so they are the suspects. It is judged by <code>it &#64;octocat &lt;/code&gt;&lt;script&gt;</code>.',
-            $hostile->reproduce(),
+            $hostile->reproduce(GateCommand::installed()),
         )]);
 });
 
@@ -548,8 +549,8 @@ it('keeps a comment of exactly what GitHub takes whole, and cuts one a character
 it('marks a survivor its unit\'s last result gave because the plan pruned its mutator, in a table row and a details summary', function (): void {
     $carried = JudgedMutant::of(Verdicts::survivor()->mutant(), MutantJudgement::Survived, carriedPruned: true);
 
-    expect(implode("\n", MarkdownItems::table([$carried], 1)))->toContain('| LessToLessOrEqual | survived, carried (pruned) |')
-        ->and(implode("\n", MarkdownItems::details([$carried], 1)))->toContain('LessToLessOrEqual, survived, carried (pruned)</summary>');
+    expect(implode("\n", MarkdownItems::table([$carried], 1, GateCommand::installed())))->toContain('| LessToLessOrEqual | survived, carried (pruned) |')
+        ->and(implode("\n", MarkdownItems::details([$carried], 1, GateCommand::installed())))->toContain('LessToLessOrEqual, survived, carried (pruned)</summary>');
 });
 
 it('heads the comment of a sampled run as sampled, and prints each sampled tree\'s estimate', function (): void {

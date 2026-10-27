@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
@@ -51,13 +52,13 @@ function digestListing(Verdict $verdict, SurvivorsShown|CannotJudge $shown): arr
 {
     $listed = $shown instanceof SurvivorsShown ? $shown : SurvivorsShown::first();
 
-    return explode("\n", rtrim(Digest::overview(digestReport($verdict), $listed), "\n"));
+    return explode("\n", rtrim(Digest::overview(digestReport($verdict), $listed, GateCommand::installed()), "\n"));
 }
 
 /** @return list<string> the digest's detail of a target of a verdict, a line each */
 function digestDetailLines(Verdict $verdict, string $target): array
 {
-    $detail = DigestDetail::of(digestReport($verdict), $target);
+    $detail = DigestDetail::of(digestReport($verdict), $target, GateCommand::installed());
 
     return explode("\n", is_string($detail) ? $detail : $detail->why());
 }
@@ -148,10 +149,10 @@ it('lists each survivor under its file, those on changed lines first, with what 
 
 it('lists the first 25 survivors, says how many it left out, and lists as many as asked', function (): void {
     expect(digestOpened(digestLines(digestSurvivors(26)), 'escaped'))->toHaveCount(25)
-        ->and(digestOpened(digestLines(digestSurvivors(26)), 'more'))->toBe(['more 1: mutation-gate digest --survivors=all'])
+        ->and(digestOpened(digestLines(digestSurvivors(26)), 'more'))->toBe(['more 1: vendor/bin/mutation-gate digest --survivors=all'])
         ->and(digestOpened(digestLines(digestSurvivors(25)), 'more'))->toBe([])
         ->and(digestOpened(digestListing(digestSurvivors(26), SurvivorsShown::asked('all')), 'escaped'))->toHaveCount(26)
-        ->and(digestOpened(digestListing(digestSurvivors(26), SurvivorsShown::asked('3')), 'more'))->toBe(['more 23: mutation-gate digest --survivors=all'])
+        ->and(digestOpened(digestListing(digestSurvivors(26), SurvivorsShown::asked('3')), 'more'))->toBe(['more 23: vendor/bin/mutation-gate digest --survivors=all'])
         ->and(SurvivorsShown::asked('many'))->toEqual(CannotJudge::because('--survivors is many; it takes a whole number, or all.'));
 });
 
@@ -166,24 +167,24 @@ it('says plainly that a run judged no mutant: zero of each, and no survivor', fu
 it('says what each word means on request', function (): void {
     $legend = Digest::legend();
 
-    expect(DigestDetail::of(digestReport(Verdicts::passing()), DigestDetail::LEGEND))->toBe($legend)
+    expect(DigestDetail::of(digestReport(Verdicts::passing()), DigestDetail::LEGEND, GateCommand::installed()))->toBe($legend)
         ->and(explode("\n", rtrim($legend)))->toHaveCount(count(Term::cases()))
         ->and($legend)->toContain(sprintf('? escaped: %s', Term::Escaped->meaning()));
 });
 
 it('details a file: its counts, then each mutant not killed, the killed counted alone, or its counts alone where it was carried', function (): void {
     $report = digestReport(Verdicts::failing());
-    $money = DigestDetail::of($report, 'src/Money.php');
+    $money = DigestDetail::of($report, 'src/Money.php', GateCommand::installed());
 
     expect($money)->toStartWith('file src/Money.php killed=1(good) escaped=1(bad) untested=1(bad) ')
         ->and($money)->toContain(sprintf('escaped :7 LessToLessOrEqual `<` -> `<=` id=%s', Verdicts::survivor()->mutant()->id()->value()))
         ->and($money)->not->toContain('killed :')
-        ->and(DigestDetail::of($report, 'src/Log.php'))->toEndWith("\ncarried\n");
+        ->and(DigestDetail::of($report, 'src/Log.php', GateCommand::installed()))->toEndWith("\ncarried\n");
 });
 
 it('details a mutant by its id or a prefix of it: its diff, hint, tests and how to run it again', function (): void {
     $id = Verdicts::survivor()->mutant()->id()->value();
-    $detail = DigestDetail::of(digestReport(Verdicts::failing()), substr($id, 0, 8));
+    $detail = DigestDetail::of(digestReport(Verdicts::failing()), substr($id, 0, 8), GateCommand::installed());
 
     expect($detail)->toStartWith(sprintf('mutant %s escaped survived src/Money.php:7 Pest\\\\Mutate\\\\Mutators\\\\Equality\\\\LessToLessOrEqual changed', $id))
         ->and($detail)->toContain("\ndiff\n  --- Original\n  +++ New\n  @@ @@\n  -        if (\$amount < \$limit) {\n  +        if (\$amount <= \$limit) {\nhint ")
@@ -192,7 +193,7 @@ it('details a mutant by its id or a prefix of it: its diff, hint, tests and how 
 });
 
 it('refuses a target the run does not hold', function (string $target): void {
-    expect(DigestDetail::of(digestReport(Verdicts::failing()), $target))
+    expect(DigestDetail::of(digestReport(Verdicts::failing()), $target, GateCommand::installed()))
         ->toEqual(CannotJudge::because(sprintf('%s is no file, mutant or cluster of the last run: give a path, a mutant id of 6 or more characters, a cluster id or legend.', $target)));
 })->with(['src/Nowhere.php', 'abcdef123456', 'kabcdef12345']);
 
@@ -206,7 +207,7 @@ it('writes every value the code under test shapes as one inert line, so none for
         MutantJudgement::Survived,
     )));
     $lines = digestLines(Verdicts::of(Floor::of(80), $mutant));
-    $detailed = DigestDetail::of(digestReport(Verdicts::of(Floor::of(80), $mutant)), $mutant->mutant()->id()->value());
+    $detailed = DigestDetail::of(digestReport(Verdicts::of(Floor::of(80), $mutant)), $mutant->mutant()->id()->value(), GateCommand::installed());
     $detail = is_string($detailed) ? $detailed : $detailed->why();
 
     expect(digestWords($lines))->toBe(digestWords($clean))
@@ -222,7 +223,7 @@ it('writes every value the code under test shapes as one inert line, so none for
 ]);
 
 it('details a file no unit of a tree holds as one this run judged, each mutant not killed listed', function (): void {
-    $detail = DigestDetail::of(digestReport(digestSurvivors(1)), 'src/F01.php');
+    $detail = DigestDetail::of(digestReport(digestSurvivors(1)), 'src/F01.php', GateCommand::installed());
 
     expect($detail)->toStartWith('file src/F01.php killed=0(good) escaped=1(bad) ')
         ->and($detail)->toContain("\nescaped :1 ")
@@ -231,7 +232,7 @@ it('details a file no unit of a tree holds as one this run judged, each mutant n
 
 it('details a kill a ledger proved without a diff, as the report keeps none for it', function (): void {
     $id = Verdicts::provedKill()->mutant()->id()->value();
-    $detail = DigestDetail::of(digestReport(Verdicts::proved()), $id);
+    $detail = DigestDetail::of(digestReport(Verdicts::proved()), $id, GateCommand::installed());
 
     expect($detail)->toStartWith(sprintf('mutant %s killed killed src/Money.php:9 ', $id))
         ->and($detail)->not->toContain("\ndiff")
@@ -243,7 +244,7 @@ it('refuses a report whose mutant points at a test its list of tests does not ho
     $id = $report['mutants'][0]['id'];
     $report['mutants'][0]['coveredBy'] = [count($report['tests'])];
 
-    expect(static fn(): string|CannotJudge => DigestDetail::of(Node::decode((string) json_encode($report)), $id))
+    expect(static fn(): string|CannotJudge => DigestDetail::of(Node::decode((string) json_encode($report)), $id, GateCommand::installed()))
         ->toThrow(NotInShape::class, sprintf('tests[%d] is missing.', count($report['tests'])));
 });
 
@@ -257,7 +258,7 @@ it('lists a mutant on a line the change did not make without saying it changed',
 it('details a mutant on a line the change did not make, with no line for what the report does not say of it', function (): void {
     $id = Verdicts::killed()->id()->value();
 
-    expect(DigestDetail::of(digestReport(Verdicts::failing()), $id))->toBe(implode("\n", [
+    expect(DigestDetail::of(digestReport(Verdicts::failing()), $id, GateCommand::installed()))->toBe(implode("\n", [
         sprintf('mutant %s killed killed src/Money.php:9 TrueValue', $id),
         'diff',
         '  @@ @@',
@@ -330,13 +331,13 @@ it('details a cluster with its members alone, under their file, and how to stub 
     $verdict = Verdicts::named('clustered');
     $cluster = JsonReport::of($verdict)['clusters'][0]['id'];
 
-    expect(DigestDetail::of(digestReport($verdict), $cluster))->toBe(implode("\n", [
+    expect(DigestDetail::of(digestReport($verdict), $cluster, GateCommand::installed()))->toBe(implode("\n", [
         sprintf('cluster %s kind=expression members=3', $cluster),
         '@ src/Cart.php',
         'escaped :7 LessThan `<` -> `<=` id=96634e576d34 changed | Add a test that uses a value at the boundary of `$amount < $limit`.',
         'escaped :7 LessThanNegotiation `<` -> `>` id=33e396b886dc changed | Add a test that uses a value at the boundary of `$amount < $limit`.',
         'escaped :7 IfNegation `$amount < $limit` -> `! ($amount < $limit)` id=2034f7359228 changed | Assert on something this condition decides: these tests run it, but none checks what it decides.',
-        sprintf('stub mutation-gate stub %s', $cluster),
+        sprintf('stub vendor/bin/mutation-gate stub %s', $cluster),
         '',
     ]));
 });

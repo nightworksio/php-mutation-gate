@@ -178,6 +178,6 @@ it('exits 2 for what is no id, mutant or cluster, for a mutant no record holds, 
 
     expect([$misspelled->code, $misspelled->errors])->toBe([2, "\"49E02F\" is not a mutant id. Give the twelve lowercase hex characters every report prints, or the first six or more.\n"])
         ->and([$short->code, $short->errors])->toBe([2, "\"k0123\" is not a cluster id, which is \"k\" and eleven lowercase hex characters, as every report prints it.\n"])
-        ->and([$unrecorded->code, $unrecorded->errors])->toBe([2, "No ledger read holds a mutant abcdef names. Run mutation-gate on the code that has it to record it first.\n"])
+        ->and([$unrecorded->code, $unrecorded->errors])->toBe([2, "No ledger read holds a mutant abcdef names. Run vendor/bin/mutation-gate on the code that has it to record it first.\n"])
         ->and([$unfound->code, $unfound->errors])->toBe([2, "The last run found no cluster k0123456789a: clusters change as survivors do, so give one it printed.\n"]);
 });

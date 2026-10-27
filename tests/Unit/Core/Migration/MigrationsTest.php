@@ -31,16 +31,16 @@ function migrationReleases(): Migrations
 it('makes each release\'s changes in turn, the oldest first, so a file several releases behind moves all the way', function (): void {
     expect(migrationReleases()->applied(migrationsDocument('{"runnr": "pest", "legacy": 1}'))->text())->toBe('{"runner": "pest"}')
         ->and(array_map(static fn(Retired $retired): string => $retired->pending(), [...migrationReleases()]))->toBe([
-            '`runnr` became `runer` in 2.0.0: run `mutation-gate migrate`',
-            '`runer` became `runner` in 3.0.0: run `mutation-gate migrate`',
-            '`legacy` was removed (nothing reads it) in 3.0.0: run `mutation-gate migrate`',
+            '`runnr` became `runer` in 2.0.0: run `vendor/bin/mutation-gate migrate`',
+            '`runer` became `runner` in 3.0.0: run `vendor/bin/mutation-gate migrate`',
+            '`legacy` was removed (nothing reads it) in 3.0.0: run `vendor/bin/mutation-gate migrate`',
         ]);
 });
 
 it('names each change a file still needs at what it retired, and nothing where it needs none', function (): void {
     expect(migrationReleases()->pending(migrationsDocument('{"runnr": "pest", "legacy": 1}')))->toEqual(Invalid::because(
-        Problem::at('runnr', '`runnr` became `runer` in 2.0.0: run `mutation-gate migrate`'),
-        Problem::at('legacy', '`legacy` was removed (nothing reads it) in 3.0.0: run `mutation-gate migrate`'),
+        Problem::at('runnr', '`runnr` became `runer` in 2.0.0: run `vendor/bin/mutation-gate migrate`'),
+        Problem::at('legacy', '`legacy` was removed (nothing reads it) in 3.0.0: run `vendor/bin/mutation-gate migrate`'),
     ))
         ->and(migrationReleases()->pending(migrationsDocument('{"runner": "pest"}')))->toEqual(NotGiven::value());
 });

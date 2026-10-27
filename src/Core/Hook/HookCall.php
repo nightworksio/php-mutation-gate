@@ -5,15 +5,15 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Hook;
 
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Format\ShellWord;
+use NightWorksIO\MutationGate\Core\GateCommand;
 
 use function sprintf;
 
 /**
  * How a hook calls the gate. Git runs a hook at the top of the working tree,
  * and the gate reads the project it is started in, so a project below the top
- * is entered first. The gate is called by the binary Composer installed.
+ * is entered first. The gate is called as it was started (ADR-0022).
  */
 final readonly class HookCall
 {
@@ -33,17 +33,17 @@ final readonly class HookCall
     private const string LINE = '%s || exit 1';
 
     /** @param Path $project the project as the top of the working tree spells it */
-    private function __construct(private Path $project, private Path $binary)
+    private function __construct(private Path $project, private GateCommand $gate)
     {
     }
 
     /**
-     * The gate in this project, as the top of the working tree spells it, by
-     * this binary, as the project spells it.
+     * The gate in this project, as the top of the working tree spells it,
+     * called as this command, as the project spells it.
      */
-    public static function of(Path $project, Path $binary): self
+    public static function of(Path $project, GateCommand $gate): self
     {
-        return new self($project, $binary);
+        return new self($project, $gate);
     }
 
     /** The lines of a hook the gate writes that call the gate. */
@@ -65,7 +65,7 @@ final readonly class HookCall
     /** The gate's command for a hook, as the shell reads it, with no arguments: what a hook manager runs. */
     public function called(Hook $hook): string
     {
-        return sprintf(Fit::JOINED, $this->quoted($this->binary), $hook->value);
+        return $this->gate->with($hook);
     }
 
     private function atTheTop(): bool

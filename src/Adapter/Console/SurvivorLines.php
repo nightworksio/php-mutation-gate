@@ -9,6 +9,7 @@ use function implode;
 
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\Format\Fit;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Owner\OwnerGroup;
 use NightWorksIO\MutationGate\Core\Report\ClusterText;
 use NightWorksIO\MutationGate\Core\Report\Folded;
@@ -37,7 +38,7 @@ final readonly class SurvivorLines
 
         foreach (Owned::parts($overview->survivors(), $items, count($items), $verdict->sets()->owners()) as $part) {
             $group = $part->group();
-            $blocks = self::blocks($verdict, $part->shown());
+            $blocks = self::blocks($verdict, $part->shown(), $overview->gate());
             $lines = $group instanceof OwnerGroup
                 ? [
                     ...$lines,
@@ -57,14 +58,14 @@ final readonly class SurvivorLines
      * @param  list<JudgedMutant|Cluster> $items
      * @return list<string>
      */
-    private static function blocks(Verdict $verdict, array $items): array
+    private static function blocks(Verdict $verdict, array $items, GateCommand $gate): array
     {
         $blocks = [];
 
         foreach ($items as $item) {
             $blocks[] = $item instanceof Cluster
-                ? ClusterText::block($item)
-                : MutantText::block($item, $verdict->matrix()->names());
+                ? ClusterText::block($item, $gate)
+                : MutantText::block($item, $verdict->matrix()->names(), $gate);
         }
 
         return $blocks === [] ? [] : [implode("\n\n", $blocks)];

@@ -7,6 +7,8 @@ namespace NightWorksIO\MutationGate\Core\Report;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\GateCommand;
+use NightWorksIO\MutationGate\Core\Verb;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 
 use function sprintf;
@@ -24,13 +26,13 @@ final readonly class ScoreChangeText
 
     private const string UNMEASURED = '%s is not measured yet: a unit of it has no result.';
 
-    private const string UNJUDGED = '%d %s unjudged since your last run: mutation-gate watch';
+    private const string UNJUDGED = '%d %s unjudged since your last run: %s';
 
     private const string UNSTAGED = 'The scores include unstaged changes in %d %s.';
 
     private const string UNMAPPED = <<<'SAID'
         No local run has left a coverage map, so the gate cannot tell which results are for what is on disk,
-        and shows no score. Run mutation-gate once.
+        and shows no score. Run %s once.
         SAID;
 
     /**
@@ -38,9 +40,15 @@ final readonly class ScoreChangeText
      * @param Paths        $unmeasured each tree the change reaches with a unit that has none
      * @param int          $unjudged   how many reached units have no local result for what is on disk
      * @param int          $unstaged   how many files of the reached units hold changes that are not staged
+     * @param GateCommand  $gate       the gate as it was started, which the count of unjudged units names
      */
-    public static function of(TreeVerdicts $reached, Paths $unmeasured, int $unjudged, int $unstaged): string
-    {
+    public static function of(
+        TreeVerdicts $reached,
+        Paths $unmeasured,
+        int $unjudged,
+        int $unstaged,
+        GateCommand $gate,
+    ): string {
         $lines = [];
 
         foreach ($reached as $tree) {
@@ -53,13 +61,13 @@ final readonly class ScoreChangeText
 
         $trees = $lines === [] ? [self::NOTHING_REACHED] : $lines;
 
-        return implode("\n", [...$trees, ...self::counted($unjudged, $unstaged)]);
+        return implode("\n", [...$trees, ...self::counted($unjudged, $unstaged, $gate)]);
     }
 
     /** Why no score is shown where no local run has left a coverage map. */
-    public static function unmapped(): string
+    public static function unmapped(GateCommand $gate): string
     {
-        return self::UNMAPPED;
+        return sprintf(self::UNMAPPED, $gate->gate());
     }
 
     /**
@@ -67,10 +75,12 @@ final readonly class ScoreChangeText
      *
      * @return list<string>
      */
-    private static function counted(int $unjudged, int $unstaged): array
+    private static function counted(int $unjudged, int $unstaged, GateCommand $gate): array
     {
         return [
-            ...$unjudged > 0 ? [sprintf(self::UNJUDGED, $unjudged, $unjudged === 1 ? 'unit' : 'units')] : [],
+            ...$unjudged > 0
+                ? [sprintf(self::UNJUDGED, $unjudged, $unjudged === 1 ? 'unit' : 'units', $gate->with(Verb::Watch))]
+                : [],
             ...$unstaged > 0 ? [sprintf(self::UNSTAGED, $unstaged, $unstaged === 1 ? 'file' : 'files')] : [],
         ];
     }

@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\ShardedPlan;
 
@@ -64,7 +65,7 @@ it('writes a child pipeline with a matrix of the shards and a verdict that alway
     $planJob,
 ): void {
     $gitlab = GitLabPlan::writing('build/pipeline.yml', '.gitlab/mutation-gate.yml', $planJob('mutation-plan'));
-    $published = $gitlab->publish(ShardedPlan::of(2));
+    $published = $gitlab->publish(ShardedPlan::of(2), GateCommand::installed());
 
     expect($published instanceof Publication ? [$published->to(), $published->delivery()] : $published)
         ->toBe(['build/pipeline.yml', Delivery::Written])
@@ -82,7 +83,7 @@ it('writes a child pipeline with a matrix of the shards and a verdict that alway
 });
 
 it('writes the pipeline as JSON, which GitLab reads as YAML', function () use ($planJob): void {
-    expect(GitLabPlan::writing('pipeline.yml', '.gitlab/mutation-gate.yml', $planJob('plan'))->publish(ShardedPlan::of(0)))
+    expect(GitLabPlan::writing('pipeline.yml', '.gitlab/mutation-gate.yml', $planJob('plan'))->publish(ShardedPlan::of(0), GateCommand::installed()))
         ->toEqual(Publication::written('pipeline.yml', JsonText::encode([
             'include' => [['local' => '.gitlab/mutation-gate.yml']],
             ...gitlabVerdicts([['pipeline' => '$PARENT_PIPELINE_ID', 'job' => 'plan']]),
@@ -94,7 +95,7 @@ it('leaves the matrix job out of a plan with no shards, and the verdict still ru
     $pipelineIn,
     $planJob,
 ): void {
-    $published = GitLabPlan::writing('pipeline.yml', 'ci/gate.yml', $planJob('mutation-plan'))->publish(ShardedPlan::of(0));
+    $published = GitLabPlan::writing('pipeline.yml', 'ci/gate.yml', $planJob('mutation-plan'))->publish(ShardedPlan::of(0), GateCommand::installed());
 
     expect($pipelineIn($published))->toBe([
         'include' => [['local' => 'ci/gate.yml']],
@@ -103,7 +104,7 @@ it('leaves the matrix job out of a plan with no shards, and the verdict still ru
 });
 
 it('cannot name the job that made the plan outside a GitLab job', function (): void {
-    expect(GitLabPlan::writing('pipeline.yml', 'ci/gate.yml', Variables::of([]))->publish(ShardedPlan::of(1)))
+    expect(GitLabPlan::writing('pipeline.yml', 'ci/gate.yml', Variables::of([]))->publish(ShardedPlan::of(1), GateCommand::installed()))
         ->toEqual(CannotJudge::because(
             'CI_JOB_NAME is not set, so the child pipeline cannot name the job that planned. Plan in a GitLab job.',
         ));
@@ -131,9 +132,9 @@ it('writes its pipeline where the gate expects it, with the named template', fun
     $before = getenv('CI_JOB_NAME');
     putenv('CI_JOB_NAME=mutation-plan');
     $default = GitLabPlan::fromOptions(Ci::none()->planOptions(Name::of('gitlab')));
-    $wrote = $default instanceof GitLabPlan ? $default->publish(ShardedPlan::of(0)) : $default;
+    $wrote = $default instanceof GitLabPlan ? $default->publish(ShardedPlan::of(0), GateCommand::installed()) : $default;
     $named = GitLabPlan::fromOptions(Configs::options('{"template": "ci/gate.yml"}'));
-    $wroteNamed = $named instanceof GitLabPlan ? $named->publish(ShardedPlan::of(0)) : $named;
+    $wroteNamed = $named instanceof GitLabPlan ? $named->publish(ShardedPlan::of(0), GateCommand::installed()) : $named;
     putenv($before === false ? 'CI_JOB_NAME' : sprintf('CI_JOB_NAME=%s', $before));
     $to = static fn(Publication|Invalid|CannotJudge $published): string => $published instanceof Publication
         ? $published->to()

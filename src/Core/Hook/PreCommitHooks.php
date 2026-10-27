@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Hook;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 
 use function sprintf;
@@ -22,9 +23,6 @@ final readonly class PreCommitHooks
 {
     /** The file the framework reads a repository's hooks from. */
     public const string FILE = '.pre-commit-hooks.yaml';
-
-    /** The gate as Composer links it, which each hook's `entry` runs. */
-    private const string BINARY = 'vendor/bin/mutation-gate';
 
     /** The first release that names the language a command from the user's environment runs under. */
     private const string MINIMUM = '4.4.0';
@@ -52,7 +50,7 @@ final readonly class PreCommitHooks
     /** The command the hook runs. */
     public static function entry(Hook $hook): string
     {
-        return HookCall::of(Path::root(), Path::of(self::BINARY))->called($hook);
+        return HookCall::of(Path::root(), GateCommand::installed())->called($hook);
     }
 
     /** The whole `.pre-commit-hooks.yaml`. */

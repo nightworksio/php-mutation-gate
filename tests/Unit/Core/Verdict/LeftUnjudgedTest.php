@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -121,7 +122,7 @@ it('fails the verdict for each unit its newest result cannot stand for, saying w
     $newest = $makeNewest();
     $carrying = $makeCarrying();
 
-    expect(LeftUnjudged::of($units, $newest, $carrying)->failures())->toEqual(Failures::of(
+    expect(LeftUnjudged::of($units, $newest, $carrying)->failures(GateCommand::installed()))->toEqual(Failures::of(
         Failure::that(
             "src/Tax.php is unjudged: the time budget ran out before this run mutated it.\n"
             . 'Its newest result is of other source, so its mutants are not this code\'s. '
@@ -141,7 +142,7 @@ it('counts nothing and fails nothing where the budget left no unit unjudged', fu
     $none = LeftUnjudged::of(Units::none(), $newest, $carrying);
 
     expect($none->results())->toHaveCount(0)
-        ->and($none->failures())->toHaveCount(0);
+        ->and($none->failures(GateCommand::installed()))->toHaveCount(0);
 });
 
 it('carries a kill by static analysis of this base with its rejection, and one that records no finding as unjudged', function () use ($proofOf, $makeCarrying, $makeTimedOut): void {
@@ -187,7 +188,7 @@ it('counts a unit a doomed run stopped before by its newest result, each mutant 
         ProvedKills::of($standing, $stale->unjudged($doomed->left())),
         Run::of('main', Moment::at('2026-09-29T10:00:00Z'), Digest::sha256Of('base')),
     )])
-        ->and($stopped->failures())->toHaveCount(0)
+        ->and($stopped->failures(GateCommand::installed()))->toHaveCount(0)
         ->and(array_map(
             static fn(Mutant|ProvedKill $left): string => $left->reason() instanceof Reason ? $left->reason()->text() : '',
             [...[...$stopped->results()][0]->mutants(), ...[...$stopped->results()][0]->kills()],

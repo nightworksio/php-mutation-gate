@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\Digest\Digest;
 use NightWorksIO\MutationGate\Core\Report\Digest\SurvivorsShown;
 use NightWorksIO\MutationGate\Core\Report\JsonReport;
+use NightWorksIO\MutationGate\Core\Report\Overview;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
@@ -43,6 +44,6 @@ final readonly class DigestReportFile implements Configurable, Reporter
     {
         $report = Node::decode(JsonReport::encode($verdict));
 
-        return $this->path->write(Digest::overview($report, SurvivorsShown::first()));
+        return $this->path->write(Digest::overview($report, SurvivorsShown::first(), Overview::of($verdict)->gate()));
     }
 }

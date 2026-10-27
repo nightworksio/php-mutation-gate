@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\Setup;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Import\Carried;
 use NightWorksIO\MutationGate\Core\Import\Import;
 
@@ -24,7 +25,7 @@ it('lays each import over the ones before it, and says every key, the notes, and
         ->noting('composer.json names tests.');
 
     expect($import->layer()->written(ProjectRoot::origin())->line())->toBe('{"preset":"library","runner":"infection"}')
-        ->and($import->report('infection.json5'))->toBe(implode("\n", [
+        ->and($import->report('infection.json5', GateCommand::installed()))->toBe(implode("\n", [
             'What became of each key of infection.json5:',
             '  minMsi: imported as the floor of every tree, 80.00',
             '  mutators.Plus.ignore: imported as an ignore',
@@ -35,7 +36,7 @@ it('lays each import over the ones before it, and says every key, the notes, and
             'phpunit.xml names lib.',
             'composer.json names tests.',
             'Delete these keys from infection.json5, since the gate no longer reads them there: minMsi, maxTimeouts.',
-            'Run mutation-gate locally once.',
+            'Run vendor/bin/mutation-gate locally once.',
             'It writes the baseline at what the gate measures, and says if a tree is below the imported floor.',
         ]));
 });
@@ -44,10 +45,10 @@ it('says no keys to delete where every key stays, and sets nothing where nothing
     $import = Import::none()->and(Import::of(Layer::none(), Carried::stays('threads', 'the gate overrides it')));
 
     expect($import->layer())->toEqual(Layer::none())
-        ->and($import->report('infection.json'))->toBe(implode("\n", [
+        ->and($import->report('infection.json', GateCommand::installed()))->toBe(implode("\n", [
             'What became of each key of infection.json:',
             '  threads: stays in infection.json, because the gate overrides it',
-            'Run mutation-gate locally once.',
+            'Run vendor/bin/mutation-gate locally once.',
             'It writes the baseline at what the gate measures, and says if a tree is below the imported floor.',
         ]));
 });

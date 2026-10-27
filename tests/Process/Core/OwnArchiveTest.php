@@ -67,3 +67,15 @@ it('refuses the Pest runner, which only the Composer package can run', function 
     expect($run->getExitCode())->toBe(2)
         ->and($run->getErrorOutput())->toContain('Pest runs the gate\'s plugin, which only the Composer package installs: composer require --dev nightworksio/mutation-gate -W');
 })->group('phar');
+
+it('names itself as it was started in the hook it installs, from the project\'s root', function () use ($project): void {
+    $root = $project();
+    Scratch::write($root, 'tools/.keep', '');
+    copy(Tree::at('build/mutation-gate.phar'), sprintf('%s/tools/mutation-gate', $root));
+    $install = new Process([PHP_BINARY, 'tools/mutation-gate', 'hook', 'install'], $root, timeout: 600);
+    $install->run();
+
+    expect($install->getExitCode())->toBe(0, sprintf('%s%s', $install->getOutput(), $install->getErrorOutput()))
+        ->and((string) file_get_contents(sprintf('%s/.git/hooks/pre-push', $root)))
+        ->toEndWith("exec php tools/mutation-gate pre-push \"\$@\"\n");
+})->group('phar');

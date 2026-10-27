@@ -6,12 +6,14 @@ namespace NightWorksIO\MutationGate\Core\Doctor\Check;
 
 use function implode;
 
+use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
 use NightWorksIO\MutationGate\Core\Doctor\Finding;
 use NightWorksIO\MutationGate\Core\Doctor\Findings;
 use NightWorksIO\MutationGate\Core\Doctor\InfectionConfig;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
 use NightWorksIO\MutationGate\Core\Doctor\Severity;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
+use NightWorksIO\MutationGate\Core\Verb;
 
 use function sprintf;
 
@@ -19,6 +21,8 @@ use function sprintf;
 final readonly class InfectionImport
 {
     private const string FOUND = '%s %s.';
+
+    private const string FROM = '--from=%s';
 
     private const string MIN_MSI = 'sets a minMsi';
 
@@ -28,7 +32,7 @@ final readonly class InfectionImport
         = 'The gate reads neither: floors replace minMsi, and ignores.entries replaces Infection\'s ignores.';
 
     private const string FIX
-        = 'Run mutation-gate init --from=%s, which writes both into a config and says how each key maps.';
+        = 'Run %s, which writes both into a config and says how each key maps.';
 
     public static function in(Observations $observed): Findings
     {
@@ -48,7 +52,7 @@ final readonly class InfectionImport
             Severity::Advice,
             sprintf(self::FOUND, $config->file(), implode(' and ', $sets)),
             self::WHY,
-            sprintf(self::FIX, $config->file()),
+            sprintf(self::FIX, DoctorRun::gateOf($observed)->with(Verb::Init, sprintf(self::FROM, $config->file()))),
         ));
     }
 }

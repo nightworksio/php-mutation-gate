@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Adapter\Project\TestSuite;
 use NightWorksIO\MutationGate\Cli\ComposerVendor;
 use NightWorksIO\MutationGate\Cli\Flow\ProjectMemoryLimit;
 use NightWorksIO\MutationGate\Cli\Flow\Suite;
+use NightWorksIO\MutationGate\Cli\StartedGate;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\BaselineFile;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -139,7 +140,7 @@ final readonly class Files
         return match (true) {
             $text instanceof Missing => Baseline::none(),
             $text instanceof CannotJudge => $text,
-            default => BaselineFile::decode($text, $file),
+            default => BaselineFile::decode($text, $file, StartedGate::in($this->root)),
         };
     }
 

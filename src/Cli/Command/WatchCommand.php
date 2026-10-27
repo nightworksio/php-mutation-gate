@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Verb;
 use NightWorksIO\MutationGate\Core\Verdict\HeldTo;
 use NightWorksIO\MutationGate\Core\Watch\Watched;
 use Symfony\Component\Console\Command\Command;
@@ -48,7 +49,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 final readonly class WatchCommand
 {
-    private const string NAME = 'watch';
+    private const string NAME = Verb::Watch->value;
 
     private const string WATCHING = 'Watching the trees and the tests for changes. Ctrl-C stops.';
 

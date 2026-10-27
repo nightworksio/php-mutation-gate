@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Cli\Command\Output;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Editor\Editor;
 use NightWorksIO\MutationGate\Core\Editor\VsCode;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Symfony\Component\Console\Command\Command;
@@ -22,7 +23,7 @@ it('writes the task and the recommendation where neither file is there', functio
 
     expect(EditorFiles::made($project, Output::Written))
         ->toBe("Wrote .vscode/tasks.json.\nWrote .vscode/extensions.json.")
-        ->and((string) file_get_contents(sprintf('%s/.vscode/tasks.json', $project)))->toBe(sprintf("%s\n", VsCode::tasks()))
+        ->and((string) file_get_contents(sprintf('%s/.vscode/tasks.json', $project)))->toBe(sprintf("%s\n", VsCode::tasks(GateCommand::installed())))
         ->and((string) file_get_contents(sprintf('%s/.vscode/extensions.json', $project)))
         ->toBe(sprintf("%s\n", VsCode::extensions()));
 });
@@ -34,7 +35,7 @@ it('prints what to add to each file that is there, and leaves it as it is', func
 
     expect(EditorFiles::made($project, Output::Written))->toBe(sprintf(
         "Add this task to the tasks in .vscode/tasks.json:\n\n%s\nAdd %s to the recommendations in .vscode/extensions.json.",
-        VsCode::task(),
+        VsCode::task(GateCommand::installed()),
         VsCode::SARIF_VIEWER,
     ))->and((string) file_get_contents(sprintf('%s/.vscode/tasks.json', $project)))
         ->toBe('{"version": "2.0.0", "tasks": []}');
@@ -45,7 +46,7 @@ it('prints both files whole with --stdout, and writes neither', function (): voi
 
     expect(EditorFiles::made($project, Output::Printed))->toBe(sprintf(
         ".vscode/tasks.json:\n\n%s\n.vscode/extensions.json:\n\n%s",
-        VsCode::tasks(),
+        VsCode::tasks(GateCommand::installed()),
         VsCode::extensions(),
     ))->and(is_dir(sprintf('%s/.vscode', $project)))->toBeFalse();
 });

@@ -334,7 +334,7 @@ it('gives each mutant Infection\'s own limit and warns where Infection is not pa
     $patched = $timedOut(patched: true);
 
     expect($limits($unpatched))->toEqual([Seconds::of(7.5)])
-        ->and($warned($unpatched))->toBe(['Unpatched, Infection gave each mutant its own limit, with no floor. Run mutation-gate infection:patch.'])
+        ->and($warned($unpatched))->toBe(['Unpatched, Infection gave each mutant its own limit, with no floor. doctor says how to patch it.'])
         ->and($limits($patched))->toEqual([Seconds::of(10.0)])
         ->and($warned($patched))->toBe([]);
 });

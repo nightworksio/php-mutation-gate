@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Stub;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Report\Label;
+use NightWorksIO\MutationGate\Core\Verb;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
@@ -24,19 +26,19 @@ final readonly class Unstubbable
     private const string NOTHING = 'Mutant %s is %s: nothing to stub. %s';
 
     private const string FLAKY = <<<'SAID'
-        Mutant %s is flaky, so a test written for it now may pass by chance. %s Run mutation-gate triage %s to see.
+        Mutant %s is flaky, so a test written for it now may pass by chance. %s Run %s to see.
         SAID;
 
     private const string UNMEASURABLE = 'Mutant %s is %s, so no test can be seen to kill it yet. %s';
 
     private const string UNREACHED = <<<'SAID'
-        No test reaches the value mutant %s changes. Write a test that references it, and run mutation-gate to judge it.
+        No test reaches the value mutant %s changes. Write a test that references it, and run %s to judge it.
         SAID;
 
-    private const string UNJUDGED = 'Mutant %s is unjudged. %s Run mutation-gate to judge it first.';
+    private const string UNJUDGED = 'Mutant %s is unjudged. %s Run %s to judge it first.';
 
     /** The mutant, where a test is what it asks for; or why not, and what to do instead. */
-    public static function checked(JudgedMutant|JudgedKill $judged): JudgedMutant|CannotJudge
+    public static function checked(JudgedMutant|JudgedKill $judged, GateCommand $gate): JudgedMutant|CannotJudge
     {
         if ($judged instanceof JudgedMutant && $judged->judgement()->asksForATest()) {
             return $judged;
@@ -47,12 +49,17 @@ final readonly class Unstubbable
         $reason = $judged->mutant()->reason();
 
         return CannotJudge::because(match ($judged->judgement()) {
-            MutantJudgement::Flaky => sprintf(self::FLAKY, $id, $hint, $judged->mutant()->location()->file()->value()),
+            MutantJudgement::Flaky => sprintf(
+                self::FLAKY,
+                $id,
+                $hint,
+                $gate->with(Verb::Triage, $judged->mutant()->location()->file()->value()),
+            ),
             MutantJudgement::TooSlowToJudge, MutantJudgement::TooHeavyToJudge
                 => sprintf(self::UNMEASURABLE, $id, Label::of($judged->judgement()), $hint),
             MutantJudgement::Unjudged => $reason instanceof Reason && $reason->isUnreached()
-                ? sprintf(self::UNREACHED, $id)
-                : sprintf(self::UNJUDGED, $id, $hint),
+                ? sprintf(self::UNREACHED, $id, $gate->gate())
+                : sprintf(self::UNJUDGED, $id, $hint, $gate->gate()),
             MutantJudgement::Survived,
             MutantJudgement::Uncovered,
             MutantJudgement::Killed,

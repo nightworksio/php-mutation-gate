@@ -69,7 +69,7 @@ final readonly class Stubbing
         }
 
         $explanation = $explained->first();
-        $checked = Unstubbable::checked($explanation->mutant());
+        $checked = Unstubbable::checked($explanation->mutant(), $this->composed->setup->command);
 
         return $checked instanceof JudgedMutant
             ? $this->stubbed($this->subjectOf($checked, $explanation, $explained), $explanation, $asked)

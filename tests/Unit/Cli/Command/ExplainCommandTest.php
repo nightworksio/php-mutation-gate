@@ -80,7 +80,7 @@ it('explains a mutant no run in this checkout holds from its newest record, runn
                 +return $amount >= 100;
                 Add a test that uses a value at the boundary of `$amount > 100`.
                 Covered by: no test
-                Unit: unknown. No run has left a plan at .mutation-gate/plan.json here: run mutation-gate first.
+                Unit: unknown. No run has left a plan at .mutation-gate/plan.json here: run vendor/bin/mutation-gate first.
                 History:
                     survived, by github:7/1 on main at 2026-09-29T10:00:00Z
                 Reproduce: vendor/bin/mutation-gate reproduce 49e02fb39669
@@ -170,7 +170,7 @@ it('says why a last run whose shards left no results cannot say how it took a mu
 it('says in the JSON why the last run cannot say how it took a mutant it does not hold', function () use ($store, $composed): void {
     $json = FlowCommands::run(ExplainCommand::command($composed(ScriptedRunner::fixture(), $store())), 'id=49e02f --format=json')->output;
 
-    expect(Decoded::at($json, 'mutants', 0, 'unit'))->toBe(['unknown' => 'No run has left a plan at .mutation-gate/plan.json here: run mutation-gate first.'])
+    expect(Decoded::at($json, 'mutants', 0, 'unit'))->toBe(['unknown' => 'No run has left a plan at .mutation-gate/plan.json here: run vendor/bin/mutation-gate first.'])
         ->and(Decoded::at($json, 'mutants', 0, 'tests'))->toBe([])
         ->and(Decoded::at($json, 'mutants', 0, 'judgingSeconds'))->toBeNull();
 });
@@ -220,7 +220,7 @@ it('exits 2 for a cluster id the last run names no cluster by, or where there is
     $misspelled = FlowCommands::run(ExplainCommand::command($composition), 'id=k0123');
 
     expect([$unread->code, $unread->errors])
-        ->toBe([2, "Clusters are found by the last run, which cannot be read. No run has left a plan at .mutation-gate/plan.json here: run mutation-gate first.\n"])
+        ->toBe([2, "Clusters are found by the last run, which cannot be read. No run has left a plan at .mutation-gate/plan.json here: run vendor/bin/mutation-gate first.\n"])
         ->and([$unfound->code, $unfound->errors])
         ->toBe([2, "The last run found no cluster k0123456789a: clusters change as survivors do, so give one it printed.\n"])
         ->and([$misspelled->code, $misspelled->errors])
@@ -243,7 +243,7 @@ it('exits 2 for a mutant neither a ledger nor the last run holds', function () u
     $explained = FlowCommands::run(ExplainCommand::command($composed(ScriptedRunner::fixture(), new ProofStoreFake())), 'id=abcdef');
 
     expect([$explained->code, $explained->output, $explained->errors])
-        ->toBe([2, '', "No ledger read holds a mutant abcdef names. Run mutation-gate on the code that has it to record it first.\n"]);
+        ->toBe([2, '', "No ledger read holds a mutant abcdef names. Run vendor/bin/mutation-gate on the code that has it to record it first.\n"]);
 });
 
 it('exits 2 for a prefix that names several mutants, in the ledgers and the last run together', function () use ($store, $composed, $survivor): void {

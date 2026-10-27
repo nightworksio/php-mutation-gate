@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Hook\Hook;
 use NightWorksIO\MutationGate\Core\Hook\HookCall;
 use NightWorksIO\MutationGate\Core\Hook\Occupant;
@@ -15,7 +16,7 @@ it('is the file git runs for its moment', function (): void {
 });
 
 it('writes a shell script that says who wrote it and calls the gate', function (): void {
-    $script = Hook::PrePush->script(HookCall::of(Path::root(), Path::of('vendor/bin/mutation-gate')));
+    $script = Hook::PrePush->script(HookCall::of(Path::root(), GateCommand::at(Path::of('vendor/bin/mutation-gate'))));
 
     expect($script->text())->toBe(<<<'SH'
         #!/bin/sh
@@ -26,7 +27,7 @@ it('writes a shell script that says who wrote it and calls the gate', function (
 });
 
 it('knows a hook it wrote from one somebody else wrote, and from none', function (): void {
-    $ours = Hook::PreCommit->script(HookCall::of(Path::of('app'), Path::of('vendor/bin/mutation-gate')));
+    $ours = Hook::PreCommit->script(HookCall::of(Path::of('app'), GateCommand::at(Path::of('vendor/bin/mutation-gate'))));
 
     expect(Hook::PreCommit->occupant($ours))->toBe(Occupant::TheGate)
         ->and(Hook::PrePush->occupant($ours))->toBe(Occupant::TheGate)

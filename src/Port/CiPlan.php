@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Ci\CiMarker;
 use NightWorksIO\MutationGate\Core\Ci\Publication;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 
@@ -20,8 +21,11 @@ use NightWorksIO\MutationGate\Core\Runner\Withheld;
  */
 interface CiPlan
 {
-    /** The plan in the CI's own format, such as a matrix or a child pipeline, and where it goes. */
-    public function publish(Plan $plan): Publication|CannotJudge;
+    /**
+     * The plan in the CI's own format, such as a matrix or a child pipeline,
+     * and where it goes; each job it writes runs the gate as it was started.
+     */
+    public function publish(Plan $plan, GateCommand $gate): Publication|CannotJudge;
 
     /**
      * The CI definitions that run the gate, as paths from the repository's

@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\CiMarker;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Port\CiPlan;
@@ -21,7 +22,7 @@ final readonly class UnpublishedCi implements CiPlan
     {
     }
 
-    public function publish(Plan $plan): CannotJudge
+    public function publish(Plan $plan, GateCommand $gate): CannotJudge
     {
         return CannotJudge::because($this->why);
     }

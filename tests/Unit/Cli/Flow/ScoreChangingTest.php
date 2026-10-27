@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
@@ -122,7 +123,7 @@ it('carries the newest result for a reached unit with no local one, and counts i
 
     expect(new ScoreChanging($adapters, Flows::settings(), Flows::setup())->text())->toBe(
         "src scores 40.00%, below its floor of 50.00%. That is ±0.00 against the base.\n"
-        . "1 unit unjudged since your last run: mutation-gate watch\n"
+        . "1 unit unjudged since your last run: vendor/bin/mutation-gate watch\n"
         . 'The scores include unstaged changes in 1 file.',
     );
 });
@@ -138,7 +139,7 @@ it('scores each reached tree with the survivors the config ignores left out', fu
 
     expect(new ScoreChanging($adapters, $settings, Flows::setup())->text())->toBe(
         "src scores 50.00% against its floor of 50.00%. That is ±0.00 against the base.\n"
-        . "1 unit unjudged since your last run: mutation-gate watch\n"
+        . "1 unit unjudged since your last run: vendor/bin/mutation-gate watch\n"
         . 'The scores include unstaged changes in 1 file.',
     );
 });
@@ -150,7 +151,7 @@ it('shows no score for a tree with a unit that has no result anywhere', function
 
     expect(new ScoreChanging($adapters, Flows::settings(), Flows::setup())->text())->toBe(
         "src is not measured yet: a unit of it has no result.\n"
-        . "2 units unjudged since your last run: mutation-gate watch\n"
+        . "2 units unjudged since your last run: vendor/bin/mutation-gate watch\n"
         . 'The scores include unstaged changes in 1 file.',
     );
 });
@@ -168,7 +169,7 @@ it('shows no score where no local run has left a coverage map', function (): voi
     $runner = new CoverageAsked(RunnerFake::ofTheFixture(), CannotJudge::because('There is no map.'));
 
     expect(new ScoreChanging(Flows::adapters(Flows::project(), [], $runner), Flows::settings(), Flows::setup())->text())
-        ->toBe(ScoreChangeText::unmapped());
+        ->toBe(ScoreChangeText::unmapped(GateCommand::installed()));
 });
 
 it('cannot say where the units cannot be found', function (): void {

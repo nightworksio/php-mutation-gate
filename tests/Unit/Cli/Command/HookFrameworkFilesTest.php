@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Cli\Command\Output;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\GatePin;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Hook\HookCall;
 use NightWorksIO\MutationGate\Core\Hook\HookFramework;
 use NightWorksIO\MutationGate\Core\Hook\HookRecipe;
@@ -24,7 +25,7 @@ afterEach(function (): void {
 /** The recipes for the gate Composer links at `vendor/bin`, from a release it does not name. */
 function hookFrameworkRecipe(): HookRecipe
 {
-    return HookRecipe::of(HookCall::of(Path::root(), Path::of('vendor/bin/mutation-gate')), GatePin::unknown());
+    return HookRecipe::of(HookCall::of(Path::root(), GateCommand::at(Path::of('vendor/bin/mutation-gate'))), GatePin::unknown());
 }
 
 it('writes the manager\'s config where it reads none, and says how to install its hooks', function (

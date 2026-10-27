@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Percentage;
 
@@ -81,15 +82,16 @@ final readonly class BaselineFile
     }
 
     /** The baseline a file holds, or why it cannot be read, naming where it went wrong. */
-    public static function decode(string $json, Path $file): Baseline|CannotJudge
+    public static function decode(string $json, Path $file, GateCommand $gate): Baseline|CannotJudge
     {
         try {
             return self::baselineIn(Node::decode($json));
         } catch (NotInShape $refused) {
             return CannotJudge::because(sprintf(
-                'The baseline %s cannot be read: %s Fix it, or run mutation-gate baseline --write.',
+                'The baseline %s cannot be read: %s Fix it, or run %s.',
                 $file->value(),
                 $refused->getMessage(),
+                $gate->baselineWritten(),
             ));
         }
     }

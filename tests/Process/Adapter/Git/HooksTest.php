@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Hook\Hook;
 use NightWorksIO\MutationGate\Core\Hook\HookCall;
 use NightWorksIO\MutationGate\Core\Hook\Removed;
@@ -88,7 +89,7 @@ it('cannot tell where the repository is in a git directory without a working tre
 
 it('calls the gate from the top of the working tree into the project', function (): void {
     $repository = Repository::empty()->write('packages/app/composer.json', '{}');
-    $binary = Path::of('vendor/bin/mutation-gate');
+    $binary = GateCommand::installed();
 
     expect(hooksFrom($repository->root)->call($binary))->toEqual(HookCall::of(Path::root(), $binary))
         ->and(hooksFrom(sprintf('%s/packages/app', $repository->root))->call($binary))

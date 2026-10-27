@@ -54,7 +54,7 @@ final readonly class UnchangedVerdict
     {
         $now = $this->setup->clock->now();
         $expired = $unchanged->expiredBy($this->settings->ignores()->entries(), $now);
-        $baseline = new Baselines($this->adapters, $this->settings->floors()->baseline())->committed();
+        $baseline = Baselines::of($this->adapters, $this->settings, $this->setup)->committed();
         $reporters = $this->reporting->reporters($this->settings, $plan->runOn());
 
         return match (true) {

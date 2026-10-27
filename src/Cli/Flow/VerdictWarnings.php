@@ -34,7 +34,7 @@ final readonly class VerdictWarnings
 
     private const string UNNAMED = 'The reports name each test by its coverage id. %s';
 
-    private const string UNFLOORED = '%s has no floor yet. Run mutation-gate baseline --write and commit %s.';
+    private const string UNFLOORED = '%s has no floor yet. Run %s and commit %s.';
 
     private const string ELSEWHERE = <<<'SAID'
         The suites %s serve the application from another process, where a mutant cannot be served,
@@ -42,9 +42,9 @@ final readonly class VerdictWarnings
         SAID;
 
     private const string SECURITY_UNFLOORED
-        = 'The security set of %s has no floor yet. Run mutation-gate baseline --write and commit %s.';
+        = 'The security set of %s has no floor yet. Run %s and commit %s.';
 
-    public function __construct(private Adapters $adapters, private Settings $settings)
+    public function __construct(private Adapters $adapters, private Settings $settings, private Setup $setup)
     {
     }
 
@@ -67,6 +67,7 @@ final readonly class VerdictWarnings
             $warnings = $warnings->with(Warning::that(sprintf(
                 self::SECURITY_UNFLOORED,
                 $package->value(),
+                $this->setup->command->baselineWritten(),
                 $this->settings->floors()->baseline()->value(),
             )));
         }
@@ -101,6 +102,7 @@ final readonly class VerdictWarnings
             $warnings = $warnings->with(Warning::that(sprintf(
                 self::UNFLOORED,
                 $tree->value(),
+                $this->setup->command->baselineWritten(),
                 $this->settings->floors()->baseline()->value(),
             )));
         }

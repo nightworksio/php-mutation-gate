@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Report;
 use function count;
 use function implode;
 
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Proof\Recorded;
@@ -15,7 +16,6 @@ use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
-use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 
 use function rtrim;
 use function sprintf;
@@ -27,8 +27,12 @@ use function sprintf;
  */
 final readonly class ReproductionText
 {
-    public static function of(Recorded $recorded, WholeSuite|Group|Filter $judgedBy, Reproduction $now): string
-    {
+    public static function of(
+        Recorded $recorded,
+        WholeSuite|Group|Filter $judgedBy,
+        Reproduction $now,
+        GateCommand $gate,
+    ): string {
         $mutant = $recorded->mutant();
         $again = $now->mutant();
         $lines = [
@@ -36,7 +40,7 @@ final readonly class ReproductionText
             sprintf('Recorded: %s', RecordText::of($recorded)),
             ...$again instanceof Mutant ? self::found($again) : [sprintf('Now: not made. %s', $again->why()->text())],
             sprintf(MutantText::JUDGED_BY, MutantText::judging($judgedBy)),
-            sprintf(sprintf('Explain: %s', JudgedMutant::EXPLAIN), $mutant->id()->value()),
+            sprintf('Explain: %s', $gate->explain($mutant->id()->value())),
         ];
         $heading = sprintf(
             '%s:%d  %s  %s',

@@ -112,6 +112,7 @@ final readonly class Console
 
         $detected = new Detected(Directory::at($project), Directory::at($vendor));
         $now = $clock->now();
+        $started = StartedGate::in($project);
         $effective = new Effective($project, $extensions, $detected, $now);
         $composition = new Composition(
             $effective,
@@ -163,8 +164,8 @@ final readonly class Console
         $application->addCommand(ConfigSchema::command());
         $application->addCommand(MigrateCommand::command(
             new MigrationFiles($project, class_exists(...)),
-            Migrations::config(),
-            Migrations::baseline(),
+            Migrations::config()->startedAs($started),
+            Migrations::baseline()->startedAs($started),
         ));
         $probe = PhpProbe::of(PHP_BINARY, getenv());
         $application->addCommand(Doctor::command(
@@ -174,7 +175,7 @@ final readonly class Console
                 $effective,
                 $detected,
                 $probe,
-                DoctorRun::of($now, ini_parse_quantity(ini_get('memory_limit'))),
+                DoctorRun::of($now, ini_parse_quantity(ini_get('memory_limit')))->startedAs($started),
             ),
             new Measure($composition),
             new Online($project, $environment, HttpClient::create()),

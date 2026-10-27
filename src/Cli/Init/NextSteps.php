@@ -11,10 +11,9 @@ use function implode;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Git\Command as Git;
-use NightWorksIO\MutationGate\Cli\ComposerVendor;
-use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Cli\StartedGate;
 use NightWorksIO\MutationGate\Core\Format\ShellWord;
-use NightWorksIO\MutationGate\Core\ThisPackage;
+use NightWorksIO\MutationGate\Core\Verb;
 
 use function sort;
 use function sprintf;
@@ -28,7 +27,7 @@ final readonly class NextSteps
     /** Every file git would add from the project: changed, or new and not ignored. */
     private const array LISTED = ['ls-files', '-z', '--modified', '--others', '--exclude-standard'];
 
-    private const string NEXT = "Next:\n  %s doctor\n  %s";
+    private const string NEXT = "Next:\n  %s\n  %s";
 
     private const string ADD = "%s\n  git add %s";
 
@@ -46,8 +45,8 @@ final readonly class NextSteps
     /** The commands to run next; `git add` of the files `init` wrote, where it wrote any git would add. */
     public function said(): string
     {
-        $gate = ComposerVendor::binaries($this->project)->child(Path::of(ThisPackage::NAME))->value();
-        $next = sprintf(self::NEXT, ShellWord::of($gate), ShellWord::of($gate));
+        $gate = StartedGate::in($this->project);
+        $next = sprintf(self::NEXT, $gate->with(Verb::Doctor), $gate->gate());
         $written = array_diff(self::listed($this->project), $this->before);
         sort($written);
 

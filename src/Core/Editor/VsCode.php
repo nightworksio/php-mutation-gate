@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Editor;
 
 use NightWorksIO\MutationGate\Core\Format\JsonText;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Report\Problems;
 use NightWorksIO\MutationGate\Core\ThisPackage;
+use NightWorksIO\MutationGate\Core\Verb;
 
 use function sprintf;
 
@@ -30,7 +32,7 @@ final readonly class VsCode
     /** The extension that shows a SARIF log's results in the source. */
     public const string SARIF_VIEWER = 'MS-SarifVSCode.sarif-viewer';
 
-    private const string COMMAND = 'vendor/bin/mutation-gate watch --output=problems';
+    private const string PROBLEMS = '--output=problems';
 
     private const string VERSION = '2.0.0';
 
@@ -38,15 +40,15 @@ final readonly class VsCode
     private const string WHOLE = '^%s$';
 
     /** `.vscode/tasks.json`, holding the task alone. */
-    public static function tasks(): string
+    public static function tasks(GateCommand $gate): string
     {
-        return JsonText::encode(['version' => self::VERSION, 'tasks' => [self::definition()]]);
+        return JsonText::encode(['version' => self::VERSION, 'tasks' => [self::definition($gate)]]);
     }
 
     /** The task, as the block to add to a `.vscode/tasks.json` that exists. */
-    public static function task(): string
+    public static function task(GateCommand $gate): string
     {
-        return JsonText::encode(self::definition());
+        return JsonText::encode(self::definition($gate));
     }
 
     /** `.vscode/extensions.json`, recommending the SARIF Viewer. */
@@ -70,12 +72,12 @@ final readonly class VsCode
      *     },
      * }
      */
-    private static function definition(): array
+    private static function definition(GateCommand $gate): array
     {
         return [
             'label' => self::LABEL,
             'type' => 'shell',
-            'command' => self::COMMAND,
+            'command' => $gate->with(Verb::Watch, self::PROBLEMS),
             'isBackground' => true,
             'problemMatcher' => [
                 'owner' => ThisPackage::NAME,

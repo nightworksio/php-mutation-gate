@@ -60,7 +60,8 @@ presets for Laravel, Symfony and plain libraries.
      *unjudged*. Such a mutant:
      - counts as not killed (ADR-0003);
      - is listed by unit in every report, with the command that judges it
-       (`vendor/bin/mutation-gate run --budget=<duration>`);
+       (`vendor/bin/mutation-gate run --budget=<duration>`, the gate named
+       as it was started, ADR-0022);
      - keeps its unit out of the ledger (ADR-0007), and the run's commit out
        of its `lastRun`, which the run removes, so the scope's next `last-run`
        change is read since the default branch again (ADR-0005);

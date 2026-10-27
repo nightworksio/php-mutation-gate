@@ -11,9 +11,9 @@ use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Cli\Flow\Digesting;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Report\Digest\SurvivorsShown;
+use NightWorksIO\MutationGate\Core\Verb;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -28,7 +28,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 final readonly class DigestCommand
 {
-    private const string NAME = BuiltinReporter::Digest->value;
+    private const string NAME = Verb::Digest->value;
 
     private const string DETAIL = 'detail';
 
@@ -63,6 +63,7 @@ final readonly class DigestCommand
                             $composed->adapters->project,
                             is_string($detail) ? $detail : NotGiven::value(),
                             $shown,
+                            $composed->setup->command,
                         ),
                     ),
                 };

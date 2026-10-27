@@ -195,7 +195,7 @@ it('reads a config file that writes what a release retired as that release\'s fi
     $current = Json::parse('{"runner": "pest"}');
 
     expect($old instanceof Json ? Definition::file($old, ProjectRoot::origin(), $migrations) : $old)
-        ->toEqual(Invalid::because(Problem::at('runnr', '`runnr` became `runner` in 2.0.0: run `mutation-gate migrate`')))
+        ->toEqual(Invalid::because(Problem::at('runnr', '`runnr` became `runner` in 2.0.0: run `vendor/bin/mutation-gate migrate`')))
         ->and($current instanceof Json ? Definition::file($current, ProjectRoot::origin(), $migrations) : $current)
         ->toBeInstanceOf(Layer::class);
 });

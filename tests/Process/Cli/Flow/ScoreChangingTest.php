@@ -68,7 +68,7 @@ it('scores each reached tree with the survivors proven equivalent left out', fun
 
     expect(new ScoreChanging($adapters, Flows::settings(), Flows::setup())->text())->toBe(
         "src scores 50.00% against its floor of 50.00%. That is ±0.00 against the base.\n"
-        . "1 unit unjudged since your last run: mutation-gate watch\n"
+        . "1 unit unjudged since your last run: vendor/bin/mutation-gate watch\n"
         . 'The scores include unstaged changes in 1 file.',
     );
 })->group(...$holds);

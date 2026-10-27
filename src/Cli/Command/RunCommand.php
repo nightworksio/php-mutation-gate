@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Verb;
 use NightWorksIO\MutationGate\Core\Written;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -48,7 +49,7 @@ final readonly class RunCommand
 
     public static function command(Composition $composition): Command
     {
-        return FlowOptions::editing(FlowOptions::planning(new Command('run')))
+        return FlowOptions::editing(FlowOptions::planning(new Command(Verb::Run->value)))
             ->setDescription('Plan, run and judge in one process; or, with --plan, run one shard of a plan')
             ->addOption(FlowOptions::PLAN, mode: InputOption::VALUE_REQUIRED, description: 'Run one shard of this plan')
             ->addOption(FlowOptions::SHARD, mode: InputOption::VALUE_REQUIRED, description: 'The shard to run')
@@ -171,7 +172,7 @@ final readonly class RunCommand
      */
     private static function raised(Composed $composed, Judged $judged): Judged|CannotJudge
     {
-        $baselines = new Baselines($composed->adapters, $composed->settings->floors()->baseline());
+        $baselines = Baselines::of($composed->adapters, $composed->settings, $composed->setup);
         $raised = new Raising($baselines)->raise(
             $judged->baseline,
             $judged->verdict->trees(),

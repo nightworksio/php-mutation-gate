@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\Ci\GatePin;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Hook\HookCall;
 use NightWorksIO\MutationGate\Core\Hook\HookFramework;
 use NightWorksIO\MutationGate\Core\Hook\HookRecipe;
@@ -13,7 +14,7 @@ use NightWorksIO\MutationGate\Core\Hook\HookRecipe;
 /** The recipes for a gate Composer linked at this path, from a release it does not name. */
 function hookRecipeAt(string $binary): HookRecipe
 {
-    return HookRecipe::of(HookCall::of(Path::root(), Path::of($binary)), GatePin::unknown());
+    return HookRecipe::of(HookCall::of(Path::root(), GateCommand::at(Path::of($binary))), GatePin::unknown());
 }
 
 it('writes CaptainHook\'s actions, handing git\'s lines to pre-push through its {$STDIN} placeholder', function (): void {
@@ -74,7 +75,7 @@ it('lists the pre-commit framework\'s hooks from the repository, pinned to the g
         Path::of('vendor/composer/installed.json'),
     );
     $pinned = HookRecipe::of(
-        HookCall::of(Path::root(), Path::of('vendor/bin/mutation-gate')),
+        HookCall::of(Path::root(), GateCommand::at(Path::of('vendor/bin/mutation-gate'))),
         $installed instanceof Installed ? GatePin::in($installed) : GatePin::unknown(),
     );
 

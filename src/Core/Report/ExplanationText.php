@@ -10,6 +10,7 @@ use function implode;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\Format\Fit;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
@@ -62,28 +63,28 @@ final readonly class ExplanationText
 
     private const string NO_HISTORY = 'History: no ledger read holds it';
 
-    public static function of(Explanations $explained): string
+    public static function of(Explanations $explained, GateCommand $gate): string
     {
         $cluster = $explained->cluster();
-        $blocks = $cluster instanceof Cluster ? [self::cluster($cluster)] : [];
+        $blocks = $cluster instanceof Cluster ? [self::cluster($cluster, $gate)] : [];
 
         foreach ($explained as $explanation) {
-            $blocks[] = self::one($explanation);
+            $blocks[] = self::one($explanation, $gate);
         }
 
         return implode("\n\n", $blocks);
     }
 
-    private static function cluster(Cluster $cluster): string
+    private static function cluster(Cluster $cluster, GateCommand $gate): string
     {
         return MutantText::indented(
             ClusterText::heading($cluster),
             ClusterText::hint($cluster),
-            sprintf('Stub: %s', $cluster->stub()),
+            sprintf('Stub: %s', $cluster->stub($gate)),
         );
     }
 
-    private static function one(Explanation $explanation): string
+    private static function one(Explanation $explanation, GateCommand $gate): string
     {
         $judged = $explanation->mutant();
 
@@ -96,7 +97,7 @@ final readonly class ExplanationText
             ...self::limited($judged),
             ...self::unit($explanation),
             ...self::history($explanation),
-            sprintf('Reproduce: %s', $judged->reproduce()),
+            sprintf('Reproduce: %s', $judged->reproduce($gate)),
         ];
 
         return MutantText::indented(MutantText::heading($judged), ...$lines);

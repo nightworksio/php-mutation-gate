@@ -241,6 +241,21 @@ verdict reaches and how.
     - The gate's files that run inside a project's own process, among the
       project's packages, and those that write PHP for another process to
       run, stay unscoped.
+    - The gate names itself the way it was started. Every command it writes
+      or prints for itself uses that name: the hooks `hook install` writes,
+      the hook-manager recipes `init --hook` writes, the VS Code task, the
+      jobs a CI plan writes, and every hint it prints. Started from the PHAR,
+      it names the archive's file, relative to the project's root when the
+      file is inside the project. A file that cannot run itself is run with
+      `php`, and a file in the root is run as `./<file>`. Started from
+      Composer's installation, it names the binary Composer links,
+      `vendor/bin/mutation-gate` unless the project configures another
+      `bin-dir`. The `.pre-commit-hooks.yaml` this repository publishes is
+      for Composer installations, so its `entry` stays
+      `vendor/bin/mutation-gate`. A PHAR installation's `init --hook
+      pre-commit` writes its own `entry` instead. A runner's own messages
+      about an unpatched Pest or Infection name no command. They point to
+      `doctor`, which prints the patch command in full.
 
 12. **The PHAR is signed twice: an attestation and a GPG signature.**
     - A GitHub artifact attestation proves which workflow built the PHAR

@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
@@ -36,14 +37,14 @@ function bitbucketUnnamed(): CannotTell
 }
 
 it('prints the plan as the generic JSON', function (): void {
-    expect(bitbucketPlanIn(Variables::of([]))->publish(ShardedPlan::of(2)))
+    expect(bitbucketPlanIn(Variables::of([]))->publish(ShardedPlan::of(2), GateCommand::installed()))
         ->toEqual(Publication::printed(PlanListing::of(ShardedPlan::of(2))));
 });
 
 it('prints the plan, built from its options', function (): void {
     $plan = BitbucketPlan::fromOptions(Configs::options('{"definition": "bitbucket-pipelines.yml"}'));
 
-    expect($plan instanceof BitbucketPlan ? $plan->publish(ShardedPlan::of(1)) : $plan)
+    expect($plan instanceof BitbucketPlan ? $plan->publish(ShardedPlan::of(1), GateCommand::installed()) : $plan)
         ->toEqual(Publication::printed(PlanListing::of(ShardedPlan::of(1))));
 });
 
@@ -85,7 +86,7 @@ it('is marked by BITBUCKET_BUILD_NUMBER, which Bitbucket Pipelines sets in every
 });
 
 it('prints a plan whose paths hold log commands so a CI\'s log reads none, and every reader reads the paths back', function (): void {
-    $printed = bitbucketPlanIn(Variables::of([]))->publish(ShardedPlan::hostile())->text();
+    $printed = bitbucketPlanIn(Variables::of([]))->publish(ShardedPlan::hostile(), GateCommand::installed())->text();
 
     expect(LogCommands::in($printed))->toBe([])
         ->and(Decoded::at($printed, 'shards', 0, 'units'))->toBe([ShardedPlan::HOSTILE]);

@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -79,7 +80,7 @@ final readonly class GitHubPlan implements CiPlan, Configurable
     }
 
     /** The matrix and the plan, appended to `$GITHUB_OUTPUT` as the step's outputs `shards` and `plan`. */
-    public function publish(Plan $plan): Publication|CannotJudge
+    public function publish(Plan $plan, GateCommand $gate): Publication|CannotJudge
     {
         $output = $this->job->variables()->valueOf(self::OUTPUT);
 

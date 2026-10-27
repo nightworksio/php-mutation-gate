@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Format\Visible;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Mutant\IdPrefix;
 
 use function sprintf;
@@ -34,7 +35,7 @@ final readonly class DigestDetail
         TEXT;
 
     /** @throws NotInShape */
-    public static function of(Node $report, string $target): string|CannotJudge
+    public static function of(Node $report, string $target, GateCommand $gate): string|CannotJudge
     {
         if ($target === self::LEGEND) {
             return Digest::legend();
@@ -51,7 +52,7 @@ final readonly class DigestDetail
 
         return match (true) {
             in_array($target, $files, strict: true) => FileDetail::of($report, $target, $mutants),
-            $sought instanceof ClusterId => ClusterDetail::of($report, $sought, $mutants),
+            $sought instanceof ClusterId => ClusterDetail::of($report, $sought, $mutants, $gate),
             $sought instanceof IdPrefix => MutantDetail::of($report, $sought, $mutants, $target),
             default => self::nothing($target),
         };

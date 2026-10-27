@@ -10,11 +10,13 @@ use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Format\Visible;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Report\Outcome;
 use NightWorksIO\MutationGate\Core\Report\SurvivorOrder;
 use NightWorksIO\MutationGate\Core\Report\Term;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
+use NightWorksIO\MutationGate\Core\Verb;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 
 use function sprintf;
@@ -52,7 +54,9 @@ final readonly class Digest
 
     private const string FILE = '@ %s';
 
-    private const string MORE = 'more %d: mutation-gate digest --survivors=all';
+    private const string MORE = 'more %d: %s';
+
+    private const string ALL = '--survivors=all';
 
     private const string TERM = '? %s: %s';
 
@@ -60,7 +64,7 @@ final readonly class Digest
     private const string UNCOVERED = 'count or exclude';
 
     /** @throws NotInShape */
-    public static function overview(Node $report, SurvivorsShown $shown): string
+    public static function overview(Node $report, SurvivorsShown $shown, GateCommand $gate): string
     {
         $survivors = self::survivors($report);
 
@@ -79,7 +83,9 @@ final readonly class Digest
             ProvenanceLine::of($report->field('provenance')),
             ...self::texts($report->field('warnings'), self::WARN),
             ...self::grouped($shown->of($survivors)),
-            ...$shown->leftOut($survivors) > 0 ? [sprintf(self::MORE, $shown->leftOut($survivors))] : [],
+            ...$shown->leftOut($survivors) > 0
+                ? [sprintf(self::MORE, $shown->leftOut($survivors), $gate->with(Verb::Digest, self::ALL))]
+                : [],
         ]);
     }
 

@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\Cluster\ClusterId;
 use NightWorksIO\MutationGate\Core\Cluster\ClusterKind;
 use NightWorksIO\MutationGate\Core\Cluster\Membership;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Tests\Support\Clustered;
@@ -29,8 +30,8 @@ it('writes the commands that stub and explain it by its id', function (): void {
     $membership = Membership::of(ClusterId::of(MutantIds::of(Clustered::lone()->mutant()->id())), ClusterKind::Expression);
     $cluster = Cluster::of($membership, Clustered::lone());
 
-    expect($cluster->stub())->toBe(sprintf('vendor/bin/mutation-gate stub %s', $membership->id()->value()))
-        ->and($cluster->explain())->toBe(sprintf('vendor/bin/mutation-gate explain %s', $membership->id()->value()));
+    expect($cluster->stub(GateCommand::installed()))->toBe(sprintf('vendor/bin/mutation-gate stub %s', $membership->id()->value()))
+        ->and($cluster->explain(GateCommand::installed()))->toBe(sprintf('vendor/bin/mutation-gate explain %s', $membership->id()->value()));
 });
 
 it('is on a changed line where any member is', function (): void {

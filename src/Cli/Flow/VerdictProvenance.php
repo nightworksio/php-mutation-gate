@@ -24,7 +24,7 @@ final readonly class VerdictProvenance
         JudgedCommit|CannotTell $judged,
     ): Provenance {
         $runner = $adapters->runner->identity($adapters->withheld);
-        $provenance = Provenance::of($setup->gate, $settings->floors()->baseline());
+        $provenance = Provenance::of($setup->gate, $settings->floors()->baseline())->startedAs($setup->command);
         $provenance = $judged instanceof JudgedCommit ? $provenance->judging($judged->commit()) : $provenance;
 
         return $runner instanceof Identity ? $provenance->ranBy($runner) : $provenance;

@@ -46,7 +46,7 @@ it('names no file every test runs through that a unit of the plan holds, proved,
         Considered::everything()->proving(Units::of(heldWarned('src/Proved.php')))->carrying(Units::of(heldWarned('src/Carried.php'))),
     );
 
-    $warnings = new VerdictWarnings(Flows::adapters(Scratch::directory()), Flows::settings())->of($plan, TreeVerdicts::none(), Warnings::none(), $map);
+    $warnings = new VerdictWarnings(Flows::adapters(Scratch::directory()), Flows::settings(), Flows::setup())->of($plan, TreeVerdicts::none(), Warnings::none(), $map);
 
     expect(array_map(static fn(Warning $warning): string => $warning->text(), [...$warnings]))->toBe([
         '`src/Loose.php` is run by 20 of 20 tests and nothing holds it; each of its mutants runs most of the suite.',

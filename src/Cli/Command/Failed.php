@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Cli\Command;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Proof\Ambiguous;
 use NightWorksIO\MutationGate\Core\Proof\NoRecord;
 
@@ -42,8 +43,14 @@ final readonly class Failed
     }
 
     /** A command that looked a mutant up and found no record of it, or several, or cannot go on. */
-    public static function unfound(OutputInterface $output, NoRecord|Ambiguous|CannotJudge $why): int
+    public static function unfound(OutputInterface $output, NoRecord|Ambiguous|CannotJudge $why, GateCommand $gate): int
     {
-        return self::because($output, $why instanceof CannotJudge ? $why : CannotJudge::because($why->why()));
+        $said = match (true) {
+            $why instanceof CannotJudge => $why,
+            $why instanceof NoRecord => CannotJudge::because($why->why($gate)),
+            default => CannotJudge::because($why->why()),
+        };
+
+        return self::because($output, $said);
     }
 }

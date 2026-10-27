@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
 use NightWorksIO\MutationGate\Core\Runner\Version;
+use NightWorksIO\MutationGate\Core\Verb;
 
 use function sprintf;
 
@@ -48,7 +49,7 @@ use function sprintf;
 final readonly class Patch
 {
     /** The command that applies the patch. */
-    public const string COMMAND = 'infection:patch';
+    public const string COMMAND = Verb::InfectionPatch->value;
 
     /** Why the command patches no release it does not know, which then runs with Infection's own limit. */
     private const string UNSUPPORTED

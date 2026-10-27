@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Report;
 
 use NightWorksIO\MutationGate\Core\Format\JsonText;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 
@@ -30,19 +31,19 @@ final readonly class CodeQuality
         $issues = [];
 
         foreach ($overview->survivors() as $mutant) {
-            $issues[] = self::issue($mutant, $overview->isFailing($mutant));
+            $issues[] = self::issue($mutant, $overview->isFailing($mutant), $overview->gate());
         }
 
         return JsonText::encode($issues);
     }
 
     /** @return Issue */
-    private static function issue(JudgedMutant $judged, bool $failing): array
+    private static function issue(JudgedMutant $judged, bool $failing, GateCommand $gate): array
     {
         $mutant = $judged->mutant();
 
         return [
-            'description' => MutantText::message($judged),
+            'description' => MutantText::message($judged, $gate),
             'check_name' => ResultRule::of($judged->judgement())->value,
             'fingerprint' => $mutant->id()->value(),
             'severity' => $failing ? 'major' : 'minor',

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Cluster;
 
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\Survivors;
 
-use function sprintf;
 use function usort;
 
 /**
@@ -18,9 +18,6 @@ use function usort;
  */
 final readonly class Cluster
 {
-    /** The command that writes one failing test for a whole cluster (ADR-0015). */
-    private const string STUB = 'vendor/bin/mutation-gate stub %s';
-
     private function __construct(
         private Membership $membership,
         private JudgedMutant $representative,
@@ -74,15 +71,15 @@ final readonly class Cluster
     }
 
     /** The command that writes one test for the cluster. */
-    public function stub(): string
+    public function stub(GateCommand $gate): string
     {
-        return sprintf(self::STUB, $this->id()->value());
+        return $gate->stub($this->id()->value());
     }
 
     /** The command that explains the cluster, running nothing. */
-    public function explain(): string
+    public function explain(GateCommand $gate): string
     {
-        return sprintf(JudgedMutant::EXPLAIN, $this->id()->value());
+        return $gate->explain($this->id()->value());
     }
 
     /** @return array{int, string} where a member stands: its line, then its id */

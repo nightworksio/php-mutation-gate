@@ -160,7 +160,7 @@ it('cuts a removed link that shares its line with others, and a with() its remov
 
 it('names the first call a release retired that a config which cannot load still makes, at its line; nothing where it makes none', function (): void {
     expect(PhpMigration::pending('mutation-gate.php', PHP_MIGRATION_RETIRING, phpMigrationSteps()))
-        ->toBe('mutation-gate.php line 13: `newCodes` became `newCode` in 2.0.0: run `mutation-gate migrate`')
+        ->toBe('mutation-gate.php line 13: `newCodes` became `newCode` in 2.0.0: run `vendor/bin/mutation-gate migrate`')
         ->and(PhpMigration::pending('mutation-gate.php', "<?php\nreturn Gate::configure();\n", phpMigrationSteps()))->toEqual(NotGiven::value());
 });
 
@@ -168,7 +168,7 @@ it('names a retired call of a class among the arguments where the chain makes no
     $code = "<?php\nuse NightWorksIO\\MutationGate\\Config\\Gate;\nuse NightWorksIO\\MutationGate\\Config\\Reach;\n\nreturn Gate::configure()\n    ->with(Reach::hotSpot(0.5));\n";
 
     expect(PhpMigration::pending('mutation-gate.php', $code, phpMigrationSteps()))
-        ->toBe('mutation-gate.php line 6: `reach.hotSpot` was removed (held code is warned of anyway) in 2.0.0: run `mutation-gate migrate`');
+        ->toBe('mutation-gate.php line 6: `reach.hotSpot` was removed (held code is warned of anyway) in 2.0.0: run `vendor/bin/mutation-gate migrate`');
 });
 
 it('cannot migrate a file that is no PHP it can parse, saying why', function (): void {

@@ -19,7 +19,7 @@ $refused = static fn(string $found): Findings => Findings::of(Finding::of(
     Severity::WillFail,
     $found,
     'Every command reads the config first, so none can run until it is right.',
-    'Correct each problem named, then run mutation-gate config:show to see the config the gate would use.',
+    'Correct each problem named, then run vendor/bin/mutation-gate config:show to see the config the gate would use.',
 ));
 
 it('finds a config every command refuses, with each problem at its path', function () use ($refused): void {

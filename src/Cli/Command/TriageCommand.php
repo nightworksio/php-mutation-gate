@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Report\TriageText;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Triage\Repeated;
+use NightWorksIO\MutationGate\Core\Verb;
 use NightWorksIO\MutationGate\Core\WholeNumber;
 
 use function sprintf;
@@ -54,7 +55,7 @@ final readonly class TriageCommand
 
     public static function command(Composition $composition): Command
     {
-        return new Command('triage')
+        return new Command(Verb::Triage->value)
             ->setDescription('Run a unit n times and list every mutant whose result varied')
             ->addArgument(Argument::Path->value, InputArgument::REQUIRED, 'The unit: a file of a tree, or a held path')
             ->addOption(
@@ -106,7 +107,7 @@ final readonly class TriageCommand
             return Failed::because($output, $triaged);
         }
 
-        $output->writeln(TriageText::of($triaged), OutputInterface::OUTPUT_RAW);
+        $output->writeln(TriageText::of($triaged, $composed->setup->command), OutputInterface::OUTPUT_RAW);
 
         return count($triaged->varied()) === 0 ? ExitCode::Passed->value : ExitCode::Failed->value;
     }

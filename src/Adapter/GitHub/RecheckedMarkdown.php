@@ -42,7 +42,11 @@ final readonly class RecheckedMarkdown
             RecheckedText::headline($rechecked),
             ...$surviving === [] ? [] : [
                 sprintf(self::SURVIVING, count($surviving)),
-                ...MarkdownItems::details(array_slice($surviving, 0, Commented::MOST), count($surviving)),
+                ...MarkdownItems::details(
+                    array_slice($surviving, 0, Commented::MOST),
+                    count($surviving),
+                    $rechecked->gate(),
+                ),
             ],
             ...$gone === [] ? [] : [sprintf(self::GONE, count($gone)), self::gone($gone)],
             $run === '' ? '' : sprintf(PlannedMarkdown::RUN, $run),

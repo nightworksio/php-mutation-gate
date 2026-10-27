@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Cli\Config;
 
 use DateTimeImmutable;
 use NightWorksIO\MutationGate\Cli\CommandLine;
+use NightWorksIO\MutationGate\Cli\StartedGate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\BuiltinPreset;
@@ -75,7 +76,7 @@ final readonly class Effective
             return $path instanceof NoConfigFile ? ConfigReads::none() : ConfigReads::unnamed($path->why());
         }
 
-        $file = ConfigFile::at($path, Path::of($this->project));
+        $file = $this->configFile($path);
         $loader = Formats::loader($this->extensions, $file);
 
         return $loader instanceof CannotJudge ? ConfigReads::unnamed($loader->why()) : $loader->reads($file);
@@ -117,7 +118,7 @@ final readonly class Effective
             return $path instanceof NoConfigFile ? Layer::none() : $path;
         }
 
-        return $this->loaded(ConfigFile::at($path, Path::of($this->project)));
+        return $this->loaded($this->configFile($path));
     }
 
     /** A config file read by the loader of its format, and judged. */
@@ -184,5 +185,11 @@ final readonly class Effective
             presets: $presets,
             runner: $runner instanceof BuiltinRunner ? Choice::of($runner->value, Options::none()) : $runner,
         ));
+    }
+
+    /** The config file at this path, read by the gate as it was started. */
+    private function configFile(Path $path): ConfigFile
+    {
+        return ConfigFile::at($path, Path::of($this->project))->startedAs(StartedGate::in($this->project));
     }
 }

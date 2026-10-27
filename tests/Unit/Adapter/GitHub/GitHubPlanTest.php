@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -38,7 +39,7 @@ const GITHUB_OUTPUT = '/home/runner/work/_temp/_runner_file_commands/set_output'
 it('appends the shards, by id and label, to the file GitHub reads a step\'s outputs from', function (): void {
     $plan = ShardedPlan::of(2);
 
-    expect(GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => GITHUB_OUTPUT]))->publish($plan))->toEqual(Publication::appended(
+    expect(GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => GITHUB_OUTPUT]))->publish($plan, GateCommand::installed()))->toEqual(Publication::appended(
         GITHUB_OUTPUT,
         sprintf(
             "shards=%s\nplan=%s\n",
@@ -53,7 +54,7 @@ it('writes a label as it is, slashes and all', function (): void {
     $plan = Plan::of(Revision::ref('5eeca8f'), Digest::sha256Of('base'), Keys::none(), Shards::of(
         Shard::of(ShardId::of(1), Package::at(Path::root()), Units::none(), Seconds::of(1.0), $label),
     ));
-    $published = GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => GITHUB_OUTPUT]))->publish($plan);
+    $published = GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => GITHUB_OUTPUT]))->publish($plan, GateCommand::installed());
 
     expect($published instanceof Publication ? $published->text() : $published)->toBe(sprintf(
         "shards=[{\"id\":1,\"label\":\"src/Http, part 1 of 2 — naïve\"}]\nplan=%s\n",
@@ -66,7 +67,7 @@ it('names no unit in its outputs, which the plan file carries, so a plan of any 
     $plan = Plan::of(Revision::ref('5eeca8f'), Digest::sha256Of('base'), Keys::none(), Shards::of(
         Shard::of(ShardId::of(1), Package::at(Path::root()), Units::of(...$units), Seconds::of(1.0), 'src, part 1 of 1'),
     ));
-    $published = GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => GITHUB_OUTPUT]))->publish($plan);
+    $published = GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => GITHUB_OUTPUT]))->publish($plan, GateCommand::installed());
     $text = $published instanceof Publication ? $published->text() : '';
 
     expect($text)->not->toContain('Unit00001.php')
@@ -76,7 +77,7 @@ it('names no unit in its outputs, which the plan file carries, so a plan of any 
 it('hands a matrix nothing to run for a plan with no shards', function (): void {
     $plan = ShardedPlan::of(0);
 
-    expect(GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => GITHUB_OUTPUT]))->publish($plan))
+    expect(GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => GITHUB_OUTPUT]))->publish($plan, GateCommand::installed()))
         ->toEqual(Publication::appended(GITHUB_OUTPUT, sprintf("shards=[]\nplan=%s\n", PlanListing::inline($plan))));
 });
 
@@ -84,14 +85,14 @@ it('fills a matrix up to its 256 jobs and refuses one more', function (): void {
     $github = GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => GITHUB_OUTPUT]));
 
     expect(GitHubPlan::MOST_JOBS)->toBe(256)
-        ->and($github->publish(ShardedPlan::of(256)))->toBeInstanceOf(Publication::class)
-        ->and($github->publish(ShardedPlan::of(257)))->toEqual(CannotJudge::because(
+        ->and($github->publish(ShardedPlan::of(256), GateCommand::installed()))->toBeInstanceOf(Publication::class)
+        ->and($github->publish(ShardedPlan::of(257), GateCommand::installed()))->toEqual(CannotJudge::because(
             'The plan holds 257 shards, and a GitHub matrix runs at most 256 jobs. Set shards.max to 256 or less.',
         ));
 });
 
 it('cannot hand a plan to a matrix outside a GitHub Actions step', function (): void {
-    expect(GitHubPlan::in(Variables::of([]))->publish(ShardedPlan::of(1)))->toEqual(CannotJudge::because(
+    expect(GitHubPlan::in(Variables::of([]))->publish(ShardedPlan::of(1), GateCommand::installed()))->toEqual(CannotJudge::because(
         'GITHUB_OUTPUT is not set, so the plan cannot reach the matrix. Run plan in a GitHub Actions step.',
     ));
 });
@@ -204,7 +205,7 @@ it('reads the output file from the environment', function (): void {
     $before = getenv('GITHUB_OUTPUT');
     putenv(sprintf('GITHUB_OUTPUT=%s', GITHUB_OUTPUT));
     $plan = ShardedPlan::of(0);
-    $published = GitHubPlan::fromOptions(Options::none())->publish($plan);
+    $published = GitHubPlan::fromOptions(Options::none())->publish($plan, GateCommand::installed());
     putenv($before === false ? 'GITHUB_OUTPUT' : sprintf('GITHUB_OUTPUT=%s', $before));
 
     expect($published)->toEqual(Publication::appended(GITHUB_OUTPUT, sprintf("shards=[]\nplan=%s\n", PlanListing::inline($plan))));

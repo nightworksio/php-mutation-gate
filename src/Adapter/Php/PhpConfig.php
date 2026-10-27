@@ -59,7 +59,7 @@ final readonly class PhpConfig implements ConfigLoader
         try {
             $returned = (static fn(string $path): mixed => require $path)($path);
         } catch (Error|JsonException|LogicException|RuntimeException $error) {
-            return CannotJudge::because($this->unread($path, $error->getMessage()));
+            return CannotJudge::because($this->unread($file, $path, $error->getMessage()));
         }
 
         return $returned instanceof Gate
@@ -76,10 +76,10 @@ final readonly class PhpConfig implements ConfigLoader
      * release retired, with the change and `migrate` (ADR-0026),
      * or else what PHP said.
      */
-    private function unread(string $path, string $said): string
+    private function unread(ConfigFile $file, string $path, string $said): string
     {
         $code = file_get_contents($path);
-        $migrations = $this->migrations instanceof Migrations ? $this->migrations : Migrations::config();
+        $migrations = $this->migrations instanceof Migrations ? $this->migrations : $file->migrations();
         $pending = is_string($code) ? PhpMigration::pending($path, $code, $migrations) : NotGiven::value();
 
         return is_string($pending) ? $pending : sprintf('%s could not be read: %s', $path, $said);

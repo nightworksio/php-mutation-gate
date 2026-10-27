@@ -145,7 +145,7 @@ final readonly class Rechecking
                 : Recheck::gone($before);
         }
 
-        return Rechecked::of($this->uncovered(), ...$rechecks);
+        return Rechecked::of($this->uncovered(), ...$rechecks)->startedAs($this->setup->command);
     }
 
     /**

@@ -51,14 +51,13 @@ final readonly class TestsReport
 
     public const string REMOVABLE = 'Removable';
 
-    public const string SUSPICION
-        = 'A suspicion, not a finding: run `mutation-gate run --kill-matrix=full` to settle it.';
-
     public const string SMALL = 'The kept set is a small one, not the smallest.';
 
     /** What the report says in place of the useless tests where the verdict holds no coverage. */
     public const string NO_COVERAGE
         = 'The verdict holds no coverage map, so no test can be judged by what it kills.';
+
+    private const string SUSPICION = 'A suspicion, not a finding: run `%s` to settle it.';
 
     private const string NOT_ASSESSED = '%d tests judged no mutant with a known result, so they are not assessed.';
 
@@ -86,6 +85,18 @@ final readonly class TestsReport
         ]);
     }
 
+    /** Why the matrix names no removable test, and, where a run can, the run that records what it needs. */
+    public static function needs(Verdict $verdict): string
+    {
+        return $verdict->matrix()->whyNotFull()->sentence($verdict->account()->provenance()->command());
+    }
+
+    /** Why a test never first to kill may still be needed, and the run that settles it. */
+    public static function suspicion(Verdict $verdict): string
+    {
+        return sprintf(self::SUSPICION, $verdict->account()->provenance()->command()->fullMatrix());
+    }
+
     public static function markdown(Verdict $verdict): string
     {
         $standings = TestStandings::of($verdict);
@@ -93,7 +104,7 @@ final readonly class TestsReport
 
         $useless = self::hasCoverage($verdict) ? [
             ...self::table(self::KILLS_NOTHING, $standings->thatStand(Standing::KillsNothing), []),
-            ...self::table(self::NEVER_FIRST, $standings->thatStand(Standing::NeverFirst), [self::SUSPICION]),
+            ...self::table(self::NEVER_FIRST, $standings->thatStand(Standing::NeverFirst), [self::suspicion($verdict)]),
         ] : [self::NO_COVERAGE];
         $blocks = [
             sprintf('# %s', self::TITLE),
@@ -158,7 +169,7 @@ final readonly class TestsReport
     private static function redundant(Verdict $verdict): array
     {
         if ($verdict->matrix()->kind() !== MatrixKind::Full) {
-            return ['needs' => $verdict->matrix()->whyNotFull()->sentence()];
+            return ['needs' => self::needs($verdict)];
         }
 
         $redundancy = Redundancy::of($verdict);
@@ -241,7 +252,7 @@ final readonly class TestsReport
     private static function removable(Verdict $verdict): array
     {
         if ($verdict->matrix()->kind() !== MatrixKind::Full) {
-            return [sprintf('## %s', self::REMOVABLE), $verdict->matrix()->whyNotFull()->sentence()];
+            return [sprintf('## %s', self::REMOVABLE), self::needs($verdict)];
         }
 
         $rows = ['| Test | Time | Its kills, each with the kept test that makes it too |', '|---|---|---|'];

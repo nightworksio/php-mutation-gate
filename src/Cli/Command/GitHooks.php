@@ -6,12 +6,10 @@ namespace NightWorksIO\MutationGate\Cli\Command;
 
 use NightWorksIO\MutationGate\Adapter\Git\Command as Git;
 use NightWorksIO\MutationGate\Adapter\Git\Hooks;
-use NightWorksIO\MutationGate\Cli\ComposerVendor;
+use NightWorksIO\MutationGate\Cli\StartedGate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
-use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Hook\Hook;
-use NightWorksIO\MutationGate\Core\ThisPackage;
 
 use function sprintf;
 
@@ -32,7 +30,7 @@ final readonly class GitHooks
                 Output::FILE,
                 $hooks->where(Hook::PrePush),
                 Hook::PrePush->script(
-                    $hooks->call(ComposerVendor::binaries($project)->child(Path::of(ThisPackage::NAME))),
+                    $hooks->call(StartedGate::in($project)),
                 )->text(),
             ),
             default => HookCommand::installed($hooks, $project, [Hook::PrePush]),

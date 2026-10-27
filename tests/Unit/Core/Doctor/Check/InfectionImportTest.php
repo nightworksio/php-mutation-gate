@@ -19,7 +19,7 @@ it('advises importing an Infection config that sets a minMsi or ignores mutants 
         Severity::Advice,
         sprintf('infection.json5 %s.', $sets),
         'The gate reads neither: floors replace minMsi, and ignores.entries replaces Infection\'s ignores.',
-        'Run mutation-gate init --from=infection.json5, which writes both into a config and says how each key maps.',
+        'Run vendor/bin/mutation-gate init --from=infection.json5, which writes both into a config and says how each key maps.',
     )));
 })->with([
     'a minMsi' => [true, false, 'sets a minMsi'],

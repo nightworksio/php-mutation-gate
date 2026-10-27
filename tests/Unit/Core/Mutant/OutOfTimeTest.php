@@ -19,7 +19,7 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 it('says what the budget ran out before, and the command that judges it', function (OutOfTime $before, string $said): void {
     expect($before->reason())->toEqual(Reason::ranOutOf(
         $before,
-        sprintf('The time budget ran out before %s. More time judges it: vendor/bin/mutation-gate run --budget=<duration>', $said),
+        sprintf('The time budget ran out before %s. A larger --budget judges it.', $said),
     ))
         ->and($before->reason()->outOfTime())->toBe($before);
 })->with([

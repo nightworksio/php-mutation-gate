@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Matrix\NotFull;
@@ -42,7 +43,7 @@ it('lists the useless tests with their rows, and asks for a full matrix before i
             ['test' => 'tests/CTest.php::it does C', 'standing' => 'never-first', 'covers' => 2],
         ],
         'notAssessed' => 1,
-        'redundant' => ['needs' => 'Needs a full kill matrix: run `mutation-gate run --kill-matrix=full`.'],
+        'redundant' => ['needs' => 'Needs a full kill matrix: run `vendor/bin/mutation-gate run --kill-matrix=full`.'],
         'weak' => [],
     ]);
 });
@@ -71,8 +72,8 @@ it('names the tests that can go from a full matrix, each kill with the kept test
 it('says why a matrix under Infection can never name a removable test', function (): void {
     $verdict = Verdicts::failing()->withMatrix(Verdicts::matrix(MatrixKind::FirstKiller)->cannotBeFull(NotFull::Infection));
 
-    expect(Decoded::at(TestsReport::json($verdict), 'redundant'))->toBe(['needs' => NotFull::Infection->sentence()])
-        ->and(TestsReport::markdown($verdict))->toContain(sprintf("## Removable\n\n%s", NotFull::Infection->sentence()));
+    expect(Decoded::at(TestsReport::json($verdict), 'redundant'))->toBe(['needs' => NotFull::Infection->sentence(GateCommand::installed())])
+        ->and(TestsReport::markdown($verdict))->toContain(sprintf("## Removable\n\n%s", NotFull::Infection->sentence(GateCommand::installed())));
 });
 
 it('writes the same as Markdown, a section to each list', function (): void {
@@ -115,7 +116,7 @@ it('marks a suspicion as one, lists each row, and says how many tests it could n
         '',
         '## Never the first to kill (2)',
         '',
-        'A suspicion, not a finding: run `mutation-gate run --kill-matrix=full` to settle it.',
+        'A suspicion, not a finding: run `vendor/bin/mutation-gate run --kill-matrix=full` to settle it.',
         '',
         '| Test | Mutants judged | Rows |',
         '|---|---|---|',

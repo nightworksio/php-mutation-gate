@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Doctor\DoctorText;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
 use NightWorksIO\MutationGate\Core\Report\Form;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
+use NightWorksIO\MutationGate\Core\Verb;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -29,7 +30,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 final readonly class Doctor
 {
-    private const string NAME = 'doctor';
+    private const string NAME = Verb::Doctor->value;
 
     public static function command(Observed $observed, Measure $measure, Online $online, Guide $guide): Command
     {

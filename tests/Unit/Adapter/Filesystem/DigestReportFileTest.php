@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Report\Digest\Digest;
 use NightWorksIO\MutationGate\Core\Report\Digest\SurvivorsShown;
 use NightWorksIO\MutationGate\Core\Report\JsonReport;
@@ -24,7 +25,7 @@ it('writes the digest\'s overview, rendered from the JSON report, to the path it
 
     expect(DigestReportFile::fromOptions(Configs::commandLine((string) json_encode(['path' => $file]))))->toEqual(DigestReportFile::at($file))
         ->and(DigestReportFile::at($file)->report(Verdicts::failing()))->toEqual(Written::to($file))
-        ->and(file_get_contents($file))->toBe(Digest::overview(Node::decode(JsonReport::encode(Verdicts::failing())), SurvivorsShown::first()));
+        ->and(file_get_contents($file))->toBe(Digest::overview(Node::decode(JsonReport::encode(Verdicts::failing())), SurvivorsShown::first(), GateCommand::installed()));
 });
 
 it('needs a path', function (): void {

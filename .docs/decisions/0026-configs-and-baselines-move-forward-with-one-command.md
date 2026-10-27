@@ -37,7 +37,8 @@ What exists to build on:
      definition, with the version that changed it.
    - A file that holds one is read as that version's file. The error for it
      names the change and the command, in the form *`<old key>` became
-     `<new key>` in <version>: run `mutation-gate migrate`*.
+     `<new key>` in <version>: run `vendor/bin/mutation-gate migrate`*, the
+     gate named as it was started (ADR-0022).
    - No file carries a version key.
 
    This amends ADR-0002.

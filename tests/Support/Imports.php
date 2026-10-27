@@ -9,6 +9,7 @@ use function array_values;
 use function explode;
 
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Import\Import;
 
 use function str_starts_with;
@@ -20,7 +21,7 @@ final class Imports
     public static function keys(Import $import): array
     {
         return array_values(array_filter(
-            explode("\n", $import->report('infection.json5')),
+            explode("\n", $import->report('infection.json5', GateCommand::installed())),
             static fn(string $line): bool => str_starts_with($line, '  '),
         ));
     }

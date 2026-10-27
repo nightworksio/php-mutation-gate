@@ -41,7 +41,7 @@ final readonly class MutationRun
 
     /** What a run of an Infection that does not carry `infection:patch` warns of. */
     private const string UNPATCHED
-        = 'Unpatched, Infection gave each mutant its own limit, with no floor. Run mutation-gate infection:patch.';
+        = 'Unpatched, Infection gave each mutant its own limit, with no floor. doctor says how to patch it.';
 
     public function __construct(
         private Project $project,

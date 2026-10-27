@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Report\CodeQuality;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
 use NightWorksIO\MutationGate\Core\Score\Floor;
@@ -19,7 +20,7 @@ it('places an issue at its mutant\'s first line, fingerprinted by the gate\'s id
     $survivor = Verdicts::survivor();
 
     expect(Decoded::at(CodeQuality::json(Verdicts::failing()), 0))->toBe([
-        'description' => MutantText::message($survivor),
+        'description' => MutantText::message($survivor, GateCommand::installed()),
         'check_name' => 'survived',
         'fingerprint' => $survivor->mutant()->id()->value(),
         'severity' => 'major',

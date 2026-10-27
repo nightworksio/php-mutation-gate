@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Baseline\Entry;
 use NightWorksIO\MutationGate\Core\Baseline\Lowered;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 
 $makeBaseline = static fn(): Baseline => Baseline::of(
@@ -45,8 +46,8 @@ it('writes an empty baseline as no trees', function (): void {
 it('reads back the baseline it wrote', function () use ($makeBaseline, $file): void {
     $baseline = $makeBaseline();
 
-    expect(BaselineFile::decode($file, Path::of('mutation-gate.baseline.json')))->toEqual($baseline)
-        ->and(BaselineFile::decode(BaselineFile::encode(Baseline::none()), Path::of('b.json')))->toEqual(Baseline::none());
+    expect(BaselineFile::decode($file, Path::of('mutation-gate.baseline.json'), GateCommand::installed()))->toEqual($baseline)
+        ->and(BaselineFile::decode(BaselineFile::encode(Baseline::none()), Path::of('b.json'), GateCommand::installed()))->toEqual(Baseline::none());
 });
 
 it('writes a floor as a whole number where it is one, and with no trailing zero otherwise', function (float $floor, string $written): void {
@@ -70,8 +71,8 @@ it('writes a tree path and a reason as JSON strings', function (): void {
 });
 
 it('refuses what is not a baseline, naming the file and where it went wrong', function (string $json, string $where): void {
-    expect(BaselineFile::decode($json, Path::of('mutation-gate.baseline.json')))->toEqual(CannotJudge::because(sprintf(
-        'The baseline mutation-gate.baseline.json cannot be read: %s Fix it, or run mutation-gate baseline --write.',
+    expect(BaselineFile::decode($json, Path::of('mutation-gate.baseline.json'), GateCommand::installed()))->toEqual(CannotJudge::because(sprintf(
+        'The baseline mutation-gate.baseline.json cannot be read: %s Fix it, or run vendor/bin/mutation-gate baseline --write.',
         $where,
     )));
 })->with([
@@ -87,7 +88,7 @@ it('refuses what is not a baseline, naming the file and where it went wrong', fu
 ]);
 
 it('reads floors at the ends of the range', function (): void {
-    $read = BaselineFile::decode('{"format": 1, "trees": {"a": {"floor": 0}, "b": {"floor": 100}}}', Path::of('b.json'));
+    $read = BaselineFile::decode('{"format": 1, "trees": {"a": {"floor": 0}, "b": {"floor": 100}}}', Path::of('b.json'), GateCommand::installed());
 
     expect($read)->toEqual(Baseline::of(Entry::of(Path::of('a'), Floor::of(0)), Entry::of(Path::of('b'), Floor::of(100))));
 });
@@ -95,7 +96,7 @@ it('reads floors at the ends of the range', function (): void {
 it('reads back a tree whose path reads as a number', function (): void {
     $numeric = Baseline::of(Entry::of(Path::of('12'), Floor::of(40)));
 
-    expect(BaselineFile::decode(BaselineFile::encode($numeric), Path::of('b.json')))->toEqual($numeric);
+    expect(BaselineFile::decode(BaselineFile::encode($numeric), Path::of('b.json'), GateCommand::installed()))->toEqual($numeric);
 });
 
 it('writes each package\'s security floor after the trees, in byte order, and reads it back', function (): void {
@@ -121,9 +122,9 @@ it('writes each package\'s security floor after the trees, in byte order, and re
         JSON;
 
     expect(BaselineFile::encode($secured))->toBe($written)
-        ->and(BaselineFile::decode($written, Path::of('b.json')))->toEqual($secured)
-        ->and(BaselineFile::decode('{"format": 1, "trees": {}, "security": {"packages/a": {"floor": "high"}}}', Path::of('b.json')))
+        ->and(BaselineFile::decode($written, Path::of('b.json'), GateCommand::installed()))->toEqual($secured)
+        ->and(BaselineFile::decode('{"format": 1, "trees": {}, "security": {"packages/a": {"floor": "high"}}}', Path::of('b.json'), GateCommand::installed()))
         ->toEqual(CannotJudge::because(
-            'The baseline b.json cannot be read: the file.security.packages/a.floor is not a number. Fix it, or run mutation-gate baseline --write.',
+            'The baseline b.json cannot be read: the file.security.packages/a.floor is not a number. Fix it, or run vendor/bin/mutation-gate baseline --write.',
         ));
 });

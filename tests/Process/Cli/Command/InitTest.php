@@ -321,7 +321,7 @@ it('starts the config from an Infection config with --from, and says what became
             'phpunit.xml\'s <source> names app, which infection.json5\'s source.directories does not.',
             'infection.json5\'s source.directories names src, which phpunit.xml\'s <source> does not.',
             'Delete these keys from infection.json5, since the gate no longer reads them there: source.directories, minMsi.',
-            'Run mutation-gate locally once.',
+            'Run vendor/bin/mutation-gate locally once.',
             'It writes the baseline at what the gate measures, and says if a tree is below the imported floor.',
             INIT_NEXT,
         ]))

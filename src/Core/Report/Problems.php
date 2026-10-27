@@ -60,7 +60,7 @@ final readonly class Problems
 
             if ($shown === ProblemsShown::All || $judged->isOnChangedLine()) {
                 $mark = array_key_exists($file->value(), $marks) ? $marks[$file->value()] : '';
-                $lines[] = self::line($judged, $columns->in($file), $overview->isFailing($judged), $mark);
+                $lines[] = self::line($judged, $columns->in($file), $overview, $mark);
             }
         }
 
@@ -83,7 +83,7 @@ final readonly class Problems
         return $marks;
     }
 
-    private static function line(JudgedMutant $judged, Columns $columns, bool $failing, string $mark): string
+    private static function line(JudgedMutant $judged, Columns $columns, Overview $overview, string $mark): string
     {
         $mutant = $judged->mutant();
         $start = $columns->of($mutant)['start'];
@@ -95,8 +95,8 @@ final readonly class Problems
                 Fit::verbatim($mutant->location()->file()->value()),
                 $start['line'],
                 $start['column'],
-                $failing ? 'error' : 'warning',
-                Fit::plain(MutantText::message($judged)),
+                $overview->isFailing($judged) ? 'error' : 'warning',
+                Fit::plain(MutantText::message($judged, $overview->gate())),
                 $mark,
                 ResultRule::of($judged->judgement())->value,
                 $mutant->id()->value(),

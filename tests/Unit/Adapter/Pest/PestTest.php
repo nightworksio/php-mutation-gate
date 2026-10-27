@@ -660,7 +660,7 @@ it('cannot open a shard on the canary group without the patch applied', function
     $request = PestCases::money()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
 
     expect(new Pest(PestCases::project(), $shell, PestCases::canary(), new CapDirectory(), Triage::standard()->bounds())->mutate($request))->toEqual(CannotJudge::because(
-        'pest.patch is on, but pest-plugin-mutate in vendor is not patched. Run mutation-gate pest:patch.',
+        'pest.patch is on, but pest-plugin-mutate in vendor is not patched. doctor says how to patch it.',
     ))->and($shell->commands())->toBe([]);
 });
 

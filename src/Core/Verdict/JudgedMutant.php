@@ -8,14 +8,13 @@ use NightWorksIO\MutationGate\Core\Assertion\WeaklyAsserted;
 use NightWorksIO\MutationGate\Core\Cluster\Membership;
 use NightWorksIO\MutationGate\Core\Cluster\Unclustered;
 use NightWorksIO\MutationGate\Core\File\Missing;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Hint\Hint;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Removal\Removable;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
-
-use function sprintf;
 
 /**
  * One mutant, what the gate made of it, the tests that judged it, what they
@@ -24,12 +23,6 @@ use function sprintf;
  */
 final readonly class JudgedMutant
 {
-    /** The command that runs one mutant again, which every report prints beside it (ADR-0009). */
-    public const string REPRODUCE = 'vendor/bin/mutation-gate reproduce %s';
-
-    /** The command that explains one mutant or cluster without running anything (ADR-0014). */
-    public const string EXPLAIN = 'vendor/bin/mutation-gate explain %s';
-
     private function __construct(
         private Mutant $mutant,
         private MutantJudgement $judgement,
@@ -169,15 +162,15 @@ final readonly class JudgedMutant
     }
 
     /** The one command that runs it again, on any machine with the same code. */
-    public function reproduce(): string
+    public function reproduce(GateCommand $gate): string
     {
-        return sprintf(self::REPRODUCE, $this->mutant->id()->value());
+        return $gate->reproduce($this->mutant->id()->value());
     }
 
     /** The command that explains it from what the ledgers and the last run hold, running nothing. */
-    public function explain(): string
+    public function explain(GateCommand $gate): string
     {
-        return sprintf(self::EXPLAIN, $this->mutant->id()->value());
+        return $gate->explain($this->mutant->id()->value());
     }
 
     /** Whether it is unjudged because the file it mutates was loaded before it was in place. */

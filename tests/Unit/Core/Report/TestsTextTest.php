@@ -19,12 +19,12 @@ it('prints the useless tests as the console shows them, a line to each, and asks
           None.
 
         Never the first to kill (2)
-          A suspicion, not a finding: run `mutation-gate run --kill-matrix=full` to settle it.
+          A suspicion, not a finding: run `vendor/bin/mutation-gate run --kill-matrix=full` to settle it.
           tests/BTest.php::it does B  judged 3  rows: #0 never-first, #1 kills-nothing
           tests/CTest.php::it does C  judged 2
 
         Removable
-          Needs a full kill matrix: run `mutation-gate run --kill-matrix=full`.
+          Needs a full kill matrix: run `vendor/bin/mutation-gate run --kill-matrix=full`.
 
         Asserts only existence or shape (0)
           None.
@@ -54,7 +54,7 @@ it('says why it names no useless test where the verdict holds no coverage', func
         The verdict holds no coverage map, so no test can be judged by what it kills.
 
         Removable
-          Needs a full kill matrix: run `mutation-gate run --kill-matrix=full`.
+          Needs a full kill matrix: run `vendor/bin/mutation-gate run --kill-matrix=full`.
 
         Asserts only existence or shape (0)
           None.

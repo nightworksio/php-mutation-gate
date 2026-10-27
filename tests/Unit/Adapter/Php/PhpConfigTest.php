@@ -92,7 +92,7 @@ it('names the change and migrate where a call a release retired keeps a file fro
     $migrations = Migrations::of(Migration::in('2.0.0', Rename::of('runnr', 'runner')->spelt(Spelling::replacing('Gate::runnr', 'Gate::runner'))));
 
     expect(new PhpConfig($migrations)->load($configFile($file)))
-        ->toEqual(CannotJudge::because(sprintf('%s line 7: `runnr` became `runner` in 2.0.0: run `mutation-gate migrate`', $file)))
+        ->toEqual(CannotJudge::because(sprintf('%s line 7: `runnr` became `runner` in 2.0.0: run `vendor/bin/mutation-gate migrate`', $file)))
         ->and(new PhpConfig()->load($configFile($file)))->toEqual(CannotJudge::because(sprintf(
             '%s could not be read: Call to undefined method NightWorksIO\MutationGate\Config\Gate::runnr()',
             $file,

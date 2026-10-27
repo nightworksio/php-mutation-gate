@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Verdict;
 
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Hint\Hint;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
-
-use function sprintf;
 
 /**
  * A kill a ledger proved, as a verdict counts it: killed, or unjudged where it
@@ -76,14 +75,14 @@ final readonly class JudgedKill
     }
 
     /** The one command that runs it again, on any machine with the same code. */
-    public function reproduce(): string
+    public function reproduce(GateCommand $gate): string
     {
-        return sprintf(JudgedMutant::REPRODUCE, $this->kill->id()->value());
+        return $gate->reproduce($this->kill->id()->value());
     }
 
     /** The one command that explains it, running nothing. */
-    public function explain(): string
+    public function explain(GateCommand $gate): string
     {
-        return sprintf(JudgedMutant::EXPLAIN, $this->kill->id()->value());
+        return $gate->explain($this->kill->id()->value());
     }
 }

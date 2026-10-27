@@ -10,6 +10,7 @@ use function is_string;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
+use NightWorksIO\MutationGate\Cli\StartedGate;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\ChangeKind;
 use NightWorksIO\MutationGate\Core\Config\Absent;
@@ -87,7 +88,8 @@ final readonly class DecidingConfig
         $directory = Directory::at($this->project->value());
         $copy = Path::of(sprintf(self::BASE, GateDirectory::root()->value(), basename($named->value())));
         $written = $directory->write($copy, $before);
-        $read = ConfigFile::copyOf($this->onDisk($copy), $this->onDisk($named), Path::of($this->project->value()));
+        $read = ConfigFile::copyOf($this->onDisk($copy), $this->onDisk($named), Path::of($this->project->value()))
+            ->startedAs(StartedGate::in($this->project->value()));
         $then = $written instanceof Written ? $effective->decidingOf($this->given, $read) : $written;
         $directory->remove($copy);
         $now = $effective->settings($this->given);

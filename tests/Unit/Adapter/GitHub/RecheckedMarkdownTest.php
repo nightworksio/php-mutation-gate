@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\GitHub\Markdown;
 use NightWorksIO\MutationGate\Adapter\GitHub\MarkdownItems;
 use NightWorksIO\MutationGate\Adapter\GitHub\RecheckedMarkdown;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Recheck\Recheck;
 use NightWorksIO\MutationGate\Core\Recheck\Rechecked;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
@@ -20,7 +21,7 @@ it('writes the comment between planned and the verdict: how many still survive, 
         '## mutation-gate: survivors re-checked',
         'Survivors re-checked: 1 of 3 still survives. 1 killed now. 1 gone: the run made no mutant with their id again.',
         '### Still surviving (1)',
-        ...MarkdownItems::details([Verdicts::survivor()], 1),
+        ...MarkdownItems::details([Verdicts::survivor()], 1, GateCommand::installed()),
         '### Gone (1)',
         sprintf('- <code>src/Cart.php:4</code> Plus <code>%s</code>', $gone),
         "[The run](https://github.com/octo/gate/actions/runs/7) replaces this with its verdict, which links the HTML report; until then there is none.\n",

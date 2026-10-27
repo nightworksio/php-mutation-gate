@@ -49,13 +49,13 @@ final readonly class ScoreChanging
     public function text(): string|CannotJudge
     {
         $inventory = Inventory::of($this->adapters, $this->settings);
-        $baseline = new Baselines($this->adapters, $this->settings->floors()->baseline())->committed();
+        $baseline = Baselines::of($this->adapters, $this->settings, $this->setup)->committed();
         $map = $this->adapters->runner->coverage(CoverageRead::from(Workspace::coverage()));
 
         return match (true) {
             $inventory instanceof CannotJudge => $inventory,
             $baseline instanceof CannotJudge => $baseline,
-            $map instanceof CannotJudge => ScoreChangeText::unmapped(),
+            $map instanceof CannotJudge => ScoreChangeText::unmapped($this->setup->command),
             default => $this->keyed($inventory, $baseline, $map),
         };
     }
@@ -116,6 +116,7 @@ final readonly class ScoreChanging
             $unmeasured,
             $proving->toRun()->count(),
             $this->unstagedIn($reached),
+            $this->setup->command,
         );
     }
 

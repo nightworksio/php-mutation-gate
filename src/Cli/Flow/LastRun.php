@@ -25,7 +25,7 @@ use function sprintf;
  */
 final readonly class LastRun
 {
-    private const string NONE = 'No run has left a plan at %s here: run mutation-gate first.';
+    private const string NONE = 'No run has left a plan at %s here: run %s first.';
 
     /** Leave a plan where the shards, the verdict and a later `explain` read it. */
     public static function keep(Directory $project, Plan $plan): Written|CannotJudge
@@ -47,7 +47,9 @@ final readonly class LastRun
         $plan = self::planAt($composed->adapters->project, Workspace::plan());
 
         if (! $plan instanceof Plan) {
-            return $plan instanceof Missing ? CannotJudge::because(sprintf(self::NONE, $plan->path()->value())) : $plan;
+            return $plan instanceof Missing ? CannotJudge::because(
+                sprintf(self::NONE, $plan->path()->value(), $composed->setup->command->gate()),
+            ) : $plan;
         }
 
         $results = Results::read($plan, Workspace::results(), $composed->adapters->project);

@@ -128,7 +128,7 @@ it('cannot run a shard of a plan that is not there, or not one it can follow', f
 })->with([
     'no plan' => [
         '--plan=missing.json',
-        'There is no plan at missing.json. Run mutation-gate plan, and hand its plan to every job.',
+        'There is no plan at missing.json. Run vendor/bin/mutation-gate plan, and hand its plan to every job.',
     ],
     'a plan of another commit' => [
         '--plan=elsewhere.json',

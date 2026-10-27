@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Verb;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -29,7 +30,7 @@ final readonly class ConfigShow
 {
     public static function command(Effective $effective, Formats $formats): Command
     {
-        return new Command('config:show')
+        return new Command(Verb::ConfigShow->value)
             ->setDescription('Print the effective config')
             ->addOption(
                 FormOption::FORMAT,

@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Report;
 use function array_key_exists;
 use function in_array;
 
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
 use NightWorksIO\MutationGate\Core\Score\Score;
@@ -65,6 +66,12 @@ final readonly class Overview
     public function uncovered(): Uncovered
     {
         return $this->uncovered;
+    }
+
+    /** The gate as the run that judged the verdict was started, which every command a report prints names. */
+    public function gate(): GateCommand
+    {
+        return $this->verdict->account()->provenance()->command();
     }
 
     /** The score over every mutant of the project, by the same formula as a tree's (ADR-0009). */

@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
@@ -204,6 +205,7 @@ it('runs every batch that fits a budget with the time left, leaving nothing unju
         new StoppedClock('2026-09-30T12:00:00Z'),
         new PeakMemoryFake(NotGiven::value()),
         DecidingConfig::unread(),
+        GateCommand::installed(),
     );
 
     new Running(Flows::adapters($project, [], $runner), Flows::settings(Budget::of('2s')), $setup)
@@ -233,6 +235,7 @@ it('starts nothing a budget has no room for, and leaves every unit unjudged', fu
         new StoppedClock('2026-09-30T12:00:00Z'),
         new PeakMemoryFake(NotGiven::value()),
         DecidingConfig::unread(),
+        GateCommand::installed(),
     );
 
     new Running(Flows::adapters($project, [], $runner), Flows::settings(Budget::of('1s')), $setup)
@@ -260,6 +263,7 @@ it('stops before the batch after the one an interruption arrived in, leaving the
         new StoppedClock('2026-09-30T12:00:00Z'),
         new PeakMemoryFake(NotGiven::value()),
         DecidingConfig::unread(),
+        GateCommand::installed(),
     );
     $looks = 0;
     $arrived = Interruption::when(static function () use (&$looks): bool {

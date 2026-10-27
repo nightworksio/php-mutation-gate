@@ -8,12 +8,14 @@ use function implode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
 use NightWorksIO\MutationGate\Core\Doctor\Finding;
 use NightWorksIO\MutationGate\Core\Doctor\Findings;
 use NightWorksIO\MutationGate\Core\Doctor\InstalledRunners;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
 use NightWorksIO\MutationGate\Core\Doctor\Severity;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
+use NightWorksIO\MutationGate\Core\Verb;
 
 use function sprintf;
 
@@ -30,7 +32,7 @@ final readonly class Config
     private const string WHY = 'Every command reads the config first, so none can run until it is right.';
 
     private const string FIX
-        = 'Correct each problem named, then run mutation-gate config:show to see the config the gate would use.';
+        = 'Correct each problem named, then run %s to see the config the gate would use.';
 
     public static function in(Observations $observed): Findings
     {
@@ -47,7 +49,7 @@ final readonly class Config
             Severity::WillFail,
             sprintf(self::FOUND, self::problems($settings)),
             self::WHY,
-            self::FIX,
+            sprintf(self::FIX, DoctorRun::gateOf($observed)->with(Verb::ConfigShow)),
         ));
     }
 
