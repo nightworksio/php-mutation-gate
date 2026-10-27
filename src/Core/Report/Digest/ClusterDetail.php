@@ -67,7 +67,7 @@ final readonly class ClusterDetail
         return Digest::lines([
             sprintf(self::CLUSTER, $id->value(), Visible::line($cluster->field('kind')->text()), count($members)),
             ...Digest::grouped($listed),
-            sprintf(self::STUB, $gate->stub($id->value())),
+            sprintf(self::STUB, $gate->stub($id)),
         ]);
     }
 }

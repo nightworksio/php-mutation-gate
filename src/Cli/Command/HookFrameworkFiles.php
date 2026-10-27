@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\GatePin;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Hook\HookCall;
 use NightWorksIO\MutationGate\Core\Hook\HookFramework;
@@ -147,7 +148,10 @@ final readonly class HookFrameworkFiles
             HookFramework::GrumPhp => sprintf(
                 "%s\n%s",
                 sprintf(self::INSTALL, $binaries->child(Path::of(HookFramework::GrumPhp->value))->value(), 'git:init'),
-                sprintf(self::GRUMPHP_PRE_PUSH, $gate->with(Verb::Hook, HookAction::Install->value)),
+                sprintf(
+                    self::GRUMPHP_PRE_PUSH,
+                    sprintf(Fit::JOINED, $gate->command(Verb::Hook), HookAction::Install->value),
+                ),
             ),
             HookFramework::PreCommit => sprintf(self::INSTALL, 'pre-commit', 'install'),
         };

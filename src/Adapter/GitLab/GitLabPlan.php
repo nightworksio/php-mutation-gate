@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\CiJob;
 use NightWorksIO\MutationGate\Core\Ci\CiMarker;
 use NightWorksIO\MutationGate\Core\Ci\Definitions;
+use NightWorksIO\MutationGate\Core\Ci\JobCommands;
 use NightWorksIO\MutationGate\Core\Ci\Publication;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
@@ -26,12 +27,10 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
-use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
-use NightWorksIO\MutationGate\Core\Verb;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Port\CiPlan;
 
@@ -105,7 +104,7 @@ final readonly class GitLabPlan implements CiPlan, Configurable
     }
 
     /** The child pipeline, written to its file, which the trigger job reads as an artifact. */
-    public function publish(Plan $plan, GateCommand $gate): Publication|CannotJudge
+    public function publish(Plan $plan, JobCommands $jobs): Publication|CannotJudge
     {
         $planJob = $this->job->variables()->valueOf('CI_JOB_NAME');
 
@@ -115,7 +114,7 @@ final readonly class GitLabPlan implements CiPlan, Configurable
             );
         }
 
-        return Publication::written($this->pipeline, JsonText::encode($this->pipelineOf($plan, $planJob, $gate)));
+        return Publication::written($this->pipeline, JsonText::encode($this->pipelineOf($plan, $planJob, $jobs)));
     }
 
     /** The pipeline `CI_CONFIG_PATH` names, `.gitlab-ci.yml` by default, and the template its child includes. */
@@ -164,7 +163,7 @@ final readonly class GitLabPlan implements CiPlan, Configurable
     }
 
     /** @return array<string, mixed> */
-    private function pipelineOf(Plan $plan, string $planJob, GateCommand $gate): array
+    private function pipelineOf(Plan $plan, string $planJob, JobCommands $jobs): array
     {
         $fromThePlan = ['pipeline' => '$PARENT_PIPELINE_ID', 'job' => $planJob];
         $shards = array_map(
@@ -175,7 +174,7 @@ final readonly class GitLabPlan implements CiPlan, Configurable
             self::EXTENDS => self::HIDDEN_JOB,
             self::NEEDS => [$fromThePlan],
             'parallel' => ['matrix' => [[WhichShard::VARIABLE => $shards]]],
-            self::SCRIPT => [$gate->planned(Verb::Run)],
+            self::SCRIPT => [$jobs->run()],
             'artifacts' => ['when' => 'always', 'paths' => ['.mutation-gate/results/']],
         ];
 
@@ -187,7 +186,7 @@ final readonly class GitLabPlan implements CiPlan, Configurable
         $verdict = [
             self::EXTENDS => self::HIDDEN_JOB,
             self::NEEDS => count($shards) === 0 ? [$fromThePlan] : [$fromThePlan, ['job' => self::SHARD_JOB]],
-            self::SCRIPT => [$gate->plannedVerdict()],
+            self::SCRIPT => [$jobs->verdict()],
         ];
 
         return [

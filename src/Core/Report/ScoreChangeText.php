@@ -79,7 +79,7 @@ final readonly class ScoreChangeText
     {
         return [
             ...$unjudged > 0
-                ? [sprintf(self::UNJUDGED, $unjudged, $unjudged === 1 ? 'unit' : 'units', $gate->with(Verb::Watch))]
+                ? [sprintf(self::UNJUDGED, $unjudged, $unjudged === 1 ? 'unit' : 'units', $gate->command(Verb::Watch))]
                 : [],
             ...$unstaged > 0 ? [sprintf(self::UNSTAGED, $unstaged, $unstaged === 1 ? 'file' : 'files')] : [],
         ];

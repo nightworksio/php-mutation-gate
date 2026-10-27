@@ -17,7 +17,7 @@ use NightWorksIO\MutationGate\Tests\Support\ShardedPlan;
 
 it('prints the plan as the generic JSON', function (): void {
     $plan = ShardedPlan::of(2);
-    $published = JsonPlan::in(Variables::of([]))->publish($plan, GateCommand::installed());
+    $published = JsonPlan::in(Variables::of([]))->publish($plan, GateCommand::installed()->jobs());
 
     expect($published)->toEqual(Publication::printed(PlanListing::of($plan)))
         ->and(json_decode($published->text(), associative: true))->toBe([
@@ -31,7 +31,7 @@ it('prints the plan as the generic JSON', function (): void {
 });
 
 it('prints even a plan with no shards, built from its options', function (): void {
-    expect(JsonPlan::fromOptions(Options::none())->publish(ShardedPlan::of(0), GateCommand::installed()))
+    expect(JsonPlan::fromOptions(Options::none())->publish(ShardedPlan::of(0), GateCommand::installed()->jobs()))
         ->toEqual(Publication::printed(PlanListing::of(ShardedPlan::of(0))));
 });
 
@@ -51,7 +51,7 @@ it('withholds nothing of its own', function (): void {
 });
 
 it('prints a plan whose paths hold log commands so a CI\'s log reads none, and every reader reads the paths back', function (): void {
-    $printed = JsonPlan::in(Variables::of([]))->publish(ShardedPlan::hostile(), GateCommand::installed())->text();
+    $printed = JsonPlan::in(Variables::of([]))->publish(ShardedPlan::hostile(), GateCommand::installed()->jobs())->text();
 
     expect(LogCommands::in($printed))->toBe([])
         ->and(Decoded::at($printed, 'shards', 0, 'units'))->toBe([ShardedPlan::HOSTILE])

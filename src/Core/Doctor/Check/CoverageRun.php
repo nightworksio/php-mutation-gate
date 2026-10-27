@@ -52,7 +52,7 @@ final readonly class CoverageRun
                 Slug::CoverageRunFailed,
                 sprintf(self::FAILED, $coverage->why()),
                 self::FAILED_WHY,
-                sprintf(self::FAILED_FIX, DoctorRun::gateOf($observed)->with(Verb::Coverage)),
+                sprintf(self::FAILED_FIX, DoctorRun::gateOf($observed)->command(Verb::Coverage)),
             ),
             $coverage !== false && count($coverage->files()) === 0 => self::willFail(
                 Slug::CoverageEmpty,

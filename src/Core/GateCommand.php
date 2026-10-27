@@ -8,9 +8,13 @@ use function array_last;
 use function array_map;
 use function implode;
 
+use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\JobCommands;
+use NightWorksIO\MutationGate\Core\Cluster\ClusterId;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\ShellWord;
 use NightWorksIO\MutationGate\Core\Hook\Hook;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 
 use function sprintf;
 use function str_contains;
@@ -44,6 +48,10 @@ final readonly class GateCommand
 
     private const string RESULTS = '--results=.mutation-gate/results';
 
+    private const string FROM = '--from=%s';
+
+    private const string SINCE = '--changed-since=%s';
+
     /** How a Composer script runs a PHP file under the PHP Composer itself runs on. */
     private const string COMPOSER_PHP = '@php';
 
@@ -73,21 +81,39 @@ final readonly class GateCommand
     }
 
     /** The command that reruns one mutant under its tests (ADR-0014). */
-    public function reproduce(string $mutant): string
+    public function reproduce(MutantId $mutant): string
     {
-        return $this->with(Verb::Reproduce, $mutant);
+        return $this->with(Verb::Reproduce, $mutant->value());
     }
 
     /** The command that explains one mutant or cluster, running nothing (ADR-0014). */
-    public function explain(string $id): string
+    public function explain(MutantId|ClusterId $id): string
     {
-        return $this->with(Verb::Explain, $id);
+        return $this->with(Verb::Explain, $id->value());
     }
 
     /** The command that writes the test stub of a cluster (ADR-0022). */
-    public function stub(string $cluster): string
+    public function stub(ClusterId $cluster): string
     {
-        return $this->with(Verb::Stub, $cluster);
+        return $this->with(Verb::Stub, $cluster->value());
+    }
+
+    /** The command that runs one file's unit again and again and lists each mutant whose result varied (ADR-0015). */
+    public function triage(Path $file): string
+    {
+        return $this->with(Verb::Triage, ShellWord::of($file->value()));
+    }
+
+    /** The command that writes the gate's config from an Infection config (ADR-0016). */
+    public function imported(Path $config): string
+    {
+        return $this->with(Verb::Init, sprintf(self::FROM, ShellWord::of($config->value())));
+    }
+
+    /** This command of the gate, or the hook it runs, with no arguments after it. */
+    public function command(Verb|Hook $verb): string
+    {
+        return $this->with($verb);
     }
 
     /** The command that writes the baseline from the last verdict's scores (ADR-0003). */
@@ -102,22 +128,25 @@ final readonly class GateCommand
         return $this->with(Verb::Run, self::BUDGET);
     }
 
+    /** The command that runs the gate over what changed since this revision (ADR-0005). */
+    public function changedSince(Revision $base): string
+    {
+        return $this->with(Verb::Run, sprintf(self::SINCE, ShellWord::of($base->name())));
+    }
+
     /** The command that runs the gate recording every killer of every mutant (ADR-0014). */
     public function fullMatrix(): string
     {
         return $this->with(Verb::Run, self::FULL_MATRIX);
     }
 
-    /** A command of the gate that reads the plan `plan` wrote, with these arguments after it (ADR-0006). */
-    public function planned(Verb $verb, string ...$arguments): string
+    /** The commands a CI's jobs run against the plan `plan` wrote (ADR-0006). */
+    public function jobs(): JobCommands
     {
-        return $this->with($verb, self::PLAN, ...$arguments);
-    }
-
-    /** The command that judges the plan `plan` wrote from every shard's results (ADR-0006). */
-    public function plannedVerdict(): string
-    {
-        return $this->planned(Verb::Verdict, self::RESULTS);
+        return JobCommands::of(
+            $this->with(Verb::Run, self::PLAN),
+            $this->with(Verb::Verdict, self::PLAN, self::RESULTS),
+        );
     }
 
     /** A command of the gate as a Composer script runs it, under the PHP Composer runs on. */
@@ -128,16 +157,16 @@ final readonly class GateCommand
         return implode(self::BETWEEN, [self::COMPOSER_PHP, ShellWord::of($file), $verb->value]);
     }
 
-    /** The command line that runs this command of the gate with these arguments, as a shell reads it. */
-    public function with(Verb|Hook $verb, string ...$arguments): string
-    {
-        return implode(self::BETWEEN, [$this->gate(), $verb->value, ...$arguments]);
-    }
-
     /** The gate alone, as a shell reads it, which runs it as `run` does. */
     public function gate(): string
     {
         return implode(self::BETWEEN, array_map(ShellWord::of(...), $this->words));
+    }
+
+    /** The command line that runs this command of the gate with these arguments, as a shell reads it. */
+    private function with(Verb|Hook $verb, string ...$arguments): string
+    {
+        return implode(self::BETWEEN, [$this->gate(), $verb->value, ...$arguments]);
     }
 
     /** A path as a shell runs it: one with no directory in it is named from the shell's own. */

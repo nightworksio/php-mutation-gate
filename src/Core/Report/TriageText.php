@@ -86,7 +86,7 @@ final readonly class TriageText
                 Mutator::short($mutant->mutator()),
                 $mutant->id()->value(),
             ),
-            ...[...$lines, sprintf('Reproduce: %s', $gate->reproduce($mutant->id()->value()))],
+            ...[...$lines, sprintf('Reproduce: %s', $gate->reproduce($mutant->id()))],
         );
     }
 

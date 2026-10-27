@@ -101,7 +101,7 @@ final readonly class FullRunEstimate
         $composed = $this->composition->compose($input);
         $made = match (true) {
             $composed instanceof Invalid => CannotJudge::because(
-                sprintf(self::INVALID, StartedGate::in($this->project)->with(Verb::Doctor)),
+                sprintf(self::INVALID, StartedGate::in($this->project)->command(Verb::Doctor)),
             ),
             $composed instanceof CannotJudge => $composed,
             default => new Planning($composed->adapters, $composed->settings, $composed->setup)->plan(

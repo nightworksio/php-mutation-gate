@@ -19,12 +19,12 @@ use NightWorksIO\MutationGate\Tests\Support\LogCommands;
 use NightWorksIO\MutationGate\Tests\Support\ShardedPlan;
 
 it('prints the plan as the generic JSON', function (): void {
-    expect(CircleCiPlan::in(Variables::of([]))->publish(ShardedPlan::of(2), GateCommand::installed()))
+    expect(CircleCiPlan::in(Variables::of([]))->publish(ShardedPlan::of(2), GateCommand::installed()->jobs()))
         ->toEqual(Publication::printed(PlanListing::of(ShardedPlan::of(2))));
 });
 
 it('prints the plan, built from its options', function (): void {
-    expect(CircleCiPlan::fromOptions(Options::none())->publish(ShardedPlan::of(1), GateCommand::installed()))
+    expect(CircleCiPlan::fromOptions(Options::none())->publish(ShardedPlan::of(1), GateCommand::installed()->jobs()))
         ->toEqual(Publication::printed(PlanListing::of(ShardedPlan::of(1))));
 });
 
@@ -55,7 +55,7 @@ it('withholds the job\'s OpenID Connect tokens', function (): void {
 });
 
 it('prints a plan whose paths hold log commands so a CI\'s log reads none, and every reader reads the paths back', function (): void {
-    $printed = CircleCiPlan::in(Variables::of([]))->publish(ShardedPlan::hostile(), GateCommand::installed())->text();
+    $printed = CircleCiPlan::in(Variables::of([]))->publish(ShardedPlan::hostile(), GateCommand::installed()->jobs())->text();
 
     expect(LogCommands::in($printed))->toBe([])
         ->and(Decoded::at($printed, 'shards', 0, 'units'))->toBe([ShardedPlan::HOSTILE]);

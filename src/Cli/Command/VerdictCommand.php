@@ -80,7 +80,7 @@ final readonly class VerdictCommand
         $plan = LastRun::planAt($composed->adapters->project, $file);
 
         return $plan instanceof Missing ? CannotJudge::because(
-            sprintf(self::NO_PLAN, $file->value(), $composed->setup->command->with(Verb::Plan)),
+            sprintf(self::NO_PLAN, $file->value(), $composed->setup->command->command(Verb::Plan)),
         ) : $plan;
     }
 

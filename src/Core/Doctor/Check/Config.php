@@ -49,7 +49,7 @@ final readonly class Config
             Severity::WillFail,
             sprintf(self::FOUND, self::problems($settings)),
             self::WHY,
-            sprintf(self::FIX, DoctorRun::gateOf($observed)->with(Verb::ConfigShow)),
+            sprintf(self::FIX, DoctorRun::gateOf($observed)->command(Verb::ConfigShow)),
         ));
     }
 

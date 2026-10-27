@@ -36,7 +36,7 @@ final readonly class Retired
     /** What a file that still writes it is told: `` `a` became `b` in 2.0.0: run `<gate> migrate` ``. */
     public function pending(): string
     {
-        return sprintf(self::PENDING, $this->step->change(), $this->version, $this->gate->with(Verb::Migrate));
+        return sprintf(self::PENDING, $this->step->change(), $this->version, $this->gate->command(Verb::Migrate));
     }
 
     /** What a file is told where `migrate` cannot make the change. */

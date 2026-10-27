@@ -31,7 +31,6 @@ use NightWorksIO\MutationGate\Core\Push\PreCommitPush;
 use NightWorksIO\MutationGate\Core\Push\Pushes;
 use NightWorksIO\MutationGate\Core\Time\Deadline;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
-use NightWorksIO\MutationGate\Core\Verb;
 use NightWorksIO\MutationGate\Core\Verdict\HeldTo;
 
 use function sprintf;
@@ -69,8 +68,6 @@ final readonly class PrePushCommand
     private const string NOTHING = 'Nothing is pushed, so there is nothing to judge.';
 
     private const string MORE_TIME = 'More time judges what the budget left: %s';
-
-    private const string SINCE = '--changed-since=%s';
 
     private function __construct(
         private Composed $composed,
@@ -194,7 +191,7 @@ final readonly class PrePushCommand
         $code = VerdictCommand::printed($judged, $this->output, $this->printing, $this->composed->adapters->project);
 
         if ($judged instanceof Judged && $judged->verdict->wasCutShort()) {
-            $since = $this->composed->setup->command->with(Verb::Run, sprintf(self::SINCE, $base->name()));
+            $since = $this->composed->setup->command->changedSince($base);
             $this->printing->note(sprintf(self::MORE_TIME, $since), $this->output);
         }
 

@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
 use NightWorksIO\MutationGate\Core\Ci\CiJob;
 use NightWorksIO\MutationGate\Core\Ci\CiMarker;
 use NightWorksIO\MutationGate\Core\Ci\CiTemplate;
+use NightWorksIO\MutationGate\Core\Ci\JobCommands;
 use NightWorksIO\MutationGate\Core\Ci\Publication;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
@@ -29,13 +30,11 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
-use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Proof\StoreVariable;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
-use NightWorksIO\MutationGate\Core\Verb;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Port\CiPlan;
 
@@ -129,16 +128,16 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
     }
 
     /** The steps, printed for `buildkite-agent pipeline upload` to read from a pipe. */
-    public function publish(Plan $plan, GateCommand $gate): Publication
+    public function publish(Plan $plan, JobCommands $jobs): Publication
     {
-        $verdict = $gate->plannedVerdict();
+        $verdict = $jobs->verdict();
         $sources = array_map(
             static fn(string $source): string => sprintf('build.source == "%s"', $source),
             self::TRUSTED_SOURCES,
         );
         $trusted = sprintf(self::TRUSTED, implode(' || ', $sources));
         $steps = [
-            ...array_map(fn(Shard $shard): Json => $this->shardStep($shard, $gate), [...$plan]),
+            ...array_map(fn(Shard $shard): Json => $this->shardStep($shard, $jobs), [...$plan]),
             Json::object(Member::of('type', 'wait'), Member::of('continue_on_failure', value: true)),
             $this->commandStep(self::VERDICT, 'mutation-gate-verdict-store', ...[...$this->fetched(), $verdict])
                 ->with(Member::of('if', $trusted)),
@@ -197,14 +196,14 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
         return ! $one instanceof Problem || ! $step->texts(Key::of(BuildkiteStep::COMMAND)) instanceof Problem;
     }
 
-    private function shardStep(Shard $shard, GateCommand $gate): Json
+    private function shardStep(Shard $shard, JobCommands $jobs): Json
     {
         $id = $shard->id()->number();
 
         return $this->commandStep(
             sprintf('mutation: %s', $this->literal($shard->label())),
             sprintf('mutation-gate-shard-%d', $id),
-            $gate->planned(Verb::Run, sprintf('--shard=%d', $id)),
+            $jobs->shard($shard->id()),
         )->with(Member::of('artifact_paths', sprintf('.mutation-gate/results/%d.json', $id)));
     }
 

@@ -37,14 +37,14 @@ function bitbucketUnnamed(): CannotTell
 }
 
 it('prints the plan as the generic JSON', function (): void {
-    expect(bitbucketPlanIn(Variables::of([]))->publish(ShardedPlan::of(2), GateCommand::installed()))
+    expect(bitbucketPlanIn(Variables::of([]))->publish(ShardedPlan::of(2), GateCommand::installed()->jobs()))
         ->toEqual(Publication::printed(PlanListing::of(ShardedPlan::of(2))));
 });
 
 it('prints the plan, built from its options', function (): void {
     $plan = BitbucketPlan::fromOptions(Configs::options('{"definition": "bitbucket-pipelines.yml"}'));
 
-    expect($plan instanceof BitbucketPlan ? $plan->publish(ShardedPlan::of(1), GateCommand::installed()) : $plan)
+    expect($plan instanceof BitbucketPlan ? $plan->publish(ShardedPlan::of(1), GateCommand::installed()->jobs()) : $plan)
         ->toEqual(Publication::printed(PlanListing::of(ShardedPlan::of(1))));
 });
 
@@ -86,7 +86,7 @@ it('is marked by BITBUCKET_BUILD_NUMBER, which Bitbucket Pipelines sets in every
 });
 
 it('prints a plan whose paths hold log commands so a CI\'s log reads none, and every reader reads the paths back', function (): void {
-    $printed = bitbucketPlanIn(Variables::of([]))->publish(ShardedPlan::hostile(), GateCommand::installed())->text();
+    $printed = bitbucketPlanIn(Variables::of([]))->publish(ShardedPlan::hostile(), GateCommand::installed()->jobs())->text();
 
     expect(LogCommands::in($printed))->toBe([])
         ->and(Decoded::at($printed, 'shards', 0, 'units'))->toBe([ShardedPlan::HOSTILE]);

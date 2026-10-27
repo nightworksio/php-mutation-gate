@@ -73,13 +73,13 @@ final readonly class Cluster
     /** The command that writes one test for the cluster. */
     public function stub(GateCommand $gate): string
     {
-        return $gate->stub($this->id()->value());
+        return $gate->stub($this->id());
     }
 
     /** The command that explains the cluster, running nothing. */
     public function explain(GateCommand $gate): string
     {
-        return $gate->explain($this->id()->value());
+        return $gate->explain($this->id());
     }
 
     /** @return array{int, string} where a member stands: its line, then its id */

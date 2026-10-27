@@ -40,7 +40,7 @@ final readonly class ReproductionText
             sprintf('Recorded: %s', RecordText::of($recorded)),
             ...$again instanceof Mutant ? self::found($again) : [sprintf('Now: not made. %s', $again->why()->text())],
             sprintf(MutantText::JUDGED_BY, MutantText::judging($judgedBy)),
-            sprintf('Explain: %s', $gate->explain($mutant->id()->value())),
+            sprintf('Explain: %s', $gate->explain($mutant->id())),
         ];
         $heading = sprintf(
             '%s:%d  %s  %s',

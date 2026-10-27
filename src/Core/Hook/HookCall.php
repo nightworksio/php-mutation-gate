@@ -65,7 +65,7 @@ final readonly class HookCall
     /** The gate's command for a hook, as the shell reads it, with no arguments: what a hook manager runs. */
     public function called(Hook $hook): string
     {
-        return $this->gate->with($hook);
+        return $this->gate->command($hook);
     }
 
     private function atTheTop(): bool

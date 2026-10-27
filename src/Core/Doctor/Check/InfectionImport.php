@@ -12,8 +12,8 @@ use NightWorksIO\MutationGate\Core\Doctor\Findings;
 use NightWorksIO\MutationGate\Core\Doctor\InfectionConfig;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
 use NightWorksIO\MutationGate\Core\Doctor\Severity;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
-use NightWorksIO\MutationGate\Core\Verb;
 
 use function sprintf;
 
@@ -21,8 +21,6 @@ use function sprintf;
 final readonly class InfectionImport
 {
     private const string FOUND = '%s %s.';
-
-    private const string FROM = '--from=%s';
 
     private const string MIN_MSI = 'sets a minMsi';
 
@@ -52,7 +50,7 @@ final readonly class InfectionImport
             Severity::Advice,
             sprintf(self::FOUND, $config->file(), implode(' and ', $sets)),
             self::WHY,
-            sprintf(self::FIX, DoctorRun::gateOf($observed)->with(Verb::Init, sprintf(self::FROM, $config->file()))),
+            sprintf(self::FIX, DoctorRun::gateOf($observed)->imported(Path::of($config->file()))),
         ));
     }
 }

@@ -39,9 +39,9 @@ function jenkinsUnnamed(): CannotTell
 it('prints the plan as the generic JSON, for the Jenkinsfile to read', function (): void {
     $plan = JenkinsPlan::fromOptions(Configs::options('{"definition": "Jenkinsfile"}'));
 
-    expect(jenkinsPlanIn(Variables::of([]))->publish(ShardedPlan::of(2), GateCommand::installed()))
+    expect(jenkinsPlanIn(Variables::of([]))->publish(ShardedPlan::of(2), GateCommand::installed()->jobs()))
         ->toEqual(Publication::printed(PlanListing::of(ShardedPlan::of(2))))
-        ->and($plan instanceof JenkinsPlan ? $plan->publish(ShardedPlan::of(1), GateCommand::installed()) : $plan)
+        ->and($plan instanceof JenkinsPlan ? $plan->publish(ShardedPlan::of(1), GateCommand::installed()->jobs()) : $plan)
         ->toEqual(Publication::printed(PlanListing::of(ShardedPlan::of(1))));
 });
 
@@ -89,7 +89,7 @@ it('is marked by BUILD_TAG, which Jenkins sets in every build', function (): voi
 });
 
 it('prints a plan whose paths hold log commands so a CI\'s log reads none, and every reader reads the paths back', function (): void {
-    $printed = jenkinsPlanIn(Variables::of([]))->publish(ShardedPlan::hostile(), GateCommand::installed())->text();
+    $printed = jenkinsPlanIn(Variables::of([]))->publish(ShardedPlan::hostile(), GateCommand::installed()->jobs())->text();
 
     expect(LogCommands::in($printed))->toBe([])
         ->and(Decoded::at($printed, 'shards', 0, 'units'))->toBe([ShardedPlan::HOSTILE]);

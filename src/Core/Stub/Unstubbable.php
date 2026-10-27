@@ -8,7 +8,6 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Report\Label;
-use NightWorksIO\MutationGate\Core\Verb;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
@@ -53,7 +52,7 @@ final readonly class Unstubbable
                 self::FLAKY,
                 $id,
                 $hint,
-                $gate->with(Verb::Triage, $judged->mutant()->location()->file()->value()),
+                $gate->triage($judged->mutant()->location()->file()),
             ),
             MutantJudgement::TooSlowToJudge, MutantJudgement::TooHeavyToJudge
                 => sprintf(self::UNMEASURABLE, $id, Label::of($judged->judgement()), $hint),

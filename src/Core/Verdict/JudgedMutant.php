@@ -164,13 +164,13 @@ final readonly class JudgedMutant
     /** The one command that runs it again, on any machine with the same code. */
     public function reproduce(GateCommand $gate): string
     {
-        return $gate->reproduce($this->mutant->id()->value());
+        return $gate->reproduce($this->mutant->id());
     }
 
     /** The command that explains it from what the ledgers and the last run hold, running nothing. */
     public function explain(GateCommand $gate): string
     {
-        return $gate->explain($this->mutant->id()->value());
+        return $gate->explain($this->mutant->id());
     }
 
     /** Whether it is unjudged because the file it mutates was loaded before it was in place. */

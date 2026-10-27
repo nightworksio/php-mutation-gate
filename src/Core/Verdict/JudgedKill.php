@@ -77,12 +77,12 @@ final readonly class JudgedKill
     /** The one command that runs it again, on any machine with the same code. */
     public function reproduce(GateCommand $gate): string
     {
-        return $gate->reproduce($this->kill->id()->value());
+        return $gate->reproduce($this->kill->id());
     }
 
     /** The one command that explains it, running nothing. */
     public function explain(GateCommand $gate): string
     {
-        return $gate->explain($this->kill->id()->value());
+        return $gate->explain($this->kill->id());
     }
 }

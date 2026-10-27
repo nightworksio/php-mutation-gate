@@ -32,7 +32,7 @@ final readonly class VsCode
     /** The extension that shows a SARIF log's results in the source. */
     public const string SARIF_VIEWER = 'MS-SarifVSCode.sarif-viewer';
 
-    private const string PROBLEMS = '--output=problems';
+    private const string PROBLEMS = '%s --output=problems';
 
     private const string VERSION = '2.0.0';
 
@@ -77,7 +77,7 @@ final readonly class VsCode
         return [
             'label' => self::LABEL,
             'type' => 'shell',
-            'command' => $gate->with(Verb::Watch, self::PROBLEMS),
+            'command' => sprintf(self::PROBLEMS, $gate->command(Verb::Watch)),
             'isBackground' => true,
             'problemMatcher' => [
                 'owner' => ThisPackage::NAME,

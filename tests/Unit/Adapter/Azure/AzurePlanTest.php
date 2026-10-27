@@ -35,20 +35,20 @@ function azureUnnamed(): CannotTell
 }
 
 it('sets the output variable the mutation job\'s matrix reads, one leg per shard', function (): void {
-    expect(azurePlanIn(Variables::of([]))->publish(ShardedPlan::of(2), GateCommand::installed()))->toEqual(Publication::printed(
+    expect(azurePlanIn(Variables::of([]))->publish(ShardedPlan::of(2), GateCommand::installed()->jobs()))->toEqual(Publication::printed(
         "##vso[task.setvariable variable=matrix;isOutput=true]{\"s1\":{\"SHARD\":\"1\"},\"s2\":{\"SHARD\":\"2\"}}\n",
     ));
 });
 
 it('sets one leg with no shard for a plan that holds none, as Azure always makes a job', function (): void {
-    expect(azurePlanIn(Variables::of([]))->publish(ShardedPlan::of(0), GateCommand::installed())->text())
+    expect(azurePlanIn(Variables::of([]))->publish(ShardedPlan::of(0), GateCommand::installed()->jobs())->text())
         ->toBe("##vso[task.setvariable variable=matrix;isOutput=true]{\"none\":{\"SHARD\":\"\"}}\n");
 });
 
 it('prints to the output, where the agent reads its logging commands', function (): void {
     $plan = AzurePlan::fromOptions(Configs::options('{"definition": "azure-pipelines.yml"}'));
 
-    expect($plan instanceof AzurePlan ? $plan->publish(ShardedPlan::of(1), GateCommand::installed()) : $plan)->toEqual(Publication::printed(
+    expect($plan instanceof AzurePlan ? $plan->publish(ShardedPlan::of(1), GateCommand::installed()->jobs()) : $plan)->toEqual(Publication::printed(
         "##vso[task.setvariable variable=matrix;isOutput=true]{\"s1\":{\"SHARD\":\"1\"}}\n",
     ));
 });

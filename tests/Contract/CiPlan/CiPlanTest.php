@@ -83,8 +83,8 @@ it('publishes a plan, even one with no shards, where it can be put', function (C
         return $written;
     };
 
-    expect($put($ci->publish(ShardedPlan::of(2), GateCommand::installed())))->toBeInstanceOf(Written::class)
-        ->and($put($ci->publish(ShardedPlan::of(0), GateCommand::installed())))->toBeInstanceOf(Written::class);
+    expect($put($ci->publish(ShardedPlan::of(2), GateCommand::installed()->jobs())))->toBeInstanceOf(Written::class)
+        ->and($put($ci->publish(ShardedPlan::of(0), GateCommand::installed()->jobs())))->toBeInstanceOf(Written::class);
 })->with($plans)->group(...$holds);
 
 it('says what it can of the run, or that it cannot tell', function (CiPlan $ci): void {

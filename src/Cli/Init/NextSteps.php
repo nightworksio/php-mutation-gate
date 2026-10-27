@@ -46,7 +46,7 @@ final readonly class NextSteps
     public function said(): string
     {
         $gate = StartedGate::in($this->project);
-        $next = sprintf(self::NEXT, $gate->with(Verb::Doctor), $gate->gate());
+        $next = sprintf(self::NEXT, $gate->command(Verb::Doctor), $gate->gate());
         $written = array_diff(self::listed($this->project), $this->before);
         sort($written);
 

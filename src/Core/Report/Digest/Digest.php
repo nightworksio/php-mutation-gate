@@ -56,7 +56,7 @@ final readonly class Digest
 
     private const string MORE = 'more %d: %s';
 
-    private const string ALL = '--survivors=all';
+    private const string ALL = '%s --survivors=all';
 
     private const string TERM = '? %s: %s';
 
@@ -84,7 +84,7 @@ final readonly class Digest
             ...self::texts($report->field('warnings'), self::WARN),
             ...self::grouped($shown->of($survivors)),
             ...$shown->leftOut($survivors) > 0
-                ? [sprintf(self::MORE, $shown->leftOut($survivors), $gate->with(Verb::Digest, self::ALL))]
+                ? [sprintf(self::MORE, $shown->leftOut($survivors), sprintf(self::ALL, $gate->command(Verb::Digest)))]
                 : [],
         ]);
     }
