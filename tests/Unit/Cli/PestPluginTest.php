@@ -12,12 +12,14 @@ use NightWorksIO\MutationGate\Tests\Support\GateEnvironment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Pest\Contracts\Plugins\Bootable;
 use Pest\Contracts\Plugins\HandlesArguments;
+use Pest\Contracts\Plugins\Terminable;
 
 it('is the Pest plugin Pest boots and hands arguments, handling them as the Pest adapter\'s plugin does', function (): void {
     $arguments = ['vendor/bin/pest', '--filter=adds'];
 
     expect(new PestPlugin())->toBeInstanceOf(Bootable::class)
         ->and(new PestPlugin())->toBeInstanceOf(HandlesArguments::class)
+        ->and(new PestPlugin())->toBeInstanceOf(Terminable::class)
         ->and(new PestPlugin()->handleArguments($arguments))
         ->toBe(new Plugin(static fn(): RunIssues => IssueKillers::ofThisRun())->handleArguments($arguments));
 });

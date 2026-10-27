@@ -767,10 +767,14 @@ its parser attributes. Both change when the checkout moves.
         evidence, which judges it (ADR-0014).
    - **Guards.** When `MUTATION_GATE_GUARD` names a file, the plugin writes to
      it whether the original file was loaded before the override started,
-     whether it was loaded at all, and the opcache settings. Composer's
-     `files` autoload, `tests/Pest.php` and datasets can load a class before
-     any plugin starts. Each of these makes the mutant unjudged, with its
-     reason:
+     whether it was loaded at all, and the opcache settings. It writes as
+     Pest terminates its plugins, and again as the process ends: Pest ends a
+     process a fatal error stopped by exiting from its own shutdown function,
+     which leaves every later one uncalled. A file is loaded where PHP lists
+     it, or where the last error PHP raised stands in it, as one a mutated
+     copy that cannot compile raises. Composer's `files` autoload,
+     `tests/Pest.php` and datasets can load a class before any plugin
+     starts. Each of these makes the mutant unjudged, with its reason:
      - *loaded before the override*;
      - *never loaded*;
      - `opcache.enable_cli` or `opcache.file_cache` on, because a cached

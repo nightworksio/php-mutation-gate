@@ -8,6 +8,7 @@ use function array_values;
 
 use Closure;
 
+use function error_get_last;
 use function get_declared_classes;
 use function get_included_files;
 use function getenv;
@@ -109,16 +110,28 @@ final class Plugin implements Bootable, HandlesArguments
      */
     public function finish(): void
     {
-        if ($this->guard instanceof Guard) {
-            $opcache = Opcache::of(ini_get(Opcache::CLI), ini_get(Opcache::FILE_CACHE));
-            $this->guard->write(get_included_files(), $opcache);
-        }
+        $this->terminate();
 
         if ($this->naming instanceof Naming) {
             $this->naming->write(get_declared_classes());
         }
 
         Killers::endedIn($this->killers);
+    }
+
+    /**
+     * Writes what the guard saw, where one watches this run: as Pest ends a
+     * run, and again as the process ends. Pest ends a process a fatal error
+     * stops by exiting, which leaves every later shutdown function uncalled,
+     * so the guard is written as Pest terminates its plugins first.
+     */
+    public function terminate(): void
+    {
+        if ($this->guard instanceof Guard) {
+            $opcache = Opcache::of(ini_get(Opcache::CLI), ini_get(Opcache::FILE_CACHE));
+            $error = error_get_last();
+            $this->guard->write(get_included_files(), $opcache, $error === null ? '' : $error['file']);
+        }
     }
 
     public function recorder(): Recorder|Off

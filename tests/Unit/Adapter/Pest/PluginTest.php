@@ -124,6 +124,18 @@ it('guards a run the adapter starts on one mutant, writing what it saw when the 
         ->and(json_decode((string) file_get_contents($guard), associative: true))->toMatchArray(['before' => true, 'loaded' => true]);
 });
 
+it('writes what the guard saw as Pest terminates it, before a fatal error\'s exit leaves the rest of shutdown uncalled', function (): void {
+    $guard = sprintf('%s/guard.json', Scratch::untilExit());
+    $plugin = pluginBootedWith([Recorder::MUTANT => __FILE__, GateVariable::Guard->value => $guard]);
+
+    pestPlugin()->terminate();
+    $unwatched = is_file($guard);
+    $plugin->terminate();
+
+    expect($unwatched)->toBeFalse()
+        ->and(json_decode((string) file_get_contents($guard), associative: true))->toMatchArray(['before' => true, 'loaded' => true]);
+});
+
 it('records nothing and names no killer when Pest boots it outside the adapter\'s runs', function (): void {
     $plugin = pluginBootedWith([]);
 

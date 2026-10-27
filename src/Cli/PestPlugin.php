@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Adapter\PhpUnit\IssueKillers;
 use NightWorksIO\MutationGate\Core\Test\RunIssues;
 use Pest\Contracts\Plugins\Bootable;
 use Pest\Contracts\Plugins\HandlesArguments;
+use Pest\Contracts\Plugins\Terminable;
 
 /**
  * The Pest plugin this package lists under `extra.pest.plugins`: the Pest
@@ -20,7 +21,7 @@ use Pest\Contracts\Plugins\HandlesArguments;
  * place of the original, so a mutant of this file would never run, and the
  * gate's own config leaves it out of the trees it mutates.
  */
-final readonly class PestPlugin implements Bootable, HandlesArguments
+final readonly class PestPlugin implements Bootable, HandlesArguments, Terminable
 {
     private Plugin $plugin;
 
@@ -32,6 +33,11 @@ final readonly class PestPlugin implements Bootable, HandlesArguments
     public function boot(): void
     {
         $this->plugin->boot();
+    }
+
+    public function terminate(): void
+    {
+        $this->plugin->terminate();
     }
 
     /**
