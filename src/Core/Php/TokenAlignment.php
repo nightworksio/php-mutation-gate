@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Php;
 
 use function array_filter;
+use function array_key_exists;
 use function array_keys;
 use function count;
 use function max;
-use function range;
 
 /**
  * Which token of one text each token of another stands for, where the two
@@ -57,8 +57,8 @@ final readonly class TokenAlignment
 
     /**
      * How far along the first each diagonal reached before each step of the
-     * diff, up to the step that reaches the end of both, which no more steps
-     * than the two hold tokens between them can miss.
+     * diff, up to the step that reaches the end of both, which comes within
+     * as many steps as the two hold tokens between them.
      *
      * @param list<string> $first
      * @param list<string> $second
@@ -70,27 +70,37 @@ final readonly class TokenAlignment
         $reached = self::START;
         $trace = [];
 
-        foreach (range(0, count($first) + count($second)) as $step) {
+        while (! self::reachesTheEnd($reached, $first, $second)) {
             $trace[] = $reached;
-            [$reached, $done] = self::step($reached, $step, $first, $second);
-
-            if ($done) {
-                break;
-            }
+            $reached = self::step($reached, count($trace) - 1, $first, $second);
         }
 
         return $trace;
     }
 
     /**
-     * How far along the first each diagonal reaches after one more step, and
-     * whether one reaches the end of both.
+     * Whether a path reaches the end of both: the diagonal that ends at the
+     * last token of each reaches the end of the first.
+     *
+     * @param array<int, int> $reached
+     * @param list<string>    $first
+     * @param list<string>    $second
+     */
+    private static function reachesTheEnd(array $reached, array $first, array $second): bool
+    {
+        $end = count($first) - count($second);
+
+        return array_key_exists($end, $reached) && $reached[$end] >= count($first);
+    }
+
+    /**
+     * How far along the first each diagonal reaches after one more step.
      *
      * @param array<int, int> $reached
      * @param list<string>    $first
      * @param list<string>    $second
      *
-     * @return array{array<int, int>, bool}
+     * @return array<int, int>
      */
     private static function step(array $reached, int $step, array $first, array $second): array
     {
@@ -98,15 +108,10 @@ final readonly class TokenAlignment
             $start = self::fromAbove($reached, $step, $diagonal)
                 ? $reached[$diagonal + 1]
                 : $reached[$diagonal - 1] + 1;
-            $along = self::slide($first, $second, $start, $diagonal);
-            $reached[$diagonal] = $along;
-
-            if ($along >= count($first) && $along - $diagonal >= count($second)) {
-                return [$reached, true];
-            }
+            $reached[$diagonal] = self::slide($first, $second, $start, $diagonal);
         }
 
-        return [$reached, false];
+        return $reached;
     }
 
     /**

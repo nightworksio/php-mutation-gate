@@ -126,12 +126,13 @@ it('gives a program an input that has ended as it starts', function () use ($sta
 })->group(...$holds);
 
 it('starts a program while a stream wrapper stands in for files, as a mutant\'s run puts one', function () use ($started, $ended): void {
+    $before = $ended($started('echo "before";'))->output();
     $directory = (string) realpath(Scratch::directory());
     Scratch::write($directory, 'Served.php', '<?php');
     Scratch::write($directory, 'guard.txt', '');
     MutantFile::serve(sprintf('%s/Served.php', $directory), sprintf('%s/Served.php', $directory), sprintf('%s/guard.txt', $directory), Guard::SERVED);
 
-    expect($ended($started('echo "ran";'))->output())->toBe('ran');
+    expect([$before, $ended($started('echo "ran";'))->output()])->toBe(['before', 'ran']);
 })->group(...$holds);
 
 it('stops a program at the moment its deadline comes', function () use ($started): void {

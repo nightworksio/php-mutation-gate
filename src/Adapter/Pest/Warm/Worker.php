@@ -82,15 +82,15 @@ final readonly class Worker
     /** The run in a child, unless its asker is gone, and the baseline the worker keeps after it. */
     private function ran(Request $request, Baseline|NotGiven $baseline, Forking $forking): Baseline|NotGiven
     {
-        $loaded = $this->loaded($request->mutated());
+        $alive = $this->isAlive($request->asker());
+        $loaded = $alive ? $this->readied($request) : '';
 
-        if (! $this->isAlive($request->asker()) || $loaded !== '') {
+        if (! $alive || $loaded !== '') {
             $this->refused($request, $loaded);
 
             return $baseline;
         }
 
-        Offsets::now($this->seat)->writtenTo($this->seat->started($request->id()));
         $child = $forking->forked($request, $baseline, $this->seat->report());
 
         if (! is_int($child)) {
@@ -120,9 +120,21 @@ final readonly class Worker
     }
 
     /**
+     * The run readied to fork, where its output starts noted; and why it
+     * cannot fork, where the worker has by then loaded the file its mutant
+     * changes; nothing where it can.
+     */
+    private function readied(Request $request): string
+    {
+        Offsets::now($this->seat)->writtenTo($this->seat->started($request->id()));
+
+        return $this->loaded($request->mutated());
+    }
+
+    /**
      * Why a run of a mutant of this file cannot fork from the worker: the
-     * worker loaded the file, so a child could not load the mutant in its
-     * place; nothing where it did not.
+     * worker loaded the file, by the time it would fork, so a child could not
+     * load the mutant in its place; nothing where it did not.
      */
     private function loaded(string $mutated): string
     {
