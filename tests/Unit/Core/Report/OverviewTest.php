@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Tests\Support\Judged;
+use NightWorksIO\MutationGate\Tests\Support\Owners;
 use NightWorksIO\MutationGate\Tests\Support\Secured;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
@@ -91,6 +92,13 @@ it('knows a mutant in new code that failed is failing though its tree passed', f
 
     expect(Overview::of($passing)->isFailing(Verdicts::survivor()))->toBeTrue()
         ->and(Overview::of(Verdicts::passing())->isFailing(Verdicts::survivor()))->toBeFalse();
+});
+
+it('knows a mutant of an owner below its own floor is failing though its tree passed', function (): void {
+    $survivor = Judged::mutant('pay-survived', MutantJudgement::Survived, 'src/Billing/Pay.php', 2);
+
+    expect(Overview::of(Owners::floored())->isFailing($survivor))->toBeTrue()
+        ->and(Overview::of(Owners::verdict())->isFailing($survivor))->toBeFalse();
 });
 
 it('reads no mutant of an empty set as failing', function (): void {
