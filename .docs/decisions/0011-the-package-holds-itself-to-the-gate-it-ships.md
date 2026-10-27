@@ -46,6 +46,13 @@ about Laravel, NativePHP or the project's modules, and does not.
      covered and mutation-tested.
    - The declared floor is 100, so the baseline cannot hold it lower.
    - The runner is Pest.
+   - The code that runs inside a mutant's own process, or decides what it
+     executes, is listed under `reach.everything`: the Pest plugin and its
+     recording, grouping and ordering, the warm worker and its client, the
+     patches `pest:patch` applies, `MutantFile` and the mutant limit. Here it
+     is project source like any other, so without the list a change to how
+     mutants run would reach only its own units, and every other unit would
+     carry a result the older version produced (ADR-0005).
    - The package's CI calls its own reusable workflow from the same commit
      (`uses: ./.github/workflows/mutation-gate.yml`), whose shard jobs run the
      action from that commit too. Every change to the gate, the
