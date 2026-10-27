@@ -22,6 +22,9 @@ enum BuiltinRunner: string
     /** The gate's own Codeception runner, on the gate's own mutants (ADR-0027). */
     case Codeception = 'codeception';
 
+    /** The gate's own Testo runner, on the gate's own mutants (ADR-0027). */
+    case Testo = 'testo';
+
     public function named(): Name
     {
         return Name::of($this->value);
@@ -36,6 +39,7 @@ enum BuiltinRunner: string
             self::PhpUnit => Package::PhpUnit,
             self::PhpSpec => Package::PhpSpec,
             self::Codeception => Package::Codeception,
+            self::Testo => Package::Testo,
         };
     }
 

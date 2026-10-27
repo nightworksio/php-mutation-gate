@@ -1,0 +1,29 @@
+{
+    "name": "nightworksio/mutation-gate-testo-fixture",
+    "description": "The Testo runner's library, beside the gate's source: in library/, the code every runner's contract mutates, tested by Testo. It requires the Symfony console the gate requires, which a project's Testo shares with the gate.",
+    "license": "MIT",
+    "type": "project",
+    "require": {
+        "php": "^8.5",
+        "symfony/console": "^7.4 || ^8.0",
+        "testo/testo": "0.10.56"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "autoload": {
+        "psr-4": {
+            "Beside\\": "library/beside/",
+            "Library\\": "library/src/",
+            "NightWorksIO\\MutationGate\\": "../../../../src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "TestoLibrary\\": "library/tests/",
+            "TestoLibrary\\Stock\\": "library/plugins/stock/tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    }
+}
