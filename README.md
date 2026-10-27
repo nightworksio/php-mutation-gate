@@ -65,8 +65,9 @@ composer require --dev "nightworksio/mutation-gate:dev-main" -W
 ```
 
 `-W` lets Composer move `pestphp/pest-plugin-mutate` to the release the gate
-has tested, which it pins exactly. To pin a commit instead of following
-`main`, require `dev-main#<commit>`.
+has tested, which it pins exactly. `composer.lock` holds the commit it
+installed, and `composer update nightworksio/mutation-gate` moves it to the
+head of `main`.
 
 Set the project up, then run the gate:
 
