@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Owner;
 
+use function mb_strtolower;
+
 use NightWorksIO\MutationGate\Core\NotGiven;
 
 use function preg_match;
@@ -30,6 +32,12 @@ final readonly class Owner
         return preg_match(self::HANDLE, $token) === 1 || preg_match(self::EMAIL, $token) === 1
             ? new self($token)
             : NotGiven::value();
+    }
+
+    /** Whether another spelling names this owner: the same in any case, as GitHub matches a handle or an address. */
+    public function is(self $other): bool
+    {
+        return mb_strtolower($this->value) === mb_strtolower($other->value);
     }
 
     /** The owner as the rule writes it: `@acme/payments`. */

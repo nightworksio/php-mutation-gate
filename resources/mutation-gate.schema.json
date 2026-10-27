@@ -433,6 +433,21 @@
             },
             "additionalProperties": false
         },
+        "owners": {
+            "type": "object",
+            "properties": {
+                "floors": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                    },
+                    "default": {}
+                }
+            },
+            "additionalProperties": false
+        },
         "packages": {
             "type": "array",
             "items": {

@@ -115,22 +115,27 @@ verdict reaches and how.
 4. **An owner can have a floor of its own.**
    - `owners.floors` maps an owner, such as `@acme/payments`, to a number
      from 0 to 100. Empty by default.
-   - It is a declared minimum, judged over every unit the owner owns across
-     the project, with carried results completing it (ADR-0003).
-     A score below it fails the run with exit code 1, and the message names
-     the owner group, its floor and its score.
+   - It is a declared minimum, judged over the mutants of every file whose
+     rule names the owner, across every owner group that names it, with
+     carried results completing it (ADR-0003). An owner is matched in any
+     case, as GitHub matches a handle. A score below it fails the run with
+     exit code 1, and the message names the owner, its floor and its score.
+   - Owner groups carry no floor: each mutant stays in exactly one group, so
+     the groups still add up to the project, and an owner's floor is judged
+     apart from them.
    - It has no baseline and does not ratchet. Ownership moves often, and a
      baseline keyed by owner would change whenever CODEOWNERS does.
 
 5. **The comment groups survivors on changed lines by owner group.**
    - Within ADR-0009's cap of 20, each group is headed by its owners and its
      count.
-   - A line follows for each owner group the change touches: its score and,
-     where set, its floor and result.
+   - A line follows for each owner with a floor, its score against it, and
+     then one for each owner group the change touches, with its score.
    - The console and the step summary group the same way. The JSON report
-     gains `owners: [{owners: ["@acme/payments"], score, floor, judgement,
-     said, counts, mutants}]`, the unowned group with `owners: []`, and is
-     empty without a CODEOWNERS.
+     gains `owners: [{owners: ["@acme/payments"], score, judgement, said,
+     counts, mutants}]`, the unowned group with `owners: []`, empty without a
+     CODEOWNERS; and, apart from it, `ownerFloors: [{owner, floor, score,
+     judgement, said, counts, mutants}]`, one for each owner with a floor.
    - `owners.mention` and `owners.floors` judge or report only, and are not
      in the proof key (ADR-0007).
    - `Core` holds the ownership: a pure parser of CODEOWNERS text and a

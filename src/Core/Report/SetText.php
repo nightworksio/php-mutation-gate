@@ -16,8 +16,10 @@ use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
 use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Score\Unrecorded;
+use NightWorksIO\MutationGate\Core\Verdict\HeldSets;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdict;
+use NightWorksIO\MutationGate\Core\Verdict\OwnerFloorVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\OwnerVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\OwnerVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdict;
@@ -26,8 +28,8 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use function sprintf;
 
 /**
- * The sentence every report says of a tree, a new-code set or an owner
- * group: its score against its floor, that it has nothing to mutate, or why
+ * The sentence every report says of a tree, a new-code set, an owner group
+ * or an owner with a floor: its score against its floor, that it has nothing to mutate, or why
  * it is exempt, and for a tree, its change against the base. A sampled
  * tree's score is an estimate, said with its interval and how much of the
  * tree was sampled (ADR-0020).
@@ -174,6 +176,29 @@ final readonly class SetText
         return $score instanceof Score
             ? sprintf(self::SCORES, $name, Percent::of($score))
             : sprintf(self::NOTHING, $name);
+    }
+
+    /** What the code an owner with a floor owns scores against it, or that it has nothing to mutate (ADR-0022). */
+    public static function ownerFloor(OwnerFloorVerdict $owner): string
+    {
+        return self::sentence(self::ownerFloorName($owner), $owner->floor(), $owner->score(), $owner->judgement());
+    }
+
+    /**
+     * What every owner with a floor scores against it, then what the code of
+     * each owner group the change touched scores (ADR-0022).
+     *
+     * @return list<string>
+     */
+    public static function owned(HeldSets $sets): array
+    {
+        return [...array_map(self::ownerFloor(...), [...$sets->ownerFloors()]), ...self::touched($sets->owners())];
+    }
+
+    /** What an owner with a floor is called: `Code owned by @acme/payments`. */
+    public static function ownerFloorName(OwnerFloorVerdict $owner): string
+    {
+        return sprintf(self::OWNED, Fit::plain($owner->owner()->value()));
     }
 
     /**

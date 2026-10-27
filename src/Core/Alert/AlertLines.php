@@ -66,6 +66,7 @@ final readonly class AlertLines
             AlertEvent::Failed => [
                 ['Below the floor', self::trees($alert, $chat, Judgement::Failed)],
                 ['Security below its floor', self::security($alert, $chat)],
+                ['Owners below their floor', self::ownerFloors($alert, $chat)],
                 ['Failures', self::said($verdict->failures(), $chat)],
                 ['Survivors', self::survivors($alert, $chat)],
             ],
@@ -115,6 +116,30 @@ final readonly class AlertLines
                     $chat->text(Fit::line(SetText::securityName($set), self::LONGEST)),
                     Percent::of($set->score()),
                     self::against($floor, self::BELOW),
+                    '',
+                )]
+                : $lines;
+        }
+
+        return $lines;
+    }
+
+    /**
+     * Each owner below its own floor, with its score and floor (ADR-0022).
+     *
+     * @return list<string>
+     */
+    private static function ownerFloors(Alert $alert, Chat $chat): array
+    {
+        $lines = [];
+
+        foreach ($alert->verdict()->sets()->ownerFloors() as $owner) {
+            $lines = $owner->judgement() === Judgement::Failed
+                ? [...$lines, sprintf(
+                    self::LINE,
+                    $chat->text(Fit::line(SetText::ownerFloorName($owner), self::LONGEST)),
+                    Percent::of($owner->score()),
+                    self::against($owner->floor(), self::BELOW),
                     '',
                 )]
                 : $lines;

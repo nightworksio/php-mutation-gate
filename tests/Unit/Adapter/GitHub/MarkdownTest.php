@@ -608,3 +608,11 @@ it('writes every mutant not killed in the step summary under its owner group, in
         ->and(strpos($summary, '#### &#64;acme/payments'))->toBeLessThan((int) strpos($summary, '#### unowned'))
         ->and($summary)->not->toContain('@acme');
 });
+
+it('comments each owner with a floor against it before the groups the change touched', function (): void {
+    expect(Markdown::comment(Owners::floored()))->toContain(implode("\n", [
+        '- Code owned by &#64;acme/payments scores 33.33%, below its floor of 50.00%.',
+        '- Code owned by &#64;acme/web scores 100.00% against its floor of 50.00%.',
+        '- Code owned by &#64;acme/payments &#64;jo scores 33.33%.',
+    ]));
+});

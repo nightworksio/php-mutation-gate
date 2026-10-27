@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
+use NightWorksIO\MutationGate\Core\Owner\CodeOwners;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
@@ -24,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdicts;
+use NightWorksIO\MutationGate\Core\Verdict\OwnerFloorVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
@@ -31,6 +33,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Tests\Support\Judged;
+use NightWorksIO\MutationGate\Tests\Support\Owners;
 use NightWorksIO\MutationGate\Tests\Support\Secured;
 
 $tree = static fn(string $path, JudgedUnits $units, JudgedMutants $mutants): TreeVerdict => TreeVerdict::judged(
@@ -169,6 +172,27 @@ it('holds only the security sets where it holds them alone, showing the trees an
         ->toBe(Judgement::Passed)
         ->and(Verdict::of(TreeVerdicts::of($passed), HeldTo::Security)->withSets(HeldSets::of(NewCodeVerdicts::none(), $failing))->judgement())
         ->toBe(Judgement::Failed);
+});
+
+it('fails on an owner below its floor where it holds its trees, and shows it where it holds new code alone', function (): void {
+    $trees = TreeVerdicts::of(TreeVerdict::judged(
+        Tree::at(Path::of('src'), Floor::of(0), Package::at(Path::root())),
+        Unrecorded::floor(),
+        JudgedUnits::none(),
+        Judged::mutants(MutantJudgement::Killed, MutantJudgement::Survived),
+        Uncovered::Count,
+    ));
+    $floored = static fn(float $floor): HeldSets => HeldSets::none()->floored(OwnerFloorVerdicts::of(
+        $trees,
+        CodeOwners::read(Path::of('CODEOWNERS'), "* @acme/payments\n"),
+        Uncovered::Count,
+        Owners::floorsOf(['@acme/payments' => $floor]),
+    ));
+
+    expect(Verdict::of($trees)->withSets($floored(60))->judgement())->toBe(Judgement::Failed)
+        ->and(Verdict::of($trees)->withSets($floored(50))->judgement())->toBe(Judgement::Passed)
+        ->and(Verdict::of($trees, HeldTo::NewCode)->withSets($floored(60))->judgement())->toBe(Judgement::Passed)
+        ->and(Verdict::of($trees)->withSets($floored(60))->sets()->ownerFloors())->toHaveCount(1);
 });
 
 it('fails on a security set that failed where it holds its trees, and shows it where it holds new code alone', function () use ($makePassed): void {

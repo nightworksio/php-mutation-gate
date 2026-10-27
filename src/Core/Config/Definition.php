@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Config\Definition\FloorsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\IgnoresKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\LocalKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\MutatorsKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\OwnersKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\PestKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\ProofsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\PruningKeys;
@@ -58,6 +59,7 @@ final readonly class Definition
         $fields = [
             ...SetupKeys::fields($origin),
             ...FloorsKeys::fields($origin),
+            ...OwnersKeys::fields(),
             ...ReachKeys::fields($origin),
             ...ShardsKeys::fields($origin),
             ...CiKeys::fields($origin),

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Owner;
 
+use function array_any;
 use function array_map;
 use function array_values;
 
@@ -48,6 +49,12 @@ final readonly class OwnerGroup implements Countable, IteratorAggregate
     public function isUnowned(): bool
     {
         return $this->owners === [];
+    }
+
+    /** Whether the group names this owner, spelt in any case, as GitHub matches a handle or an address. */
+    public function names(Owner $owner): bool
+    {
+        return array_any($this->owners, $owner->is(...));
     }
 
     /** The group as a report heads it: its owners in the rule's order, `@acme/payments @jo`; or `unowned`. */

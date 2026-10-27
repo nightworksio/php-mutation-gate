@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Owner\Owner;
+use NightWorksIO\MutationGate\Tests\Support\Owners;
 
 it('reads a user, a team and an email address as GitHub spells them', function (string $token): void {
     $owner = Owner::parse($token);
@@ -32,3 +33,11 @@ it('reads nothing else as an owner', function (string $token): void {
     'something before a user' => ['x@octocat y'],
     'something after a user' => ['@octocat!'],
 ]);
+
+it('is another spelling of an owner only in case', function (): void {
+    expect([
+        Owners::owner('@acme/Web')->is(Owners::owner('@ACME/web')),
+        Owners::owner('Jo@Acme.example')->is(Owners::owner('jo@acme.example')),
+        Owners::owner('@acme/web')->is(Owners::owner('@acme/webs')),
+    ])->toBe([true, true, false]);
+});

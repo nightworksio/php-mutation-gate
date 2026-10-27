@@ -759,6 +759,131 @@
                 "additionalProperties": false
             }
         },
+        "ownerFloors": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "owner": {
+                        "type": "string"
+                    },
+                    "floor": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                    },
+                    "score": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                    },
+                    "judgement": {
+                        "enum": [
+                            "passed",
+                            "failed",
+                            "nothing-to-mutate"
+                        ]
+                    },
+                    "said": {
+                        "type": "string"
+                    },
+                    "counts": {
+                        "type": "object",
+                        "properties": {
+                            "killed": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "killed-by-static-analysis": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "errored": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "killed-by-timeout": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "killed-by-memory-cap": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "survived": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "uncovered": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "unjudged": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "flaky": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "too-slow-to-judge": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "too-heavy-to-judge": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "ignored": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "ignored-by-marker": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "equivalent": {
+                                "type": "integer",
+                                "minimum": 0
+                            }
+                        },
+                        "required": [
+                            "killed",
+                            "killed-by-static-analysis",
+                            "errored",
+                            "killed-by-timeout",
+                            "killed-by-memory-cap",
+                            "survived",
+                            "uncovered",
+                            "unjudged",
+                            "flaky",
+                            "too-slow-to-judge",
+                            "too-heavy-to-judge",
+                            "ignored",
+                            "ignored-by-marker",
+                            "equivalent"
+                        ],
+                        "additionalProperties": false
+                    },
+                    "mutants": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{12}$"
+                        }
+                    }
+                },
+                "required": [
+                    "owner",
+                    "floor",
+                    "judgement",
+                    "said",
+                    "counts",
+                    "mutants"
+                ],
+                "additionalProperties": false
+            }
+        },
         "suites": {
             "type": "array",
             "items": {
@@ -1618,6 +1743,7 @@
         "newCode",
         "security",
         "owners",
+        "ownerFloors",
         "suites",
         "matrix",
         "tests",

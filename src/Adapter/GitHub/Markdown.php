@@ -237,7 +237,7 @@ final readonly class Markdown
 
         $owners = array_map(
             static fn(string $line): string => sprintf('- %s', Escape::text($line)),
-            SetText::touched($verdict->sets()->owners()),
+            SetText::owned($verdict->sets()),
         );
 
         return [

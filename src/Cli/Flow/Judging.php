@@ -58,6 +58,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\LeftUnjudged;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdicts;
+use NightWorksIO\MutationGate\Core\Verdict\OwnerFloorVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\OwnerVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Ratchet;
 use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdicts;
@@ -84,6 +85,7 @@ use function sprintf;
 final readonly class Judging
 {
     private const string FAILED = 'The verdict failed, so the commit did not pass.';
+
 
     /** Why a passing run of the security mutators alone records no commit as passed: its trees were not judged. */
     private const string SECURITY_ONLY = 'A run of the security mutators alone records no commit as passed.';
@@ -391,14 +393,22 @@ final readonly class Judging
 
         $verdict = Verdict::of($verdicts, $heldTo)
             ->withSets(
-                HeldSets::of($newCode, $security)->owned(OwnerVerdicts::of($verdicts, $owners, $this->uncovered())),
+                HeldSets::of($newCode, $security)
+                    ->owned(OwnerVerdicts::of($verdicts, $owners, $this->uncovered()))
+                    ->floored(OwnerFloorVerdicts::of(
+                        $verdicts,
+                        $owners,
+                        $this->uncovered(),
+                        ConfiguredOwnerFloors::of($this->settings->floors()->owners()),
+                    )),
             )
             ->withReach($plan->considered()->reach())
             ->withMatrix($matrix)
             ->withWarnings(
                 $warnings->of($plan, $verdicts, $shards, $map)
                     ->and($warnings->unfloored($security))
-                    ->and($owners->warnings()),
+                    ->and($owners->warnings())
+                    ->and(ConfiguredOwnerFloors::unnamed($this->settings->floors()->owners())),
             )
             ->withFailures($failures);
 

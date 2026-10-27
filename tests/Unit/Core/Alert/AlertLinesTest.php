@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
+use NightWorksIO\MutationGate\Tests\Support\Owners;
 use NightWorksIO\MutationGate\Tests\Support\Secured;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
@@ -133,4 +134,13 @@ it('says of a recovery a passing tree no floor holds by its score alone', functi
 
     expect(AlertLines::of(Alert::of(AlertEvent::Recovered, $verdict, TrendEntry::none()), Chat::Slack))
         ->toBe([['Trees', ['`src`: 100.00%.']]]);
+});
+
+it('names each owner below its floor when a run fails, and none that meets it', function (): void {
+    $groups = AlertLines::of(Alert::of(AlertEvent::Failed, Owners::floored(), TrendEntry::none()), Chat::Slack);
+
+    expect($groups[1] ?? null)->toBe([
+        'Owners below their floor',
+        ['Code owned by @acme/payments: 33.33%, below its floor of 50.00%.'],
+    ]);
 });
