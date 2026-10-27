@@ -27,6 +27,33 @@ security fixes for six months.
 No version is tagged yet; the first release is 0.1.0. Until it is tagged, a
 fix lands on `main`, which a project requiring `dev-main` installs.
 
+## Verifying a release
+
+Each release publishes `mutation-gate.phar` with `mutation-gate.phar.asc`,
+its detached signature by the release key:
+
+| | |
+|---|---|
+| Fingerprint | `5EAA 6082 E57F F4C5 42A2  EA66 B757 A4B1 1361 16D2` |
+| User ID | NightWorksIO Releases <info@nightworks.io> |
+| Algorithm | ed25519, signing only |
+
+The key signs nothing else, and only the release workflow, in the `release`
+environment that deploys from `v*` tags alone, can use it. With the key
+imported, check that `gpg` names this fingerprint:
+
+```sh
+gpg --verify mutation-gate.phar.asc mutation-gate.phar
+```
+
+The PHAR and the container image also carry GitHub's build provenance, which
+needs no key:
+
+```sh
+gh attestation verify mutation-gate.phar --repo nightworksio/php-mutation-gate
+gh attestation verify oci://ghcr.io/nightworksio/mutation-gate:<version> --repo nightworksio/php-mutation-gate
+```
+
 ## Scope
 
 In scope is what this repository ships:

@@ -31,6 +31,10 @@ sentence saying what the tests miss.
 > shows. The first release is 0.1.0, tagged when every feature in the
 > [table](#features) is built.
 
+Each release's PHAR is signed with the release key, whose fingerprint is
+`5EAA 6082 E57F F4C5 42A2  EA66 B757 A4B1 1361 16D2`, and attested by
+GitHub; [SECURITY.md](SECURITY.md#verifying-a-release) says how to check both.
+
 ## Requirements
 
 - PHP 8.5 or a later 8.x, with pcov or Xdebug for coverage.
