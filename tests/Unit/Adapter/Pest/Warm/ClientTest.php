@@ -281,7 +281,9 @@ it('stops the child its worker forked before it went, then starts the run fresh'
     $directory = $serving();
     $child = sprintf('%s/child', Scratch::directory());
     $orphaning = $script(sprintf(
-        'file_put_contents(%s, (string) getmypid()); usleep(200_000); posix_kill(posix_getppid(), SIGKILL); sleep(30);',
+        '$worker = (int) file_get_contents(%s); file_put_contents(%s, (string) getmypid()); usleep(200_000); '
+        . 'if ($worker > 1 && $worker === posix_getppid()) { posix_kill($worker, SIGKILL); } sleep(30);',
+        var_export(Seat::at($directory, 1)->pid(), return: true),
         var_export($child, return: true),
     ));
     $answered = $ran($directory, $orphaning);

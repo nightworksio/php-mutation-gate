@@ -51,7 +51,9 @@ function warmRun(string $results, string $end, array $variables = []): Process
 /** The process id of place 1's warm worker of the run that records to these results. */
 function warmWorker(string $results): int
 {
-    return (int) file_get_contents(Seat::at(WarmDirectory::beside($results), 1)->pid());
+    $pid = (int) file_get_contents(Seat::at(WarmDirectory::beside($results), 1)->pid());
+
+    return $pid > 1 ? $pid : throw new RuntimeException('The worker wrote no process id, so no test signals one.');
 }
 
 /** Whether a process still runs: `ps` lists it, and not as one ended and waiting to be reaped. */
