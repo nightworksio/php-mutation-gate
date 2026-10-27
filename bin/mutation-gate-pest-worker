@@ -53,6 +53,18 @@ if ($own !== 0) {
     exit($own !== -1 && is_file($seat->pid()) ? 0 : 1);
 }
 
+// Once a second, the worker ends where its run's directory or the process that started the run is gone,
+// whatever Worker does, so no worker outlives its run, even one a mutant of Worker keeps serving.
+pcntl_async_signals(enable: true);
+pcntl_signal(SIGALRM, static function () use ($directory, $parent): void {
+    if (! is_dir($directory) || (int) $parent < 2 || posix_getpgid((int) $parent) === false) {
+        exit(0);
+    }
+
+    pcntl_alarm(1);
+});
+pcntl_alarm(1);
+
 exit(Worker::at($directory, (int) $place, (int) $parent, usleep(...))->served(new class implements Forking {
     public function forked(Request $request, Baseline|NotGiven $baseline, string $report): int|NotGiven
     {
@@ -65,6 +77,9 @@ exit(Worker::at($directory, (int) $place, (int) $parent, usleep(...))->served(ne
         if ($child !== 0) {
             return $child;
         }
+
+        pcntl_alarm(0);
+        pcntl_signal(SIGALRM, SIG_DFL);
 
         $environment = $request->environment();
 
