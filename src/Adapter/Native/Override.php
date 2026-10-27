@@ -24,8 +24,8 @@ final readonly class Override
 {
     private const string SCRIPT = 'override.php';
 
-    /** The line that loads the gate's PHAR's autoloader. */
-    private const string LOADING = "require %s;\n";
+    /** The lines that load the gate's PHAR and its autoloader. */
+    private const string LOADING = "%srequire %s;\n";
 
     private const string UNPREPENDABLE
         = 'PHP cannot prepend %s: its command line reads a ", a ${ or a \\\\ in a setting as ini syntax.';
@@ -40,7 +40,7 @@ final readonly class Override
     {
         $path = self::pathIn($project);
         $loading = $archive instanceof OwnArchive
-            ? sprintf(self::LOADING, var_export($archive->autoloader(), return: true))
+            ? sprintf(self::LOADING, $archive->loading(), var_export($archive->autoloader(), return: true))
             : '';
         $script = sprintf(
             "<?php\n\ndeclare(strict_types=1);\n\n%s%s",

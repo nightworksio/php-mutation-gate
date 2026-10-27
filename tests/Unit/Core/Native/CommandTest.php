@@ -19,13 +19,15 @@ it('runs its PHP through the launcher, which is handed the file of the peak, the
     ]);
 });
 
-it('runs PHP loading the gate\'s PHAR\'s autoloader first, from the PHAR, and as it is otherwise', function (): void {
-    expect(Command::phpFrom(OwnArchive::at('/opt/mutation-gate.phar'), 'vendor/bin/phpunit')->arguments())->toBe([
+it('runs PHP with the gate\'s PHAR prepended, from the PHAR, unless it runs the PHAR itself, and as it is otherwise', function (): void {
+    expect(Command::phpFrom(OwnArchive::at('/usr/local/bin/mutation-gate'), 'vendor/bin/phpunit')->arguments())->toBe([
         PHP_BINARY,
         '-d',
-        'auto_prepend_file=phar:///opt/mutation-gate.phar/vendor/autoload.php',
+        'auto_prepend_file=/usr/local/bin/mutation-gate',
         'vendor/bin/phpunit',
     ])
+        ->and(Command::phpFrom(OwnArchive::at('/usr/local/bin/mutation-gate'), '/usr/local/bin/mutation-gate', 'mutation-gate-phpspec')->arguments())
+        ->toBe([PHP_BINARY, '/usr/local/bin/mutation-gate', 'mutation-gate-phpspec'])
         ->and(Command::phpFrom(NotGiven::value(), 'vendor/bin/phpunit')->arguments())->toBe([PHP_BINARY, 'vendor/bin/phpunit'])
         ->and(Command::php('vendor/bin/phpunit'))->toEqual(Command::phpFrom(NotGiven::value(), 'vendor/bin/phpunit'));
 });

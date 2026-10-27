@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Native;
 
 use function array_values;
+use function in_array;
 
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -57,14 +58,17 @@ final readonly class Command
     }
 
     /**
-     * PHP running these; from the gate's PHAR, loading the archive's
-     * autoloader first, so the gate's classes a framework's run loads are
-     * found (ADR-0022). A run that prepends a script of its own later has
-     * that script load it.
+     * PHP running these; from the gate's PHAR, with the archive prepended,
+     * which loads its autoloader, so the gate's classes a framework's run
+     * loads are found (ADR-0022). A run of the archive itself loads it
+     * already, and a run that prepends a script of its own later has that
+     * script load it.
      */
     public static function phpFrom(OwnArchive|NotGiven $archive, string ...$arguments): self
     {
-        $loading = $archive instanceof OwnArchive ? ['-d', sprintf(self::PREPENDED, $archive->autoloader())] : [];
+        $loading = $archive instanceof OwnArchive && ! in_array($archive->file(), $arguments, strict: true)
+            ? ['-d', sprintf(self::PREPENDED, $archive->file())]
+            : [];
 
         return new self(
             [...$loading, ...array_values($arguments)],

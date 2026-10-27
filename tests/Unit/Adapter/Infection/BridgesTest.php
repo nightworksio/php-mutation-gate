@@ -83,11 +83,12 @@ it('writes bridges that Infection applies by its own contract, named by their mu
 });
 
 it('is written, loading the gate\'s PHAR after Infection\'s own autoloaders first, where the gate runs from its PHAR', function (): void {
-    $archive = OwnArchive::at('/opt/mutation-gate.phar');
+    $archive = OwnArchive::at('/usr/local/bin/mutation-gate');
     $loading = <<<'PHP'
         namespace {
             (static function (): void {
-                $archive = require 'phar:///opt/mutation-gate.phar/vendor/autoload.php';
+                \Phar::loadPhar('/usr/local/bin/mutation-gate', 'mutation-gate.phar');
+                $archive = require 'phar://mutation-gate.phar/vendor/autoload.php';
                 $archive->unregister();
                 $archive->register(false);
             })();

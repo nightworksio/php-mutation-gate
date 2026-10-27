@@ -7,16 +7,24 @@ namespace NightWorksIO\MutationGate\Core;
 use Phar;
 
 use function sprintf;
+use function var_export;
 
 /**
  * The PHAR the gate runs from, where it runs from one (ADR-0022). It holds
  * the gate, its own manifest and its dependencies, scoped; the project's
  * packages stay in the project's vendor directory. A script of the gate's
  * own is started as the archive with the script's name first, since PHP
- * starts no script inside an archive by its path.
+ * starts no script inside an archive by its path. Prepended to another
+ * script with `auto_prepend_file`, the archive loads its own autoloader
+ * alone; another script loads it by its file and the name the archive is
+ * known by, since PHP opens a file inside an archive whose name does not end
+ * in `.phar` only once something has loaded it.
  */
 final readonly class OwnArchive
 {
+    /** The name the archive is known by in a PHP process that loaded it, as its stub names it. */
+    public const string ALIAS = 'mutation-gate.phar';
+
     /** How PHP opens the archive's root. */
     private const string ROOT = 'phar://%s';
 
@@ -28,6 +36,9 @@ final readonly class OwnArchive
 
     /** A script of the gate's own, in the archive. */
     private const string SCRIPT = 'bin/%s';
+
+    /** The statement that loads the archive in another PHP process. */
+    private const string LOADING = "\\Phar::loadPhar(%s, %s);\n";
 
     private function __construct(private string $file)
     {
@@ -65,10 +76,16 @@ final readonly class OwnArchive
         return sprintf(self::INSIDE, $this->file, $path);
     }
 
-    /** The archive's autoloader, as PHP opens it. */
+    /** The statement that loads the archive in another PHP process, by its file and its name. */
+    public function loading(): string
+    {
+        return sprintf(self::LOADING, var_export($this->file, return: true), var_export(self::ALIAS, return: true));
+    }
+
+    /** The archive's autoloader, as a PHP process that loaded the archive opens it. */
     public function autoloader(): string
     {
-        return $this->inside(self::AUTOLOADER);
+        return sprintf(self::INSIDE, self::ALIAS, self::AUTOLOADER);
     }
 
     /** One of the gate's own scripts, in the archive, as PHP opens it. */

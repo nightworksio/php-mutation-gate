@@ -1,7 +1,7 @@
 {
     "$schema": "https://raw.githubusercontent.com/box-project/box/4.7.0/res/schema.json",
     "output": "build/mutation-gate.phar",
-    "alias": "mutation-gate.phar",
+    "stub": "resources/phar-stub.php",
     "directories": [
         "resources"
     ],

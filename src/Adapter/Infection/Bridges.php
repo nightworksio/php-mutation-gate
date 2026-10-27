@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Mutator\PinnedBySource;
 
 use function sprintf;
+use function trim;
 use function var_export;
 
 /**
@@ -96,6 +97,7 @@ final readonly class Bridges
     private const string ARCHIVE = <<<'PHP'
         namespace {
             (static function (): void {
+                %s
                 $archive = require %s;
                 $archive->unregister();
                 $archive->register(false);
@@ -254,7 +256,11 @@ final readonly class Bridges
             '%s%s%s%s',
             self::HEADER,
             $this->archive instanceof OwnArchive
-                ? sprintf(self::ARCHIVE, var_export($this->archive->autoloader(), return: true))
+                ? sprintf(
+                    self::ARCHIVE,
+                    trim($this->archive->loading()),
+                    var_export($this->archive->autoloader(), return: true),
+                )
                 : '',
             implode('', $bridges),
             $bootstrap instanceof NotGiven ? '' : sprintf(self::BOOTSTRAP, var_export($bootstrap, return: true)),

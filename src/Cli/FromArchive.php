@@ -51,7 +51,7 @@ final readonly class FromArchive
         return match (true) {
             $installed instanceof Installed && $installed->has(ThisPackage::COMPOSER)
                 => CannotJudge::because(sprintf(self::INSTALLED, ThisPackage::NAME)),
-            ! IniPath::isPlain($this->archive->autoloader())
+            ! IniPath::isPlain($this->archive->file())
                 => CannotJudge::because(sprintf(self::UNPREPENDABLE, $this->archive->file())),
             default => NotGiven::value(),
         };

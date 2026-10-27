@@ -32,10 +32,10 @@ it('writes the script that registers the wrapper, reading the variables the gate
 
 it('loads the gate\'s PHAR\'s autoloader before it registers the wrapper, where the gate runs from its PHAR', function (): void {
     $project = Project::at(Scratch::directory(), Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'), BuiltinRunner::PhpUnit);
-    $script = Override::writtenFor($project, OwnArchive::at('/opt/mutation-gate.phar'));
+    $script = Override::writtenFor($project, OwnArchive::at('/usr/local/bin/mutation-gate'));
 
     expect((string) file_get_contents(is_string($script) ? $script : ''))->toBe(sprintf(
-        "<?php\n\ndeclare(strict_types=1);\n\nrequire 'phar:///opt/mutation-gate.phar/vendor/autoload.php';\n%s",
+        "<?php\n\ndeclare(strict_types=1);\n\n\\Phar::loadPhar('/usr/local/bin/mutation-gate', 'mutation-gate.phar');\nrequire 'phar://mutation-gate.phar/vendor/autoload.php';\n%s",
         MutantFile::registering('MUTATION_GATE_MUTANT', 'MUTATION_GATE_MUTATED', 'MUTATION_GATE_GUARD', 'served'),
     ));
 });
