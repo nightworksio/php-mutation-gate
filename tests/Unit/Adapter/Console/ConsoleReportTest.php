@@ -268,6 +268,11 @@ it('says a run was sampled, and prints each sampled tree\'s estimate', function 
 
 it('prints the score of each owner group the change touched, and every mutant not killed under its owner group', function () use ($printed): void {
     $console = $printed(Owners::verdict());
+    $ids = [];
+
+    foreach (Owners::trees()->mutants() as $mutant) {
+        $ids[$mutant->mutant()->location()->start()->number()] = $mutant->mutant()->id()->value();
+    }
 
     expect($console)->toContain(implode("\n", [
         'Owners',
@@ -275,13 +280,13 @@ it('prints the score of each owner group the change touched, and every mutant no
         '',
         'Not killed (3)',
         '  @acme/payments @jo (2)',
-        '    src/Billing/Pay.php:2  LessThan  survived, on a changed line  44ba2c575f06',
+        sprintf('    src/Billing/Pay.php:2  LessThan  survived, on a changed line  %s', $ids[2]),
     ]))
         ->and($console)->toContain(implode("\n", [
-            '        Explain: vendor/bin/mutation-gate explain 44ba2c575f06',
+            sprintf('        Explain: vendor/bin/mutation-gate explain %s', $ids[3]),
             '',
             '  unowned (1)',
-            '    lib/Clock.php:5  LessThan  survived  d268ed9b1a21',
+            sprintf('    lib/Clock.php:5  LessThan  survived  %s', $ids[5]),
         ]))
         ->and($console)->not->toContain('@acme/web');
 });

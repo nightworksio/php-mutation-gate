@@ -5,14 +5,22 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Owner\CodeOwners;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
+use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Score;
+use NightWorksIO\MutationGate\Core\Score\Unrecorded;
+use NightWorksIO\MutationGate\Core\Tree\Package;
+use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedUnits;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\OwnerVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\OwnerVerdicts;
+use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
+use NightWorksIO\MutationGate\Tests\Support\Judged;
 use NightWorksIO\MutationGate\Tests\Support\Owners;
 
 /**
@@ -104,6 +112,30 @@ it('has no group for a project with no mutant, though it read a CODEOWNERS', fun
 
     expect($empty)->toHaveCount(0)
         ->and($empty->areGrouped())->toBeTrue();
+});
+
+it('orders the groups by name, whatever order their files are met in', function (): void {
+    $owners = CodeOwners::read(Path::of('CODEOWNERS'), "/src/Billing/ @zz\n/src/Http/ @aa\n");
+
+    expect(ownerGroupNames(OwnerVerdicts::of(Owners::trees(), $owners, Uncovered::Count)))->toBe(['@aa', '@zz', 'unowned']);
+});
+
+it('says a change touched a group with one mutant on a changed line', function (): void {
+    $owners = CodeOwners::read(Path::of('CODEOWNERS'), "/src/Billing/Pay.php @pay\n");
+    $touched = OwnerVerdicts::of(Owners::trees(), $owners, Uncovered::Count)->touched();
+    $only = TreeVerdicts::of(TreeVerdict::judged(
+        Tree::at(Path::of('src'), Floor::of(50), Package::at(Path::root())),
+        Unrecorded::floor(),
+        JudgedUnits::none(),
+        JudgedMutants::of(
+            Owners::changed(Judged::mutant('one', MutantJudgement::Survived, 'src/Billing/Pay.php', 2)),
+            Judged::mutant('two', MutantJudgement::Survived, 'src/Billing/Pay.php', 3),
+        ),
+        Uncovered::Count,
+    ));
+
+    expect(ownerGroupNames($touched))->toBe(['@pay'])
+        ->and(ownerGroupNames(OwnerVerdicts::of($only, $owners, Uncovered::Count)->touched()))->toBe(['@pay']);
 });
 
 it('orders a group named before the unowned one first whichever it meets first', function (): void {

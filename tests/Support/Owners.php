@@ -66,7 +66,8 @@ final class Owners
         return Verdict::of(self::trees())->withSets(HeldSets::none()->owned(self::verdicts()));
     }
 
-    private static function changed(JudgedMutant $mutant): JudgedMutant
+    /** A mutant marked on a line the change added or modified. */
+    public static function changed(JudgedMutant $mutant): JudgedMutant
     {
         $location = $mutant->mutant()->location();
 
