@@ -11,9 +11,10 @@ name: release
 #   `git tag -s vX.Y.Z` on the squash commit and pushes the tag.
 # - Publishing, on that tag: the tag's signature is checked against
 #   `.github/allowed_signers` on main, and fails closed without it; the gate
-#   runs in full; the GitHub release takes the version's section as its notes;
-#   and the tag of its release line moves to it: vMAJOR.MINOR while the major
-#   is 0 (v0.1), vMAJOR from 1.0.0.
+#   runs in full; the GitHub release takes the version's section as its notes
+#   and the signed, attested PHAR as its assets; the image is pushed to GHCR
+#   with its provenance; and the tag of its release line moves to it:
+#   vMAJOR.MINOR while the major is 0 (v0.1), vMAJOR from 1.0.0.
 #
 # This workflow never creates a version tag.
 
@@ -197,13 +198,24 @@ jobs:
       mode: full
       runs-on: ubuntu-24.04-arm
 
+  # The release, its PHAR and its image (ADR-0022), from the commit verify and
+  # the gate judged, once both passed. The PHAR is built as composer phar builds
+  # it, signed with the release key, which lives in the release environment
+  # whose deployment policy allows only v* tags, and attested; the image is
+  # built from it for linux/amd64 and linux/arm64, pushed to GHCR as
+  # <version>, <major>.<minor> and <major>, and its provenance attested beside
+  # it in the registry.
   publish:
     name: publish
     needs: [verify, gate]
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 45
+    environment: release
     permissions:
       contents: write
+      packages: write
+      id-token: write
+      attestations: write
     steps:
       # Everything here is the commit `verify` and the gate judged, never
       # the tag read again by name: a tag moved since then is refused.
@@ -211,7 +223,7 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - name: Publish the release
+      - name: Check the tag is still at the judged commit
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
@@ -223,9 +235,83 @@ jobs:
             echo "::error::${TAG} is at ${tagged} now, not at ${COMMIT}, which this run verified and judged."
             exit 1
           fi
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.5'
+          coverage: none
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+        with:
+          ignore-cache: true
+      # Composer gives the archive the version the tag names, which the gate
+      # says it is and init --ci pins.
+      - name: Build the PHAR
+        env:
+          TAG: ${{ github.ref_name }}
+        run: COMPOSER_ROOT_VERSION="${TAG#v}" composer phar
+      - name: Sign the PHAR with the release key
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+          RELEASE_SIGNING_PASSPHRASE: ${{ secrets.RELEASE_SIGNING_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          if [ -z "${RELEASE_SIGNING_KEY}" ] || [ -z "${RELEASE_SIGNING_PASSPHRASE}" ]; then
+            echo "::error::The release environment holds no RELEASE_SIGNING_KEY and RELEASE_SIGNING_PASSPHRASE, so the PHAR cannot be signed and nothing is released."
+            exit 1
+          fi
+          GNUPGHOME="$(mktemp -d)"
+          export GNUPGHOME
+          printf '%s' "${RELEASE_SIGNING_KEY}" | gpg --batch --quiet --import
+          printf '%s' "${RELEASE_SIGNING_PASSPHRASE}" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --armor --detach-sign --output build/mutation-gate.phar.asc build/mutation-gate.phar
+          gpg --batch --verify build/mutation-gate.phar.asc build/mutation-gate.phar
+          rm -rf "${GNUPGHOME}"
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: build/mutation-gate.phar
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
           python3 .github/scripts/release.py notes > "${RUNNER_TEMP}/notes.md"
           gh release create "${TAG}" --repo "${GITHUB_REPOSITORY}" --verify-tag \
-            --title "${TAG}" --notes-file "${RUNNER_TEMP}/notes.md"
+            --title "${TAG}" --notes-file "${RUNNER_TEMP}/notes.md" \
+            build/mutation-gate.phar build/mutation-gate.phar.asc
+      - name: Name the image's tags
+        id: tags
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          minor="${version%.*}"
+          major="${version%%.*}"
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER}/mutation-gate"
+          {
+            echo "image=${image}"
+            echo "tags=${image}:${version},${image}:${minor},${image}:${major}"
+          } >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - id: image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ steps.tags.outputs.image }}
+          subject-digest: ${{ steps.image.outputs.digest }}
+          push-to-registry: true
       - name: Move the release line's tag
         env:
           GH_TOKEN: ${{ github.token }}

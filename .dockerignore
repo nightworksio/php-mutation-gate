@@ -1,0 +1,3 @@
+# The image takes the PHAR a release built, and nothing else of the checkout.
+*
+!build/mutation-gate.phar
