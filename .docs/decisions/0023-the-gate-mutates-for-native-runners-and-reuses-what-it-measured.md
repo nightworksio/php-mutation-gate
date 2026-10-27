@@ -49,6 +49,18 @@ manual.
   line has `--test-id-filter-file`, `--run-test-id`, `--test-files-file`,
   `--stop-on-defect`, `--list-groups`, `--coverage-php`, `--coverage-xml` and
   `--log-junit`.
+- **A Laravel suite pays its migration in every mutant's process.**
+  `RefreshDatabase` migrates the test database the first time a test of the
+  process refreshes it, records that in `RefreshDatabaseState::$migrated`,
+  and wraps each test in a transaction it rolls back; under paratest's token
+  each process has a database of its own, `<database>_test_<token>`. On
+  pinkary.com, migrating took 7.8 s of an 8.7 s mutant's run. A rolled-back
+  insert leaves MySQL's `AUTO_INCREMENT` and PostgreSQL's sequences moved;
+  SQLite keeps its counters in a table, which rolls back with the rest.
+- **Composer's autoload files run code as they load.** Collision registers
+  Pest's printer only where Pest's script has set `COLLISION_PRINTER` before
+  it requires the autoloader, and laravel/pao starts capturing a process's
+  output by the command line the process was started with.
 - **A plain PHPUnit project has no mutation runner but Infection.** Pest and
   Infection each make their own mutants. ADR-0001's context says the gate
   "does not mutate code itself", and ADR-0013 rejected generating mutants in
@@ -440,8 +452,8 @@ manual.
       and its end.
     - Mutant schemata are not used: a schematised program is not the mutant
       program, and a mutant of a declaration cannot be switched at run time.
-    - Pest and Infection start their own processes, so warm workers exist
-      only under native runners.
+    - Infection starts its own processes, so it has no warm workers;
+      Pest's, under `pest.patch`, are decision 15.
 
 13. **A worker forks only from a boot that holds nothing a child could
     share.**
@@ -470,9 +482,9 @@ manual.
       is kept, and `doctor` reports it as `warm-boot-refused`.
 
 14. **Whether a worker forks is a setting that can move a result.**
-    - `runner.workers`: `fork` (the default) or `fresh`. Under a runner that
-      is not native, and on a PHP that cannot fork, every mutant runs in a
-      fresh process whatever it says.
+    - `runner.workers`: `fork` (the default) or `fresh`. Under Infection,
+      under Pest without `pest.patch`, and on a PHP that cannot fork, every
+      mutant runs in a fresh process whatever it says.
     - It affects results and is in key item 3 (ADR-0007), since
       a boot's state is a new source of state, as test order is (ADR-0013).
     - Survivor confirmation (ADR-0008) always runs in a fresh
@@ -483,6 +495,58 @@ manual.
       forked run gives a mutant one verdict and every fresh run another. The benchmark's Symfony
       project (ADR-0017) measures the boot's share of a mutant's
       time once the benchmark lands.
+
+15. **Under Pest with `pest.patch`, each place's worker forks the mutant's
+    own run, and a Laravel suite migrates its test database once a
+    worker.**
+    - Pest's parent process keeps its pool of places. The patch puts a
+      client before each mutant's command line, `bin/mutation-gate-pest-client`,
+      where the gate names the directory the run's workers share and PHP has
+      `pcntl` and `posix`; the first mutant of a place starts that place's
+      worker, `bin/mutation-gate-pest-worker`. Pest watches the client as it
+      watches a fresh process: its limit, its silence limit and how it
+      ended hold as they do for one.
+    - The client hands the worker the mutant's command line, environment and
+      directory, prints what the worker's child prints on each stream as it
+      prints it, and ends with the child's code, or by the signal that ended
+      it. Where the place's worker is gone, or forks the run no child, the
+      client replaces itself with the fresh process Pest would have started;
+      a child the worker forked before it went is stopped first, with every
+      process under it, so no run of the mutant goes on beside the fresh
+      one. The workers' directory, which holds each run's environment, is
+      its owner's alone.
+    - A worker loads the gate's own classes and nothing of the project, since
+      Composer's autoload files run the project's packages' code as they
+      load, by the command line and environment of the process that loads
+      them. Each child takes on its run's environment, directory and command
+      line, and runs Pest's script, which loads the autoloader as it does in
+      a fresh process. A worker runs with opcache off, so no child is served
+      what another compiled from its mutant. A run of a mutant of a file the
+      worker loaded, one of the gate's own, starts fresh, and the run warns
+      of it once.
+    - The worker leaves the process Pest started for one of its own, which
+      the system takes on, so a worker that ends is reaped and its clients
+      see it gone. It stops a child, with every process under it, once the
+      client waiting on it is gone, and ends once Pest's process is gone or
+      the gate says the run is done, as Pest returns, before it removes the
+      workers' directory.
+    - A worker holds no database connection. Its first child migrates as a
+      fresh process does; the moment `RefreshDatabase` has migrated, before
+      its first transaction, the child takes every database Laravel holds a
+      connection to as the baseline: each table's rows as one digest, each
+      MySQL `AUTO_INCREMENT` read live and each PostgreSQL sequence. It
+      reports the baseline to the worker at once, in a file only its owner
+      may read, which the worker removes once read, so a child stopped at
+      its limit still leaves it.
+    - Each later child sets the counters back to the baseline's over a
+      connection of its own, and starts with `RefreshDatabaseState::$migrated`
+      set, so it migrates nothing, where every database then stands as the
+      baseline does. Where one stands elsewhere, as after a test that
+      committed, the child migrates and takes a new baseline, so nothing a
+      dirtying test left reaches the next mutant.
+    - An SQLite database held in memory, a database of another kind, and a
+      connection inside a transaction at that moment give no baseline: every
+      child migrates, as a fresh process does.
 
 ## Alternatives considered
 
@@ -507,6 +571,10 @@ manual.
 | **No warm workers** | Each mutant pays the boot, which is most of its cost in a framework app. |
 | **Forking after the suite's first test** | The first test's state, such as a transaction or a filled cache, leaks into every mutant. |
 | **`runner.workers` judging only** | Asserts an equivalence nobody has proved. |
+| **A Pest worker that boots the project's autoloader** | Saves milliseconds, and runs every autoload file once, under the worker's command line: Pest's printer never registers in a child, and an output filter keyed by the command line starts in the wrong process. |
+| **A Pest worker that migrates in its own process** | Boots the project's code, which a mutant may change, so its children could not load the mutant. |
+| **Checking the database as a child ends** | A child stopped at its limit, as one that migrates past it is, never checks it, so its place keeps migrating. |
+| **Setting each counter to the highest id plus one** | Differs from a fresh migration where a seeder removed rows, or set PostgreSQL ids itself; the baseline is what the migration left. |
 
 ## Consequences
 
@@ -521,6 +589,9 @@ hand-off, and one boot per worker.
 
 **The gate is a mutation engine for native runners,** with its own
 operators to keep beside Pest's and Infection's.
+
+**A Laravel suite under Pest migrates once a worker,** not once a mutant,
+and every mutant still starts on a database alike to a fresh migration.
 
 ## Related
 

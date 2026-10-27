@@ -154,6 +154,7 @@ parameters:
                 - tests/*
                 # A warm worker's child is told its mutant's variables in its own process (ADR-0023).
                 - bin/mutation-gate-worker
+                - bin/mutation-gate-pest-worker
 
         # --- B7: waiting is an adapter's -----------------------------------------
         -
@@ -165,6 +166,10 @@ parameters:
             message: "B7 — waiting blocks the one process that plans and judges, and a test that sleeps is slow and still flaky. Only an adapter polling something outside waits (B7)."
             allowIn:
                 - src/Adapter/*
+                # A Pest run's warm worker and its client hand their own process's pause to the classes that poll its
+                # directory (ADR-0023).
+                - bin/mutation-gate-pest-worker
+                - bin/mutation-gate-pest-client
 
         # --- P3: a method's parameters are its signature --------------------------
         -
@@ -216,6 +221,9 @@ parameters:
                 # A warm worker's script sets the time zone PHPUnit's own script sets where PHP sets none, in its
                 # own process, which the gate starts for it and no test boots (ADR-0023).
                 - bin/mutation-gate-worker
+                # A Pest run's warm worker turns opcache off in its own process, which Pest's parent starts for it
+                # and no test boots, so no child is served what another compiled from its mutant (ADR-0023).
+                - bin/mutation-gate-pest-worker
 
         # The extension keys each entry by its call, so a second 'ini_set()' would replace the one above; the
         # pattern 'ini_set*()' matches ini_set() alone and keeps both.
@@ -229,6 +237,20 @@ parameters:
                     position: 1
                     name: 'option'
                     typeString: "'log_errors'|'error_log'"
+
+        # --- a signal of no effect, and a run's own ending ---------------------------
+        # The extension keys each entry by its call, so this entry replaces the dangerous set's own for
+        # posix_kill() and keeps its message everywhere else.
+        -
+            function: 'posix_kill()'
+            message: 'do not send signals to processes from the script'
+            allowIn:
+                # A Pest run's warm worker, its client and the gate ask whether a process is still there with
+                # signal 0, which tells and sends nothing, and the client ends by the signal that ended its run
+                # (ADR-0023).
+                - src/Adapter/Pest/Warm/Worker.php
+                - src/Adapter/Pest/Warm/Client.php
+                - src/Adapter/Pest/Warm/PidFile.php
 
         # --- base64 of what holds no secret ------------------------------------------
         # The extension keys each entry by its call, so this entry replaces the timing-safe set's own for
@@ -311,6 +333,9 @@ parameters:
                 - src/Adapter/PhpSpec/Example.php
                 # Codeception's extension reads #[Holds] from the test's class and method Codeception hands it (ADR-0027).
                 - src/Adapter/Codeception/Test.php
+                # A warm worker's child reads and sets RefreshDatabase's static state, by name, since the gate does
+                # not require Laravel (ADR-0023).
+                - src/Adapter/Pest/Warm/Database/Laravel.php
 
     disallowedSuperglobals:
         # --- B6: the environment, read the other way -----------------------------
@@ -346,6 +371,8 @@ parameters:
                 - src/Adapter/*
                 - src/Cli/*
                 - tests/*
+                # A mutant's run under a warm worker prints what its child printed on its own streams (ADR-0023).
+                - bin/mutation-gate-pest-client
 
     disallowedAttributes:
         -

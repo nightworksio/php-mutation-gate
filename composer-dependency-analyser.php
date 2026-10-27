@@ -14,7 +14,7 @@ use ShipMonk\ComposerDependencyAnalyser\Config\ErrorType;
  * and the first a user hears of it is a fatal error in their CI.
  */
 
-return (new Configuration())
+return new Configuration()
     // A dev tool invoked from a composer script is never named in PHP, so every
     // dev dependency is either used in code or listed below with what runs it.
     ->enableAnalysisOfUnusedDevDependencies()
@@ -124,11 +124,13 @@ return (new Configuration())
     // loads pcntl, and runs each fresh otherwise (ADR-0023);
     // composer.json suggests it.
     ->ignoreErrorsOnExtension('ext-pcntl', [ErrorType::DEV_DEPENDENCY_IN_PROD])
-    // A directory's test of a write that fails part way takes the process's
-    // room to write files away, where the system lets it, and is skipped
-    // where these are not installed.
-    ->ignoreErrorsOnExtensionsAndPaths(
-        ['ext-posix'],
-        [__DIR__ . '/tests/Unit/Adapter/Filesystem/DirectoryTest.php'],
-        [ErrorType::SHADOW_DEPENDENCY],
-    );
+    // Pest's warm workers fork each mutant only where the PHP Pest starts
+    // loads posix too, and a Laravel suite's children start on the test
+    // database a first child migrated only where it loads PDO, as Laravel's
+    // own database layer needs (ADR-0023); composer.json suggests both.
+    ->ignoreErrorsOnExtension('ext-posix', [ErrorType::DEV_DEPENDENCY_IN_PROD])
+    ->ignoreErrorsOnExtension('ext-pdo', [ErrorType::DEV_DEPENDENCY_IN_PROD])
+    // The tests' stand-in for Laravel's testing declares the classes a warm
+    // worker's child reads by name, where a test loads it; the gate requires
+    // no Laravel.
+    ->ignoreUnknownClassesRegex('~^Illuminate\\\\~');

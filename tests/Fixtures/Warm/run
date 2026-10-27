@@ -1,0 +1,30 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+// A mutant's run, as a warm worker's child or a fresh process runs it: it
+// prints its own process id and its parent's on its output, whether `$_ENV`
+// holds the environment and whether FIXTURE_STALE is set, and its command
+// line on its error output, then ends as FIXTURE_END says: `code:N` exits
+// with N, `signal:N` ends by signal N, and `wait` waits to be stopped.
+
+fwrite(STDOUT, sprintf("run %d parent %d\n", getmypid(), posix_getppid()));
+fwrite(STDOUT, sprintf(
+    "env %s %s\n",
+    array_key_exists('PATH', $_ENV) ? 'filled' : 'empty',
+    getenv('FIXTURE_STALE') === false ? 'clean' : 'stale',
+));
+fwrite(STDERR, sprintf("argv %s\n", implode(' ', array_slice($_SERVER['argv'], 1))));
+
+[$end, $value] = [...explode(':', (string) getenv('FIXTURE_END')), '0'];
+
+if ($end === 'signal') {
+    posix_kill(getmypid(), (int) $value);
+}
+
+if ($end === 'wait') {
+    sleep(60);
+}
+
+exit((int) $value);

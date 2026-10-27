@@ -77,6 +77,9 @@ enum GateVariable: string
      */
     case Verdicts = 'MUTATION_GATE_VERDICTS';
 
+    /** The directory a patched run's warm workers share, where its mutants' runs fork from them (see Warm\Pool). */
+    case Warm = 'MUTATION_GATE_WARM';
+
     /** The file of bridges the plugin loads, through which Pest makes registered mutators' mutants (see Bridges). */
     case Mutators = 'MUTATION_GATE_MUTATORS';
 }

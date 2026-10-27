@@ -11,7 +11,17 @@ use NightWorksIO\MutationGate\Tests\Support\Tree;
 // which the Arch suite, reading PHP files, skips.
 
 /** The trees every one of them reads, and the executables. */
-const THE_TREES = ['bin/mutation-gate', 'bin/mutation-gate-phpspec', 'bin/mutation-gate-worker', 'phpstan', 'plugins', 'src', 'tests'];
+const THE_TREES = [
+    'bin/mutation-gate',
+    'bin/mutation-gate-pest-client',
+    'bin/mutation-gate-pest-worker',
+    'bin/mutation-gate-phpspec',
+    'bin/mutation-gate-worker',
+    'phpstan',
+    'plugins',
+    'src',
+    'tests',
+];
 
 /**
  * The trees a configuration file names, in the shape it names them.

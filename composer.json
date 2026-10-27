@@ -46,6 +46,8 @@
     "require-dev": {
         "ext-dom": "*",
         "ext-pcntl": "*",
+        "ext-pdo": "*",
+        "ext-posix": "*",
         "async-aws/core": "^1.30",
         "async-aws/s3": "^3",
         "codeception/codeception": "^5.3.6",
@@ -87,7 +89,9 @@
     },
     "suggest": {
         "ext-dom": "To read PHPUnit's XML coverage and JUnit log, which the Infection adapter does (infection/infection requires it)",
-        "ext-pcntl": "To fork each mutant from a warm worker under the PHPUnit runner, which runs each in a fresh process without it",
+        "ext-pcntl": "To fork each mutant from a warm worker under the PHPUnit runner, and under Pest with pest:patch, which run each in a fresh process without it",
+        "ext-pdo": "To start each mutant of a Laravel suite under Pest's warm workers on the test database a first child migrated, where every child migrates again without it",
+        "ext-posix": "To fork each mutant from a warm worker under Pest with pest:patch, which runs each in a fresh process without it",
         "async-aws/s3": "To keep proofs in S3 or R2 (^3)",
         "codeception/codeception": "To mutate with Codeception (^5.3.6), through the Codeception runner, which measures its coverage with phpunit/php-code-coverage (^14)",
         "colinodell/json5": "To read a project's infection.json5, which the Infection adapter does (^3.0; infection/infection requires it)",

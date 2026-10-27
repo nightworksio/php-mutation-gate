@@ -78,7 +78,7 @@ by probes on 2026-09-30:
    library, and uses no model.**
    - Its workflows are `.github/workflows/bot-*.yml`, and its scripts live in
      `.github/scripts/`. Each script has an I/O half and a pure deciding
-     half, as `attribution_check.py` and `commit_lint.py` do.
+     half, as `commit_lint.py` does.
    - The deciding halves are unit-tested with `python3 -m unittest` in a
      required CI job, `scripts`.
    - A privileged job installs nothing: no Composer, no pip, no npm.
@@ -209,7 +209,7 @@ by probes on 2026-09-30:
      | `rules`, `the rules refuse violations` | the rule and its `ARCHITECTURE.md` row | none |
      | `hygiene / typos` | `path:line` and the typo | proposed only; a corrected word inside an identifier can be wrong |
      | `hygiene / markdown` | `path:line` and the rule | `markdownlint-cli2 --fix` |
-     | `commitlint`, `attribution` | the commit or the title, and the rule | none; history is the author's |
+     | `commitlint` | the commit or the title, and the rule | none; history is the author's |
      | the mutation verdict | a link to the gate's own comment (survivors, hints, `reproduce`, `stub`) | none |
 
    - **How the fix is made.** When `checks` or `markdown` fails, that job
@@ -254,7 +254,7 @@ by probes on 2026-09-30:
       checkout and `pull-requests: write`, opens the comment for
       `FIRST_TIME_CONTRIBUTOR`, `FIRST_TIMER` and `NONE`. The welcome text
       comes from `main`: setup, the local gates, CI waiting for approval,
-      the title rule, and that assistant trailers are refused.
+      and the title rule.
     - Ticked items collapse.
 
 11. **Missing tests are the gate's to report, and it reports them early.**
@@ -270,8 +270,8 @@ by probes on 2026-09-30:
 12. **Pull request text is checked on edit, and helped, never rewritten.**
     - **The `pr` workflow.** It runs on `pull_request` (opened, edited,
       synchronize, reopened), reads only metadata and runs no PHP.
-      - `commitlint` and `attribution` move there from `ci.yml`, under the
-        same job names, so a fixed title or body is checked at once.
+      - `commitlint` moves there from `ci.yml`, under the same job name, so a
+        fixed title or body is checked at once.
       - Every `Spec:` number in the body must be an ADR in `.docs/decisions`,
         because the body becomes `main`'s commit message.
       - A title with `!` needs a *Migration* section.

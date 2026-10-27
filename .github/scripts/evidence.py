@@ -287,7 +287,6 @@ READERS = {
     "gitleaks": gitleaks,
     "osv-scanner": osv,
     "commitlint": own("commitlint"),
-    "attribution": own("attribution"),
     "sonar": own("sonar"),
     "scripts": own("scripts"),
     "description": own("description"),

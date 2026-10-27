@@ -15,10 +15,10 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\Staged;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function rename;
-use function sprintf;
 
 /**
  * How a warm worker's child ended, as the worker writes it beside the run's
@@ -28,8 +28,6 @@ use function sprintf;
  */
 final readonly class End
 {
-    private const string WRITING = '%s.writing';
-
     private const string SILENCED = 'silenced';
 
     private function __construct(private Json $record)
@@ -70,7 +68,7 @@ final readonly class End
     /** Written whole, under its name only once it is all there. */
     public function writtenTo(string $file): void
     {
-        $writing = sprintf(self::WRITING, $file);
+        $writing = Staged::beside($file);
         file_put_contents($writing, $this->record->line());
         rename($writing, $file);
     }

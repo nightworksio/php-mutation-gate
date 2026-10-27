@@ -1,0 +1,61 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+// A mutant's run of a suite whose one test uses RefreshDatabase, as Pest runs
+// it with the gate's plugin, on the SQLite database FIXTURE_DATABASE names:
+// the gate's plugin boots, then the test migrates where RefreshDatabase is
+// not told the database is migrated, asks for its transactions' manager, and
+// inserts a row in a transaction, which it commits where FIXTURE_DIRTY is 1
+// and rolls back otherwise, or waits to be stopped where FIXTURE_HANG is 1.
+// Where FIXTURE_OPEN is 1, a transaction is open as RefreshDatabase asks.
+// It prints the database as the test found it, and the id its row was given.
+
+use Illuminate\Container\Container;
+use Illuminate\Database\Connection;
+use Illuminate\Database\DatabaseManager;
+use Illuminate\Foundation\Testing\RefreshDatabaseState;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\Image;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\PdoStatements;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\SqliteDialect;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\WarmDatabase;
+
+require sprintf('%s/vendor/autoload.php', dirname(__DIR__, 3));
+require sprintf('%s/Laravel.php', __DIR__);
+
+WarmDatabase::begun();
+
+$database = (string) getenv('FIXTURE_DATABASE');
+$pdo = new PDO(sprintf('sqlite:%s', $database));
+$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+Container::serving(new DatabaseManager(['sqlite' => new Connection(['driver' => 'sqlite', 'database' => $database], $pdo)]));
+
+if (! RefreshDatabaseState::isMigrated()) {
+    $pdo->exec('DROP TABLE IF EXISTS users');
+    $pdo->exec('CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)');
+    $pdo->exec("INSERT INTO users (name) VALUES ('seeded'), ('seeded too')");
+    RefreshDatabaseState::migrate();
+    echo "migrated\n";
+}
+
+if (getenv('FIXTURE_OPEN') === '1') {
+    $pdo->beginTransaction();
+}
+
+class_exists('Illuminate\Foundation\Testing\DatabaseTransactionsManager');
+
+if ($pdo->inTransaction()) {
+    $pdo->rollBack();
+}
+
+printf("found %s\n", Image::of(PdoStatements::over($pdo), new SqliteDialect())->written()->line());
+$pdo->beginTransaction();
+$pdo->exec("INSERT INTO users (name) VALUES ('made by the test')");
+printf("made %s\n", $pdo->lastInsertId());
+
+if (getenv('FIXTURE_HANG') === '1') {
+    sleep(60);
+}
+
+getenv('FIXTURE_DIRTY') === '1' ? $pdo->commit() : $pdo->rollBack();

@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Twins;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Verdicts;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\Pool;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Hunk;
 use NightWorksIO\MutationGate\Core\Composer\Package;
@@ -45,6 +46,9 @@ use function sprintf;
  *   did not ask for quiet (`STREAM_URL_STAT_QUIET`), as it does without it.
  * - How a mutant's own run that failed ended, its code and whether a signal
  *   ended it, is recorded by its mutated copy (see Ending).
+ * - Where the gate names a directory for warm workers, each mutant's own run
+ *   is asked of its place's worker, which runs it in a child forked from a
+ *   process booted once (see Warm\Pool).
  *
  * Applied as a VendorPatch: every anchor checked before anything is written.
  */
@@ -99,8 +103,10 @@ final readonly class Patch
                 $filter = '--filter="'.implode('|', $filters).'"';
                 $passed = class_exists(\%1$s::class) ? \%1$s::passable($filter) : strlen($filter) < %2$d;
 
+                {MARK} a mutant's run is asked of its place's warm worker, where the run has them.
                 $process = new Process(
                     command: [
+                        ...($processId !== null && class_exists(\%3$s::class) ? \%3$s::prefix($processId) : []),
                         ...$filteredArguments,
                         '--bail',
                         ...($passed ? [$filter] : []),
@@ -345,7 +351,7 @@ final readonly class Patch
             Hunk::in(
                 self::MUTATION_TEST,
                 self::FILTER_SHIPS,
-                sprintf(self::FILTER_BECOMES, Selection::class, Ceiling::BYTES),
+                sprintf(self::FILTER_BECOMES, Selection::class, Ceiling::BYTES, Pool::class),
             ),
             Hunk::in(self::MUTATION_TEST, self::START_SHIPS, sprintf(self::START_BECOMES, Verdicts::class)),
             Hunk::in(self::MUTATION_TEST, self::COVERING_SHIPS, self::COVERING_BECOMES),

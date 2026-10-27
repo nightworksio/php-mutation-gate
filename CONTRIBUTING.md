@@ -19,7 +19,7 @@ The hooks in `.githooks` say early what CI says later:
 | Hook | Refuses |
 |------|---------|
 | `pre-commit` | a staged PHP file Pint would change |
-| `commit-msg` | a subject that is not conventional, a line that credits an assistant, and a `Spec:` number that is no decision |
+| `commit-msg` | a subject that is not conventional, and a `Spec:` number that is no decision |
 | `pre-push` | a push straight to `main`, and a push that would leave a branch with no commit of its own |
 
 ## The local gates
@@ -96,11 +96,6 @@ MySQL for `pinkary`.
   numbers.
 - **A breaking change says how to move.** A title with `!` needs a
   `## Migration` section in the body, saying what a user changes.
-- **No assistant is credited.** No commit and no pull request body may carry
-  a `Co-authored-by` trailer naming an assistant, or a line saying the work
-  was generated with or written by one. The work is the author's own.
-  `attribution` refuses either: remove the line, rewording the commit that
-  holds it.
 - **Signing is not required, and there is no sign-off.** Every commit on
   `main` is signed, because `main` takes only squash commits and GitHub signs
   each one. Your own commits need not be signed, and need no

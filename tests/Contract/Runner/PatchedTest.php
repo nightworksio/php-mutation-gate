@@ -29,6 +29,9 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
+use NightWorksIO\MutationGate\Core\Runner\Pool;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
+use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
@@ -289,6 +292,21 @@ it('runs again, patched, only the mutants the file it hands over names, on the m
 // composer.json allows pest-plugin-mutate 5.0.2 alone. 5.0.1 reads each line's
 // covering tests from php-code-coverage 14.3's map as hit counts rather than test
 // ids, and passes an int to preg_match, a TypeError under every Pest ^5.1.
+it('reports the same four mutants from warm workers, and warns of nothing, with Pest patched', function (): void {
+    Patch::applyIn(Library::vendor());
+    $library = Library::installed('pest patched');
+    $result = $library->mutate(
+        'money warm',
+        MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
+            ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('adds', 'large', 'unused', 'drains')))
+            ->across(Pool::of(ProcessCount::of(2), Workers::Fork)),
+    );
+
+    expect($result instanceof MutationResult ? Library::records($result->mutants()) : [])
+        ->toEqualCanonicalizing($library->expected('adds', 'large', 'unused', 'drains'))
+        ->and($result instanceof MutationResult ? [...$result->warnings()] : ['cannot judge'])->toBe([]);
+})->skip(fn(): bool => ! function_exists('pcntl_fork') || ! function_exists('posix_kill'), 'warm workers need a PHP that forks')->group(...$holds);
+
 it('holds the library to the pest-plugin-mutate the package allows', function (): void {
     $conflict = static function (string $manifest): mixed {
         $decoded = json_decode((string) file_get_contents(Tree::at($manifest)), associative: true);

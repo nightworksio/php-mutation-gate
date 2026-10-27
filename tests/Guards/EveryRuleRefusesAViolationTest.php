@@ -386,6 +386,7 @@ function aCopy(): string
 
     foreach (array_filter(explode("\0", $listed), static fn(string $path): bool => $path !== '' && is_file(Tree::at($path))) as $path) {
         plantFile(sprintf('%s/%s', $copy, $path), (string) file_get_contents(Tree::at($path)), exactly: true);
+        chmod(sprintf('%s/%s', $copy, $path), fileperms(Tree::at($path)) & 0o777);
     }
 
     shell_exec(sprintf('cp -R%s %s %s', PHP_OS_FAMILY === 'Darwin' ? 'c' : '', escapeshellarg(Tree::at('vendor')), escapeshellarg(sprintf('%s/vendor', $copy))));

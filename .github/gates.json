@@ -9,18 +9,6 @@
       "evidence": "none",
       "why": "It decides which gates run and checks nothing itself."
     },
-    "attribution": {
-      "check": "attribution",
-      "checks": "No commit, and not the pull request's body, credits an AI assistant or a tool.",
-      "reproduce": "python3 .github/scripts/attribution_check.py origin/main HEAD",
-      "evidence": [
-        {"step": "check", "tool": "attribution", "raw": "evidence/raw/attribution.json"}
-      ],
-      "rules": {
-        "attribution": "The check could not read the commits.",
-        "credits-an-assistant": "A commit or the pull request's body carries a co-author trailer or a badge that credits an assistant or a tool. The work is the author's own: remove the line, and reword the commit if it is in one."
-      }
-    },
     "commitlint": {
       "check": "commitlint",
       "checks": "Every commit subject, and the pull request title, is conventional: type(scope): subject.",

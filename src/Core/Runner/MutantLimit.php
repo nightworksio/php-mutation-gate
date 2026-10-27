@@ -18,7 +18,7 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 final readonly class MutantLimit
 {
     /** What a limit allows a run to start in where no start-up was measured, and what Infection's own allows. */
-    private const float START_UP = 5.0;
+    public const float START_UP = 5.0;
 
     /** How many times its covering tests' own time the standard limit allows, above a busy runner's slowdown. */
     private const int FACTOR = 3;

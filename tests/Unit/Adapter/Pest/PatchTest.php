@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\Pool;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -141,5 +142,15 @@ it('marks every hunk it writes, one mark to a hunk, so another version\'s are fo
         MutatePlugin::FILES,
     ));
 
-    expect($marks)->toBe(18);
+    expect($marks)->toBe(19);
+});
+
+it('asks each mutant\'s run of its place\'s warm worker, where the run has one', function () use ($vendor, $source): void {
+    $at = $vendor();
+    Patch::applyIn($at);
+
+    expect($source($at, 'MutationTest.php'))->toContain(sprintf(
+        '...($processId !== null && class_exists(\\%1$s::class) ? \\%1$s::prefix($processId) : []),',
+        Pool::class,
+    ));
 });
