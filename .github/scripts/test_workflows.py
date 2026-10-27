@@ -18,6 +18,7 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
 ACTION = os.path.join(ROOT, "action.yml")
 WORKFLOW = os.path.join(ROOT, ".github", "workflows", "mutation-gate.yml")
 RELEASE = os.path.join(ROOT, ".github", "workflows", "release.yml")
+PUBLISH_SCRIPT = os.path.join(ROOT, "resources", "action", "publish.sh")
 
 # More than any one argument, and every argument together, may hold on Linux
 # (128 KiB) and macOS (1 MiB).
@@ -141,8 +142,9 @@ class Publish(unittest.TestCase):
                 "BODY": body,
             }
 
+            self.assertIn('run: bash "${GATE_ACTION}/resources/action/publish.sh"', [line.strip() for line in publishing])
             ran = subprocess.run(
-                ["bash", "-c", script(publishing)],
+                ["bash", PUBLISH_SCRIPT],
                 cwd=directory,
                 env=environment,
                 stdin=subprocess.DEVNULL,
@@ -272,10 +274,22 @@ CREDENTIAL = re.compile(
 # The jobs that hold a secret or a token that can write: none runs the project's code.
 CREDENTIALED = ("fetch", "deliver-plan", "deliver-survivors", "deliver")
 
+# The credentials Composer installs the project's dependencies with: the one
+# secret a job that runs the project's code is handed, in the env of the step
+# that installs them, or as the action's input that only that step reads
+# (ADR-0029).
+INSTALLING = ("COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}", "composer-auth: ${{ secrets.COMPOSER_AUTH }}")
+
 
 class Secrets(unittest.TestCase):
     def test_a_job_hands_a_secret_on_only_where_one_rule_trusts_the_run(self):
-        handed = [line.strip() for name, lines in jobs(WORKFLOW).items() if name != "fetch" for line in lines if "secrets." in line]
+        handed = [
+            line.strip()
+            for name, lines in jobs(WORKFLOW).items()
+            if name != "fetch"
+            for line in lines
+            if "secrets." in line and line.strip() not in INSTALLING
+        ]
         guarded = [GUARDED.match(line) for line in handed]
 
         self.assertTrue(handed)
@@ -365,8 +379,38 @@ class ProjectCode(unittest.TestCase):
         for name, lines in jobs(WORKFLOW).items():
             if runs_project_code(lines):
                 with self.subTest(job=name):
-                    self.assertEqual([], [line for line in lines if "secrets." in line or CREDENTIAL.match(line)])
+                    held = [line for line in lines if line.strip() not in INSTALLING]
+                    self.assertEqual([], [line for line in held if "secrets." in line or CREDENTIAL.match(line)])
                     self.assertEqual([], [line for line in lines if line.strip().startswith("environment:")])
+
+    def test_the_install_credentials_reach_only_the_steps_that_install_the_project_s_dependencies(self):
+        reached = []
+        for name, lines in jobs(WORKFLOW).items():
+            for found in steps(lines):
+                holding = [line.strip() for line in found if "secrets.COMPOSER_AUTH" in line]
+                if holding:
+                    reached.append((name, found[0].strip(), holding))
+
+        install = "- uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0"
+        action_step = "- uses: ./.mutation-gate/workflow # zizmor: ignore[self-repository]"
+        self.assertEqual(
+            [
+                ("plan", install, [INSTALLING[0]]),
+                ("shard", action_step, [INSTALLING[1]]),
+                ("survivors", install, [INSTALLING[0]]),
+                ("verdict", install, [INSTALLING[0]]),
+            ],
+            reached,
+        )
+
+    def test_the_action_hands_its_install_credentials_to_the_install_step_alone(self):
+        reading = [found[0].strip() for found in steps(lines_of(ACTION)) if any("inputs.composer-auth" in line for line in found)]
+
+        self.assertEqual(["- name: Install the project's dependencies"], reading)
+        self.assertIn(
+            "COMPOSER_AUTH: ${{ inputs.composer-auth }}",
+            [line.strip() for line in step(lines_of(ACTION), "Install the project's dependencies")],
+        )
 
     def test_no_job_that_runs_the_project_s_code_may_write(self):
         for name, lines in jobs(WORKFLOW).items():

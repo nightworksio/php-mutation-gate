@@ -5,7 +5,9 @@ name: mutation-gate
 # a job that publishes the badge and trend (ADR-0011).
 #
 # The plan, the shards and the verdict run the project's own code, so they
-# hold no secret and no token that can write. What needs a credential happens
+# hold no token that can write, and no secret but the credentials Composer
+# installs the project with, which their install steps alone read
+# (ADR-0029). What needs a credential happens
 # in a job that runs none of it, from the gate's own installation at this
 # workflow's commit (ADR-0007):
 # - fetch reads the default branch's ledger with a key that can read nothing
@@ -23,9 +25,11 @@ name: mutation-gate
 #
 # A calling job grants what its called jobs ask for, or the run does not
 # start: contents: write (publish, which runs on the default branch only),
-# actions: read and pull-requests: write (the deliver jobs). It passes each
-# secret declared below under its own name, read from its own secrets by that
-# name; the values stay in the two environments.
+# actions: read (verdict and deliver), pull-requests: write (the deliver
+# jobs) and id-token: write (fetch and deliver). It passes each secret
+# declared below under its own name, read from its own secrets by that name;
+# the store's values stay in the two environments, and COMPOSER_AUTH is a
+# repository secret, since every job that installs the project reads it.
 
 on:
   workflow_call:
@@ -77,8 +81,15 @@ on:
     # A called job reads an environment's secret only under a name its caller
     # passes (ADR-0029), so each is declared here and passed by name. The
     # value comes from the environment the reading job enters, which wins over
-    # what the caller passes. Only fetch and deliver read any of them.
+    # what the caller passes. Only fetch and deliver read any of them, but
+    # COMPOSER_AUTH, which only the steps that install the project's
+    # dependencies read.
     secrets:
+      COMPOSER_AUTH:
+        description: >-
+          The credentials Composer installs the project's dependencies with, for a private repository; read by the
+          install steps alone, never by a step that runs the project's tests or mutants.
+        required: false
       MUTATION_GATE_READ_AWS_ACCESS_KEY_ID:
         description: The key that reads the default branch's ledger, from the environment mutation-gate-read.
         required: false
@@ -261,6 +272,8 @@ jobs:
           php-version: ${{ inputs.php-version }}
           coverage: pcov
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+        env:
+          COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
       - name: Resolve the run
         id: resolve
         env:
@@ -452,6 +465,7 @@ jobs:
           budget: ${{ inputs.budget }}
           reports: ${{ inputs.reports }}
           cache: ${{ inputs.cache }}
+          composer-auth: ${{ secrets.COMPOSER_AUTH }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
@@ -498,6 +512,8 @@ jobs:
           php-version: ${{ inputs.php-version }}
           coverage: pcov
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+        env:
+          COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
       - name: Resolve the run
         id: resolve
         env:
@@ -692,6 +708,8 @@ jobs:
           php-version: ${{ inputs.php-version }}
           coverage: none
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+        env:
+          COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
       - name: Resolve the run
         id: resolve
         env:
@@ -960,41 +978,14 @@ jobs:
         with:
           name: mutation-gate-publish
           path: publish
-      # The first publish makes the branch: an orphan commit that holds the
-      # files and nothing else. Every later one puts each changed file through
-      # the contents API.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: ${{ env.GATE_ACTION }}
+          persist-credentials: false
       - name: Publish the badge and the trend
         env:
           GH_TOKEN: ${{ github.token }}
           MESSAGE: 'chore: publish the mutation score'
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          files=(publish/*)
-          if [ "${#files[@]}" -eq 0 ]; then
-            echo "The verdict wrote nothing to publish."
-            exit 0
-          fi
-          repository="repos/${GITHUB_REPOSITORY}"
-          if ! gh api "${repository}/branches/${PUBLISHED}" --silent 2>/dev/null; then
-            for path in "${files[@]}"; do
-              jq -n --arg path "$(basename "${path}")" --rawfile content "${path}" \
-                '{path: $path, mode: "100644", type: "blob", content: $content}'
-            done | jq -s '{tree: .}' > "${RUNNER_TEMP}/tree.json"
-            tree="$(gh api "${repository}/git/trees" --input "${RUNNER_TEMP}/tree.json" --jq .sha)"
-            commit="$(jq -n --arg tree "${tree}" --arg message "${MESSAGE}" '{message: $message, tree: $tree, parents: []}' \
-              | gh api "${repository}/git/commits" --input - --jq .sha)"
-            gh api "${repository}/git/refs" -f ref="refs/heads/${PUBLISHED}" -f sha="${commit}" --silent
-            exit 0
-          fi
-          for path in "${files[@]}"; do
-            file="$(basename "${path}")"
-            published="$(gh api "${repository}/contents/${file}?ref=${PUBLISHED}" --jq .sha 2>/dev/null || true)"
-            if [ "${published}" = "$(git hash-object "${path}")" ]; then
-              continue
-            fi
-            jq -n --arg message "${MESSAGE}" --arg branch "${PUBLISHED}" --arg sha "${published}" --rawfile content "${path}" \
-              '{message: $message, branch: $branch, content: ($content | @base64)}
-              + (if $sha == "" then {} else {sha: $sha} end)' \
-              | gh api --method PUT "${repository}/contents/${file}" --input - --silent
-          done
+        run: bash "${GATE_ACTION}/resources/action/publish.sh"

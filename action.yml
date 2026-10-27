@@ -52,6 +52,12 @@ inputs:
       The job needs pull-requests: write to comment, and actions: read for the comment to link the run's HTML report.
     required: false
     default: 'false'
+  composer-auth:
+    description: >-
+      The credentials Composer installs the project's dependencies with, as COMPOSER_AUTH holds them, for a private
+      repository. Pass a secret; only the step that installs the dependencies reads it.
+    required: false
+    default: ''
 
 outputs:
   verdict:
@@ -102,6 +108,8 @@ runs:
     - name: Install the project's dependencies
       if: inputs.deliver != 'true'
       uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      env:
+        COMPOSER_AUTH: ${{ inputs.composer-auth }}
 
     - name: Resolve the run
       id: resolve

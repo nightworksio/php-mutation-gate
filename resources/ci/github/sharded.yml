@@ -22,9 +22,9 @@ jobs:
   mutation:
     uses: nightworksio/php-mutation-gate/.github/workflows/mutation-gate.yml@%%pin%%
     permissions:
-      contents: write # used only by the default-branch publish job
-      actions: read
-      pull-requests: write
+      contents: write # used only by publish, on the default branch, which writes the badge and the trend
+      actions: read # used only by verdict and deliver, to find the run's HTML report the comment links
+      pull-requests: write # used only by the deliver jobs, which post the comment and run none of the project's code
       id-token: write # used only by fetch and deliver, for a store that signs in through OIDC
     with:
       php-version: '%%php%%'
