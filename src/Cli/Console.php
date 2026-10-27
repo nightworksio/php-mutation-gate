@@ -141,9 +141,7 @@ final readonly class Console
         $application->addCommand(AffectedCommand::command($composition));
         $formats = new Formats(class_exists(...));
         $installed = $detected->installed();
-        $gate = OwnArchive::running() instanceof OwnArchive
-            ? GatePin::of(InstalledGate::version())
-            : GatePin::in($installed);
+        $gate = GatePin::running(OwnArchive::running(), InstalledGate::version(), $installed);
         $application->addCommand(
             Init::command(
                 $project,

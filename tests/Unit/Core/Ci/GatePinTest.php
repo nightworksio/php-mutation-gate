@@ -7,6 +7,8 @@ use NightWorksIO\MutationGate\Core\Ci\GatePin;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 
 /**
@@ -77,4 +79,13 @@ it('pins the commit and version built into the gate\'s PHAR, and nothing where i
         ->and($branch->pin())->toBe(GATE_COMMIT)
         ->and($unpinned->isKnown())->toBeFalse()
         ->and($spaced->isKnown())->toBeFalse();
+});
+
+it('pins the version built into the PHAR it runs from, and otherwise the one Composer lists', function (): void {
+    $built = Version::of('nightworksio/mutation-gate', 'v1.3.0', GATE_COMMIT);
+    $installed = CannotJudge::because('vendor/composer/installed.json is not there.');
+
+    expect(GatePin::running(OwnArchive::at('/opt/mutation-gate.phar'), $built, $installed)->pin())
+        ->toBe(sprintf('%s # v1.3.0', GATE_COMMIT))
+        ->and(GatePin::running(NotGiven::value(), $built, $installed)->isKnown())->toBeFalse();
 });

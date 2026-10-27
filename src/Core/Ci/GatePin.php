@@ -6,6 +6,8 @@ namespace NightWorksIO\MutationGate\Core\Ci;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\ThisPackage;
@@ -68,6 +70,15 @@ final readonly class GatePin
             && preg_match(self::VERSION, $version->version()) === 1;
 
         return $pinned ? new self($version->reference(), $version->version(), $version->isRelease()) : self::unknown();
+    }
+
+    /**
+     * The gate as it runs: the version built into its PHAR, where it runs from one, else as Composer lists it in the
+     * project (see in).
+     */
+    public static function running(OwnArchive|NotGiven $archive, Version $built, Installed|CannotJudge $installed): self
+    {
+        return $archive instanceof OwnArchive ? self::of($built) : self::in($installed);
     }
 
     public static function unknown(): self
