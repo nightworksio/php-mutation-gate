@@ -12,12 +12,17 @@ afterEach(function (): void {
 
 /**
  * The gate's PHAR, as composer phar builds it, copied to a file named as the image and Phive name it, with no
- * `.phar`, and run in a directory with these arguments.
+ * `.phar`, and run in a directory with these arguments, outside the CI this suite may run in.
  */
 $archive = static function (string $directory, string ...$arguments): Process {
     $installed = sprintf('%s/mutation-gate', Scratch::directory());
     copy(Tree::at('build/mutation-gate.phar'), $installed);
-    $process = new Process([PHP_BINARY, $installed, ...$arguments], $directory, timeout: 600);
+    $ci = array_filter(
+        getenv(),
+        static fn(string $name): bool => $name === 'CI' || str_starts_with($name, 'GITHUB_'),
+        ARRAY_FILTER_USE_KEY,
+    );
+    $process = new Process([PHP_BINARY, $installed, ...$arguments], $directory, array_map(static fn(): bool => false, $ci), timeout: 600);
     $process->run();
 
     return $process;
