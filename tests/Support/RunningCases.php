@@ -11,6 +11,7 @@ use function is_file;
 use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Config\Equivalence;
+use NightWorksIO\MutationGate\Config\Reach;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Config\Absent;
@@ -116,7 +117,7 @@ final readonly class RunningCases
     /** Settings under which no static analysis can clear a survivor after its tests, so a pull request's shard can stop. */
     public static function doomable(): Settings
     {
-        return Flows::settings(Equivalence::notProvenStatically());
+        return Flows::settings(Equivalence::notProvenStatically(), Reach::stoppingWhenDoomed());
     }
 
     public static function onPullRequest(Plan $plan): Plan

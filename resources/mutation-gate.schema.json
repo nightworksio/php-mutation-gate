@@ -496,6 +496,10 @@
                 "full": {
                     "type": "boolean",
                     "default": false
+                },
+                "stopWhenDoomed": {
+                    "type": "boolean",
+                    "default": false
                 }
             },
             "additionalProperties": false

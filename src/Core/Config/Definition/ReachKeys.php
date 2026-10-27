@@ -34,6 +34,7 @@ final readonly class ReachKeys
         );
         $hotPath = Field::optional('hotPath', Number::between(0, 1), $judges);
         $full = Field::optional('full', Flag::boolean(), Effect::DecidesHowTheGateRuns);
+        $stopWhenDoomed = Field::optional('stopWhenDoomed', Flag::boolean(), $judges);
 
         return [
             Field::optional(
@@ -72,9 +73,21 @@ final readonly class ReachKeys
             ),
             Field::section(
                 'run',
-                Section::single(
+                Section::of(
+                    static function (Node $run) use ($full, $stopWhenDoomed): Layer|Invalid {
+                        $considered = $full->read($run);
+                        $stopping = $stopWhenDoomed->read($run);
+
+                        return Reading::built(
+                            static fn(): Layer => Layer::of(
+                                Reach::of(full: $considered->value(), stopWhenDoomed: $stopping->value()),
+                            ),
+                            $considered,
+                            $stopping,
+                        );
+                    },
                     $full,
-                    static fn(bool|Absent $full): Layer => Layer::of(Reach::of(full: $full)),
+                    $stopWhenDoomed,
                 ),
             ),
         ];

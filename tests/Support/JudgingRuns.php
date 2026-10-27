@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Equivalence;
 use NightWorksIO\MutationGate\Config\Floor as NewCodeFloor;
 use NightWorksIO\MutationGate\Config\Ignore;
+use NightWorksIO\MutationGate\Config\Reach;
 use NightWorksIO\MutationGate\Config\Report;
 use NightWorksIO\MutationGate\Config\Setting;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
@@ -293,7 +294,7 @@ final readonly class JudgingRuns
             new TreeSourceFake(Trees::of(Tree::at(Path::of('src'), $floor, Package::at(Path::root())))),
             ...$ports,
         );
-        $settings = self::settings(Equivalence::notProvenStatically());
+        $settings = self::settings(Equivalence::notProvenStatically(), Reach::stoppingWhenDoomed());
         new Handoff($adapters->project, HandedMaps::limits())->write($plan, Flows::map(), KillHistory::none(), Unplaced::map());
 
         foreach ($cancelled ? [1] : [1, 2] as $shard) {

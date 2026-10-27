@@ -15,7 +15,8 @@ use Psr\Clock\ClockInterface;
 
 /**
  * Whether a shard of a plan stops once its run cannot pass (ADR-0008), and
- * by what it judges that: a pull request's run, which the verdict holds to
+ * by what it judges that: a pull request's run, where `run.stopWhenDoomed`
+ * asks for it, which the verdict holds to
  * its trees' floors and the new code's, judged over the trees, the
  * committed baseline, the lines the plan's change reached, the new-code
  * floor and the config's ignores, as the verdict judges them. A survivor
@@ -32,7 +33,7 @@ final readonly class Dooming
 
     public function of(Plan $plan): Doom|Undoomed
     {
-        if (! $plan->runOn()->isPullRequest() || ! $this->holdsTrees()) {
+        if (! $this->stops($plan)) {
             return Undoomed::run();
         }
 
@@ -46,6 +47,12 @@ final readonly class Dooming
             $this->settings->floors()->newCode(),
             Ignoring::of($this->settings->ignores()->entries(), $this->clock->now()),
         );
+    }
+
+    /** Whether the config asks a pull request's run to stop, this plan is one, and its verdict holds the trees. */
+    private function stops(Plan $plan): bool
+    {
+        return $this->settings->reach()->stopsWhenDoomed() && $plan->runOn()->isPullRequest() && $this->holdsTrees();
     }
 
     /** Whether the verdict holds the trees to their floors: no run of the security mutators or one suite alone. */

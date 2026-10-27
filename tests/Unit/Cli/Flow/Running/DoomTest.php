@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
+use NightWorksIO\MutationGate\Config\Equivalence;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\Finding;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
@@ -75,6 +76,36 @@ it('stops a pull request\'s shard after the chunk whose survivor makes its run c
     expect($asked($runner))->toBe([['src/Money.php']])
         ->and($unjudged($result))->toBe(['src/Held.php'])
         ->and($doomOf($result))->toBe(['src/Money.php', $moneySurvivor(), 'src', 10_000, 'tree']);
+});
+
+it('runs a pull request\'s shard to its end past a survivor that makes its run certain to fail, where the config asks no stop', function () use (
+    $makeResultIn,
+    $makeUnjudged,
+    $makeOnPullRequest,
+    $makeFloored,
+    $makeAsked,
+    $makeDoomOf,
+): void {
+    $resultIn = $makeResultIn();
+    $unjudged = $makeUnjudged();
+    $onPullRequest = $makeOnPullRequest();
+    $floored = $makeFloored();
+    $asked = $makeAsked();
+    $doomOf = $makeDoomOf();
+
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture();
+
+    new Running(Flows::adapters($project, [], $runner, $floored(Floor::whole())), Flows::settings(Equivalence::notProvenStatically()), Flows::setup())
+        ->run(Planned::handedIn($project, $onPullRequest(Planned::oneShard())), ShardId::of(1), Workspace::results());
+    $result = $resultIn($project, 1);
+
+    $every = array_merge(...$asked($runner));
+    sort($every);
+
+    expect($every)->toBe(['src/Held.php', 'src/Money.php'])
+        ->and($unjudged($result))->toBe([])
+        ->and($doomOf($result))->toBe('undoomed');
 });
 
 it('runs a pull request\'s shard to its end in chunks, in the plan\'s order, while no survivor makes its run certain to fail', function () use (

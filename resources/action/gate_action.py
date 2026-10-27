@@ -85,7 +85,7 @@ DOOMED_MUTANT = "mutant"
 DOOMED_TREE = "tree"
 DOOMED_FLOOR = "floor"
 # What a doomed shard's job exits with: the gate's exit code for a failed
-# verdict, which the matrix's fail-fast reads as the job failing.
+# verdict.
 FAILED = 1
 
 
