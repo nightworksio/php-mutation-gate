@@ -297,9 +297,9 @@ it('prints only what its run\'s child printed, nothing its worker printed past t
     file_put_contents(Seat::at($directory, 1)->pid(), (string) Passing::for('5'));
     $answered = $running($working($directory, static function (Seat $seat, string $id): void {
         file_put_contents($seat->out(), 'w:child!!');
-        touch($seat->err());
-        Offsets::of(2, 0)->writtenTo($seat->started($id));
-        Finish::exited(0, Offsets::of(7, 0))->writtenTo($seat->ended($id));
+        file_put_contents($seat->err(), 'w!');
+        Offsets::of(2, 1)->writtenTo($seat->started($id));
+        Finish::exited(0, Offsets::of(7, 1))->writtenTo($seat->ended($id));
     }), $directory, sprintf('%s/missing/pest', Scratch::directory()));
 
     expect($answered)->toBe(['code' => 0, 'out' => 'child', 'errors' => '', 'warned' => []]);
