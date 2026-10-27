@@ -43,6 +43,21 @@
         "improvement": "report"
     },
     "reach": {
+        "everything": [
+            "src/Adapter/Pest/Warm/**",
+            "src/Adapter/Pest/Recording/**",
+            "src/Adapter/Pest/Grouping/**",
+            "src/Adapter/Pest/Order/**",
+            "src/Adapter/Pest/Plugin.php",
+            "src/Adapter/Pest/Bridged.php",
+            "src/Adapter/Pest/Patch.php",
+            "src/Adapter/Pest/Patching.php",
+            "src/Cli/PestPlugin.php",
+            "src/Adapter/Native/MutantFile.php",
+            "bin/mutation-gate-pest-client",
+            "bin/mutation-gate-pest-worker",
+            "src/Core/Runner/MutantLimit.php"
+        ],
         "lockPackages": [
             "brianium/paratest",
             "ergebnis/phpstan-rules",

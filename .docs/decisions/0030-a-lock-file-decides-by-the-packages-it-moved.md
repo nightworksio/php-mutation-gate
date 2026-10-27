@@ -34,6 +34,10 @@ its components, the parser, and the analyser with the rules it loads.
    package has moved where its entry under `packages` or `packages-dev` was
    added, removed, or changed in any field. The change decides where:
    - a moved package matches an entry of the setting;
+   - a moved package is one this repository ships: the gate or a plugin of
+     `plugins/`, which make, run and judge every mutant, named or not, so an
+     upgrade of the gate never leaves a result the older version produced
+     carried;
    - any key besides those two lists, `content-hash` and `_readme` moved, such
      as `platform`, `aliases` or `minimum-stability`;
    - either version cannot be read as a lock.
