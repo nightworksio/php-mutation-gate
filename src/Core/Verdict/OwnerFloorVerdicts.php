@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Verdict;
 
 use function array_filter;
-use function array_values;
 
 use ArrayIterator;
 
@@ -54,10 +53,10 @@ final readonly class OwnerFloorVerdicts implements Countable, IteratorAggregate
         $verdicts = [];
 
         foreach ($floors as $floor) {
-            $owned = Paths::of(...array_values(array_filter(
+            $owned = Paths::of(...array_filter(
                 $files,
                 static fn(Path $file): bool => $owners->groupOf($file)->names($floor->owner()),
-            )));
+            ));
             $verdicts[] = OwnerFloorVerdict::judged(
                 $floor->owner(),
                 $floor->floor(),
