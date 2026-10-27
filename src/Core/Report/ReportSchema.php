@@ -79,6 +79,15 @@ final readonly class ReportSchema
     /** A string, as a schema allows one. */
     public const array TEXT = ['type' => 'string'];
 
+    /** A duration in seconds, as a schema allows one. */
+    public const array SECONDS = ['type' => 'number', 'minimum' => 0];
+
+    /** A score or a floor, as a schema allows one. */
+    public const array PERCENT = ['type' => 'number', 'minimum' => 0, 'maximum' => Percentage::MOST];
+
+    /** An instant in UTC, as every report writes one. */
+    public const array INSTANT = ['type' => 'string', 'pattern' => '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$'];
+
     private const string TESTS
         = 'The tests mutation says catch nothing, and those that can go without losing a kill (ADR-0014).';
 
@@ -89,16 +98,10 @@ final readonly class ReportSchema
 
     private const array LINE = ['type' => 'integer', 'minimum' => 1];
 
-    private const array SECONDS = ['type' => 'number', 'minimum' => 0];
-
-    private const array PERCENT = ['type' => 'number', 'minimum' => 0, 'maximum' => Percentage::MOST];
-
     private const array FLAG = ['type' => 'boolean'];
 
     /** A flag a report writes only where it holds, and then as `true`. */
     private const array PRESENT = ['const' => true];
-
-    private const array INSTANT = ['type' => 'string', 'pattern' => '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$'];
 
     private const array TRACE_ID = ['type' => 'string', 'pattern' => '^[0-9a-f]{32}$'];
 

@@ -26,6 +26,7 @@ final readonly class BuilderClasses
         'Budget' => self::BUILDER,
         'Ci' => self::BUILDER,
         'Coverage' => self::BUILDER,
+        'Dashboard' => self::BUILDER,
         'Equivalence' => self::BUILDER,
         'Flaky' => self::BUILDER,
         'Floor' => self::BUILDER,

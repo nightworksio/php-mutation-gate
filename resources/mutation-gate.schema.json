@@ -1714,6 +1714,24 @@
             },
             "additionalProperties": false
         },
+        "dashboard": {
+            "type": "object",
+            "properties": {
+                "topic": {
+                    "type": "string",
+                    "minLength": 1,
+                    "default": "mutation-gate"
+                },
+                "repositories": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            },
+            "additionalProperties": false
+        },
         "pest": {
             "type": "object",
             "properties": {
