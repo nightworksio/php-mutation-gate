@@ -221,7 +221,7 @@ describe('Settings sections', function (): void {
             ->toContain("Tests::holding('Process')");
     });
 
-    it('writes how uncovered mutants count and the baseline\'s path and improvement into a config written as PHP', function (array $config, string $with): void {
+    it('writes how uncovered mutants count, the baseline\'s path and improvement, and each owner\'s floor into a config written as PHP', function (array $config, string $with): void {
         expect(Configs::valid(['runner' => 'pest', ...$config])->php(ProjectRoot::origin())->code())
             ->toContain(sprintf("    ->with(\n%s\n    )", $with));
     })->with([
@@ -232,6 +232,10 @@ describe('Settings sections', function (): void {
         'counted, required' => [
             ['uncovered' => 'count', 'baseline' => ['improvement' => 'require']],
             "        Uncovered::counted(),\n        Baseline::requiringImprovement(),",
+        ],
+        'owners held to floors' => [
+            ['owners' => ['floors' => ['@acme/payments' => 90, 'jo@acme.example' => 75.5]]],
+            "        Owner::floor('@acme/payments', 90),\n        Owner::floor('jo@acme.example', 75.5),",
         ],
     ]);
 
