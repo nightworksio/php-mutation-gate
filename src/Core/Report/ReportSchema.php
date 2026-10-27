@@ -161,6 +161,7 @@ final readonly class ReportSchema
                 'trees' => self::listOfObjects(self::tree()),
                 'newCode' => self::listOfObjects(self::newCode()),
                 'security' => self::listOfObjects(self::security()),
+                'owners' => self::listOfObjects(self::owner()),
                 'suites' => self::listOfObjects(self::object([
                     'name' => self::TEXT,
                     'covered' => self::WHOLE,
@@ -413,6 +414,19 @@ final readonly class ReportSchema
             'counts' => self::counts(),
             'mutants' => self::listOf(self::ID_SPELLING),
         ], ['declared', 'baseline', 'floor', 'score', 'raised']);
+    }
+
+    /** @return Shallow */
+    private static function owner(): array
+    {
+        return self::object([
+            'owners' => self::listOf(self::TEXT),
+            'score' => self::PERCENT,
+            'judgement' => self::oneOf(Judgement::Passed, Judgement::NothingToMutate),
+            'said' => self::TEXT,
+            'counts' => self::counts(),
+            'mutants' => self::listOf(self::ID_SPELLING),
+        ], ['score']);
     }
 
     /**

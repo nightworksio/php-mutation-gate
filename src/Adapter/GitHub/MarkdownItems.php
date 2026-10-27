@@ -4,24 +4,30 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
+use Closure;
+
 use function count;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\Format\Fit;
+use NightWorksIO\MutationGate\Core\Owner\OwnerGroup;
 use NightWorksIO\MutationGate\Core\Report\ClusterText;
 use NightWorksIO\MutationGate\Core\Report\Escape;
 use NightWorksIO\MutationGate\Core\Report\Label;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
 use NightWorksIO\MutationGate\Core\Report\Mutator;
+use NightWorksIO\MutationGate\Core\Report\Owned;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
+use NightWorksIO\MutationGate\Core\Verdict\OwnerVerdicts;
 
 use function rtrim;
 use function sprintf;
 
 /**
  * The mutants and clusters of a comment or step summary as GitHub Markdown:
- * as folded blocks, or as rows of a table, then how many more there are; and
+ * as folded blocks, or as rows of a table, then how many more there are,
+ * under the owner group of their files where the run read a CODEOWNERS; and
  * the ignored mutants as a table of their own.
  */
 final readonly class MarkdownItems
@@ -33,6 +39,38 @@ final readonly class MarkdownItems
     public const int SHOWN_CHARACTERS = 1_500;
 
     private const string MORE = 'And %d more; the JSON report lists every one.';
+
+    /**
+     * Up to this many of the items, under the owner group of each one's file, each group headed by its owners and
+     * how many of the survivors it has; or as they are, where the run read no CODEOWNERS (ADR-0022).
+     *
+     * @param  iterable<JudgedMutant>                                 $survivors
+     * @param  list<JudgedMutant|Cluster>                             $items     the survivors, folded
+     * @param  Closure(list<JudgedMutant|Cluster>, int): list<string> $listed    up to this many items, of how many
+     * @return list<string>
+     */
+    public static function owned(
+        OwnerVerdicts $owners,
+        iterable $survivors,
+        array $items,
+        int $shown,
+        Closure $listed,
+    ): array {
+        $blocks = [];
+
+        foreach (Owned::parts($survivors, $items, $shown, $owners) as $part) {
+            $group = $part->group();
+            $blocks = [
+                ...$blocks,
+                ...$group instanceof OwnerGroup
+                    ? [sprintf('#### %s (%d)', Escape::text($group->name()), $part->survivors())]
+                    : [],
+                ...$listed($part->shown(), $part->items()),
+            ];
+        }
+
+        return $blocks;
+    }
 
     /**
      * Each mutant as a folded block with its diff, hint and reproduce

@@ -77,6 +77,10 @@ verdict reaches and how.
      `docs/CODEOWNERS`, **as it is at the base**, read through `ChangeSource`
      (ADR-0001). A pull request cannot reroute its own survivors by editing
      the file.
+   - On a pull request the base is the default branch as the checkout
+     fetched it, which the lowered-floor check reads too (ADR-0003);
+     otherwise it is the commit the plan was made on. Where git cannot read
+     it, no survivor has an owner, and the verdict warns why.
    - The syntax and limits are GitHub's: gitignore-like patterns without
      `!`, `[ ]` or an escaped `#`, the last match winning, case-sensitive
      paths. An invalid line is skipped and listed as a warning. A file over
@@ -125,7 +129,8 @@ verdict reaches and how.
      where set, its floor and result.
    - The console and the step summary group the same way. The JSON report
      gains `owners: [{owners: ["@acme/payments"], score, floor, judgement,
-     counts, mutants}]`.
+     said, counts, mutants}]`, the unowned group with `owners: []`, and is
+     empty without a CODEOWNERS.
    - `owners.mention` and `owners.floors` judge or report only, and are not
      in the proof key (ADR-0007).
    - `Core` holds the ownership: a pure parser of CODEOWNERS text and a

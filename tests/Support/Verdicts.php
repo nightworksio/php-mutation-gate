@@ -386,6 +386,7 @@ final class Verdicts
             'suited' => Killings::suited(MatrixKind::FirstKiller),
             'unplaced' => Killings::unplaced(),
             'sampled' => Sampled::verdict(Floor::of(80)),
+            'owned' => Owners::verdict(),
             default => self::empty(),
         };
     }

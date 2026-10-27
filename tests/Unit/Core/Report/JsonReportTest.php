@@ -54,6 +54,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Tests\Support\Clustered;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Killings;
+use NightWorksIO\MutationGate\Tests\Support\Owners;
 use NightWorksIO\MutationGate\Tests\Support\PruningCases;
 use NightWorksIO\MutationGate\Tests\Support\Removing;
 use NightWorksIO\MutationGate\Tests\Support\Sampled;
@@ -65,7 +66,7 @@ it('writes everything in the verdict, and what the committed schema describes', 
     $json = JsonReport::encode(Verdicts::named($verdict));
 
     expect(Schema::errors($json, Schema::at('resources/report.schema.json')))->toBe([]);
-})->with(['failing', 'passing', 'empty', 'with a matrix', 'cannot judge', 'proved', 'clustered', 'secured', 'suited', 'unplaced', 'sampled']);
+})->with(['failing', 'passing', 'empty', 'with a matrix', 'cannot judge', 'proved', 'clustered', 'secured', 'suited', 'unplaced', 'sampled', 'owned']);
 
 it('writes a sampled run\'s sample, and each tree\'s estimate, and neither for a run judged whole', function (): void {
     $report = JsonReport::encode(Sampled::verdict(Floor::of(80)));
@@ -496,4 +497,25 @@ it('writes where the verdict comes from: the gate, the commit, the runner and ea
         'baseline' => ['file' => 'floors.json', 'state' => 'stale'],
     ])->and(Schema::errors($report, Schema::at('resources/report.schema.json')))->toBe([])
         ->and(Decoded::at(JsonReport::encode(Verdicts::empty()), 'provenance'))->toBe(['baseline' => ['state' => 'current']]);
+});
+
+it('writes each owner group with its owners, score, judgement, counts and mutants, the unowned one with none', function (): void {
+    $report = JsonReport::encode(Owners::verdict());
+    $owners = Decoded::at($report, 'owners');
+
+    expect(is_array($owners) ? count($owners) : $owners)->toBe(3)
+        ->and(Decoded::at($report, 'owners', 0))->toBe([
+            'owners' => ['@acme/payments', '@jo'],
+            'score' => 33.33,
+            'judgement' => 'passed',
+            'said' => 'Code owned by @acme/payments @jo scores 33.33%.',
+            'counts' => Decoded::at($report, 'owners', 0, 'counts'),
+            'mutants' => Decoded::at($report, 'owners', 0, 'mutants'),
+        ])
+        ->and(Decoded::at($report, 'owners', 0, 'counts', 'survived'))->toBe(1)
+        ->and(Decoded::at($report, 'owners', 0, 'counts', 'uncovered'))->toBe(1)
+        ->and(Decoded::at($report, 'owners', 0, 'mutants'))->toHaveCount(3)
+        ->and(Decoded::at($report, 'owners', 2, 'owners'))->toBe([])
+        ->and(Decoded::at($report, 'owners', 2, 'said'))->toBe('Code with no owner scores 50.00%.')
+        ->and(Decoded::at(JsonReport::encode(Verdicts::failing()), 'owners'))->toBe([]);
 });

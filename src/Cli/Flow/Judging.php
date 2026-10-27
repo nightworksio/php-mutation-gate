@@ -58,6 +58,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\LeftUnjudged;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdicts;
+use NightWorksIO\MutationGate\Core\Verdict\OwnerVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Ratchet;
 use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
@@ -75,9 +76,10 @@ use function sprintf;
  * carried ones, every tree judged whole against its floor, and in a pull
  * request the new code against its own floor, a raise that must be committed
  * and a floor lowered without its reason; the survivors that share a cause
- * clustered, and those a weak test let through marked. Then the reports,
- * and the ledger.
- * A tree held to no floor stops a run in CI, and is warned of elsewhere.
+ * clustered, those a weak test let through marked, and every mutant grouped
+ * by the owners CODEOWNERS names at the base. Then the reports, and the
+ * ledger. A tree held to no floor stops a run in CI, and is warned of
+ * elsewhere.
  */
 final readonly class Judging
 {
@@ -229,7 +231,7 @@ final readonly class Judging
             $kind,
             OwnOnly::of($plan->considered()->carriedOwn()->paths(), $plan->digests()),
         );
-        $uncovered = Uncovered::from($this->settings->floors()->uncovered()->value);
+        $uncovered = $this->uncovered();
         $ignoring = Ignoring::of($this->settings->ignores()->entries(), $this->setup->clock->now());
         $judge = Judge::of(
             $trees,
@@ -385,12 +387,19 @@ final readonly class Judging
             ? $this->pullRequestFailures($lowered, $verdicts, $security)->and($missed)
             : $missed;
         $warnings = new VerdictWarnings($this->adapters, $this->settings);
+        $owners = CodeOwnersFile::of($this->adapters->changes, $plan);
 
         $verdict = Verdict::of($verdicts, $heldTo)
-            ->withSets(HeldSets::of($newCode, $security))
+            ->withSets(
+                HeldSets::of($newCode, $security)->owned(OwnerVerdicts::of($verdicts, $owners, $this->uncovered())),
+            )
             ->withReach($plan->considered()->reach())
             ->withMatrix($matrix)
-            ->withWarnings($warnings->of($plan, $verdicts, $shards, $map)->and($warnings->unfloored($security)))
+            ->withWarnings(
+                $warnings->of($plan, $verdicts, $shards, $map)
+                    ->and($warnings->unfloored($security))
+                    ->and($owners->warnings()),
+            )
             ->withFailures($failures);
 
         foreach ($verdicts as $tree) {
@@ -400,6 +409,12 @@ final readonly class Judging
         }
 
         return $verdict;
+    }
+
+    /** How uncovered mutants count in every score, as the config says. */
+    private function uncovered(): Uncovered
+    {
+        return Uncovered::from($this->settings->floors()->uncovered()->value);
     }
 
     /** Why each held unit its holding tests miss lines of fails. */

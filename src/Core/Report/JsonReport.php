@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report;
 
+use function array_map;
 use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -13,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Matrix\NotFull;
 use NightWorksIO\MutationGate\Core\Matrix\SuiteScore;
 use NightWorksIO\MutationGate\Core\Matrix\SuiteScores;
+use NightWorksIO\MutationGate\Core\Owner\Owner;
 use NightWorksIO\MutationGate\Core\Reach\Reason as Cause;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
@@ -32,6 +34,7 @@ use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnit;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdict;
+use NightWorksIO\MutationGate\Core\Verdict\OwnerVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
@@ -92,6 +95,14 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  *     counts: Numbers,
  *     mutants: list<string>,
  * }
+ * @phpstan-type OwnerEntry array{
+ *     owners: list<string>,
+ *     score?: float,
+ *     judgement: string,
+ *     said: string,
+ *     counts: Numbers,
+ *     mutants: list<string>,
+ * }
  * @phpstan-type SuiteEntry array{
  *     name: string,
  *     covered: int,
@@ -112,6 +123,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  *     trees: list<TreeEntry>,
  *     newCode: list<NewCodeEntry>,
  *     security: list<SecurityEntry>,
+ *     owners: list<OwnerEntry>,
  *     suites: list<SuiteEntry>,
  *     suitesUnscored?: string,
  *     suitesLowerBound?: string,
@@ -164,6 +176,7 @@ final readonly class JsonReport
             'trees' => self::each($verdict->trees(), self::tree(...)),
             'newCode' => self::each($verdict->sets()->newCode(), self::newCode(...)),
             'security' => self::each($verdict->sets()->security(), self::security(...)),
+            'owners' => self::each($verdict->sets()->owners(), self::owner(...)),
             ...self::suites(SuiteScores::of($verdict), $verdict->matrix()->whyNotFull()),
             'matrix' => $verdict->matrix()->kind()->value,
             'tests' => self::each(
@@ -316,6 +329,19 @@ final readonly class JsonReport
             'said' => SetText::security($set),
             'counts' => self::counts($set->counts()),
             'mutants' => self::ids($set->mutants()),
+        ];
+    }
+
+    /** @return OwnerEntry */
+    private static function owner(OwnerVerdict $group): array
+    {
+        return [
+            'owners' => array_map(static fn(Owner $owner): string => $owner->value(), [...$group->group()]),
+            ...self::scored($group->score()),
+            'judgement' => $group->judgement()->value,
+            'said' => SetText::owners($group),
+            'counts' => self::counts($group->counts()),
+            'mutants' => self::ids($group->mutants()),
         ];
     }
 

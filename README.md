@@ -186,7 +186,8 @@ The first release is tagged when every row says *yes*.
 | | A native runner for Testo | not yet | [0027](.docs/decisions/0027-codeception-phpspec-and-testo-get-native-runners.md) |
 | | Weak assertions, found and paired with the survivors they let through | yes | [0025](.docs/decisions/0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions.md) |
 | | A score per test suite | yes | [0025](.docs/decisions/0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions.md) |
-| | Survivors grouped by code owner, with owners mentioned and floors per owner | not yet | [0022](.docs/decisions/0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md) |
+| | Survivors grouped by code owner, from the CODEOWNERS at the base, with each group's score in the JSON report | yes | [0022](.docs/decisions/0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md) |
+| | Owners mentioned once per pull request, and floors per owner | not yet | [0022](.docs/decisions/0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md) |
 | | Survivors with one cause clustered into one item with one suggested test | yes | [0022](.docs/decisions/0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md) |
 | | Survivors in SonarQube's issue list, through its generic external-issues format | yes | [0028](.docs/decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) |
 | **Local use** | Watch mode and a pre-push hook | yes | [0010](.docs/decisions/0010-the-gate-runs-while-you-work-and-before-you-push.md) |
