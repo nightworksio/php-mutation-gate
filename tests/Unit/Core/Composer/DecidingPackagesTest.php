@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Registry\FirstPartyPackage;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Locks;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
@@ -28,6 +29,12 @@ it('decides only where a moved package matches a name or a pattern of names', fu
     'only a package no pattern names' => [fn(): Contents => Locks::of(['pestphp/pest' => '5.2.1', 'nikic/php-parser' => '5.6.0', 'symfony/console' => '8.1.9']), false],
     'nothing' => [fn(): Contents => Locks::of(['pestphp/pest' => '5.2.1', 'nikic/php-parser' => '5.6.0', 'symfony/console' => '8.1.7']), false],
 ]);
+
+it('decides where the gate or a plugin it ships moved, whatever the config names', function (string $package): void {
+    $deciding = DecidingPackages::named(Glob::of('pestphp/*'));
+
+    expect($deciding->decide(Locks::of([$package => '0.1.0']), Locks::of([$package => '0.1.1'])))->toBeTrue();
+})->with(fn(): array => array_map(static fn(FirstPartyPackage $package): string => $package->value, FirstPartyPackage::cases()));
 
 it('decides where a key besides the package lists moved, or either lock cannot be read', function (Contents $now): void {
     $deciding = DecidingPackages::named(Glob::of('pestphp/*'));
