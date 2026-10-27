@@ -11,6 +11,14 @@ it('is no archive where the gate runs from Composer\'s installation', function (
     expect(OwnArchive::running())->toEqual(NotGiven::value());
 });
 
+it('is the archive whose root PHP names, and none where PHP names no archive\'s root', function (): void {
+    $archive = OwnArchive::rootedAt('phar:///opt/mutation-gate.phar');
+
+    expect($archive instanceof OwnArchive ? $archive->file() : $archive)->toBe('/opt/mutation-gate.phar')
+        ->and(OwnArchive::rootedAt(''))->toEqual(NotGiven::value())
+        ->and(OwnArchive::rootedAt('/opt/mutation-gate.phar'))->toEqual(NotGiven::value());
+});
+
 it('opens its scripts and its files inside the archive it runs from', function (): void {
     $archive = OwnArchive::at('/opt/mutation-gate.phar');
 
@@ -32,7 +40,9 @@ it('runs the script a command line names first, and none where its first argumen
 
     expect($archive->scriptAskedBy('/opt/mutation-gate.phar', 'mutation-gate-worker', '/p/vendor/autoload.php'))->toBe(OwnScript::Worker)
         ->and($archive->scriptAskedBy('/opt/mutation-gate.phar', 'run', 'mutation-gate-worker'))->toEqual(NotGiven::value())
-        ->and($archive->scriptAskedBy('/opt/mutation-gate.phar'))->toEqual(NotGiven::value());
+        ->and($archive->scriptAskedBy('/opt/mutation-gate.phar', 'mutation-gate-phpspec'))->toBe(OwnScript::PhpSpec)
+        ->and($archive->scriptAskedBy('/opt/mutation-gate.phar'))->toEqual(NotGiven::value())
+        ->and($archive->scriptAskedBy())->toEqual(NotGiven::value());
 });
 
 it('is known by the name its stub maps it to', function (): void {

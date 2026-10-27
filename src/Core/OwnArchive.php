@@ -4,9 +4,14 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core;
 
+use function count;
+use function mb_strlen;
+use function mb_substr;
+
 use Phar;
 
 use function sprintf;
+use function str_starts_with;
 use function var_export;
 
 /**
@@ -28,6 +33,9 @@ final readonly class OwnArchive
     /** How PHP opens the archive's root. */
     private const string ROOT = 'phar://%s';
 
+    /** How PHP names a file inside an archive, before the archive's own path. */
+    private const string SCHEME = 'phar://';
+
     /** How PHP opens a file in the archive. */
     private const string INSIDE = 'phar://%s/%s';
 
@@ -47,9 +55,15 @@ final readonly class OwnArchive
     /** The archive this process runs from; none where it runs from Composer's installation. */
     public static function running(): self|NotGiven
     {
-        $file = Phar::running(returnPhar: false);
+        return self::rootedAt(Phar::running());
+    }
 
-        return $file === '' ? NotGiven::value() : new self($file);
+    /** The archive whose root PHP opens at this URL; none where it is no archive's root, as outside one it is empty. */
+    public static function rootedAt(string $root): self|NotGiven
+    {
+        return str_starts_with($root, self::SCHEME)
+            ? new self(mb_substr($root, mb_strlen(self::SCHEME)))
+            : NotGiven::value();
     }
 
     /** The archive at this file, as a test names one. */
@@ -97,8 +111,8 @@ final readonly class OwnArchive
     /** The script of the gate's own a command line starts the archive as: its first argument, where it names one. */
     public function scriptAskedBy(string ...$arguments): OwnScript|NotGiven
     {
-        [, $asked] = [...$arguments, '', ''];
+        $asked = count($arguments) > 1 ? OwnScript::tryFrom($arguments[1]) : null;
 
-        return OwnScript::tryFrom($asked) ?? NotGiven::value();
+        return $asked ?? NotGiven::value();
     }
 }
