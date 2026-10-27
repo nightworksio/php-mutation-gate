@@ -26,7 +26,7 @@ command line:
 | `github-annotations` | Under GitHub Actions | Up to 10 error, 10 warning and 10 notice annotations, changed lines first, and one for each cluster of survivors |
 | `github-summary` | Under GitHub Actions | The step summary: what a timed run took and saved, what the default branch saved over 30 days, what pruning left out, what each suite alone kills, and every mutant counted as not killed in one table, or one table per owner group where the project has a CODEOWNERS, a cluster of survivors as one row, and every ignored mutant with why in another |
 | `github-comment` | On a pull request, with `GITHUB_TOKEN` | One sticky comment, updated in place, headed `sampled` for a sampled run, with what a timed run took and saved and what pruning left out under the verdict, the survivors on changed lines under their owner group where the project has a CODEOWNERS, up to 20 ignored mutants with why, and what it cost folded at the end, within the 65,536 characters GitHub takes: each list shows fewer entries where it must, and each diff and hint at most 1,500 characters; `with: {identity: …}` names the account it is found by when the token is not `GITHUB_TOKEN` |
-| `badge` | In CI, on the default branch | `badge.json`, `trend.json`, `trend.svg` and `savings.json` in `--publish-dir`; a run its budget cut short, or a sampled run, writes none of them |
+| `badge` | In CI, on the default branch | `badge.json`, `trend.json`, `trend.svg`, `savings.json` and `summary.json`, described by [`resources/summary.schema.json`](../../resources/summary.schema.json), in `--publish-dir`; a run its budget cut short, or a sampled run, writes none of them |
 
 ## SonarQube
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Dashboard;
 
 use function array_map;
+use function in_array;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
@@ -51,7 +52,7 @@ final readonly class Published
     public static function read(string $json): self|CannotJudge
     {
         try {
-            return self::readFrom(Node::decode($json, 'summary.json'));
+            return self::readFrom(Node::decode($json, Summary::FILE));
         } catch (NotInShape $misread) {
             return CannotJudge::because(sprintf(self::UNREAD, $misread->getMessage()));
         }
@@ -122,7 +123,7 @@ final readonly class Published
         return new self(
             $summary->field('commit')->text(),
             self::instant($summary->field('time')),
-            self::verdict($summary->field('verdict')),
+            self::judgementIn($summary->field('verdict')),
             $score->isPresent() ? Score::ofHundredths(self::hundredths($score)) : NothingToMutate::found(),
             array_map(self::tree(...), $summary->field('trees')->items()),
             Floor::ofHundredths(self::hundredths($summary->field('newCode')->field('floor'))),
@@ -170,11 +171,13 @@ final readonly class Published
     }
 
     /** @throws NotInShape */
-    private static function verdict(Node $verdict): Judgement
+    private static function judgementIn(Node $verdict): Judgement
     {
         $judgement = Judgement::tryFrom($verdict->text());
 
-        return $judgement === Judgement::Passed || $judgement === Judgement::Failed || $judgement === Judgement::CannotJudge
+        $published = [Judgement::Passed, Judgement::Failed, Judgement::CannotJudge];
+
+        return in_array($judgement, $published, strict: true)
             ? $judgement
             : throw NotInShape::at($verdict->at(), 'passed, failed or cannot-judge');
     }

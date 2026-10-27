@@ -265,6 +265,9 @@ services:
                 'NightWorksIO\MutationGate\Core\Config\Pruning':
                     - WINDOW # judged mutants a mutator's window holds, not trend entries kept
                     - AUDIT_DAYS # days a pruned result may be carried, not a run status
+                'NightWorksIO\MutationGate\Adapter\GitHub\Organisation':
+                    - PER_PAGE # GitHub's most repositories on one page, not hundredths of a percent
+                    - MOST_PAGES # pages of repositories a dashboard reads, not checks a mutator's rate is learned from
                 'NightWorksIO\MutationGate\Core\Delivery\DeliveryFile':
                     - LEDGER_KEY # a key of the delivery, not the workspace's directory
                     - OTLP # a key of the delivery, not the reporter's name

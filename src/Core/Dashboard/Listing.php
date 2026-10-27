@@ -23,8 +23,13 @@ final readonly class Listing
     ) {
     }
 
-    public static function of(string $name, string $url, bool $private, Published|CannotJudge $published, Trend $trend): self
-    {
+    public static function of(
+        string $name,
+        string $url,
+        bool $private,
+        Published|CannotJudge $published,
+        Trend $trend,
+    ): self {
         return new self($name, $url, $private, $published, $trend);
     }
 

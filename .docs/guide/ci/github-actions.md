@@ -299,9 +299,9 @@ These reporters run on their own under GitHub Actions
   opens the page. It is found as the comment is written, with
   `actions: read`, so a comment updated in place links the run that wrote
   it. Where the run holds no such artifact, the comment says why instead.
-- **`badge`**: on the default branch, `badge.json`, `trend.json`, `trend.svg`
-  and `savings.json` in `--publish-dir` (`.mutation-gate/publish` by
-  default). Publishing that directory is up to your workflow. Published to a
+- **`badge`**: on the default branch, `badge.json`, `trend.json`, `trend.svg`,
+  `savings.json` and `summary.json`, what an organisation's dashboard reads,
+  in `--publish-dir` (`.mutation-gate/publish` by default). Publishing that directory is up to your workflow. Published to a
   branch named `mutation-gate`, the badge reads:
 
   ```markdown
@@ -321,6 +321,67 @@ pull request's verdict proves its commit, so a job named otherwise needs
 `ci.check` set to its name. The verdict says *cannot judge* (exit code 2)
 when the plan could not judge, or when any planned shard left no result.
 Run it on a schedule as well: the full run, twice a week in the examples.
+
+## An organisation's dashboard
+
+`mutation-gate dashboard --org=<org> --out=<dir>` builds one page of every
+repository of an organisation that published a summary, with its verdict,
+score and trend, the trees below their floors and the time the gate saved
+it over 30 days, and the same as `dashboard.json` ([ADR-0024](../../decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md)). It reads
+each repository's `mutation-gate` branch, where the reusable workflow
+publishes, through GitHub's API with `GITHUB_TOKEN`, and shows the
+repositories with the topic `dashboard.topic` (`mutation-gate` by default),
+or those `dashboard.repositories` names.
+
+A repository of the organisation whose `composer.json` requires the gate,
+as a project's does, builds it daily and deploys it to its Pages site, with
+Pages set to deploy from GitHub Actions; its config, if any, holds the
+`dashboard` keys alone. The token reads
+every repository it shows; for private ones, a fine-grained token with
+`contents: read`, stored as a secret:
+
+```yaml
+name: dashboard
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  dashboard:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.5'
+      - run: composer install --no-interaction --no-progress
+      - run: vendor/bin/mutation-gate dashboard --org="${GITHUB_REPOSITORY_OWNER}" --out=site
+        env:
+          GITHUB_TOKEN: ${{ secrets.MUTATION_GATE_DASHBOARD_TOKEN }}
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+```
+
+It runs on the schedule and by hand only, and runs no pull request's code.
+A private or internal repository is left out unless `--include-private` is
+given, and then the dashboard refuses to build unless GitHub says the Pages
+site of the repository it runs in is private, which needs GitHub Enterprise
+Cloud.
 
 ## Proofs
 

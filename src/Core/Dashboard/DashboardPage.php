@@ -8,6 +8,7 @@ use function count;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Http\Origin;
 use NightWorksIO\MutationGate\Core\Report\Page\Html;
 use NightWorksIO\MutationGate\Core\Report\Percent;
 use NightWorksIO\MutationGate\Core\Report\TrendSvg;
@@ -93,9 +94,6 @@ final readonly class DashboardPage
 
     private const string BELOW = '<li><code>%s</code> %s, below %s</li>';
 
-    /** The scheme a repository's address must have for the page to link it. */
-    private const string SECURE = 'https://';
-
     public static function html(Dashboard $dashboard, string $style, string $script): string
     {
         $rows = [];
@@ -103,7 +101,12 @@ final readonly class DashboardPage
         foreach ($dashboard->listings() as $listing) {
             $published = $listing->published();
             $rows[] = $published instanceof CannotJudge
-                ? sprintf(self::UNPUBLISHED, Html::text($listing->name()), self::name($listing), Html::text($published->why()))
+                ? sprintf(
+                    self::UNPUBLISHED,
+                    Html::text($listing->name()),
+                    self::name($listing),
+                    Html::text($published->why()),
+                )
                 : self::row($listing, $published);
         }
 
@@ -113,7 +116,12 @@ final readonly class DashboardPage
             self::PAGE,
             Html::text($dashboard->organisation()),
             $style,
-            Html::text(sprintf(self::LEAD, $count, $count === 1 ? 'repository' : 'repositories', $dashboard->time()->value())),
+            Html::text(sprintf(
+                self::LEAD,
+                $count,
+                $count === 1 ? 'repository' : 'repositories',
+                $dashboard->time()->value(),
+            )),
             implode("\n", $rows),
             $script,
         );
@@ -155,7 +163,7 @@ final readonly class DashboardPage
     private static function name(Listing $listing): string
     {
         $name = Html::text($listing->name());
-        $linked = str_starts_with($listing->url(), self::SECURE)
+        $linked = str_starts_with($listing->url(), Origin::SECURE)
             ? sprintf(self::LINK, Html::text($listing->url()), $name)
             : $name;
 

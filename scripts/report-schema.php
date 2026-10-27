@@ -13,11 +13,11 @@ use NightWorksIO\MutationGate\Core\Doctor\DoctorSchema;
 use NightWorksIO\MutationGate\Core\Report\ReportSchema;
 use NightWorksIO\MutationGate\Core\Report\SummarySchema;
 
-require dirname(__DIR__) . '/vendor/autoload.php';
+require __DIR__ . '/../vendor/autoload.php';
 
-file_put_contents(dirname(__DIR__) . '/resources/report.schema.json', ReportSchema::json() . "\n");
-file_put_contents(dirname(__DIR__) . '/resources/tests.schema.json', ReportSchema::tests() . "\n");
-file_put_contents(dirname(__DIR__) . '/resources/doctor.schema.json', DoctorSchema::json() . "\n");
-file_put_contents(dirname(__DIR__) . '/resources/webhook.schema.json', ReportSchema::webhook() . "\n");
-file_put_contents(dirname(__DIR__) . '/resources/explain.schema.json', ReportSchema::explain() . "\n");
-file_put_contents(dirname(__DIR__) . '/resources/summary.schema.json', SummarySchema::json() . "\n");
+file_put_contents(__DIR__ . '/../resources/report.schema.json', ReportSchema::json() . "\n");
+file_put_contents(__DIR__ . '/../resources/tests.schema.json', ReportSchema::tests() . "\n");
+file_put_contents(__DIR__ . '/../resources/doctor.schema.json', DoctorSchema::json() . "\n");
+file_put_contents(__DIR__ . '/../resources/webhook.schema.json', ReportSchema::webhook() . "\n");
+file_put_contents(__DIR__ . '/../resources/explain.schema.json', ReportSchema::explain() . "\n");
+file_put_contents(__DIR__ . '/../resources/summary.schema.json', SummarySchema::json() . "\n");

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Dashboard;
 
-use function array_map;
 use function array_values;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -73,16 +72,22 @@ final readonly class Dashboard
     /** `dashboard.json`. */
     public function json(): string
     {
+        $repositories = [];
+
+        foreach ($this->listings as $listing) {
+            $repositories[] = $this->entry($listing);
+        }
+
         return JsonText::encode([
             'format' => self::FORMAT,
             'organisation' => $this->organisation,
             'time' => $this->time->value(),
-            'repositories' => array_map(self::entry(...), $this->listings),
+            'repositories' => $repositories,
         ]);
     }
 
     /** @return RepositoryEntry */
-    private static function entry(Listing $listing): array
+    private function entry(Listing $listing): array
     {
         $published = $listing->published();
         $listed = ['name' => $listing->name(), 'url' => $listing->url(), 'private' => $listing->isPrivate()];
@@ -93,6 +98,15 @@ final readonly class Dashboard
 
         $score = $published->score();
         $saved = $published->saved();
+        $below = [];
+
+        foreach ($published->belowFloor() as $tree) {
+            $below[] = [
+                'path' => $tree->path(),
+                'floor' => $tree->floor()->percent(),
+                'score' => $tree->score()->percent(),
+            ];
+        }
 
         return [
             ...$listed,
@@ -100,14 +114,8 @@ final readonly class Dashboard
             'time' => $published->time()->value(),
             'verdict' => $published->verdict()->value,
             ...$score instanceof Score ? ['score' => $score->percent()] : [],
-            'belowFloor' => array_map(self::below(...), $published->belowFloor()),
+            'belowFloor' => $below,
             ...$saved instanceof Seconds ? ['savedLast30Days' => $saved->seconds()] : [],
         ];
-    }
-
-    /** @return BelowEntry */
-    private static function below(TreeBelow $tree): array
-    {
-        return ['path' => $tree->path(), 'floor' => $tree->floor()->percent(), 'score' => $tree->score()->percent()];
     }
 }

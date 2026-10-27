@@ -38,6 +38,9 @@ final readonly class Summary
 {
     public const int FORMAT = 1;
 
+    /** The file it is written to, beside the badge. */
+    public const string FILE = 'summary.json';
+
     /** @return Document */
     public static function of(
         Verdict $verdict,

@@ -37,6 +37,12 @@ final readonly class Answer
         return Lenient::boolean($this->at($keys), otherwise: false);
     }
 
+    /** Whether the value at a path of keys is false; not where it is anything else, or there is none. */
+    public function isFalse(string ...$keys): bool
+    {
+        return ! Lenient::boolean($this->at($keys), otherwise: true);
+    }
+
     /** The number at a path of keys, or 0 where there is none. */
     public function number(string ...$keys): int
     {
@@ -54,6 +60,23 @@ final readonly class Answer
             static fn(Node $item): self => new self($item),
             array_values(array_filter(Lenient::items($this->at($keys)), Lenient::holdsMembers(...))),
         );
+    }
+
+    /**
+     * The texts in the list at a path of keys, each item that is not one left out.
+     *
+     * @return list<string>
+     */
+    public function texts(string ...$keys): array
+    {
+        $texts = [];
+
+        foreach (Lenient::items($this->at($keys)) as $item) {
+            $text = Lenient::text($item);
+            $texts = $text === '' ? $texts : [...$texts, $text];
+        }
+
+        return $texts;
     }
 
     /** @param array<string> $keys */

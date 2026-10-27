@@ -52,13 +52,13 @@ final readonly class BadgeDirectory implements Reporter
 
     public const string BADGE = 'badge.json';
 
-    public const string TREND = 'trend.json';
+    public const string TREND = Trend::FILE;
 
     public const string SPARKLINE = 'trend.svg';
 
     public const string SAVINGS = 'savings.json';
 
-    public const string SUMMARY = 'summary.json';
+    public const string SUMMARY = Summary::FILE;
     /** What `colors` holds, where it holds anything else. */
     private const string BANDS = 'Each badge colour maps to the lowest score that earns it.';
 

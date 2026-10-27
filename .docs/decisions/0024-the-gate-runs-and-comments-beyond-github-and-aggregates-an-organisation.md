@@ -341,6 +341,14 @@ documentation, are these.
       (ADR-0009), in tables that sort.
     - The command lives in `Cli`, reads through `Adapter\GitHub`, and
       aggregates in `Core`.
+    - `dashboard.repositories` names repositories within the organisation.
+      One GitHub does not show is listed as private, with why, so a public
+      site leaves it out. The command reads its keys from the config file
+      alone, so the repository that builds the site needs no runner.
+    - `dashboard.json` is `"format": 1`: the organisation, the time, and
+      each repository's name, address, whether it is private, and its
+      commit, time, verdict, score, trees below their floors and savings,
+      or why it published nothing.
 
 15. **Each repository publishes `summary.json` for it.** The default branch's
     verdict writes it beside `badge.json`, `trend.json`, `trend.svg` and
@@ -350,13 +358,16 @@ documentation, are these.
     { "format": 1, "commit": "3f9a1c2…", "time": "2026-09-30T10:00:00Z", "verdict": "passed", "score": 87.41, "trees": [ { "path": "src", "floor": 83.41, "score": 87.41 } ], "newCode": { "floor": 100 }, "savings": { "last30Days": 147600 } }
     ```
 
-    `savings.last30Days` is in seconds. Its format is public API. This amends
-    ADR-0009 and ADR-0011.
+    `savings.last30Days` is in seconds. A set with nothing to mutate has no
+    `score`, a tree held to no floor no `floor`, and a run with no history of
+    what it saved no `savings`. `resources/summary.schema.json` describes it.
+    Its format is public API. This amends ADR-0009 and ADR-0011.
 
 16. **A public site never shows a private repository.** Private and internal
     repositories are left out unless `--include-private` is given. Then
     `dashboard` refuses to render unless the Pages site is private, which it
-    reads from the Pages API. The token reads contents only. This amends
+    reads from the Pages API for the repository it runs in,
+    `GITHUB_REPOSITORY`: GitHub must answer `public: false`. The token reads contents only. This amends
     ADR-0011.
 
 ## Alternatives considered

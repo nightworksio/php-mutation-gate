@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\PresetSet;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Config\Publishing;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\Setup;
 use NightWorksIO\MutationGate\Core\Config\Shards;
@@ -459,3 +460,29 @@ it('reads what the config file reads beside itself, none without one, and names 
         ->toBe('More than one config file is here: mutation-gate.php, mutation-gate.json. Keep one, or name one with --config.')
         ->and($toml->unnamedBecause())->toBe(sprintf('No config loader reads %s/gate.toml. Name a mutation-gate.php, .json, .yaml, .yml or .neon file.', $project));
 });
+
+it('reads what the config file sets of the dashboard on its own, needing no runner, over every default', function () use ($effective, $nothing): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'mutation-gate.json', '{"dashboard": {"repositories": ["api", "web"]}, "badge": {"colors": {"green": 90}}}');
+    $publishing = $effective($project)->publishing($nothing());
+    $bare = $effective(Scratch::directory())->publishing($nothing());
+
+    expect($publishing instanceof Publishing ? [...$publishing->repositories() instanceof Listed ? $publishing->repositories() : []] : $publishing)->toBe(['api', 'web'])
+        ->and($publishing instanceof Publishing ? $publishing->topic() : $publishing)->toBe('mutation-gate')
+        ->and($publishing instanceof Publishing ? [...$publishing->colors()] : $publishing)->toBe(['green' => 90])
+        ->and($bare instanceof Publishing ? $bare->repositories() : $bare)->toBeInstanceOf(Absent::class)
+        ->and($bare instanceof Publishing ? $bare->topic() : $bare)->toBe('mutation-gate');
+});
+
+it('says why it cannot read what the config file sets of the dashboard', function (string $config, string $at) use ($effective, $nothing): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'mutation-gate.json', $config);
+    $read = $effective($project)->publishing($nothing());
+
+    expect($read)->toBeInstanceOf(Invalid::class)
+        ->and($read instanceof Invalid ? array_map(static fn(Problem $problem): string => $problem->path(), [...$read]) : [])->toBe([$at]);
+})->with([
+    'a topic with capitals' => ['{"dashboard": {"topic": "Mutation-Gate"}}', 'dashboard.topic'],
+    'a topic past 50 characters' => [fn(): string => sprintf('{"dashboard": {"topic": "%s"}}', str_repeat('a', 51)), 'dashboard.topic'],
+    'a name with a slash' => ['{"dashboard": {"repositories": ["acme/api"]}}', 'dashboard.repositories[0]'],
+]);
