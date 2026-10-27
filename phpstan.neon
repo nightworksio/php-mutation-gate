@@ -247,10 +247,6 @@ services:
                     - ACTION # a key of CaptainHook's config, not hook's argument
                 'NightWorksIO\MutationGate\Core\Push\PreCommitPush':
                     - LINE # git's four fields of a pushed ref, not a proof's run
-                'NightWorksIO\MutationGateComposer\MutateCommand':
-                    - PACKAGE # the Composer plugin names nothing of the gate (A7), not ThisPackage's
-                    - GATE # the Composer plugin names nothing of the gate (A7), not ThisPackage's
-                    - CANNOT_RUN # the plugin's own exit code, as the gate's is, from outside it
                 'NightWorksIO\MutationGate\Core\Migration\UnifiedDiff':
                     - CONTEXT # unchanged lines shown around a change, not letters per edit
                 'NightWorksIO\MutationGate\Core\Php\Spec':

@@ -156,7 +156,7 @@ jobs:
         if: failure()
         run: python3 .github/scripts/gate_summary.py end-to-end/warm-workers
 
-  # ADR-0024: composer mutate through the plugin, and
+  # ADR-0024: composer mutate through the script init adds, and
   # init --hook's recipes, run by the real hook managers, committing and
   # pushing through each.
   hook-managers:

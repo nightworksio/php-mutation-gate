@@ -121,12 +121,14 @@ the test process never reaches that process.
    - **Listing.** A run that selects no example lists every example and its
      holding groups to a file.
 
-5. **Testo: supported at 1.0, pinned exactly.**
-   - **The pin.** `composer.json` declares a `conflict` outside the Testo
-     releases the Runner contract suite has passed, as it does for
-     pest-plugin-mutate (ADR-0004), and the daily runner canary
-     (ADR-0017) names the `conflict` line to write when a newer
-     release passes.
+5. **Testo: supported at 0.10, pinned exactly, until 1.0.**
+   - **The pin.** 0.1.0 supports Testo 0.10.x, pinned exactly: `composer.json`
+     declares a `conflict` outside the Testo releases the Runner contract
+     suite has passed, as it does for pest-plugin-mutate (ADR-0004), and the
+     daily runner canary (ADR-0017) names the `conflict` line to write when
+     a newer release passes.
+   - **1.0.** The range widens to Testo 1.0 in a minor release, once the
+     Runner contract suite passes against it.
    - **The first failure.** A gate Testo plugin answers the first failing
      `TestFinished` by cancelling the tests that remain (`CancelTest`). The
      first step of the build proves that a plugin can do so. If it cannot, a

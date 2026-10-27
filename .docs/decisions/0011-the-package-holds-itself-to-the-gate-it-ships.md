@@ -349,13 +349,17 @@ about Laravel, NativePHP or the project's modules, and does not.
      each is implemented, tested, gated at 100% and documented in the README.
      Nothing is tagged before that: no release candidates. Until then a
      project can require `dev-main`.
+   - **No package registry.** The gate is published to no registry, Packagist
+     included. A project requires a release's tag, or a commit, from this
+     repository through a Composer `vcs` repository, as the README's quick
+     start does.
    - **Each release** is a signed tag on `main` and a GitHub release with notes
      drawn from the conventional commits: the version's `CHANGELOG.md`
      section, generated and then edited before the tag (ADR-0018). The
      release workflow publishes nothing for a tag whose signature the
      repository's allowed signers do not verify, or that points off `main`,
      and a tag ruleset lets only the maintainer create `v*` tags
-     (ADR-0019). Packagist follows through GitHub's webhook.
+     (ADR-0019).
 
 10. **Supported versions at 0.1.0.**
 
@@ -420,5 +424,5 @@ points at the ADR that decides it.
 - [ADR-0029](0029-a-caller-passes-the-store-secrets-by-name.md): the reusable workflow's secrets, passed by name
 - [ADR-0035](0035-the-reusable-workflow-runs-on-the-runner-its-caller-names.md): the reusable workflow's own inputs, `coverage` and `runs-on`
 - [ADR-0023](0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md): the native PHPUnit runner
-- [ADR-0024](0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md): the Composer plugin published from `plugins/composer`, and the `.pre-commit-hooks.yaml` ids
+- [ADR-0024](0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md): the `.pre-commit-hooks.yaml` ids
 - [ADR-0027](0027-codeception-phpspec-and-testo-get-native-runners.md): the Codeception, PhpSpec and Testo runners

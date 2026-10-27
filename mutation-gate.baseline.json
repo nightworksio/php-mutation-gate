@@ -1,7 +1,6 @@
 {
     "format": 1,
     "trees": {
-        "plugins/composer/src": { "floor": 100 },
         "plugins/default/src": { "floor": 100 },
         "plugins/laravel/src": { "floor": 100 },
         "plugins/security/src": { "floor": 100 },

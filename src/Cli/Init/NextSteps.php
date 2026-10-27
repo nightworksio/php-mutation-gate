@@ -21,9 +21,7 @@ use function sprintf;
 
 /**
  * What `init` says to do once it has set the project up (ADR-0017,
- * ADR-0024): `doctor`, the first run, and `git add` of the files it wrote;
- * and, where a person asked for `composer mutate`, the two Composer
- * commands that add the plugin, and the root script that needs none.
+ * ADR-0024): `doctor`, the first run, and `git add` of the files it wrote.
  */
 final readonly class NextSteps
 {
@@ -33,14 +31,6 @@ final readonly class NextSteps
     private const string NEXT = "Next:\n  %s doctor\n  %s";
 
     private const string ADD = "%s\n  git add %s";
-
-    private const string PLUGIN = <<<'SAID'
-        To add composer mutate, from the optional Composer plugin:
-          composer config allow-plugins.nightworksio/mutation-gate-composer true
-          composer require --dev nightworksio/mutation-gate-composer
-        Or, with no plugin, add this to the scripts in composer.json:
-          "mutate": ["Composer\\Config::disableProcessTimeout", "mutation-gate"]
-        SAID;
 
     /** @param list<string> $before the files git would add before `init` wrote anything */
     private function __construct(private string $project, private array $before)
@@ -64,12 +54,6 @@ final readonly class NextSteps
         return $written === []
             ? $next
             : sprintf(self::ADD, $next, implode(' ', array_map(ShellWord::of(...), $written)));
-    }
-
-    /** How to add `composer mutate`. */
-    public static function plugin(): string
-    {
-        return self::PLUGIN;
     }
 
     /**

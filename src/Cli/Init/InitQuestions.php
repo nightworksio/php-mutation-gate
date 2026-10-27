@@ -60,7 +60,7 @@ final readonly class InitQuestions
 
     private const string HOOKS = 'Where should the gate\'s pre-push hook be set up?';
 
-    private const string PLUGIN = 'Add composer mutate, from the optional Composer plugin?';
+    private const string SCRIPT = 'Add composer mutate to the scripts in composer.json?';
 
     public function __construct(private Asking $asking, private string $project, private Detected $detected)
     {
@@ -150,9 +150,9 @@ final readonly class InitQuestions
     }
 
     /** Whether a person asks for `composer mutate`; nobody asked, nobody does. */
-    public function plugin(): bool
+    public function script(): bool
     {
-        return $this->asking->confirms(self::PLUGIN, default: false);
+        return $this->asking->confirms(self::SCRIPT, default: false);
     }
 
     /** The runner a person chose where two are installed and nothing chooses one; none where nobody is asked. */

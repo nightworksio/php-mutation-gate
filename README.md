@@ -26,10 +26,10 @@ decides:
 Every surviving mutant arrives with the one command that reproduces it and a
 sentence saying what the tests miss.
 
-> **Not released yet.** No version is tagged and nothing is on Packagist, so
-> install it from this repository, as the quick start shows. The first
-> release is 1.0.0, tagged when every feature in the [table](#features) is
-> built.
+> **Not released yet.** No version is tagged, and the gate is published to no
+> package registry: install it from this repository, as the quick start
+> shows. The first release is 0.1.0, tagged when every feature in the
+> [table](#features) is built.
 
 ## Requirements
 
@@ -65,8 +65,9 @@ composer require --dev "nightworksio/mutation-gate:dev-main" -W
 ```
 
 `-W` lets Composer move `pestphp/pest-plugin-mutate` to the release the gate
-has tested, which it pins exactly. To pin a commit instead of following
-`main`, require `dev-main#<commit>`.
+has tested, which it pins exactly. `composer.lock` holds the commit it
+installed, and `composer update nightworksio/mutation-gate` moves it to the
+head of `main`.
 
 Set the project up, then run the gate:
 
@@ -159,7 +160,7 @@ The first release is tagged when every row says *yes*.
 | | `migrate`: a config and a baseline moved to the current format, in any of the four formats | yes | [0026](.docs/decisions/0026-configs-and-baselines-move-forward-with-one-command.md) |
 | | A signed PHAR and a multi-arch container image beside the Composer package | not yet | [0022](.docs/decisions/0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md) |
 | | `init --hook`: the gate in CaptainHook, GrumPHP and the pre-commit framework | yes | [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
-| | `composer mutate`, from an optional Composer plugin | not yet: the plugin is in `plugins/composer`, and is not published | [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
+| | `composer mutate`: a root script `init` adds to `composer.json` | yes | [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
 | **CI and speed** | A cost model that learns how long each file takes from earlier shards | yes | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | | Sharding on any CI: GitHub Actions, GitLab, Buildkite, CircleCI, Azure DevOps, Bitbucket Pipelines, Jenkins, or a JSON plan | yes | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md), [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
 | | A proof cache keyed by content, stored in the GitHub cache, a directory, S3/R2, Google Cloud Storage or Azure Blob, with OIDC and a public read path for forks | yes | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md), [0028](.docs/decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) |
