@@ -26,10 +26,10 @@ decides:
 Every surviving mutant arrives with the one command that reproduces it and a
 sentence saying what the tests miss.
 
-> **Not released yet.** No version is tagged and nothing is on Packagist, so
-> install it from this repository, as the quick start shows. The first
-> release is 1.0.0, tagged when every feature in the [table](#features) is
-> built.
+> **Not released yet.** No version is tagged, and the gate is published to no
+> package registry: install it from this repository, as the quick start
+> shows. The first release is 0.1.0, tagged when every feature in the
+> [table](#features) is built.
 
 ## Requirements
 

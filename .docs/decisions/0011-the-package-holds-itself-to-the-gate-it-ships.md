@@ -349,13 +349,17 @@ about Laravel, NativePHP or the project's modules, and does not.
      each is implemented, tested, gated at 100% and documented in the README.
      Nothing is tagged before that: no release candidates. Until then a
      project can require `dev-main`.
+   - **No package registry.** The gate is published to no registry, Packagist
+     included. A project requires a release's tag, or a commit, from this
+     repository through a Composer `vcs` repository, as the README's quick
+     start does.
    - **Each release** is a signed tag on `main` and a GitHub release with notes
      drawn from the conventional commits: the version's `CHANGELOG.md`
      section, generated and then edited before the tag (ADR-0018). The
      release workflow publishes nothing for a tag whose signature the
      repository's allowed signers do not verify, or that points off `main`,
      and a tag ruleset lets only the maintainer create `v*` tags
-     (ADR-0019). Packagist follows through GitHub's webhook.
+     (ADR-0019).
 
 10. **Supported versions at 0.1.0.**
 

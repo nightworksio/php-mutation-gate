@@ -243,7 +243,7 @@ adopt the gate from. What exists, read at source and through GitHub's API:
 
 17. **The README's front page.**
     - **At most six badges:**
-      - the Packagist version;
+      - the latest release's version;
       - the PHP version;
       - CI;
       - the package's own mutation score, from its `badge.json` on the
