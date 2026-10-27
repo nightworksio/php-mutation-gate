@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Dashboard;
 
 use function count;
+use function hash;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -15,12 +16,14 @@ use NightWorksIO\MutationGate\Core\Report\TrendSvg;
 use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
+use function sodium_bin2base64;
 use function sprintf;
 use function str_starts_with;
 
 /**
  * An organisation's dashboard as one page (ADR-0024), its style and its
- * script inline, so it loads nothing at view time: a table of every
+ * script inline, so it loads nothing at view time, and a Content Security
+ * Policy that lets it run those alone: a table of every
  * repository it shows, with its verdict, its score and the trend of it as a
  * sparkline, the trees below their floors, the time the gate saved it over
  * the last 30 days and when its latest verdict was; a repository that
@@ -37,6 +40,7 @@ final readonly class DashboardPage
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="color-scheme" content="light dark">
+        <meta http-equiv="Content-Security-Policy" content="%6$s">
         <title>Mutation testing across %1$s</title>
         <style>%2$s</style>
         </head>
@@ -88,6 +92,11 @@ final readonly class DashboardPage
         </tr>
         HTML;
 
+    /** What the page may load and run: its own style and script, by their hashes, and nothing else. */
+    private const string POLICY = "default-src 'none'; style-src '%s'; script-src '%s'";
+
+    private const string HASH = 'sha256-%s';
+
     private const string LINK = '<a href="%s">%s</a>';
 
     private const string PRIVATE = ' <span class="private">private</span>';
@@ -124,6 +133,16 @@ final readonly class DashboardPage
             )),
             implode("\n", $rows),
             $script,
+            sprintf(self::POLICY, self::hash($style), self::hash($script)),
+        );
+    }
+
+    /** The hash a Content Security Policy names an inline style or script by. */
+    private static function hash(string $inline): string
+    {
+        return sprintf(
+            self::HASH,
+            sodium_bin2base64(hash('sha256', $inline, binary: true), SODIUM_BASE64_VARIANT_ORIGINAL),
         );
     }
 

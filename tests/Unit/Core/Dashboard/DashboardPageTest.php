@@ -36,6 +36,9 @@ it('heads the page with the organisation, says how many repositories as of when,
         ->and($two)->toContain('<p class="lead">2 repositories, as of 2026-10-01T06:00:00Z.</p>')
         ->and($one)->toContain('<style>body{margin:0}</style>')
         ->and($one)->toContain('<script>console.log(1)</script>')
+        ->and($one)->toContain(
+            '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'sha256-IAdwN3biDCQ3brrgp1m8kBEsPQYyqfREKOEfeoREopc=\'; script-src \'sha256-CihokcEcBW4atb/CW/XWsvWwbTjqwQlE9nj9ii5ww5M=\'">',
+        )
         ->and($one)->not->toContain('src=')
         ->and($one)->not->toContain('<link');
 });
