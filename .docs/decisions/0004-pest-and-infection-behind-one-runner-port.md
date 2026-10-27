@@ -682,7 +682,11 @@ its parser attributes. Both change when the checkout moves.
        whole map (ADR-0006). So a constant read through `self::RATE`
        inside a covered method is judged by that method's tests. References
        are followed through constant expressions and defaults, at most three
-       steps deep, and a longer chain counts as ambiguous.
+       steps deep, and a longer chain counts as ambiguous. A reference in a
+       method's or a closure's parameter default is judged by the tests
+       covering any line of that function's body, which runs it wherever a
+       call leaves the parameter out; one in an arrow function's or a
+       bodiless method's default counts as ambiguous.
 
      What counts as a reference:
      - `Owner::NAME`, and `self::`, `static::` and `parent::` inside the owner

@@ -143,3 +143,31 @@ it('covers the lines of each value one run can judge with the tests of the files
         ->not->toContain('src/Money.php:6')
         ->and(selectorOver(Unexecutables::project())->readCoverage(Paths::of(Path::of('src/Gone.php')), $onto))->toEqual($onto);
 });
+
+it('chooses the test files that run any line of the body a method\'s parameter default runs in', function (): void {
+    $at = Unexecutables::project();
+    $results = Unexecutables::run($at, []);
+    $root = $at->root();
+    Scratch::write($root, 'src/Feed.php', <<<'PHP'
+        <?php
+        namespace App;
+        final class Feed
+        {
+            public const LIMIT = 5;
+            public function follow(
+                int $limit = self::LIMIT,
+            ): int {
+                $twice = $limit * 2;
+                return $twice;
+            }
+        }
+        PHP);
+    Scratch::write($root, 'tests/FeedSpec.php', "<?php\nit('follows', fn () => new App\\Feed()->follow());\n");
+    $follows = 'P\Tests\FeedSpec::__pest_evaluable_it_follows';
+    CoverageMaps::write(Recorder::coverageBeside($results), sprintf('%s/', $root), ['src/Feed.php' => [10 => [0]]], [$follows], [$follows => 0.1]);
+    $feed = Path::of('src/Feed.php');
+
+    $choice = Selector::over($at, selectorMap($results), Paths::of($feed))->choose(Symbol::constant('App\Feed', 'LIMIT'), $feed);
+
+    expect($choice)->toEqual(Choice::of(selectorTests('FeedSpec'), selectorTests('FeedSpec'), ambiguous: false));
+});

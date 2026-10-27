@@ -14,6 +14,7 @@ use function min;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use PhpToken;
 
 /**
@@ -107,6 +108,28 @@ final readonly class Source
         return SymbolAt::in($this->tokens, $this->shape)->token($at);
     }
 
+    /**
+     * The site of a read in a parameter's default, run by the body of the
+     * function the default is for; none where the token stands in no default,
+     * or the function has no body, as an abstract method has none.
+     */
+    public function defaultRunBy(int $at): Site|NotGiven
+    {
+        for ($child = $at; $this->tokens->isEnclosed($child); $child = $this->tokens->enclosing($child)) {
+            $opener = $this->tokens->enclosing($child);
+
+            if ($this->shape->isSignature($opener)) {
+                return $this->bodyRunning($at, $this->shape->bodyAfter($opener));
+            }
+
+            if ($this->shape->isBody($opener) || $this->shape->isClassBody($opener)) {
+                return NotGiven::value();
+            }
+        }
+
+        return NotGiven::value();
+    }
+
     /** The line the token at an index begins on. */
     public function lineOf(int $at): Line
     {
@@ -170,5 +193,12 @@ final readonly class Source
             PhpToken::tokenize($contents->text()),
             static fn(PhpToken $token): bool => ! $token->isIgnorable() && ! $token->is(T_CLOSE_TAG),
         )));
+    }
+
+    private function bodyRunning(int $at, int $body): Site|NotGiven
+    {
+        return $body === Tokens::NONE
+            ? NotGiven::value()
+            : Site::runBy($this, $at, $this->lineOf($body), $this->lineOf($this->tokens->closing($body)));
     }
 }

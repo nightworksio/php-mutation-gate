@@ -13,9 +13,10 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 /**
  * The project's test and source files, read for where each reads a value a
  * mutant changes. A read inside another declaration's value is followed to
- * where that value is read in turn, at most three declarations deep; a longer
- * chain, or a read inside a value no reference names, is one the scan cannot
- * follow.
+ * where that value is read in turn, at most three declarations deep. A read
+ * in a method's or a closure's parameter default is run by the function's
+ * body. A longer chain, or a read inside another value no reference names, is
+ * one the scan cannot follow.
  */
 final readonly class Codebase
 {
@@ -61,6 +62,24 @@ final readonly class Codebase
             : References::unknown();
     }
 
+    /**
+     * A read in a method's or a closure's parameter default, run by the
+     * function's body wherever a call leaves the parameter out; one the scan
+     * cannot follow where the function has no body.
+     */
+    private function runBy(Source $source, Site $site): References
+    {
+        $run = $source->defaultRunBy($site->token());
+
+        return $run instanceof Site ? References::at($run) : References::unknown();
+    }
+
+    /** Whether a value is a method's or a closure's parameter default, the values no reference names but one. */
+    private function isDefault(Symbol|Unnamed $value): bool
+    {
+        return $value instanceof Unnamed && $value->kind() !== SymbolKind::AttributeArgument;
+    }
+
     /** @param array<string, true> $seen every declaration followed so far */
     private function followed(Symbol $symbol, int $step, array $seen): References
     {
@@ -89,6 +108,7 @@ final readonly class Codebase
             $inner = $source->isTest() ? Executable::line() : $source->symbolAt($site->token());
             $found = $found->and(match (true) {
                 $inner instanceof Executable => References::at($site),
+                $this->isDefault($inner) => $this->runBy($source, $site),
                 array_key_exists($inner->described(), $seen) => References::none(),
                 $inner instanceof Unnamed || $step >= self::STEPS => References::unknown(),
                 default => $this->followed($inner, $step + 1, [...$seen, $inner->described() => true]),

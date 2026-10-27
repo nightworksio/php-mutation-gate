@@ -89,10 +89,15 @@ final class Affected
         return self::over(self::layout(), $changes, $sources, [...$now, ...$unread]);
     }
 
-    /** The answer for these changes in the fixture's project, where the tests run what this map says. */
-    public static function running(CoverageMap $map, Changes $changes): AffectedTests
+    /**
+     * The answer for these changes in the fixture's project, where the tests run what this map says, its files
+     * as these say, at the base as now.
+     *
+     * @param array<string, string> $files
+     */
+    public static function running(CoverageMap $map, Changes $changes, array $files = self::FILES): AffectedTests
     {
-        return self::over(self::layout(), $changes, self::sources(self::FILES, self::FILES), self::FILES, $map);
+        return self::over(self::layout(), $changes, self::sources($files, $files), $files, $map);
     }
 
     /** The tests these changes reach in the fixture's project, where its config file reads these files beside itself. */

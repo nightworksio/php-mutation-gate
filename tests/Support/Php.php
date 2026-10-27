@@ -46,9 +46,10 @@ final class Php
     public static function sites(References $references): array
     {
         return array_map(static fn(Site $site): string => sprintf(
-            '%s:%d%s',
+            '%s:%d%s%s',
             $site->file()->value(),
             $site->line()->number(),
+            $site->last()->number() === $site->line()->number() ? '' : sprintf('-%d', $site->last()->number()),
             $site->isInTest() ? ' (test)' : '',
         ), $references->sites());
     }

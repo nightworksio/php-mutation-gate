@@ -87,7 +87,7 @@ final readonly class ReadingTests
         $line = $site->line();
         $why = Reason::that(sprintf(self::READS_ON, ...[...$declares, $line->number(), $file->value()]));
 
-        foreach ($this->places->holding($this->map->testsCovering($file, $line, $line)) as [$test, $tests]) {
+        foreach ($this->places->holding($this->map->testsCovering($file, $line, $site->last())) as [$test, $tests]) {
             $affected = $affected->reaching($test, $tests, $why);
         }
 
