@@ -225,7 +225,7 @@ def project(gate: Path, work: Path) -> Path:
 def mutate(base: Path, ran: dict[str, tuple[int, str]]) -> None:
     """`composer mutate`, through the script `init` adds, with arguments the gate takes and one it refuses."""
     ran["composer mutate"] = run(["composer", "mutate", "list"], base)
-    ran["composer mutate refused"] = run(["composer", "mutate", "run", "--no-such-option"], base)
+    ran["composer mutate refused"] = run(["composer", "mutate", "--", "run", "--no-such-option"], base)
 
 
 def git(where: Path, *arguments: str) -> tuple[int, str]:

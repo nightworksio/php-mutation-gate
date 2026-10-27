@@ -272,6 +272,8 @@ documentation, are these.
     - The script is `"mutate": ["Composer\\Config::disableProcessTimeout",
       "mutation-gate"]`: Composer's 300-second limit off, then the gate, so
       `composer mutate [args]` runs `mutation-gate [args]` with no time limit.
+      Composer hands a script its arguments and keeps its options, so the
+      gate's options follow `--`: `composer mutate -- run --budget=15m`.
     - `init` asks, last, whether to add it. Where the answer is yes, it writes
       the script into the project's `composer.json` when nothing else in the
       file changes: the file is laid out as Composer writes it, and has no
