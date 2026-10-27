@@ -104,6 +104,7 @@ it('finds the body that runs a read in a parameter default, and none for a token
             }
             abstract public function g($b = self::B);
             public function h() { return self::C; }
+            public function k($c = static function () { return self::E; }) { return $c(); }
         }
         f(C::D);
         PHP, 'src/C.php');
@@ -112,5 +113,6 @@ it('finds the body that runs a read in a parameter default, and none for a token
     expect($run instanceof Site ? [$run->line(), $run->last()] : $run)->toEqual([Line::of(5), Line::of(7)])
         ->and($source->defaultRunBy(Php::indexOf($source, 'B')))->toBeInstanceOf(NotGiven::class)
         ->and($source->defaultRunBy(Php::indexOf($source, 'C', 1)))->toBeInstanceOf(NotGiven::class)
-        ->and($source->defaultRunBy(Php::indexOf($source, 'D')))->toBeInstanceOf(NotGiven::class);
+        ->and($source->defaultRunBy(Php::indexOf($source, 'D')))->toBeInstanceOf(NotGiven::class)
+        ->and($source->defaultRunBy(Php::indexOf($source, 'E')))->toBeInstanceOf(NotGiven::class);
 });

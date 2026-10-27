@@ -8,7 +8,6 @@ use function array_values;
 
 use Closure;
 
-use function error_get_last;
 use function get_declared_classes;
 use function get_included_files;
 use function getenv;
@@ -69,8 +68,11 @@ final class Plugin implements Bootable, HandlesArguments
 
     private ReplayStop|Off $stop = Off::Stopping;
 
-    /** @param Closure(): RunIssues $issues where a mutant's own process reads the tests whose issues failed its run */
-    public function __construct(private readonly Closure $issues)
+    /**
+     * @param Closure(): RunIssues $issues where a mutant's own process reads the tests whose issues failed its run
+     * @param Closure(): string    $erred  the file the last error PHP raised stands in, empty where it raised none
+     */
+    public function __construct(private readonly Closure $issues, private readonly Closure $erred)
     {
     }
 
@@ -129,8 +131,7 @@ final class Plugin implements Bootable, HandlesArguments
     {
         if ($this->guard instanceof Guard) {
             $opcache = Opcache::of(ini_get(Opcache::CLI), ini_get(Opcache::FILE_CACHE));
-            $error = error_get_last();
-            $this->guard->write(get_included_files(), $opcache, $error === null ? '' : $error['file']);
+            $this->guard->write(get_included_files(), $opcache, ($this->erred)());
         }
     }
 

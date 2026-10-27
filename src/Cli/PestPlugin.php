@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Plugin;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\LastError;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\IssueKillers;
 use NightWorksIO\MutationGate\Core\Test\RunIssues;
 use Pest\Contracts\Plugins\Bootable;
@@ -27,7 +28,7 @@ final readonly class PestPlugin implements Bootable, HandlesArguments, Terminabl
 
     public function __construct()
     {
-        $this->plugin = new Plugin(static fn(): RunIssues => IssueKillers::ofThisRun());
+        $this->plugin = new Plugin(static fn(): RunIssues => IssueKillers::ofThisRun(), LastError::file(...));
     }
 
     public function boot(): void

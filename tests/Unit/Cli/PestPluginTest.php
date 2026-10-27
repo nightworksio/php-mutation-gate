@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Plugin;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\LastError;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\IssueKillers;
 use NightWorksIO\MutationGate\Cli\PestPlugin;
@@ -22,7 +23,7 @@ it('is the Pest plugin Pest boots and hands arguments, handling them as the Pest
         ->and(new PestPlugin())->toBeInstanceOf(HandlesArguments::class)
         ->and(new PestPlugin())->toBeInstanceOf(Terminable::class)
         ->and(new PestPlugin()->handleArguments($arguments))
-        ->toBe(new Plugin(static fn(): RunIssues => IssueKillers::ofThisRun())->handleArguments($arguments));
+        ->toBe(new Plugin(static fn(): RunIssues => IssueKillers::ofThisRun(), LastError::file(...))->handleArguments($arguments));
 });
 
 it('boots the Pest adapter\'s plugin as Pest boots it, loading the bridges a run names', function (): void {
