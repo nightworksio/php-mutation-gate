@@ -4,11 +4,11 @@
 Usage: hook_managers.py <gate checkout> <work directory> <pre-commit zipapp> --findings <file>
 
 Run by `hook managers` (ADR-0024). It builds one small
-PHPUnit project that requires this checkout's gate and its Composer plugin
-through path repositories, with CaptainHook and GrumPHP installed and
-GrumPHP's Composer plugin off. In it, `composer mutate` must run the gate
-with the arguments given and exit as the gate does; and a copy that does not
-allow the plugin must install without it, non-interactively. It then copies
+PHPUnit project that requires this checkout's gate through a path
+repository, with CaptainHook and GrumPHP installed, GrumPHP's Composer
+plugin off, and the `mutate` script `init` adds. In it, `composer mutate`
+must run the gate with the arguments given and exit as the gate does. It
+then copies
 the project into a repository of its own for each manager. In each, it runs
 `init --hook=<manager>`, installs the manager's hooks as `init` says to, and
 then commits and pushes through them:
@@ -60,13 +60,12 @@ EXPECTED = {
     "pre-commit push survived": (False, [FAILED]),
     "composer mutate": (True, ["pre-push"]),
     "composer mutate refused": (False, ['The "--no-such-option" option does not exist.']),
-    "composer install without the plugin": (True, []),
 }
 
-# The plugin's package, and the version path repositories give the gate and it.
-PLUGIN = "nightworksio/mutation-gate-composer"
+# The gate's package, the version its path repository gives it, and the script `init` adds.
 GATE = "nightworksio/mutation-gate"
 LOCAL = "0.1.99"
+MUTATE = ["Composer\\Config::disableProcessTimeout", "mutation-gate"]
 
 # The end of a step's output a finding keeps.
 TAIL = 1500
@@ -196,15 +195,14 @@ def manifest(gate: Path, phpunit: str) -> dict:
             "phpunit/phpunit": phpunit,
             "captainhook/captainhook": CAPTAINHOOK,
             "phpro/grumphp-shim": GRUMPHP,
-            PLUGIN: LOCAL,
         },
         "repositories": [
             {"type": "path", "url": str(gate), "options": {"symlink": True, "versions": {GATE: LOCAL}}},
-            {"type": "path", "url": str(gate / "plugins/composer"), "options": {"symlink": True, "versions": {PLUGIN: LOCAL}}},
         ],
         "minimum-stability": "dev",
         "prefer-stable": True,
-        "config": {"allow-plugins": {"phpro/grumphp-shim": False, PLUGIN: True}},
+        "config": {"allow-plugins": {"phpro/grumphp-shim": False}},
+        "scripts": {"mutate": MUTATE},
     }
 
 
@@ -224,17 +222,10 @@ def project(gate: Path, work: Path) -> Path:
     return base
 
 
-def mutate(base: Path, work: Path, ran: dict[str, tuple[int, str]]) -> None:
-    """`composer mutate` through the plugin, and an install that leaves the plugin out where it is not allowed."""
+def mutate(base: Path, ran: dict[str, tuple[int, str]]) -> None:
+    """`composer mutate`, through the script `init` adds, with arguments the gate takes and one it refuses."""
     ran["composer mutate"] = run(["composer", "mutate", "list"], base)
     ran["composer mutate refused"] = run(["composer", "mutate", "run", "--no-such-option"], base)
-    unallowed = work / "unallowed"
-    shutil.copytree(base, unallowed, symlinks=True, ignore=shutil.ignore_patterns("vendor"))
-    manifest_file = unallowed / "composer.json"
-    written = json.loads(manifest_file.read_text(encoding="utf-8"))
-    del written["config"]["allow-plugins"][PLUGIN]
-    manifest_file.write_text(json.dumps(written, indent=4) + "\n", encoding="utf-8")
-    ran["composer install without the plugin"] = run(["composer", "install", "--no-interaction", "--no-progress"], unallowed)
 
 
 def git(where: Path, *arguments: str) -> tuple[int, str]:
@@ -299,7 +290,7 @@ def main(argv: list[str]) -> int:
     ran: dict[str, tuple[int, str]] = {}
     try:
         base = project(gate, work)
-        mutate(base, work, ran)
+        mutate(base, ran)
         for manager in MANAGERS:
             here = repository(base, work, manager)
             set_up(here, manager, gate, zipapp, ran)

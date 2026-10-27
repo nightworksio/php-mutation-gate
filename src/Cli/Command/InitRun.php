@@ -108,12 +108,15 @@ final readonly class InitRun
             : $this->made($settings, $destination, $file, $additions->answered($answers->ci, $hook), $native);
     }
 
-    /** What was made, then how to add `composer mutate` where a person asked, and what to run next. */
-    private function closed(string $made, InitQuestions $guided, NextSteps $next): string
+    /** What was made, then `composer mutate`, where a person asked for it, and what to run next. */
+    private function closed(string $made, InitQuestions $guided, NextSteps $next): string|CannotJudge
     {
-        $said = $guided->plugin() ? sprintf(self::LINES, $made, NextSteps::plugin()) : $made;
+        $output = $this->additions->output();
+        $said = $guided->script()
+            ? Said::joined($made, fn(): string|CannotJudge => MutateScriptFile::made($this->setting->project, $output))
+            : $made;
 
-        return $this->additions->output() === Output::Written ? sprintf(self::LINES, $said, $next->said()) : $said;
+        return is_string($said) && $output === Output::Written ? sprintf(self::LINES, $said, $next->said()) : $said;
     }
 
     /**

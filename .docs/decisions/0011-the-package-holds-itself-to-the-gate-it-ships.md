@@ -424,5 +424,5 @@ points at the ADR that decides it.
 - [ADR-0029](0029-a-caller-passes-the-store-secrets-by-name.md): the reusable workflow's secrets, passed by name
 - [ADR-0035](0035-the-reusable-workflow-runs-on-the-runner-its-caller-names.md): the reusable workflow's own inputs, `coverage` and `runs-on`
 - [ADR-0023](0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md): the native PHPUnit runner
-- [ADR-0024](0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md): the Composer plugin published from `plugins/composer`, and the `.pre-commit-hooks.yaml` ids
+- [ADR-0024](0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md): the `.pre-commit-hooks.yaml` ids
 - [ADR-0027](0027-codeception-phpspec-and-testo-get-native-runners.md): the Codeception, PhpSpec and Testo runners

@@ -208,8 +208,8 @@ it('sets no hook up where the command line sets one, and none where nobody is as
         ->toEqual([NotGiven::value(), HookSetup::None]);
 });
 
-it('adds no Composer plugin where a person presses Enter', function (): void {
+it('adds no composer mutate where a person presses Enter', function (): void {
     [$questions, $output] = initQuestionsIn(Scratch::directory(), "\n");
 
-    expect([$questions->plugin(), $output->fetch()])->toBe([false, 'Add composer mutate, from the optional Composer plugin? [y/N] ']);
+    expect([$questions->script(), $output->fetch()])->toBe([false, 'Add composer mutate to the scripts in composer.json? [y/N] ']);
 });

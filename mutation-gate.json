@@ -37,9 +37,6 @@
         },
         {
             "path": "plugins/security/src"
-        },
-        {
-            "path": "plugins/composer/src"
         }
     ],
     "baseline": {

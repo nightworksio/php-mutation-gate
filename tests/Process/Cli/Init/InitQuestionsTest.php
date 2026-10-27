@@ -172,23 +172,41 @@ it('offers no git hooks outside a repository', function (): void {
     expect($ran->errors)->toContain("[0] captainhook\n  [1] grumphp\n  [2] pre-commit\n  [3] none\n");
 });
 
-it('asks last whether to add composer mutate, and says how, changing no file', function (): void {
-    $project = questionedProject();
-    $manifest = questionedFile($project, 'composer.json');
+it('asks last whether to add composer mutate, and adds it to a composer.json laid out as Composer writes it', function (): void {
+    $laidOut = "{\n    \"name\": \"acme/app\",\n    \"require\": {}\n}\n";
+    $project = questionedProject(['composer.json' => $laidOut]);
 
     $yes = Commands::answering($project, 'init', ['--no-measure' => true], ['none', 'none', 'y']);
-    $no = Commands::answering(questionedProject(), 'init', ['--no-measure' => true], ['none', 'none', '']);
+    $no = Commands::answering(questionedProject(['composer.json' => $laidOut]), 'init', ['--no-measure' => true], ['none', 'none', '']);
 
-    expect($yes->errors)->toContain("Add composer mutate, from the optional Composer plugin? [y/N]")
-        ->and($yes->output)->toContain(<<<'SAID'
-            To add composer mutate, from the optional Composer plugin:
-              composer config allow-plugins.nightworksio/mutation-gate-composer true
-              composer require --dev nightworksio/mutation-gate-composer
-            Or, with no plugin, add this to the scripts in composer.json:
-              "mutate": ["Composer\\Config::disableProcessTimeout", "mutation-gate"]
+    expect($yes->errors)->toContain('Add composer mutate to the scripts in composer.json? [y/N]')
+        ->and($yes->output)->toContain('Wrote composer.json. Run it with composer mutate.')
+        ->and(questionedFile($project, 'composer.json'))->toBe(<<<'JSON'
+            {
+                "name": "acme/app",
+                "require": {},
+                "scripts": {
+                    "mutate": [
+                        "Composer\\Config::disableProcessTimeout",
+                        "mutation-gate"
+                    ]
+                }
+            }
+
+            JSON)
+        ->and($no->output)->not->toContain('composer mutate');
+});
+
+it('leaves a composer.json laid out otherwise as it is, and says what to add to its scripts', function (): void {
+    $project = questionedProject(['composer.json' => "{\n  \"name\": \"acme/app\"\n}\n"]);
+
+    $ran = Commands::answering($project, 'init', ['--no-measure' => true], ['none', 'none', 'y']);
+
+    expect($ran->output)->toContain(<<<'SAID'
+            composer.json is not laid out as Composer writes it, so init leaves it as it is. Add this to the scripts in composer.json, then run composer mutate:
+              "mutate": ["Composer\\Config::disableProcessTimeout","mutation-gate"]
             SAID)
-        ->and(questionedFile($project, 'composer.json'))->toBe($manifest)
-        ->and($no->output)->not->toContain('To add composer mutate');
+        ->and(questionedFile($project, 'composer.json'))->toBe("{\n  \"name\": \"acme/app\"\n}\n");
 });
 
 it('asks nothing in CI, whatever answers wait', function (): void {

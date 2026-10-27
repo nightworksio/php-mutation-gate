@@ -268,30 +268,19 @@ documentation, are these.
 
 ### Composer and hook managers
 
-11. **`composer mutate` comes from an optional plugin package,
-    `nightworksio/mutation-gate-composer`.**
-    - It sets `extra.plugin-optional: true`, so a non-interactive install
-      without an `allow-plugins` entry skips it quietly instead of failing.
-    - `composer mutate [args]` runs `vendor/bin/mutation-gate [args]` with no
-      time limit.
-    - `init` asks whether to add it, and prints, as the alternative with no
-      plugin, the root script `"mutate": ["Composer\\Config::disableProcessTimeout",
-      "mutation-gate"]`.
-    - The gate itself stays a plain library that needs no `allow-plugins`
-      entry (ADR-0001, alternatives).
-    - A Composer plugin is installed only as a package of its own, so it
-      cannot ship inside the root package. Its code lives in
-      `plugins/composer/`, under the boundary rules ADR-0021 sets for
-      first-party plugins, and the release workflow publishes that directory
-      to a read-only repository of its own by a subtree split. The root
-      package's archive leaves the directory out.
-    - The rules read for it as a Composer plugin: it names only PHP,
-      Composer and the Symfony Console Composer's command API is built on,
-      and nothing of the gate (A7); its manifest requires the gate and
-      `composer-plugin-api`, and lists no extension (A8). The package's own
-      gate holds `plugins/composer/src` at 100, as it holds every tree.
-    - Where the project has not installed the gate, `composer mutate` names
-      the package to install and exits 2.
+11. **`composer mutate` is a root script `init` adds.**
+    - The script is `"mutate": ["Composer\\Config::disableProcessTimeout",
+      "mutation-gate"]`: Composer's 300-second limit off, then the gate, so
+      `composer mutate [args]` runs `mutation-gate [args]` with no time limit.
+    - `init` asks, last, whether to add it. Where the answer is yes, it writes
+      the script into the project's `composer.json` when nothing else in the
+      file changes: the file is laid out as Composer writes it, and has no
+      `mutate` script yet. Otherwise, and with `--dry-run`, it prints the
+      line to add to the scripts.
+    - The gate is a plain library that needs no `allow-plugins` entry
+      (ADR-0001, alternatives), and no package of its own adds the command:
+      the gate is published to no registry (ADR-0011), and a plugin
+      published nowhere is one more repository a project would pin.
 
 12. **Hook managers call the CLI, and the pre-commit framework reads one file
     the repository carries.**
@@ -378,9 +367,8 @@ documentation, are these.
 | **The verdict job posting the comment, as on GitHub** | Any merge request author who can push a branch could print a long-lived token from a test. |
 | **A discussion per survivor line on GitLab** | Visible on every tier, and one notification per survivor per push, which ADR-0009 rejected for GitHub. |
 | **The judged state only, with no planned state** | Loses the early signal the planned state exists for. |
-| **A root script only, with no plugin** | The same command with nothing to allow, and not the plugin the feature is. It stays the printed alternative. |
+| **An optional Composer plugin package, `nightworksio/mutation-gate-composer`** | A package of its own needs a registry or a repository a project pins beside the gate, and an `allow-plugins` entry, for the command one root script gives. |
 | **The plugin inside the main package** | Every consumer would have to allow it, the cost ADR-0001 rejected for discovery. |
-| **The plugin in a separate repository from the start** | A second repository with its own CI, pins and release, against ADR-0011's one repository. |
 | **A CaptainHook action class and a GrumPHP extension task** | Ties the gate to each tool's PHP API, and GrumPHP's extensions cannot load PHP from its scoped PHAR. |
 | **A page that fetches every repository's files in the browser** | Public repositories only, and it rests on a cross-origin header nobody documents. |
 | **Each repository pushing into the dashboard repository** | Every repository would hold a token that can write another repository. |

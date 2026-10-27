@@ -52,7 +52,6 @@ parameters:
             message: "B2 — randomness is a hidden input, and a plan cut from it differs between two runners that must cut the same shards. Nothing in src draws a random number (B2)."
             allowIn:
                 - tests/*
-                - plugins/composer/tests/*
 
         # --- B3: the filesystem belongs to an adapter ---------------------------
         -
@@ -105,7 +104,6 @@ parameters:
                 - src/Adapter/*
                 - src/Cli/*
                 - tests/*
-                - plugins/composer/tests/*
                 - phpstan/*
 
         # --- B4: running a program belongs to an adapter ------------------------

@@ -61,7 +61,7 @@ it('seals every class, and keeps every value readonly', function (): void {
             static fn(Layer $layer): bool => $layer->holds($class->getName()),
         );
 
-        // PHP lets no class be readonly whose parent is not, as the Composer plugin's command's is not.
+        // PHP lets no class be readonly whose parent is not, as a Symfony console command's is not.
         $parent = $class->getParentClass();
         $canBe = ! $parent instanceof ReflectionClass || $parent->isReadOnly();
 
