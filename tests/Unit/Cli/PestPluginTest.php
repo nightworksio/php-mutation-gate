@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Plugin;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\IssueKillers;
 use NightWorksIO\MutationGate\Cli\PestPlugin;
 use NightWorksIO\MutationGate\Core\Test\RunIssues;
@@ -39,4 +40,21 @@ it('boots the Pest adapter\'s plugin as Pest boots it, loading the bridges a run
     );
 
     expect(function_exists('pestPluginBootedTheAdaptersPlugin'))->toBeTrue();
+});
+
+it('writes the guard as Pest terminates it, as the Pest adapter\'s plugin does', function (): void {
+    $guard = sprintf('%s/guard.json', Scratch::untilExit());
+    $plugin = Environment::during(
+        [...array_fill_keys(GateEnvironment::names(), null), Recorder::MUTANT => __FILE__, GateVariable::Guard->value => $guard],
+        static function (): PestPlugin {
+            $plugin = new PestPlugin();
+            $plugin->boot();
+
+            return $plugin;
+        },
+    );
+
+    $plugin->terminate();
+
+    expect(json_decode((string) file_get_contents($guard), associative: true))->toMatchArray(['before' => true, 'loaded' => true]);
 });

@@ -105,10 +105,12 @@ it('finds the body that runs a read in a parameter default, and none for a token
             abstract public function g($b = self::B);
             public function h() { return self::C; }
         }
+        f(C::D);
         PHP, 'src/C.php');
     $run = $source->defaultRunBy(Php::indexOf($source, 'A'));
 
     expect($run instanceof Site ? [$run->line(), $run->last()] : $run)->toEqual([Line::of(5), Line::of(7)])
         ->and($source->defaultRunBy(Php::indexOf($source, 'B')))->toBeInstanceOf(NotGiven::class)
-        ->and($source->defaultRunBy(Php::indexOf($source, 'C', 1)))->toBeInstanceOf(NotGiven::class);
+        ->and($source->defaultRunBy(Php::indexOf($source, 'C', 1)))->toBeInstanceOf(NotGiven::class)
+        ->and($source->defaultRunBy(Php::indexOf($source, 'D')))->toBeInstanceOf(NotGiven::class);
 });
