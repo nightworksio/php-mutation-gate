@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Owner\CodeOwners;
+use NightWorksIO\MutationGate\Core\Owner\OwnerGroup;
 use NightWorksIO\MutationGate\Core\Report\SetText;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Sample\Estimate;
@@ -21,8 +23,11 @@ use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnits;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdict;
+use NightWorksIO\MutationGate\Core\Verdict\OwnerVerdict;
+use NightWorksIO\MutationGate\Core\Verdict\OwnerVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Tests\Support\Judged;
+use NightWorksIO\MutationGate\Tests\Support\Owners;
 use NightWorksIO\MutationGate\Tests\Support\Sampled;
 use NightWorksIO\MutationGate\Tests\Support\Secured;
 
@@ -145,4 +150,25 @@ it('says a sampled tree whose units hold no mutant has nothing to mutate', funct
     );
 
     expect(SetText::tree($empty))->toBe('src has nothing to mutate.');
+});
+
+it('says what the code of an owner group scores, or that it has nothing to mutate, and of no owner alike', function (OwnerGroup $group, JudgedMutants $mutants, string $said): void {
+    expect(SetText::owners(OwnerVerdict::judged($group, $mutants, Uncovered::Count)))->toBe($said);
+})->with([
+    'owned' => [fn(): OwnerGroup => Owners::codeOwners()->groupOf(Path::of('src/Billing/Pay.php')), fn(): JudgedMutants => Judged::mutants(MutantJudgement::Killed, MutantJudgement::Survived), 'Code owned by @acme/payments @jo scores 50.00%.'],
+    'owned, nothing to mutate' => [fn(): OwnerGroup => Owners::codeOwners()->groupOf(Path::of('src/Http/Route.php')), fn(): JudgedMutants => Judged::mutants(MutantJudgement::Ignored), 'Code owned by @acme/web has nothing to mutate.'],
+    'unowned' => [fn(): OwnerGroup => OwnerGroup::unowned(), fn(): JudgedMutants => Judged::mutants(MutantJudgement::Killed), 'Code with no owner scores 100.00%.'],
+    'unowned, nothing to mutate' => [fn(): OwnerGroup => OwnerGroup::unowned(), fn(): JudgedMutants => JudgedMutants::none(), 'Code with no owner has nothing to mutate.'],
+]);
+
+it('says an owner group with no control character that could colour a terminal', function (): void {
+    $group = CodeOwners::read(Path::of('CODEOWNERS'), "* me\e[31m@example.com\n")->groupOf(Path::of('src/Money.php'));
+
+    expect(SetText::owners(OwnerVerdict::judged($group, Judged::mutants(MutantJudgement::Killed), Uncovered::Count)))
+        ->toBe('Code owned by me[31m@example.com scores 100.00%.');
+});
+
+it('says what each owner group the change touched scores, and nothing of the others', function (): void {
+    expect(SetText::touched(Owners::verdicts()))->toBe(['Code owned by @acme/payments @jo scores 33.33%.'])
+        ->and(SetText::touched(OwnerVerdicts::none()))->toBe([]);
 });

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report;
 
+use function array_map;
+
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -16,17 +18,19 @@ use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdict;
+use NightWorksIO\MutationGate\Core\Verdict\OwnerVerdict;
+use NightWorksIO\MutationGate\Core\Verdict\OwnerVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 
 use function sprintf;
 
 /**
- * The sentence every report says of a tree or a new-code set: its score
- * against its floor, that it has nothing to mutate, or why it is exempt, and
- * for a tree, its change against the base. A sampled tree's score is an
- * estimate, said with its interval and how much of the tree was sampled
- * (ADR-0020).
+ * The sentence every report says of a tree, a new-code set or an owner
+ * group: its score against its floor, that it has nothing to mutate, or why
+ * it is exempt, and for a tree, its change against the base. A sampled
+ * tree's score is an estimate, said with its interval and how much of the
+ * tree was sampled (ADR-0020).
  */
 final readonly class SetText
 {
@@ -71,6 +75,12 @@ final readonly class SetText
     private const string SECURITY = 'Security in %s';
 
     private const string SECURITY_HERE = 'Security';
+
+    private const string OWNED = 'Code owned by %s';
+
+    private const string UNOWNED = 'Code with no owner';
+
+    private const string SCORES = '%s scores %s.';
 
     public static function tree(TreeVerdict $tree): string
     {
@@ -151,6 +161,29 @@ final readonly class SetText
         return $package->equals(Path::root())
             ? self::SECURITY_HERE
             : sprintf(self::SECURITY, Fit::plain($package->value()));
+    }
+
+    /** What an owner group's code scores, or that it has nothing to mutate (ADR-0022). */
+    public static function owners(OwnerVerdict $group): string
+    {
+        $name = $group->group()->isUnowned()
+            ? self::UNOWNED
+            : sprintf(self::OWNED, Fit::plain($group->group()->name()));
+        $score = $group->score();
+
+        return $score instanceof Score
+            ? sprintf(self::SCORES, $name, Percent::of($score))
+            : sprintf(self::NOTHING, $name);
+    }
+
+    /**
+     * What the code of each owner group the change touched scores (ADR-0022).
+     *
+     * @return list<string>
+     */
+    public static function touched(OwnerVerdicts $owners): array
+    {
+        return array_map(self::owners(...), [...$owners->touched()]);
     }
 
     /** A floor as a report prints it: its percentage, `exempt`, or `none`. */

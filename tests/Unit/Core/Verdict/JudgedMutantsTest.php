@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
@@ -194,4 +195,17 @@ it('keeps the mutants and kills these mutators made, in order', function (): voi
     expect(array_map(static fn(JudgedMutant|JudgedKill $judged): string => $judged->mutant()->mutator(), [...$security]))
         ->toBe(['security/HashEqualsToTrue', 'default/UnwrapStripTags', 'security/HashEqualsToTrue'])
         ->and($mutants->madeBy(NamedMutators::of()))->toHaveCount(0);
+});
+
+it('keeps the mutants and kills in these files, in order', function (): void {
+    $mutants = JudgedMutants::of(
+        Judged::mutant('0', MutantJudgement::Survived, 'src/Money.php'),
+        Judged::mutant('1', MutantJudgement::Killed, 'src/Price.php'),
+        Judged::mutant('2', MutantJudgement::Killed, 'src/Money.php'),
+    )->and(JudgedMutants::kills(Verdicts::provedKill()));
+
+    expect(Judged::natives($mutants->inFiles(Paths::of(Path::of('src/Money.php')))))->toBe(['0', '2'])
+        ->and(count($mutants->inFiles(Paths::of(Path::of('src/Money.php')))))->toBe(3)
+        ->and(count($mutants->inFiles(Paths::of(Path::of('src/Price.php')))))->toBe(1)
+        ->and(count($mutants->inFiles(Paths::none())))->toBe(0);
 });

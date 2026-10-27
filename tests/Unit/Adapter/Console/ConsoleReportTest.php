@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
 use NightWorksIO\MutationGate\Adapter\Console\InertOutput;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\Ended;
 use NightWorksIO\MutationGate\Core\Mutant\Evidence;
@@ -15,21 +16,26 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Unevidenced;
+use NightWorksIO\MutationGate\Core\Owner\CodeOwners;
 use NightWorksIO\MutationGate\Core\Report\ClusterText;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
 use NightWorksIO\MutationGate\Core\Report\SavingsText;
 use NightWorksIO\MutationGate\Core\Report\SetText;
+use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Verdict\HeldSets;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
+use NightWorksIO\MutationGate\Core\Verdict\OwnerVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Clustered;
 use NightWorksIO\MutationGate\Tests\Support\Killings;
+use NightWorksIO\MutationGate\Tests\Support\Owners;
 use NightWorksIO\MutationGate\Tests\Support\Sampled;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 use Symfony\Component\Console\Output\BufferedOutput;
@@ -258,4 +264,36 @@ it('says a run was sampled, and prints each sampled tree\'s estimate', function 
     expect($said)->toContain(implode("\n", ['The project scores 50.00%.', SetText::SAMPLED]))
         ->and($said)->toContain('  src scores about 75.55% (95%: 60.70%–85.26%; 3 of 15 units sampled, 5 exact) against its floor of 60.00%.')
         ->and($printed(Verdicts::passing()))->not->toContain(SetText::SAMPLED);
+});
+
+it('prints the score of each owner group the change touched, and every mutant not killed under its owner group', function () use ($printed): void {
+    $console = $printed(Owners::verdict());
+    $ids = [];
+
+    foreach (Owners::trees()->mutants() as $mutant) {
+        $ids[$mutant->mutant()->location()->start()->number()] = $mutant->mutant()->id()->value();
+    }
+
+    expect($console)->toContain(implode("\n", [
+        'Owners',
+        '  Code owned by @acme/payments @jo scores 33.33%.',
+        '',
+        'Not killed (3)',
+        '  @acme/payments @jo (2)',
+        sprintf('    src/Billing/Pay.php:2  LessThan  survived, on a changed line  %s', $ids[2]),
+    ]))
+        ->and($console)->toContain(implode("\n", [
+            sprintf('        Explain: vendor/bin/mutation-gate explain %s', $ids[3]),
+            '',
+            '  unowned (1)',
+            sprintf('    lib/Clock.php:5  LessThan  survived  %s', $ids[5]),
+        ]))
+        ->and($console)->not->toContain('@acme/web');
+});
+
+it('prints an owner group the project named with no character that could colour a terminal', function () use ($printed): void {
+    $owners = CodeOwners::read(Path::of('CODEOWNERS'), "/lib/ me\e[31m@example.com\n");
+    $verdict = Verdict::of(Owners::trees())->withSets(HeldSets::none()->owned(OwnerVerdicts::of(Owners::trees(), $owners, Uncovered::Count)));
+
+    expect($printed($verdict))->toContain('  me[31m@example.com (1)');
 });

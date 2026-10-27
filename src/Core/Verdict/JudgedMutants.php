@@ -19,6 +19,7 @@ use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\Cluster\Clustering;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
@@ -152,6 +153,14 @@ final readonly class JudgedMutants implements Countable, IteratorAggregate
     public function changed(): self
     {
         return $this->kept(static fn(JudgedMutant|JudgedKill $mutant): bool => $mutant->isOnChangedLine());
+    }
+
+    /** The mutants and kills in these files, in order. */
+    public function inFiles(Paths $files): self
+    {
+        return $this->kept(
+            static fn(JudgedMutant|JudgedKill $mutant): bool => $files->has($mutant->mutant()->location()->file()),
+        );
     }
 
     /** The mutants and kills these mutators made, in order. */

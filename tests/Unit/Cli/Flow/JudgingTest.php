@@ -56,6 +56,7 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
+use NightWorksIO\MutationGate\Core\Verdict\OwnerVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
@@ -327,6 +328,33 @@ it('warns of a tree held to no floor outside CI', function () use ($makeTree, $m
 
     expect(JudgingRuns::texts($verdict->warnings()))
         ->toBe(['src has no floor yet. Run mutation-gate baseline --write and commit floors.json.']);
+});
+
+it('groups every mutant by the owners the CODEOWNERS at the plan\'s commit names, and warns of each line it skips', function () use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+    $checkout = new ChangeSourceFake(Revision::ref('base'), Changes::none(), [
+        Flows::HEAD => [...Flows::FILES, '.github/CODEOWNERS' => "/src/Money.php @acme/money\n!src/Held.php @jo\n"],
+    ]);
+
+    $verdict = JudgingRuns::verdictOf($judged(
+        Planned::twoShards(),
+        Flows::adapters(Flows::project(), [], $tree(Floor::of(50)), $checkout),
+        JudgingRuns::settings(),
+        $reporting(new ReporterFake()),
+    ));
+    $owned = 0;
+
+    foreach ($verdict->sets()->owners() as $group) {
+        $owned += count($group->mutants());
+    }
+
+    expect(array_map(static fn(OwnerVerdict $group): string => $group->group()->name(), [...$verdict->sets()->owners()]))
+        ->toBe(['@acme/money', 'unowned'])
+        ->and($owned)->toBe(count($verdict->trees()->mutants()))
+        ->and(JudgingRuns::texts($verdict->warnings()))
+        ->toBe(['.github/CODEOWNERS line 2 is skipped: a pattern that starts with `!` negates, which CODEOWNERS does not.']);
 });
 
 it('warns of each mutator set a preset turns on that is not installed', function () use ($makeReporting, $makeJudged): void {

@@ -153,13 +153,21 @@ final readonly class Flows
         return Trees::of(Tree::at(Path::of('src'), Floor::of(50), Package::at(Path::root())));
     }
 
-    /** The project as git would list it: its working tree, nothing changed since `base`, and `main` fetched. */
+    /**
+     * The project as git would list it: its working tree, nothing changed since `base`, the commit the plans are
+     * made on, and `main` fetched.
+     */
     public static function checkout(): ChangeSourceFake
     {
         return new ChangeSourceFake(
             Revision::ref('base'),
             Changes::none(),
-            [Revision::workingTree()->name() => self::FILES, 'base' => self::FILES, self::MAIN => self::FILES],
+            [
+                Revision::workingTree()->name() => self::FILES,
+                'base' => self::FILES,
+                self::HEAD => self::FILES,
+                self::MAIN => self::FILES,
+            ],
         );
     }
 

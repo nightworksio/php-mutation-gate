@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
 use function array_filter;
+use function array_map;
 use function array_slice;
 
 use Closure;
@@ -45,17 +46,19 @@ use function sprintf;
 /**
  * The verdict as GitHub Markdown, for the sticky comment and the step
  * summary: the verdict, each tree's floor and score with its change against
- * the base, the new-code sets and each package's security set, the
- * survivors, the unjudged and flaky mutants, the ignored mutants with why,
- * why the run could not judge, the failures, the warnings, the floors that
- * can rise, and a link to the run. The comment holds up to 20 security
- * survivors, in a section before the trees (ADR-0021), up to 20
- * other survivors on changed lines, each with its diff, hint and reproduce
- * command, up to 20 other unjudged and flaky mutants, and up to 20 ignored
- * mutants; the summary lists
- * every mutant counted as not killed and every ignored one in a table each
- * (ADR-0009; ADR-0008). A cluster of survivors is one item of either, with
- * its members' diffs, one hint and its stub command (ADR-0022).
+ * the base, the new-code sets and each package's security set, the score of
+ * each owner group the change touched, the survivors, the unjudged and flaky
+ * mutants, the ignored mutants with why, why the run could not judge, the
+ * failures, the warnings, the floors that can rise, and a link to the run.
+ * The comment holds up to 20 security survivors, in a section before the
+ * trees (ADR-0021), up to 20 other survivors on changed lines, each with its
+ * diff, hint and reproduce command, up to 20 other unjudged and flaky
+ * mutants, and up to 20 ignored mutants; the summary lists every mutant
+ * counted as not killed and every ignored one in a table each (ADR-0009;
+ * ADR-0008). A cluster of survivors is one item of either, with its members'
+ * diffs, one hint and its stub command. Where the project has a CODEOWNERS,
+ * the survivors on changed lines and those not killed are under the owner
+ * group of their files (ADR-0022).
  */
 final readonly class Markdown
 {
@@ -105,7 +108,13 @@ final readonly class Markdown
             ...self::sets($verdict),
             ...self::section(
                 sprintf('Survivors on changed lines (%d)', count($changed)),
-                MarkdownItems::details(array_slice($folded, 0, $shown), count($folded)),
+                MarkdownItems::owned(
+                    $verdict->sets()->owners(),
+                    $changed,
+                    $folded,
+                    $shown,
+                    MarkdownItems::details(...),
+                ),
             ),
             ...self::section(
                 sprintf('Unjudged and flaky (%d)', count($other)),
@@ -139,7 +148,13 @@ final readonly class Markdown
             ...self::section('Suites', self::suites($verdict)),
             ...self::section(
                 sprintf('Not killed (%d)', count($overview->survivors())),
-                MarkdownItems::table(array_slice($items, 0, $shown), count($items)),
+                MarkdownItems::owned(
+                    $verdict->sets()->owners(),
+                    $overview->survivors(),
+                    $items,
+                    $shown,
+                    MarkdownItems::table(...),
+                ),
             ),
             ...self::ignored($overview, $shown),
             ...$tail,
@@ -220,9 +235,15 @@ final readonly class Markdown
             $sets[] = sprintf('- %s', Escape::text(SetText::security($set)));
         }
 
+        $owners = array_map(
+            static fn(string $line): string => sprintf('- %s', Escape::text($line)),
+            SetText::touched($verdict->sets()->owners()),
+        );
+
         return [
             ...count($verdict->trees()) > 0 ? [implode("\n", $trees)] : [],
             ...$sets === [] ? [] : [implode("\n", $sets)],
+            ...$owners === [] ? [] : [implode("\n", $owners)],
         ];
     }
 

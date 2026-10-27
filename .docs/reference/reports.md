@@ -8,8 +8,8 @@ command line:
 
 | Name | When it runs | What it writes |
 |------|--------------|----------------|
-| `console` | Always | The verdict, each tree, new-code set and package's security set, what each suite alone kills where the PHPUnit config declares two or more, the units, the reach, every mutant counted as not killed with its diff, judging tests, hint, and reproduce and explain commands, the ignores, the mutants proven equivalent, the floors that can rise, failures and warnings, and last what a timed run took and saved and what pruning left out. A sampled tree is said with its estimated score, its interval at `sampling.confidence`, and how many of its units were sampled and are exact |
-| `json` | Listed in `reports` | The gate's own report at `path`, `"format": 2`, described by [`resources/report.schema.json`](../../resources/report.schema.json); `why` says why the verdict is what it is and `next` what has to happen to pass, a sentence each; every score and floor in it is a percentage with at most two decimals, truncated; the tests are listed once, and each mutant points at those that cover and killed it; a mutant a static analyser killed has its `rejection`: the analyser, the `file` its finding sits in, and the finding's `code` and `message`; `suites` gives each suite's `covered`, `killed`, `score` and whether it is `exact`; a timed run adds its `run`, `cost` and `savings`; a run that pruned adds `pruning`: each pruned mutator with its `window` and its `lastSurvivor` where it ever let one through, the `units` and mutants `carried`, `auditSeconds` and `savedSeconds`, and marks each mutant it carried `carriedPruned`; a sampled run adds its `sample`, the `seed`, `confidence` and `margin`, and gives each tree its `estimate`: the `score`, the interval's `lower` and `upper`, its `confidence`, and its `units` `sampled`, `exact` and in `total`, where a tree's `judgement` can be `undecided` |
+| `console` | Always | The verdict, each tree, new-code set and package's security set, the score of each owner group the change touched, what each suite alone kills where the PHPUnit config declares two or more, the units, the reach, every mutant counted as not killed with its diff, judging tests, hint, and reproduce and explain commands, under its owner group where the project has a CODEOWNERS, the ignores, the mutants proven equivalent, the floors that can rise, failures and warnings, and last what a timed run took and saved and what pruning left out. A sampled tree is said with its estimated score, its interval at `sampling.confidence`, and how many of its units were sampled and are exact |
+| `json` | Listed in `reports` | The gate's own report at `path`, `"format": 2`, described by [`resources/report.schema.json`](../../resources/report.schema.json); `why` says why the verdict is what it is and `next` what has to happen to pass, a sentence each; every score and floor in it is a percentage with at most two decimals, truncated; the tests are listed once, and each mutant points at those that cover and killed it; a mutant a static analyser killed has its `rejection`: the analyser, the `file` its finding sits in, and the finding's `code` and `message`; `suites` gives each suite's `covered`, `killed`, `score` and whether it is `exact`; `owners` gives each owner group's `owners`, `score`, `judgement`, `counts` and `mutants`, and is empty without a CODEOWNERS; a timed run adds its `run`, `cost` and `savings`; a run that pruned adds `pruning`: each pruned mutator with its `window` and its `lastSurvivor` where it ever let one through, the `units` and mutants `carried`, `auditSeconds` and `savedSeconds`, and marks each mutant it carried `carriedPruned`; a sampled run adds its `sample`, the `seed`, `confidence` and `margin`, and gives each tree its `estimate`: the `score`, the interval's `lower` and `upper`, its `confidence`, and its `units` `sampled`, `exact` and in `total`, where a tree's `judgement` can be `undecided` |
 | `junit` | Listed in `reports` | JUnit XML at `path`: a suite per tree with a `floor` test case, a `new code` suite, a `security` suite with a `floor` test case per package, a `run` suite for failures no floor decides, and an `ignored` suite with a skipped test case per ignored mutant, its message why; a sampled tree whose interval holds its floor fails its `floor` case as `undecided` |
 | `sarif` | Listed in `reports` | SARIF 2.1.0 at `path`, for code scanning, with each security mutant's result marked `properties.security: true`, and each ignored mutant a `note` result suppressed with why: `external` for the config's ignores, `inSource` for a runner's own marker; with `CI` unset it also names the repository's root as a `file://` URI, for an editor's SARIF viewer |
 | `html` | Listed in `reports` | A self-contained `index.html` and `mutation-report.json` under the `path` directory. `index.html` is the gate's own page of the verdict, rendered from the JSON report: the overview first, with the verdict, a plain sentence on what mutation testing is, why and what to do, the counts each graded good, needs attention or bad with why, each set against its floor, the survivors each with what test would catch it, what each suite alone kills and where the verdict comes from, then a list of the files beside a pane of the one chosen. Each word a reader new to mutation testing may not know has a *What is this?* that links to [reading the report](../guide/reading-the-report.md). `mutation-report.json` is the report in the `mutation-testing-report-schema` format |
@@ -24,8 +24,8 @@ command line:
 | `webhook` | In CI, on the default branch, when its state changes | JSON described by [`resources/webhook.schema.json`](../../resources/webhook.schema.json) to the URL `MUTATION_GATE_WEBHOOK_URL` holds, signed in `X-Mutation-Gate-Signature` ([verifying it](#verifying-a-webhook)) where `MUTATION_GATE_WEBHOOK_SECRET`, or the variable `with: {secretEnv: …}` names, holds a secret |
 | `otlp` | Listed in `reports` | The run's trace (`plan`, each `shard <n>` with a span for each step its time went to, and `verdict`) and the verdict's metrics as OTLP/HTTP JSON, to `/v1/traces` and `/v1/metrics` under `with: {endpoint: …}` or `OTEL_EXPORTER_OTLP_ENDPOINT`, with `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_SERVICE_NAME` and `OTEL_RESOURCE_ATTRIBUTES` |
 | `github-annotations` | Under GitHub Actions | Up to 10 error, 10 warning and 10 notice annotations, changed lines first, and one for each cluster of survivors |
-| `github-summary` | Under GitHub Actions | The step summary: what a timed run took and saved, what the default branch saved over 30 days, what pruning left out, what each suite alone kills, and every mutant counted as not killed in one table, a cluster of survivors as one row, and every ignored mutant with why in another |
-| `github-comment` | On a pull request, with `GITHUB_TOKEN` | One sticky comment, updated in place, headed `sampled` for a sampled run, with what a timed run took and saved and what pruning left out under the verdict, up to 20 ignored mutants with why, and what it cost folded at the end, within the 65,536 characters GitHub takes: each list shows fewer entries where it must, and each diff and hint at most 1,500 characters; `with: {identity: …}` names the account it is found by when the token is not `GITHUB_TOKEN` |
+| `github-summary` | Under GitHub Actions | The step summary: what a timed run took and saved, what the default branch saved over 30 days, what pruning left out, what each suite alone kills, and every mutant counted as not killed in one table, or one table per owner group where the project has a CODEOWNERS, a cluster of survivors as one row, and every ignored mutant with why in another |
+| `github-comment` | On a pull request, with `GITHUB_TOKEN` | One sticky comment, updated in place, headed `sampled` for a sampled run, with what a timed run took and saved and what pruning left out under the verdict, the survivors on changed lines under their owner group where the project has a CODEOWNERS, up to 20 ignored mutants with why, and what it cost folded at the end, within the 65,536 characters GitHub takes: each list shows fewer entries where it must, and each diff and hint at most 1,500 characters; `with: {identity: …}` names the account it is found by when the token is not `GITHUB_TOKEN` |
 | `badge` | In CI, on the default branch | `badge.json`, `trend.json`, `trend.svg` and `savings.json` in `--publish-dir`; a run its budget cut short, or a sampled run, writes none of them |
 
 ## SonarQube
@@ -60,6 +60,29 @@ cluster once, with its members' diffs, one hint and
 `vendor/bin/mutation-gate stub <cluster id>`. Every member still counts in
 the score, and the JSON and SARIF reports keep each as an entry of its own
 that names its cluster.
+
+## Survivors and their owners
+
+A project with a CODEOWNERS file has each survivor grouped by the owners of
+its file
+([ADR-0022](../decisions/0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md)).
+The file is the first of `.github/CODEOWNERS`, `CODEOWNERS` and
+`docs/CODEOWNERS`, read as GitHub reads it: on a pull request as the fetched
+default branch holds it, so a pull request cannot move its own survivors,
+and otherwise at the commit the plan was made on. The last rule matching a
+file decides its owner group, such as `@acme/payments @jo`; a file no rule
+matches, or whose rule names no owner, is unowned. A line GitHub's syntax
+refuses (`!`, `[ ]`, an escaped `#`, an owner that is not `@user`,
+`@org/team` or an email address) is skipped with a warning, and a file over
+3 MB is not read.
+
+The console, the comment and the step summary say what the code of each
+owner group the change touched scores, and list the survivors under their
+group, each group headed by its owners and how many survivors it has. The
+comment names owners as text and mentions no one. The JSON report's
+`owners` gives each group its `owners`, `score`, `judgement`, `said`,
+`counts` and `mutants`, the unowned group with no owners; each mutant is in
+exactly one group, so the groups add up to the project.
 
 ## Verifying a webhook
 

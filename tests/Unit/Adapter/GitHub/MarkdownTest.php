@@ -54,6 +54,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Tests\Support\Clustered;
 use NightWorksIO\MutationGate\Tests\Support\Judged;
 use NightWorksIO\MutationGate\Tests\Support\Killings;
+use NightWorksIO\MutationGate\Tests\Support\Owners;
 use NightWorksIO\MutationGate\Tests\Support\PruningCases;
 use NightWorksIO\MutationGate\Tests\Support\Sampled;
 use NightWorksIO\MutationGate\Tests\Support\Secured;
@@ -574,4 +575,36 @@ it('compares a sampled run\'s tree with the base only where the run knew it exac
     expect(Markdown::comment(Verdict::of(TreeVerdicts::of($exact, $sampled))))
         ->toContain('| <code>src</code> | 50.00% | 50.00% | +10.00 | passed |')
         ->toContain('| <code>app</code> | 60.00% | about 75.55% (60.70%–85.26%) |  | passed |');
+});
+
+it('comments on the survivors on changed lines under their owner group, each with its count, after the score of each group the change touched', function (): void {
+    $comment = Markdown::comment(Owners::verdict());
+
+    expect($comment)->toContain(implode("\n\n", [
+        '- Code owned by &#64;acme/payments &#64;jo scores 33.33%.',
+        '### Survivors on changed lines (1)',
+        '#### &#64;acme/payments &#64;jo (1)',
+        '<details><summary><code>src/Billing/Pay.php:2</code> LessThan, survived</summary>',
+    ]))
+        ->and($comment)->not->toContain('@acme')
+        ->and($comment)->not->toContain('&#64;acme/web')
+        ->and($comment)->not->toContain('#### unowned');
+});
+
+it('writes every mutant not killed in the step summary under its owner group, in a table each', function () use ($run): void {
+    $summary = Markdown::summary(Owners::verdict(), $run, Verdicts::monthAgo());
+
+    expect($summary)->toContain('### Not killed (3)')
+        ->and($summary)->toContain(implode("\n", [
+            '#### &#64;acme/payments &#64;jo (2)',
+            '',
+            '| Mutant | Mutator | Judgement | What the tests miss | Command |',
+        ]))
+        ->and($summary)->toContain(implode("\n", [
+            '#### unowned (1)',
+            '',
+            '| Mutant | Mutator | Judgement | What the tests miss | Command |',
+        ]))
+        ->and(strpos($summary, '#### &#64;acme/payments'))->toBeLessThan((int) strpos($summary, '#### unowned'))
+        ->and($summary)->not->toContain('@acme');
 });
