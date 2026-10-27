@@ -520,7 +520,10 @@ has to bring its result with it.
      default branch's ledger from `publicUrl`. A verdict that holds the keys
      still installs the project and loads its config, so there the keys are
      within the project's reach on the default branch. GitHub's action holds
-     them only in its `deliver` job.
+     them only in its `deliver` job. The one secret GitHub's jobs that run
+     the project's code may hold is the credentials Composer installs with,
+     in the install step alone ([ADR-0029](0029-a-caller-passes-the-store-secrets-by-name.md),
+     decision 5).
    - **`deliver` and `fetch` hold the keys in jobs that run no project code.**
      Both run from the gate's own installation, before any extension is
      found or config read, and refuse to start through Composer's proxy or

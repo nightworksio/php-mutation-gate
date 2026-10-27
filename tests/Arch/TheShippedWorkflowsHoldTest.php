@@ -44,6 +44,15 @@ function holdsACredential(Node $mapping): bool
         || array_any(Lenient::entries($mapping), fn(Node $value): bool => str_contains(Lenient::text($value), 'github.token'));
 }
 
+/** The variable Composer reads the credentials it installs with from. */
+const INSTALL_CREDENTIALS = 'COMPOSER_AUTH';
+
+/** Whether a step installs the project's dependencies, the one step a secret reaches in a job that runs its code. */
+function installs(Node $step): bool
+{
+    return str_starts_with(Lenient::text($step->field('uses')), 'ramsey/composer-install@');
+}
+
 /** Whether a step's `run` starts the project's installed gate on a command that runs or loads the project's code. */
 function runsTheProject(Node $step): bool
 {
@@ -100,15 +109,35 @@ it('hands each secret only to the step that fetches or delivers, never to a whol
 
         foreach (jobSteps($job) as $step) {
             $run = Lenient::text($step->field('run'));
-            $given[] = [$id, Lenient::text($step->field('id')), str_starts_with($run, OWN_GATE), namesASecret($step->field('env'))];
+            $installs = installs($step);
+            $given[] = [$id, Lenient::text($step->field('id')), str_starts_with($run, OWN_GATE), namesASecret($step->field('env')), $installs];
         }
     }
 
-    $secretSteps = array_values(array_filter($given, static fn(array $step): bool => $step[3]));
+    $secretSteps = array_values(array_filter($given, static fn(array $step): bool => $step[3] && ! $step[4]));
 
     expect(array_filter($wholeJobs))->toBe([])
         ->and(array_map(static fn(array $step): array => [$step[0], $step[1], $step[2]], $secretSteps))
         ->toBe([['fetch', 'fetch', true], ['deliver', 'deliver', true]]);
+});
+
+it('hands the install credentials to the steps that install the project\'s dependencies, and nothing more', function (): void {
+    $jobs = Lenient::entries(WorkflowFile::at(REUSABLE)->field('jobs'));
+    $installing = [];
+
+    foreach ($jobs as $id => $job) {
+        foreach (jobSteps($job) as $step) {
+            $installing = installs($step) ? [...$installing, [$id, Lenient::entries($step->field('env'))]] : $installing;
+        }
+    }
+
+    $shard = jobSteps($jobs['shard']);
+    $action = $shard[WorkflowFile::stepsWhere($jobs['shard']->field('steps'), 'uses', static fn(string $uses): bool => str_starts_with($uses, './'))[0]];
+
+    expect(array_column($installing, 0))->toBe(['plan', 'survivors', 'verdict'])
+        ->and(array_map(static fn(array $one): array => array_map(Lenient::text(...), $one[1]), $installing))
+        ->each->toBe([INSTALL_CREDENTIALS => sprintf('${{ secrets.%s }}', INSTALL_CREDENTIALS)])
+        ->and(Lenient::text($action->field('with')->field('composer-auth')))->toBe(sprintf('${{ secrets.%s }}', INSTALL_CREDENTIALS));
 });
 
 it('alerts and traces from the deliver step alone', function (): void {

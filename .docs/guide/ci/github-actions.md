@@ -74,6 +74,7 @@ jobs:
 | `reports` | none; `<name>:<path>` lines, such as `sarif:build/mutation.sarif` |
 | `cache` | `true`: keep the ledger in the Actions cache |
 | `deliver` | `false`; `true` in a job of its own, after the run's, to send what the run left |
+| `composer-auth` | none; the credentials Composer installs the project's dependencies with, as `COMPOSER_AUTH` holds them, for a private repository. Pass a secret: only the install step reads it |
 
 Its outputs are `verdict` (`passed`, `failed` or `cannot-judge`), `scores`
 (JSON), `report-paths` (JSON) and `plan` (JSON). The one-step action writes
@@ -129,9 +130,9 @@ jobs:
   mutation:
     uses: nightworksio/php-mutation-gate/.github/workflows/mutation-gate.yml@<sha> # v0.1.0
     permissions:
-      contents: write        # used only by the default-branch publish job
-      actions: read
-      pull-requests: write
+      contents: write        # used only by publish, on the default branch, which writes the badge and the trend
+      actions: read          # used only by verdict and deliver, to find the run's HTML report the comment links
+      pull-requests: write   # used only by the deliver jobs, which post the comment and run none of the project's code
       id-token: write        # used only by fetch and deliver, for a store that signs in through OIDC
     with:
       php-version: '8.5'
@@ -143,9 +144,18 @@ jobs:
       AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
 ```
 
-It takes the action's inputs less `shard`, and two of its own, `coverage` and
-`runs-on`. Its outputs are `verdict`, `scores` and `plan`, and it uploads the
+It takes the action's inputs less `shard` and `composer-auth`, and two of its
+own, `coverage` and `runs-on`. Its outputs are `verdict`, `scores` and `plan`, and it uploads the
 reports as the artifact `mutation-gate-reports`.
+
+A project whose dependencies come from a private Composer repository passes
+the credentials Composer installs with as the secret `COMPOSER_AUTH`, a
+repository secret, since every job that runs the project's code installs it:
+`COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}` under `secrets`. Only the step
+that installs the project's dependencies reads it, in each of those jobs; the
+tests, the mutants and the gate's own commands run without it
+([ADR-0029](../../decisions/0029-a-caller-passes-the-store-secrets-by-name.md)).
+With the one-step action, pass it as the input `composer-auth`.
 
 Every job runs on `ubuntu-latest` unless `runs-on` names another runner: a
 label, such as `runs-on: ubuntu-24.04-arm`, or a JSON list of labels a runner
