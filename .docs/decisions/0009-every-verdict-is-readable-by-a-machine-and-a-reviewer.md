@@ -344,9 +344,12 @@ sees the same verdict.
      them, is shown as an escape, by the page and by its script, so none
      reorders what the reader sees.
    - **It is ready as soon as its list of files is**, whatever the run's
-     size: a file's mutants are inflated when the file is first shown, a
-     mutant carries only what the page shows of it, and a card off screen
-     is laid out when it scrolls into view.
+     size: its script comes before the files' mutants, so it runs while
+     the rest of the page is still arriving, as from a host that serves it
+     uncompressed; a file's mutants are inflated when the file is first
+     shown, once they have arrived whole; a mutant carries only what the
+     page shows of it; and a card off screen is laid out when it scrolls
+     into view.
    - **It reads light and dark**, as the reader's system prefers, and at
      phone width.
    - **The Stryker report.** In `mutation-report.json` (`schemaVersion` 2,

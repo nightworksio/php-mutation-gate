@@ -66,8 +66,8 @@ final readonly class ReportPage
         </section>
         %8$s
         <script type="application/json" id="data">%9$s</script>
-        %10$s
         <script>%11$s</script>
+        %10$s
         </body>
         </html>
 

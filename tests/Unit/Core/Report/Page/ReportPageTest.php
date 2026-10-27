@@ -434,6 +434,14 @@ it('escapes everything a project writes, in the page and in its data', function 
         ->and(Decoded::at(pageData($page), 'files', 0, 'mutants', 0, 'diff'))->toContain('</script><script>alert(1)</script>');
 });
 
+it('puts its script after the list of files and before every file\'s mutants, so it runs while they arrive', function (): void {
+    $page = ReportPage::html(JsonReport::of(Verdicts::failing()), '', 'const page = 1;');
+    $script = (int) strpos($page, '<script>const page = 1;</script>');
+
+    expect($script)->toBeGreaterThan((int) strpos($page, '<script type="application/json" id="data">'))
+        ->and(strpos($page, '<script type="application/gzip"'))->toBeGreaterThan($script);
+});
+
 it('inlines its style and its script, so it loads nothing from a network, neither able to end its element', function (): void {
     $page = ReportPage::html(JsonReport::of(Verdicts::passing()), 'a::after { content: "</style>"; }', 'const end = "</script>";');
 
