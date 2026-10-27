@@ -66,7 +66,7 @@ it('cannot follow a chain past three declarations, or a value no reference names
 
     expect(Php::sites($double))->toBe(['tests/MoneyTest.php:3 (test)'])
         ->and($double->isAmbiguous())->toBeTrue()
-        ->and(Php::sites($rate))->toBe(['tests/MoneyTest.php:3 (test)', 'src/Money.php:13'])
+        ->and(Php::sites($rate))->toBe(['tests/MoneyTest.php:3 (test)', 'src/Money.php:13', 'src/Money.php:14'])
         ->and($rate->isAmbiguous())->toBeTrue();
 });
 
@@ -94,6 +94,48 @@ it('follows a loop of three declarations once round, and one a chain runs into',
     $into = $loops->references(Symbol::constant('App\Loops', 'D'));
 
     expect([Php::sites($round), $round->isAmbiguous(), Php::sites($into), $into->isAmbiguous()])->toBe([[], false, [], false]);
+});
+
+it('follows a read in a method\'s parameter default to the lines of the body that runs it, and not one in an arrow function\'s', function (): void {
+    $defaults = Codebase::of(Php::source(<<<'PHP'
+        <?php
+        namespace App;
+        class Feed {
+            const LIMIT = 5;
+            public function follow(
+                int $limit = self::LIMIT,
+            ): int {
+                return $limit;
+            }
+            public function later(): \Closure
+            {
+                return static fn(int $limit = self::LIMIT): int
+                    => $limit;
+            }
+        }
+        PHP, 'src/Feed.php'));
+    $read = $defaults->references(Symbol::constant('App\Feed', 'LIMIT'));
+
+    expect(Php::sites($read))->toBe(['src/Feed.php:7-9'])
+        ->and($read->isAmbiguous())->toBeTrue();
+});
+
+it('follows a read in a parameter default of a function that has a body, and not of one that has none', function (): void {
+    $defaults = Codebase::of(Php::source(<<<'PHP'
+        <?php
+        namespace App;
+        abstract class Feed {
+            const LIMIT = 5;
+            abstract public function follow(int $limit = self::LIMIT): int;
+            public function run($a = [self::LIMIT]) {
+                return $a;
+            }
+        }
+        PHP, 'src/Feed.php'));
+    $read = $defaults->references(Symbol::constant('App\Feed', 'LIMIT'));
+
+    expect(Php::sites($read))->toBe(['src/Feed.php:6-8'])
+        ->and($read->isAmbiguous())->toBeTrue();
 });
 
 it('cannot follow a value no reference names at all', function () use ($codebase): void {

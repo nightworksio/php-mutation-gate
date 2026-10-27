@@ -57,3 +57,21 @@ it('writes whether the original was loaded before the override, at all, and whet
         ->and($never)->toBe('{"before":false,"loaded":false,"opcache":false}')
         ->and($late)->toBe('{"before":false,"loaded":true,"opcache":false}');
 });
+
+it('writes the original as loaded where the last error PHP raised stands in it, as one a mutated copy that cannot compile raises', function (): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'src/A.php', '<?php');
+    $original = sprintf('%s/src/A.php', realpath($root));
+    $file = sprintf('%s/guard.json', $root);
+    $guard = Guard::watching($file, $original, Loaded::of([]));
+
+    expect($guard)->toBeInstanceOf(Guard::class);
+
+    /** @var Guard $guard */
+    $guard->write([], Opcache::of('0', ''), $original);
+    $erred = (string) file_get_contents($file);
+    $guard->write([], Opcache::of('0', ''), '/nowhere/B.php');
+
+    expect($erred)->toBe('{"before":false,"loaded":true,"opcache":false}')
+        ->and((string) file_get_contents($file))->toBe('{"before":false,"loaded":false,"opcache":false}');
+});

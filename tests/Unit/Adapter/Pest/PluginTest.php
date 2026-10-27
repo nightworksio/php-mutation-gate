@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Order\Seed;
 use NightWorksIO\MutationGate\Adapter\Pest\Plugin;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Guard;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\KillerFile;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\LastError;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Naming;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
@@ -22,7 +23,7 @@ use NightWorksIO\MutationGate\Tests\Support\Tree;
 /** The Pest adapter's plugin, reading issues as the plugin this package lists hands it the reader. */
 function pestPlugin(): Plugin
 {
-    return new Plugin(static fn(): RunIssues => IssueKillers::ofThisRun());
+    return new Plugin(static fn(): RunIssues => IssueKillers::ofThisRun(), LastError::file(...));
 }
 
 /**
@@ -122,6 +123,45 @@ it('guards a run the adapter starts on one mutant, writing what it saw when the 
         ->and($plugin->recorder())->toBe(Off::Recording)
         ->and($unwatched)->toBeFalse()
         ->and(json_decode((string) file_get_contents($guard), associative: true))->toMatchArray(['before' => true, 'loaded' => true]);
+});
+
+it('writes what the guard saw as Pest terminates it, before a fatal error\'s exit leaves the rest of shutdown uncalled', function (): void {
+    $guard = sprintf('%s/guard.json', Scratch::untilExit());
+    $plugin = pluginBootedWith([Recorder::MUTANT => __FILE__, GateVariable::Guard->value => $guard]);
+
+    pestPlugin()->terminate();
+    $unwatched = is_file($guard);
+    $plugin->terminate();
+
+    expect($unwatched)->toBeFalse()
+        ->and(json_decode((string) file_get_contents($guard), associative: true))->toMatchArray(['before' => true, 'loaded' => true]);
+});
+
+it('writes the original as loaded where the last error PHP raised stands in it, and only there', function (): void {
+    $root = (string) realpath(Scratch::untilExit());
+    $original = sprintf('%s/A.php', $root);
+    file_put_contents($original, '<?php');
+    $guarded = static function (string $erredIn) use ($root, $original): mixed {
+        $guard = sprintf('%s/%s.json', $root, $erredIn === '' ? 'none' : 'erred');
+        $plugin = withPluginVariables(
+            [Recorder::MUTANT => $original, GateVariable::Guard->value => $guard],
+            static function () use ($erredIn): Plugin {
+                $plugin = new Plugin(
+                    static fn(): RunIssues => IssueKillers::ofThisRun(),
+                    static fn(): string => $erredIn,
+                );
+                $plugin->boot();
+
+                return $plugin;
+            },
+        );
+        $plugin->terminate();
+
+        return json_decode((string) file_get_contents($guard), associative: true);
+    };
+
+    expect($guarded($original))->toMatchArray(['loaded' => true])
+        ->and($guarded(''))->toMatchArray(['loaded' => false]);
 });
 
 it('records nothing and names no killer when Pest boots it outside the adapter\'s runs', function (): void {

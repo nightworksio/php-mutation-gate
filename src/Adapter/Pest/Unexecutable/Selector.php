@@ -157,10 +157,9 @@ final readonly class Selector
         $reading = Paths::none();
 
         foreach ($references->sites() as $site) {
-            $line = $site->line()->number();
             $judging = $site->isInTest()
                 ? $this->ofTheSuite($site->file())
-                : $this->covering($site->file(), $line, $line);
+                : $this->covering($site->file(), $site->line()->number(), $site->last()->number());
 
             foreach ($judging as $test) {
                 $reading = $reading->with($test);

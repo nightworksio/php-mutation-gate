@@ -5,7 +5,9 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Php\ClassLike;
+use NightWorksIO\MutationGate\Core\Php\Site;
 use NightWorksIO\MutationGate\Core\Php\Source;
 use NightWorksIO\MutationGate\Core\Php\Symbol;
 use NightWorksIO\MutationGate\Tests\Support\Php;
@@ -89,4 +91,28 @@ it('finds no use of a class where its name is declared as a class-like, a functi
         PHP);
 
     expect(array_map($source->tokens()->line(...), $source->namesOf('App\Status')))->toBe([9]);
+});
+
+it('finds the body that runs a read in a parameter default, and none for a token in no default', function (): void {
+    $source = Php::source(<<<'PHP'
+        <?php
+        class C {
+            public function f(
+                $a = self::A,
+            ) {
+                return $a;
+            }
+            abstract public function g($b = self::B);
+            public function h() { return self::C; }
+            public function k($c = static function () { return self::E; }) { return $c(); }
+        }
+        f(C::D);
+        PHP, 'src/C.php');
+    $run = $source->defaultRunBy(Php::indexOf($source, 'A'));
+
+    expect($run instanceof Site ? [$run->line(), $run->last()] : $run)->toEqual([Line::of(5), Line::of(7)])
+        ->and($source->defaultRunBy(Php::indexOf($source, 'B')))->toBeInstanceOf(NotGiven::class)
+        ->and($source->defaultRunBy(Php::indexOf($source, 'C', 1)))->toBeInstanceOf(NotGiven::class)
+        ->and($source->defaultRunBy(Php::indexOf($source, 'D')))->toBeInstanceOf(NotGiven::class)
+        ->and($source->defaultRunBy(Php::indexOf($source, 'E')))->toBeInstanceOf(NotGiven::class);
 });

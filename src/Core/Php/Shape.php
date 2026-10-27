@@ -20,12 +20,14 @@ final readonly class Shape
      * @param array<int, Signature> $signatures each parameter list, by where it opens
      * @param array<int, int>       $bodies     where each function's body opens, by where its `function` stands
      * @param array<int, int>       $opened     where each function's `function` stands, by where its body opens
+     * @param array<int, int>       $after      each function's body or nowhere, by where its parameters open
      */
     private function __construct(
         private array $classes,
         private array $signatures,
         private array $bodies,
         private array $opened,
+        private array $after,
     ) {
     }
 
@@ -34,17 +36,22 @@ final readonly class Shape
         $classes = self::classesIn($tokens, $scope);
         $signatures = [];
         $bodies = [];
+        $after = [];
 
         foreach ($tokens->indicesOf(T_FUNCTION, T_FN) as $at) {
             $list = self::parametersAfter($tokens, $at);
-            $body = $list === Tokens::NONE || $tokens->is($at, T_FN) ? Tokens::NONE : self::braceAfter($tokens, $at);
-            $signatures = $list === Tokens::NONE
-                ? $signatures
-                : $signatures + [$list => self::signatureAt($tokens, $scope, $at, $classes)];
+
+            if ($list === Tokens::NONE) {
+                continue;
+            }
+
+            $body = $tokens->is($at, T_FN) ? Tokens::NONE : self::braceAfter($tokens, $at);
+            $signatures += [$list => self::signatureAt($tokens, $scope, $at, $classes)];
+            $after += [$list => $body];
             $bodies = $body === Tokens::NONE ? $bodies : $bodies + [$at => $body];
         }
 
-        return new self($classes, $signatures, $bodies, array_flip($bodies));
+        return new self($classes, $signatures, $bodies, array_flip($bodies), $after);
     }
 
     /** Whether a class-like body opens at an index. */
@@ -81,6 +88,15 @@ final readonly class Shape
     public function bodyOf(int $keyword): int
     {
         return array_key_exists($keyword, $this->bodies) ? $this->bodies[$keyword] : Tokens::NONE;
+    }
+
+    /**
+     * Where the body of the function whose parameter list opens at an index,
+     * which must be one, opens; nowhere where it has none.
+     */
+    public function bodyAfter(int $list): int
+    {
+        return $this->after[$list];
     }
 
     /**

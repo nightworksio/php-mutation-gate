@@ -47,15 +47,19 @@ final readonly class Guard
     }
 
     /**
-     * Writes what it saw, given every file loaded by the end of the run.
+     * Writes what it saw, given every file loaded by the end of the run and
+     * the file the last error PHP raised stands in, if any: one raised in
+     * the original's place was raised as PHP compiled the mutated copy, so
+     * the copy was loaded, though a copy that does not compile is in no list
+     * of loaded files.
      *
      * @param list<string> $loaded
      */
-    public function write(array $loaded, Opcache $opcache): void
+    public function write(array $loaded, Opcache $opcache, string $erredIn = ''): void
     {
         $seen = [
             'before' => $this->before,
-            'loaded' => Loaded::of($loaded)->has($this->original),
+            'loaded' => Loaded::of([...$loaded, $erredIn])->has($this->original),
             'opcache' => $opcache->couldServeTheOriginal(),
         ];
 

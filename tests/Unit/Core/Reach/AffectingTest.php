@@ -298,3 +298,20 @@ it('lists every test for a file the config reads beside itself, and for every ch
         ->and(Affected::texts($unnamed->everyBecause()))->toBe([$why])
         ->and($none->isEvery())->toBeFalse();
 });
+
+it('reaches the tests that run the body a method\'s parameter default is read for', function () use ($modified): void {
+    $files = [
+        ...Affected::FILES,
+        'src/Price.php' => "<?php\n\nnamespace App;\n\nfinal class Price\n{\n    public function total(int \$n = Money::RATE): int\n"
+            . "    {\n        return \$n * 2;\n    }\n}\n",
+    ];
+    $map = CoverageMap::empty()->covered(Path::of('src/Price.php'), Line::of(9), TestId::of('PriceTest::totals'));
+
+    $affected = Affected::running($map, Changes::of($modified('src/Money.php')), $files);
+
+    expect(Affected::listed($affected)[0])->toBe([
+        'tests/PriceTest.php',
+        ['PriceTest::totals'],
+        ['`src/Money.php` declares constant App\\Money::RATE, read on line 8 of `src/Price.php`, which these tests run.'],
+    ])->and($affected->isEvery())->toBeFalse();
+});
