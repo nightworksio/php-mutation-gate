@@ -23,8 +23,32 @@
   let current = -1;
   const loaded = new Map();
 
+  function arrived(id) {
+    const whole = () => {
+      const found = document.getElementById(id);
+
+      return found !== null && (found.nextSibling !== null || document.readyState !== 'loading') ? found : null;
+    };
+
+    if (whole() !== null || document.readyState !== 'loading') {
+      return Promise.resolve(document.getElementById(id));
+    }
+
+    return new Promise((resolve) => {
+      const settle = () => {
+        if (whole() !== null || document.readyState !== 'loading') {
+          observer.disconnect();
+          resolve(document.getElementById(id));
+        }
+      };
+      const observer = new MutationObserver(settle);
+      observer.observe(document.body, { childList: true });
+      document.addEventListener('DOMContentLoaded', settle, { once: true });
+    });
+  }
+
   async function inflated(at) {
-    const packed = document.getElementById('file-' + at);
+    const packed = await arrived('file-' + at);
     const bytes = Uint8Array.from(atob(packed.textContent), (character) => character.charCodeAt(0));
     const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
 
