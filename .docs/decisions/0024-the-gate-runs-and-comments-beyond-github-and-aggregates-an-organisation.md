@@ -342,8 +342,8 @@ documentation, are these.
     - The command lives in `Cli`, reads through `Adapter\GitHub`, and
       aggregates in `Core`.
     - `dashboard.repositories` names repositories within the organisation.
-      One GitHub does not show is listed as private, with why, so a public
-      site leaves it out. The command reads its keys from the config file
+      A named repository GitHub does not return is listed as private, with
+      why, so a public site leaves it out. The command reads its keys from the config file
       alone, so the repository that builds the site needs no runner.
     - `dashboard.json` is `"format": 1`: the organisation, the time, and
       each repository's name, address, whether it is private, and its
@@ -367,8 +367,8 @@ documentation, are these.
     repositories are left out unless `--include-private` is given. Then
     `dashboard` refuses to render unless the Pages site is private, which it
     reads from the Pages API for the repository it runs in,
-    `GITHUB_REPOSITORY`: GitHub must answer `public: false`. The token reads contents only. This amends
-    ADR-0011.
+    `GITHUB_REPOSITORY`: GitHub must answer `public: false`. The token reads
+    contents only. This amends ADR-0011.
 
 ## Alternatives considered
 
