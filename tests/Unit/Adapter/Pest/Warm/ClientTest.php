@@ -30,7 +30,9 @@ afterEach(function (): void {
  * What the client of place 1 answered for a run of this script with these
  * arguments, pausing as this does, what it printed on each stream, and each
  * warning PHP raised meanwhile, as starting a script that cannot start
- * raises one.
+ * raises one. The client runs in this process, and starting a run fresh puts
+ * the script in its place, so every script handed to it is one that cannot
+ * start: a missing path, a PHP file with no interpreter line, or an empty file.
  *
  * @param  Closure(int): void                                              $pause
  * @return array{code: int, out: string, errors: string, warned: list<string>}
@@ -207,7 +209,7 @@ it('ends by the signal that ended its run, with the code a shell gives it', func
     });
 
     try {
-        $answered = $ran($directory, 'vendor/bin/pest');
+        $answered = $ran($directory, sprintf('%s/missing/pest', Scratch::directory()));
         pcntl_signal_dispatch();
     } finally {
         pcntl_signal(SIGWINCH, SIG_DFL);
@@ -296,7 +298,7 @@ it('prints only what its run\'s child printed, nothing its worker printed past t
         touch($seat->err());
         Offsets::of(2, 0)->writtenTo($seat->started($id));
         Finish::exited(0, Offsets::of(7, 0))->writtenTo($seat->ended($id));
-    }), $directory, 'vendor/bin/pest');
+    }), $directory, sprintf('%s/missing/pest', Scratch::directory()));
 
     expect($answered)->toBe(['code' => 0, 'out' => 'child', 'errors' => '', 'warned' => []]);
 });
@@ -314,7 +316,7 @@ it('prints nothing twice, and fails at nothing, where it printed past its child\
         static function (Seat $seat, string $id): void {
             Finish::exited(0, Offsets::of(7, 0))->writtenTo($seat->ended($id));
         },
-    ), $directory, 'vendor/bin/pest');
+    ), $directory, sprintf('%s/missing/pest', Scratch::directory()));
 
     expect($answered)->toBe(['code' => 0, 'out' => 'child!!', 'errors' => '', 'warned' => []]);
 });
