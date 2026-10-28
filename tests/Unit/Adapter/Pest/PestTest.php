@@ -184,11 +184,16 @@ it('cannot list the tests where Pest fails, or where an earlier list cannot be r
         ->and($untouched->commands())->toBe([]);
 });
 
-it('runs the suite under coverage into a directory it makes, with pcov collecting from the whole project, and reads the map', function (): void {
+it('runs the suite under coverage into a directory it makes, with pcov collecting from the whole project, and reads the map, knowing every test the run timed', function (): void {
     $at = PestCases::project();
     $shell = new ShellFake(static function () use ($at): Ran {
         $lines = ['src/Money.php' => [11 => [0]]];
         PestCases::map($at->root(), '.mutation-gate/coverage/coverage.php', $lines, [PestCases::RUN_ADDS => 0.5]);
+        Scratch::write($at->root(), '.mutation-gate/coverage/timed-tests.jsonl', sprintf(
+            "%s\n%s\nnot json\n",
+            json_encode([PestCases::RUN_ADDS, 9.0]),
+            json_encode(['P\\Tests\\MoneySpec::__pest_evaluable_it_reads_its_rates', 0.25]),
+        ));
 
         return Ran::finished(succeeded: true, output: 'OK');
     });
@@ -197,7 +202,8 @@ it('runs the suite under coverage into a directory it makes, with pcov collectin
 
     expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), Triage::standard()->bounds())->coverage($request))->toEqual(CoverageMap::empty()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of(PestCases::RUN_ADDS))
-        ->timed(TestId::of(PestCases::RUN_ADDS), Seconds::of(0.5)))
+        ->timed(TestId::of(PestCases::RUN_ADDS), Seconds::of(0.5))
+        ->timed(TestId::of('P\\Tests\\MoneySpec::__pest_evaluable_it_reads_its_rates'), Seconds::of(0.25)))
         ->and($shell->commands())
         ->toEqual([PestCases::invocation($at)->coverage($request, $directory, PcovReach::under($at->root(), Path::of('vendor')))]);
 });

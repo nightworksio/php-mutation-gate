@@ -42,6 +42,13 @@ final readonly class PhpUnitEvents
         self::emitterOf($events)->testPreparationStarted(TestMethodBuilder::fromCallStack());
     }
 
+    /** Emits that the test running it was prepared. */
+    public static function prepared(Facade $events): void
+    {
+        $events->seal();
+        self::emitterOf($events)->testPrepared(TestMethodBuilder::fromCallStack());
+    }
+
     /** Emits that the test running it was skipped. */
     public static function skipped(Facade $events): void
     {

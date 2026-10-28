@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Bridges;
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
+use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
@@ -59,7 +60,7 @@ it('runs Pest\'s own script in the vendor directory the project installs into', 
         ->toEqual(Command::pest('lib/vendor/pestphp/pest/bin/pest', Withheld::standard(), '--cache-directory=/p/.mutation-gate/phpunit-cache', '--list-tests-xml=tests.xml', '--colors=never'));
 });
 
-it('runs the whole suite under coverage into a directory, as --coverage expects to find it', function (): void {
+it('runs the whole suite under coverage into a directory, as --coverage expects to find it, timing every test beside the map', function (): void {
     $request = CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage'))
         ->across(ProcessCount::of(4));
 
@@ -77,7 +78,7 @@ it('runs the whole suite under coverage into a directory, as --coverage expects 
         '--cache-directory=/p/.mutation-gate/phpunit-cache',
         '--coverage-php=/p/.mutation-gate/coverage/coverage.php',
         '--log-junit=/p/.mutation-gate/coverage/junit.xml',
-    ));
+    )->with([GateVariable::TimedTests->value => '/p/.mutation-gate/coverage/timed-tests.jsonl']));
 });
 
 it('runs one group under coverage', function (): void {

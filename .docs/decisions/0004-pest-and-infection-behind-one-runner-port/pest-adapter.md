@@ -223,7 +223,14 @@ in its third decision.
     of a tree beside it would read as run by no test. The map is read with
     `phpunit/php-code-coverage`, and its `testResults` carry each test's
     duration. That map is PHP, which reading runs, so only the job that
-    wrote it reads it.
+    wrote it reads it. php-code-coverage leaves out of the map a test that
+    ran no line it measures, such as one that only reads a class's
+    constants, so the package's plugin times every test the run finished,
+    from PHPUnit's events as each is prepared and finishes, into
+    `<dir>/timed-tests.jsonl` (`MUTATION_GATE_TIMED_TESTS`). The gate adds
+    each test the map does not time to it with that time, so the reach of
+    a value, the filters, the limits and the shards see every test that
+    ran.
   - A map another job hands over with `--coverage=<dir>` is only ever the
     gate's own format 1 map in that directory (ADR-0006). A runner's
     `coverage.php` there is refused. For a shard that opens on the canary

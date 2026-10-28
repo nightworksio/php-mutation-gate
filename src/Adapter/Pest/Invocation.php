@@ -47,6 +47,9 @@ final readonly class Invocation
     /** JUnit's log of a coverage run, in the same directory. */
     public const string JUNIT = JUnitLog::NAME;
 
+    /** The file a coverage run times every test it finished in, beside its map (see TimedTests). */
+    public const string TIMED = 'timed-tests.jsonl';
+
     /** Pest's script, in the directory Composer installed the project's packages in. */
     private const string SCRIPT = '%s/pestphp/pest/bin/pest';
 
@@ -112,7 +115,7 @@ final readonly class Invocation
                 ...$this->covering($request->tests()),
                 ...PhpUnitOption::inSuites($request->suites()),
             ],
-        );
+        )->with([GateVariable::TimedTests->value => sprintf('%s/%s', $directory, self::TIMED)]);
     }
 
     /**
