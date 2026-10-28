@@ -3591,21 +3591,21 @@
         },
         {
             "name": "nette/neon",
-            "version": "v3.4.8",
+            "version": "v3.4.9",
             "source": {
                 "type": "git",
                 "url": "https://github.com/nette/neon.git",
-                "reference": "9009f99ce1396b366a88ca16c90177148352b7d3"
+                "reference": "62a868999838ba3392ccd11deb40ab2eb1478c37"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/nette/neon/zipball/9009f99ce1396b366a88ca16c90177148352b7d3",
-                "reference": "9009f99ce1396b366a88ca16c90177148352b7d3",
+                "url": "https://api.github.com/repos/nette/neon/zipball/62a868999838ba3392ccd11deb40ab2eb1478c37",
+                "reference": "62a868999838ba3392ccd11deb40ab2eb1478c37",
                 "shasum": ""
             },
             "require": {
                 "ext-json": "*",
-                "php": "8.0 - 8.5"
+                "php": "8.0 - 8.6"
             },
             "require-dev": {
                 "nette/tester": "^2.4",
@@ -3639,26 +3639,24 @@
                 {
                     "name": "David Grudl",
                     "homepage": "https://davidgrudl.com"
-                },
-                {
-                    "name": "Nette Community",
-                    "homepage": "https://nette.org/contributors"
                 }
             ],
-            "description": "🍸 Nette NEON: encodes and decodes NEON file format.",
+            "description": "🍸 Nette NEON: a human-friendly data format, simpler than YAML and with entities for objects. Comes with a fast encoder and decoder.",
             "homepage": "https://neon.nette.org",
             "keywords": [
-                "export",
-                "import",
+                "config",
+                "configuration",
+                "data format",
                 "neon",
                 "nette",
+                "parser",
                 "yaml"
             ],
             "support": {
                 "issues": "https://github.com/nette/neon/issues",
-                "source": "https://github.com/nette/neon/tree/v3.4.8"
+                "source": "https://github.com/nette/neon/tree/v3.4.9"
             },
-            "time": "2026-05-11T21:34:00+00:00"
+            "time": "2026-10-21T05:05:29+00:00"
         },
         {
             "name": "nunomaduro/collision",
