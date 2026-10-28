@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Verdict\Counts;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdict;
+use NightWorksIO\MutationGate\Core\Verdict\OwnerFloorVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
@@ -64,6 +65,10 @@ final readonly class NextSteps
             $steps = [...$steps, ...self::set(SetText::securityName($set), $set)];
         }
 
+        foreach ($verdict->sets()->ownerFloors() as $owner) {
+            $steps = [...$steps, ...self::set(SetText::ownerFloorName($owner), $owner)];
+        }
+
         $steps = count($verdict->failures()) > 0 ? [...$steps, self::FAILURES] : $steps;
 
         return $steps === [] ? [self::NOTHING] : $steps;
@@ -91,7 +96,7 @@ final readonly class NextSteps
     }
 
     /** @return list<string> */
-    private static function set(string $name, NewCodeVerdict|SecurityVerdict $set): array
+    private static function set(string $name, NewCodeVerdict|SecurityVerdict|OwnerFloorVerdict $set): array
     {
         return self::short($name, $set->floor(), $set->counts(), $set->uncovered(), $set->judgement());
     }

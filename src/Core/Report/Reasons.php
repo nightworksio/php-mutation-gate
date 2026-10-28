@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Report;
 
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdict;
+use NightWorksIO\MutationGate\Core\Verdict\OwnerFloorVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
@@ -26,6 +27,7 @@ final readonly class Reasons
             ...self::failed($verdict->trees(), SetText::tree(...)),
             ...self::failed($verdict->sets()->newCode(), SetText::newCode(...)),
             ...self::failed($verdict->sets()->security(), SetText::security(...)),
+            ...self::failed($verdict->sets()->ownerFloors(), SetText::ownerFloor(...)),
         ];
 
         foreach ($verdict->obstacles() as $obstacle) {
@@ -44,7 +46,7 @@ final readonly class Reasons
     /**
      * What every report says of each set below its floor.
      *
-     * @template T of TreeVerdict|NewCodeVerdict|SecurityVerdict
+     * @template T of TreeVerdict|NewCodeVerdict|SecurityVerdict|OwnerFloorVerdict
      *
      * @param  iterable<T>         $sets
      * @param  callable(T): string $said

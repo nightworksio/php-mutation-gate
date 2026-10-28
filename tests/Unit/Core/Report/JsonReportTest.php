@@ -519,3 +519,22 @@ it('writes each owner group with its owners, score, judgement, counts and mutant
         ->and(Decoded::at($report, 'owners', 2, 'said'))->toBe('Code with no owner scores 50.00%.')
         ->and(Decoded::at(JsonReport::encode(Verdicts::failing()), 'owners'))->toBe([]);
 });
+
+it('writes each owner with a floor apart from the groups, with its floor, score, judgement, counts and mutants', function (): void {
+    $report = JsonReport::encode(Owners::floored());
+
+    expect(Decoded::at($report, 'ownerFloors', 0))->toBe([
+        'owner' => '@acme/payments',
+        'floor' => 50.0,
+        'score' => 33.33,
+        'judgement' => 'failed',
+        'said' => 'Code owned by @acme/payments scores 33.33%, below its floor of 50.00%.',
+        'counts' => Decoded::at($report, 'ownerFloors', 0, 'counts'),
+        'mutants' => Decoded::at($report, 'ownerFloors', 0, 'mutants'),
+    ])
+        ->and(Decoded::at($report, 'ownerFloors', 0, 'counts', 'survived'))->toBe(1)
+        ->and(Decoded::at($report, 'ownerFloors', 1, 'judgement'))->toBe('passed')
+        ->and(Decoded::at($report, 'owners', 0, 'judgement'))->toBe('passed')
+        ->and(Decoded::at(JsonReport::encode(Owners::verdict()), 'ownerFloors'))->toBe([])
+        ->and(Schema::errors($report, Schema::at('resources/report.schema.json')))->toBe([]);
+});

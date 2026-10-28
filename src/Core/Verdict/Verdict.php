@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Verdict;
 
+use function array_any;
 use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -151,28 +152,27 @@ final readonly class Verdict
 
     /**
      * Cannot judge when anything kept the run from judging; failed when any
-     * tree or security set it holds or new-code set failed, or anything else
-     * did; passed
-     * otherwise.
+     * tree, security set, new-code set or owner floor it holds failed, or
+     * anything else did; passed otherwise.
      */
     public function judgement(): Judgement
     {
-        if (count($this->obstacles) > 0) {
-            return Judgement::CannotJudge;
-        }
-
-        $sets = [
+        $held = [
             ...$this->heldTo->holdsTrees() ? $this->trees : [],
             ...$this->heldTo->holdsNewCode() ? $this->sets->newCode() : [],
             ...$this->heldTo->holdsSecurity() ? $this->sets->security() : [],
+            ...$this->heldTo->holdsTrees() ? $this->sets->ownerFloors() : [],
         ];
+        $failed = array_any(
+            $held,
+            static fn(TreeVerdict|NewCodeVerdict|SecurityVerdict|OwnerFloorVerdict $set): bool
+                => $set->judgement() === Judgement::Failed,
+        );
 
-        foreach ($sets as $set) {
-            if ($set->judgement() === Judgement::Failed) {
-                return Judgement::Failed;
-            }
-        }
-
-        return count($this->failures) === 0 ? Judgement::Passed : Judgement::Failed;
+        return match (true) {
+            count($this->obstacles) > 0 => Judgement::CannotJudge,
+            $failed || count($this->failures) > 0 => Judgement::Failed,
+            default => Judgement::Passed,
+        };
     }
 }

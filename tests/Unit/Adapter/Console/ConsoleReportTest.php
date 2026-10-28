@@ -297,3 +297,12 @@ it('prints an owner group the project named with no character that could colour 
 
     expect($printed($verdict))->toContain('  me[31m@example.com (1)');
 });
+
+it('prints each owner with a floor against it before the groups the change touched', function () use ($printed): void {
+    expect($printed(Owners::floored()))->toContain(implode("\n", [
+        'Owners',
+        '  Code owned by @acme/payments scores 33.33%, below its floor of 50.00%.',
+        '  Code owned by @acme/web scores 100.00% against its floor of 50.00%.',
+        '  Code owned by @acme/payments @jo scores 33.33%.',
+    ]));
+});

@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdict;
+use NightWorksIO\MutationGate\Core\Verdict\OwnerFloorVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\Survivors;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
@@ -49,6 +50,8 @@ final readonly class JUnit
 
     private const string SECURITY = 'security';
 
+    private const string OWNERS = 'owners';
+
     /** The case of a set's floor. */
     private const string FLOOR = 'floor';
 
@@ -62,37 +65,30 @@ final readonly class JUnit
             $suites[] = self::suite($tree->tree()->path()->value(), [self::tree($tree, $names)]);
         }
 
-        $sets = [];
-
-        foreach ($verdict->sets()->newCode() as $set) {
-            $sets[] = self::newCode($set, $names);
-        }
-
-        if ($sets !== []) {
-            $suites[] = self::suite(self::NEW_CODE, $sets);
-        }
-
-        $secured = [];
-
-        foreach ($verdict->sets()->security() as $set) {
-            $secured[] = self::security($set, $names);
-        }
-
-        if ($secured !== []) {
-            $suites[] = self::suite(self::SECURITY, $secured);
-        }
-
-        $run = self::run($verdict);
-
-        if ($run !== []) {
-            $suites[] = self::suite('run', $run);
-        }
-
-        $ignored = self::ignored($verdict);
-
-        if ($ignored !== []) {
-            $suites[] = self::suite(MutantJudgement::Ignored->value, $ignored);
-        }
+        $sets = $verdict->sets();
+        $suites = [
+            ...$suites,
+            ...self::named(
+                self::NEW_CODE,
+                array_map(static fn(NewCodeVerdict $set): array => self::newCode($set, $names), [...$sets->newCode()]),
+            ),
+            ...self::named(
+                self::SECURITY,
+                array_map(
+                    static fn(SecurityVerdict $set): array => self::security($set, $names),
+                    [...$sets->security()],
+                ),
+            ),
+            ...self::named(
+                self::OWNERS,
+                array_map(
+                    static fn(OwnerFloorVerdict $owner): array => self::ownerFloor($owner, $names),
+                    [...$sets->ownerFloors()],
+                ),
+            ),
+            ...self::named('run', self::run($verdict)),
+            ...self::named(MutantJudgement::Ignored->value, self::ignored($verdict)),
+        ];
 
         $tests = 0;
         $failures = 0;
@@ -109,6 +105,17 @@ final readonly class JUnit
             '</testsuites>',
             '',
         ]);
+    }
+
+    /**
+     * The suite of these test cases, where there are any; none where there are not.
+     *
+     * @param  list<array{string, bool}>     $cases
+     * @return list<array{string, int, int}>
+     */
+    private static function named(string $name, array $cases): array
+    {
+        return $cases === [] ? [] : [self::suite($name, $cases)];
     }
 
     /**
@@ -149,6 +156,19 @@ final readonly class JUnit
             $set->judgement(),
             SetText::security($set),
             $set->survivors(),
+            $names,
+        );
+    }
+
+    /** @return array{string, bool} an owner held to a floor, as the `floor` case of the owner */
+    private static function ownerFloor(OwnerFloorVerdict $owner, TestNames $names): array
+    {
+        return self::case(
+            self::FLOOR,
+            $owner->owner()->value(),
+            $owner->judgement(),
+            SetText::ownerFloor($owner),
+            $owner->survivors(),
             $names,
         );
     }

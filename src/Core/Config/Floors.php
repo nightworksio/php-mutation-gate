@@ -17,7 +17,8 @@ use function sprintf;
 
 /**
  * What decides a score and the floor it is held to (ADR-0003): `trees`,
- * `newCode`, `uncovered` and `baseline`.
+ * `newCode`, `security`, `uncovered`, `baseline`, and the floor of each owner
+ * CODEOWNERS names that has one, `owners.floors` (ADR-0022).
  */
 final readonly class Floors implements Part
 {
@@ -31,6 +32,7 @@ final readonly class Floors implements Part
         private Uncovered|Absent $uncovered,
         private Path|Absent $baseline,
         private Improvement|Absent $improvement,
+        private Table|Absent $owners,
     ) {
     }
 
@@ -42,8 +44,9 @@ final readonly class Floors implements Part
         Uncovered|Absent $uncovered = new Absent(),
         Path|Absent $baseline = new Absent(),
         Improvement|Absent $improvement = new Absent(),
+        Table|Absent $owners = new Absent(),
     ): self {
-        return new self($trees, $newCode, $security, $uncovered, $baseline, $improvement);
+        return new self($trees, $newCode, $security, $uncovered, $baseline, $improvement, $owners);
     }
 
     public static function none(): self
@@ -60,6 +63,7 @@ final readonly class Floors implements Part
             uncovered: $none->uncovered(),
             baseline: $none->baseline(),
             improvement: $none->improvement(),
+            owners: $none->owners(),
         );
     }
 
@@ -73,6 +77,7 @@ final readonly class Floors implements Part
                 Absent::laid($this->uncovered, $later->uncovered),
                 Absent::laid($this->baseline, $later->baseline),
                 Absent::laid($this->improvement, $later->improvement),
+                Absent::laid($this->owners, $later->owners),
             )
             : $this;
     }
@@ -110,6 +115,12 @@ final readonly class Floors implements Part
     public function improvement(): Improvement
     {
         return $this->improvement instanceof Improvement ? $this->improvement : Improvement::Require;
+    }
+
+    /** `owners.floors`: the floor of each owner that has one, by the owner as CODEOWNERS spells it; none by default */
+    public function owners(): Table
+    {
+        return $this->owners instanceof Table ? $this->owners : Table::none();
     }
 
     public function written(PathOrigin $origin): Json
@@ -151,6 +162,12 @@ final readonly class Floors implements Part
                         'improvement',
                         $this->improvement instanceof Improvement ? $this->improvement->value : $this->improvement,
                     ),
+                ),
+            ),
+            Member::unlessEmpty(
+                'owners',
+                Json::object(
+                    Member::of('floors', $this->owners instanceof Table ? $this->owners->written() : $this->owners),
                 ),
             ),
         );
@@ -202,6 +219,18 @@ final readonly class Floors implements Part
             Improvement::Report => 'Baseline::reportingImprovement()',
         }] : [];
 
-        return [...$uncovered, ...$baseline, ...$improvement];
+        return [...$uncovered, ...$baseline, ...$improvement, ...$this->ownerCalls()];
+    }
+
+    /** @return list<string> the `Owner::floor()` settings for each owner's floor */
+    private function ownerCalls(): array
+    {
+        $calls = [];
+
+        foreach ($this->owners instanceof Table ? $this->owners : [] as $owner => $floor) {
+            $calls[] = sprintf('Owner::floor(%s, %s)', PhpCalls::literal($owner), PhpCalls::literal($floor));
+        }
+
+        return $calls;
     }
 }

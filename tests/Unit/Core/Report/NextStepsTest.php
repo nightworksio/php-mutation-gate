@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
+use NightWorksIO\MutationGate\Tests\Support\Owners;
 use NightWorksIO\MutationGate\Tests\Support\Secured;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
@@ -39,4 +40,11 @@ it('says to fix what keeps the gate from judging first, and each failure no floo
 it('says a run that passes needs nothing, and says nothing of a set that reaches its floor', function (): void {
     expect(NextSteps::of(Verdicts::passing()))->toBe([NextSteps::NOTHING])
         ->and(NextSteps::of(Verdicts::empty()))->toBe([NextSteps::NOTHING]);
+});
+
+it('says how many more mutants an owner below its floor must catch to reach it, and nothing of one that meets it', function (): void {
+    expect(NextSteps::of(Owners::floored()))->toBe([
+        'Catch 1 more of the mutants in lib to bring its score up to its floor of 50.00%: each escaped or untested one says what test would catch it.',
+        'Catch 1 more of the mutants in Code owned by @acme/payments to bring its score up to its floor of 50.00%: each escaped or untested one says what test would catch it.',
+    ]);
 });

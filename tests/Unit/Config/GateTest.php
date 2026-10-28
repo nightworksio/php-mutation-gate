@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Config\Load;
 use NightWorksIO\MutationGate\Config\Local;
 use NightWorksIO\MutationGate\Config\Mutators;
 use NightWorksIO\MutationGate\Config\Option;
+use NightWorksIO\MutationGate\Config\Owner;
 use NightWorksIO\MutationGate\Config\Pest;
 use NightWorksIO\MutationGate\Config\Pipeline;
 use NightWorksIO\MutationGate\Config\Preset;
@@ -137,6 +138,8 @@ it('writes every setting of the configuration reference', function (): void {
                 Ignores::within(30),
                 Ignores::allowingNativeMarkers(),
                 Badge::colour('green', 85),
+                Owner::floor('@acme/payments', 90),
+                Owner::floor('jo@acme.example', 75.5),
                 Pest::patched(),
                 Pest::canary('canary'),
                 StaticCheck::phpstan(),
@@ -215,6 +218,7 @@ it('writes every setting of the configuration reference', function (): void {
         'flaky' => ['confirmSurvivors' => false],
         'survivorsFirst' => ['max' => 5],
         'badge' => ['colors' => ['green' => 85]],
+        'owners' => ['floors' => ['@acme/payments' => 90, 'jo@acme.example' => 75.5]],
         'pest' => ['patch' => true, 'canary' => 'canary'],
         'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45],
         'mutators' => ['sets' => ['acme', 'acme-auth'], 'except' => ['acme/RemoveAudit']],

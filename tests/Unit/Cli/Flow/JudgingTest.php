@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Baseline as BaselineSetting;
 use NightWorksIO\MutationGate\Config\Ci;
 use NightWorksIO\MutationGate\Config\Floor as NewCodeFloor;
+use NightWorksIO\MutationGate\Config\Owner;
 use NightWorksIO\MutationGate\Config\Proofs;
 use NightWorksIO\MutationGate\Config\Report;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
@@ -355,6 +356,32 @@ it('groups every mutant by the owners the CODEOWNERS at the plan\'s commit names
         ->and($owned)->toBe(count($verdict->trees()->mutants()))
         ->and(JudgingRuns::texts($verdict->warnings()))
         ->toBe(['.github/CODEOWNERS line 2 is skipped: a pattern that starts with `!` negates, which CODEOWNERS does not.']);
+});
+
+it('holds each owner `owners.floors` names to its floor, over the files the CODEOWNERS at the plan\'s commit gives it, and warns of a key that is no owner', function () use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+    $checkout = new ChangeSourceFake(Revision::ref('base'), Changes::none(), [
+        Flows::HEAD => [...Flows::FILES, '.github/CODEOWNERS' => "/src/Money.php @acme/money\n"],
+    ]);
+
+    $verdict = JudgingRuns::verdictOf($judged(
+        Planned::twoShards(),
+        Flows::adapters(Flows::project(), [], $tree(Floor::of(0)), $checkout),
+        JudgingRuns::settings(Owner::floor('@acme/money', 100), Owner::floor('@nobody', 50), Owner::floor('money', 50)),
+        $reporting(new ReporterFake()),
+    ));
+    [$money, $nobody] = [...$verdict->sets()->ownerFloors()];
+
+    expect([$money->owner()->value(), $money->floor(), $nobody->judgement()])
+        ->toEqual(['@acme/money', Floor::of(100), Judgement::NothingToMutate])
+        ->and(count($money->mutants()))->toBeGreaterThan(0)
+        ->and($money->judgement())->toBe(Judgement::Failed)
+        ->and($verdict->sets()->ownerFloors())->toHaveCount(2)
+        ->and(JudgingRuns::texts($verdict->warnings()))
+        ->toContain('owners.floors names money, which no CODEOWNERS rule can name as an owner, so it holds no code to its floor.')
+        ->and($verdict->judgement())->toBe(Judgement::Failed);
 });
 
 it('warns of each mutator set a preset turns on that is not installed', function () use ($makeReporting, $makeJudged): void {

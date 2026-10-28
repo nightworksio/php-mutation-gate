@@ -34,6 +34,7 @@ use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnit;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdict;
+use NightWorksIO\MutationGate\Core\Verdict\OwnerFloorVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\OwnerVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
@@ -103,6 +104,15 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  *     counts: Numbers,
  *     mutants: list<string>,
  * }
+ * @phpstan-type OwnerFloorEntry array{
+ *     owner: string,
+ *     floor: float,
+ *     score?: float,
+ *     judgement: string,
+ *     said: string,
+ *     counts: Numbers,
+ *     mutants: list<string>,
+ * }
  * @phpstan-type SuiteEntry array{
  *     name: string,
  *     covered: int,
@@ -124,6 +134,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  *     newCode: list<NewCodeEntry>,
  *     security: list<SecurityEntry>,
  *     owners: list<OwnerEntry>,
+ *     ownerFloors: list<OwnerFloorEntry>,
  *     suites: list<SuiteEntry>,
  *     suitesUnscored?: string,
  *     suitesLowerBound?: string,
@@ -177,6 +188,7 @@ final readonly class JsonReport
             'newCode' => self::each($verdict->sets()->newCode(), self::newCode(...)),
             'security' => self::each($verdict->sets()->security(), self::security(...)),
             'owners' => self::each($verdict->sets()->owners(), self::owner(...)),
+            'ownerFloors' => self::each($verdict->sets()->ownerFloors(), self::ownerFloor(...)),
             ...self::suites(SuiteScores::of($verdict), $verdict->matrix()->whyNotFull()),
             'matrix' => $verdict->matrix()->kind()->value,
             'tests' => self::each(
@@ -342,6 +354,20 @@ final readonly class JsonReport
             'said' => SetText::owners($group),
             'counts' => self::counts($group->counts()),
             'mutants' => self::ids($group->mutants()),
+        ];
+    }
+
+    /** @return OwnerFloorEntry */
+    private static function ownerFloor(OwnerFloorVerdict $owner): array
+    {
+        return [
+            'owner' => $owner->owner()->value(),
+            'floor' => self::percent($owner->floor()),
+            ...self::scored($owner->score()),
+            'judgement' => $owner->judgement()->value,
+            'said' => SetText::ownerFloor($owner),
+            'counts' => self::counts($owner->counts()),
+            'mutants' => self::ids($owner->mutants()),
         ];
     }
 

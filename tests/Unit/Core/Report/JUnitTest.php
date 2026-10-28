@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\Report\JUnit;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
+use NightWorksIO\MutationGate\Tests\Support\Owners;
 use NightWorksIO\MutationGate\Tests\Support\Sampled;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 use NightWorksIO\MutationGate\Tests\Support\Xpath;
@@ -124,4 +125,17 @@ it('fails the floor case of a sampled tree whose interval holds its floor as und
     expect($undecided)->toBe(['undecided'])
         ->and($failures)->toBe(['1'])
         ->and($met)->toBe([]);
+});
+
+it('writes a suite of the owners with a floor, a floor case each, failing below it with the mutants it counts', function (): void {
+    $owners = static fn(string $query): array => Xpath::of(JUnit::xml(Owners::floored()), $query);
+
+    expect($owners('/testsuites/testsuite[@name="owners"]/testcase/@classname'))->toBe(['@acme/payments', '@acme/web'])
+        ->and($owners('/testsuites/testsuite[@name="owners"]/testcase/@name'))->toBe(['floor', 'floor'])
+        ->and($owners('/testsuites/testsuite[@name="owners"]/@failures'))->toBe(['1'])
+        ->and($owners('/testsuites/testsuite[@name="owners"]/testcase[1]/failure/@message'))
+        ->toBe(['Code owned by @acme/payments scores 33.33%, below its floor of 50.00%.'])
+        ->and($owners('/testsuites/testsuite[@name="owners"]/testcase[2]/system-out'))
+        ->toBe(['Code owned by @acme/web scores 100.00% against its floor of 50.00%.'])
+        ->and(Xpath::of(JUnit::xml(Owners::verdict()), '/testsuites/testsuite[@name="owners"]'))->toBe([]);
 });

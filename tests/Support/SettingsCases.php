@@ -33,6 +33,9 @@ final readonly class SettingsCases
             "path": "mutation-gate.baseline.json",
             "improvement": "require"
         },
+        "owners": {
+            "floors": {}
+        },
         "packages": [],
         "reach": {
             "everything": []
@@ -177,6 +180,7 @@ final readonly class SettingsCases
         'security' => ['floor' => 97.5],
         'uncovered' => 'exclude',
         'baseline' => ['path' => 'build/baseline.json', 'improvement' => 'report'],
+        'owners' => ['floors' => ['@acme/payments' => 90, 'jo@acme.example' => 75.5]],
         'packages' => ['packages/*'],
         'reach' => ['everything' => ['config/**', 'routes/**'], 'lockPackages' => ['pestphp/*', 'phpunit/phpunit']],
         'holds' => ['hotPath' => 1],

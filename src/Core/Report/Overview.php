@@ -20,8 +20,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 /**
  * What every report reads off a verdict beyond its parts: the whole
  * project's score, how uncovered mutants count, which mutants are in a set
- * that failed, whether a tree below its floor, new code or a security set
- * below its own, and which an ignore or a proof left out.
+ * that failed, whether a tree below its floor, new code, a security set or
+ * an owner below its own, and which an ignore or a proof left out.
  */
 final readonly class Overview
 {
@@ -47,7 +47,7 @@ final readonly class Overview
             $failing += self::idsIf($tree->judgement(), $tree->mutants());
         }
 
-        foreach ($verdict->sets()->newCode() as $set) {
+        foreach ([...$verdict->sets()->newCode(), ...$verdict->sets()->ownerFloors()] as $set) {
             $failing += self::idsIf($set->judgement(), $set->mutants());
         }
 

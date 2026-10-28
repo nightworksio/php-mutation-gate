@@ -36,6 +36,7 @@ final readonly class BuilderClasses
         'Local' => self::BUILDER,
         'Mutators' => self::BUILDER,
         'Option' => self::BUILDER,
+        'Owner' => self::BUILDER,
         'Pest' => self::BUILDER,
         'Pipeline' => self::BUILDER,
         'Preset' => self::BUILDER,

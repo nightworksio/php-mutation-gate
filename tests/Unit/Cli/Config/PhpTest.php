@@ -96,6 +96,7 @@ it('writes a config that reads back into the same effective config', function (a
             ['use' => 'Acme\\Html\\Reporter', 'path' => 'build/site'],
         ],
         'badge' => ['colors' => ['green' => 95]],
+        'owners' => ['floors' => ['@acme/payments' => 90, 'jo@acme.example' => 75.5]],
         'pest' => ['patch' => true, 'canary' => 'canary'],
         'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon'],
         'mutators' => ['sets' => ['acme', 'acme-auth'], 'except' => ['acme/RemoveAudit']],

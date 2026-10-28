@@ -162,6 +162,7 @@ final readonly class ReportSchema
                 'newCode' => self::listOfObjects(self::newCode()),
                 'security' => self::listOfObjects(self::security()),
                 'owners' => self::listOfObjects(self::owner()),
+                'ownerFloors' => self::listOfObjects(self::ownerFloor()),
                 'suites' => self::listOfObjects(self::object([
                     'name' => self::TEXT,
                     'covered' => self::WHOLE,
@@ -423,6 +424,20 @@ final readonly class ReportSchema
             'owners' => self::listOf(self::TEXT),
             'score' => self::PERCENT,
             'judgement' => self::oneOf(Judgement::Passed, Judgement::NothingToMutate),
+            'said' => self::TEXT,
+            'counts' => self::counts(),
+            'mutants' => self::listOf(self::ID_SPELLING),
+        ], ['score']);
+    }
+
+    /** @return Shallow */
+    private static function ownerFloor(): array
+    {
+        return self::object([
+            'owner' => self::TEXT,
+            'floor' => self::PERCENT,
+            'score' => self::PERCENT,
+            'judgement' => self::oneOf(Judgement::Passed, Judgement::Failed, Judgement::NothingToMutate),
             'said' => self::TEXT,
             'counts' => self::counts(),
             'mutants' => self::listOf(self::ID_SPELLING),

@@ -76,7 +76,7 @@ final readonly class ConsoleReport implements Configurable, Reporter
             ...$this->section('Trees', $this->trees($verdict)),
             ...$this->section('New code', $this->newCode($verdict)),
             ...$this->section('Security', $this->security($verdict)),
-            ...$this->section('Owners', SetText::touched($verdict->sets()->owners())),
+            ...$this->section('Owners', SetText::owned($verdict->sets())),
             ...$this->section('Suites', SuiteText::lines(SuiteScores::of($verdict), $verdict->matrix()->whyNotFull())),
             ...$this->section('Units', $this->units($verdict)),
             ...$this->section('Reach', $this->texts($verdict->reach())),
