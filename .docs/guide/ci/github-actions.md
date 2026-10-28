@@ -226,7 +226,11 @@ installation, at the workflow's commit:
 shard's result, `mutation-gate-result-<attempt>-<shard>`, carries its plan's.
 Every job reads the attempt the job that wrote it gives. So *Re-run all jobs*
 judges only what the new attempt wrote, and *Re-run failed jobs* judges what
-the jobs it ran again wrote beside what the jobs it kept wrote.
+the jobs it ran again wrote beside what the jobs it kept wrote. Each result
+keeps beside it the attempt whose shard job wrote it, and the verdict lists
+its attempt's jobs: a shard whose job ran again and wrote no result has its
+earlier result removed, with an error saying so, and the verdict cannot judge
+the run without it.
 
 To keep the ledger in S3, R2 or MinIO, set these under Settings:
 

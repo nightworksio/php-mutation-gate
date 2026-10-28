@@ -550,6 +550,64 @@ class Attempts(unittest.TestCase):
                     self.assertIn(key.group(3), needs)
 
 
+class StaleResults(unittest.TestCase):
+    def test_the_verdict_judges_no_result_an_earlier_attempt_left_for_a_shard_run_again(self):
+        with tempfile.TemporaryDirectory() as directory:
+            results = os.path.join(directory, "results")
+            os.mkdir(results)
+            for shard, attempt in (("1", "2"), ("2", "1"), ("3", "1"), ("5", "two")):
+                with open(os.path.join(results, f"{shard}.json"), "w", encoding="utf-8") as file:
+                    file.write("{}")
+                with open(os.path.join(results, f"{shard}.attempt"), "w", encoding="utf-8") as file:
+                    file.write(f"{attempt}\n")
+            with open(os.path.join(results, "4.json"), "w", encoding="utf-8") as file:
+                file.write("{}")
+            jobs = os.path.join(directory, "jobs.json")
+            with open(jobs, "w", encoding="utf-8") as file:
+                json.dump([
+                    {"name": "mutation / shard 1 (src)", "run_attempt": 2},
+                    {"name": "mutation / shard 2 (src)", "run_attempt": 1},
+                    {"name": "mutation / shard 3 (src)", "run_attempt": 2},
+                    {"name": "mutation / shard 4 (src)", "run_attempt": 2},
+                    {"name": "mutation / shard 5 (src)", "run_attempt": 1},
+                ], file)
+            ran = subprocess.run(
+                ["python3", os.path.join(ROOT, "resources", "action", "gate_action.py"), "stale"],
+                env={**os.environ, "JOBS": jobs, "RESULTS": results},
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(ran.returncode, 0)
+            self.assertEqual(sorted(os.listdir(results)), ["1.json", "2.json"])
+            self.assertIn("::error title=Shard re-run wrote no result::Shard 3 ran again in attempt 2", ran.stdout)
+            self.assertIn("Shard 4 ran again in attempt 2", ran.stdout)
+            self.assertIn("Shard 5 ran again in attempt 1 and wrote no result, so the result attempt 0 wrote", ran.stdout)
+
+    def test_each_shard_keeps_beside_its_result_the_attempt_that_wrote_it(self):
+        upload = next(one for one in steps(job(WORKFLOW, "shard")) if "actions/upload-artifact@" in one[0])
+        uploaded = [line.strip() for line in upload]
+        ran = "\n".join(step(lines_of(ACTION), "Run shard ${{ inputs.shard }}"))
+
+        self.assertIn(".mutation-gate/results/${{ matrix.shard.id }}.attempt", uploaded)
+        self.assertIn('echo "${GITHUB_RUN_ATTEMPT}" > ".mutation-gate/results/${SHARD}.attempt"', ran)
+
+    def test_the_verdict_lists_its_attempt_s_jobs_with_the_token_and_removes_stale_results_before_it_judges(self):
+        found = steps(job(WORKFLOW, "verdict"))
+        listing = [at for at, one in enumerate(found) if any("/attempts/${{ github.run_attempt }}/jobs" in line for line in one)]
+        results = [at for at, one in enumerate(found) if any("pattern: mutation-gate-result-" in line for line in one)]
+        removing = [at for at, one in enumerate(found) if any('gate_action.py" stale' in line for line in one)]
+        judging = [at for at, one in enumerate(found) if one[0].strip() == "- name: Verdict"]
+
+        self.assertEqual(len(listing), 1)
+        self.assertTrue(any("GH_TOKEN: ${{ github.token }}" in line for line in found[listing[0]]))
+        self.assertTrue(any("continue-on-error: true" in line for line in found[results[0]]))
+        self.assertLess(listing[0], results[0])
+        self.assertLess(results[0], removing[0])
+        self.assertLess(removing[0], judging[0])
+
+
 # A job's runner, as the reusable workflow names it: its `runs-on` input,
 # a label or a JSON list of labels.
 RUNS_ON = "    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}"
