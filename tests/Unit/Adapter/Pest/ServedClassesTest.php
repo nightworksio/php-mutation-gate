@@ -3,11 +3,8 @@
 declare(strict_types=1);
 
 use Composer\Autoload\ClassLoader;
-use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
-use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\ServedClasses;
 use NightWorksIO\MutationGate\Tests\Support\Declared;
-use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ServedBox;
 
@@ -159,26 +156,3 @@ it('serves a class file in the global namespace, a block of it, and a namespace 
     'a block of it' => ['namespace {', '}', ''],
     'a namespace of one name' => ['namespace Served;', '', 'Served\\'],
 ]);
-
-it('serves the copy pest-plugin-mutate names unless the mutant\'s mutator is pinned by source, which the wrapper serves', function (): void {
-    $pinned = ServedBox::registered();
-    $served = ServedBox::registered();
-    $named = static fn(ServedBox $box, string $pin): array => [
-        Recorder::MUTANT => $box->file,
-        Recorder::MUTATED => $box->copy,
-        GateVariable::SourcePinned->value => $pin,
-    ];
-
-    try {
-        $declined = Environment::during($named($pinned, '1'), static fn(): ArrayObject => new ArrayObject([ServedClasses::fromEnvironment()]));
-        $accepted = Environment::during($named($served, ''), static fn(): ArrayObject => new ArrayObject([ServedClasses::fromEnvironment()]));
-
-        expect($declined->getArrayCopy())->toBe([false])
-            ->and($pinned->read('SIZE'))->toBe('1')
-            ->and($accepted->getArrayCopy())->toBe([true])
-            ->and($served->read('SIZE'))->toBe('2');
-    } finally {
-        $pinned->loader->unregister();
-        $served->loader->unregister();
-    }
-});

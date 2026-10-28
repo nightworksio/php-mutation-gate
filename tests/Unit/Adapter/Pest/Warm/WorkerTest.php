@@ -18,7 +18,6 @@ use NightWorksIO\MutationGate\Tests\Support\Passing;
 use NightWorksIO\MutationGate\Tests\Support\Pauses;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShellForking;
-use NightWorksIO\MutationGate\Tests\Support\Tree;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -86,7 +85,7 @@ it('forks no child for a run whose asker is gone, and serves on until its parent
 
 it('starts fresh, and warns of it, the run of a mutant of a file it loaded', function () use ($seat, $request, $warned): void {
     $at = $seat();
-    $mutated = (string) realpath(Tree::at('src/Adapter/Pest/Warm/Worker.php'));
+    $mutated = (string) realpath(__FILE__);
     $request((int) getmypid(), $mutated)->leftIn($at->request());
     Worker::at($at->directory(), 1, Passing::for('0.3'), new Pauses()->pausing())->served(ShellForking::none($at));
     $finish = Finish::readFrom($at->ended('42-1'));

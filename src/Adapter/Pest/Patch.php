@@ -84,9 +84,11 @@ final readonly class Patch
 
     private const string SERVE_BECOMES = <<<'PHP'
                     {MARK} an autoloaded class is served with no wrapper, unless its mutator is pinned by source.
+                    $original = (string) getenv(self::ENV_MUTATION_TESTING);
                     $copy = (string) getenv(self::ENV_MUTATION_FILE);
+                    $pinned = (string) getenv('%2$s') !== '';
 
-                    if (! class_exists(\%1$s::class) || ! \%1$s::fromEnvironment()) {
+                    if ($pinned || ! class_exists(\%1$s::class) || ! \%1$s::serve($original, $copy)) {
                         // @phpstan-ignore-next-line
                         StreamWrapper::start(getenv(self::ENV_MUTATION_TESTING), $copy);
                     }
@@ -432,7 +434,11 @@ final readonly class Patch
                 ),
             ),
             Hunk::in(self::TEST_RUNNER, self::ONLY_SHIPS, sprintf(self::ONLY_BECOMES, PrunedFile::class, Twins::class)),
-            Hunk::in(self::MUTATE_PLUGIN, self::SERVE_SHIPS, sprintf(self::SERVE_BECOMES, ServedClasses::class)),
+            Hunk::in(
+                self::MUTATE_PLUGIN,
+                self::SERVE_SHIPS,
+                sprintf(self::SERVE_BECOMES, ServedClasses::class, GateVariable::SourcePinned->value),
+            ),
             Hunk::in(
                 self::MUTATION_TEST,
                 self::PINNED_SHIPS,

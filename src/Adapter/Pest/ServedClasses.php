@@ -18,7 +18,6 @@ use Composer\Autoload\ClassLoader;
 use function dirname;
 use function file_get_contents;
 use function file_put_contents;
-use function getenv;
 use function getmypid;
 use function interface_exists;
 use function is_file;
@@ -26,7 +25,6 @@ use function is_string;
 use function ltrim;
 use function mb_strtolower;
 
-use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use PhpToken;
 
 use function realpath;
@@ -43,8 +41,9 @@ use function var_export;
  * `__DIR__` spelled as the original's, when a class the original declares is
  * first asked for. A file that declares no class, whose classes Composer
  * loads from another file or not at all, or whose class is loaded already,
- * is left to pest-plugin-mutate's wrapper, as is the file of a mutant whose
- * mutator is pinned by source (ADR-0021). A test that reads the original's
+ * is left to pest-plugin-mutate's wrapper, as the patch leaves the file of a
+ * mutant whose mutator is pinned by source (ADR-0021). It loads none of the
+ * gate's classes, whose own mutants it may serve. A test that reads the original's
  * text reads it as it is on disk, a reflection of its class names the served
  * copy's file, and a run that loads the original by its path, as a `require`
  * does, runs the original's code: the process then counts it as loaded before
@@ -64,18 +63,6 @@ final class ServedClasses
 
     /** @var array<string, string> the file served in place of the original this process serves, by its real path */
     private static array $serving = [];
-
-    /**
-     * Serves the copy pest-plugin-mutate names in place of the original it
-     * names, as serve() does, unless the mutant's mutator is pinned by
-     * source: the test that kills such a mutant reads its file, which only
-     * the wrapper shows it.
-     */
-    public static function fromEnvironment(): bool
-    {
-        return (string) getenv(GateVariable::SourcePinned->value) === ''
-            && self::serve((string) getenv(Recorder::MUTANT), (string) getenv(Recorder::MUTATED));
-    }
 
     /** Serves a copy in place of the original, where both are there and the original is such a class file. */
     public static function serve(string $original, string $copy): bool
