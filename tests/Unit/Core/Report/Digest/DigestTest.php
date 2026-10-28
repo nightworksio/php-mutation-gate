@@ -341,3 +341,11 @@ it('details a cluster with its members alone, under their file, and how to stub 
         '',
     ]));
 });
+
+it('names the mutants each set of tests that fails without any mutant leaves out, with its line', function (): void {
+    $failing = Verdicts::failingUnmutated();
+
+    expect(digestLines(Verdicts::of(Floor::of(50), $failing)))
+        ->toContain(sprintf('left-out %s (%s)', $failing->mutant()->id()->value(), 'The tests fail without any mutant: MoneyTest::adds'))
+        ->and(digestLines(Verdicts::of(Floor::of(50), $failing)))->toContain(sprintf('why %s', 'The tests fail without any mutant: MoneyTest::adds'));
+});

@@ -179,7 +179,7 @@ final readonly class KillMatrix
                 $killers->has($test) => Outcome::Killed,
                 default => $afterTheKiller,
             },
-            MutantStatus::TimedOut, MutantStatus::OutOfMemory => Outcome::Unknown,
+            MutantStatus::TimedOut, MutantStatus::OutOfMemory, MutantStatus::FailsUnmutated => Outcome::Unknown,
             MutantStatus::KilledByStaticAnalysis,
             MutantStatus::Uncovered,
             MutantStatus::Unjudged,

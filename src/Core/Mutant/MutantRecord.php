@@ -55,6 +55,7 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  *     reason?: string,
  *     outOfTime?: string,
  *     killedBy?: list<string>,
+ *     failingUnmutated?: list<string>,
  *     rejection?: RejectionWritten,
  * }
  */
@@ -101,6 +102,9 @@ final readonly class MutantRecord
 
     private const string KILLED_BY = 'killedBy';
 
+    /** The field of a record that names the tests that fail without its mutant, where they do. */
+    private const string FAILING = 'failingUnmutated';
+
     /** @return Full */
     public static function full(Mutant $mutant): array
     {
@@ -123,7 +127,7 @@ final readonly class MutantRecord
             ...$duration instanceof Seconds ? [self::SECONDS => $duration->seconds()] : [],
             ...LimitRecord::of($mutant),
             ...$reason instanceof Reason ? [self::REASON => $reason->text(), ...self::outOfTime($reason)] : [],
-            ...count($mutant->killers()) > 0 ? [self::KILLED_BY => self::idsOf($mutant->killers())] : [],
+            ...self::tested($mutant),
             ...$reason instanceof Rejection ? [self::REJECTION => self::rejection($reason)] : [],
         ];
     }
@@ -182,7 +186,8 @@ final readonly class MutantRecord
             self::secondsIn($record->field(self::SECONDS)),
         );
         $reason = self::reasonIn($record);
-        $killers = $record->field(self::KILLED_BY);
+        $failing = $record->field(self::FAILING);
+        $killers = $failing->isPresent() ? $failing : $record->field(self::KILLED_BY);
         $limited = LimitRecord::onto($mutant, $record);
         $said = $reason instanceof Reason ? $limited->because($reason) : $limited;
         $killed = $killers->isPresent() ? $said->killedBy(self::testsIn($killers)) : $said;
@@ -217,6 +222,23 @@ final readonly class MutantRecord
     public static function isFull(Node $record): bool
     {
         return $record->field(self::DIFF)->isPresent();
+    }
+
+    /**
+     * A mutant's tests as its record names them: those that fail without
+     * it, or those that killed it; none where it has none.
+     *
+     * @return array{killedBy?: list<string>, failingUnmutated?: list<string>}
+     */
+    private static function tested(Mutant $mutant): array
+    {
+        $tests = self::idsOf($mutant->killers());
+
+        return match (true) {
+            $tests === [] => [],
+            $mutant->status() === MutantStatus::FailsUnmutated => [self::FAILING => $tests],
+            default => [self::KILLED_BY => $tests],
+        };
     }
 
     /**

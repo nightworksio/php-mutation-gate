@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Control\PeakLauncher;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
+use NightWorksIO\MutationGate\Core\Test\JUnitFailures;
 
 use function sprintf;
 use function strval;
@@ -41,6 +42,9 @@ final readonly class UnmutatedRuns
 
     /** Where the launcher of a control at a position writes its peak, in the controls' directory. */
     private const string PEAK = '%s/control-%d/peak';
+
+    /** Where the control at a position writes its JUnit log, which names the tests that failed in it. */
+    private const string LOG = '%s/control-%d/junit.xml';
 
     public function __construct(private Project $project, private Shell $shell, private CapFiles $files)
     {
@@ -96,15 +100,16 @@ final readonly class UnmutatedRuns
                 continue;
             }
 
-            $asked[] = [$control, $this->peakOf($at)];
+            $asked[] = [$control, $this->placed(self::PEAK, $at), $this->placed(self::LOG, $at)];
             $commands[] = $command;
         }
 
         $slots = WorkerSlots::of($request->pool()->processes(), strval(getmypid()));
 
         foreach ($this->shell->sideBySide($slots, $request->deadline(), ...$commands) as $index => $ran) {
-            [$control, $peak] = $asked[$index];
-            $run = ControlRun::ofProcess($ran);
+            [$control, $peak, $log] = $asked[$index];
+            $failing = JUnitFailures::of(is_file($log) ? file_get_contents($log) : false);
+            $run = ControlRun::ofProcess($ran, $failing);
             $measured = is_file($peak)
                 ? PeakLauncher::measured($run, sprintf('%s', file_get_contents($peak)), PHP_OS_FAMILY)
                 : $run;
@@ -118,7 +123,8 @@ final readonly class UnmutatedRuns
 
     /**
      * A control's command: its tests, with every test they depend on, on a
-     * config of their own, through the launcher, writing its peak beside it; or why it cannot run.
+     * config of their own, through the launcher, writing its peak and its
+     * JUnit log beside it; or why it cannot run.
      */
     private function commandOf(
         int $at,
@@ -136,13 +142,15 @@ final readonly class UnmutatedRuns
             TestFiles::declaring($this->project, $tests)->files(),
             sprintf(self::PLACE, Control::DIRECTORY, $at),
         );
-        $peak = $written instanceof CannotJudge ? $written : $this->project->fresh($this->peakOf($at));
+        $peak = $written instanceof CannotJudge ? $written : $this->project->fresh($this->placed(self::PEAK, $at));
+        $log = $peak instanceof CannotJudge ? $peak : $this->project->fresh($this->placed(self::LOG, $at));
 
         return match (true) {
             $written instanceof CannotJudge => $written,
             $peak instanceof CannotJudge => $peak,
+            $log instanceof CannotJudge => $log,
             default => $scan->onto(
-                Invocation::controlling($this->project, $own, $written, $tests)
+                Invocation::controlling($this->project, $own, $written, $tests, $log)
                     ->withholding($request->withheld())
                     ->within($control->limit())
                     ->launchedBy($launcher, $peak),
@@ -150,9 +158,9 @@ final readonly class UnmutatedRuns
         };
     }
 
-    /** Where the launcher of the control at a position writes its peak. */
-    private function peakOf(int $at): string
+    /** Where the control at a position writes one of its files: its launcher's peak, or its JUnit log. */
+    private function placed(string $file, int $at): string
     {
-        return $this->project->own(sprintf(self::PEAK, Control::DIRECTORY, $at));
+        return $this->project->own(sprintf($file, Control::DIRECTORY, $at));
     }
 }

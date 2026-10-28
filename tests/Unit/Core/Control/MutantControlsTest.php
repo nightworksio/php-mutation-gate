@@ -61,7 +61,7 @@ it('judges each mutant with a control by what it found, leaves one whose control
     ]);
     $applied = [...$controls->applied(
         $mutants,
-        ControlRuns::none()->with(loopControl(5.0), ControlRun::failed()),
+        ControlRuns::none()->with(loopControl(5.0), ControlRun::failed(TestIds::none())),
         Controls::of(loopControl(6.0)),
         new class implements ControlJudge {
             public function judged(Mutant $mutant, ControlRun $run, Control $control): Mutant

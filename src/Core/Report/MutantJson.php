@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantRecord;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Removal\Removable;
@@ -44,6 +45,7 @@ use NightWorksIO\MutationGate\Core\Verdict\NoFinding;
  *     coveredBy: list<int>,
  *     judgedBy?: list<int>,
  *     killedBy: list<int>,
+ *     failingUnmutated?: list<int>,
  *     hint: string,
  *     reproduce: string,
  *     explain: string,
@@ -87,12 +89,27 @@ final readonly class MutantJson
             ...$judged->isCarriedPruned() ? ['carriedPruned' => true] : [],
             'coveredBy' => $table->placesOf($covering),
             ...$judgedBy === [] ? [] : ['judgedBy' => $judgedBy],
-            'killedBy' => $table->placesOf($judged->mutant()->killers()),
+            ...self::tested($mutant, $table),
             'hint' => $judged->hint()->text(),
             'reproduce' => $judged->reproduce($gate),
             'explain' => $judged->explain($gate),
             ...self::optional($judged),
         ];
+    }
+
+    /**
+     * The tests that killed a mutant, by their places in the table; or, where
+     * its tests fail without it, none, and those that fail.
+     *
+     * @return array{killedBy: list<int>, failingUnmutated?: list<int>}
+     */
+    private static function tested(Mutant|ProvedKill $mutant, TestTable $table): array
+    {
+        $tests = $table->placesOf($mutant->killers());
+
+        return $mutant->status() === MutantStatus::FailsUnmutated
+            ? ['killedBy' => [], 'failingUnmutated' => $tests]
+            : ['killedBy' => $tests];
     }
 
     /**

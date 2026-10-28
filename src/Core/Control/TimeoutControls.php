@@ -95,7 +95,9 @@ final readonly class TimeoutControls implements ControlJudge
 
         return match ($run->end()) {
             ControlEnd::Passed => $mutant->withUnmutatedNeed($took instanceof Seconds ? $took : $control->limit()),
-            ControlEnd::Failed => $mutant->unjudged(Reason::that(self::FAILS_UNMUTATED)),
+            ControlEnd::Failed => $mutant->unjudged(
+                $run->unmutatedFailure($control->tests(), Reason::that(self::FAILS_UNMUTATED)),
+            ),
             ControlEnd::OutOfMemory => $mutant->unjudged(Reason::that(self::OUT_OF_MEMORY)),
             ControlEnd::RanOut => $mutant->because(Reason::that(self::RAN_OUT)),
             ControlEnd::Unrun => $mutant->because(

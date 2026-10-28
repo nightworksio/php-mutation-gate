@@ -54,12 +54,12 @@ it('is refused by the schema of the fields SonarQube documents where it leaves o
         ->and(Schema::errors('{"rules": [{"id": "r", "name": "n", "description": "d", "engineId": "e", "cleanCodeAttribute": "TESTED", "impacts": []}], "issues": []}', $schema))->not->toBe([]);
 });
 
-it('lists five rules of the engine mutation-gate, for code that lacks tests', function () use ($report): void {
+it('lists six rules of the engine mutation-gate, for code that lacks tests', function () use ($report): void {
     $json = $report('passing');
 
-    expect(Decoded::column($json, 'id', 'rules'))->toBe(['survived', 'uncovered', 'unjudged', 'flaky', 'survived-security'])
-        ->and(Decoded::column($json, 'engineId', 'rules'))->toBe(array_fill(0, 5, 'mutation-gate'))
-        ->and(Decoded::column($json, 'cleanCodeAttribute', 'rules'))->toBe(array_fill(0, 5, 'TESTED'))
+    expect(Decoded::column($json, 'id', 'rules'))->toBe(['survived', 'uncovered', 'unjudged', 'flaky', 'survived-security', 'fails-unmutated'])
+        ->and(Decoded::column($json, 'engineId', 'rules'))->toBe(array_fill(0, 6, 'mutation-gate'))
+        ->and(Decoded::column($json, 'cleanCodeAttribute', 'rules'))->toBe(array_fill(0, 6, 'TESTED'))
         ->and(Decoded::at($json, 'rules', 0))->toBe([
             'id' => 'survived',
             'name' => 'Surviving mutant',

@@ -451,10 +451,12 @@ running it: why is this mutant here, and has it always been?
       together, and controls each on its own only where that does not pass.
     - Every runner is held to it, Pest included: a Pest kill its own run
       already checked on narrowed test files is checked here too.
-    - The kill stands where its control passes. Where the control fails, runs
-      out of its limit or never runs, the kill is unjudged, and its reason
-      says which. Under a time budget a kill whose control does not fit in
-      the time left is unjudged, and more time judges it.
+    - The kill stands where its control passes. Where the control fails, the
+      kill's tests fail unmutated: it is left out of every score, and the
+      verdict cannot be judged, naming the tests that failed (ADR-0008).
+      Where it runs out of its limit or never runs, the kill is unjudged,
+      and its reason says which. Under a time budget a kill whose control
+      does not fit in the time left is unjudged, and more time judges it.
     - A kill no test is named for, where a signal or a fatal error PHP
       recorded ended its process, needs no control: its evidence judges it.
     - Any other kill no test is named for gets one unmutated control too:
@@ -462,8 +464,9 @@ running it: why is this mutant here, and has it always been?
       names them, and of a held unit only those that hold it, run with its
       file served unmutated, allowed the standard mutant limit of their
       time. The kill stands, its killer unknown, where the control passes.
-      Where it fails, runs out of the cap or the limit, or never runs, the
-      kill is unjudged, and its reason says which: a red unmutated run
+      Where it fails, its tests fail unmutated, as above. Where it runs out
+      of the cap or the limit, or never runs, the kill is unjudged, and its
+      reason says which: a red unmutated run
       tells nothing about the mutant. Infection names a killer only under
       `infection:patch`, so an unpatched Infection's kills are judged so.
 

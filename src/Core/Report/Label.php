@@ -19,6 +19,7 @@ final readonly class Label
             MutantJudgement::TooHeavyToJudge => 'too heavy to judge',
             MutantJudgement::IgnoredByMarker => 'ignored by a native marker',
             MutantJudgement::Equivalent => 'equivalent, proven',
+            MutantJudgement::FailsUnmutated => 'its tests fail without any mutant',
             MutantJudgement::Killed,
             MutantJudgement::Errored,
             MutantJudgement::Survived,

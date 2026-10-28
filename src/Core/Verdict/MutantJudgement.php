@@ -39,6 +39,9 @@ enum MutantJudgement: string
     /** It survived, and compiles to the same program as the original, so no test can fail on it (ADR-0013). */
     case Equivalent = 'equivalent';
 
+    /** Its tests fail without it, so nothing judges it, and the run cannot be judged (ADR-0008). */
+    case FailsUnmutated = 'fails-unmutated';
+
     /**
      * The judgement a status comes to before any triage: a timeout, or a
      * mutant skipped as too slow to run, is too slow to judge until timeout
@@ -58,6 +61,7 @@ enum MutantJudgement: string
             MutantStatus::IgnoredByMarker => self::IgnoredByMarker,
             MutantStatus::Skipped => self::TooSlowToJudge,
             MutantStatus::OutOfMemory => self::TooHeavyToJudge,
+            MutantStatus::FailsUnmutated => self::FailsUnmutated,
         };
     }
 
@@ -81,7 +85,8 @@ enum MutantJudgement: string
             self::TooHeavyToJudge,
             self::Ignored,
             self::IgnoredByMarker,
-            self::Equivalent => false,
+            self::Equivalent,
+            self::FailsUnmutated => false,
         };
     }
 
@@ -94,7 +99,7 @@ enum MutantJudgement: string
             self::Errored,
             self::KilledByTimeout,
             self::KilledByMemoryCap => Scoring::Killed,
-            self::Ignored, self::IgnoredByMarker, self::Equivalent => Scoring::LeftOut,
+            self::Ignored, self::IgnoredByMarker, self::Equivalent, self::FailsUnmutated => Scoring::LeftOut,
             self::Uncovered => $uncovered === Uncovered::Exclude ? Scoring::LeftOut : Scoring::NotKilled,
             self::Survived,
             self::Unjudged,

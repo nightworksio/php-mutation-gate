@@ -46,6 +46,9 @@ final readonly class Digest
 
     private const string NEXT = 'next %s';
 
+    /** The mutants a set of tests that fails without any mutant leaves out, then its line. */
+    private const string LEFT_OUT = 'left-out %s (%s)';
+
     private const string COUNT = '%s=%d(%s)';
 
     private const string COUNTS = 'counts %s';
@@ -77,6 +80,7 @@ final readonly class Digest
                 $report->field('cutShort')->boolean() ? self::CUT_SHORT : '',
             ),
             ...self::texts($report->field('why'), self::WHY),
+            ...self::leftOut($report->field('failingUnmutated')),
             ...self::texts($report->field('next'), self::NEXT),
             self::counts($report->field('counts')),
             ...Scores::sets($report),
@@ -181,6 +185,31 @@ final readonly class Digest
         }
 
         return sprintf("%s\n", implode("\n", $written));
+    }
+
+    /**
+     * A line for each set of tests that fails without any mutant: the
+     * mutants it leaves out of every score, and its line.
+     *
+     * @return list<string>
+     *
+     * @throws NotInShape
+     */
+    private static function leftOut(Node $failing): array
+    {
+        $lines = [];
+
+        foreach ($failing->isPresent() ? $failing->items() : [] as $tests) {
+            $ids = [];
+
+            foreach ($tests->field('mutants')->items() as $id) {
+                $ids[] = Visible::line($id->text());
+            }
+
+            $lines[] = sprintf(self::LEFT_OUT, implode(' ', $ids), Visible::line($tests->field('line')->text()));
+        }
+
+        return $lines;
     }
 
     /**

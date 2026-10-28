@@ -131,7 +131,7 @@ it('judges each timeout by what its control found', function (ControlRun $found,
 })->with([
     'tests that passed in a time' => [fn(): ControlRun => ControlRun::passed(Seconds::of(1.5)), MutantStatus::TimedOut, fn(): Seconds => Seconds::of(1.5), ''],
     'tests that passed, untimed' => [fn(): ControlRun => ControlRun::passed(Unmeasured::duration()), MutantStatus::TimedOut, fn(): Seconds => Seconds::of(10.0), ''],
-    'tests that failed' => [fn(): ControlRun => ControlRun::failed(), MutantStatus::Unjudged, fn(): Unmeasured => Unmeasured::duration(), TimeoutControls::FAILS_UNMUTATED],
+    'tests that failed' => [fn(): ControlRun => ControlRun::failed(TestIds::none()), MutantStatus::FailsUnmutated, fn(): Unmeasured => Unmeasured::duration(), TimeoutControls::FAILS_UNMUTATED],
     'tests out of memory' => [fn(): ControlRun => ControlRun::outOfMemory(), MutantStatus::Unjudged, fn(): Unmeasured => Unmeasured::duration(), TimeoutControls::OUT_OF_MEMORY],
     'tests that ran out' => [fn(): ControlRun => ControlRun::ranOut(), MutantStatus::TimedOut, fn(): Unmeasured => Unmeasured::duration(), TimeoutControls::RAN_OUT],
     'a control never run' => [
@@ -176,3 +176,14 @@ it('asks for and applies controls in time linear in the number of mutants', func
     expect($timing(10)())->toBe(10)
         ->and(Growth::of(1000, $timing))->toBeLessThan(Growth::LINEAR);
 });
+
+it('names, for a timeout whose tests fail without it, the tests its control recorded failing, or every test it ran', function (TestIds $recorded, array $failing): void {
+    $mutants = Mutants::of(hungMutant());
+    $controls = TimeoutControls::of($mutants, loopMap('LoopTest::a'), HeldCovered::none());
+    $applied = [...$controls->applied($mutants, ControlRuns::none()->with([...$controls->asked()][0], ControlRun::failed($recorded)), Controls::none())];
+
+    expect(array_map(static fn(TestId $test): string => $test->value(), [...$applied[0]->killers()]))->toBe($failing);
+})->with([
+    'recorded' => [fn(): TestIds => TestIds::of(TestId::of('LoopTest::b')), ['LoopTest::b']],
+    'none recorded' => [fn(): TestIds => TestIds::none(), ['LoopTest::a']],
+]);

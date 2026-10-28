@@ -186,7 +186,10 @@ final readonly class Stryker
             MutantJudgement::TooSlowToJudge,
             MutantJudgement::TooHeavyToJudge => 'Survived',
             MutantJudgement::Uncovered => $uncovered === Uncovered::Exclude ? 'Ignored' : 'NoCoverage',
-            MutantJudgement::Ignored, MutantJudgement::IgnoredByMarker, MutantJudgement::Equivalent => 'Ignored',
+            MutantJudgement::Ignored,
+            MutantJudgement::IgnoredByMarker,
+            MutantJudgement::Equivalent,
+            MutantJudgement::FailsUnmutated => 'Ignored',
         };
     }
 }

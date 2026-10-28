@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Control;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 
 use function sprintf;
 
@@ -32,14 +33,20 @@ final readonly class KillReasons
         return new self($failed, $outOfMemory, $ranOut, $unrun);
     }
 
-    /** A kill as what its control found judges it: standing where the control passed, and unjudged otherwise. */
-    public function judged(Mutant $mutant, ControlRun $run): Mutant
+    /**
+     * A kill as what its control, of these tests, found judges it: standing
+     * where the control passed, its tests failing without it where the
+     * control failed, and unjudged otherwise.
+     */
+    public function judged(Mutant $mutant, ControlRun $run, TestIds $ran): Mutant
     {
         $why = $run->why();
 
         return match ($run->end()) {
             ControlEnd::Passed => $mutant,
-            ControlEnd::Failed => $mutant->unjudged(Reason::that($this->failed)),
+            ControlEnd::Failed => $mutant->unjudged(
+                $run->unmutatedFailure($ran, Reason::that($this->failed)),
+            ),
             ControlEnd::OutOfMemory => $mutant->unjudged(Reason::that($this->outOfMemory)),
             ControlEnd::RanOut => $mutant->unjudged(Reason::that($this->ranOut)),
             ControlEnd::Unrun => $mutant->unjudged(

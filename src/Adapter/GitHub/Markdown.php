@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
 use function array_filter;
 use function array_map;
+use function array_merge;
 use function array_slice;
 
 use Closure;
@@ -16,12 +17,14 @@ use function intdiv;
 use function max;
 use function mb_strlen;
 
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Matrix\SuiteScores;
 use NightWorksIO\MutationGate\Core\Report\Commented;
 use NightWorksIO\MutationGate\Core\Report\CostText;
 use NightWorksIO\MutationGate\Core\Report\Escape;
+use NightWorksIO\MutationGate\Core\Report\FailingText;
 use NightWorksIO\MutationGate\Core\Report\Folded;
 use NightWorksIO\MutationGate\Core\Report\Overview;
 use NightWorksIO\MutationGate\Core\Report\Percent;
@@ -382,17 +385,21 @@ final readonly class Markdown
     }
 
     /**
-     * Why the run could not judge, as one list; nothing where it judged.
+     * Why the run could not judge, as one list, each set of tests that fails
+     * without any mutant with the mutants it leaves out listed under it;
+     * nothing where it judged.
      *
      * @return list<string>
      */
     private static function reasons(Obstacles $obstacles): array
     {
-        $reasons = [];
-
-        foreach ($obstacles as $obstacle) {
-            $reasons[] = sprintf('- %s', Escape::text($obstacle->why()));
-        }
+        $reasons = [
+            ...array_map(
+                static fn(CannotJudge $obstacle): string => sprintf('- %s', Escape::text($obstacle->why())),
+                [...$obstacles->met()],
+            ),
+            ...array_merge(...array_map(FailingText::items(...), [...$obstacles->unmutatedFailures()])),
+        ];
 
         return array_filter([implode("\n", $reasons)], static fn(string $list): bool => $list !== '');
     }

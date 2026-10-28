@@ -107,6 +107,6 @@ final readonly class UnnamedKillControls implements ControlJudge
     public function judged(Mutant $mutant, ControlRun $run, Control $control): Mutant
     {
         return KillReasons::of(self::FAILS_UNMUTATED, self::OUT_OF_MEMORY, self::RAN_OUT, self::UNRUN)
-            ->judged($mutant, $run);
+            ->judged($mutant, $run, $control->tests());
     }
 }

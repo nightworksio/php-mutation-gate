@@ -12,10 +12,13 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Mutant\UnmutatedFailure;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
@@ -50,7 +53,7 @@ it('says how a control ended: passed in a time, failed, ran out, or never run an
 })->with([
     'passed' => [fn(): ControlRun => ControlRun::passed(Seconds::of(1.5)), ['passed', 1.5, '']],
     'passed, untimed' => [fn(): ControlRun => ControlRun::passed(Unmeasured::duration()), ['passed', 'unmeasured', '']],
-    'failed' => [fn(): ControlRun => ControlRun::failed(), ['failed', 'unmeasured', '']],
+    'failed' => [fn(): ControlRun => ControlRun::failed(TestIds::none()), ['failed', 'unmeasured', '']],
     'ran out' => [fn(): ControlRun => ControlRun::ranOut(), ['ran-out', 'unmeasured', '']],
     'out of memory' => [fn(): ControlRun => ControlRun::outOfMemory(), ['out-of-memory', 'unmeasured', '']],
     'never run' => [fn(): ControlRun => ControlRun::unrun('the file is gone'), ['unrun', 'unmeasured', 'the file is gone']],
@@ -75,7 +78,7 @@ it('reads a control run as a mutant that changes nothing by the status its run g
 ]);
 
 it('reads a control run as a process of its own by how the process ended', function (Ran $ran, array $said): void {
-    expect(controlRunSaid(ControlRun::ofProcess($ran)))->toBe($said);
+    expect(controlRunSaid(ControlRun::ofProcess($ran, TestIds::none())))->toBe($said);
 })->with([
     'succeeded' => [fn(): Ran => Ran::finished(succeeded: true, output: '')->took(Seconds::of(2.5)), ['passed', 2.5, '']],
     'failed' => [fn(): Ran => Ran::finished(succeeded: false, output: '')->took(Seconds::of(2.5)), ['failed', 'unmeasured', '']],
@@ -90,4 +93,26 @@ it('reads a control run as a process of its own by how the process ended', funct
 it('carries the peak its launcher measured, and none where it measured none', function (): void {
     expect(ControlRun::passed(Seconds::of(1.0))->withPeak(MemoryCap::of(20, MemoryUnit::Megabytes))->peak())->toEqual(MemoryCap::of(20, MemoryUnit::Megabytes))
         ->and(ControlRun::passed(Seconds::of(1.0))->peak())->toEqual(NotGiven::value());
+});
+
+it('names the tests a failed control recorded failing, and every test it ran as failing where it recorded none', function (): void {
+    $ran = TestIds::of(TestId::of('MoneyTest::adds'), TestId::of('MoneyTest::fits'));
+    $failing = TestIds::of(TestId::of('MoneyTest::fits'));
+    $why = Reason::that('Its tests fail.');
+    $killed = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Minus', 'x', 0),
+        'n',
+        Location::of(Path::of('src/Money.php'), Line::of(3), Line::of(3)),
+        Mutation::of('Minus', MutatorFamily::Arithmetic, ''),
+        MutantStatus::Killed,
+        Unmeasured::duration(),
+    )->killedBy($failing);
+
+    expect(ControlRun::failed($failing)->failing())->toEqual($failing)
+        ->and(ControlRun::failed($failing)->unmutatedFailure($ran, $why))->toEqual(UnmutatedFailure::of($failing, $why))
+        ->and(ControlRun::failed(TestIds::none())->unmutatedFailure($ran, $why))->toEqual(UnmutatedFailure::of($ran, $why))
+        ->and(ControlRun::ofProcess(Ran::finished(succeeded: false, output: ''), $failing))->toEqual(ControlRun::failed($failing))
+        ->and(ControlRun::ofProcess(Ran::finished(succeeded: true, output: ''), $failing)->failing())->toEqual(TestIds::none())
+        ->and(ControlRun::asMutant($killed))->toEqual(ControlRun::failed($failing))
+        ->and(ControlRun::passed(Seconds::of(1.0))->failing())->toEqual(TestIds::none());
 });

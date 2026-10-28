@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -92,10 +93,31 @@ it('leaves unjudged each kill confirmed again whose control fails, and keeps eve
     $kept = [...$others->applied(Mutants::of($passing), $runs, $request, Unlimited::time(), $results)];
 
     expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), [...$applied, ...$kept]))
-        ->toBe([MutantStatus::Unjudged, MutantStatus::Survived, MutantStatus::Killed])
+        ->toBe([MutantStatus::FailsUnmutated, MutantStatus::Survived, MutantStatus::Killed])
         ->and($applied[0]->reason())->toEqual(Reason::that(Controls::FAILS_UNMUTATED))
         ->and($shell->commands())->toHaveCount(2);
 });
+
+it('leaves a kill confirmed again unjudged, saying why, where its control runs out of its time, of the memory cap, or never runs', function (Ran $ran, Seconds|Unlimited $left, string $why): void {
+    $at = controlledProject();
+    $killed = controlledMutant(11, MutantStatus::Killed);
+    $controls = Controls::of($at, Mutants::of($killed), Group::named('g'), static fn(): Covering => controlledCovering('P\Tests\MoneySpec::__pest_evaluable_it_adds'));
+
+    $applied = [...$controls->applied(
+        Mutants::of($killed),
+        new AloneRuns($at, ShellFake::answering($ran), new Remembered()),
+        MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('g')),
+        $left,
+        sprintf('%s/results.jsonl', $at->root()),
+    )];
+
+    expect($applied[0]->status())->toBe(MutantStatus::Unjudged)
+        ->and($applied[0]->reason())->toEqual(Reason::that($why));
+})->with([
+    'out of its time' => [fn(): Ran => Ran::stopped(''), fn(): Unlimited => Unlimited::time(), 'Killed, but its covering tests run out of their time with the file unmutated too.'],
+    'out of the memory cap' => [fn(): Ran => Ran::finished(succeeded: false, output: 'Allowed memory size of 1024 bytes exhausted'), fn(): Unlimited => Unlimited::time(), 'Killed, but its covering tests run out of the memory cap with the file unmutated too.'],
+    'no time left' => [fn(): Ran => Ran::finished(succeeded: true, output: ''), fn(): Seconds => Seconds::of(0.0), 'Killed, but no unmutated control of its covering tests ran, so nothing vouches for it: no time was left for it.'],
+]);
 
 it('controls a kill by the tests that judged its run where Pest\'s filter is too long to pass, as Pest then runs them', function (): void {
     $at = controlledProject();
@@ -179,5 +201,5 @@ it('controls a mutant over several lines by the tests that cover any of them, it
         sprintf('%s/results.jsonl', $at->root()),
     )];
 
-    expect($applied[0]->status())->toBe(MutantStatus::Unjudged);
+    expect($applied[0]->status())->toBe(MutantStatus::FailsUnmutated);
 });

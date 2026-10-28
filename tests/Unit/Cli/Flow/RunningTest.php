@@ -66,6 +66,7 @@ use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\Suites;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -707,8 +708,8 @@ it('lets a kill no test is named for stand in the shard\'s result where a signal
     ],
     'an exit code whose tests fail unmutated too' => [
         fn(): Ended => Ended::of(1, signalled: false, printed: "boom\n")->withFatal(fatal: false),
-        fn(): ControlRun => ControlRun::failed(),
-        MutantStatus::Unjudged,
+        fn(): ControlRun => ControlRun::failed(TestIds::none()),
+        MutantStatus::FailsUnmutated,
         UnnamedKillControls::FAILS_UNMUTATED,
     ],
     'an exit code whose control never ran' => [
@@ -717,10 +718,10 @@ it('lets a kill no test is named for stand in the shard\'s result where a signal
         MutantStatus::Unjudged,
         fn(): string => sprintf(UnnamedKillControls::UNRUN, 'the file is gone'),
     ],
-    'a signal' => [fn(): Ended => Ended::unprinted(139, signalled: true), fn(): ControlRun => ControlRun::failed(), MutantStatus::Killed, ''],
+    'a signal' => [fn(): Ended => Ended::unprinted(139, signalled: true), fn(): ControlRun => ControlRun::failed(TestIds::none()), MutantStatus::Killed, ''],
     'a fatal error' => [
         fn(): Ended => Ended::unprinted(255, signalled: false)->withFatal(fatal: true),
-        fn(): ControlRun => ControlRun::failed(),
+        fn(): ControlRun => ControlRun::failed(TestIds::none()),
         MutantStatus::Killed,
         '',
     ],

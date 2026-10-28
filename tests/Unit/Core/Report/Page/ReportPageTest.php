@@ -519,3 +519,16 @@ it('keeps a page of many mutants small: its index names each mutant once, and ea
         ->and(strlen(implode('', $packed[1])))->toBeLessThan(2_000 * 36)
         ->and(strlen(pageShown($page)))->toBeLessThan(12_000);
 });
+
+it('lists under Cannot judge each set of tests that fails without any mutant, linking the mutants it leaves out', function (): void {
+    $failing = Verdicts::failingUnmutated();
+    $id = $failing->mutant()->id()->value();
+    $page = pageOf(Verdicts::of(Floor::of(50), $failing));
+
+    expect($page)->toContain(sprintf(
+        '<section><h3>Cannot judge</h3><ul><li>%s<ul><li><a href="#m-%s"><code>%s</code></a></li></ul></li></ul></section>',
+        'The tests fail without any mutant: MoneyTest::adds',
+        $id,
+        $id,
+    ));
+});

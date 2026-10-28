@@ -54,7 +54,8 @@
                             "survived",
                             "uncovered",
                             "unjudged",
-                            "flaky"
+                            "flaky",
+                            "fails-unmutated"
                         ]
                     },
                     "severity": {

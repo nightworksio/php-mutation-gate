@@ -27,7 +27,12 @@ failed only while Pest's override served a file.
    ADR-0014 says, once for each set of killers, and stands only
    where its own control passes. A kill whose own control is the file's
    control is judged by that control's run.
-3. **The time budget leaves a kill unjudged** where the time left had no room
+3. **A file's control names no failing test.** Where it fails and each
+   kill's own control passes, the tests fail together but not on their own,
+   and every kill stands. Only a control that decides a mutant, a kill's own
+   among them, makes the verdict *cannot judge* for tests that fail without
+   any mutant (ADR-0008).
+4. **The time budget leaves a kill unjudged** where the time left had no room
    for its file's control, or for its own where it needed one.
 
 This supersedes "once for each file and set of killers" in ADR-0014, as

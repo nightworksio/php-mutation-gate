@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Test\TestName;
 use NightWorksIO\MutationGate\Core\Test\TestRow;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\Counts;
+use NightWorksIO\MutationGate\Core\Verdict\FailingTests;
 use NightWorksIO\MutationGate\Core\Verdict\Failure;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
@@ -123,6 +124,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  *     said: string,
  * }
  * @phpstan-type ClusterEntry array{id: string, kind: string, members: list<string>, representative: string}
+ * @phpstan-type FailingEntry array{line: string, tests: list<int>, mutants: list<string>}
  * @phpstan-type Report array{
  *     format: int,
  *     judgement: string,
@@ -147,6 +149,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  *     warnings: list<string>,
  *     failures: list<string>,
  *     cannotJudge: list<string>,
+ *     failingUnmutated: list<FailingEntry>,
  *     why: list<string>,
  *     next: list<string>,
  *     provenance: ProvenanceEntry,
@@ -210,6 +213,10 @@ final readonly class JsonReport
             'warnings' => self::texts($verdict->warnings(), static fn(Warning $warning): string => $warning->text()),
             'failures' => self::texts($verdict->failures(), static fn(Failure $failure): string => $failure->text()),
             'cannotJudge' => self::texts($verdict->obstacles(), static fn(CannotJudge $why): string => $why->why()),
+            'failingUnmutated' => self::each(
+                $verdict->obstacles()->unmutatedFailures(),
+                static fn(FailingTests $failing): array => self::failing($failing, $table),
+            ),
             'why' => Reasons::of($verdict),
             'next' => NextSteps::of($verdict),
             'provenance' => ProvenanceJson::of($verdict),
@@ -259,6 +266,24 @@ final readonly class JsonReport
             ...$whole instanceof TestName ? ['file' => $whole->file()->value()] : [],
             ...$name instanceof TestRow ? ['row' => $name->row()] : [],
             ...$seconds instanceof Seconds ? ['seconds' => $seconds->seconds()] : [],
+        ];
+    }
+
+    /**
+     * A set of tests that fails without any mutant: its line, the tests by
+     * their places in the table, and the mutants it leaves out, by their ids.
+     *
+     * @return FailingEntry
+     */
+    private static function failing(FailingTests $failing, TestTable $table): array
+    {
+        return [
+            'line' => $failing->line(),
+            'tests' => $table->placesOf($failing->tests()),
+            'mutants' => array_map(
+                static fn(JudgedMutant $judged): string => $judged->mutant()->id()->value(),
+                $failing->mutants(),
+            ),
         ];
     }
 

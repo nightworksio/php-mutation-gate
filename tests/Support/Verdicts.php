@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Analysis\Finding;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\Baseline\Lowered;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Control\KillControls;
 use NightWorksIO\MutationGate\Core\Cost\Cost;
 use NightWorksIO\MutationGate\Core\Cost\Phase;
 use NightWorksIO\MutationGate\Core\Cost\RunAccount;
@@ -34,6 +35,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily as Family;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Mutant\UnmutatedFailure;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Reach\Reason as Cause;
@@ -145,6 +147,18 @@ final class Verdicts
                 TestId::of('CartTest::totals'),
             ))
             ->within(Reach::nothing(Packages::of(Trees::none()))->withLines(Path::of('src/Money.php'), Lines::of(Line::of(7))));
+    }
+
+    /**
+     * A mutant of `Money.php`'s eleventh line whose tests fail without it:
+     * its control recorded `MoneyTest::adds` failing.
+     */
+    public static function failingUnmutated(string $line = '11', string $test = 'MoneyTest::adds'): JudgedMutant
+    {
+        $mutant = self::mutant(sprintf('src/Money.php:%s', $line), self::LESS, Family::Boundary, self::BOUNDARY)
+            ->unjudged(UnmutatedFailure::of(TestIds::of(TestId::of($test)), Reason::that(KillControls::FAILS_UNMUTATED)));
+
+        return JudgedMutant::of($mutant, Judged::FailsUnmutated);
     }
 
     /** The mutant of `Money.php`'s ninth line, killed first by `MoneyTest::fits`. */

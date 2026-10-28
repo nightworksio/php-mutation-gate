@@ -98,7 +98,8 @@
                                     "unjudged",
                                     "ignored-by-marker",
                                     "skipped",
-                                    "out-of-memory"
+                                    "out-of-memory",
+                                    "fails-unmutated"
                                 ]
                             },
                             "judgement": {
@@ -116,7 +117,8 @@
                                     "too-heavy-to-judge",
                                     "ignored",
                                     "ignored-by-marker",
-                                    "equivalent"
+                                    "equivalent",
+                                    "fails-unmutated"
                                 ]
                             },
                             "reason": {
@@ -167,6 +169,13 @@
                                 }
                             },
                             "killedBy": {
+                                "type": "array",
+                                "items": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                }
+                            },
+                            "failingUnmutated": {
                                 "type": "array",
                                 "items": {
                                     "type": "integer",
@@ -324,7 +333,8 @@
                                         "unjudged",
                                         "ignored-by-marker",
                                         "skipped",
-                                        "out-of-memory"
+                                        "out-of-memory",
+                                        "fails-unmutated"
                                     ]
                                 },
                                 "run": {

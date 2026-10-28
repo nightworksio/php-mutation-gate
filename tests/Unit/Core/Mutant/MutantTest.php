@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Mutant\UnmutatedFailure;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -139,4 +140,21 @@ it('keeps no rejection once a budget leaves it unjudged, and no killer and no ot
         ->toEqual(Rejection::by('phpstan', Finding::error(Path::of('src/Money.php'), 'return.type', 'No.')))
         ->and($rejected->unjudged(OutOfTime::BeforeMutating)->reason())->toEqual(OutOfTime::BeforeMutating->reason())
         ->and($rejected->unjudged(OutOfTime::BeforeMutating)->status())->toBe(MutantStatus::Unjudged);
+});
+
+it('leaves a mutant whose tests fail without it with no result, naming the tests that fail and why', function (): void {
+    $failing = TestIds::of(TestId::of('MoneyTest::adds'));
+    $mutant = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Minus', 'x', 0),
+        'n',
+        Location::of(Path::of('src/Money.php'), Line::of(3), Line::of(3)),
+        Mutation::of('Minus', MutatorFamily::Arithmetic, ''),
+        MutantStatus::Killed,
+        Unmeasured::duration(),
+    )->killedBy(TestIds::of(TestId::of('MoneyTest::fits')))
+        ->unjudged(UnmutatedFailure::of($failing, Reason::that('Its tests fail.')));
+
+    expect($mutant->status())->toBe(MutantStatus::FailsUnmutated)
+        ->and($mutant->killers())->toEqual($failing)
+        ->and($mutant->reason())->toEqual(Reason::that('Its tests fail.'));
 });

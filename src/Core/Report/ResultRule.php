@@ -20,8 +20,13 @@ enum ResultRule: string
     /** Unjudged mutants, and those too slow or too heavy to judge. */
     case Unjudged = 'unjudged';
     case Flaky = 'flaky';
+    /** Mutants whose tests fail without any mutant, which the score leaves out and the verdict cannot judge past. */
+    case FailsUnmutated = 'fails-unmutated';
 
-    /** The rule of a mutant so judged; one the score does not count as not killed is never a result. */
+    /**
+     * The rule of a mutant so judged; one the score does not count as not
+     * killed is never a result, but for one whose tests fail without it.
+     */
     public static function of(MutantJudgement $judgement): self
     {
         return match ($judgement) {
@@ -30,6 +35,7 @@ enum ResultRule: string
             MutantJudgement::TooSlowToJudge,
             MutantJudgement::TooHeavyToJudge => self::Unjudged,
             MutantJudgement::Flaky => self::Flaky,
+            MutantJudgement::FailsUnmutated => self::FailsUnmutated,
             MutantJudgement::Survived,
             MutantJudgement::Killed,
             MutantJudgement::KilledByStaticAnalysis,
@@ -50,6 +56,7 @@ enum ResultRule: string
             self::Uncovered => 'A mutant on a line no test runs.',
             self::Unjudged => 'A mutant the run did not judge, or could not judge in its time or memory limit.',
             self::Flaky => 'A mutant its tests killed on one run and not on another.',
+            self::FailsUnmutated => 'A mutant whose tests fail without any mutant, so nothing judges it.',
         };
     }
 

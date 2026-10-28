@@ -23,6 +23,9 @@ use function sprintf;
  */
 final readonly class TestMethod
 {
+    /** What Pest begins the method it makes of a test's description with. */
+    public const string EVALUABLE = '__pest_evaluable_';
+
     /** What separates a test method from its class. */
     public const string SEPARATOR = '::';
 
