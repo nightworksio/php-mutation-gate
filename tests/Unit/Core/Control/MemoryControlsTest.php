@@ -88,7 +88,11 @@ function askedMemoryControls(MemoryControls $controls): array
 it('asks for one control of each mutant out of a memory cap: its covering tests, its file, and the standard limit of their time', function (): void {
     $mutants = Mutants::of(grownMutant('1'), grownMutant('2'));
 
-    expect(askedMemoryControls(MemoryControls::of($mutants, UnfilteredRuns::none(), growMap(), HeldCovered::none(), new ExactRun(), memoryBounds())))
+    $map = growMap()
+        ->covered(Path::of('src/Killed.php'), Line::of(3), TestId::of('KilledTest::a'))
+        ->timed(TestId::of('KilledTest::a'), Seconds::of(2.0));
+
+    expect(askedMemoryControls(MemoryControls::of($mutants, UnfilteredRuns::none(), $map, HeldCovered::none(), new ExactRun(), memoryBounds())))
         ->toBe([['src/Grow.php', ['GrowTest::a'], 11.0]]);
 });
 
@@ -116,13 +120,17 @@ it('asks for a control that loads the test files its mutant\'s run loaded with n
 
 it('asks for no control of a mutant that did not run out of memory, of one with no cap, or of one no test covers, and one of a mutant after them', function (): void {
     $mutants = Mutants::of(
-        memoryMutant('src/Grow.php', 'killed', MutantStatus::Killed)->withLimit(MemoryCap::of(64, MemoryUnit::Megabytes)),
+        memoryMutant('src/Killed.php', 'killed', MutantStatus::Killed)->withLimit(MemoryCap::of(64, MemoryUnit::Megabytes)),
         memoryMutant('src/Grow.php', 'no cap', MutantStatus::OutOfMemory),
         memoryMutant('src/Other.php', 'uncovered', MutantStatus::OutOfMemory)->withLimit(MemoryCap::of(64, MemoryUnit::Megabytes)),
         grownMutant('after'),
     );
 
-    expect(askedMemoryControls(MemoryControls::of($mutants, UnfilteredRuns::none(), growMap(), HeldCovered::none(), new ExactRun(), memoryBounds())))
+    $map = growMap()
+        ->covered(Path::of('src/Killed.php'), Line::of(3), TestId::of('KilledTest::a'))
+        ->timed(TestId::of('KilledTest::a'), Seconds::of(2.0));
+
+    expect(askedMemoryControls(MemoryControls::of($mutants, UnfilteredRuns::none(), $map, HeldCovered::none(), new ExactRun(), memoryBounds())))
         ->toBe([['src/Grow.php', ['GrowTest::a'], 11.0]]);
 });
 
