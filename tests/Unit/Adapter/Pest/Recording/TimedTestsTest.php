@@ -47,8 +47,12 @@ function timedAt(int $seconds, int $nanoseconds): HRTime
     }
 }
 
-it('times nothing unless the adapter names a file', function (): void {
+it('times nothing unless the adapter names a file and PHPUnit still takes subscribers', function (): void {
+    $sealed = new Facade();
+    $sealed->seal();
+
     expect(TimedTests::listening(file: false, events: new Facade()))->toBe(Off::TimingTests)
+        ->and(TimedTests::listening('/nowhere/timed-tests.jsonl', $sealed))->toBe(Off::TimingTests)
         ->and(TimedTests::listening('', new Facade()))->toBe(Off::TimingTests)
         ->and(TimedTests::fromEnvironment())->toBe(Off::TimingTests);
 });
