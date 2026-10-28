@@ -72,7 +72,10 @@ final readonly class JUnit
             ...$suites,
             ...self::named(
                 self::NEW_CODE,
-                array_map(static fn(NewCodeVerdict $set): array => self::newCode($set, $names, $gate), [...$sets->newCode()]),
+                array_map(
+                    static fn(NewCodeVerdict $set): array => self::newCode($set, $names, $gate),
+                    [...$sets->newCode()],
+                ),
             ),
             ...self::named(
                 self::SECURITY,
