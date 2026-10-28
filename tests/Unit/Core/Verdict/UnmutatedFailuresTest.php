@@ -37,7 +37,7 @@ it('groups the mutants whose tests fail without them by the tests that fail, eac
     $adds = Verdicts::failingUnmutated('11');
     $again = Verdicts::failingUnmutated('12');
     $rates = Verdicts::failingUnmutated('13', 'TaxTest::rates');
-    $failing = UnmutatedFailures::in(JudgedMutants::of($adds, Verdicts::survivor(), $again, $rates, $adds));
+    $failing = UnmutatedFailures::in(JudgedMutants::of($adds, $adds, Verdicts::survivor(), $again, $rates));
 
     expect(failingSets($failing))->toBe([
         ['The tests fail without any mutant: MoneyTest::adds', [$adds->mutant()->id()->value(), $again->mutant()->id()->value()]],

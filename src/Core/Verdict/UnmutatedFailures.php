@@ -46,26 +46,22 @@ final readonly class UnmutatedFailures implements Countable, IteratorAggregate
     /** The sets of tests that fail without these mutants, each once, each with every mutant it leaves out. */
     public static function in(JudgedMutants $mutants): self
     {
-        $failing = [];
-        $seen = [];
+        $leftOut = [];
 
         foreach ($mutants as $judged) {
-            if (! $judged instanceof JudgedMutant || ! self::leftOut($judged->mutant())) {
-                continue;
-            }
+            $leftOut += $judged instanceof JudgedMutant && self::leftOut($judged->mutant())
+                ? [$judged->mutant()->id()->key() => $judged]
+                : [];
+        }
 
-            $mutant = $judged->mutant();
-            $id = $mutant->id()->key();
+        $failing = [];
 
-            if (array_key_exists($id, $seen)) {
-                continue;
-            }
-
-            $seen[$id] = true;
-            $key = self::keyOf($mutant->killers());
+        foreach ($leftOut as $judged) {
+            $tests = $judged->mutant()->killers();
+            $key = self::keyOf($tests);
             $failing[$key] = array_key_exists($key, $failing)
                 ? $failing[$key]->with($judged)
-                : FailingTests::of($mutant->killers(), $judged);
+                : FailingTests::of($tests, $judged);
         }
 
         return new self(array_values($failing));

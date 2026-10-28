@@ -88,6 +88,7 @@ it('runs each control with its file served unmutated through Pest\'s override, b
         ->and($environment[Recorder::MUTANT])->toBe(sprintf('%s/src/Money.php', $at->root()))
         ->and(is_string($copy) ? file_get_contents($copy) : $copy)->toBe("<?php\n\nfinal class Money\n{\n}")
         ->and(implode(' ', $command->arguments()))->toContain('MoneySpec::(.*)it.adds')
+        ->and($command->arguments())->toContain(sprintf('--log-junit=%s/pest/controls/junit-0.xml', $at->workspace()))
         ->and($command->deadline())->toEqual(Seconds::of(7.0));
 });
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
 use NightWorksIO\MutationGate\Adapter\Console\InertOutput;
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -310,10 +311,12 @@ it('prints each owner with a floor against it before the groups the change touch
 
 it('says which tests fail without any mutant on a line of its own, the mutants they leave out under it', function () use ($printed): void {
     $failing = Verdicts::failingUnmutated();
+    $verdict = Verdicts::of(Floor::of(50), $failing)->withCannotJudge(CannotJudge::because('The map is gone.'));
 
-    expect($printed(Verdicts::of(Floor::of(50), $failing)))->toStartWith('mutation-gate: cannot-judge')
-        ->and($printed(Verdicts::of(Floor::of(50), $failing)))->toContain(implode("\n", [
+    expect($printed($verdict))->toStartWith('mutation-gate: cannot-judge')
+        ->and($printed($verdict))->toContain(implode("\n", [
             'Cannot judge',
+            '  The map is gone.',
             sprintf('  %s', 'The tests fail without any mutant: MoneyTest::adds'),
             sprintf('      %s', MutantText::heading($failing)),
         ]));

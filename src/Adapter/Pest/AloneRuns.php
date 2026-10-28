@@ -134,7 +134,7 @@ final readonly class AloneRuns
 
         foreach ($commands as $at => $command) {
             $log = $this->project->fresh(sprintf(self::LOG, $at));
-            $logs[$at] = is_string($log) ? $log : '';
+            $logs[$at] = $log;
             $logging[] = is_string($log)
                 ? $command(sprintf('%s=%s', PhpUnitOption::LogJunit->value, $log))
                 : $command();
@@ -144,7 +144,7 @@ final readonly class AloneRuns
 
         foreach ($this->shell->sideBySide($slots, $left, ...$logging) as $at => $ran) {
             $log = $logs[$at];
-            $failing = JUnitFailures::of(is_file($log) ? file_get_contents($log) : false);
+            $failing = JUnitFailures::of(is_string($log) && is_file($log) ? file_get_contents($log) : false);
             $runs[$at] = ControlRun::ofProcess($ran, $failing);
         }
 
