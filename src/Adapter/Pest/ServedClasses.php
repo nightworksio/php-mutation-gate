@@ -151,9 +151,9 @@ final class ServedClasses
     }
 
     /**
-     * Writes the copy's code, spelled at the original, to the file served in
-     * its place, whole, and loads that file, before any other autoloader, the first
-     * time one of these classes is asked for.
+     * Writes the copy's code, spelled at the original, whole to the file
+     * served in its place, and loads that file, before any other autoloader,
+     * the first time one of these classes is asked for.
      *
      * @param array<string, string> $classes each by its name as declared, by that name in lower case
      */
