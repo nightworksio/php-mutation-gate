@@ -104,6 +104,7 @@ it('writes the original as loaded before the override where its process serves a
         expect($kept)->toBeFalse()
             ->and(file_get_contents(KillerFile::beside($results, $box->copy)))->toBe(KillerFile::preloaded());
     } finally {
+        ServedClasses::forget($box->file);
         $box->loader->unregister();
     }
 });

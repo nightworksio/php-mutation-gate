@@ -61,7 +61,7 @@ final class ServedClasses
      */
     private const string WRITTEN = '%s.%d';
 
-    /** @var array<string, string> the file served in place of the original this process serves, by its real path */
+    /** @var array<string, string> the file served in place of each original this process serves, by its real path */
     private static array $serving = [];
 
     /** Serves a copy in place of the original, where both are there and the original is such a class file. */
@@ -73,6 +73,12 @@ final class ServedClasses
 
         return $classes !== [] && is_string($copied) && self::loadsOnly($classes, $path)
             && self::served($path, $classes, sprintf(self::SERVED, $copy), $copied);
+    }
+
+    /** Forgets that this process serves a copy in place of an original, as a test that served one does once done. */
+    public static function forget(string $original): void
+    {
+        unset(self::$serving[(string) realpath($original)]);
     }
 
     /** The file this process loads in place of an original: the copy it serves there, or the original itself. */
@@ -161,7 +167,7 @@ final class ServedClasses
             prepend: true,
         );
 
-        self::$serving = [$path => $served];
+        self::$serving[$path] = $served;
 
         return true;
     }

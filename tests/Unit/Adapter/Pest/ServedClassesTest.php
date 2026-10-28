@@ -22,6 +22,7 @@ it('serves the copy of a class file Composer autoloads in its place, its __FILE_
             ->and($box->read('FILE'))->toBe($box->file)
             ->and(file_get_contents(sprintf('%s.served.php', $box->copy)))->toContain(var_export($box->file, return: true));
     } finally {
+        ServedClasses::forget($box->file);
         $box->loader->unregister();
     }
 });
@@ -41,7 +42,16 @@ it('names the served copy as loaded in the original\'s place, and the original l
             ->and(ServedClasses::inPlaceOf('/nowhere/Box.php'))->toBe('/nowhere/Box.php')
             ->and(ServedClasses::bypassed([$served, $box->file]))->toBeTrue()
             ->and(ServedClasses::bypassed([$served]))->toBeFalse();
+
+        $other = ServedBox::registered();
+        ServedClasses::serve($other->file, $other->copy);
+        ServedClasses::forget($other->file);
+        $other->loader->unregister();
+
+        expect(ServedClasses::inPlaceOf($box->file))->toBe($served)
+            ->and(ServedClasses::inPlaceOf($other->file))->toBe($other->file);
     } finally {
+        ServedClasses::forget($box->file);
         $box->loader->unregister();
     }
 });
@@ -85,6 +95,7 @@ it('leaves to the wrapper a file Composer does not autoload, one whose class is 
         expect(ServedClasses::serve($box->file, $box->copy))->toBeFalse()
             ->and($box->read('SIZE'))->toBe('1');
     } finally {
+        ServedClasses::forget($box->file);
         $box->loader->unregister();
     }
 });
@@ -96,6 +107,7 @@ it('leaves to the wrapper a file whose interface, trait or enum is loaded alread
         expect(interface_exists($box->class) || trait_exists($box->class) || enum_exists($box->class))->toBeTrue()
             ->and(ServedClasses::serve($box->file, $box->copy))->toBeFalse();
     } finally {
+        ServedClasses::forget($box->file);
         $box->loader->unregister();
     }
 })->with([
@@ -115,6 +127,7 @@ it('serves an interface, a trait and an enum Composer autoloads, as it serves a 
             ->and($loaded)->toBeTrue()
             ->and(get_included_files())->toContain(sprintf('%s.served.php', $box->copy));
     } finally {
+        ServedClasses::forget($box->file);
         $box->loader->unregister();
     }
 })->with([
@@ -130,6 +143,7 @@ it('serves a file that names another class and declares an anonymous one, by the
         expect(ServedClasses::serve($box->file, $box->copy))->toBeTrue()
             ->and($box->read('SIZE'))->toBe('2');
     } finally {
+        ServedClasses::forget($box->file);
         $box->loader->unregister();
     }
 });
@@ -149,6 +163,7 @@ it('serves a class file in the global namespace, a block of it, and a namespace 
         expect(ServedClasses::serve(sprintf('%s/src/Global.php', $root), sprintf('%s/mutations/global.php', $root)))->toBeTrue()
             ->and(constant(sprintf('%s::SIZE', $class)))->toBe(2);
     } finally {
+        ServedClasses::forget(sprintf('%s/src/Global.php', $root));
         $loader->unregister();
     }
 })->with([

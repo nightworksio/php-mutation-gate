@@ -91,6 +91,7 @@ it('writes a served copy as the original loaded, and the original loaded by its 
             ->and(guardWritten($guard, $box->file, [], [$box->file], Opcache::of('0', '')))
             ->toBe('{"before":true,"loaded":false,"opcache":false}');
     } finally {
+        ServedClasses::forget($box->file);
         $box->loader->unregister();
     }
 });
