@@ -45,7 +45,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 final readonly class ConsoleReport implements Configurable, Reporter
 {
-    private const string RAISE = 'Raise them with vendor/bin/mutation-gate baseline --write, and commit the baseline.';
+    private const string RAISE = 'Raise them with %s, and commit the baseline.';
 
     /** A floor that can rise: what it is of, and what to. */
     private const string RISES = '%s to %s';
@@ -77,7 +77,14 @@ final readonly class ConsoleReport implements Configurable, Reporter
             ...$this->section('New code', $this->newCode($verdict)),
             ...$this->section('Security', $this->security($verdict)),
             ...$this->section('Owners', SetText::owned($verdict->sets())),
-            ...$this->section('Suites', SuiteText::lines(SuiteScores::of($verdict), $verdict->matrix()->whyNotFull())),
+            ...$this->section(
+                'Suites',
+                SuiteText::lines(
+                    SuiteScores::of($verdict),
+                    $verdict->matrix()->whyNotFull(),
+                    $verdict->account()->provenance()->command(),
+                ),
+            ),
             ...$this->section('Units', $this->units($verdict)),
             ...$this->section('Reach', $this->texts($verdict->reach())),
             ...$this->section(
@@ -198,7 +205,9 @@ final readonly class ConsoleReport implements Configurable, Reporter
             $lines[] = sprintf(self::RISES, $named, Percent::of($raised));
         }
 
-        return $lines === [] ? [] : [...$lines, self::RAISE];
+        return $lines === []
+            ? []
+            : [...$lines, sprintf(self::RAISE, $verdict->account()->provenance()->command()->baselineWritten())];
     }
 
     /**

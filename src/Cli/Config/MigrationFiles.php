@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Adapter\Php\BaselineCall;
 use NightWorksIO\MutationGate\Adapter\Php\PhpMigration;
 use NightWorksIO\MutationGate\Adapter\Yaml\YamlConfig;
 use NightWorksIO\MutationGate\Cli\CommandLine;
+use NightWorksIO\MutationGate\Cli\StartedGate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
@@ -101,7 +102,7 @@ final readonly class MigrationFiles
      */
     private function baselineOf(Path $config): Path
     {
-        $file = ConfigFile::at($config, Path::of($this->project));
+        $file = ConfigFile::at($config, Path::of($this->project))->startedAs(StartedGate::in($this->project));
         $text = $this->read($config);
         $format = Format::fromExtension(pathinfo($config->value(), PATHINFO_EXTENSION));
         $named = $format === Format::Php && is_string($text) ? BaselineCall::in($text) : NotGiven::value();

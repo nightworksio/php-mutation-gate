@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
@@ -104,7 +105,7 @@ it('shows a tree with nothing to mutate, and one not measured yet', function () 
 
     expect($shown->output)->toBe(<<<'SAID'
         src/Money.php: floor none, measured nothing to mutate
-        src/Held.php: floor none, not measured: a unit of it has no result yet. Run mutation-gate to measure it.
+        src/Held.php: floor none, not measured: a unit of it has no result yet. Run vendor/bin/mutation-gate to measure it.
 
         SAID);
 });
@@ -175,7 +176,7 @@ it('cannot show a baseline it cannot read', function () use ($baseline, $ledgers
     Scratch::write($project, 'mutation-gate.baseline.json', 'not a baseline');
 
     $shown = $baseline($project, $trees(30), $ledgers(), '', ScriptedRunner::fixture());
-    $refused = BaselineFile::decode('not a baseline', Path::of('mutation-gate.baseline.json'));
+    $refused = BaselineFile::decode('not a baseline', Path::of('mutation-gate.baseline.json'), GateCommand::installed());
 
     expect($shown->code)->toBe(2)
         ->and($shown->output)->toBe('')

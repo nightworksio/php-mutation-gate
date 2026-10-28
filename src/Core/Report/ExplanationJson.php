@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Report;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Proof\Recorded;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -51,13 +52,13 @@ final readonly class ExplanationJson
 {
     public const int FORMAT = JsonReport::FORMAT;
 
-    public static function of(Explanations $explained): string
+    public static function of(Explanations $explained, GateCommand $gate): string
     {
         $cluster = $explained->cluster();
         $mutants = [];
 
         foreach ($explained as $explanation) {
-            $mutants[] = self::explained($explanation);
+            $mutants[] = self::explained($explanation, $gate);
         }
 
         return JsonText::encode([
@@ -68,7 +69,7 @@ final readonly class ExplanationJson
     }
 
     /** @return ExplainedEntry */
-    private static function explained(Explanation $explanation): array
+    private static function explained(Explanation $explanation, GateCommand $gate): array
     {
         $judged = $explanation->mutant();
         $matrix = $explanation->matrix();
@@ -87,7 +88,7 @@ final readonly class ExplanationJson
         }
 
         return [
-            'mutant' => MutantJson::of($judged, $matrix, $table),
+            'mutant' => MutantJson::of($judged, $matrix, $table, $gate),
             ...$need instanceof Seconds ? ['judgingSeconds' => $need->seconds()] : [],
             'tests' => $tests,
             'unit' => self::unit($explanation),

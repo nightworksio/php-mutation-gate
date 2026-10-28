@@ -8,6 +8,7 @@ use function dirname;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Migration\Migrations;
 
 use function pathinfo;
@@ -21,8 +22,12 @@ use function pathinfo;
  */
 final readonly class ConfigFile implements PathOrigin
 {
-    private function __construct(private Path $file, private Path $directory, private Path $project)
-    {
+    private function __construct(
+        private Path $file,
+        private Path $directory,
+        private Path $project,
+        private GateCommand $gate,
+    ) {
     }
 
     /** A config file, and the project whose paths it names; a file spelt from the project is inside it. */
@@ -34,6 +39,7 @@ final readonly class ConfigFile implements PathOrigin
             $file,
             $file->isAbsolute() ? Path::of($directory) : ConfigPath::of($directory, $project->value())->path(),
             $project,
+            GateCommand::installed(),
         );
     }
 
@@ -46,7 +52,19 @@ final readonly class ConfigFile implements PathOrigin
     {
         $original = self::at($file, $project);
 
-        return new self($copy, $original->directory, $project);
+        return new self($copy, $original->directory, $project, $original->gate);
+    }
+
+    /** This file, read by the gate as it was started, which each change a release made names to make it. */
+    public function startedAs(GateCommand $gate): self
+    {
+        return new self($this->file, $this->directory, $this->project, $gate);
+    }
+
+    /** What the gate's releases changed in what a config writes, each change naming `migrate` as it was started. */
+    public function migrations(): Migrations
+    {
+        return Migrations::config()->startedAs($this->gate);
     }
 
     public function file(): Path
@@ -73,7 +91,7 @@ final readonly class ConfigFile implements PathOrigin
      */
     public function read(Json $config): Layer|Invalid
     {
-        return Definition::file($config, $this, Migrations::config());
+        return Definition::file($config, $this, $this->migrations());
     }
 
     public function reachesOutside(): bool

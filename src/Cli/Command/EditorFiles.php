@@ -8,6 +8,7 @@ use function implode;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Cli\StartedGate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Editor\Editor;
 use NightWorksIO\MutationGate\Core\Editor\VsCode;
@@ -61,15 +62,16 @@ final readonly class EditorFiles
     public static function made(string $project, Output $output): string|CannotJudge
     {
         $directory = Directory::at($project);
+        $gate = StartedGate::in($project);
         $tasks = self::one(
             $directory,
             $output,
             Path::of(VsCode::TASKS),
-            VsCode::tasks(),
+            VsCode::tasks($gate),
             sprintf(
                 self::ADD_TASK,
                 VsCode::TASKS,
-                VsCode::task(),
+                VsCode::task($gate),
             ),
         );
         $extensions = self::one(

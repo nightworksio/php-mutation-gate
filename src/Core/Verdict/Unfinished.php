@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Verdict;
 
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 
 use function sprintf;
@@ -23,13 +24,13 @@ final readonly class Unfinished
         SAID;
 
     /** Why each unit with a mutant a time budget left unjudged fails the verdict. */
-    public static function failures(UnitResults $results): Failures
+    public static function failures(UnitResults $results, GateCommand $gate): Failures
     {
         $failures = Failures::none();
 
         foreach ($results as $result) {
             $left = self::leftIn($result);
-            $said = sprintf(self::SAID, $result->unit()->path()->value(), $left, OutOfTime::MORE_TIME);
+            $said = sprintf(self::SAID, $result->unit()->path()->value(), $left, $gate->budgeted());
             $failures = $left > 0 ? $failures->with(Failure::that($said)) : $failures;
         }
 

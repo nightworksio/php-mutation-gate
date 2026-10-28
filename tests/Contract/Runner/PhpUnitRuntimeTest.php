@@ -78,7 +78,7 @@ function judgedByPhpUnit(
     MatrixKind $matrix = MatrixKind::FirstKiller,
 ): Mutant|CannotJudge {
     $project = Project::at(Tree::at(PHPUNIT_LIBRARY), Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'), BuiltinRunner::PhpUnit);
-    $override = Override::writtenFor($project);
+    $override = Override::writtenFor($project, NotGiven::value());
     $made = Engine::with($mutator)->mutantsOf(
         Path::of($file),
         Contents::of((string) file_get_contents($project->absolute(Path::of($file)))),

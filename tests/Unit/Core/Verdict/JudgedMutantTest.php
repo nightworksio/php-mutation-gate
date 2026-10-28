@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Hint\Hint;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
@@ -71,7 +72,7 @@ it('says what its tests miss from its diff and judging tests until it is given t
 it('gives the one command that explains it without running anything', function (): void {
     $judged = Judged::mutant('a', MutantJudgement::Survived);
 
-    expect($judged->explain())->toBe(sprintf('vendor/bin/mutation-gate explain %s', $judged->mutant()->id()->value()));
+    expect($judged->explain(GateCommand::installed()))->toBe(sprintf('vendor/bin/mutation-gate explain %s', $judged->mutant()->id()->value()));
 });
 
 it('turns a survivor proven equivalent into an equivalent one, and nothing else', function (MutantJudgement $judgement, MutantJudgement $proven): void {
@@ -90,7 +91,7 @@ it('turns a survivor proven equivalent into an equivalent one, and nothing else'
 it('gives the one command that reproduces it', function (): void {
     $judged = Judged::mutant('a', MutantJudgement::Survived);
 
-    expect($judged->reproduce())->toBe(sprintf('vendor/bin/mutation-gate reproduce %s', $judged->mutant()->id()->value()));
+    expect($judged->reproduce(GateCommand::installed()))->toBe(sprintf('vendor/bin/mutation-gate reproduce %s', $judged->mutant()->id()->value()));
 });
 
 it('is in no cluster until it is put in one, and keeps the rest when it is', function (): void {

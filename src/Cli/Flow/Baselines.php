@@ -8,8 +8,10 @@ use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\BaselineFile;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Written;
 
@@ -27,8 +29,20 @@ final readonly class Baselines
         Fetch the default branch into the checkout before the verdict.
         SAID;
 
-    public function __construct(private Adapters $adapters, private Path $file)
+    public function __construct(private Adapters $adapters, private Path $file, private GateCommand $gate)
     {
+    }
+
+    /** The baselines of the file the config names, which the gate as it was started is named to write. */
+    public static function of(Adapters $adapters, Settings $settings, Setup $setup): self
+    {
+        return new self($adapters, $settings->floors()->baseline(), $setup->command);
+    }
+
+    /** The gate as it was started, which what is said of the baseline names. */
+    public function gate(): GateCommand
+    {
+        return $this->gate;
     }
 
     /** The file the baseline is committed in. */
@@ -44,7 +58,7 @@ final readonly class Baselines
 
         return match (true) {
             $contents instanceof CannotJudge => $contents,
-            $contents instanceof Contents => BaselineFile::decode($contents->text(), $this->file),
+            $contents instanceof Contents => BaselineFile::decode($contents->text(), $this->file, $this->gate),
             default => Baseline::none(),
         };
     }
@@ -61,7 +75,7 @@ final readonly class Baselines
         $remote = Standing::fetched($defaultBranch);
         $contents = $this->adapters->changes->fileAt($this->file, $remote);
         $read = match (true) {
-            $contents instanceof Contents => BaselineFile::decode($contents->text(), $this->file),
+            $contents instanceof Contents => BaselineFile::decode($contents->text(), $this->file, $this->gate),
             $contents instanceof CannotTell => CannotJudge::because($contents->why()),
             default => Baseline::none(),
         };

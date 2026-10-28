@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Report\JUnit;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
 use NightWorksIO\MutationGate\Core\Score\Floor;
@@ -41,7 +42,7 @@ it('fails a tree\'s floor with every mutant it counts as not killed', function (
 
     foreach (Verdicts::failing()->trees() as $tree) {
         foreach ($tree->survivors() as $mutant) {
-            $blocks[] = MutantText::block($mutant, TestNames::none());
+            $blocks[] = MutantText::block($mutant, TestNames::none(), GateCommand::installed());
         }
     }
 

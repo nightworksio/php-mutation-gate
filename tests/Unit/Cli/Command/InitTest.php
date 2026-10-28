@@ -82,6 +82,15 @@ it('writes nothing where --ci names no CI it writes for, or where the files show
         ->toBe($nothing('--sharded and --single each choose one; pass one of them.'));
 });
 
+it('pins no commit in the CI definition where Composer installed no copy of the gate', function (): void {
+    [$project, $ran] = InitRuns::inLaravel(['--ci' => 'github', '--single' => true]);
+
+    expect($ran->code)->toBe(0)
+        ->and($ran->output)->toContain('Composer did not install the gate here, so the definition names <the commit of a release>')
+        ->and(InitRuns::file($project, '.github/workflows/mutation.yml'))
+        ->toContain("nightworksio/php-mutation-gate@<the commit of a release>\n");
+});
+
 it('writes nothing for an editor it does not set up', function (): void {
     expect(initCiRefused(['--editor' => 'phpstorm']))
         ->toBe([2, '', "phpstorm is no editor init --editor sets up. Name vscode.\n", '']);

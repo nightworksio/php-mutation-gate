@@ -35,6 +35,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
@@ -109,6 +110,7 @@ final readonly class Flows
             new StoppedClock(Configs::NOW),
             new PeakMemoryFake(NotGiven::value()),
             DecidingConfig::unread(),
+            GateCommand::installed(),
         );
     }
 

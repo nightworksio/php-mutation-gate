@@ -279,7 +279,7 @@ final readonly class Running
             $checking,
             $preChecking,
         );
-        $doom = new Dooming($this->adapters, $this->settings, $this->setup->clock)->of($plan);
+        $doom = new Dooming($this->adapters, $this->settings, $this->setup)->of($plan);
         $batched = new Batched($invoking, $this->setup->clock, $deadline, $this->interruption, $doom);
         $batching = Batching::opening($map->suiteDuration());
         $pruned = $plan->considered()->pruned();

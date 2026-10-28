@@ -82,7 +82,7 @@ it('exits 2, running nothing, for a mutant no ledger read holds', function () us
     $reproduced = $reproduce($runner, 'id=abcdef');
 
     expect($reproduced->code)->toBe(2)
-        ->and($reproduced->errors)->toBe("No ledger read holds a mutant abcdef names. Run mutation-gate on the code that has it to record it first.\n")
+        ->and($reproduced->errors)->toBe("No ledger read holds a mutant abcdef names. Run vendor/bin/mutation-gate on the code that has it to record it first.\n")
         ->and($runner->reproductions())->toBe([]);
 });
 

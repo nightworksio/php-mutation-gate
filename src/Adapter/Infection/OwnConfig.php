@@ -201,8 +201,8 @@ final readonly class OwnConfig
      * The config the gate runs Infection with: the project's own, with every
      * path absolute, and what the gate owns written over it. Its static
      * analysis keys are kept only where Infection runs static analysis.
-     * Where there are bridges to registered mutators, its `bootstrap` is the
-     * file that declares them and then loads the project's own (see Bridges).
+     * Where the gate writes bridges, its `bootstrap` is the file that
+     * declares them and then loads the project's own (see Bridges).
      *
      * @param list<string> $directories the source directories, by their paths on disk
      */
@@ -225,7 +225,7 @@ final readonly class OwnConfig
             self::CONFIG_DIR => JsonObject::value($this->configDirectory($project)),
         ]);
 
-        if (! $bridges->isEmpty()) {
+        if ($bridges->isWritten()) {
             $members[self::BOOTSTRAP] = JsonObject::value($project->bridges());
         }
 

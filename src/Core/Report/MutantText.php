@@ -11,6 +11,7 @@ use function implode;
 
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\Format\Fit;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
@@ -98,14 +99,14 @@ final readonly class MutantText
      * One line for a tool that lists results: how it was judged, its mutator,
      * what its tests miss and how to reproduce it.
      */
-    public static function message(JudgedMutant $judged): string
+    public static function message(JudgedMutant $judged, GateCommand $gate): string
     {
         return sprintf(
             self::MESSAGE,
             self::label($judged),
             Mutator::short($judged->mutant()->mutator()),
             $judged->hint()->text(),
-            $judged->reproduce(),
+            $judged->reproduce($gate),
         );
     }
 
@@ -115,15 +116,15 @@ final readonly class MutantText
      * names their runner gave them, hint, the callee it may be deleted
      * with, and reproduce and explain commands, indented.
      */
-    public static function block(JudgedMutant $judged, TestNames $names): string
+    public static function block(JudgedMutant $judged, TestNames $names, GateCommand $gate): string
     {
         $lines = [
             ...self::diff($judged->mutant()),
             ...self::stands($judged),
             ...self::judgedBy($judged, $names),
             ...self::missed($judged),
-            sprintf('Reproduce: %s', $judged->reproduce()),
-            sprintf('Explain: %s', $judged->explain()),
+            sprintf('Reproduce: %s', $judged->reproduce($gate)),
+            sprintf('Explain: %s', $judged->explain($gate)),
         ];
 
         return self::indented(self::heading($judged), ...$lines);

@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Hint\Hint;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -44,7 +45,7 @@ $line = static fn(JudgedMutant $judged, string $place, string $level, string $ma
     "%s: %s: %s%s [%s] %s\n",
     $place,
     $level,
-    MutantText::message($judged),
+    MutantText::message($judged, GateCommand::installed()),
     $mark,
     $rule,
     $judged->mutant()->id()->value(),
@@ -90,7 +91,7 @@ it('keeps each result on one line, whatever its hint holds, and marks none a ver
 
     expect(Problems::text(Verdicts::of(Floor::of(0), $survivor), Sources::none(), ProblemsShown::All))->toBe(sprintf(
         "src/Money.php:7:1: warning: Mutant survived: LessToLessOrEqual. No test uses the boundary. Reproduce: %s [survived] %s\n",
-        $survivor->reproduce(),
+        $survivor->reproduce(GateCommand::installed()),
         $survivor->mutant()->id()->value(),
     ));
 });

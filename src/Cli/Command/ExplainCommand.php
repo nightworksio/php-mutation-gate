@@ -10,12 +10,14 @@ use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Cli\Flow\Explaining;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cluster\ClusterId;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Proof\Ambiguous;
 use NightWorksIO\MutationGate\Core\Proof\NoRecord;
 use NightWorksIO\MutationGate\Core\Report\ExplanationJson;
 use NightWorksIO\MutationGate\Core\Report\Explanations;
 use NightWorksIO\MutationGate\Core\Report\ExplanationText;
 use NightWorksIO\MutationGate\Core\Report\Form;
+use NightWorksIO\MutationGate\Core\Verb;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -31,7 +33,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 final readonly class ExplainCommand
 {
-    private const string NAME = 'explain';
+    private const string NAME = Verb::Explain->value;
 
     public static function command(Composition $composition): Command
     {
@@ -51,7 +53,12 @@ final readonly class ExplainCommand
                     ! $composed instanceof Composed => Failed::because($output, $composed),
                     $sought instanceof CannotJudge => Failed::because($output, $sought),
                     $form instanceof CannotJudge => Failed::because($output, $form),
-                    default => self::explained($output, new Explaining($composed)->explain($sought), $form),
+                    default => self::explained(
+                        $output,
+                        new Explaining($composed)->explain($sought),
+                        $form,
+                        $composed->setup->command,
+                    ),
                 };
             });
     }
@@ -60,13 +67,14 @@ final readonly class ExplainCommand
         OutputInterface $output,
         Explanations|NoRecord|Ambiguous|CannotJudge $explained,
         Form $form,
+        GateCommand $gate,
     ): int {
         if (! $explained instanceof Explanations) {
-            return Failed::unfound($output, $explained);
+            return Failed::unfound($output, $explained, $gate);
         }
 
         $output->writeln(
-            $form === Form::Json ? ExplanationJson::of($explained) : ExplanationText::of($explained),
+            $form === Form::Json ? ExplanationJson::of($explained, $gate) : ExplanationText::of($explained, $gate),
             OutputInterface::OUTPUT_RAW,
         );
 

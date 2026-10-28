@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Report\ScoreChangeText;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Floor;
@@ -28,7 +29,7 @@ $makeApp = static fn(): TreeVerdict => TreeVerdict::judged(
 it('says each reached tree\'s score against its floor and the base, and each not measured yet', function () use ($makeApp): void {
     $app = $makeApp();
 
-    expect(ScoreChangeText::of(TreeVerdicts::of($app), Paths::of(Path::of('lib')), 0, 0))->toBe(
+    expect(ScoreChangeText::of(TreeVerdicts::of($app), Paths::of(Path::of('lib')), 0, 0, GateCommand::installed()))->toBe(
         "app scores 50.00% against its floor of 50.00%. That is +10.00 against the base.\n"
         . 'lib is not measured yet: a unit of it has no result.',
     );
@@ -37,21 +38,21 @@ it('says each reached tree\'s score against its floor and the base, and each not
 it('counts the reached units with no local result and the files with unstaged changes', function (int $unjudged, int $unstaged, string $counted) use ($makeApp): void {
     $app = $makeApp();
 
-    expect(ScoreChangeText::of(TreeVerdicts::of($app), Paths::none(), $unjudged, $unstaged))->toBe(sprintf(
+    expect(ScoreChangeText::of(TreeVerdicts::of($app), Paths::none(), $unjudged, $unstaged, GateCommand::installed()))->toBe(sprintf(
         "app scores 50.00%% against its floor of 50.00%%. That is +10.00 against the base.\n%s",
         $counted,
     ));
 })->with([
-    'one of each' => [1, 1, "1 unit unjudged since your last run: mutation-gate watch\nThe scores include unstaged changes in 1 file."],
-    'several of each' => [3, 2, "3 units unjudged since your last run: mutation-gate watch\nThe scores include unstaged changes in 2 files."],
+    'one of each' => [1, 1, "1 unit unjudged since your last run: vendor/bin/mutation-gate watch\nThe scores include unstaged changes in 1 file."],
+    'several of each' => [3, 2, "3 units unjudged since your last run: vendor/bin/mutation-gate watch\nThe scores include unstaged changes in 2 files."],
     'unstaged files alone' => [0, 2, 'The scores include unstaged changes in 2 files.'],
 ]);
 
 it('says when the change reaches no tree', function (): void {
-    expect(ScoreChangeText::of(TreeVerdicts::none(), Paths::none(), 2, 0))
-        ->toBe("The change reaches no tree.\n2 units unjudged since your last run: mutation-gate watch");
+    expect(ScoreChangeText::of(TreeVerdicts::none(), Paths::none(), 2, 0, GateCommand::installed()))
+        ->toBe("The change reaches no tree.\n2 units unjudged since your last run: vendor/bin/mutation-gate watch");
 });
 
 it('says why it shows no score without a coverage map', function (): void {
-    expect(ScoreChangeText::unmapped())->toStartWith('No local run has left a coverage map');
+    expect(ScoreChangeText::unmapped(GateCommand::installed()))->toStartWith('No local run has left a coverage map');
 });

@@ -10,6 +10,7 @@ use function count;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Matrix\NotFull;
 use NightWorksIO\MutationGate\Core\Matrix\SuiteScore;
@@ -189,7 +190,7 @@ final readonly class JsonReport
             'security' => self::each($verdict->sets()->security(), self::security(...)),
             'owners' => self::each($verdict->sets()->owners(), self::owner(...)),
             'ownerFloors' => self::each($verdict->sets()->ownerFloors(), self::ownerFloor(...)),
-            ...self::suites(SuiteScores::of($verdict), $verdict->matrix()->whyNotFull()),
+            ...self::suites(SuiteScores::of($verdict), $verdict->matrix()->whyNotFull(), $overview->gate()),
             'matrix' => $verdict->matrix()->kind()->value,
             'tests' => self::each(
                 $table->tests(),
@@ -197,7 +198,12 @@ final readonly class JsonReport
             ),
             'mutants' => self::each(
                 $verdict->trees()->mutants(),
-                static fn(JudgedMutant|JudgedKill $one): array => MutantJson::of($one, $verdict->matrix(), $table),
+                static fn(JudgedMutant|JudgedKill $one): array => MutantJson::of(
+                    $one,
+                    $verdict->matrix(),
+                    $table,
+                    $overview->gate(),
+                ),
             ),
             'clusters' => self::each($verdict->trees()->clusters(), self::cluster(...)),
             'reach' => self::texts($verdict->reach(), static fn(Cause $reason): string => $reason->text()),
@@ -291,7 +297,7 @@ final readonly class JsonReport
      *
      * @return array{suites: list<SuiteEntry>, suitesUnscored?: string, suitesLowerBound?: string}
      */
-    private static function suites(SuiteScores $scores, NotFull $why): array
+    private static function suites(SuiteScores $scores, NotFull $why, GateCommand $gate): array
     {
         $exact = true;
 
@@ -304,7 +310,7 @@ final readonly class JsonReport
             $exact => ['suites' => self::each($scores, self::suite(...))],
             default => [
                 'suites' => self::each($scores, self::suite(...)),
-                'suitesLowerBound' => SuiteText::lowerBound($why),
+                'suitesLowerBound' => SuiteText::lowerBound($why, $gate),
             ],
         };
     }

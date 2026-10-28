@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Composer\Installed as ComposerInstalled;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -26,6 +27,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\CoverageFailure;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
@@ -49,6 +52,7 @@ use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
+use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Port\Processes;
 use NightWorksIO\MutationGate\Port\Runner;
@@ -62,6 +66,9 @@ use function sprintf;
  */
 final readonly class Pest implements Runner
 {
+    private const string ARCHIVED
+        = 'Pest runs the gate\'s plugin, which only the Composer package installs: composer require --dev %s -W';
+
     /** Where the gate runs Pest: the project's root, which the gate runs in. */
     private const string ROOT = '.';
 
@@ -94,14 +101,21 @@ final readonly class Pest implements Runner
     /**
      * Pest in the project the gate runs in, installed in this vendor
      * directory, as the `pest` runner's options configure it, writing its
-     * memory cap with these files and running through these processes.
+     * memory cap with these files and running through these processes. The
+     * gate's PHAR refuses it: Pest finds the gate's plugin only among the
+     * project's installed packages (ADR-0022).
      */
     public static function fromOptions(
         Options $options,
         Path $vendor,
         CapFiles $files,
         Processes $processes,
+        OwnArchive|NotGiven $archive,
     ): self|Invalid {
+        if ($archive instanceof OwnArchive) {
+            return Invalid::because(Problem::at('', sprintf(self::ARCHIVED, ThisPackage::COMPOSER)));
+        }
+
         $read = PestOptions::read($options);
 
         if ($read instanceof Invalid) {

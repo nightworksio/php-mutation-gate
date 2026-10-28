@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Registry\FirstPartyPackage;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Extension\Extensions;
@@ -39,7 +40,7 @@ $discovery = static function (array|string $root, array|string $installed): Disc
     Scratch::write($project, 'composer.json', is_string($root) ? $root : (string) json_encode($root));
     Scratch::write($project, 'vendor/composer/installed.json', is_string($installed) ? $installed : (string) json_encode(['packages' => $installed]));
 
-    return new Discovery(Directory::at($project), Directory::at(sprintf('%s/vendor', $project)));
+    return new Discovery(Directory::at($project), Directory::at(sprintf('%s/vendor', $project)), NotGiven::value());
 };
 
 $runs = static fn(Extensions|CannotJudge $registry, string $name): bool => $registry instanceof Extensions && Lookup::in($registry)->runner(Name::of($name), Options::none()) instanceof Runner;
@@ -86,7 +87,7 @@ it('takes no package as first party by an extension class it names, only by its 
 
 it('registers nothing where there is no manifest', function () use ($runs): void {
     $project = Scratch::directory();
-    $registry = new Discovery(Directory::at($project), Directory::at(sprintf('%s/vendor', $project)))->extensions(firstPartyOnly: false);
+    $registry = new Discovery(Directory::at($project), Directory::at(sprintf('%s/vendor', $project)), NotGiven::value())->extensions(firstPartyOnly: false);
 
     expect($registry)->toBeInstanceOf(Extensions::class)
         ->and($runs($registry, 'fake'))->toBeFalse()
@@ -122,6 +123,32 @@ it('cannot judge a manifest that is a directory', function (): void {
     $project = Scratch::directory();
     mkdir(sprintf('%s/composer.json', $project));
 
-    expect(new Discovery(Directory::at($project), Directory::at($project))->extensions(firstPartyOnly: false))
+    expect(new Discovery(Directory::at($project), Directory::at($project), NotGiven::value())->extensions(firstPartyOnly: false))
         ->toEqual(CannotJudge::because(sprintf('%s/composer.json could not be read.', $project)));
+});
+
+it('registers what the gate\'s own manifest declares, as first-party, where the gate runs from its PHAR', function () use ($manifest, $runs): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'app/composer.json', (string) json_encode($manifest('acme/app', [ExtensionFake::class])));
+    Scratch::write($project, 'app/vendor/composer/installed.json', (string) json_encode(['packages' => []]));
+    Scratch::write($project, 'archive/composer.json', (string) json_encode($manifest(ThisPackage::COMPOSER, [FirstParty::class])));
+    $discovery = new Discovery(
+        Directory::at(sprintf('%s/app', $project)),
+        Directory::at(sprintf('%s/app/vendor', $project)),
+        Directory::at(sprintf('%s/archive', $project)),
+    );
+
+    expect($runs($discovery->extensions(firstPartyOnly: false), 'pest'))->toBeTrue()
+        ->and($runs($discovery->extensions(firstPartyOnly: false), 'fake'))->toBeTrue()
+        ->and($runs($discovery->extensions(firstPartyOnly: true), 'pest'))->toBeTrue()
+        ->and($runs($discovery->extensions(firstPartyOnly: true), 'fake'))->toBeFalse();
+});
+
+it('cannot judge the gate\'s own manifest it cannot read', function (): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'composer.json', '{}');
+    Scratch::write($project, 'archive/composer.json', 'not json');
+
+    expect(new Discovery(Directory::at($project), Directory::at($project), Directory::at(sprintf('%s/archive', $project)))->extensions(firstPartyOnly: false))
+        ->toEqual(CannotJudge::because('composer.json is not a JSON object.'));
 });

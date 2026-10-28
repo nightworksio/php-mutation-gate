@@ -31,7 +31,7 @@ use function sprintf;
 final readonly class ShardMap
 {
     private const string NOT_PATCHED
-        = 'pest.patch is on, but pest-plugin-mutate in %s is not patched. Run mutation-gate pest:patch.';
+        = 'pest.patch is on, but pest-plugin-mutate in %s is not patched. doctor says how to patch it.';
 
     private const string EMPTY_CANARY = 'pest.patch is on, but the canary group %s holds no test. Add one.';
 

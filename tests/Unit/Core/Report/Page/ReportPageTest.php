@@ -404,7 +404,7 @@ it('bars a set held to no floor with no floor marked, and says the baseline hold
 it('says what each suite alone kills, and why each is a lower bound where it is', function (): void {
     $page = pageOf(Killings::suited(MatrixKind::FirstKiller));
 
-    expect($page)->toContain('<section><h3>Suites</h3><ul><li>unit alone kills at least 66.66% of the 3 mutants its tests cover.</li><li>feature alone kills at least 50.00% of the 2 mutants its tests cover.</li><li>Each is a lower bound, from first killers: `mutation-gate run --kill-matrix=full` makes it exact.</li></ul></section>')
+    expect($page)->toContain('<section><h3>Suites</h3><ul><li>unit alone kills at least 66.66% of the 3 mutants its tests cover.</li><li>feature alone kills at least 50.00% of the 2 mutants its tests cover.</li><li>Each is a lower bound, from first killers: `vendor/bin/mutation-gate run --kill-matrix=full` makes it exact.</li></ul></section>')
         ->and(pageOf(Killings::suited(MatrixKind::Full)))->not->toContain('lower bound')
         ->and(pageOf(Killings::unplaced()))->toContain('<section><h3>Suites</h3><ul><li>The runner named no test, so no suite can be scored.</li></ul></section>');
 });

@@ -8,6 +8,7 @@ use function array_map;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
+use NightWorksIO\MutationGate\Core\OwnScript;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Test\Filter;
@@ -38,7 +39,7 @@ final readonly class CommandLine
     /** What stops PhpSpec at the first example that fails or breaks. */
     private const string STOP = '--stop-on-failure';
 
-    public function __construct(private string $launcher, private string $autoloader)
+    public function __construct(private OwnScript $launcher, private string $autoloader)
     {
     }
 
@@ -58,7 +59,7 @@ final readonly class CommandLine
     public function coverage(CoverageRun $request, string $map): array
     {
         return [
-            $this->launcher,
+            ...$this->launcher->started(),
             $this->autoloader,
             LaunchOption::Coverage->with($map),
             ...$this->covering($request->tests()),
@@ -69,7 +70,7 @@ final readonly class CommandLine
     /** @return list<string> the suite's examples and their groups, listed into this file, and none run */
     public function listing(string $file): array
     {
-        return [$this->launcher, $this->autoloader, LaunchOption::Listing->with($file), ...self::RUN];
+        return [...$this->launcher->started(), $this->autoloader, LaunchOption::Listing->with($file), ...self::RUN];
     }
 
     /**
@@ -80,7 +81,7 @@ final readonly class CommandLine
     private function run(string $selection, MatrixKind $matrix, array $options): array
     {
         return [
-            $this->launcher,
+            ...$this->launcher->started(),
             $this->autoloader,
             $selection,
             ...$options,

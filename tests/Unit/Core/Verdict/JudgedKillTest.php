@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Hint\Hint;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
@@ -26,8 +27,8 @@ it('is a kill a ledger proved, killed, with nothing its tests miss, on no change
         ->and($judged->tests())->toEqual(TestIds::none())
         ->and($judged->hint())->toEqual(Hint::killed())
         ->and($judged->hint())->toEqual(Hint::for(Verdicts::killed(), MutantJudgement::Killed, TestIds::none(), Missing::at(Path::of('src/Money.php')), NoFinding::survivor()))
-        ->and($judged->reproduce())->toBe(sprintf('vendor/bin/mutation-gate reproduce %s', $id))
-        ->and($judged->explain())->toBe(sprintf('vendor/bin/mutation-gate explain %s', $id));
+        ->and($judged->reproduce(GateCommand::installed()))->toBe(sprintf('vendor/bin/mutation-gate reproduce %s', $id))
+        ->and($judged->explain(GateCommand::installed()))->toBe(sprintf('vendor/bin/mutation-gate explain %s', $id));
 });
 
 it('is on a changed line where the reach holds its line for its file, and nowhere else', function (): void {

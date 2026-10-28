@@ -142,7 +142,7 @@ it('refuses an action it does not know, and a project outside a repository', fun
     $unknown = Commands::run(Repository::empty()->root, 'hook', ['action' => 'reinstall']);
     $outside = Commands::run(Scratch::directory(), 'hook', ['action' => 'install']);
 
-    expect([$unknown->code, $unknown->errors])->toBe([2, "mutation-gate hook takes install or uninstall, not \"reinstall\".\n"])
+    expect([$unknown->code, $unknown->errors])->toBe([2, "hook takes install or uninstall, not \"reinstall\".\n"])
         ->and($outside->code)->toBe(2)
         ->and($outside->errors)->toContain('not a git repository');
 })->group(...$holds);

@@ -48,6 +48,7 @@ use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
 use NightWorksIO\MutationGate\Core\Migration\Migrations;
+use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
 use NightWorksIO\MutationGate\Core\Watch\Poll;
 use NightWorksIO\MutationGate\Extension\Extensions;
@@ -111,6 +112,7 @@ final readonly class Console
 
         $detected = new Detected(Directory::at($project), Directory::at($vendor));
         $now = $clock->now();
+        $started = StartedGate::in($project);
         $effective = new Effective($project, $extensions, $detected, $now);
         $composition = new Composition(
             $effective,
@@ -139,7 +141,7 @@ final readonly class Console
         $application->addCommand(AffectedCommand::command($composition));
         $formats = new Formats(class_exists(...));
         $installed = $detected->installed();
-        $gate = $installed instanceof Installed ? GatePin::in($installed) : GatePin::unknown();
+        $gate = GatePin::running(OwnArchive::running(), InstalledGate::version(), $installed);
         $application->addCommand(
             Init::command(
                 $project,
@@ -158,8 +160,8 @@ final readonly class Console
         $application->addCommand(ConfigSchema::command());
         $application->addCommand(MigrateCommand::command(
             new MigrationFiles($project, class_exists(...)),
-            Migrations::config(),
-            Migrations::baseline(),
+            Migrations::config()->startedAs($started),
+            Migrations::baseline()->startedAs($started),
         ));
         $probe = PhpProbe::of(PHP_BINARY, getenv());
         $application->addCommand(Doctor::command(
@@ -169,7 +171,7 @@ final readonly class Console
                 $effective,
                 $detected,
                 $probe,
-                DoctorRun::of($now, ini_parse_quantity(ini_get('memory_limit'))),
+                DoctorRun::of($now, ini_parse_quantity(ini_get('memory_limit')))->startedAs($started),
             ),
             new Measure($composition),
             new Online($project, $environment, HttpClient::create()),

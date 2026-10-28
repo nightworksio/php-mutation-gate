@@ -67,9 +67,7 @@ final readonly class PrePushCommand
 
     private const string NOTHING = 'Nothing is pushed, so there is nothing to judge.';
 
-    private const string MORE_TIME = <<<'SAID'
-        More time judges what the budget left: vendor/bin/mutation-gate run --changed-since=%s
-        SAID;
+    private const string MORE_TIME = 'More time judges what the budget left: %s';
 
     private function __construct(
         private Composed $composed,
@@ -193,7 +191,8 @@ final readonly class PrePushCommand
         $code = VerdictCommand::printed($judged, $this->output, $this->printing, $this->composed->adapters->project);
 
         if ($judged instanceof Judged && $judged->verdict->wasCutShort()) {
-            $this->printing->note(sprintf(self::MORE_TIME, $base->name()), $this->output);
+            $since = $this->composed->setup->command->changedSince($base);
+            $this->printing->note(sprintf(self::MORE_TIME, $since), $this->output);
         }
 
         return $code;

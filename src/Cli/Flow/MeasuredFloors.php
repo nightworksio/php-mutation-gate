@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\BaselineFile;
 use NightWorksIO\MutationGate\Core\Baseline\Entry;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
 use NightWorksIO\MutationGate\Core\Score\Score;
@@ -23,14 +24,14 @@ use function sprintf;
 final readonly class MeasuredFloors
 {
     private const string UNMEASURED = <<<'SAID'
-        %s: floor %s, not measured: a unit of it has no result yet. Run mutation-gate to measure it.
+        %s: floor %s, not measured: a unit of it has no result yet. Run %s to measure it.
         SAID;
 
     /** A floor and the score last measured against it: what it is of, the floor, and the score. */
     private const string SHOWN = '%s: floor %s, measured %s';
 
     /** @return list<string> each tree's and security set's floor and its last measured score */
-    public static function of(Baseline $committed, Measured $measured): array
+    public static function of(Baseline $committed, Measured $measured, GateCommand $gate): array
     {
         $lines = [];
 
@@ -40,7 +41,7 @@ final readonly class MeasuredFloors
         }
 
         foreach ($measured->unmeasured() as $tree) {
-            $lines[] = sprintf(self::UNMEASURED, $tree->value(), self::floorOf($committed->entryOf($tree)));
+            $lines[] = self::unmeasured($tree->value(), $committed->entryOf($tree), $gate);
         }
 
         foreach ($measured->security() as $set) {
@@ -51,10 +52,15 @@ final readonly class MeasuredFloors
 
         foreach ($measured->unmeasuredSecurity() as $package) {
             $named = sprintf(SecurityVerdict::SET, $package->value());
-            $lines[] = sprintf(self::UNMEASURED, $named, self::floorOf($committed->securityOf($package)));
+            $lines[] = self::unmeasured($named, $committed->securityOf($package), $gate);
         }
 
         return $lines;
+    }
+
+    private static function unmeasured(string $named, Entry|Unrecorded $entry, GateCommand $gate): string
+    {
+        return sprintf(self::UNMEASURED, $named, self::floorOf($entry), $gate->gate());
     }
 
     private static function line(string $named, Entry|Unrecorded $entry, Score|NothingToMutate $score): string

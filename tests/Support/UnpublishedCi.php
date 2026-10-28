@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\CiMarker;
+use NightWorksIO\MutationGate\Core\Ci\JobCommands;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -21,7 +22,7 @@ final readonly class UnpublishedCi implements CiPlan
     {
     }
 
-    public function publish(Plan $plan): CannotJudge
+    public function publish(Plan $plan, JobCommands $jobs): CannotJudge
     {
         return CannotJudge::because($this->why);
     }

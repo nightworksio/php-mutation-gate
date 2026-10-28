@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\NoConfigFile;
 use NightWorksIO\MutationGate\Cli\InstalledGate;
+use NightWorksIO\MutationGate\Cli\StartedGate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
@@ -63,6 +64,7 @@ final readonly class Composition
             $file instanceof Path
                 ? DecidingConfig::read($this->effective, $given, $this->project, $file)
                 : DecidingConfig::unread(),
+            StartedGate::in($this->project),
         );
     }
 

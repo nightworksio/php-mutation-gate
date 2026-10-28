@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Cost\ShardTiming;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -68,6 +69,7 @@ it('times each shard from its start to its result, with its steps, and the verdi
         new TickingClock('2026-09-30T12:00:00+00:00', 3),
         new PeakMemoryFake(NotGiven::value()),
         DecidingConfig::unread(),
+        GateCommand::installed(),
     );
     $running = new Running(Flows::adapters($project, [], ScriptedRunner::fixture()), Flows::settings(), $setup);
     $running->run($plan, ShardId::of(1), Workspace::results());

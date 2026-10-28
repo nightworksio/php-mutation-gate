@@ -157,7 +157,7 @@ it('cannot judge without a plan, or with one it cannot read', function (
 })->with([
     'no plan' => [
         'missing',
-        'There is no plan at .mutation-gate/plan.json. Run mutation-gate plan, and hand its plan to every job.',
+        'There is no plan at .mutation-gate/plan.json. Run vendor/bin/mutation-gate plan, and hand its plan to every job.',
     ],
     'a plan it cannot read' => ['unreadable', '<project>/.mutation-gate/plan.json could not be read.'],
     'not a plan' => ['not a plan', 'The plan cannot be read, so no shard can follow it: the file.format is missing.'],

@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Proof\Ambiguous;
 use NightWorksIO\MutationGate\Core\Proof\NoRecord;
 use NightWorksIO\MutationGate\Core\Stub\Stub;
+use NightWorksIO\MutationGate\Core\Verb;
 use NightWorksIO\MutationGate\Core\Written;
 
 use function sprintf;
@@ -43,7 +44,7 @@ final readonly class StubCommand
 
     public static function command(Composition $composition): Command
     {
-        return new Command('stub')
+        return new Command(Verb::Stub->value)
             ->setDescription('Print, or with --write add, a failing test for a survivor or an uncovered mutant')
             ->addArgument(
                 Argument::Id->value,
@@ -97,7 +98,7 @@ final readonly class StubCommand
         bool $write,
     ): int {
         if (! $stub instanceof Stub) {
-            return Failed::unfound($output, $stub);
+            return Failed::unfound($output, $stub, $composed->setup->command);
         }
 
         $written = $write

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Verdict;
 
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
+use NightWorksIO\MutationGate\Core\GateCommand;
 
 use function sprintf;
 
@@ -44,9 +44,9 @@ enum Uncounted
         SAID;
 
     /** Why the unit at this path fails the verdict, and what judges it. */
-    public function said(Path $unit): string
+    public function said(Path $unit, GateCommand $gate): string
     {
-        return sprintf(self::SAID, $unit->value(), $this->why(), OutOfTime::MORE_TIME);
+        return sprintf(self::SAID, $unit->value(), $this->why(), $gate->budgeted());
     }
 
     private function why(): string

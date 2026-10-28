@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\Native\Warm\Workplace;
 use NightWorksIO\MutationGate\Core\Native\Command;
 use NightWorksIO\MutationGate\Core\Native\Framework;
 use NightWorksIO\MutationGate\Core\Native\Variable;
+use NightWorksIO\MutationGate\Core\OwnScript;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Opcache;
@@ -57,14 +58,14 @@ final readonly class Invocation
      * in a place of a workplace, and writing its output, and its children's,
      * to files.
      */
-    public function worker(string $script, Workplace $workplace, int $place, Withheld $withheld): Command
+    public function worker(OwnScript $script, Workplace $workplace, int $place, Withheld $withheld): Command
     {
-        return $this->overridden(
-            $script,
+        return $this->overridden(...[
+            ...$script->started(),
             $this->project->autoloader(),
             $workplace->directory(),
             sprintf('%d', $place),
-        )
+        ])
             ->withholding($withheld)
             ->writingTo($workplace->out($place), $workplace->err($place));
     }
@@ -110,7 +111,7 @@ final readonly class Invocation
             '-d',
             sprintf(self::OFF, Opcache::CLI),
             '-d',
-            sprintf('auto_prepend_file=%s', $this->override),
+            sprintf(Command::PREPENDED, $this->override),
             ...$arguments,
         );
     }

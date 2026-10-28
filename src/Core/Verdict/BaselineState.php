@@ -25,7 +25,9 @@ enum BaselineState: string
         $trees = $verdict->trees();
         $security = $verdict->sets()->security();
         $unfloored = count(Ratchet::unfloored($trees)) + count(Ratchet::securityUnfloored($security));
-        $raised = count(Ratchet::required($trees, $baseline)) + count(Ratchet::securityRequired($security, $baseline));
+        $gate = $verdict->account()->provenance()->command();
+        $raised = count(Ratchet::required($trees, $baseline, $gate))
+            + count(Ratchet::securityRequired($security, $baseline, $gate));
 
         return match (true) {
             $unfloored > 0 => self::Missing,

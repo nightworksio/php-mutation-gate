@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Cli\Command\DigestCommand;
 use NightWorksIO\MutationGate\Cli\Command\RunCommand;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Report\Digest\Digest;
 use NightWorksIO\MutationGate\Core\Report\Digest\SurvivorsShown;
@@ -41,7 +42,7 @@ it('says the last run\'s verdict from the report its verdict kept, running nothi
 
     expect($digest->code)->toBe(0)
         ->and($digest->errors)->toBe('')
-        ->and($digest->output)->toBe(Digest::overview(Node::decode($kept), SurvivorsShown::first()))
+        ->and($digest->output)->toBe(Digest::overview(Node::decode($kept), SurvivorsShown::first(), GateCommand::installed()))
         ->and($digest->output)->toStartWith('mg verdict=');
 });
 
@@ -84,8 +85,8 @@ it('says no run left a report, that the report is in another format, or where it
     $unformatted = FlowCommands::run(DigestCommand::command($composed($project)));
 
     expect($none->code)->toBe(2)
-        ->and($none->errors)->toContain('No run has left its report at .mutation-gate/report.json here: run mutation-gate first.')
-        ->and($other->errors)->toContain('The report at .mutation-gate/report.json is in another format than this gate reads: run mutation-gate again.')
+        ->and($none->errors)->toContain('No run has left its report at .mutation-gate/report.json here: run vendor/bin/mutation-gate first.')
+        ->and($other->errors)->toContain('The report at .mutation-gate/report.json is in another format than this gate reads: run vendor/bin/mutation-gate again.')
         ->and($broken->code)->toBe(2)
         ->and($broken->errors)->toContain('.mutation-gate/report.json.uncovered is missing.')
         ->and($unformatted->code)->toBe(2)

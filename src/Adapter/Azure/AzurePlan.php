@@ -11,6 +11,7 @@ use function json_encode;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\CiJob;
 use NightWorksIO\MutationGate\Core\Ci\CiMarker;
+use NightWorksIO\MutationGate\Core\Ci\JobCommands;
 use NightWorksIO\MutationGate\Core\Ci\Publication;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
@@ -65,7 +66,7 @@ final readonly class AzurePlan implements CiPlan, Configurable
     }
 
     /** The logging command that sets the output variable `matrix`, printed where Azure reads it. */
-    public function publish(Plan $plan): Publication
+    public function publish(Plan $plan, JobCommands $jobs): Publication
     {
         return Publication::printed(sprintf(self::SET_OUTPUT, self::OUTPUT, $this->matrixOf($plan)));
     }

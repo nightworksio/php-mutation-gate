@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Native\Selection as SelectionFile;
 use NightWorksIO\MutationGate\Core\Native\Shell;
 use NightWorksIO\MutationGate\Core\Native\TestLayout;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\OwnScript;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\ErrorDisplay;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
@@ -34,7 +35,6 @@ use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestListing;
-use NightWorksIO\MutationGate\Core\ThisPackage;
 
 /**
  * PHPUnit, as the native runner runs it (ADR-0023): installed in the
@@ -44,9 +44,6 @@ use NightWorksIO\MutationGate\Core\ThisPackage;
  */
 final readonly class PhpUnitFramework implements Framework
 {
-    /** The warm worker's script, in this package's own directory. */
-    private const string WORKER = 'mutation-gate-worker';
-
     private const string UNPLACED
         = 'A test that covers it has a line break in its name, and no test file found holds every test that covers it.';
 
@@ -109,9 +106,9 @@ final readonly class PhpUnitFramework implements Framework
         return $this->installation->phpunit();
     }
 
-    public function workerScript(): string
+    public function workerScript(): OwnScript
     {
-        return ThisPackage::script(self::WORKER);
+        return OwnScript::Worker;
     }
 
     /**

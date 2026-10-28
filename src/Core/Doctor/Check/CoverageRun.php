@@ -7,12 +7,14 @@ namespace NightWorksIO\MutationGate\Core\Doctor\Check;
 use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
 use NightWorksIO\MutationGate\Core\Doctor\Finding;
 use NightWorksIO\MutationGate\Core\Doctor\Findings;
 use NightWorksIO\MutationGate\Core\Doctor\Measurement;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
 use NightWorksIO\MutationGate\Core\Doctor\Severity;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
+use NightWorksIO\MutationGate\Core\Verb;
 
 use function sprintf;
 
@@ -29,7 +31,7 @@ final readonly class CoverageRun
         = 'A run begins the same way, finding the units and running the suite under coverage, or cannot judge.';
 
     private const string FAILED_FIX
-        = 'Run vendor/bin/mutation-gate coverage to see the same failure, and fix the test or the driver it names.';
+        = 'Run %s to see the same failure, and fix the test or the driver it names.';
 
     private const string EMPTY = 'The suite\'s coverage run passed, and covered no line of any file.';
 
@@ -50,7 +52,7 @@ final readonly class CoverageRun
                 Slug::CoverageRunFailed,
                 sprintf(self::FAILED, $coverage->why()),
                 self::FAILED_WHY,
-                self::FAILED_FIX,
+                sprintf(self::FAILED_FIX, DoctorRun::gateOf($observed)->command(Verb::Coverage)),
             ),
             $coverage !== false && count($coverage->files()) === 0 => self::willFail(
                 Slug::CoverageEmpty,

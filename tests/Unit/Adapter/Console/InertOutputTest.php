@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Adapter\Console\InertStream;
 use NightWorksIO\MutationGate\Adapter\Console\NoSection;
 use NightWorksIO\MutationGate\Adapter\Console\NotInert;
 use NightWorksIO\MutationGate\Cli\Gate;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Symfony\Component\Console\Input\ArgvInput;
 use Symfony\Component\Console\Output\BufferedOutput;
@@ -85,7 +86,7 @@ it('starts no command after its own colour', function (): void {
 it('keeps the colour --ansi asks for, on both streams', function (): void {
     $project = Scratch::directory();
     $written = inertlyWritten(static function (InertOutput $output) use ($project): void {
-        $gate = Gate::in($project, sprintf('%s/vendor', $project));
+        $gate = Gate::in($project, sprintf('%s/vendor', $project), NotGiven::value());
         $gate->run(new ArgvInput(['mutation-gate', 'list', '--ansi', '--no-extensions']), $output, $output->getErrorOutput());
         $gate->run(new ArgvInput(['mutation-gate', 'nothing', '--ansi', '--no-extensions']), $output, $output->getErrorOutput());
     });

@@ -3,18 +3,71 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Cli\ExitCode;
+use NightWorksIO\MutationGate\Cli\FromArchive;
 use NightWorksIO\MutationGate\Cli\Gate;
 use NightWorksIO\MutationGate\Cli\Keyed\Deliver;
 use NightWorksIO\MutationGate\Cli\Keyed\Fetch;
 use NightWorksIO\MutationGate\Cli\Keyed\Installation;
+use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\OwnArchive;
+use NightWorksIO\MutationGate\Core\OwnScript;
 use NightWorksIO\MutationGate\Core\Proof\LedgerMemory;
 use Symfony\Component\Console\Input\ArgvInput;
+use Symfony\Component\Console\Output\OutputInterface;
 use NightWorksIO\MutationGate\Adapter\Console\InertOutput;
 
-$autoload = array_key_exists('_composer_autoload_path', $GLOBALS) && is_string($GLOBALS['_composer_autoload_path'])
-    ? $GLOBALS['_composer_autoload_path']
-    : sprintf('%s/vendor/autoload.php', dirname(__DIR__));
+$autoload = match (true) {
+    Phar::running() !== '' => sprintf('%s/vendor/autoload.php', Phar::running()),
+    array_key_exists('_composer_autoload_path', $GLOBALS) && is_string($GLOBALS['_composer_autoload_path'])
+        => $GLOBALS['_composer_autoload_path'],
+    default => sprintf('%s/vendor/autoload.php', dirname(__DIR__)),
+};
 require $autoload;
+
+// Under the gate's PHAR, a script of the gate's own is started as the archive with the script's name first
+// (ADR-0022), since PHP starts no script inside an archive by its path.
+$archive = OwnArchive::running();
+$project = (string) getcwd();
+$vendor = dirname($autoload);
+$given = [];
+
+foreach (is_array($_SERVER['argv']) ? $_SERVER['argv'] : [] as $argument) {
+    $given[] = is_string($argument) ? $argument : '';
+}
+
+$own = $archive instanceof OwnArchive ? $archive->scriptAskedBy(...$given) : $archive;
+
+if ($archive instanceof OwnArchive && $own instanceof OwnScript) {
+    array_splice($given, 1, 1);
+    $_SERVER['argv'] = $given;
+    $_SERVER['argc'] = count($given);
+    $argv = $given;
+    $argc = count($given);
+
+    return require $archive->script($own);
+}
+
+$output = new InertOutput();
+
+// The gate's PHAR loads the project's autoloader after its own (ADR-0022).
+if ($archive instanceof OwnArchive) {
+    $started = new FromArchive($archive, $project);
+    $refused = $started->refusing();
+
+    if ($refused instanceof CannotJudge) {
+        $output->getErrorOutput()->writeln($refused->why(), OutputInterface::OUTPUT_RAW);
+
+        exit(ExitCode::CannotJudge->value);
+    }
+
+    $vendor = $started->vendor();
+    $projectAutoload = $started->autoloader();
+
+    if (is_string($projectAutoload)) {
+        require $projectAutoload;
+    }
+}
 
 // The gate's own process, and no other, is given the memory its ledgers may need (ADR-0013), where
 // PHP lets it set its own; doctor says where it does not.
@@ -24,14 +77,12 @@ if (! $memory->admits(ini_parse_quantity(ini_get('memory_limit'))) && function_e
     ini_set('memory_limit', sprintf('%d', $memory->bytes()));
 }
 
-$output = new InertOutput();
-
 $input = new ArgvInput();
 
 // deliver and fetch hold the gate's keys, so they start before any extension is found or config read
 // (ADR-0007).
 $installation = Installation::of(
-    (string) getcwd(),
+    $project,
     dirname($autoload),
     array_key_exists('_composer_autoload_path', $GLOBALS),
 );
@@ -44,4 +95,4 @@ if (Fetch::isAsked($input)) {
     exit(Fetch::online($installation)->run($input, $output, $output->getErrorOutput()));
 }
 
-exit(Gate::in((string) getcwd(), dirname($autoload))->run($input, $output, $output->getErrorOutput()));
+exit(Gate::in($project, $vendor, $archive)->run($input, $output, $output->getErrorOutput()));

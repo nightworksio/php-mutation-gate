@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
@@ -53,6 +54,7 @@ final readonly class RunningCases
             new TickingClock('2026-09-30T12:00:00+00:00', 3),
             new PeakMemoryFake(NotGiven::value()),
             DecidingConfig::unread(),
+            GateCommand::installed(),
         );
     }
 
@@ -66,6 +68,7 @@ final readonly class RunningCases
             new TickingClock('2026-09-30T12:00:00+00:00', $step),
             new PeakMemoryFake(NotGiven::value()),
             DecidingConfig::unread(),
+            GateCommand::installed(),
         );
     }
 

@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
@@ -38,9 +39,9 @@ function jenkinsUnnamed(): CannotTell
 it('prints the plan as the generic JSON, for the Jenkinsfile to read', function (): void {
     $plan = JenkinsPlan::fromOptions(Configs::options('{"definition": "Jenkinsfile"}'));
 
-    expect(jenkinsPlanIn(Variables::of([]))->publish(ShardedPlan::of(2)))
+    expect(jenkinsPlanIn(Variables::of([]))->publish(ShardedPlan::of(2), GateCommand::installed()->jobs()))
         ->toEqual(Publication::printed(PlanListing::of(ShardedPlan::of(2))))
-        ->and($plan instanceof JenkinsPlan ? $plan->publish(ShardedPlan::of(1)) : $plan)
+        ->and($plan instanceof JenkinsPlan ? $plan->publish(ShardedPlan::of(1), GateCommand::installed()->jobs()) : $plan)
         ->toEqual(Publication::printed(PlanListing::of(ShardedPlan::of(1))));
 });
 
@@ -88,7 +89,7 @@ it('is marked by BUILD_TAG, which Jenkins sets in every build', function (): voi
 });
 
 it('prints a plan whose paths hold log commands so a CI\'s log reads none, and every reader reads the paths back', function (): void {
-    $printed = jenkinsPlanIn(Variables::of([]))->publish(ShardedPlan::hostile())->text();
+    $printed = jenkinsPlanIn(Variables::of([]))->publish(ShardedPlan::hostile(), GateCommand::installed()->jobs())->text();
 
     expect(LogCommands::in($printed))->toBe([])
         ->and(Decoded::at($printed, 'shards', 0, 'units'))->toBe([ShardedPlan::HOSTILE]);

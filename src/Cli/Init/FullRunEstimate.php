@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Mode;
 use NightWorksIO\MutationGate\Cli\Flow\PlanMade;
 use NightWorksIO\MutationGate\Cli\Flow\Planning;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
+use NightWorksIO\MutationGate\Cli\StartedGate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Settings;
@@ -29,6 +30,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Core\Verb;
 use NightWorksIO\MutationGate\Extension\Extensions;
 
 use function sprintf;
@@ -60,7 +62,7 @@ final readonly class FullRunEstimate
 
     private const string UNMEASURED = 'A full run could not be estimated: %s';
 
-    private const string INVALID = 'the config does not read back. mutation-gate doctor says why.';
+    private const string INVALID = 'the config does not read back. %s says why.';
 
     public function __construct(
         private Composition $composition,
@@ -98,7 +100,9 @@ final readonly class FullRunEstimate
     {
         $composed = $this->composition->compose($input);
         $made = match (true) {
-            $composed instanceof Invalid => CannotJudge::because(self::INVALID),
+            $composed instanceof Invalid => CannotJudge::because(
+                sprintf(self::INVALID, StartedGate::in($this->project)->command(Verb::Doctor)),
+            ),
             $composed instanceof CannotJudge => $composed,
             default => new Planning($composed->adapters, $composed->settings, $composed->setup)->plan(
                 Mode::full(),

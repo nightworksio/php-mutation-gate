@@ -104,7 +104,7 @@ it('cannot re-check without the plan it is named, or with --security or --suite 
 
     expect([$ran->code, $ran->output, $ran->errors])->toBe([2, '', $why]);
 })->with([
-    'no plan' => ['--plan=none.json', true, "There is no plan at none.json. Run mutation-gate plan, and hand its plan to every job.\n"],
+    'no plan' => ['--plan=none.json', true, "There is no plan at none.json. Run vendor/bin/mutation-gate plan, and hand its plan to every job.\n"],
     'security' => ['--plan=none.json --security', true, "survivors --plan re-checks what its plan was made for, so it takes no --security. Give it to plan.\n"],
     'a suite' => ['--plan=none.json --suite=unit', true, "survivors --plan re-checks what its plan was made for, so it takes no --suite. Give it to plan.\n"],
     'a runner that cannot run' => ['', false, "Pest is not installed.\n"],

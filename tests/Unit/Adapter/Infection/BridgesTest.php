@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
@@ -79,6 +80,31 @@ it('writes bridges that Infection applies by its own contract, named by their mu
         ->and(function_exists('infectionBridgesLoadedTheBootstrap'))->toBeTrue()
         ->and(sprintf("%snamespace {\n    require_once '%s';\n}\n", infectionBridges()->written(NotGiven::value()), $bootstrap))
         ->toBe(infectionBridges()->written($bootstrap));
+});
+
+it('is written, loading the gate\'s PHAR after Infection\'s own autoloaders first, where the gate runs from its PHAR', function (): void {
+    $archive = OwnArchive::at('/usr/local/bin/mutation-gate');
+    $loading = <<<'PHP'
+        namespace {
+            (static function (): void {
+                \Phar::loadPhar('/usr/local/bin/mutation-gate', 'mutation-gate.phar');
+                $archive = require 'phar://mutation-gate.phar/vendor/autoload.php';
+                $archive->unregister();
+                $archive->register(false);
+            })();
+        }
+
+        PHP;
+    $header = infectionBridges()->written(NotGiven::value());
+    $at = (int) strpos($header, 'namespace ');
+
+    expect(new Bridges()->isWritten())->toBeFalse()
+        ->and(infectionBridges()->isWritten())->toBeTrue()
+        ->and(new Bridges()->loading($archive)->isWritten())->toBeTrue()
+        ->and(new Bridges()->loading($archive)->isEmpty())->toBeTrue()
+        ->and(infectionBridges()->loading($archive)->written(NotGiven::value()))
+        ->toBe(sprintf('%s%s%s', substr($header, 0, $at), $loading, substr($header, $at)))
+        ->and(Bridges::refusing(CannotJudge::because('no'))->loading($archive)->refusal())->toEqual(CannotJudge::because('no'));
 });
 
 it('says why Infection cannot make mutants with what the options name, and nothing where it can', function (): void {

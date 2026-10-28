@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Verdict;
 use NightWorksIO\MutationGate\Core\Baseline\BaselineFile;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
@@ -22,23 +23,23 @@ final readonly class Ratchet
 {
     private const string RAISE = <<<'SAID'
         %1$s scored %2$s, above the floor of %3$s it was held to. Commit the raised floor with this change:
-        run mutation-gate baseline --write and commit %4$s.
+        run %5$s and commit %4$s.
         SAID;
 
     private const string UNFLOORED = <<<'SAID'
-        %s has no floor: no floor is declared for it, and the baseline holds none.
-        A tree is never held to no floor. Run mutation-gate baseline --write and commit %s.
+        %1$s has no floor: no floor is declared for it, and the baseline holds none.
+        A tree is never held to no floor. Run %3$s and commit %2$s.
         SAID;
 
     private const string SECURITY_RAISE = <<<'SAID'
         The security set of %1$s scored %2$s, above the floor of %3$s it was held to.
-        Commit the raised floor with this change: run mutation-gate baseline --write and commit %4$s.
+        Commit the raised floor with this change: run %5$s and commit %4$s.
         SAID;
 
     private const string SECURITY_UNFLOORED = <<<'SAID'
-        The security set of %s has no floor: neither security.floor nor the package's securityFloor
+        The security set of %1$s has no floor: neither security.floor nor the package's securityFloor
         declares one, and the baseline holds none.
-        A security set is never held to no floor. Run mutation-gate baseline --write and commit %s.
+        A security set is never held to no floor. Run %3$s and commit %2$s.
         SAID;
 
     /** The trees with a score and no floor anywhere, neither declared nor in the baseline. */
@@ -55,19 +56,24 @@ final readonly class Ratchet
     }
 
     /** Why a run stops on trees held to no floor, naming each. */
-    public static function unflooredBecause(Paths $trees, Path $baseline): Failures
+    public static function unflooredBecause(Paths $trees, Path $baseline, GateCommand $gate): Failures
     {
         $failures = Failures::none();
 
         foreach ($trees as $tree) {
-            $failures = $failures->with(Failure::that(sprintf(self::UNFLOORED, $tree->value(), $baseline->value())));
+            $failures = $failures->with(Failure::that(sprintf(
+                self::UNFLOORED,
+                $tree->value(),
+                $baseline->value(),
+                $gate->baselineWritten(),
+            )));
         }
 
         return $failures;
     }
 
     /** A failure for every floor a score raised, until the raised floor is committed. */
-    public static function required(TreeVerdicts $verdicts, Path $baseline): Failures
+    public static function required(TreeVerdicts $verdicts, Path $baseline, GateCommand $gate): Failures
     {
         $failures = Failures::none();
 
@@ -81,6 +87,7 @@ final readonly class Ratchet
                     BaselineFile::number($raised),
                     BaselineFile::number($floor),
                     $baseline->value(),
+                    $gate->baselineWritten(),
                 )))
                 : $failures;
         }
@@ -102,13 +109,18 @@ final readonly class Ratchet
     }
 
     /** Why a run stops on security sets held to no floor, naming each set's package. */
-    public static function securityUnflooredBecause(Paths $packages, Path $baseline): Failures
+    public static function securityUnflooredBecause(Paths $packages, Path $baseline, GateCommand $gate): Failures
     {
         $failures = Failures::none();
 
         foreach ($packages as $package) {
             $failures = $failures->with(
-                Failure::that(sprintf(self::SECURITY_UNFLOORED, $package->value(), $baseline->value())),
+                Failure::that(sprintf(
+                    self::SECURITY_UNFLOORED,
+                    $package->value(),
+                    $baseline->value(),
+                    $gate->baselineWritten(),
+                )),
             );
         }
 
@@ -116,7 +128,7 @@ final readonly class Ratchet
     }
 
     /** A failure for every security floor a score raised, until the raised floor is committed. */
-    public static function securityRequired(SecurityVerdicts $verdicts, Path $baseline): Failures
+    public static function securityRequired(SecurityVerdicts $verdicts, Path $baseline, GateCommand $gate): Failures
     {
         $failures = Failures::none();
 
@@ -130,6 +142,7 @@ final readonly class Ratchet
                     BaselineFile::number($raised),
                     BaselineFile::number($floor),
                     $baseline->value(),
+                    $gate->baselineWritten(),
                 )))
                 : $failures;
         }

@@ -22,15 +22,12 @@ enum OutOfTime: string
     /** The mutant timed out, and the unmutated control of its tests, which would judge it, did not fit. */
     case BeforeControlling = 'before-controlling';
 
-    /** What judges a mutant a budget left unjudged. */
-    public const string MORE_TIME = 'vendor/bin/mutation-gate run --budget=<duration>';
-
-    private const string SAID = 'The time budget ran out before %s. More time judges it: %s';
+    private const string SAID = 'The time budget ran out before %s. A larger --budget judges it.';
 
     /** Why the mutant is unjudged, and what judges it. */
     public function reason(): Reason
     {
-        return Reason::ranOutOf($this, sprintf(self::SAID, $this->before(), self::MORE_TIME));
+        return Reason::ranOutOf($this, sprintf(self::SAID, $this->before()));
     }
 
     /** Whether a time budget left this mutant unjudged, as its reason records. */

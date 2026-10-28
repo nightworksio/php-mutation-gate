@@ -11,6 +11,7 @@ use function implode;
 
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\Format\Fit;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Owner\OwnerGroup;
 use NightWorksIO\MutationGate\Core\Report\ClusterText;
 use NightWorksIO\MutationGate\Core\Report\Escape;
@@ -80,12 +81,12 @@ final readonly class MarkdownItems
      * @param  list<JudgedMutant|Cluster> $items
      * @return list<string>
      */
-    public static function details(array $items, int $of): array
+    public static function details(array $items, int $of, GateCommand $gate): array
     {
         $blocks = [];
 
         foreach ($items as $item) {
-            $blocks[] = $item instanceof Cluster ? self::clusterDetails($item) : implode("\n\n", [
+            $blocks[] = $item instanceof Cluster ? self::clusterDetails($item, $gate) : implode("\n\n", [
                 sprintf(
                     '<details><summary>%s %s, %s</summary>',
                     self::place($item),
@@ -94,7 +95,7 @@ final readonly class MarkdownItems
                 ),
                 self::diff($item),
                 Escape::text(self::cut($item->hint()->text())),
-                Escape::code($item->reproduce()),
+                Escape::code($item->reproduce($gate)),
                 '</details>',
             ]);
         }
@@ -111,7 +112,7 @@ final readonly class MarkdownItems
      * @param  list<JudgedMutant|Cluster> $items
      * @return list<string>
      */
-    public static function table(array $items, int $of): array
+    public static function table(array $items, int $of, GateCommand $gate): array
     {
         if ($items === []) {
             return self::more($of);
@@ -120,7 +121,7 @@ final readonly class MarkdownItems
         $rows = ['| Mutant | Mutator | Judgement | What the tests miss | Command |', '|---|---|---|---|---|'];
 
         foreach ($items as $item) {
-            $rows[] = $item instanceof Cluster ? self::clusterRow($item) : self::row($item);
+            $rows[] = $item instanceof Cluster ? self::clusterRow($item, $gate) : self::row($item, $gate);
         }
 
         return [implode("\n", $rows), ...self::more($of - count($items))];
@@ -155,7 +156,7 @@ final readonly class MarkdownItems
         return [implode("\n", $rows), ...self::more($of - count($mutants))];
     }
 
-    private static function clusterDetails(Cluster $cluster): string
+    private static function clusterDetails(Cluster $cluster, GateCommand $gate): string
     {
         $diffs = [];
 
@@ -171,7 +172,7 @@ final readonly class MarkdownItems
             ),
             ...$diffs,
             Escape::text(ClusterText::hint($cluster)),
-            Escape::code($cluster->stub()),
+            Escape::code($cluster->stub($gate)),
             '</details>',
         ]);
     }
@@ -188,7 +189,7 @@ final readonly class MarkdownItems
         return Fit::line($text, self::SHOWN_CHARACTERS);
     }
 
-    private static function row(JudgedMutant $judged): string
+    private static function row(JudgedMutant $judged, GateCommand $gate): string
     {
         $mutant = $judged->mutant();
 
@@ -198,11 +199,11 @@ final readonly class MarkdownItems
             Escape::text(Mutator::short($mutant->mutator())),
             MutantText::label($judged),
             Escape::text(self::cut(MutantText::hinted($judged))),
-            Escape::code($judged->reproduce()),
+            Escape::code($judged->reproduce($gate)),
         );
     }
 
-    private static function clusterRow(Cluster $cluster): string
+    private static function clusterRow(Cluster $cluster, GateCommand $gate): string
     {
         return sprintf(
             '| %s | %s | %s | %s | %s |',
@@ -210,7 +211,7 @@ final readonly class MarkdownItems
             Escape::text(ClusterText::size($cluster)),
             Label::of($cluster->representative()->judgement()),
             Escape::text(ClusterText::hint($cluster)),
-            Escape::code($cluster->stub()),
+            Escape::code($cluster->stub($gate)),
         );
     }
 

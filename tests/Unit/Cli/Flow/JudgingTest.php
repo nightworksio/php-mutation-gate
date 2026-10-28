@@ -33,6 +33,7 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\Considered;
@@ -169,7 +170,7 @@ it('cannot judge again where the trees or the baseline cannot be read', function
     $again = new Judging($adapters, JudgingRuns::settings(), Flows::setup(), $reporting(new ReporterFake()))
         ->again(Planned::twoShards(), JudgingRuns::noResults($project));
 
-    $baseline = BaselineFile::decode('{', Path::of('mutation-gate.baseline.json'));
+    $baseline = BaselineFile::decode('{', Path::of('mutation-gate.baseline.json'), GateCommand::installed());
     $unreadable = $baseline instanceof CannotJudge ? $baseline->why() : 'a baseline';
 
     expect($again instanceof CannotJudge ? $again->why() : $again)->toBe($broken === 'trees' ? 'No trees.' : $unreadable);
@@ -303,7 +304,7 @@ it('stops a CI run on a tree held to no floor once it reported and recorded what
                 "%s\n%s %s",
                 'src has no floor: no floor is declared for it, and the baseline holds none.',
                 'A tree is never held to no floor.',
-                'Run mutation-gate baseline --write and commit mutation-gate.baseline.json.',
+                'Run vendor/bin/mutation-gate baseline --write and commit mutation-gate.baseline.json.',
             ),
             sprintf(
                 "The baseline this run measured, ready to commit as mutation-gate.baseline.json:\n%s",
@@ -328,7 +329,7 @@ it('warns of a tree held to no floor outside CI', function () use ($makeTree, $m
     ));
 
     expect(JudgingRuns::texts($verdict->warnings()))
-        ->toBe(['src has no floor yet. Run mutation-gate baseline --write and commit floors.json.']);
+        ->toBe(['src has no floor yet. Run vendor/bin/mutation-gate baseline --write and commit floors.json.']);
 });
 
 it('groups every mutant by the owners the CODEOWNERS at the plan\'s commit names, and warns of each line it skips', function () use ($makeTree, $makeReporting, $makeJudged): void {
@@ -436,7 +437,7 @@ it('says in the verdict why a ledger could not be read, before what else it warn
 
     expect(JudgingRuns::texts($verdict->warnings()))->toBe([
         'The ledger is unreadable from https://ledgers.example.com: HTTP 503. The run judges without it.',
-        'src has no floor yet. Run mutation-gate baseline --write and commit floors.json.',
+        'src has no floor yet. Run vendor/bin/mutation-gate baseline --write and commit floors.json.',
     ]);
 });
 
@@ -478,7 +479,7 @@ it('cannot judge a baseline it cannot read', function () use ($makeTree, $makeRe
         $reporting(new ReporterFake()),
     )->verdict(Planned::of(), JudgingRuns::noResults($project));
 
-    expect($judgement)->toEqual(BaselineFile::decode('not a baseline', Path::of('mutation-gate.baseline.json')))
+    expect($judgement)->toEqual(BaselineFile::decode('not a baseline', Path::of('mutation-gate.baseline.json'), GateCommand::installed()))
         ->and($judgement)->toBeInstanceOf(CannotJudge::class);
 });
 
@@ -544,7 +545,7 @@ it('judges a pull request\'s new code against its own floor, and fails a raise n
         ->and(JudgingRuns::texts($verdict->reach()))->toBe(['src/Money.php changed.'])
         ->and(JudgingRuns::texts($verdict->failures()))->toBe([<<<'SAID'
             src scored 40, above the floor of 30 it was held to. Commit the raised floor with this change:
-            run mutation-gate baseline --write and commit mutation-gate.baseline.json.
+            run vendor/bin/mutation-gate baseline --write and commit mutation-gate.baseline.json.
             SAID])
         ->and($verdict->judgement())->toBe(Judgement::Failed);
 });

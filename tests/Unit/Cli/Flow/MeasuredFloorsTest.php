@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\Entry;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
@@ -45,10 +46,10 @@ it('shows each tree\'s and each security set\'s committed floor beside its last 
     $adapters = Flows::adapters(Flows::project(), [], $store, $trees, NamedMutators::of('Plus'));
     $measured = Measured::of($adapters, Flows::settings(), $committed, new DateTimeImmutable(Configs::NOW));
 
-    expect($measured instanceof Measured ? MeasuredFloors::of($committed, $measured) : $measured)->toBe([
+    expect($measured instanceof Measured ? MeasuredFloors::of($committed, $measured, GateCommand::installed()) : $measured)->toBe([
         'src/Money.php: floor 40, measured 50',
-        'src/Held.php: floor none, not measured: a unit of it has no result yet. Run mutation-gate to measure it.',
+        'src/Held.php: floor none, not measured: a unit of it has no result yet. Run vendor/bin/mutation-gate to measure it.',
         'security set of .: floor none, measured 100',
-        'security set of src: floor 80, not measured: a unit of it has no result yet. Run mutation-gate to measure it.',
+        'security set of src: floor 80, not measured: a unit of it has no result yet. Run vendor/bin/mutation-gate to measure it.',
     ]);
 });

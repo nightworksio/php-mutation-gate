@@ -35,6 +35,7 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -362,6 +363,7 @@ it('learns nothing of a unit a shard\'s budget ran out before', function () use 
         new TickingClock('2026-09-30T12:00:00+00:00', 10),
         new PeakMemoryFake(NotGiven::value()),
         DecidingConfig::unread(),
+        GateCommand::installed(),
     );
     $results = recordedRanWith($plan, $project, ScriptedRunner::fixture(), $map(), Flows::settings(Budget::of('45s')), $setup);
 
@@ -693,6 +695,7 @@ it('clears the last run where it did not judge every unit it considered, so the 
             new TickingClock('2026-09-30T12:00:00+00:00', 10),
             new PeakMemoryFake(NotGiven::value()),
             DecidingConfig::unread(),
+            GateCommand::installed(),
         )),
         default => recordedRanMissing($plan, $project, $map()),
     };

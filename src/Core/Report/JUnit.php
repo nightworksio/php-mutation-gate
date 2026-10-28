@@ -9,6 +9,7 @@ use function array_map;
 use function count;
 use function implode;
 
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
@@ -60,9 +61,10 @@ final readonly class JUnit
         $suites = [];
 
         $names = $verdict->matrix()->names();
+        $gate = Overview::of($verdict)->gate();
 
         foreach ($verdict->trees() as $tree) {
-            $suites[] = self::suite($tree->tree()->path()->value(), [self::tree($tree, $names)]);
+            $suites[] = self::suite($tree->tree()->path()->value(), [self::tree($tree, $names, $gate)]);
         }
 
         $sets = $verdict->sets();
@@ -70,19 +72,22 @@ final readonly class JUnit
             ...$suites,
             ...self::named(
                 self::NEW_CODE,
-                array_map(static fn(NewCodeVerdict $set): array => self::newCode($set, $names), [...$sets->newCode()]),
+                array_map(
+                    static fn(NewCodeVerdict $set): array => self::newCode($set, $names, $gate),
+                    [...$sets->newCode()],
+                ),
             ),
             ...self::named(
                 self::SECURITY,
                 array_map(
-                    static fn(SecurityVerdict $set): array => self::security($set, $names),
+                    static fn(SecurityVerdict $set): array => self::security($set, $names, $gate),
                     [...$sets->security()],
                 ),
             ),
             ...self::named(
                 self::OWNERS,
                 array_map(
-                    static fn(OwnerFloorVerdict $owner): array => self::ownerFloor($owner, $names),
+                    static fn(OwnerFloorVerdict $owner): array => self::ownerFloor($owner, $names, $gate),
                     [...$sets->ownerFloors()],
                 ),
             ),
@@ -140,15 +145,21 @@ final readonly class JUnit
     }
 
     /** @return array{string, bool} */
-    private static function tree(TreeVerdict $tree, TestNames $names): array
+    private static function tree(TreeVerdict $tree, TestNames $names, GateCommand $gate): array
     {
-        $path = $tree->tree()->path()->value();
-
-        return self::case(self::FLOOR, $path, $tree->judgement(), SetText::tree($tree), $tree->survivors(), $names);
+        return self::case(
+            self::FLOOR,
+            $tree->tree()->path()->value(),
+            $tree->judgement(),
+            SetText::tree($tree),
+            $tree->survivors(),
+            $names,
+            $gate,
+        );
     }
 
     /** @return array{string, bool} a package's security set, as the `floor` case of the package */
-    private static function security(SecurityVerdict $set, TestNames $names): array
+    private static function security(SecurityVerdict $set, TestNames $names, GateCommand $gate): array
     {
         return self::case(
             self::FLOOR,
@@ -157,11 +168,12 @@ final readonly class JUnit
             SetText::security($set),
             $set->survivors(),
             $names,
+            $gate,
         );
     }
 
     /** @return array{string, bool} an owner held to a floor, as the `floor` case of the owner */
-    private static function ownerFloor(OwnerFloorVerdict $owner, TestNames $names): array
+    private static function ownerFloor(OwnerFloorVerdict $owner, TestNames $names, GateCommand $gate): array
     {
         return self::case(
             self::FLOOR,
@@ -170,11 +182,12 @@ final readonly class JUnit
             SetText::ownerFloor($owner),
             $owner->survivors(),
             $names,
+            $gate,
         );
     }
 
     /** @return array{string, bool} */
-    private static function newCode(NewCodeVerdict $set, TestNames $names): array
+    private static function newCode(NewCodeVerdict $set, TestNames $names, GateCommand $gate): array
     {
         return self::case(
             $set->package()->path()->value(),
@@ -183,6 +196,7 @@ final readonly class JUnit
             SetText::newCode($set),
             $set->survivors(),
             $names,
+            $gate,
         );
     }
 
@@ -245,10 +259,16 @@ final readonly class JUnit
         string $said,
         Survivors $survivors,
         TestNames $names,
+        GateCommand $gate,
     ): array {
         [$body, $failed] = match ($judgement) {
             Judgement::Failed, Judgement::CannotJudge => [
-                sprintf(self::FAILED, 'floor', Xml::text($said), Xml::text(self::listing($said, $survivors, $names))),
+                sprintf(
+                    self::FAILED,
+                    'floor',
+                    Xml::text($said),
+                    Xml::text(self::listing($said, $survivors, $names, $gate)),
+                ),
                 true,
             ],
             Judgement::Undecided => [sprintf(self::FAILED, 'undecided', Xml::text($said), Xml::text($said)), true],
@@ -260,12 +280,12 @@ final readonly class JUnit
     }
 
     /** What a failed floor says, then every mutant it counts as not killed. */
-    private static function listing(string $said, Survivors $survivors, TestNames $names): string
+    private static function listing(string $said, Survivors $survivors, TestNames $names, GateCommand $gate): string
     {
         $blocks = [$said];
 
         foreach ($survivors as $survivor) {
-            $blocks[] = MutantText::block($survivor, $names);
+            $blocks[] = MutantText::block($survivor, $names, $gate);
         }
 
         return implode("\n\n", $blocks);

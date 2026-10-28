@@ -204,7 +204,7 @@ final readonly class Judging
     {
         $trees = $this->adapters->trees->trees();
         $holding = new NarrowRunHolding($this->adapters);
-        $baseline = new Baselines($this->adapters, $this->settings->floors()->baseline())->committed();
+        $baseline = Baselines::of($this->adapters, $this->settings, $this->setup)->committed();
 
         return match (true) {
             $trees instanceof CannotJudge => $trees,
@@ -279,12 +279,14 @@ final readonly class Judging
         }
 
         $refused = $unfloored > 0 && $this->adapters->environment->inCi();
-        $unrun = $this->missed($results->misses())->and($unjudged->failures())->and($stop->failures());
+        $unrun = $this->missed($results->misses())
+            ->and($unjudged->failures($this->setup->command))
+            ->and($stop->failures());
         $verdict = $this->verdictOf(
             $plan,
             Lowering::against($committed, $baseline, $trees),
             $unrun
-                ->and(Unfinished::failures($fresh->and($unjudged->results())))
+                ->and(Unfinished::failures($fresh->and($unjudged->results()), $this->setup->command))
                 ->and($refused ? $this->unfloored($baseline, $verdicts, $security) : Failures::none())
                 ->and($ignoring->stale($verdicts, $unrun, $this->adapters->narrowing->mutators())),
             $judge,
@@ -349,8 +351,10 @@ final readonly class Judging
     {
         $file = $this->settings->floors()->baseline();
 
-        return Ratchet::unflooredBecause(Ratchet::unfloored($verdicts), $file)
-            ->and(Ratchet::securityUnflooredBecause(Ratchet::securityUnfloored($security), $file))
+        $gate = $this->setup->command;
+
+        return Ratchet::unflooredBecause(Ratchet::unfloored($verdicts), $file, $gate)
+            ->and(Ratchet::securityUnflooredBecause(Ratchet::securityUnfloored($security), $file, $gate))
             ->with(Failure::that(sprintf(
                 self::MEASURED,
                 $file->value(),
@@ -388,7 +392,7 @@ final readonly class Judging
         $failures = $pullRequest
             ? $this->pullRequestFailures($lowered, $verdicts, $security)->and($missed)
             : $missed;
-        $warnings = new VerdictWarnings($this->adapters, $this->settings);
+        $warnings = new VerdictWarnings($this->adapters, $this->settings, $this->setup);
         $owners = CodeOwnersFile::of($this->adapters->changes, $plan);
 
         $verdict = Verdict::of($verdicts, $heldTo)
@@ -447,7 +451,8 @@ final readonly class Judging
     ): Failures {
         $file = $this->settings->floors()->baseline();
         $required = $this->settings->floors()->improvement() === Improvement::Require
-            ? Ratchet::required($verdicts, $file)->and(Ratchet::securityRequired($security, $file))
+            ? Ratchet::required($verdicts, $file, $this->setup->command)
+                ->and(Ratchet::securityRequired($security, $file, $this->setup->command))
             : Failures::none();
 
         return $required->and($lowered);
@@ -477,7 +482,7 @@ final readonly class Judging
     /** The baseline a floor lowered in a pull request is checked against; none outside one. */
     private function committedBefore(Plan $plan): Baseline|CannotJudge
     {
-        $baselines = new Baselines($this->adapters, $this->settings->floors()->baseline());
+        $baselines = Baselines::of($this->adapters, $this->settings, $this->setup);
 
         return $plan->runOn()->isPullRequest()
             ? $baselines->onDefaultBranch(Standing::planned($plan)->defaultBranch())

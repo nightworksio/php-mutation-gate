@@ -190,7 +190,7 @@ final readonly class Planning
         $keys = $keying->keysOf($considering->considered());
         $proving = $ledgers->proving($considering->considered(), $keys, $keying->base(), $matrix);
         $changed = $this->newCode($inventory->standing, $reached);
-        $sample = new Sampled($this->adapters, $this->settings)
+        $sample = new Sampled($this->adapters, $this->settings, $this->setup)
             ->drawn($mode, $inventory, $proving->toRun(), $reached, $changed, $ledgers, $base);
         $toRun = $sample instanceof Sample ? $sample->running($proving->toRun()) : $proving->toRun();
         $pruned = new PrunedUnits($this->adapters, $this->settings, $this->setup)

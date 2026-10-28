@@ -35,6 +35,8 @@ use NightWorksIO\MutationGate\Core\Mutant\DiffPatch;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
@@ -95,11 +97,16 @@ final readonly class Infection implements Runner
 
     /**
      * The adapter in the project the gate runs in, from the options the flows
-     * write (see Setup), writing its memory cap with these files and running
-     * through these processes.
+     * write (see Setup), writing its memory cap with these files, running
+     * through these processes, and having Infection load the gate's PHAR
+     * where the gate runs from one.
      */
-    public static function fromOptions(Options $options, CapFiles $files, Processes $processes): self|Invalid
-    {
+    public static function fromOptions(
+        Options $options,
+        CapFiles $files,
+        Processes $processes,
+        OwnArchive|NotGiven $archive,
+    ): self|Invalid {
         $setup = Setup::of($options);
 
         if ($setup instanceof Invalid) {
@@ -115,7 +122,7 @@ final readonly class Infection implements Runner
             nativeMarkersAllowed: $setup->allowsNativeMarkers(),
             files: $files,
             analysis: $setup->analysis(),
-            bridges: $setup->bridges(),
+            bridges: $setup->bridges()->loading($archive),
         );
     }
 

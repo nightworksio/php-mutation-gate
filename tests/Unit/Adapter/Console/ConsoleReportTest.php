@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Adapter\Console\InertOutput;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\Ended;
 use NightWorksIO\MutationGate\Core\Mutant\Evidence;
@@ -60,7 +61,7 @@ it('prints the verdict, the trees, new code, units, reach, what was not killed, 
 
     foreach (Verdicts::failing()->trees() as $tree) {
         foreach ($tree->survivors() as $mutant) {
-            $blocks[] = $indented(MutantText::block($mutant, TestNames::none()));
+            $blocks[] = $indented(MutantText::block($mutant, TestNames::none(), GateCommand::installed()));
         }
     }
 
@@ -174,9 +175,9 @@ it('prints each cluster once, in the place of its first member, among what was n
     expect($printed($verdict))->toContain(implode("\n", [
         'Not killed (7)',
         $indented(implode("\n\n", [
-            ClusterText::block($expression),
-            ClusterText::block($gap),
-            MutantText::block(Clustered::listed($verdict->trees()->mutants())[3], TestNames::none()),
+            ClusterText::block($expression, GateCommand::installed()),
+            ClusterText::block($gap, GateCommand::installed()),
+            MutantText::block(Clustered::listed($verdict->trees()->mutants())[3], TestNames::none(), GateCommand::installed()),
         ])),
     ]));
 });
@@ -207,7 +208,7 @@ it('prints what each suite alone kills after security, and why each is a lower b
         'Suites',
         '  unit alone kills at least 66.66% of the 3 mutants its tests cover.',
         '  feature alone kills at least 50.00% of the 2 mutants its tests cover.',
-        '  Each is a lower bound, from first killers: `mutation-gate run --kill-matrix=full` makes it exact.',
+        '  Each is a lower bound, from first killers: `vendor/bin/mutation-gate run --kill-matrix=full` makes it exact.',
         '',
         'Units',
     ]))

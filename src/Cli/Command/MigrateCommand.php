@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Migration\Migrated;
 use NightWorksIO\MutationGate\Core\Migration\Migrations;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Verb;
 use NightWorksIO\MutationGate\Core\Written;
 
 use function sprintf;
@@ -40,7 +41,7 @@ final readonly class MigrateCommand
 
     public static function command(MigrationFiles $files, Migrations $config, Migrations $baseline): Command
     {
-        return new Command('migrate')
+        return new Command(Verb::Migrate->value)
             ->setDescription('Show, or write, the config and the baseline moved to the current release')
             ->addOption(FlowOptions::WRITE, mode: InputOption::VALUE_NONE, description: 'Write every migrated file')
             ->setCode(static function (InputInterface $input, OutputInterface $output) use (

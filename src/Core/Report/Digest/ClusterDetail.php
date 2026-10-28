@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Cluster\ClusterId;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Format\Visible;
+use NightWorksIO\MutationGate\Core\GateCommand;
 
 use function sprintf;
 
@@ -24,18 +25,18 @@ final readonly class ClusterDetail
 {
     private const string CLUSTER = 'cluster %s kind=%s members=%d';
 
-    private const string STUB = 'stub mutation-gate stub %s';
+    private const string STUB = 'stub %s';
 
     /**
      * @param list<DigestMutant> $mutants every mutant of the report
      *
      * @throws NotInShape
      */
-    public static function of(Node $report, ClusterId $sought, array $mutants): string|CannotJudge
+    public static function of(Node $report, ClusterId $sought, array $mutants, GateCommand $gate): string|CannotJudge
     {
         foreach ($report->field('clusters')->items() as $cluster) {
             if ($cluster->field('id')->text() === $sought->value()) {
-                return self::said($sought, $cluster, $mutants);
+                return self::said($sought, $cluster, $mutants, $gate);
             }
         }
 
@@ -47,7 +48,7 @@ final readonly class ClusterDetail
      *
      * @throws NotInShape
      */
-    private static function said(ClusterId $id, Node $cluster, array $mutants): string
+    private static function said(ClusterId $id, Node $cluster, array $mutants, GateCommand $gate): string
     {
         $members = [];
 
@@ -66,7 +67,7 @@ final readonly class ClusterDetail
         return Digest::lines([
             sprintf(self::CLUSTER, $id->value(), Visible::line($cluster->field('kind')->text()), count($members)),
             ...Digest::grouped($listed),
-            sprintf(self::STUB, $id->value()),
+            sprintf(self::STUB, $gate->stub($id)),
         ]);
     }
 }

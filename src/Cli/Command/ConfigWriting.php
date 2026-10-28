@@ -11,6 +11,7 @@ use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Config\Imported;
+use NightWorksIO\MutationGate\Cli\StartedGate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
@@ -75,7 +76,8 @@ final readonly class ConfigWriting
         Import $import,
         FoundTrees $trees,
     ): string|CannotJudge {
-        $file = ConfigFile::at($destination->file(), Path::of($setting->project));
+        $gate = StartedGate::in($setting->project);
+        $file = ConfigFile::at($destination->file(), Path::of($setting->project))->startedAs($gate);
         $text = $setting->formats->file($import->layer(), $destination->format(), $file);
 
         if (! is_string($text)) {
@@ -92,7 +94,7 @@ final readonly class ConfigWriting
             : self::write($setting->project, $destination, $text, $source);
         $more = [
             ...$comment instanceof NotWritten ? [$trees->said()] : [],
-            ...$from instanceof Path ? [$import->report($from->value())] : [],
+            ...$from instanceof Path ? [$import->report($from->value(), $gate)] : [],
         ];
 
         return is_string($said) ? implode("\n", [$said, ...$more]) : $said;

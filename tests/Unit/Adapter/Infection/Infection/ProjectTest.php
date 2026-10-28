@@ -38,6 +38,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -180,8 +181,8 @@ it('cannot root itself in a directory that installs no Infection', function (): 
 });
 
 it('is built from the options the flows write, or is invalid', function (): void {
-    expect(Infection::fromOptions(Configs::options('{"timeout": 30, "nativeMarkers": "allow"}'), new CapDirectory(), new LocalProcesses(new SystemClock())))->toBeInstanceOf(Infection::class)
-        ->and(Infection::fromOptions(Configs::options('{"nativeMarkers": "sometimes"}'), new CapDirectory(), new LocalProcesses(new SystemClock())))
+    expect(Infection::fromOptions(Configs::options('{"timeout": 30, "nativeMarkers": "allow"}'), new CapDirectory(), new LocalProcesses(new SystemClock()), NotGiven::value()))->toBeInstanceOf(Infection::class)
+        ->and(Infection::fromOptions(Configs::options('{"nativeMarkers": "sometimes"}'), new CapDirectory(), new LocalProcesses(new SystemClock()), NotGiven::value()))
         ->toEqual(Invalid::because(Problem::at('nativeMarkers', 'expected "refuse" or "allow", got "sometimes"')));
 });
 
@@ -371,8 +372,8 @@ it('leaves static analysis to the gate where it checks the survivors itself, in 
             files: new CapDirectory(),
             analysis: StaticAnalysis::Gate,
         ))
-        ->and(Infection::fromOptions(Configs::options('{"staticAnalysis": "gate"}'), new CapDirectory(), new LocalProcesses(new SystemClock())))
-        ->not->toEqual(Infection::fromOptions(Configs::options('{}'), new CapDirectory(), new LocalProcesses(new SystemClock())));
+        ->and(Infection::fromOptions(Configs::options('{"staticAnalysis": "gate"}'), new CapDirectory(), new LocalProcesses(new SystemClock()), NotGiven::value()))
+        ->not->toEqual(Infection::fromOptions(Configs::options('{}'), new CapDirectory(), new LocalProcesses(new SystemClock()), NotGiven::value()));
 });
 
 it('mutates nothing, and runs nothing, where Infection runs none of the mutators a request names', function (): void {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -85,7 +86,7 @@ it('places an issue at the columns of its change, counted from 0 and ending befo
     expect(Decoded::at($report('failing'), 'issues', 0))->toBe([
         'ruleId' => 'survived',
         'primaryLocation' => [
-            'message' => MutantText::message(Verdicts::survivor()),
+            'message' => MutantText::message(Verdicts::survivor(), GateCommand::installed()),
             'filePath' => 'src/Money.php',
             'textRange' => ['startLine' => 7, 'startColumn' => 20, 'endLine' => 7, 'endColumn' => 21],
         ],

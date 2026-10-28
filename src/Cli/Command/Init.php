@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Ci\GatePin;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Verb;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -50,7 +51,7 @@ final readonly class Init
         Variables $environment,
         Composition $composition,
     ): Command {
-        $command = InitQuestions::options(Additions::options(self::formatted(new Command('init'))));
+        $command = InitQuestions::options(Additions::options(self::formatted(new Command(Verb::Init->value))));
 
         return FullRunEstimate::options($command)
             ->setDescription(

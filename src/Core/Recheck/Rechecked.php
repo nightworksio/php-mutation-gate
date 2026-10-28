@@ -12,6 +12,7 @@ use function count;
 
 use Countable;
 use IteratorAggregate;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use Traversable;
@@ -26,14 +27,26 @@ use Traversable;
 final readonly class Rechecked implements Countable, IteratorAggregate
 {
     /** @param list<Recheck> $rechecks */
-    private function __construct(private array $rechecks, private Uncovered $uncovered)
+    private function __construct(private array $rechecks, private Uncovered $uncovered, private GateCommand $gate)
     {
     }
 
     /** These re-checks, counted as the score counts uncovered mutants. */
     public static function of(Uncovered $uncovered, Recheck ...$rechecks): self
     {
-        return new self(array_values($rechecks), $uncovered);
+        return new self(array_values($rechecks), $uncovered, GateCommand::installed());
+    }
+
+    /** These re-checks, run by the gate as it was started. */
+    public function startedAs(GateCommand $gate): self
+    {
+        return new self($this->rechecks, $this->uncovered, $gate);
+    }
+
+    /** The gate as it was started, which each reproduce command names. */
+    public function gate(): GateCommand
+    {
+        return $this->gate;
     }
 
     /**

@@ -35,7 +35,7 @@ use NightWorksIO\MutationGate\Core\Verdict\HeldFloor;
  */
 final readonly class Sampled
 {
-    public function __construct(private Adapters $adapters, private Settings $settings)
+    public function __construct(private Adapters $adapters, private Settings $settings, private Setup $setup)
     {
     }
 
@@ -57,7 +57,7 @@ final readonly class Sampled
             return Sample::none();
         }
 
-        $baseline = new Baselines($this->adapters, $this->settings->floors()->baseline())->committed();
+        $baseline = Baselines::of($this->adapters, $this->settings, $this->setup)->committed();
 
         return $baseline instanceof CannotJudge
             ? $baseline

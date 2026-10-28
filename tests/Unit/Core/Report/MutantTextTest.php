@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\Analysis\Finding;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
@@ -36,7 +37,7 @@ it('marks a mutant or kill its unit\'s last result gave because the plan pruned 
     $carried = JudgedMutant::of($mutant, MutantJudgement::Killed, carriedPruned: true);
 
     expect(MutantText::heading($carried))->toBe(sprintf('src/Money.php:7  LessToLessOrEqual  killed, carried (pruned)  %s', $mutant->id()->value()))
-        ->and(MutantText::message($carried))->toStartWith('Mutant killed, carried (pruned): LessToLessOrEqual. ')
+        ->and(MutantText::message($carried, GateCommand::installed()))->toStartWith('Mutant killed, carried (pruned): LessToLessOrEqual. ')
         ->and(MutantText::label(JudgedKill::of($kill, carriedPruned: true)))->toBe('killed, carried (pruned)')
         ->and(MutantText::label(JudgedKill::of($kill)))->toBe('killed')
         ->and(MutantText::label(JudgedMutant::of($mutant, MutantJudgement::Killed)))->toBe('killed');
@@ -46,7 +47,7 @@ it('writes a mutant with its diff, judging tests, hint, and reproduce and explai
     $survivor = Verdicts::survivor();
     $id = $survivor->mutant()->id()->value();
 
-    expect(MutantText::block($survivor, TestNames::none()))->toBe(implode("\n", [
+    expect(MutantText::block($survivor, TestNames::none(), GateCommand::installed()))->toBe(implode("\n", [
         sprintf('src/Money.php:7  LessToLessOrEqual  survived, on a changed line  %s', $id),
         '    --- Original',
         '    +++ New',
@@ -63,7 +64,7 @@ it('writes a mutant with its diff, judging tests, hint, and reproduce and explai
 it('names each judging test as its runner named it, and by its id where it named it nothing', function (): void {
     $names = Verdicts::matrix(MatrixKind::FirstKiller)->names();
 
-    expect(MutantText::block(Verdicts::survivor(), $names))->toContain(
+    expect(MutantText::block(Verdicts::survivor(), $names, GateCommand::installed()))->toContain(
         "\n    Judged by: tests/Unit/MoneyTest.php::it fits, tests/Unit/MoneyTest.php::it fits with data set \"over\", PriceTest::adds, CartTest::totals\n",
     );
 });
@@ -71,7 +72,7 @@ it('names each judging test as its runner named it, and by its id where it named
 it('puts a mutant in one line for a tool that lists results', function (): void {
     $survivor = Verdicts::survivor();
 
-    expect(MutantText::message($survivor))->toBe(sprintf(
+    expect(MutantText::message($survivor, GateCommand::installed()))->toBe(sprintf(
         'Mutant survived: LessToLessOrEqual. %s Reproduce: vendor/bin/mutation-gate reproduce %s',
         $survivor->hint()->text(),
         $survivor->mutant()->id()->value(),
@@ -82,8 +83,8 @@ it('says why a mutant stands as it does, where its record says, and leaves out a
     $unjudged = Judged::listed(Verdicts::everyJudgement())[4];
     $bare = JudgedMutant::of(Verdicts::mutant('src/Money.php:3', 'Plus', MutatorFamily::None, ''), MutantJudgement::Uncovered);
 
-    expect(MutantText::block($unjudged, TestNames::none()))->toContain("\n    Why: The run's budget ran out before it.\n    Nothing judged it")
-        ->and(explode("\n", MutantText::block($bare, TestNames::none())))->toHaveCount(4);
+    expect(MutantText::block($unjudged, TestNames::none(), GateCommand::installed()))->toContain("\n    Why: The run's budget ran out before it.\n    Nothing judged it")
+        ->and(explode("\n", MutantText::block($bare, TestNames::none(), GateCommand::installed())))->toHaveCount(4);
 });
 
 it('puts the reason its record gives before its hint, and nothing before the hint of a mutant without one', function (): void {
@@ -104,15 +105,15 @@ it('says why an ignored mutant is left out: its ignore\'s reason, or how it was 
 it('names the analyser that rejected a mutant, the file its finding sits in, and the error it found', function (): void {
     $rejected = Judged::listed(Verdicts::everyJudgement())[11];
 
-    expect(MutantText::block($rejected, TestNames::none()))
+    expect(MutantText::block($rejected, TestNames::none(), GateCommand::installed()))
         ->toContain("\n    Rejected by phpstan in src/Log.php: return.type: Method Log::id() should return string but returns int.\n")
-        ->and(MutantText::block(Judged::listed(Verdicts::everyJudgement())[1], TestNames::none()))->not->toContain('Rejected by');
+        ->and(MutantText::block(Judged::listed(Verdicts::everyJudgement())[1], TestNames::none(), GateCommand::installed()))->not->toContain('Rejected by');
 });
 
 it('names the rejection in one plain line, whatever the analyser wrote', function (): void {
     $mutant = Verdicts::mutant('src/Log.php:14', 'CastString', MutatorFamily::Unwrap, Verdicts::diff('return (string) $id;', 'return $id;'))
         ->rejected(Rejection::by("php\u{202E}stan", Finding::error(Path::of('src/Log.php'), "x\e[31m", "red\e[0m\n::error::injected\u{200B}\r\n\tend")));
-    $block = MutantText::block(JudgedMutant::of($mutant, MutantJudgement::KilledByStaticAnalysis), TestNames::none());
+    $block = MutantText::block(JudgedMutant::of($mutant, MutantJudgement::KilledByStaticAnalysis), TestNames::none(), GateCommand::installed());
 
     expect($block)->toContain("\n    Rejected by phpstan in src/Log.php: x[31m: red[0m ::error::injected end\n")
         ->and($block)->not->toContain("\e")
@@ -123,7 +124,7 @@ it('names the rejection in one plain line, whatever the analyser wrote', functio
 it('starts no workflow command from a rejection that holds one, encoded or not', function (): void {
     $mutant = Verdicts::mutant('src/Log.php:14', 'CastString', MutatorFamily::Unwrap, Verdicts::diff('return (string) $id;', 'return $id;'))
         ->rejected(Rejection::by('phpstan', Finding::error(Path::of('src/Log.php'), "a,b:c%0A\n::error::code", "one, two: three%0A\n::error file=x,line=1::message\n##[error]older")));
-    $lines = explode("\n", MutantText::block(JudgedMutant::of($mutant, MutantJudgement::KilledByStaticAnalysis), TestNames::none()));
+    $lines = explode("\n", MutantText::block(JudgedMutant::of($mutant, MutantJudgement::KilledByStaticAnalysis), TestNames::none(), GateCommand::installed()));
 
     expect(array_values(array_filter($lines, static fn(string $line): bool => str_starts_with(ltrim($line), '::'))))->toBe([])
         ->and($lines)->toContain('    Rejected by phpstan in src/Log.php: a,b:c%0A ::error::code: one, two: three%0A ::error file=x,line=1::message ##[error]older');
@@ -133,7 +134,7 @@ it('names the callee a removal may be deleted with in its block, and nothing of 
     $blocks = [];
 
     foreach (Removing::verdict()->trees()->mutants() as $judged) {
-        $blocks[] = $judged instanceof JudgedMutant ? MutantText::block($judged, TestNames::none()) : '';
+        $blocks[] = $judged instanceof JudgedMutant ? MutantText::block($judged, TestNames::none(), GateCommand::installed()) : '';
     }
 
     expect($blocks[0])->toContain(sprintf("\n%sRemovable: record()\n", MutantText::INDENT))

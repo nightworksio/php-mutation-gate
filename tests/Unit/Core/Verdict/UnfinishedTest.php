@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -51,7 +52,7 @@ it('fails each unit with a mutant or a kill a time budget left unjudged, countin
         )),
     );
 
-    expect(Unfinished::failures($results))->toEqual(Failures::of(
+    expect(Unfinished::failures($results, GateCommand::installed()))->toEqual(Failures::of(
         Failure::that("The time budget left 2 of the mutants of src/Money.php unjudged, so this run cannot pass it.\nMore time judges them: vendor/bin/mutation-gate run --budget=<duration>"),
         Failure::that("The time budget left 1 of the mutants of src/Tax.php unjudged, so this run cannot pass it.\nMore time judges them: vendor/bin/mutation-gate run --budget=<duration>"),
     ));

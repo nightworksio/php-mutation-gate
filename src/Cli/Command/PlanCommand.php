@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Delivery\Stage;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanEstimates;
 use NightWorksIO\MutationGate\Core\Sample\SampleText;
+use NightWorksIO\MutationGate\Core\Verb;
 use NightWorksIO\MutationGate\Core\Written;
 
 use function sprintf;
@@ -46,7 +47,7 @@ final readonly class PlanCommand
 
     public static function command(Composition $composition): Command
     {
-        return DeliverLater::option(FlowOptions::planning(new Command('plan')))
+        return DeliverLater::option(FlowOptions::planning(new Command(Verb::Plan->value)))
             ->setDescription('Work out the reach, drop proved units, cut shards and print the plan for a CI')
             ->setCode(static function (InputInterface $input, OutputInterface $output) use ($composition): int {
                 $composed = DeliverLater::composed(
@@ -101,7 +102,9 @@ final readonly class PlanCommand
     {
         $plan = $made->plan();
         $written = LastRun::keep($composed->adapters->project, $plan);
-        $publication = $written instanceof Written ? $composed->adapters->ci->publish($plan) : $written;
+        $publication = $written instanceof Written
+            ? $composed->adapters->ci->publish($plan, $composed->setup->command->jobs())
+            : $written;
         $published = $publication instanceof Publication ? PublicationFile::written($publication) : $publication;
         $commented = $published instanceof Written
             ? $composed->reporting->planned($composed->settings, $plan)

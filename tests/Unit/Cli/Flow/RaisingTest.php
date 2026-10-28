@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Baseline\Entry;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
@@ -56,7 +57,7 @@ $judged = static function (Floor|Undeclared $money, Baseline $baseline): TreeVer
         ->trees($results);
 };
 
-$baselines = static fn(string $project): Baselines => new Baselines(Flows::adapters($project), Path::of('floors.json'));
+$baselines = static fn(string $project): Baselines => new Baselines(Flows::adapters($project), Path::of('floors.json'), GateCommand::installed());
 
 it('writes every floor a score raised into the baseline, and says which lines to commit', function () use (
     $judged,

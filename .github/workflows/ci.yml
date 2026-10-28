@@ -367,10 +367,11 @@ jobs:
         run: |
           mkdir -p evidence/raw
           composer test:network -- --log-junit=evidence/raw/tests-network.xml
-      # Whatever the run holds, saved even where a host failed, so each schema
-      # fetched once is never fetched again while its pin stands.
+      # The whole set, saved only where every schema was there to validate
+      # against: a set a host's failure left short would be the newest, and
+      # each run after it would fetch what it lacks again.
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: ${{ !cancelled() }}
+        if: ${{ steps.network.outcome == 'success' }}
         with:
           path: /tmp/mutation-gate-schema-*.json
           key: schemas-${{ hashFiles('tests/Unit/Core/Ci/CiTemplateTest.php', 'tests/Unit/Core/Report/SarifTest.php') }}-${{ github.run_id }}-${{ github.job }}
@@ -437,10 +438,11 @@ jobs:
       - id: network
         if: ${{ !cancelled() }}
         run: composer test:network -- --log-junit=evidence/raw/lowest-network.xml
-      # Whatever the run holds, saved even where a host failed, so each schema
-      # fetched once is never fetched again while its pin stands.
+      # The whole set, saved only where every schema was there to validate
+      # against: a set a host's failure left short would be the newest, and
+      # each run after it would fetch what it lacks again.
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: ${{ !cancelled() }}
+        if: ${{ steps.network.outcome == 'success' }}
         with:
           path: /tmp/mutation-gate-schema-*.json
           key: schemas-${{ hashFiles('tests/Unit/Core/Ci/CiTemplateTest.php', 'tests/Unit/Core/Report/SarifTest.php') }}-${{ github.run_id }}-${{ github.job }}
@@ -460,6 +462,51 @@ jobs:
       - name: what failed
         if: failure()
         run: python3 .github/scripts/gate_summary.py lowest
+
+  # The gate's PHAR (ADR-0022), built as a release builds it, and its smoke
+  # suite run against it: its version, its config schema, an Infection
+  # project's verdict and its refusal of the Pest runner. It publishes
+  # nothing.
+  phar:
+    name: phar
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: pcov
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+        with:
+          working-directory: tests/Fixtures/Archive
+      - id: build
+        run: composer phar
+      - id: smoke
+        run: |
+          mkdir -p evidence/raw
+          vendor/bin/pest --group=phar --log-junit=evidence/raw/phar.xml
+      # The job's evidence, whatever the steps above did (ADR-0019).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py phar
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-phar
+          path: evidence/phar*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py phar
 
   # ADR-0004's Runner contract suite against the real runners, and ADR-0020's
   # StaticChecker contract suite against the real analysers, at both ends of
@@ -841,7 +888,7 @@ jobs:
   # left none.
   evidence:
     name: evidence
-    needs: [scope, scripts, alone, hygiene, security, rules, guards, checks, tests, lowest, runner-contract, runner-contracts, end-to-end, mutation, sonar, gate]
+    needs: [scope, scripts, alone, hygiene, security, rules, guards, checks, tests, lowest, phar, runner-contract, runner-contracts, end-to-end, mutation, sonar, gate]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10

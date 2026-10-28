@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Written;
@@ -35,7 +36,7 @@ $remotes = static function (string ...$baselines): ChangeSourceFake {
 };
 
 /** The baseline a project commits in `floors.json`. */
-$floorsIn = static fn(string $project): Baselines => new Baselines(Flows::adapters($project), Path::of('floors.json'));
+$floorsIn = static fn(string $project): Baselines => new Baselines(Flows::adapters($project), Path::of('floors.json'), GateCommand::installed());
 
 it('names the file the baseline is committed in', function () use ($floorsIn): void {
     expect($floorsIn(Flows::project())->file())->toEqual(Path::of('floors.json'));
@@ -57,7 +58,7 @@ it('cannot judge a baseline that is not one', function () use ($floorsIn): void 
     Scratch::write($project, 'floors.json', '{"format": 9}');
 
     expect($floorsIn($project)->committed())
-        ->toEqual(BaselineFile::decode('{"format": 9}', Path::of('floors.json')))
+        ->toEqual(BaselineFile::decode('{"format": 9}', Path::of('floors.json'), GateCommand::installed()))
         ->and($floorsIn($project)->committed())->toBeInstanceOf(CannotJudge::class);
 });
 
@@ -65,7 +66,7 @@ it('cannot judge a baseline it cannot read', function (): void {
     $project = Flows::project();
     mkdir(sprintf('%s/floors.json', $project));
 
-    expect(new Baselines(Flows::adapters($project), Path::of('floors.json'))->committed())
+    expect(new Baselines(Flows::adapters($project), Path::of('floors.json'), GateCommand::installed())->committed())
         ->toEqual(CannotJudge::because(sprintf('%s/floors.json could not be read.', $project)));
 });
 
@@ -74,14 +75,14 @@ it('reads the baseline the default branch holds at its remote', function () use 
         'main' => BaselineFile::encode($floors(70.0)),
         'release/2' => BaselineFile::encode($floors(55.0)),
     ]);
-    $baselines = new Baselines(Flows::adapters(Flows::project(), [], $changes), Path::of('floors.json'));
+    $baselines = new Baselines(Flows::adapters(Flows::project(), [], $changes), Path::of('floors.json'), GateCommand::installed());
 
     expect($baselines->onDefaultBranch(Scope::branch('main')))->toEqual($floors(70.0))
         ->and($baselines->onDefaultBranch(Scope::branch('release/2')))->toEqual($floors(55.0));
 });
 
 it('reads no baseline where the default branch holds none', function () use ($remotes): void {
-    $baselines = new Baselines(Flows::adapters(Flows::project(), [], $remotes(main: '')), Path::of('elsewhere.json'));
+    $baselines = new Baselines(Flows::adapters(Flows::project(), [], $remotes(main: '')), Path::of('elsewhere.json'), GateCommand::installed());
 
     expect($baselines->onDefaultBranch(Scope::branch('main')))->toEqual(Baseline::none());
 });
@@ -90,7 +91,7 @@ it('cannot judge where git cannot read the default branch, or its file is not a 
     ChangeSourceFake $changes,
     string $why,
 ): void {
-    $baselines = new Baselines(Flows::adapters(Flows::project(), [], $changes), Path::of('floors.json'));
+    $baselines = new Baselines(Flows::adapters(Flows::project(), [], $changes), Path::of('floors.json'), GateCommand::installed());
 
     expect($baselines->onDefaultBranch(Scope::branch('main')))->toEqual(CannotJudge::because(sprintf(<<<'SAID'
         The baseline refs/remotes/origin/main holds cannot be read,
@@ -104,7 +105,7 @@ it('cannot judge where git cannot read the default branch, or its file is not a 
         fn(): string => sprintf(
             '%s %s',
             'The baseline floors.json cannot be read: the file.format is missing.',
-            'Fix it, or run mutation-gate baseline --write.',
+            'Fix it, or run vendor/bin/mutation-gate baseline --write.',
         ),
     ],
 ]);
@@ -112,7 +113,7 @@ it('cannot judge where git cannot read the default branch, or its file is not a 
 it('writes the baseline back into its file', function () use ($floors): void {
     $project = Flows::project();
 
-    $written = new Baselines(Flows::adapters($project), Path::of('floors.json'))->write($floors(81.25));
+    $written = new Baselines(Flows::adapters($project), Path::of('floors.json'), GateCommand::installed())->write($floors(81.25));
 
     expect($written)->toEqual(Written::to(sprintf('%s/floors.json', $project)))
         ->and(file_get_contents(sprintf('%s/floors.json', $project)))->toBe(BaselineFile::encode($floors(81.25)));
@@ -122,6 +123,6 @@ it('cannot judge a baseline it cannot write', function () use ($floors): void {
     $project = Flows::project();
     mkdir(sprintf('%s/floors.json', $project));
 
-    expect(new Baselines(Flows::adapters($project), Path::of('floors.json'))->write($floors(81.25)))
+    expect(new Baselines(Flows::adapters($project), Path::of('floors.json'), GateCommand::installed())->write($floors(81.25)))
         ->toBeInstanceOf(CannotJudge::class);
 });

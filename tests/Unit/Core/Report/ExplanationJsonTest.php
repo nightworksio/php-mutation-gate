@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Mutant\IdPrefix;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
@@ -30,7 +31,7 @@ use NightWorksIO\MutationGate\Tests\Support\Schema;
 /** The JSON, having checked it against `explain`'s schema. */
 function explainedJson(Explanations $explained): string
 {
-    $json = ExplanationJson::of($explained);
+    $json = ExplanationJson::of($explained, GateCommand::installed());
 
     expect(Schema::errors($json, Schema::at('resources/explain.schema.json')))->toBe([]);
 

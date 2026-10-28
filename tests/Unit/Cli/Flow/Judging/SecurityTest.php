@@ -133,7 +133,7 @@ it('stops a CI run on a security set held to no floor, and hands over its measur
             <<<'SAID'
                 The security set of . has no floor: neither security.floor nor the package's securityFloor
                 declares one, and the baseline holds none.
-                A security set is never held to no floor. Run mutation-gate baseline --write and commit mutation-gate.baseline.json.
+                A security set is never held to no floor. Run vendor/bin/mutation-gate baseline --write and commit mutation-gate.baseline.json.
                 SAID,
             sprintf(
                 "The baseline this run measured, ready to commit as mutation-gate.baseline.json:\n%s",
@@ -249,7 +249,7 @@ it('warns of a security set held to no floor outside CI', function () use ($make
     ));
 
     expect(JudgingRuns::texts($verdict->warnings()))
-        ->toContain('The security set of . has no floor yet. Run mutation-gate baseline --write and commit mutation-gate.baseline.json.');
+        ->toContain('The security set of . has no floor yet. Run vendor/bin/mutation-gate baseline --write and commit mutation-gate.baseline.json.');
 });
 
 it('fails a security set below the floor security.floor declares, though its tree passes', function () use ($makeTree, $makeReporting, $makeJudged): void {
@@ -273,7 +273,7 @@ it('fails a security set below the floor security.floor declares, though its tre
         ->and([...$verdict->trees()][0]->judgement())->toBe(Judgement::Passed)
         ->and($verdict->judgement())->toBe(Judgement::Failed)
         ->and(JudgingRuns::texts($verdict->warnings()))->not->toContain(
-            'The security set of . has no floor yet. Run mutation-gate baseline --write and commit mutation-gate.baseline.json.',
+            'The security set of . has no floor yet. Run vendor/bin/mutation-gate baseline --write and commit mutation-gate.baseline.json.',
         );
 });
 
@@ -299,7 +299,7 @@ it('fails a pull request until a raised security floor is committed with it', fu
 
     expect(JudgingRuns::texts($verdict->failures()))->toBe([<<<'SAID'
         The security set of . scored 50, above the floor of 40 it was held to.
-        Commit the raised floor with this change: run mutation-gate baseline --write and commit mutation-gate.baseline.json.
+        Commit the raised floor with this change: run vendor/bin/mutation-gate baseline --write and commit mutation-gate.baseline.json.
         SAID]);
 });
 

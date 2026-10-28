@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Unchanged;
 use NightWorksIO\MutationGate\Core\Time\Deadline;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
+use NightWorksIO\MutationGate\Core\Verb;
 use NightWorksIO\MutationGate\Core\Verdict\HeldTo;
 
 use function sprintf;
@@ -40,11 +41,11 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 final readonly class VerdictCommand
 {
-    private const string NO_PLAN = 'There is no plan at %s. Run mutation-gate plan, and hand its plan to every job.';
+    private const string NO_PLAN = 'There is no plan at %s. Run %s, and hand its plan to every job.';
 
     public static function command(Composition $composition): Command
     {
-        return DeliverLater::option(new Command('verdict'))
+        return DeliverLater::option(new Command(Verb::Verdict->value))
             ->setDescription('Merge every shard\'s results, judge the floors, write reports and the ledger')
             ->addOption(FlowOptions::PLAN, mode: InputOption::VALUE_REQUIRED, description: 'The plan the shards ran')
             ->addOption(
@@ -78,7 +79,9 @@ final readonly class VerdictCommand
     {
         $plan = LastRun::planAt($composed->adapters->project, $file);
 
-        return $plan instanceof Missing ? CannotJudge::because(sprintf(self::NO_PLAN, $file->value())) : $plan;
+        return $plan instanceof Missing ? CannotJudge::because(
+            sprintf(self::NO_PLAN, $file->value(), $composed->setup->command->command(Verb::Plan)),
+        ) : $plan;
     }
 
     /**

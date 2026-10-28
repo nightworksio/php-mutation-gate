@@ -71,8 +71,7 @@ final readonly class Markdown
     /** The most characters GitHub takes in a comment's body. */
     public const int COMMENT_CHARACTERS = 65_536;
 
-    private const string RAISE
-        = 'Raise them with `vendor/bin/mutation-gate baseline --write`, and commit the baseline.';
+    private const string RAISE = 'Raise them with `%s`, and commit the baseline.';
 
     private const string RUN = '[The run](%s) keeps the HTML report among its artifacts.';
 
@@ -103,7 +102,7 @@ final readonly class Markdown
             ...self::head($verdict, $overview, NoHistory::yet()),
             ...self::section(
                 sprintf('Security survivors (%d)', count($security)),
-                MarkdownItems::details(array_slice($secured, 0, $shown), count($secured)),
+                MarkdownItems::details(array_slice($secured, 0, $shown), count($secured), $overview->gate()),
             ),
             ...self::sets($verdict),
             ...self::section(
@@ -113,12 +112,12 @@ final readonly class Markdown
                     $changed,
                     $folded,
                     $shown,
-                    MarkdownItems::details(...),
+                    static fn(array $items, int $of): array => MarkdownItems::details($items, $of, $overview->gate()),
                 ),
             ),
             ...self::section(
                 sprintf('Unjudged and flaky (%d)', count($other)),
-                MarkdownItems::table(array_slice($other, 0, $shown), count($other)),
+                MarkdownItems::table(array_slice($other, 0, $shown), count($other), $overview->gate()),
             ),
             ...self::ignored($overview, $shown),
             ...self::tail($verdict, HtmlReport::SLOT),
@@ -153,7 +152,7 @@ final readonly class Markdown
                     $overview->survivors(),
                     $items,
                     $shown,
-                    MarkdownItems::table(...),
+                    static fn(array $items, int $of): array => MarkdownItems::table($items, $of, $overview->gate()),
                 ),
             ),
             ...self::ignored($overview, $shown),
@@ -259,7 +258,11 @@ final readonly class Markdown
         $scores = SuiteScores::of($verdict);
 
         if (! SuiteText::shows($scores) || ! $scores->arePlaced()) {
-            return SuiteText::lines($scores, $verdict->matrix()->whyNotFull());
+            return SuiteText::lines(
+                $scores,
+                $verdict->matrix()->whyNotFull(),
+                $verdict->account()->provenance()->command(),
+            );
         }
 
         $rows = ['| Suite | Covered | Killed | Score |', '|---|---|---|---|'];
@@ -280,7 +283,10 @@ final readonly class Markdown
 
         return [
             implode("\n", $rows),
-            ...$exact ? [] : [Escape::text(SuiteText::lowerBound($verdict->matrix()->whyNotFull()))],
+            ...$exact ? [] : [Escape::text(SuiteText::lowerBound(
+                $verdict->matrix()->whyNotFull(),
+                $verdict->account()->provenance()->command(),
+            ))],
         ];
     }
 
@@ -316,6 +322,20 @@ final readonly class Markdown
     }
 
     /**
+     * The floors that can rise, then how to raise them.
+     *
+     * @param  list<string> $raised
+     * @return list<string>
+     */
+    private static function raise(Verdict $verdict, array $raised): array
+    {
+        return [
+            implode("\n", $raised),
+            sprintf(self::RAISE, $verdict->account()->provenance()->command()->baselineWritten()),
+        ];
+    }
+
+    /**
      * The obstacles, failures, warnings and floors that can rise, then the line that points at the run's HTML report,
      * which a document leaves out where it is empty.
      *
@@ -333,7 +353,7 @@ final readonly class Markdown
             ...self::section('Cannot judge', self::reasons($verdict->obstacles())),
             ...self::section('Failures', self::bullets($verdict->failures())),
             ...self::section('Warnings', self::bullets($verdict->warnings())),
-            ...self::section('Floors that can rise', $raised === [] ? [] : [implode("\n", $raised), self::RAISE]),
+            ...self::section('Floors that can rise', $raised === [] ? [] : self::raise($verdict, $raised)),
             $report,
         ];
     }

@@ -10,7 +10,8 @@
         "tests/Contract/Runner/override",
         "tests/Contract/Runner/interceptor",
         "tests/Contract/Runner/twins",
-        "tests/Contract/StaticChecker/fixture"
+        "tests/Contract/StaticChecker/fixture",
+        "tests/Fixtures/Archive"
     ],
     "rules": {
         "declare_strict_types": true,

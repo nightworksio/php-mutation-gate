@@ -37,7 +37,7 @@ it('prints the tests report of the last run, running nothing, and exits 0 whatev
               None.
 
             Removable
-              Needs a full kill matrix: run `mutation-gate run --kill-matrix=full`.
+              Needs a full kill matrix: run `vendor/bin/mutation-gate run --kill-matrix=full`.
 
             Asserts only existence or shape (0)
               None.
@@ -65,7 +65,7 @@ it('exits 2 where no run has left anything to report on', function (): void {
     expect([$reported->code, $reported->output, $reported->errors])->toBe([
         2,
         '',
-        "No run has left a plan at .mutation-gate/plan.json here: run mutation-gate first.\n",
+        "No run has left a plan at .mutation-gate/plan.json here: run vendor/bin/mutation-gate first.\n",
     ]);
 });
 

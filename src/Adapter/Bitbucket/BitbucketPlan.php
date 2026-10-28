@@ -9,6 +9,7 @@ use function getenv;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\CiJob;
 use NightWorksIO\MutationGate\Core\Ci\CiMarker;
+use NightWorksIO\MutationGate\Core\Ci\JobCommands;
 use NightWorksIO\MutationGate\Core\Ci\PlanListing;
 use NightWorksIO\MutationGate\Core\Ci\Publication;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
@@ -50,7 +51,7 @@ final readonly class BitbucketPlan implements CiPlan, Configurable
         return CiJob::planned($options, Variables::of(getenv()), self::in(...));
     }
 
-    public function publish(Plan $plan): Publication
+    public function publish(Plan $plan, JobCommands $jobs): Publication
     {
         return Publication::printed(PlanListing::of($plan));
     }

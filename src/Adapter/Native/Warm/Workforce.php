@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Evidences;
 use NightWorksIO\MutationGate\Core\Native\Framework;
 use NightWorksIO\MutationGate\Core\Native\Shell;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\OwnScript;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
@@ -95,7 +96,7 @@ final readonly class Workforce
     /** @param array<int, PreparedRun> $runs by position */
     private function worked(
         Workplace $workplace,
-        string $script,
+        OwnScript $script,
         MutationRequest $request,
         Seconds|Unlimited $deadline,
         array $runs,

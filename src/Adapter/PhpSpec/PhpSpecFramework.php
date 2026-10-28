@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Native\Selection;
 use NightWorksIO\MutationGate\Core\Native\Shell;
 use NightWorksIO\MutationGate\Core\Native\TestLayout;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\OwnScript;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\PhpSpecConfig;
@@ -30,7 +31,6 @@ use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestListing;
-use NightWorksIO\MutationGate\Core\ThisPackage;
 
 /**
  * PhpSpec, as the native runner runs it (ADR-0027): installed in the
@@ -42,9 +42,6 @@ use NightWorksIO\MutationGate\Core\ThisPackage;
  */
 final readonly class PhpSpecFramework implements Framework
 {
-    /** The gate's launcher, in this package's own directory. */
-    private const string LAUNCHER = 'mutation-gate-phpspec';
-
     /** The file a mutant's run lists the examples it selects in. */
     private const string EXAMPLES = 'examples.txt';
 
@@ -52,7 +49,7 @@ final readonly class PhpSpecFramework implements Framework
 
     public function __construct(private Installation $installation, private TestLayout $tests)
     {
-        $this->commandLine = new CommandLine(ThisPackage::script(self::LAUNCHER), $installation->autoloader());
+        $this->commandLine = new CommandLine(OwnScript::PhpSpec, $installation->autoloader());
     }
 
     public function program(): Program
@@ -101,7 +98,7 @@ final readonly class PhpSpecFramework implements Framework
 
     public function script(): string
     {
-        return ThisPackage::script(self::LAUNCHER);
+        return OwnScript::PhpSpec->started()[0];
     }
 
     public function workerScript(): NotGiven

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Report\ClusterText;
 use NightWorksIO\MutationGate\Tests\Support\Clustered;
 
@@ -34,7 +35,7 @@ it('writes a block: each member with its diff, the hint, and the stub and explai
     [, $gap] = clusterTexts();
     [$log, $events, $cache] = iterator_to_array($gap->members(), preserve_keys: false);
 
-    expect(ClusterText::block($gap))->toBe(implode("\n", [
+    expect(ClusterText::block($gap, GateCommand::installed()))->toBe(implode("\n", [
         ClusterText::heading($gap),
         sprintf('    src/Cart.php:16  MethodCallRemoval  survived, on a changed line  %s', $log->mutant()->id()->value()),
         '    @@ @@',

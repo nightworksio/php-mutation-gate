@@ -8,16 +8,19 @@ use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\ComposerVendor;
+use NightWorksIO\MutationGate\Cli\StartedGate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\GatePin;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Fit;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Hook\HookCall;
 use NightWorksIO\MutationGate\Core\Hook\HookFramework;
 use NightWorksIO\MutationGate\Core\Hook\HookRecipe;
 use NightWorksIO\MutationGate\Core\Hook\HookSetup;
 use NightWorksIO\MutationGate\Core\NotGiven;
-use NightWorksIO\MutationGate\Core\ThisPackage;
+use NightWorksIO\MutationGate\Core\Verb;
 use NightWorksIO\MutationGate\Core\Written;
 
 use function sprintf;
@@ -48,7 +51,7 @@ final readonly class HookFrameworkFiles
     private const string INSTALL = 'Then install its hooks: %s %s';
 
     private const string GRUMPHP_PRE_PUSH = <<<'SAID'
-        GrumPHP runs no pre-push hook; %s hook install adds the gate's.
+        GrumPHP runs no pre-push hook; %s adds the gate's.
         SAID;
 
     public static function option(Command $command): Command
@@ -91,7 +94,8 @@ final readonly class HookFrameworkFiles
         Output $output,
     ): string|CannotJudge {
         $binaries = ComposerVendor::binaries($project);
-        $recipe = HookRecipe::of(HookCall::of(Path::root(), $binaries->child(Path::of(ThisPackage::NAME))), $gate);
+        $started = StartedGate::in($project);
+        $recipe = HookRecipe::of(HookCall::of(Path::root(), $started), $gate);
 
         if ($output === Output::Printed) {
             return sprintf(Output::FILE, $manager->file(), $recipe->whole($manager));
@@ -105,7 +109,7 @@ final readonly class HookFrameworkFiles
             default => self::written($directory, $manager, $recipe),
         };
 
-        return is_string($said) ? sprintf("%s\n%s", $said, self::next($manager, $binaries)) : $said;
+        return is_string($said) ? sprintf("%s\n%s", $said, self::next($manager, $binaries, $started)) : $said;
     }
 
     /** The first config the manager reads that is here; none where none is; or why one could not be read. */
@@ -133,10 +137,8 @@ final readonly class HookFrameworkFiles
     }
 
     /** What installs the manager's hooks, and, for GrumPHP, what adds the pre-push hook it does not run. */
-    private static function next(HookFramework $manager, Path $binaries): string
+    private static function next(HookFramework $manager, Path $binaries, GateCommand $gate): string
     {
-        $gate = $binaries->child(Path::of(ThisPackage::NAME))->value();
-
         return match ($manager) {
             HookFramework::CaptainHook => sprintf(
                 self::INSTALL,
@@ -146,7 +148,10 @@ final readonly class HookFrameworkFiles
             HookFramework::GrumPhp => sprintf(
                 "%s\n%s",
                 sprintf(self::INSTALL, $binaries->child(Path::of(HookFramework::GrumPhp->value))->value(), 'git:init'),
-                sprintf(self::GRUMPHP_PRE_PUSH, $gate),
+                sprintf(
+                    self::GRUMPHP_PRE_PUSH,
+                    sprintf(Fit::JOINED, $gate->command(Verb::Hook), HookAction::Install->value),
+                ),
             ),
             HookFramework::PreCommit => sprintf(self::INSTALL, 'pre-commit', 'install'),
         };

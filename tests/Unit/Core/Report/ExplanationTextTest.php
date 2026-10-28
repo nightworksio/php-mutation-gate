@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Mutant\IdPrefix;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
@@ -42,7 +43,7 @@ function explainedIn(JudgedMutant|JudgedKill $judged, JudgedUnit|CannotTell $uni
 
     return ExplanationText::of(Explanations::ofMutant(
         Explanation::judged($judged, KillMatrix::none(), $unit, $reach, Records::none($sought)),
-    ));
+    ), GateCommand::installed());
 }
 
 it('says how the last run took each unit, with the run its result is from where a proof names one', function (
@@ -114,7 +115,7 @@ it('explains a kill a ledger proved, which keeps no diff, and says where no ledg
 it('heads a cluster with its heading, hint and stub, then explains each member with the tests that judge it', function (): void {
     $explained = Explained::cluster();
     $cluster = $explained->cluster();
-    $text = ExplanationText::of($explained);
+    $text = ExplanationText::of($explained, GateCommand::installed());
 
     expect($cluster)->toBeInstanceOf(Cluster::class)
         ->and($cluster instanceof Cluster ? $text : '')->toStartWith($cluster instanceof Cluster ? sprintf(

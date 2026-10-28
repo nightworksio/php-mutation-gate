@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Hook\Hook;
 use NightWorksIO\MutationGate\Core\Hook\HookCall;
 use NightWorksIO\MutationGate\Core\Hook\Removed;
@@ -85,10 +86,10 @@ final readonly class Hooks
         return ! array_any($this->repository, static fn(Path $inside): bool => $directory->within($inside));
     }
 
-    /** How a hook calls the gate by this binary, as the project spells it. */
-    public function call(Path $binary): HookCall
+    /** How a hook calls the gate as this command, as the project spells it. */
+    public function call(GateCommand $gate): HookCall
     {
-        return HookCall::of($this->project, $binary);
+        return HookCall::of($this->project, $gate);
     }
 
     /** Where a hook's file is. */

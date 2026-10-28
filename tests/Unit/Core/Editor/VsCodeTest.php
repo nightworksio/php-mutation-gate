@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Editor\VsCode;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Hint\Hint;
 use NightWorksIO\MutationGate\Core\Report\Problems;
 use NightWorksIO\MutationGate\Core\Report\ProblemsShown;
@@ -21,7 +22,7 @@ use NightWorksIO\MutationGate\Tests\Support\Verdicts;
  */
 function matchedProblems(string $text): array
 {
-    $pattern = static fn(string $key): mixed => Decoded::at(VsCode::tasks(), 'tasks', 0, 'problemMatcher', 'pattern', $key);
+    $pattern = static fn(string $key): mixed => Decoded::at(VsCode::tasks(GateCommand::installed()), 'tasks', 0, 'problemMatcher', 'pattern', $key);
     $regexp = $pattern('regexp');
     $matching = sprintf('/%s/', is_string($regexp) ? $regexp : '');
     $read = [];
@@ -42,7 +43,7 @@ function matchedProblems(string $text): array
 }
 
 it('writes a background task that watches with the problems output, and the matcher that reads it', function (): void {
-    $tasks = VsCode::tasks();
+    $tasks = VsCode::tasks(GateCommand::installed());
 
     expect(Decoded::at($tasks, 'version'))->toBe('2.0.0')
         ->and(Decoded::at($tasks, 'tasks'))->toHaveCount(1)
@@ -62,8 +63,8 @@ it('writes a background task that watches with the problems output, and the matc
             'beginsPattern' => '^mutation-gate: judging$',
             'endsPattern' => '^mutation-gate: judged$',
         ])
-        ->and(Decoded::at(VsCode::task(), 'label'))->toBe(VsCode::LABEL)
-        ->and(json_decode(VsCode::task(), associative: true))->toBe(Decoded::at($tasks, 'tasks', 0));
+        ->and(Decoded::at(VsCode::task(GateCommand::installed()), 'label'))->toBe(VsCode::LABEL)
+        ->and(json_decode(VsCode::task(GateCommand::installed()), associative: true))->toBe(Decoded::at($tasks, 'tasks', 0));
 });
 
 it('reads every line the problems output writes into its file, place, severity, message and rule', function (): void {
@@ -87,8 +88,8 @@ it('reads a message that holds brackets, colons and what looks like a rule and a
 });
 
 it('matches the lines that begin and end a judgement, and nothing else with them', function (): void {
-    $begins = Decoded::at(VsCode::tasks(), 'tasks', 0, 'problemMatcher', 'background', 'beginsPattern');
-    $ends = Decoded::at(VsCode::tasks(), 'tasks', 0, 'problemMatcher', 'background', 'endsPattern');
+    $begins = Decoded::at(VsCode::tasks(GateCommand::installed()), 'tasks', 0, 'problemMatcher', 'background', 'beginsPattern');
+    $ends = Decoded::at(VsCode::tasks(GateCommand::installed()), 'tasks', 0, 'problemMatcher', 'background', 'endsPattern');
 
     expect(preg_match(sprintf('/%s/', is_string($begins) ? $begins : ''), Problems::JUDGING))->toBe(1)
         ->and(preg_match(sprintf('/%s/', is_string($ends) ? $ends : ''), Problems::JUDGED))->toBe(1)

@@ -94,7 +94,7 @@ it('writes what each suite alone kills, whether it is exact, and why the scores 
         ['name' => 'feature', 'covered' => 2, 'killed' => 1, 'score' => 50.0, 'exact' => $exact, 'said' => sprintf('feature alone kills %s50.00%% of the 2 mutants its tests cover.', $said)],
     ])
         ->and(json_decode($report, associative: true))->not->toHaveKey('suitesUnscored')
-        ->and(Decoded::at($report, 'suitesLowerBound'))->toBe($exact ? null : 'Each is a lower bound, from first killers: `mutation-gate run --kill-matrix=full` makes it exact.');
+        ->and(Decoded::at($report, 'suitesLowerBound'))->toBe($exact ? null : 'Each is a lower bound, from first killers: `vendor/bin/mutation-gate run --kill-matrix=full` makes it exact.');
 })->with([[MatrixKind::FirstKiller, 'at least '], [MatrixKind::Full, '']]);
 
 it('writes no suite, with why, where the runner named no test, and none where the config declares none', function (): void {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -51,7 +52,7 @@ it('names the tests that killed it now, why the run said what it did, and the gr
         ->because(Reason::that('Killed on the second try.'));
     $id = $now->id()->value();
 
-    expect(ReproductionText::of($recorded($survivor(MutantStatus::Survived)), Group::named('holds:src/Money.php'), Reproduction::among($now->id(), Mutants::of($now), Reason::that('Not made.'), "  Mutations: 1 tested\n")))->toBe(implode("\n", [
+    expect(ReproductionText::of($recorded($survivor(MutantStatus::Survived)), Group::named('holds:src/Money.php'), Reproduction::among($now->id(), Mutants::of($now), Reason::that('Not made.'), "  Mutations: 1 tested\n"), GateCommand::installed()))->toBe(implode("\n", [
         sprintf('src/Money.php:7  LessToLessOrEqual  %s', $id),
         '    -        return $a < $b;',
         '    +        return $a <= $b;',
@@ -77,7 +78,7 @@ it('says the run made no such mutant, names the filter that judged it, and leave
         Seconds::of(0.1),
     );
 
-    expect(ReproductionText::of($recorded($mutant), Filter::matching('MoneyTest'), Reproduction::among($mutant->id(), Mutants::none(), Reason::that('Run again, the fake made no mutant with this id.'), '')))
+    expect(ReproductionText::of($recorded($mutant), Filter::matching('MoneyTest'), Reproduction::among($mutant->id(), Mutants::none(), Reason::that('Run again, the fake made no mutant with this id.'), ''), GateCommand::installed()))
         ->toContain("    Now: not made. Run again, the fake made no mutant with this id.\n    Judged by: the tests matching MoneyTest\n");
 });
 
@@ -90,7 +91,7 @@ it('heads a kill a ledger proved by its mutator, with no diff, since the ledger 
     );
     $id = $kill->id()->value();
 
-    expect(ReproductionText::of($recorded, Group::named('holds:src/Money.php'), Reproduction::among($kill->id(), Mutants::none(), Reason::that('Not made.'), 'said')))->toStartWith(implode("\n", [
+    expect(ReproductionText::of($recorded, Group::named('holds:src/Money.php'), Reproduction::among($kill->id(), Mutants::none(), Reason::that('Not made.'), 'said'), GateCommand::installed()))->toStartWith(implode("\n", [
         sprintf('src/Money.php:12  MinusToPlus  %s', $id),
         '    Recorded: killed, by github:7/1 on main at 2026-09-29T10:00:00Z',
         '    Now: not made. Not made.',

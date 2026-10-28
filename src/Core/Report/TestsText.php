@@ -46,7 +46,7 @@ final readonly class TestsText
             ...self::section(
                 TestsReport::NEVER_FIRST,
                 $standings->thatStand(Standing::NeverFirst),
-                [TestsReport::SUSPICION],
+                [TestsReport::suspicion($verdict)],
             ),
         ] : ['', TestsReport::NO_COVERAGE];
 
@@ -114,7 +114,7 @@ final readonly class TestsText
     private static function removable(Verdict $verdict): array
     {
         if ($verdict->matrix()->kind() !== MatrixKind::Full) {
-            return ['', TestsReport::REMOVABLE, ...self::indented([$verdict->matrix()->whyNotFull()->sentence()])];
+            return ['', TestsReport::REMOVABLE, ...self::indented([TestsReport::needs($verdict)])];
         }
 
         $lines = [];

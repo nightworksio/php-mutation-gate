@@ -10,9 +10,11 @@ use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Cli\Flow\Reproduced;
 use NightWorksIO\MutationGate\Cli\Flow\Reproducing;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Mutant\IdPrefix;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Report\ReproductionText;
+use NightWorksIO\MutationGate\Core\Verb;
 
 use function sprintf;
 
@@ -37,7 +39,7 @@ final readonly class ReproduceCommand
 
     public static function command(Composition $composition): Command
     {
-        return new Command('reproduce')
+        return new Command(Verb::Reproduce->value)
             ->setDescription('Run one mutant again and show why it survives')
             ->addArgument(
                 Argument::Id->value,
@@ -55,8 +57,8 @@ final readonly class ReproduceCommand
                 $reproduced = new Reproducing($composed->adapters, $composed->settings)->reproduce($sought);
 
                 return $reproduced instanceof Reproduced
-                    ? self::shown($output, $reproduced)
-                    : Failed::unfound($output, $reproduced);
+                    ? self::shown($output, $reproduced, $composed->setup->command)
+                    : Failed::unfound($output, $reproduced, $composed->setup->command);
             });
     }
 
@@ -66,10 +68,10 @@ final readonly class ReproduceCommand
         return IdPrefix::parse(CommandText::argument($input, Argument::Id));
     }
 
-    private static function shown(OutputInterface $output, Reproduced $reproduced): int
+    private static function shown(OutputInterface $output, Reproduced $reproduced, GateCommand $gate): int
     {
         $output->writeln(
-            ReproductionText::of($reproduced->recorded, $reproduced->judgedBy, $reproduced->now),
+            ReproductionText::of($reproduced->recorded, $reproduced->judgedBy, $reproduced->now, $gate),
             OutputInterface::OUTPUT_RAW,
         );
 

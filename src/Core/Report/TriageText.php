@@ -8,12 +8,12 @@ use function array_pop;
 use function count;
 use function implode;
 
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Triage\NotMade;
 use NightWorksIO\MutationGate\Core\Triage\Outcomes;
 use NightWorksIO\MutationGate\Core\Triage\Repeated;
-use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 
 use function sprintf;
 
@@ -37,13 +37,13 @@ final readonly class TriageText
 
     private const string NOT_MADE = 'not made';
 
-    public static function of(Repeated $repeated): string
+    public static function of(Repeated $repeated, GateCommand $gate): string
     {
         $varied = $repeated->varied();
         $blocks = [];
 
         foreach ($varied as $one) {
-            $blocks[] = self::block($one);
+            $blocks[] = self::block($one, $gate);
         }
 
         return implode("\n\n", [...$blocks, self::summary($repeated, count($varied))]);
@@ -69,7 +69,7 @@ final readonly class TriageText
         return $repeated->mutants() === 1 ? 'mutant' : 'mutants';
     }
 
-    private static function block(Outcomes $outcomes): string
+    private static function block(Outcomes $outcomes, GateCommand $gate): string
     {
         $mutant = $outcomes->mutant();
         $lines = [];
@@ -86,8 +86,7 @@ final readonly class TriageText
                 Mutator::short($mutant->mutator()),
                 $mutant->id()->value(),
             ),
-            ...$lines,
-            ...[sprintf('Reproduce: %s', sprintf(JudgedMutant::REPRODUCE, $mutant->id()->value()))],
+            ...[...$lines, sprintf('Reproduce: %s', $gate->reproduce($mutant->id()))],
         );
     }
 

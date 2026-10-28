@@ -77,6 +77,7 @@ use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Native\TestLayout;
+use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
 use NightWorksIO\MutationGate\Extension\Extension;
@@ -185,6 +186,7 @@ final readonly class FirstParty implements Extension
                     ComposerVendor::of(self::HERE),
                     new CapDirectory(),
                     $processes,
+                    OwnArchive::running(),
                 ),
             )
             ->withReporter(BuiltinReporter::Console->named(), ConsoleReport::fromOptions(...))
@@ -246,6 +248,7 @@ final readonly class FirstParty implements Extension
                     $options,
                     new CapDirectory(),
                     $processes,
+                    OwnArchive::running(),
                 ),
             )
             ->withRunner(

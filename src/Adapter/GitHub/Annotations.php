@@ -15,6 +15,7 @@ use function implode;
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\ClusterText;
 use NightWorksIO\MutationGate\Core\Report\Folded;
@@ -95,7 +96,9 @@ final readonly class Annotations implements Configurable, Reporter
         foreach ($ranked as $item) {
             $failing = $this->isFailing($item, $overview);
             $level = $failing ? 'error' : 'warning';
-            $line = $item instanceof Cluster ? $this->clusterCommand($level, $item) : $this->command($level, $item);
+            $line = $item instanceof Cluster
+                ? $this->clusterCommand($level, $item, $overview->gate())
+                : $this->command($level, $item, $overview->gate());
             [$errors, $warnings] = $failing
                 ? [$this->kept($errors, $line), $warnings]
                 : [$errors, $this->kept($warnings, $line)];
@@ -170,7 +173,7 @@ final readonly class Annotations implements Configurable, Reporter
     }
 
     /** One annotation for a whole cluster, at its first member. */
-    private function clusterCommand(string $level, Cluster $cluster): string
+    private function clusterCommand(string $level, Cluster $cluster, GateCommand $gate): string
     {
         $mutant = $cluster->representative()->mutant();
         $end = $mutant->location()->end();
@@ -180,10 +183,10 @@ final readonly class Annotations implements Configurable, Reporter
             'line' => $mutant->location()->start()->number(),
             ...$end instanceof Line ? ['endLine' => $end->number()] : [],
             'title' => sprintf('Mutant cluster: %s', ClusterText::size($cluster)),
-        ], sprintf(self::CLUSTER_MESSAGE, ClusterText::hint($cluster), $cluster->stub()));
+        ], sprintf(self::CLUSTER_MESSAGE, ClusterText::hint($cluster), $cluster->stub($gate)));
     }
 
-    private function command(string $level, JudgedMutant $judged): string
+    private function command(string $level, JudgedMutant $judged, GateCommand $gate): string
     {
         $mutant = $judged->mutant();
         $end = $mutant->location()->end();
@@ -197,6 +200,6 @@ final readonly class Annotations implements Configurable, Reporter
                 Label::of($judged->judgement()),
                 Mutator::short($mutant->mutator()),
             ),
-        ], sprintf(self::MESSAGE, MutantText::hinted($judged), $judged->reproduce()));
+        ], sprintf(self::MESSAGE, MutantText::hinted($judged), $judged->reproduce($gate)));
     }
 }

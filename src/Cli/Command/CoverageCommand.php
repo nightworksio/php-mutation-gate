@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
+use NightWorksIO\MutationGate\Core\Verb;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -41,7 +42,7 @@ final readonly class CoverageCommand
 
     public static function command(Composition $composition): Command
     {
-        return new Command('coverage')
+        return new Command(Verb::Coverage->value)
             ->setDescription('Run the suite under coverage and write the map a later plan reads')
             ->addOption(
                 self::INTO,

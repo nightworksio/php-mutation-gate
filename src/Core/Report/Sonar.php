@@ -106,7 +106,7 @@ final readonly class Sonar
         return [
             'ruleId' => ($overview->isSecurity($judged) ? $rule->ofSecurity() : $rule)->value,
             'primaryLocation' => [
-                'message' => MutantText::message($judged),
+                'message' => MutantText::message($judged, $overview->gate()),
                 'filePath' => $mutant->location()->file()->value(),
                 'textRange' => self::range($judged, $columns),
             ],

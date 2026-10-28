@@ -125,7 +125,7 @@ final readonly class Sarif
             'ruleId' => $rule->value,
             'ruleIndex' => $rule->index(),
             'level' => $level,
-            'message' => ['text' => MutantText::message($judged)],
+            'message' => ['text' => MutantText::message($judged, $overview->gate())],
             'locations' => [[
                 'physicalLocation' => [
                     'artifactLocation' => ['uri' => $mutant->location()->file()->value(), 'uriBaseId' => self::ROOT],
@@ -141,7 +141,7 @@ final readonly class Sarif
                 'mutator' => $mutant->mutator(),
                 'judgement' => $judged->judgement()->value,
                 'diff' => $mutant->mutation()->diff(),
-                'reproduce' => $judged->reproduce(),
+                'reproduce' => $judged->reproduce($overview->gate()),
                 ...$cluster instanceof Membership ? ['cluster' => $cluster->id()->value()] : [],
                 ...$overview->isSecurity($judged) ? ['security' => true] : [],
             ],

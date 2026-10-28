@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Tests\Fakes;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\CiMarker;
+use NightWorksIO\MutationGate\Core\Ci\JobCommands;
 use NightWorksIO\MutationGate\Core\Ci\Publication;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -35,7 +36,7 @@ final class CiPlanFake implements CiPlan
     }
 
     /** Kept, and printed as nothing. */
-    public function publish(Plan $plan): Publication
+    public function publish(Plan $plan, JobCommands $jobs): Publication
     {
         $this->published[] = $plan;
 

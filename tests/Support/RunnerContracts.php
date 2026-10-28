@@ -45,7 +45,7 @@ use function unlink;
 final readonly class RunnerContracts
 {
     /** What a run of the Infection library warns of while its Infection is not patched. */
-    public const string INFECTION_UNPATCHED = 'Unpatched, Infection gave each mutant its own limit, with no floor. Run mutation-gate infection:patch.';
+    public const string INFECTION_UNPATCHED = 'Unpatched, Infection gave each mutant its own limit, with no floor. doctor says how to patch it.';
     /**
      * Which of the fixtures' marks a run leaves: whether it loaded MoneySpec,
      * loaded it through a user-space `file://` wrapper, and ran one of its tests.

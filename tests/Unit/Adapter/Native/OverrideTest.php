@@ -9,6 +9,8 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -18,7 +20,7 @@ afterEach(function (): void {
 it('writes the script that registers the wrapper, reading the variables the gate sets, in the adapter\'s own directory', function (): void {
     $project = Project::at(Scratch::directory(), Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'), BuiltinRunner::PhpUnit);
     $before = Override::pathIn($project);
-    $script = Override::writtenFor($project);
+    $script = Override::writtenFor($project, NotGiven::value());
 
     expect($script)->toBe($project->own('override.php'))
         ->and($before)->toBe($script)
@@ -28,12 +30,22 @@ it('writes the script that registers the wrapper, reading the variables the gate
         ));
 });
 
+it('loads the gate\'s PHAR\'s autoloader before it registers the wrapper, where the gate runs from its PHAR', function (): void {
+    $project = Project::at(Scratch::directory(), Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'), BuiltinRunner::PhpUnit);
+    $script = Override::writtenFor($project, OwnArchive::at('/usr/local/bin/mutation-gate'));
+
+    expect((string) file_get_contents(is_string($script) ? $script : ''))->toBe(sprintf(
+        "<?php\n\ndeclare(strict_types=1);\n\n\\Phar::loadPhar('/usr/local/bin/mutation-gate', 'mutation-gate.phar');\nrequire 'phar://mutation-gate.phar/vendor/autoload.php';\n%s",
+        MutantFile::registering('MUTATION_GATE_MUTANT', 'MUTATION_GATE_MUTATED', 'MUTATION_GATE_GUARD', 'served'),
+    ));
+});
+
 it('cannot judge where PHP\'s command line would read the script\'s path as ini syntax', function (string $directory): void {
     $root = sprintf('%s/%s', Scratch::directory(), $directory);
     mkdir($root);
     $project = Project::at($root, Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'), BuiltinRunner::PhpUnit);
 
-    expect(Override::writtenFor($project))->toEqual(CannotJudge::because(sprintf(
+    expect(Override::writtenFor($project, NotGiven::value()))->toEqual(CannotJudge::because(sprintf(
         'PHP cannot prepend %s: its command line reads a ", a ${ or a \\\\ in a setting as ini syntax.',
         $project->own('override.php'),
     )))->and(is_file($project->own('override.php')))->toBeFalse();
@@ -47,7 +59,7 @@ it('writes the script where the path holds what PHP\'s command line reads as it 
     $root = sprintf('%s/%s', Scratch::directory(), $directory);
     mkdir($root);
 
-    expect(Override::writtenFor(Project::at($root, Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'), BuiltinRunner::PhpUnit)))->toBeString();
+    expect(Override::writtenFor(Project::at($root, Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'), BuiltinRunner::PhpUnit), NotGiven::value()))->toBeString();
 })->with([
     'one backslash' => ['a\\b'],
     'a dollar' => ['a$b'],

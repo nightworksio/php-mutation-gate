@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Proof;
 
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Mutant\IdPrefix;
 
 use function sprintf;
@@ -12,7 +13,7 @@ use function sprintf;
 final readonly class NoRecord
 {
     private const string WHY = <<<'SAID'
-        No ledger read holds a mutant %s names. Run mutation-gate on the code that has it to record it first.
+        No ledger read holds a mutant %s names. Run %s on the code that has it to record it first.
         SAID;
 
     private function __construct(private IdPrefix $sought)
@@ -29,9 +30,9 @@ final readonly class NoRecord
         return $this->sought;
     }
 
-    /** That no record holds it, and how to make one. */
-    public function why(): string
+    /** That no record holds it, and how to make one with the gate as it was started. */
+    public function why(GateCommand $gate): string
     {
-        return sprintf(self::WHY, $this->sought->value());
+        return sprintf(self::WHY, $this->sought->value(), $gate->gate());
     }
 }

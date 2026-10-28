@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Runner\PeakMemory;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use Psr\Clock\ClockInterface;
@@ -27,6 +28,7 @@ final readonly class Setup
         public ClockInterface $clock,
         public PeakMemory $memory,
         public DecidingConfig $config,
+        public GateCommand $command,
     ) {
     }
 }

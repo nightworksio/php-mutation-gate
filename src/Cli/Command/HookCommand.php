@@ -8,16 +8,15 @@ use function implode;
 
 use NightWorksIO\MutationGate\Adapter\Git\Command as Git;
 use NightWorksIO\MutationGate\Adapter\Git\Hooks;
-use NightWorksIO\MutationGate\Cli\ComposerVendor;
 use NightWorksIO\MutationGate\Cli\ExitCode;
+use NightWorksIO\MutationGate\Cli\StartedGate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
-use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Hook\Hook;
 use NightWorksIO\MutationGate\Core\Hook\Occupant;
 use NightWorksIO\MutationGate\Core\NotGiven;
-use NightWorksIO\MutationGate\Core\ThisPackage;
+use NightWorksIO\MutationGate\Core\Verb;
 
 use function sprintf;
 
@@ -39,7 +38,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 final readonly class HookCommand
 {
     /** Why the command does nothing with an action it does not know. */
-    private const string UNKNOWN = 'mutation-gate hook takes install or uninstall, not "%s".';
+    private const string UNKNOWN = 'hook takes install or uninstall, not "%s".';
 
     /** What install says of a hook someone else wrote. */
     private const string FOREIGN = <<<'SAID'
@@ -58,7 +57,7 @@ final readonly class HookCommand
 
     public static function command(string $project): Command
     {
-        return new Command('hook')
+        return new Command(Verb::Hook->value)
             ->setDescription('Add or remove the pre-push hook: hook install, hook uninstall')
             ->addArgument(Argument::Action->value, InputArgument::REQUIRED, 'install or uninstall')
             ->addOption(
@@ -92,7 +91,7 @@ final readonly class HookCommand
      */
     public static function installed(Hooks $hooks, string $project, array $chosen): string|CannotJudge
     {
-        $call = $hooks->call(ComposerVendor::binaries($project)->child(Path::of(ThisPackage::NAME)));
+        $call = $hooks->call(StartedGate::in($project));
         $said = [];
 
         foreach ($chosen as $hook) {

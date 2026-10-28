@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\CiJob;
 use NightWorksIO\MutationGate\Core\Ci\CiMarker;
+use NightWorksIO\MutationGate\Core\Ci\JobCommands;
 use NightWorksIO\MutationGate\Core\Ci\PlanListing;
 use NightWorksIO\MutationGate\Core\Ci\Publication;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
@@ -79,7 +80,7 @@ final readonly class GitHubPlan implements CiPlan, Configurable
     }
 
     /** The matrix and the plan, appended to `$GITHUB_OUTPUT` as the step's outputs `shards` and `plan`. */
-    public function publish(Plan $plan): Publication|CannotJudge
+    public function publish(Plan $plan, JobCommands $jobs): Publication|CannotJudge
     {
         $output = $this->job->variables()->valueOf(self::OUTPUT);
 

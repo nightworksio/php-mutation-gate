@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -251,6 +252,7 @@ it('leaves out of every key the config, the baseline, proofs.ignore and every fi
         new StoppedClock(Configs::NOW),
         new PeakMemoryFake(NotGiven::value()),
         DecidingConfig::unread(),
+        GateCommand::installed(),
     );
     $exceptions = Keying::exceptions(Flows::adapters(Flows::project()), $settings, $setup);
 

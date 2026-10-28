@@ -9,6 +9,7 @@ use function explode;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\Format\JsonText;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Hint\Change;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -60,7 +61,8 @@ final readonly class Stryker
 
     public static function json(Verdict $verdict, Sources $sources): string
     {
-        $uncovered = Overview::of($verdict)->uncovered();
+        $overview = Overview::of($verdict);
+        $uncovered = $overview->uncovered();
         $columns = FileColumns::of($verdict->trees()->mutants(), $sources);
         $files = [];
 
@@ -70,7 +72,13 @@ final readonly class Stryker
             $file = array_key_exists($path, $files)
                 ? $files[$path]
                 : ['language' => self::LANGUAGE, 'source' => $sources->of($at)->text()];
-            $file['mutants'][] = self::mutant($judged, $columns->in($at), $uncovered, $verdict->matrix());
+            $file['mutants'][] = self::mutant(
+                $judged,
+                $columns->in($at),
+                $uncovered,
+                $verdict->matrix(),
+                $overview->gate(),
+            );
             $files[$path] = $file;
         }
 
@@ -112,6 +120,7 @@ final readonly class Stryker
         Columns $columns,
         Uncovered $uncovered,
         KillMatrix $matrix,
+        GateCommand $gate,
     ): array {
         $covering = $matrix->coveredBy($judged);
         $completed = 0;
@@ -132,7 +141,7 @@ final readonly class Stryker
             'statusReason' => $reason instanceof Reason
                 ? sprintf('%s: %s', Label::of($judged->judgement()), $reason->text())
                 : Label::of($judged->judgement()),
-            'description' => self::description($judged, $matrix->names()),
+            'description' => self::description($judged, $matrix->names(), $gate),
             'coveredBy' => self::ids($covering),
             'killedBy' => self::ids($judged->mutant()->killers()),
             'testsCompleted' => $completed,
@@ -140,13 +149,13 @@ final readonly class Stryker
     }
 
     /** Judging tests by name, the hint, and the reproduce and explain commands, one to a line. */
-    private static function description(JudgedMutant|JudgedKill $judged, TestNames $names): string
+    private static function description(JudgedMutant|JudgedKill $judged, TestNames $names, GateCommand $gate): string
     {
         return implode("\n", [
             ...MutantText::judgedBy($judged, $names),
             $judged->hint()->text(),
-            sprintf('Reproduce: %s', $judged->reproduce()),
-            sprintf('Explain: %s', $judged->explain()),
+            sprintf('Reproduce: %s', $judged->reproduce($gate)),
+            sprintf('Explain: %s', $judged->explain($gate)),
         ]);
     }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Verdict;
 
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
@@ -68,14 +69,14 @@ final readonly class LeftUnjudged
     }
 
     /** Why each unit a budget left, whose newest result cannot stand for it, fails the verdict. */
-    public function failures(): Failures
+    public function failures(GateCommand $gate): Failures
     {
         $failures = Failures::none();
 
         foreach ($this->doomed instanceof Doomed ? [] : $this->units as $unit) {
             $counted = $this->carrying->counted($this->newest->of($unit->path()));
             $failures = $counted instanceof Uncounted
-                ? $failures->with(Failure::that($counted->said($unit->path())))
+                ? $failures->with(Failure::that($counted->said($unit->path(), $gate)))
                 : $failures;
         }
 

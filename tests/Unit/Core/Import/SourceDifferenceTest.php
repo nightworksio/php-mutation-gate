@@ -5,11 +5,12 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Import\Import;
 use NightWorksIO\MutationGate\Core\Import\SourceDifference;
 
 $paths = static fn(string ...$paths): Paths => Paths::of(...array_map(Path::of(...), $paths));
-$notes = static fn(Import $import): array => array_slice(explode("\n", $import->report('infection.json5')), 1, -2);
+$notes = static fn(Import $import): array => array_slice(explode("\n", $import->report('infection.json5', GateCommand::installed())), 1, -2);
 
 it('notes each directory one side names and the other does not', function () use ($paths, $notes): void {
     $noted = SourceDifference::noted(Import::none(), 'source.directories', $paths('src', 'lib'), $paths('src/', 'app', 'modules'));

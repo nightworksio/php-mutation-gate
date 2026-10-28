@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Report;
 use function count;
 
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
+use NightWorksIO\MutationGate\Core\GateCommand;
 
 use function sprintf;
 
@@ -50,7 +51,7 @@ final readonly class ClusterText
     }
 
     /** The whole block: its heading, then each member with its diff, the hint, and the stub and explain commands. */
-    public static function block(Cluster $cluster): string
+    public static function block(Cluster $cluster, GateCommand $gate): string
     {
         $lines = [];
 
@@ -59,8 +60,8 @@ final readonly class ClusterText
         }
 
         $lines[] = self::hint($cluster);
-        $lines[] = sprintf('Stub: %s', $cluster->stub());
-        $lines[] = sprintf('Explain: %s', $cluster->explain());
+        $lines[] = sprintf('Stub: %s', $cluster->stub($gate));
+        $lines[] = sprintf('Explain: %s', $cluster->explain($gate));
 
         return MutantText::indented(self::heading($cluster), ...$lines);
     }

@@ -7,12 +7,16 @@ namespace NightWorksIO\MutationGate\Core\Doctor\Check;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Doctor\ComposerSetup;
+use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
 use NightWorksIO\MutationGate\Core\Doctor\Finding;
 use NightWorksIO\MutationGate\Core\Doctor\Findings;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
 use NightWorksIO\MutationGate\Core\Doctor\Patched;
 use NightWorksIO\MutationGate\Core\Doctor\Severity;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
+use NightWorksIO\MutationGate\Core\Verb;
+
+use function sprintf;
 
 /** Infection as the runner, without `infection:patch` (ADR-0008). */
 final readonly class InfectionUnpatched
@@ -22,9 +26,6 @@ final readonly class InfectionUnpatched
     private const string WHY
         = 'Infection then gives each mutant its own limit with no floor, so a quick mutant can time out under load.';
 
-    private const string FIX
-        = 'Add @php vendor/bin/mutation-gate infection:patch to post-install-cmd and post-update-cmd, then install.';
-
     public static function in(Observations $observed): Findings
     {
         $settings = $observed->settings();
@@ -33,7 +34,13 @@ final readonly class InfectionUnpatched
             && $settings->runner()->choice()->use()->value() === BuiltinRunner::Infection->value;
 
         return $infection && $composer instanceof ComposerSetup && $composer->infection() === Patched::Missing
-            ? Findings::of(Finding::of(Slug::InfectionUnpatched, Severity::Advice, self::FOUND, self::WHY, self::FIX))
+            ? Findings::of(Finding::of(
+                Slug::InfectionUnpatched,
+                Severity::Advice,
+                self::FOUND,
+                self::WHY,
+                sprintf(PestUnpatched::FIX, DoctorRun::gateOf($observed)->scripted(Verb::InfectionPatch)),
+            ))
             : Findings::none();
     }
 }

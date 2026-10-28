@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Report;
 use function count;
 
 use NightWorksIO\MutationGate\Core\Format\Fit;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Matrix\NotFull;
 use NightWorksIO\MutationGate\Core\Matrix\SuiteScore;
 use NightWorksIO\MutationGate\Core\Matrix\SuiteScores;
@@ -35,7 +36,7 @@ final readonly class SuiteText
     private const string UNPLACED = 'The runner named no test, so no suite can be scored.';
 
     private const string FIRST_KILLERS
-        = 'Each is a lower bound, from first killers: `mutation-gate run --kill-matrix=full` makes it exact.';
+        = 'Each is a lower bound, from first killers: `%s` makes it exact.';
 
     private const string INFECTION = 'Each is a lower bound: Infection stops each mutant at its first failing test.';
 
@@ -69,10 +70,10 @@ final readonly class SuiteText
     }
 
     /** Why each score is a lower bound: the run recorded first killers, or its runner cannot record more. */
-    public static function lowerBound(NotFull $why): string
+    public static function lowerBound(NotFull $why, GateCommand $gate): string
     {
         return match ($why) {
-            NotFull::FirstKillers => self::FIRST_KILLERS,
+            NotFull::FirstKillers => sprintf(self::FIRST_KILLERS, $gate->fullMatrix()),
             NotFull::Infection => self::INFECTION,
         };
     }
@@ -84,7 +85,7 @@ final readonly class SuiteText
      *
      * @return list<string>
      */
-    public static function lines(SuiteScores $scores, NotFull $why): array
+    public static function lines(SuiteScores $scores, NotFull $why, GateCommand $gate): array
     {
         if (! self::shows($scores)) {
             return [];
@@ -102,6 +103,6 @@ final readonly class SuiteText
             $exact = $exact && $score->isExact();
         }
 
-        return $exact ? $lines : [...$lines, self::lowerBound($why)];
+        return $exact ? $lines : [...$lines, self::lowerBound($why, $gate)];
     }
 }

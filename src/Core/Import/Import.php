@@ -11,6 +11,7 @@ use function array_values;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\GateCommand;
 
 use function sprintf;
 
@@ -25,7 +26,7 @@ final readonly class Import
 
     private const string DELETE = 'Delete these keys from %s, since the gate no longer reads them there: %s.';
 
-    private const string RUN = 'Run mutation-gate locally once.';
+    private const string RUN = 'Run %s locally once.';
 
     private const string BASELINE
         = 'It writes the baseline at what the gate measures, and says if a tree is below the imported floor.';
@@ -75,7 +76,7 @@ final readonly class Import
      * the other tool's file: every key imported or dropped, unless part of it
      * stays.
      */
-    public function report(string $file): string
+    public function report(string $file, GateCommand $gate): string
     {
         $named = [];
         $staying = [];
@@ -92,7 +93,7 @@ final readonly class Import
             ...array_map(static fn(Carried $key): string => sprintf('  %s', $key->said($file)), $this->keys),
             ...$this->notes,
             ...($deleted === [] ? [] : [sprintf(self::DELETE, $file, implode(', ', $deleted))]),
-            self::RUN,
+            sprintf(self::RUN, $gate->gate()),
             self::BASELINE,
         ]);
     }

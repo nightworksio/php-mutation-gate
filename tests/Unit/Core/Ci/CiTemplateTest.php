@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Schema;
@@ -189,7 +190,7 @@ function ciTemplateGate(): GatePin
         Path::of('vendor/composer/installed.json'),
     );
 
-    return $installed instanceof Installed ? GatePin::in($installed) : GatePin::unknown();
+    return GatePin::in($installed);
 }
 
 /**
@@ -491,7 +492,7 @@ it('leaves the store\'s keys in GitLab\'s jobs to the verdict that keeps them al
 });
 
 it('names in Buildkite\'s pipeline and its page the cluster secrets the verdict fetches, and drops the keys before the plan installs', function (): void {
-    $steps = Decoded::at(BuildkitePlan::of(BuildkiteStep::none(), Variables::of([]))->publish(ShardedPlan::of(0))->text(), 'steps', 1, 'command');
+    $steps = Decoded::at(BuildkitePlan::of(BuildkiteStep::none(), Variables::of([]))->publish(ShardedPlan::of(0), GateCommand::installed()->jobs())->text(), 'steps', 1, 'command');
     preg_match_all('/secret get (\S+)\)/', implode("\n", array_filter(is_array($steps) ? $steps : [], is_string(...))), $secrets);
     $pipeline = ciTemplateRendered(CiTemplate::BuildkitePipeline);
     $page = (string) file_get_contents(Schema::at('.docs/guide/ci/buildkite.md'));

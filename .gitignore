@@ -28,3 +28,7 @@
 /evidence/
 node_modules/
 __pycache__/
+/build/
+/tests/Fixtures/Archive/vendor/
+/tests/Fixtures/Archive/.mutation-gate/
+/tests/Fixtures/Archive/.phpunit.cache/

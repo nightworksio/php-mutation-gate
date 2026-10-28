@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Extension\Extension;
@@ -28,12 +29,14 @@ use function sprintf;
 
 /**
  * Every extension the project's Composer manifests name, constructed and
- * registered. This is the one class that constructs a class by a name it
+ * registered, and, under the gate's PHAR, those the gate's own manifest in
+ * the archive names, which no `installed.json` of the project lists
+ * (ADR-0022). This is the one class that constructs a class by a name it
  * read, which is what naming an extension in `composer.json` asks for.
  */
 final readonly class Discovery
 {
-    public function __construct(private Directory $project, private Directory $vendor)
+    public function __construct(private Directory $project, private Directory $vendor, private Directory|NotGiven $own)
     {
     }
 
@@ -57,11 +60,15 @@ final readonly class Discovery
     {
         $root = $this->read($this->project, Manifest::fileIn(Path::root())->value(), Manifests::root(...));
         $installed = $this->read($this->vendor, Installed::fileIn(Path::root())->value(), Manifests::installed(...));
+        $own = $this->own instanceof Directory
+            ? $this->read($this->own, Manifest::fileIn(Path::root())->value(), Manifests::root(...))
+            : [];
 
         return match (true) {
+            $own instanceof CannotJudge => $own,
             $root instanceof CannotJudge => $root,
             $installed instanceof CannotJudge => $installed,
-            default => [...$root, ...$installed],
+            default => [...$own, ...$root, ...$installed],
         };
     }
 

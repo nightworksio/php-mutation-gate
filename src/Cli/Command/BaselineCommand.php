@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Cli\Flow\MeasuredFloors;
 use NightWorksIO\MutationGate\Cli\Flow\Raising;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Verb;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -28,7 +29,7 @@ final readonly class BaselineCommand
 {
     public static function command(Composition $composition): Command
     {
-        return new Command('baseline')
+        return new Command(Verb::Baseline->value)
             ->setDescription('Show, or write, floors raised to what was measured')
             ->addOption(FlowOptions::WRITE, mode: InputOption::VALUE_NONE, description: 'Write every improved floor')
             ->setCode(static function (InputInterface $input, OutputInterface $output) use ($composition): int {
@@ -38,7 +39,7 @@ final readonly class BaselineCommand
                     return Failed::because($output, $composed);
                 }
 
-                $baselines = new Baselines($composed->adapters, $composed->settings->floors()->baseline());
+                $baselines = Baselines::of($composed->adapters, $composed->settings, $composed->setup);
                 $committed = $baselines->committed();
 
                 if ($committed instanceof CannotJudge) {
@@ -67,7 +68,7 @@ final readonly class BaselineCommand
     ): int {
         $lines = $input->getOption(FlowOptions::WRITE) === true
             ? new Raising($baselines)->raise($committed, $measured->trees(), $measured->security())
-            : MeasuredFloors::of($committed, $measured);
+            : MeasuredFloors::of($committed, $measured, $baselines->gate());
 
         if ($lines instanceof CannotJudge) {
             return Failed::because($output, $lines);

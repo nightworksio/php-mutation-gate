@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\Cluster\Membership;
 use NightWorksIO\MutationGate\Core\Cluster\Unclustered;
 use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantRecord;
@@ -59,8 +60,12 @@ final readonly class MutantJson
      *
      * @return MutantEntry
      */
-    public static function of(JudgedMutant|JudgedKill $judged, KillMatrix $matrix, TestTable $table): array
-    {
+    public static function of(
+        JudgedMutant|JudgedKill $judged,
+        KillMatrix $matrix,
+        TestTable $table,
+        GateCommand $gate,
+    ): array {
         $mutant = $judged->mutant();
         $end = $mutant->location()->end();
         $covering = $matrix->coveredBy($judged);
@@ -84,8 +89,8 @@ final readonly class MutantJson
             ...$judgedBy === [] ? [] : ['judgedBy' => $judgedBy],
             'killedBy' => $table->placesOf($judged->mutant()->killers()),
             'hint' => $judged->hint()->text(),
-            'reproduce' => $judged->reproduce(),
-            'explain' => $judged->explain(),
+            'reproduce' => $judged->reproduce($gate),
+            'explain' => $judged->explain($gate),
             ...self::optional($judged),
         ];
     }

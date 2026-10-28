@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Hunk;
 use NightWorksIO\MutationGate\Core\Composer\Package;
 use NightWorksIO\MutationGate\Core\Composer\VendorPatch;
+use NightWorksIO\MutationGate\Core\Verb;
 
 use function sprintf;
 
@@ -55,7 +56,7 @@ use function sprintf;
 final readonly class Patch
 {
     /** The command that applies the patch. */
-    public const string COMMAND = 'pest:patch';
+    public const string COMMAND = Verb::PestPatch->value;
 
     /** The files the patch changes, by their paths under pest-plugin-mutate's source directory. */
     private const string MUTATION_TEST = 'MutationTest.php';
