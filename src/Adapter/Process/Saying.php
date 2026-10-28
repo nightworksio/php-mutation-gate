@@ -11,18 +11,21 @@ use function implode;
 use function min;
 
 use NightWorksIO\MutationGate\Core\Format\Fit;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
 use NightWorksIO\MutationGate\Core\Runner\ProcessLog;
 use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use Psr\Clock\ClockInterface;
 
 use function sprintf;
 
 /**
- * What the gate says of the processes it waits on, once a minute while any
- * runs: how many of them have ended, how many run, the one that has run
- * longest and for how long, and what its watch tells of its progress. A run
- * that is slow or stalled can so be read from the log as it runs.
+ * What the gate says of the processes it waits on, in a log, once a minute
+ * on its own clock while any runs: how many of them have ended, how many
+ * run, the one that has run longest and for how long, and what its watch
+ * tells of its progress. A run that is slow or stalled can so be read from
+ * the log as it runs.
  */
 final readonly class Saying
 {
@@ -34,35 +37,41 @@ final readonly class Saying
     private const string PROGRESS = '; %s';
 
     /**
-     * @param array<int, float> $since when the gate first saw each process running, by its position
+     * @param array<int, float> $since when it first saw each process running, by its position
      */
-    private function __construct(private ProcessLog $log, private float $said, private array $since)
-    {
+    private function __construct(
+        private ProcessLog $log,
+        private ClockInterface $clock,
+        private float|NotGiven $said,
+        private array $since,
+    ) {
     }
 
-    /** Saying nothing until a minute from now. */
-    public static function from(ProcessLog $log, float $now): self
+    /** Saying in this log, on this clock, nothing until a minute after the wait it is first told of. */
+    public static function on(ProcessLog $log, ClockInterface $clock): self
     {
-        return new self($log, $now, []);
+        return new self($log, $clock, NotGiven::value(), []);
     }
 
     /**
      * This, having seen these processes running now, and said a line where a
-     * minute has passed since it last said one.
+     * minute has passed since it last said one, or since the wait began.
      *
      * @param list<int>                  $running  the running processes, by their positions
      * @param array<int, ProcessCommand> $commands every command, by position
      */
-    public function at(float $now, array $running, array $commands, int $ended, ProcessWatch $watch): self
+    public function at(array $running, array $commands, int $ended, ProcessWatch $watch): self
     {
+        $now = (float) $this->clock->now()->format('U.u');
+        $said = $this->said instanceof NotGiven ? $now : $this->said;
         $since = [];
 
         foreach ($running as $at) {
             $since[$at] = array_key_exists($at, $this->since) ? $this->since[$at] : $now;
         }
 
-        if ($since === [] || $now - $this->said < Seconds::PER_MINUTE) {
-            return new self($this->log, $this->said, $since);
+        if ($since === [] || $now - $said < Seconds::PER_MINUTE) {
+            return new self($this->log, $this->clock, $said, $since);
         }
 
         $first = min($since);
@@ -78,6 +87,6 @@ final readonly class Saying
             $progress === '' ? '' : sprintf(self::PROGRESS, $progress),
         ));
 
-        return new self($this->log, $now, $since);
+        return new self($this->log, $this->clock, $now, $since);
     }
 }

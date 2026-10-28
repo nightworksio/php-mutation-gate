@@ -43,6 +43,7 @@ use NightWorksIO\MutationGate\Adapter\Php\PhpConfig;
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
 use NightWorksIO\MutationGate\Adapter\Process\ErrorOutputLog;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
+use NightWorksIO\MutationGate\Adapter\Process\Saying;
 use NightWorksIO\MutationGate\Adapter\Project\AutoloadTrees;
 use NightWorksIO\MutationGate\Adapter\Project\PhpUnitTrees;
 use NightWorksIO\MutationGate\Adapter\Psalm\Psalm;
@@ -203,14 +204,14 @@ it('registers Pest as a runner, in the vendor directory Composer installed the p
     $registry,
 ): void {
     expect(Lookup::in($registry())->runner(Name::of('pest'), Options::none()))
-        ->toEqual(Pest::fromOptions(Options::none(), ComposerVendor::of('.'), new CapDirectory(), new LocalProcesses(new SystemClock(), ErrorOutputLog::onErrorOutput()), NotGiven::value()));
+        ->toEqual(Pest::fromOptions(Options::none(), ComposerVendor::of('.'), new CapDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock())), NotGiven::value()));
 });
 
 it('registers the PHPUnit runner, in the vendor directory Composer installed the project into, from the options the flows write', function () use (
     $registry,
 ): void {
     expect(Lookup::in($registry())->runner(Name::of('phpunit'), Options::none()))
-        ->toEqual(NativeRunner::fromOptions(Options::none(), BuiltinRunner::PhpUnit, NativePhpUnit::framework(...), ComposerVendor::of('.'), new CapDirectory(), new LocalProcesses(new SystemClock(), ErrorOutputLog::onErrorOutput())))
+        ->toEqual(NativeRunner::fromOptions(Options::none(), BuiltinRunner::PhpUnit, NativePhpUnit::framework(...), ComposerVendor::of('.'), new CapDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock()))))
         ->and(Lookup::in($registry())->runner(Name::of('phpunit'), Configs::options('{"timeout": "ten"}')))->toBeInstanceOf(Invalid::class);
 });
 
@@ -218,7 +219,7 @@ it('registers the PhpSpec runner, in the vendor directory Composer installed the
     $registry,
 ): void {
     expect(Lookup::in($registry())->runner(Name::of('phpspec'), Options::none()))
-        ->toEqual(NativeRunner::fromOptions(Options::none(), BuiltinRunner::PhpSpec, NativePhpSpec::framework(...), ComposerVendor::of('.'), new CapDirectory(), new LocalProcesses(new SystemClock(), ErrorOutputLog::onErrorOutput())))
+        ->toEqual(NativeRunner::fromOptions(Options::none(), BuiltinRunner::PhpSpec, NativePhpSpec::framework(...), ComposerVendor::of('.'), new CapDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock()))))
         ->and(Lookup::in($registry())->runner(Name::of('phpspec'), Configs::options('{"timeout": "ten"}')))->toBeInstanceOf(Invalid::class);
 });
 
@@ -226,7 +227,7 @@ it('registers the Codeception runner, in the vendor directory Composer installed
     $registry,
 ): void {
     expect(Lookup::in($registry())->runner(Name::of('codeception'), Options::none()))
-        ->toEqual(NativeRunner::fromOptions(Options::none(), BuiltinRunner::Codeception, NativeCodeception::framework(...), ComposerVendor::of('.'), new CapDirectory(), new LocalProcesses(new SystemClock(), ErrorOutputLog::onErrorOutput())))
+        ->toEqual(NativeRunner::fromOptions(Options::none(), BuiltinRunner::Codeception, NativeCodeception::framework(...), ComposerVendor::of('.'), new CapDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock()))))
         ->and(Lookup::in($registry())->runner(Name::of('codeception'), Configs::options('{"timeout": "ten"}')))->toBeInstanceOf(Invalid::class);
 });
 

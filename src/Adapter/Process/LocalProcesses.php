@@ -17,10 +17,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
 use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
-use NightWorksIO\MutationGate\Core\Runner\ProcessLog;
 use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
-use NightWorksIO\MutationGate\Core\Runner\Unlogged;
 use NightWorksIO\MutationGate\Core\Runner\Unwatched;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlot;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
@@ -33,12 +31,12 @@ use Psr\Clock\ClockInterface;
  * Runs programs as processes on this machine, side by side where there are
  * several places, looking at the running ones as soon as one prints or ends
  * and at least about a hundred times a second, and at a watched one's watch
- * as often, and timing each on a clock; saying in a log, once a minute
- * while any runs, what runs (see Saying).
+ * as often, and timing each on a clock; where they are given a saying,
+ * saying in its log once a minute while any runs what runs (see Saying).
  */
 final readonly class LocalProcesses implements Processes
 {
-    public function __construct(private ClockInterface $clock, private ProcessLog $log = new Unlogged())
+    public function __construct(private ClockInterface $clock, private Saying|NotGiven $saying = new NotGiven())
     {
     }
 
@@ -71,14 +69,14 @@ final readonly class LocalProcesses implements Processes
         $waiting = $all;
         $running = [];
         $ends = [];
-        $saying = Saying::from($this->log, $this->now());
+        $saying = $this->saying;
 
         while ($waiting !== [] || $running !== []) {
             $waiting = $this->isStarting($startBy) ? $waiting : [];
             [$free, $waiting, $running, $ends] = $this->started($free, $waiting, $running, $ends);
             [$free, $running, $ended] = $this->ended($places, $free, $running);
             $ends += $ended;
-            $saying = $saying->at($this->now(), array_keys($running), $all, count($ends), $watch);
+            $saying = $this->saidOf($saying, array_keys($running), $all, count($ends), $watch);
 
             if ($ended === [] && $running !== []) {
                 $watch->look();
@@ -89,6 +87,22 @@ final readonly class LocalProcesses implements Processes
         ksort($ends);
 
         return ProcessEnds::of(...$ends);
+    }
+
+    /**
+     * A saying once it has seen these processes running, where there is one.
+     *
+     * @param list<int>                  $running  the running processes, by their positions
+     * @param array<int, ProcessCommand> $commands every command, by position
+     */
+    private function saidOf(
+        Saying|NotGiven $saying,
+        array $running,
+        array $commands,
+        int $ended,
+        ProcessWatch $watch,
+    ): Saying|NotGiven {
+        return $saying instanceof Saying ? $saying->at($running, $commands, $ended, $watch) : $saying;
     }
 
     /** Whether commands may still start: always, where nothing bounds when they start, else until then. */
