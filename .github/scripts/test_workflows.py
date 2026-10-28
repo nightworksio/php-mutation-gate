@@ -505,6 +505,51 @@ class Shards(unittest.TestCase):
 
 
 
+# An artifact's name or pattern, cut where the attempt that keys it begins.
+KEYED = re.compile(r"^(mutation-gate-[a-z-]+)-\$\{\{ (github\.run_attempt|needs\.([a-z-]+)\.outputs\.attempt) \}\}")
+
+
+def artifacts(lines: list[str], action: str) -> list[str]:
+    """The name or pattern of each step of a job that uses this artifact action."""
+    found = []
+    for one in steps(lines):
+        if f"actions/{action}-artifact@" in one[0]:
+            found += [line.split(": ", 1)[1] for line in one if line.lstrip().startswith(("name: ", "pattern: "))]
+    return found
+
+
+class Attempts(unittest.TestCase):
+    def test_every_artifact_one_job_hands_another_is_named_with_the_attempt_its_writer_gives(self):
+        # A run whose jobs are all run again keeps the artifacts every earlier
+        # attempt wrote, and a name alone finds an earlier attempt's where this
+        # one wrote none. The verdict then read results of another plan, or
+        # failed downloading an artifact of a job that was run again.
+        found = jobs(WORKFLOW)
+        keyed_by = {}
+        for name, lines in found.items():
+            for written in artifacts(lines, "upload"):
+                if not written.startswith("mutation-gate-") or written == "mutation-gate-reports":
+                    continue
+                key = KEYED.match(written)
+                with self.subTest(job=name, artifact=written):
+                    self.assertIsNotNone(key)
+                    by = key.group(3) or name
+                    self.assertIn(f"      attempt: ${{{{ github.run_attempt }}}}", found[by])
+                    keyed_by[key.group(1)] = by
+
+        self.assertEqual(keyed_by["mutation-gate-result"], "plan")
+        for name, lines in found.items():
+            needs = next((line for line in lines if line.startswith("    needs:")), "")
+            for read in artifacts(lines, "download"):
+                if not read.startswith("mutation-gate-"):
+                    continue
+                key = KEYED.match(read)
+                with self.subTest(job=name, artifact=read):
+                    self.assertIsNotNone(key)
+                    self.assertEqual(key.group(3), keyed_by[key.group(1)])
+                    self.assertIn(key.group(3), needs)
+
+
 # A job's runner, as the reusable workflow names it: its `runs-on` input,
 # a label or a JSON list of labels.
 RUNS_ON = "    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}"
