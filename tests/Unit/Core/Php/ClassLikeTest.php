@@ -35,6 +35,30 @@ it('reads a class\'s name, what it extends and implements, and the constants it 
         ->and($class->isTrait())->toBeFalse();
 });
 
+it('reads the traits a class-like uses in its body, and no name a method or a use\'s adaptations hold', function (): void {
+    $source = Php::source(<<<'PHP'
+        <?php
+        namespace App;
+        use Other\Counting as C;
+        final class Money extends Base
+        {
+            public Amount $cents;
+            use \Shared\Logs;
+            public Coin $coin;
+            use C, Priced { Priced::rate insteadof C; C::rate as protected base; }
+            public Wallet $wallet;
+            public function f(Coin $coin): Rated { return function () use ($coin) { }; }
+        }
+        trait Priced { use Rounds, namespace\Sub\Ticks; }
+        PHP);
+    [$class, $trait] = $source->shape()->classes();
+
+    expect($class->uses())->toEqual(Names::of('Shared\Logs', 'Other\Counting', 'App\Priced'))
+        ->and($class->parents())->toEqual(Names::of('App\Base', 'Base'))
+        ->and($trait->uses())->toEqual(Names::of('App\Rounds', 'App\Sub\Ticks'))
+        ->and(ClassLike::none()->uses())->toEqual(Names::of());
+});
+
 it('tells a trait from the other class-likes', function (string $keyword, bool $trait): void {
     $source = Php::source(sprintf('<?php namespace App; %s Counts { }', $keyword));
 

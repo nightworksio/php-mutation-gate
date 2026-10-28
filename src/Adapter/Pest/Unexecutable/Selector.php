@@ -49,7 +49,8 @@ use function range;
  * reads every file under the test directories and every file the map covers
  * or the run mutates, but chooses only the files that hold a test the map
  * names: another file there, such as a helper or a fixture, is no test file
- * Pest runs, and run as one it fails.
+ * Pest runs, and run as one it fails. A read in such a helper chooses the
+ * test files that name it (see Helpers), and is ambiguous.
  */
 final readonly class Selector
 {
@@ -60,7 +61,7 @@ final readonly class Selector
         private Project $project,
         private Covering $coverage,
         private TestFiles $tests,
-        private Paths $suite,
+        private Helpers $helpers,
         private Followed $followed,
         private CoverageMap $map,
         private Originals $originals,
@@ -89,7 +90,16 @@ final readonly class Selector
 
         $originals = new Originals($project, $codebase);
 
-        return new self($project, $coverage, $tests, $suite, new Followed($codebase), $map, $originals, $codebase);
+        return new self(
+            $project,
+            $coverage,
+            $tests,
+            new Helpers($project, $listed, $suite),
+            new Followed($codebase),
+            $map,
+            $originals,
+            $codebase,
+        );
     }
 
     /** A mutated file's original, scanned as the codebase read it; why it cannot be printed; or none. */
@@ -158,7 +168,7 @@ final readonly class Selector
 
         foreach ($references->sites() as $site) {
             $judging = $site->isInTest()
-                ? $this->ofTheSuite($site->file())
+                ? $this->helpers->choosing($site->file())
                 : $this->covering($site->file(), $site->line()->number(), $site->last()->number());
 
             foreach ($judging as $test) {
@@ -169,7 +179,7 @@ final readonly class Selector
         return Choice::of(
             $reading,
             $this->covering($file, Line::first()->number(), self::WHOLE),
-            $references->isAmbiguous(),
+            $references->isAmbiguous() || $this->helpers->readAny($references),
         );
     }
 
@@ -201,12 +211,6 @@ final readonly class Selector
         $tests = $this->covering($file, $first->number(), $last->number());
 
         return count($tests) === 0 ? NotGiven::value() : Choice::of($tests, Paths::none(), ambiguous: false);
-    }
-
-    /** A file under the test directories, where it holds a test the map names. */
-    private function ofTheSuite(Path $file): Paths
-    {
-        return $this->suite->has($file) ? Paths::of($file) : Paths::none();
     }
 
     /** The test files whose tests run any line from the first to the last of a file. */

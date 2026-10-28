@@ -691,8 +691,8 @@ its parser attributes. Both change when the checkout moves.
      What counts as a reference:
      - `Owner::NAME`, and `self::`, `static::` and `parent::` inside the owner
        and its subclasses;
-     - an inherited or interface constant through any class that extends or
-       implements its owner;
+     - an inherited, interface or trait constant through any class that
+       extends, implements or uses its owner;
      - an enum case through `Enum::Case`, and a case's backing value through
        any use of the enum, because `from()`, `tryFrom()`, `cases()` and
        serialisation all read it;
@@ -702,14 +702,22 @@ its parser attributes. Both change when the checkout moves.
        it is built with the constant's name or a name not written out; and
        one built on anything else, such as a variable or an object, in a file
        that names the owner;
-     - a static property through `Owner::$name`;
-     - an instance property's default through any creation of the owner;
+     - a static property through `Owner::$name`, and a trait's through any
+       class that uses it;
+     - an instance property's default through any creation of the owner, or
+       of a class that extends it or uses it as a trait;
      - a plain function's parameter default through the covering tests of the
-       lines that call it.
+       lines that call it;
+     - a read in a helper, a file under the test directories that holds no
+       test the map names, through the test files that name a class or
+       function the helper declares, or that name another helper that does,
+       in turn.
 
      An attribute's argument, a closure's parameter default and a method's
      parameter default have no reference a token scan can follow, so they are
-     always ambiguous. In a
+     always ambiguous. A read in a helper is ambiguous too, as a helper can
+     run where no name shows it, such as a base test case's set-up or a
+     `Pest.php` hook. In a
      held unit (ADR-0005), every set this decision names, the fallback
      included, is limited to the holding group.
    - **The fallback** is the set of test files that cover the owner's file.

@@ -10,8 +10,8 @@ use function range;
 
 /**
  * A class, interface, trait or enum a file declares: its fully qualified name,
- * what it may extend or implement, and the constants it declares. An anonymous
- * class has no name.
+ * what it may extend or implement, the traits it uses, and the constants it
+ * declares. An anonymous class has no name.
  */
 final readonly class ClassLike
 {
@@ -25,10 +25,21 @@ final readonly class ClassLike
      */
     private const array MEMBERS = [T_CONST, '=', ';'];
 
+    /**
+     * What a class-like body's trait uses are read by, directly inside it:
+     * the `use` that opens one, the names it holds, and the `;` or the `{`
+     * of its adaptations that ends it.
+     */
+    private const array USES = [T_USE, ';', '{', ...Names::TOKENS];
+
+    /** What ends a trait use. */
+    private const array USE_ENDS = [';', '{'];
+
     /** @param list<string> $constants */
     private function __construct(
         private string|Nameless $name,
         private Names $parents,
+        private Names $uses,
         private array $constants,
         private bool $trait,
     ) {
@@ -36,8 +47,8 @@ final readonly class ClassLike
 
     /**
      * The class-like a `class`, `interface`, `trait` or `enum` keyword
-     * declares, whose body opens at an index: its name, its parents, and the
-     * constants its body declares.
+     * declares, whose body opens at an index: its name, its parents, the
+     * traits its body uses, and the constants its body declares.
      */
     public static function at(Tokens $tokens, Scope $scope, int $keyword, int $body): self
     {
@@ -46,6 +57,7 @@ final readonly class ClassLike
         return new self(
             $name,
             self::parentsOf($tokens, $scope, $keyword, $body),
+            self::usesIn($tokens, $scope, $body),
             self::constantsIn($tokens, $body),
             trait: $tokens->is($keyword, T_TRAIT),
         );
@@ -54,7 +66,7 @@ final readonly class ClassLike
     /** A place no class-like encloses, which names nothing and extends nothing. */
     public static function none(): self
     {
-        return new self(Nameless::code(), Names::of(), [], trait: false);
+        return new self(Nameless::code(), Names::of(), Names::of(), [], trait: false);
     }
 
     /** Its fully qualified name as declared; an anonymous class has none. */
@@ -81,6 +93,12 @@ final readonly class ClassLike
     public function parents(): Names
     {
         return $this->parents;
+    }
+
+    /** The traits its body uses, each fully qualified. */
+    public function uses(): Names
+    {
+        return $this->uses;
     }
 
     /**
@@ -111,6 +129,22 @@ final readonly class ClassLike
         }
 
         return $parents;
+    }
+
+    /** The traits each `use` directly inside a class-like body names, each resolved as a class. */
+    private static function usesIn(Tokens $tokens, Scope $scope, int $body): Names
+    {
+        $uses = Names::of();
+        $using = false;
+
+        foreach ($tokens->inside($body, ...self::USES) as $at) {
+            $using = $tokens->is($at, T_USE) || ($using && ! $tokens->is($at, ...self::USE_ENDS));
+            $uses = $using && $tokens->is($at, ...Names::TOKENS)
+                ? $uses->merge(Names::of($scope->className($tokens->text($at))))
+                : $uses;
+        }
+
+        return $uses;
     }
 
     /**

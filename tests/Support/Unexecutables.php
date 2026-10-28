@@ -82,7 +82,6 @@ final class Unexecutables
         Scratch::write($root, 'tests/MoneySpec.php', "<?php\nuse App\\Money;\nit('reads', fn () => Money::RATE);\n");
         Scratch::write($root, 'tests/InternalSpec.php', "<?php\nit('runs', fn () => new App\\Money()->internal());\n");
         Scratch::write($root, 'tests/OtherSpec.php', "<?php\nit('runs the other', fn () => new App\\Money()->other());\n");
-        Scratch::write($root, 'tests/Support/RatedTest.php', "<?php\nnamespace Tests\\Support;\nfinal class RatedTest { const RATE = \\App\\Money::RATE; }\n");
 
         return Project::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of('vendor'));
     }
