@@ -204,6 +204,13 @@ manual.
      builds its one adapter, local processes through `symfony/process`, and
      hands it to the first-party runners. This amends ADR-0001:
      there are eleven ports.
+   - While any process runs, the local processes say on the gate's error
+     output, once a minute, how many of the processes they were given have
+     ended, how many run, which has run longest and for how long, and what
+     its watch tells of its progress. A Pest mutation run's watch tells how
+     many of the mutants Pest planned it has judged and one it runs, from
+     the results file the plugin writes. So a slow or stalled shard can be
+     read from its CI log as it runs.
    - The PHPUnit runner judges its mutants side by side in batches, and the
      Pest runner tries its unexecutable mutants side by side, each run
      writing in a directory of its own.

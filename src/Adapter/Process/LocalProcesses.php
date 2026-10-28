@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Process;
 
 use function array_key_first;
+use function array_keys;
 use function array_values;
+use function count;
 
 use const INF;
 
@@ -15,8 +17,10 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
 use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
+use NightWorksIO\MutationGate\Core\Runner\ProcessLog;
 use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\Unlogged;
 use NightWorksIO\MutationGate\Core\Runner\Unwatched;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlot;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
@@ -29,11 +33,12 @@ use Psr\Clock\ClockInterface;
  * Runs programs as processes on this machine, side by side where there are
  * several places, looking at the running ones as soon as one prints or ends
  * and at least about a hundred times a second, and at a watched one's watch
- * as often, and timing each on a clock.
+ * as often, and timing each on a clock; saying in a log, once a minute
+ * while any runs, what runs (see Saying).
  */
 final readonly class LocalProcesses implements Processes
 {
-    public function __construct(private ClockInterface $clock)
+    public function __construct(private ClockInterface $clock, private ProcessLog $log = new Unlogged())
     {
     }
 
@@ -62,15 +67,18 @@ final readonly class LocalProcesses implements Processes
         $startBy = $startingWithin instanceof Seconds ? $this->now() + $startingWithin->seconds() : INF;
         $places = [...$slots];
         $free = $places;
-        $waiting = array_values($commands);
+        $all = array_values($commands);
+        $waiting = $all;
         $running = [];
         $ends = [];
+        $saying = Saying::from($this->log, $this->now());
 
         while ($waiting !== [] || $running !== []) {
             $waiting = $this->isStarting($startBy) ? $waiting : [];
             [$free, $waiting, $running, $ends] = $this->started($free, $waiting, $running, $ends);
             [$free, $running, $ended] = $this->ended($places, $free, $running);
             $ends += $ended;
+            $saying = $saying->at($this->now(), array_keys($running), $all, count($ends), $watch);
 
             if ($ended === [] && $running !== []) {
                 $watch->look();

@@ -10,4 +10,9 @@ final readonly class Unwatched implements ProcessWatch
     public function look(): void
     {
     }
+
+    public function progress(): string
+    {
+        return '';
+    }
 }

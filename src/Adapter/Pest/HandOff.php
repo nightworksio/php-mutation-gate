@@ -91,6 +91,11 @@ final class HandOff implements ProcessWatch
         return array_key_exists($copy, $this->rejected) ? $this->rejected[$copy] : NotGiven::value();
     }
 
+    public function progress(): string
+    {
+        return '';
+    }
+
     /**
      * Each covered planned mutant offered to the pre-checker, and what it
      * rejected, by mutated copy.

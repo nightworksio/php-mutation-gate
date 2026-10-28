@@ -56,6 +56,7 @@ use NightWorksIO\MutationGate\Adapter\PhpSpec\PhpSpecFramework;
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Installation;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnitFramework;
+use NightWorksIO\MutationGate\Adapter\Process\ErrorOutputLog;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Adapter\Psalm\Psalm;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
@@ -101,7 +102,7 @@ final readonly class FirstParty implements Extension
     public function extend(Extensions $extensions): Extensions
     {
         $environment = Variables::of(getenv());
-        $processes = new LocalProcesses(new SystemClock());
+        $processes = new LocalProcesses(new SystemClock(), ErrorOutputLog::onErrorOutput());
         $public = new PublicBucket(HttpClient::create());
         $s3 = $this->keyed(BuiltinStore::S3, BucketLedger::fromOptions(...), $public->s3(...), $environment);
         $gcs = $this->keyed(

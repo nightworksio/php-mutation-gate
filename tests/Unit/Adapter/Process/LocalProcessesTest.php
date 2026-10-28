@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Process\ErrorOutputLog;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
+use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -36,4 +38,27 @@ it('starts the commands waiting behind one that cannot be started in the same lo
 
     expect(array_map(static fn(Ran $ran): bool => $ran->succeeded(), [...$ends]))->toBe([true, false, true])
         ->and([...$ends][2]->output())->toContain('third');
+});
+
+it('says once a minute, on the clock it times by, which process runs longest and what its watch tells of it', function (): void {
+    $file = sprintf('%s/said.log', Scratch::directory());
+    $log = ErrorOutputLog::to($file);
+    $said = static fn(): array => is_file($file) ? array_slice(explode("\n", (string) file_get_contents($file)), 0, -1) : [];
+    $watch = new readonly class implements ProcessWatch {
+        public function look(): void
+        {
+        }
+
+        public function progress(): string
+        {
+            return 'halfway';
+        }
+    };
+
+    new LocalProcesses(new TickingClock('2026-10-26T10:00:00Z', 30), $log)
+        ->run(ProcessCommand::of(Scratch::directory(), PHP_BINARY, '-r', 'usleep(300000);'), $watch);
+
+    expect($said())->not->toBe([])
+        ->and($said()[0])->toStartWith('mutation-gate: 0 of 1 processes ended, 1 running; the longest for ')
+        ->and($said()[0])->toEndWith(sprintf("%s -r usleep(300000);; halfway", PHP_BINARY));
 });
