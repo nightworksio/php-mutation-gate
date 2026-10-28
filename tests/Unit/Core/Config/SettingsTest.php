@@ -53,7 +53,7 @@ describe('Settings', function (): void {
         $colors = Configs::settings(['runner' => 'pest', 'badge' => ['colors' => ['green' => 95]]]);
         $costs = Configs::settings(['runner' => 'pest', 'costs' => ['secondsPerLine' => ['src/' => 1]]]);
 
-        expect(iterator_to_array($colors->badge(), preserve_keys: true))->toBe(['green' => 95])
+        expect(iterator_to_array($colors->publishing()->colors(), preserve_keys: true))->toBe(['green' => 95])
             ->and(Configs::shown($colors, 'badge', 'colors'))->toBe(['green' => 95])
             ->and(iterator_to_array($costs->shards()->secondsPerLine(), preserve_keys: true))->toBe(['' => 0.2, 'src' => 1.0])
             ->and(Configs::shown($costs, 'costs', 'secondsPerLine'))->toBe(['' => 0.2, 'src' => 1]);
@@ -103,7 +103,7 @@ describe('Settings', function (): void {
             ->and($settings->ignores()->maxDays())->toEqual(Absent::setting())
             ->and($settings->ignores()->native())->toBe(NativeMarkers::Refuse)
             ->and([...$settings->reports()])->toBe([])
-            ->and([...$settings->badge()])
+            ->and([...$settings->publishing()->colors()])
             ->toBe(['brightgreen' => 90, 'green' => 80, 'yellow' => 70, 'orange' => 60])
             ->and($settings->effective()->pest()->patch())->toBeFalse()
             ->and($settings->effective()->pest()->canary())->toEqual(Group::named('mutation-canary'))
@@ -173,7 +173,7 @@ describe('Settings', function (): void {
             ->and($triage->confirmSurvivors())->toBeFalse()
             ->and($settings->ignores()->maxDays())->toBe(90)
             ->and($settings->ignores()->native())->toBe(NativeMarkers::Allow)
-            ->and([...$settings->badge()])->toBe(['green' => 95])
+            ->and([...$settings->publishing()->colors()])->toBe(['green' => 95])
             ->and($settings->effective()->pest()->patch())->toBeTrue()
             ->and($settings->effective()->pest()->canary())->toEqual(Group::named('canary'))
             ->and($settings->staticCheck()->tool())->toEqual(Choice::of('phpstan', Configs::options('{}')))

@@ -32,6 +32,9 @@ use Traversable;
  */
 final readonly class Trend
 {
+    /** The file it is written to, beside the badge. */
+    public const string FILE = 'trend.json';
+
     private const int FORMAT = 1;
 
     /** How many entries it keeps, the newest. */

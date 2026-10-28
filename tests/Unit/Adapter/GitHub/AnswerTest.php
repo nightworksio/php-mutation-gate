@@ -48,3 +48,21 @@ it('reads the objects of an answer that is a list', function (): void {
     expect($items)->toHaveCount(2)
         ->and($items[1]->number('number'))->toBe(13);
 });
+
+it('reads a field as false only where it is false', function (): void {
+    $answer = Answer::of(['public' => false, 'open' => true, 'named' => 'false', 'nothing' => null]);
+
+    expect($answer->isFalse('public'))->toBeTrue()
+        ->and($answer->isFalse('open'))->toBeFalse()
+        ->and($answer->isFalse('named'))->toBeFalse()
+        ->and($answer->isFalse('nothing'))->toBeFalse()
+        ->and($answer->isFalse('missing'))->toBeFalse();
+});
+
+it('reads the texts in a list, leaving out each item that is not text', function (): void {
+    $answer = Answer::of(['topics' => ['mutation-gate', 7, ['x'], '', 'php'], 'name' => 'api']);
+
+    expect($answer->texts('topics'))->toBe(['mutation-gate', 'php'])
+        ->and($answer->texts('name'))->toBe([])
+        ->and($answer->texts('missing'))->toBe([]);
+});

@@ -122,7 +122,7 @@ it('takes the ends of every range', function (): void {
 
     expect($settings->floors()->newCode())->toEqual(Floor::of(0))
         ->and($settings->reach()->hotPaths()->share())->toBe(0.0)
-        ->and([...$settings->badge()])->toBe(['green' => 100, 'red' => 0])
+        ->and([...$settings->publishing()->colors()])->toBe(['green' => 100, 'red' => 0])
         ->and($settings->ignores()->maxDays())->toBe(1);
 });
 

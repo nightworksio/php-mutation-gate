@@ -21,6 +21,9 @@ use function sprintf;
  */
 final readonly class Origin
 {
+    /** The start of every URL that is read over TLS. */
+    public const string SECURE = 'https://';
+
     /** What a report says of a URL it cannot read. */
     public const string UNREAD = 'an unreadable URL';
 

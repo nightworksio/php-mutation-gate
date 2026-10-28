@@ -116,10 +116,10 @@ final readonly class Settings
         return $this->layer->reports()->reports();
     }
 
-    /** `badge.colors`: the lowest score of each shields.io colour, red below them all. */
-    public function badge(): Table
+    /** `badge` and `dashboard`: the badge's colours, and which repositories an organisation's dashboard shows. */
+    public function publishing(): Publishing
     {
-        return $this->layer->badge()->colors();
+        return $this->layer->publishing();
     }
 
     /** Which static analyser rejects a mutant before its tests run, and with which config (ADR-0020). */

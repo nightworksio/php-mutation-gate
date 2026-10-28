@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\Badge;
 use NightWorksIO\MutationGate\Core\Report\BadgeColors;
+use NightWorksIO\MutationGate\Core\Report\Summary;
 use NightWorksIO\MutationGate\Core\Report\Trend;
 use NightWorksIO\MutationGate\Core\Report\TrendSvg;
 use NightWorksIO\MutationGate\Core\Score\Floor;
@@ -65,7 +66,7 @@ it('says why it could not write', function (string $blocked) use ($clock): void 
 
     expect(BadgeDirectory::at(sprintf('%s/publish', $root), BadgeColors::defaults(), 'abc123', $clock())->report(Verdicts::passing()))
         ->toEqual(NotWritten::because(sprintf('%s/publish/%s could not be written.', $root, $blocked)));
-})->with(['badge.json', 'trend.json', 'trend.svg', 'savings.json']);
+})->with(['badge.json', 'trend.json', 'trend.svg', 'savings.json', 'summary.json']);
 
 it('reads its directory, its colours and its commit from its options', function () use ($clock): void {
     $options = Configs::options('{"path": "out", "colors": {"blue": 50}, "commit": "def456"}');
@@ -97,6 +98,8 @@ it('refuses colours that are not a map of scores, and a directory that is not te
     'a directory as a number' => ['{"path": 3}', 'path', 'expected a path, got 3'],
     'a directory outside the project' => ['{"path": "/tmp/x"}', 'path', 'expected a path inside the project, got "/tmp/x"'],
     'a directory up out of the project' => ['{"path": "../x"}', 'path', 'expected a path inside the project, got "../x"'],
+    'a floor for new code as text' => ['{"newCode": "high"}', 'newCode', 'The floor for new code is a percentage from 0 to 100.'],
+    'a floor for new code past 100' => ['{"newCode": 101}', 'newCode', 'The floor for new code is a percentage from 0 to 100.'],
 ]);
 
 it('writes what the gate saved over the last 30 days beside the badge', function () use ($clock): void {
@@ -125,4 +128,32 @@ it('updates neither the badge nor the trend for a sampled run', function () use 
     expect(BadgeDirectory::at($publish, BadgeColors::defaults(), 'abc123', $clock())->report(Sampled::verdict(Floor::of(60))))
         ->toEqual(NotWritten::because('A sampled run updates neither the badge nor the trend.'))
         ->and(is_dir($publish))->toBeFalse();
+});
+
+it('writes the summary an organisation\'s dashboard reads, with the floor for new code it holds', function () use ($clock): void {
+    $publish = sprintf('%s/publish', Scratch::directory());
+    Scratch::write($publish, 'trend.json', '{"format": 1, "runs": [
+        {"commit": "b", "time": "2026-09-10T00:00:00Z", "trees": {}, "runnerSeconds": 60, "fullRunSeconds": 3660}
+    ]}');
+    $answer = BadgeDirectory::at($publish, BadgeColors::defaults(), 'abc123', $clock())
+        ->holdingNewCodeTo(Floor::of(90.5))
+        ->report(Verdicts::named('accounted'));
+
+    expect($answer)->toEqual(Written::to($publish))
+        ->and(file_get_contents(sprintf('%s/summary.json', $publish)))
+        ->toBe(Summary::json(Verdicts::named('accounted'), Revision::ref('abc123'), Moment::at('2026-09-30T12:00:00Z'), Floor::of(90.5), Seconds::of(8_820.0)));
+});
+
+it('reads the floor for new code from its options', function () use ($clock): void {
+    expect(BadgeDirectory::configured(Configs::options('{"newCode": 90.5, "commit": "abc123"}'), $clock()))
+        ->toEqual(BadgeDirectory::at('.mutation-gate/publish', BadgeColors::defaults(), 'abc123', $clock())->holdingNewCodeTo(Floor::of(90.5)));
+});
+
+it('writes the summary with every mutant killed as the floor for new code where its options give none', function () use ($clock): void {
+    $publish = sprintf('%s/publish', Scratch::directory());
+
+    BadgeDirectory::at($publish, BadgeColors::defaults(), 'abc123', $clock())->report(Verdicts::failing());
+
+    expect(file_get_contents(sprintf('%s/summary.json', $publish)))
+        ->toBe(Summary::json(Verdicts::failing(), Revision::ref('abc123'), Moment::at('2026-09-30T12:00:00Z'), Floor::whole(), NoHistory::yet()));
 });

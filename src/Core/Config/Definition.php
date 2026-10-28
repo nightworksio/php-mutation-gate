@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-use NightWorksIO\MutationGate\Core\Config\Definition\BadgeKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\CiKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\CoverageKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\FloorsKeys;
@@ -15,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Config\Definition\OwnersKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\PestKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\ProofsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\PruningKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\PublishingKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\ReachKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\Reading;
 use NightWorksIO\MutationGate\Core\Config\Definition\ReportsKeys;
@@ -67,7 +67,7 @@ final readonly class Definition
             ...TriageKeys::fields(),
             ...IgnoresKeys::fields($origin),
             ...ReportsKeys::fields($origin),
-            ...BadgeKeys::fields(),
+            ...PublishingKeys::fields(),
             ...PestKeys::fields(),
             ...StaticCheckKeys::fields($origin),
             ...PruningKeys::fields(),

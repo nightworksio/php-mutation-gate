@@ -230,7 +230,10 @@ final readonly class Reporting
         $none = Options::none();
         $badge = Choice::of(
             BuiltinReporter::Badge->value,
-            Options::of(Json::object(Member::of('colors', $settings->badge()->written()))),
+            Options::of(Json::object(
+                Member::of('colors', $settings->publishing()->colors()->written()),
+                Member::of('newCode', $settings->floors()->newCode()->percent()),
+            )),
         );
 
         return [

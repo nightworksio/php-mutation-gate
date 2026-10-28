@@ -66,3 +66,30 @@ it('asks without a token rather than with an empty one, which GitHub refuses', f
     expect(str_contains($headers, 'Authorization'))->toBeFalse()
         ->and($headers)->toContain('X-GitHub-Api-Version');
 });
+
+it('reads a file as GitHub serves it raw, with the token, and cannot tell what GitHub did not answer', function (): void {
+    $response = new MockResponse('{"format": 1}');
+    $raw = Api::at(new MockHttpClient($response), '', 'secret')->raw('/repos/octo/gate/contents/summary.json?ref=mutation-gate');
+    $missing = Api::at(new MockHttpClient(new MockResponse('{"message": "Not Found"}', ['http_code' => 404])), '', '')->raw('/repos/octo/gate/contents/x');
+
+    expect($raw)->toBe('{"format": 1}')
+        ->and($response->getRequestMethod())->toBe('GET')
+        ->and($response->getRequestUrl())->toBe('https://api.github.com/repos/octo/gate/contents/summary.json?ref=mutation-gate')
+        ->and($response->getRequestOptions()['headers'])->toContain(
+            'Accept: application/vnd.github.raw',
+            'Authorization: Bearer secret',
+            'X-GitHub-Api-Version: 2022-11-28',
+        )
+        ->and($missing)->toBeInstanceOf(CannotTell::class)
+        ->and($missing instanceof CannotTell ? $missing->why() : '')->toContain('404');
+});
+
+it('reads a file unauthenticated where it has no token', function (): void {
+    $response = new MockResponse('text');
+    Api::at(new MockHttpClient($response), '', '')->raw('/repos/octo/gate/contents/x');
+
+    expect($response->getRequestOptions()['headers'])->toBe([
+        'Accept: application/vnd.github.raw',
+        'X-GitHub-Api-Version: 2022-11-28',
+    ]);
+});

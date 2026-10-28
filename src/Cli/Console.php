@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Cli\Command\BaselineCommand;
 use NightWorksIO\MutationGate\Cli\Command\ConfigSchema;
 use NightWorksIO\MutationGate\Cli\Command\ConfigShow;
 use NightWorksIO\MutationGate\Cli\Command\CoverageCommand;
+use NightWorksIO\MutationGate\Cli\Command\DashboardCommand;
 use NightWorksIO\MutationGate\Cli\Command\DigestCommand;
 use NightWorksIO\MutationGate\Cli\Command\Doctor;
 use NightWorksIO\MutationGate\Cli\Command\ExplainCommand;
@@ -157,6 +158,7 @@ final readonly class Console
         );
         $application->addCommand(Init::import($project, $extensions, $effective, $formats, $now, $gate, $composition));
         $application->addCommand(ConfigShow::command($effective, $formats));
+        $application->addCommand(DashboardCommand::command($effective, $environment, HttpClient::create(), $clock));
         $application->addCommand(ConfigSchema::command());
         $application->addCommand(MigrateCommand::command(
             new MigrationFiles($project, class_exists(...)),

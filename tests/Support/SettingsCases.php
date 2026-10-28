@@ -147,6 +147,9 @@ final readonly class SettingsCases
                 "orange": 60
             }
         },
+        "dashboard": {
+            "topic": "mutation-gate"
+        },
         "pest": {
             "patch": false,
             "canary": "mutation-canary"
@@ -227,6 +230,7 @@ final readonly class SettingsCases
             ['use' => 'Acme\\GateSlack\\SlackReporter', 'with' => ['channel' => '#ci']],
         ],
         'badge' => ['colors' => ['green' => 95]],
+        'dashboard' => ['topic' => 'mutation-tested', 'repositories' => ['api', 'web']],
         'pest' => ['patch' => true, 'canary' => 'canary'],
         'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45, 'before' => true],
         'pruning' => ['enabled' => false, 'window' => 200, 'audit' => '3d'],

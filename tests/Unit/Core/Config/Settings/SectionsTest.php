@@ -239,6 +239,12 @@ describe('Settings sections', function (): void {
         ],
     ]);
 
+    it('writes the dashboard\'s topic and repositories into a config written as PHP', function (): void {
+        expect(Configs::valid(['runner' => 'pest', 'dashboard' => ['topic' => 'mutation-tested', 'repositories' => ['api', 'web']]])->php(ProjectRoot::origin())->code())
+            ->toContain("Dashboard::topic('mutation-tested')")
+            ->toContain("Dashboard::repositories('api', 'web')");
+    });
+
     it('hands on a name in a map that reads as a number as text, to the cost model and to a config written as PHP', function (): void {
         $json = '{"runner": "pest", "costs": {"secondsPerLine": {"12": 2}}, "badge": {"colors": {"12": 50}}, '
             . '"reports": [{"use": "badge", "path": "b.svg", "with": {"colors": {"12": 50}}}]}';

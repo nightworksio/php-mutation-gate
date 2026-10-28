@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Config\Publishing;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\Setup;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -80,6 +81,19 @@ final readonly class Effective
         $loader = Formats::loader($this->extensions, $file);
 
         return $loader instanceof CannotJudge ? ConfigReads::unnamed($loader->why()) : $loader->reads($file);
+    }
+
+    /**
+     * What the config file sets of what a project publishes and of the
+     * dashboard, over every default, read on its own, so a repository that
+     * builds an organisation's dashboard needs no runner (ADR-0024); or why
+     * the file cannot be read.
+     */
+    public function publishing(CommandLine $given): Publishing|Invalid|CannotJudge
+    {
+        $file = $this->file($given->config);
+
+        return $file instanceof Layer ? Layer::standard()->over($file)->publishing() : $file;
     }
 
     /** Whether the config file or the command line chooses the runner, rather than leave it to zero-config. */

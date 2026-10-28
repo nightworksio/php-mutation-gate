@@ -17,6 +17,12 @@ final readonly class Api
     /** The version of the API the answers are read as. */
     private const string VERSION = '2022-11-28';
 
+    /** The media type of an answer as JSON. */
+    private const string JSON = 'application/vnd.github+json';
+
+    /** The media type of a file's contents as they are. */
+    private const string RAW = 'application/vnd.github.raw';
+
     /** GitHub's own API, which a run on an Enterprise server names another in place of. */
     private const string GITHUB = 'https://api.github.com';
 
@@ -40,6 +46,18 @@ final readonly class Api
         return $this->ask('GET', $path, []);
     }
 
+    /** What a file holds as GitHub's API serves it raw at a path, such as a repository's contents; or why not. */
+    public function raw(string $path): string|CannotTell
+    {
+        try {
+            return $this->client->request('GET', sprintf('%s%s', $this->url, $path), [
+                'headers' => $this->headers(self::RAW),
+            ])->getContent();
+        } catch (ExceptionInterface $unanswered) {
+            return CannotTell::because($unanswered->getMessage());
+        }
+    }
+
     /**
      * What GitHub answers when a JSON body is sent to a path of its API with a
      * method such as `POST` or `PATCH`, or why it did not.
@@ -57,14 +75,25 @@ final readonly class Api
         try {
             return Answer::of($this->client->request($method, sprintf('%s%s', $this->url, $path), [
                 ...$options,
-                'headers' => [
-                    'Accept' => 'application/vnd.github+json',
-                    'X-GitHub-Api-Version' => self::VERSION,
-                    ...$this->token === '' ? [] : ['Authorization' => sprintf('Bearer %s', $this->token)],
-                ],
+                'headers' => $this->headers(self::JSON),
             ])->toArray());
         } catch (ExceptionInterface $unanswered) {
             return CannotTell::because($unanswered->getMessage());
         }
+    }
+
+    /**
+     * The headers of every request: the media type asked for, the API's
+     * version, and the token, where there is one.
+     *
+     * @return array<string, string>
+     */
+    private function headers(string $accept): array
+    {
+        return [
+            'Accept' => $accept,
+            'X-GitHub-Api-Version' => self::VERSION,
+            ...$this->token === '' ? [] : ['Authorization' => sprintf('Bearer %s', $this->token)],
+        ];
     }
 }

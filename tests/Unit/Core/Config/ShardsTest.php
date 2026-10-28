@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Core\Config\Badge;
 use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Floors;
 use NightWorksIO\MutationGate\Core\Config\Ignores;
@@ -13,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Config\PhpCalls;
 use NightWorksIO\MutationGate\Core\Config\Price;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\Proofs;
+use NightWorksIO\MutationGate\Core\Config\Publishing;
 use NightWorksIO\MutationGate\Core\Config\Reach;
 use NightWorksIO\MutationGate\Core\Config\Reports;
 use NightWorksIO\MutationGate\Core\Config\Setup;
@@ -34,7 +34,7 @@ describe('Shards', function (): void {
         'triage' => [fn(): Triage => Triage::standard()],
         'ignores' => [fn(): Ignores => Ignores::standard()],
         'reports' => [fn(): Reports => Reports::standard()],
-        'badge' => [fn(): Badge => Badge::standard()],
+        'publishing' => [fn(): Publishing => Publishing::standard()],
         'pest' => [fn(): Pest => Pest::standard()],
         'local' => [fn(): Local => Local::standard()],
     ]);

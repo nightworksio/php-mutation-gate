@@ -224,7 +224,7 @@ The first release is tagged when every row says *yes*.
 | | Survivors in GitLab's Code Quality report | yes | [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
 | | The sticky comment and its planned state on GitLab merge requests and Bitbucket pull requests, with survivors in Bitbucket's Code Insights | not yet | [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
 | | A benchmark against plain Pest and Infection on four open-source projects: cold, warm and per pull request, losses included | yes, in `bench.yml`, with the sharded arm and `composer bench`; no result is committed yet, so the [table](#performance) shows none | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
-| | An organisation dashboard: a static site of every repository's trends, floors and savings | not yet | [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
+| | An organisation dashboard: a static site of every repository's trends, floors and savings | yes | [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
 
 ## Performance
 

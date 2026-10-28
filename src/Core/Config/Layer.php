@@ -38,7 +38,7 @@ final readonly class Layer
             Triage::none(),
             Ignores::none(),
             Reports::none(),
-            Badge::none(),
+            Publishing::none(),
             Pest::none(),
             StaticCheck::none(),
             Local::none(),
@@ -58,7 +58,7 @@ final readonly class Layer
             Triage::standard(),
             Ignores::standard(),
             Reports::standard(),
-            Badge::standard(),
+            Publishing::standard(),
             Pest::standard(),
             StaticCheck::standard(),
             Local::standard(),
@@ -135,9 +135,9 @@ final readonly class Layer
         return $this->parts->part(Reports::class);
     }
 
-    public function badge(): Badge
+    public function publishing(): Publishing
     {
-        return $this->parts->part(Badge::class);
+        return $this->parts->part(Publishing::class);
     }
 
     public function pest(): Pest

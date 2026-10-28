@@ -41,7 +41,7 @@ use function str_starts_with;
 final readonly class ExternalAccount
 {
     /** The scheme a URL source must use, since its request carries the CI's credential. */
-    public const string HTTPS = 'https://';
+    public const string HTTPS = Origin::SECURE;
     /** Google's security token service, the only place a CI's token is exchanged. */
     private const string STS = 'https://sts.googleapis.com';
 
