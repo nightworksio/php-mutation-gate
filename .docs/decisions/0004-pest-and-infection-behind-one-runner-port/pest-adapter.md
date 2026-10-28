@@ -121,7 +121,11 @@ in its third decision.
   whatever Pest made of it, with the reason *`<file>` was loaded before the
   mutant was in place, so its tests ran the original code*. That holds on
   every run, so an ignore that names the mutant by its id can leave it out
-  (ADR-0008).
+  (ADR-0008). Patched, a class file Composer autoloads is served by an
+  autoloader instead of the override (see the patches below), so a test
+  that loads that file by its path, as a `require` does, runs it as it is
+  too. The plugin reads what PHP loaded as Pest terminates it and records
+  such a mutant as well, with the same reason.
 - **Where a survivor's own run ran no test.** The package's plugin counts
   the tests that finish in each mutant's own process and writes the count
   once PHPUnit ends the run, which it does whether or not its filter
@@ -273,6 +277,31 @@ in its third decision.
     raises no warning of its own: PHP warns of a failed stat where the
     caller did not ask for quiet (`STREAM_URL_STAT_QUIET`), as it does
     without the override.
+  - A file whose every class-like Composer autoloads from it, none of them
+    loaded yet as the plugin boots, is served with no override at all. An
+    autoloader put before Composer's loads a copy of the mutated file the
+    first time one of those classes is asked for. The copy is written
+    beside Pest's as `<copy>.served.php`, renamed into place whole, with
+    `__FILE__` and `__DIR__` spelled as the original's. The override
+    pest-plugin-mutate ships handles every file operation of the process in
+    user space and registers itself again around each one, and PHP keeps
+    every registration until the process ends: 14 MB over 100,000 file
+    operations, so a suite that opens files in every test grows by about
+    half a megabyte a test. Served so, every file opens through PHP's own
+    wrapper, and a test that reads how PHP opened a file passes. The class
+    names are read from the file's tokens alone, so serving a file loads
+    none of the gate's classes. Any other file is still served through the
+    override: a file of functions, one whose classes Composer loads from
+    elsewhere or not at all, and one whose class is loaded before the
+    plugin boots. So is the file of a mutant whose mutator is pinned by
+    source (ADR-0021): the patched run marks its process with
+    `MUTATION_GATE_SOURCE_PINNED`, since only the override shows the test
+    that reads the file the mutant. A served run reads differently from
+    one through the override in three ways. A test that reads the
+    original's text reads it as it is on disk. A reflection of the class
+    names the served copy's file. A test that loads the original by its
+    path runs the original's code, and its mutant is unjudged (see where a
+    mutant's file was loaded before the mutant).
   - Each mutant is allowed the standard mutant limit (ADR-0008): three
     times the shard's measured start-up, told it in
     `MUTATION_GATE_MUTANT_START_UP`, plus three times its covering

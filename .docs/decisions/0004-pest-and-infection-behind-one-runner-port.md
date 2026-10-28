@@ -356,7 +356,9 @@ its parser attributes. Both change when the checkout moves.
      override that its mutate plugin registers on every boot when
      `PEST_MUTATION_TESTING` names the original file and `PEST_MUTATION_FILE`
      names the mutated copy. That happens with or without `--mutate`, and in
-     every `--parallel` worker, which inherits the environment. The gate uses
+     every `--parallel` worker, which inherits the environment. Patched, a
+     class file Composer autoloads is served by an autoloader in the
+     override's place (decision 3). The gate uses
      the same mechanism Pest uses for its own mutants:
      1. The plugin copies each uncovered mutant's mutated file from its
         `Uncovered` event to `.mutation-gate/pest/mutants/<native id>.php`.
@@ -390,7 +392,8 @@ its parser attributes. Both change when the checkout moves.
         evidence, which judges it (ADR-0014).
    - **Guards.** When `MUTATION_GATE_GUARD` names a file, the plugin writes to
      it whether the original file was loaded before the override started,
-     whether it was loaded at all, and the opcache settings. It writes as
+     or by its path where a copy is served in its place (decision 3),
+     whether it or that copy was loaded at all, and the opcache settings. It writes as
      Pest terminates its plugins, and again as the process ends: Pest ends a
      process a fatal error stopped by exiting from its own shutdown function,
      which leaves every later one uncalled. A file is loaded where PHP lists
