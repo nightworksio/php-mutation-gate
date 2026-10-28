@@ -29,6 +29,9 @@ final class Bridged
     /** @var array<string, string> each registered bridge's mutator's name, by the bridge's class */
     private static array $names = [];
 
+    /** @var array<string, true> each registered bridge whose mutator is pinned by source, by its class */
+    private static array $pinned = [];
+
     /** Loads the bridges the gate wrote into a file, where one is named and is there. */
     public static function load(string|false $bridges): void
     {
@@ -39,12 +42,13 @@ final class Bridged
 
     /**
      * Adds a bridge to Pest's map of mutators under each node class it
-     * handles, and keeps its mutator's name.
+     * handles, and keeps its mutator's name and whether that mutator is
+     * pinned by source.
      *
      * @param class-string<PestMutator> $bridge
      * @param array<int, class-string<Node>> $nodes
      */
-    public static function register(string $bridge, string $name, array $nodes): void
+    public static function register(string $bridge, string $name, array $nodes, bool $pinnedBySource = false): void
     {
         $map = MutatorMap::get();
 
@@ -54,6 +58,13 @@ final class Bridged
 
         MutatorMap::$map = $map;
         self::$names[$bridge] = $name;
+        self::$pinned += $pinnedBySource ? [$bridge => true] : [];
+    }
+
+    /** Whether a mutator, as Pest names it, is a bridged one pinned by source (ADR-0021). */
+    public static function isPinnedBySource(string $mutator): bool
+    {
+        return array_key_exists($mutator, self::$pinned);
     }
 
     /** A mutator's name as the gate names it: a bridged mutator's own, and any other's class, as Pest names it. */

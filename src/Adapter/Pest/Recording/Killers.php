@@ -13,6 +13,7 @@ use function is_string;
 use function is_writable;
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
+use NightWorksIO\MutationGate\Adapter\Pest\ServedClasses;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\InertSetting;
 use NightWorksIO\MutationGate\Core\Test\RunIssues;
@@ -135,6 +136,21 @@ final readonly class Killers
     public function runEnded(): void
     {
         $this->order->stopped();
+    }
+
+    /**
+     * Where killers are named in this process, given every file it loaded:
+     * writes that the original was loaded before the mutant was in place,
+     * where the process serves a copy in its place and loaded the original by
+     * its path as well (see ServedClasses).
+     *
+     * @param list<string> $loaded
+     */
+    public static function bypassedIn(self|Off $killers, array $loaded): void
+    {
+        if ($killers instanceof self && ServedClasses::bypassed($loaded)) {
+            $killers->append(KillerFile::preloaded());
+        }
     }
 
     /**

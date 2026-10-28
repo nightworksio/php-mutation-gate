@@ -2,11 +2,8 @@
 
 declare(strict_types=1);
 
-use Library\Linked;
+require_once sprintf('%s/src/looks.php', dirname(__DIR__));
 
-// While pest-plugin-mutate's override serves any file, every file opens
-// through its user-space wrapper, so this test fails whatever the file served
-// holds, as any test does that reads how PHP opened a file.
 it('tells a link for a link, reading a file through PHP\'s own wrapper', function (): void {
     $directory = sprintf('%s/linked-%s', sys_get_temp_dir(), bin2hex(random_bytes(8)));
     mkdir($directory);
@@ -16,7 +13,7 @@ it('tells a link for a link, reading a file through PHP\'s own wrapper', functio
     $wrapper = $handle === false ? '' : stream_get_meta_data($handle)['wrapper_type'];
 
     try {
-        expect(new Linked()->isLink(sprintf('%s/link', $directory)))->toBeTrue()
+        expect(Library\looksLinked(sprintf('%s/link', $directory)))->toBeTrue()
             ->and($wrapper)->toBe('plainfile');
     } finally {
         if ($handle !== false) {

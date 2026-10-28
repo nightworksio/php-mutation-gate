@@ -1,10 +1,13 @@
 <?php
 
 declare(strict_types=1);
+use NightWorksIO\MutationGate\Adapter\Pest\Bridged;
+use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\LoadedMap;
 use NightWorksIO\MutationGate\Adapter\Pest\MutantTime;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Selection;
+use NightWorksIO\MutationGate\Adapter\Pest\ServedClasses;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Pool;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
@@ -145,7 +148,7 @@ it('marks every hunk it writes, one mark to a hunk, so another version\'s are fo
         MutatePlugin::FILES,
     ));
 
-    expect($marks)->toBe(19);
+    expect($marks)->toBe(21);
 });
 
 it('has each mutant\'s run select exactly the tests that cover it, a row of a data set alone, named whole by the map Pest loaded', function () use ($vendor, $source): void {
@@ -165,4 +168,17 @@ it('asks each mutant\'s run of its place\'s warm worker, where the run has one',
         '...($processId !== null && class_exists(\\%1$s::class) ? \\%1$s::prefix($processId) : []),',
         Pool::class,
     ));
+});
+
+it('serves a class Composer autoloads by an autoloader, and starts the wrapper for any other file or a mutant pinned by source', function () use ($vendor, $source): void {
+    $at = $vendor();
+    Patch::applyIn($at);
+
+    expect($source($at, 'Plugins/Mutate.php'))->toContain(sprintf('if (! class_exists(\\%1$s::class) || ! \\%1$s::fromEnvironment()) {', ServedClasses::class))
+        ->and($source($at, 'Plugins/Mutate.php'))->toContain('StreamWrapper::start(getenv(self::ENV_MUTATION_TESTING), $copy);')
+        ->and($source($at, 'MutationTest.php'))->toContain(sprintf(
+            "if (class_exists(\\%1\$s::class) && \\%1\$s::isPinnedBySource(\$this->mutation->mutator)) {\n",
+            Bridged::class,
+        ))
+        ->and($source($at, 'MutationTest.php'))->toContain(sprintf("\$envs['%s'] = '1';\n", GateVariable::SourcePinned->value));
 });

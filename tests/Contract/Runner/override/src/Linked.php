@@ -19,4 +19,16 @@ final readonly class Linked
 
         return $seen;
     }
+
+    /** The file this class is declared in, as PHP names it. */
+    public function file(): string
+    {
+        return __FILE__;
+    }
+
+    /** The directory of that file, as PHP names it. */
+    public function directory(): string
+    {
+        return __DIR__;
+    }
 }

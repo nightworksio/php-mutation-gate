@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\Placed;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
+use NightWorksIO\MutationGate\Adapter\Pest\ServedClasses;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\IssueKillers;
 use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
 use NightWorksIO\MutationGate\Core\Test\RunIssues;
@@ -19,6 +20,7 @@ use NightWorksIO\MutationGate\Tests\Support\Beats;
 use NightWorksIO\MutationGate\Tests\Support\GateEnvironment;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitEvents;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\ServedBox;
 use PHPUnit\Event\Facade;
 
 beforeEach(function (): void {
@@ -85,6 +87,25 @@ it('writes first that its process had loaded the original before the override, b
         ->toBe(sprintf('%s%s', KillerFile::preloaded(), KillerFile::line(RecordEvent::Killed, 'T::adds', Placed::unplaced((int) getmypid()))))
         ->and(is_file($results))->toBeFalse()
         ->and(is_file(KillerFile::beside($clean, '/tmp/mutations/abc')))->toBeFalse();
+});
+
+it('writes the original as loaded before the override where its process serves a copy and loaded the original by its path', function (): void {
+    $box = ServedBox::registered();
+    $results = sprintf('%s/results.jsonl', dirname($box->file, 2));
+    $killers = Killers::listening($results, $box->copy, new Facade(), $box->file, Loaded::of([]), new Beats()->heartbeat(), IssueKillers::ofThisRun());
+
+    try {
+        ServedClasses::serve($box->file, $box->copy);
+        Killers::bypassedIn($killers, [sprintf('%s.served.php', $box->copy)]);
+        Killers::bypassedIn(Off::NamingKillers, [$box->file]);
+        $kept = is_file(KillerFile::beside($results, $box->copy));
+        Killers::bypassedIn($killers, [$box->file]);
+
+        expect($kept)->toBeFalse()
+            ->and(file_get_contents(KillerFile::beside($results, $box->copy)))->toBe(KillerFile::preloaded());
+    } finally {
+        $box->loader->unregister();
+    }
 });
 
 it('writes a test that errored apart from one that failed, in the file of the mutated copy it ran on', function (): void {

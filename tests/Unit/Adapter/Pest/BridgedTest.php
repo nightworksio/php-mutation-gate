@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\RemoveEcho;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Pest\Mutate\Mutators\Arithmetic\PlusToMinus as PestPlusToMinus;
+use Pest\Mutate\Mutators\String\UnwrapTrim;
 use Pest\Mutate\Mutators\String\UnwrapWordwrap;
 use Pest\Mutate\Support\MutatorMap;
 use PhpParser\Node\Expr\BinaryOp\Minus;
@@ -37,6 +38,19 @@ it('adds a bridge to Pest\'s map of mutators by node class, and names its mutant
             ->and($map[Variable::class] ?? [])->toBe([UnwrapWordwrap::class])
             ->and(Bridged::nameOf(UnwrapWordwrap::class))->toBe('acme/UnwrapWordwrap')
             ->and(Bridged::nameOf(PestPlusToMinus::class))->toBe(PestPlusToMinus::class);
+    } finally {
+        MutatorMap::$map = null;
+    }
+});
+
+it('tells a bridge whose mutator is pinned by source from one whose is not, and from a mutator Pest ships', function (): void {
+    try {
+        Bridged::register(UnwrapWordwrap::class, 'acme/UnwrapWordwrap', [], pinnedBySource: true);
+        Bridged::register(UnwrapTrim::class, UnwrapTrim::class, [], pinnedBySource: false);
+
+        expect(Bridged::isPinnedBySource(UnwrapWordwrap::class))->toBeTrue()
+            ->and(Bridged::isPinnedBySource(UnwrapTrim::class))->toBeFalse()
+            ->and(Bridged::isPinnedBySource(PestPlusToMinus::class))->toBeFalse();
     } finally {
         MutatorMap::$map = null;
     }

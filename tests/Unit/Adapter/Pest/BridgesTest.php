@@ -22,6 +22,8 @@ use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinusToo;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\RemoveEcho;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
+use NightWorksIO\MutationGateSecurity\Mutators\HashEqualsToIdentical;
+use NightWorksIO\MutationGateSecurity\Mutators\HashEqualsToTrue;
 use NightWorksIO\MutationGateSecurity\Mutators\UnwrapHtmlentities;
 use NightWorksIO\MutationGateSecurity\Mutators\UnwrapHtmlspecialchars;
 use NightWorksIO\MutationGateSecurity\Mutators\UnwrapShellEscape;
@@ -124,6 +126,21 @@ it('writes bridges that Pest applies by its own contract, and registers each in 
             ->and(MutatorMap::get()[Plus::class] ?? [])->toContain(PEST_BRIDGE)
             ->and(MutatorMap::get()[Echo_::class] ?? [])->toContain($echo)
             ->and(Bridged::nameOf(PEST_BRIDGE))->toBe('acme/PlusToMinus');
+    } finally {
+        MutatorMap::$map = null;
+    }
+});
+
+it('registers a bridge whose mutator is pinned by source as one, and any other as not', function (): void {
+    $file = sprintf('%s/bridges.php', Scratch::untilExit());
+    $bridges = Bridges::to(Enabled::of(MutatorSet::of(HashEqualsToIdentical::class, HashEqualsToTrue::class)));
+    file_put_contents($file, $bridges->written(ParserNodes::in(Tree::at('vendor'))));
+
+    try {
+        Bridged::load($file);
+
+        expect(Bridged::isPinnedBySource(sprintf('NightWorksIO\\MutationGateBridge\\Pest\\%s', HashEqualsToIdentical::class)))->toBeTrue()
+            ->and(Bridged::isPinnedBySource(sprintf('NightWorksIO\\MutationGateBridge\\Pest\\%s', HashEqualsToTrue::class)))->toBeFalse();
     } finally {
         MutatorMap::$map = null;
     }
