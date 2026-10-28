@@ -76,7 +76,7 @@ it('cannot tell where git stops before it reads its input, and writes nowhere it
     $answer = Command::in(Scratch::directory())->feed(['cat-file', '--batch'], str_repeat("HEAD:./src/Money.php\n", 800_000));
 
     expect($answer)->toBeInstanceOf(CannotTell::class)
-        ->and($answer instanceof CannotTell ? $answer->why() : '')->toMatch('/^git cat-file --batch gave no answer: fatal: not a git repository[^\n]*\z/');
+        ->and($answer instanceof CannotTell ? $answer->why() : '')->toMatch('/^git cat-file --batch gave no answer: fatal: not a git repository[^\n]*(?:\nStopping at filesystem boundary[^\n]*)?\z/');
 })->group(...$holds);
 
 it('leaves none of the files it hands git its input through', function (): void {

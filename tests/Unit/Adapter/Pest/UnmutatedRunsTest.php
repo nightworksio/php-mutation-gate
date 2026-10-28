@@ -93,7 +93,7 @@ it('runs each control with its file served unmutated through Pest\'s override, b
 
 it('names the tests a failed control\'s JUnit log records failing', function (): void {
     $shell = new ShellFake(static function (Command $command): Ran {
-        JUnitLogs::failing($command->arguments(), 'it adds', 'tests/MoneySpec.php::it adds', 'Tests\\MoneySpec');
+        JUnitLogs::failing($command->arguments(), 'it adds', 'tests/WalletSpec.php::it adds', 'Tests\\WalletSpec');
 
         return Ran::finished(succeeded: false, output: 'FAILED');
     });
@@ -101,7 +101,7 @@ it('names the tests a failed control\'s JUnit log records failing', function ():
     $runs = unmutatedRuns(unmutatedProject(), $shell, Controls::of(pestControl('src/Money.php')), unmutatedRequest());
 
     expect($runs->of(pestControl('src/Money.php')))
-        ->toEqual(ControlRun::failed(TestIds::of(TestId::of('P\Tests\MoneySpec::__pest_evaluable_it_adds'))));
+        ->toEqual(ControlRun::failed(TestIds::of(TestId::of('P\Tests\WalletSpec::__pest_evaluable_it_adds'))));
 });
 
 it('reads how each control ended: passed in the time it took, failed, or ran out of its limit', function (Ran $ran, ControlRun $found): void {

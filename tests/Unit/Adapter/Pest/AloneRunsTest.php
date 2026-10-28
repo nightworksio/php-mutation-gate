@@ -156,6 +156,24 @@ it('names the tests a failed control\'s JUnit log records failing', function ():
     expect($ended)->toEqual([ControlRun::failed(TestIds::of(TestId::of('Tests\MoneyTest::testAdds')))]);
 });
 
+it('runs a control unlogged, naming no failing test, where something it cannot clear stands where its log goes', function (): void {
+    $root = (string) realpath(Scratch::directory());
+    Scratch::write($root, 'src/Money.php', "<?php\n\nfinal class Money\n{\n}\n");
+    Scratch::write($root, '.mutation-gate/pest/alone/junit-0.xml/kept', 'kept');
+    $at = Project::at($root, Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'));
+    $shell = ShellFake::answering(Ran::finished(succeeded: false, output: ''));
+
+    $ended = new AloneRuns($at, $shell, new Remembered())->ended(
+        [Control::of(Path::of('src/Money.php'), Paths::of(Path::of('tests/MoneyTest.php')), WholeSuite::tests())],
+        MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()),
+        Unlimited::time(),
+        sprintf('%s/results.jsonl', $root),
+    );
+
+    expect($ended)->toEqual([ControlRun::failed(TestIds::none())])
+        ->and(implode(' ', $shell->commands()[0]->arguments()))->not->toContain('--log-junit');
+});
+
 it('remembers a control\'s run apart for each set of withheld variables', function (): void {
     $root = (string) realpath(Scratch::directory());
     Scratch::write($root, 'src/Money.php', "<?php\n\nfinal class Money\n{\n}\n");
