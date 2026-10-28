@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_all;
+use function array_filter;
 use function array_intersect;
 use function array_key_exists;
 use function array_keys;
+use function array_slice;
+use function array_values;
 use function class_exists;
 
 use Composer\Autoload\ClassLoader;
@@ -20,12 +23,10 @@ use function getmypid;
 use function interface_exists;
 use function is_file;
 use function is_string;
+use function ltrim;
 use function mb_strtolower;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
-use NightWorksIO\MutationGate\Core\File\Contents;
-use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Php\Source;
 use PhpToken;
 
 use function realpath;
@@ -109,21 +110,44 @@ final class ServedClasses
     /**
      * The class-likes a file declares, each by its name as declared, by that
      * name in lower case, as PHP compares class names; none where no file
-     * is there.
+     * is there. Read from its tokens alone, by the keywords Tokens::CLASS_LIKE
+     * holds rather than through Tokens or the parser, so that serving a file
+     * loads none of the gate's classes, whose own mutants it may serve.
      *
      * @return array<string, string>
      */
     private static function classesIn(string $path): array
     {
         $text = is_file($path) ? (string) file_get_contents($path) : '';
+        $tokens = array_values(array_filter(
+            PhpToken::tokenize($text),
+            static fn(PhpToken $token): bool => ! $token->isIgnorable(),
+        ));
+        $namespace = '';
         $classes = [];
 
-        foreach (Source::read(Path::of($path), Contents::of($text), test: false)->shape()->classes() as $class) {
-            $name = $class->name();
-            $classes += is_string($name) ? [mb_strtolower($name) => $name] : [];
+        foreach (array_slice($tokens, 1) as $at => $next) {
+            $token = $tokens[$at];
+            $namespace = $token->is(T_NAMESPACE) ? self::namespaceOf($next) : $namespace;
+            $name = self::declared($token, $next, $namespace);
+            $classes += $name !== '' ? [mb_strtolower($name) => $name] : [];
         }
 
         return $classes;
+    }
+
+    /** The class-like a keyword and the token after it declare in a namespace, by its full name; none for another. */
+    private static function declared(PhpToken $token, PhpToken $next, string $namespace): string
+    {
+        return $token->is([T_CLASS, T_INTERFACE, T_TRAIT, T_ENUM]) && $next->is(T_STRING)
+            ? ltrim(sprintf('%s\\%s', $namespace, $next->text), '\\')
+            : '';
+    }
+
+    /** The namespace a `namespace` keyword declares, by the token after it; the global one for a block. */
+    private static function namespaceOf(PhpToken $named): string
+    {
+        return $named->is([T_STRING, T_NAME_QUALIFIED]) ? $named->text : '';
     }
 
     /**

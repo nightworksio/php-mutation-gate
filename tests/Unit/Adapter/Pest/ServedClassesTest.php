@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
+use Composer\Autoload\ClassLoader;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\ServedClasses;
+use NightWorksIO\MutationGate\Tests\Support\Declared;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ServedBox;
@@ -90,11 +92,11 @@ it('leaves to the wrapper a file Composer does not autoload, one whose class is 
     }
 });
 
-it('leaves to the wrapper a file whose interface or trait is loaded already', function (string $kind): void {
+it('leaves to the wrapper a file whose interface, trait or enum is loaded already', function (string $kind): void {
     $box = ServedBox::registered($kind);
 
     try {
-        expect(interface_exists($box->class) || trait_exists($box->class))->toBeTrue()
+        expect(interface_exists($box->class) || trait_exists($box->class) || enum_exists($box->class))->toBeTrue()
             ->and(ServedClasses::serve($box->file, $box->copy))->toBeFalse();
     } finally {
         $box->loader->unregister();
@@ -102,6 +104,60 @@ it('leaves to the wrapper a file whose interface or trait is loaded already', fu
 })->with([
     'an interface' => ['interface'],
     'a trait' => ['trait'],
+    'an enum' => ['enum'],
+]);
+
+it('serves an interface, a trait and an enum Composer autoloads, as it serves a class', function (string $kind): void {
+    $box = ServedBox::registered($kind);
+
+    try {
+        $served = ServedClasses::serve($box->file, $box->copy);
+        $loaded = interface_exists($box->class) || trait_exists($box->class) || enum_exists($box->class);
+
+        expect($served)->toBeTrue()
+            ->and($loaded)->toBeTrue()
+            ->and(get_included_files())->toContain(sprintf('%s.served.php', $box->copy));
+    } finally {
+        $box->loader->unregister();
+    }
+})->with([
+    'an interface' => ['interface'],
+    'a trait' => ['trait'],
+    'an enum' => ['enum'],
+]);
+
+it('serves a file that names another class and declares an anonymous one, by the class it declares', function (): void {
+    $box = ServedBox::registered(body: 'public const OTHER = \\Elsewhere\\Thing::class; public function made(): object { return new class {}; }');
+
+    try {
+        expect(ServedClasses::serve($box->file, $box->copy))->toBeTrue()
+            ->and($box->read('SIZE'))->toBe('2');
+    } finally {
+        $box->loader->unregister();
+    }
+});
+
+it('serves a class file in the global namespace, a block of it, and a namespace of one name', function (string $opened, string $closed, string $namespace): void {
+    $short = Declared::name('ServedGlobal');
+    $class = sprintf('%s%s', $namespace, $short);
+    $root = (string) realpath(Scratch::directory());
+    $code = "<?php\n%s\nfinal class %s { public const SIZE = %d; }\n%s";
+    Scratch::write($root, 'src/Global.php', sprintf($code, $opened, $short, 1, $closed));
+    Scratch::write($root, 'mutations/global.php', sprintf($code, $opened, $short, 2, $closed));
+    $loader = new ClassLoader(sprintf('%s/vendor', $root));
+    $loader->addClassMap([$class => sprintf('%s/src/Global.php', $root)]);
+    $loader->register();
+
+    try {
+        expect(ServedClasses::serve(sprintf('%s/src/Global.php', $root), sprintf('%s/mutations/global.php', $root)))->toBeTrue()
+            ->and(constant(sprintf('%s::SIZE', $class)))->toBe(2);
+    } finally {
+        $loader->unregister();
+    }
+})->with([
+    'the global namespace' => ['', '', ''],
+    'a block of it' => ['namespace {', '}', ''],
+    'a namespace of one name' => ['namespace Served;', '', 'Served\\'],
 ]);
 
 it('serves the copy pest-plugin-mutate names unless the mutant\'s mutator is pinned by source, which the wrapper serves', function (): void {

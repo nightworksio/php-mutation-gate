@@ -26,6 +26,7 @@ final readonly class ServedBox
             public const SIZE = %d;
             public const FILE = __FILE__;
             public const DIRECTORY = __DIR__;
+            %s
         }
 
         PHP;
@@ -38,13 +39,16 @@ final readonly class ServedBox
     ) {
     }
 
-    /** A box, declared as this kind of class-like, whose loader is registered; a test unregisters it once done. */
-    public static function registered(string $kind = 'final class'): self
+    /**
+     * A box, declared as this kind of class-like with this more in its body,
+     * whose loader is registered; a test unregisters it once done.
+     */
+    public static function registered(string $kind = 'final class', string $body = ''): self
     {
-        $namespace = Declared::name('Served');
+        $namespace = sprintf('Served\\%s', Declared::name('Box'));
         $root = (string) realpath(Scratch::directory());
-        Scratch::write($root, 'src/Box.php', sprintf(self::CODE, $namespace, $kind, 1));
-        Scratch::write($root, 'mutations/box.php', sprintf(self::CODE, $namespace, $kind, 2));
+        Scratch::write($root, 'src/Box.php', sprintf(self::CODE, $namespace, $kind, 1, $body));
+        Scratch::write($root, 'mutations/box.php', sprintf(self::CODE, $namespace, $kind, 2, $body));
         $class = sprintf('%s\Box', $namespace);
         $loader = new ClassLoader(sprintf('%s/vendor', $root));
         $loader->addClassMap([$class => sprintf('%s/src/Box.php', $root)]);
