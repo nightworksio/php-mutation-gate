@@ -42,9 +42,11 @@ it('reads the traits a class-like uses in its body, and no name a method or a us
         use Other\Counting as C;
         final class Money extends Base
         {
-            use \Shared\Logs;
-            use C, Priced { Priced::rate insteadof C; C::rate as protected base; }
             public Amount $cents;
+            use \Shared\Logs;
+            public Coin $coin;
+            use C, Priced { Priced::rate insteadof C; C::rate as protected base; }
+            public Wallet $wallet;
             public function f(Coin $coin): Rated { return function () use ($coin) { }; }
         }
         trait Priced { use Rounds, namespace\Sub\Ticks; }

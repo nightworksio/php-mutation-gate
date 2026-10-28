@@ -113,7 +113,7 @@ final class Helpers
     private function read(Path $file): PhpFile|NotGiven
     {
         $path = $this->project->absolute($file);
-        $text = is_file($path) ? file_get_contents($path) : false;
+        $text = is_file($path) ? file_get_contents($path) : null;
 
         return is_string($text) ? PhpFile::read(Contents::of($text)) : NotGiven::value();
     }
