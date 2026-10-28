@@ -114,14 +114,16 @@ it('asks for a control that loads the test files its mutant\'s run loaded with n
     expect($asked[0]->selected())->toBe($files);
 });
 
-it('asks for no control of a mutant that did not run out of memory, of one with no cap, or of one no test covers', function (): void {
+it('asks for no control of a mutant that did not run out of memory, of one with no cap, or of one no test covers, and one of a mutant after them', function (): void {
     $mutants = Mutants::of(
         memoryMutant('src/Grow.php', 'killed', MutantStatus::Killed)->withLimit(MemoryCap::of(64, MemoryUnit::Megabytes)),
         memoryMutant('src/Grow.php', 'no cap', MutantStatus::OutOfMemory),
         memoryMutant('src/Other.php', 'uncovered', MutantStatus::OutOfMemory)->withLimit(MemoryCap::of(64, MemoryUnit::Megabytes)),
+        grownMutant('after'),
     );
 
-    expect(askedMemoryControls(MemoryControls::of($mutants, UnfilteredRuns::none(), growMap(), HeldCovered::none(), new ExactRun(), memoryBounds())))->toBe([]);
+    expect(askedMemoryControls(MemoryControls::of($mutants, UnfilteredRuns::none(), growMap(), HeldCovered::none(), new ExactRun(), memoryBounds())))
+        ->toBe([['src/Grow.php', ['GrowTest::a'], 11.0]]);
 });
 
 it('controls a mutant of a held unit by the tests covering its line that hold it', function (): void {

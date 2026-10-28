@@ -124,19 +124,20 @@ it('asks for a control that loads the test files its kill\'s run loaded with no 
     expect($asked[0]->selected())->toBe($files);
 });
 
-it('asks for no control of a kill a test is named for, one a signal, a fatal error or a control vouched for, a survivor, or one no test covers', function (): void {
+it('asks for no control of a kill a test is named for, one a signal, a fatal error or a control vouched for, a survivor, or one no test covers, and one of a kill after them', function (): void {
     $named = unnamedMutant('src/Record.php', 'named')->killedBy(TestIds::of(TestId::of('RecordTest::a')));
     $signalled = unnamedMutant('src/Record.php', 'signalled');
     $fatal = unnamedMutant('src/Record.php', 'fatal');
     $vouched = unnamedMutant('src/Record.php', 'vouched');
     $survivor = unnamedMutant('src/Record.php', 'survivor', MutantStatus::Survived);
     $uncovered = unnamedMutant('src/Other.php', 'uncovered');
-    $evidence = exitedEach($named, $survivor, $uncovered)
+    $after = unnamedMutant('src/Record.php', 'after');
+    $evidence = exitedEach($named, $survivor, $uncovered, $after)
         ->with($signalled->id(), Evidence::none()->withEnded(Ended::unprinted(137, signalled: true)))
         ->with($fatal->id(), Evidence::none()->withEnded(Ended::unprinted(255, signalled: false)->withFatal(fatal: true)))
         ->with($vouched->id(), exitedOne()->vouched());
     $controls = UnnamedKillControls::of(
-        Mutants::of($named, $signalled, $fatal, $vouched, $survivor, $uncovered),
+        Mutants::of($named, $signalled, $fatal, $vouched, $survivor, $uncovered, $after),
         $evidence,
         recordMap(),
         HeldCovered::none(),
@@ -144,7 +145,7 @@ it('asks for no control of a kill a test is named for, one a signal, a fatal err
         unnamedBounds(),
     );
 
-    expect(askedUnnamedControls($controls))->toBe([]);
+    expect(askedUnnamedControls($controls))->toBe([['src/Record.php', ['RecordTest::a'], 11.0]]);
 });
 
 it('controls an unnamed kill of a held unit by the tests covering its line that hold it', function (): void {

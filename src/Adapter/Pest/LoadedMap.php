@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_key_exists;
 use function array_keys;
-use function array_map;
 
 use NightWorksIO\MutationGate\Core\NotGiven;
 
@@ -44,7 +43,7 @@ final class LoadedMap
     /** @return list<string> every test the map ran, by its id */
     public static function tests(): array
     {
-        return array_map(strval(...), array_keys(self::$seconds));
+        return array_keys(self::$seconds);
     }
 
     /** The map's tests, counted by class and data set, read once. */

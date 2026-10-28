@@ -100,7 +100,7 @@ final readonly class CoverageFile implements Covering
 
     public function tests(): TestIds
     {
-        return TestIds::of(...array_map(TestId::of(...), array_map(strval(...), array_keys($this->durations))));
+        return TestIds::of(...array_map(TestId::of(...), array_keys($this->durations)));
     }
 
     /** How long a test took, or no time where the map does not time it. */

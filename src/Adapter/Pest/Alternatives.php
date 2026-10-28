@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_filter;
-use function array_key_exists;
 use function array_keys;
 use function array_map;
 use function array_unique;
@@ -87,12 +86,12 @@ final readonly class Alternatives
             }
 
             [$class, $name] = $parts;
-            $whole += $wholes->holdClassOf($test) ? [$class => true] : [];
+            $whole[$class] = $wholes->holdClassOf($test);
             $names[$class][$name][] = $wholes->rowOf($test);
         }
 
         return array_map(
-            static fn(string $class): string => array_key_exists($class, $whole)
+            static fn(string $class): string => $whole[$class]
                 ? sprintf(self::WHOLE_CLASS, $class)
                 : self::ofClass($class, $names[$class]),
             array_keys($names),

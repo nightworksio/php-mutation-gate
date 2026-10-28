@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\CoverageMaps;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -95,6 +96,16 @@ it('times each test, and one it does not time as no time', function () use ($wri
     expect($coverage instanceof CoverageFile ? $coverage->secondsOf(TestId::of('P\Tests\MoneySpec::__pest_evaluable_it_adds')) : 0.0)
         ->toBeGreaterThan(0.0)
         ->and($coverage instanceof CoverageFile ? $coverage->secondsOf(TestId::of('P\Tests\Nowhere::it')) : 1.0)->toBe(0.0);
+});
+
+it('names every test the map timed, by its id', function () use ($written): void {
+    $coverage = CoverageFile::at($written());
+    $tests = $coverage instanceof CoverageFile ? $coverage->tests() : TestIds::of();
+
+    expect(array_map(static fn(TestId $test): string => $test->value(), [...$tests]))->toBe([
+        'P\Tests\MoneySpec::__pest_evaluable_it_adds',
+        'Tests\MoneyTest::testLarge',
+    ]);
 });
 
 it('cannot judge without a map', function (): void {

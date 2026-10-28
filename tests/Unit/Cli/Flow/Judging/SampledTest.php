@@ -63,8 +63,8 @@ it('passes a tree whose interval lies above its floor, and fails one whose inter
     expect($judgement_ instanceof Judged ? [$judgement_->verdict->judgement(), $judgement_->exitCode()] : $judgement_)
         ->toBe([$judgement, $exit]);
 })->with([
-    'above' => [fn(): Floor => Floor::of(20), Judgement::Passed, ExitCode::Passed],
-    'below' => [fn(): Floor => Floor::of(80), Judgement::Failed, ExitCode::Failed],
+    'above' => [fn(): Floor => Floor::of(20), Judgement::Passed, fn(): ExitCode => ExitCode::Passed],
+    'below' => [fn(): Floor => Floor::of(80), Judgement::Failed, fn(): ExitCode => ExitCode::Failed],
 ]);
 
 it('cannot judge a tree whose interval holds its floor, and says so with the interval and how to decide it', function () use ($sampled, $judged): void {
