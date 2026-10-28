@@ -231,6 +231,33 @@ class Doomed(unittest.TestCase):
         self.assertEqual(action.EXIT_CODES[action.FAILED], "failed")
 
 
+class Stale(unittest.TestCase):
+    def test_reads_each_shard_job_s_latest_attempt_by_its_number_under_the_calling_job_s_name(self):
+        jobs = [
+            {"name": "mutation / shard 3 (src, part 3 of 12)", "run_attempt": 2},
+            {"name": "mutation / shard 3 (src, part 3 of 12)", "run_attempt": 1},
+            {"name": "shard 12 (plugins/default/src)", "run_attempt": 1},
+            {"name": "mutation / verdict", "run_attempt": 2},
+            {"name": "mutation / reshard 4 (src)", "run_attempt": 2},
+            {"name": "mutation / shard 5 (src)", "run_attempt": "2"},
+            "mutation / shard 6 (src)",
+        ]
+
+        self.assertEqual(action.shard_attempts(jobs), {"3": 2, "12": 1})
+
+    def test_names_each_shard_whose_result_an_attempt_before_its_job_s_latest_run_wrote(self):
+        written = {"10": 1, "2": 1, "3": 2, "4": 0, "7": 1}
+        latest = {"10": 2, "2": 1, "3": 2, "4": 1}
+
+        self.assertEqual(action.stale(written, latest), ["4", "10"])
+
+    def test_says_which_attempt_ran_the_shard_again_and_which_wrote_the_result_left(self):
+        why = action.stale_text("4", 1, 2)
+
+        self.assertIn("Shard 4 ran again in attempt 2 and wrote no result", why)
+        self.assertIn("the result attempt 1 wrote is not judged", why)
+
+
 class WorkflowCommand(unittest.TestCase):
     def test_escapes_what_a_workflow_command_reads_as_its_end(self):
         self.assertEqual(action.command_text("50% done\r\nnext"), "50%25 done%0D%0Anext")

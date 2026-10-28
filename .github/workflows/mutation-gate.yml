@@ -6,22 +6,18 @@ name: mutation-gate
 #
 # The plan, the shards and the verdict run the project's own code, so they
 # hold no token that can write, and no secret but the credentials Composer
-# installs the project with, which their install steps alone read
-# (ADR-0029). What needs a credential happens
-# in a job that runs none of it, from the gate's own installation at this
-# workflow's commit (ADR-0007):
-# - fetch reads the default branch's ledger with a key that can read nothing
-#   else, and hands it to the plan and the verdict as an artifact;
-# - deliver-plan posts the pull request comment's planned state the plan left;
-# - deliver-survivors posts its "survivors re-checked" state, which the
-#   survivors job, beside the shards, left on a pull request;
-# - deliver posts the comment the verdict left, linking the HTML report the
-#   verdict uploaded unarchived, and on a trusted run writes the ledger, sends
-#   the alerts and exports the trace.
+# installs the project with, which their install steps alone read (ADR-0029).
+# What needs a credential happens in fetch, deliver-plan, deliver-survivors
+# and deliver, which run none of it, from the gate's own installation at this
+# workflow's commit (ADR-0007).
 #
 # The shard jobs run the action from this workflow's own commit, which each
 # checks out at job.workflow_sha, so the workflow and the action are always
 # one version.
+#
+# Each artifact one job hands another is named with the attempt of the job
+# that wrote it, its `attempt` output, and a shard's result with its plan's, so
+# a re-run reads what it and the jobs it kept wrote, never an older attempt's.
 #
 # A calling job grants what its called jobs ask for, or the run does not
 # start: contents: write (publish, which runs on the default branch only),
@@ -79,11 +75,10 @@ on:
         type: string
         default: ubuntu-latest
     # A called job reads an environment's secret only under a name its caller
-    # passes (ADR-0029), so each is declared here and passed by name. The
-    # value comes from the environment the reading job enters, which wins over
-    # what the caller passes. Only fetch and deliver read any of them, but
-    # COMPOSER_AUTH, which only the steps that install the project's
-    # dependencies read.
+    # passes (ADR-0029), so each is declared here and passed by name. The value
+    # comes from the environment the reading job enters, which wins over what
+    # the caller passes. Only fetch and deliver read them, but COMPOSER_AUTH,
+    # which only the steps that install the project's dependencies read.
     secrets:
       COMPOSER_AUTH:
         description: >-
@@ -175,6 +170,8 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    outputs:
+      attempt: ${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -220,7 +217,7 @@ jobs:
         run: php "${GATE_ACTION}/bin/mutation-gate" fetch --to="${LEDGERS}"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: mutation-gate-fetched
+          name: mutation-gate-fetched-${{ github.run_attempt }}
           path: ${{ env.LEDGERS }}
           include-hidden-files: true
           if-no-files-found: ignore
@@ -241,6 +238,7 @@ jobs:
       shards: ${{ steps.plan.outputs.shards }}
       plan: ${{ steps.plan.outputs.plan }}
       delivery: ${{ steps.delivery.outputs.left }}
+      attempt: ${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -312,12 +310,11 @@ jobs:
           key: ${{ steps.resolve.outputs.default_prefix }}${{ github.run_id }}
           restore-keys: ${{ steps.resolve.outputs.default_prefix }}
       # The ledger fetch read, at refs/heads/<default branch>/ under the
-      # directory store's path, where it ran and wrote one; the pattern
-      # downloads nothing otherwise. It comes after the cache, so the store's
-      # ledger is the one read.
+      # directory store's path, where it wrote one. It comes after the cache,
+      # so the store's ledger is the one read.
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: mutation-gate-fetched
+          pattern: mutation-gate-fetched-${{ needs.fetch.outputs.attempt }}
           path: ${{ env.LEDGERS }}
           merge-multiple: true
       # The map the job that ran the suite under coverage wrote, so the plan
@@ -348,7 +345,7 @@ jobs:
           fi
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: mutation-gate-plan
+          name: mutation-gate-plan-${{ github.run_attempt }}
           path: .mutation-gate/plan.json
           include-hidden-files: true
           if-no-files-found: error
@@ -360,7 +357,7 @@ jobs:
       # beside them are this job's, and stay here.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: mutation-gate-coverage
+          name: mutation-gate-coverage-${{ github.run_attempt }}
           path: |
             .mutation-gate/coverage/
             !.mutation-gate/coverage/*.php
@@ -371,7 +368,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: steps.delivery.outputs.left == 'true'
         with:
-          name: mutation-gate-delivery-plan
+          name: mutation-gate-delivery-plan-${{ github.run_attempt }}
           path: ${{ env.DELIVERY }}/planned
           include-hidden-files: true
           if-no-files-found: error
@@ -404,7 +401,7 @@ jobs:
         run: composer install --working-dir="${GATE_ACTION}" --no-scripts --no-plugins --no-interaction --no-progress --prefer-dist
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: mutation-gate-delivery-plan
+          name: mutation-gate-delivery-plan-${{ needs.plan.outputs.attempt }}
           path: ${{ env.DELIVERY }}/planned
       - name: Deliver
         id: deliver
@@ -421,9 +418,8 @@ jobs:
     permissions:
       contents: read
     # ADR-0008: every shard runs to its end, so the verdict names every
-    # survivor. Where `run.stopWhenDoomed` asks a shard to stop once it
-    # cannot pass, its result names the survivor under `doomed` and its job
-    # fails; the other shards carry on.
+    # survivor. Where `run.stopWhenDoomed` stops a shard once it cannot pass,
+    # its result names the survivor and its job fails; the others carry on.
     strategy:
       fail-fast: false
       matrix:
@@ -440,11 +436,11 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: mutation-gate-plan
+          name: mutation-gate-plan-${{ needs.plan.outputs.attempt }}
           path: .mutation-gate
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: mutation-gate-coverage
+          name: mutation-gate-coverage-${{ needs.plan.outputs.attempt }}
           path: .mutation-gate/coverage
       - name: Keep only this shard's coverage map and the whole map
         env:
@@ -469,8 +465,10 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
-          name: mutation-gate-result-${{ matrix.shard.id }}
-          path: .mutation-gate/results/${{ matrix.shard.id }}.json
+          name: mutation-gate-result-${{ needs.plan.outputs.attempt }}-${{ matrix.shard.id }}
+          path: |
+            .mutation-gate/results/${{ matrix.shard.id }}.json
+            .mutation-gate/results/${{ matrix.shard.id }}.attempt
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 1
@@ -481,10 +479,10 @@ jobs:
         run: python3 "${GATE_ACTION}/resources/action/gate_action.py" doomed
 
   # On a pull request, the last run's survivors run again beside the shards,
-  # for a signal within minutes (ADR-0020). It runs the
-  # project's code, as a shard does, so it holds no secret and no token, and
-  # leaves the comment's "survivors re-checked" state for deliver-survivors.
-  # It writes no ledger, and the verdict judges nothing it found.
+  # for a signal within minutes (ADR-0020). It runs the project's code, as a
+  # shard does, so it holds no secret and no token, and leaves the comment's
+  # "survivors re-checked" state for deliver-survivors. It writes no ledger,
+  # and the verdict judges nothing it found.
   survivors:
     name: survivors
     needs: plan
@@ -495,6 +493,7 @@ jobs:
       contents: read
     outputs:
       delivery: ${{ steps.delivery.outputs.left }}
+      attempt: ${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -571,14 +570,14 @@ jobs:
           restore-keys: ${{ steps.resolve.outputs.own_prefix }}
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: mutation-gate-plan
+          name: mutation-gate-plan-${{ needs.plan.outputs.attempt }}
           path: .mutation-gate
       # The re-check judges each timeout, kill and mutant out of memory by its
       # unmutated control, timed from the map the plan made (ADR-0008), as a
       # shard does.
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: mutation-gate-coverage
+          name: mutation-gate-coverage-${{ needs.plan.outputs.attempt }}
           path: .mutation-gate/coverage
       - name: Re-check the last run's survivors
         env:
@@ -597,7 +596,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: steps.delivery.outputs.left == 'true'
         with:
-          name: mutation-gate-delivery-survivors
+          name: mutation-gate-delivery-survivors-${{ github.run_attempt }}
           path: ${{ env.DELIVERY }}/survivors
           include-hidden-files: true
           if-no-files-found: error
@@ -631,7 +630,7 @@ jobs:
         run: composer install --working-dir="${GATE_ACTION}" --no-scripts --no-plugins --no-interaction --no-progress --prefer-dist
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: mutation-gate-delivery-survivors
+          name: mutation-gate-delivery-survivors-${{ needs.survivors.outputs.attempt }}
           path: ${{ env.DELIVERY }}/survivors
       - name: Deliver
         id: deliver
@@ -645,7 +644,7 @@ jobs:
   # judge makes it cannot-judge, and so does a shard that left no result.
   verdict:
     name: verdict
-    needs: [plan, shard, survivors]
+    needs: [fetch, plan, shard, survivors]
     if: ${{ !cancelled() && needs.plan.result != 'skipped' }}
     runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: 30
@@ -656,6 +655,7 @@ jobs:
       verdict: ${{ steps.outputs.outputs.verdict || steps.unplanned.outputs.verdict }}
       scores: ${{ steps.outputs.outputs.scores }}
       delivery: ${{ steps.delivery.outputs.left }}
+      attempt: ${{ github.run_attempt }}
     steps:
       - name: Refuse a run whose plan could not judge
         id: unplanned
@@ -679,18 +679,21 @@ jobs:
       - name: Refuse an event the gate never runs under
         run: python3 "${GATE_ACTION}/resources/action/gate_action.py" guard
       # The two steps that hold the token come before the project's
-      # dependencies install, so none of its code runs while one does.
-      - name: Name the default branch
+      # dependencies install, so none of its code runs while one does. This
+      # one also lists this attempt's jobs, for the `stale` step.
+      - name: Name the default branch and list this attempt's jobs
         id: default
         env:
           NAMED: ${{ github.event.repository.default_branch || vars.MUTATION_GATE_DEFAULT_BRANCH }}
           GH_TOKEN: ${{ github.token }}
+          JOBS: repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}/jobs
         run: |
           set -euo pipefail
           if [ -z "${NAMED}" ]; then
             NAMED="$(gh api "repos/${GITHUB_REPOSITORY}" --jq .default_branch)"
           fi
           echo "name=${NAMED}" >> "${GITHUB_OUTPUT}"
+          gh api --paginate "${JOBS}?per_page=100" --jq '.jobs[]' | jq -s . > .mutation-gate/jobs.json
       # The trend appends to what was published last time (ADR-0009).
       - name: Restore what was published last time
         env:
@@ -750,26 +753,32 @@ jobs:
           restore-keys: ${{ steps.resolve.outputs.default_prefix }}
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: mutation-gate-plan
+          name: mutation-gate-plan-${{ needs.plan.outputs.attempt }}
           path: .mutation-gate
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
         with:
-          pattern: mutation-gate-result-*
+          pattern: mutation-gate-result-${{ needs.plan.outputs.attempt }}-*
           path: .mutation-gate/results
           merge-multiple: true
+      - name: Remove each result an earlier attempt wrote for a shard run again
+        env:
+          JOBS: .mutation-gate/jobs.json
+          RESULTS: .mutation-gate/results
+        run: python3 "${GATE_ACTION}/resources/action/gate_action.py" stale
       # Every map the plan wrote: the verdict builds the kill matrix over its
       # own, the lines of every unit the plan considered, and learns each
       # shard's timings by the map that shard was handed. A plan that wrote
       # none uploaded none, and the pattern then downloads nothing.
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: mutation-gate-coverage
+          pattern: mutation-gate-coverage-${{ needs.plan.outputs.attempt }}
           path: .mutation-gate/coverage
           merge-multiple: true
       # The ledger fetch read, as the plan reads it.
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: mutation-gate-fetched
+          pattern: mutation-gate-fetched-${{ needs.fetch.outputs.attempt }}
           path: ${{ env.LEDGERS }}
           merge-multiple: true
       # The comment, the ledger, the alerts and the trace go into the delivery,
@@ -861,7 +870,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
-          name: mutation-gate-publish
+          name: mutation-gate-publish-${{ github.run_attempt }}
           path: .mutation-gate/publish
           include-hidden-files: true
           if-no-files-found: ignore
@@ -869,7 +878,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() && steps.delivery.outputs.left == 'true' }}
         with:
-          name: mutation-gate-delivery
+          name: mutation-gate-delivery-${{ github.run_attempt }}
           path: ${{ env.DELIVERY }}/verdict
           include-hidden-files: true
           if-no-files-found: error
@@ -899,8 +908,7 @@ jobs:
     runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: 15
     # id-token: write, as fetch has it, for a store that signs in through
-    # GitHub's OIDC; actions: read, to find the run's HTML report the comment
-    # links.
+    # GitHub's OIDC; actions: read, to find the HTML report the comment links.
     permissions:
       contents: read
       actions: read
@@ -929,7 +937,7 @@ jobs:
         run: composer install --working-dir="${GATE_ACTION}" --no-scripts --no-plugins --no-interaction --no-progress --prefer-dist
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: mutation-gate-delivery
+          name: mutation-gate-delivery-${{ needs.verdict.outputs.attempt }}
           path: ${{ env.DELIVERY }}/verdict
       - name: Deliver
         id: deliver
@@ -976,7 +984,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: mutation-gate-publish
+          name: mutation-gate-publish-${{ needs.verdict.outputs.attempt }}
           path: publish
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

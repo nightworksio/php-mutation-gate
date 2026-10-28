@@ -15,11 +15,15 @@ Usage:
   gate_action.py outputs   the verdict, scores, report paths and files, and plan
   gate_action.py doomed    from a shard's result, RESULT: fails, naming the
                            survivor, where the shard stopped once its run could
-                           not pass, so the matrix stops the other shards
+                           not pass
+  gate_action.py stale     from the run's jobs, JOBS, and the results, RESULTS:
+                           removes each shard's result an earlier attempt wrote
+                           than its job's latest run, saying so, and every
+                           attempt file beside the results
 
 Every subcommand reads GitHub's environment and writes `key=value` lines to
 $GITHUB_OUTPUT, or refuses with exit code 2 and says why; `doomed` exits 1
-where the shard is doomed.
+where the shard is doomed, and `stale` writes no output.
 
 Two halves: the functions below `main` read the environment and files, and
 the ones above decide from what they read. The deciding half is what
@@ -28,6 +32,7 @@ the ones above decide from what they read. The deciding half is what
 import hashlib
 import json
 import os
+import re
 import sys
 
 # Each value below that the gate also holds is tied to the gate's own by
@@ -87,6 +92,14 @@ DOOMED_FLOOR = "floor"
 # What a doomed shard's job exits with: the gate's exit code for a failed
 # verdict.
 FAILED = 1
+
+# A shard job's name as GitHub lists it, which holds the shard's number: the
+# reusable workflow names it `shard <number> (<label>)`, after the calling
+# job's name.
+SHARD_JOB = re.compile(r"(?:^| / )shard (\d+) \(")
+
+# The file beside a shard's result that holds the attempt whose job wrote it.
+ATTEMPT = ".attempt"
 
 
 class Refused(Exception):
@@ -254,7 +267,31 @@ def doomed(result: dict) -> str | None:
     return (
         f"Shard stopped: survivor {found.get(DOOMED_MUTANT, '?')} in {found.get(DOOMED_UNIT, '?')} "
         f"leaves {found.get(DOOMED_TREE, '?')} below its floor of {found.get(DOOMED_FLOOR, '?')}, "
-        "so the run cannot pass and the other shards stop (ADR-0008)."
+        "so the run cannot pass (ADR-0008)."
+    )
+
+
+def shard_attempts(jobs: list) -> dict[str, int]:
+    """The attempt of each shard job's latest run, by the shard's number, from the run's jobs as GitHub lists them."""
+    latest: dict[str, int] = {}
+    for job in jobs:
+        named = SHARD_JOB.search(str(job.get("name", ""))) if isinstance(job, dict) else None
+        attempt = job.get("run_attempt") if named else None
+        if named and isinstance(attempt, int):
+            latest[named.group(1)] = max(attempt, latest.get(named.group(1), 0))
+    return latest
+
+
+def stale(written: dict[str, int], latest: dict[str, int]) -> list[str]:
+    """The shards whose result an earlier attempt wrote than their job's latest run: that run wrote none."""
+    return sorted((shard for shard, attempt in written.items() if attempt < latest.get(shard, 0)), key=int)
+
+
+def stale_text(shard: str, written: int, latest: int) -> str:
+    """Why a shard's result is not judged."""
+    return (
+        f"Shard {shard} ran again in attempt {latest} and wrote no result, so the result attempt {written} "
+        "wrote is not judged, and the verdict finds none for it."
     )
 
 
@@ -313,6 +350,8 @@ def main(argv: list[str]) -> int:
     commands = {"guard": _guard, "resolve": _resolve, "config": _config, "infection": _infection, "outputs": _outputs}
     if len(argv) == 2 and argv[1] == "doomed":
         return _doomed()
+    if len(argv) == 2 and argv[1] == "stale":
+        return _stale()
     if len(argv) != 2 or argv[1] not in commands:
         print(__doc__, file=sys.stderr)
         return 2
@@ -380,6 +419,35 @@ def _doomed() -> int:
         return 0
     print(f"::error title=Shard doomed::{command_text(why)}")
     return FAILED
+
+
+def _stale() -> int:
+    jobs = os.environ.get("JOBS", "")
+    results = os.environ.get("RESULTS", "")
+    with open(jobs, encoding="utf-8") as file:
+        listed = json.load(file)
+    latest = shard_attempts(listed if isinstance(listed, list) else [])
+    written = {}
+    for name in os.listdir(results) if os.path.isdir(results) else []:
+        shard, extension = os.path.splitext(name)
+        if extension == ".json":
+            written[shard] = _attempt(os.path.join(results, shard + ATTEMPT))
+    for shard in stale(written, latest):
+        os.remove(os.path.join(results, shard + ".json"))
+        print(f"::error title=Shard re-run wrote no result::{command_text(stale_text(shard, written[shard], latest[shard]))}")
+    for name in os.listdir(results) if os.path.isdir(results) else []:
+        if name.endswith(ATTEMPT):
+            os.remove(os.path.join(results, name))
+    return 0
+
+
+def _attempt(path: str) -> int:
+    """The attempt a result's attempt file holds; none, 0, where there is no file or it holds no number."""
+    if not os.path.isfile(path):
+        return 0
+    with open(path, encoding="utf-8") as file:
+        held = file.read().strip()
+    return int(held) if held.isdigit() else 0
 
 
 def _outputs() -> dict[str, str]:

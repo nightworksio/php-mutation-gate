@@ -161,9 +161,10 @@ it('hands the verdict every coverage map the plan made, its own and each shard\'
     $steps = WorkflowFile::at(REUSABLE)->field('jobs')->field('verdict')->field('steps');
     $coverage = Workspace::coverage()->value();
     $downloads = WorkflowFile::stepsWhere($steps, 'uses', static fn(string $uses): bool => str_starts_with($uses, 'actions/download-artifact@'));
+    $named = 'mutation-gate-coverage-${{ needs.plan.outputs.attempt }}';
     $handed = array_values(array_filter(
         $downloads,
-        static fn(int $at): bool => Lenient::text(Lenient::items($steps)[$at]->field('with')->field('pattern')) === 'mutation-gate-coverage',
+        static fn(int $at): bool => Lenient::text(Lenient::items($steps)[$at]->field('with')->field('pattern')) === $named,
     ));
     $touching = WorkflowFile::stepsWhere($steps, 'run', static fn(string $run): bool => str_contains($run, $coverage));
     $judged = WorkflowFile::stepsWhere($steps, 'id', static fn(string $id): bool => $id === 'verdict');
@@ -185,9 +186,10 @@ it('hands each shard the plan\'s whole map beside its own, removing only the oth
     $removing = Lenient::text(Lenient::items($shard)[$touching[0]]->field('run'));
     $plan = $jobs->field('plan')->field('steps');
     $uploads = WorkflowFile::stepsWhere($plan, 'uses', static fn(string $uses): bool => str_starts_with($uses, 'actions/upload-artifact@'));
+    $named = 'mutation-gate-coverage-${{ github.run_attempt }}';
     $uploaded = array_values(array_filter(
         $uploads,
-        static fn(int $at): bool => Lenient::text(Lenient::items($plan)[$at]->field('with')->field('name')) === 'mutation-gate-coverage',
+        static fn(int $at): bool => Lenient::text(Lenient::items($plan)[$at]->field('with')->field('name')) === $named,
     ));
     $paths = array_map(trim(...), explode("\n", trim(Lenient::text(Lenient::items($plan)[$uploaded[0]]->field('with')->field('path')))));
     $excluded = array_filter($paths, static fn(string $path): bool => str_starts_with($path, '!') && fnmatch(substr($path, 1), $whole));

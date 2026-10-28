@@ -282,7 +282,7 @@ about Laravel, NativePHP or the project's modules, and does not.
          this repository alone at `job.workflow_sha`, installs the gate there
          with no scripts and no plugins, runs `mutation-gate fetch` with the
          read key, and uploads the default branch's ledger as the artifact
-         `mutation-gate-fetched`;
+         `mutation-gate-fetched-<attempt>`;
        - `plan` sets up as the action does, restores the ledgers, downloads
          what `fetch` read, runs `plan --ci=github --deliver-later` and
          uploads the plan, the coverage maps and the delivery it left. The

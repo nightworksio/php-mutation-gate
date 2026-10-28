@@ -201,25 +201,36 @@ job that installs none of the project's code and runs the gate from its own
 installation, at the workflow's commit:
 
 - `fetch` reads the default branch's ledger from the proof store, and hands it
-  to the plan and the verdict as the artifact `mutation-gate-fetched`, which
-  they read where the `directory` store keeps it, so the project's config
-  keeps `proofs.store` at `directory`. It runs
-  where the repository variable `MUTATION_GATE_STORE` names a store, in the
-  environment `mutation-gate-read`.
+  to the plan and the verdict as the artifact
+  `mutation-gate-fetched-<attempt>`, which they read where the `directory`
+  store keeps it, so the project's config keeps `proofs.store` at
+  `directory`. It runs where the repository variable `MUTATION_GATE_STORE`
+  names a store, in the environment `mutation-gate-read`.
 - `deliver-plan` posts the pull request comment's planned state, which the plan
-  leaves as the artifact `mutation-gate-delivery-plan`.
+  leaves as the artifact `mutation-gate-delivery-plan-<attempt>`.
 - On a pull request, `survivors` runs the last run's survivors again beside
   the shards, and `deliver-survivors` writes the comment's *survivors
   re-checked* state over its planned one, from the artifact
-  `mutation-gate-delivery-survivors`. The verdict judges nothing it found.
+  `mutation-gate-delivery-survivors-<attempt>`. The verdict judges nothing it
+  found.
 - `deliver` sends what the verdict leaves as the artifact
-  `mutation-gate-delivery`. On every run it posts the comment. A trusted run, a
-  push, schedule or dispatch on the default branch, enters the environment
-  `mutation-gate-store`, and there it also writes the ledger, where
-  `MUTATION_GATE_STORE` names a store, sends the alerts and exports the
+  `mutation-gate-delivery-<attempt>`. On every run it posts the comment. A
+  trusted run, a push, schedule or dispatch on the default branch, enters the
+  environment `mutation-gate-store`, and there it also writes the ledger,
+  where `MUTATION_GATE_STORE` names a store, sends the alerts and exports the
   trace. With no store named, the ledger stays in the Actions cache. GitHub
   refuses that environment to a run on any other branch, even one whose
   workflow names it.
+
+`<attempt>` is the attempt of the run whose job wrote the artifact, and each
+shard's result, `mutation-gate-result-<attempt>-<shard>`, carries its plan's.
+Every job reads the attempt the job that wrote it gives. So *Re-run all jobs*
+judges only what the new attempt wrote, and *Re-run failed jobs* judges what
+the jobs it ran again wrote beside what the jobs it kept wrote. Each result
+keeps beside it the attempt whose shard job wrote it, and the verdict lists
+its attempt's jobs: a shard whose job ran again and wrote no result has its
+earlier result removed, with an error saying so, and the verdict cannot judge
+the run without it.
 
 To keep the ledger in S3, R2 or MinIO, set these under Settings:
 

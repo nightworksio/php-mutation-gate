@@ -155,13 +155,22 @@ $taking = <<<'SH'
 
     SH;
 
-/** Whether a process still runs: `ps` lists it, and not as one ended and waiting to be reaped. */
-$runs = static function (int $pid): bool {
-    $asked = new Process(['ps', '-o', 'stat=', '-p', (string) $pid]);
-    $asked->run();
-    $state = trim($asked->getOutput());
+/**
+ * Whether a process ends within five seconds: `ps` stops listing it, or lists
+ * it as ended and waiting to be reaped. A process sent SIGKILL is still listed
+ * as running until the system next schedules it, which on a loaded machine
+ * takes a while.
+ */
+$ends = static function (int $pid): bool {
+    $watched = new Process(['sh', '-c', <<<'SH'
+        for _ in $(seq 250); do
+          case "$(ps -o stat= -p "$1")" in ""|Z*) exit 0 ;; esac
+          sleep 0.02
+        done
+        exit 1
+        SH, 'sh', (string) $pid]);
 
-    return $state !== '' && ! str_starts_with($state, 'Z');
+    return $watched->run() === 0;
 };
 
 it('prints what its worker\'s child printed, on the stream it printed it on, as it printed it, and ends as it ended', function () use ($ran, $serving, $script): void {
@@ -277,7 +286,7 @@ it('starts fresh a script found on the system\'s path where Pest names it withou
         ->and($unfound['warned'][0])->toContain('(errno 2)');
 });
 
-it('stops the child its worker forked before it went, then starts the run fresh', function () use ($ran, $serving, $script, $runs): void {
+it('stops the child its worker forked before it went, then starts the run fresh', function () use ($ran, $serving, $script, $ends): void {
     $directory = $serving();
     $child = sprintf('%s/child', Scratch::directory());
     $orphaning = $script(sprintf(
@@ -289,7 +298,7 @@ it('stops the child its worker forked before it went, then starts the run fresh'
     $answered = $ran($directory, $orphaning);
 
     expect($answered['code'])->toBe(127)
-        ->and($runs((int) file_get_contents($child)))->toBeFalse();
+        ->and($ends((int) file_get_contents($child)))->toBeTrue();
 });
 
 it('prints only what its run\'s child printed, nothing its worker printed past the child\'s end', function () use ($running, $working): void {

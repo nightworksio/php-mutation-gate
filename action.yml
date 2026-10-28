@@ -192,7 +192,8 @@ runs:
         key: ${{ steps.resolve.outputs.default_prefix }}${{ github.run_id }}
         restore-keys: ${{ steps.resolve.outputs.default_prefix }}
 
-    # One shard of a plan the reusable workflow made: its result is the verdict's to judge.
+    # One shard of a plan the reusable workflow made: its result, beside the
+    # attempt that wrote it, is the verdict's to judge.
     - name: Run shard ${{ inputs.shard }}
       id: shard
       if: inputs.deliver != 'true' && inputs.shard != ''
@@ -206,6 +207,9 @@ runs:
         code=0
         mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
         "${GATE}" run --plan=.mutation-gate/plan.json --shard="${SHARD}" --results=.mutation-gate/results "${arguments[@]}" || code=$?
+        if [ -f ".mutation-gate/results/${SHARD}.json" ]; then
+          echo "${GITHUB_RUN_ATTEMPT}" > ".mutation-gate/results/${SHARD}.attempt"
+        fi
         echo "code=${code}" >> "${GITHUB_OUTPUT}"
 
     # The whole gate in this job: the plan, each of its shards in turn, then the
