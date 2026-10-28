@@ -165,6 +165,7 @@ options.
 | `reach.lockPackages` | list of Composer package names, `vendor/name`, where `*` stands for any run of characters within either part: a change to a `composer.lock` decides how the gate runs only where it moved one of these or a package this repository ships, or a key besides the package lists | none: every package decides | [0030](../decisions/0030-a-lock-file-decides-by-the-packages-it-moved.md) |
 | `holds.hotPath` | number, 0 to 1 | `0.8` | [0005](../decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `run.full` | boolean: a run given neither `--full` nor `--changed-since` considers every unit, rather than what changed since `last-passed` | `false` | [0005](../decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
+| `run.stopWhenDoomed` | boolean: a pull request's run stops once a survivor leaves it no way to pass, its other units unjudged, rather than running to its end and naming every survivor | `false` | [0008](../decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `shards.seconds` | integer | `600` | [0006](../decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `shards.max` | integer | `20` | [0006](../decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `shards.target` | duration; replaces `shards.seconds`, and setting both is an error | none | [0013](../decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |

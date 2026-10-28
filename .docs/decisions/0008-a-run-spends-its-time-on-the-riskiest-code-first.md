@@ -441,9 +441,14 @@ presets for Laravel, Symfony and plain libraries.
    than listed. What is hot differs from app to app. Third-party presets
    (WordPress, Drupal, a company's own) are extensions.
 
-6. **A pull request's run stops once it cannot pass.**
-   - **When.** A run on a pull request whose verdict holds its trees' floors
-     and the new code's stops early. A run of the security mutators alone
+6. **A pull request's run runs to its end, and stops once it cannot pass
+   only where the config asks.**
+   - **By default.** Every run mutates every unit it planned, and the
+     verdict names every survivor, so one run tells an author everything to
+     fix. A run that stopped at its first sure survivor would leave the rest
+     for a run after the fix, one round trip each.
+   - **When.** With `run.stopWhenDoomed: true`, a run on a pull request
+     whose verdict holds its trees' floors and the new code's stops early. A run of the security mutators alone
      (`--security`) or of one suite's tests alone (`--suite`) holds no tree to
      a floor, so it runs to its end. So does a run whose trees or committed
      baseline cannot be read. A run on a branch, a tag or a schedule also
@@ -490,16 +495,15 @@ presets for Laravel, Symfony and plain libraries.
      that stopped. A run that left a unit unrun removes its `lastRun`, as a
      budgeted run does (ADR-0005). A run in one process runs no
      shard after one that stopped.
-   - **The other shards.** A CI may cancel the run's other shards once a
-     shard's result names a survivor under `doomed`. The step that cancels
-     reads that result alone and runs none of the project's code. The
-     permission to cancel therefore never reaches a job that runs a pull
-     request's code. The reusable workflow's shard job ends with such a
-     step: it fails the job where the result names a survivor under
-     `doomed`, after the result is uploaded, and the matrix's `fail-fast`
-     cancels the other shards, which needs no permission at all. The verdict reads each shard that left no result
-     beside a shard that stopped as stopped too, so its units are unjudged
-     as above. Without a doomed shard, a shard that left no result still
+   - **The other shards.** Each shard stops on its own. The reusable
+     workflow's shard job ends with a step that reads the shard's result
+     alone, runs none of the project's code, and fails the job where the
+     result names a survivor under `doomed`, after the result is uploaded.
+     Its matrix does not fail fast, so the other shards run on, each to its
+     end or to its own sure survivor. A CI may still cancel the run's other
+     shards where it chooses; the verdict reads each shard that left no
+     result beside a shard that stopped as stopped too, so its units are
+     unjudged as above. Without a doomed shard, a shard that left no result still
      means the verdict cannot judge.
    - **Trust.** A forged or mistaken `doomed` can only fail the run whose
      shard wrote it. The verdict fails on it whatever the other shards came
@@ -518,6 +522,7 @@ presets for Laravel, Symfony and plain libraries.
 | **Native ignore markers, as the runners ship them** | No reason, no expiry, no staleness check, and different per runner. The config holds one list for every runner. |
 | **Ignores by file and line** | Line numbers move with every edit above them. The gate's id does not use the line (ADR-0004). |
 | **Stop a doomed run inside each runner's own mutant loop** | Three runner-specific stops in the patches the gate applies, each resuming when a survivor proves flaky. The chunked stop is one code path, proved by every runner's contract. |
+| **Stop every pull request's run once it cannot pass, by default** | Each run then names about one survivor, and a project with several needs a round trip through CI for each. Stopping saves runner minutes on a run that fails anyway; the round trips cost the author far more. It stays a setting, `run.stopWhenDoomed`. |
 | **Cancel a doomed run's other shards from the shard job** | The shard job runs the pull request's code, which could then cancel or re-run workflows. A separate step that reads the result alone holds that permission. |
 | **Stop at any floor once a tree's survivors outnumber what the floor allows** | Needs each tree's planned mutant total in the plan. A floor of 100, the default for new code, needs none. |
 | **Presets that exclude framework glue** (providers, kernels) | Excluding code from mutation hides it from the gate. Holding it with the tests that assert on it keeps it judged and cheap. |
@@ -533,10 +538,11 @@ the fix: hold the path with a group.
 **The ignore list is reviewable debt.** It has reasons, end dates and no dead
 entries.
 
-**A pull request that cannot pass says so early.** Its shards stop within
-about two minutes of finding a survivor of a floor of 100, instead of
-mutating the rest. A pull request that can pass pays one runner opening per
-chunk.
+**A pull request that cannot pass names every survivor.** By default its
+shards run to their end, so one run lists all there is to fix. A project that
+would rather save runner minutes sets `run.stopWhenDoomed`: each shard then
+stops within about two minutes of finding a survivor of a floor of 100, and a
+pull request that can pass pays one runner opening per chunk.
 
 **A Laravel or Symfony app gets a sensible first run with no config**, and the
 warnings say where holding groups would save time.

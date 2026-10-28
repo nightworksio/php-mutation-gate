@@ -471,13 +471,13 @@ class Shards(unittest.TestCase):
         self.assertEqual(2, len(running))
         self.assertFalse(any("GITHUB_TOKEN" in line for found in running for line in found))
 
-    def test_a_doomed_shard_fails_its_job_after_its_result_is_kept_and_the_matrix_stops_the_others(self):
+    def test_a_doomed_shard_fails_its_job_after_its_result_is_kept_and_the_other_shards_run_on(self):
         lines = job(WORKFLOW, "shard")
         found = steps(lines)
         kept = next(at for at, one in enumerate(found) if "actions/upload-artifact@" in one[0])
-        stopping = next(at for at, one in enumerate(found) if one[0].strip() == "- name: Stop the other shards once this one cannot pass")
+        stopping = next(at for at, one in enumerate(found) if one[0].strip() == "- name: Fail this shard once it cannot pass")
 
-        self.assertIn("      fail-fast: true", lines)
+        self.assertIn("      fail-fast: false", lines)
         self.assertLess(kept, stopping)
         self.assertTrue(any("gate_action.py\" doomed" in line for line in found[stopping]))
         self.assertFalse(any("secrets." in line or "github.token" in line for line in found[stopping]))

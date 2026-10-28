@@ -55,6 +55,18 @@ final readonly class Reach implements Setting
         return new self(Json::at('run.full', value: false));
     }
 
+    /** `run.stopWhenDoomed`, `true`: a pull request's run stops once it cannot pass, its other units unjudged. */
+    public static function stoppingWhenDoomed(): self
+    {
+        return new self(Json::at('run.stopWhenDoomed', value: true));
+    }
+
+    /** `run.stopWhenDoomed`, `false`: a pull request's run runs to its end and names every survivor. */
+    public static function runningToTheEnd(): self
+    {
+        return new self(Json::at('run.stopWhenDoomed', value: false));
+    }
+
     public function written(): Json
     {
         return $this->json;

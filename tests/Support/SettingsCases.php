@@ -44,7 +44,8 @@ final readonly class SettingsCases
             "hotPath": 0.8
         },
         "run": {
-            "full": false
+            "full": false,
+            "stopWhenDoomed": false
         },
         "pruning": {
             "enabled": true,

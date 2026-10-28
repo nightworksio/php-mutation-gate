@@ -108,8 +108,9 @@ other branches.
 ## Sharded, for large projects
 
 The reusable workflow runs a `plan` job, one `shard` job per shard and a
-`verdict` job. On a pull request, a shard that stops once its run cannot
-pass fails its job, and the matrix cancels the other shards; the verdict
+`verdict` job. Every shard runs to its end and the verdict names every
+survivor. With `run.stopWhenDoomed: true`, a pull request's shard that stops
+once its run cannot pass fails its job while the others run on; the verdict
 still runs and fails, naming the survivor. A last job, `publish`, runs on the default branch only and
 publishes the badge and trend.
 

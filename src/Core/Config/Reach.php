@@ -20,7 +20,8 @@ use function sprintf;
  * `reach.lockPackages` (ADR-0030), the
  * share of the suite past which code nothing holds is warned about,
  * `holds.hotPath`, whether a run given no mode considers every unit,
- * `run.full`, rather than what changed since its last passing commit, and
+ * `run.full`, rather than what changed since its last passing commit,
+ * whether a pull request's run stops once it cannot pass, `run.stopWhenDoomed`,
  * which mutators a reached unit whose content is unchanged leaves out,
  * `pruning`, and how a sampled run sizes and draws its sample, `sampling`.
  */
@@ -39,6 +40,7 @@ final readonly class Reach implements Part
         private Pruning $pruning,
         private Listed|Absent $lockPackages,
         private Sampling $sampling,
+        private bool|Absent $stopWhenDoomed,
     ) {
     }
 
@@ -55,11 +57,12 @@ final readonly class Reach implements Part
         Pruning|Absent $pruning = new Absent(),
         Listed|Absent $lockPackages = new Absent(),
         Sampling|Absent $sampling = new Absent(),
+        bool|Absent $stopWhenDoomed = new Absent(),
     ): self {
         $set = $pruning instanceof Pruning ? $pruning : Pruning::of();
         $drawn = $sampling instanceof Sampling ? $sampling : Sampling::of();
 
-        return new self($packages, $everything, $hotPath, $full, $set, $lockPackages, $drawn);
+        return new self($packages, $everything, $hotPath, $full, $set, $lockPackages, $drawn, $stopWhenDoomed);
     }
 
     public static function none(): self
@@ -81,6 +84,7 @@ final readonly class Reach implements Part
             $none->isFullByDefault(),
             Pruning::of($pruning->enabled(), $pruning->window()->mutants(), $pruning->audit()),
             sampling: Sampling::of($sampling->confidence(), $sampling->margin(), $sampling->minUnits()),
+            stopWhenDoomed: $none->stopsWhenDoomed(),
         );
     }
 
@@ -95,6 +99,7 @@ final readonly class Reach implements Part
                 $this->pruning->over($later->pruning),
                 $this->joinedNames($this->lockPackages, $later->lockPackages),
                 $this->sampling->over($later->sampling),
+                Absent::laid($this->stopWhenDoomed, $later->stopWhenDoomed),
             )
             : $this;
     }
@@ -137,6 +142,15 @@ final readonly class Reach implements Part
         return $this->full === true;
     }
 
+    /**
+     * Whether a pull request's run stops once one of its survivors leaves it no way to pass, its other units left
+     * unjudged; otherwise it runs to its end and names every survivor (ADR-0008).
+     */
+    public function stopsWhenDoomed(): bool
+    {
+        return $this->stopWhenDoomed === true;
+    }
+
     /** `pruning`: which mutators a reached unit whose content is unchanged leaves out (ADR-0025). */
     public function pruning(): Pruning
     {
@@ -176,7 +190,10 @@ final readonly class Reach implements Part
                 ),
             ),
             Member::unlessEmpty('holds', Json::object(Member::of('hotPath', $this->hotPath))),
-            Member::unlessEmpty('run', Json::object(Member::of('full', $this->full))),
+            Member::unlessEmpty(
+                'run',
+                Json::object(Member::of('full', $this->full), Member::of('stopWhenDoomed', $this->stopWhenDoomed)),
+            ),
             $this->pruning->written(),
             $this->sampling->written(),
         );
@@ -206,7 +223,13 @@ final readonly class Reach implements Part
             default => [],
         };
 
-        $calls = PhpCalls::inWith(...$packages, ...$everything, ...$lockPackages, ...$hotPath, ...$full);
+        $stopping = match ($this->stopWhenDoomed) {
+            true => ['Reach::stoppingWhenDoomed()'],
+            false => ['Reach::runningToTheEnd()'],
+            default => [],
+        };
+
+        $calls = PhpCalls::inWith(...$packages, ...$everything, ...$lockPackages, ...$hotPath, ...$full, ...$stopping);
 
         return $calls->and($this->pruning->php())->and($this->sampling->php());
     }

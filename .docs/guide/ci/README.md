@@ -54,7 +54,11 @@ Schema, and the Jenkinsfile, which has no schema, with a snapshot test.
 
 ## A pull request that cannot pass
 
-A pull request's shard stops once its run cannot pass. That is a survivor
+A pull request's run mutates every unit it planned, and the verdict names
+every survivor, so one run lists everything to fix. With
+`run.stopWhenDoomed: true`, a pull request's shard instead stops once its run
+cannot pass, which saves runner minutes on a run that fails anyway. That is a
+survivor
 that did not prove flaky, that no ignore leaves out and that is not proven
 equivalent, where its tree's floor is 100, or its line is one the change
 added or modified and the new-code floor is 100. It stops only where no
@@ -69,7 +73,8 @@ in `.mutation-gate/results/<id>.json`:
 ```
 
 `why` is `tree` or `newCode`. A CI step that reads only that result, and
-runs none of the project's code, can cancel the run's other shards. The
-verdict reads a shard that left no result beside a doomed one as stopped.
+runs none of the project's code, fails the shard's job; the other shards run
+on, each to its end or its own sure survivor. The verdict reads a shard that
+left no result beside a doomed one as stopped.
 The units the run did not mutate count by their newest results, as under a
 budget, and the verdict fails naming the survivor.

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
+use NightWorksIO\MutationGate\Config\Reach;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -45,7 +46,7 @@ it('runs a pull request\'s shard on past a survivor proven equivalent, to the ch
     $project = Flows::project();
     $runner = ScriptedRunner::fixture()->checking(Checkable::inPlace(Contents::of("<?php\n\nfinal  class Money\n{\n}\n")));
 
-    new Running(Flows::adapters($project, [], $runner, $floored(Floor::whole())), Flows::settings(), Flows::setup())
+    new Running(Flows::adapters($project, [], $runner, $floored(Floor::whole())), Flows::settings(Reach::stoppingWhenDoomed()), Flows::setup())
         ->run(Planned::handedIn($project, $onPullRequest(Planned::oneShard())), ShardId::of(1), Workspace::results());
     $result = $resultIn($project, 1);
 

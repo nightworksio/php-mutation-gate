@@ -332,6 +332,22 @@ describe('Settings sections', function (): void {
         'what changed' => [['run' => ['full' => false]], false, 'Reach::changedByDefault()'],
     ]);
 
+    it('reads whether a pull request\'s run stops once it cannot pass, running to its end by default, and writes it into a config written as PHP', function (array $config, bool $stops, string $call): void {
+        $php = Configs::valid(['runner' => 'pest', ...$config])->php(ProjectRoot::origin())->code();
+
+        expect(Configs::settings(['runner' => 'pest', ...$config])->reach()->stopsWhenDoomed())->toBe($stops)
+            ->and($call === '' ? ! str_contains($php, 'WhenDoomed()') && ! str_contains($php, 'ToTheEnd()') : str_contains($php, $call))->toBeTrue();
+    })->with([
+        'left out' => [[], false, ''],
+        'stopping' => [['run' => ['stopWhenDoomed' => true]], true, 'Reach::stoppingWhenDoomed()'],
+        'to the end' => [['run' => ['stopWhenDoomed' => false, 'full' => true]], false, 'Reach::runningToTheEnd()'],
+    ]);
+
+    it('writes run.stopWhenDoomed from the PHP config\'s builders as the JSON a file writes', function (): void {
+        expect(ReachSetting::stoppingWhenDoomed()->written())->toEqual(Json::at('run.stopWhenDoomed', value: true))
+            ->and(ReachSetting::runningToTheEnd()->written())->toEqual(Json::at('run.stopWhenDoomed', value: false));
+    });
+
     it('reads reach.lockPackages, deciding by every package where it is left out, writes it into a config written as PHP, and refuses what is no package\'s name', function (): void {
         $named = Configs::settings(['runner' => 'pest', 'reach' => ['lockPackages' => ['pestphp/*']]])->reach()->lockPackages();
         $every = Configs::settings(['runner' => 'pest'])->reach()->lockPackages();

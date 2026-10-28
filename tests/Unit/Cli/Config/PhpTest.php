@@ -60,6 +60,7 @@ it('writes a config that reads back into the same effective config', function (a
         'packages' => ['packages/*'],
         'reach' => ['everything' => ['config/**', 'routes/**']],
         'holds' => ['hotPath' => 1],
+        'run' => ['full' => true, 'stopWhenDoomed' => true],
         'shards' => ['seconds' => 900, 'max' => 8],
         'costs' => ['secondsPerLine' => ['' => 0.25, 'src/Legacy' => 2]],
         'ci' => [
