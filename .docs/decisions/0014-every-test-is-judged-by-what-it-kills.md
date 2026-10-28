@@ -440,10 +440,10 @@ running it: why is this mutant here, and has it always been?
     for stands only where its killers pass on the unmutated code, served as
     its mutant was, so that a test that fails only while the runner serves a
     file, or fails on its own, is never read as a kill:
-    - Each such kill gets one unmutated control (ADR-0008): its
-      killers, with every test they depend on through PHPUnit's
-      `#[Depends]` attributes (PHPUnit skips a test whose dependency did not
-      run before it), run with its file served unmutated by the means the
+    - Each such kill gets one unmutated control (ADR-0008): exactly
+      its killers, a killer that is a row of a data set run alone, with
+      every test they depend on through PHPUnit's `#[Depends]` attributes
+      (PHPUnit skips a test whose dependency did not run before it), run with its file served unmutated by the means the
       runner serves a mutant's file, under the request's memory cap, allowed the
       standard mutant limit of their time as the coverage map timed them. Two
       kills of the same file and killers share it, as does a timeout's
@@ -461,12 +461,13 @@ running it: why is this mutant here, and has it always been?
       recorded ended its process, needs no control: its evidence judges it.
     - Any other kill no test is named for gets one unmutated control too:
       the tests that judge it, those covering its lines as the coverage map
-      names them, and of a held unit only those that hold it, run with its
-      file served unmutated, allowed the standard mutant limit of their
-      time. The kill stands, its killer unknown, where the control passes.
-      Where it fails, its tests fail unmutated, as above. Where it runs out
-      of the cap or the limit, or never runs, the kill is unjudged, and its
-      reason says which: a red unmutated run
+      names them, and of a held unit only those that hold it, as its own
+      run selected them (ADR-0008), run with its file served unmutated,
+      allowed the standard mutant limit of their time. The kill stands, its
+      killer unknown, where the control passes. Where it fails, its tests
+      fail unmutated, as above. Where it runs out of the cap or the limit,
+      or never runs, the kill is unjudged, and its reason says which: a red
+      unmutated run
       tells nothing about the mutant. Infection names a killer only under
       `infection:patch`, so an unpatched Infection's kills are judged so.
 

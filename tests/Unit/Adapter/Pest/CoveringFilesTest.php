@@ -232,3 +232,21 @@ it('reads the suite from the test directory Pest runs, where none is named', fun
         }
     }],
 ]);
+
+it('runs, where a mutant\'s filter is left out, each test whose class a file its run loads declares, or every one where its run loads every file', function () use ($suite): void {
+    [$namespace] = $suite();
+    putenv(sprintf('%s=1', GateVariable::Narrow->value));
+    putenv(sprintf('%s=%s/results.jsonl', GateVariable::Results->value, Scratch::directory()));
+    $child = sprintf('%s\ChildTest::testIt', $namespace);
+    $alone = sprintf('%s\AloneTest::testIt', $namespace);
+    $tests = [$child, $alone, sprintf('%s\BaseTest::testIt', $namespace), 'Never\Loaded::test'];
+    CoveringFiles::of([$child], '/tmp/mutations/abc');
+
+    expect(CoveringFiles::loading('/tmp/mutations/abc', $tests))->toBe([$child, sprintf('%s\BaseTest::testIt', $namespace)])
+        ->and(CoveringFiles::loading('/tmp/mutations/other', $tests))->toBe($tests);
+
+    CoveringFiles::of(['Never\Loaded::test'], '/tmp/mutations/whole');
+
+    expect(CoveringFiles::loading('/tmp/mutations/whole', $tests))->toBe($tests)
+        ->and(CoveringFiles::loading('/tmp/mutations/abc', $tests))->toBe($tests);
+});

@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\MemoryScan;
+use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Pest\Selection;
+use NightWorksIO\MutationGate\Adapter\Pest\Suite;
+use NightWorksIO\MutationGate\Adapter\Pest\TestFiles;
 use NightWorksIO\MutationGate\Adapter\Pest\UnmutatedRuns;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -15,15 +19,29 @@ use NightWorksIO\MutationGate\Core\Control\ControlRun;
 use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Control\PeakLauncher;
+use NightWorksIO\MutationGate\Core\Control\TimeoutControls;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
+use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
+use NightWorksIO\MutationGate\Core\Mutant\Location;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\Mutation;
+use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Runner\Leftover;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\RunTests;
+use NightWorksIO\MutationGate\Core\Runner\UnfilteredRuns;
+use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\JudgingSuites;
 use NightWorksIO\MutationGate\Core\Test\Suites;
@@ -31,6 +49,7 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Tests\Support\JUnitLogs;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShellFake;
@@ -105,6 +124,60 @@ it('names the tests a failed control\'s JUnit log records failing', function ():
         ->toEqual(ControlRun::failed(TestIds::of(TestId::of('P\Tests\WalletSpec::__pest_evaluable_it_adds'))));
 });
 
+/** The `--filter` pattern a control's command passes. */
+function controlFilter(ShellFake $shell, int $at = 0): string
+{
+    $arguments = $shell->commands()[$at]->arguments();
+
+    return $arguments[(int) array_search('--filter', $arguments, strict: true) + 1];
+}
+
+it('runs exactly the row of a data set a control names, not the data set\'s other rows', function (): void {
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+    $row = 'it_answers#dataset "Extenders::whatBecameOf"';
+
+    unmutatedRuns(unmutatedProject(), $shell, Controls::of(pestControl('src/Money.php', 5.0, $row)), unmutatedRequest());
+    $pattern = controlFilter($shell);
+    $named = static fn(string $row): string => sprintf('Tests\MoneySpec::it answers with data set "dataset "%s""', $row);
+
+    expect(preg_match($pattern, $named('Extenders::whatBecameOf')))->toBe(1)
+        ->and(preg_match($pattern, $named('Extenders::install')))->toBe(0)
+        ->and(preg_match($pattern, $named('Pausers::whatBecameOf')))->toBe(0);
+});
+
+it('runs a timeout\'s control of a data set\'s rows as its mutant\'s own run ran them, patched or not', function (): void {
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+    $rows = array_map(
+        static fn(string $row): TestId => TestId::of(sprintf('P\Tests\MoneySpec::__pest_evaluable_it_answers#dataset "%s"', $row)),
+        ['Extenders::whatBecameOf', 'Extenders::install', 'Pausers::whatBecameOf'],
+    );
+    $map = CoverageMap::empty()
+        ->covered(Path::of('src/Money.php'), Line::of(3), $rows[0])
+        ->covered(Path::of('src/Tax.php'), Line::of(3), $rows[1], $rows[2]);
+    $hung = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'LessThan', '-<', 0),
+        'hung',
+        Location::of(Path::of('src/Money.php'), Line::of(3), Line::of(3)),
+        Mutation::of('LessThan', MutatorFamily::Boundary, ''),
+        MutantStatus::TimedOut,
+        Unmeasured::duration(),
+    )->withLimit(Seconds::of(7.0));
+    $controlOf = static fn(Patching $patching): Controls
+        => TimeoutControls::of(Mutants::of($hung), UnfilteredRuns::none(), $map, HeldCovered::none(), $patching->selection(new TestFiles(unmutatedProject())))->asked();
+
+    unmutatedRuns(unmutatedProject(), $shell, $controlOf(Patching::on(Group::named('canary'))), unmutatedRequest());
+    unmutatedRuns(unmutatedProject(), $shell, $controlOf(Patching::off()), unmutatedRequest());
+    $selects = static fn(string $pattern): array => array_map(
+        static fn(string $row): int => (int) preg_match($pattern, sprintf('Tests\MoneySpec::it answers with data set "dataset "%s""', $row)),
+        ['Extenders::whatBecameOf', 'Extenders::install', 'Pausers::whatBecameOf'],
+    );
+
+    expect(controlFilter($shell, 0))->toBe(Selection::covering([$rows[0]->value()], Suite::of(TestIds::of(...$rows)))->filter()->pattern())
+        ->and($selects(controlFilter($shell, 0)))->toBe([1, 0, 0])
+        ->and($selects(controlFilter($shell, 1)))->toBe($selects(Selection::of(TestIds::of($rows[0]))->filter()->pattern()))
+        ->and($selects(controlFilter($shell, 1)))->toBe([1, 1, 1]);
+});
+
 it('reads how each control ended: passed in the time it took, failed, or ran out of its limit', function (Ran $ran, ControlRun $found): void {
     $runs = unmutatedRuns(unmutatedProject(), ShellFake::answering($ran), Controls::of(pestControl('src/Money.php')), unmutatedRequest());
 
@@ -128,6 +201,26 @@ it('runs a control whose tests Pest\'s filter cannot hold by the tests that judg
     );
 
     expect($shell->commands()[0]->arguments())->toContain('holds:src/Money.php');
+});
+
+it('runs a control as its mutant\'s run selected its tests: by its filter, by the files it loaded with no filter, or by every file', function (): void {
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+    $tests = TestIds::of(TestId::of('P\Tests\MoneySpec::__pest_evaluable_it_adds'));
+    $running = static fn(RunTests $run): Controls => Controls::of(Control::running(Path::of('src/Money.php'), $run, Seconds::of(5.0)));
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('holds'));
+
+    unmutatedRuns(unmutatedProject(), $shell, $running(RunTests::filtered($tests, Filter::matching('"MoneySpec::"'))), $request);
+    unmutatedRuns(unmutatedProject(), $shell, $running(RunTests::loading($tests, Paths::of(Path::of('tests/MoneySpec.php')))), $request);
+    unmutatedRuns(unmutatedProject(), $shell, $running(RunTests::loading($tests, WholeSuite::tests())), $request);
+    [$filtered, $files, $every] = array_map(static fn(Command $command): array => $command->arguments(), $shell->commands());
+
+    expect($filtered)->toContain('"MoneySpec::"')
+        ->and($files)->toContain('tests/MoneySpec.php')
+        ->and($files)->toContain('holds')
+        ->and(implode(' ', $files))->not->toContain('--filter')
+        ->and($every)->toContain('holds')
+        ->and(implode(' ', $every))->not->toContain('--filter')
+        ->and(implode(' ', $every))->not->toContain('tests/MoneySpec.php');
 });
 
 it('runs each control over the judging suites, and the holding suites too where Pest\'s filter names its tests', function (): void {

@@ -6,10 +6,12 @@ use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Matrix\NotFull;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\ExactRun;
 use NightWorksIO\MutationGate\Core\Runner\Parallelism;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Tests\Support\EveryRowOfTheMethod;
 
 it('lists holds as groups, has no group in every key and opens no shard of its own, by default', function (): void {
     $standard = RunnerBehaviour::standard();
@@ -52,4 +54,10 @@ it('records first killers always, and every killer unless it is Infection', func
         ->and(RunnerBehaviour::standard()->stoppingAtFirstKiller(NotFull::FirstKillers)->records(MatrixKind::Full))->toBeTrue()
         ->and($infection->records(MatrixKind::FirstKiller))->toBeTrue()
         ->and($infection->records(MatrixKind::Full))->toBeFalse();
+});
+
+it('selects exactly the tests that judge a mutant for its own run, unless the runner selects them otherwise', function (): void {
+    expect(RunnerBehaviour::standard()->selection())->toEqual(new ExactRun())
+        ->and(RunnerBehaviour::standard()->selecting(new EveryRowOfTheMethod())->selection())->toEqual(new EveryRowOfTheMethod())
+        ->and(RunnerBehaviour::standard()->selecting(new EveryRowOfTheMethod())->runningPerCore()->selection())->toEqual(new EveryRowOfTheMethod());
 });

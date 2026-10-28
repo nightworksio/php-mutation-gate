@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Control\MemoryControls;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Hold\Covered;
 use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
@@ -21,16 +22,21 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Runner\ExactRun;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
+use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
+use NightWorksIO\MutationGate\Core\Runner\UnfilteredRuns;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
+use NightWorksIO\MutationGate\Tests\Support\EveryRowOfTheMethod;
 use NightWorksIO\MutationGate\Tests\Support\Growth;
+use NightWorksIO\MutationGate\Tests\Support\LoadingUnfiltered;
 
 /** A mutant of a file at line 3, ended so, by its native id. */
 function memoryMutant(string $file, string $nativeId, MutantStatus $status): Mutant
@@ -82,8 +88,30 @@ function askedMemoryControls(MemoryControls $controls): array
 it('asks for one control of each mutant out of a memory cap: its covering tests, its file, and the standard limit of their time', function (): void {
     $mutants = Mutants::of(grownMutant('1'), grownMutant('2'));
 
-    expect(askedMemoryControls(MemoryControls::of($mutants, growMap(), HeldCovered::none(), memoryBounds())))
+    expect(askedMemoryControls(MemoryControls::of($mutants, UnfilteredRuns::none(), growMap(), HeldCovered::none(), new ExactRun(), memoryBounds())))
         ->toBe([['src/Grow.php', ['GrowTest::a'], 11.0]]);
+});
+
+it('sizes a control\'s limit from every test its mutant\'s own run ran, every row of a data set where the run ran them all', function (): void {
+    $map = CoverageMap::empty()
+        ->covered(Path::of('src/Grow.php'), Line::of(3), TestId::of('GrowTest::a#0'))
+        ->covered(Path::of('src/Other.php'), Line::of(1), TestId::of('GrowTest::a#1'))
+        ->timed(TestId::of('GrowTest::a#0'), Seconds::of(2.0))
+        ->timed(TestId::of('GrowTest::a#1'), Seconds::of(60.0));
+    $mutants = Mutants::of(grownMutant());
+
+    expect(askedMemoryControls(MemoryControls::of($mutants, UnfilteredRuns::none(), $map, HeldCovered::none(), new EveryRowOfTheMethod(), memoryBounds())))
+        ->toBe([['src/Grow.php', ['GrowTest::a#0', 'GrowTest::a#1'], MutantLimit::standard()->of(Seconds::of(62.0), memoryBounds())->seconds()]])
+        ->and(askedMemoryControls(MemoryControls::of($mutants, UnfilteredRuns::none(), $map, HeldCovered::none(), new ExactRun(), memoryBounds())))
+        ->toBe([['src/Grow.php', ['GrowTest::a#0'], 11.0]]);
+});
+
+it('asks for a control that loads the test files its mutant\'s run loaded with no filter', function (): void {
+    $mutant = grownMutant();
+    $files = Paths::of(Path::of('tests/GrowTest.php'));
+    $asked = [...MemoryControls::of(Mutants::of($mutant), UnfilteredRuns::none()->with($mutant->id(), $files), growMap(), HeldCovered::none(), new LoadingUnfiltered(), memoryBounds())->asked()];
+
+    expect($asked[0]->selected())->toBe($files);
 });
 
 it('asks for no control of a mutant that did not run out of memory, of one with no cap, or of one no test covers', function (): void {
@@ -93,7 +121,7 @@ it('asks for no control of a mutant that did not run out of memory, of one with 
         memoryMutant('src/Other.php', 'uncovered', MutantStatus::OutOfMemory)->withLimit(MemoryCap::of(64, MemoryUnit::Megabytes)),
     );
 
-    expect(askedMemoryControls(MemoryControls::of($mutants, growMap(), HeldCovered::none(), memoryBounds())))->toBe([]);
+    expect(askedMemoryControls(MemoryControls::of($mutants, UnfilteredRuns::none(), growMap(), HeldCovered::none(), new ExactRun(), memoryBounds())))->toBe([]);
 });
 
 it('controls a mutant of a held unit by the tests covering its line that hold it', function (): void {
@@ -103,13 +131,13 @@ it('controls a mutant of a held unit by the tests covering its line that hold it
         TestIds::of(TestId::of('GrowTest::a')),
     ));
 
-    expect(askedMemoryControls(MemoryControls::of(Mutants::of(grownMutant()), $map, $held, memoryBounds())))
+    expect(askedMemoryControls(MemoryControls::of(Mutants::of(grownMutant()), UnfilteredRuns::none(), $map, $held, new ExactRun(), memoryBounds())))
         ->toBe([['src/Grow.php', ['GrowTest::a'], 11.0]]);
 });
 
 it('judges each mutant out of memory by what its control found', function (ControlRun $found, MutantStatus $status, MemoryCap|Unmeasured $need, string $reason): void {
     $mutants = Mutants::of(grownMutant());
-    $controls = MemoryControls::of($mutants, growMap(), HeldCovered::none(), memoryBounds());
+    $controls = MemoryControls::of($mutants, UnfilteredRuns::none(), growMap(), HeldCovered::none(), new ExactRun(), memoryBounds());
     $applied = [...$controls->applied($mutants, ControlRuns::none()->with([...$controls->asked()][0], $found), Controls::none())];
     $said = $applied[0]->reason();
 
@@ -136,7 +164,7 @@ it('judges each mutant out of memory by what its control found', function (Contr
 
 it('says a control the runs hold nothing for never ran, and leaves one whose control was left unjudged by the budget', function (): void {
     $mutants = Mutants::of(grownMutant('1'), memoryMutant('src/Grow.php', '2', MutantStatus::OutOfMemory)->withLimit(MemoryCap::of(64, MemoryUnit::Megabytes)));
-    $controls = MemoryControls::of($mutants, growMap(), HeldCovered::none(), memoryBounds());
+    $controls = MemoryControls::of($mutants, UnfilteredRuns::none(), growMap(), HeldCovered::none(), new ExactRun(), memoryBounds());
     $none = [...$controls->applied($mutants, ControlRuns::none(), Controls::none())];
     $left = [...$controls->applied($mutants, ControlRuns::none(), $controls->asked())];
 
@@ -148,7 +176,7 @@ it('asks for and applies memory controls in time linear in the number of mutants
     $timing = static function (int $size): Closure {
         $mutants = Mutants::of(...array_map(static fn(int $at): Mutant => grownMutant(strval($at)), range(1, $size)));
 
-        return static fn(): int => count(MemoryControls::of($mutants, growMap(), HeldCovered::none(), memoryBounds())
+        return static fn(): int => count(MemoryControls::of($mutants, UnfilteredRuns::none(), growMap(), HeldCovered::none(), new ExactRun(), memoryBounds())
             ->applied($mutants, ControlRuns::none(), Controls::none()));
     };
 
@@ -158,7 +186,7 @@ it('asks for and applies memory controls in time linear in the number of mutants
 
 it('names, for a mutant out of memory whose tests fail without it, the tests its control recorded failing, or every test it ran', function (TestIds $recorded, array $failing): void {
     $mutants = Mutants::of(grownMutant());
-    $controls = MemoryControls::of($mutants, growMap(), HeldCovered::none(), memoryBounds());
+    $controls = MemoryControls::of($mutants, UnfilteredRuns::none(), growMap(), HeldCovered::none(), new ExactRun(), memoryBounds());
     $applied = [...$controls->applied($mutants, ControlRuns::none()->with([...$controls->asked()][0], ControlRun::failed($recorded)), Controls::none())];
 
     expect(array_map(static fn(TestId $test): string => $test->value(), [...$applied[0]->killers()]))->toBe($failing);

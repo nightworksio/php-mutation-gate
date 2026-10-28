@@ -13,12 +13,14 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Unevidenced;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\RunSelection;
 
 /**
  * The unmutated control of each kill no test is named for and whose ending
  * does not vouch for it (ADR-0014): the tests that judge it, those covering
  * its lines as the coverage map names them, and of a held unit only those
- * that hold it, run with its file served unmutated as its mutant was,
+ * that hold it, as its own run selected them (see RunSelection), run with
+ * its file served unmutated as its mutant was,
  * allowed the standard mutant limit of their time. Where they pass, the
  * mutant's run failed and its original's does not, so the kill stands, its
  * killer unknown. Where they fail, run out of the cap or the limit, or never
@@ -53,13 +55,20 @@ final readonly class UnnamedKillControls implements ControlJudge
         Evidences $evidence,
         CoverageMap $map,
         HeldCovered $held,
+        RunSelection $run,
         LimitBounds $bounds,
     ): self {
         $controls = [];
 
         foreach ($mutants as $mutant) {
-            $tests = Control::judging($mutant, $map, $held);
-            $controls += Unevidenced::needsVouching($mutant, $evidence->of($mutant->id())) && count($tests) > 0
+            $found = $evidence->of($mutant->id());
+
+            if (! Unevidenced::needsVouching($mutant, $found)) {
+                continue;
+            }
+
+            $tests = Control::judging($mutant, $map, $held, $run, $found->unfiltered());
+            $controls += count($tests->tests()) > 0
                 ? [$mutant->id()->key() => Control::standard($mutant->location()->file(), $tests, $map, $bounds)]
                 : [];
         }

@@ -177,6 +177,7 @@ final readonly class MutationRun
         $baselines = StepTimes::of($laps->lap(Step::Baselines, $from, $kills->sets()));
         $controls = Controls::of(
             $this->project,
+            $this->patching,
             $doubtful,
             $request->judgedBy(),
             fn(): Covering|CannotJudge => $this->coveringOf($shared, $results),

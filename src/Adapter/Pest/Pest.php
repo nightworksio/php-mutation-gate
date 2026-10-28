@@ -85,6 +85,9 @@ final readonly class Pest implements Runner
     /** What the runner learns once for every run it starts. */
     private Remembered $remembered;
 
+    /** The tests of the map last asked about, counted once for every file the runner is asked about. */
+    private MapSuites $suites;
+
     public function __construct(
         private Project $project,
         private Shell $shell,
@@ -96,6 +99,7 @@ final readonly class Pest implements Runner
     ) {
         $this->tests = new TestFiles($project);
         $this->remembered = new Remembered();
+        $this->suites = new MapSuites();
     }
 
     /**
@@ -154,13 +158,16 @@ final readonly class Pest implements Runner
     /**
      * Pest's plugin reads each `#[Holds]` as its test files load. Patched,
      * every shard opens on the canary group, whose test files every key then
-     * reads; unpatched, each shard pays a full opening run under coverage. It
-     * runs a mutant per core, and its tests are Pest's closures.
+     * reads, and a mutant's run selects exactly its covering rows; unpatched,
+     * each shard pays a full opening run under coverage, and a mutant's run
+     * selects every row of its covering tests' data sets. It runs a mutant
+     * per core, and its tests are Pest's closures.
      */
     public function behaviour(): RunnerBehaviour
     {
         $canary = $this->patching->canary();
         $pest = RunnerBehaviour::standard()
+            ->selecting($this->patching->selection($this->tests))
             ->holdingAsLoaded()
             ->runningPerCore()
             ->writingTestsIn(AssertionStyle::Pest);
@@ -210,7 +217,7 @@ final readonly class Pest implements Runner
      */
     public function judges(Path $file, CoverageMap $map): Paths
     {
-        $selection = Selection::of($map->testsCoveringFile($file));
+        $selection = $this->patching->selecting($map->testsCoveringFile($file), $this->suites->of($map));
 
         return $selection->fits() ? $this->tests->naming($selection->classes()) : $this->tests->all();
     }

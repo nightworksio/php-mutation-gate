@@ -18,6 +18,8 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Evidence;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -27,19 +29,26 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
+use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
+use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
+use NightWorksIO\MutationGate\Tests\Support\LoadingUnfiltered;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
 use NightWorksIO\MutationGate\Tests\Support\RunningCases;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -78,6 +87,13 @@ function controlKeysAsked(ScriptedRunner $runner): array
     }
 
     return $keys;
+}
+
+/** The mutant a run made with this native id. */
+function madeMutant(MutationResult $made, string $nativeId): Mutant
+{
+    return array_first(array_filter([...$made->mutants()], static fn(Mutant $mutant): bool => $mutant->nativeId() === $nativeId))
+        ?? throw new LogicException(sprintf('no mutant %s', $nativeId));
 }
 
 /** The fixture's timed-out mutant's control: its covering test, allowed its limit. */
@@ -344,4 +360,24 @@ it('allows a kill\'s control the limit laid on the start-up the shard measured',
 
     // A timeout's control keeps the limit its mutant ran out of; a kill's is laid anew, past the floor of 10 s.
     expect(max([0.0, ...$limits]))->toBeGreaterThanOrEqual(12.0);
+});
+
+it('asks for a timed-out mutant\'s control that loads the test files its run loaded with no filter, as the run\'s evidence says', function (): void {
+    $project = Flows::project();
+    $files = Paths::of(Path::of('tests/MoneyTest.php'));
+    $made = RunnerFake::ofTheFixture()->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()));
+    $timedOut = madeMutant($made, 'Decrement-27');
+    $runner = ScriptedRunner::fixture()
+        ->behaving(RunnerBehaviour::standard()->selecting(new LoadingUnfiltered()))
+        ->answeringInTurn($made->withEvidence($made->evidence()->with($timedOut->id(), Evidence::none()->loadingUnfiltered($files))));
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+    $selected = [];
+
+    foreach ($runner->controlled() as [$controls]) {
+        $selected = [...$selected, ...array_map(static fn(Control $control): Filter|Paths|WholeSuite|NotGiven => $control->selected(), [...$controls])];
+    }
+
+    expect($selected)->toContain($files);
 });

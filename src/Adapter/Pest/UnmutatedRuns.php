@@ -19,20 +19,22 @@ use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Control\PeakLauncher;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
+use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\JUnitFailures;
 
 use function sprintf;
 use function strval;
 
 /**
- * Unmutated controls as Pest runs them (ADR-0008): each
- * control's tests, selected by Pest's filter of their ids where it fits and
- * by the tests that judge the request otherwise, as a mutant's own run
- * selects them, with its file served unmutated through Pest's override (see
+ * Unmutated controls as Pest runs them (ADR-0008): exactly each
+ * control's tests, a row of a data set alone, selected by Pest's filter of
+ * their ids where it fits and by the tests that judge the request otherwise,
+ * with its file served unmutated through Pest's override (see
  * ServedOriginal), under the request's memory cap and allowed its limit;
  * side by side in the places of the request's pool, none started once the
  * request's deadline has passed. Its tests' time is the time its process
@@ -145,14 +147,26 @@ final readonly class UnmutatedRuns
         };
     }
 
-    /** The run of a control's tests, as a mutant's own run selects them, allowed its limit, logged to a file. */
+    /**
+     * The run of a control's tests, selected as its mutant's run selected
+     * them: by its filter, or by the test files it loaded with no filter, or
+     * every one, under the request's tests; or else exactly its tests, a row
+     * of a data set alone, where Pest's filter can hold them, and the tests
+     * that judge the request where it cannot. Allowed its limit, logged to
+     * a file.
+     */
     private function judging(Control $control, MutationRequest $request, string $log): Command
     {
-        $selection = Selection::of($control->tests());
-        $judgedBy = $selection->fits() ? $selection->filter() : $request->judgedBy();
+        $by = $control->selected();
+        $selection = Selection::exactly($control->tests(), Suite::none());
+        $judgedBy = match (true) {
+            $by instanceof Filter => $by,
+            $by instanceof NotGiven && $selection->fits() => $selection->filter(),
+            default => $request->judgedBy(),
+        };
 
         return Invocation::of($this->project)->judging(
-            Paths::none(),
+            $by instanceof Paths ? $by : Paths::none(),
             $judgedBy,
             $request->withheld(),
             ...[

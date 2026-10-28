@@ -256,6 +256,7 @@ final class Records
             RecordEvent::Preloaded => $this->runs->preloaded($record),
             RecordEvent::Narrowed => $this->runs->narrowed($record),
             RecordEvent::Limited => $this->runs->limited($record),
+            RecordEvent::Unfiltered => $this->runs->unfiltered($record),
             RecordEvent::Silent => $this->runs->silent($record),
             RecordEvent::Ran => $this->runs->ran($record),
             RecordEvent::Arguments => $this->runs->startedWith($record),

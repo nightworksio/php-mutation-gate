@@ -35,8 +35,10 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\UnfilteredRuns;
 use NightWorksIO\MutationGate\Core\Time\Deadline;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -217,15 +219,19 @@ final readonly class Invoking
      */
     private function controlled(Mutants $mutants, MutationRequest $request, Evidences $evidence): Controlled|CannotJudge
     {
+        $run = $this->adapters->runner->behaviour()->selection();
+        $unfiltered = $this->unfilteredIn($mutants, $evidence);
         $timeouts = TimeoutControls::of(
             $this->settings->triage()->timeouts() === TimeoutMode::Unjudged ? Mutants::none() : $mutants,
+            $unfiltered,
             $this->map,
             $this->held,
+            $run,
         );
         $bounds = $request->pool()->bounding($this->settings->triage()->bounds());
         $kills = KillControls::of($mutants, $this->map, $bounds);
-        $memory = MemoryControls::of($mutants, $this->map, $this->held, $bounds);
-        $unnamed = UnnamedKillControls::of($mutants, $evidence, $this->map, $this->held, $bounds);
+        $memory = MemoryControls::of($mutants, $unfiltered, $this->map, $this->held, $run, $bounds);
+        $unnamed = UnnamedKillControls::of($mutants, $evidence, $this->map, $this->held, $run, $bounds);
         $asked = [...Controls::of(...[
             ...$timeouts->asked(),
             ...$kills->asked(),
@@ -263,6 +269,19 @@ final readonly class Invoking
                 $unnamed->vouching($mutants, $evidence, $runs, $left),
             ),
         };
+    }
+
+    /** The test files each of these mutants' own runs loaded with no filter, as the evidence says. */
+    private function unfilteredIn(Mutants $mutants, Evidences $evidence): UnfilteredRuns
+    {
+        $unfiltered = UnfilteredRuns::none();
+
+        foreach ($mutants as $mutant) {
+            $files = $evidence->of($mutant->id())->unfiltered();
+            $unfiltered = $files instanceof NotGiven ? $unfiltered : $unfiltered->with($mutant->id(), $files);
+        }
+
+        return $unfiltered;
     }
 
     /**

@@ -15,13 +15,16 @@ use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\RunSelection;
+use NightWorksIO\MutationGate\Core\Runner\UnfilteredRuns;
 
 use function sprintf;
 
 /**
  * The unmutated control of each mutant out of memory (ADR-0004): the tests
  * that judge it, those covering its lines as the coverage map names them,
- * and of a held unit only those that hold it, run with its file served
+ * and of a held unit only those that hold it, as its own run selected them
+ * (see RunSelection), run with its file served
  * unmutated as its mutant was, under the same memory cap, allowed the
  * standard mutant limit of their time, its peak measured as every runner
  * measures one (see PeakLauncher). Memory triage weighs the mutant against
@@ -54,15 +57,23 @@ final readonly class MemoryControls implements ControlJudge
     }
 
     /** The control of each of these mutants out of memory, its time limit within these bounds. */
-    public static function of(Mutants $mutants, CoverageMap $map, HeldCovered $held, LimitBounds $bounds): self
-    {
+    public static function of(
+        Mutants $mutants,
+        UnfilteredRuns $unfiltered,
+        CoverageMap $map,
+        HeldCovered $held,
+        RunSelection $run,
+        LimitBounds $bounds,
+    ): self {
         $controls = [];
 
         foreach ($mutants as $mutant) {
-            $tests = Control::judging($mutant, $map, $held);
-            $controls += $mutant->status() === MutantStatus::OutOfMemory
-                && $mutant->limit() instanceof MemoryCap
-                && count($tests) > 0
+            if ($mutant->status() !== MutantStatus::OutOfMemory || ! $mutant->limit() instanceof MemoryCap) {
+                continue;
+            }
+
+            $tests = Control::judging($mutant, $map, $held, $run, $unfiltered->of($mutant->id()));
+            $controls += count($tests->tests()) > 0
                 ? [$mutant->id()->key() => Control::standard($mutant->location()->file(), $tests, $map, $bounds)]
                 : [];
         }

@@ -148,6 +148,15 @@ final readonly class RecordLine
         ]);
     }
 
+    /** That a patched run left the filter of the mutant with this mutated copy out, so it ran every test it loaded. */
+    public static function unfiltered(string $mutated): string
+    {
+        return self::line([
+            RecordField::Event->value => RecordEvent::Unfiltered->value,
+            RecordField::Mutated->value => $mutated,
+        ]);
+    }
+
     /** That the own run of the mutant with this mutated copy was stopped where no test finished for this long. */
     public static function silent(string $mutated, float $seconds): string
     {

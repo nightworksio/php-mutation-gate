@@ -6,8 +6,11 @@ use NightWorksIO\MutationGate\Adapter\Pest\AloneRuns;
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\Controls;
 use NightWorksIO\MutationGate\Adapter\Pest\Covering;
+use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Remembered;
+use NightWorksIO\MutationGate\Adapter\Pest\Selection;
+use NightWorksIO\MutationGate\Adapter\Pest\Suite;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
@@ -71,6 +74,11 @@ function controlledCovering(string ...$tests): Covering
         {
             return CoverageMap::empty();
         }
+
+        public function tests(): TestIds
+        {
+            return TestIds::none();
+        }
     };
 }
 
@@ -83,8 +91,8 @@ it('leaves unjudged each kill confirmed again whose control fails, and keeps eve
         succeeded: ! str_contains(implode(' ', $command->arguments()), 'fails'),
         output: '',
     ));
-    $controls = Controls::of($at, Mutants::of($killed, $survived), Group::named('g'), static fn(): Covering => controlledCovering('P\Tests\MoneySpec::__pest_evaluable_it_fails'));
-    $others = Controls::of($at, Mutants::of($passing), Group::named('g'), static fn(): Covering => controlledCovering('P\Tests\MoneySpec::__pest_evaluable_it_adds'));
+    $controls = Controls::of($at, Patching::on(Group::named('canary')), Mutants::of($killed, $survived), Group::named('g'), static fn(): Covering => controlledCovering('P\Tests\MoneySpec::__pest_evaluable_it_fails'));
+    $others = Controls::of($at, Patching::on(Group::named('canary')), Mutants::of($passing), Group::named('g'), static fn(): Covering => controlledCovering('P\Tests\MoneySpec::__pest_evaluable_it_adds'));
     $runs = new AloneRuns($at, $shell, new Remembered());
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('g'));
     $results = sprintf('%s/results.jsonl', $at->root());
@@ -101,7 +109,7 @@ it('leaves unjudged each kill confirmed again whose control fails, and keeps eve
 it('leaves a kill confirmed again unjudged, saying why, where its control runs out of its time, of the memory cap, or never runs', function (Ran $ran, Seconds|Unlimited $left, string $why): void {
     $at = controlledProject();
     $killed = controlledMutant(11, MutantStatus::Killed);
-    $controls = Controls::of($at, Mutants::of($killed), Group::named('g'), static fn(): Covering => controlledCovering('P\Tests\MoneySpec::__pest_evaluable_it_adds'));
+    $controls = Controls::of($at, Patching::off(), Mutants::of($killed), Group::named('g'), static fn(): Covering => controlledCovering('P\Tests\MoneySpec::__pest_evaluable_it_adds'));
 
     $applied = [...$controls->applied(
         Mutants::of($killed),
@@ -119,12 +127,33 @@ it('leaves a kill confirmed again unjudged, saying why, where its control runs o
     'no time left' => [fn(): Ran => Ran::finished(succeeded: true, output: ''), fn(): Seconds => Seconds::of(0.0), 'Killed, but no unmutated control of its covering tests ran, so nothing vouches for it: no time was left for it.'],
 ]);
 
+it('controls a kill confirmed again by the rows of a data set its own run ran: the covering rows patched, every row unpatched', function (): void {
+    $at = controlledProject();
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+    $killed = controlledMutant(11, MutantStatus::Killed);
+    $row = 'P\Tests\MoneySpec::__pest_evaluable_it_adds#dataset "one"';
+    $applied = static fn(Patching $patching): Mutants => Controls::of($at, $patching, Mutants::of($killed), Group::named('g'), static fn(): Covering => controlledCovering($row))
+        ->applied(
+            Mutants::of($killed),
+            new AloneRuns($at, $shell, new Remembered()),
+            MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('g')),
+            Unlimited::time(),
+            sprintf('%s/results.jsonl', $at->root()),
+        );
+
+    $applied(Patching::on(Group::named('canary')));
+    $applied(Patching::off());
+
+    expect($shell->commands()[0]->arguments())->toContain(Selection::exactly(TestIds::of(TestId::of($row)), Suite::none())->filter()->pattern())
+        ->and($shell->commands()[1]->arguments())->toContain(Selection::of(TestIds::of(TestId::of($row)))->filter()->pattern());
+});
+
 it('controls a kill by the tests that judged its run where Pest\'s filter is too long to pass, as Pest then runs them', function (): void {
     $at = controlledProject();
     $long = array_map(static fn(int $at): string => sprintf('P\Tests\MoneySpec::__pest_evaluable_it_adds_%s_%d', str_repeat('x', 200), $at), range(1, 600));
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
     $killed = controlledMutant(11, MutantStatus::Killed);
-    $controls = Controls::of($at, Mutants::of($killed), Group::named('holds:src/Money.php'), static fn(): Covering => controlledCovering(...$long));
+    $controls = Controls::of($at, Patching::on(Group::named('canary')), Mutants::of($killed), Group::named('holds:src/Money.php'), static fn(): Covering => controlledCovering(...$long));
 
     $controls->applied(
         Mutants::of($killed),
@@ -143,7 +172,7 @@ it('leaves unjudged every kill confirmed again, and runs nothing, where the cove
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
     $killed = controlledMutant(11, MutantStatus::Killed);
     $survived = controlledMutant(16, MutantStatus::Survived);
-    $controls = Controls::of($at, Mutants::of($killed, $survived), Group::named('g'), static fn(): CannotJudge => CannotJudge::because('No map.'));
+    $controls = Controls::of($at, Patching::on(Group::named('canary')), Mutants::of($killed, $survived), Group::named('g'), static fn(): CannotJudge => CannotJudge::because('No map.'));
 
     $applied = [...$controls->applied(
         Mutants::of($killed, $survived),
@@ -163,7 +192,7 @@ it('leaves unjudged every kill confirmed again, and runs nothing, where the cove
 it('reads no coverage where there is no doubtful kill to control', function (): void {
     $read = 0;
 
-    $controls = Controls::of(controlledProject(), Mutants::none(), Group::named('g'), static function () use (&$read): CannotJudge {
+    $controls = Controls::of(controlledProject(), Patching::on(Group::named('canary')), Mutants::none(), Group::named('g'), static function () use (&$read): CannotJudge {
         $read++;
 
         return CannotJudge::because('No map.');
@@ -187,13 +216,18 @@ it('controls a mutant over several lines by the tests that cover any of them, it
         {
             return CoverageMap::empty();
         }
+
+        public function tests(): TestIds
+        {
+            return TestIds::none();
+        }
     };
     $shell = new ShellFake(static fn(Command $command): Ran => Ran::finished(
         succeeded: ! str_contains(implode(' ', $command->arguments()), 'fails'),
         output: '',
     ));
 
-    $applied = [...Controls::of($at, Mutants::of($spanning), Group::named('g'), static fn(): Covering => $covering)->applied(
+    $applied = [...Controls::of($at, Patching::on(Group::named('canary')), Mutants::of($spanning), Group::named('g'), static fn(): Covering => $covering)->applied(
         Mutants::of($spanning),
         new AloneRuns($at, $shell, new Remembered()),
         MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('g')),

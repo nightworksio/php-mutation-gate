@@ -297,6 +297,26 @@ it('names the tests of a map that some test files hold, by the class Pest declar
     expect($pest->testsIn(Paths::of(Path::of('tests/MoneySpec.php')), $map))->toEqual(TestIds::of(TestId::of(PestCases::RUN_ADDS)));
 });
 
+it('names the test files of a patched run\'s filter, every row it names, a class it holds whole by name, or all when the rows will not fit', function (): void {
+    $at = PestCases::project();
+    Scratch::write($at->root(), 'tests/MoneySpec.php', '<?php');
+    Scratch::write($at->root(), 'tests/HeldSpec.php', '<?php');
+    $whole = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(11), TestId::of(PestCases::RUN_ADDS));
+
+    foreach (range(1, 2000) as $row) {
+        $whole = $whole->covered(Path::of('src/Kernel.php'), Line::of(3), TestId::of(sprintf('P\Tests\HeldSpec::__pest_evaluable_it_holds#dataset "row %d"', $row)));
+    }
+
+    $map = $whole->covered(Path::of('src/Other.php'), Line::of(1), TestId::of('P\Tests\HeldSpec::__pest_evaluable_it_holds#dataset "row 0"'));
+    $patched = new Pest($at, ShellFake::answering(Ran::stopped('')), Patching::on(Group::named('canary')), new CapDirectory(), Triage::standard()->bounds());
+    $unpatched = new Pest($at, ShellFake::answering(Ran::stopped('')), Patching::off(), new CapDirectory(), Triage::standard()->bounds());
+
+    expect($patched->judges(Path::of('src/Money.php'), $map))->toEqual(Paths::of(Path::of('tests/MoneySpec.php')))
+        ->and($patched->judges(Path::of('src/Kernel.php'), $map))->toEqual(Paths::of(Path::of('tests/HeldSpec.php'), Path::of('tests/MoneySpec.php')))
+        ->and($patched->judges(Path::of('src/Kernel.php'), $whole))->toEqual(Paths::of(Path::of('tests/HeldSpec.php')))
+        ->and($unpatched->judges(Path::of('src/Kernel.php'), $map))->toEqual(Paths::of(Path::of('tests/HeldSpec.php')));
+});
+
 it('names the test files a covering test\'s filter selects, or all when it will not fit', function (): void {
     $at = PestCases::project();
     Scratch::write($at->root(), 'tests/MoneySpec.php', '<?php');

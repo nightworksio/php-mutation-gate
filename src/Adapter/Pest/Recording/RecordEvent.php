@@ -38,6 +38,9 @@ enum RecordEvent: string
     /** The seconds a patched run allowed a mutant's own run, by its mutated copy (see MutantTime). */
     case Limited = 'limited';
 
+    /** A patched run left a mutant's filter out, so its own run ran every test it loaded (see MutantTime). */
+    case Unfiltered = 'unfiltered';
+
     /** The silence limit a patched run stopped a mutant's own run at, by its mutated copy (see Silence). */
     case Silent = 'silent';
 

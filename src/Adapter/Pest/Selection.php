@@ -6,10 +6,8 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_filter;
 use function array_map;
-use function array_unique;
 use function array_values;
 use function count;
-use function explode;
 use function implode;
 use function is_string;
 use function mb_strlen;
@@ -22,20 +20,21 @@ use NightWorksIO\MutationGate\Core\Test\TestMethod;
 
 use function preg_match;
 use function sprintf;
-use function str_replace;
 
 /**
  * What the `--filter` Pest builds for a mutant selects, from the tests that
  * cover the mutant, the way pest-plugin-mutate builds it: one alternative per
- * test, `<Class>::(.*)<name>`, unanchored on the left. A test id that does not
- * fit Pest's pattern is dropped from the filter, and a filter built from an id
- * with a repetition or attempt in it does not select that test.
+ * test, `<Class>::(.*)<name>`, unanchored on the left, which selects every
+ * row of a test's data set. A test id that does not fit Pest's pattern is
+ * dropped from the filter, and a filter built from an id with a repetition
+ * or attempt in it does not select that test. Built to select exactly the
+ * tests named, as a patched Pest's mutant run and every control select them,
+ * it holds one alternative per class (see Alternatives).
  */
 final readonly class Selection
 {
-    /** pest-plugin-mutate's own pattern for a covering test's id. */
-    private const string TEST = '/\\\\([a-zA-Z0-9]*)::(__pest_evaluable_)?([^#]*)"?/';
-
+    /** The delimiter the quoted pattern is read with, which a row's name escapes. */
+    public const string DELIMITER = '"';
     /** A test's class, by its name within its namespace. */
     private const string CLASS_NAME = '/(?:^|\\\\)([^\\\\]+)::/';
 
@@ -44,22 +43,43 @@ final readonly class Selection
 
     /**
      * @param list<string> $tests
+     * @param list<string> $pieces   the alternatives of the filter, one for each test it can name
      * @param string       $argument the `--filter` argument the tests make, built once
      * @param bool         $fits     whether the argument is passed, judged once
      */
-    private function __construct(private array $tests, private string $argument, private bool $fits)
-    {
+    private function __construct(
+        private array $tests,
+        private array $pieces,
+        private string $argument,
+        private bool $fits,
+    ) {
     }
 
     /** The tests covering a mutant. */
     public static function of(TestIds $covering): self
     {
-        $tests = array_map(static fn(TestId $test): string => $test->value(), [...$covering]);
-        $pieces = array_unique(array_filter(array_map(self::pieceOf(...), $tests), is_string(...)));
+        return self::built($covering, Rows::Every, Suite::none());
+    }
 
-        $argument = sprintf('%s"%s"', self::ARGUMENT, implode('|', $pieces));
+    /**
+     * Exactly these tests, a row of a data set alone where an id names one;
+     * a class, or a data set, named whole where the tests hold every test of
+     * it the suite names, and the tests of one class named after it once.
+     */
+    public static function exactly(TestIds $tests, Suite $suite): self
+    {
+        return self::built($tests, Rows::Named, $suite);
+    }
 
-        return new self($tests, $argument, self::passable($argument));
+    /**
+     * Exactly the tests covering a mutant, by their ids as the coverage map
+     * Pest loaded names them: what a patched Pest's mutant run selects.
+     *
+     * @param list<string> $covering
+     */
+    public static function covering(array $covering, Suite $suite): self
+    {
+        return self::built($covering, Rows::Named, $suite);
     }
 
     /**
@@ -95,6 +115,25 @@ final readonly class Selection
         return $this->fits;
     }
 
+    /**
+     * The tests among these the filter selects, as PHPUnit names them: none
+     * where it has no alternative, and every one where its argument is not
+     * passed, as the run then selects every test it loads.
+     */
+    public function among(TestIds $tests): TestIds
+    {
+        $pattern = $this->filter()->pattern();
+
+        return match (true) {
+            $this->pieces === [] => TestIds::none(),
+            ! $this->fits => $tests,
+            default => TestIds::of(...array_filter(
+                [...$tests],
+                static fn(TestId $test): bool => preg_match($pattern, self::nameOf($test->value())) === 1,
+            )),
+        };
+    }
+
     /** The covering tests the filter does not select. */
     public function unselected(): TestIds
     {
@@ -117,29 +156,52 @@ final readonly class Selection
         return array_values($classes);
     }
 
+    /**
+     * The selection of these tests, each alternative selecting these rows of
+     * its data set.
+     *
+     * @param TestIds|list<string> $tests
+     */
+    private static function built(TestIds|array $tests, Rows $rows, Suite $suite): self
+    {
+        $ids = $tests instanceof TestIds ? self::idsOf($tests) : $tests;
+        $pieces = $rows === Rows::Every ? Alternatives::everyRow($ids) : Alternatives::exact($ids, $suite);
+
+        $argument = sprintf('%s%s%s%s', self::ARGUMENT, self::DELIMITER, implode('|', $pieces), self::DELIMITER);
+
+        return new self($ids, $pieces, $argument, self::passable($argument));
+    }
+
+    /** A test's name as a filter reads it, its row's included; the id itself where it names no method. */
+    private static function nameOf(string $test): string
+    {
+        $method = TestMethod::of(TestId::of($test));
+
+        return $method instanceof TestMethod ? $method->named() : $test;
+    }
+
     /** The filter a `--filter` argument passes, quotes and all. */
     private static function filterIn(string $argument): Filter
     {
         return Filter::matching(mb_substr($argument, mb_strlen(self::ARGUMENT)));
     }
 
-    /** The alternative pest-plugin-mutate adds to the filter for one test, or none where it drops the test. */
-    private static function pieceOf(string $test): string|Unselectable
+    /** @return list<string> each test's id */
+    private static function idsOf(TestIds $tests): array
     {
-        if (preg_match(self::TEST, $test, $parts) !== 1) {
-            return Unselectable::Test;
-        }
-
-        $name = $parts[2] === TestMethod::EVALUABLE ? str_replace(['__', '_'], ['.{1,2}', '.'], $parts[3]) : $parts[3];
-
-        return sprintf('%s::(.*)%s', $parts[1], $name);
+        return array_map(static fn(TestId $test): string => $test->value(), [...$tests]);
     }
 
-    /** Whether the filter built for a test selects it, as PHPUnit matches a quoted filter. */
+    /**
+     * Whether the filter built for a test selects it, as PHPUnit matches a
+     * quoted filter against its name, its row's included, which the row it
+     * is narrowed to always matches.
+     */
     private static function selects(string $test): bool
     {
-        $piece = self::pieceOf($test);
+        $piece = Alternatives::pieceOf($test);
 
-        return is_string($piece) && preg_match(sprintf('"%s"', $piece), explode('#', $test)[0]) === 1;
+        return is_string($piece)
+            && preg_match(sprintf('%s%s%s', self::DELIMITER, $piece, self::DELIMITER), self::nameOf($test)) === 1;
     }
 }

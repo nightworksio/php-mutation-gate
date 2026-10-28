@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Bridges;
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
+use NightWorksIO\MutationGate\Adapter\Pest\EveryRow;
+use NightWorksIO\MutationGate\Adapter\Pest\ExactRows;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
@@ -163,7 +165,7 @@ it('is defined by tests/Pest.php and the PHPUnit config in the project\'s root, 
         ->toBe(['tests/Pest.php', 'phpunit.xml', 'phpunit.dist.xml', 'phpunit.xml.dist']);
 });
 
-it('reads holds as it loads them, and patched, raises a limit and has every key read its canary; unpatched, raises none', function (): void {
+it('reads holds as it loads them, and patched, raises a limit, has every key read its canary and runs exactly the covering rows; unpatched, raises none and runs every row', function (): void {
     $canary = Group::named('mutation-canary');
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
     $patched = new Pest(PestCases::project(), $shell, Patching::on($canary), new CapDirectory(), Triage::standard()->bounds());
@@ -173,8 +175,9 @@ it('reads holds as it loads them, and patched, raises a limit and has every key 
         ->runningPerCore()
         ->writingTestsIn(AssertionStyle::Pest);
 
-    expect($patched->behaviour())->toEqual($pest->readingInEveryKey($canary))
-        ->and($unpatched->behaviour())->toEqual($pest->openingEachShard());
+    expect($patched->behaviour()->selection())->toBeInstanceOf(ExactRows::class)
+        ->and($patched->behaviour()->selecting(new EveryRow()))->toEqual($pest->readingInEveryKey($canary)->selecting(new EveryRow()))
+        ->and($unpatched->behaviour())->toEqual($pest->openingEachShard()->selecting(new EveryRow()));
 });
 
 it('gives a mutant as an analyser checks it: its diff put onto the file as Pest prints it', function (): void {

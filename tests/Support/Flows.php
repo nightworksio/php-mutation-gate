@@ -42,9 +42,11 @@ use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
+use NightWorksIO\MutationGate\Core\Runner\ExactRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
+use NightWorksIO\MutationGate\Core\Runner\UnfilteredRuns;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Score\Floor;
@@ -226,7 +228,7 @@ final readonly class Flows
         $runner = RunnerFake::ofTheFixture();
         $request = MutationRequest::of(Paths::of(Path::of($file)), WholeSuite::tests());
         $mutants = $runner->mutate($request)->mutants();
-        $controls = TimeoutControls::of($mutants, self::map(), HeldCovered::none());
+        $controls = TimeoutControls::of($mutants, UnfilteredRuns::none(), self::map(), HeldCovered::none(), new ExactRun());
 
         return $controls->applied($mutants, $runner->controls($request, $controls->asked()), Controls::none());
     }

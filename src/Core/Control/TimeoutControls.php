@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\RunSelection;
+use NightWorksIO\MutationGate\Core\Runner\UnfilteredRuns;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
@@ -20,8 +22,9 @@ use function sprintf;
 /**
  * The unmutated control of each timed-out mutant (ADR-0008):
  * the tests that judge it, those covering its lines as the coverage map
- * names them, and of a held unit only those that hold it, run with its file
- * served unmutated as its mutant was, allowed the limit its run was. A
+ * names them, and of a held unit only those that hold it, as its own run
+ * selected them (see RunSelection), run with its file served unmutated as
+ * its mutant was, allowed the limit its run was. A
  * mutant whose own run already ran its tests unmutated, as a trial does,
  * has none. The map's time of the tests only set the limit; what triage
  * weighs the timeout against is the control's (see TimeoutTriage). Where
@@ -51,18 +54,27 @@ final readonly class TimeoutControls implements ControlJudge
     }
 
     /** The control of each of these mutants that needs one. */
-    public static function of(Mutants $mutants, CoverageMap $map, HeldCovered $held): self
-    {
+    public static function of(
+        Mutants $mutants,
+        UnfilteredRuns $unfiltered,
+        CoverageMap $map,
+        HeldCovered $held,
+        RunSelection $run,
+    ): self {
         $controls = [];
 
         foreach ($mutants as $mutant) {
             $limit = $mutant->limit();
-            $tests = Control::judging($mutant, $map, $held);
-            $controls += $mutant->status() === MutantStatus::TimedOut
-                && $limit instanceof Seconds
-                && ! $mutant->unmutatedNeed() instanceof Seconds
-                && count($tests) > 0
-                ? [$mutant->id()->key() => Control::of($mutant->location()->file(), $tests, $limit)]
+
+            if ($mutant->status() !== MutantStatus::TimedOut
+                || ! $limit instanceof Seconds
+                || $mutant->unmutatedNeed() instanceof Seconds) {
+                continue;
+            }
+
+            $tests = Control::judging($mutant, $map, $held, $run, $unfiltered->of($mutant->id()));
+            $controls += count($tests->tests()) > 0
+                ? [$mutant->id()->key() => Control::running($mutant->location()->file(), $tests, $limit)]
                 : [];
         }
 

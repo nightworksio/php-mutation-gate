@@ -406,6 +406,16 @@ its parser attributes. Both change when the checkout moves.
      - Shards open on a canary group (`pest.canary`, a group name,
        `mutation-canary` by default) and read the map the planning job wrote,
        instead of each running the whole suite again.
+     - A mutant's run selects exactly the tests that cover it, a row of a
+       data set alone (`Selection::covering`), not every row of their data
+       sets as Pest's own filter does, so it runs the tests its limit is
+       sized from (ADR-0008). The filter names a class, or a data set, whole
+       where those tests hold every test of it the map Pest loaded ran, and
+       each class once, which keeps it short enough to pass for nearly every
+       mutant. A run whose filter is still too long passes none: it runs
+       every test of the test files it loads, its limit is sized from those
+       tests, the plugin records that it ran unfiltered, and its controls
+       load the same test files with no filter (ADR-0008).
      - A `--filter` that will not fit is dropped, so that mutant runs every
        test its run loads. That can only kill more mutants, never fewer.
      - A run again makes only the mutants whose native ids a file beside the
@@ -434,9 +444,9 @@ its parser attributes. Both change when the checkout moves.
        as each test finishes, and Pest's parent process, as it checks the
        run's limit, stops the run where none came for the silence limit since
        the last. Before the first, the run is held only to its own limit. A
-       run whose filter was left out runs tests whose times are not known,
-       and a covering test the map did not time has none, so neither run has
-       a silence limit. The patched plugin records each stop in the results
+       run whose filter was left out is not held to one, as its slowest test
+       is not among the covering tests, and a covering test the map did not
+       time has none, so neither run has a silence limit. The patched plugin records each stop in the results
        file, and the mutant is timed out at its own limit, with a reason
        naming the silence limit.
      - A mutant's own run loads only the test files its covering tests need:
@@ -898,9 +908,10 @@ its parser attributes. Both change when the checkout moves.
      the status the runner gave them.
    - Memory triage judges a mutant out of memory the way timeout triage
      judges a timeout (ADR-0008), by an **unmutated control**:
-     the tests that judge it (of a held unit, only those that hold it), run
-     with its file served unmutated as its mutant was, under the same cap,
-     allowed the standard mutant limit of their time. Every runner starts
+     the tests that judge it (of a held unit, only those that hold it), as
+     its own run selected them (ADR-0008), run with its file served
+     unmutated as its mutant was, under the same cap, allowed the standard
+     mutant limit of their time. Every runner starts
      the control through one launcher, a PHP script that runs the command
      and writes the most memory any process under it held, as `getrusage`
      counts the processes it waited for (`Core\Control\PeakLauncher`), so

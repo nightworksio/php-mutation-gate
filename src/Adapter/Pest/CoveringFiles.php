@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function array_filter;
+use function array_flip;
 use function array_key_exists;
 use function array_unique;
+use function array_values;
 use function explode;
 use function file_put_contents;
 use function getenv;
@@ -43,6 +46,9 @@ final class CoveringFiles
     /** The test directory the suite is read from, or none for the one Pest runs. */
     private static string $directory = '';
 
+    /** @var array<string, list<string>> the files the last mutant's run loads, by its mutated copy */
+    private static array $narrowed = [];
+
     /**
      * The files, only once they are recorded, in the results file the gate
      * names, as the files the mutant with this mutated copy loads: a kill of
@@ -61,7 +67,34 @@ final class CoveringFiles
         $recorded = $paths !== [] && $mutated !== '' && is_string($results) && $results !== ''
             && file_put_contents($results, RecordLine::narrowed($mutated, $paths), FILE_APPEND | LOCK_EX) !== false;
 
-        return $recorded ? $paths : [];
+        self::$narrowed = [$mutated => $recorded ? $paths : []];
+
+        return self::$narrowed[$mutated];
+    }
+
+    /**
+     * Those of these tests the run of the mutant with this mutated copy runs
+     * where its filter is left out: each whose class a file it loads
+     * declares, or every one where it loads every test file.
+     *
+     * @param  list<string> $tests the tests, by their ids as Pest's coverage map names them
+     * @return list<string>
+     */
+    public static function loading(string $mutated, array $tests): array
+    {
+        $paths = array_key_exists($mutated, self::$narrowed) ? self::$narrowed[$mutated] : [];
+
+        if ($paths === []) {
+            return $tests;
+        }
+
+        $loaded = self::loaded();
+        $files = array_flip($paths);
+
+        return array_values(array_filter(
+            $tests,
+            static fn(string $test): bool => array_key_exists($loaded->fileOf(self::classOf($test)), $files),
+        ));
     }
 
     /**
@@ -71,6 +104,7 @@ final class CoveringFiles
     public static function forget(string $testDirectory = ''): void
     {
         self::$loaded = [];
+        self::$narrowed = [];
         self::$directory = $testDirectory;
     }
 
@@ -96,7 +130,7 @@ final class CoveringFiles
         $files = [];
 
         foreach ($tests as $test) {
-            $file = $loaded->fileOf(mb_strtolower(explode('::', $test)[0]));
+            $file = $loaded->fileOf(self::classOf($test));
 
             if ($file === '') {
                 return [];
@@ -109,6 +143,12 @@ final class CoveringFiles
         sort($paths);
 
         return Ceiling::admits(implode(' ', $paths), $longest) ? $paths : [];
+    }
+
+    /** A test's class, by its name in lower case, as its id names it. */
+    private static function classOf(string $test): string
+    {
+        return mb_strtolower(explode('::', $test)[0]);
     }
 
     private static function loaded(): LoadedTests

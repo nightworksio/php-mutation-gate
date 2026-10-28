@@ -44,6 +44,7 @@ final readonly class OwnRun
         private Places $places,
         private Ended|NotGiven $ended,
         private array|NotGiven $arguments,
+        private bool $unfiltered = false,
     ) {
     }
 
@@ -103,6 +104,24 @@ final readonly class OwnRun
     public function startedWith(array|NotGiven $arguments): self
     {
         return clone($this, ['arguments' => $arguments]);
+    }
+
+    /** This run, with its filter left out by a patched run, so it ran every test it loaded. */
+    public function unfiltered(): self
+    {
+        return clone($this, ['unfiltered' => true]);
+    }
+
+    /**
+     * The test files it loaded with no filter, by their paths on disk, where
+     * a patched run left its filter out: those it was narrowed to, or none
+     * where it loaded every one; not given where it passed its filter.
+     *
+     * @return list<string>|NotGiven
+     */
+    public function loadedUnfiltered(): array|NotGiven
+    {
+        return $this->unfiltered ? $this->loaded : NotGiven::value();
     }
 
     /**

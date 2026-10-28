@@ -40,4 +40,9 @@ final readonly class HandedOver implements Covering
     {
         return $this->map;
     }
+
+    public function tests(): TestIds
+    {
+        return $this->map->tests();
+    }
 }
