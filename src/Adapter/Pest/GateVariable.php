@@ -82,4 +82,7 @@ enum GateVariable: string
 
     /** The file of bridges the plugin loads, through which Pest makes registered mutators' mutants (see Bridges). */
     case Mutators = 'MUTATION_GATE_MUTATORS';
+
+    /** The file each process of a coverage run appends every test it finished to, with its seconds (see TimedTests). */
+    case TimedTests = 'MUTATION_GATE_TIMED_TESTS';
 }

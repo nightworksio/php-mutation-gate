@@ -41,6 +41,7 @@ parameters:
             - tests/Contract/Runner/reach
             - tests/Contract/Runner/stall
             - tests/Contract/Runner/override
+            - tests/Contract/Runner/constants
             - tests/Contract/Runner/interceptor
             - tests/Contract/Runner/twins
             - tests/Contract/Runner/phpunit-fixture

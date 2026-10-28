@@ -34,7 +34,9 @@ it is the one that loaded the file, which need not read the value.
    fallback too where it holds at most 10 files. A kill by either stands in a
    trial, and a survivor of the first runs the fallback, so one run of both
    reaches the verdict the trial would. Each is timed as the plan's whole map
-   timed it.
+   timed it. The map knows every test the coverage run finished, a test
+   that ran no measured line included, as one that only reads the value
+   does (ADR-0004), so no test of those files is left out of the run.
 3. **A value the scan cannot fully follow keeps its trial.** Where a read is
    ambiguous, or no read is found, its lines are left as they were, and
    ADR-0004 judges its mutants by reference as before. A property's default, a

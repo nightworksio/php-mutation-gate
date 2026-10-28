@@ -6,7 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
 
 /**
  * The plugin records nothing, guards nothing, names no killer, names no test,
- * orders no mutant's tests or stops no replay: the adapter did not start this Pest for that,
+ * orders no mutant's tests, stops no replay or times no test: the adapter did not start this Pest for that,
  * or this is, or is not, a mutant's own process.
  */
 enum Off
@@ -17,4 +17,5 @@ enum Off
     case NamingTests;
     case Ordering;
     case Stopping;
+    case TimingTests;
 }

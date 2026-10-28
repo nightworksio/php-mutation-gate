@@ -154,22 +154,27 @@ it('cannot judge a run whose earlier results cannot be removed', function (): vo
     )))->and($shell->commands())->toBe([]);
 });
 
-it('removes an earlier coverage run\'s map and log before it measures again', function (): void {
+it('removes an earlier coverage run\'s map, log and test times before it measures again', function (): void {
     $at = PestCases::project();
     $directory = sprintf('%s/.mutation-gate/coverage', $at->root());
     Scratch::write($at->root(), '.mutation-gate/coverage/coverage.php', '<?php return [];');
     Scratch::write($at->root(), '.mutation-gate/coverage/junit.xml', '<testsuites/>');
+    Scratch::write($at->root(), '.mutation-gate/coverage/timed-tests.jsonl', '["T::a",1.0]');
     $request = CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));
     $seen = [];
     $shell = new ShellFake(static function () use ($directory, &$seen): Ran {
-        $seen = [is_file(sprintf('%s/coverage.php', $directory)), is_file(sprintf('%s/junit.xml', $directory))];
+        $seen = [
+            is_file(sprintf('%s/coverage.php', $directory)),
+            is_file(sprintf('%s/junit.xml', $directory)),
+            is_file(sprintf('%s/timed-tests.jsonl', $directory)),
+        ];
 
         return Ran::finished(succeeded: true, output: '');
     });
 
     expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), Triage::standard()->bounds())->coverage($request))->toEqual(CannotJudge::because(
         sprintf('There is no coverage map at %s/coverage.php, so no test runs any line.', $directory),
-    ))->and($seen)->toBe([false, false]);
+    ))->and($seen)->toBe([false, false, false]);
 });
 
 it('cannot measure coverage where an earlier map cannot be removed', function (): void {

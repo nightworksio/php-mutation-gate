@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\ReplayStop;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\StartedWith;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\TimedTests;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\WarmDatabase;
 use NightWorksIO\MutationGate\Core\Runner\Opcache;
 use NightWorksIO\MutationGate\Core\Test\RunIssues;
@@ -46,7 +47,8 @@ use function register_shutdown_function;
  * Pest has made its mutants it writes each one's order, and in a mutant's own
  * process it runs the tests in that order and names the test that killed the
  * mutant. In a run that lists the tests for the adapter, it names each test
- * the suite loaded. In a child a warm worker forked, it readies the test
+ * the suite loaded, and in the adapter's coverage run it times every test
+ * that finished (see TimedTests). In a child a warm worker forked, it readies the test
  * databases from what the worker handed it (see Warm\Database\WarmDatabase).
  *
  * Pest loads this class before pest-plugin-mutate puts a mutated file in the
@@ -95,6 +97,7 @@ final class Plugin implements Bootable, HandlesArguments
         $this->naming = Naming::fromEnvironment();
         $this->seeder = Seeder::fromEnvironment();
         $this->stop = ReplayStop::fromEnvironment(Facade::instance());
+        TimedTests::fromEnvironment();
 
         if ($this->guard instanceof Guard || $this->naming instanceof Naming || $this->killers instanceof Killers) {
             register_shutdown_function($this->finish(...));

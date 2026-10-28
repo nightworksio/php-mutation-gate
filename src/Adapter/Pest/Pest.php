@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_values;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\TimedTests;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
 use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
@@ -201,7 +202,9 @@ final readonly class Pest implements Runner
         $ran = $request instanceof CoverageRun ? $this->measured($request, $directory) : $request;
         $file = $ran instanceof CannotJudge ? $ran : CoverageFile::at(sprintf('%s/%s', $directory, Invocation::MAP));
 
-        return $file instanceof CannotJudge ? $file : $file->map($this->project);
+        return $file instanceof CannotJudge
+            ? $file
+            : TimedTests::onto($file->map($this->project), sprintf('%s/%s', $directory, Invocation::TIMED));
     }
 
     /** The map's tests of the classes Pest declares for these test files, or that they declare themselves. */
@@ -366,7 +369,9 @@ final readonly class Pest implements Runner
     {
         $map = sprintf('%s/%s', $directory, Invocation::MAP);
 
-        if (! $this->project->without($map, sprintf('%s/%s', $directory, Invocation::JUNIT))) {
+        $junit = sprintf('%s/%s', $directory, Invocation::JUNIT);
+
+        if (! $this->project->without($map, $junit, sprintf('%s/%s', $directory, Invocation::TIMED))) {
             return CannotJudge::because(sprintf(self::STALE_MAP, $map));
         }
 
