@@ -88,12 +88,16 @@ it('reads the first 50 pages of repositories, and none past them', function (): 
         ->and($names)->not->toContain('on-page-51');
 });
 
-it('names the organisation in GitHub\'s address as a path segment', function (): void {
-    $listings = Organisation::of(Api::at(GitHubAnswering::client([
-        '/orgs/acme%2Flabs/repos?type=all&per_page=100&page=1' => Dashboards::json([Dashboards::repository('api', ['mutation-gate'])]),
-    ]), '', 'secret'), 'acme/labs')->listings('mutation-gate', new Absent());
+it('names the organisation and each repository in GitHub\'s addresses as a path segment each', function (): void {
+    $answers = [
+        '/orgs/acme%2Flabs/repos?type=all&per_page=100&page=1' => Dashboards::json([Dashboards::repository('web/app', ['mutation-gate'])]),
+        '/repos/acme%2Flabs/web%2Fapp' => Dashboards::json(Dashboards::repository('web/app', [])),
+        '/repos/acme%2Flabs/web%2Fapp/contents/summary.json?ref=mutation-gate' => new MockResponse(Dashboards::summary()),
+    ];
+    $labs = Organisation::of(Api::at(GitHubAnswering::client($answers), '', 'secret'), 'acme/labs');
 
-    expect(array_map(static fn(Listing $listing): string => $listing->name(), is_array($listings) ? $listings : []))->toBe(['api']);
+    expect(listed($labs->listings('mutation-gate', new Absent())))->toBe([['web/app', false, 'failed']])
+        ->and(listed($labs->listings('mutation-gate', Listed::of('web/app'))))->toBe([['web/app', false, 'failed']]);
 });
 
 it('says why a repository published nothing it can read', function (): void {

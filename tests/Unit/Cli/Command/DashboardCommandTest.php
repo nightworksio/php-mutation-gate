@@ -142,6 +142,15 @@ it('exits 2, writing nothing, where it was not told where, the config cannot be 
     'no answer from GitHub' => ['', 'acme', true, 'GitHub cannot list the repositories of acme: '],
 ]);
 
+it('exits 2, writing nothing, where the organisation it is told is blank', function (): void {
+    $site = sprintf('%s/site', Scratch::directory());
+    [$code, $printed] = dashboarded('', [], ['--org' => '', '--out' => $site]);
+
+    expect($code)->toBe(2)
+        ->and($printed)->toContain('dashboard builds a site for --org=<organisation> into --out=<directory>.')
+        ->and(is_dir($site))->toBeFalse();
+});
+
 it('says why it could not write the site', function (): void {
     $root = Scratch::directory();
     Scratch::write($root, 'site/dashboard.json/in-the-way', '');
