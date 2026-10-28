@@ -42,7 +42,10 @@ enum Outcome: string
             MutantJudgement::Uncovered => self::Untested,
             MutantJudgement::KilledByTimeout, MutantJudgement::TooSlowToJudge => self::TimedOut,
             MutantJudgement::Errored => self::Errored,
-            MutantJudgement::Ignored, MutantJudgement::IgnoredByMarker, MutantJudgement::Equivalent => self::LeftOut,
+            MutantJudgement::Ignored,
+            MutantJudgement::IgnoredByMarker,
+            MutantJudgement::Equivalent,
+            MutantJudgement::FailsUnmutated => self::LeftOut,
         };
     }
 

@@ -48,4 +48,5 @@ enum Slug: string
     case Uncovered = 'uncovered';
     case Unjudged = 'unjudged';
     case Flaky = 'flaky';
+    case FailsUnmutated = 'fails-unmutated';
 }

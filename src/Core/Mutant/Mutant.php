@@ -95,15 +95,23 @@ final readonly class Mutant
 
     /**
      * This mutant, left without a result: by a time budget that ran out
-     * before this, or for this reason, as a run that stopped once it could
-     * not pass leaves it (ADR-0008).
+     * before this, for this reason, as a run that stopped once it could not
+     * pass leaves it, or because its tests fail without it, which names the
+     * tests that fail (ADR-0008).
      */
-    public function unjudged(OutOfTime|Reason $why): self
+    public function unjudged(OutOfTime|Reason|UnmutatedFailure $why): self
     {
-        return clone($this, [
-            'status' => MutantStatus::Unjudged,
-            'reason' => $why instanceof OutOfTime ? $why->reason() : $why,
-        ]);
+        return match (true) {
+            $why instanceof UnmutatedFailure => clone($this, [
+                'status' => MutantStatus::FailsUnmutated,
+                'reason' => $why->why(),
+                'killers' => $why->failing(),
+            ]),
+            default => clone($this, [
+                'status' => MutantStatus::Unjudged,
+                'reason' => $why instanceof OutOfTime ? $why->reason() : $why,
+            ]),
+        };
     }
 
     /**
@@ -182,7 +190,11 @@ final readonly class Mutant
         return $this->reason;
     }
 
-    /** The tests that killed it; none where no test is known to have, as for a kill by a timeout. */
+    /**
+     * The tests that killed it, or, where its tests fail without it, those
+     * that fail; none where no test is known to have, as for a kill by a
+     * timeout.
+     */
     public function killers(): TestIds
     {
         return $this->killers;

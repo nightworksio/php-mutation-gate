@@ -97,6 +97,21 @@ it('reads how each control ended: passed, failed, or ran out of its limit', func
     'stopped at its limit' => [fn(): Ran => Ran::stopped(''), ControlEnd::RanOut],
 ]);
 
+it('names the tests a failed control\'s JUnit log records failing, writing the log beside its config', function () use ($makeRequest): void {
+    $at = controlledInfection();
+    $log = sprintf('%s/.gate/infection/unmutated/control-0/junit.xml', $at->root());
+    $shell = new InfectionShellFake(static function () use ($log): Ran {
+        file_put_contents($log, '<testsuites><testsuite name="T"><testcase name="testAdds" file="tests/MoneyTest.php" class="Tests\MoneyTest"><failure>x</failure></testcase></testsuite></testsuites>');
+
+        return Ran::finished(succeeded: false, output: 'FAILURES!');
+    });
+
+    $runs = infectionControlled($at, $shell, Controls::of(infectionControl('src/Money.php')), $makeRequest());
+
+    expect($runs->of(infectionControl('src/Money.php')))->toEqual(ControlRun::failed(TestIds::of(TestId::of('Tests\MoneyTest::testAdds'))))
+        ->and($shell->commands()[0]->arguments())->toContain(sprintf('--log-junit=%s', $log));
+});
+
 it('runs the controls side by side in the request\'s pool, each in a place of its own, and never one whose file is gone, saying why', function () use ($makeRequest): void {
     $request = $makeRequest();
 

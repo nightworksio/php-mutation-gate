@@ -159,7 +159,7 @@ it('writes the verdict, the project and each tree', function (): void {
         ->and(Decoded::at($report, 'counts'))->toBe([
             'killed' => 1, 'killed-by-static-analysis' => 1, 'errored' => 1, 'killed-by-timeout' => 1, 'killed-by-memory-cap' => 0,
             'survived' => 1, 'uncovered' => 1, 'unjudged' => 1, 'flaky' => 1, 'too-slow-to-judge' => 1, 'too-heavy-to-judge' => 0, 'ignored' => 1, 'ignored-by-marker' => 1,
-            'equivalent' => 1,
+            'equivalent' => 1, 'fails-unmutated' => 0,
         ])
         ->and(Decoded::at($report, 'trees', 0))->toMatchArray([
             'path' => 'src',
@@ -192,7 +192,7 @@ it('writes the verdict, the project and each tree', function (): void {
             'counts' => [
                 'killed' => 0, 'killed-by-static-analysis' => 0, 'errored' => 0, 'killed-by-timeout' => 0, 'killed-by-memory-cap' => 0,
                 'survived' => 1, 'uncovered' => 0, 'unjudged' => 0, 'flaky' => 0, 'too-slow-to-judge' => 0, 'too-heavy-to-judge' => 0, 'ignored' => 0, 'ignored-by-marker' => 0,
-                'equivalent' => 0,
+                'equivalent' => 0, 'fails-unmutated' => 0,
             ],
             'mutants' => [Verdicts::survivor()->mutant()->id()->value()],
         ]]);
@@ -537,4 +537,16 @@ it('writes each owner with a floor apart from the groups, with its floor, score,
         ->and(Decoded::at($report, 'owners', 0, 'judgement'))->toBe('passed')
         ->and(Decoded::at(JsonReport::encode(Owners::verdict()), 'ownerFloors'))->toBe([])
         ->and(Schema::errors($report, Schema::at('resources/report.schema.json')))->toBe([]);
+});
+
+it('writes each set of tests that fails without any mutant, by their places, with the mutants it leaves out', function (): void {
+    $failing = Verdicts::failingUnmutated();
+    $report = JsonReport::encode(Verdicts::of(Floor::of(50), $failing));
+    $id = $failing->mutant()->id()->value();
+
+    expect(Decoded::at($report, 'judgement'))->toBe('cannot-judge')
+        ->and(Decoded::at($report, 'cannotJudge'))->toBe(['The tests fail without any mutant: MoneyTest::adds'])
+        ->and(Decoded::at($report, 'failingUnmutated'))->toBe([['line' => 'The tests fail without any mutant: MoneyTest::adds', 'tests' => [0], 'mutants' => [$id]]])
+        ->and(Decoded::at($report, 'tests', 0, 'id'))->toBe('MoneyTest::adds')
+        ->and(Decoded::at($report, 'mutants', 0))->toMatchArray(['status' => 'fails-unmutated', 'judgement' => 'fails-unmutated', 'killedBy' => [], 'failingUnmutated' => [0]]);
 });

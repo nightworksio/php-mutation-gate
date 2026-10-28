@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Report\ClusterText;
 use NightWorksIO\MutationGate\Core\Report\CostText;
 use NightWorksIO\MutationGate\Core\Report\Escape;
+use NightWorksIO\MutationGate\Core\Report\MutantText;
 use NightWorksIO\MutationGate\Core\Report\SavingsText;
 use NightWorksIO\MutationGate\Core\Report\SetText;
 use NightWorksIO\MutationGate\Core\Report\Trend;
@@ -616,4 +617,14 @@ it('comments each owner with a floor against it before the groups the change tou
         '- Code owned by &#64;acme/web scores 100.00% against its floor of 50.00%.',
         '- Code owned by &#64;acme/payments &#64;jo scores 33.33%.',
     ]));
+});
+
+it('lists which tests fail without any mutant under Cannot judge, the mutants they leave out nested under them', function (): void {
+    $failing = Verdicts::failingUnmutated();
+
+    expect(Markdown::comment(Verdicts::of(Floor::of(50), $failing)))->toContain(sprintf(
+        "### Cannot judge\n\n- %s\n  - %s",
+        'The tests fail without any mutant: MoneyTest::adds',
+        Escape::code(MutantText::heading($failing)),
+    ));
 });

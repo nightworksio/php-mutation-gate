@@ -19,7 +19,7 @@ use function sprintf;
 /**
  * Whether a unit's result becomes a proof. Only a unit that ran to the end is
  * recorded: none of its mutants left unjudged by a budget or a stopped runner,
- * and none flaky. A unit whose only trouble was mutants that timed out, or
+ * none whose tests fail without it, and none flaky. A unit whose only trouble was mutants that timed out, or
  * that the runner skipped as too slow to judge, ran to the end and is
  * recorded. A unit with no key is never recorded, and a shard that cannot
  * judge records nothing, so it never reaches here.
@@ -44,7 +44,7 @@ final readonly class Recording
         return $unfinished === 0
             ? Proof::of($key, $unit, $mutants, $run)->withInputs($inputs)
             : NotRecorded::because(sprintf(
-                '%s did not run to the end: %d of its mutants are unjudged or flaky.',
+                '%s did not run to the end: %d of its mutants are unjudged, flaky or fail unmutated.',
                 $unit->value(),
                 $unfinished,
             ));
@@ -55,6 +55,7 @@ final readonly class Recording
         return count(array_filter(
             [...$mutants],
             static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::Unjudged
+                || $mutant->status() === MutantStatus::FailsUnmutated
                 || $flaky->has($mutant->id()),
         ));
     }

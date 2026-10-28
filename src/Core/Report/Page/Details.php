@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report\Page;
 
+use function array_column;
+use function array_filter;
 use function array_key_exists;
+use function array_values;
 use function count;
 use function implode;
+use function in_array;
 use function is_array;
 
 use NightWorksIO\MutationGate\Core\Report\AccountJson;
@@ -37,6 +41,12 @@ final readonly class Details
 
     private const string NOTHING = '<p class="empty">The run left nothing more to say.</p>';
 
+    /** A set of tests that fails without any mutant: its line, then the mutants it leaves out. */
+    private const string FAILING = '%s<ul>%s</ul>';
+
+    /** A mutant a set of failing tests leaves out, linked to its entry. */
+    private const string LEFT_OUT = '<a href="#m-%1$s"><code>%1$s</code></a>';
+
     private const string WALL = 'The run took %s of wall time and %s of runner time%s.';
 
     private const string ESTIMATED = ', estimated';
@@ -50,7 +60,7 @@ final readonly class Details
     {
         $parts = [
             self::part('Failures', self::texts($report['failures'])),
-            self::part('Cannot judge', self::texts($report['cannotJudge'])),
+            self::part('Cannot judge', self::cannotJudge($report)),
             self::part('Warnings', self::texts($report['warnings'])),
             self::part('Reach', self::texts($report['reach'])),
             self::part('Suites', self::suites($report)),
@@ -80,6 +90,35 @@ final readonly class Details
         }
 
         return $escaped;
+    }
+
+    /**
+     * Why the run could not judge, each set of tests that fails without any
+     * mutant with the mutants it leaves out under it.
+     *
+     * @param  Report       $report
+     * @return list<string>
+     */
+    private static function cannotJudge(array $report): array
+    {
+        $failing = $report['failingUnmutated'];
+        $lines = array_column($failing, 'line');
+        $said = self::texts(array_values(array_filter(
+            $report['cannotJudge'],
+            static fn(string $text): bool => ! in_array($text, $lines, strict: true),
+        )));
+
+        foreach ($failing as $tests) {
+            $mutants = [];
+
+            foreach ($tests['mutants'] as $id) {
+                $mutants[] = sprintf(self::LEFT_OUT, $id);
+            }
+
+            $said[] = sprintf(self::FAILING, Html::text($tests['line']), Html::items($mutants));
+        }
+
+        return $said;
     }
 
     /**

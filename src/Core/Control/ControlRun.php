@@ -4,13 +4,17 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Control;
 
+use function count;
+
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Mutant\UnmutatedFailure;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Exhaustion;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
@@ -28,6 +32,7 @@ final readonly class ControlRun
         private ControlEnd $end,
         private Seconds|Unmeasured $took,
         private string|NotGiven $why,
+        private TestIds $failing,
         private MemoryCap|NotGiven $peak = new NotGiven(),
     ) {
     }
@@ -35,37 +40,38 @@ final readonly class ControlRun
     /** Its tests passed, taking this long, where the runner timed them. */
     public static function passed(Seconds|Unmeasured $took): self
     {
-        return new self(ControlEnd::Passed, $took, NotGiven::value());
+        return new self(ControlEnd::Passed, $took, NotGiven::value(), TestIds::none());
     }
 
-    public static function failed(): self
+    /** Its tests failed: these, as its run recorded them; none where it recorded none. */
+    public static function failed(TestIds $failing): self
     {
-        return new self(ControlEnd::Failed, Unmeasured::duration(), NotGiven::value());
+        return new self(ControlEnd::Failed, Unmeasured::duration(), NotGiven::value(), $failing);
     }
 
     /** Its process ran out of the memory cap. */
     public static function outOfMemory(): self
     {
-        return new self(ControlEnd::OutOfMemory, Unmeasured::duration(), NotGiven::value());
+        return new self(ControlEnd::OutOfMemory, Unmeasured::duration(), NotGiven::value(), TestIds::none());
     }
 
     public static function ranOut(): self
     {
-        return new self(ControlEnd::RanOut, Unmeasured::duration(), NotGiven::value());
+        return new self(ControlEnd::RanOut, Unmeasured::duration(), NotGiven::value(), TestIds::none());
     }
 
     /** It never ran, for this reason. */
     public static function unrun(string $why): self
     {
-        return new self(ControlEnd::Unrun, Unmeasured::duration(), $why);
+        return new self(ControlEnd::Unrun, Unmeasured::duration(), $why, TestIds::none());
     }
 
     /**
      * What a control found that a runner ran as a mutant that changes
      * nothing: passed where it survived, failed where its tests failed or
-     * errored, out of memory where its process ran out of the cap, ran out
-     * where it timed out,
-     * and never run, for the reason its run gives, otherwise.
+     * errored, with the tests its run named, out of memory where its process
+     * ran out of the cap, ran out where it timed out, and never run, for the
+     * reason its run gives, otherwise.
      */
     public static function asMutant(Mutant $unchanged): self
     {
@@ -75,7 +81,8 @@ final readonly class ControlRun
             MutantStatus::Survived => self::passed($unchanged->duration()),
             MutantStatus::Killed,
             MutantStatus::KilledByStaticAnalysis,
-            MutantStatus::Errored => self::failed(),
+            MutantStatus::Errored,
+            MutantStatus::FailsUnmutated => self::failed($unchanged->killers()),
             MutantStatus::OutOfMemory => self::outOfMemory(),
             MutantStatus::TimedOut,
             MutantStatus::Skipped => self::ranOut(),
@@ -89,15 +96,16 @@ final readonly class ControlRun
      * What a control found that ran as a process of its own, by how the
      * process ended: ran out where it was stopped at its limit, out of memory
      * where PHP says it ran out of its memory limit, passed, in the time it
-     * took, where it succeeded, and failed otherwise.
+     * took, where it succeeded, and failed otherwise, these tests failing as
+     * its log records them.
      */
-    public static function ofProcess(Ran $ran): self
+    public static function ofProcess(Ran $ran, TestIds $failing): self
     {
         return match (true) {
             $ran->wasStopped() => self::ranOut(),
             Exhaustion::in($ran->output()) instanceof MemoryCap => self::outOfMemory(),
             $ran->succeeded() => self::passed($ran->duration()),
-            default => self::failed(),
+            default => self::failed($failing),
         };
     }
 
@@ -122,6 +130,22 @@ final readonly class ControlRun
     public function took(): Seconds|Unmeasured
     {
         return $this->took;
+    }
+
+    /** The tests that failed, where its tests failed and its run recorded which; none otherwise. */
+    public function failing(): TestIds
+    {
+        return $this->failing;
+    }
+
+    /**
+     * The tests that fail without any mutant, where this run of a control
+     * failed: those it recorded failing, or every test it ran where it
+     * recorded none; for this reason.
+     */
+    public function unmutatedFailure(TestIds $ran, Reason $why): UnmutatedFailure
+    {
+        return UnmutatedFailure::of(count($this->failing) > 0 ? $this->failing : $ran, $why);
     }
 
     /** Why it never ran, where it did not. */

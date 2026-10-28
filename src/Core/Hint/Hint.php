@@ -118,6 +118,9 @@ final readonly class Hint
 
     private const string IGNORED = 'An ignore in the config leaves it out of the score.';
 
+    private const string FAILS_UNMUTATED
+        = 'Its tests fail without any mutant, so nothing judges it, and the score leaves it out until they pass.';
+
     private const string MARKED = 'A native ignore marker leaves it out of the score.';
 
     private const string EQUIVALENT = 'It compiles to the same program as the original, so no test can fail on it.';
@@ -187,6 +190,7 @@ final readonly class Hint
             MutantJudgement::Ignored => self::IGNORED,
             MutantJudgement::IgnoredByMarker => self::MARKED,
             MutantJudgement::Equivalent => self::EQUIVALENT,
+            MutantJudgement::FailsUnmutated => self::FAILS_UNMUTATED,
         };
         $sentence = match (true) {
             $finding instanceof WeaklyAsserted => self::weak($sentence, $finding),

@@ -21,6 +21,7 @@ enum SonarRule: string
     case Unjudged = 'unjudged';
     case Flaky = 'flaky';
     case SurvivedSecurity = 'survived-security';
+    case FailsUnmutated = 'fails-unmutated';
 
     private const string SECURITY = 'A mutant a security-tagged mutator made, which no test fails on.';
 
@@ -45,6 +46,7 @@ enum SonarRule: string
             self::Unjudged => 'Unjudged mutant',
             self::Flaky => 'Flaky mutant',
             self::SurvivedSecurity => 'Surviving security mutant',
+            self::FailsUnmutated => 'Mutant whose tests fail without it',
         };
     }
 
@@ -71,6 +73,7 @@ enum SonarRule: string
             self::Uncovered => Slug::Uncovered,
             self::Unjudged => Slug::Unjudged,
             self::Flaky => Slug::Flaky,
+            self::FailsUnmutated => Slug::FailsUnmutated,
         };
     }
 }

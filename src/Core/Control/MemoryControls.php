@@ -97,7 +97,9 @@ final readonly class MemoryControls implements ControlJudge
 
         return match ($run->end()) {
             ControlEnd::Passed => $need instanceof MemoryCap ? $mutant->withUnmutatedNeed($need) : $mutant,
-            ControlEnd::Failed => $mutant->unjudged(Reason::that(self::FAILS_UNMUTATED)),
+            ControlEnd::Failed => $mutant->unjudged(
+                $run->unmutatedFailure($control->tests(), Reason::that(self::FAILS_UNMUTATED)),
+            ),
             ControlEnd::OutOfMemory => $mutant->because(Reason::that(self::OUT_OF_MEMORY)),
             ControlEnd::RanOut => $mutant->because(Reason::that(self::RAN_OUT)),
             ControlEnd::Unrun => $mutant->because(

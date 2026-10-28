@@ -47,7 +47,7 @@ it('writes one run of the tool with its four rules', function (): void {
     expect(Decoded::at($sarif, 'version'))->toBe('2.1.0')
         ->and(Decoded::at($sarif, 'runs'))->toHaveCount(1)
         ->and(Decoded::at($sarif, 'runs', 0, 'tool', 'driver', 'name'))->toBe('mutation-gate')
-        ->and(Decoded::column($sarif, 'id', 'runs', 0, 'tool', 'driver', 'rules'))->toBe(['survived', 'uncovered', 'unjudged', 'flaky'])
+        ->and(Decoded::column($sarif, 'id', 'runs', 0, 'tool', 'driver', 'rules'))->toBe(['survived', 'uncovered', 'unjudged', 'flaky', 'fails-unmutated'])
         ->and(Decoded::at($sarif, 'runs', 0, 'results'))->toBe([]);
 });
 
@@ -144,5 +144,13 @@ it('describes each rule and the tool where a reader can learn more of them', fun
             'shortDescription' => ['text' => 'A mutant no test fails on.'],
             'helpUri' => ThisPackage::REPOSITORY,
         ])
-        ->and(Decoded::column($sarif, 'helpUri', 'runs', 0, 'tool', 'driver', 'rules'))->toBe(array_fill(0, 4, ThisPackage::REPOSITORY));
+        ->and(Decoded::column($sarif, 'helpUri', 'runs', 0, 'tool', 'driver', 'rules'))->toBe(array_fill(0, 5, ThisPackage::REPOSITORY));
+});
+
+it('reports each mutant a set of tests that fails without any mutant leaves out as an error under its own rule', function (): void {
+    $sarif = Sarif::json(Verdicts::of(Floor::of(50), Verdicts::failingUnmutated()));
+
+    expect(Decoded::column($sarif, 'ruleId', 'runs', 0, 'results'))->toBe(['fails-unmutated'])
+        ->and(Decoded::column($sarif, 'level', 'runs', 0, 'results'))->toBe(['error'])
+        ->and(Decoded::column($sarif, 'ruleIndex', 'runs', 0, 'results'))->toBe([4]);
 });

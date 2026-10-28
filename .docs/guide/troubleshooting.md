@@ -392,3 +392,17 @@ test's outcome does not depend on the code alone. It counts as not killed.
 Make the mutant's judging tests, which the report names, give the same
 answer on every run: no shared state between tests, no clock or random value
 they do not control, and no order they rely on.
+
+## fails-unmutated
+
+The unmutated control that judges the mutant failed: its tests fail with the
+file unmutated, served as the mutant's was, so nothing tells the mutant from
+its original. The verdict is *cannot judge*, on a line of its own that names
+the tests that failed, as the control's JUnit log recorded them:
+`The tests fail without any mutant: <test>, <test>`. Every mutant those tests
+judge is listed under that line and left out of every score. No control is
+run twice.
+
+Make the named tests pass on the unchanged code: run them alone, and with the
+rest of their suite, and remove what makes them depend on anything but the
+code, such as shared state, a clock, the network or the order they run in.

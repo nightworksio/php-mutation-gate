@@ -27,6 +27,9 @@ enum MutantStatus: string
     /** Its process ran out of the memory `runner.memory` caps it at (ADR-0004). */
     case OutOfMemory = 'out-of-memory';
 
+    /** Its tests fail without it: the unmutated control that judges it failed (ADR-0008). */
+    case FailsUnmutated = 'fails-unmutated';
+
     /**
      * The status as a run's answer about the mutant: a kill by static
      * analysis and a kill by a test as one, since whether the analyser

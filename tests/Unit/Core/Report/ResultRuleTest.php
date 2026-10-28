@@ -14,6 +14,7 @@ it('reports each mutant counted as not killed under its rule, one too slow to ju
     [MutantJudgement::TooSlowToJudge, ResultRule::Unjudged],
     [MutantJudgement::TooHeavyToJudge, ResultRule::Unjudged],
     [MutantJudgement::Flaky, ResultRule::Flaky],
+    [MutantJudgement::FailsUnmutated, ResultRule::FailsUnmutated],
 ]);
 
 it('numbers and describes the rules in the order SARIF lists them', function (): void {
@@ -22,5 +23,6 @@ it('numbers and describes the rules in the order SARIF lists them', function ():
         [1, 'uncovered', 'A mutant on a line no test runs.'],
         [2, 'unjudged', 'A mutant the run did not judge, or could not judge in its time or memory limit.'],
         [3, 'flaky', 'A mutant its tests killed on one run and not on another.'],
+        [4, 'fails-unmutated', 'A mutant whose tests fail without any mutant, so nothing judges it.'],
     ]);
 });

@@ -23,6 +23,7 @@ it('spells each judgement as the reports write it', function (): void {
         'ignored',
         'ignored-by-marker',
         'equivalent',
+        'fails-unmutated',
     ]);
 });
 

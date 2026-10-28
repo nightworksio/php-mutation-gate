@@ -62,7 +62,7 @@ final readonly class Outcomes
             MutantStatus::OutOfMemory,
             MutantStatus::Errored => Outcome::killed($mutator, $id),
             MutantStatus::Survived, MutantStatus::Uncovered, MutantStatus::Unjudged => Outcome::through($mutator, $id),
-            MutantStatus::IgnoredByMarker, MutantStatus::Skipped => NotGiven::value(),
+            MutantStatus::IgnoredByMarker, MutantStatus::Skipped, MutantStatus::FailsUnmutated => NotGiven::value(),
         };
     }
 }

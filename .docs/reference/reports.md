@@ -42,6 +42,29 @@ SonarQube drops an issue on a file outside `sonar.sources`, and `doctor`
 names each tree that lies outside it
 ([ADR-0028](../decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md)).
 
+## Tests that fail without any mutant
+
+Where an unmutated control that decides a mutant fails, the mutant's tests
+fail without it
+([ADR-0008](../decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md)).
+The verdict is `cannot-judge`, exiting 2, and every report says so on a line
+of its own, `The tests fail without any mutant: <test>, <test>`, naming the
+tests the control recorded failing, with each mutant those tests leave out of
+every score listed under it:
+
+- the console and the comment, under *Cannot judge*;
+- the JSON report, in `failingUnmutated`: each line, its tests by their places
+  in `tests`, and the ids of its mutants; each such mutant's `status` and
+  `judgement` are `fails-unmutated`, and it names its failing tests in
+  `failingUnmutated`, its `killedBy` empty;
+- the HTML report, under *Cannot judge*, each mutant linked;
+- the digest, as a `left-out` line beside its `why` line;
+- JUnit, as a failed `run` case whose body lists the mutants;
+- SARIF, as an `error` result per mutant under the `fails-unmutated` rule.
+
+[Troubleshooting](../guide/troubleshooting.md#fails-unmutated) says how to
+make the tests pass.
+
 ## Survivors and clusters
 
 Every mutant the score counts as not killed carries its reproduce command,

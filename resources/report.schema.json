@@ -113,6 +113,10 @@
                 "equivalent": {
                     "type": "integer",
                     "minimum": 0
+                },
+                "fails-unmutated": {
+                    "type": "integer",
+                    "minimum": 0
                 }
             },
             "required": [
@@ -129,7 +133,8 @@
                 "too-heavy-to-judge",
                 "ignored",
                 "ignored-by-marker",
-                "equivalent"
+                "equivalent",
+                "fails-unmutated"
             ],
             "additionalProperties": false
         },
@@ -305,6 +310,10 @@
                             "equivalent": {
                                 "type": "integer",
                                 "minimum": 0
+                            },
+                            "fails-unmutated": {
+                                "type": "integer",
+                                "minimum": 0
                             }
                         },
                         "required": [
@@ -321,7 +330,8 @@
                             "too-heavy-to-judge",
                             "ignored",
                             "ignored-by-marker",
-                            "equivalent"
+                            "equivalent",
+                            "fails-unmutated"
                         ],
                         "additionalProperties": false
                     },
@@ -460,6 +470,10 @@
                             "equivalent": {
                                 "type": "integer",
                                 "minimum": 0
+                            },
+                            "fails-unmutated": {
+                                "type": "integer",
+                                "minimum": 0
                             }
                         },
                         "required": [
@@ -476,7 +490,8 @@
                             "too-heavy-to-judge",
                             "ignored",
                             "ignored-by-marker",
-                            "equivalent"
+                            "equivalent",
+                            "fails-unmutated"
                         ],
                         "additionalProperties": false
                     },
@@ -600,6 +615,10 @@
                             "equivalent": {
                                 "type": "integer",
                                 "minimum": 0
+                            },
+                            "fails-unmutated": {
+                                "type": "integer",
+                                "minimum": 0
                             }
                         },
                         "required": [
@@ -616,7 +635,8 @@
                             "too-heavy-to-judge",
                             "ignored",
                             "ignored-by-marker",
-                            "equivalent"
+                            "equivalent",
+                            "fails-unmutated"
                         ],
                         "additionalProperties": false
                     },
@@ -721,6 +741,10 @@
                             "equivalent": {
                                 "type": "integer",
                                 "minimum": 0
+                            },
+                            "fails-unmutated": {
+                                "type": "integer",
+                                "minimum": 0
                             }
                         },
                         "required": [
@@ -737,7 +761,8 @@
                             "too-heavy-to-judge",
                             "ignored",
                             "ignored-by-marker",
-                            "equivalent"
+                            "equivalent",
+                            "fails-unmutated"
                         ],
                         "additionalProperties": false
                     },
@@ -845,6 +870,10 @@
                             "equivalent": {
                                 "type": "integer",
                                 "minimum": 0
+                            },
+                            "fails-unmutated": {
+                                "type": "integer",
+                                "minimum": 0
                             }
                         },
                         "required": [
@@ -861,7 +890,8 @@
                             "too-heavy-to-judge",
                             "ignored",
                             "ignored-by-marker",
-                            "equivalent"
+                            "equivalent",
+                            "fails-unmutated"
                         ],
                         "additionalProperties": false
                     },
@@ -1017,7 +1047,8 @@
                             "unjudged",
                             "ignored-by-marker",
                             "skipped",
-                            "out-of-memory"
+                            "out-of-memory",
+                            "fails-unmutated"
                         ]
                     },
                     "judgement": {
@@ -1035,7 +1066,8 @@
                             "too-heavy-to-judge",
                             "ignored",
                             "ignored-by-marker",
-                            "equivalent"
+                            "equivalent",
+                            "fails-unmutated"
                         ]
                     },
                     "reason": {
@@ -1086,6 +1118,13 @@
                         }
                     },
                     "killedBy": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    },
+                    "failingUnmutated": {
                         "type": "array",
                         "items": {
                             "type": "integer",
@@ -1192,6 +1231,37 @@
             "type": "array",
             "items": {
                 "type": "string"
+            }
+        },
+        "failingUnmutated": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "line": {
+                        "type": "string"
+                    },
+                    "tests": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    },
+                    "mutants": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{12}$"
+                        }
+                    }
+                },
+                "required": [
+                    "line",
+                    "tests",
+                    "mutants"
+                ],
+                "additionalProperties": false
             }
         },
         "why": {
@@ -1753,6 +1823,7 @@
         "warnings",
         "failures",
         "cannotJudge",
+        "failingUnmutated",
         "why",
         "next",
         "provenance"

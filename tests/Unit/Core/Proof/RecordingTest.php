@@ -59,7 +59,7 @@ it('records nothing of a unit with a mutant left unjudged', function () use ($mu
     $mutants = Mutants::of($mutant(1, MutantStatus::Killed), $mutant(2, MutantStatus::Unjudged));
 
     expect(Recording::of(Digest::of('9c1e'), Path::of('src/Money.php'), $mutants, MutantIds::none(), $run, Undigested::proof()))
-        ->toEqual(NotRecorded::because('src/Money.php did not run to the end: 1 of its mutants are unjudged or flaky.'));
+        ->toEqual(NotRecorded::because('src/Money.php did not run to the end: 1 of its mutants are unjudged, flaky or fail unmutated.'));
 });
 
 it('records nothing of a unit with a flaky mutant, counting each unfinished mutant once', function () use ($mutant, $makeRun): void {
@@ -70,5 +70,12 @@ it('records nothing of a unit with a flaky mutant, counting each unfinished muta
     $mutants = Mutants::of($mutant(1, MutantStatus::Killed), $flaky, $unjudged);
 
     expect(Recording::of(Digest::of('9c1e'), Path::of('src/Money.php'), $mutants, MutantIds::of($flaky->id(), $unjudged->id()), $run, Undigested::proof()))
-        ->toEqual(NotRecorded::because('src/Money.php did not run to the end: 2 of its mutants are unjudged or flaky.'));
+        ->toEqual(NotRecorded::because('src/Money.php did not run to the end: 2 of its mutants are unjudged, flaky or fail unmutated.'));
+});
+
+it('records nothing of a unit with a mutant whose tests fail without it', function () use ($mutant, $makeRun): void {
+    $mutants = Mutants::of($mutant(1, MutantStatus::Killed), $mutant(2, MutantStatus::FailsUnmutated));
+
+    expect(Recording::of(Digest::of('9c1e'), Path::of('src/Money.php'), $mutants, MutantIds::none(), $makeRun(), Undigested::proof()))
+        ->toEqual(NotRecorded::because('src/Money.php did not run to the end: 1 of its mutants are unjudged, flaky or fail unmutated.'));
 });

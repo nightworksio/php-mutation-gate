@@ -140,3 +140,12 @@ it('writes a suite of the owners with a floor, a floor case each, failing below 
         ->toBe(['Code owned by @acme/web scores 100.00% against its floor of 50.00%.'])
         ->and(Xpath::of(JUnit::xml(Owners::verdict()), '/testsuites/testsuite[@name="owners"]'))->toBe([]);
 });
+
+it('fails a case of the run for each set of tests that fails without any mutant, the mutants it leaves out in its body', function (): void {
+    $failing = Verdicts::failingUnmutated();
+    $xml = JUnit::xml(Verdicts::of(Floor::of(50), $failing));
+
+    expect(Xpath::of($xml, sprintf('//testcase[@name="%s"]/failure/@type', 'The tests fail without any mutant: MoneyTest::adds')))->toBe(['cannot-judge'])
+        ->and(Xpath::of($xml, sprintf('//testcase[@name="%s"]/failure', 'The tests fail without any mutant: MoneyTest::adds')))
+        ->toBe([implode("\n", ['The tests fail without any mutant: MoneyTest::adds', sprintf('    %s', MutantText::heading($failing))])]);
+});

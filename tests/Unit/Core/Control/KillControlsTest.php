@@ -92,7 +92,7 @@ it('asks for each kill\'s own control only where its file\'s did not pass, ran, 
     );
     $controls = KillControls::of($mutants, killersMap(), killBounds());
     [$loop, $tax, $rate] = [...$controls->asked()];
-    $runs = ControlRuns::none()->with($loop, ControlRun::failed())->with($tax, ControlRun::failed());
+    $runs = ControlRuns::none()->with($loop, ControlRun::failed(TestIds::none()))->with($tax, ControlRun::failed(TestIds::none()));
     $fallback = static fn(KillControls $controls): array => array_map(static fn(Control $control): array => [
         $control->file()->value(),
         array_map(static fn(TestId $test): string => $test->value(), [...$control->tests()]),
@@ -109,15 +109,15 @@ it('lets every kill of a file stand where its file\'s control passed, and judges
     );
     $controls = KillControls::of($mutants, killersMap(), killBounds());
     [$file] = [...$controls->asked()];
-    [$a, $b] = [...$controls->fallback(ControlRuns::none()->with($file, ControlRun::failed()), Controls::none())];
+    [$a, $b] = [...$controls->fallback(ControlRuns::none()->with($file, ControlRun::failed(TestIds::none())), Controls::none())];
     $statuses = static fn(ControlRuns $runs, Controls $left): array => array_map(
         static fn(Mutant $mutant): MutantStatus => $mutant->status(),
         [...$controls->applied($mutants, $runs, $left)],
     );
 
     expect($statuses(ControlRuns::none()->with($file, ControlRun::passed(Seconds::of(1.0))), Controls::none()))->toBe([MutantStatus::Killed, MutantStatus::Killed])
-        ->and($statuses(ControlRuns::none()->with($file, ControlRun::failed())->with($a, ControlRun::passed(Seconds::of(1.0)))->with($b, ControlRun::failed()), Controls::none()))
-        ->toBe([MutantStatus::Killed, MutantStatus::Unjudged])
+        ->and($statuses(ControlRuns::none()->with($file, ControlRun::failed(TestIds::none()))->with($a, ControlRun::passed(Seconds::of(1.0)))->with($b, ControlRun::failed(TestIds::none())), Controls::none()))
+        ->toBe([MutantStatus::Killed, MutantStatus::FailsUnmutated])
         ->and($statuses(ControlRuns::none(), Controls::of($file)))->toBe([MutantStatus::Unjudged, MutantStatus::Unjudged]);
 });
 
@@ -141,7 +141,7 @@ it('lets a kill stand where its control passed, and leaves it unjudged, saying w
     expect([$applied[0]->status(), $said instanceof Reason ? $said->text() : ''])->toBe([$status, $reason]);
 })->with([
     'tests that pass unmutated' => [fn(): ControlRun => ControlRun::passed(Seconds::of(2.0)), MutantStatus::Killed, ''],
-    'tests that fail unmutated' => [fn(): ControlRun => ControlRun::failed(), MutantStatus::Unjudged, KillControls::FAILS_UNMUTATED],
+    'tests that fail unmutated' => [fn(): ControlRun => ControlRun::failed(TestIds::none()), MutantStatus::FailsUnmutated, KillControls::FAILS_UNMUTATED],
     'tests out of memory unmutated' => [fn(): ControlRun => ControlRun::outOfMemory(), MutantStatus::Unjudged, KillControls::OUT_OF_MEMORY],
     'tests that run out unmutated' => [fn(): ControlRun => ControlRun::ranOut(), MutantStatus::Unjudged, KillControls::RAN_OUT],
     'a control never run' => [fn(): ControlRun => ControlRun::unrun('the file is gone'), MutantStatus::Unjudged, fn(): string => sprintf(KillControls::UNRUN, 'the file is gone')],
@@ -173,3 +173,15 @@ it('asks for and applies kill controls in time linear in the number of mutants',
     expect($timing(10)())->toBe(10)
         ->and(Growth::of(1000, $timing))->toBeLessThan(Growth::LINEAR);
 });
+
+it('names, for a kill whose tests fail without it, the tests its control recorded failing, or every killer where it recorded none', function (TestIds $recorded, array $failing): void {
+    $mutants = Mutants::of(killedBy('src/Loop.php', '1', MutantStatus::Killed, 'LoopTest::a'));
+    $controls = KillControls::of($mutants, killersMap(), killBounds());
+    $applied = [...$controls->applied($mutants, ControlRuns::none()->with([...$controls->asked()][0], ControlRun::failed($recorded)), Controls::none())];
+
+    expect($applied[0]->status())->toBe(MutantStatus::FailsUnmutated)
+        ->and(array_map(static fn(TestId $test): string => $test->value(), [...$applied[0]->killers()]))->toBe($failing);
+})->with([
+    'recorded' => [fn(): TestIds => TestIds::of(TestId::of('LoopTest::a#2')), ['LoopTest::a#2']],
+    'none recorded' => [fn(): TestIds => TestIds::none(), ['LoopTest::a']],
+]);

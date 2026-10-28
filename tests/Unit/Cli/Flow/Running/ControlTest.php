@@ -124,7 +124,7 @@ it('leaves a timeout unjudged where its tests fail unmutated too, and too slow t
         ->and($said instanceof Reason ? $said->text() : '')->toBe($reason)
         ->and($timedOut->unmutatedNeed())->toEqual(Unmeasured::duration());
 })->with([
-    'tests that fail unmutated' => [fn(): ControlRun => ControlRun::failed(), MutantStatus::Unjudged, TimeoutControls::FAILS_UNMUTATED],
+    'tests that fail unmutated' => [fn(): ControlRun => ControlRun::failed(TestIds::none()), MutantStatus::FailsUnmutated, TimeoutControls::FAILS_UNMUTATED],
     'tests that run out unmutated' => [fn(): ControlRun => ControlRun::ranOut(), MutantStatus::TimedOut, TimeoutControls::RAN_OUT],
     'a control never run' => [
         fn(): ControlRun => ControlRun::unrun('the file is gone'),
@@ -267,7 +267,7 @@ it('leaves a kill unjudged where the tests that killed it fail unmutated too, an
         ->and($kill->status())->toBe($status);
 })->with([
     'tests that pass unmutated' => [fn(): ControlRun => ControlRun::passed(Seconds::of(0.2)), MutantStatus::Killed],
-    'tests that fail unmutated' => [fn(): ControlRun => ControlRun::failed(), MutantStatus::Unjudged],
+    'tests that fail unmutated' => [fn(): ControlRun => ControlRun::failed(TestIds::none()), MutantStatus::FailsUnmutated],
 ]);
 
 it('controls a file\'s kills together first, and each on its own only where that does not pass', function (bool $passes, int $asked) use ($makeResultIn): void {
@@ -279,9 +279,9 @@ it('controls a file\'s kills together first, and each on its own only where that
     $alone = static fn(string $test): Control => Control::of($money, TestIds::of(TestId::of($test)), Seconds::of(10.0));
     $runner = ScriptedRunner::fixtureKillingAlso($money, Line::of(16), TestId::of('MoneyTest::subtracts'))
         ->controlling(ControlRuns::none()
-            ->with($together, $passes ? ControlRun::passed(Seconds::of(0.4)) : ControlRun::failed())
+            ->with($together, $passes ? ControlRun::passed(Seconds::of(0.4)) : ControlRun::failed(TestIds::none()))
             ->with($alone('MoneyTest::adds'), ControlRun::passed(Seconds::of(0.2)))
-            ->with($alone('MoneyTest::subtracts'), ControlRun::failed()));
+            ->with($alone('MoneyTest::subtracts'), ControlRun::failed(TestIds::none())));
 
     new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
         ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
@@ -290,7 +290,7 @@ it('controls a file\'s kills together first, and each on its own only where that
     expect($keys)->toContain($together->key())
         ->and(count($keys))->toBe($asked)
         ->and(controlMutantIn($resultIn($project, 1), 'Plus-11')->status())->toBe(MutantStatus::Killed)
-        ->and(controlMutantIn($resultIn($project, 1), 'Minus-16')->status())->toBe($passes ? MutantStatus::Killed : MutantStatus::Unjudged);
+        ->and(controlMutantIn($resultIn($project, 1), 'Minus-16')->status())->toBe($passes ? MutantStatus::Killed : MutantStatus::FailsUnmutated);
 })->with([
     'together they pass' => [true, 2],
     'together they fail, and one alone' => [false, 4],

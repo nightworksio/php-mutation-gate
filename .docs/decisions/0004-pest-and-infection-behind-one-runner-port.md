@@ -529,11 +529,13 @@ its parser attributes. Both change when the checkout moves.
        where the tests that cover the mutant pass on the unmutated code,
        among every test file, served the same way: as Pest's filter selects
        them, or the tests that judge the run where that filter is too long
-       to pass. Where they fail, the mutant is unjudged: *Killed, but its
-       covering tests fail as well with the file unmutated, served as its
-       mutant was.* Where the coverage they are read off cannot be read, it
-       is unjudged too, saying so. A kill whose records cannot be read does
-       not count either. A kill of a mutant Pest left uncovered is the
+       to pass, each logging JUnit. Where they fail, the mutant's tests fail
+       unmutated (ADR-0008), naming those the log records failing: *Killed,
+       but its covering tests fail as well with the file unmutated, served
+       as its mutant was.* Where they run out of time or memory, or never
+       run, it is unjudged, saying which. Where the coverage they are read
+       off cannot be read, it is unjudged too, saying so. A kill whose
+       records cannot be read does not count either. A kill of a mutant Pest left uncovered is the
        trial's, which ran its tests alone on the unmutated code
        first, served as its mutant is, so it always counts.
      - What a test's body leaves behind as it runs is not seen: a test that
@@ -911,8 +913,8 @@ its parser attributes. Both change when the checkout moves.
      - Where the control runs out of the cap too, runs out of time or never
        runs, it is *too heavy to judge*, counts as not killed under the
        `unjudged` rule, and its reason says which. Where the control fails,
-       the tests fail with the file unmutated as well, and the mutant is
-       unjudged.
+       the tests fail with the file unmutated as well: the mutant's tests
+       fail unmutated (ADR-0008).
      - doctor's `memory-cap-near` still advises a cap of twice the suite's
        peak, which leaves the controls room.
    - A result records a mutant out of memory with its cap and its control's

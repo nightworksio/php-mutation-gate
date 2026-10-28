@@ -35,6 +35,7 @@ use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\JUnitFailures;
 use NightWorksIO\MutationGate\Core\Test\JUnitLog;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -61,7 +62,7 @@ use function sprintf;
  * did (see Evidence), from what it printed and the JUnit log it writes beside
  * the guard. A kill names as its killer the first test that log says
  * failed or errored, or every one under a full kill matrix (see
- * JUnitKillers), and gives how its run ended where it names none
+ * JUnitFailures), and gives how its run ended where it names none
  * (ADR-0014).
  */
 final class Trial
@@ -278,7 +279,8 @@ final class Trial
      */
     private function killersAt(int $position): TestIds
     {
-        $killers = [...JUnitKillers::in($this->logOf($position))];
+        $log = $this->logOf($position);
+        $killers = [...JUnitFailures::of(is_file($log) ? file_get_contents($log) : false)];
 
         return TestIds::of(...$this->matrix === MatrixKind::Full ? $killers : array_slice($killers, 0, 1));
     }

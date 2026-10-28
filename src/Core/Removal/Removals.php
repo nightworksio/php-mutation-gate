@@ -202,7 +202,10 @@ final readonly class Removals
     private static function saysNothing(MutantJudgement $judgement): bool
     {
         return match ($judgement) {
-            MutantJudgement::Equivalent, MutantJudgement::Ignored, MutantJudgement::IgnoredByMarker => true,
+            MutantJudgement::Equivalent,
+            MutantJudgement::Ignored,
+            MutantJudgement::IgnoredByMarker,
+            MutantJudgement::FailsUnmutated => true,
             MutantJudgement::Killed,
             MutantJudgement::Errored,
             MutantJudgement::KilledByTimeout,

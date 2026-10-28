@@ -290,7 +290,17 @@ presets for Laravel, Symfony and plain libraries.
      mutant is always here. The hint points at holding the path with a group
      (ADR-0005) or raising `timeouts.most`.
    - **The control failed.** The tests fail with the file unmutated as well,
-     so nothing tells the mutant from its original, and it is **unjudged**.
+     so nothing tells the mutant from its original: its tests **fail
+     unmutated**. So it goes for every control that decides a mutant: a
+     timeout's here, a kill's (ADR-0014) and a mutant's out of memory
+     (ADR-0004). The mutant is left out of every score, and the verdict is
+     *cannot judge*, exiting 2, on a line of its own that names the tests
+     that failed, `The tests fail without any mutant: <test>, <test>`, with
+     every mutant those tests leave out listed under it, in every report.
+     The tests are those the control's JUnit log records failing, as PHPUnit,
+     Pest and Infection write it, or the native runner's own record of each
+     test; where it records none, the line names every test the control ran.
+     No control is run twice.
    - **The budget.** Under a time budget the controls run after the
      invocation's survivors are confirmed, as many as fit in the time left at
      the longest of their limits; a timeout whose control did not fit is

@@ -201,8 +201,9 @@ final readonly class JUnit
     }
 
     /**
-     * A failing test case for each thing that kept the run from judging, then
-     * for each failure that belongs to no floor.
+     * A failing test case for each thing that kept the run from judging, and
+     * for each set of tests that fails without any mutant, the mutants it
+     * leaves out in its body; then for each failure that belongs to no floor.
      *
      * @return list<array{string, bool}>
      */
@@ -210,8 +211,12 @@ final readonly class JUnit
     {
         $cases = [];
 
-        foreach ($verdict->obstacles() as $obstacle) {
+        foreach ($verdict->obstacles()->met() as $obstacle) {
             $cases[] = self::failure(Judgement::CannotJudge->value, $obstacle->why());
+        }
+
+        foreach ($verdict->obstacles()->unmutatedFailures() as $failing) {
+            $cases[] = self::failure(Judgement::CannotJudge->value, $failing->line(), ...FailingText::lines($failing));
         }
 
         foreach ($verdict->failures() as $failure) {
@@ -244,11 +249,12 @@ final readonly class JUnit
     }
 
     /** @return array{string, bool} */
-    private static function failure(string $type, string $text): array
+    private static function failure(string $type, string $text, string ...$body): array
     {
         $message = Xml::text($text);
+        $said = $body === [] ? $message : Xml::text(implode("\n", $body));
 
-        return [sprintf(self::CASE, $message, 'run', sprintf(self::FAILED, $type, $message, $message)), true];
+        return [sprintf(self::CASE, $message, 'run', sprintf(self::FAILED, $type, $message, $said)), true];
     }
 
     /** @return array{string, bool} */

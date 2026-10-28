@@ -31,25 +31,26 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-it('leaves unjudged a kill whose named killer fails as well with the file unmutated, served through Pest\'s override as the mutant was', function (): void {
+it('leaves out a kill whose named killer fails as well with the file unmutated, served through Pest\'s override as the mutant was, naming the tests that fail', function (): void {
     $at = PestCases::project();
     $shell = PestCases::overrideSensitive($at, sensitive: true);
 
     $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), Triage::standard()->bounds())->mutate(PestCases::money());
     $mutants = $result instanceof MutationResult ? [...$result->mutants()] : [];
 
-    expect(PestCases::statuses($result))->toBe([MutantStatus::Unjudged])
+    expect(PestCases::statuses($result))->toBe([MutantStatus::FailsUnmutated])
         ->and($mutants[0]->reason())->toEqual(Reason::that(Controls::FAILS_UNMUTATED))
+        ->and($mutants[0]->killers())->toEqual(TestIds::of(TestId::of(PestCases::RUN_ADDS)))
         ->and(PestCases::controls($shell))->toHaveCount(2);
 });
 
-it('leaves unjudged a kill no test is named for, confirmed again so, whose control fails with the file unmutated', function (): void {
+it('leaves out a kill no test is named for, confirmed again so, whose control fails with the file unmutated', function (): void {
     $at = PestCases::project();
     $shell = PestCases::overrideSensitive($at, sensitive: true, named: false);
 
     $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), Triage::standard()->bounds())->mutate(PestCases::money());
 
-    expect(PestCases::statuses($result))->toBe([MutantStatus::Unjudged])
+    expect(PestCases::statuses($result))->toBe([MutantStatus::FailsUnmutated])
         ->and(PestCases::controls($shell))->toHaveCount(1);
 });
 
@@ -75,10 +76,11 @@ it('runs each control with the file the mutant changes served unmutated, the nar
     $unmutated = sprintf('%s/.mutation-gate/pest/originals/%s.php', $at->root(), hash('xxh3', $printed instanceof Contents ? $printed->text() : ''));
     $served = [Recorder::MUTANT => sprintf('%s/src/Money.php', $at->root()), Recorder::MUTATED => $unmutated];
     $judging = Invocation::of($at);
+    $log = sprintf('%s/.mutation-gate/pest/alone/junit-0.xml', $at->root());
 
-    expect($baseline)->toEqual($judging->judging(Paths::of(Path::of(PestCases::spec($at))), WholeSuite::tests(), Withheld::standard())->with($served))
+    expect($baseline)->toEqual($judging->judging(Paths::of(Path::of(PestCases::spec($at))), WholeSuite::tests(), Withheld::standard(), sprintf('--log-junit=%s', $log))->with($served))
         ->and($confirmation)->toEqual(
-            $judging->judging(Paths::none(), Selection::of(TestIds::of(TestId::of(PestCases::RUN_ADDS)))->filter(), Withheld::standard())->with($served),
+            $judging->judging(Paths::none(), Selection::of(TestIds::of(TestId::of(PestCases::RUN_ADDS)))->filter(), Withheld::standard(), sprintf('--log-junit=%s', $log))->with($served),
         )
         ->and(file_get_contents($unmutated))->toBe($printed instanceof Contents ? $printed->text() : null);
 });

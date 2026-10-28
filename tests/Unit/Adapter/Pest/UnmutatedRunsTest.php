@@ -31,6 +31,7 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Tests\Support\JUnitLogs;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShellFake;
 
@@ -87,7 +88,21 @@ it('runs each control with its file served unmutated through Pest\'s override, b
         ->and($environment[Recorder::MUTANT])->toBe(sprintf('%s/src/Money.php', $at->root()))
         ->and(is_string($copy) ? file_get_contents($copy) : $copy)->toBe("<?php\n\nfinal class Money\n{\n}")
         ->and(implode(' ', $command->arguments()))->toContain('MoneySpec::(.*)it.adds')
+        ->and($command->arguments())->toContain(sprintf('--log-junit=%s/pest/controls/junit-0.xml', $at->workspace()))
         ->and($command->deadline())->toEqual(Seconds::of(7.0));
+});
+
+it('names the tests a failed control\'s JUnit log records failing', function (): void {
+    $shell = new ShellFake(static function (Command $command): Ran {
+        JUnitLogs::failing($command->arguments(), 'it adds', 'tests/WalletSpec.php::it adds', 'Tests\\WalletSpec');
+
+        return Ran::finished(succeeded: false, output: 'FAILED');
+    });
+
+    $runs = unmutatedRuns(unmutatedProject(), $shell, Controls::of(pestControl('src/Money.php')), unmutatedRequest());
+
+    expect($runs->of(pestControl('src/Money.php')))
+        ->toEqual(ControlRun::failed(TestIds::of(TestId::of('P\Tests\WalletSpec::__pest_evaluable_it_adds'))));
 });
 
 it('reads how each control ended: passed in the time it took, failed, or ran out of its limit', function (Ran $ran, ControlRun $found): void {
@@ -96,7 +111,7 @@ it('reads how each control ended: passed in the time it took, failed, or ran out
     expect($runs->of(pestControl('src/Money.php')))->toEqual($found);
 })->with([
     'passed' => [fn(): Ran => Ran::finished(succeeded: true, output: '')->took(Seconds::of(2.0)), fn(): ControlRun => ControlRun::passed(Seconds::of(2.0))],
-    'failed' => [fn(): Ran => Ran::finished(succeeded: false, output: 'FAILED'), fn(): ControlRun => ControlRun::failed()],
+    'failed' => [fn(): Ran => Ran::finished(succeeded: false, output: 'FAILED'), fn(): ControlRun => ControlRun::failed(TestIds::none())],
     'stopped at its limit' => [fn(): Ran => Ran::stopped(''), fn(): ControlRun => ControlRun::ranOut()],
 ]);
 

@@ -11,12 +11,17 @@ use function array_unique;
 use function array_values;
 
 use Closure;
+
+use function in_array;
+
 use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Selector;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Control\ControlEnd;
+use NightWorksIO\MutationGate\Core\Control\ControlRun;
+use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
-use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestListing;
@@ -48,7 +53,7 @@ final class Remembered
     /** @var array<string, true> the files a map has been written to */
     private array $written = [];
 
-    /** @var array<string, bool> whether each set of test files passes on the unmutated code, loaded alone */
+    /** @var array<string, ControlRun> how each set of test files ended on the unmutated code, passed or failed */
     private array $baselines = [];
 
     /** @var array<string, ReplayVerdict> what each replay of a kill's own run, unmutated, said, by its key */
@@ -135,14 +140,15 @@ final class Remembered
     }
 
     /**
-     * Whether each baseline run passed, by its key, in the order given: the
-     * keys not yet kept run once each, all in one call; a run stopped at its
-     * deadline, or never started, says nothing of the tests, is not kept, and
-     * does not pass.
+     * How each baseline run ended, by its key, in the order given: the keys
+     * not yet kept run once each, all in one call. A run that passed or
+     * failed is kept; one stopped at its deadline, or out of memory, says
+     * nothing of the tests and is not kept, and one never started never ran.
      *
-     * @param  list<string>                              $keys
-     * @param  Closure(non-empty-list<string>): ProcessEnds $running the ends of the runs of these keys, in their order
-     * @return list<bool>
+     * @param  list<string>                                            $keys
+     * @param  Closure(non-empty-list<string>): array<int, ControlRun> $running how the runs of these keys ended,
+     *                                                                   by their position; none for one never started
+     * @return list<ControlRun>
      */
     public function baselines(array $keys, Closure $running): array
     {
@@ -150,14 +156,22 @@ final class Remembered
             $keys,
             fn(string $key): bool => ! array_key_exists($key, $this->baselines),
         )));
-        $ends = $unknown === [] ? [] : [...$running($unknown)];
+        $ended = $unknown === [] ? [] : $running($unknown);
+        $found = [];
 
-        foreach ($ends as $at => $ran) {
-            $this->baselines += $ran->wasStopped() ? [] : [$unknown[$at] => $ran->succeeded()];
+        foreach ($ended as $at => $run) {
+            $found[$unknown[$at]] = $run;
+            $this->baselines += in_array($run->end(), [ControlEnd::Passed, ControlEnd::Failed], strict: true)
+                ? [$unknown[$at] => $run]
+                : [];
         }
 
         return array_map(
-            fn(string $key): bool => array_key_exists($key, $this->baselines) && $this->baselines[$key],
+            fn(string $key): ControlRun => match (true) {
+                array_key_exists($key, $this->baselines) => $this->baselines[$key],
+                array_key_exists($key, $found) => $found[$key],
+                default => ControlRun::unrun(ControlRuns::NOT_RUN),
+            },
             $keys,
         );
     }

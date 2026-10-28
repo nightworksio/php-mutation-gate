@@ -68,7 +68,8 @@ final readonly class Unstubbable
             MutantJudgement::KilledByMemoryCap,
             MutantJudgement::Ignored,
             MutantJudgement::IgnoredByMarker,
-            MutantJudgement::Equivalent => sprintf(self::NOTHING, $id, Label::of($judged->judgement()), $hint),
+            MutantJudgement::Equivalent,
+            MutantJudgement::FailsUnmutated => sprintf(self::NOTHING, $id, Label::of($judged->judgement()), $hint),
         });
     }
 }

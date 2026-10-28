@@ -19,7 +19,7 @@ function controlRunsEntry(float $limit): Control
 
 it('gives what each control found, by the control, the last given for it winning', function (): void {
     $runs = ControlRuns::none()
-        ->with(controlRunsEntry(5.0), ControlRun::failed())
+        ->with(controlRunsEntry(5.0), ControlRun::failed(TestIds::none()))
         ->with(controlRunsEntry(6.0), ControlRun::ranOut())
         ->with(controlRunsEntry(5.0), ControlRun::passed(Seconds::of(1.0)));
 
@@ -28,7 +28,7 @@ it('gives what each control found, by the control, the last given for it winning
 });
 
 it('says a control it holds nothing for never ran', function (): void {
-    $run = ControlRuns::none()->with(controlRunsEntry(5.0), ControlRun::failed())->of(controlRunsEntry(7.0));
+    $run = ControlRuns::none()->with(controlRunsEntry(5.0), ControlRun::failed(TestIds::none()))->of(controlRunsEntry(7.0));
 
     expect($run->end())->toBe(ControlEnd::Unrun)
         ->and($run->why())->toBe(ControlRuns::NOT_RUN);
@@ -36,7 +36,7 @@ it('says a control it holds nothing for never ran', function (): void {
 
 it('joins two sets of runs, those given last winning for a control both hold', function (): void {
     $runs = ControlRuns::none()
-        ->with(controlRunsEntry(5.0), ControlRun::failed())
+        ->with(controlRunsEntry(5.0), ControlRun::failed(TestIds::none()))
         ->with(controlRunsEntry(6.0), ControlRun::ranOut())
         ->and(ControlRuns::none()->with(controlRunsEntry(5.0), ControlRun::passed(Seconds::of(2.0))));
 

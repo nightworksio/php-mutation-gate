@@ -138,10 +138,13 @@ final readonly class Verdict
         return $this->failures;
     }
 
-    /** What kept the run from judging honestly, in the order it was met; none for a judged run. */
+    /**
+     * What kept the run from judging honestly, in the order it was met, then
+     * each set of tests that fails without any mutant; none for a judged run.
+     */
     public function obstacles(): Obstacles
     {
-        return $this->obstacles;
+        return $this->obstacles->failing(UnmutatedFailures::in($this->trees->mutants()));
     }
 
     /** Whether a budget or a deadline stopped the run before it judged every mutant. */
@@ -170,7 +173,7 @@ final readonly class Verdict
         );
 
         return match (true) {
-            count($this->obstacles) > 0 => Judgement::CannotJudge,
+            count($this->obstacles()) > 0 => Judgement::CannotJudge,
             $failed || count($this->failures) > 0 => Judgement::Failed,
             default => Judgement::Passed,
         };

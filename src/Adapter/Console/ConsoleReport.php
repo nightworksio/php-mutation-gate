@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\Matrix\SuiteScores;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reason as Cause;
+use NightWorksIO\MutationGate\Core\Report\FailingText;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
 use NightWorksIO\MutationGate\Core\Report\Overview;
 use NightWorksIO\MutationGate\Core\Report\Percent;
@@ -224,7 +225,8 @@ final readonly class ConsoleReport implements Configurable, Reporter
     }
 
     /**
-     * Why the run could not judge, one reason to a line.
+     * Why the run could not judge, one reason to a line, each set of tests
+     * that fails without any mutant with the mutants it leaves out under it.
      *
      * @return list<string>
      */
@@ -232,8 +234,12 @@ final readonly class ConsoleReport implements Configurable, Reporter
     {
         $whys = [];
 
-        foreach ($verdict->obstacles() as $obstacle) {
+        foreach ($verdict->obstacles()->met() as $obstacle) {
             $whys[] = $obstacle->why();
+        }
+
+        foreach ($verdict->obstacles()->unmutatedFailures() as $failing) {
+            $whys = [...$whys, ...FailingText::lines($failing)];
         }
 
         return $whys;

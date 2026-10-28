@@ -160,7 +160,7 @@ it('lets an unnamed kill stand, vouched for, where its control passed, and leave
         ->and($judged[0]->status())->toBe($status);
 })->with([
     'a control that passed' => [fn(): ControlRun => ControlRun::passed(Seconds::of(1.0)), MutantStatus::Killed, '', true],
-    'a red unmutated run' => [fn(): ControlRun => ControlRun::failed(), MutantStatus::Unjudged, UnnamedKillControls::FAILS_UNMUTATED, false],
+    'a red unmutated run' => [fn(): ControlRun => ControlRun::failed(TestIds::none()), MutantStatus::FailsUnmutated, UnnamedKillControls::FAILS_UNMUTATED, false],
     'a control out of memory' => [fn(): ControlRun => ControlRun::outOfMemory(), MutantStatus::Unjudged, UnnamedKillControls::OUT_OF_MEMORY, false],
     'a control out of time' => [fn(): ControlRun => ControlRun::ranOut(), MutantStatus::Unjudged, UnnamedKillControls::RAN_OUT, false],
     'a control never run' => [
@@ -210,3 +210,14 @@ it('asks for and applies unnamed kill controls in time linear in the number of m
     expect($timing(10)())->toBe(10)
         ->and(Growth::of(1000, $timing))->toBeLessThan(Growth::LINEAR);
 });
+
+it('names, for an unnamed kill whose tests fail without it, the tests its control recorded failing, or every test it ran', function (TestIds $recorded, array $failing): void {
+    $mutant = unnamedMutant('src/Record.php', '1');
+    $controls = unnamedControls($mutant);
+    $applied = [...$controls->applied(Mutants::of($mutant), ControlRuns::none()->with([...$controls->asked()][0], ControlRun::failed($recorded)), Controls::none())];
+
+    expect(array_map(static fn(TestId $test): string => $test->value(), [...$applied[0]->killers()]))->toBe($failing);
+})->with([
+    'recorded' => [fn(): TestIds => TestIds::of(TestId::of('RecordTest::b')), ['RecordTest::b']],
+    'none recorded' => [fn(): TestIds => TestIds::none(), ['RecordTest::a']],
+]);

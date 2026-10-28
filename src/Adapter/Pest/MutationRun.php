@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function array_map;
 use function array_values;
 
 use Closure;
@@ -16,6 +17,8 @@ use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
 use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
 use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Control\ControlEnd;
+use NightWorksIO\MutationGate\Core\Control\ControlRun;
 use NightWorksIO\MutationGate\Core\Cost\Laps;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTime;
@@ -216,8 +219,11 @@ final readonly class MutationRun
              * @param  non-empty-list<Control> $controls
              * @return list<bool>
              */
-            fn(array $controls): array => new AloneRuns($this->project, $this->shell, $this->remembered)
-                ->pass($controls, $request, $this->left($request, $started), $results),
+            fn(array $controls): array => array_map(
+                static fn(ControlRun $run): bool => $run->end() === ControlEnd::Passed,
+                new AloneRuns($this->project, $this->shell, $this->remembered)
+                    ->ended($controls, $request, $this->left($request, $started), $results),
+            ),
             $replayed,
         );
     }

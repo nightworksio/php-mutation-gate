@@ -90,6 +90,8 @@ final readonly class Sarif
             $results[] = self::result($mutant, $overview->isFailing($mutant) ? 'error' : 'warning', $overview);
         }
 
+        $results = [...$results, ...self::failing($verdict, $overview)];
+
         foreach ($overview->ignored() as $mutant) {
             $results[] = [...self::result($mutant, self::IGNORED, $overview), 'suppressions' => [[
                 'kind' => $mutant->judgement() === MutantJudgement::IgnoredByMarker ? 'inSource' : 'external',
@@ -111,6 +113,25 @@ final readonly class Sarif
                 'results' => $results,
             ]],
         ]);
+    }
+
+    /**
+     * A result for each mutant a set of tests that fails without any mutant
+     * leaves out, which keeps the verdict from judging.
+     *
+     * @return list<Result>
+     */
+    private static function failing(Verdict $verdict, Overview $overview): array
+    {
+        $results = [];
+
+        foreach ($verdict->obstacles()->unmutatedFailures() as $failing) {
+            foreach ($failing->mutants() as $mutant) {
+                $results[] = self::result($mutant, 'error', $overview);
+            }
+        }
+
+        return $results;
     }
 
     /** @return Result */

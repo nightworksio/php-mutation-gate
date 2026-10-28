@@ -15,6 +15,9 @@ use Closure;
 use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Control\ControlRun;
+use NightWorksIO\MutationGate\Core\Control\ControlRuns;
+use NightWorksIO\MutationGate\Core\Control\KillReasons;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -24,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -46,15 +50,31 @@ final readonly class Controls
     public const string FAILS_UNMUTATED
         = 'Killed, but its covering tests fail as well with the file unmutated, served as its mutant was.';
 
+    /** Why a kill confirmed again is unjudged where its control never ran. */
+    private const string UNRUN
+        = 'Killed, but no unmutated control of its covering tests ran, so nothing vouches for it: %s.';
+
+    /** Why a kill confirmed again is unjudged where its control runs out of its time. */
+    private const string RAN_OUT = 'Killed, but its covering tests run out of their time with the file unmutated too.';
+
+    /** Why a kill confirmed again is unjudged where its control runs out of the memory cap. */
+    private const string OUT_OF_MEMORY
+        = 'Killed, but its covering tests run out of the memory cap with the file unmutated too.';
+
     /** Why a kill confirmed again is unjudged where its control cannot be read off the run's coverage. */
     private const string UNREAD = 'Killed, but its covering tests cannot be told, so nothing vouches for the kill: %s';
 
     /**
      * @param array<string, Control> $controls each doubtful kill's control, by its gate id
+     * @param array<string, TestIds> $covering each doubtful kill's covering tests, by its gate id
      * @param string                 $unread   why no kill has a control, where the coverage cannot be read
      */
-    private function __construct(private Mutants $doubtful, private array $controls, private string $unread = '')
-    {
+    private function __construct(
+        private Mutants $doubtful,
+        private array $controls,
+        private array $covering,
+        private string $unread = '',
+    ) {
     }
 
     /**
@@ -71,21 +91,23 @@ final readonly class Controls
         Closure $coverage,
     ): self {
         if (count($doubtful) === 0) {
-            return new self($doubtful, []);
+            return new self($doubtful, [], []);
         }
 
         $covering = $coverage();
 
         if ($covering instanceof CannotJudge) {
-            return new self($doubtful, [], sprintf(self::UNREAD, $covering->why()));
+            return new self($doubtful, [], [], sprintf(self::UNREAD, $covering->why()));
         }
 
         $controls = [];
+        $tests = [];
 
         foreach ($doubtful as $mutant) {
             $location = $mutant->location();
             $file = DiskPath::of($project->absolute($location->file()));
-            $selection = Selection::of($covering->testsCovering($file, $location->start(), $location->last()));
+            $tests[$mutant->id()->key()] = $covering->testsCovering($file, $location->start(), $location->last());
+            $selection = Selection::of($tests[$mutant->id()->key()]);
             $controls[$mutant->id()->key()] = Control::of(
                 $location->file(),
                 Paths::none(),
@@ -93,7 +115,7 @@ final readonly class Controls
             );
         }
 
-        return new self($doubtful, $controls);
+        return new self($doubtful, $controls, $tests);
     }
 
     public function doubtful(): Mutants
@@ -101,7 +123,11 @@ final readonly class Controls
         return $this->doubtful;
     }
 
-    /** The mutants run again, each kill whose control fails unjudged. */
+    /**
+     * The mutants run again, each kill standing where its control passed,
+     * its tests failing without it where the control failed, and unjudged
+     * otherwise, saying why.
+     */
     public function applied(
         Mutants $again,
         AloneRuns $runs,
@@ -118,29 +144,30 @@ final readonly class Controls
                 : [];
         }
 
-        $passed = $killed === []
+        $ended = $killed === []
             ? []
-            : array_combine(array_keys($killed), $runs->pass(array_values($killed), $request, $left, $results));
-        $unvouched = Reason::that($this->unread === '' ? self::FAILS_UNMUTATED : $this->unread);
+            : array_combine(array_keys($killed), $runs->ended(array_values($killed), $request, $left, $results));
 
-        return Mutants::of(...array_map(
-            static fn(Mutant $mutant): Mutant => self::stands($mutant, $passed)
-                ? $mutant
-                : Interpretation::unjudged($mutant, $unvouched),
-            [...$again],
-        ));
+        return Mutants::of(...array_map(fn(Mutant $mutant): Mutant => $this->judged($mutant, $ended), [...$again]));
     }
 
     /**
-     * Whether a mutant run again stands as it was found: anything but a kill,
-     * and a kill whose control passed.
+     * A mutant run again as its control judges it: anything but a kill as it
+     * was found, and a kill by how its control ended.
      *
-     * @param array<string, bool> $passed whether each kill's control passed, by its gate id
+     * @param array<string, ControlRun> $ended how each kill's control ended, by its gate id
      */
-    private static function stands(Mutant $mutant, array $passed): bool
+    private function judged(Mutant $mutant, array $ended): Mutant
     {
         $key = $mutant->id()->key();
+        $run = array_key_exists($key, $ended) ? $ended[$key] : ControlRun::unrun(ControlRuns::NOT_RUN);
+        $covering = array_key_exists($key, $this->covering) ? $this->covering[$key] : TestIds::none();
 
-        return $mutant->status() !== MutantStatus::Killed || (array_key_exists($key, $passed) && $passed[$key]);
+        return match (true) {
+            $mutant->status() !== MutantStatus::Killed => $mutant,
+            $this->unread !== '' => Interpretation::unjudged($mutant, Reason::that($this->unread)),
+            default => KillReasons::of(self::FAILS_UNMUTATED, self::OUT_OF_MEMORY, self::RAN_OUT, self::UNRUN)
+                ->judged($mutant, $run, $covering),
+        };
     }
 }

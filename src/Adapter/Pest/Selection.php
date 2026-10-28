@@ -18,6 +18,7 @@ use function mb_substr;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestMethod;
 
 use function preg_match;
 use function sprintf;
@@ -32,8 +33,6 @@ use function str_replace;
  */
 final readonly class Selection
 {
-    /** What Pest begins the method it makes of a test's description with. */
-    public const string EVALUABLE = '__pest_evaluable_';
     /** pest-plugin-mutate's own pattern for a covering test's id. */
     private const string TEST = '/\\\\([a-zA-Z0-9]*)::(__pest_evaluable_)?([^#]*)"?/';
 
@@ -131,7 +130,7 @@ final readonly class Selection
             return Unselectable::Test;
         }
 
-        $name = $parts[2] === self::EVALUABLE ? str_replace(['__', '_'], ['.{1,2}', '.'], $parts[3]) : $parts[3];
+        $name = $parts[2] === TestMethod::EVALUABLE ? str_replace(['__', '_'], ['.{1,2}', '.'], $parts[3]) : $parts[3];
 
         return sprintf('%s::(.*)%s', $parts[1], $name);
     }

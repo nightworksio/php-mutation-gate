@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Mutant\UnmutatedFailure;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
@@ -136,6 +137,14 @@ it('writes and reads back in full the tests that killed a mutant', function () u
     expect(MutantRecord::full($killed->killedBy($killers)))->toMatchArray(['killedBy' => ['CartTest::totals', 'MoneyTest::adds']])
         ->and(MutantRecord::full($killed))->not->toHaveKey('killedBy')
         ->and(MutantRecord::readFull($read(MutantRecord::full($killed->killedBy($killers)))))->toEqual($killed->killedBy($killers));
+});
+
+it('writes and reads back in full the tests that fail without a mutant, apart from those that kill one', function () use ($makeKilled, $read): void {
+    $failing = $makeKilled()->unjudged(UnmutatedFailure::of(TestIds::of(TestId::of('MoneyTest::adds')), Reason::that('Its tests fail.')));
+
+    expect(MutantRecord::full($failing))->toMatchArray(['status' => 'fails-unmutated', 'failingUnmutated' => ['MoneyTest::adds'], 'reason' => 'Its tests fail.'])
+        ->and(MutantRecord::full($failing))->not->toHaveKey('killedBy')
+        ->and(MutantRecord::readFull($read(MutantRecord::full($failing))))->toEqual($failing);
 });
 
 it('writes and reads back in full the rejection that killed a mutant, with the file its finding sits in', function () use ($makeUnjudged, $makeKilled, $read): void {

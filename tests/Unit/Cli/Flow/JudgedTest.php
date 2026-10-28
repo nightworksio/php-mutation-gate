@@ -5,10 +5,15 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\Flow\Judged;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
+use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
 it('exits 1 on a verdict that failed', function (): void {
     expect(new Judged(Verdicts::failing(), [], Baseline::none())->exitCode())->toBe(ExitCode::Failed);
+});
+
+it('exits 2 on a verdict whose tests fail without any mutant', function (): void {
+    expect(new Judged(Verdicts::of(Floor::of(50), Verdicts::failingUnmutated()), [], Baseline::none())->exitCode())->toBe(ExitCode::CannotJudge);
 });
 
 it('exits 0 on a verdict that passed', function (): void {

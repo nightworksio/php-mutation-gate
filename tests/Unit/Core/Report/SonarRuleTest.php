@@ -28,5 +28,6 @@ it('names and describes each rule, linking the guide\'s section on its judgement
         ['unjudged', 'Unjudged mutant', sprintf('A mutant the run did not judge, or could not judge in its time or memory limit. See %s#unjudged', $guide), SonarQuality::Reliability],
         ['flaky', 'Flaky mutant', sprintf('A mutant its tests killed on one run and not on another. See %s#flaky', $guide), SonarQuality::Reliability],
         ['survived-security', 'Surviving security mutant', sprintf('A mutant a security-tagged mutator made, which no test fails on. See %s#survived', $guide), SonarQuality::Security],
+        ['fails-unmutated', 'Mutant whose tests fail without it', sprintf('A mutant whose tests fail without any mutant, so nothing judges it. See %s#fails-unmutated', $guide), SonarQuality::Reliability],
     ]);
 });
