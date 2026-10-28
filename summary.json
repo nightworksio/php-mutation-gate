@@ -1,0 +1,37 @@
+{
+    "format": 1,
+    "commit": "4b8ceda0a278cb172c1a2fb62c5730080636dc69",
+    "time": "2026-10-28T03:31:02Z",
+    "verdict": "passed",
+    "score": 100.0,
+    "trees": [
+        {
+            "path": "src",
+            "floor": 100.0,
+            "score": 100.0
+        },
+        {
+            "path": "plugins/default/src",
+            "floor": 100.0,
+            "score": 100.0
+        },
+        {
+            "path": "plugins/laravel/src",
+            "floor": 100.0,
+            "score": 100.0
+        },
+        {
+            "path": "plugins/security/src",
+            "floor": 100.0,
+            "score": 100.0
+        },
+        {
+            "path": "plugins/symfony/src",
+            "floor": 100.0,
+            "score": 100.0
+        }
+    ],
+    "newCode": {
+        "floor": 100.0
+    }
+}
