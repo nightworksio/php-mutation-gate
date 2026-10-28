@@ -47,23 +47,30 @@ it('calls the reusable workflow from a job whose verdict shows as that check', f
     expect(sprintf('%s / verdict', $id))->toBe(Ci::standard()->check());
 });
 
-it('names only artifacts the reusable workflow uploads and the environment it enters', function (): void {
+it('names only artifacts the action and the reusable workflow upload and the environment it enters', function (): void {
     $guide = (string) file_get_contents(Tree::at(GITHUB_GUIDE));
     preg_match('/^# GitHub Actions\n(?<section>.*?)^## Sharding with a matrix of your own$/msu', $guide, $github);
-    preg_match_all('/`(?<name>mutation-gate-[a-z-]+)`/u', $github['section'] ?? '', $named);
+    preg_match_all('/`(?<name>mutation-gate-[a-z<>-]+)`/u', $github['section'] ?? '', $named);
+    $jobs = Lenient::entries(WorkflowFile::at('.github/workflows/mutation-gate.yml')->field('jobs'));
+    $steps = [...Lenient::items(WorkflowFile::at('action.yml')->field('runs')->field('steps'))];
     $uploaded = [];
 
-    foreach (Lenient::entries(WorkflowFile::at('.github/workflows/mutation-gate.yml')->field('jobs')) as $job) {
+    foreach ($jobs as $job) {
         preg_match_all('/(?<name>mutation-gate-[a-z-]+)/u', Lenient::text($job->field('environment')->field('name')), $entered);
         $uploaded = [...$uploaded, ...$entered['name']];
-
-        foreach (Lenient::items($job->field('steps')) as $step) {
-            $uploaded[] = str_starts_with(Lenient::text($step->field('uses')), 'actions/upload-artifact@')
-                ? Lenient::text($step->field('with')->field('name'))
-                : '';
-        }
+        $steps = [...$steps, ...Lenient::items($job->field('steps'))];
     }
 
-    expect($named['name'])->not->toBe([])
+    foreach ($steps as $step) {
+        $uploaded[] = str_starts_with(Lenient::text($step->field('uses')), 'actions/upload-artifact@')
+            ? (string) preg_replace(
+                ['/\$\{\{ (github\.run_attempt|needs\.[a-z-]+\.outputs\.attempt) \}\}/u', '/\$\{\{ matrix\.shard\.id \}\}/u'],
+                ['<attempt>', '<shard>'],
+                Lenient::text($step->field('with')->field('name')),
+            )
+            : '';
+    }
+
+    expect($named['name'])->toContain('mutation-gate-delivery-<attempt>', 'mutation-gate-result-<attempt>-<shard>')
         ->and(array_values(array_diff($named['name'], $uploaded)))->toBe([]);
 });
