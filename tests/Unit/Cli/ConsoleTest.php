@@ -59,6 +59,7 @@ it('offers every command the command-line reference lists', function (string $co
     'import',
     'config:show',
     'config:schema',
+    'dashboard',
     'pest:patch',
     'infection:patch',
     'migrate',

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Command;
 
 use function array_filter;
-use function array_values;
 use function count;
 use function is_string;
 
@@ -135,10 +134,10 @@ final readonly class DashboardCommand
             return CannotJudge::because(sprintf(self::UNLISTED, $org, $listings->why()));
         }
 
-        $shown = array_values(array_filter(
+        $shown = array_filter(
             $listings,
             static fn(Listing $listing): bool => $private || ! $listing->isPrivate(),
-        ));
+        );
 
         return Dashboard::of($org, $now, ...$shown);
     }
