@@ -46,3 +46,21 @@ it('says whether a class that reaches the owner declares its constant anew', fun
         ->and($hierarchy()->overrides('app\money', 'RATE'))->toBeFalse()
         ->and($hierarchy()->overrides('app\rated', 'LEVEL'))->toBeFalse();
 });
+
+it('reaches a trait from a class that uses it, from what extends that class, and from a trait that uses it', function (): void {
+    $hierarchy = Hierarchy::of(Php::source(<<<'PHP'
+        <?php
+        namespace App;
+        trait Rounds { const STEP = 1; }
+        trait Priced { use Rounds; }
+        class Coin { use Priced; }
+        class Penny extends Coin { }
+        class Note { use Priced; const STEP = 2; }
+        PHP));
+
+    expect($hierarchy->reaches('app\coin', 'app\priced', Shadowing::none()))->toBeTrue()
+        ->and($hierarchy->reaches('app\penny', 'app\rounds', Shadowing::byConstant('STEP')))->toBeTrue()
+        ->and($hierarchy->reaches('app\note', 'app\rounds', Shadowing::byConstant('STEP')))->toBeFalse()
+        ->and($hierarchy->reaches('app\priced', 'app\coin', Shadowing::none()))->toBeFalse()
+        ->and($hierarchy->overrides('app\rounds', 'STEP'))->toBeTrue();
+});

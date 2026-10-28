@@ -10,7 +10,7 @@ use function is_string;
 
 /**
  * The classes, interfaces, traits and enums the project declares, each with
- * what it extends and implements, so that a name can be followed to the class
+ * what it extends and implements and the traits it uses, so that a name can be followed to the class
  * whose constant, case or property it reaches.
  */
 final readonly class Hierarchy
@@ -38,8 +38,8 @@ final readonly class Hierarchy
     }
 
     /**
-     * Whether a class is the owner, or reaches it through what it extends or
-     * implements without passing a class that shadows it.
+     * Whether a class is the owner, or reaches it through what it extends,
+     * implements or uses without passing a class that shadows it.
      */
     public function reaches(string $class, string $owner, Shadowing $shadowing): bool
     {
@@ -84,8 +84,8 @@ final readonly class Hierarchy
     }
 
     /**
-     * What a class extends and implements, unless it shadows what is read or
-     * was followed before.
+     * What a class extends, implements and uses, unless it shadows what is
+     * read or was followed before.
      *
      * @param  array<string, true> $seen
      * @return list<string>
@@ -95,7 +95,7 @@ final readonly class Hierarchy
         $known = array_key_exists($class, $this->classes) && ! array_key_exists($class, $seen);
 
         return $known && ! $shadowing->hides($this->classes[$class])
-            ? $this->classes[$class]->parents()->all()
+            ? $this->classes[$class]->parents()->merge($this->classes[$class]->uses())->all()
             : [];
     }
 }

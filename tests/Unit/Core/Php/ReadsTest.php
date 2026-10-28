@@ -30,6 +30,24 @@ it('reads each kind of value the way that kind is read, and no reference names t
         ->and($read(Symbol::parameter('App\tax', 'rate')))->toBe(['src/A.php:10']);
 });
 
+it('reads a trait\'s values through the class that uses it', function (): void {
+    $source = Php::source(<<<'PHP'
+        <?php
+        namespace App;
+        trait Priced { const RATE = 1; public static $count = 2; public $cents = 3; }
+        class Money { use Priced; }
+        Money::RATE;
+        Money::$count;
+        new Money();
+        PHP);
+    $hierarchy = Hierarchy::of($source);
+    $read = static fn(Symbol $symbol): array => Php::sites(Reads::of($symbol, $source, $hierarchy));
+
+    expect($read(Symbol::constant('App\Priced', 'RATE')))->toBe(['src/A.php:5'])
+        ->and($read(Symbol::property('App\Priced', 'count', static: true)))->toBe(['src/A.php:6'])
+        ->and($read(Symbol::property('App\Priced', 'cents', static: false)))->toBe(['src/A.php:7']);
+});
+
 it('reads a global constant by its name', function (): void {
     $source = Php::source("<?php\nnamespace App;\nconst LIMIT = 1;\necho LIMIT;\n");
 

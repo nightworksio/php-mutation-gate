@@ -691,8 +691,8 @@ its parser attributes. Both change when the checkout moves.
      What counts as a reference:
      - `Owner::NAME`, and `self::`, `static::` and `parent::` inside the owner
        and its subclasses;
-     - an inherited or interface constant through any class that extends or
-       implements its owner;
+     - an inherited, interface or trait constant through any class that
+       extends, implements or uses its owner;
      - an enum case through `Enum::Case`, and a case's backing value through
        any use of the enum, because `from()`, `tryFrom()`, `cases()` and
        serialisation all read it;
@@ -702,8 +702,10 @@ its parser attributes. Both change when the checkout moves.
        it is built with the constant's name or a name not written out; and
        one built on anything else, such as a variable or an object, in a file
        that names the owner;
-     - a static property through `Owner::$name`;
-     - an instance property's default through any creation of the owner;
+     - a static property through `Owner::$name`, and a trait's through any
+       class that uses it;
+     - an instance property's default through any creation of the owner, or
+       of a class that extends it or uses it as a trait;
      - a plain function's parameter default through the covering tests of the
        lines that call it.
 
