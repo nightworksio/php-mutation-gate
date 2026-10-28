@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Ending;
+use NightWorksIO\MutationGate\Adapter\Pest\LoadedMap;
 use NightWorksIO\MutationGate\Adapter\Pest\MutantTime;
 use NightWorksIO\MutationGate\Adapter\Pest\OnlyList;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
@@ -67,10 +68,10 @@ it('patches the four files, leaving each one PHP', function () use ($vendor, $so
         ->and($source($at, 'MutationTest.php'))
         ->toContain(sprintf("if (class_exists(\\%1\$s::class) && \\%1\$s::rejects(\$this->mutation->modifiedSourcePath)) {\n", Verdicts::class))
         ->and($source($at, 'Tester/MutationTestRunner.php'))
-        ->toContain(sprintf("\\%s::remember(\$loadedCoverage);\n", MutantTime::class))
+        ->toContain(sprintf("\\%s::remember(\$loadedCoverage);\n", LoadedMap::class))
         ->and($source($at, 'MutationTest.php'))
         ->toContain(sprintf(
-            "? \\%s::of(\$covering, \$this->mutation->modifiedSourcePath, \$this->calculateTimeout())\n",
+            "? \\%s::of(\$covering, \$this->mutation->modifiedSourcePath, \$this->calculateTimeout(), \$filter)\n",
             MutantTime::class,
         ))
         ->and($source($at, 'Support/StreamWrapper.php'))

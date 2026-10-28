@@ -2,11 +2,21 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\EveryRow;
+use NightWorksIO\MutationGate\Adapter\Pest\ExactRows;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
+use NightWorksIO\MutationGate\Adapter\Pest\Project;
+use NightWorksIO\MutationGate\Adapter\Pest\Selection;
+use NightWorksIO\MutationGate\Adapter\Pest\Suite;
+use NightWorksIO\MutationGate\Adapter\Pest\TestFiles;
 use NightWorksIO\MutationGate\Adapter\Pest\Unpatched;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -42,4 +52,15 @@ it('tells a patched run its bounds and the start-up its run measured, and an unp
     ])
         ->and($patching->bounding($bounds))->not->toHaveKey(GateVariable::MutantStartUp->value)
         ->and(Patching::off()->bounding($bounds->startingIn(Seconds::of(2.5))))->toBe([]);
+});
+
+it('selects exactly a mutant\'s covering rows where the patch is on, and every row of their data sets where it is off', function (): void {
+    $covering = TestIds::of(TestId::of('P\Tests\MoneySpec::__pest_evaluable_it_adds#dataset "one"'));
+
+    $files = new TestFiles(Project::at((string) getcwd(), Paths::none(), Path::of('.mutation-gate'), Path::of('vendor')));
+
+    expect(Patching::on(Group::named('mutation-canary'))->selecting($covering, Suite::of($covering)))->toEqual(Selection::exactly($covering, Suite::of($covering)))
+        ->and(Patching::on(Group::named('mutation-canary'))->selection($files))->toEqual(new ExactRows($files))
+        ->and(Patching::off()->selecting($covering, Suite::of($covering)))->toEqual(Selection::of($covering))
+        ->and(Patching::off()->selection($files))->toEqual(new EveryRow());
 });

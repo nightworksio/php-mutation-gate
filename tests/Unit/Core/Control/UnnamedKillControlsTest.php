@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Control\UnnamedKillControls;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Hold\Covered;
 use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Ended;
@@ -25,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unevidenced;
+use NightWorksIO\MutationGate\Core\Runner\ExactRun;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -33,6 +35,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Tests\Support\Growth;
+use NightWorksIO\MutationGate\Tests\Support\LoadingUnfiltered;
 
 /** A mutant of a file at line 3, ended so, by its native id. */
 function unnamedMutant(string $file, string $nativeId, MutantStatus $status = MutantStatus::Killed): Mutant
@@ -87,6 +90,7 @@ function unnamedControls(Mutant ...$mutants): UnnamedKillControls
         exitedEach(...$mutants),
         recordMap(),
         HeldCovered::none(),
+        new ExactRun(),
         unnamedBounds(),
     );
 }
@@ -111,26 +115,37 @@ it('asks for one control of each kill no test is named for and its ending does n
     expect(askedUnnamedControls($controls))->toBe([['src/Record.php', ['RecordTest::a'], 11.0]]);
 });
 
-it('asks for no control of a kill a test is named for, one a signal, a fatal error or a control vouched for, a survivor, or one no test covers', function (): void {
+it('asks for a control that loads the test files its kill\'s run loaded with no filter, as its evidence says', function (): void {
+    $mutant = unnamedMutant('src/Record.php', '1');
+    $files = Paths::of(Path::of('tests/RecordTest.php'));
+    $evidence = Evidences::none()->with($mutant->id(), exitedOne()->loadingUnfiltered($files));
+    $asked = [...UnnamedKillControls::of(Mutants::of($mutant), $evidence, recordMap(), HeldCovered::none(), new LoadingUnfiltered(), unnamedBounds())->asked()];
+
+    expect($asked[0]->selected())->toBe($files);
+});
+
+it('asks for no control of a kill a test is named for, one a signal, a fatal error or a control vouched for, a survivor, or one no test covers, and one of a kill after them', function (): void {
     $named = unnamedMutant('src/Record.php', 'named')->killedBy(TestIds::of(TestId::of('RecordTest::a')));
     $signalled = unnamedMutant('src/Record.php', 'signalled');
     $fatal = unnamedMutant('src/Record.php', 'fatal');
     $vouched = unnamedMutant('src/Record.php', 'vouched');
     $survivor = unnamedMutant('src/Record.php', 'survivor', MutantStatus::Survived);
     $uncovered = unnamedMutant('src/Other.php', 'uncovered');
-    $evidence = exitedEach($named, $survivor, $uncovered)
+    $after = unnamedMutant('src/Record.php', 'after');
+    $evidence = exitedEach($named, $survivor, $uncovered, $after)
         ->with($signalled->id(), Evidence::none()->withEnded(Ended::unprinted(137, signalled: true)))
         ->with($fatal->id(), Evidence::none()->withEnded(Ended::unprinted(255, signalled: false)->withFatal(fatal: true)))
         ->with($vouched->id(), exitedOne()->vouched());
     $controls = UnnamedKillControls::of(
-        Mutants::of($named, $signalled, $fatal, $vouched, $survivor, $uncovered),
+        Mutants::of($named, $signalled, $fatal, $vouched, $survivor, $uncovered, $after),
         $evidence,
         recordMap(),
         HeldCovered::none(),
+        new ExactRun(),
         unnamedBounds(),
     );
 
-    expect(askedUnnamedControls($controls))->toBe([]);
+    expect(askedUnnamedControls($controls))->toBe([['src/Record.php', ['RecordTest::a'], 11.0]]);
 });
 
 it('controls an unnamed kill of a held unit by the tests covering its line that hold it', function (): void {
@@ -141,7 +156,7 @@ it('controls an unnamed kill of a held unit by the tests covering its line that 
     ));
     $mutant = unnamedMutant('src/Record.php', '1');
 
-    expect(askedUnnamedControls(UnnamedKillControls::of(Mutants::of($mutant), exitedEach($mutant), $map, $held, unnamedBounds())))
+    expect(askedUnnamedControls(UnnamedKillControls::of(Mutants::of($mutant), exitedEach($mutant), $map, $held, new ExactRun(), unnamedBounds())))
         ->toBe([['src/Record.php', ['RecordTest::a'], 11.0]]);
 });
 
@@ -203,7 +218,7 @@ it('asks for and applies unnamed kill controls in time linear in the number of m
         $mutants = Mutants::of(...array_map(static fn(int $at): Mutant => unnamedMutant('src/Record.php', strval($at)), range(1, $size)));
         $evidence = Evidences::none();
 
-        return static fn(): int => count(UnnamedKillControls::of($mutants, $evidence, recordMap(), HeldCovered::none(), unnamedBounds())
+        return static fn(): int => count(UnnamedKillControls::of($mutants, $evidence, recordMap(), HeldCovered::none(), new ExactRun(), unnamedBounds())
             ->applied($mutants, ControlRuns::none(), Controls::none()));
     };
 

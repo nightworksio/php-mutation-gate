@@ -1,7 +1,10 @@
 <?php
 
 declare(strict_types=1);
+use NightWorksIO\MutationGate\Adapter\Pest\LoadedMap;
+use NightWorksIO\MutationGate\Adapter\Pest\MutantTime;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
+use NightWorksIO\MutationGate\Adapter\Pest\Selection;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Pool;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
@@ -143,6 +146,15 @@ it('marks every hunk it writes, one mark to a hunk, so another version\'s are fo
     ));
 
     expect($marks)->toBe(19);
+});
+
+it('has each mutant\'s run select exactly the tests that cover it, a row of a data set alone, named whole by the map Pest loaded', function () use ($vendor, $source): void {
+    $at = $vendor();
+    Patch::applyIn($at);
+
+    expect($source($at, 'MutationTest.php'))->toContain(sprintf('? \\%s::covering($covering, \\%s::suite())->argument()', Selection::class, LoadedMap::class))
+        ->and($source($at, 'MutationTest.php'))->toContain(sprintf('\\%s::of($covering, $this->mutation->modifiedSourcePath, $this->calculateTimeout(), $filter)', MutantTime::class))
+        ->and($source($at, 'Tester/MutationTestRunner.php'))->toContain(sprintf('\\%s::remember($loadedCoverage)', LoadedMap::class));
 });
 
 it('asks each mutant\'s run of its place\'s warm worker, where the run has one', function () use ($vendor, $source): void {

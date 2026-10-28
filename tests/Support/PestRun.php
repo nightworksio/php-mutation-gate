@@ -105,6 +105,12 @@ final readonly class PestRun
         return self::line(RecordLine::narrowed(self::mutated($id), $files));
     }
 
+    /** That a patched run left the filter of the mutant with this native id out. */
+    public static function unfiltered(string $id): string
+    {
+        return self::line(RecordLine::unfiltered(self::mutated($id)));
+    }
+
     /** That the own process of the mutant with this native id had loaded its file before the mutant was in place. */
     public static function preloaded(string $id): string
     {

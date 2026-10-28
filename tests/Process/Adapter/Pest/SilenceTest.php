@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Ceiling;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
-use NightWorksIO\MutationGate\Adapter\Pest\MutantTime;
+use NightWorksIO\MutationGate\Adapter\Pest\LoadedMap;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Adapter\Pest\Silence;
 use NightWorksIO\MutationGate\Tests\Support\GateEnvironment;
@@ -19,7 +19,7 @@ $holds = [
 
 afterEach(function (): void {
     GateEnvironment::restore();
-    MutantTime::remember([]);
+    LoadedMap::remember([]);
     Scratch::sweep();
 });
 
@@ -54,7 +54,7 @@ beforeEach(function (): void {
     GateEnvironment::clear();
     putenv(sprintf('%s=%s', GateVariable::MutantFloor->value, '1'));
     putenv(sprintf('%s=%s', GateVariable::MutantCap->value, '300'));
-    MutantTime::remember(['testResults' => ['T::a' => ['size' => 'unknown', 'status' => 'success', 'time' => 1.0]]]);
+    LoadedMap::remember(['testResults' => ['T::a' => ['size' => 'unknown', 'status' => 'success', 'time' => 1.0]]]);
 });
 
 it('holds a run to no limit before its tests begin, then stops it once no test has finished for its limit, recording it', function (): void {

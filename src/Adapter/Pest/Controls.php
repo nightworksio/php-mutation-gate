@@ -37,12 +37,12 @@ use function sprintf;
 /**
  * The doubtful kills of a narrowed run, each with the control of its run
  * again with every test file (see Control): the tests that cover it, as
- * Pest's filter selects them, or the tests that judge the run where that
- * filter is too long to pass, as Pest then runs them. They are read off the
- * run's coverage before the run again replaces it. A kill the run again
- * confirms stands only where its control passes; otherwise its tests fail
- * with the file unmutated as well, so they cannot tell the mutant from the
- * original, and it is unjudged.
+ * its own run selects them (see Patching), or the tests that judge the run
+ * where that filter is too long to pass, as Pest then runs them. They are
+ * read off the run's coverage before the run again replaces it. A kill the
+ * run again confirms stands only where its control passes; otherwise its
+ * tests fail with the file unmutated as well, so they cannot tell the
+ * mutant from the original, and it is unjudged.
  */
 final readonly class Controls
 {
@@ -86,6 +86,7 @@ final readonly class Controls
      */
     public static function of(
         Project $project,
+        Patching $patching,
         Mutants $doubtful,
         WholeSuite|Group|Filter $judgedBy,
         Closure $coverage,
@@ -102,12 +103,13 @@ final readonly class Controls
 
         $controls = [];
         $tests = [];
+        $suite = Suite::of($covering->tests());
 
         foreach ($doubtful as $mutant) {
             $location = $mutant->location();
             $file = DiskPath::of($project->absolute($location->file()));
             $tests[$mutant->id()->key()] = $covering->testsCovering($file, $location->start(), $location->last());
-            $selection = Selection::of($tests[$mutant->id()->key()]);
+            $selection = $patching->selecting($tests[$mutant->id()->key()], $suite);
             $controls[$mutant->id()->key()] = Control::of(
                 $location->file(),
                 Paths::none(),

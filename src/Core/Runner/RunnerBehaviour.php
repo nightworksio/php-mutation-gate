@@ -16,8 +16,9 @@ use NightWorksIO\MutationGate\Core\Test\Groups;
  * `#[Holds]` as its test files load, which groups' test files every proof
  * key reads (ADR-0007), whether each shard pays a full opening run under coverage
  * (ADR-0006), whether it can record every test that kills a mutant, for
- * a full kill matrix (ADR-0014), whether it runs a mutant per core, and the
- * style its own tests are written in (ADR-0015). The flows ask the runner,
+ * a full kill matrix (ADR-0014), whether it runs a mutant per core, the
+ * style its own tests are written in (ADR-0015), and which tests a mutant's
+ * own run selects (ADR-0008). The flows ask the runner,
  * never its name.
  */
 final readonly class RunnerBehaviour
@@ -29,13 +30,15 @@ final readonly class RunnerBehaviour
         private NotFull $whyNotFull,
         private Parallelism $parallelism,
         private AssertionStyle|NotGiven $writes,
+        private RunSelection $selection,
     ) {
     }
 
     /**
      * A runner that lists `#[Holds]` as groups, has no group every key
      * reads, reuses the map the plan handed each shard, runs one mutant at a
-     * time, and whose tests are PHPUnit classes.
+     * time, whose tests are PHPUnit classes, and whose mutant's run selects
+     * exactly the tests that judge it.
      */
     public static function standard(): self
     {
@@ -46,6 +49,7 @@ final readonly class RunnerBehaviour
             whyNotFull: NotFull::FirstKillers,
             parallelism: Parallelism::Serial,
             writes: AssertionStyle::PhpUnit,
+            selection: new ExactRun(),
         );
     }
 
@@ -98,6 +102,18 @@ final readonly class RunnerBehaviour
     public function runningPerCore(): self
     {
         return clone($this, ['parallelism' => Parallelism::PerCore]);
+    }
+
+    /** This behaviour, where a mutant's own run selects the tests that judge it this way. */
+    public function selecting(RunSelection $selection): self
+    {
+        return clone($this, ['selection' => $selection]);
+    }
+
+    /** Which tests a mutant's own run runs of those that judge it: what a control that reproduces the run runs. */
+    public function selection(): RunSelection
+    {
+        return $this->selection;
     }
 
     public function holdsAsLoaded(): bool

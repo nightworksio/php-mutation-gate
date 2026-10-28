@@ -50,6 +50,9 @@ final class OwnRuns
     /** @var array<string, float> the seconds a patched run allowed each own run, by the mutated copy it ran on */
     private array $limited = [];
 
+    /** @var array<string, true> each mutated copy whose own runs a patched run left the filter out of */
+    private array $unfiltered = [];
+
     /** @var array<string, float> the silence limit each own run was stopped at, by the mutated copy it ran on */
     private array $silent = [];
 
@@ -71,7 +74,7 @@ final class OwnRuns
     /** What the own runs on this mutated copy recorded. */
     public function of(string $mutated): OwnRun
     {
-        return OwnRun::of(
+        $run = OwnRun::of(
             array_key_exists($mutated, $this->killers) ? $this->killers[$mutated] : [],
             array_key_exists($mutated, $this->errored) ? $this->errored[$mutated] : [],
             array_key_exists($mutated, $this->narrowed) ? $this->narrowed[$mutated] : [],
@@ -81,11 +84,9 @@ final class OwnRuns
         )->withEvidence(
             array_key_exists($mutated, $this->places) ? $this->places[$mutated] : Places::none(),
             $this->endingOf($mutated),
-        )->startedWith(
-            array_key_exists($mutated, $this->arguments) && count($this->arguments[$mutated]) === 1
-                ? $this->arguments[$mutated][0]
-                : NotGiven::value(),
-        );
+        )->startedWith($this->argumentsOf($mutated));
+
+        return array_key_exists($mutated, $this->unfiltered) ? $run->unfiltered() : $run;
     }
 
     /** The seconds a patched run allowed the own runs on this mutated copy, where it recorded them. */
@@ -171,6 +172,12 @@ final class OwnRuns
     }
 
     /** @throws NotInShape */
+    public function unfiltered(Node $record): void
+    {
+        $this->unfiltered[$this->mutatedIn($record)] = true;
+    }
+
+    /** @throws NotInShape */
     public function limited(Node $record): void
     {
         $this->limited[$this->mutatedIn($record)] = $this->secondsIn($record);
@@ -215,6 +222,19 @@ final class OwnRuns
         }
 
         $this->ran[$mutated][] = $count->integer();
+    }
+
+    /**
+     * The arguments the own run on this mutated copy was started with, where
+     * one run recorded them.
+     *
+     * @return list<string>|NotGiven
+     */
+    private function argumentsOf(string $mutated): array|NotGiven
+    {
+        return array_key_exists($mutated, $this->arguments) && count($this->arguments[$mutated]) === 1
+            ? $this->arguments[$mutated][0]
+            : NotGiven::value();
     }
 
     /**

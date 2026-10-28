@@ -17,4 +17,7 @@ interface Covering
 
     /** The map, with each file as the project spells it. */
     public function map(Project $project): CoverageMap;
+
+    /** Every test the map ran. */
+    public function tests(): TestIds;
 }

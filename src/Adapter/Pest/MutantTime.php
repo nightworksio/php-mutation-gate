@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
-use function array_key_exists;
+use function array_filter;
 use function array_unique;
+use function array_values;
 use function file_put_contents;
 use function getenv;
+use function is_float;
 use function is_string;
 use function max;
 
@@ -21,6 +23,8 @@ use NightWorksIO\MutationGate\Core\Runner\TighterVariables;
 use NightWorksIO\MutationGate\Core\Runner\ToldSeconds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+
+use function sprintf;
 
 /**
  * The seconds a patched Pest allows one mutant, read in Pest's parent
@@ -36,35 +40,18 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  */
 final class MutantTime
 {
-    /** @var array<string, float> each test's seconds, by its id, as the map Pest loaded timed it */
-    private static array $timed = [];
-
-    /**
-     * Keeps each test's seconds from the coverage map Pest loaded, as
-     * php-code-coverage writes one since version 14, the one the gate reads.
-     * A test timed at no seconds is not timed.
-     *
-     * @param array{testResults?: array<string, array{time: float}>} $loaded
-     */
-    public static function remember(array $loaded): void
-    {
-        $results = array_key_exists('testResults', $loaded) ? $loaded['testResults'] : [];
-        self::$timed = [];
-
-        foreach ($results as $test => $result) {
-            self::$timed += $result['time'] > 0.0 ? [$test => $result['time']] : [];
-        }
-    }
-
     /**
      * The seconds the mutant with this mutated copy is allowed, its covering
-     * tests named by their ids as Pest's coverage map names them; the limit
-     * Pest gave it where the gate names no bounds or the limit cannot be
-     * recorded.
+     * tests named by their ids as Pest's coverage map names them, where its
+     * run passes this filter of them: the standard limit of their own time.
+     * A run whose filter was left out runs every test it loads, so it is
+     * allowed the standard limit of the own time of each of those the map
+     * timed, and it is recorded so (see CoveringFiles). The limit Pest gave
+     * it where the gate names no bounds or the limit cannot be recorded.
      *
      * @param list<string> $tests
      */
-    public static function of(array $tests, string $mutated, int $pest): float
+    public static function of(array $tests, string $mutated, int $pest, string $filter): float
     {
         $bounds = self::bounds();
         $results = getenv(GateVariable::Results->value);
@@ -73,10 +60,14 @@ final class MutantTime
             return $pest;
         }
 
-        $limit = MutantLimit::standard()->of(self::ownTime($tests), $bounds)->seconds();
+        $passed = Selection::passable($filter);
+        $running = $passed ? $tests : self::timed(CoveringFiles::loading($mutated, LoadedMap::tests()));
+        $limit = MutantLimit::standard()->of(self::ownTime($running), $bounds)->seconds();
+        $unfiltered = $passed ? '' : RecordLine::unfiltered($mutated);
+        $lines = sprintf('%s%s', RecordLine::limited($mutated, $limit), $unfiltered);
 
         $recorded = $mutated !== '' && is_string($results) && $results !== ''
-            && file_put_contents($results, RecordLine::limited($mutated, $limit), FILE_APPEND | LOCK_EX) !== false;
+            && file_put_contents($results, $lines, FILE_APPEND | LOCK_EX) !== false;
 
         return $recorded ? $limit : $pest;
     }
@@ -127,11 +118,13 @@ final class MutantTime
         $total = 0.0;
 
         foreach (array_unique($tests) as $test) {
-            if (! array_key_exists($test, self::$timed)) {
+            $seconds = LoadedMap::secondsOf($test);
+
+            if (! is_float($seconds)) {
                 return Unmeasured::duration();
             }
 
-            $total += self::$timed[$test];
+            $total += $seconds;
         }
 
         return $tests === [] ? Unmeasured::duration() : Seconds::of($total);
@@ -148,13 +141,29 @@ final class MutantTime
         $times = [];
 
         foreach ($tests as $test) {
-            if (! array_key_exists($test, self::$timed)) {
+            $seconds = LoadedMap::secondsOf($test);
+
+            if (! is_float($seconds)) {
                 return Unmeasured::duration();
             }
 
-            $times[] = self::$timed[$test];
+            $times[] = $seconds;
         }
 
         return $times === [] ? Unmeasured::duration() : Seconds::of(max($times));
+    }
+
+    /**
+     * Those of these tests the map timed.
+     *
+     * @param  list<string> $tests
+     * @return list<string>
+     */
+    private static function timed(array $tests): array
+    {
+        return array_values(array_filter(
+            $tests,
+            static fn(string $test): bool => is_float(LoadedMap::secondsOf($test)),
+        ));
     }
 }

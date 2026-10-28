@@ -18,13 +18,19 @@ use function sprintf;
 /**
  * `pest:patch`: the changes to pest-plugin-mutate the gate's `pest.patch`
  * setting relies on.
+ * - A mutant's run selects exactly the tests that cover it, a row of a data
+ *   set alone, a class or a data set named whole where they hold every test
+ *   of it the map ran (see Selection::covering), not every row of their data
+ *   sets, so it runs the tests its limit is sized from.
  * - A mutant's `--filter` too long to start a process with, or too large for
  *   PCRE to compile, is dropped (see Selection::passable), so the mutant runs
- *   every test its run loads, which can only kill more mutants.
+ *   every test its run loads, which can only kill more mutants; its limit is
+ *   sized from those tests, and the run is recorded as unfiltered (see
+ *   MutantTime).
  * - Given a coverage map another job wrote, the opening run is the canary
  *   group alone, and the map is copied in place of the one that run wrote.
- * - Each mutant is allowed the standard mutant limit of its covering tests'
- *   own time, within the bounds the gate names (see MutantTime), not the
+ * - Each mutant is allowed the standard mutant limit of the own time of the
+ *   tests its run runs, within the bounds the gate names (see MutantTime), not the
  *   time of the whole suite, and its run is stopped once no test of it has
  *   finished for its silence limit, the standard limit of its slowest test
  *   (see Silence).
@@ -100,8 +106,10 @@ final readonly class Patch
         PHP;
 
     private const string FILTER_BECOMES = <<<'PHP'
-                {MARK} a filter too long to start a process with, or for PCRE to compile, is left out.
-                $filter = '--filter="'.implode('|', $filters).'"';
+                {MARK} a run selects exactly its covering tests, each row alone; a filter too long to pass is left out.
+                $filter = class_exists(\%1$s::class)
+                    ? \%1$s::covering($covering, \%4$s::suite())->argument()
+                    : '--filter="'.implode('|', $filters).'"';
                 $passed = class_exists(\%1$s::class) ? \%1$s::passable($filter) : strlen($filter) < %2$d;
 
                 {MARK} a mutant's run is asked of its place's warm worker, where the run has them.
@@ -175,9 +183,9 @@ final readonly class Patch
         PHP;
 
     private const string LIMIT_BECOMES = <<<'PHP'
-                    {MARK} the standard limit of the covering tests' own time, under the gate's cap.
+                    {MARK} the standard limit of the own time of the tests the run runs, under the gate's cap.
                     timeout: class_exists(\%1$s::class)
-                        ? \%1$s::of($covering, $this->mutation->modifiedSourcePath, $this->calculateTimeout())
+                        ? \%1$s::of($covering, $this->mutation->modifiedSourcePath, $this->calculateTimeout(), $filter)
                         : $this->calculateTimeout(),
         PHP;
 
@@ -352,7 +360,7 @@ final readonly class Patch
             Hunk::in(
                 self::MUTATION_TEST,
                 self::FILTER_SHIPS,
-                sprintf(self::FILTER_BECOMES, Selection::class, Ceiling::BYTES, Pool::class),
+                sprintf(self::FILTER_BECOMES, Selection::class, Ceiling::BYTES, Pool::class, LoadedMap::class),
             ),
             Hunk::in(self::MUTATION_TEST, self::START_SHIPS, sprintf(self::START_BECOMES, Verdicts::class)),
             Hunk::in(self::MUTATION_TEST, self::COVERING_SHIPS, self::COVERING_BECOMES),
@@ -374,7 +382,7 @@ final readonly class Patch
             Hunk::in(
                 self::TEST_RUNNER,
                 self::TIMES_SHIPS,
-                sprintf(self::TIMES_BECOMES, MutantTime::class),
+                sprintf(self::TIMES_BECOMES, LoadedMap::class),
             ),
             Hunk::in(
                 self::TEST_RUNNER,

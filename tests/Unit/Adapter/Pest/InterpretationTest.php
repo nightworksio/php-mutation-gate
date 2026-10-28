@@ -40,6 +40,7 @@ use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
@@ -487,6 +488,33 @@ it('gives the evidence of each kill: how far its run went, keyed by the test fil
         ->toEqual(Evidence::none()->withPrefix(Prefix::keyedAt(2, Prefix::keyOf($files, $order))))
         ->and($evidence->of($mutant('n2', 'src/Money.php:12', 'cd', MutantStatus::Killed)->id()))
         ->toEqual(Evidence::none()->withEnded($ended))
+        ->and($evidence)->toHaveCount(2);
+});
+
+it('gives every mutant whose filter a patched run left out the test files its run loaded with no filter, or every one', function () use ($mutant, $plan): void {
+    [$project, $results, $root] = interpretedRun([11 => [0], 12 => [0], 13 => [0]], []);
+    PestRun::write($results, [
+        $plan($root, 'n1', 'src/Money.php:11', 'ab'),
+        $plan($root, 'n2', 'src/Money.php:12', 'cd'),
+        $plan($root, 'n3', 'src/Money.php:13', 'ef'),
+        PestRun::made(3),
+        PestRun::narrowed('n1', [sprintf('%s/tests/MoneySpec.php', $root)]),
+        PestRun::unfiltered('n1'),
+        PestRun::unfiltered('n2'),
+        PestRun::narrowed('n3', [sprintf('%s/tests/MoneySpec.php', $root)]),
+        PestRun::finished('n1', PestStatus::Untested, 0.25),
+        PestRun::finished('n2', PestStatus::Untested, 0.25),
+        PestRun::finished('n3', PestStatus::Untested, 0.25),
+        PestRun::end(),
+    ]);
+    $result = new Interpretation($project, Patching::on(Group::named('canary')), MemoryCap::standard())
+        ->of(Ran::finished(succeeded: true, output: '  Mutations: 3 untested'), $results, CoverageFile::at(Recorder::coverageBeside($results)));
+    $evidence = $result instanceof MutationResult ? $result->evidence() : Evidences::none();
+
+    expect($evidence->of($mutant('n1', 'src/Money.php:11', 'ab', MutantStatus::Survived)->id()))
+        ->toEqual(Evidence::none()->loadingUnfiltered(Paths::of(Path::of('tests/MoneySpec.php'))))
+        ->and($evidence->of($mutant('n2', 'src/Money.php:12', 'cd', MutantStatus::Survived)->id()))
+        ->toEqual(Evidence::none()->loadingUnfiltered(WholeSuite::tests()))
         ->and($evidence)->toHaveCount(2);
 });
 

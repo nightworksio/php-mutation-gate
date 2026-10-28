@@ -46,9 +46,19 @@ it('names a test method by its class and name, and a data set\'s by its number o
         XML))->toBe(['Tests\MoneyTest::testAdds', 'Tests\MoneyTest::testAdds#2', 'Tests\MoneyTest::testAdds#small']);
 });
 
-it('names none where the log names no failure, is not JUnit, or is empty', function (): void {
+it('names none where the log names no failure, is not JUnit, or is empty, and reads a log that is no XML raising nothing', function (): void {
+    $raised = [];
+    set_error_handler(static function (int $level, string $message) use (&$raised): bool {
+        $raised[] = $message;
+
+        return true;
+    });
+    $unread = [...JUnitFailures::of('not xml')];
+    restore_error_handler();
+
     expect(junitFailuresOf('<testcase name="it passes" file="tests/A.php::it passes" class="Tests\A"/>'))->toBe([])
         ->and([...JUnitFailures::of(log: false)])->toBe([])
         ->and([...JUnitFailures::of('')])->toBe([])
-        ->and([...JUnitFailures::of('not xml')])->toBe([]);
+        ->and($unread)->toBe([])
+        ->and($raised)->toBe([]);
 });

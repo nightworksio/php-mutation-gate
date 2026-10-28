@@ -221,10 +221,17 @@ presets for Laravel, Symfony and plain libraries.
    Per runner:
    - **Pest's**, under `pest.patch`, is the gate's rule, of the covering
      tests' own time as the coverage map Pest loaded timed them. The patched
-     plugin records each mutant's limit in the results file, and the gate
-     triages by what it recorded. It skips no mutant. Unpatched, it is Pest's
-     own: the opening run's duration plus the larger of 5 s and 20%, which
-     cannot be changed.
+     plugin runs exactly those tests, a row of a data set alone, a class or a
+     data set named whole where they hold every test of it the map ran, so
+     the limit is sized from the tests the run runs. Where that filter is
+     still too long to pass, the run passes none and runs every test of the
+     test files it loads, and its limit is the standard limit of the own
+     time of each of those the map timed; the plugin records that the run
+     was unfiltered. It records each mutant's
+     limit in the results file, and the gate triages by what it recorded. It
+     skips no mutant. Unpatched, it is Pest's own: the opening run's duration
+     plus the larger of 5 s and 20%, which cannot be changed; and its filter
+     runs every row of each covering test's data set.
    - **Infection's**, under `infection:patch` (ADR-0004), is the gate's
      rule, of the covering test classes' time as Infection timed them from
      the JUnit log, each class counted once. It skips no mutant. Unpatched,
@@ -268,7 +275,13 @@ presets for Laravel, Symfony and plain libraries.
 
    For every timed-out mutant the gate runs one **unmutated control**: the
    tests that judge it, those the coverage map says cover its lines and, of
-   a held unit, only those that hold it, run with its file served unmutated
+   a held unit, only those that hold it, as the mutant's own run selected
+   them (`RunnerBehaviour::selection()`): exactly those, a row of a data set
+   alone, and for an unpatched Pest every row of their data sets, the
+   map's tests its filter selects. The control selects them as the run
+   did: by the run's filter, or, where the run passed none, by the test
+   files it loaded, or every one. The control runs exactly those tests,
+   with its file served unmutated
    by the means the runner serves a mutant's file (Pest's override, the
    PHPUnit runner's `file://` override, Infection's include interceptor),
    under the request's memory cap, allowed the limit the mutant's run was.

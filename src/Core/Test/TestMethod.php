@@ -98,6 +98,12 @@ final readonly class TestMethod
         return $this->method;
     }
 
+    /** The row of a data set as PHPUnit names it, `#0` or `"one"`; empty for a whole test. */
+    public function dataSet(): string
+    {
+        return $this->row;
+    }
+
     /**
      * The test as PHPUnit names it where a `--filter` reads it:
      * `<class>::<method>`, and a row's as `… with data set #0` or

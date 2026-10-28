@@ -29,6 +29,7 @@ use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
@@ -96,8 +97,13 @@ final readonly class Interpretation
         $planned = $records->planned();
         $ids = Identities::of(Root::of($this->project->root()), $planned);
 
+        $suite = Suite::of($coverage->tests());
+
         foreach ($planned as $at => $mutant) {
-            $selection = Selection::of($coverage->testsCovering($mutant->file(), $mutant->start(), $mutant->end()));
+            $selection = $this->patching->selecting(
+                $coverage->testsCovering($mutant->file(), $mutant->start(), $mutant->end()),
+                $suite,
+            );
 
             if (! $selection->fits() && ! $this->patching->isOn()) {
                 return CannotJudge::because(sprintf(
@@ -110,7 +116,10 @@ final readonly class Interpretation
 
             $judged = $this->rejected($this->mutant($ids[$at], $mutant, $records, $selection), $mutant);
             $mutants[] = $judged;
-            $evidence = $evidence->with($judged->id(), $this->evidenceOf($judged, $mutant, $records));
+            $evidence = $evidence->with(
+                $judged->id(),
+                $this->unfiltered($this->evidenceOf($judged, $mutant, $records), $mutant, $records),
+            );
         }
 
         return MutationResult::skippingNone(Mutants::of(...$mutants))->withEvidence($evidence);
@@ -139,6 +148,22 @@ final readonly class Interpretation
         $evidence = $prefix instanceof Prefix ? Evidence::none()->withPrefix($prefix) : Evidence::none();
 
         return $ended instanceof Ended && count($run->killers()) === 0 ? $evidence->withEnded($ended) : $evidence;
+    }
+
+    /**
+     * Evidence, with the test files a mutant's own run loaded with no
+     * filter, where a patched run left its filter out: those it was narrowed
+     * to, or every one.
+     */
+    private function unfiltered(Evidence $evidence, PlannedMutant $planned, Records $records): Evidence
+    {
+        $files = $records->runOf($planned)->loadedUnfiltered();
+
+        return match (true) {
+            $files instanceof NotGiven => $evidence,
+            $files === [] => $evidence->loadingUnfiltered(WholeSuite::tests()),
+            default => $evidence->loadingUnfiltered(Paths::of(...array_map($this->project->relative(...), $files))),
+        };
     }
 
     /**

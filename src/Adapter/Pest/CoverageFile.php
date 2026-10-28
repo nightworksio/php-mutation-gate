@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_intersect_key;
 use function array_key_exists;
+use function array_keys;
 use function array_map;
 use function array_sum;
 use function file_get_contents;
@@ -95,6 +96,11 @@ final readonly class CoverageFile implements Covering
         }
 
         return TestIds::of(...$tests);
+    }
+
+    public function tests(): TestIds
+    {
+        return TestIds::of(...array_map(TestId::of(...), array_keys($this->durations)));
     }
 
     /** How long a test took, or no time where the map does not time it. */

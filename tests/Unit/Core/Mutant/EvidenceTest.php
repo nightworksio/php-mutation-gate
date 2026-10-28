@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
 $id = static fn(string $mutator): MutantId => MutantId::hash(Path::of('src/Money.php'), $mutator, "@@ @@\n-a\n+b", 0);
 
@@ -178,4 +179,15 @@ it('keeps that an unmutated control vouched, whatever is added after, and so is 
         ->toBe([false, true, true, false])
         ->and(Evidence::none()->withPrefix(Prefix::keyedAt(2, '0123456789ab'))->isVouched())->toBeFalse()
         ->and(Evidence::none()->withEnded(Ended::unprinted(1, signalled: false))->isVouched())->toBeFalse();
+});
+
+it('keeps the test files a run loaded with no filter, or every one, through whatever else it is given, and says something then', function (): void {
+    $files = Paths::of(Path::of('tests/MoneyTest.php'));
+    $loading = Evidence::none()->loadingUnfiltered($files);
+
+    expect($loading->unfiltered())->toBe($files)
+        ->and($loading->isEmpty())->toBeFalse()
+        ->and(Evidence::none()->unfiltered())->toEqual(NotGiven::value())
+        ->and(Evidence::none()->loadingUnfiltered(WholeSuite::tests())->unfiltered())->toEqual(WholeSuite::tests())
+        ->and($loading->withPrefix(Prefix::at(1))->withEnded(Ended::of(1, signalled: false, printed: ''))->vouched()->unfiltered())->toBe($files);
 });
