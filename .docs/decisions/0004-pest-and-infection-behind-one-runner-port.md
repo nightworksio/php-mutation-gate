@@ -707,11 +707,17 @@ its parser attributes. Both change when the checkout moves.
      - an instance property's default through any creation of the owner, or
        of a class that extends it or uses it as a trait;
      - a plain function's parameter default through the covering tests of the
-       lines that call it.
+       lines that call it;
+     - a read in a helper, a file under the test directories that holds no
+       test the map names, through the test files that name a class or
+       function the helper declares, or that name another helper that does,
+       in turn.
 
      An attribute's argument, a closure's parameter default and a method's
      parameter default have no reference a token scan can follow, so they are
-     always ambiguous. In a
+     always ambiguous. A read in a helper is ambiguous too, as a helper can
+     run where no name shows it, such as a base test case's set-up or a
+     `Pest.php` hook. In a
      held unit (ADR-0005), every set this decision names, the fallback
      included, is limited to the holding group.
    - **The fallback** is the set of test files that cover the owner's file.

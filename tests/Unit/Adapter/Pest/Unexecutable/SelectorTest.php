@@ -49,7 +49,7 @@ function selectorTests(string ...$names): Paths
     return Paths::of(...array_map(static fn(string $name): Path => Path::of(sprintf('tests/%s.php', $name)), $names));
 }
 
-it('chooses the test files that read a value, and those that cover the mutant\'s file to fall back on, never a file the suite runs no test of', function (): void {
+it('chooses the test files that read a value, and those that cover the mutant\'s file to fall back on', function (): void {
     $selector = selectorOver(Unexecutables::project());
     $money = Path::of('src/Money.php');
     $covering = selectorTests('InternalSpec', 'OtherSpec');
@@ -64,7 +64,7 @@ it('chooses the test files that read a value, and those that cover the mutant\'s
         ->toEqual(Choice::of(Paths::none(), $covering, ambiguous: true));
 });
 
-it('reads only the files still there, and selects the files that hold a covering test, never one whose name only ends in its class', function (): void {
+it('reads only the files still there, and selects the files that hold a covering test, never a helper whose name only ends in its class, whose read is ambiguous', function (): void {
     $at = Unexecutables::project();
     $results = Unexecutables::run($at, []);
     Scratch::write($at->root(), 'tests/Support/NotInternalSpec.php', "<?php\nnamespace Tests\\Support;\nfinal class NotInternalSpec { const RATE = \\App\\Money::INTERNAL; }\n");
@@ -80,7 +80,7 @@ it('reads only the files still there, and selects the files that hold a covering
     $run = selectorTests('InternalSpec');
 
     expect($selector->choose(Symbol::constant('App\Money', 'INTERNAL'), Path::of('src/Money.php')))
-        ->toEqual(Choice::of($run, $run, ambiguous: false));
+        ->toEqual(Choice::of($run, $run, ambiguous: true));
 });
 
 it('scans each mutated file, though the map covers no line of it', function (): void {
@@ -170,4 +170,23 @@ it('chooses the test files that run any line of the body a method\'s parameter d
     $choice = Selector::over($at, selectorMap($results), Paths::of($feed))->choose(Symbol::constant('App\Feed', 'LIMIT'), $feed);
 
     expect($choice)->toEqual(Choice::of(selectorTests('FeedSpec'), selectorTests('FeedSpec'), ambiguous: false));
+});
+
+it('chooses the test files that name a helper that reads a value, through the helpers that name it, and calls the read ambiguous', function (): void {
+    $at = Unexecutables::project();
+    $results = Unexecutables::run($at, []);
+    $root = $at->root();
+    Scratch::write($root, 'src/Wallet.php', "<?php\nnamespace App;\nfinal class Wallet\n{\n    public const LIMIT = 9;\n    public function spend(): int { return 1; }\n}\n");
+    Scratch::write($root, 'tests/Support/Wallets.php', "<?php\nnamespace Tests\\Support;\nfinal class Wallets { public static function full(): int { return \\App\\Wallet::LIMIT; } }\n");
+    Scratch::write($root, 'tests/Support/shelves.php', "<?php\nnamespace Tests\\Support;\nfunction shelf(): int { return Wallets::full(); }\n");
+    Scratch::write($root, 'tests/WalletSpec.php', "<?php\nuse Tests\\Support\\Wallets;\nit('fills', fn () => Wallets::full());\n");
+    Scratch::write($root, 'tests/ShelfSpec.php', "<?php\nuse function Tests\\Support\\shelf;\nit('shelves', fn () => shelf());\n");
+    Scratch::write($root, 'tests/SpendSpec.php', "<?php\nit('spends', fn () => new App\\Wallet()->spend());\n");
+    $tests = ['P\Tests\WalletSpec::__pest_evaluable_it_fills', 'P\Tests\ShelfSpec::__pest_evaluable_it_shelves', 'P\Tests\SpendSpec::__pest_evaluable_it_spends'];
+    CoverageMaps::write(Recorder::coverageBeside($results), sprintf('%s/', $root), ['src/Wallet.php' => [6 => [2]]], $tests, array_fill_keys($tests, 0.1));
+    $wallet = Path::of('src/Wallet.php');
+
+    $choice = Selector::over($at, selectorMap($results), Paths::of($wallet))->choose(Symbol::constant('App\Wallet', 'LIMIT'), $wallet);
+
+    expect($choice)->toEqual(Choice::of(selectorTests('WalletSpec', 'ShelfSpec'), selectorTests('SpendSpec'), ambiguous: true));
 });
