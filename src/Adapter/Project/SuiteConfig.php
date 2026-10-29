@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Project;
 
-use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -55,44 +54,6 @@ enum SuiteConfig
             self::PhpSpec => PhpSpecSuite::declaredIn($config, $file),
             self::Codeception => CodeceptionSuite::declaredIn($config, $file, $root),
         };
-    }
-
-    /**
-     * The suite the first config of this kind a project has declares, its
-     * wildcards expanded from the project's root; the conventional one where
-     * it has none; or why one cannot be read.
-     */
-    public function readIn(Directory $project): TestSuite|CannotJudge
-    {
-        foreach ($this->candidatesIn(Path::root()) as $candidate) {
-            $contents = $project->read($candidate);
-
-            if ($contents instanceof Contents) {
-                return $this->declaredIn($contents, $candidate, $project->root());
-            }
-
-            if ($contents instanceof CannotJudge) {
-                return $contents;
-            }
-        }
-
-        return $this->conventional();
-    }
-
-    /**
-     * Those of these files a project's suite holds as files of test cases;
-     * none where its config cannot be read.
-     */
-    public function testCasesAmong(Directory $project, Paths $files): Paths
-    {
-        $suite = $this->readIn($project);
-        $cases = Paths::none();
-
-        foreach ($files as $file) {
-            $cases = $suite instanceof TestSuite && $suite->holdsTestCase($file) ? $cases->with($file) : $cases;
-        }
-
-        return $cases;
     }
 
     /** The suite where the project has no config. */

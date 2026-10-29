@@ -342,9 +342,9 @@ its parser attributes. Both change when the checkout moves.
        not run as a test file, through the test files that name a class or
        function the helper declares, or that name another helper that does,
        in turn. Pest runs a file as a test file where it holds a test the map
-       names, or where the PHPUnit config holds it as a file of test cases,
-       as a test file whose tests run no line is, which a map
-       php-code-coverage reports names no test of.
+       names, or where it declares a test of its own with `it()`, `test()`
+       or `arch()`, as a test file whose tests run no line does: a map
+       php-code-coverage reports names no test of it.
 
      A closure's parameter default and a method's parameter default have no
      reference a token scan can follow, and a reflection no name leads to can

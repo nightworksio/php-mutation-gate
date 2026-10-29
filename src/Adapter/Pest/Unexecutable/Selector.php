@@ -10,11 +10,9 @@ use function file_get_contents;
 use function is_file;
 use function is_string;
 
-use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Pest\Covering;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\TestFiles;
-use NightWorksIO\MutationGate\Adapter\Project\SuiteConfig;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\OwnTime;
@@ -49,10 +47,11 @@ use function range;
  * mutant's file. On the first line of a statement that spans more (see
  * StatementTail): the test files that cover its other lines. The scan
  * reads every file under the test directories and every file the map covers
- * or the run mutates, but chooses only the files Pest runs, those that hold a
- * test the map names and those the PHPUnit config holds as files of test
- * cases: another file there, such as a helper or a fixture, is no test file
- * Pest runs, and run as one it fails. A read in such a helper chooses the
+ * or the run mutates, but chooses only the files Pest runs as test files:
+ * those that hold a test the map names, and those that declare a test of
+ * their own, whose tests may run no line the map can name them by. Another
+ * file there, such as a helper or a fixture, is no test file Pest runs, and
+ * run as one it fails. A read in such a helper chooses the
  * test files that name it (see Helpers), and is ambiguous.
  */
 final readonly class Selector
@@ -88,9 +87,9 @@ final readonly class Selector
             $sources[] = $listed->has($file) ? [] : self::read($project, $file, test: false);
         }
 
-        $suite = $tests->holdingAny($map->tests())
-            ->and(SuiteConfig::PhpUnit->testCasesAmong(Directory::at($project->root()), $listed));
-        $codebase = Codebase::of(...array_merge(...$sources));
+        $read = array_merge(...$sources);
+        $suite = $tests->holdingAny($map->tests())->and(DeclaredTests::among(...$read));
+        $codebase = Codebase::of(...$read);
 
         $originals = new Originals($project, $codebase);
 

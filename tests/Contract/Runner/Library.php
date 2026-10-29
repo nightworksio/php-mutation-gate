@@ -730,7 +730,7 @@ final class Library
     /** The directories the tests of a library at a root are in, as the flows read them from its runner's config. */
     private static function testsIn(string $root, SuiteConfig $config = SuiteConfig::PhpUnit): Paths
     {
-        $suite = $config->readIn(Directory::at($root));
+        $suite = Suite::configured(Directory::at($root), $config);
 
         return $suite instanceof TestSuite ? $suite->paths() : throw new RuntimeException($suite->why());
     }

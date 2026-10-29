@@ -184,13 +184,35 @@ final readonly class Suite
     }
 
     /**
+     * The suite the first PHPUnit config the project has declares, its
+     * wildcards expanded from the project's root; the conventional one where
+     * it has none.
+     */
+    public static function configured(Directory $project, SuiteConfig $config): TestSuite|CannotJudge
+    {
+        foreach ($config->candidatesIn(Path::root()) as $candidate) {
+            $contents = $project->read($candidate);
+
+            if ($contents instanceof Contents) {
+                return $config->declaredIn($contents, $candidate, $project->root());
+            }
+
+            if ($contents instanceof CannotJudge) {
+                return $contents;
+            }
+        }
+
+        return $config->conventional();
+    }
+
+    /**
      * The directories a package's tests are in, as its own config declares
      * them, read as the root's is: what a runner rooted in the package is
      * told (ADR-0005).
      */
     public static function testsIn(Directory $project, Path $package, SuiteConfig $config): Paths|CannotJudge
     {
-        $suite = $config->readIn(Directory::at($project->root()->at($package)->value()));
+        $suite = self::configured(Directory::at($project->root()->at($package)->value()), $config);
 
         return $suite instanceof TestSuite ? $suite->paths() : $suite;
     }

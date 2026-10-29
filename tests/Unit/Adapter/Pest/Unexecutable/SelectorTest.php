@@ -80,7 +80,7 @@ it('reads only the files still there, and selects the files that hold a covering
     $run = selectorTests('InternalSpec');
 
     expect($selector->choose(Symbol::constant('App\Money', 'INTERNAL'), Path::of('src/Money.php')))
-        ->toEqual(Choice::of($run, $run, ambiguous: true));
+        ->toEqual(Choice::of(selectorTests('InternalSpec', 'MoneySpec'), $run, ambiguous: true));
 });
 
 it('scans each mutated file, though the map covers no line of it', function (): void {
@@ -217,21 +217,14 @@ it('chooses the test files that name a helper that reads a value, through the he
     expect($choice)->toEqual(Choice::of(selectorTests('WalletSpec', 'ShelfSpec'), selectorTests('SpendSpec'), ambiguous: true));
 });
 
-it('reads a value in a test file whose tests run no line, where the PHPUnit config holds it as a file of test cases, and in no helper', function (string $config, Paths $reading): void {
+it('reads a value in a test file whose tests run no line, as it declares a test of its own, and in no helper', function (): void {
     $at = Unexecutables::project();
     $marked = Path::of('src/Marked.php');
     Scratch::write($at->root(), $marked->value(), "<?php\nnamespace App;\nuse Attribute;\n#[Attribute(Attribute::TARGET_CLASS | Attribute::TARGET_METHOD)]\nfinal class Marked {}\n");
-    Scratch::write($at->root(), 'tests/MarkedTest.php', "<?php\nit('flags', fn () => new ReflectionClass(App\\Marked::class)->getAttributes());\n");
-    Scratch::write($at->root(), 'tests/Support/Marks.php', "<?php\nnamespace Tests\\Support;\nfinal class Marks { const MARK = \\App\\Marked::class; }\n");
-    Scratch::write($at->root(), 'phpunit.xml', $config);
+    Scratch::write($at->root(), 'tests/MarkedSpec.php', "<?php\nit('flags', fn () => new ReflectionClass(App\\Marked::class)->getAttributes());\n");
+    Scratch::write($at->root(), 'tests/Support/Marks.php', "<?php\nnamespace Tests\\Support;\nfinal class Marks { public function of(): array { return array_map(fn () => \\App\\Marked::class, [1]); } }\n");
     $selector = Selector::over($at, selectorMap(Unexecutables::run($at, [])), Paths::of($marked));
 
     expect($selector->choose(Symbol::attributeArgument('App\Marked', 'Attribute'), $marked))
-        ->toEqual(Choice::of($reading, Paths::none(), ambiguous: true));
-})->with([
-    'held by the config' => [
-        '<phpunit><testsuites><testsuite name="unit"><directory>tests</directory></testsuite></testsuites></phpunit>',
-        fn(): Paths => selectorTests('MarkedTest'),
-    ],
-    'of a config that cannot be read' => ['<phpunit', fn(): Paths => Paths::none()],
-]);
+        ->toEqual(Choice::of(selectorTests('MarkedSpec'), Paths::none(), ambiguous: true));
+});

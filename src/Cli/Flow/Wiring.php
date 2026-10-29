@@ -104,7 +104,7 @@ final readonly class Wiring
         $chosen = new Chosen($this->extensions);
         $source = BuiltinVersionControl::in($this->environment)->named();
         $checker = $this->checker($settings->staticCheck(), $chosen);
-        $suite = SuiteConfig::ofRunner($settings->runner()->choice()->use()->value())->readIn($project);
+        $suite = Suite::configured($project, SuiteConfig::ofRunner($settings->runner()->choice()->use()->value()));
         $runner = $suite instanceof TestSuite
             ? $chosen->runner($this->runnerChoice($settings, $checker, $mutators, $suite))
             : $suite;

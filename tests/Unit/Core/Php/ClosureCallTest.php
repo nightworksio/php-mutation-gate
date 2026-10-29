@@ -69,3 +69,19 @@ it('stands any other closure on itself', function (string $code) use ($standing)
     'called at once' => ["(#[Holds('src/Kernel.php')] fn () => 1)();"],
     'first in the file' => ["#[Holds('src/Kernel.php')] fn () => 1;"],
 ]);
+
+it('tells code that declares a test of Pest\'s from code that only hands closures elsewhere', function (string $code, bool $declares): void {
+    $tokens = Tokens::of(array_values(array_filter(
+        PhpToken::tokenize(sprintf("<?php\n%s\n", $code)),
+        static fn(PhpToken $token): bool => ! $token->isIgnorable(),
+    )));
+
+    expect(ClosureCall::declaresTest($tokens))->toBe($declares);
+})->with([
+    'it()' => ["it('flags', fn () => true);", true],
+    'test(), static' => ["test('flags', static function (): void {});", true],
+    'a test inside describe()' => ["describe('flags', function (): void { it('reads', fn () => true); });", true],
+    'a hook alone' => ["beforeEach(function (): void {});", false],
+    'a method named it' => ["\$suite->it('flags', fn () => true);", false],
+    'a helper class' => ["final class Marks { public function of(): array { return array_map(fn () => 1, [1]); } }", false],
+]);
