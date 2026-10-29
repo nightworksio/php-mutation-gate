@@ -86,17 +86,18 @@ it('orders files that share as many directories with the mutant\'s by their own 
         ->toBe([['b', 'c'], ['a']]);
 });
 
-it('runs the tests of a file sooner the more leading directories it shares with the mutant\'s, however fast the others are', function (): void {
-    $map = partsMap(['own' => 0.6, 'module' => 0.5, 'sibling' => 0.1, 'far' => 0.2]);
+it('runs the tests of a file sooner the more whole leading directories it shares with the mutant\'s, however fast the others are', function (): void {
+    $map = partsMap(['own' => 0.6, 'module' => 0.5, 'sibling' => 0.1, 'far' => 0.2, 'box' => 0.05]);
     $places = TestPlaces::none()
         ->placing(Path::of('tests/Feature/FarTest.php'), partsTests('far'))
+        ->placing(Path::of('app-modules/moneybox/tests/BoxTest.php'), partsTests('box'))
         ->placing(Path::of('app-modules/tax/tests/TaxTest.php'), partsTests('sibling'))
         ->placing(Path::of('app-modules/money/tests/MoneyTest.php'), partsTests('module'))
         ->placing(Path::of('app-modules/money/src/MoneySpec.php'), partsTests('own'));
-    $tests = partsTests('far', 'sibling', 'module', 'own');
+    $tests = partsTests('far', 'sibling', 'box', 'module', 'own');
 
     expect(partsIds(MutantParts::under($map, partsBounds())->of(Path::of('app-modules/money/src/Money.php'), $tests, $places)))
-        ->toBe([['own', 'module', 'sibling', 'far']]);
+        ->toBe([['own', 'module', 'box', 'sibling', 'far']]);
 });
 
 it('runs the tests the map did not time after those it timed', function (): void {
