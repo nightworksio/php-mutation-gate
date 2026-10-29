@@ -77,8 +77,8 @@ final readonly class SurvivorChecksRecord
             $file = Path::of($item->field(self::FILE)->text());
             $reason = $item->field(MutantRecord::REASON);
             $checks = $checks->leaving(
-                $why === Unchecked::Failed && $reason->isPresent()
-                    ? UncheckedSurvivor::failed($reason->text(), $file)
+                $reason->isPresent()
+                    ? UncheckedSurvivor::told($why, $reason->text(), $file)
                     : UncheckedSurvivor::of($why, $file),
             );
         }

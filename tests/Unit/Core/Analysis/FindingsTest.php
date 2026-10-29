@@ -97,3 +97,12 @@ it('knows the same findings, as many of each and whatever their order, by code a
         ->and(Findings::of($a)->same(Findings::of(Finding::error(Path::of('src/Money.php'), 'a.b', 'Other.'))))->toBeFalse()
         ->and(Findings::of($a)->same(Findings::of(Finding::error(Path::of('src/Money.php'), 'a.c', 'First.'))))->toBeFalse();
 });
+
+it('keeps those findings another set does not hold, by code and message, lesser ones too', function (): void {
+    $forbidden = Finding::error(Path::of('src/A.php'), 'disallowed.function', 'Calling getenv() is forbidden.');
+    $tip = Finding::lesser(Path::of('src/A.php'), 'tip', 'Consider this.');
+    $held = Finding::error(Path::of('src/B.php'), 'known', 'Known.');
+
+    expect([...Findings::of($forbidden, $tip, $held)->beyond(Findings::of(Finding::error(Path::of('src/C.php'), 'known', 'Known.')))])
+        ->toBe([$forbidden, $tip]);
+});

@@ -87,6 +87,16 @@ final readonly class Workspace
         return Path::of(sprintf('%s/staticcheck/originals/%s.php', GateDirectory::root()->value(), $mutant->value()));
     }
 
+    /**
+     * Where static analysis reads a survivor's original as it is written,
+     * beside its print, for the check that the print analyses as the file
+     * does read from there.
+     */
+    public static function checkedAsWritten(MutantId $mutant): Path
+    {
+        return Path::of(sprintf('%s/staticcheck/written/%s.php', GateDirectory::root()->value(), $mutant->value()));
+    }
+
     /** Where survivors and their originals are compiled, to prove a survivor equivalent. */
     public static function equivalence(): Path
     {

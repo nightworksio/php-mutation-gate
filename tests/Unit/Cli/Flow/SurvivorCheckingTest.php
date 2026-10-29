@@ -360,7 +360,8 @@ it('judges printed survivors against their originals printed the same way, each 
         ->and($checker->batches())->toBe([[2, 2], [2, 2]])
         ->and($checked->mutants)->toEqual($mutants->with($again)->replacing(Mutants::of($money->rejected(Rejection::by('fake', $new)))))
         ->and(checkedWarnings($checked))->toBe([
-            'Static analysis left 1 survivor unchecked, as their files analyse differently once printed as the runner prints its mutants: src/Held.php.',
+            'Static analysis left 1 survivor unchecked, as their files analyse differently once printed as the runner prints its mutants: src/Held.php. '
+            . 'The print alone reports no finding; the warm-up alone reports `known` The originals already have this.',
         ])
         ->and($checked->checks->histories()->of(checkedIdentity())->time()->checks())->toBe(2);
 });
