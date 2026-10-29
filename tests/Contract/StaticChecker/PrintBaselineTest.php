@@ -38,11 +38,6 @@ use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 use PHPUnit\Framework\Assert;
 
-$holds = [
-    'holds:src/Cli/Flow/PrintBaselines.php',
-    'holds:src/Core/Analysis/DifferingPrint.php',
-];
-
 /** The wired file's text, printed as Pest prints it. */
 function wiredPrint(string $text): Contents
 {
@@ -139,4 +134,4 @@ it('stands the print of a file a path glob allows a call in, and judges its muta
         ->toBe(['disallowed.function'])
         ->and(wiredAdded($phpstan, $adapters, $kept, $baseline))->toBe([])
         ->and(wiredAdded($phpstan, $adapters, $broken, $baseline))->toBe(['return.type']);
-})->group(...$holds);
+});
