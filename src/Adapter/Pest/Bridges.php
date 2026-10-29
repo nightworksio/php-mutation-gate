@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\Hint;
 use NightWorksIO\MutationGate\Mutator\Mutator;
+use NightWorksIO\MutationGate\Mutator\PinnedBySource;
 use Pest\Mutate\Contracts\Mutator as PestMutator;
 use Pest\Mutate\Mutators\Sets\DefaultSet;
 
@@ -94,12 +95,13 @@ final readonly class Bridges
 
         PHP;
 
-    /** The registration of one bridge, by its class. */
+    /** The registration of one bridge, by its class, and whether its mutator is pinned by source. */
     private const string REGISTERED = <<<'PHP'
             \NightWorksIO\MutationGate\Adapter\Pest\Bridged::register(
                 \%1$s::class,
                 \%1$s::name(),
                 \%1$s::nodesToHandle(),
+                pinnedBySource: %2$s,
             );
 
         PHP;
@@ -238,7 +240,8 @@ final readonly class Bridges
                 $mutator::class,
                 implode(', ', $handled),
             );
-            $registered[] = sprintf(self::REGISTERED, $bridge);
+            $pinned = var_export($mutator instanceof PinnedBySource, return: true);
+            $registered[] = sprintf(self::REGISTERED, $bridge, $pinned);
         }
 
         return sprintf('%s%s%s', self::HEADER, implode('', $bridges), sprintf(self::GLOBAL, implode('', $registered)));

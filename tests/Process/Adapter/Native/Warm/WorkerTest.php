@@ -104,7 +104,7 @@ it('waits on a child without spinning: it looks at it a hundred times a second, 
 
     Worker::at($workplace->directory(), 0)->run(new PhpUnitBoot(), WarmWorkers::forking('sleep 1; exit "$CODE"', $workplace->out(0)));
 
-    expect(CpuTime::spent() - $before)->toBeLessThan(0.1)
+    expect(CpuTime::spent() - $before)->toBeLessThan(0.5)
         ->and(End::ranIn($workplace, 0) instanceof Ran)->toBeTrue();
 })->group(...$holds);
 

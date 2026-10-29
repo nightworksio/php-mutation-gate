@@ -85,4 +85,11 @@ enum GateVariable: string
 
     /** The file each process of a coverage run appends every test it finished to, with its seconds (see TimedTests). */
     case TimedTests = 'MUTATION_GATE_TIMED_TESTS';
+
+    /**
+     * Set in a mutant's own run where its mutator is pinned by source, so the
+     * run serves its file through the wrapper a test reads it by (see
+     * ServedClasses); unset in every other run.
+     */
+    case SourcePinned = 'MUTATION_GATE_SOURCE_PINNED';
 }

@@ -125,16 +125,21 @@ final class Plugin implements Bootable, HandlesArguments
     }
 
     /**
-     * Writes what the guard saw, where one watches this run: as Pest ends a
-     * run, and again as the process ends. Pest ends a process a fatal error
-     * stops by exiting, which leaves every later shutdown function uncalled,
-     * so the guard is written as Pest terminates its plugins first.
+     * Writes what the guard saw, where one watches this run, and whether the
+     * run loaded an original whose copy it serves by its path (see Killers):
+     * as Pest ends a run, and again as the process ends. Pest ends a process
+     * a fatal error stops by exiting, which leaves every later shutdown
+     * function uncalled, so both are written as Pest terminates its plugins
+     * first.
      */
     public function terminate(): void
     {
+        $loaded = get_included_files();
+        Killers::bypassedIn($this->killers, $loaded);
+
         if ($this->guard instanceof Guard) {
             $opcache = Opcache::of(ini_get(Opcache::CLI), ini_get(Opcache::FILE_CACHE));
-            $this->guard->write(get_included_files(), $opcache, ($this->erred)());
+            $this->guard->write($loaded, $opcache, ($this->erred)());
         }
     }
 

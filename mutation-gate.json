@@ -23,6 +23,7 @@
                 "src/Adapter/Pest/Recording/RanTests.php",
                 "src/Adapter/Pest/Recording/ReplayStop.php",
                 "src/Adapter/Pest/Recording/TimedTests.php",
+                "src/Adapter/Pest/ServedClasses.php",
                 "src/Adapter/Native/MutantFile.php",
                 "src/Cli/PestPlugin.php",
                 "src/Core/Mutant/OrderDigest.php"

@@ -5,9 +5,11 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Guard;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Loaded;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
+use NightWorksIO\MutationGate\Adapter\Pest\ServedClasses;
 use NightWorksIO\MutationGate\Core\Runner\Opcache;
 use NightWorksIO\MutationGate\Tests\Support\GateEnvironment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\ServedBox;
 
 beforeEach(function (): void {
     GateEnvironment::clear();
@@ -74,4 +76,22 @@ it('writes the original as loaded where the last error PHP raised stands in it, 
 
     expect($erred)->toBe('{"before":false,"loaded":true,"opcache":false}')
         ->and((string) file_get_contents($file))->toBe('{"before":false,"loaded":false,"opcache":false}');
+});
+
+it('writes a served copy as the original loaded, and the original loaded by its path as loaded before the override', function (): void {
+    $box = ServedBox::registered();
+    $served = sprintf('%s.served.php', $box->copy);
+    $guard = sprintf('%s/guard.json', dirname($box->file, 2));
+
+    try {
+        ServedClasses::serve($box->file, $box->copy);
+
+        expect(guardWritten($guard, $box->file, [], [$served], Opcache::of('0', '')))
+            ->toBe('{"before":false,"loaded":true,"opcache":false}')
+            ->and(guardWritten($guard, $box->file, [], [$box->file], Opcache::of('0', '')))
+            ->toBe('{"before":true,"loaded":false,"opcache":false}');
+    } finally {
+        ServedClasses::forget($box->file);
+        $box->loader->unregister();
+    }
 });

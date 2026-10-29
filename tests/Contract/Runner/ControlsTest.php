@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Control\Control;
@@ -79,12 +80,12 @@ it('passes a control of a test that passes on the unmutated code, within its lim
         ->and($took instanceof Seconds ? $took->seconds() : 0.0)->toBeGreaterThan(0.0)->toBeLessThan(60.0);
 })->with($libraries)->group(...$holds);
 
-it('serves the control\'s file through Pest\'s override, as a mutant\'s own run is, and runs its test', function (): void {
+it('serves the control\'s file as a mutant\'s own run is, through Pest\'s override or, patched, with none, and runs its test', function (): void {
     $test = 'P\Tests\MoneySpec::__pest_evaluable_it_adds_two_amounts';
 
     expect(RunnerContracts::marks(static function () use ($test): void {
         controlsOf(Library::pest(Patching::off()), Controls::of(moneyControl($test, 60.0)));
-    }))->toBe(['loaded' => true, 'wrapped' => true, 'ran' => true]);
+    }))->toBe(['loaded' => true, 'wrapped' => ! Patch::isAppliedIn(Library::vendor()), 'ran' => true]);
 })->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 it('runs a control of one named row of a data set, by the id the coverage map gives it, and that row alone', function (): void {

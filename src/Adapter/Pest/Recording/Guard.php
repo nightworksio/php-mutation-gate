@@ -10,15 +10,17 @@ use function is_string;
 use function json_encode;
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
+use NightWorksIO\MutationGate\Adapter\Pest\ServedClasses;
 use NightWorksIO\MutationGate\Core\Runner\Opcache;
 
 /**
  * What a run the adapter starts on a mutant of a line that is not executable
  * says about itself, written to the file `MUTATION_GATE_GUARD` names once the
  * run ends: whether the original file was loaded before Pest's override
- * started, whether it was loaded at all, and whether opcache could have
- * served a cached original. Each makes the run's result one the gate cannot
- * trust.
+ * started, or by its path where a copy is served in its place (see
+ * ServedClasses), whether it or that copy was loaded at all, and whether
+ * opcache could have served a cached original. Each makes the run's result
+ * one the gate cannot trust.
  */
 final readonly class Guard
 {
@@ -58,8 +60,8 @@ final readonly class Guard
     public function write(array $loaded, Opcache $opcache, string $erredIn = ''): void
     {
         $seen = [
-            'before' => $this->before,
-            'loaded' => Loaded::of([...$loaded, $erredIn])->has($this->original),
+            'before' => $this->before || ServedClasses::bypassed($loaded),
+            'loaded' => Loaded::of([...$loaded, $erredIn])->has(ServedClasses::inPlaceOf($this->original)),
             'opcache' => $opcache->couldServeTheOriginal(),
         ];
 

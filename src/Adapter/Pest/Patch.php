@@ -56,6 +56,10 @@ use function sprintf;
  * - Where the gate names a directory for warm workers, each mutant's own run
  *   is asked of its place's worker, which runs it in a child forked from a
  *   process booted once (see Warm\Pool).
+ * - A file whose every class Composer autoloads, none loaded yet, is served
+ *   with no override: an autoloader loads its mutated copy in its place (see
+ *   ServedClasses). A mutant whose mutator is pinned by source is still
+ *   served through the override, which shows its test the mutant's text.
  *
  * Applied as a VendorPatch: every anchor checked before anything is written.
  */
@@ -72,6 +76,23 @@ final readonly class Patch
     private const string TEST_RUNNER = 'Tester/MutationTestRunner.php';
 
     private const string STREAM_WRAPPER = 'Support/StreamWrapper.php';
+
+    private const string SERVE_SHIPS = <<<'PHP'
+                    // @phpstan-ignore-next-line
+                    StreamWrapper::start(getenv(self::ENV_MUTATION_TESTING), (string) getenv(self::ENV_MUTATION_FILE));
+        PHP;
+
+    private const string SERVE_BECOMES = <<<'PHP'
+                    {MARK} an autoloaded class is served with no wrapper, unless its mutator is pinned by source.
+                    $original = (string) getenv(self::ENV_MUTATION_TESTING);
+                    $copy = (string) getenv(self::ENV_MUTATION_FILE);
+                    $pinned = (string) getenv('%2$s') !== '';
+
+                    if ($pinned || ! class_exists(\%1$s::class) || ! \%1$s::serve($original, $copy)) {
+                        // @phpstan-ignore-next-line
+                        StreamWrapper::start(getenv(self::ENV_MUTATION_TESTING), $copy);
+                    }
+        PHP;
 
     private const string STAT_SHIPS = <<<'PHP'
                     if (is_readable($path) === false) {
@@ -336,6 +357,21 @@ final readonly class Patch
                     Mutate::ENV_MUTATION_TESTING => $this->mutation->file->getRealPath(),
         PHP;
 
+    private const string PINNED_SHIPS = <<<'PHP'
+                    Mutate::ENV_MUTATION_FILE => $this->mutation->modifiedSourcePath,
+                ];
+        PHP;
+
+    private const string PINNED_BECOMES = <<<'PHP'
+                    Mutate::ENV_MUTATION_FILE => $this->mutation->modifiedSourcePath,
+                ];
+
+                {MARK} a mutant whose mutator is pinned by source is served through the wrapper its test reads it by.
+                if (class_exists(\%1$s::class) && \%1$s::isPinnedBySource($this->mutation->mutator)) {
+                    $envs['%2$s'] = '1';
+                }
+        PHP;
+
     /** Patch pest-plugin-mutate in a vendor directory, and say what was done. */
     public static function applyIn(string $vendor): string|CannotJudge
     {
@@ -398,6 +434,16 @@ final readonly class Patch
                 ),
             ),
             Hunk::in(self::TEST_RUNNER, self::ONLY_SHIPS, sprintf(self::ONLY_BECOMES, PrunedFile::class, Twins::class)),
+            Hunk::in(
+                self::MUTATE_PLUGIN,
+                self::SERVE_SHIPS,
+                sprintf(self::SERVE_BECOMES, ServedClasses::class, GateVariable::SourcePinned->value),
+            ),
+            Hunk::in(
+                self::MUTATION_TEST,
+                self::PINNED_SHIPS,
+                sprintf(self::PINNED_BECOMES, Bridged::class, GateVariable::SourcePinned->value),
+            ),
             Hunk::in(self::STREAM_WRAPPER, self::STAT_SHIPS, self::STAT_BECOMES),
         ];
     }

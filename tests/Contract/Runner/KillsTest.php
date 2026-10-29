@@ -65,12 +65,12 @@ afterEach(function (): void {
 
 $makeMoney = static fn(): Closure => RunnerContracts::money(...);
 
-it('times a run of no test that loads every test file through the mutant\'s wrapper and runs none, with Pest', function (): void {
+it('times a run of no test that loads every test file, served as the mutant\'s run is, and runs none, with Pest', function (): void {
     $marks = RunnerContracts::marks(static function (): void {
         Library::pest(Patching::off())->runner()->startUp(Path::of('src/Money.php'), Withheld::standard());
     });
 
-    expect($marks)->toBe(['loaded' => true, 'wrapped' => true, 'ran' => false]);
+    expect($marks)->toBe(['loaded' => true, 'wrapped' => ! Patch::isAppliedIn(Library::vendor()), 'ran' => false]);
 })->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the library')->group(...$holds);
 
 it('times a run of no test that loads no test file, through the mutant\'s wrapper, where a filtered run loads them all, with Infection', function (): void {

@@ -385,8 +385,10 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
       whose `pin(): SourcePin` names what that test must find in the file.
       `HashEqualsToIdentical`'s is a call to `hash_equals`.
     - Pest's stream wrapper and the gate's PHPUnit runner serve the mutant to
-      every open of the file during its run, so the test reads it. This
-      amends ADR-0023. Infection serves it to an include only, so
+      every open of the file during its run, so the test reads it. Patched
+      Pest serves a class file Composer autoloads with no wrapper
+      (ADR-0004), but keeps the wrapper for a mutant whose mutator is
+      pinned by source. This amends ADR-0023. Infection serves it to an include only, so
       a mutator pinned by source stands down under Infection.
     - Its hint: *Pin the constant-time comparison with a test that reads
       the source: run the code, then assert that its file still calls
