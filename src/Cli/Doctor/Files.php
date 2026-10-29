@@ -18,7 +18,6 @@ use NightWorksIO\MutationGate\Adapter\Project\SuiteConfig;
 use NightWorksIO\MutationGate\Adapter\Project\TestSuite;
 use NightWorksIO\MutationGate\Cli\ComposerVendor;
 use NightWorksIO\MutationGate\Cli\Flow\ProjectMemoryLimit;
-use NightWorksIO\MutationGate\Cli\Flow\Suite;
 use NightWorksIO\MutationGate\Cli\StartedGate;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\BaselineFile;
@@ -107,7 +106,7 @@ final readonly class Files
             ? RunnerConfig::none()->withPhpUnitMemory($memory)
             : RunnerConfig::none();
         $suite = $settings instanceof Settings
-            ? Suite::configured($this->project, SuiteConfig::ofRunner($settings->runner()->choice()->use()->value()))
+            ? SuiteConfig::ofRunner($settings->runner()->choice()->use()->value())->readIn($this->project)
             : $settings;
 
         return $suite instanceof TestSuite ? $config->withSuitesElsewhere($suite->elsewhere()) : $config;

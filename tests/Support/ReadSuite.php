@@ -17,7 +17,7 @@ final class ReadSuite
 {
     public static function of(Trees $trees, Fingerprints $files, Directory $project): Suite|CannotJudge
     {
-        $configured = Suite::configured($project, SuiteConfig::PhpUnit);
+        $configured = SuiteConfig::PhpUnit->readIn($project);
 
         return $configured instanceof TestSuite ? Suite::read($trees, $files, $project, $configured) : $configured;
     }

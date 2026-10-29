@@ -11,7 +11,6 @@ use NightWorksIO\MutationGate\Adapter\Project\TestSuite;
 use NightWorksIO\MutationGate\Cli\Flow\Adapters;
 use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
-use NightWorksIO\MutationGate\Cli\Flow\Suite;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Floor as NewCodeFloor;
 use NightWorksIO\MutationGate\Config\Gate;
@@ -250,7 +249,7 @@ final readonly class Flows
     /** The suite a project's PHPUnit config declares, as the wiring reads it; the conventional one where it cannot be read. */
     private static function suiteOf(string $project): TestSuite
     {
-        $suite = Suite::configured(Directory::at($project), SuiteConfig::PhpUnit);
+        $suite = SuiteConfig::PhpUnit->readIn(Directory::at($project));
 
         return $suite instanceof TestSuite ? $suite : SuiteConfig::PhpUnit->conventional();
     }

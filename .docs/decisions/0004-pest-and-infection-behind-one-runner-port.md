@@ -338,10 +338,13 @@ its parser attributes. Both change when the checkout moves.
        attribute, as a reflection that makes the attribute names it;
      - a plain function's parameter default through the covering tests of the
        lines that call it;
-     - a read in a helper, a file under the test directories that holds no
-       test the map names, through the test files that name a class or
+     - a read in a helper, a file under the test directories that Pest does
+       not run as a test file, through the test files that name a class or
        function the helper declares, or that name another helper that does,
-       in turn.
+       in turn. Pest runs a file as a test file where it holds a test the map
+       names, or where the PHPUnit config holds it as a file of test cases,
+       as a test file whose tests run no line is, which a map
+       php-code-coverage reports names no test of.
 
      A closure's parameter default and a method's parameter default have no
      reference a token scan can follow, and a reflection no name leads to can
