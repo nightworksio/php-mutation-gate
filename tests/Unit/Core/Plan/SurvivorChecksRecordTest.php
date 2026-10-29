@@ -29,7 +29,7 @@ it('writes each analyser\'s time and each survivor left, by why and its file', f
         ->toEqual($timedOnly);
 });
 
-it('keeps the reason a check could not run with its survivor, and reads a record that keeps none as given none', function (): void {
+it('keeps what was said of why a survivor was left with it, and reads a record that keeps none as given none', function (): void {
     $checks = SurvivorChecks::none()
         ->timing(AnalyserHistory::of('psalm')->checked(Seconds::of(1.0)))
         ->leaving(UncheckedSurvivor::failed('Psalm\'s language server did not answer in 60s.', Path::of('src/A.php')))
@@ -46,6 +46,6 @@ it('keeps the reason a check could not run with its survivor, and reads a record
         ->and(SurvivorChecksRecord::read(Node::decode(sprintf('{"s": %s}', $older))->field('s')))->toEqual(
             SurvivorChecks::none()
                 ->leaving(UncheckedSurvivor::of(Unchecked::Failed, Path::of('src/A.php')))
-                ->leaving(UncheckedSurvivor::of(Unchecked::NoMutant, Path::of('src/B.php'))),
+                ->leaving(UncheckedSurvivor::told(Unchecked::NoMutant, 'x', Path::of('src/B.php'))),
         );
 });

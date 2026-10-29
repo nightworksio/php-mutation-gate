@@ -1,3 +1,6 @@
+includes:
+    - vendor/spaze/phpstan-disallowed-calls/extension.neon
+
 parameters:
     level: 9
     paths:
@@ -6,3 +9,9 @@ parameters:
         - src/Excluded.php
     bootstrapFiles:
         - bootstrap.php
+    disallowedFunctionCalls:
+        -
+            function: 'getenv()'
+            message: 'the environment is read where the project is wired, alone'
+            allowIn:
+                - src/Composition/*

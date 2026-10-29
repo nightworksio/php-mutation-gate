@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistory;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\Analysis\CheckableSurvivor;
 use NightWorksIO\MutationGate\Core\Analysis\CheckTime;
+use NightWorksIO\MutationGate\Core\Analysis\DifferingPrint;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
 use NightWorksIO\MutationGate\Core\Analysis\MutantChecks;
@@ -204,12 +205,15 @@ final readonly class SurvivorBatch
     }
 
     /** Why a survivor is left unchecked: what its original or its check came to. */
-    private function left(Unchecked|OutOfScope|CannotJudge $why, CheckableSurvivor $survivor): UncheckedSurvivor
-    {
+    private function left(
+        Unchecked|DifferingPrint|OutOfScope|CannotJudge $why,
+        CheckableSurvivor $survivor,
+    ): UncheckedSurvivor {
         $file = $survivor->mutant()->location()->file();
 
         return match (true) {
             $why instanceof Unchecked => UncheckedSurvivor::of($why, $file),
+            $why instanceof DifferingPrint => UncheckedSurvivor::differing($why, $file),
             $why instanceof OutOfScope => UncheckedSurvivor::of(Unchecked::OutOfScope, $file),
             default => UncheckedSurvivor::failed($why->why(), $file),
         };

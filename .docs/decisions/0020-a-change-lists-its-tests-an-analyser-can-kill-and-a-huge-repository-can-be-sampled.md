@@ -178,7 +178,11 @@ needs remain, and the runners' own behaviour shapes each answer.
    - Every process an adapter starts, its version command included, runs
      without what the runner withholds.
    - `Core` compares findings. The port has a fake in `tests/Fakes` and one
-     contract suite, run against the fake and every adapter.
+     contract suite, run against the fake and every adapter. A contract
+     test on PHPStan with a disallowed-calls rule allowed by a path glob
+     shows a print of a file the glob allows standing as its baseline, with
+     a mutant that adds no error left to its tests and one that adds an
+     error rejected by it alone.
    - Its adapters are `Adapter\Mago`, `Adapter\PhpStan` and
      `Adapter\Psalm`. An extension registers another with
      `Extensions::withStaticChecker(name, build)`, as it registers a runner.
@@ -303,15 +307,27 @@ needs remain, and the runners' own behaviour shapes each answer.
    - Pest diffs two prints of the file by php-parser's standard printer, so
      its adapter prints the original the same way and puts the diff onto
      the print. The mutant's line is the file's, not the print's, so each
-     hunk goes back only where its lines stand in one place of the print. The print is checked once per file, and stands for the
-     original only where its findings are the warm-up's, each as many
-     times. Otherwise every survivor of that file is left unchecked.
+     hunk goes back only where its lines stand in one place of the print.
+     The print is checked once per file, and stands for the original where
+     its findings are the warm-up's, each as many times.
+   - A check reads its text from the gate's directory in the file's place,
+     so a rule that reads the path of the file it analyses, such as a call
+     allowed in some directories alone, reads that path. Where the print's
+     findings are not the warm-up's, the file as written is checked from
+     the same place, with a line added at its end so the analyser does not
+     answer from what it kept of the file in its own place. Where the two
+     analyse alike, the print's findings are the baseline, and a mutant of
+     that file counts only the errors beyond them.
+   - Otherwise every survivor of that file is left unchecked, and the
+     warning says which findings only the print has and which only the file
+     as written has, or the warm-up where the file cannot be read.
    - A diff that does not apply, or could apply in more than one place, or
      a file gone or no longer parsed, leaves the mutant unchecked. It is
      never killed.
-   - The texts a check reads go under `.mutation-gate/staticcheck/mutants/`
-     and `.mutation-gate/staticcheck/originals/`, one file per check, named
-     by the mutant's id and removed after it.
+   - The texts a check reads go under `.mutation-gate/staticcheck/mutants/`,
+     `.mutation-gate/staticcheck/originals/` and
+     `.mutation-gate/staticcheck/written/`, one file per check, named by the
+     mutant's id and removed after it.
 
 10. **A rejected mutant is *killed by static analysis*, and counts as
     killed.**

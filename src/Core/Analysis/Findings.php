@@ -59,8 +59,17 @@ final readonly class Findings implements Countable, IteratorAggregate
     public function newErrors(self $original): self
     {
         return new self(array_values(array_filter(
+            $this->beyond($original)->findings,
+            static fn(Finding $finding): bool => $finding->isError(),
+        )));
+    }
+
+    /** Those of these the other findings do not hold, by code and message, whatever their severity. */
+    public function beyond(self $other): self
+    {
+        return new self(array_values(array_filter(
             $this->findings,
-            static fn(Finding $finding): bool => $finding->isError() && ! $original->holds($finding),
+            static fn(Finding $finding): bool => ! $other->holds($finding),
         )));
     }
 
