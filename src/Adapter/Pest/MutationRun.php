@@ -258,7 +258,10 @@ final readonly class MutationRun
         $told = new Told($this->project, $this->patching, $this->only, $this->narrows())
             ->of($request, $results, $handOff instanceof HandOff, $bounds);
         WarmDirectory::made($results);
-        $ran = $this->shell->run($command->with($told), $handOff instanceof HandOff ? $handOff : new Unwatched());
+        $ran = $this->shell->run(
+            $command->with($told),
+            new MutantsProgress($results, $handOff instanceof HandOff ? $handOff : new Unwatched()),
+        );
         $mutation = $laps->lap(Step::Mutation, $from);
         $scan->remove();
         $warm = WarmDirectory::cleared($results);

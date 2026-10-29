@@ -177,6 +177,11 @@ it('watches a running program, so the gate can answer what it waits on while it 
                 file_put_contents($this->answer, 'answered');
             }
         }
+
+        public function progress(): string
+        {
+            return '';
+        }
     };
 
     $ran = $processes->run(processesCommand($directory, 'await', $answer), $watch);

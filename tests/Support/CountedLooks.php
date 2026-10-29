@@ -15,4 +15,9 @@ final class CountedLooks implements ProcessWatch
     {
         ++$this->looks;
     }
+
+    public function progress(): string
+    {
+        return '';
+    }
 }

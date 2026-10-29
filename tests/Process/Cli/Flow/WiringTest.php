@@ -22,7 +22,9 @@ use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Adapter\Native\NativeRunner;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest as PestRunner;
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
+use NightWorksIO\MutationGate\Adapter\Process\ErrorOutputLog;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
+use NightWorksIO\MutationGate\Adapter\Process\Saying;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Cli\ComposerVendor;
@@ -494,6 +496,12 @@ function wiringPhpStanProject(string $include = 'parameters: {}', string $baseli
     return $project;
 }
 
+/** The local processes the first-party extension hands every runner, saying what runs on the error output. */
+function firstPartyProcesses(): LocalProcesses
+{
+    return new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock()));
+}
+
 /**
  * Who the analyser wired for a project is: PHPStan, read through its adapter, over the project's directory, from
  * which the gate runs, as its version control does.
@@ -623,9 +631,9 @@ it('tells Infection the bounds of each mutant\'s limit, and that the gate checks
     $pest = $wired(Runner::pest(), StaticCheck::uses('fake'));
 
     expect($checked instanceof Adapters ? $checked->runner : $checked)
-        ->toEqual(Infection::fromOptions(Configs::options('{"staticAnalysis": "gate", "timeout": 10.0, "most": 45.0}'), new CapDirectory(), new LocalProcesses(new SystemClock()), NotGiven::value()))
+        ->toEqual(Infection::fromOptions(Configs::options('{"staticAnalysis": "gate", "timeout": 10.0, "most": 45.0}'), new CapDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock())), NotGiven::value()))
         ->and($unchecked instanceof Adapters ? $unchecked->runner : $unchecked)
-        ->toEqual(Infection::fromOptions(Configs::options('{"timeout": 10.0, "most": 45.0}'), new CapDirectory(), new LocalProcesses(new SystemClock()), NotGiven::value()))
+        ->toEqual(Infection::fromOptions(Configs::options('{"timeout": 10.0, "most": 45.0}'), new CapDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock())), NotGiven::value()))
         ->and($pest instanceof Adapters ? $pest->runner : $pest)->not->toBeInstanceOf(Infection::class);
 })->group(...$holds);
 
@@ -636,7 +644,7 @@ it('tells each built-in runner the mutators whose silence limit has a lower floo
 
     expect($adapters instanceof Adapters ? $adapters->runner : $adapters)->toEqual($built($options));
 })->with([
-    'Infection' => [fn(): Runner => Runner::infection(), static fn(Options $options): object => Infection::fromOptions($options, new CapDirectory(), new LocalProcesses(new SystemClock()), NotGiven::value())],
+    'Infection' => [fn(): Runner => Runner::infection(), static fn(Options $options): object => Infection::fromOptions($options, new CapDirectory(), firstPartyProcesses(), NotGiven::value())],
 ])->group(...$holds);
 
 it('cannot wire an analyser the registry does not have', function (): void {
@@ -673,7 +681,7 @@ it('tells the PHPUnit runner the bounds of each mutant\'s limit, timeouts.second
             NativePhpUnit::framework(...),
             ComposerVendor::of('.'),
             new CapDirectory(),
-            new LocalProcesses(new SystemClock()),
+            firstPartyProcesses(),
         ));
 })->group(...$holds);
 
@@ -691,7 +699,7 @@ it('tells the PhpSpec runner the bounds of each mutant\'s limit and the mutators
             NativePhpSpec::framework(...),
             ComposerVendor::of('.'),
             new CapDirectory(),
-            new LocalProcesses(new SystemClock()),
+            firstPartyProcesses(),
         ));
 })->group(...$holds);
 
@@ -720,13 +728,13 @@ it('tells each runner its timeouts and the classes of the registered mutators th
         Configs::options((string) json_encode(['timeout' => 45.0, 'most' => 90.0, 'mutators' => [PlusToMinus::class]])),
         ComposerVendor::of('.'),
         new CapDirectory(),
-        new LocalProcesses(new SystemClock()),
+        firstPartyProcesses(),
         NotGiven::value(),
     ))
         ->and($infection instanceof Adapters ? $infection->runner : $infection)->toEqual(Infection::fromOptions(
             Configs::options((string) json_encode(['timeout' => 45.0, 'most' => 90.0, 'mutators' => [PlusToMinus::class]])),
             new CapDirectory(),
-            new LocalProcesses(new SystemClock()),
+            firstPartyProcesses(),
             NotGiven::value(),
         ))
         ->and($phpunit instanceof Adapters ? $phpunit->runner : $phpunit)->toEqual(NativeRunner::fromOptions(
@@ -735,7 +743,7 @@ it('tells each runner its timeouts and the classes of the registered mutators th
             NativePhpUnit::framework(...),
             ComposerVendor::of('.'),
             new CapDirectory(),
-            new LocalProcesses(new SystemClock()),
+            firstPartyProcesses(),
         ))
         ->and($pest instanceof Adapters ? array_map(static fn(object $mutator): string => $mutator::class, [...$pest->mutators]) : $pest)
         ->toBe([PlusToMinus::class])
@@ -764,7 +772,7 @@ it('tells the PHPUnit runner the default set\'s mutators less one mutators.excep
         NativePhpUnit::framework(...),
         ComposerVendor::of('.'),
         new CapDirectory(),
-        new LocalProcesses(new SystemClock()),
+        firstPartyProcesses(),
     ))
         ->and($pest)->toEqual(Invalid::because(Problem::at(
             'mutators.except',
@@ -797,7 +805,7 @@ it('tells each runner the test directories the PHPUnit config declares, each glo
         Configs::options($options(...$declared)),
         ComposerVendor::of('.'),
         new CapDirectory(),
-        new LocalProcesses(new SystemClock()),
+        firstPartyProcesses(),
         NotGiven::value(),
     ))
         ->and($phpunit instanceof Adapters ? $phpunit->runner : $phpunit)->toEqual(NativeRunner::fromOptions(
@@ -806,12 +814,12 @@ it('tells each runner the test directories the PHPUnit config declares, each glo
             NativePhpUnit::framework(...),
             ComposerVendor::of('.'),
             new CapDirectory(),
-            new LocalProcesses(new SystemClock()),
+            firstPartyProcesses(),
         ))
         ->and($infection instanceof Adapters ? $infection->runner : $infection)->toEqual(Infection::fromOptions(
             Configs::options($options(...$declared)),
             new CapDirectory(),
-            new LocalProcesses(new SystemClock()),
+            firstPartyProcesses(),
             NotGiven::value(),
         ));
 })->group(...$holds);

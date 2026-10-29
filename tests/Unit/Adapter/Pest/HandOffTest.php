@@ -206,3 +206,9 @@ it('offers nothing of a file it cannot read', function (): void {
 
     expect($checker->offered())->toBe([]);
 });
+
+it('tells no progress of its own, as the mutants Pest has judged tell it', function (): void {
+    [$project, $results] = handedProject();
+
+    expect(handOff($project, $results, new PreCheckerFake([]))->progress())->toBe('');
+});
