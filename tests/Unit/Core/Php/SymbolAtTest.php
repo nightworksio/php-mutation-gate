@@ -101,6 +101,9 @@ it('owns the argument of `#[Attribute]` by the class-like it makes an attribute,
         abstract class Base { }
         #[\attribute(7)]
         interface Lower { }
+        #[Attribute(8)]
+        #[Other]
+        trait Bare { }
         PHP;
 
     expect(symbolAtToken($code, '1'))->toEqual(Symbol::attributeArgument('App\Marked', 'Attribute'))
@@ -109,6 +112,7 @@ it('owns the argument of `#[Attribute]` by the class-like it makes an attribute,
         ->and(symbolAtToken($code, 'Other'))->toEqual(Symbol::attributeArgument('App\Other', 'Other'))
         ->and(symbolAtToken($code, '6'))->toEqual(Symbol::attributeArgument('App\Base', 'Attribute'))
         ->and(symbolAtToken($code, '7'))->toEqual(Symbol::attributeArgument('App\Lower', '\attribute'))
+        ->and(symbolAtToken($code, '8'))->toEqual(Symbol::attributeArgument('App\Bare', 'Attribute'))
         ->and(symbolAtToken($code, '3'))->toEqual(Unnamed::of(SymbolKind::AttributeArgument))
         ->and(symbolAtToken($code, '4'))->toEqual(Unnamed::of(SymbolKind::AttributeArgument));
 });
