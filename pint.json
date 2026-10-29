@@ -7,6 +7,7 @@
         "tests/Contract/Runner/crash",
         "tests/Contract/Runner/reach",
         "tests/Contract/Runner/stall",
+        "tests/Contract/Runner/hang",
         "tests/Contract/Runner/override",
         "tests/Contract/Runner/constants",
         "tests/Contract/Runner/interceptor",

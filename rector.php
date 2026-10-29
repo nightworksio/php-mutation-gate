@@ -53,6 +53,7 @@ return RectorConfig::configure()
         __DIR__ . '/tests/Contract/Runner/crash',
         __DIR__ . '/tests/Contract/Runner/reach',
         __DIR__ . '/tests/Contract/Runner/stall',
+        __DIR__ . '/tests/Contract/Runner/hang',
         __DIR__ . '/tests/Contract/Runner/override',
         __DIR__ . '/tests/Contract/Runner/constants',
         __DIR__ . '/tests/Contract/Runner/interceptor',

@@ -254,7 +254,12 @@ presets for Laravel, Symfony and plain libraries.
    PHPUnit runner to a run that selects its tests by their ids, from warm
    workers too (ADR-0023), and Infection under `infection:patch`, of its
    slowest covering test class, as Infection times each test by its class
-   (ADR-0004).
+   (ADR-0004). Output does not count as finishing: a test that prints
+   without end is stopped at either limit as a quiet one is. A contract
+   test on patched Pest proves both limits on a loop that says nothing and
+   one that prints as fast as it can: each mutant is timed out by its file,
+   line and mutator, with its reason, and the run's other mutants are
+   judged.
 
    The mutators whose mutants hang most keep their silence limit above a
    lower floor, `timeouts.tighter`: an object of `mutators`, a list of short
