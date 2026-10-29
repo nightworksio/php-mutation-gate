@@ -66,7 +66,7 @@ it('says nothing until a minute after the wait began, then once a minute: what e
         ]);
 });
 
-it('shows no more of a long command than a line holds', function (): void {
+it('shows a long command cut short at 140 characters', function (): void {
     $file = sprintf('%s/said.log', Scratch::directory());
     $long = ProcessCommand::of('/p', 'php', str_repeat('a', 300));
     Saying::on(ErrorOutputLog::to($file), new ScriptedClock('2026-10-26T10:00:00Z', 0, 0, 61))
@@ -76,6 +76,5 @@ it('shows no more of a long command than a line holds', function (): void {
     $said = saidAt($file);
 
     expect($said)->toHaveCount(1)
-        ->and(mb_strlen($said[0]))->toBeLessThan(260)
-        ->and($said[0])->toContain('…');
+        ->and($said[0])->toEndWith(sprintf(': php %s…', str_repeat('a', 135)));
 });

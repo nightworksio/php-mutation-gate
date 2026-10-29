@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_filter;
-use function array_values;
+use function array_find;
 use function count;
 use function is_array;
 
@@ -42,25 +42,20 @@ final readonly class MutantsProgress implements ProcessWatch
             return $this->watch->progress();
         }
 
-        $planned = array_values(array_filter(
-            $records->planned(),
-            static fn(PlannedMutant $mutant): bool => ! $mutant->isTwin(),
-        ));
-        $unjudged = array_values(array_filter(
+        $planned = array_filter($records->planned(), static fn(PlannedMutant $mutant): bool => ! $mutant->isTwin());
+        $unjudged = array_filter(
             $planned,
             static fn(PlannedMutant $mutant): bool => $records->statusOf($mutant) === PestStatus::None,
-        ));
-        $running = array_values(array_filter(
+        );
+        $first = array_find(
             $unjudged,
             static fn(PlannedMutant $mutant): bool => is_array($records->runOf($mutant)->arguments()),
-        ));
+        );
         $judged = sprintf(self::JUDGED, count($planned) - count($unjudged), count($planned));
 
-        if ($running === []) {
+        if (! $first instanceof PlannedMutant) {
             return $judged;
         }
-
-        $first = $running[0];
 
         return sprintf(self::RUNNING, $judged, $first->file()->value(), $first->start()->number(), $first->mutator());
     }
