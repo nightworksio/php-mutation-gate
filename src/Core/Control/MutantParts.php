@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Control;
 
 use function count;
-use function explode;
-use function min;
+use function dirname;
+use function mb_substr_count;
 
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\OwnTime;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Reach\TestPlaces;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
@@ -18,15 +19,17 @@ use NightWorksIO\MutationGate\Core\Runner\RunTests;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
+use function sprintf;
+use function strspn;
 use function usort;
 
 /**
  * The judging tests of a heavy mutant split into parts that each fit under
  * `timeouts.most` (ADR-0008): their files nearest the mutant's file first,
  * by how many leading directories their paths share with its, then the
- * fastest, by the map's own time; a file's tests together in one part where
- * they fit in one, and one test at a time where they do not. A test the
- * runner places in no file comes last.
+ * fastest, by the map's own time, those it did not time last; a file's
+ * tests together in one part where they fit in one, and one test at a time
+ * where they do not. A test the runner places in no file comes last.
  */
 final readonly class MutantParts
 {
@@ -138,18 +141,13 @@ final readonly class MutantParts
         return [-$this->shared($file, $held[0]), $this->seconds($held[1]), $held[0]->value()];
     }
 
-    /** How many leading directories two paths share. */
+    /** How many leading directories two paths share: the separators in the longest start their directories share. */
     private function shared(Path $one, Path $other): int
     {
-        $first = explode(self::SEPARATOR, $one->value());
-        $second = explode(self::SEPARATOR, $other->value());
-        $shared = 0;
+        $first = sprintf('%s%s', dirname($one->value()), self::SEPARATOR);
+        $second = sprintf('%s%s', dirname($other->value()), self::SEPARATOR);
 
-        for ($at = 0; $at < min(count($first), count($second)) - 1 && $first[$at] === $second[$at]; $at++) {
-            $shared++;
-        }
-
-        return $shared;
+        return mb_substr_count(Bytes::slice($first, 0, strspn($first ^ $second, Bytes::NUL)), self::SEPARATOR);
     }
 
     /** Whether the standard limit of these tests' own time is at most the most. */
@@ -161,11 +159,11 @@ final readonly class MutantParts
             <= $this->bounds->most()->seconds();
     }
 
-    /** The map's own time of these tests, none where it did not time them. */
+    /** The map's own time of these tests; endless where it did not time them, so they run last. */
     private function seconds(TestIds $tests): float
     {
         $time = OwnTime::of($this->map, $tests);
 
-        return $time instanceof Seconds ? $time->seconds() : 0.0;
+        return $time instanceof Seconds ? $time->seconds() : INF;
     }
 }

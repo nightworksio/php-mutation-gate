@@ -7,7 +7,6 @@ namespace NightWorksIO\MutationGate\Core\Control;
 use function array_filter;
 use function array_key_exists;
 use function array_map;
-use function array_values;
 
 use Closure;
 
@@ -85,10 +84,10 @@ final readonly class HeavyMutants
     /** Those of these mutants that are not heavy, which their own controls judge. */
     public function without(Mutants $mutants): Mutants
     {
-        return Mutants::of(...array_values(array_filter(
+        return Mutants::of(...array_filter(
             [...$mutants],
             fn(Mutant $mutant): bool => ! array_key_exists($mutant->id()->key(), $this->parted),
-        )));
+        ));
     }
 
     /** The run each heavy mutant not yet judged waits on. */
@@ -126,7 +125,7 @@ final readonly class HeavyMutants
     {
         return $mutants->replacing(Mutants::of(...array_map(
             static fn(PartedMutant $parted): Mutant => $parted->judged(),
-            array_values($this->parted),
+            $this->parted,
         )));
     }
 
@@ -160,11 +159,11 @@ final readonly class HeavyMutants
     }
 
     /**
-     * Each part, served the mutant under its silence limit and unmutated as
-     * its control, both under the standard limit of its tests.
+     * Each part, served the mutant under the standard limit of its tests and
+     * the silence limit of its slowest.
      *
-     * @param  non-empty-list<RunTests>       $parts
-     * @return non-empty-list<array{Control, Control}>
+     * @param  non-empty-list<RunTests> $parts
+     * @return non-empty-list<Control>
      */
     private static function controls(
         Mutant $mutant,
@@ -176,12 +175,13 @@ final readonly class HeavyMutants
         $file = $mutant->location()->file();
         $silent = $bounds->silenceOf(RunnerMutatorName::of($mutant->mutation()->mutator()));
 
-        return array_map(static function (RunTests $part) use ($file, $text, $map, $bounds, $silent): array {
-            $limit = MutantLimit::standard()->of(OwnTime::of($map, $part->tests()), $bounds);
-            $control = Control::running($file, $part, $limit);
-            $silence = MutantLimit::standard()->of(OwnTime::slowest($map, $part->tests()), $silent);
-
-            return [$control->serving($text, $silence), $control];
-        }, $parts);
+        return array_map(
+            static fn(RunTests $part): Control => Control::running(
+                $file,
+                $part,
+                MutantLimit::standard()->of(OwnTime::of($map, $part->tests()), $bounds),
+            )->serving($text, MutantLimit::standard()->of(OwnTime::slowest($map, $part->tests()), $silent)),
+            $parts,
+        );
     }
 }

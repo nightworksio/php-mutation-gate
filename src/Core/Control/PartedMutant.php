@@ -43,9 +43,9 @@ final readonly class PartedMutant
     public const string UNRUN = 'Part %d of %d of its tests could not run: %s';
 
     /**
-     * @param list<array{Control, Control}> $parts       each part, served the mutant and unmutated, in order
-     * @param bool                          $controlling whether the part at hand runs next unmutated, as the
-     *                                                   control of a part that ran out
+     * @param list<Control> $parts       each part, served the mutant, in order
+     * @param bool          $controlling whether the part at hand runs next unmutated, as the control of a
+     *                                   part that ran out
      */
     private function __construct(
         private Mutant $mutant,
@@ -57,7 +57,7 @@ final readonly class PartedMutant
     ) {
     }
 
-    /** @param non-empty-list<array{Control, Control}> $parts each part, served the mutant and unmutated, in order */
+    /** @param non-empty-list<Control> $parts each part, served the mutant, in order */
     public static function of(Mutant $mutant, array $parts): self
     {
         return new self($mutant, $parts, 0, controlling: false, unjudged: NotGiven::value(), judged: NotGiven::value());
@@ -71,9 +71,13 @@ final readonly class PartedMutant
     /** The run it waits on: a part served the mutant, or a part's control; none once it is judged. */
     public function next(): Control|NotGiven
     {
-        return $this->judged instanceof Mutant
-            ? NotGiven::value()
-            : $this->parts[$this->at][$this->controlling ? 1 : 0];
+        $part = $this->parts[$this->at];
+
+        return match (true) {
+            $this->judged instanceof Mutant => NotGiven::value(),
+            $this->controlling => $part->unmutated(),
+            default => $part,
+        };
     }
 
     /** It, judged as far as what its run at hand found takes it. */
@@ -97,7 +101,7 @@ final readonly class PartedMutant
     /** It, after its part served the mutant ran. */
     private function ran(ControlRun $run): self
     {
-        $limit = $this->parts[$this->at][0]->limit();
+        $limit = $this->parts[$this->at]->limit();
 
         return match ($run->end()) {
             ControlEnd::Failed => $this->ending(
@@ -120,7 +124,7 @@ final readonly class PartedMutant
     /** It, after the control of a part that ran out ran. */
     private function controlled(ControlRun $run): self
     {
-        $control = $this->parts[$this->at][1];
+        $control = $this->parts[$this->at]->unmutated();
         $took = $run->took();
 
         return match ($run->end()) {

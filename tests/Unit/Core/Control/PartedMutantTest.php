@@ -37,15 +37,15 @@ function partedHeavy(): Mutant
 /**
  * The parts of the heavy mutant: the first by LoopTest::a under 100 seconds, the second by LoopTest::b under 120.
  *
- * @return non-empty-list<array{Control, Control}>
+ * @return non-empty-list<Control>
  */
 function partedParts(): array
 {
-    $part = static function (string $test, float $limit): array {
-        $control = Control::of(Path::of('src/Loop.php'), TestIds::of(TestId::of($test)), Seconds::of($limit));
-
-        return [$control->serving(Contents::of('<?php // mutant'), Seconds::of(20.0)), $control];
-    };
+    $part = static fn(string $test, float $limit): Control => Control::of(
+        Path::of('src/Loop.php'),
+        TestIds::of(TestId::of($test)),
+        Seconds::of($limit),
+    )->serving(Contents::of('<?php // mutant'), Seconds::of(20.0));
 
     return [$part('LoopTest::a', 100.0), $part('LoopTest::b', 120.0)];
 }
@@ -68,7 +68,7 @@ it('runs its parts served the mutant one after another, and is killed by the tes
     $second = $parted->after(ControlRun::passed(Seconds::of(30.0)))->next();
     $killed = partedAfter(ControlRun::passed(Seconds::of(30.0)), ControlRun::failed(TestIds::of(TestId::of('LoopTest::b'))));
 
-    expect([$first, $second])->toEqual([partedParts()[0][0], partedParts()[1][0]])
+    expect([$first, $second])->toEqual([partedParts()[0], partedParts()[1]])
         ->and($killed->next())->toEqual(NotGiven::value())
         ->and([$killed->judged()->status(), [...$killed->judged()->killers()], $killed->judged()->limit()])
         ->toEqual([MutantStatus::Killed, [TestId::of('LoopTest::b')], Seconds::of(120.0)]);
@@ -83,7 +83,7 @@ it('runs the control of a part that runs out, and times out where its tests pass
     $ranOut = partedAfter(ControlRun::ranOut());
     $judged = partedAfter(ControlRun::ranOut(), ControlRun::passed(Seconds::of(35.0)))->judged();
 
-    expect($ranOut->next())->toEqual(partedParts()[0][1])
+    expect($ranOut->next())->toEqual(partedParts()[0]->unmutated())
         ->and([$judged->status(), $judged->limit(), $judged->unmutatedNeed()])
         ->toEqual([MutantStatus::TimedOut, Seconds::of(100.0), Seconds::of(35.0)]);
 });

@@ -113,6 +113,15 @@ final readonly class Control
         return new self($this->file, $this->run, $this->limit, $mutated, $silence);
     }
 
+    /**
+     * This run with its file served unmutated, and stopped at its limit
+     * alone: the control of a part of a heavy mutant's run.
+     */
+    public function unmutated(): self
+    {
+        return new self($this->file, $this->run, $this->limit);
+    }
+
     /** The file the mutant changes, served unmutated. */
     public function file(): Path
     {

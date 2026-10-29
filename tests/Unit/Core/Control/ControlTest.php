@@ -79,7 +79,8 @@ it('serves a mutant\'s text in its file\'s place under a silence limit as a part
         ->and([$part->served(), $part->silence(), $part->limit(), $part->file()])
         ->toEqual([Contents::of('<?php // mutant'), Seconds::of(2.0), Seconds::of(5.0), Path::of('src/Money.php')])
         ->and($part->key())->not->toBe($control->serving(Contents::of('<?php // other'), Seconds::of(2.0))->key())
-        ->and($part->key())->not->toBe($control->serving(Contents::of('<?php // mutant'), Seconds::of(3.0))->key());
+        ->and($part->key())->not->toBe($control->serving(Contents::of('<?php // mutant'), Seconds::of(3.0))->key())
+        ->and($part->unmutated())->toEqual($control);
 });
 
 it('selects its tests as its mutant\'s run did: by a filter, by test files, by every one, or as the runner selects any', function (): void {
