@@ -16,10 +16,13 @@ use NightWorksIO\MutationGate\Core\Control\ControlRun;
 use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Control\PeakLauncher;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Test\JUnitFailures;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
 use function strval;
@@ -45,6 +48,9 @@ final readonly class UnmutatedRuns
 
     /** Where the control at a position writes its JUnit log, which names the tests that failed in it. */
     private const string LOG = '%s/control-%d/junit.xml';
+
+    /** Where the control at a position writes the events of its tests as they happen, where it has a silence limit. */
+    private const string EVENTS = '%s/control-%d/events.txt';
 
     public function __construct(private Project $project, private Shell $shell, private CapFiles $files)
     {
@@ -141,24 +147,55 @@ final readonly class UnmutatedRuns
             $control->file(),
             TestFiles::declaring($this->project, $tests)->files(),
             sprintf(self::PLACE, Control::DIRECTORY, $at),
+            $control->served(),
         );
         $peak = $written instanceof CannotJudge ? $written : $this->project->fresh($this->placed(self::PEAK, $at));
         $log = $peak instanceof CannotJudge ? $peak : $this->project->fresh($this->placed(self::LOG, $at));
+        $events = $log instanceof CannotJudge ? $log : $this->project->fresh($this->placed(self::EVENTS, $at));
 
         return match (true) {
             $written instanceof CannotJudge => $written,
             $peak instanceof CannotJudge => $peak,
             $log instanceof CannotJudge => $log,
-            default => $scan->onto(
-                Invocation::controlling($this->project, $own, $written, $tests, $log)
-                    ->withholding($request->withheld())
-                    ->within($control->limit())
-                    ->launchedBy($launcher, $peak),
+            $events instanceof CannotJudge => $events,
+            default => $this->silenced(
+                $scan->onto(
+                    Invocation::controlling(
+                        $this->project,
+                        $own,
+                        $written,
+                        $tests,
+                        $log,
+                        $this->eventsOf($control, $events),
+                    )
+                        ->withholding($request->withheld())
+                        ->within($control->limit())
+                        ->launchedBy($launcher, $peak),
+                ),
+                $control,
+                $events,
             ),
         };
     }
 
-    /** Where the control at a position writes one of its files: its launcher's peak, or its JUnit log. */
+    /**
+     * A control's command, stopped where it writes no event of its tests for
+     * its silence limit, where it has one: a part of a heavy mutant's run.
+     */
+    private function silenced(Command $command, Control $control, string $events): Command
+    {
+        $silence = $control->silence();
+
+        return $silence instanceof Seconds ? $command->silencedAfter(SilenceLimit::of($silence, $events)) : $command;
+    }
+
+    /** Where a control writes the events of its tests as they happen: there where it has a silence limit, else none. */
+    private function eventsOf(Control $control, string $events): string|NotGiven
+    {
+        return $control->silence() instanceof Seconds ? $events : NotGiven::value();
+    }
+
+    /** Where the control at a position writes one of its files: its launcher's peak, its JUnit log, or its events. */
     private function placed(string $file, int $at): string
     {
         return $this->project->own(sprintf($file, Control::DIRECTORY, $at));

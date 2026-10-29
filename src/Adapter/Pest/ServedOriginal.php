@@ -51,11 +51,18 @@ final readonly class ServedOriginal
             ? CannotJudge::because(sprintf(Control::UNREAD, $file->value()))
             : Printed::of(Contents::of($text), $file);
 
-        if ($printed instanceof CannotJudge) {
-            return $printed;
-        }
+        return $printed instanceof CannotJudge ? $printed : self::as($project, $directory, $file, $printed);
+    }
 
-        $print = $printed->text();
+    /**
+     * A file of the project served as this text, a mutant's as Pest prints
+     * it, written in the directory of a run's files by the text's own name;
+     * or why it cannot be served.
+     */
+    public static function as(Project $project, string $directory, Path $file, Contents $served): self|CannotJudge
+    {
+        $original = $project->absolute($file);
+        $print = $served->text();
         $copy = sprintf(self::COPIES, $directory, hash('xxh3', $print));
         $copies = $project->directory(Path::of(dirname($copy)));
 

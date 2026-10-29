@@ -6,6 +6,8 @@ namespace NightWorksIO\MutationGate\Adapter\Infection;
 
 use function array_values;
 
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -25,6 +27,7 @@ final readonly class Command
         private array $environment,
         private Withheld $withheld,
         private Seconds|Unlimited $deadline,
+        private SilenceLimit|NotGiven $silence = new NotGiven(),
     ) {
     }
 
@@ -42,18 +45,25 @@ final readonly class Command
             [...$this->environment, ...$environment],
             $this->withheld,
             $this->deadline,
+            $this->silence,
         );
     }
 
     /** This command, withholding these variables as well as those it already withholds. */
     public function withholding(Withheld $withheld): self
     {
-        return new self($this->arguments, $this->environment, $this->withheld->and($withheld), $this->deadline);
+        return new self(
+            $this->arguments,
+            $this->environment,
+            $this->withheld->and($withheld),
+            $this->deadline,
+            $this->silence,
+        );
     }
 
     public function within(Seconds|Unlimited $deadline): self
     {
-        return new self($this->arguments, $this->environment, $this->withheld, $deadline);
+        return new self($this->arguments, $this->environment, $this->withheld, $deadline, $this->silence);
     }
 
     /**
@@ -67,6 +77,7 @@ final readonly class Command
             $this->environment,
             $this->withheld,
             $this->deadline,
+            $this->silence,
         );
     }
 
@@ -90,5 +101,17 @@ final readonly class Command
     public function deadline(): Seconds|Unlimited
     {
         return $this->deadline;
+    }
+
+    /** This command, also stopped once it has made no progress for this silence limit. */
+    public function silencedAfter(SilenceLimit $silence): self
+    {
+        return new self($this->arguments, $this->environment, $this->withheld, $this->deadline, $silence);
+    }
+
+    /** How long it may go without progress, and what shows its progress; none where only its deadline stops it. */
+    public function silence(): SilenceLimit|NotGiven
+    {
+        return $this->silence;
     }
 }

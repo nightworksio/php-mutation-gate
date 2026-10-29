@@ -277,6 +277,7 @@ final readonly class Running
             $map,
             $held->covered(),
             $checking,
+            new PartedRuns($this->adapters, $this->settings, $map, $held->covered()),
             $preChecking,
         );
         $doom = new Dooming($this->adapters, $this->settings, $this->setup)->of($plan);

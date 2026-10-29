@@ -18,14 +18,17 @@ use NightWorksIO\MutationGate\Core\Control\ControlRun;
 use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Control\PeakLauncher;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
+use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\JUnitFailures;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
 use function strval;
@@ -51,6 +54,9 @@ final readonly class UnmutatedRuns
 
     /** Where a control at a position writes its JUnit log, which names the tests that failed in it. */
     private const string LOG = 'pest/controls/junit-%d.xml';
+
+    /** Where a control at a position writes the events of its tests as they happen, where it has a silence limit. */
+    private const string EVENTS = 'pest/controls/events-%d.txt';
 
     public function __construct(private Project $project, private Shell $shell, private CapFiles $files)
     {
@@ -118,9 +124,10 @@ final readonly class UnmutatedRuns
                 continue;
             }
 
-            [$served, $peak, $log] = $files;
-            $commands[$control->key()] = $served->onto($scan->onto($this->judging($control, $request, $log)))
+            [$served, $peak, $log, $events] = $files;
+            $command = $served->onto($scan->onto($this->judging($control, $request, $log, $events)))
                 ->launchedBy($launcher, $peak);
+            $commands[$control->key()] = $this->silenced($command, $control, $events);
             $peaks[$control->key()] = [$control, $peak, $log];
         }
 
@@ -129,21 +136,28 @@ final readonly class UnmutatedRuns
 
     /**
      * The files a control at a position is run with: its file served
-     * unmutated, its peak and its JUnit log; or why one cannot be.
+     * unmutated, or as the mutant a part of a heavy mutant's run serves,
+     * its peak, its JUnit log, and where it writes the events of its tests
+     * as they happen; or why one cannot be.
      *
-     * @return array{ServedOriginal, string, string}|CannotJudge
+     * @return array{ServedOriginal, string, string, string}|CannotJudge
      */
     private function filesOf(int $at, Control $control, string $directory): array|CannotJudge
     {
-        $served = ServedOriginal::of($this->project, $directory, $control->file());
+        $text = $control->served();
+        $served = $text instanceof Contents
+            ? ServedOriginal::as($this->project, $directory, $control->file(), $text)
+            : ServedOriginal::of($this->project, $directory, $control->file());
         $peak = $served instanceof CannotJudge ? $served : $this->project->fresh(sprintf(self::PEAK, $at));
         $log = $peak instanceof CannotJudge ? $peak : $this->project->fresh(sprintf(self::LOG, $at));
+        $events = $log instanceof CannotJudge ? $log : $this->project->fresh(sprintf(self::EVENTS, $at));
 
         return match (true) {
             $served instanceof CannotJudge => $served,
             $peak instanceof CannotJudge => $peak,
             $log instanceof CannotJudge => $log,
-            default => [$served, $peak, $log],
+            $events instanceof CannotJudge => $events,
+            default => [$served, $peak, $log, $events],
         };
     }
 
@@ -153,9 +167,10 @@ final readonly class UnmutatedRuns
      * every one, under the request's tests; or else exactly its tests, a row
      * of a data set alone, where Pest's filter can hold them, and the tests
      * that judge the request where it cannot. Allowed its limit, logged to
-     * a file.
+     * a file, and, under a silence limit, writing each event of its tests
+     * as it happens.
      */
-    private function judging(Control $control, MutationRequest $request, string $log): Command
+    private function judging(Control $control, MutationRequest $request, string $log, string $events): Command
     {
         $by = $control->selected();
         $selection = Selection::exactly($control->tests(), Suite::none());
@@ -172,8 +187,22 @@ final readonly class UnmutatedRuns
             ...[
                 ...PhpUnitOption::inSuites($request->narrowing()->suitesFor($judgedBy)),
                 sprintf('%s=%s', PhpUnitOption::LogJunit->value, $log),
+                ...$control->silence() instanceof Seconds
+                    ? [sprintf('%s=%s', PhpUnitOption::LogEventsText->value, $events)]
+                    : [],
             ],
         )->within($control->limit());
+    }
+
+    /**
+     * A control's command, stopped where it writes no event of its tests for
+     * its silence limit, where it has one: a part of a heavy mutant's run.
+     */
+    private function silenced(Command $command, Control $control, string $events): Command
+    {
+        $silence = $control->silence();
+
+        return $silence instanceof Seconds ? $command->silencedAfter(SilenceLimit::of($silence, $events)) : $command;
     }
 
     /** The launcher each control starts through, written among the adapter's own files; or why it cannot be. */

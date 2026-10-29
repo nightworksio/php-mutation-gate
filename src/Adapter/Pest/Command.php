@@ -11,7 +11,9 @@ use function array_values;
 use function getenv;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\SearchPath;
+use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Withholding;
 use NightWorksIO\MutationGate\Core\Runner\WorkerVariable;
@@ -34,6 +36,7 @@ final readonly class Command
         private array $arguments,
         private array $environment,
         private Seconds|Unlimited $deadline,
+        private SilenceLimit|NotGiven $silence = new NotGiven(),
     ) {
     }
 
@@ -69,12 +72,12 @@ final readonly class Command
     /** @param array<string, string|false> $environment */
     public function with(array $environment): self
     {
-        return new self($this->arguments, [...$this->environment, ...$environment], $this->deadline);
+        return new self($this->arguments, [...$this->environment, ...$environment], $this->deadline, $this->silence);
     }
 
     public function within(Seconds|Unlimited $deadline): self
     {
-        return new self($this->arguments, $this->environment, $deadline);
+        return new self($this->arguments, $this->environment, $deadline, $this->silence);
     }
 
     /**
@@ -83,7 +86,12 @@ final readonly class Command
      */
     public function launchedBy(string $launcher, string $peak): self
     {
-        return new self([PHP_BINARY, $launcher, $peak, ...$this->arguments], $this->environment, $this->deadline);
+        return new self(
+            [PHP_BINARY, $launcher, $peak, ...$this->arguments],
+            $this->environment,
+            $this->deadline,
+            $this->silence,
+        );
     }
 
     /** @return list<string> */
@@ -101,6 +109,18 @@ final readonly class Command
     public function deadline(): Seconds|Unlimited
     {
         return $this->deadline;
+    }
+
+    /** This command, also stopped once it has made no progress for this silence limit. */
+    public function silencedAfter(SilenceLimit $silence): self
+    {
+        return new self($this->arguments, $this->environment, $this->deadline, $silence);
+    }
+
+    /** How long it may go without progress, and what shows its progress; none where only its deadline stops it. */
+    public function silence(): SilenceLimit|NotGiven
+    {
+        return $this->silence;
     }
 
     /**

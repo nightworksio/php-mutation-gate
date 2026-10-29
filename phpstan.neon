@@ -40,6 +40,7 @@ parameters:
             - tests/Contract/Runner/crash
             - tests/Contract/Runner/reach
             - tests/Contract/Runner/stall
+            - tests/Contract/Runner/heavy
             - tests/Contract/Runner/hang
             - tests/Contract/Runner/override
             - tests/Contract/Runner/constants

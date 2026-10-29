@@ -31,10 +31,11 @@ use function unlink;
 
 /**
  * Unmutated controls as the native runner runs them (ADR-0008): each a mutant
- * that changes nothing, its file as the project holds it, served through the
- * override as a mutant's is (see ControlMutant), its tests and every test
- * they depend on run as a mutant's are, under the request's memory cap and
- * stopped at its limit, started through the launcher that measures its peak
+ * that changes nothing, its file as the project holds it, or, for a part of
+ * a heavy mutant's run, as the mutant, served through the override as a
+ * mutant's is (see ControlMutant), its tests and every test they depend on
+ * run as a mutant's are, under the request's memory cap and stopped at its
+ * limit, or at its silence limit where it has one, started through the launcher that measures its peak
  * (see PeakLauncher); side by side in the request's pool, none started once
  * the request's deadline has passed. A control whose file cannot be read, or
  * whose run is not started, never runs; one stopped at its limit ran out,
@@ -96,6 +97,7 @@ final readonly class UnmutatedRuns
                     $this->framework->tests()->withDependencies($control->tests()),
                     $request,
                     $control->limit(),
+                    $control->silence(),
                 );
 
             if ($run instanceof PreparedRun) {

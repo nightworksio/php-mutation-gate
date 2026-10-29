@@ -6,7 +6,9 @@ use NightWorksIO\MutationGate\Adapter\Infection\Command;
 use NightWorksIO\MutationGate\Adapter\Infection\ProcessShell;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Cli\SystemClock;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Runner\WorkerVariable;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Fakes\ProcessesFake;
@@ -52,4 +54,16 @@ it('tells a process only what it must not inherit, that it is no worker, and its
         ...array_fill_keys(WorkerVariable::names(), value: false),
         'PATH' => sprintf('%s%s', dirname(PHP_BINARY), PATH_SEPARATOR),
     ]);
+});
+
+it('stops a command at its silence limit where it has one, and only at its deadline where it has none', function (): void {
+    $processes = new ProcessesFake(static fn(): Ran => Ran::exited(0, ''));
+    $silence = SilenceLimit::of(Seconds::of(2.0), '/project/events.txt');
+
+    $shell = new ProcessShell($processes, '/project', []);
+    $shell->run(Command::php('-v')->silencedAfter($silence));
+    $shell->run(Command::php('-v'));
+    [$silenced, $plain] = $processes->ran();
+
+    expect([$silenced->silence(), $plain->silence()])->toEqual([$silence, NotGiven::value()]);
 });

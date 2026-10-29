@@ -19,6 +19,7 @@ use function iterator_to_array;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -107,13 +108,22 @@ final readonly class StartUpConfig
      */
     public static function written(Project $project, OwnConfig $config, Path $file): string|CannotJudge
     {
-        return self::config($project, $config, $file, Paths::none(), StartUp::DIRECTORY, controls: false);
+        return self::config(
+            $project,
+            $config,
+            $file,
+            Paths::none(),
+            StartUp::DIRECTORY,
+            controls: false,
+            served: NotGiven::value(),
+        );
     }
 
     /**
      * The config written in a place of its own among the adapter's own files,
      * its suite holding these test files and its mutant an unchanged copy of
-     * this file, as an unmutated control runs; or why it cannot be.
+     * this file, as an unmutated control runs, or this text, a mutant's, as a
+     * part of a heavy mutant's run serves it; or why it cannot be.
      */
     public static function holding(
         Project $project,
@@ -121,11 +131,16 @@ final readonly class StartUpConfig
         Path $file,
         Paths $tests,
         string $place,
+        Contents|NotGiven $served,
     ): string|CannotJudge {
-        return self::config($project, $config, $file, $tests, $place, controls: true);
+        return self::config($project, $config, $file, $tests, $place, controls: true, served: $served);
     }
 
-    /** The config, failing as a mutant's run fails where it controls; or why it cannot be. */
+    /**
+     * The config, failing as a mutant's run fails where it controls, its
+     * mutant a copy of the file or the text served in its place; or why it
+     * cannot be.
+     */
     private static function config(
         Project $project,
         OwnConfig $config,
@@ -133,6 +148,7 @@ final readonly class StartUpConfig
         Paths $tests,
         string $place,
         bool $controls,
+        Contents|NotGiven $served,
     ): string|CannotJudge {
         $original = self::original($project, $config);
         $read = $original instanceof CannotJudge
@@ -147,7 +163,7 @@ final readonly class StartUpConfig
             : $project->fresh($project->own(sprintf(self::FILE, $place)));
         $bootstrap = $written instanceof CannotJudge
             ? $written
-            : self::intercepting($project, $file, $document, $place);
+            : self::intercepting($project, $file, $document, $place, $served);
 
         return match (true) {
             $document instanceof CannotJudge => $document,
@@ -178,6 +194,7 @@ final readonly class StartUpConfig
         Path $file,
         DOMDocument $document,
         string $place,
+        Contents|NotGiven $served,
     ): string|CannotJudge {
         $original = realpath($project->absolute($file));
         $copy = $project->fresh($project->own(sprintf(self::COPY, $place, basename($file->value()))));
@@ -194,7 +211,7 @@ final readonly class StartUpConfig
                     self::INTERCEPTING,
                     var_export($interceptor, return: true),
                     var_export($original, return: true),
-                    var_export(self::copied($original, $copy), return: true),
+                    var_export(self::copied($original, $copy, $served), return: true),
                     var_export(self::loaded($project, $document), return: true),
                 ),
             ),
@@ -311,8 +328,13 @@ final readonly class StartUpConfig
     }
 
     /** The copy, once the original is copied into it, as the adapter writes its other files. */
-    private static function copied(string $original, string $copy): string
+    /** The copy, of the original, or holding the text served in its place. */
+    private static function copied(string $original, string $copy, Contents|NotGiven $served): string
     {
+        if ($served instanceof Contents) {
+            return self::savedText($copy, $served->text());
+        }
+
         copy($original, $copy);
 
         return $copy;

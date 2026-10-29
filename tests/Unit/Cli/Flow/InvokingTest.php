@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Flow\Invoked;
 use NightWorksIO\MutationGate\Cli\Flow\Invoking;
+use NightWorksIO\MutationGate\Cli\Flow\PartedRuns;
 use NightWorksIO\MutationGate\Cli\Flow\Stopwatch;
 use NightWorksIO\MutationGate\Cli\Flow\SurvivorChecking;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -62,6 +63,7 @@ function invokedWithin(ScriptedRunner $runner, Seconds $left, CoverageMap $map):
         $map,
         HeldCovered::none(),
         new SurvivorChecking($adapters, $clock, $deadline, Seconds::of(60.0), $stopwatch),
+        new PartedRuns($adapters, Flows::settings(), $map, HeldCovered::none()),
     )->invoked(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()));
 
     return $invoked instanceof Invoked ? $invoked : throw new LogicException($invoked->why());

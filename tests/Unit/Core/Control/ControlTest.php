@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Control\Control;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -67,7 +68,19 @@ it('is told from another control by its file, its tests in their order and its l
     'the tests by their files' => [fn(): Control => controlRunning(RunTests::loading(controlTests(), Paths::of(Path::of('tests/MoneyTest.php')))), false],
     'the tests by every file' => [fn(): Control => controlRunning(RunTests::loading(controlTests(), WholeSuite::tests())), false],
     'the tests as the runner selects any' => [fn(): Control => controlRunning(RunTests::of(controlTests())), true],
+    'a mutant served' => [fn(): Control => controlOf('src/Money.php', ['MoneyTest::a', 'MoneyTest::b'], 5.0)->serving(Contents::of('<?php // mutant'), Seconds::of(2.0)), false],
 ]);
+
+it('serves a mutant\'s text in its file\'s place under a silence limit as a part of a heavy mutant\'s run, and none as a control', function (): void {
+    $control = controlOf('src/Money.php', ['MoneyTest::a'], 5.0);
+    $part = $control->serving(Contents::of('<?php // mutant'), Seconds::of(2.0));
+
+    expect([$control->served(), $control->silence()])->toEqual([NotGiven::value(), NotGiven::value()])
+        ->and([$part->served(), $part->silence(), $part->limit(), $part->file()])
+        ->toEqual([Contents::of('<?php // mutant'), Seconds::of(2.0), Seconds::of(5.0), Path::of('src/Money.php')])
+        ->and($part->key())->not->toBe($control->serving(Contents::of('<?php // other'), Seconds::of(2.0))->key())
+        ->and($part->key())->not->toBe($control->serving(Contents::of('<?php // mutant'), Seconds::of(3.0))->key());
+});
 
 it('selects its tests as its mutant\'s run did: by a filter, by test files, by every one, or as the runner selects any', function (): void {
     $filter = Filter::matching('MoneyTest');

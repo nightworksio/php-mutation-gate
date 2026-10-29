@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\ProcessShell;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\EnvironmentRead;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -42,4 +44,16 @@ it('runs commands side by side through the processes, each told its place, with 
     expect(array_map(static fn(Ran $ran): string => $ran->output(), [...$ends]))->toBe(['1', '2', '1'])
         ->and(array_map(static fn(ProcessCommand $ran): string => $ran->directory(), $processes->ran()))
         ->toBe(['/project', '/project', '/project']);
+});
+
+it('stops a command at its silence limit where it has one, and only at its deadline where it has none', function (): void {
+    $processes = new ProcessesFake(static fn(): Ran => Ran::exited(0, ''));
+    $silence = SilenceLimit::of(Seconds::of(2.0), '/project/events.txt');
+
+    $shell = new ProcessShell($processes, '/project');
+    $shell->run(Command::of(PHP_BINARY, '-v')->silencedAfter($silence)->within(Seconds::of(4.0))->with(['GATE' => 'on']));
+    $shell->run(Command::of(PHP_BINARY, '-v'));
+    [$silenced, $plain] = $processes->ran();
+
+    expect([$silenced->silence(), $plain->silence(), $silenced->deadline()])->toEqual([$silence, NotGiven::value(), Seconds::of(4.0)]);
 });

@@ -8,11 +8,13 @@ use function addcslashes;
 use function array_map;
 use function implode;
 use function is_file;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Workspace;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\PcovReach;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
@@ -111,7 +113,8 @@ final readonly class Invocation
      * with the project's extra arguments and a filter that selects its tests
      * by the names PHPUnit gives them: a row an id names alone, and every
      * row of a method it names whole, logging JUnit to a file, which names
-     * the tests that failed. A filter PCRE cannot compile would select no
+     * the tests that failed, and, where given another file, each event of its
+     * tests as it happens there. A filter PCRE cannot compile would select no
      * test, so, as Infection drops its own past PCRE's limit, the control
      * then runs every test of its suite.
      */
@@ -121,6 +124,7 @@ final readonly class Invocation
         string $controlConfig,
         TestIds $tests,
         string $log,
+        string|NotGiven $events,
     ): Command {
         $ids = array_map(static fn(TestId $test): string => preg_quote(self::named($test), '/'), [...$tests]);
         $filter = Filter::matching(sprintf(self::SELECTING, implode('|', $ids)));
@@ -130,6 +134,7 @@ final readonly class Invocation
             sprintf('--configuration=%s', $controlConfig),
             PhpUnitOption::NoColors->value,
             sprintf('%s=%s', PhpUnitOption::LogJunit->value, $log),
+            ...is_string($events) ? [sprintf('%s=%s', PhpUnitOption::LogEventsText->value, $events)] : [],
             ...self::passed($project, $config),
             ...self::selecting($filter->compiles() ? $filter : WholeSuite::tests()),
         );
