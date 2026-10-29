@@ -327,8 +327,7 @@ final readonly class StartUpConfig
         return $file;
     }
 
-    /** The copy, once the original is copied into it, as the adapter writes its other files. */
-    /** The copy, of the original, or holding the text served in its place. */
+    /** The copy: of the original, or holding the text served in its place, as the adapter writes its other files. */
     private static function copied(string $original, string $copy, Contents|NotGiven $served): string
     {
         if ($served instanceof Contents) {

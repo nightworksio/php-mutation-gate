@@ -35,8 +35,8 @@ use function unlink;
  * a heavy mutant's run, as the mutant, served through the override as a
  * mutant's is (see ControlMutant), its tests and every test they depend on
  * run as a mutant's are, under the request's memory cap and stopped at its
- * limit, or at its silence limit where it has one, started through the launcher that measures its peak
- * (see PeakLauncher); side by side in the request's pool, none started once
+ * limit, or at its silence limit where it has one, started through the
+ * launcher that measures its peak (see PeakLauncher); side by side in the request's pool, none started once
  * the request's deadline has passed. A control whose file cannot be read, or
  * whose run is not started, never runs; one stopped at its limit ran out,
  * whether or not it had served the file yet.
