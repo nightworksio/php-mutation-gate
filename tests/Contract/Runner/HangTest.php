@@ -91,6 +91,6 @@ it('stops a mutant whose loop never ends, saying nothing or printing, by its lim
     'at its silence limit' => [
         fn(): LimitBounds => LimitBounds::between(Seconds::of(10.0), Seconds::of(300.0))
             ->tighterFor(TighterSilence::of(Seconds::of(7.0), 'PostDecrementToPostIncrement')),
-        Reason::silent(Seconds::of(7.0))->text(),
+        fn(): string => Reason::silent(Seconds::of(7.0))->text(),
     ],
 ])->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
