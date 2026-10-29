@@ -355,6 +355,20 @@ presets for Laravel, Symfony and plain libraries.
      mutant survived. Where none killed it and a part could not judge it, it
      is too slow to judge, or its tests fail unmutated, its reason naming the
      part.
+
+     Pest's trial of a mutant on a line that is not executable (ADR-0004)
+     runs test files, not tests, and is split before it runs: where the
+     tests its files hold have a standard limit above the most together, its
+     files go in parts by the same order, each file whole in the first part
+     that holds any of its tests, and the files that hold no test the map
+     times in the last. Each part is a trial of its own, allowed the standard
+     limit of its tests: it runs on its own, then with the mutant. A part
+     that kills the mutant, or that the mutant runs out of time in while the
+     part passes on its own, judges it, and no later part runs. A part it
+     survives, or that runs out or fails on its own, is followed by the
+     next. Where every part passes, the mutant survived. Where none judged
+     it, it is what the first part that could not judge it found, a failure
+     on its own before a run out of time.
    - **The mode.** `timeouts.mode` is `confirm` by default, as described above,
      or `unjudged`, which makes every timeout too slow to judge, for projects
      that want no kill they cannot see. It runs no control.

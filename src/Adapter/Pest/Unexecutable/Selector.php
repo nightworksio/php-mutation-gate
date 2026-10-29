@@ -15,7 +15,6 @@ use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\TestFiles;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
-use NightWorksIO\MutationGate\Core\Coverage\OwnTime;
 use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
@@ -33,7 +32,6 @@ use NightWorksIO\MutationGate\Core\Php\Unnamed;
 use NightWorksIO\MutationGate\Core\Php\ValueDeclaration;
 use NightWorksIO\MutationGate\Core\Php\ValueDeclarations;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
-use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
 use NightWorksIO\MutationGate\Core\Test\TestCases;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -158,15 +156,15 @@ final readonly class Selector
     }
 
     /**
-     * How long a run of the tests in some files is allowed: the standard
-     * mutant limit of their own time, as the map timed them, kept between
-     * the bounds (ADR-0008).
+     * The trials of the mutant whose mutated copy of a file is kept at a
+     * path, by the tests in these files: one, or parts that each fit under
+     * the most the bounds allow (see TrialParts).
+     *
+     * @return non-empty-list<TrialRun>
      */
-    public function limitOf(Paths $files, LimitBounds $bounds): Seconds
+    public function trialsOf(Paths $files, Path $original, string $copy, LimitBounds $bounds): array
     {
-        $tests = $this->tests->holding($files, $this->map);
-
-        return MutantLimit::standard()->of(OwnTime::of($this->map, $tests), $bounds);
+        return TrialParts::under($this->tests, $this->map, $bounds)->of($files, $original, $copy);
     }
 
     /** Which test files judge a mutant of a file whose changed value a symbol names. */

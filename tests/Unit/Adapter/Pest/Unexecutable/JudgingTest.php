@@ -395,3 +395,30 @@ it('gives a mutant that timed out the time its tests took on their own, unmutate
     expect(array_map(static fn(Mutant $mutant): array => [$mutant->status(), $mutant->limit(), $mutant->unmutatedNeed()], $mutants))
         ->toEqual([[MutantStatus::TimedOut, Seconds::of(10.0), Seconds::of(0.5)]]);
 });
+
+it('tries the files that read a value in parts where their tests run past the most together, part after part, until one kills it', function () use ($makeMoney): void {
+    $at = Unexecutables::project();
+    $results = Unexecutables::run($at, ['rate']);
+    Scratch::write($at->root(), 'tests/RateSpec.php', "<?php\nuse App\\Money;\nit('rates', fn () => Money::RATE);\n");
+    $reads = 'P\Tests\MoneySpec::__pest_evaluable_it_reads';
+    $rates = 'P\Tests\RateSpec::__pest_evaluable_it_rates';
+    CoverageMaps::write(Recorder::coverageBeside($results), sprintf('%s/', $at->root()), ['src/Money.php' => [10 => [0]]], [$reads, $rates], [$reads => 0.1, $rates => 0.5]);
+    $shell = new ShellFake(static fn(Command $command): Ran => Unexecutables::answering($command, ['tests/RateSpec.php']));
+    $bounds = LimitBounds::between(Seconds::of(1.0), Seconds::of(2.0))->startingIn(Seconds::of(0.1));
+    $judged = new Judging($at, $shell, new CapDirectory(), $bounds)->of(judgingResult('rate'), $makeMoney(), $results, judgingScan($at, $results));
+    $ran = array_map(
+        static fn(Command $command): array => [
+            array_values(array_filter($command->arguments(), static fn(string $argument): bool => str_starts_with($argument, 'tests/'))),
+            $command->deadline(),
+        ],
+        $shell->commands(),
+    );
+
+    expect(judgingOutcomes($judged))->toBe(['rate' => 'killed'])
+        ->and($ran)->toEqual([
+            [['tests/MoneySpec.php'], Seconds::of(1.0)],
+            [['tests/MoneySpec.php'], Seconds::of(1.0)],
+            [['tests/RateSpec.php'], Seconds::of(1.8)],
+            [['tests/RateSpec.php'], Seconds::of(1.8)],
+        ]);
+});
