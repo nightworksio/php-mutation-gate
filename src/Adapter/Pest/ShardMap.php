@@ -25,7 +25,8 @@ use function sprintf;
 /**
  * The map a patched shard's run opens on: its own map the plan handed over,
  * with the lines of each value its files declare covered by the tests that
- * read it (ADR-0037), written again for Pest, which opens on the canary
+ * read it (ADR-0037), and each line of a match's arms by the tests of the
+ * arms after it too, written again for Pest, which opens on the canary
  * group with it; or why the shard cannot open on it.
  */
 final readonly class ShardMap
@@ -117,7 +118,8 @@ final readonly class ShardMap
 
     /**
      * The shard's own map, with the lines of each value the run's files
-     * declare covered by the tests one run judges its mutants by (ADR-0037);
+     * declare covered by the tests one run judges its mutants by (ADR-0037),
+     * and each line of a match's arms by the tests of the arms after it too;
      * or why the map of every file, which finds them, cannot be read.
      */
     private function read(MutationRequest $request, CoverageMap $own): CoverageMap|CannotJudge
@@ -125,9 +127,13 @@ final readonly class ShardMap
         $whole = new WholeMap($this->project, $this->remembered);
         $reads = $whole->covering($request, new HandedOver($own, $this->project), $own);
 
-        return $reads instanceof CannotJudge
-            ? $reads
-            : $whole->selector($request, $reads, $own)->readCoverage($request->files(), $own);
+        if ($reads instanceof CannotJudge) {
+            return $reads;
+        }
+
+        $selector = $whole->selector($request, $reads, $own);
+
+        return $selector->armCoverage($request->files(), $selector->readCoverage($request->files(), $own));
     }
 
     /** Why a shard cannot open on the canary group among the suites its opening run runs, if it cannot. */

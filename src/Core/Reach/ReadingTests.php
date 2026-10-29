@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Php\Site;
 use NightWorksIO\MutationGate\Core\Php\Source;
 use NightWorksIO\MutationGate\Core\Php\Symbol;
 use NightWorksIO\MutationGate\Core\Php\SymbolAt;
+use NightWorksIO\MutationGate\Core\Php\SymbolKind;
 
 use function sprintf;
 
@@ -28,7 +29,9 @@ use function sprintf;
  * found by ADR-0004's scan. A test that reads one is listed
  * whole; a read in source lists the tests that run its line; a read in
  * test support lists the tests that use it; and a read no name can show
- * lists every test.
+ * lists every test. An attribute's argument is not listed: a reflection no
+ * name leads to may read it, so it would list every test for each file
+ * that holds an attribute with an argument.
  */
 final readonly class ReadingTests
 {
@@ -147,15 +150,20 @@ final readonly class ReadingTests
         return array_values($symbols);
     }
 
-    /** @return array<string, Symbol> each symbol a source declares that coverage cannot see run, by its description */
+    /**
+     * @return array<string, Symbol> each symbol a source declares that coverage cannot see run, but an attribute's
+     *                               argument, by its description
+     */
     private function declaredIn(Source $source): array
     {
-        $at = SymbolAt::in($source->tokens(), $source->shape());
+        $at = SymbolAt::in($source->tokens(), $source->shape(), $source->scope());
         $symbols = [];
 
         foreach (array_keys($source->tokens()->texts()) as $token) {
             $symbol = $at->token($token);
-            $symbols += $symbol instanceof Symbol ? [$symbol->described() => $symbol] : [];
+            $symbols += $symbol instanceof Symbol && $symbol->kind() !== SymbolKind::AttributeArgument
+                ? [$symbol->described() => $symbol]
+                : [];
         }
 
         return $symbols;

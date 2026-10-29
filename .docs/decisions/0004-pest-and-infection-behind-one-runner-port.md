@@ -274,6 +274,16 @@ its parser attributes. Both change when the checkout moves.
        PHP evaluates a match's subject before any arm, so a test that runs a
        line of its arms ran its head. Where its arms close on the line its
        head opens them on, or no test covers them, it stays uncovered.
+     - Coverage can also mark an arm's line run only for the tests whose
+       result that arm is: pcov marks the condition of the first arm of a
+       `match (true)` that reads a constant on the match's head. PHP tries a
+       match's arms in order, so a test that runs a later arm ran the
+       condition of every arm before it. In a patched shard that opens on a
+       map the plan handed over, the map Pest opens on covers each line of a
+       match's arms with the tests that cover it or any later line of those
+       arms, so a mutant of an arm's condition runs the tests of the arms
+       after it. A run that measures its own coverage keeps Pest's reading of
+       the line.
      - A global `const` or `define()` sits on an executable line, so an
        uncovered mutant there stays uncovered.
      - pest-plugin-mutate makes no mutant of a string-backed enum case's
@@ -320,7 +330,12 @@ its parser attributes. Both change when the checkout moves.
      - a static property through `Owner::$name`, and a trait's through any
        class that uses it;
      - an instance property's default through any creation of the owner, or
-       of a class that extends it or uses it as a trait;
+       of a class that extends it or uses it as a trait, and through the body
+       of a constructor such a class declares, which runs however the
+       instance is made, by a container or a reflection too;
+     - an attribute's argument through any name of its owner: the
+       attribute's class, or, for `#[Attribute]`, the class-like it makes an
+       attribute, as a reflection that makes the attribute names it;
      - a plain function's parameter default through the covering tests of the
        lines that call it;
      - a read in a helper, a file under the test directories that holds no
@@ -328,9 +343,10 @@ its parser attributes. Both change when the checkout moves.
        function the helper declares, or that name another helper that does,
        in turn.
 
-     An attribute's argument, a closure's parameter default and a method's
-     parameter default have no reference a token scan can follow, so they are
-     always ambiguous. A read in a helper is ambiguous too, as a helper can
+     A closure's parameter default and a method's parameter default have no
+     reference a token scan can follow, and a reflection no name leads to can
+     make an attribute, so these and an attribute's argument are always
+     ambiguous. A read in a helper is ambiguous too, as a helper can
      run where no name shows it, such as a base test case's set-up or a
      `Pest.php` hook. In a
      held unit (ADR-0005), every set this decision names, the fallback
@@ -428,10 +444,14 @@ its parser attributes. Both change when the checkout moves.
      - an inherited constant, and an interface constant;
      - an enum case's `->value`, a value seen only through `from()`, and a
        duplicate value;
-     - a static property default, and an instance property default reached
-       only through the fallback;
+     - a static property default, an instance property default reached
+       only through the fallback, and one a reflection makes, killed through
+       the constructor;
      - a plain function's parameter default, a closure's parameter default,
-       and an attribute's argument;
+       an attribute's argument, and `#[Attribute]`'s, killed by a test that
+       makes the attribute;
+     - the condition of a `match (true)`'s first arm, killed by a test whose
+       result is a later arm;
      - a global `const` in a `files` autoload file, which stays uncovered,
        and a function's parameter default there, loaded before the override;
      - no reference, and a same-named constant in another class that does not

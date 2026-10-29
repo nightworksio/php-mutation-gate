@@ -15,13 +15,13 @@ use function range;
  */
 final readonly class SymbolAt
 {
-    private function __construct(private Tokens $tokens, private Shape $shape)
+    private function __construct(private Tokens $tokens, private Shape $shape, private Scope $scope)
     {
     }
 
-    public static function in(Tokens $tokens, Shape $shape): self
+    public static function in(Tokens $tokens, Shape $shape, Scope $scope): self
     {
-        return new self($tokens, $shape);
+        return new self($tokens, $shape, $scope);
     }
 
     /**
@@ -54,7 +54,8 @@ final readonly class SymbolAt
     private function decided(int $opener, int $child): Symbol|Unnamed|Executable
     {
         return match (true) {
-            $this->tokens->is($opener, T_ATTRIBUTE) => Unnamed::of(SymbolKind::AttributeArgument),
+            $this->tokens->is($opener, T_ATTRIBUTE) => AttributeArguments::in($this->tokens, $this->shape, $this->scope)
+                ->of($opener, $child),
             $this->shape->isBody($opener) => Executable::line(),
             $this->shape->isSignature($opener) => $this->defaultIn($opener, $child),
             default => $this->member($opener, $child),

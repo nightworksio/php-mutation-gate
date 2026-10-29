@@ -138,6 +138,26 @@ it('follows a read in a parameter default of a function that has a body, and not
         ->and($read->isAmbiguous())->toBeTrue();
 });
 
+it('follows a read inside an attribute\'s argument to where the attribute\'s class is named, ambiguous', function (): void {
+    $read = Codebase::of(
+        Php::source(<<<'PHP'
+            <?php
+            namespace App;
+            class Money { const RATE = 1; }
+            #[Limit(Money::RATE)]
+            class Price { }
+            PHP, 'src/Price.php'),
+        Php::source(<<<'PHP'
+            <?php
+            use App\Limit;
+            it('limits', fn () => expect((new ReflectionClass(App\Price::class))->getAttributes(Limit::class))->toHaveCount(1));
+            PHP, 'tests/PriceTest.php', test: true),
+    )->references(Symbol::constant('App\Money', 'RATE'));
+
+    expect(Php::sites($read))->toBe(['tests/PriceTest.php:3 (test)'])
+        ->and($read->isAmbiguous())->toBeTrue();
+});
+
 it('cannot follow a value no reference names at all', function () use ($codebase): void {
     $read = $codebase()->references(Unnamed::of(SymbolKind::AttributeArgument));
 

@@ -74,3 +74,20 @@ it('looks for a read only in a file whose names end in a word the read must spel
         $holds(Symbol::property('App\Money', 'cents', static: false), "<?php\necho 1;"),
     ])->toBe([true, true, true, false, true, true, false, true, false, true, true]);
 });
+
+it('reads an attribute\'s argument wherever its owner is named, ambiguous, and looks only in a file that names it', function (): void {
+    $source = Php::source(<<<'PHP'
+        <?php
+        namespace App;
+        use Attribute;
+        #[Attribute(Attribute::TARGET_PROPERTY)]
+        final class Marked { }
+        $marked = (new \ReflectionProperty(Money::class, 'cents'))->getAttributes(Marked::class);
+        PHP);
+    $argument = Symbol::attributeArgument('App\Marked', 'Attribute');
+    $read = Reads::of($argument, $source, Hierarchy::of($source));
+
+    expect(Php::sites($read))->toBe(['src/A.php:6'])
+        ->and($read->isAmbiguous())->toBeTrue()
+        ->and(Reads::mayHold($argument, Php::source("<?php\necho 1;")))->toBeFalse();
+});

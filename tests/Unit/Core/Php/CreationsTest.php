@@ -34,3 +34,28 @@ it('reads a property\'s default wherever the owner or a class that reaches it is
             Hierarchy::of($classes),
         )->isAmbiguous())->toBeTrue();
 });
+
+it('reads a property\'s default wherever a class that reaches the owner runs the constructor it declares', function (): void {
+    $source = Php::source(<<<'PHP'
+        <?php
+        namespace App;
+        class Money {
+            public $cents = 1;
+            public function __construct(
+                private int $rate,
+            ) {
+                $this->cents = $rate;
+            }
+        }
+        class Cash extends Money { function __CONSTRUCT() {} }
+        abstract class Coin extends Money { abstract function __construct(); }
+        class Other { function __construct() {} }
+        $made = function () {};
+        PHP, 'src/Money.php');
+
+    expect(Php::sites(Creations::of(
+        Symbol::property('App\Money', 'cents', static: false),
+        $source,
+        Hierarchy::of($source),
+    )))->toBe(['src/Money.php:7-9', 'src/Money.php:11']);
+});

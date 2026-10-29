@@ -144,6 +144,32 @@ it('covers the lines of each value one run can judge with the tests of the files
         ->and(selectorOver(Unexecutables::project())->readCoverage(Paths::of(Path::of('src/Gone.php')), $onto))->toEqual($onto);
 });
 
+it('covers each line of a match\'s arms with the tests of the arms after it too, and leaves a file it cannot read as it was', function (): void {
+    $at = MatchHeads::project();
+    $band = Path::of('src/Band.php');
+    $selector = Selector::over($at, selectorMap(MatchHeads::run($at)), Paths::of($band));
+    $onto = CoverageMap::empty()
+        ->covered($band, Line::of(8), TestId::of('high'))
+        ->covered($band, Line::of(9), TestId::of('low'))
+        ->covered($band, Line::of(21), TestId::of('down'));
+    $armed = $selector->armCoverage(Paths::of($band, Path::of('src/Gone.php')), $onto);
+    $tests = static fn(int $line): array => array_map(
+        static fn(TestId $test): string => $test->value(),
+        [...$armed->testsCovering($band, Line::of($line), Line::of($line))],
+    );
+
+    expect([$tests(7), $tests(8), $tests(9), $tests(10), $tests(19), $tests(20), $tests(21), $tests(22)])->toEqualCanonicalizing([
+        [],
+        ['high', 'low'],
+        ['low'],
+        [],
+        [],
+        ['down'],
+        ['down'],
+        [],
+    ])->and(array_map(static fn(PlacedLine $line): int => $line->line(), [...$armed->placedLines()]))->toEqualCanonicalizing([8, 9, 20, 21]);
+});
+
 it('chooses the test files that run any line of the body a method\'s parameter default runs in', function (): void {
     $at = Unexecutables::project();
     $results = Unexecutables::run($at, []);

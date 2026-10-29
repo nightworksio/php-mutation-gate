@@ -57,3 +57,11 @@ it('has no arms for a token outside every match\'s head, or a match whose arms c
         ->and(matchArmsAt("<?php\n\$a = match (true) {\n    default => 1,\n", 'true'))->toBe([])
         ->and(MatchArms::of(Tokens::in(Contents::of('<?php $a = match;')), 3))->toEqual(NotGiven::value());
 });
+
+it('spans the arms of every match in a file whose arms close past its head\'s line, outer first', function (): void {
+    expect(array_map(
+        static fn(MatchArms $arms): array => [$arms->first()->number(), $arms->last()->number()],
+        MatchArms::in(Tokens::in(Contents::of(MATCH_ARMS_CODE))),
+    ))->toBe([[7, 12], [9, 11]])
+        ->and(MatchArms::in(Tokens::in(Contents::of('<?php $a = match;'))))->toBe([]);
+});
