@@ -105,7 +105,7 @@ final readonly class Source
     /** What the token at an index stands in. */
     public function symbolAt(int $at): Symbol|Unnamed|Executable
     {
-        return SymbolAt::in($this->tokens, $this->shape)->token($at);
+        return SymbolAt::in($this->tokens, $this->shape, $this->scope)->token($at);
     }
 
     /**

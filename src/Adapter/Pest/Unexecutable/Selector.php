@@ -148,6 +148,12 @@ final readonly class Selector
         return $read;
     }
 
+    /** A map with each line of a match's arms these files hold covered by the tests of the arms after it too. */
+    public function armCoverage(Paths $files, CoverageMap $onto): CoverageMap
+    {
+        return new ArmCoverage($this->codebase)->onto($files, $onto);
+    }
+
     /**
      * How long a run of the tests in some files is allowed: the standard
      * mutant limit of their own time, as the map timed them, kept between

@@ -222,6 +222,13 @@ it('lists every test where code may read a value it declares where no name says 
     ]);
 });
 
+it('does not list every test for the argument of an attribute a changed file declares, though code may read it where no name says so', function () use ($modified): void {
+    $money = str_replace('final class Money', "#[\\Attribute(\\Attribute::TARGET_CLASS)]\nfinal class Money", Affected::FILES['src/Money.php']);
+    $now = [...Affected::FILES, 'src/Money.php' => $money];
+
+    expect(Affected::to(Changes::of($modified('src/Money.php')), $now, $now)->isEvery())->toBeFalse();
+});
+
 it('lists a file once for every change that reaches it, with each reason', function () use ($modified): void {
     expect(Affected::listed(Affected::to(Changes::of($modified('tests/PriceTest.php'), $modified('tests/Support/Builds.php')))))
         ->toBe([[

@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Php;
 
 /**
- * Where one file uses an enum, any use of which may read a case's backing
- * value, since `from()`, `tryFrom()`, `cases()` and serialisation all do: its
- * name, and `self` or `static` inside the enum itself.
+ * Where one file names a value's owner: its name, and `self` or `static`
+ * inside the owner itself. Any use of an enum may read a case's backing
+ * value, since `from()`, `tryFrom()`, `cases()` and serialisation all do, and
+ * a reflection that makes an attribute names the owner of its arguments.
  */
 final readonly class Mentions
 {

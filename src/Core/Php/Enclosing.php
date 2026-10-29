@@ -21,6 +21,9 @@ use function sprintf;
  */
 final readonly class Enclosing
 {
+    /** The method PHP calls to make an object, whatever makes it. */
+    public const string CONSTRUCTOR = '__construct';
+
     /**
      * What may stand before the `function` keyword of a method with a body,
      * which no abstract method has.
@@ -29,9 +32,6 @@ final readonly class Enclosing
 
     /** What declares a class-like whose body holds a method with a body, which no interface's method has. */
     private const array CLASSES = [T_CLASS, T_TRAIT, T_ENUM];
-
-    /** The method PHP calls to make an object, which a test calls with `new`. */
-    private const string CONSTRUCTOR = '__construct';
 
     /** @param list<string> $parameters each parameter's name, with its `$` */
     private function __construct(

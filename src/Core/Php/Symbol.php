@@ -12,9 +12,10 @@ use function sprintf;
 
 /**
  * What a line that is not executable declares: a class constant, an enum case,
- * a property or a plain function's parameter, with the class or function it
- * belongs to and its name as written. The owner is fully qualified; one an
- * anonymous class owns is unnamed, since no reference can name it.
+ * a property, a plain function's parameter or an attribute's argument, with
+ * the class or function it belongs to and its name as written. The owner is
+ * fully qualified; one an anonymous class owns is unnamed, since no reference
+ * can name it.
  */
 final readonly class Symbol
 {
@@ -58,6 +59,18 @@ final readonly class Symbol
         $owner = ltrim($name, '\\');
 
         return new self(SymbolKind::GlobalConstant, $owner, array_last(explode('\\', $owner)));
+    }
+
+    /**
+     * An attribute's argument, by the class-like that owns it: the
+     * attribute's class, or the class-like `#[Attribute]` makes an attribute;
+     * and the attribute's name as written.
+     *
+     * @return ($owner is string ? self : Unnamed)
+     */
+    public static function attributeArgument(string|Nameless $owner, string $attribute): self|Unnamed
+    {
+        return self::owned(SymbolKind::AttributeArgument, $owner, $attribute);
     }
 
     /** A plain function's parameter default, by the function's fully qualified name. */

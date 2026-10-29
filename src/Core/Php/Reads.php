@@ -17,8 +17,9 @@ final readonly class Reads
     /**
      * Whether a file may read a value at all, from the words its names end
      * in: a constant's read spells its name, its owner's, a reflection's or
-     * `constant`, and an enum case's spells its enum's. A file that spells
-     * none of them is left unread, which is what every read would find.
+     * `constant`, and an enum case's and an attribute argument's spell their
+     * owner's. A file that spells none of them is left unread, which is what
+     * every read would find.
      */
     public static function mayHold(Symbol $symbol, Source $source): bool
     {
@@ -30,16 +31,21 @@ final readonly class Reads
                 || array_any(Reflections::CLASSES, $tokens->namesWord(...)),
             SymbolKind::GlobalConstant => $tokens->namesWord($symbol->name())
                 || $tokens->namesWord(self::LOOKUP),
-            SymbolKind::EnumCase => $tokens->namesWord(self::lastSegment($symbol->owner())),
+            SymbolKind::EnumCase,
+            SymbolKind::AttributeArgument => $tokens->namesWord(self::lastSegment($symbol->owner())),
             SymbolKind::StaticProperty,
             SymbolKind::Property,
             SymbolKind::FunctionParameter,
             SymbolKind::MethodParameter,
-            SymbolKind::ClosureParameter,
-            SymbolKind::AttributeArgument => true,
+            SymbolKind::ClosureParameter => true,
         };
     }
 
+    /**
+     * Where one file reads a value. An attribute's argument is read where the
+     * attribute is made, by reflection that names its owner, or by reflection
+     * no name leads to, so its reads are ambiguous.
+     */
     public static function of(Symbol $symbol, Source $source, Hierarchy $hierarchy): References
     {
         return match ($symbol->kind()) {
@@ -48,9 +54,9 @@ final readonly class Reads
             SymbolKind::GlobalConstant => GlobalReads::of($symbol, $source),
             SymbolKind::Property => Creations::of($symbol, $source, $hierarchy),
             SymbolKind::FunctionParameter => Calls::of($symbol, $source),
+            SymbolKind::AttributeArgument => Mentions::of($symbol, $source)->and(References::unknown()),
             SymbolKind::MethodParameter,
-            SymbolKind::ClosureParameter,
-            SymbolKind::AttributeArgument => References::unknown(),
+            SymbolKind::ClosureParameter => References::unknown(),
         };
     }
 

@@ -30,14 +30,33 @@ final readonly class MatchArms
     public static function of(Tokens $tokens, int $at): self|NotGiven
     {
         foreach ($tokens->indicesOf(T_MATCH) as $match) {
-            $body = $tokens->is($match + 1, '(') ? $tokens->closing($match + 1) + 1 : Tokens::NONE;
+            $body = self::bodyOf($tokens, $match);
 
-            if ($tokens->is($body, '{') && $match <= $at && $at <= $body) {
+            if ($body !== Tokens::NONE && $match <= $at && $at <= $body) {
                 return self::inside($tokens, $body);
             }
         }
 
         return NotGiven::value();
+    }
+
+    /**
+     * The arms of every match in a file whose arms close past the line its
+     * head opens them on.
+     *
+     * @return list<self>
+     */
+    public static function in(Tokens $tokens): array
+    {
+        $every = [];
+
+        foreach ($tokens->indicesOf(T_MATCH) as $match) {
+            $body = self::bodyOf($tokens, $match);
+            $arms = $body === Tokens::NONE ? NotGiven::value() : self::inside($tokens, $body);
+            $every = $arms instanceof self ? [...$every, $arms] : $every;
+        }
+
+        return $every;
     }
 
     /** The first line past the one the arms open on. */
@@ -50,6 +69,14 @@ final readonly class MatchArms
     public function last(): Line
     {
         return $this->last;
+    }
+
+    /** Where the arms of the match whose keyword stands at an index open; nowhere where it has none. */
+    private static function bodyOf(Tokens $tokens, int $match): int
+    {
+        $body = $tokens->is($match + 1, '(') ? $tokens->closing($match + 1) + 1 : Tokens::NONE;
+
+        return $tokens->is($body, '{') ? $body : Tokens::NONE;
     }
 
     /**

@@ -14,7 +14,7 @@ function symbolAtToken(string $code, string $text, int $nth = 0): Symbol|Unnamed
 {
     $source = Php::source($code);
 
-    return SymbolAt::in($source->tokens(), $source->shape())->token(Php::indexOf($source, $text, $nth));
+    return SymbolAt::in($source->tokens(), $source->shape(), $source->scope())->token(Php::indexOf($source, $text, $nth));
 }
 
 const SYMBOL_AT_CLASS = <<<'PHP'
@@ -80,7 +80,36 @@ it('reads an enum case\'s value, an interface constant and an attribute\'s argum
     expect(symbolAtToken($code, "'paid'"))->toEqual(Symbol::enumCase('App\Status', 'Paid'))
         ->and(symbolAtToken($code, 'Due'))->toEqual(Executable::line())
         ->and(symbolAtToken($code, '3'))->toEqual(Symbol::constant('App\Rated', 'LEVEL'))
-        ->and(symbolAtToken($code, '1'))->toEqual(Unnamed::of(SymbolKind::AttributeArgument))
+        ->and(symbolAtToken($code, '1'))->toEqual(Symbol::attributeArgument('App\Attr', 'Attr'))
+        ->and(symbolAtToken($code, '4'))->toEqual(Symbol::attributeArgument('App\Marked', 'Marked'));
+});
+
+it('owns the argument of `#[Attribute]` by the class-like it makes an attribute, past other groups and modifiers', function (): void {
+    $code = <<<'PHP'
+        <?php
+        namespace App;
+        use Attribute;
+        #[Attribute(Attribute::TARGET_CLASS | 1)]
+        #[Other]
+        final readonly class Marked { }
+        #[\Attribute(2), Kept(5)]
+        enum Kind { }
+        $made = new #[Attribute(3)] class { };
+        #[Attribute(4)]
+        function f() { }
+        #[Attribute(6)]
+        abstract class Base { }
+        #[\attribute(7)]
+        interface Lower { }
+        PHP;
+
+    expect(symbolAtToken($code, '1'))->toEqual(Symbol::attributeArgument('App\Marked', 'Attribute'))
+        ->and(symbolAtToken($code, '2'))->toEqual(Symbol::attributeArgument('App\Kind', '\Attribute'))
+        ->and(symbolAtToken($code, '5'))->toEqual(Symbol::attributeArgument('App\Kept', 'Kept'))
+        ->and(symbolAtToken($code, 'Other'))->toEqual(Symbol::attributeArgument('App\Other', 'Other'))
+        ->and(symbolAtToken($code, '6'))->toEqual(Symbol::attributeArgument('App\Base', 'Attribute'))
+        ->and(symbolAtToken($code, '7'))->toEqual(Symbol::attributeArgument('App\Lower', '\attribute'))
+        ->and(symbolAtToken($code, '3'))->toEqual(Unnamed::of(SymbolKind::AttributeArgument))
         ->and(symbolAtToken($code, '4'))->toEqual(Unnamed::of(SymbolKind::AttributeArgument));
 });
 
@@ -94,7 +123,7 @@ it('runs a global constant, a namespace block and an arrow function outside ever
 
 it('reads nothing where no token stands', function (): void {
     $source = Php::source('<?php $a = 1;');
-    $at = SymbolAt::in($source->tokens(), $source->shape());
+    $at = SymbolAt::in($source->tokens(), $source->shape(), $source->scope());
 
     expect($at->token(-1))->toEqual(Executable::line())
         ->and($at->token($source->tokens()->count()))->toEqual(Executable::line());
