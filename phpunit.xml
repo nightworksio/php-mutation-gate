@@ -50,6 +50,7 @@
             <exclude>tests/Contract/Runner/crash</exclude>
             <exclude>tests/Contract/Runner/reach</exclude>
             <exclude>tests/Contract/Runner/stall</exclude>
+            <exclude>tests/Contract/Runner/hang</exclude>
             <exclude>tests/Contract/Runner/override</exclude>
             <exclude>tests/Contract/Runner/constants</exclude>
             <exclude>tests/Contract/Runner/interceptor</exclude>
