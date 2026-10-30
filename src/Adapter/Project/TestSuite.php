@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Test\DeclaredSuites;
 use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
+use NightWorksIO\MutationGate\Core\Test\TestCases;
 
 /**
  * The test suite a project's test framework config declares (see
@@ -110,10 +111,13 @@ final readonly class TestSuite
     /** Whether a file is one of the suite's files of test cases: named, or with its directory's suffix. */
     public function holdsTestCase(Path $file): bool
     {
-        return $this->holds($file) && ($this->files->has($file) || array_any(
-            $this->directories,
-            static fn(SuiteDirectory $directory): bool => $directory->holdsTestCase($file),
-        ));
+        return $this->testCases()->holds($file);
+    }
+
+    /** The suite's files of test cases, as a runner is told them. */
+    public function testCases(): TestCases
+    {
+        return TestCases::of($this->files, $this->excluded, ...$this->directories);
     }
 
     /**

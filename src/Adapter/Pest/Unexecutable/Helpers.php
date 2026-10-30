@@ -22,7 +22,7 @@ use NightWorksIO\MutationGate\Core\Php\Site;
 
 /**
  * The test files that run a helper: a file under the test directories that
- * holds no test the map names, such as a support class or a file of
+ * Pest does not run as a test file, such as a support class or a file of
  * functions. Those are the files of the suite that name a class or function
  * the helper declares, or that name another helper that does, in turn. A
  * helper can also run where no name shows it, as a base test case's set-up
@@ -39,7 +39,7 @@ final class Helpers
 
     /**
      * @param Paths $files every file under the test directories
-     * @param Paths $suite those that hold a test the map names
+     * @param Paths $suite those Pest runs as test files
      */
     public function __construct(
         private readonly Project $project,

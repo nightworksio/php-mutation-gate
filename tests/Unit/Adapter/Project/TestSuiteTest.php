@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Test\DeclaredSuite;
 use NightWorksIO\MutationGate\Core\Test\DeclaredSuites;
 use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
+use NightWorksIO\MutationGate\Core\Test\TestCases;
 
 it('keeps its tests in the framework\'s conventional directory where nothing names another', function (): void {
     $specs = SuiteDirectory::of(Path::of('spec'), 'Spec.php');
@@ -35,7 +36,8 @@ it('holds the tests of the directories and files it names, less those it leaves 
         ->and($suite->suites())->toBe($suites)
         ->and($suite->holds(Path::of('tests/Unit/MoneyTest.php')))->toBeTrue()
         ->and($suite->holdsTestCase(Path::of('checks/SmokeCheck.php')))->toBeTrue()
-        ->and($suite->holds(Path::of('tests/Unit/fixture/Money.php')))->toBeFalse();
+        ->and($suite->holds(Path::of('tests/Unit/fixture/Money.php')))->toBeFalse()
+        ->and($suite->testCases())->toEqual(TestCases::of(Paths::of(Path::of('checks/SmokeCheck.php')), Paths::of(Path::of('tests/Unit/fixture')), $unit));
 });
 
 it('names the suites it leaves out for serving the application from another process, after those it named already, and none at first', function (): void {

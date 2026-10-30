@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Php\Symbol;
 use NightWorksIO\MutationGate\Core\Php\SymbolKind;
 use NightWorksIO\MutationGate\Core\Php\Unnamed;
+use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
+use NightWorksIO\MutationGate\Core\Test\TestCases;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\CoverageMaps;
@@ -40,7 +42,7 @@ function selectorMap(string $results): CoverageFile
 /** The selector over the project's run, whose map is the one the run left. */
 function selectorOver(Project $at): Selector
 {
-    return Selector::over($at, selectorMap(Unexecutables::run($at, [])), Paths::of(Path::of('src/Money.php')));
+    return Selector::over($at, selectorMap(Unexecutables::run($at, [])), Paths::of(Path::of('src/Money.php')), TestCases::unknown());
 }
 
 /** Test files by their names under tests/. */
@@ -76,7 +78,7 @@ it('reads only the files still there, and selects the files that hold a covering
         [$long],
         [$long => 0.1],
     );
-    $selector = Selector::over($at, selectorMap($results), Paths::none());
+    $selector = Selector::over($at, selectorMap($results), Paths::none(), TestCases::unknown());
     $run = selectorTests('InternalSpec');
 
     expect($selector->choose(Symbol::constant('App\Money', 'INTERNAL'), Path::of('src/Money.php')))
@@ -90,7 +92,7 @@ it('scans each mutated file, though the map covers no line of it', function (): 
     CoverageMaps::write(Recorder::coverageBeside($results), sprintf('%s/', $at->root()), ['src/Other.php' => [1 => [0]]], [$reads], [$reads => 0.1]);
     $money = Path::of('src/Money.php');
 
-    $read = Selector::over($at, selectorMap($results), Paths::of($money))->readCoverage(Paths::of($money), CoverageMap::empty());
+    $read = Selector::over($at, selectorMap($results), Paths::of($money), TestCases::unknown())->readCoverage(Paths::of($money), CoverageMap::empty());
 
     expect(array_map(static fn(TestId $test): string => $test->value(), [...$read->testsCovering($money, Line::of(5), Line::of(5))]))
         ->toBe([$reads]);
@@ -100,7 +102,7 @@ it('judges a mutant of a match\'s head by the tests that run its arms alone, wit
     $at = MatchHeads::project();
     $results = MatchHeads::run($at);
     $band = Path::of('src/Band.php');
-    $selector = Selector::over($at, selectorMap($results), Paths::of($band));
+    $selector = Selector::over($at, selectorMap($results), Paths::of($band), TestCases::unknown());
     $original = $selector->original($band);
     $copy = Contents::of((string) file_get_contents(Recorder::mutantBeside($results, 'head')));
 
@@ -112,7 +114,7 @@ it('judges a mutant of a statement\'s first line by the tests that run its other
     $at = MatchHeads::project();
     $results = MatchHeads::run($at);
     $band = Path::of('src/Band.php');
-    $selector = Selector::over($at, selectorMap($results), Paths::of($band));
+    $selector = Selector::over($at, selectorMap($results), Paths::of($band), TestCases::unknown());
     $original = $selector->original($band);
     $copy = Contents::of(PestPrint::of(str_replace('return strtoupper(', 'return strtolower(', MatchHeads::BAND)));
 
@@ -147,7 +149,7 @@ it('covers the lines of each value one run can judge with the tests of the files
 it('covers each line of a match\'s arms with the tests of the arms after it too, and leaves a file it cannot read as it was', function (): void {
     $at = MatchHeads::project();
     $band = Path::of('src/Band.php');
-    $selector = Selector::over($at, selectorMap(MatchHeads::run($at)), Paths::of($band));
+    $selector = Selector::over($at, selectorMap(MatchHeads::run($at)), Paths::of($band), TestCases::unknown());
     $onto = CoverageMap::empty()
         ->covered($band, Line::of(8), TestId::of('high'))
         ->covered($band, Line::of(9), TestId::of('low'))
@@ -193,7 +195,7 @@ it('chooses the test files that run any line of the body a method\'s parameter d
     CoverageMaps::write(Recorder::coverageBeside($results), sprintf('%s/', $root), ['src/Feed.php' => [10 => [0]]], [$follows], [$follows => 0.1]);
     $feed = Path::of('src/Feed.php');
 
-    $choice = Selector::over($at, selectorMap($results), Paths::of($feed))->choose(Symbol::constant('App\Feed', 'LIMIT'), $feed);
+    $choice = Selector::over($at, selectorMap($results), Paths::of($feed), TestCases::unknown())->choose(Symbol::constant('App\Feed', 'LIMIT'), $feed);
 
     expect($choice)->toEqual(Choice::of(selectorTests('FeedSpec'), selectorTests('FeedSpec'), ambiguous: false));
 });
@@ -212,7 +214,23 @@ it('chooses the test files that name a helper that reads a value, through the he
     CoverageMaps::write(Recorder::coverageBeside($results), sprintf('%s/', $root), ['src/Wallet.php' => [6 => [2]]], $tests, array_fill_keys($tests, 0.1));
     $wallet = Path::of('src/Wallet.php');
 
-    $choice = Selector::over($at, selectorMap($results), Paths::of($wallet))->choose(Symbol::constant('App\Wallet', 'LIMIT'), $wallet);
+    $choice = Selector::over($at, selectorMap($results), Paths::of($wallet), TestCases::unknown())->choose(Symbol::constant('App\Wallet', 'LIMIT'), $wallet);
 
     expect($choice)->toEqual(Choice::of(selectorTests('WalletSpec', 'ShelfSpec'), selectorTests('SpendSpec'), ambiguous: true));
+});
+
+it('reads a value in a test file whose tests run no line, where the suite runs it as a file of test cases, and in no helper or fixture', function (): void {
+    $at = Unexecutables::project();
+    $marked = Path::of('src/Marked.php');
+    Scratch::write($at->root(), $marked->value(), "<?php\nnamespace App;\nuse Attribute;\n#[Attribute(Attribute::TARGET_CLASS | Attribute::TARGET_METHOD)]\nfinal class Marked {}\n");
+    Scratch::write($at->root(), 'tests/MarkedSpec.php', "<?php\nit('flags', fn () => new ReflectionClass(App\\Marked::class)->getAttributes());\n");
+    Scratch::write($at->root(), 'tests/Fixture/MarkedSpec.php', "<?php\nit('flags elsewhere', fn () => new ReflectionClass(App\\Marked::class)->getAttributes());\n");
+    Scratch::write($at->root(), 'tests/Support/Marks.php', "<?php\nnamespace Tests\\Support;\nfinal class Marks { const MARK = \\App\\Marked::class; }\n");
+    $results = Unexecutables::run($at, []);
+    $cases = TestCases::of(Paths::none(), Paths::of(Path::of('tests/Fixture')), SuiteDirectory::of(Path::of('tests'), 'Spec.php'));
+    $choose = static fn(TestCases $cases): Choice => Selector::over($at, selectorMap($results), Paths::of($marked), $cases)
+        ->choose(Symbol::attributeArgument('App\Marked', 'Attribute'), $marked);
+
+    expect($choose($cases))->toEqual(Choice::of(selectorTests('MarkedSpec'), Paths::none(), ambiguous: true))
+        ->and($choose(TestCases::unknown()))->toEqual(Choice::of(Paths::none(), Paths::none(), ambiguous: true));
 });

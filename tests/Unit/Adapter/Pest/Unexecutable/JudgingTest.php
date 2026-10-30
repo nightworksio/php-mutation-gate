@@ -34,6 +34,7 @@ use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
+use NightWorksIO\MutationGate\Core\Test\TestCases;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -91,7 +92,7 @@ function judgingCoverage(string $results): Covering
  */
 function judgingScan(Project $at, string $results, string $mutated = 'src/Money.php'): Closure
 {
-    return static fn(): Selector => Selector::over($at, judgingCoverage($results), Paths::of(Path::of($mutated)));
+    return static fn(): Selector => Selector::over($at, judgingCoverage($results), Paths::of(Path::of($mutated)), TestCases::unknown());
 }
 
 it('judges each uncovered mutant on a line that is not executable by the tests that read its value, giving none that did not time out a limit', function () use (

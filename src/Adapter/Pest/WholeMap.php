@@ -58,7 +58,8 @@ final readonly class WholeMap
     public function selector(MutationRequest $request, Covering $reading, CoverageMap|Unshared $shared): Selector
     {
         $handed = $request->coverage();
-        $scanning = fn(): Selector => Selector::over($this->project, $reading, $request->files());
+        $cases = $request->narrowing()->testCases();
+        $scanning = fn(): Selector => Selector::over($this->project, $reading, $request->files(), $cases);
         $files = PathList::of($request->files())->joined(self::BETWEEN);
         $key = static fn(Handed $whole): string => sprintf('%s%s%s', $whole->whole()->value(), self::BETWEEN, $files);
 

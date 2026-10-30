@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\JudgingSuites;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\Suites;
+use NightWorksIO\MutationGate\Core\Test\TestCases;
 use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
@@ -22,8 +23,8 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
  * or those `--security` names (ADR-0021), the one suite whose
  * tests alone judge them, as `--suite` names it (ADR-0025), the
  * suites whose tests judge them otherwise, as `tests.suites` and
- * `tests.holding` list them (ADR-0002), and the mutators it leaves out of the files whose content is unchanged
- * (ADR-0025).
+ * `tests.holding` list them (ADR-0002), the mutators it leaves out of the files whose content is unchanged
+ * (ADR-0025), and the files the suite runs as files of test cases, as its config declares them.
  */
 final readonly class Narrowing
 {
@@ -32,13 +33,20 @@ final readonly class Narrowing
         private SuiteName|NotGiven $suite,
         private JudgingSuites $suites,
         private Pruned $pruned,
+        private TestCases $cases,
     ) {
     }
 
     /** Every mutator, judged by every test, on every file. */
     public static function none(): self
     {
-        return new self(Mutators::all(), NotGiven::value(), JudgingSuites::every(), Pruned::none());
+        return new self(
+            Mutators::all(),
+            NotGiven::value(),
+            JudgingSuites::every(),
+            Pruned::none(),
+            TestCases::unknown(),
+        );
     }
 
     /** This narrowing, making mutants with these mutators alone. */
@@ -57,6 +65,18 @@ final readonly class Narrowing
     public function amongSuites(JudgingSuites $suites): self
     {
         return clone($this, ['suites' => $suites]);
+    }
+
+    /** This narrowing, its runner told which files the suite runs as files of test cases. */
+    public function amongTestCases(TestCases $cases): self
+    {
+        return clone($this, ['cases' => $cases]);
+    }
+
+    /** Which files the suite runs as files of test cases; none known, unless it was told. */
+    public function testCases(): TestCases
+    {
+        return $this->cases;
     }
 
     /** This narrowing, leaving these mutators out of these files. */
