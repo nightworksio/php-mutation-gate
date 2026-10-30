@@ -5,14 +5,17 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Coverage\Fresh;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\JudgingSuites;
+use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\Suites;
+use NightWorksIO\MutationGate\Core\Test\TestCases;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
 it('narrows nothing by default: every mutator, judged by every test', function (): void {
@@ -20,7 +23,16 @@ it('narrows nothing by default: every mutator, judged by every test', function (
 
     expect($none->mutators())->toEqual(Mutators::all())
         ->and($none->suite())->toEqual(NotGiven::value())
+        ->and($none->testCases())->toEqual(TestCases::unknown())
         ->and($none->isNone())->toBeTrue();
+});
+
+it('tells which files the suite runs as files of test cases, which narrows nothing', function (): void {
+    $cases = TestCases::of(Paths::none(), Paths::none(), SuiteDirectory::conventional());
+    $told = Narrowing::none()->toMutators(Mutators::named('Plus'))->amongTestCases($cases);
+
+    expect([$told->testCases(), $told->mutators()])->toEqual([$cases, Mutators::named('Plus')])
+        ->and(Narrowing::none()->amongTestCases($cases)->isNone())->toBeTrue();
 });
 
 it('narrows to some mutators, leaving the suite as it was', function (): void {

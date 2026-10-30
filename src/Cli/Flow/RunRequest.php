@@ -18,7 +18,8 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
  * run's mutant (ADR-0004): these files by these tests,
  * with the mutators the run is narrowed to (ADR-0021),
  * withholding what the run withholds, under the memory cap the config sets,
- * each mutant started as `runner.workers` says, one at a time.
+ * each mutant started as `runner.workers` says, one at a time, its runner
+ * told which files the suite runs as files of test cases.
  * What decides a mutant's outcome is set here once, so a run and its
  * reproduction cannot differ in it.
  */
@@ -31,7 +32,7 @@ final readonly class RunRequest
         WholeSuite|Group|Filter $judgedBy,
     ): MutationRequest {
         return MutationRequest::of($files, $judgedBy)
-            ->narrowedTo($files, $adapters->narrowing)
+            ->narrowedTo($files, $adapters->narrowing->amongTestCases($adapters->suite->testCases()))
             ->withholding($adapters->withheld)
             ->cappedAt($settings->runner()->memory())
             ->across(Pool::of(ProcessCount::single(), $settings->runner()->workers()));

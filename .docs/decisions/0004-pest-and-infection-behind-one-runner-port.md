@@ -342,9 +342,12 @@ its parser attributes. Both change when the checkout moves.
        not run as a test file, through the test files that name a class or
        function the helper declares, or that name another helper that does,
        in turn. Pest runs a file as a test file where it holds a test the map
-       names, or where it declares a test of its own with `it()`, `test()`
-       or `arch()`, as a test file whose tests run no line does: a map
-       php-code-coverage reports names no test of it.
+       names, or where the suite's config declares it a file of test cases
+       (`TestCases`, which every run's request carries in its narrowing). A
+       test file whose tests run no line is one of these: a map
+       php-code-coverage reports names no test of it. A fixture under a test
+       directory that the config leaves out, or that lacks its directory's
+       suffix, stays a helper, though it declares tests of its own.
 
      A closure's parameter default and a method's parameter default have no
      reference a token scan can follow, and a reflection no name leads to can

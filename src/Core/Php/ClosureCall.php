@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Php;
 
-use function array_any;
 use function ltrim;
 
 use NightWorksIO\MutationGate\Core\Hold\Standing;
@@ -39,18 +38,6 @@ final readonly class ClosureCall
         'beforeAll' => Standing::HookClosure,
         'afterAll' => Standing::HookClosure,
     ];
-
-    /**
-     * Whether code hands a closure to one of Pest's functions that declare a
-     * test, as only a file Pest runs as a test file does.
-     */
-    public static function declaresTest(Tokens $tokens): bool
-    {
-        return array_any(
-            $tokens->indicesOf(T_FUNCTION, T_FN),
-            static fn(int $at): bool => self::standingOf($tokens, $at) === Standing::TestClosure,
-        );
-    }
 
     /** Where the closure whose attributes begin at an index stands. */
     public static function standingOf(Tokens $tokens, int $start): Standing

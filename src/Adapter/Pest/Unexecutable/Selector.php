@@ -34,6 +34,7 @@ use NightWorksIO\MutationGate\Core\Php\ValueDeclaration;
 use NightWorksIO\MutationGate\Core\Php\ValueDeclarations;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
+use NightWorksIO\MutationGate\Core\Test\TestCases;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -48,10 +49,10 @@ use function range;
  * StatementTail): the test files that cover its other lines. The scan
  * reads every file under the test directories and every file the map covers
  * or the run mutates, but chooses only the files Pest runs as test files:
- * those that hold a test the map names, and those that declare a test of
- * their own, whose tests may run no line the map can name them by. Another
- * file there, such as a helper or a fixture, is no test file Pest runs, and
- * run as one it fails. A read in such a helper chooses the
+ * those that hold a test the map names, and the files of test cases the
+ * suite's config declares, whose tests may run no line the map can name
+ * them by. Another file there, such as a helper or a fixture, is no test
+ * file Pest runs, and run as one it fails. A read in such a helper chooses the
  * test files that name it (see Helpers), and is ambiguous.
  */
 final readonly class Selector
@@ -71,7 +72,7 @@ final readonly class Selector
     ) {
     }
 
-    public static function over(Project $project, Covering $coverage, Paths $mutated): self
+    public static function over(Project $project, Covering $coverage, Paths $mutated, TestCases $cases): self
     {
         $tests = new TestFiles($project);
         $listed = $tests->all();
@@ -87,9 +88,8 @@ final readonly class Selector
             $sources[] = $listed->has($file) ? [] : self::read($project, $file, test: false);
         }
 
-        $read = array_merge(...$sources);
-        $suite = $tests->holdingAny($map->tests())->and(DeclaredTests::among(...$read));
-        $codebase = Codebase::of(...$read);
+        $suite = $tests->holdingAny($map->tests())->and($cases->among($listed));
+        $codebase = Codebase::of(...array_merge(...$sources));
 
         $originals = new Originals($project, $codebase);
 

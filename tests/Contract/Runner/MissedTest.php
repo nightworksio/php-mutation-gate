@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
+use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
+use NightWorksIO\MutationGate\Core\Test\TestCases;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -77,6 +79,7 @@ function missedMutants(string $file, string $mutator): array|string
     $runner = Library::pest(Patching::on(Library::canary()))->runner();
     $mutated = Paths::of(Path::of($file));
     $directory = Path::of('.mutation-gate/missed');
+    $specs = TestCases::of(Paths::none(), Paths::none(), SuiteDirectory::of(Path::of('tests'), 'Spec.php'));
 
     try {
         $map = $runner->coverage(CoverageRun::of(WholeSuite::tests(), $directory));
@@ -85,7 +88,7 @@ function missedMutants(string $file, string $mutator): array|string
             CoverageMapFile::encode($map instanceof CoverageMap ? missedAsReported($map) : CoverageMap::empty(), Unplaced::map()),
         );
         $result = $runner->mutate(MutationRequest::of($mutated, WholeSuite::tests())
-            ->narrowedTo($mutated, Narrowing::none()->toMutators(Mutators::named($mutator)))
+            ->narrowedTo($mutated, Narrowing::none()->toMutators(Mutators::named($mutator))->amongTestCases($specs))
             ->reusingCoverage(Handed::maps($directory, $directory)));
     } finally {
         foreach ($copied as $each) {
