@@ -97,6 +97,28 @@ it('starts fresh, and warns of it, the run of a mutant of a file it loaded', fun
         ))));
 });
 
+it('starts fresh, and warns of it, the run of a mutant of a file that declares what it declared from another', function (string $code, string $declared) use ($seat, $request, $warned): void {
+    $at = $seat();
+    $root = Scratch::directory();
+    Scratch::write($root, 'copy/Declared.php', sprintf("<?php\n%s\n", $code));
+    $mutated = (string) realpath(sprintf('%s/copy/Declared.php', $root));
+    $request((int) getmypid(), $mutated)->leftIn($at->request());
+    Worker::at($at->directory(), 1, Passing::for('0.3'), new Pauses()->pausing())->served(ShellForking::none($at));
+    $finish = Finish::readFrom($at->ended('42-1'));
+
+    expect($finish instanceof Finish && $finish->isRefused())->toBeTrue()
+        ->and($warned($at))->toEqual(Warnings::of(Warning::that(sprintf(
+            'The warm worker had declared %s, which %s declares, so its mutants ran fresh.',
+            $declared,
+            $mutated,
+        ))));
+})->with([
+    'a class' => ['namespace NightWorksIO\\MutationGate\\Adapter\\Pest\\Warm; final class Worker {}', 'nightworksio\\mutationgate\\adapter\\pest\\warm\\worker'],
+    'an interface' => ['namespace PHPUnit\\Framework; interface Test {}', 'phpunit\\framework\\test'],
+    'a trait' => ['namespace Pest\\Concerns; trait Testable {}', 'pest\\concerns\\testable'],
+    'a function' => ['function it() {}', 'it'],
+]);
+
 it('starts fresh, and warns of it, a run it could fork no child for', function () use ($seat, $request, $warned): void {
     $at = $seat();
     $request((int) getmypid())->leftIn($at->request());

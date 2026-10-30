@@ -4,19 +4,27 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Warm;
 
+use function class_exists;
+
 use Closure;
 
+use function file_get_contents;
 use function file_put_contents;
+use function function_exists;
 use function get_included_files;
 use function getmypid;
 use function in_array;
+use function interface_exists;
 use function is_dir;
 use function is_file;
 use function is_int;
+use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\Baseline;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\WarmDatabase;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Php\PhpFile;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 
 use function pcntl_waitpid;
@@ -27,6 +35,7 @@ use function posix_kill;
 use function realpath;
 use function sprintf;
 use function strval;
+use function trait_exists;
 
 /**
  * A warm worker of a Pest run (ADR-0023), in one place among
@@ -36,12 +45,15 @@ use function strval;
  * a fresh process would, so the worker itself never runs a test. Each child
  * readies its test databases from the baseline the worker keeps, and the
  * worker keeps what the child reports. A run of a mutant of a file the worker
- * loaded, one of the gate's own, starts fresh. The worker ends once its
+ * loaded, one of the gate's own, or of a file that declares a class or function
+ * the worker declared from another, starts fresh. The worker ends once its
  * parent is gone, or the gate says the run is done.
  */
 final readonly class Worker
 {
     private const string LOADED = 'The warm worker had loaded %s, which a mutant changes, so its mutants ran fresh.';
+
+    private const string DECLARED = 'The warm worker had declared %s, which %s declares, so its mutants ran fresh.';
 
     private const string UNFORKED = 'The warm worker could not fork, so a mutant ran fresh.';
 
@@ -140,8 +152,36 @@ final readonly class Worker
     {
         $real = realpath($mutated);
         $isLoaded = $real !== false && in_array($real, get_included_files(), strict: true);
+        $declared = $real !== false && is_file($real) ? $this->declared($real) : '';
 
-        return $isLoaded ? sprintf(self::LOADED, $real) : '';
+        return match (true) {
+            $isLoaded => sprintf(self::LOADED, $real),
+            $declared !== '' => sprintf(self::DECLARED, $declared, $real),
+            default => '',
+        };
+    }
+
+    /**
+     * The first name a file declares that the worker has declared already,
+     * from that file or any other, as the gate running a run of its own
+     * source declares its own classes; none where it has none.
+     */
+    private function declared(string $file): string
+    {
+        $text = file_get_contents($file);
+
+        foreach (is_string($text) ? PhpFile::read(Contents::of($text))->declares()->all() : [] as $name) {
+            $isDeclared = class_exists($name, autoload: false)
+                || interface_exists($name, autoload: false)
+                || trait_exists($name, autoload: false)
+                || function_exists($name);
+
+            if ($isDeclared) {
+                return $name;
+            }
+        }
+
+        return '';
     }
 
     /**
