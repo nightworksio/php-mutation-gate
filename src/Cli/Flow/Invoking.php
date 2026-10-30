@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\Control\Control;
 use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Control\Controls;
+use NightWorksIO\MutationGate\Core\Control\HeavyMutants;
 use NightWorksIO\MutationGate\Core\Control\KillControls;
 use NightWorksIO\MutationGate\Core\Control\MemoryControls;
 use NightWorksIO\MutationGate\Core\Control\TimeoutControls;
@@ -51,7 +52,8 @@ use Psr\Clock\ClockInterface;
  * nor kills run once more, where `flaky.confirmSurvivors` asks for it
  * (ADR-0008), so a survivor static analysis kills never runs again. A
  * mutant whose time ran out is never run again; its tests run unmutated, as
- * its control, under the same limit (see TimeoutControls), unless
+ * its control, under the same limit (see TimeoutControls), but for a heavy
+ * one, whose tests run in parts with it served (see PartedRuns), unless
  * `timeouts.mode: unjudged` makes every timeout too slow to judge, and so do
  * the tests that killed each mutant a test is named for, a file's together
  * first and each kill's alone only where that does not pass (see KillControls),
@@ -74,6 +76,7 @@ final readonly class Invoking
         private CoverageMap $map,
         private HeldCovered $held,
         private SurvivorChecking $checking,
+        private PartedRuns $parted,
         private PreChecker $preChecker = new NoPreCheck(),
     ) {
     }
@@ -211,7 +214,8 @@ final readonly class Invoking
      * The mutants, each timeout, each kill a test is named for, each kill no
      * test is named for whose ending does not vouch for it, and each mutant
      * out of memory judged by its unmutated control (see TimeoutControls,
-     * KillControls, UnnamedKillControls and MemoryControls), with the
+     * KillControls, UnnamedKillControls and MemoryControls), and each heavy
+     * timeout by its parts after them (see PartedRuns), with the
      * evidence of each unnamed kill its control vouches for, a control
      * two of them share run once: those that fit in the time left run side
      * by side, in the request's pool, and the rest are unjudged. Under
@@ -221,14 +225,10 @@ final readonly class Invoking
     {
         $run = $this->adapters->runner->behaviour()->selection();
         $unfiltered = $this->unfilteredIn($mutants, $evidence);
-        $timeouts = TimeoutControls::of(
-            $this->settings->triage()->timeouts() === TimeoutMode::Unjudged ? Mutants::none() : $mutants,
-            $unfiltered,
-            $this->map,
-            $this->held,
-            $run,
-        );
         $bounds = $request->pool()->bounding($this->settings->triage()->bounds());
+        $timed = $this->settings->triage()->timeouts() === TimeoutMode::Unjudged ? Mutants::none() : $mutants;
+        $heavy = $this->parted->among($timed, $run, $bounds);
+        $timeouts = TimeoutControls::of($heavy->without($timed), $unfiltered, $this->map, $this->held, $run);
         $kills = KillControls::of($mutants, $this->map, $bounds);
         $memory = MemoryControls::of($mutants, $unfiltered, $this->map, $this->held, $run, $bounds);
         $unnamed = UnnamedKillControls::of($mutants, $evidence, $this->map, $this->held, $run, $bounds);
@@ -240,7 +240,7 @@ final readonly class Invoking
         ])];
 
         if ($asked === []) {
-            return new Controlled($mutants, $evidence);
+            return $this->partedIn(new Controlled($mutants, $evidence), $heavy, $request);
         }
 
         [$runs, $left] = $this->ranOf($asked, $request);
@@ -249,26 +249,43 @@ final readonly class Invoking
             ? [ControlRuns::none(), Controls::none()]
             : $this->ranOf($fallback, $request);
 
-        return match (true) {
-            $runs instanceof CannotJudge => $runs,
-            $again instanceof CannotJudge => $again,
-            default => new Controlled(
-                $unnamed->applied(
-                    $memory->applied(
-                        $kills->applied(
-                            $timeouts->applied($mutants, $runs, $left),
-                            $runs->and($again),
-                            $left->and($leftAgain),
-                        ),
-                        $runs,
-                        $left,
+        if ($runs instanceof CannotJudge || $again instanceof CannotJudge) {
+            return $runs instanceof CannotJudge ? $runs : $again;
+        }
+
+        $controlled = new Controlled(
+            $unnamed->applied(
+                $memory->applied(
+                    $kills->applied(
+                        $timeouts->applied($mutants, $runs, $left),
+                        $runs->and($again),
+                        $left->and($leftAgain),
                     ),
                     $runs,
                     $left,
                 ),
-                $unnamed->vouching($mutants, $evidence, $runs, $left),
+                $runs,
+                $left,
             ),
-        };
+            $unnamed->vouching($mutants, $evidence, $runs, $left),
+        );
+
+        return $this->partedIn($controlled, $heavy, $request);
+    }
+
+    /** What the controls found, each heavy mutant judged by its parts; or why a part cannot be judged. */
+    private function partedIn(
+        Controlled $controlled,
+        HeavyMutants $heavy,
+        MutationRequest $request,
+    ): Controlled|CannotJudge {
+        $mutants = $this->parted->judged(
+            $controlled->mutants,
+            $heavy,
+            fn(array $asked): array => $this->ranOf($asked, $request),
+        );
+
+        return $mutants instanceof CannotJudge ? $mutants : new Controlled($mutants, $controlled->evidence);
     }
 
     /** The test files each of these mutants' own runs loaded with no filter, as the evidence says. */

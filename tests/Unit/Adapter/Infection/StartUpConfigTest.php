@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -181,6 +182,7 @@ it('writes a control\'s config in a place of its own, its one suite holding the 
         Path::of('src/Money.php'),
         Paths::of(Path::of('tests/MoneyTest.php'), Path::of('tests/R&DTest.php')),
         'controls/3',
+        NotGiven::value(),
     );
     $written = new DOMDocument();
     $written->load(is_string($file) ? $file : '');
@@ -203,7 +205,7 @@ it('fails a control on a risky test and on a warning, as Infection fails a mutan
     $project = Project::at(Root::of($root), Paths::of(Path::of('tests')), Path::of('.gate'));
     $control = static function (string $config) use ($root, $project): DOMXPath {
         Scratch::write($root, 'phpunit.xml', $config);
-        $file = StartUpConfig::holding($project, ownConfigOf($project), Path::of('src/Money.php'), Paths::none(), 'controls/0');
+        $file = StartUpConfig::holding($project, ownConfigOf($project), Path::of('src/Money.php'), Paths::none(), 'controls/0', NotGiven::value());
         $document = new DOMDocument();
         $document->load(is_string($file) ? $file : '');
 
@@ -224,6 +226,6 @@ it('writes no control\'s config where the project\'s cannot be read', function (
     Scratch::write($root, 'phpunit.xml', 'not <xml');
     $project = Project::at(Root::of($root), Paths::of(Path::of('tests')), Path::of('.gate'));
 
-    expect(StartUpConfig::holding($project, ownConfigOf($project), Path::of('src/Money.php'), Paths::none(), 'controls/0'))
+    expect(StartUpConfig::holding($project, ownConfigOf($project), Path::of('src/Money.php'), Paths::none(), 'controls/0', NotGiven::value()))
         ->toEqual(CannotJudge::because(sprintf('PHPUnit\'s config %s/phpunit.xml is not XML the gate can read.', $root)));
 });

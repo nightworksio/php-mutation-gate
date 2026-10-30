@@ -529,8 +529,10 @@ manual.
       line, and runs Pest's script, which loads the autoloader as it does in
       a fresh process. A worker runs with opcache off, so no child is served
       what another compiled from its mutant. A run of a mutant of a file the
-      worker loaded, one of the gate's own, starts fresh, and the run warns
-      of it once.
+      worker loaded, one of the gate's own, starts fresh, and so does one of
+      a file that declares a class or function the worker declared from
+      another file, as when the gate runs a copy of its own source on that
+      source. The run warns of it once.
     - The worker leaves the process Pest started for one of its own, which
       the system takes on, so a worker that ends is reaped and its clients
       see it gone. It stops a child, with every process under it, once the

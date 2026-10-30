@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Control\ControlRun;
 use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Control\PeakLauncher;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Native\Command;
@@ -22,6 +23,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -225,4 +227,19 @@ it('removes the memory cap its controls scanned once they have run', function ()
 
     expect($shell->commands())->toHaveCount(1)
         ->and(is_dir($scanned))->toBeFalse();
+});
+
+it('runs a part of a heavy mutant\'s run with the mutant served through the override, stopped where no test starts or ends for its silence limit', function () use ($makeWhole): void {
+    $project = unmutatedPhpUnitProject();
+    $shell = controlPhpUnit(Outcome::Failed, Ran::finished(succeeded: false, output: ''));
+    $mutated = "<?php\n\nfunction add(\$a, \$b)\n{\n    return \$a - \$b;\n}\n";
+    $part = phpUnitControl('src/Money.php', 6.0)->serving(Contents::of($mutated), Seconds::of(3.0));
+
+    $runs = controlled(unmutated($project, $shell), Controls::of($part), $makeWhole());
+    $command = $shell->commands()[0];
+    $silence = $command->silence();
+
+    expect(file_get_contents($command->environment()[Variable::Mutated->value]))->toBe($mutated)
+        ->and($silence instanceof SilenceLimit ? $silence->limit() : $silence)->toEqual(Seconds::of(3.0))
+        ->and($runs->of($part)->end())->toBe(ControlEnd::Failed);
 });

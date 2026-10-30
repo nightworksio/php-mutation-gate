@@ -22,10 +22,11 @@ use function sprintf;
 
 /**
  * An unmutated control as the native runner runs it (ADR-0008):
- * a mutant that changes nothing, its file as the project holds it, which the
- * override serves in the original's place as it serves a mutant's, so the
- * control's run and the mutant's differ in the mutation alone. Its id is made
- * from the control, so each control's files are its own.
+ * a mutant that changes nothing, its file as the project holds it, or as the
+ * mutant a part of a heavy mutant's run serves, which the override serves in
+ * the original's place as it serves a mutant's, so the control's run and the
+ * mutant's differ in the mutation alone. Its id is made from the control, so
+ * each control's files are its own.
  */
 final readonly class ControlMutant
 {
@@ -40,7 +41,12 @@ final readonly class ControlMutant
     {
         $file = $control->file();
         $absolute = $project->absolute($file);
-        $text = is_file($absolute) ? file_get_contents($absolute) : false;
+        $served = $control->served();
+        $text = match (true) {
+            $served instanceof Contents => $served->text(),
+            is_file($absolute) => file_get_contents($absolute),
+            default => false,
+        };
         $first = Line::first();
 
         return $text === false

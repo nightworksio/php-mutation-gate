@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -108,7 +109,7 @@ it('runs a control on its config with the project\'s arguments, logging JUnit, s
         TestId::of('tests/money.phpt'),
     );
 
-    expect(Invocation::controlling(invokedIn(), $config, '/project/.gate/infection/controls/0/phpunit.xml', $tests, '/project/.gate/infection/controls/0/junit.xml')->arguments())->toBe([
+    expect(Invocation::controlling(invokedIn(), $config, '/project/.gate/infection/controls/0/phpunit.xml', $tests, '/project/.gate/infection/controls/0/junit.xml', NotGiven::value())->arguments())->toBe([
         PHP_BINARY,
         '/project/vendor/bin/phpunit',
         '--configuration=/project/.gate/infection/controls/0/phpunit.xml',
@@ -126,12 +127,13 @@ it('runs a control on its config with the project\'s arguments, logging JUnit, s
 it('runs every test of a control\'s suite where PCRE cannot compile the filter of its tests', function (): void {
     $tests = TestIds::of(...array_map(static fn(int $at): TestId => TestId::of(sprintf('Tests\\MoneyTest::testAdds%d', $at)), range(1, 3000)));
 
-    expect(Invocation::controlling(invokedIn(), invoked('{}'), '/project/.gate/infection/controls/0/phpunit.xml', $tests, '/project/.gate/infection/controls/0/junit.xml')->arguments())->toBe([
+    expect(Invocation::controlling(invokedIn(), invoked('{}'), '/project/.gate/infection/controls/0/phpunit.xml', $tests, '/project/.gate/infection/controls/0/junit.xml', '/project/.gate/infection/controls/0/events.txt')->arguments())->toBe([
         PHP_BINARY,
         '/project/vendor/bin/phpunit',
         '--configuration=/project/.gate/infection/controls/0/phpunit.xml',
         '--colors=never',
         '--log-junit=/project/.gate/infection/controls/0/junit.xml',
+        '--log-events-text=/project/.gate/infection/controls/0/events.txt',
         '--cache-directory=/project/.mutation-gate/phpunit-cache',
     ]);
 });
@@ -203,7 +205,7 @@ it('writes the report of the lines no test ran beside the layout only for the ga
 it('keeps every PHPUnit it starts to the gate\'s own cache directory, in place of one the project\'s arguments name', function (): void {
     $config = invoked('{"testFrameworkExtraArgs": "--cache-directory=.phpunit.cache --testsuite=unit"}');
     $mutation = Invocation::mutation(invokedIn(), $config, WholeSuite::tests(), DiskPath::of('/c'), ProcessCount::of(1), ['/p'], Suites::all());
-    $control = Invocation::controlling(invokedIn(), $config, '/c/phpunit.xml', TestIds::none(), '/c/junit.xml');
+    $control = Invocation::controlling(invokedIn(), $config, '/c/phpunit.xml', TestIds::none(), '/c/junit.xml', NotGiven::value());
 
     expect(array_slice($mutation->arguments(), -2))->toBe([
         '--test-framework-extra-args=--testsuite="unit" --cache-directory="/project/.mutation-gate/phpunit-cache"',

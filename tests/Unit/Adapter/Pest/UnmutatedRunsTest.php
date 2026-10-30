@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Control\PeakLauncher;
 use NightWorksIO\MutationGate\Core\Control\TimeoutControls;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -33,6 +34,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Leftover;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
@@ -40,6 +42,7 @@ use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\RunTests;
+use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Runner\UnfilteredRuns;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -356,4 +359,21 @@ it('runs no control where the launcher cannot be written, saying where', functio
 
     expect($runs)->toEqual(PeakLauncher::unwritten(PeakLauncher::in($controls)))
         ->and($shell->commands())->toBe([]);
+});
+
+it('runs a part of a heavy mutant\'s run with the mutant served in its file\'s place, stopped where it writes no event of its tests for its silence limit', function (): void {
+    $at = unmutatedProject();
+    $shell = ShellFake::answering(Ran::finished(succeeded: false, output: ''));
+    $part = pestControl('src/Money.php', 7.0)->serving(Contents::of("<?php\n\nfinal class Money { }\n"), Seconds::of(4.0));
+
+    unmutatedRuns($at, $shell, Controls::of($part, pestControl('src/Money.php', 7.0)), unmutatedRequest());
+    [$served, $unmutated] = $shell->commands();
+    $copy = $served->environment()[Recorder::MUTATED];
+    $events = sprintf('%s/pest/controls/events-0.txt', $at->workspace());
+
+    expect(is_string($copy) ? file_get_contents($copy) : $copy)->toBe("<?php\n\nfinal class Money { }\n")
+        ->and($served->arguments())->toContain(sprintf('--log-events-text=%s', $events))
+        ->and($served->silence())->toEqual(SilenceLimit::of(Seconds::of(4.0), $events))
+        ->and(implode(' ', $unmutated->arguments()))->not->toContain('--log-events-text')
+        ->and($unmutated->silence())->toEqual(NotGiven::value());
 });

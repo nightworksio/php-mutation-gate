@@ -325,7 +325,36 @@ presets for Laravel, Symfony and plain libraries.
      unjudged, and more time judges it.
    - **No retry.** A timed-out or skipped mutant is never run again, in any
      runner: the control judges it as its run left it. A control is no run of
-     the mutant; it runs the tests on the original.
+     the mutant; it runs the tests on the original. A heavy mutant is the one
+     exception.
+   - **A heavy mutant is judged in parts.** A mutant that timed out at
+     `timeouts.most`, whose judging tests are more than one and whose
+     standard limit together is above the most, has no control. Its tests
+     are split into parts that each fit under the most:
+     - The tests of the test file whose path shares the most leading
+       directories with the mutant's file come first, then the fastest, then
+       by path. A test the runner places in no file comes last.
+     - A file's tests go in one part where they fit in one, and one test at
+       a time, the fastest first, where they do not.
+
+     Each part runs through `Runner::controls()` with the mutant served in
+     its file's place, as the runner gives it to a static analyser:
+     - It is allowed the standard limit of its own tests.
+     - It is stopped where it writes no event of its tests for the silence
+       limit of its slowest. The runners write the events with
+       `--log-events-text`; the native runner uses its own record of each
+       test.
+     - The heavy mutants' next runs go side by side, one round after
+       another, under the budget as controls are.
+
+     A part a test fails in kills the mutant, by those tests, and no later
+     part runs. A part that runs out has its control, the same tests
+     unmutated under the same limit. Where they pass, the mutant is a timeout
+     the triage above judges. Where they run out or fail, that part cannot
+     judge the mutant, and the next part runs. Where every part passes, the
+     mutant survived. Where none killed it and a part could not judge it, it
+     is too slow to judge, or its tests fail unmutated, its reason naming the
+     part.
    - **The mode.** `timeouts.mode` is `confirm` by default, as described above,
      or `unjudged`, which makes every timeout too slow to judge, for projects
      that want no kill they cannot see. It runs no control.

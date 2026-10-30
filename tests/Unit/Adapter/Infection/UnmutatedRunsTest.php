@@ -15,9 +15,11 @@ use NightWorksIO\MutationGate\Core\Control\ControlRun;
 use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Control\PeakLauncher;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
@@ -25,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -231,4 +234,20 @@ it('runs no control where the launcher cannot be written, saying where', functio
 
     expect($runs)->toEqual(PeakLauncher::unwritten($launcher))
         ->and($shell->commands())->toBe([]);
+});
+
+it('runs a part of a heavy mutant\'s run with the mutant served through Infection\'s interceptor, stopped where it writes no event of its tests for its silence limit', function () use ($makeRequest): void {
+    $at = controlledInfection();
+    $shell = InfectionShellFake::answering(Ran::finished(succeeded: false, output: ''));
+    $part = infectionControl('src/Money.php', 6.0)->serving(Contents::of('<?php // money, mutated'), Seconds::of(3.0));
+
+    infectionControlled($at, $shell, Controls::of($part, infectionControl('src/Money.php', 6.0)), $makeRequest());
+    [$served, $unmutated] = $shell->commands();
+    $events = sprintf('%s/.gate/infection/unmutated/control-0/events.txt', $at->root());
+
+    expect(file_get_contents(sprintf('%s/.gate/infection/unmutated/control-0/Money.php', $at->root())))->toBe('<?php // money, mutated')
+        ->and(file_get_contents(sprintf('%s/.gate/infection/unmutated/control-1/Money.php', $at->root())))->toBe('<?php // money')
+        ->and($served->arguments())->toContain(sprintf('--log-events-text=%s', $events))
+        ->and($served->silence())->toEqual(SilenceLimit::of(Seconds::of(3.0), $events))
+        ->and($unmutated->silence())->toEqual(NotGiven::value());
 });

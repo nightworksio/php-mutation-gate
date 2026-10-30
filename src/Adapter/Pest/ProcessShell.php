@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
 use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
 use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Runner\Unwatched;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -53,8 +54,11 @@ final readonly class ProcessShell implements Shell
     /** A command as a process runs it, in this shell's directory. */
     private function processCommandOf(Command $command): ProcessCommand
     {
-        return ProcessCommand::of($this->directory, ...$command->arguments())
+        $process = ProcessCommand::of($this->directory, ...$command->arguments())
             ->with(EnvironmentRead::of($command->environment()))
             ->within($command->deadline());
+        $silence = $command->silence();
+
+        return $silence instanceof SilenceLimit ? $process->silencedAfter($silence) : $process;
     }
 }

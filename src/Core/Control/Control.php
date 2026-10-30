@@ -8,6 +8,8 @@ use function array_map;
 
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\OwnTime;
+use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
@@ -28,8 +30,10 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  * An unmutated control of a mutant's run (ADR-0008): these
  * tests, in this order, selected as the run selected them, run with the file
  * the mutant changes served unmutated, as the runner served the mutant, and
- * allowed the limit its run was. Two controls of the same file, tests,
- * selection and limit are one control.
+ * allowed the limit its run was. A part of a heavy mutant's run is one too,
+ * with the mutant's text served in the file's place, and stopped where no
+ * test finishes for its silence limit (see HeavyMutants). Two controls of
+ * the same file, tests, selection, served text and limits are one control.
  */
 final readonly class Control
 {
@@ -42,8 +46,13 @@ final readonly class Control
     /** How a control's key spells a selection of every test file. */
     private const string EVERY_FILE = '*';
 
-    private function __construct(private Path $file, private RunTests $run, private Seconds $limit)
-    {
+    private function __construct(
+        private Path $file,
+        private RunTests $run,
+        private Seconds $limit,
+        private Contents|NotGiven $served = new NotGiven(),
+        private Seconds|NotGiven $silence = new NotGiven(),
+    ) {
     }
 
     /** The control of these tests on this file, as the runner selects any set of tests, allowed this limit. */
@@ -94,10 +103,41 @@ final readonly class Control
         );
     }
 
+    /**
+     * This run with a mutant's text served in its file's place, and stopped
+     * where no test finishes for this silence limit: a part of a heavy
+     * mutant's run.
+     */
+    public function serving(Contents $mutated, Seconds $silence): self
+    {
+        return new self($this->file, $this->run, $this->limit, $mutated, $silence);
+    }
+
+    /**
+     * This run with its file served unmutated, and stopped at its limit
+     * alone: the control of a part of a heavy mutant's run.
+     */
+    public function unmutated(): self
+    {
+        return new self($this->file, $this->run, $this->limit);
+    }
+
     /** The file the mutant changes, served unmutated. */
     public function file(): Path
     {
         return $this->file;
+    }
+
+    /** The text served in the file's place: a mutant's; none where the file is served unmutated. */
+    public function served(): Contents|NotGiven
+    {
+        return $this->served;
+    }
+
+    /** How long no test may finish before the run is stopped; none where only its limit stops it. */
+    public function silence(): Seconds|NotGiven
+    {
+        return $this->silence;
     }
 
     /** The tests the control runs, in the order it runs them. */
@@ -120,7 +160,8 @@ final readonly class Control
 
     /**
      * What tells this control from another, so each runs once: its file, its
-     * tests in their order, how it selects them and its limit.
+     * tests in their order, how it selects them, its limit, and the text it
+     * serves and its silence limit where it has them.
      */
     public function key(): string
     {
@@ -129,6 +170,8 @@ final readonly class Control
             array_map(static fn(TestId $test): string => $test->value(), [...$this->tests()]),
             ...$this->selectionOf($this->run->by()),
             $this->limit->seconds(),
+            ...$this->served instanceof Contents ? [Digest::sha256Of($this->served->text())->value()] : [],
+            ...$this->silence instanceof Seconds ? [$this->silence->seconds()] : [],
         ]);
     }
 
