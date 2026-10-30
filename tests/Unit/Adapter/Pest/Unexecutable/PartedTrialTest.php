@@ -64,6 +64,7 @@ it('runs the next part where one cannot judge it, and is what the first that cou
     $fails = Outcome::unjudged('the selected tests fail on their own');
     $failsToo = Outcome::unjudged('never loaded');
     $slow = Outcome::skipped()->took(Seconds::of(5.0));
+    $killed = Outcome::killed(TestIds::of(TestId::of('P\Tests\BSpec::__pest_evaluable_it_b')), Ended::unprinted(1, signalled: false));
 
     expect([
         partedTwice(Outcome::skipped(), Outcome::survived()),
@@ -72,5 +73,6 @@ it('runs the next part where one cannot judge it, and is what the first that cou
         partedTwice($fails, Outcome::skipped()),
         partedTwice($fails, $failsToo),
         partedTwice(Outcome::skipped(), Outcome::timedOut()),
-    ])->toEqual([Outcome::skipped(), $slow, $fails, $fails, $fails, Outcome::timedOut()]);
+        partedTwice($fails, $killed),
+    ])->toEqual([Outcome::skipped(), $slow, $fails, $fails, $fails, Outcome::timedOut(), $killed]);
 });
