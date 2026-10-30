@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Unexecutable;
 
-use function array_keys;
 use function array_values;
 
 use Closure;
@@ -189,7 +188,8 @@ final readonly class Judging
 
     /**
      * What each mutant's tests find, by position: an outcome as it is, and
-     * each set of test files tried, the trials side by side.
+     * each set of test files tried, in one trial or in parts that each fit
+     * under the most (see TrialParts), the trials side by side.
      *
      * @param  array<int, Paths|Outcome> $tests    each mutant's tests, or what was found without a run, by
      *                                             position
@@ -199,22 +199,18 @@ final readonly class Judging
     private function tried(array $tests, array $mutants, Selector $selector, Trial $trial, string $results): array
     {
         $found = [];
-        $trials = [];
+        $parted = [];
 
         foreach ($tests as $at => $those) {
             $found += $those instanceof Outcome ? [$at => $those] : [];
             $file = $mutants[$at]->location()->file();
             $copy = Recorder::mutantBeside($results, $mutants[$at]->nativeId());
-            $trials += $those instanceof Paths
-                ? [$at => TrialRun::of($those, $file, $copy, $selector->limitOf($those, $this->bounds))]
+            $parted += $those instanceof Paths
+                ? [$at => PartedTrial::of($selector->trialsOf($those, $file, $copy, $this->bounds))]
                 : [];
         }
 
-        foreach ($trial->ofEach(...$trials) as $position => $outcome) {
-            $found[array_keys($trials)[$position]] = $outcome;
-        }
-
-        return $found;
+        return $found + PartedTrials::of($parted)->triedBy($trial);
     }
 
     /**
