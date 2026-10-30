@@ -350,8 +350,12 @@ presets for Laravel, Symfony and plain libraries.
      A part a test fails in kills the mutant, by those tests, and no later
      part runs. A part that runs out has its control, the same tests
      unmutated under the same limit. Where they pass, the mutant is a timeout
-     the triage above judges. Where they run out or fail, that part cannot
-     judge the mutant, and the next part runs. Where every part passes, the
+     the triage above judges. Where they run out too, the part is split in
+     two by its test files, the first half of its files and the rest, and
+     each half, allowed the standard limit of its own tests, runs in its
+     place, down to one file's tests. Where one file's tests run out
+     unmutated too, or a part's fail, that part cannot judge the mutant, and
+     the next part runs; a reason that a part ran out names its file. Where every part passes, the
      mutant survived. Where none killed it and a part could not judge it, it
      is too slow to judge, or its tests fail unmutated, its reason naming the
      part.

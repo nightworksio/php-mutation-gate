@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Control;
 
+use function array_map;
+use function array_slice;
 use function count;
 
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\UnmutatedFailure;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\RunTests;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
@@ -22,8 +26,10 @@ use function sprintf;
  * test finishes for its silence limit. A part a test fails in kills it, and
  * no later part runs. A part that runs out has its control, the same tests
  * on the file unmutated under the same limit: where they pass, the mutant
- * timed out where its tests do not; where they run out too, or fail, that
- * part cannot judge it, and the next runs. Where every part passes, it
+ * timed out where its tests do not; where they run out too, the part is
+ * split in two by its test files and each half runs in its place, down to
+ * one file's tests; where one file's run out too, or they fail, that part
+ * cannot judge it, and the next runs. Where every part passes, it
  * survived; where none killed it and some part could not judge it, it is
  * too slow to judge, or unjudged where a part fails unmutated.
  */
@@ -32,6 +38,10 @@ final readonly class PartedMutant
     /** Why a heavy mutant is too slow to judge where some part's control ran out too. */
     public const string RAN_OUT
         = 'Part %d of %d of its tests runs out of its limit unmutated too, so nothing tells a hang from slow tests.';
+
+    /** Why a heavy mutant is too slow to judge where some part of one test file's tests ran out unmutated too. */
+    public const string FILE_RAN_OUT
+        = 'Part %d of %d of its tests, those in %s, runs out of its limit unmutated too, so no run tells a hang.';
 
     /** Why a heavy mutant is unjudged where some part's tests fail unmutated. */
     public const string FAILS_UNMUTATED = 'Part %d of %d of its tests fails with the file unmutated too.';
@@ -44,11 +54,13 @@ final readonly class PartedMutant
 
     /**
      * @param list<Control> $parts       each part, served the mutant, in order
+     * @param PartControls  $runs        the runs of its parts, which split a part that runs out unmutated
      * @param bool          $controlling whether the part at hand runs next unmutated, as the control of a
      *                                   part that ran out
      */
     private function __construct(
         private Mutant $mutant,
+        private PartControls $runs,
         private array $parts,
         private int $at,
         private bool $controlling,
@@ -57,10 +69,18 @@ final readonly class PartedMutant
     ) {
     }
 
-    /** @param non-empty-list<Control> $parts each part, served the mutant, in order */
-    public static function of(Mutant $mutant, array $parts): self
+    /** @param non-empty-list<RunTests> $parts each part, in order */
+    public static function of(Mutant $mutant, PartControls $runs, array $parts): self
     {
-        return new self($mutant, $parts, 0, controlling: false, unjudged: NotGiven::value(), judged: NotGiven::value());
+        return new self(
+            $mutant,
+            $runs,
+            array_map($runs->serving(...), $parts),
+            0,
+            controlling: false,
+            unjudged: NotGiven::value(),
+            judged: NotGiven::value(),
+        );
     }
 
     public function mutant(): Mutant
@@ -110,6 +130,7 @@ final readonly class PartedMutant
             ControlEnd::Passed => $this->onward($this->unjudged),
             ControlEnd::RanOut => new self(
                 $this->mutant,
+                $this->runs,
                 $this->parts,
                 $this->at,
                 controlling: true,
@@ -133,7 +154,7 @@ final readonly class PartedMutant
                     ->withLimit($control->limit())
                     ->withUnmutatedNeed($took instanceof Seconds ? $took : $control->limit()),
             ),
-            ControlEnd::RanOut => $this->onward($this->said(self::RAN_OUT)),
+            ControlEnd::RanOut => $this->split(),
             ControlEnd::Failed => $this->onward(
                 $run->unmutatedFailure($control->tests(), $this->said(self::FAILS_UNMUTATED)),
             ),
@@ -155,6 +176,7 @@ final readonly class PartedMutant
         return $this->at + 1 < count($this->parts)
             ? new self(
                 $this->mutant,
+                $this->runs,
                 $this->parts,
                 $this->at + 1,
                 controlling: false,
@@ -168,10 +190,37 @@ final readonly class PartedMutant
             });
     }
 
+    /**
+     * It, the part at hand split in two by its test files, each half run
+     * served the mutant next; or on to its next part, where the part's tests
+     * are all in one file, naming the file.
+     */
+    private function split(): self
+    {
+        $part = $this->parts[$this->at];
+        $halves = $this->runs->halves($part);
+        $file = $this->runs->fileOf($part);
+
+        return match (true) {
+            $halves !== [] => new self(
+                $this->mutant,
+                $this->runs,
+                [...array_slice($this->parts, 0, $this->at), ...$halves, ...array_slice($this->parts, $this->at + 1)],
+                $this->at,
+                controlling: false,
+                unjudged: $this->unjudged,
+                judged: $this->judged,
+            ),
+            $file instanceof Path => $this->onward($this->said(self::FILE_RAN_OUT, $file->value())),
+            default => $this->onward($this->said(self::RAN_OUT)),
+        };
+    }
+
     private function ending(Mutant $judged): self
     {
         return new self(
             $this->mutant,
+            $this->runs,
             $this->parts,
             $this->at,
             controlling: $this->controlling,
@@ -196,9 +245,9 @@ final readonly class PartedMutant
     }
 
     /** One of the reasons above, of the part at hand. */
-    private function said(string $reason): Reason
+    private function said(string $reason, string ...$more): Reason
     {
-        return Reason::that(sprintf($reason, $this->at + 1, count($this->parts)));
+        return Reason::that(sprintf($reason, $this->at + 1, count($this->parts), ...$more));
     }
 
     private function unrun(ControlRun $run): Reason
