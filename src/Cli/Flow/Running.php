@@ -397,8 +397,9 @@ final readonly class Running
             $judgedBy = $unit->judgedBy();
         }
 
-        return RunRequest::of($this->adapters, $this->settings, $files, $judgedBy)
-            ->narrowedTo($files, $this->adapters->narrowing->pruning($pruned))
+        $request = RunRequest::of($this->adapters, $this->settings, $files, $judgedBy);
+
+        return $request->narrowedTo($files, $request->narrowing()->pruning($pruned))
             ->across(Pool::of($this->adapters->processes(), $this->settings->runner()->workers())->startingIn($startUp))
             ->reusingCoverage(Handed::maps(Workspace::shardCoverage($shard), Workspace::coverage()))
             ->searching($search);
