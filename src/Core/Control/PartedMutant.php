@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Control;
 
 use function array_map;
-use function array_slice;
+use function array_splice;
 use function count;
 
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -200,12 +200,14 @@ final readonly class PartedMutant
         $part = $this->parts[$this->at];
         $halves = $this->runs->halves($part);
         $file = $this->runs->fileOf($part);
+        $parts = $this->parts;
+        array_splice($parts, $this->at, 1, $halves);
 
         return match (true) {
             $halves !== [] => new self(
                 $this->mutant,
                 $this->runs,
-                [...array_slice($this->parts, 0, $this->at), ...$halves, ...array_slice($this->parts, $this->at + 1)],
+                $parts,
                 $this->at,
                 controlling: false,
                 unjudged: $this->unjudged,

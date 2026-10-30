@@ -181,3 +181,24 @@ it('splits the files of a part with an odd number of them, the larger half first
         ->and($runs->fileOf($halves[0]))->toEqual(NotGiven::value())
         ->and($runs->halves($halves[1]))->toBe([]);
 });
+
+it('puts the halves of a split part in its place, between the parts before and after it', function (): void {
+    $places = TestPlaces::none()
+        ->placing(Path::of('tests/CTest.php'), TestIds::of(TestId::of('LoopTest::c')))
+        ->placing(Path::of('tests/DTest.php'), TestIds::of(TestId::of('LoopTest::d')));
+    $runs = partedRuns($places);
+    $part = static fn(string ...$tests): RunTests => RunTests::of(TestIds::of(...array_map(TestId::of(...), $tests)));
+    $passed = ControlRun::passed(Seconds::of(1.0));
+    $split = PartedMutant::of(partedHeavy(), $runs, [$part('LoopTest::a'), $part('LoopTest::c', 'LoopTest::d'), $part('LoopTest::b')])
+        ->after($passed)
+        ->after(ControlRun::ranOut())
+        ->after(ControlRun::ranOut());
+    $nexts = [$split->next(), $split->after($passed)->next(), $split->after($passed)->after($passed)->next()];
+    $last = $split->after($passed)->after($passed)->after(ControlRun::ranOut())->after(ControlRun::ranOut())->judged();
+
+    expect($nexts)->toEqual([
+        $runs->serving($part('LoopTest::c')),
+        $runs->serving($part('LoopTest::d')),
+        $runs->serving($part('LoopTest::b')),
+    ])->and($last->reason())->toEqual(Reason::that(sprintf(PartedMutant::RAN_OUT, 4, 4)));
+});
