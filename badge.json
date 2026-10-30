@@ -1,6 +1,6 @@
 {
     "schemaVersion": 1,
     "label": "mutation score",
-    "message": "100.00%",
-    "color": "brightgreen"
+    "message": "nothing to mutate",
+    "color": "lightgrey"
 }
