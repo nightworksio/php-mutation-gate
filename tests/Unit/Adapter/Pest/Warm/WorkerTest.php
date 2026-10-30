@@ -119,6 +119,32 @@ it('starts fresh, and warns of it, the run of a mutant of a file that declares w
     'a function' => ['function it() {}', 'it'],
 ]);
 
+it('forks the run of a mutant of a file whose names it has not declared, and loads none of them to tell', function (string $kind, string $name) use ($seat, $request, $warned): void {
+    $at = $seat();
+    $root = Scratch::directory();
+    Scratch::write($root, 'copy/Lazy.php', sprintf("<?php\nnamespace Probe;\n%s %s {}\n", $kind, $name));
+    $mutated = (string) realpath(sprintf('%s/copy/Lazy.php', $root));
+    $lazy = static function (string $class) use ($name, $mutated): void {
+        if (mb_strtolower($class) === mb_strtolower(sprintf('Probe\\%s', $name))) {
+            require $mutated;
+        }
+    };
+    spl_autoload_register($lazy);
+
+    try {
+        $request((int) getmypid(), $mutated)->leftIn($at->request());
+        Worker::at($at->directory(), 1, Passing::for('0.3'), new Pauses()->pausing())->served(ShellForking::none($at));
+    } finally {
+        spl_autoload_unregister($lazy);
+    }
+
+    expect($warned($at))->toEqual(Warnings::of(Warning::that('The warm worker could not fork, so a mutant ran fresh.')));
+})->with([
+    'a class' => ['final class', 'LazyClass'],
+    'an interface' => ['interface', 'LazyInterface'],
+    'a trait' => ['trait', 'LazyTrait'],
+]);
+
 it('starts fresh, and warns of it, a run it could fork no child for', function () use ($seat, $request, $warned): void {
     $at = $seat();
     $request((int) getmypid())->leftIn($at->request());
