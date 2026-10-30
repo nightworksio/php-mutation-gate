@@ -213,6 +213,22 @@ it('asks a runner that runs a mutant per core for every core the machine has', f
         ->and($adapters->cores)->not->toEqual(ProcessCount::single());
 });
 
+it('tells the runner of each invocation the suite\'s files of test cases, a globbed directory\'s among them', function (): void {
+    $project = Flows::project();
+    Scratch::write($project, 'phpunit.xml', '<phpunit><testsuites><testsuite name="modules"><directory>app-modules/*/tests</directory></testsuite></testsuites></phpunit>');
+    Scratch::write($project, 'app-modules/kernel/tests/Api/MarkedTest.php', '<?php');
+    $runner = ScriptedRunner::fixture();
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+    $told = array_map(
+        static fn(MutationRequest $request): bool => $request->narrowing()->testCases()->holds(Path::of('app-modules/kernel/tests/Api/MarkedTest.php')),
+        $runner->requests(),
+    );
+
+    expect($told)->toBe([true, true]);
+});
+
 it('runs the held path by its group, the rest by the suite, on the shard\'s map, secrets withheld', function (): void {
     $project = Flows::project();
     $runner = ScriptedRunner::fixture();
