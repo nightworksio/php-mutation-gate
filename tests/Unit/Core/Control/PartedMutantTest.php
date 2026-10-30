@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Control\Control;
 use NightWorksIO\MutationGate\Core\Control\ControlRun;
+use NightWorksIO\MutationGate\Core\Control\PartControls;
 use NightWorksIO\MutationGate\Core\Control\PartedMutant;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -17,6 +19,9 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Reach\TestPlaces;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\RunTests;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -35,25 +40,46 @@ function partedHeavy(): Mutant
 }
 
 /**
- * The parts of the heavy mutant: the first by LoopTest::a under 100 seconds, the second by LoopTest::b under 120.
+ * The runs of the heavy mutant's parts, its tests timed so: LoopTest::a and LoopTest::b 30 and 40 seconds, and
+ * LoopTest::c and LoopTest::d 10 each, placed so in their files, under a most of 300 seconds.
+ */
+function partedRuns(TestPlaces $places): PartControls
+{
+    $map = CoverageMap::empty();
+
+    foreach (['LoopTest::a' => 30.0, 'LoopTest::b' => 40.0, 'LoopTest::c' => 10.0, 'LoopTest::d' => 10.0] as $test => $seconds) {
+        $map = $map->timed(TestId::of($test), Seconds::of($seconds));
+    }
+
+    $bounds = LimitBounds::between(Seconds::of(1.0), Seconds::of(300.0))->startingIn(Seconds::of(0.0));
+
+    return PartControls::of(partedHeavy(), Contents::of('<?php // mutant'), $map, $bounds, $places);
+}
+
+/**
+ * The parts of the heavy mutant: the first by LoopTest::a, allowed 90 seconds, the second by LoopTest::b, allowed 120.
  *
- * @return non-empty-list<Control>
+ * @return non-empty-list<RunTests>
  */
 function partedParts(): array
 {
-    $part = static fn(string $test, float $limit): Control => Control::of(
-        Path::of('src/Loop.php'),
-        TestIds::of(TestId::of($test)),
-        Seconds::of($limit),
-    )->serving(Contents::of('<?php // mutant'), Seconds::of(20.0));
+    return [RunTests::of(TestIds::of(TestId::of('LoopTest::a'))), RunTests::of(TestIds::of(TestId::of('LoopTest::b')))];
+}
 
-    return [$part('LoopTest::a', 100.0), $part('LoopTest::b', 120.0)];
+/**
+ * The parts of the heavy mutant as they run, served the mutant.
+ *
+ * @return list<Control>
+ */
+function partedControls(): array
+{
+    return array_map(partedRuns(TestPlaces::none())->serving(...), partedParts());
 }
 
 /** The heavy mutant after these runs, each found by the run it waits on. */
 function partedAfter(ControlRun ...$runs): PartedMutant
 {
-    $parted = PartedMutant::of(partedHeavy(), partedParts());
+    $parted = PartedMutant::of(partedHeavy(), partedRuns(TestPlaces::none()), partedParts());
 
     foreach ($runs as $run) {
         $parted = $parted->after($run);
@@ -63,12 +89,12 @@ function partedAfter(ControlRun ...$runs): PartedMutant
 }
 
 it('runs its parts served the mutant one after another, and is killed by the tests that fail in one, running no later part', function (): void {
-    $parted = PartedMutant::of(partedHeavy(), partedParts());
+    $parted = PartedMutant::of(partedHeavy(), partedRuns(TestPlaces::none()), partedParts());
     $first = $parted->next();
     $second = $parted->after(ControlRun::passed(Seconds::of(30.0)))->next();
     $killed = partedAfter(ControlRun::passed(Seconds::of(30.0)), ControlRun::failed(TestIds::of(TestId::of('LoopTest::b'))));
 
-    expect([$first, $second])->toEqual([partedParts()[0], partedParts()[1]])
+    expect([$first, $second])->toEqual([partedControls()[0], partedControls()[1]])
         ->and($killed->next())->toEqual(NotGiven::value())
         ->and([$killed->judged()->status(), [...$killed->judged()->killers()], $killed->judged()->limit()])
         ->toEqual([MutantStatus::Killed, [TestId::of('LoopTest::b')], Seconds::of(120.0)]);
@@ -83,9 +109,9 @@ it('runs the control of a part that runs out, and times out where its tests pass
     $ranOut = partedAfter(ControlRun::ranOut());
     $judged = partedAfter(ControlRun::ranOut(), ControlRun::passed(Seconds::of(35.0)))->judged();
 
-    expect($ranOut->next())->toEqual(partedParts()[0]->unmutated())
+    expect($ranOut->next())->toEqual(partedControls()[0]->unmutated())
         ->and([$judged->status(), $judged->limit(), $judged->unmutatedNeed()])
-        ->toEqual([MutantStatus::TimedOut, Seconds::of(100.0), Seconds::of(35.0)]);
+        ->toEqual([MutantStatus::TimedOut, Seconds::of(90.0), Seconds::of(35.0)]);
 });
 
 it('runs the next part where a part cannot judge it, and is too slow to judge, or unjudged, where no later part kills it', function (): void {
@@ -110,7 +136,7 @@ it('is unjudged where a part runs out of memory or cannot run, or the time budge
         partedAfter(ControlRun::unrun('no PHP'))->judged()->reason(),
         partedAfter(ControlRun::ranOut(), ControlRun::outOfMemory(), ControlRun::passed(Seconds::of(1.0)))->judged()->reason(),
         partedAfter(ControlRun::ranOut(), ControlRun::unrun('no PHP'))->judged()->reason(),
-        PartedMutant::of(partedHeavy(), partedParts())->outOfTime()->judged()->reason(),
+        PartedMutant::of(partedHeavy(), partedRuns(TestPlaces::none()), partedParts())->outOfTime()->judged()->reason(),
     ])->toEqual([
         Reason::that(sprintf(PartedMutant::OUT_OF_MEMORY, 1, 2)),
         Reason::that(sprintf(PartedMutant::UNRUN, 1, 2, 'no PHP')),
@@ -118,6 +144,61 @@ it('is unjudged where a part runs out of memory or cannot run, or the time budge
         Reason::that(sprintf(PartedMutant::UNRUN, 1, 2, 'no PHP')),
         OutOfTime::BeforeControlling->reason(),
     ])->and(partedAfter(ControlRun::outOfMemory())->judged()->status())->toBe(MutantStatus::Unjudged)
-        ->and(PartedMutant::of(partedHeavy(), partedParts())->judged())->toEqual(partedHeavy())
-        ->and(PartedMutant::of(partedHeavy(), partedParts())->mutant())->toEqual(partedHeavy());
+        ->and(PartedMutant::of(partedHeavy(), partedRuns(TestPlaces::none()), partedParts())->judged())->toEqual(partedHeavy())
+        ->and(PartedMutant::of(partedHeavy(), partedRuns(TestPlaces::none()), partedParts())->mutant())->toEqual(partedHeavy());
+});
+
+it('splits a part that runs out unmutated too in two by its test files, each half run in its place, down to one file\'s tests, and names that file', function (): void {
+    $places = TestPlaces::none()
+        ->placing(Path::of('tests/CTest.php'), TestIds::of(TestId::of('LoopTest::c')))
+        ->placing(Path::of('tests/DTest.php'), TestIds::of(TestId::of('LoopTest::d')));
+    $runs = partedRuns($places);
+    $both = RunTests::of(TestIds::of(TestId::of('LoopTest::c'), TestId::of('LoopTest::d')));
+    $parted = PartedMutant::of(partedHeavy(), $runs, [$both])->after(ControlRun::ranOut())->after(ControlRun::ranOut());
+    $c = $runs->serving(RunTests::of(TestIds::of(TestId::of('LoopTest::c'))));
+    $d = $runs->serving(RunTests::of(TestIds::of(TestId::of('LoopTest::d'))));
+    $slow = $parted->after(ControlRun::ranOut())->after(ControlRun::ranOut())->after(ControlRun::passed(Seconds::of(5.0)));
+    $killed = $parted->after(ControlRun::passed(Seconds::of(5.0)))->after(ControlRun::failed(TestIds::of(TestId::of('LoopTest::d'))));
+
+    expect([$parted->next(), $parted->after(ControlRun::passed(Seconds::of(5.0)))->next()])->toEqual([$c, $d])
+        ->and([$c->limit(), $d->limit()])->toEqual([Seconds::of(30.0), Seconds::of(30.0)])
+        ->and([$slow->judged()->status(), $slow->judged()->reason()])
+        ->toEqual([MutantStatus::TimedOut, Reason::that(sprintf(PartedMutant::FILE_RAN_OUT, 1, 2, 'tests/CTest.php'))])
+        ->and([$killed->judged()->status(), [...$killed->judged()->killers()]])->toEqual([MutantStatus::Killed, [TestId::of('LoopTest::d')]]);
+});
+
+it('splits the files of a part with an odd number of them, the larger half first, and tests in no file with the second', function (): void {
+    $places = TestPlaces::none()
+        ->placing(Path::of('tests/ATest.php'), TestIds::of(TestId::of('LoopTest::a')))
+        ->placing(Path::of('tests/BTest.php'), TestIds::of(TestId::of('LoopTest::b')));
+    $runs = partedRuns($places);
+    $three = TestIds::of(TestId::of('LoopTest::a'), TestId::of('LoopTest::b'), TestId::of('LoopTest::c'));
+    $halves = $runs->halves($runs->serving(RunTests::of($three)));
+
+    expect(array_map(static fn(Control $half): array => array_map(static fn(TestId $test): string => $test->value(), [...$half->tests()]), $halves))
+        ->toBe([['LoopTest::a', 'LoopTest::b'], ['LoopTest::c']])
+        ->and($runs->fileOf($halves[1]))->toEqual(NotGiven::value())
+        ->and($runs->fileOf($halves[0]))->toEqual(NotGiven::value())
+        ->and($runs->halves($halves[1]))->toBe([]);
+});
+
+it('puts the halves of a split part in its place, between the parts before and after it', function (): void {
+    $places = TestPlaces::none()
+        ->placing(Path::of('tests/CTest.php'), TestIds::of(TestId::of('LoopTest::c')))
+        ->placing(Path::of('tests/DTest.php'), TestIds::of(TestId::of('LoopTest::d')));
+    $runs = partedRuns($places);
+    $part = static fn(string ...$tests): RunTests => RunTests::of(TestIds::of(...array_map(TestId::of(...), $tests)));
+    $passed = ControlRun::passed(Seconds::of(1.0));
+    $split = PartedMutant::of(partedHeavy(), $runs, [$part('LoopTest::a'), $part('LoopTest::c', 'LoopTest::d'), $part('LoopTest::b')])
+        ->after($passed)
+        ->after(ControlRun::ranOut())
+        ->after(ControlRun::ranOut());
+    $nexts = [$split->next(), $split->after($passed)->next(), $split->after($passed)->after($passed)->next()];
+    $last = $split->after($passed)->after($passed)->after(ControlRun::ranOut())->after(ControlRun::ranOut())->judged();
+
+    expect($nexts)->toEqual([
+        $runs->serving($part('LoopTest::c')),
+        $runs->serving($part('LoopTest::d')),
+        $runs->serving($part('LoopTest::b')),
+    ])->and($last->reason())->toEqual(Reason::that(sprintf(PartedMutant::RAN_OUT, 4, 4)));
 });

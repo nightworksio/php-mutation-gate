@@ -14,19 +14,15 @@ use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
-use NightWorksIO\MutationGate\Core\Coverage\OwnTime;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
-use NightWorksIO\MutationGate\Core\Mutant\RunnerMutatorName;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Reach\TestPlaces;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
-use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
 use NightWorksIO\MutationGate\Core\Runner\RunSelection;
-use NightWorksIO\MutationGate\Core\Runner\RunTests;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -74,7 +70,7 @@ final readonly class HeavyMutants
             $text = $served($mutant);
             $split = $parts->of($mutant->location()->file(), $tests, $placed);
             $parted += $text instanceof Contents && $split !== []
-                ? [$key => PartedMutant::of($mutant, self::controls($mutant, $split, $text, $map, $bounds))]
+                ? [$key => PartedMutant::of($mutant, PartControls::of($mutant, $text, $map, $bounds, $placed), $split)]
                 : [];
         }
 
@@ -156,32 +152,5 @@ final readonly class HeavyMutants
         return $mutant->status() === MutantStatus::TimedOut
             && $limit instanceof Seconds
             && $limit->seconds() >= $bounds->most()->seconds();
-    }
-
-    /**
-     * Each part, served the mutant under the standard limit of its tests and
-     * the silence limit of its slowest.
-     *
-     * @param  non-empty-list<RunTests> $parts
-     * @return non-empty-list<Control>
-     */
-    private static function controls(
-        Mutant $mutant,
-        array $parts,
-        Contents $text,
-        CoverageMap $map,
-        LimitBounds $bounds,
-    ): array {
-        $file = $mutant->location()->file();
-        $silent = $bounds->silenceOf(RunnerMutatorName::of($mutant->mutation()->mutator()));
-
-        return array_map(
-            static fn(RunTests $part): Control => Control::running(
-                $file,
-                $part,
-                MutantLimit::standard()->of(OwnTime::of($map, $part->tests()), $bounds),
-            )->serving($text, MutantLimit::standard()->of(OwnTime::slowest($map, $part->tests()), $silent)),
-            $parts,
-        );
     }
 }
