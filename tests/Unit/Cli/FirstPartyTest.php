@@ -240,7 +240,10 @@ it('registers the console, every file report, GitHub\'s three and the badge by n
         ->and($reporter('json', '{"path": "build/mutation.json"}'))->toEqual(JsonReportFile::at('build/mutation.json'))
         ->and($reporter('junit', '{"path": "build/junit.xml"}'))->toEqual(JUnitReportFile::at('build/junit.xml'))
         ->and($reporter('digest', '{"path": "build/digest.txt"}'))->toEqual(DigestReportFile::at('build/digest.txt'))
-        ->and($sarif)->toEqual(SarifReportFile::at('build/mutation.sarif'))
+        ->and($sarif)->toEqual(SarifReportFile::at(
+            'build/mutation.sarif',
+            Guide::ofInstalled(InstalledVersions::getPrettyVersion(ThisPackage::COMPOSER) ?? ''),
+        ))
         ->and($reporter('gitlab', '{"path": "build/gl-code-quality.json"}'))->toEqual(CodeQualityReportFile::at('build/gl-code-quality.json'))
         ->and($reporter('sonar', '{"path": "build/mutation-sonar.json"}'))->toEqual(SonarReportFile::at(
             'build/mutation-sonar.json',
