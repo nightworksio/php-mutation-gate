@@ -67,7 +67,7 @@ function keyingMap(): CoverageMap
 /** A runner of this name, which says the canary's test file judges every covered file. */
 function keyingRunner(string $name): RunnerFake
 {
-    return new RunnerFake(
+    return RunnerFake::of(
         Identity::of($name, Versions::of(Version::of('fake/runner', '1.0.0', 'abc')), Digest::of('php')),
         Groups::of(),
         CoverageMap::empty(),
@@ -211,7 +211,7 @@ it('reads each CI definition into every key, as it is on disk', function (): voi
 it('cannot key a run whose runner cannot say what it is, or whose CI definition cannot be read', function (): void {
     $project = Flows::project();
     Scratch::write($project, '.github/workflows/gate.yml/blocked', '');
-    $unnamed = new RunnerFake(
+    $unnamed = RunnerFake::of(
         CannotJudge::because('The runner is not installed.'),
         Groups::of(),
         CoverageMap::empty(),
@@ -303,7 +303,7 @@ function keyingColocated(string $clock): Digest|Unkeyed
     }
 
     $suite = ReadSuite::of(Flows::trees(), $fingerprints, Directory::at($project));
-    $runner = new RunnerFake(
+    $runner = RunnerFake::of(
         Identity::of('fake', Versions::of(Version::of('fake/runner', '1.0.0', 'abc')), Digest::of('php')),
         Groups::of(),
         CoverageMap::empty(),

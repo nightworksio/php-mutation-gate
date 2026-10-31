@@ -49,19 +49,19 @@ final readonly class Provenance
     /** This, judging this commit, by its full id. */
     public function judging(Revision $commit): self
     {
-        return clone($this, ['commit' => $commit]);
+        return new self($this->gate, $commit, $this->runner, $this->baseline, $this->command);
     }
 
     /** This, the gate started as this command, which every command the verdict's reports print names. */
     public function startedAs(GateCommand $command): self
     {
-        return clone($this, ['command' => $command]);
+        return new self($this->gate, $this->commit, $this->runner, $this->baseline, $command);
     }
 
     /** This, its mutants run by this runner. */
     public function ranBy(Identity $runner): self
     {
-        return clone($this, ['runner' => $runner]);
+        return new self($this->gate, $this->commit, $runner, $this->baseline, $this->command);
     }
 
     public function gate(): Version|NotGiven

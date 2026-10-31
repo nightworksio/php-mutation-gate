@@ -90,7 +90,7 @@ final readonly class Discovery
     /** @param array<int, Declared> $declared */
     private function register(array $declared): Extensions|CannotJudge
     {
-        $registry = new Extensions(Origin::of(ThisPackage::COMPOSER));
+        $registry = Extensions::of(Origin::of(ThisPackage::COMPOSER));
 
         foreach ($declared as $one) {
             $registry = $this->add($registry, $one);
@@ -115,7 +115,7 @@ final readonly class Discovery
         }
 
         try {
-            return $registry->merge(new ($one->class)()->extend(new Extensions(Origin::of($one->origin))));
+            return $registry->merge(new ($one->class)()->extend(Extensions::of(Origin::of($one->origin))));
         } catch (Error|LogicException|RuntimeException $failed) {
             return CannotJudge::because(sprintf(
                 '%s names %s as a mutation-gate extension, and it failed as it started: %s',

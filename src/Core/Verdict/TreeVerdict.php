@@ -70,13 +70,31 @@ final readonly class TreeVerdict
     /** This verdict, with the score the tree had on the base, for the change against it. */
     public function comparedWith(Score|NothingToMutate $base): self
     {
-        return clone($this, ['base' => $base]);
+        return new self(
+            $this->tree,
+            $this->baseline,
+            $this->units,
+            $this->mutants,
+            $this->uncovered,
+            $base,
+            $this->lowering,
+            $this->estimate,
+        );
     }
 
     /** This verdict, with why the baseline lowered the tree's floor, as its `lowered` says. */
     public function withLowering(Lowered $lowering): self
     {
-        return clone($this, ['lowering' => $lowering]);
+        return new self(
+            $this->tree,
+            $this->baseline,
+            $this->units,
+            $this->mutants,
+            $this->uncovered,
+            $this->base,
+            $lowering,
+            $this->estimate,
+        );
     }
 
     /**
@@ -87,13 +105,31 @@ final readonly class TreeVerdict
      */
     public function clustered(ByPath $sources): self
     {
-        return clone($this, ['mutants' => $this->mutants->clustered($this->uncovered, $sources)]);
+        return new self(
+            $this->tree,
+            $this->baseline,
+            $this->units,
+            $this->mutants->clustered($this->uncovered, $sources),
+            $this->uncovered,
+            $this->base,
+            $this->lowering,
+            $this->estimate,
+        );
     }
 
     /** This verdict, with what was found of each survivor (ADR-0025). */
     public function found(Findings $findings): self
     {
-        return clone($this, ['mutants' => $this->mutants->found($findings)]);
+        return new self(
+            $this->tree,
+            $this->baseline,
+            $this->units,
+            $this->mutants->found($findings),
+            $this->uncovered,
+            $this->base,
+            $this->lowering,
+            $this->estimate,
+        );
     }
 
     /** The tree, with the floor it declares. */

@@ -98,7 +98,7 @@ final readonly class JudgingRuns
     public static function reporting(Reporter $recorded): Reporting
     {
         return new Reporting(
-            new Chosen(new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)))->withReporter(
+            new Chosen(new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER)))->withReporter(
                 Name::of('recorded'),
                 static fn(): Reporter => $recorded,
             )),
@@ -302,7 +302,7 @@ final readonly class JudgingRuns
         }
 
         $results = Results::read($plan, Workspace::results(), $adapters->project);
-        $reporting = new Reporting(new Chosen(new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)))->withReporter(
+        $reporting = new Reporting(new Chosen(new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER)))->withReporter(
             Name::of('recorded'),
             static fn(): Reporter => new ReporterFake(),
         )), Variables::of([]));

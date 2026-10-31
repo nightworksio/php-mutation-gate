@@ -58,31 +58,76 @@ final readonly class JudgedMutant
     {
         $location = $this->mutant->location();
 
-        return clone($this, ['onChangedLine' => $reach->changedLines($location->file())->has($location->start())]);
+        return new self(
+            $this->mutant,
+            $this->judgement,
+            $reach->changedLines($location->file())->has($location->start()),
+            $this->tests,
+            $this->hint,
+            $this->cluster,
+            $this->finding,
+            $this->carriedPruned,
+        );
     }
 
     /** This mutant, judged by these tests: those covering its line; of a held unit, those of them its group runs. */
     public function judgedBy(TestIds $tests): self
     {
-        return clone($this, ['tests' => $tests]);
+        return new self(
+            $this->mutant,
+            $this->judgement,
+            $this->onChangedLine,
+            $tests,
+            $this->hint,
+            $this->cluster,
+            $this->finding,
+            $this->carriedPruned,
+        );
     }
 
     /** This mutant, with what its tests miss, as `Hint::for()` reads it from its file. */
     public function hinted(Hint $hint): self
     {
-        return clone($this, ['hint' => $hint]);
+        return new self(
+            $this->mutant,
+            $this->judgement,
+            $this->onChangedLine,
+            $this->tests,
+            $hint,
+            $this->cluster,
+            $this->finding,
+            $this->carriedPruned,
+        );
     }
 
     /** This mutant, in a cluster of survivors with one cause (ADR-0022). */
     public function inCluster(Membership $cluster): self
     {
-        return clone($this, ['cluster' => $cluster]);
+        return new self(
+            $this->mutant,
+            $this->judgement,
+            $this->onChangedLine,
+            $this->tests,
+            $this->hint,
+            $cluster,
+            $this->finding,
+            $this->carriedPruned,
+        );
     }
 
     /** This mutant, with what the gate found beyond its hint's first sentence (ADR-0025). */
     public function found(WeaklyAsserted|Removable $finding): self
     {
-        return clone($this, ['finding' => $finding]);
+        return new self(
+            $this->mutant,
+            $this->judgement,
+            $this->onChangedLine,
+            $this->tests,
+            $this->hint,
+            $this->cluster,
+            $finding,
+            $this->carriedPruned,
+        );
     }
 
     /**
@@ -93,7 +138,16 @@ final readonly class JudgedMutant
     public function provenEquivalent(): self
     {
         return $this->judgement === MutantJudgement::Survived
-            ? clone($this, ['judgement' => MutantJudgement::Equivalent])
+            ? new self(
+                $this->mutant,
+                MutantJudgement::Equivalent,
+                $this->onChangedLine,
+                $this->tests,
+                $this->hint,
+                $this->cluster,
+                $this->finding,
+                $this->carriedPruned,
+            )
             : $this;
     }
 
@@ -107,10 +161,16 @@ final readonly class JudgedMutant
     public function ignoredBecause(Reason $reason, bool $byItsId): self
     {
         return $this->judgement->asksForATest() || ($byItsId && $this->loadedTooEarly())
-            ? clone($this, [
-                'mutant' => $this->mutant->because($reason),
-                'judgement' => MutantJudgement::Ignored,
-            ])
+            ? new self(
+                $this->mutant->because($reason),
+                MutantJudgement::Ignored,
+                $this->onChangedLine,
+                $this->tests,
+                $this->hint,
+                $this->cluster,
+                $this->finding,
+                $this->carriedPruned,
+            )
             : $this;
     }
 

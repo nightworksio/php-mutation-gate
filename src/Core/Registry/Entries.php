@@ -25,8 +25,14 @@ use function sprintf;
 final readonly class Entries
 {
     /** @param array<string, Entry<T>> $entries by name */
-    public function __construct(private ExtensionPoint $point, private array $entries = [])
+    private function __construct(private ExtensionPoint $point, private array $entries)
     {
+    }
+
+    /** @return self<never> nothing registered at this extension point yet */
+    public static function none(ExtensionPoint $point): self
+    {
+        return new self($point, self::nothing());
     }
 
     /**
@@ -96,6 +102,12 @@ final readonly class Entries
     public function merge(self $other): self
     {
         return new self($this->point, [...$this->entries, ...$other->entries]);
+    }
+
+    /** @return array<string, Entry<never>> */
+    private static function nothing(): array
+    {
+        return [];
     }
 
     /** That nothing is registered under a name, and the registered name it was most likely meant to be. */

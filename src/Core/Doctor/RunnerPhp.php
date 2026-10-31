@@ -44,31 +44,71 @@ final readonly class RunnerPhp
     /** This PHP, loading these extensions as well, by name in any case. */
     public function loading(string ...$extensions): self
     {
-        return clone($this, ['loaded' => $this->named($this->loaded, $extensions)]);
+        return new self(
+            $this->binary,
+            $this->named($this->loaded, $extensions),
+            $this->offered,
+            $this->settings,
+            $this->variables,
+            $this->iniFile,
+            $this->opcacheOff,
+        );
     }
 
     /** This PHP, with these extensions installed where it could load them. */
     public function offering(string ...$extensions): self
     {
-        return clone($this, ['offered' => $this->named($this->offered, $extensions)]);
+        return new self(
+            $this->binary,
+            $this->loaded,
+            $this->named($this->offered, $extensions),
+            $this->settings,
+            $this->variables,
+            $this->iniFile,
+            $this->opcacheOff,
+        );
     }
 
     /** This PHP, with a setting's value. */
     public function setting(string $name, string $value): self
     {
-        return clone($this, ['settings' => [...$this->settings, $name => $value]]);
+        return new self(
+            $this->binary,
+            $this->loaded,
+            $this->offered,
+            [...$this->settings, $name => $value],
+            $this->variables,
+            $this->iniFile,
+            $this->opcacheOff,
+        );
     }
 
     /** This PHP, seeing a variable of the environment it runs in. */
     public function seeing(string $name, string $value): self
     {
-        return clone($this, ['variables' => [...$this->variables, $name => $value]]);
+        return new self(
+            $this->binary,
+            $this->loaded,
+            $this->offered,
+            $this->settings,
+            [...$this->variables, $name => $value],
+            $this->iniFile,
+            $this->opcacheOff,
+        );
     }
 
     /** This PHP, loading a php.ini. */
     public function loadingIni(string $file): self
     {
-        return clone($this, ['iniFile' => $file]);
+        return new self(
+            $this->binary,
+            $this->loaded,
+            $this->offered,
+            $this->settings,
+            $this->variables,
+            $file,
+            $this->opcacheOff,
+        );
     }
 
     /**
@@ -78,7 +118,15 @@ final readonly class RunnerPhp
      */
     public function turningOpcacheOff(): self
     {
-        return clone($this, ['opcacheOff' => true]);
+        return new self(
+            $this->binary,
+            $this->loaded,
+            $this->offered,
+            $this->settings,
+            $this->variables,
+            $this->iniFile,
+            opcacheOff: true,
+        );
     }
 
     /** Whether the runner turns opcache off on each mutant's command line. */

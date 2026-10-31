@@ -173,7 +173,7 @@ final readonly class FlowCommands
         ChangeSource $changes,
         PeakMemory $memory = new PeakMemoryFake(new NotGiven()),
     ): Composition {
-        $registry = new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)))
+        $registry = new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER)))
             ->withRunner(Name::of('fake'), static fn(): Runner => $runner)
             ->withTreeSource(Name::of('phpunit'), static fn(): TreeSource => new TreeSourceFake($trees))
             ->withProofStore(Name::of('directory'), static fn(): ProofStore => $proofs)

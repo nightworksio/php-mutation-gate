@@ -68,7 +68,7 @@ function reportingOnMain(): RunOn
  */
 function reportersOf(Settings $settings, Variables $environment, RunOn $runOn): array|Invalid|CannotJudge
 {
-    $chosen = new Chosen(new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER))));
+    $chosen = new Chosen(new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER))));
 
     return new Reporting($chosen, $environment)->reporters($settings, $runOn);
 }
@@ -210,7 +210,7 @@ function reportingCommentingThrough(MockHttpClient $client, bool $withToken = tr
         'base' => ['repo' => ['full_name' => 'octo/gate']],
     ]]);
 
-    return new Chosen(new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)))->withReporter(
+    return new Chosen(new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER)))->withReporter(
         BuiltinReporter::GitHubComment->named(),
         static fn(): Reporter => PullRequestComment::inRun($environment, $event, $client, 'gate-bot'),
     ));
@@ -281,7 +281,7 @@ it('leaves the planned state in the delivery under --deliver-later, on a pull re
 it('chooses the comment on a pull request with no token under --deliver-later, and leaves each credentialed reporter\'s payload in the delivery', function (): void {
     $delivery = DeliveryDirectory::of(Directory::at(Scratch::directory()), Stage::Verdict);
     $onAPullRequest = Variables::of(['GITHUB_ACTIONS' => 'true', 'GITHUB_EVENT_NAME' => 'pull_request']);
-    $chosen = new Chosen(new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER))));
+    $chosen = new Chosen(new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER))));
     $settings = Flows::settings(Report::uses('otlp'), Report::json('build/mutation.json'));
     $reporters = new Reporting($chosen, $onAPullRequest)->deliveringLater($delivery)->reporters($settings, reportingOnMain());
 
@@ -304,7 +304,7 @@ it('writes the re-checked survivors over the planned comment, and into the step 
         $patch,
     ]);
     $summary = sprintf('%s/summary.md', Scratch::directory());
-    $chosen = new Chosen(new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)))
+    $chosen = new Chosen(new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER)))
         ->withReporter(
             BuiltinReporter::GitHubComment->named(),
             static fn(): Reporter => PullRequestComment::inRun(
@@ -342,7 +342,7 @@ it('leaves the re-checked survivors in the delivery under --deliver-later, to be
         'GITHUB_SERVER_URL' => 'https://github.example',
         'GITHUB_RUN_ID' => '7',
     ];
-    $chosen = new Chosen(new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)))
+    $chosen = new Chosen(new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER)))
         ->withReporter(
             BuiltinReporter::GitHubComment->named(),
             static fn(): Reporter => PullRequestComment::inRun($environment, '{"pull_request": {"number": 12}}', $client, ''),
@@ -379,7 +379,7 @@ it('says why where the re-checked survivors cannot be left in the delivery under
         'GITHUB_SERVER_URL' => 'https://github.example',
         'GITHUB_RUN_ID' => '7',
     ];
-    $chosen = new Chosen(new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)))
+    $chosen = new Chosen(new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER)))
         ->withReporter(
             BuiltinReporter::GitHubComment->named(),
             static fn(): Reporter => PullRequestComment::inRun($environment, '{"pull_request": {"number": 12}}', new MockHttpClient([]), ''),

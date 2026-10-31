@@ -30,13 +30,13 @@ final readonly class ScopeRuns
     /** These, with the newest commit whose verdict passed, replacing the one held. */
     public function passing(Passed $passed): self
     {
-        return clone($this, ['passed' => $passed]);
+        return new self($passed, $this->lastRun);
     }
 
     /** These, with the newest commit whose run judged every unit it considered, replacing the one held. */
     public function lastRunAt(LastRun $lastRun): self
     {
-        return clone($this, ['lastRun' => $lastRun]);
+        return new self($this->passed, $lastRun);
     }
 
     /**
@@ -46,7 +46,7 @@ final readonly class ScopeRuns
      */
     public function cutShort(): self
     {
-        return clone($this, ['lastRun' => CannotTell::because(self::NEVER_RUN)]);
+        return new self($this->passed, CannotTell::because(self::NEVER_RUN));
     }
 
     public function passed(): Passed|CannotTell

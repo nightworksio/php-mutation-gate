@@ -103,13 +103,35 @@ final readonly class OwnRun
      */
     public function startedWith(array|NotGiven $arguments): self
     {
-        return clone($this, ['arguments' => $arguments]);
+        return new self(
+            $this->killers,
+            $this->errored,
+            $this->loaded,
+            $this->exhaustion,
+            $this->preloaded,
+            $this->tests,
+            $this->places,
+            $this->ended,
+            $arguments,
+            $this->unfiltered,
+        );
     }
 
     /** This run, with its filter left out by a patched run, so it ran every test it loaded. */
     public function unfiltered(): self
     {
-        return clone($this, ['unfiltered' => true]);
+        return new self(
+            $this->killers,
+            $this->errored,
+            $this->loaded,
+            $this->exhaustion,
+            $this->preloaded,
+            $this->tests,
+            $this->places,
+            $this->ended,
+            $this->arguments,
+            unfiltered: true,
+        );
     }
 
     /**

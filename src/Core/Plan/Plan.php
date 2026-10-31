@@ -83,7 +83,17 @@ final readonly class Plan implements Countable, IteratorAggregate
     /** This plan, made for a run on this ref, which every shard and the verdict judge as. */
     public function on(RunOn $runOn): self
     {
-        return clone($this, ['runOn' => $runOn]);
+        return new self(
+            $this->commit,
+            $this->base,
+            $runOn,
+            $this->keys,
+            $this->shards,
+            $this->considered,
+            $this->names,
+            $this->digests,
+            $this->briefing,
+        );
     }
 
     /** The commit the plan was made on. */
@@ -101,7 +111,17 @@ final readonly class Plan implements Countable, IteratorAggregate
     /** This plan, with the digests of the run's inputs, each proof recording its share (ADR-0008). */
     public function digesting(Digests $digests): self
     {
-        return clone($this, ['digests' => $digests]);
+        return new self(
+            $this->commit,
+            $this->base,
+            $this->runOn,
+            $this->keys,
+            $this->shards,
+            $this->considered,
+            $this->names,
+            $digests,
+            $this->briefing,
+        );
     }
 
     /** The digests of the run's inputs; none for a plan made without them. */
@@ -113,7 +133,17 @@ final readonly class Plan implements Countable, IteratorAggregate
     /** This plan, telling every shard and the verdict this about how its units run. */
     public function briefed(Briefing $briefing): self
     {
-        return clone($this, ['briefing' => $briefing]);
+        return new self(
+            $this->commit,
+            $this->base,
+            $this->runOn,
+            $this->keys,
+            $this->shards,
+            $this->considered,
+            $this->names,
+            $this->digests,
+            $briefing,
+        );
     }
 
     /** What the plan tells every shard and the verdict about how its units run. */
@@ -125,7 +155,17 @@ final readonly class Plan implements Countable, IteratorAggregate
     /** This plan, having considered this beyond its shards. */
     public function considering(Considered $considered): self
     {
-        return clone($this, ['considered' => $considered]);
+        return new self(
+            $this->commit,
+            $this->base,
+            $this->runOn,
+            $this->keys,
+            $this->shards,
+            $considered,
+            $this->names,
+            $this->digests,
+            $this->briefing,
+        );
     }
 
     /**
@@ -135,7 +175,17 @@ final readonly class Plan implements Countable, IteratorAggregate
      */
     public function naming(TestNames|CannotJudge $names): self
     {
-        return clone($this, ['names' => $names]);
+        return new self(
+            $this->commit,
+            $this->base,
+            $this->runOn,
+            $this->keys,
+            $this->shards,
+            $this->considered,
+            $names,
+            $this->digests,
+            $this->briefing,
+        );
     }
 
     /** The names the runner gives the suite's tests, or why the plan holds none. */

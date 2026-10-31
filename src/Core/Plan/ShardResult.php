@@ -68,7 +68,19 @@ final readonly class ShardResult
     /** This result, with the survivors a second run killed, which are flaky (ADR-0008). */
     public function withFlaky(MutantIds $flaky): self
     {
-        return clone($this, ['flaky' => $flaky]);
+        return new self(
+            $this->plan,
+            $this->shard,
+            $this->units,
+            $this->outcome,
+            $this->measured,
+            $flaky,
+            $this->held,
+            $this->warnings,
+            $this->unjudged,
+            $this->checks,
+            $this->doomed,
+        );
     }
 
     /**
@@ -78,13 +90,37 @@ final readonly class ShardResult
      */
     public function withHeld(HeldChecks $held): self
     {
-        return clone($this, ['held' => $held]);
+        return new self(
+            $this->plan,
+            $this->shard,
+            $this->units,
+            $this->outcome,
+            $this->measured,
+            $this->flaky,
+            $held,
+            $this->warnings,
+            $this->unjudged,
+            $this->checks,
+            $this->doomed,
+        );
     }
 
     /** This result, with what the shard warns of, which judges nothing. */
     public function withWarnings(Warnings $warnings): self
     {
-        return clone($this, ['warnings' => $warnings]);
+        return new self(
+            $this->plan,
+            $this->shard,
+            $this->units,
+            $this->outcome,
+            $this->measured,
+            $this->flaky,
+            $this->held,
+            $warnings,
+            $this->unjudged,
+            $this->checks,
+            $this->doomed,
+        );
     }
 
     /**
@@ -93,13 +129,37 @@ final readonly class ShardResult
      */
     public function withUnjudged(Units $unjudged): self
     {
-        return clone($this, ['unjudged' => $unjudged]);
+        return new self(
+            $this->plan,
+            $this->shard,
+            $this->units,
+            $this->outcome,
+            $this->measured,
+            $this->flaky,
+            $this->held,
+            $this->warnings,
+            $unjudged,
+            $this->checks,
+            $this->doomed,
+        );
     }
 
     /** This result, with what static analysis's checks of its survivors came to (ADR-0020). */
     public function withChecks(SurvivorChecks $checks): self
     {
-        return clone($this, ['checks' => $checks]);
+        return new self(
+            $this->plan,
+            $this->shard,
+            $this->units,
+            $this->outcome,
+            $this->measured,
+            $this->flaky,
+            $this->held,
+            $this->warnings,
+            $this->unjudged,
+            $checks,
+            $this->doomed,
+        );
     }
 
     /**
@@ -109,7 +169,19 @@ final readonly class ShardResult
      */
     public function withDoomed(Doomed|Undoomed $doomed): self
     {
-        return clone($this, ['doomed' => $doomed]);
+        return new self(
+            $this->plan,
+            $this->shard,
+            $this->units,
+            $this->outcome,
+            $this->measured,
+            $this->flaky,
+            $this->held,
+            $this->warnings,
+            $this->unjudged,
+            $this->checks,
+            $doomed,
+        );
     }
 
     /** The digest of the plan the shard followed. */

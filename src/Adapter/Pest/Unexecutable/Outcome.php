@@ -38,10 +38,12 @@ final readonly class Outcome
     /** Killed by these tests; where none is named, how the run ended is its evidence. */
     public static function killed(TestIds $killers, Ended $ended): self
     {
-        return clone(self::bare(MutantStatus::Killed, Unreported::reason()), [
-            'killers' => $killers,
-            'ended' => count($killers) === 0 ? $ended : NotGiven::value(),
-        ]);
+        return self::unmeasured(
+            MutantStatus::Killed,
+            Unreported::reason(),
+            $killers,
+            count($killers) === 0 ? $ended : NotGiven::value(),
+        );
     }
 
     public static function survived(): self
@@ -68,19 +70,43 @@ final readonly class Outcome
     /** This outcome, of a run that took this long. */
     public function took(Seconds $duration): self
     {
-        return clone($this, ['duration' => $duration]);
+        return new self(
+            $this->status,
+            $this->reason,
+            $duration,
+            $this->limit,
+            $this->need,
+            $this->killers,
+            $this->ended,
+        );
     }
 
     /** This outcome, of a run allowed this long. */
     public function within(Seconds $limit): self
     {
-        return clone($this, ['limit' => $limit]);
+        return new self(
+            $this->status,
+            $this->reason,
+            $this->duration,
+            $limit,
+            $this->need,
+            $this->killers,
+            $this->ended,
+        );
     }
 
     /** This outcome, of tests that took this long on their own, unmutated (ADR-0008). */
     public function needing(Seconds|Unmeasured $need): self
     {
-        return clone($this, ['need' => $need]);
+        return new self(
+            $this->status,
+            $this->reason,
+            $this->duration,
+            $this->limit,
+            $need,
+            $this->killers,
+            $this->ended,
+        );
     }
 
     /** The evidence of its kill: how its run ended, where no test is named as its killer; none otherwise. */
@@ -151,8 +177,18 @@ final readonly class Outcome
     /** An outcome of this status and reason, with nothing timed. */
     private static function bare(MutantStatus $status, Reason|Unreported $reason): self
     {
+        return self::unmeasured($status, $reason, TestIds::none(), NotGiven::value());
+    }
+
+    /** An outcome of this status and reason, killed by these tests or ended so, with nothing timed. */
+    private static function unmeasured(
+        MutantStatus $status,
+        Reason|Unreported $reason,
+        TestIds $killers,
+        Ended|NotGiven $ended,
+    ): self {
         $none = Unmeasured::duration();
 
-        return new self($status, $reason, $none, $none, $none, TestIds::none(), NotGiven::value());
+        return new self($status, $reason, $none, $none, $none, $killers, $ended);
     }
 }

@@ -13,7 +13,7 @@ use NightWorksIO\MutationGate\Tests\Support\Configs;
 
 /** A shipped preset, as a config file would write it. */
 $written = static function (string $name): mixed {
-    $preset = Lookup::in(Presets::registered(new Extensions(Origin::of('nightworksio/mutation-gate'))))
+    $preset = Lookup::in(Presets::registered(Extensions::of(Origin::of('nightworksio/mutation-gate'))))
         ->preset(Name::of($name));
 
     return $preset instanceof Layer ? Configs::decoded($preset) : $preset->why();

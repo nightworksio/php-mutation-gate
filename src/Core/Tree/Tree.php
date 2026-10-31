@@ -34,19 +34,19 @@ final readonly class Tree
     /** This tree, with the floor its manifest declares for new lines in place of `newCode.floor`. */
     public function withNewCodeFloor(Floor $floor): self
     {
-        return clone($this, ['newCode' => $floor]);
+        return new self($this->path, $this->declared, $this->package, $floor, $this->excluded);
     }
 
     /** This tree, declaring this floor, or its exemption and why, in place of its own. */
     public function declaring(Floor|Exempt|Undeclared $declared): self
     {
-        return clone($this, ['declared' => $declared]);
+        return new self($this->path, $declared, $this->package, $this->newCode, $this->excluded);
     }
 
     /** This tree, whose files these globs match, from the repository root, belong to no tree. */
     public function excluding(Globs $excluded): self
     {
-        return clone($this, ['excluded' => $excluded]);
+        return new self($this->path, $this->declared, $this->package, $this->newCode, $excluded);
     }
 
     /** Whether a file belongs to no tree by this tree's word. */

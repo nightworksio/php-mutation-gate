@@ -39,7 +39,7 @@ use NightWorksIO\MutationGate\Tests\Support\MisbuiltReporter;
 use NightWorksIO\MutationGate\Tests\Support\NotAReporter;
 
 /** A registry with one adapter of every kind a config chooses, each registered as "it". */
-$registry = static fn(): Extensions => new Extensions(Origin::of('acme/gate'))
+$registry = static fn(): Extensions => Extensions::of(Origin::of('acme/gate'))
     ->withRunner(Name::of('it'), static fn(): Runner => RunnerFake::ofTheFixture())
     ->withTreeSource(Name::of('it'), static fn(): TreeSource => TreeSourceFake::ofTheFixture())
     ->withProofStore(Name::of('it'), static fn(): ProofStore => new ProofStoreFake())
@@ -61,7 +61,7 @@ $registry = static fn(): Extensions => new Extensions(Origin::of('acme/gate'))
     );
 
 /** Nothing registered, so only a class can be chosen. */
-$classes = static fn(): Chosen => new Chosen(new Extensions(Origin::of('acme/gate')));
+$classes = static fn(): Chosen => new Chosen(Extensions::of(Origin::of('acme/gate')));
 
 it('builds the adapter an extension registered under the name a setting chooses', function () use ($registry): void {
     $chosen = new Chosen($registry());
@@ -150,7 +150,7 @@ it('refuses a class whose named constructor builds something else', function () 
 });
 
 it('loads the extensions a config names, as coming from the config file', function (): void {
-    $registry = new Chosen(new Extensions(Origin::of('nightworksio/mutation-gate')))
+    $registry = new Chosen(Extensions::of(Origin::of('nightworksio/mutation-gate')))
         ->withExtensions([ExtensionFake::class]);
 
     expect($registry instanceof Extensions ? Lookup::in($registry)->runner(Name::of('fake'), Options::none()) : $registry)
@@ -176,7 +176,7 @@ it('refuses an extension a config names that is not one', function () use ($clas
 });
 
 it('refuses an extension a config names that registers what another package does', function (): void {
-    $discovered = new Extensions(Origin::of('acme/one'))
+    $discovered = Extensions::of(Origin::of('acme/one'))
         ->withRunner(Name::of('fake'), static fn(): Runner => RunnerFake::ofTheFixture());
 
     expect(new Chosen($discovered)->withExtensions([ExtensionFake::class]))

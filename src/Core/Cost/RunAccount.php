@@ -48,7 +48,7 @@ final readonly class RunAccount
     /** This account, with where the verdict comes from. */
     public function withProvenance(Provenance $provenance): self
     {
-        return clone($this, ['provenance' => $provenance]);
+        return new self($this->timings, $this->cost, $this->savings, $this->previous, $this->pruning, $provenance);
     }
 
     /** Where the verdict comes from: the gate, the commit, the runner and the baseline file. */
@@ -59,23 +59,23 @@ final readonly class RunAccount
 
     public function withTimings(RunTimings $timings): self
     {
-        return clone($this, ['timings' => $timings]);
+        return new self($timings, $this->cost, $this->savings, $this->previous, $this->pruning, $this->provenance);
     }
 
     public function withCost(Cost $cost): self
     {
-        return clone($this, ['cost' => $cost]);
+        return new self($this->timings, $cost, $this->savings, $this->previous, $this->pruning, $this->provenance);
     }
 
     public function withSavings(Savings $savings): self
     {
-        return clone($this, ['savings' => $savings]);
+        return new self($this->timings, $this->cost, $savings, $this->previous, $this->pruning, $this->provenance);
     }
 
     /** This account, with what pruning did in the run (ADR-0025). */
     public function withPruning(PruningAccount $pruning): self
     {
-        return clone($this, ['pruning' => $pruning]);
+        return new self($this->timings, $this->cost, $this->savings, $this->previous, $pruning, $this->provenance);
     }
 
     /** What pruning did in the run; nothing where it pruned nothing. */
@@ -87,7 +87,7 @@ final readonly class RunAccount
     /** This account, after the runs `trend.json` held before it, which the flows read once on the default branch. */
     public function after(Trend $previous): self
     {
-        return clone($this, ['previous' => $previous]);
+        return new self($this->timings, $this->cost, $this->savings, $previous, $this->pruning, $this->provenance);
     }
 
     public function timings(): RunTimings|Untimed

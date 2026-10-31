@@ -151,8 +151,8 @@
     },
     "lowest": {
       "check": "lowest dependencies",
-      "checks": "The suite against the oldest release of every dependency composer.json admits.",
-      "reproduce": "composer update --prefer-lowest --prefer-stable && composer test && composer test:network",
+      "checks": "The suite on the lowest PHP composer.json admits, 8.4, against the oldest release of every dependency it admits.",
+      "reproduce": "on PHP 8.4: composer update --prefer-lowest --prefer-stable && composer test && composer test:network",
       "evidence": [
         {"step": "suite", "tool": "pest", "raw": "evidence/raw/lowest.xml"},
         {"step": "network", "tool": "pest", "raw": "evidence/raw/lowest-network.xml"}

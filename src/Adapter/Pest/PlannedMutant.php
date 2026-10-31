@@ -52,7 +52,17 @@ final readonly class PlannedMutant
      */
     public function asTwin(): self
     {
-        return clone($this, ['twin' => true]);
+        return new self(
+            $this->id,
+            $this->file,
+            $this->start,
+            $this->end,
+            $this->mutator,
+            $this->diff,
+            $this->mutated,
+            $this->occurrence,
+            twin: true,
+        );
     }
 
     /** Whether it was kept out of Pest's run as another's twin, whose run judges it. */
@@ -98,7 +108,17 @@ final readonly class PlannedMutant
 
         foreach ($planned as $mutant) {
             $occurrence = array_key_exists($mutant->id, $seen) ? $seen[$mutant->id] : 0;
-            $numbered[] = clone($mutant, ['occurrence' => $occurrence]);
+            $numbered[] = new self(
+                $mutant->id,
+                $mutant->file,
+                $mutant->start,
+                $mutant->end,
+                $mutant->mutator,
+                $mutant->diff,
+                $mutant->mutated,
+                $occurrence,
+                $mutant->twin,
+            );
             $seen[$mutant->id] = $occurrence + 1;
         }
 

@@ -44,13 +44,13 @@ final readonly class HeldSets
     /** These sets, with every mutant grouped by the owners of its file. */
     public function owned(OwnerVerdicts $owners): self
     {
-        return clone($this, ['owners' => $owners]);
+        return new self($this->newCode, $this->security, $owners, $this->ownerFloors);
     }
 
     /** These sets, with each owner `owners.floors` holds judged against its floor. */
     public function floored(OwnerFloorVerdicts $ownerFloors): self
     {
-        return clone($this, ['ownerFloors' => $ownerFloors]);
+        return new self($this->newCode, $this->security, $this->owners, $ownerFloors);
     }
 
     /** The new-code sets; none where the run was not change-scoped. */

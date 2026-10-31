@@ -53,13 +53,13 @@ final readonly class Proof
     /** This proof, recording these digests of its inputs. */
     public function withInputs(Inputs|Undigested $inputs): self
     {
-        return clone($this, ['inputs' => $inputs]);
+        return new self($this->key, $this->unit, $this->reported, $this->kills, $this->run, $inputs, $this->judging);
     }
 
     /** This proof, of a held unit these of whose holding tests run it. */
     public function judgedBy(TestIds $judging): self
     {
-        return clone($this, ['judging' => $judging]);
+        return new self($this->key, $this->unit, $this->reported, $this->kills, $this->run, $this->inputs, $judging);
     }
 
     /** The holding tests that run a held unit; none for a unit the whole suite judges, or a proof that names none. */

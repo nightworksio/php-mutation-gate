@@ -87,7 +87,7 @@ final readonly class BadgeDirectory implements Reporter
     /** This reporter, with this floor for new code in the summary. */
     public function holdingNewCodeTo(Floor $newCode): self
     {
-        return clone($this, ['newCode' => $newCode]);
+        return new self($this->path, $this->colors, $this->commit, $this->clock, $newCode);
     }
 
     /**

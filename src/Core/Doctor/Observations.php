@@ -42,54 +42,144 @@ final readonly class Observations
     /** These, with the PHP the runner runs its tests on, or why it could not be read. */
     public function withPhp(RunnerPhp|CannotJudge $php): self
     {
-        return clone($this, ['php' => $php]);
+        return new self(
+            $php,
+            $this->runners,
+            $this->settings,
+            $this->trees,
+            $this->markers,
+            $this->files,
+            $this->ledgers,
+            $this->asked,
+            $this->run,
+        );
     }
 
     public function withRunners(InstalledRunners $runners): self
     {
-        return clone($this, ['runners' => $runners]);
+        return new self(
+            $this->php,
+            $runners,
+            $this->settings,
+            $this->trees,
+            $this->markers,
+            $this->files,
+            $this->ledgers,
+            $this->asked,
+            $this->run,
+        );
     }
 
     /** These, with the effective config, or why there is none. */
     public function withSettings(Settings|Invalid|CannotJudge $settings): self
     {
-        return clone($this, ['settings' => $settings]);
+        return new self(
+            $this->php,
+            $this->runners,
+            $settings,
+            $this->trees,
+            $this->markers,
+            $this->files,
+            $this->ledgers,
+            $this->asked,
+            $this->run,
+        );
     }
 
     /** These, with the trees the tree source found, or why it found none. */
     public function withTrees(Trees|Invalid|CannotJudge $trees): self
     {
-        return clone($this, ['trees' => $trees]);
+        return new self(
+            $this->php,
+            $this->runners,
+            $this->settings,
+            $trees,
+            $this->markers,
+            $this->files,
+            $this->ledgers,
+            $this->asked,
+            $this->run,
+        );
     }
 
     /** These, with the runner's own ignore markers in the trees. */
     public function withMarkers(Markers $markers): self
     {
-        return clone($this, ['markers' => $markers]);
+        return new self(
+            $this->php,
+            $this->runners,
+            $this->settings,
+            $this->trees,
+            $markers,
+            $this->files,
+            $this->ledgers,
+            $this->asked,
+            $this->run,
+        );
     }
 
     /** These, with what the project's own files say. */
     public function withFiles(ProjectFiles $files): self
     {
-        return clone($this, ['files' => $files]);
+        return new self(
+            $this->php,
+            $this->runners,
+            $this->settings,
+            $this->trees,
+            $this->markers,
+            $files,
+            $this->ledgers,
+            $this->asked,
+            $this->run,
+        );
     }
 
     /** These, with every ledger the proof store keeps. */
     public function withLedgers(KeptLedgers $ledgers): self
     {
-        return clone($this, ['ledgers' => $ledgers]);
+        return new self(
+            $this->php,
+            $this->runners,
+            $this->settings,
+            $this->trees,
+            $this->markers,
+            $this->files,
+            $ledgers,
+            $this->asked,
+            $this->run,
+        );
     }
 
     /** These, with what `--measure` and `--online` found out. */
     public function withAsked(Asked $asked): self
     {
-        return clone($this, ['asked' => $asked]);
+        return new self(
+            $this->php,
+            $this->runners,
+            $this->settings,
+            $this->trees,
+            $this->markers,
+            $this->files,
+            $this->ledgers,
+            $asked,
+            $this->run,
+        );
     }
 
     /** These, as doctor's own run read them: when, and with what memory. */
     public function in(DoctorRun $run): self
     {
-        return clone($this, ['run' => $run]);
+        return new self(
+            $this->php,
+            $this->runners,
+            $this->settings,
+            $this->trees,
+            $this->markers,
+            $this->files,
+            $this->ledgers,
+            $this->asked,
+            $run,
+        );
     }
 
     public function php(): RunnerPhp|CannotJudge|NotGiven

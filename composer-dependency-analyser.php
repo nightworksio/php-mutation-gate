@@ -69,6 +69,9 @@ return new Configuration()
             // and their releases before 3.5 declare implicitly nullable
             // parameters, which PHP 8.4 deprecates.
             'symfony/event-dispatcher-contracts',
+            // A polyfill: on PHP 8.4 it defines array_first and array_last,
+            // which the code calls as PHP's own functions.
+            'symfony/polyfill-php85',
         ],
         [ErrorType::UNUSED_DEPENDENCY],
     )

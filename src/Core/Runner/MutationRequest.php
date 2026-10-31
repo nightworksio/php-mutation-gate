@@ -59,7 +59,18 @@ final readonly class MutationRequest
     /** This request, leaving out paths inside its files that a group judges in a run of its own. */
     public function leavingOut(Paths $paths): self
     {
-        return clone($this, ['leftOut' => $paths]);
+        return new self(
+            $this->files,
+            $this->judgedBy,
+            $paths,
+            $this->narrowing,
+            $this->deadline,
+            $this->pool,
+            $this->coverage,
+            $this->withheld,
+            $this->search,
+            $this->memory,
+        );
     }
 
     /**
@@ -71,25 +82,69 @@ final readonly class MutationRequest
      */
     public function narrowedTo(Paths $files, Narrowing $narrowing): self
     {
-        return clone($this, ['files' => $files, 'narrowing' => $narrowing, 'leftOut' => Paths::none()]);
+        return new self(
+            $files,
+            $this->judgedBy,
+            Paths::none(),
+            $narrowing,
+            $this->deadline,
+            $this->pool,
+            $this->coverage,
+            $this->withheld,
+            $this->search,
+            $this->memory,
+        );
     }
 
     /** This request, stopped when this much time has passed. */
     public function within(Seconds $deadline): self
     {
-        return clone($this, ['deadline' => $deadline]);
+        return new self(
+            $this->files,
+            $this->judgedBy,
+            $this->leftOut,
+            $this->narrowing,
+            $deadline,
+            $this->pool,
+            $this->coverage,
+            $this->withheld,
+            $this->search,
+            $this->memory,
+        );
     }
 
     /** This request, its mutants run in this pool (ADR-0023). */
     public function across(Pool $pool): self
     {
-        return clone($this, ['pool' => $pool]);
+        return new self(
+            $this->files,
+            $this->judgedBy,
+            $this->leftOut,
+            $this->narrowing,
+            $this->deadline,
+            $pool,
+            $this->coverage,
+            $this->withheld,
+            $this->search,
+            $this->memory,
+        );
     }
 
     /** This request, withholding these variables from the tests as well as those it already withholds. */
     public function withholding(Withheld $withheld): self
     {
-        return clone($this, ['withheld' => $this->withheld->and($withheld)]);
+        return new self(
+            $this->files,
+            $this->judgedBy,
+            $this->leftOut,
+            $this->narrowing,
+            $this->deadline,
+            $this->pool,
+            $this->coverage,
+            $this->withheld->and($withheld),
+            $this->search,
+            $this->memory,
+        );
     }
 
     /** The variables the tests never see. */
@@ -101,13 +156,35 @@ final readonly class MutationRequest
     /** This request, reading the coverage maps a plan handed over instead of running the suite for one. */
     public function reusingCoverage(Handed $maps): self
     {
-        return clone($this, ['coverage' => $maps]);
+        return new self(
+            $this->files,
+            $this->judgedBy,
+            $this->leftOut,
+            $this->narrowing,
+            $this->deadline,
+            $this->pool,
+            $maps,
+            $this->withheld,
+            $this->search,
+            $this->memory,
+        );
     }
 
     /** This request, each process that runs a mutant using no more memory than this (`runner.memory`). */
     public function cappedAt(MemoryCap $memory): self
     {
-        return clone($this, ['memory' => $memory]);
+        return new self(
+            $this->files,
+            $this->judgedBy,
+            $this->leftOut,
+            $this->narrowing,
+            $this->deadline,
+            $this->pool,
+            $this->coverage,
+            $this->withheld,
+            $this->search,
+            $memory,
+        );
     }
 
     public function memory(): MemoryCap
@@ -122,7 +199,18 @@ final readonly class MutationRequest
      */
     public function searching(KillSearch $search): self
     {
-        return clone($this, ['search' => $search]);
+        return new self(
+            $this->files,
+            $this->judgedBy,
+            $this->leftOut,
+            $this->narrowing,
+            $this->deadline,
+            $this->pool,
+            $this->coverage,
+            $this->withheld,
+            $search,
+            $this->memory,
+        );
     }
 
     public function search(): KillSearch

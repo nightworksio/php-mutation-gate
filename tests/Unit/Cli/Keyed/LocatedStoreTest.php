@@ -28,7 +28,7 @@ use NightWorksIO\MutationGate\Tests\Support\FixedTokens;
  */
 function locatedStoreOf(array $environment, string $name, Closure $build): LocatedStore
 {
-    return new LocatedStore(Variables::of($environment), new Extensions(Origin::of('acme/gate'))->withProofStore(Name::of($name), $build));
+    return new LocatedStore(Variables::of($environment), Extensions::of(Origin::of('acme/gate'))->withProofStore(Name::of($name), $build));
 }
 
 const LOCATED_AZURE = [

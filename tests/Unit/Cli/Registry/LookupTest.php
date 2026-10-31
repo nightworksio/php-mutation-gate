@@ -13,7 +13,7 @@ use NightWorksIO\MutationGate\Tests\Support\Registering;
 
 it('refuses what a registration built that is not what its extension point takes', function (): void {
     foreach (Registering::adapterPoints() as $point) {
-        $registry = Registering::registerMisbuilt($point, Name::of('it'), new Extensions(Origin::of('acme/gate')), static fn(): object => new stdClass());
+        $registry = Registering::registerMisbuilt($point, Name::of('it'), Extensions::of(Origin::of('acme/gate')), static fn(): object => new stdClass());
 
         expect(Registering::lookUp($point, $registry, Options::none()))->toEqual(CannotJudge::because(sprintf(
             'The %1$s registered as "it" built something that is not a %1$s.',
@@ -23,7 +23,7 @@ it('refuses what a registration built that is not what its extension point takes
 });
 
 it('builds each registration anew from the options it is given', function (): void {
-    $registry = new Extensions(Origin::of('acme/gate'))
+    $registry = Extensions::of(Origin::of('acme/gate'))
         ->withReporter(Name::of('it'), static fn(): ReporterFake => new ReporterFake());
     $lookup = Lookup::in($registry);
 

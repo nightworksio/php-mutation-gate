@@ -140,7 +140,7 @@ it('cannot count the mutants of a file that does not parse, saying which and why
 /** The engine over the default set, as the plan counts with it. */
 function defaultEngine(): Engine
 {
-    $set = new DefaultExtension()->extend(new Extensions(Origin::of('nightworksio/mutation-gate')))
+    $set = new DefaultExtension()->extend(Extensions::of(Origin::of('nightworksio/mutation-gate')))
         ->registered(ExtensionPoint::MutatorSet, MutatorSet::defaultName());
     return Enabled::of($set instanceof MutatorSet ? $set : MutatorSet::of())->engine();
 }

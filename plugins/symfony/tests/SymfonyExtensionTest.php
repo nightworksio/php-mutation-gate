@@ -12,7 +12,7 @@ use NightWorksIO\MutationGateSymfony\SymfonyExtension;
 use NightWorksIO\MutationGateSymfony\SymfonySet;
 
 it('registers every mutator of the set under its name', function (): void {
-    $set = new SymfonyExtension()->extend(new Extensions(Origin::of('nightworksio/mutation-gate-symfony')))
+    $set = new SymfonyExtension()->extend(Extensions::of(Origin::of('nightworksio/mutation-gate-symfony')))
         ->registered(ExtensionPoint::MutatorSet, SymfonySet::name());
     $mutators = $set instanceof MutatorSet ? iterator_to_array($set, preserve_keys: false) : [];
 

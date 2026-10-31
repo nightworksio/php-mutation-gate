@@ -67,13 +67,31 @@ final readonly class UnitResult
     /** This result, with these of its mutants flaky: they survived once and were killed when run again. */
     public function withFlaky(MutantIds $flaky): self
     {
-        return clone($this, ['flaky' => $flaky]);
+        return new self(
+            $this->unit,
+            $this->origin,
+            $this->mutants,
+            $this->kills,
+            $flaky,
+            $this->run,
+            $this->judging,
+            $this->carriedPruned,
+        );
     }
 
     /** This result, its unit held by tests of which these run it (ADR-0005). */
     public function judgedBy(TestIds $judging): self
     {
-        return clone($this, ['judging' => $judging]);
+        return new self(
+            $this->unit,
+            $this->origin,
+            $this->mutants,
+            $this->kills,
+            $this->flaky,
+            $this->run,
+            $judging,
+            $this->carriedPruned,
+        );
     }
 
     /**
@@ -93,11 +111,16 @@ final readonly class UnitResult
             $ids[] = $kill->id();
         }
 
-        return clone($this, [
-            'mutants' => Mutants::of(...$this->mutants, ...$mutants),
-            'kills' => ProvedKills::of(...$this->kills, ...$kills),
-            'carriedPruned' => MutantIds::of(...$ids),
-        ]);
+        return new self(
+            $this->unit,
+            $this->origin,
+            Mutants::of(...$this->mutants, ...$mutants),
+            ProvedKills::of(...$this->kills, ...$kills),
+            $this->flaky,
+            $this->run,
+            $this->judging,
+            MutantIds::of(...$ids),
+        );
     }
 
     /** The mutants and kills it carries from the last result for a mutator the run left out; none where it ran all. */

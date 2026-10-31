@@ -27,7 +27,7 @@ it('declares each tree it found at the floor every tree starts at, keeping an ex
         Tree::at(Path::of('src'), Floor::of(80), Package::at(Path::root())),
         Tree::at(Path::of('generated'), $exempt, Package::at(Path::root())),
     );
-    $extensions = new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)))
+    $extensions = new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER)))
         ->withTreeSource(Name::of('phpunit'), static fn(): TreeSource => new TreeSourceFake($trees));
     $found = ZeroConfig::found($extensions, Configs::settings(['runner' => 'pest']));
 

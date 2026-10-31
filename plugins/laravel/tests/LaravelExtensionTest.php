@@ -12,7 +12,7 @@ use NightWorksIO\MutationGateLaravel\Mutators\GateAllowsToTrue;
 use NightWorksIO\MutationGateLaravel\Mutators\RemoveGuardedEntry;
 
 it('registers every mutator of the set under its name', function (): void {
-    $set = new LaravelExtension()->extend(new Extensions(Origin::of('nightworksio/mutation-gate-laravel')))
+    $set = new LaravelExtension()->extend(Extensions::of(Origin::of('nightworksio/mutation-gate-laravel')))
         ->registered(ExtensionPoint::MutatorSet, LaravelSet::name());
     $mutators = $set instanceof MutatorSet ? iterator_to_array($set, preserve_keys: false) : [];
 

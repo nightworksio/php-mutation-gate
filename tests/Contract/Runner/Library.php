@@ -738,7 +738,7 @@ final class Library
     /** The engine of the default set, as the flows hand it to the PHPUnit runner. */
     private static function defaultSet(): Engine
     {
-        $registry = new DefaultExtension()->extend(new Extensions(Origin::of(self::class)));
+        $registry = new DefaultExtension()->extend(Extensions::of(Origin::of(self::class)));
         $set = $registry->registered(ExtensionPoint::MutatorSet, MutatorSet::defaultName());
 
         return Enabled::of($set instanceof MutatorSet ? $set : MutatorSet::of())->engine();

@@ -62,43 +62,57 @@ final readonly class CommandLine
     /** What the command line says, and `--config` naming a file. */
     public function withConfig(string $file): self
     {
-        return clone($this, ['config' => $file]);
+        return new self($file, $this->runner, $this->reports, $this->budget, $this->ci, $this->firstPartyOnly);
     }
 
     /** What the command line says, and `--runner`. */
     public function withRunner(string $runner): self
     {
-        return clone($this, ['runner' => $runner]);
+        return new self($this->config, $runner, $this->reports, $this->budget, $this->ci, $this->firstPartyOnly);
     }
 
     /** What the command line says, and one `--report` more, `<name>:<path>`. */
     public function withReport(string $report): self
     {
-        return clone($this, ['reports' => [...$this->reports, $report]]);
+        return new self(
+            $this->config,
+            $this->runner,
+            [...$this->reports, $report],
+            $this->budget,
+            $this->ci,
+            $this->firstPartyOnly,
+        );
     }
 
     /** What the command line says, and `--budget`. */
     public function withBudget(string $budget): self
     {
-        return clone($this, ['budget' => $budget]);
+        return new self($this->config, $this->runner, $this->reports, $budget, $this->ci, $this->firstPartyOnly);
     }
 
     /** What the command line says, and `--ci`. */
     public function withCi(string $plan): self
     {
-        return clone($this, ['ci' => $plan]);
+        return new self($this->config, $this->runner, $this->reports, $this->budget, $plan, $this->firstPartyOnly);
     }
 
     /** What the command line says, and `--no-extensions`: the first-party extensions, and no third party's. */
     public function firstPartyOnly(): self
     {
-        return clone($this, ['firstPartyOnly' => true]);
+        return new self($this->config, $this->runner, $this->reports, $this->budget, $this->ci, firstPartyOnly: true);
     }
 
     /** What the command line says, but for a config file to read. */
     public function withoutConfig(): self
     {
-        return clone($this, ['config' => NotGiven::value()]);
+        return new self(
+            NotGiven::value(),
+            $this->runner,
+            $this->reports,
+            $this->budget,
+            $this->ci,
+            $this->firstPartyOnly,
+        );
     }
 
     /** This command line, choosing this runner where it chooses none. */

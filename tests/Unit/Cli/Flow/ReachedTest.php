@@ -159,7 +159,7 @@ it('reaches the files a changed test runs, as the runner says which tests judge 
 ) use ($makeMoney): void {
     $money = $makeMoney();
 
-    $runner = new RunnerFake(
+    $runner = RunnerFake::of(
         Identity::of('fake', Versions::none(), Digest::of('php')),
         Groups::of(),
         CoverageMap::empty(),
@@ -196,7 +196,7 @@ it('tells a changed test by the suffix the PHPUnit config gives the directory it
             </testsuites>
         </phpunit>
         XML;
-    $runner = new RunnerFake(
+    $runner = RunnerFake::of(
         Identity::of('fake', Versions::none(), Digest::of('php')),
         Groups::of(),
         CoverageMap::empty(),
@@ -296,7 +296,7 @@ it('reaches nothing where the config file the run reads changed no setting that 
     $config = static fn(string $project): DecidingConfig => DecidingConfig::read(
         new Effective(
             $project,
-            Registered::config(new Extensions(Origin::of('nightworksio/mutation-gate')), static fn(): bool => true),
+            Registered::config(Extensions::of(Origin::of('nightworksio/mutation-gate')), static fn(): bool => true),
             new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project))),
             new DateTimeImmutable(Configs::NOW),
         ),

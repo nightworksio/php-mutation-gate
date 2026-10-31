@@ -82,7 +82,18 @@ final readonly class Judge
     /** This judge, estimating each tree from what this sample ran of it (ADR-0020). */
     public function sampling(Sample $sample): self
     {
-        return clone($this, ['sample' => $sample]);
+        return new self(
+            $this->trees,
+            $this->baseline,
+            $this->reach,
+            $this->uncovered,
+            $this->triage,
+            $this->matrix,
+            $this->ignoring,
+            $this->only,
+            $this->equivalent,
+            $sample,
+        );
     }
 
     /**
@@ -91,7 +102,18 @@ final readonly class Judge
      */
     public function onlyMadeBy(NamedMutators $mutators): self
     {
-        return clone($this, ['only' => $mutators]);
+        return new self(
+            $this->trees,
+            $this->baseline,
+            $this->reach,
+            $this->uncovered,
+            $this->triage,
+            $this->matrix,
+            $this->ignoring,
+            $mutators,
+            $this->equivalent,
+            $this->sample,
+        );
     }
 
     /**
@@ -100,13 +122,35 @@ final readonly class Judge
      */
     public function proving(MutantIds $equivalent): self
     {
-        return clone($this, ['equivalent' => $equivalent]);
+        return new self(
+            $this->trees,
+            $this->baseline,
+            $this->reach,
+            $this->uncovered,
+            $this->triage,
+            $this->matrix,
+            $this->ignoring,
+            $this->only,
+            $equivalent,
+            $this->sample,
+        );
     }
 
     /** This judge, naming each mutant's judging tests from this kill matrix; none are named without one. */
     public function judging(KillMatrix $matrix): self
     {
-        return clone($this, ['matrix' => $matrix]);
+        return new self(
+            $this->trees,
+            $this->baseline,
+            $this->reach,
+            $this->uncovered,
+            $this->triage,
+            $matrix,
+            $this->ignoring,
+            $this->only,
+            $this->equivalent,
+            $this->sample,
+        );
     }
 
     /** Each tree, over every unit result it holds; a result no tree holds is judged in none. */

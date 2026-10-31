@@ -20,7 +20,7 @@ final readonly class Wirings
     /** This package's registry, with the fake runner beside it. */
     public static function registry(): Extensions
     {
-        return new ExtensionFake()->extend(new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER))));
+        return new ExtensionFake()->extend(new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER))));
     }
 
     /** What zero-config finds of the fixture project, which installs no static analyser. */

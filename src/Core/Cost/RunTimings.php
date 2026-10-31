@@ -48,23 +48,30 @@ final readonly class RunTimings
 
     public function withPlan(Phase $plan): self
     {
-        return clone($this, ['plan' => $plan]);
+        return new self($this->run, $plan, $this->shards, $this->verdict, $this->spent, $this->runner);
     }
 
     public function withShard(ShardTiming $shard): self
     {
-        return clone($this, ['shards' => [...$this->shards, $shard]]);
+        return new self(
+            $this->run,
+            $this->plan,
+            [...$this->shards, $shard],
+            $this->verdict,
+            $this->spent,
+            $this->runner,
+        );
     }
 
     public function withVerdict(Phase $verdict): self
     {
-        return clone($this, ['verdict' => $verdict]);
+        return new self($this->run, $this->plan, $this->shards, $verdict, $this->spent, $this->runner);
     }
 
     /** These timings, of a run this runner judged, as the plan's proof keys name it. */
     public function ranBy(Identity $runner): self
     {
-        return clone($this, ['runner' => $runner]);
+        return new self($this->run, $this->plan, $this->shards, $this->verdict, $this->spent, $runner);
     }
 
     /** The runner that judged the run; unidentified where the flows did not say. */

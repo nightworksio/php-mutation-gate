@@ -125,6 +125,8 @@ about Laravel, NativePHP or the project's modules, and does not.
    | OpenSSF Scorecard | `scorecard.yml` | **Copied** | A public package is what Scorecard exists for |
    | Mutation jobs | a scope job, a matrix of shards and an aggregating job, driven by the in-house script | **Adapted** | They become this package's reusable workflow: plan, shards and verdict |
 
+   ADR-0042 amends this table: `config.platform.php` is 8.4.27.
+
 4. **The code conventions, and what enforces each here.** The rule IDs are this
    package's own, held in `ARCHITECTURE.md`.
 
@@ -383,6 +385,9 @@ about Laravel, NativePHP or the project's modules, and does not.
     ADR-0041 amends this table: pest-plugin-mutate is allowed from 5.0.2 to
     below 6.0, and `doctor` advises on a release newer than the newest the
     contract suite has passed.
+
+    ADR-0042 amends this table: PHP 8.4 and later 8.x are supported, and CI
+    runs the suite on 8.4 with the oldest dependencies and on 8.5.
 
     A runner release outside these ranges is added in a minor release, once
     its contract suite passes. Infection is 0.x, so each of its minor

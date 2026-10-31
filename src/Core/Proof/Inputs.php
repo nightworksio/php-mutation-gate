@@ -37,13 +37,13 @@ final readonly class Inputs
     /** These inputs, and a killing test file's digest, with what it reads. */
     public function withTest(Path $file, Digest $digest): self
     {
-        return clone($this, ['tests' => $this->tests->with($file, $digest)]);
+        return new self($this->source, $this->mutation, $this->tests->with($file, $digest), $this->commit);
     }
 
     /** These inputs, taken at this commit from a working tree that held nothing it does not. */
     public function takenAt(Revision $commit): self
     {
-        return clone($this, ['commit' => $commit]);
+        return new self($this->source, $this->mutation, $this->tests, $commit);
     }
 
     /** The commit these inputs were taken at, or none where the working tree held more. */

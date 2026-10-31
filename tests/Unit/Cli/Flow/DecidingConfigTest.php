@@ -31,7 +31,7 @@ $deciding = static function (string $config): array {
     Scratch::write($project, 'mutation-gate.json', $config);
     $effective = new Effective(
         $project,
-        Registered::config(new Extensions(Origin::of('nightworksio/mutation-gate')), static fn(): bool => true),
+        Registered::config(Extensions::of(Origin::of('nightworksio/mutation-gate')), static fn(): bool => true),
         new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project))),
         new DateTimeImmutable(Configs::NOW),
     );

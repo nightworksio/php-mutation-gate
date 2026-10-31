@@ -33,7 +33,7 @@
         "security": "https://github.com/nightworksio/php-mutation-gate/security/policy"
     },
     "require": {
-        "php": "^8.5",
+        "php": "^8.4",
         "ext-json": "*",
         "ext-libxml": "*",
         "ext-mbstring": "*",
@@ -48,6 +48,7 @@
         "symfony/console": "^7.4 || ^8.0",
         "symfony/http-client": "^7.4 || ^8.0",
         "symfony/http-client-contracts": "^3.5",
+        "symfony/polyfill-php85": "^1.33",
         "symfony/process": "^7.4.5 || ^8.0.5"
     },
     "require-dev": {
@@ -138,7 +139,7 @@
             "pestphp/pest-plugin": true
         },
         "platform": {
-            "php": "8.5.12"
+            "php": "8.4.27"
         },
         "process-timeout": 0,
         "sort-packages": true

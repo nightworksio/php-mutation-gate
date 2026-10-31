@@ -52,25 +52,25 @@ final readonly class Narrowing
     /** This narrowing, making mutants with these mutators alone. */
     public function toMutators(Mutators $mutators): self
     {
-        return clone($this, ['mutators' => $mutators]);
+        return new self($mutators, $this->suite, $this->suites, $this->pruned, $this->cases);
     }
 
     /** This narrowing, its mutants judged by this suite's tests alone. */
     public function toSuite(SuiteName $suite): self
     {
-        return clone($this, ['suite' => $suite]);
+        return new self($this->mutators, $suite, $this->suites, $this->pruned, $this->cases);
     }
 
     /** This narrowing, its mutants judged by these suites' tests, as `tests.suites` and `tests.holding` list them. */
     public function amongSuites(JudgingSuites $suites): self
     {
-        return clone($this, ['suites' => $suites]);
+        return new self($this->mutators, $this->suite, $suites, $this->pruned, $this->cases);
     }
 
     /** This narrowing, its runner told which files the suite runs as files of test cases. */
     public function amongTestCases(TestCases $cases): self
     {
-        return clone($this, ['cases' => $cases]);
+        return new self($this->mutators, $this->suite, $this->suites, $this->pruned, $cases);
     }
 
     /** Which files the suite runs as files of test cases; none known, unless it was told. */
@@ -82,7 +82,7 @@ final readonly class Narrowing
     /** This narrowing, leaving these mutators out of these files. */
     public function pruning(Pruned $pruned): self
     {
-        return clone($this, ['pruned' => $pruned]);
+        return new self($this->mutators, $this->suite, $this->suites, $pruned, $this->cases);
     }
 
     public function mutators(): Mutators

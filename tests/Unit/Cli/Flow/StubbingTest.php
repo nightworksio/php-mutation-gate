@@ -59,7 +59,7 @@ function stubbingOf(string $project, object ...$ports): Stub|CannotJudge
         Flows::settings(),
         Flows::adapters($project, [], $store, ...$ports),
         Flows::setup(),
-        new Reporting(new Chosen(new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)))), Variables::of([])),
+        new Reporting(new Chosen(new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER)))), Variables::of([])),
     ))->stub($sought, Absent::setting()) : $sought;
 
     return $stub instanceof Stub || $stub instanceof CannotJudge ? $stub : CannotJudge::because($stub->why());
@@ -107,7 +107,7 @@ function stubbingPinned(Enabled $mutators): Stub|CannotJudge
         Flows::settings(),
         Flows::adapters($project, [], $store, $mutators),
         Flows::setup(),
-        new Reporting(new Chosen(new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)))), Variables::of([])),
+        new Reporting(new Chosen(new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER)))), Variables::of([])),
     ))->stub($sought, Absent::setting()) : $sought;
 
     return $stub instanceof Stub || $stub instanceof CannotJudge ? $stub : CannotJudge::because($stub->why());

@@ -82,51 +82,114 @@ use function str_starts_with;
  */
 final readonly class RunnerFake implements Runner
 {
-    private RunnerBehaviour $behaviour;
-
-    /** What its unmutated controls find, where they are told. */
-    private ControlRuns $controlled;
-
-    /** What it lists for each list of suites. */
-    private ListingsFake $listings;
-
-    public function __construct(
+    /**
+     * @param ControlRuns $controlled what its unmutated controls find, where they are told
+     * @param ListingsFake $listings what it lists for each list of suites
+     */
+    private function __construct(
         private Identity|CannotJudge $identity,
-        Groups|CannotJudge $groups,
         private CoverageMap $map,
         private Mutants $library,
         private Paths $judges,
         private Paths $definitions,
         private TestNames $names,
         private Paths $packages,
+        private RunnerBehaviour $behaviour,
+        private ControlRuns $controlled,
+        private ListingsFake $listings,
     ) {
-        $this->behaviour = RunnerBehaviour::standard();
-        $this->controlled = ControlRuns::none();
-        $this->listings = ListingsFake::of($groups);
+    }
+
+    public static function of(
+        Identity|CannotJudge $identity,
+        Groups|CannotJudge $groups,
+        CoverageMap $map,
+        Mutants $library,
+        Paths $judges,
+        Paths $definitions,
+        TestNames $names,
+        Paths $packages,
+    ): self {
+        return new self(
+            $identity,
+            $map,
+            $library,
+            $judges,
+            $definitions,
+            $names,
+            $packages,
+            RunnerBehaviour::standard(),
+            ControlRuns::none(),
+            ListingsFake::of($groups),
+        );
     }
 
     /** This runner, listing these tests for these suites. */
     public function listingIn(Suites $suites, TestListing|CannotJudge $listing): self
     {
-        return clone($this, ['listings' => $this->listings->in($suites, $listing)]);
+        return new self(
+            $this->identity,
+            $this->map,
+            $this->library,
+            $this->judges,
+            $this->definitions,
+            $this->names,
+            $this->packages,
+            $this->behaviour,
+            $this->controlled,
+            $this->listings->in($suites, $listing),
+        );
     }
 
     /** This runner, its unmutated controls finding these, each other one passing. */
     public function controlling(ControlRuns $runs): self
     {
-        return clone($this, ['controlled' => $runs]);
+        return new self(
+            $this->identity,
+            $this->map,
+            $this->library,
+            $this->judges,
+            $this->definitions,
+            $this->names,
+            $this->packages,
+            $this->behaviour,
+            $runs,
+            $this->listings,
+        );
     }
 
     /** This runner, behaving so. */
     public function behaving(RunnerBehaviour $behaviour): self
     {
-        return clone($this, ['behaviour' => $behaviour]);
+        return new self(
+            $this->identity,
+            $this->map,
+            $this->library,
+            $this->judges,
+            $this->definitions,
+            $this->names,
+            $this->packages,
+            $behaviour,
+            $this->controlled,
+            $this->listings,
+        );
     }
 
     /** This runner, defined by these files, as a runner reading its PHPUnit config from elsewhere is. */
     public function definedBy(Paths $definitions): self
     {
-        return clone($this, ['definitions' => $definitions]);
+        return new self(
+            $this->identity,
+            $this->map,
+            $this->library,
+            $this->judges,
+            $definitions,
+            $this->names,
+            $this->packages,
+            $this->behaviour,
+            $this->controlled,
+            $this->listings,
+        );
     }
 
     public function behaviour(): RunnerBehaviour
@@ -148,7 +211,18 @@ final readonly class RunnerFake implements Runner
             $map,
         );
 
-        return clone($this, ['map' => $map, 'library' => $this->library->with($mutant)]);
+        return new self(
+            $this->identity,
+            $map,
+            $this->library->with($mutant),
+            $this->judges,
+            $this->definitions,
+            $this->names,
+            $this->packages,
+            $this->behaviour,
+            $this->controlled,
+            $this->listings,
+        );
     }
 
     /** The runner over the contract suite's fixture library, which knows each change's mutant. */
@@ -170,7 +244,7 @@ final readonly class RunnerFake implements Runner
             ->grouping(Group::named('holds:src/Held.php'), TestIds::of(TestId::of('HeldTest::doubles')))
             ->grouping(Group::named(Library::CANARY), TestIds::none());
 
-        return new self(
+        return self::of(
             Identity::of('fake', Versions::of(Version::of('fake/runner', '1.0.0', 'abc123')), Digest::of('php')),
             Groups::of(Group::named('holds:src/Held.php'), Group::named(Library::CANARY)),
             $map,
@@ -191,7 +265,18 @@ final readonly class RunnerFake implements Runner
     /** This runner, saying this of what it is. */
     public function identifiedAs(Identity|CannotJudge $identity): self
     {
-        return clone($this, ['identity' => $identity]);
+        return new self(
+            $identity,
+            $this->map,
+            $this->library,
+            $this->judges,
+            $this->definitions,
+            $this->names,
+            $this->packages,
+            $this->behaviour,
+            $this->controlled,
+            $this->listings,
+        );
     }
 
     public function identity(Withheld $withheld): Identity|CannotJudge

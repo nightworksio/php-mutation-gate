@@ -47,31 +47,31 @@ final readonly class Briefing
     /** This briefing, with the most memory the unmutated suite's largest process held, or none measured. */
     public function weighing(MemoryCap|NotGiven $peak): self
     {
-        return clone($this, ['peak' => $peak]);
+        return new self($peak, $this->kind, $this->ownScopeCoverage, $this->unchanged);
     }
 
     /** This briefing, for a run of this kind. */
     public function ofKind(RunProfile $kind): self
     {
-        return clone($this, ['kind' => $kind]);
+        return new self($this->peak, $kind, $this->ownScopeCoverage, $this->unchanged);
     }
 
     /** This briefing, recording this much of the kill matrix. */
     public function recording(MatrixKind $matrix): self
     {
-        return clone($this, ['kind' => $this->kind->recording($matrix)]);
+        return new self($this->peak, $this->kind->recording($matrix), $this->ownScopeCoverage, $this->unchanged);
     }
 
     /** This briefing, for a run that makes mutants with the security mutators alone, as `--security` asks. */
     public function securityOnly(): self
     {
-        return clone($this, ['kind' => $this->kind->securityOnly()]);
+        return new self($this->peak, $this->kind->securityOnly(), $this->ownScopeCoverage, $this->unchanged);
     }
 
     /** This briefing, for a run whose mutants one suite's tests alone judge, as `--suite` asks. */
     public function inSuite(SuiteName $suite): self
     {
-        return clone($this, ['kind' => $this->kind->inSuite($suite)]);
+        return new self($this->peak, $this->kind->inSuite($suite), $this->ownScopeCoverage, $this->unchanged);
     }
 
     /**
@@ -81,13 +81,13 @@ final readonly class Briefing
      */
     public function onOwnScopeCoverage(): self
     {
-        return clone($this, ['ownScopeCoverage' => true]);
+        return new self($this->peak, $this->kind, ownScopeCoverage: true, unchanged: $this->unchanged);
     }
 
     /** This briefing, for a plan that runs nothing because the verdict of a commit that passed stands. */
     public function unchangedSince(Unchanged $unchanged): self
     {
-        return clone($this, ['unchanged' => $unchanged]);
+        return new self($this->peak, $this->kind, $this->ownScopeCoverage, $unchanged);
     }
 
     /** The commit whose verdict stands for a plan that runs nothing; none where the plan runs what it plans. */

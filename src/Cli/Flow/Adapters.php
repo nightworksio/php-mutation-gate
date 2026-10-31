@@ -96,13 +96,57 @@ final readonly class Adapters
     /** The same, where the config file reads these files beside itself (ADR-0005). */
     public function readingConfig(ConfigReads $reads): self
     {
-        return clone($this, ['configReads' => $reads]);
+        return new self(
+            $this->runner,
+            $this->suite,
+            $this->checker,
+            $this->analyser,
+            $this->trees,
+            $this->proofs,
+            $this->costs,
+            $this->ci,
+            $this->changes,
+            $this->repository,
+            $this->project,
+            $this->environment,
+            $this->withheld,
+            $this->cores,
+            $this->engine,
+            $this->mutators,
+            $this->skippedSets,
+            $this->security,
+            $this->narrowing,
+            $this->equivalence,
+            $reads,
+        );
     }
 
     /** The same, reading and writing ledgers in this store. */
     public function withProofs(ProofStore $proofs): self
     {
-        return clone($this, ['proofs' => $proofs]);
+        return new self(
+            $this->runner,
+            $this->suite,
+            $this->checker,
+            $this->analyser,
+            $this->trees,
+            $proofs,
+            $this->costs,
+            $this->ci,
+            $this->changes,
+            $this->repository,
+            $this->project,
+            $this->environment,
+            $this->withheld,
+            $this->cores,
+            $this->engine,
+            $this->mutators,
+            $this->skippedSets,
+            $this->security,
+            $this->narrowing,
+            $this->equivalence,
+            $this->configReads,
+        );
     }
 
     /**
@@ -116,7 +160,29 @@ final readonly class Adapters
 
         return $security === []
             ? CannotJudge::because(self::NO_SECURITY)
-            : clone($this, ['narrowing' => $this->narrowing->toMutators(Mutators::named(...$security))]);
+            : new self(
+                $this->runner,
+                $this->suite,
+                $this->checker,
+                $this->analyser,
+                $this->trees,
+                $this->proofs,
+                $this->costs,
+                $this->ci,
+                $this->changes,
+                $this->repository,
+                $this->project,
+                $this->environment,
+                $this->withheld,
+                $this->cores,
+                $this->engine,
+                $this->mutators,
+                $this->skippedSets,
+                $this->security,
+                $this->narrowing->toMutators(Mutators::named(...$security)),
+                $this->equivalence,
+                $this->configReads,
+            );
     }
 
     /**
@@ -131,7 +197,29 @@ final readonly class Adapters
 
         return match (true) {
             in_array($suite->value(), $declared, strict: true)
-                => clone($this, ['narrowing' => $this->narrowing->toSuite($suite)]),
+                => new self(
+                    $this->runner,
+                    $this->suite,
+                    $this->checker,
+                    $this->analyser,
+                    $this->trees,
+                    $this->proofs,
+                    $this->costs,
+                    $this->ci,
+                    $this->changes,
+                    $this->repository,
+                    $this->project,
+                    $this->environment,
+                    $this->withheld,
+                    $this->cores,
+                    $this->engine,
+                    $this->mutators,
+                    $this->skippedSets,
+                    $this->security,
+                    $this->narrowing->toSuite($suite),
+                    $this->equivalence,
+                    $this->configReads,
+                ),
             $declared === [] => CannotJudge::because(sprintf(self::NO_SUITES, $asked)),
             default => CannotJudge::because(sprintf(self::NO_SUITE, $asked, $this->shown($declared))),
         };
@@ -147,7 +235,29 @@ final readonly class Adapters
         $resolved = $listed->namesAny() ? $this->suite->suites()->listing($listed) : $listed;
 
         return $resolved instanceof JudgingSuites
-            ? clone($this, ['narrowing' => $this->narrowing->amongSuites($resolved)])
+            ? new self(
+                $this->runner,
+                $this->suite,
+                $this->checker,
+                $this->analyser,
+                $this->trees,
+                $this->proofs,
+                $this->costs,
+                $this->ci,
+                $this->changes,
+                $this->repository,
+                $this->project,
+                $this->environment,
+                $this->withheld,
+                $this->cores,
+                $this->engine,
+                $this->mutators,
+                $this->skippedSets,
+                $this->security,
+                $this->narrowing->amongSuites($resolved),
+                $this->equivalence,
+                $this->configReads,
+            )
             : $resolved;
     }
 

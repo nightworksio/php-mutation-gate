@@ -54,13 +54,29 @@ final readonly class SecurityVerdict
      */
     public function exempting(Exempt $exempt): self
     {
-        return clone($this, ['exempt' => $exempt]);
+        return new self(
+            $this->package,
+            $this->declared,
+            $this->baseline,
+            $this->mutants,
+            $this->uncovered,
+            $this->lowering,
+            $exempt,
+        );
     }
 
     /** This verdict, with why the baseline lowered the set's floor, as its `lowered` says. */
     public function withLowering(Lowered $lowering): self
     {
-        return clone($this, ['lowering' => $lowering]);
+        return new self(
+            $this->package,
+            $this->declared,
+            $this->baseline,
+            $this->mutants,
+            $this->uncovered,
+            $lowering,
+            $this->exempt,
+        );
     }
 
     public function package(): Package

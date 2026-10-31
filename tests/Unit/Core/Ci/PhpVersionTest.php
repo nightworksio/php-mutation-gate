@@ -16,10 +16,10 @@ it('sets up the platform PHP, else the lowest the project allows, and never one 
     'the lowest required' => ['{"require": {"php": "^8.7 || ^9.1"}}', '8.7'],
     'the lowest, written last' => ['{"require": {"php": "^9.1|^8.6"}}', '8.6'],
     'a major alone' => ['{"require": {"php": ">=9"}}', '9.0'],
-    'below the gate\'s' => ['{"require": {"php": "^8.2"}}', '8.5'],
-    'a platform below the gate\'s' => ['{"config": {"platform": {"php": "8.1"}}}', '8.5'],
-    'nothing asked' => ['{}', '8.5'],
-    'nothing a version' => ['{"require": {"php": "*"}}', '8.5'],
+    'below the gate\'s' => ['{"require": {"php": "^8.2"}}', '8.4'],
+    'a platform below the gate\'s' => ['{"config": {"platform": {"php": "8.1"}}}', '8.4'],
+    'nothing asked' => ['{}', '8.4'],
+    'nothing a version' => ['{"require": {"php": "*"}}', '8.4'],
 ]);
 
 it('holds the lowest PHP the gate runs on as its own composer.json requires it', function (): void {

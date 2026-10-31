@@ -83,7 +83,7 @@ final readonly class Ran
     /** This, having taken so long. */
     public function took(Seconds $took): self
     {
-        return clone($this, ['took' => $took]);
+        return new self($this->output, $this->ending, $this->code, $took, $this->printed);
     }
 
     /** What it printed on both of its streams, its standard output first. */

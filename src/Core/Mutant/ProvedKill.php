@@ -47,10 +47,14 @@ final readonly class ProvedKill
      */
     public function unjudged(OutOfTime|Reason $why): self
     {
-        return clone($this, [
-            'status' => MutantStatus::Unjudged,
-            'reason' => $why instanceof OutOfTime ? $why->reason() : $why,
-        ]);
+        return new self(
+            $this->id,
+            $this->location,
+            $this->mutator,
+            $this->killers,
+            MutantStatus::Unjudged,
+            $why instanceof OutOfTime ? $why->reason() : $why,
+        );
     }
 
     public function id(): MutantId

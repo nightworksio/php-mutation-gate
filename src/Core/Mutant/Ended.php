@@ -72,7 +72,7 @@ final readonly class Ended
     /** This ending, of a process in which PHP recorded a fatal error, or recorded none, as the runner read it. */
     public function withFatal(bool $fatal): self
     {
-        return clone($this, ['fatal' => $fatal]);
+        return new self($this->code, $this->signalled, $this->printed, $this->cut, $fatal);
     }
 
     /**
@@ -81,7 +81,7 @@ final readonly class Ended
      */
     public static function screened(self $ended, string|NotGiven $kept): self
     {
-        return clone($ended, ['printed' => $kept, 'cut' => false]);
+        return new self($ended->code, $ended->signalled, $kept, cut: false, fatal: $ended->fatal);
     }
 
     /** Whether PHP recorded a fatal error in the process, where the runner can tell. */

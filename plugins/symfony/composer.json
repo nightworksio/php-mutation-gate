@@ -20,7 +20,7 @@
     ],
     "homepage": "https://github.com/nightworksio/php-mutation-gate",
     "require": {
-        "php": "^8.5",
+        "php": "^8.4",
         "nightworksio/mutation-gate": "^0.1",
         "nikic/php-parser": "^5.9"
     },

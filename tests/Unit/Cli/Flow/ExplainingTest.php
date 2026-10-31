@@ -25,7 +25,7 @@ it('cannot explain a mutant or a cluster where it cannot tell where the checkout
         Flows::settings(),
         Flows::adapters(Flows::project(), [], Flows::lost()),
         Flows::setup(),
-        new Reporting(new Chosen(new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)))), Variables::of([])),
+        new Reporting(new Chosen(new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER)))), Variables::of([])),
     );
     $sought = ClusterId::orMutant($id);
     $explained = $sought instanceof CannotJudge ? $sought : new Explaining($composed)->explain($sought);

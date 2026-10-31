@@ -37,7 +37,11 @@ final readonly class JudgedKill
     {
         $location = $this->kill->location();
 
-        return clone($this, ['onChangedLine' => $reach->changedLines($location->file())->has($location->start())]);
+        return new self(
+            $this->kill,
+            $reach->changedLines($location->file())->has($location->start()),
+            $this->carriedPruned,
+        );
     }
 
     /** Whether it was carried from its unit's last result because the plan pruned its mutator. */
