@@ -29,6 +29,7 @@
     "src/Cli/Doctor/**": ["0017"],
     ".docs/**": ["0018"],
     ".site/**": ["0038"],
+    ".docs/brand/**": ["0044"],
     "CONTRIBUTING.md": ["0018"],
     "SECURITY.md": ["0018"],
     "CODE_OF_CONDUCT.md": ["0018"],
