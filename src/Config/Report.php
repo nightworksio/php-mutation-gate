@@ -36,6 +36,12 @@ final readonly class Report
         return self::writing(BuiltinReporter::Html->value, $path);
     }
 
+    /** The report in the mutation-testing-report-schema format, which Stryker's dashboard and viewers read. */
+    public static function stryker(string $path): self
+    {
+        return self::writing(BuiltinReporter::Stryker->value, $path);
+    }
+
     /** The digest: the verdict one fact a line, for an agent. */
     public static function digest(string $path): self
     {

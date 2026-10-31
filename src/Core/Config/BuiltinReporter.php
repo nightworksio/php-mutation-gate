@@ -19,6 +19,8 @@ enum BuiltinReporter: string
 
     case Html = 'html';
 
+    case Stryker = 'stryker';
+
     case Digest = 'digest';
 
     case Tests = 'tests';
@@ -54,8 +56,8 @@ enum BuiltinReporter: string
     public function entryPath(): EntryPath
     {
         return match ($this) {
-            self::Json, self::JUnit, self::Sarif, self::Html, self::Digest, self::Tests, self::KillMatrix,
-            self::GitLab, self::Sonar => EntryPath::Required,
+            self::Json, self::JUnit, self::Sarif, self::Html, self::Stryker, self::Digest, self::Tests,
+            self::KillMatrix, self::GitLab, self::Sonar => EntryPath::Required,
             self::Badge => EntryPath::Optional,
             self::Console, self::Problems, self::Slack, self::Discord, self::Webhook, self::Otlp,
             self::GitHubAnnotations, self::GitHubSummary, self::GitHubComment => EntryPath::Refused,
@@ -67,9 +69,9 @@ enum BuiltinReporter: string
     {
         return match ($this) {
             self::Slack, self::Discord, self::Webhook => true,
-            self::Json, self::JUnit, self::Sarif, self::Html, self::Digest, self::Tests, self::KillMatrix,
-            self::GitLab, self::Sonar, self::Badge, self::Console, self::Problems, self::Otlp, self::GitHubAnnotations,
-            self::GitHubSummary, self::GitHubComment => false,
+            self::Json, self::JUnit, self::Sarif, self::Html, self::Stryker, self::Digest, self::Tests,
+            self::KillMatrix, self::GitLab, self::Sonar, self::Badge, self::Console, self::Problems, self::Otlp,
+            self::GitHubAnnotations, self::GitHubSummary, self::GitHubComment => false,
         };
     }
 }

@@ -22,6 +22,7 @@ final readonly class Report
         BuiltinReporter::JUnit->value,
         BuiltinReporter::Sarif->value,
         BuiltinReporter::Html->value,
+        BuiltinReporter::Stryker->value,
         BuiltinReporter::Digest->value,
     ];
 

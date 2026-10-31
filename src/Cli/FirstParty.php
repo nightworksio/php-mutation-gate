@@ -34,6 +34,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
 use NightWorksIO\MutationGate\Adapter\Filesystem\SarifReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\SonarReportFile;
+use NightWorksIO\MutationGate\Adapter\Filesystem\StrykerReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\TestsReportFile;
 use NightWorksIO\MutationGate\Adapter\Gcs\BucketLedger as GcsBucket;
 use NightWorksIO\MutationGate\Adapter\Git\Git;
@@ -194,6 +195,7 @@ final readonly class FirstParty implements Extension
             )
             ->withReporter(BuiltinReporter::Console->named(), ConsoleReport::fromOptions(...))
             ->withReporter(BuiltinReporter::Json->named(), JsonReportFile::fromOptions(...))
+            ->withReporter(BuiltinReporter::Stryker->named(), StrykerReportFile::fromOptions(...))
             ->withReporter(BuiltinReporter::JUnit->named(), JUnitReportFile::fromOptions(...))
             ->withReporter(
                 BuiltinReporter::Sarif->named(),
