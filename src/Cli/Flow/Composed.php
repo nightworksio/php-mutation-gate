@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\Triage;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -65,6 +66,12 @@ final readonly class Composed
         return $adapters instanceof Adapters
             ? new self($this->settings, $adapters, $this->setup, $this->reporting)
             : $adapters;
+    }
+
+    /** The same, writing the badge and trend into this directory, as `--publish-dir` asks (ADR-0009). */
+    public function publishingInto(Path $directory): self
+    {
+        return new self($this->settings, $this->adapters, $this->setup, $this->reporting->publishingInto($directory));
     }
 
     /**

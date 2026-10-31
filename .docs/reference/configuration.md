@@ -140,6 +140,9 @@ written `"\\SlackReporter"`; [writing an
 adapter](../guide/extending/writing-an-adapter.md) says how one reads its
 options.
 
+A floor is a percentage held in hundredths, rounded up, so it is never lower
+than written: `79.999` holds a score to `80`.
+
 | Key | Type | Default | Decided in |
 |-----|------|---------|------------|
 | `extensions` | list of class names | `[]` | [0002](../decisions/0002-one-typed-config-from-several-formats.md) |
@@ -157,7 +160,7 @@ options.
 | `newCode.floor` | number, 0 to 100 | `100` | [0003](../decisions/0003-a-floor-only-rises.md) |
 | `security.floor` | number, 0 to 100 | none | [0021](../decisions/0021-mutators-are-written-once-and-first-party-sets-can-leave.md) |
 | `uncovered` | `count` or `exclude` | `count` | [0003](../decisions/0003-a-floor-only-rises.md) |
-| `baseline.path` | path | `mutation-gate.baseline.json` | [0003](../decisions/0003-a-floor-only-rises.md) |
+| `baseline.path` | path. A pull request that moves the baseline is checked against the floors the default branch keeps in the file its own config names | `mutation-gate.baseline.json` | [0003](../decisions/0003-a-floor-only-rises.md) |
 | `baseline.improvement` | `require` or `report` | `require` | [0003](../decisions/0003-a-floor-only-rises.md) |
 | `owners.floors` | map of an owner as CODEOWNERS writes it, `@user`, `@org/team` or an email address, to a number from 0 to 100: the floor of the code of every file whose rule names the owner | `{}` | [0022](../decisions/0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md) |
 | `packages` | list of globs | `[]` | [0005](../decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |

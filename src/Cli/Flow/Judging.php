@@ -225,7 +225,7 @@ final readonly class Judging
         Writing $writing,
     ): Assessed|CannotJudge {
         $ledgers = Ledgers::read($this->adapters->proofs, Standing::planned($plan), $writing);
-        $kind = $plan->briefing()->matrix();
+        $kind = $plan->briefing()->profile();
         $proving = $ledgers->proving($plan->considered()->proved(), $plan->keys(), $plan->base(), $kind);
         $carrying = $ledgers->considering(
             $plan->considered()->carried(),
@@ -246,7 +246,7 @@ final readonly class Judging
         $judge = $this->adapters->isSecurityOnly() ? $judge->onlyMadeBy($this->adapters->security) : $judge;
         $sample = $plan->considered()->sample();
         $judge = $judge->sampling($sample);
-        $newest = $ledgers->newest();
+        $newest = $ledgers->newest($kind);
         $fresh = PrunedCarry::of($plan->considered()->pruned(), $newest, $plan->digests())->into(Agreement::checked(
             $results->units(),
             $plan->keys(),
@@ -485,7 +485,7 @@ final readonly class Judging
         $baselines = Baselines::of($this->adapters, $this->settings, $this->setup);
 
         return $plan->runOn()->isPullRequest()
-            ? $baselines->onDefaultBranch(Standing::planned($plan)->defaultBranch())
+            ? $baselines->onDefaultBranch(Standing::planned($plan)->defaultBranch(), $this->setup)
             : Baseline::none();
     }
 
@@ -515,7 +515,7 @@ final readonly class Judging
     ): string|CannotJudge {
         $ownScopeProofs = $assessed->ownScopeProofs;
         $at = Instant::at($this->setup->clock->now());
-        $run = RunName::of($this->adapters->environment, $at, $plan->base())->recording($plan->briefing()->matrix());
+        $run = RunName::of($this->adapters->environment, $at, $plan->base())->profiled($plan->briefing()->profile());
         $unjudged = $verdict->trees()->mutants()->counts()->number(MutantJudgement::Unjudged);
         $passed = match (true) {
             $verdict->judgement() !== Judgement::Passed => CannotTell::because(self::FAILED),

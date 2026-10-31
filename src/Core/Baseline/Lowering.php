@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Failure;
 use NightWorksIO\MutationGate\Core\Verdict\Failures;
 
 use function sprintf;
+use function trim;
 
 /**
  * A floor goes down only on purpose. Against the base branch's baseline, a
@@ -96,7 +97,7 @@ final readonly class Lowering
         $from = BaselineFile::number($was->floor());
 
         return match (true) {
-            ! $lowered instanceof Lowered || $lowered->reason() === '' => Failure::that(
+            ! $lowered instanceof Lowered || trim($lowered->reason()) === '' => Failure::that(
                 sprintf(self::UNSAID, $named, $from, BaselineFile::number($is->floor())),
             ),
             $lowered->floor()->hundredths() !== $was->floor()->hundredths() => Failure::that(

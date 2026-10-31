@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\Registered;
 use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
 use NightWorksIO\MutationGate\Core\Change\Change;
+use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
@@ -97,4 +98,22 @@ it('marks nothing for a file the run does not read its config from, or one renam
 it('marks nothing where the run reads no config file', function () use ($changed): void {
     expect(DecidingConfig::unread()->marking(Sources::none(), $changed(), Contents::of('{}'))->decidesAlike($changed()))
         ->toBeFalse();
+});
+
+it('names the file the baseline is committed in as the config file decided it at the base', function () use ($deciding): void {
+    [, $config] = $deciding('{"runner": "pest", "baseline": {"path": "moved.json"}}');
+
+    expect($config->baselineAt(Contents::of('{"runner": "pest", "baseline": {"path": "floors.json"}}'), Path::of('moved.json')))
+        ->toEqual(Path::of('floors.json'))
+        ->and($config->baselineAt(Contents::of('{"runner": "pest"}'), Path::of('moved.json')))
+        ->toEqual(Path::of('mutation-gate.baseline.json'))
+        ->and($config->baselineAt(Missing::at(Path::of('mutation-gate.json')), Path::of('moved.json')))
+        ->toEqual(Path::of('mutation-gate.baseline.json'))
+        ->and($config->baselineAt(Contents::of('{"runner": 5}'), Path::of('moved.json')))
+        ->toBeInstanceOf(Invalid::class);
+});
+
+it('names the file named now where the run reads no config file', function (): void {
+    expect(DecidingConfig::unread()->baselineAt(Contents::of('{"baseline": {"path": "floors.json"}}'), Path::of('moved.json')))
+        ->toEqual(Path::of('moved.json'));
 });

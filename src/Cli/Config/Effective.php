@@ -11,7 +11,6 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\BuiltinPreset;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
-use NightWorksIO\MutationGate\Core\Config\Canonical;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
 use NightWorksIO\MutationGate\Core\Config\ConfigReads;
@@ -51,16 +50,12 @@ final readonly class Effective
     }
 
     /**
-     * The settings that decide how the gate runs, serialised canonically,
-     * where a config file holds what this copy holds, as it stood at a base
-     * a change is read since (ADR-0005); or why they cannot be
-     * read.
+     * The settings, where a config file holds what this copy holds, as it
+     * stood at a base a change is read since; or why they cannot be read.
      */
-    public function decidingOf(CommandLine $given, ConfigFile $copy): string|Invalid|CannotJudge
+    public function settingsOf(CommandLine $given, ConfigFile $copy): Settings|Invalid|CannotJudge
     {
-        $settings = $this->over($this->loaded($copy), $given);
-
-        return $settings instanceof Settings ? Canonical::decidingIn($settings) : $settings;
+        return $this->over($this->loaded($copy), $given);
     }
 
     /**

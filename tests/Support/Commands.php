@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 
 use NightWorksIO\MutationGate\Cli\Console;
 use NightWorksIO\MutationGate\Cli\FirstParty;
+use NightWorksIO\MutationGate\Cli\GateApplication;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\ThisPackage;
@@ -13,7 +14,6 @@ use NightWorksIO\MutationGate\Extension\Extensions;
 
 use function sprintf;
 
-use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Tester\CommandTester;
 
@@ -33,7 +33,7 @@ final readonly class Commands
      *
      * @param array<string, string> $environment
      */
-    public static function console(string $project, array $environment = []): Application
+    public static function console(string $project, array $environment = []): GateApplication
     {
         return Console::application(
             new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER))),

@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use DateInterval;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Proof\NewestProofs;
 use NightWorksIO\MutationGate\Core\Pruning\MutatorNames;
 use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Pruning\Pruner;
@@ -28,8 +29,13 @@ final readonly class PrunedUnits
     }
 
     /** What a run since this base leaves out; nothing for a full run, which is the audit (ADR-0025). */
-    public function of(ChangeBase|CannotTell $base, Ledgers $ledgers, Units $toRun, Keying $keying): Pruned
-    {
+    public function of(
+        ChangeBase|CannotTell $base,
+        Ledgers $ledgers,
+        NewestProofs $newest,
+        Units $toRun,
+        Keying $keying,
+    ): Pruned {
         if (! $base instanceof ChangeBase) {
             return Pruned::none();
         }
@@ -42,7 +48,7 @@ final readonly class PrunedUnits
         return Pruner::of($pruning, $this->settings->runner()->name(), $never, $since)->pruned(
             $ledgers->own()->and($ledgers->defaultBranch())->survival(),
             $toRun,
-            $ledgers->newest(),
+            $newest,
             $keying->digestsOf($toRun),
         );
     }

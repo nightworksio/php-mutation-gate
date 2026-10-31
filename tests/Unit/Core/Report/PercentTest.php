@@ -14,7 +14,7 @@ it('prints a score or a floor with two decimals, never rounded', function (Score
     'hundredths' => [fn(): Score => Score::ofHundredths(8_741), '87.41%'],
     'a leading zero after the point' => [fn(): Score => Score::ofHundredths(8_305), '83.05%'],
     'nothing killed' => [fn(): Score => Score::ofHundredths(0), '0.00%'],
-    'a floor, truncated' => [fn(): Floor => Floor::of(83.419), '83.41%'],
+    'a floor' => [fn(): Floor => Floor::ofHundredths(8341), '83.41%'],
 ]);
 
 it('never prints a set with nothing to mutate as a percentage', function (): void {

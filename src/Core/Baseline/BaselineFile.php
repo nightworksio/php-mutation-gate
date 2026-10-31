@@ -180,7 +180,7 @@ final readonly class BaselineFile
     {
         $percent = $floor->number();
 
-        return Percentage::parse($percent) instanceof Percentage
+        return Percentage::parseUp($percent) instanceof Percentage
             ? Floor::of($percent)
             : throw NotInShape::at($floor->at(), 'a floor from 0 to 100');
     }

@@ -5,12 +5,14 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\NotAPercentage;
 
-it('holds a floor in hundredths, truncated rather than rounded', function (float $percent, int $hundredths): void {
+it('holds a floor in hundredths, never lower than written', function (float $percent, int $hundredths): void {
     expect(Floor::of($percent)->hundredths())->toBe($hundredths);
 })->with([
     'two decimals' => [83.41, 8341],
-    'more decimals' => [83.419, 8341],
+    'more decimals' => [83.419, 8342],
+    'a sliver more' => [79.999, 8000],
     'binary noise below' => [0.29, 29],
+    'binary noise above' => [0.57, 57],
     'whole' => [100, 10_000],
     'none' => [0, 0],
 ]);
@@ -36,3 +38,7 @@ it('refuses a floor outside 0 to 100', function (int $hundredths, string $messag
 it('refuses a percentage outside 0 to 100', function (): void {
     expect(static fn(): Floor => Floor::of(100.01))->toThrow(NotAPercentage::class, '100.01 is not a percentage from 0 to 100.');
 });
+
+it('refuses a floor that is not a finite number', function (float $percent): void {
+    expect(static fn(): Floor => Floor::of($percent))->toThrow(NotAPercentage::class, 'A percentage is a finite number from 0 to 100.');
+})->with(['not a number' => [NAN], 'infinite' => [INF], 'infinitely low' => [-INF]]);

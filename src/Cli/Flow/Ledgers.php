@@ -9,7 +9,6 @@ use NightWorksIO\MutationGate\Core\Ci\Detached;
 use NightWorksIO\MutationGate\Core\Cost\Estimated;
 use NightWorksIO\MutationGate\Core\Cost\FirstRun;
 use NightWorksIO\MutationGate\Core\File\Digest;
-use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\IdPrefix;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Plan\Considering;
@@ -24,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Proof\NewestProofs;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Records;
+use NightWorksIO\MutationGate\Core\Proof\RunProfile;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
@@ -113,10 +113,10 @@ final readonly class Ledgers
         return $this->own->killers()->and($this->defaultBranch->killers());
     }
 
-    /** Each unit's newest result, in any ledger read. */
-    public function newest(): NewestProofs
+    /** Each unit's newest result that stands for a run of this kind, in any ledger read. */
+    public function newest(RunProfile $kind): NewestProofs
     {
-        return $this->own->and($this->defaultBranch)->proofs()->newest();
+        return $this->own->and($this->defaultBranch)->proofs()->standingFor($kind)->newest();
     }
 
     /** Every record the ledgers read hold of the mutants an id or a prefix of one names, the newest first. */
@@ -166,14 +166,14 @@ final readonly class Ledgers
 
     /**
      * Of these units, those a proof whose key still matches covers, and those
-     * left to run, from the proofs that record what a run of this kind asks
-     * for. A ledger with no proof at the base the keys are built on is not
-     * looked in, since none of its proofs can match.
+     * left to run, from the proofs that stand for a run of this kind. A
+     * ledger with no proof at the base the keys are built on is not looked
+     * in, since none of its proofs can match.
      */
-    public function proving(Units $units, Keys $keys, Digest $base, MatrixKind $matrix): Proving
+    public function proving(Units $units, Keys $keys, Digest $base, RunProfile $kind): Proving
     {
-        $defaultBranch = $this->defaultBranch->proofs()->recording($matrix);
-        $own = $this->own->proofs()->recording($matrix);
+        $defaultBranch = $this->defaultBranch->proofs()->standingFor($kind);
+        $own = $this->own->proofs()->standingFor($kind);
 
         return Proving::of(
             $units,
@@ -185,16 +185,16 @@ final readonly class Ledgers
 
     /**
      * Of these units, those the run considers, and those that carry the
-     * newest proof of their path that records what a run of this kind asks
-     * for, the units of these files carrying only their own scope's.
+     * newest proof of their path that stands for a run of this kind, the
+     * units of these files carrying only their own scope's.
      */
-    public function considering(Units $units, Reach $reach, MatrixKind $matrix, OwnOnly $ownOnly): Considering
+    public function considering(Units $units, Reach $reach, RunProfile $kind, OwnOnly $ownOnly): Considering
     {
         return Considering::of(
             $units,
             $reach,
-            $this->defaultBranch->proofs()->recording($matrix),
-            $this->own->proofs()->recording($matrix),
+            $this->defaultBranch->proofs()->standingFor($kind),
+            $this->own->proofs()->standingFor($kind),
             $ownOnly,
         );
     }

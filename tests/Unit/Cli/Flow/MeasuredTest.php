@@ -16,9 +16,11 @@ use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
+use NightWorksIO\MutationGate\Core\Proof\RunProfile;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Score;
+use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
@@ -65,6 +67,25 @@ it('judges every tree over the newest result of each of its units', function () 
     expect($measured instanceof Measured ? $scores($measured) : $measured)->toBe(['src 4000'])
         ->and($measured instanceof Measured ? [...$measured->unmeasured()] : $measured)->toBe([]);
 });
+
+it('measures no tree over the newer result of a narrowed run', function (RunProfile $narrowed) use ($proofOf, $scores): void {
+    $store = new ProofStoreFake();
+    $store->write(Scope::branch('main'), Ledger::empty()
+        ->withProof($proofOf('src/Money.php', '2026-09-29T10:00:00Z'))
+        ->withProof($proofOf('src/Held.php', '2026-09-29T10:00:00Z'))
+        ->withProof(Proof::of(Digest::sha256Of('narrowed'), Path::of('src/Money.php'), Mutants::none(), Run::of(
+            'local',
+            Moment::at('2026-09-30T10:00:00Z'),
+            Digest::sha256Of('base'),
+        )->profiled($narrowed))));
+
+    $measured = Measured::of(Flows::adapters(Flows::project(), [], $store), Flows::settings(), Baseline::none(), new DateTimeImmutable(Configs::NOW));
+
+    expect($measured instanceof Measured ? $scores($measured) : $measured)->toBe(['src 4000']);
+})->with([
+    'to the security mutators' => [fn(): RunProfile => RunProfile::standard()->securityOnly()],
+    'to one suite' => [fn(): RunProfile => RunProfile::standard()->inSuite(SuiteName::of('unit'))],
+]);
 
 it('takes the run\'s own scope\'s newer results, and judges them against the baseline', function () use (
     $proofOf,

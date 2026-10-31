@@ -74,21 +74,44 @@ it('reads its directory, its colours and its commit from its options', function 
     expect(BadgeDirectory::configured($options, $clock()))->toEqual(BadgeDirectory::at('out', BadgeColors::of(['blue' => 50]), 'def456', $clock()));
 });
 
+/**
+ * No CI's variables at all, so a test names the one CI it runs under.
+ *
+ * @return array<string, null>
+ */
+function outsideCi(): array
+{
+    return [
+        'GITHUB_ACTIONS' => null, 'GITHUB_SHA' => null, 'GITLAB_CI' => null, 'CI_COMMIT_SHA' => null,
+        'BUILDKITE' => null, 'BUILDKITE_COMMIT' => null, 'CIRCLECI' => null, 'CIRCLE_SHA1' => null,
+        'TF_BUILD' => null, 'BUILD_SOURCEVERSION' => null, 'BITBUCKET_BUILD_NUMBER' => null, 'BITBUCKET_COMMIT' => null,
+        'BUILD_TAG' => null, 'GIT_COMMIT' => null,
+    ];
+}
+
 it('publishes to .mutation-gate/publish with the default colours and the commit the CI names', function () use ($clock): void {
     $read = static fn(): BadgeDirectory|Invalid => BadgeDirectory::configured(Options::none(), $clock());
 
-    expect(Environment::during(['GITHUB_SHA' => '0123abc'], $read))
+    expect(Environment::during([...outsideCi(), 'GITHUB_ACTIONS' => 'true', 'GITHUB_SHA' => '0123abc'], $read))
         ->toEqual(BadgeDirectory::at('.mutation-gate/publish', BadgeColors::defaults(), '0123abc', $clock()));
 });
 
-it('reads the commit of each CI it knows, and none elsewhere', function (string $variable) use ($clock): void {
-    $none = ['GITHUB_SHA' => null, 'CI_COMMIT_SHA' => null, 'BUILDKITE_COMMIT' => null, 'CIRCLE_SHA1' => null];
-    $set = $variable === '' ? $none : [...$none, $variable => 'fedcba9'];
+it('reads the commit of each CI it knows, and none elsewhere', function (string $marker, string $marked, string $commit) use ($clock): void {
     $read = static fn(): BadgeDirectory|Invalid => BadgeDirectory::configured(Configs::options('{"commit": 7}'), $clock());
+    $environment = $marker === '' ? outsideCi() : [...outsideCi(), $marker => $marked, $commit => 'fedcba9'];
 
-    expect(Environment::during($set, $read))
-        ->toEqual(BadgeDirectory::at('.mutation-gate/publish', BadgeColors::defaults(), $variable === '' ? '' : 'fedcba9', $clock()));
-})->with(['GITHUB_SHA', 'CI_COMMIT_SHA', 'BUILDKITE_COMMIT', 'CIRCLE_SHA1', '']);
+    expect(Environment::during($environment, $read))
+        ->toEqual(BadgeDirectory::at('.mutation-gate/publish', BadgeColors::defaults(), $marker === '' ? '' : 'fedcba9', $clock()));
+})->with([
+    'GitHub Actions' => ['GITHUB_ACTIONS', 'true', 'GITHUB_SHA'],
+    'GitLab CI' => ['GITLAB_CI', 'true', 'CI_COMMIT_SHA'],
+    'Buildkite' => ['BUILDKITE', 'true', 'BUILDKITE_COMMIT'],
+    'CircleCI' => ['CIRCLECI', 'true', 'CIRCLE_SHA1'],
+    'Azure DevOps' => ['TF_BUILD', 'True', 'BUILD_SOURCEVERSION'],
+    'Bitbucket Pipelines' => ['BITBUCKET_BUILD_NUMBER', '7', 'BITBUCKET_COMMIT'],
+    'Jenkins' => ['BUILD_TAG', 'jenkins-gate-7', 'GIT_COMMIT'],
+    'no CI' => ['', '', ''],
+]);
 
 it('refuses colours that are not a map of scores, and a directory that is not text', function (string $options, string $at, string $message) use ($clock): void {
     expect(BadgeDirectory::configured(Configs::options($options), $clock()))->toEqual(Invalid::because(Problem::at($at, $message)));

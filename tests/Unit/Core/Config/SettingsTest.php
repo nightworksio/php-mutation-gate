@@ -136,7 +136,7 @@ describe('Settings', function (): void {
                 $trees instanceof Absent ? [] : [...$trees],
             ))->toEqual([
                 ['app/Domain', Floor::of(100)],
-                ['app/Http', Floor::ofHundredths(8341)],
+                ['app/Http', Floor::ofHundredths(8342)],
                 ['app/Generated', Exempt::because('Generated on every build')],
                 ['app/Legacy', Undeclared::floor()],
             ])

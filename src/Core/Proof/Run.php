@@ -11,8 +11,9 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
 /**
  * The run that established a proof, as its CI names it, such as
  * `github:<run id>/<attempt>`, when it did, the base it keyed its units at:
- * the digest of everything every key of the run reads, and how much of the
- * kill matrix it recorded: first killers, unless it was asked for every one.
+ * the digest of everything every key of the run reads, and its kind: how
+ * much of the kill matrix it recorded, whether it made mutants with the
+ * security mutators alone, and the one suite whose tests alone judged them.
  */
 final readonly class Run
 {
@@ -20,19 +21,25 @@ final readonly class Run
         private string $id,
         private Instant $at,
         private Digest $base,
-        private MatrixKind $matrix,
+        private RunProfile $profile,
     ) {
     }
 
     public static function of(string $id, Instant $at, Digest $base): self
     {
-        return new self($id, $at, $base, MatrixKind::FirstKiller);
+        return new self($id, $at, $base, RunProfile::standard());
     }
 
     /** This run, recording this much of the kill matrix. */
     public function recording(MatrixKind $matrix): self
     {
-        return clone($this, ['matrix' => $matrix]);
+        return clone($this, ['profile' => $this->profile->recording($matrix)]);
+    }
+
+    /** This run, of this kind: its matrix, its mutators and its suite. */
+    public function profiled(RunProfile $profile): self
+    {
+        return clone($this, ['profile' => $profile]);
     }
 
     public function id(): string
@@ -52,6 +59,12 @@ final readonly class Run
 
     public function matrix(): MatrixKind
     {
-        return $this->matrix;
+        return $this->profile->matrix();
+    }
+
+    /** The kind of run it was, which decides what its proofs stand for. */
+    public function profile(): RunProfile
+    {
+        return $this->profile;
     }
 }

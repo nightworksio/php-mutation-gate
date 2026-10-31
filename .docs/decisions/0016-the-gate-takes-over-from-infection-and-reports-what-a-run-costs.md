@@ -87,7 +87,8 @@ Operating the gate raises four needs its reports do not yet meet.
 
 2. **`minMsi` becomes each tree's declared floor.** It is truncated to two
    decimals, and it is the policy minimum of ADR-0003, not a
-   baseline entry, because nothing was measured.
+   baseline entry, because nothing was measured. ADR-0040 amends this: it is
+   rounded up, as every declared floor is.
    - `minCoveredMsi` sets `uncovered: exclude` and, when `minMsi` is absent,
      the floor.
    - The report ends: *run `mutation-gate` locally once; it writes the

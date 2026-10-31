@@ -36,7 +36,6 @@ use NightWorksIO\MutationGate\Core\Plan\ShardResult;
 use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
 use NightWorksIO\MutationGate\Core\Plan\Weighed;
 use NightWorksIO\MutationGate\Core\Proof\GateRelease;
-use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Pruning\Pruned;
@@ -55,6 +54,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Doomed;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Core\Written;
+use NightWorksIO\MutationGate\Port\Repository;
 
 use function sprintf;
 
@@ -95,13 +95,20 @@ final readonly class Running
         return clone($this, ['interruption' => $interruption]);
     }
 
+    /** The plan, where the checkout is the commit it was made on, as every shard and the verdict need. */
+    public static function followed(Plan $plan, Repository $repository): Plan|CannotJudge
+    {
+        $head = $repository->head();
+
+        return $head instanceof CannotTell
+            ? CannotJudge::because(sprintf(self::NO_HEAD, $head->why()))
+            : $plan->forCheckout($head);
+    }
+
     /** The shard `--shard` names, or, where it names none, the one the environment's variables name (WhichShard). */
     public function run(Plan $plan, ShardId|Absent $named, Path $results): Written|CannotJudge
     {
-        $head = $this->adapters->repository->head();
-        $followed = $head instanceof CannotTell
-            ? CannotJudge::because(sprintf(self::NO_HEAD, $head->why()))
-            : $plan->forCheckout($head);
+        $followed = self::followed($plan, $this->adapters->repository);
         $id = $named instanceof ShardId ? $named : WhichShard::in($this->adapters->environment, $plan);
 
         $result = match (true) {
@@ -187,7 +194,7 @@ final readonly class Running
         $result = ShardResult::of(
             $plan->digest(),
             $id,
-            $this->keysOf($shard->units(), $plan->keys()),
+            $plan->keys()->of($shard->units()),
             $outcome instanceof CannotJudge ? $outcome : $outcome->result,
             Measurement::of($spent, $identity instanceof CannotJudge ? '' : $identity->runner(), Instant::at($ended))
                 ->withSteps($stopwatch->steps())
@@ -405,14 +412,4 @@ final readonly class Running
             ->searching($search);
     }
 
-    private function keysOf(Units $units, Keys $planned): Keys
-    {
-        $keys = Keys::none();
-
-        foreach ($units as $unit) {
-            $keys = $keys->with($unit->path(), $planned->keyOf($unit->path()));
-        }
-
-        return $keys;
-    }
 }

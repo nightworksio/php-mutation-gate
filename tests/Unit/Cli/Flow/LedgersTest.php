@@ -11,6 +11,8 @@ use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Gzip;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
@@ -21,11 +23,13 @@ use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Plan\OwnOnly;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\NeverProved;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\ReadsOnly;
 use NightWorksIO\MutationGate\Core\Proof\Run;
+use NightWorksIO\MutationGate\Core\Proof\RunProfile;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\ScopeRuns;
 use NightWorksIO\MutationGate\Core\Proof\Scopes;
@@ -36,6 +40,7 @@ use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
+use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -48,6 +53,8 @@ use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
+use NightWorksIO\MutationGate\Tests\Support\Decoded;
+use NightWorksIO\MutationGate\Tests\Support\Gunzipped;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Symfony\Component\HttpClient\MockHttpClient;
@@ -183,7 +190,7 @@ it('takes a proof whose key still matches from either ledger, and runs the rest'
         ->with(Path::of('src/B.php'), Digest::of('b'))
         ->with(Path::of('src/C.php'), Digest::of('c'));
     $proving = $read(RunOn::at(Scope::pullRequest(7), Scope::branch('main')))
-        ->proving($units, $keys, Digest::sha256Of('now'), MatrixKind::FirstKiller);
+        ->proving($units, $keys, Digest::sha256Of('now'), RunProfile::standard());
 
     expect($proving->proved())->toHaveCount(2)
         ->and($proving->toRun())->toEqual(Units::of(Unit::file(Path::of('src/C.php'))))
@@ -200,14 +207,39 @@ it('proves and carries a run that records every killer only from proofs whose ru
     $keys = Keys::none()->with(Path::of('src/A.php'), Digest::of('a'))->with(Path::of('src/B.php'), Digest::of('b'));
     $unreached = Reach::nothing(Packages::of(Trees::none()));
 
-    expect($ledgers->proving($units, $keys, Digest::sha256Of('now'), MatrixKind::Full)->toRun())
+    expect($ledgers->proving($units, $keys, Digest::sha256Of('now'), RunProfile::standard()->recording(MatrixKind::Full))->toRun())
         ->toEqual(Units::of(Unit::file(Path::of('src/B.php'))))
-        ->and($ledgers->proving($units, $keys, Digest::sha256Of('now'), MatrixKind::FirstKiller)->toRun())->toEqual(Units::none())
-        ->and($ledgers->considering($units, $unreached, MatrixKind::Full, OwnOnly::none())->considered())
+        ->and($ledgers->proving($units, $keys, Digest::sha256Of('now'), RunProfile::standard())->toRun())->toEqual(Units::none())
+        ->and($ledgers->considering($units, $unreached, RunProfile::standard()->recording(MatrixKind::Full), OwnOnly::none())->considered())
         ->toEqual(Units::of(Unit::file(Path::of('src/B.php'))))
-        ->and($ledgers->considering($units, $unreached, MatrixKind::Full, OwnOnly::none())->carried())->toHaveCount(1)
-        ->and($ledgers->considering($units, $unreached, MatrixKind::FirstKiller, OwnOnly::none())->carried())->toHaveCount(2);
+        ->and($ledgers->considering($units, $unreached, RunProfile::standard()->recording(MatrixKind::Full), OwnOnly::none())->carried())->toHaveCount(1)
+        ->and($ledgers->considering($units, $unreached, RunProfile::standard(), OwnOnly::none())->carried())->toHaveCount(2);
 });
+
+it('carries no proof of a narrowed run into a run of every mutator and every test, and carries it into a run of its kind', function (array $narrowed, RunProfile $kind): void {
+    $run = Run::of('github:1/1', Moment::at('2026-09-30T10:00:00Z'), Digest::sha256Of('now'));
+    $key = Digest::sha256Of('narrowed');
+    $proof = Proof::of($key, Path::of('src/A.php'), Mutants::none(), $run);
+    $file = json_decode(Gunzipped::of(LedgerFile::encode(Ledger::empty()->atBase(Digest::sha256Of('now'))->withProof($proof))), associative: true);
+    $file = is_array($file) ? $file : [];
+    $entry = Decoded::at(JsonText::compact($file), 'proofs', $key->value());
+    $file['proofs'] = [$key->value() => [...(is_array($entry) ? $entry : []), ...$narrowed]];
+    $store = new ProofStoreFake();
+    $store->write(Scope::branch('main'), LedgerFile::decode(Gzip::pack(JsonText::compact($file))));
+    $ledgers = ledgersOn(RunOn::at(Scope::pullRequest(7), Scope::branch('main')), Writing::Auto, $store);
+    $units = Units::of(Unit::file(Path::of('src/A.php')));
+    $unreached = Reach::nothing(Packages::of(Trees::none()));
+    $considering = $ledgers->considering($units, $unreached, RunProfile::standard(), OwnOnly::none());
+
+    expect($considering->carried())->toHaveCount(0)
+        ->and($considering->considered())->toEqual($units)
+        ->and($ledgers->newest(RunProfile::standard())->of(Path::of('src/A.php')))->toBeInstanceOf(NeverProved::class)
+        ->and($ledgers->considering($units, $unreached, $kind, OwnOnly::none())->carried())->toHaveCount(1)
+        ->and($ledgers->newest($kind)->of(Path::of('src/A.php')))->toBeInstanceOf(Proof::class);
+})->with([
+    'to the security mutators' => [['security' => true], fn(): RunProfile => RunProfile::standard()->securityOnly()],
+    'to one suite' => [['suite' => 'unit'], fn(): RunProfile => RunProfile::standard()->inSuite(SuiteName::of('unit'))],
+]);
 
 it('looks for no proof in a ledger that holds none at the base the keys are built on', function () use (
     $store,
@@ -218,8 +250,8 @@ it('looks for no proof in a ledger that holds none at the base the keys are buil
     $ledgers = ledgersOn(RunOn::at(Scope::pullRequest(7), Scope::branch('main')), Writing::Auto, $moved);
     $units = Units::of(Unit::file(Path::of('src/A.php')), Unit::file(Path::of('src/B.php')));
     $keys = Keys::none()->with(Path::of('src/A.php'), Digest::of('a'))->with(Path::of('src/B.php'), Digest::of('b'));
-    $proving = $ledgers->proving($units, $keys, Digest::sha256Of('now'), MatrixKind::FirstKiller);
-    $atBefore = $ledgers->proving($units, $keys, Digest::sha256Of('before'), MatrixKind::FirstKiller);
+    $proving = $ledgers->proving($units, $keys, Digest::sha256Of('now'), RunProfile::standard());
+    $atBefore = $ledgers->proving($units, $keys, Digest::sha256Of('before'), RunProfile::standard());
 
     expect($proving->toRun())->toEqual(Units::of(Unit::file(Path::of('src/B.php'))))
         ->and($proving->ownScopeProofs())->toBe(0)
@@ -265,7 +297,7 @@ it('gives each unit its newest result in any ledger it read, its own scope\'s fi
     $newer->write(Scope::branch('main'), Ledger::empty()->withProof($proof('main', '2026-09-30T11:00:00Z')));
     $newer->write(Scope::pullRequest(7), Ledger::empty()->withProof($proof('own', '2026-09-30T10:00:00Z')));
     $run = RunOn::at(Scope::pullRequest(7), Scope::branch('main'));
-    $newest = static fn(ProofStoreFake $in): Proof|NeverProved => ledgersOn($run, Writing::Auto, $in)->newest()->of(Path::of('src/A.php'));
+    $newest = static fn(ProofStoreFake $in): Proof|NeverProved => ledgersOn($run, Writing::Auto, $in)->newest(RunProfile::standard())->of(Path::of('src/A.php'));
 
     expect($newest($store))->toEqual($proof('own', '2026-09-30T10:00:00Z'))
         ->and($newest($newer))->toEqual($proof('main', '2026-09-30T11:00:00Z'));

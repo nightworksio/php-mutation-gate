@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Unit\Units;
 
 use function sprintf;
 
@@ -50,6 +51,24 @@ final readonly class Keys implements Countable
         return $this->keys->at($unit, Unkeyed::because(sprintf(self::NOT_CONSIDERED, $unit->value())));
     }
 
+    /** These keys of these units alone, in their order; a unit without one has why. */
+    public function of(Units $units): self
+    {
+        $keys = self::none();
+
+        foreach ($units as $unit) {
+            $keys = $keys->with($unit->path(), $this->keyOf($unit->path()));
+        }
+
+        return $keys;
+    }
+
+    /** Whether others hold the same key, or the same reason for none, of the same units in the same order. */
+    public function equals(self $other): bool
+    {
+        return $this->written() === $other->written();
+    }
+
     /** The units these keys are of, in the order they were added. */
     public function units(): Paths
     {
@@ -59,5 +78,20 @@ final readonly class Keys implements Countable
     public function count(): int
     {
         return count($this->keys);
+    }
+
+    /** @return list<array{string, string, bool}> each unit, its key or why it has none, and whether it has one */
+    private function written(): array
+    {
+        $written = [];
+
+        foreach ($this->units() as $unit) {
+            $key = $this->keyOf($unit);
+            $written[] = $key instanceof Digest
+                ? [$unit->value(), $key->value(), true]
+                : [$unit->value(), $key->why(), false];
+        }
+
+        return $written;
     }
 }

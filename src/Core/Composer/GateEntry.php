@@ -144,7 +144,7 @@ final readonly class GateEntry
             return $place->isPresent() ? $this->notAFloor($key) : Undeclared::floor();
         }
 
-        return Percentage::parse($percent) instanceof Percentage ? Floor::of($percent) : $this->notAFloor($key);
+        return Percentage::parseUp($percent) instanceof Percentage ? Floor::of($percent) : $this->notAFloor($key);
     }
 
     private function notAFloor(string $key): CannotJudge

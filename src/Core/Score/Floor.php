@@ -7,8 +7,8 @@ namespace NightWorksIO\MutationGate\Core\Score;
 use function intval;
 
 /**
- * The lowest score a set of mutants may have, a percentage. A floor records
- * no more than was written: 83.419 is 83.41.
+ * The lowest score a set of mutants may have, a percentage in hundredths. A
+ * floor is never lower than was written: 83.411 is 83.42.
  */
 final readonly class Floor
 {
@@ -19,7 +19,7 @@ final readonly class Floor
     /** @throws NotAPercentage */
     public static function of(float $percent): self
     {
-        $percentage = Percentage::parse($percent);
+        $percentage = Percentage::parseUp($percent);
 
         return $percentage instanceof Percentage ? new self($percentage) : throw $percentage;
     }

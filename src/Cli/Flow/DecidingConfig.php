@@ -5,17 +5,19 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function basename;
-use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\StartedGate;
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\ChangeKind;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Canonical;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
+use NightWorksIO\MutationGate\Core\Config\Floors;
+use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
@@ -82,19 +84,52 @@ final readonly class DecidingConfig
         return $alike ? $sources->decidingAlike($file) : $sources;
     }
 
+    /**
+     * The file the baseline is committed in, as the config file decided it
+     * holding what it held at the base: the file named now where the run reads
+     * no config file, and the standard one where the base held no config file.
+     */
+    public function baselineAt(Contents|Missing $before, Path $now): Path|Invalid|CannotJudge
+    {
+        $file = $this->file;
+        $effective = $this->effective;
+
+        if (! $file instanceof Path || ! $effective instanceof Effective) {
+            return $now;
+        }
+
+        if (! $before instanceof Contents) {
+            return Floors::none()->baseline();
+        }
+
+        $then = $this->atBase($effective, $file, $before);
+
+        return $then instanceof Settings ? $then->floors()->baseline() : $then;
+    }
+
     /** Whether the config file, holding what it held at the base, decides as now. */
     private function decidesAlike(Effective $effective, Path $named, Contents $before): bool
+    {
+        $then = $this->atBase($effective, $named, $before);
+        $now = $effective->settings($this->given);
+
+        return $then instanceof Settings
+            && $now instanceof Settings
+            && Canonical::decidingIn($then) === Canonical::decidingIn($now);
+    }
+
+    /** The settings, where the config file holds what it held at the base, read from a copy in the gate's directory. */
+    private function atBase(Effective $effective, Path $named, Contents $before): Settings|Invalid|CannotJudge
     {
         $directory = Directory::at($this->project->value());
         $copy = Path::of(sprintf(self::BASE, GateDirectory::root()->value(), basename($named->value())));
         $written = $directory->write($copy, $before);
         $read = ConfigFile::copyOf($this->onDisk($copy), $this->onDisk($named), Path::of($this->project->value()))
             ->startedAs(StartedGate::in($this->project->value()));
-        $then = $written instanceof Written ? $effective->decidingOf($this->given, $read) : $written;
+        $then = $written instanceof Written ? $effective->settingsOf($this->given, $read) : $written;
         $directory->remove($copy);
-        $now = $effective->settings($this->given);
 
-        return is_string($then) && $now instanceof Settings && $then === Canonical::decidingIn($now);
+        return $then;
     }
 
     /** Where a path of the project is on disk. */

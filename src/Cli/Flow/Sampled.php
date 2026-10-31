@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Proof\NewestProofs;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Sample\Candidate;
@@ -50,7 +51,7 @@ final readonly class Sampled
         Units $toRun,
         Reached $reached,
         Changes|CannotJudge $newCode,
-        Ledgers $ledgers,
+        NewestProofs $newest,
         ChangeBase|CannotTell $base,
     ): Sample|CannotJudge {
         if (! $mode->isSampled() || ! $newCode instanceof Changes) {
@@ -61,7 +62,7 @@ final readonly class Sampled
 
         return $baseline instanceof CannotJudge
             ? $baseline
-            : $this->sampleOf($inventory, $toRun, $reached, $newCode, $ledgers, $base, $baseline);
+            : $this->sampleOf($inventory, $toRun, $reached, $newCode, $newest, $base, $baseline);
     }
 
     private function sampleOf(
@@ -69,7 +70,7 @@ final readonly class Sampled
         Units $toRun,
         Reached $reached,
         Changes $newCode,
-        Ledgers $ledgers,
+        NewestProofs $newest,
         ChangeBase|CannotTell $base,
         Baseline $baseline,
     ): Sample {
@@ -81,7 +82,7 @@ final readonly class Sampled
         );
         $sample = Sample::drawn($seed, $sampling->confidence(), $sampling->margin());
         $exact = $this->exact($inventory, $reached, $newCode);
-        $estimated = UnitMutants::of($this->adapters, $this->settings, $ledgers->newest());
+        $estimated = UnitMutants::of($this->adapters, $this->settings, $newest);
 
         foreach ($inventory->trees as $tree) {
             $units = $inventory->units->within($this->heldBy($inventory, $tree));

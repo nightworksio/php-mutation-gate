@@ -31,6 +31,7 @@ use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\Delivery\DeliveryFile;
 use NightWorksIO\MutationGate\Core\Delivery\Stage;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\PlanEstimates;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
@@ -160,6 +161,19 @@ it('draws the badge in CI on the default branch, in the colours the config sets'
 
     expect($chosen)->toEqual([BadgeDirectory::configured(
         Configs::options('{"colors": {"green": 90, "red": 0}}'),
+        new SystemClock(),
+    )]);
+});
+
+it('draws the badge into the directory --publish-dir names', function (): void {
+    $settings = Flows::settings(Badge::colour('green', 90), Badge::colour('red', 0));
+    $chosen = new Chosen(new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER))));
+    $reporters = new Reporting($chosen, Variables::of(['CI' => 'true']))
+        ->publishingInto(Path::of('site/badge'))
+        ->reporters($settings, reportingOnMain());
+
+    expect($reporters)->toEqual([BadgeDirectory::configured(
+        Configs::options('{"colors": {"green": 90, "red": 0}, "path": "site/badge"}'),
         new SystemClock(),
     )]);
 });

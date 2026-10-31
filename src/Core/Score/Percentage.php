@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Score;
 use function ceil;
 use function floor;
 use function intdiv;
+use function is_finite;
 use function round;
 use function rtrim;
 use function sprintf;
@@ -43,10 +44,16 @@ final readonly class Percentage
         return new self(0);
     }
 
-    /** A percentage as written, or why it is none. */
+    /** A percentage as written, truncated, or why it is none: a number that is not finite among them. */
     public static function parse(int|float $percent): self|NotAPercentage
     {
-        return self::inHundredths(self::hundredthsOf($percent));
+        return is_finite($percent) ? self::inHundredths(self::hundredthsOf($percent)) : NotAPercentage::notFinite();
+    }
+
+    /** A percentage as written, rounded up, or why it is none: a number that is not finite among them. */
+    public static function parseUp(int|float $percent): self|NotAPercentage
+    {
+        return is_finite($percent) ? self::inHundredths(self::hundredthsUp($percent)) : NotAPercentage::notFinite();
     }
 
     /** What a score or a floor is, as a percentage. */

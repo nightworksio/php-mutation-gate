@@ -54,7 +54,6 @@ use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
 use NightWorksIO\MutationGate\Core\Watch\Poll;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use Psr\Clock\ClockInterface;
-use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\HttpClient\HttpClient;
 
@@ -75,8 +74,8 @@ final readonly class Console
         string $vendor,
         ClockInterface $clock,
         Variables $environment,
-    ): Application {
-        $application = new Application(self::NAME, InstalledGate::version()->spelt());
+    ): GateApplication {
+        $application = new GateApplication(self::NAME, InstalledGate::version()->spelt());
         $application->setAutoExit(boolean: false);
         $definition = $application->getDefinition();
         $definition->addOption(new InputOption(

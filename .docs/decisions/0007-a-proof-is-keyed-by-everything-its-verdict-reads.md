@@ -318,7 +318,9 @@ has to bring its result with it.
    - `matrix` is `full` where that run recorded every test that kills each
      mutant (`--kill-matrix=full`, ADR-0014). A proof without it
      holds first killers. Where two proofs share a key, the ledger keeps the
-     first, unless only the later has `matrix`.
+     first, unless only the later has `matrix`. ADR-0040 amends this: the
+     ledger is format 4, and a proof also records `security` and `suite`, so
+     it stands only for a run of its own kind.
    - Each proof also keeps the digest of each item of its content key, so
      that `doctor` can name the file whose change invalidated most proofs
      (ADR-0017). The digests are read for that alone, never to match a key.

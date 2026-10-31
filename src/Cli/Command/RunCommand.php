@@ -49,7 +49,7 @@ final readonly class RunCommand
 
     public static function command(Composition $composition): Command
     {
-        return FlowOptions::editing(FlowOptions::planning(new Command(Verb::Run->value)))
+        return PublishDir::option(FlowOptions::editing(FlowOptions::planning(new Command(Verb::Run->value))))
             ->setDescription('Plan, run and judge in one process; or, with --plan, run one shard of a plan')
             ->addOption(FlowOptions::PLAN, mode: InputOption::VALUE_REQUIRED, description: 'Run one shard of this plan')
             ->addOption(FlowOptions::SHARD, mode: InputOption::VALUE_REQUIRED, description: 'The shard to run')
@@ -62,7 +62,7 @@ final readonly class RunCommand
                 $planned = $input->getOption(FlowOptions::PLAN) !== null;
                 $composed = $planned
                     ? $composition->compose($input)
-                    : FlowOptions::narrowed($composition->compose($input), $input);
+                    : PublishDir::composed(FlowOptions::narrowed($composition->compose($input), $input), $input);
 
                 return match (true) {
                     ! $composed instanceof Composed => Failed::because($output, $composed),

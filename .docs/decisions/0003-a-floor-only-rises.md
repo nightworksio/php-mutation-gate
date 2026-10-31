@@ -170,7 +170,9 @@ itself, and goes up with the tests.
    `"lowered": {"from": …, "reason": "…"}` on that tree. The gate reads the base
    branch's file through `ChangeSource` (ADR-0001) and fails otherwise. The
    `lowered` entry is dropped the next time the floor is raised. A tree may
-   leave the file only when its path is gone.
+   leave the file only when its path is gone. ADR-0040 amends this: the base
+   branch's file is the one its own config names, a blank reason is no
+   reason, and a declared floor is held rounded up.
 
 8. **New code has a floor of its own, 100 by default.** In a pull-request run
    (ADR-0006), and in pre-push and watch mode (ADR-0010), one more set is

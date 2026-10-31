@@ -138,6 +138,6 @@ it('is followed on the commit it was made on', function () use ($planOf): void {
 
 it('cannot judge a checkout of another commit', function () use ($planOf): void {
     expect($planOf()->forCheckout(Revision::ref('206b4e0')))->toEqual(CannotJudge::because(
-        'The plan was made on 5eeca8f, and this checkout is 206b4e0. Run a shard on the commit its plan was made on.',
+        "The plan was made on 5eeca8f, and this checkout is 206b4e0.\nRun each shard and the verdict on the commit its plan was made on.",
     ));
 });

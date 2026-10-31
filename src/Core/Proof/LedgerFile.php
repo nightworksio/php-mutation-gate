@@ -22,9 +22,9 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use function sprintf;
 
 /**
- * A ledger as its file holds it: `"format": 3`, compact JSON, gzipped. A
- * ledger of format 2 reads as it is: its proofs record no digests of their
- * inputs, so none of them carries for a unit a budget ran out before.
+ * A ledger as its file holds it: `"format": 4`, compact JSON, gzipped. A
+ * proof that records no digests of its inputs carries for no unit a budget
+ * ran out before.
  *
  * Writing keeps what {@see LedgerRetention::standard()} keeps: the bases its
  * runs saw most recently, the proofs established at them, and the kill
@@ -52,7 +52,7 @@ final readonly class LedgerFile
     /** The list a ledger's killed mutants and its kill history point into by index. */
     public const string TESTS = 'tests';
 
-    public const int FORMAT = 3;
+    public const int FORMAT = 4;
 
     public const string SECONDS = 'seconds';
 
@@ -70,9 +70,6 @@ final readonly class LedgerFile
     public const string PASSED = 'passed';
 
     public const string PROOFS = 'proofs';
-
-    /** The format before proofs recorded the digests of their inputs, which reads without them. */
-    private const int UNDIGESTED = 2;
 
     /** What a message calls the file. */
     private const string NAMED = 'The ledger';
@@ -164,7 +161,7 @@ final readonly class LedgerFile
         try {
             $format = $file->field('format')->integer();
 
-            return $format === self::FORMAT || $format === self::UNDIGESTED;
+            return $format === self::FORMAT;
         } catch (NotInShape) {
             return false;
         }

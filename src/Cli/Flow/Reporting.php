@@ -50,11 +50,16 @@ use function str_contains;
  */
 final readonly class Reporting
 {
-    /** What chose the reporters the run chooses on GitHub. */
+    /**
+     * What chose the reporters the run chooses on GitHub.
+     *
+     * @param list<Member> $publishing what the badge is told of where to write, beside its colours
+     */
     public function __construct(
         private Chosen $chosen,
         private Variables $environment,
         private DeliveryDirectory|NotGiven $later = new NotGiven(),
+        private array $publishing = [],
     ) {
     }
 
@@ -65,7 +70,13 @@ final readonly class Reporting
      */
     public function deliveringLater(DeliveryDirectory $delivery): self
     {
-        return new self($this->chosen, $this->environment, $delivery);
+        return new self($this->chosen, $this->environment, $delivery, $this->publishing);
+    }
+
+    /** The same, the badge and trend written into this directory, as `--publish-dir` asks (ADR-0009). */
+    public function publishingInto(Path $directory): self
+    {
+        return new self($this->chosen, $this->environment, $this->later, [Member::of('path', $directory->value())]);
     }
 
     /** @return list<Reporter>|Invalid|CannotJudge */
@@ -233,6 +244,7 @@ final readonly class Reporting
             Options::of(Json::object(
                 Member::of('colors', $settings->publishing()->colors()->written()),
                 Member::of('newCode', $settings->floors()->newCode()->percent()),
+                ...$this->publishing,
             )),
         );
 
