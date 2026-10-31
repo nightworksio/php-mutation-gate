@@ -77,7 +77,7 @@ final readonly class HttpExchange implements Exchange
             return Unreadable::because(
                 UnreadReason::Unreachable,
                 $from,
-                Fit::line(Fit::plain($unreached->getMessage()), Reply::ANSWER),
+                Fit::line(Reply::named($from, $unreached->getMessage()), Reply::ANSWER),
             );
         }
     }

@@ -8,7 +8,7 @@ FROM php:8.5-cli@sha256:635a4b998025ab269194639a5549c6fdcd9b4f88ec8cd761b092de86
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends git unzip \
     && rm -rf /var/lib/apt/lists/* \
-    && pecl install pcov \
+    && pecl install pcov-1.0.12 \
     && docker-php-ext-enable pcov \
     && docker-php-ext-install pcntl
 

@@ -30,6 +30,7 @@ final readonly class ReportPage
         <html lang="en">
         <head>
         <meta charset="utf-8">
+        <meta http-equiv="Content-Security-Policy" content="%12$s">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="color-scheme" content="light dark">
         <title>mutation-gate: %1$s</title>
@@ -73,17 +74,32 @@ final readonly class ReportPage
 
         HTML;
 
+    /**
+     * What the page may load and run: its own style, the figures' style
+     * attributes and its own script, each by its hash, and nothing else.
+     */
+    private const string POLICY = "default-src 'none'; style-src '%s' 'unsafe-hashes'%s; script-src '%s'";
+
+    private const string SOURCE = " '%s'";
+
     /** @param Report $report */
     public static function html(array $report, string $style, string $script): string
     {
         $mutants = Mutants::of($report);
         $glossary = Glossary::of($report);
         $navigation = Navigation::of($report, $mutants, $glossary);
+        $inlineStyle = str_replace('</style', '<\/style', $style);
+        $inlineScript = str_replace('</script', '<\/script', $script);
+        $attributes = '';
+
+        foreach (Figures::styles($report) as $attribute) {
+            $attributes .= sprintf(self::SOURCE, Html::source($attribute));
+        }
 
         return sprintf(
             self::PAGE,
             Html::text($report['judgement']),
-            str_replace('</style', '<\/style', $style),
+            $inlineStyle,
             Headline::html($report, $glossary),
             Figures::html($report, $glossary),
             Survivors::html($mutants),
@@ -92,7 +108,8 @@ final readonly class ReportPage
             Details::html($report),
             $navigation->index(),
             $navigation->packed(),
-            str_replace('</script', '<\/script', $script),
+            $inlineScript,
+            sprintf(self::POLICY, Html::source($inlineStyle), $attributes, Html::source($inlineScript)),
         );
     }
 }

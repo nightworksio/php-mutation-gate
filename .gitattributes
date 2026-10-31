@@ -4,7 +4,10 @@
 *.php diff=php
 
 # The archive Composer installs is what a user needs to run the gate, and
-# nothing that develops it.
+# nothing that develops it. It keeps SECURITY.md, the policy a user of the
+# package reports a vulnerability by. GitHub serves the action and OpenSSF
+# Scorecard reads the repository as this same archive, so the workflows under
+# .github are out of what Scorecard reads.
 /.docs export-ignore
 /.site export-ignore
 /bench export-ignore
@@ -17,7 +20,6 @@
 /ARCHITECTURE.md export-ignore
 /CODE_OF_CONDUCT.md export-ignore
 /CONTRIBUTING.md export-ignore
-/SECURITY.md export-ignore
 /composer-dependency-analyser.php export-ignore
 /composer.lock export-ignore
 /lychee.toml export-ignore

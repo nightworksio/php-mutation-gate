@@ -49,5 +49,7 @@ it('says an answer on one plain line, and never a URL a failure names', function
     expect(Reply::of(400, '', "bad\n::error::owned\e[31m")->refusedBy('the collector'))
         ->toEqual(NotWritten::because('the collector answered 400: bad ::error::owned[31m'))
         ->and(Reply::unreached('Slack', "Timed out for \"https://hooks.example/T/B/secret\"\nagain"))
-        ->toEqual(NotWritten::because('Slack could not be reached: Timed out for "Slack" again'));
+        ->toEqual(NotWritten::because('Slack could not be reached: Timed out for "Slack" again'))
+        ->and(Reply::named('gs://ledgers/main', "Failed for https://ledgers.example/main?sig=s and HTTP://other.example\nthen"))
+        ->toBe('Failed for gs://ledgers/main and gs://ledgers/main then');
 });

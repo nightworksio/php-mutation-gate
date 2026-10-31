@@ -9,7 +9,8 @@ name: mutation-gate
 # installs the project with, which their install steps alone read (ADR-0029).
 # What needs a credential happens in fetch, deliver-plan, deliver-survivors
 # and deliver, which run none of it, from the gate's own installation at this
-# workflow's commit (ADR-0007).
+# workflow's commit, its runtime packages installed from the lock under
+# resources/action/keyed (ADR-0007).
 #
 # The shard jobs run the action from this workflow's own commit, which each
 # checks out at job.workflow_sha, so the workflow and the action are always
@@ -70,8 +71,15 @@ on:
         default: ''
       runs-on:
         description: >-
-          The runner every job runs on: a label, such as ubuntu-24.04-arm, or a JSON list of labels a runner must
-          all have, such as ["self-hosted", "linux"].
+          The runner the plan, the shards, the survivors and the verdict run on: a label, such as ubuntu-24.04-arm,
+          or a JSON list of labels a runner must all have, such as ["self-hosted", "linux"].
+        type: string
+        default: ubuntu-latest
+      keyed-runs-on:
+        description: >-
+          The runner fetch, the deliver jobs and publish run on, which hold a key or a token that writes: a label or
+          a JSON list of labels, as runs-on takes. A runner a pull request's code ran on can keep what that code
+          left for the next job, so name a GitHub-hosted or an ephemeral runner here.
         type: string
         default: ubuntu-latest
     # A called job reads an environment's secret only under a name its caller
@@ -83,7 +91,8 @@ on:
       COMPOSER_AUTH:
         description: >-
           The credentials Composer installs the project's dependencies with, for a private repository; read by the
-          install steps alone, never by a step that runs the project's tests or mutants.
+          install steps alone, never by a step that runs the project's tests or mutants. An install step runs the
+          project's Composer scripts and plugins, which can read it.
         required: false
       MUTATION_GATE_READ_AWS_ACCESS_KEY_ID:
         description: The key that reads the default branch's ledger, from the environment mutation-gate-read.
@@ -162,7 +171,7 @@ jobs:
     environment:
       name: mutation-gate-read
       deployment: false
-    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
+    runs-on: ${{ startsWith(inputs.keyed-runs-on, '[') && fromJSON(inputs.keyed-runs-on) || inputs.keyed-runs-on }}
     timeout-minutes: 10
     # id-token: write lets a store that signs in through GitHub's OIDC, Azure's
     # or GCS's, ask for this job's token, which GitHub hands only to a job
@@ -195,7 +204,7 @@ jobs:
           php-version: ${{ inputs.php-version }}
           coverage: none
       - name: Install the gate
-        run: composer install --working-dir="${GATE_ACTION}" --no-scripts --no-plugins --no-interaction --no-progress --prefer-dist
+        run: bash "${GATE_ACTION}/resources/action/install.sh" "${GATE_ACTION}"
       - name: Fetch the default branch's ledger
         id: fetch
         env:
@@ -381,7 +390,7 @@ jobs:
     name: deliver plan
     needs: plan
     if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.delivery == 'true' }}
-    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
+    runs-on: ${{ startsWith(inputs.keyed-runs-on, '[') && fromJSON(inputs.keyed-runs-on) || inputs.keyed-runs-on }}
     timeout-minutes: 10
     permissions:
       contents: read
@@ -398,7 +407,7 @@ jobs:
           php-version: ${{ inputs.php-version }}
           coverage: none
       - name: Install the gate
-        run: composer install --working-dir="${GATE_ACTION}" --no-scripts --no-plugins --no-interaction --no-progress --prefer-dist
+        run: bash "${GATE_ACTION}/resources/action/install.sh" "${GATE_ACTION}"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: mutation-gate-delivery-plan-${{ needs.plan.outputs.attempt }}
@@ -610,7 +619,7 @@ jobs:
     name: deliver survivors
     needs: survivors
     if: ${{ !cancelled() && needs.survivors.result == 'success' && needs.survivors.outputs.delivery == 'true' }}
-    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
+    runs-on: ${{ startsWith(inputs.keyed-runs-on, '[') && fromJSON(inputs.keyed-runs-on) || inputs.keyed-runs-on }}
     timeout-minutes: 10
     permissions:
       contents: read
@@ -627,7 +636,7 @@ jobs:
           php-version: ${{ inputs.php-version }}
           coverage: none
       - name: Install the gate
-        run: composer install --working-dir="${GATE_ACTION}" --no-scripts --no-plugins --no-interaction --no-progress --prefer-dist
+        run: bash "${GATE_ACTION}/resources/action/install.sh" "${GATE_ACTION}"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: mutation-gate-delivery-survivors-${{ needs.survivors.outputs.attempt }}
@@ -905,7 +914,7 @@ jobs:
       deployment: false
     needs: verdict
     if: ${{ !cancelled() && contains(fromJSON('["success","failure"]'), needs.verdict.result) && needs.verdict.outputs.delivery == 'true' }}
-    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
+    runs-on: ${{ startsWith(inputs.keyed-runs-on, '[') && fromJSON(inputs.keyed-runs-on) || inputs.keyed-runs-on }}
     timeout-minutes: 15
     # id-token: write, as fetch has it, for a store that signs in through
     # GitHub's OIDC; actions: read, to find the HTML report the comment links.
@@ -934,7 +943,7 @@ jobs:
           php-version: ${{ inputs.php-version }}
           coverage: none
       - name: Install the gate
-        run: composer install --working-dir="${GATE_ACTION}" --no-scripts --no-plugins --no-interaction --no-progress --prefer-dist
+        run: bash "${GATE_ACTION}/resources/action/install.sh" "${GATE_ACTION}"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: mutation-gate-delivery-${{ needs.verdict.outputs.attempt }}
@@ -977,7 +986,7 @@ jobs:
     if: >-
       ${{ !cancelled() && needs.plan.result == 'success' && contains(fromJSON('["success","failure"]'), needs.verdict.result) && needs.verdict.outputs.verdict != ''
       && (contains(fromJSON('["push","schedule","workflow_dispatch"]'), github.event_name) && (github.event.repository.default_branch || vars.MUTATION_GATE_DEFAULT_BRANCH) != '' && github.ref == format('refs/heads/{0}', (github.event.repository.default_branch || vars.MUTATION_GATE_DEFAULT_BRANCH))) }}
-    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
+    runs-on: ${{ startsWith(inputs.keyed-runs-on, '[') && fromJSON(inputs.keyed-runs-on) || inputs.keyed-runs-on }}
     timeout-minutes: 10
     permissions:
       contents: write

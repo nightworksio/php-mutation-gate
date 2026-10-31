@@ -50,6 +50,32 @@ if ($archive instanceof OwnArchive && $own instanceof OwnScript) {
 
 $output = new InertOutput();
 
+// The gate's own process, and no other, is given the memory its ledgers may need (ADR-0013), where
+// PHP lets it set its own; doctor says where it does not.
+$memory = LedgerMemory::standard();
+
+if (! $memory->admits(ini_parse_quantity(ini_get('memory_limit'))) && function_exists('ini_set')) {
+    ini_set('memory_limit', sprintf('%d', $memory->bytes()));
+}
+
+$input = new ArgvInput();
+
+// deliver and fetch hold the gate's keys, so they start before any extension is found or config read,
+// and before the gate's PHAR loads the project's autoloader (ADR-0007).
+$installation = Installation::of(
+    $project,
+    dirname($autoload),
+    array_key_exists('_composer_autoload_path', $GLOBALS),
+);
+
+if (Deliver::isAsked($input)) {
+    exit(Deliver::online($installation)->run($input, $output, $output->getErrorOutput()));
+}
+
+if (Fetch::isAsked($input)) {
+    exit(Fetch::online($installation)->run($input, $output, $output->getErrorOutput()));
+}
+
 // The gate's PHAR loads the project's autoloader after its own (ADR-0022).
 if ($archive instanceof OwnArchive) {
     $started = new FromArchive($archive, $project);
@@ -67,32 +93,6 @@ if ($archive instanceof OwnArchive) {
     if (is_string($projectAutoload)) {
         require $projectAutoload;
     }
-}
-
-// The gate's own process, and no other, is given the memory its ledgers may need (ADR-0013), where
-// PHP lets it set its own; doctor says where it does not.
-$memory = LedgerMemory::standard();
-
-if (! $memory->admits(ini_parse_quantity(ini_get('memory_limit'))) && function_exists('ini_set')) {
-    ini_set('memory_limit', sprintf('%d', $memory->bytes()));
-}
-
-$input = new ArgvInput();
-
-// deliver and fetch hold the gate's keys, so they start before any extension is found or config read
-// (ADR-0007).
-$installation = Installation::of(
-    $project,
-    dirname($autoload),
-    array_key_exists('_composer_autoload_path', $GLOBALS),
-);
-
-if (Deliver::isAsked($input)) {
-    exit(Deliver::online($installation)->run($input, $output, $output->getErrorOutput()));
-}
-
-if (Fetch::isAsked($input)) {
-    exit(Fetch::online($installation)->run($input, $output, $output->getErrorOutput()));
 }
 
 exit(Gate::in($project, $vendor, $archive)->run($input, $output, $output->getErrorOutput()));

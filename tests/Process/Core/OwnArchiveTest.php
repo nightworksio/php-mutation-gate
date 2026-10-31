@@ -87,3 +87,15 @@ it('names itself as it was started in the hook it installs, from the project\'s 
         ->and((string) file_get_contents(sprintf('%s/.git/hooks/pre-push', $root)))
         ->toEndWith("exec php tools/mutation-gate pre-push \"\$@\"\n");
 })->group('phar');
+
+it('starts deliver and fetch before it loads the project\'s autoloader, so neither loads the project\'s code', function (string $command, int $exit) use ($archive): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'vendor/autoload.php', "<?php\n\nfile_put_contents(__DIR__ . '/loaded', '');\n");
+    $run = $archive($root, $command);
+
+    expect($run->getExitCode())->toBe($exit, sprintf('%s%s', $run->getOutput(), $run->getErrorOutput()))
+        ->and(sprintf('%s/vendor/loaded', $root))->not->toBeFile();
+})->with([
+    'deliver, with no delivery to send' => ['deliver', 2],
+    'fetch, with no store named' => ['fetch', 0],
+])->group('phar');

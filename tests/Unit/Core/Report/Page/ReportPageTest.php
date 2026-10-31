@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Report\JsonReport;
 use NightWorksIO\MutationGate\Core\Report\NextSteps;
 use NightWorksIO\MutationGate\Core\Report\Outcome;
+use NightWorksIO\MutationGate\Core\Report\Page\Html;
 use NightWorksIO\MutationGate\Core\Report\Page\ReportPage;
 use NightWorksIO\MutationGate\Core\Report\Term;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -449,6 +450,25 @@ it('inlines its style and its script, so it loads nothing from a network, neithe
         ->and($page)->toContain('<script>const end = "<\/script>";</script>')
         ->and($page)->not->toMatch('~src="https?://~')
         ->and($page)->not->toMatch('~<link[^>]+href="https?://~');
+});
+
+it('lets the browser run only its own style, the figures\' style attributes and its own script, each named by its hash', function (): void {
+    $page = ReportPage::html(JsonReport::of(Verdicts::secured()), 'a::after { content: "</style>"; }', 'const end = "</script>";');
+    preg_match('~<meta http-equiv="Content-Security-Policy" content="([^"]+)">~', $page, $policy);
+    preg_match_all('~ style="([^"]*)"~', $page, $attributes);
+    $hashOf = static fn(string $inline): string => sprintf("'%s'", Html::source($inline));
+    $styles = array_values(array_unique($attributes[1]));
+    $wanted = sprintf(
+        "default-src 'none'; style-src %s 'unsafe-hashes' %s; script-src %s",
+        $hashOf('a::after { content: "<\/style>"; }'),
+        implode(' ', array_map($hashOf, $styles)),
+        $hashOf('const end = "<\/script>";'),
+    );
+
+    expect($policy[1] ?? '')->toBe($wanted)
+        ->and(Html::source(''))->toBe('sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=')
+        ->and($styles)->toContain('width: 100.00%', 'left: 50.00%')
+        ->and(strpos($page, 'Content-Security-Policy'))->toBeLessThan((int) strpos($page, '<style>'));
 });
 
 it('names the first 25 survivors and the 8 files with the most, the rest in the files below', function (int $survivors, int $more): void {
