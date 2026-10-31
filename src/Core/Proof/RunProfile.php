@@ -67,6 +67,17 @@ final readonly class RunProfile
         return $this->suite;
     }
 
+    /**
+     * Whether a proof of a run of this kind stands for one of that kind: the
+     * same mutators and the same suite, with a matrix that holds what it asks for.
+     */
+    public function holds(self $asked): bool
+    {
+        return $this->matrix->holds($asked->matrix)
+            && $this->securityOnly === $asked->securityOnly
+            && $this->sameSuite($this->suite, $asked->suite);
+    }
+
     /** Whether another kind is this one: the same matrix, the same mutators, and the same suite. */
     public function equals(self $other): bool
     {

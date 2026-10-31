@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Filesystem;
 
-use function array_key_exists;
-
 use DateInterval;
 
 use function getenv;
@@ -13,6 +11,8 @@ use function is_float;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\CiRun;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
@@ -65,9 +65,6 @@ final readonly class BadgeDirectory implements Reporter
     /** What `newCode` holds, where it holds anything else. */
     private const string NEW_CODE = 'The floor for new code is a percentage from 0 to 100.';
 
-    /** The variables CIs name the commit they run in, in the order they are asked. */
-    private const array COMMITS = ['GITHUB_SHA', 'CI_COMMIT_SHA', 'BUILDKITE_COMMIT', 'CIRCLE_SHA1'];
-
     private const string CUT_SHORT = 'A run its budget cut short updates neither the badge nor the trend.';
 
     private const string SAMPLED = 'A sampled run updates neither the badge nor the trend.';
@@ -112,7 +109,7 @@ final readonly class BadgeDirectory implements Reporter
             default => new self(
                 $path,
                 $colors,
-                is_string($commit) ? $commit : self::commitOfCi(getenv()),
+                is_string($commit) ? $commit : self::commitOfCi(Variables::of(getenv())),
                 $clock,
                 $newCode,
             ),
@@ -191,15 +188,11 @@ final readonly class BadgeDirectory implements Reporter
         };
     }
 
-    /** @param array<string, string> $environment */
-    private static function commitOfCi(array $environment): string
+    /** The commit the CI's job runs in, as each CI names it; none outside a CI. */
+    private static function commitOfCi(Variables $environment): string
     {
-        foreach (self::COMMITS as $variable) {
-            if (array_key_exists($variable, $environment)) {
-                return $environment[$variable];
-            }
-        }
+        $run = CiRun::read($environment);
 
-        return '';
+        return $run instanceof CiRun ? $run->commit() : '';
     }
 }

@@ -69,7 +69,13 @@ it('cannot judge a job named by something other than a number', function () use 
     expect(WhichShard::in(Variables::of(['SHARD' => 'two']), $plan))
         ->toEqual(CannotJudge::because('SHARD is "two", which is not a job number.'))
         ->and(WhichShard::in(Variables::of(['SHARD' => '-1']), $plan))
-        ->toEqual(CannotJudge::because('SHARD is "-1", which is not a job number.'));
+        ->toEqual(CannotJudge::because('SHARD is "-1", which is not a job number.'))
+        ->and(WhichShard::in(Variables::of(['SHARD' => '99999999999999999999']), $plan))
+        ->toEqual(CannotJudge::because('SHARD is "99999999999999999999", which is not a job number.'))
+        ->and(WhichShard::in(Variables::of(['SHARD' => '1234567890']), $plan))
+        ->toEqual(CannotJudge::because('SHARD is "1234567890", which is not a job number.'))
+        ->and(WhichShard::in(Variables::of(['SHARD' => '123456789']), $plan))
+        ->toEqual(CannotJudge::because('The plan has no shard 123456789. It holds 3 shards, so this job was not planned from it.'));
 });
 
 it('cannot judge a job the plan has no shard for', function () use ($makePlan): void {

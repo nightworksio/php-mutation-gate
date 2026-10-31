@@ -133,6 +133,10 @@ parameters:
                 # inert for a CI runner's log (Adapter\Console\InertOutput).
                 - Symfony\Component\Console\Output\ConsoleOutput
                 - Symfony\Component\Console\Output\StreamOutput
+                # Symfony's console application, whose doRun every command's
+                # failure passes through: the one place a command that could
+                # not finish exits as could-not-judge (Cli\GateApplication).
+                - Symfony\Component\Console\Application
                 # PhpSpec's skip, which a maintainer throws to skip an example
                 # before anything of it runs (Adapter\PhpSpec\Selecting).
                 - PhpSpec\Exception\Example\SkippingException
@@ -519,7 +523,6 @@ services:
                     - VALUE # the name of a parameter the mutant's code declares
                 'NightWorksIO\MutationGate\Core\Proof\LedgerFile':
                     - FORMAT # a format version
-                    - UNDIGESTED # a format version
                     - SECONDS # a field of the ledger
                     - RUNNER # a field of the ledger
                     - TESTS # a field of the ledger

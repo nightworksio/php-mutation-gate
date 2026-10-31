@@ -7,7 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Proof;
 use ArrayObject;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Mutant\KilledRecords;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 
@@ -60,9 +60,11 @@ final readonly class ProofsRead
     }
 
     /** A run, one for every proof it established. */
-    public function run(string $id, Instant $at, Digest $base, MatrixKind $matrix): Run
+    public function run(string $id, Instant $at, Digest $base, RunProfile $profile): Run
     {
-        return $this->runs[sprintf(self::RAN, $id, $at->value(), $base->value(), $matrix->value)]
-            ??= Run::of($id, $at, $base)->recording($matrix);
+        $kind = JsonText::compact(RunProfileRecord::of($profile));
+
+        return $this->runs[sprintf(self::RAN, $id, $at->value(), $base->value(), $kind)]
+            ??= Run::of($id, $at, $base)->profiled($profile);
     }
 }

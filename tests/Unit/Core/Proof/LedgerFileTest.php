@@ -158,7 +158,7 @@ it('writes compact JSON, gzipped: the newest proofs first, killed mutants as tup
     $survivedId = $makeSurvivedId();
 
     expect(Gunzipped::of(LedgerFile::encode($ledger)))->toBe(JsonText::compact([
-        'format' => 3,
+        'format' => 4,
         'bases' => [$base],
         'mutators' => ['Plus', 'Minus'],
         'tests' => ['MoneyTest::adds', 'CartTest::totals', 'TaxTest::rounds'],
@@ -205,7 +205,7 @@ it('writes compact JSON, gzipped: the newest proofs first, killed mutants as tup
 
 it('writes an empty ledger as empty lists and maps and no passing commit', function (): void {
     expect(Gunzipped::of(LedgerFile::encode(Ledger::empty())))
-        ->toBe('{"format":3,"bases":[],"mutators":[],"tests":[],"inputs":{"mutation":[],"tests":[],"commits":[]},"proofs":{},"timings":{},"killers":{"mutants":{},"functions":{}}}');
+        ->toBe('{"format":4,"bases":[],"mutators":[],"tests":[],"inputs":{"mutation":[],"tests":[],"commits":[]},"proofs":{},"timings":{},"killers":{"mutants":{},"functions":{}}}');
 });
 
 it('reads back the ledger it wrote, each killed mutant as the kill it proves', function () use ($makeLedger, $makeReadBack): void {
@@ -273,7 +273,7 @@ it('keeps at most the newest twenty thousand proofs of its bases', function () u
         ->and($kept->has(Digest::of(hash('sha256', '20000'))))->toBeTrue();
 });
 
-it('reads a ledger of the second format as it is, its proofs recording no digests of their inputs', function () use ($written, $makeReadBack): void {
+it('reads a proof that records no digests of its inputs as it is', function () use ($makeReadBack): void {
     $readBack = $makeReadBack();
 
     $undigested = $readBack->withProof(Proof::held(
@@ -283,9 +283,7 @@ it('reads a ledger of the second format as it is, its proofs recording no digest
         ProvedKills::none(),
         Run::of('github:1/1', Moment::at('2026-09-29T20:48:17Z'), Digest::of(str_repeat('e', 64))),
     ));
-    $json = Gunzipped::of(LedgerFile::encode($undigested));
-    $file = json_decode($json, associative: true);
-    $read = LedgerFile::decode($written(array_replace(is_array($file) ? $file : [], ['format' => 2])));
+    $read = LedgerFile::decode(LedgerFile::encode($undigested));
 
     expect($read->proofs()->proofFor(Digest::of(str_repeat('a', 64))))->toEqual($undigested->proofs()->proofFor(Digest::of(str_repeat('a', 64))))
         ->and(count($read->proofs()))->toBe(2);
@@ -295,12 +293,14 @@ it('reads a file of another format, or no ledger at all, as an empty ledger', fu
     expect(LedgerFile::decode($file))->toEqual(Ledger::empty());
 })->with([
     'the first format' => [fn(): string => Gzip::pack('{"format": 1, "proofs": {}, "timings": {}, "passed": "206b4e0"}')],
-    'the fourth format' => [fn(): string => Gzip::pack('{"format": 4, "bases": [], "mutators": [], "proofs": {}, "timings": {}}')],
-    'the second format, not gzipped' => ['{"format": 2, "bases": [], "mutators": [], "proofs": {}, "timings": {}, "passed": "206b4e0"}'],
-    'a format written as text' => [fn(): string => Gzip::pack('{"format": "2", "passed": "206b4e0"}')],
+    'the second format' => [fn(): string => Gzip::pack('{"format": 2, "bases": [], "mutators": [], "proofs": {}, "timings": {}}')],
+    'the third format, whose proofs do not say what kind of run made them' => [fn(): string => Gzip::pack('{"format": 3, "bases": [], "mutators": [], "proofs": {}, "timings": {}}')],
+    'the fifth format' => [fn(): string => Gzip::pack('{"format": 5, "bases": [], "mutators": [], "proofs": {}, "timings": {}}')],
+    'the fourth format, not gzipped' => ['{"format": 4, "bases": [], "mutators": [], "proofs": {}, "timings": {}, "passed": "206b4e0"}'],
+    'a format written as text' => [fn(): string => Gzip::pack('{"format": "4", "passed": "206b4e0"}')],
     'no format' => [fn(): string => Gzip::pack('{"passed": "206b4e0"}')],
-    'text that is not JSON' => [fn(): string => Gzip::pack('{"format": 2, "passed": ')],
-    'a gzip stream cut short' => [fn(): string => substr(Gzip::pack('{"format": 2, "passed": "206b4e0"}'), 0, 20)],
+    'text that is not JSON' => [fn(): string => Gzip::pack('{"format": 4, "passed": ')],
+    'a gzip stream cut short' => [fn(): string => substr(Gzip::pack('{"format": 4, "passed": "206b4e0"}'), 0, 20)],
     'nothing' => [''],
 ]);
 
@@ -311,26 +311,20 @@ it('says why a file holds no ledger it reads: no whole gzip stream, or another f
     expect(LedgerFile::read($file, LedgerLimits::standard()))->toEqual(CannotJudge::because($why));
 })->with([
     'the first format' => [fn(): string => Gzip::pack('{"format": 1, "proofs": {}}'), 'The ledger is of a format this gate does not read.'],
-    'the fourth format' => [fn(): string => Gzip::pack('{"format": 4, "proofs": {}}'), 'The ledger is of a format this gate does not read.'],
-    'text that is not JSON' => [fn(): string => Gzip::pack('{"format": 3, "passed": '), 'The ledger is of a format this gate does not read.'],
-    'not gzipped' => ['{"format": 3, "proofs": {}}', 'The ledger is not a whole gzip stream.'],
+    'the third format' => [fn(): string => Gzip::pack('{"format": 3, "proofs": {}}'), 'The ledger is of a format this gate does not read.'],
+    'the fifth format' => [fn(): string => Gzip::pack('{"format": 5, "proofs": {}}'), 'The ledger is of a format this gate does not read.'],
+    'text that is not JSON' => [fn(): string => Gzip::pack('{"format": 4, "passed": '), 'The ledger is of a format this gate does not read.'],
+    'not gzipped' => ['{"format": 4, "proofs": {}}', 'The ledger is not a whole gzip stream.'],
 ]);
 
-it('reads a ledger of either format it reads within the limits, and says one that inflates past them is too large', function () use (
-    $makeLedger,
-    $written,
-): void {
+it('reads a ledger within the limits, and says one that inflates past them is too large', function () use ($makeLedger): void {
     $ledger = $makeLedger();
 
     $bytes = LedgerFile::encode($ledger);
-    $json = Gunzipped::of($bytes);
-    $file = json_decode($json, associative: true);
-    $second = $written(array_replace(is_array($file) ? $file : [], ['format' => 2]));
-    $inflated = strlen($json);
+    $inflated = strlen(Gunzipped::of($bytes));
 
     expect(LedgerFile::read($bytes, LedgerLimits::of(strlen($bytes), $inflated, 60.0)))->toEqual(LedgerFile::decode($bytes))
-        ->and(LedgerFile::read($second, LedgerLimits::standard()))->toEqual(LedgerFile::decode($second))
-        ->and(LedgerFile::decode($second)->proofs())->toHaveCount(count($ledger->proofs()))
+        ->and(LedgerFile::decode($bytes)->proofs())->toHaveCount(count($ledger->proofs()))
         ->and(LedgerFile::read($bytes, LedgerLimits::of(strlen($bytes), $inflated - 1, 60.0)))
         ->toEqual(TooLarge::because(sprintf('The ledger inflates to more than %d bytes.', $inflated - 1)))
         ->and(LedgerFile::read($bytes, LedgerLimits::of(strlen($bytes) - 1, $inflated, 60.0)))
@@ -736,6 +730,18 @@ it('writes the matrix of a proof whose run recorded every killer, and reads one 
         ->and(Decoded::at($text($first), 'proofs', $key, 'matrix'))->toBeNull()
         ->and($fullRead instanceof Proof ? $fullRead->run()->matrix() : $fullRead)->toBe(MatrixKind::Full)
         ->and($firstRead instanceof Proof ? $firstRead->run()->matrix() : $firstRead)->toBe(MatrixKind::FirstKiller);
+});
+
+it('writes the kind of a proof whose run made mutants with the security mutators alone, or had one suite judge them, and reads it back', function () use ($run, $base): void {
+    $key = str_repeat('c', 64);
+    $kind = RunProfile::standard()->securityOnly()->inSuite(SuiteName::of('unit'));
+    $narrowed = Proof::of(Digest::of($key), Path::of('src/Money.php'), Mutants::none(), $run('github:3/1', '2026-09-29T22:00:00Z')->profiled($kind));
+    $bytes = LedgerFile::encode(Ledger::empty()->withProof($narrowed)->atBase(Digest::of($base)));
+    $read = LedgerFile::decode($bytes)->proofs()->proofFor(Digest::of($key));
+
+    expect(Decoded::at(Gunzipped::of($bytes), 'proofs', $key, 'security'))->toBeTrue()
+        ->and(Decoded::at(Gunzipped::of($bytes), 'proofs', $key, 'suite'))->toBe('unit')
+        ->and($read instanceof Proof ? $read->run()->profile() : $read)->toEqual($kind);
 });
 
 it('reads back the newest commit whose run judged every unit, with its tree and parents, of every kind of run', function (RunProfile $kind) use ($makeLedger): void {

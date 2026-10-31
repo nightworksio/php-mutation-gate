@@ -10,7 +10,9 @@ use NightWorksIO\MutationGate\Core\Proof\NeverProved;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Run;
+use NightWorksIO\MutationGate\Core\Proof\RunProfile;
 use NightWorksIO\MutationGate\Core\Proof\Unproved;
+use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Tests\Support\Growth;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
@@ -63,13 +65,27 @@ it('takes a proof that records every killer over one under its key that records 
         ->and($units($first))->toBe(['src/B.php']);
 });
 
-it('keeps, of its proofs, those that record what a run of a kind asks for', function () use ($proof, $units): void {
-    $full = Proof::of(Digest::of('c'), Path::of('src/C.php'), Mutants::none(), $proof('c', 'src/C.php')->run()->recording(MatrixKind::Full));
-    $proofs = Proofs::of($proof('b', 'src/B.php'), $full);
+it('keeps, of its proofs, those that stand for a run of a kind', function () use ($proof, $units): void {
+    $ran = static fn(string $key, string $unit, RunProfile $kind): Proof => Proof::of(
+        Digest::of($key),
+        Path::of($unit),
+        Mutants::none(),
+        $proof($key, $unit)->run()->profiled($kind),
+    );
+    $standard = RunProfile::standard();
+    $proofs = Proofs::of(
+        $proof('b', 'src/B.php'),
+        $ran('c', 'src/C.php', $standard->recording(MatrixKind::Full)),
+        $ran('d', 'src/D.php', $standard->securityOnly()),
+        $ran('e', 'src/E.php', $standard->inSuite(SuiteName::of('unit'))),
+    );
 
-    expect($units($proofs->recording(MatrixKind::FirstKiller)))->toBe(['src/B.php', 'src/C.php'])
-        ->and($units($proofs->recording(MatrixKind::Full)))->toBe(['src/C.php'])
-        ->and($proofs)->toHaveCount(2);
+    expect($units($proofs->standingFor($standard)))->toBe(['src/B.php', 'src/C.php'])
+        ->and($units($proofs->standingFor($standard->recording(MatrixKind::Full))))->toBe(['src/C.php'])
+        ->and($units($proofs->standingFor($standard->securityOnly())))->toBe(['src/D.php'])
+        ->and($units($proofs->standingFor($standard->inSuite(SuiteName::of('unit')))))->toBe(['src/E.php'])
+        ->and($units($proofs->standingFor($standard->inSuite(SuiteName::of('other')))))->toBe([])
+        ->and($proofs)->toHaveCount(4);
 });
 
 it('adds a proof without changing the proofs it came from', function () use ($proof): void {

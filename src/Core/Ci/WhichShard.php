@@ -46,7 +46,8 @@ final readonly class WhichShard
         'BITBUCKET_PARALLEL_STEP' => 'BITBUCKET_PARALLEL_STEP_COUNT',
     ];
 
-    private const string NUMBER = '/^\d+$/D';
+    /** A job number: digits, few enough that no CI's count of its jobs overflows an integer. */
+    private const string NUMBER = '/^\d{1,9}$/D';
 
     public static function in(Variables $variables, Plan $plan): ShardId|CannotJudge
     {

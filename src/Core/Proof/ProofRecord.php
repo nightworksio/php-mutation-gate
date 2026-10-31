@@ -10,7 +10,6 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
-use NightWorksIO\MutationGate\Core\Matrix\MatrixRecord;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantRecord;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
@@ -22,8 +21,8 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
 
 /**
  * A proof as a ledger holds it, under its key: its unit; the base, the time
- * and the id of the run that established it, and `matrix`, `full` where that
- * run recorded every killer; its mutants, each one a test killed as a killed
+ * and the id of the run that established it, and its kind as
+ * {@see RunProfileRecord} writes it; its mutants, each one a test killed as a killed
  * record and every other in full; the digests of its inputs, where it records
  * them; and, for a held unit, the holding tests that run it, as indices into
  * the ledger's tests, where it names any.
@@ -69,7 +68,7 @@ final readonly class ProofRecord
             self::BASE => $proof->run()->base()->value(),
             self::AT => $proof->run()->at()->value(),
             'run' => $proof->run()->id(),
-            ...MatrixRecord::of($proof->run()->matrix()),
+            ...RunProfileRecord::of($proof->run()->profile()),
             'mutants' => [
                 ...array_map(
                     static fn(Mutant $mutant): array => $mutant->status() === MutantStatus::Killed
@@ -120,7 +119,7 @@ final readonly class ProofRecord
                 $entry->field('run')->text(),
                 self::instantIn($entry),
                 self::baseIn($entry),
-                MatrixRecord::read($entry->field(MatrixRecord::FIELD)),
+                RunProfileRecord::read($entry),
             ),
         )->withInputs($inputs)->judgedBy(self::judgingIn($entry->field(self::JUDGING), $read));
     }

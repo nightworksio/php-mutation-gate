@@ -84,6 +84,10 @@ the design decision behind each option.
 | `2` | Could not judge |
 
 *Could not judge* means, for example, an invalid config, an opening test run
-that failed, or a shard with no results. `run` with a plan exits `0` once its shard's result is written,
-because the verdict judges it, and `2` when it cannot write it, the plan
-belongs to another commit, or the CI's shard count differs from the plan's.
+that failed, a shard with no results, a command line the gate cannot read,
+a command it does not know, or a failure it did not anticipate. A failed
+verdict is always `1`, and nothing else is. `run` with a plan exits `0` once
+its shard's result is written, because the verdict judges it, and `2` when it
+cannot write it, the plan belongs to another commit, or the CI's shard count
+differs from the plan's. `verdict` exits `2` where the plan belongs to another
+commit, or where a shard's result stands in the place of another shard.

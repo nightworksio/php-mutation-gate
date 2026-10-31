@@ -19,4 +19,10 @@ final class NotAPercentage extends LogicException
     {
         return new self(sprintf('%s is not a percentage from 0 to 100.', $percent));
     }
+
+    /** A number that is not finite, which no percentage is. */
+    public static function notFinite(): self
+    {
+        return new self('A percentage is a finite number from 0 to 100.');
+    }
 }

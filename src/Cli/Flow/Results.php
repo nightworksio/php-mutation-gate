@@ -59,6 +59,16 @@ final readonly class Results
     /** A shard as a list of them names it: its number, and its label. */
     private const string NAMED = '%d (%s)';
 
+    private const string ANOTHER_SHARD = <<<'SAID'
+        The result in the place of shard %d is the result of shard %d, so it cannot stand for it.
+        Leave each shard's result under its own number.
+        SAID;
+
+    private const string OTHER_UNITS = <<<'SAID'
+        The result of shard %d holds other units than the plan gives it, so it cannot stand for it.
+        Run every shard of one plan, and the verdict with that plan.
+        SAID;
+
     private const string ANOTHER_PLAN = <<<'SAID'
         The result of shard %d followed another plan than this one, so it cannot be merged into it.
         Run every shard of one plan, and the verdict with that plan.
@@ -242,6 +252,12 @@ final readonly class Results
             $result instanceof CannotJudge => $result,
             $result->plan()->value() !== $plan->digest()->value() => CannotJudge::because(
                 sprintf(self::ANOTHER_PLAN, $shard->id()->number()),
+            ),
+            $result->shard()->number() !== $shard->id()->number() => CannotJudge::because(
+                sprintf(self::ANOTHER_SHARD, $shard->id()->number(), $result->shard()->number()),
+            ),
+            ! $result->units()->equals($plan->keys()->of($shard->units())) => CannotJudge::because(
+                sprintf(self::OTHER_UNITS, $shard->id()->number()),
             ),
             $outcome instanceof CannotJudge => CannotJudge::because(
                 sprintf(self::RUNNER, $shard->id()->number(), $shard->label(), $outcome->why()),

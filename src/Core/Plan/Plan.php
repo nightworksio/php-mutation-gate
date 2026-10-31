@@ -39,6 +39,11 @@ final readonly class Plan implements Countable, IteratorAggregate
 {
     private const string UNNAMED = 'The plan names no test.';
 
+    private const string ANOTHER_COMMIT = <<<'SAID'
+        The plan was made on %s, and this checkout is %s.
+        Run each shard and the verdict on the commit its plan was made on.
+        SAID;
+
     /** @param array<int, Shard> $shards by number, in the order they were added */
     private function __construct(
         private Revision $commit,
@@ -174,13 +179,16 @@ final readonly class Plan implements Countable, IteratorAggregate
             ));
     }
 
-    /** This plan, where the checkout is the commit it was made on. A shard never runs another commit's plan. */
+    /**
+     * This plan, where the checkout is the commit it was made on. No shard and
+     * no verdict follows another commit's plan.
+     */
     public function forCheckout(Revision $head): self|CannotJudge
     {
         return $head->name() === $this->commit->name()
             ? $this
             : CannotJudge::because(sprintf(
-                'The plan was made on %s, and this checkout is %s. Run a shard on the commit its plan was made on.',
+                self::ANOTHER_COMMIT,
                 $this->commit->name(),
                 $head->name(),
             ));

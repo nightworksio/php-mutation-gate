@@ -14,9 +14,9 @@ use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
-use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Plan\Considering;
 use NightWorksIO\MutationGate\Core\Plan\OwnOnly;
+use NightWorksIO\MutationGate\Core\Proof\RunProfile;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
@@ -89,7 +89,7 @@ final readonly class ScoreChanging
             OwnOnly::none(),
         );
         $reached = $considering->considered();
-        $proving = $ledgers->proving($reached, $keying->keysOf($reached), $keying->base(), MatrixKind::FirstKiller);
+        $proving = $ledgers->proving($reached, $keying->keysOf($reached), $keying->base(), RunProfile::standard());
         $completing = Considering::of(
             $proving->toRun(),
             Reach::nothing(Packages::of($trees)),

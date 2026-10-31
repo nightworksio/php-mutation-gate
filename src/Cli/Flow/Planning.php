@@ -31,6 +31,7 @@ use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Plan\Weighed;
 use NightWorksIO\MutationGate\Core\Plan\Workload;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
+use NightWorksIO\MutationGate\Core\Proof\NewestProofs;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
@@ -183,18 +184,18 @@ final readonly class Planning
         $considering = $ledgers->considering(
             $inventory->units,
             $reached->reach(),
-            $matrix,
+            $kind,
             OwnOnly::of($ownOnly, $keying->digestsOf($inventory->units->within($ownOnly))),
         );
         $carriedOwn = $this->unitsOf($considering->carried())->within($ownOnly);
         $keys = $keying->keysOf($considering->considered());
-        $proving = $ledgers->proving($considering->considered(), $keys, $keying->base(), $matrix);
+        $proving = $ledgers->proving($considering->considered(), $keys, $keying->base(), $kind);
         $changed = $this->newCode($inventory->standing, $reached);
         $sample = new Sampled($this->adapters, $this->settings, $this->setup)
-            ->drawn($mode, $inventory, $proving->toRun(), $reached, $changed, $ledgers, $base);
+            ->drawn($mode, $inventory, $proving->toRun(), $reached, $changed, $ledgers->newest($kind), $base);
         $toRun = $sample instanceof Sample ? $sample->running($proving->toRun()) : $proving->toRun();
         $pruned = new PrunedUnits($this->adapters, $this->settings, $this->setup)
-            ->of($base, $ledgers, $toRun, $keying);
+            ->of($base, $ledgers, $ledgers->newest($kind), $toRun, $keying);
         $opening = $map->suiteDuration();
         $firstRun = new FirstRuns($this->adapters, StartUpSamples::standard())
             ->measured($map, $ledgers->untimed($toRun, $this->setup->gate));
@@ -204,7 +205,7 @@ final readonly class Planning
             $ledgers,
             $firstRun,
             $cut->opening($opening),
-            $this->riskOrder($reached, $inventory->trees, $ledgers, $toRun),
+            $this->riskOrder($reached, $inventory->trees, $ledgers->newest($kind), $toRun),
         );
         $shards = $shards instanceof Shards ? $this->opening($shards, $opening) : $shards;
         $digests = $this->committed(
@@ -284,11 +285,11 @@ final readonly class Planning
      * risky last changed; by path among those where git cannot tell. A run
      * that knows no change, as a full one does not, reaches no unit by one.
      */
-    private function riskOrder(Reached $reached, Trees $trees, Ledgers $ledgers, Units $units): RiskOrder
+    private function riskOrder(Reached $reached, Trees $trees, NewestProofs $newest, Units $units): RiskOrder
     {
         $order = RiskOrder::of(
             $reached->changed() instanceof Changes ? $reached->reach() : Reach::nothing(Packages::of($trees)),
-            $ledgers->newest(),
+            $newest,
             MutantTriage::under($this->settings->triage()->timeouts()),
         );
         $changed = $this->adapters->changes->lastChanged($order->least($units));

@@ -45,7 +45,7 @@ final readonly class VerdictCommand
 
     public static function command(Composition $composition): Command
     {
-        return DeliverLater::option(new Command(Verb::Verdict->value))
+        return PublishDir::option(DeliverLater::option(new Command(Verb::Verdict->value)))
             ->setDescription('Merge every shard\'s results, judge the floors, write reports and the ledger')
             ->addOption(FlowOptions::PLAN, mode: InputOption::VALUE_REQUIRED, description: 'The plan the shards ran')
             ->addOption(
@@ -54,7 +54,10 @@ final readonly class VerdictCommand
                 description: 'The directory the shards left their results in',
             )
             ->setCode(static function (InputInterface $input, OutputInterface $output) use ($composition): int {
-                $composed = DeliverLater::composed($composition->compose($input), $input, Stage::Verdict);
+                $composed = PublishDir::composed(
+                    DeliverLater::composed($composition->compose($input), $input, Stage::Verdict),
+                    $input,
+                );
 
                 if (! $composed instanceof Composed) {
                     return Failed::because($output, $composed);
@@ -113,11 +116,13 @@ final readonly class VerdictCommand
         Path $results,
         HeldTo|NotGiven $heldTo = new NotGiven(),
     ): Judged|Invalid|CannotJudge {
+        $checked = Running::followed($plan, $composed->adapters->repository);
         $following = $composed->following($plan);
         $read = Results::read($plan, $results, $composed->adapters->project);
         $unchanged = $plan->briefing()->unchanged();
 
         return match (true) {
+            $checked instanceof CannotJudge => $checked,
             ! $following instanceof Composed => $following,
             ! $read instanceof Results => $read,
             $unchanged instanceof Unchanged => new UnchangedVerdict(

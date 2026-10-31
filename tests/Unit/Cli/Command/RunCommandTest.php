@@ -42,6 +42,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\LedgerRead;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -133,12 +134,32 @@ it('cannot run a shard of a plan that is not there, or not one it can follow', f
     'a plan of another commit' => [
         '--plan=elsewhere.json',
         fn(): string => sprintf(
-            'The plan was made on %s, and this checkout is %s. Run a shard on the commit its plan was made on.',
+            "The plan was made on %s, and this checkout is %s.\nRun each shard and the verdict on the commit its plan was made on.",
             '0ddba110c0ffee0ddba110c0ffee0ddba110c0ff',
             Flows::HEAD,
         ),
     ],
 ]);
+
+it('writes the badge and trend into the directory --publish-dir names, in CI on the default branch', function (): void {
+    $project = FlowCommands::project();
+    $composition = FlowCommands::over(
+        Trees::of(Tree::at(Path::of('src'), Floor::of(40), Package::at(Path::root()))),
+        $project,
+        ScriptedRunner::fixture(),
+        new ProofStoreFake(),
+        Flows::ci(),
+        Variables::of(['CI' => 'true']),
+    );
+
+    $here = (string) getcwd();
+    chdir($project);
+    $ran = FlowCommands::run(RunCommand::command($composition), '--publish-dir=site/badge');
+    chdir($here);
+
+    expect($ran->code)->toBe(0)
+        ->and(is_file(sprintf('%s/site/badge/badge.json', $project)))->toBeTrue();
+});
 
 it('cannot run a shard it is named wrongly', function () use ($composed): void {
     $project = FlowCommands::project();
@@ -167,22 +188,27 @@ it('plans, runs and judges the security mutators alone, holding only the securit
     $project = FlowCommands::project(
         '"extensions": ["NightWorksIO\\\\MutationGateSecurity\\\\SecurityExtension"], "mutators": {"sets": ["security"]}',
     );
+    $store = new ProofStoreFake();
     $composition = FlowCommands::over(
         $floored(100),
         $project,
         ScriptedRunner::fixture(),
-        new ProofStoreFake(),
+        $store,
         Flows::ci(),
         Variables::of([]),
     );
 
     $planned = FlowCommands::run(PlanCommand::command($composition), '--security');
     $ran = FlowCommands::run(RunCommand::command($composition), '--security');
+    $proofs = [...LedgerRead::ledger($store->read(Scope::branch('main')))->proofs()];
 
     expect($planned->code)->toBe(0)
         ->and((string) file_get_contents(sprintf('%s/.mutation-gate/plan.json', $project)))->toContain('"security": true')
         ->and($ran->code)->toBe(0)
-        ->and($ran->output)->toContain('--security judges only the security sets');
+        ->and($ran->output)->toContain('--security judges only the security sets')
+        ->and($proofs)->not->toBe([])
+        ->and(array_map(static fn(Proof $proof): bool => $proof->run()->profile()->isSecurityOnly(), $proofs))
+        ->each->toBeTrue();
 });
 
 it('cannot make mutants with the security mutators alone where the config turns none on', function (

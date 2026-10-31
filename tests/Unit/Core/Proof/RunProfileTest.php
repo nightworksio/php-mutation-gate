@@ -30,3 +30,20 @@ it('is another kind where any of what it is of differs', function (RunProfile $o
         false,
     ],
 ]);
+
+it('stands for a kind it records as much as, with the same mutators and the same suite', function (RunProfile $proved, RunProfile $asked, bool $holds): void {
+    expect($proved->holds($asked))->toBe($holds);
+})->with([
+    'the same' => [fn(): RunProfile => RunProfile::standard(), fn(): RunProfile => RunProfile::standard(), true],
+    'a full matrix for first killers' => [fn(): RunProfile => RunProfile::standard()->recording(MatrixKind::Full), fn(): RunProfile => RunProfile::standard(), true],
+    'first killers for a full matrix' => [fn(): RunProfile => RunProfile::standard(), fn(): RunProfile => RunProfile::standard()->recording(MatrixKind::Full), false],
+    'the security mutators for every mutator' => [fn(): RunProfile => RunProfile::standard()->securityOnly(), fn(): RunProfile => RunProfile::standard(), false],
+    'every mutator for the security mutators' => [fn(): RunProfile => RunProfile::standard(), fn(): RunProfile => RunProfile::standard()->securityOnly(), false],
+    'one suite for every test' => [fn(): RunProfile => RunProfile::standard()->inSuite(SuiteName::of('unit')), fn(): RunProfile => RunProfile::standard(), false],
+    'every test for one suite' => [fn(): RunProfile => RunProfile::standard(), fn(): RunProfile => RunProfile::standard()->inSuite(SuiteName::of('unit')), false],
+    'another suite' => [
+        fn(): RunProfile => RunProfile::standard()->inSuite(SuiteName::of('unit')),
+        fn(): RunProfile => RunProfile::standard()->inSuite(SuiteName::of('feature')),
+        false,
+    ],
+]);

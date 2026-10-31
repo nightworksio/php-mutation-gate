@@ -46,6 +46,7 @@ it('fails a floor lowered with no reason', function (Entry $entry) use ($makeBas
 })->with([
     'no lowered' => [fn(): Entry => Entry::of(Path::of('app/Http'), Floor::of(83.4))],
     'an empty reason' => [fn(): Entry => Entry::of(Path::of('app/Http'), Floor::of(83.4))->lowered(Lowered::from(Floor::of(83.41), ''))],
+    'a reason of spaces alone' => [fn(): Entry => Entry::of(Path::of('app/Http'), Floor::of(83.4))->lowered(Lowered::from(Floor::of(83.41), " \t "))],
 ]);
 
 it('fails a lowered that names another floor than the base\'s', function () use ($makeBase, $makeTrees): void {

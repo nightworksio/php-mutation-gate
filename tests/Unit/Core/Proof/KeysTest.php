@@ -7,6 +7,8 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
+use NightWorksIO\MutationGate\Core\Unit\Unit;
+use NightWorksIO\MutationGate\Core\Unit\Units;
 
 it('holds no keys to begin with', function (): void {
     expect(Keys::none())->toHaveCount(0)
@@ -52,3 +54,26 @@ it('reads keys together with others, a later key of a unit replacing the earlier
         ->and($first->and())->toEqual($first)
         ->and($first)->toHaveCount(2);
 });
+
+it('keeps the keys of some units alone, in their order, and why a unit it holds none of has none', function (): void {
+    $keys = Keys::none()->with(Path::of('src/A.php'), Digest::of('a'))->with(Path::of('src/B.php'), Digest::of('b'));
+    $of = $keys->of(Units::of(Unit::file(Path::of('src/B.php')), Unit::file(Path::of('src/C.php'))));
+
+    expect([...$of->units()])->toEqual([Path::of('src/B.php'), Path::of('src/C.php')])
+        ->and($of->keyOf(Path::of('src/B.php')))->toEqual(Digest::of('b'))
+        ->and($of->keyOf(Path::of('src/C.php')))->toEqual(Unkeyed::because('src/C.php was not considered, so it has no key.'))
+        ->and($of->keyOf(Path::of('src/A.php')))->toBeInstanceOf(Unkeyed::class);
+});
+
+it('is the same as others that hold the same key, or the same reason for none, of the same units in the same order', function (Keys $other, bool $same): void {
+    $keys = Keys::none()->with(Path::of('src/A.php'), Digest::of('a'))->with(Path::of('src/B.php'), Unkeyed::because('No git.'));
+
+    expect([$keys->equals($other), $other->equals($keys)])->toBe([$same, $same]);
+})->with([
+    'the same' => [fn(): Keys => Keys::none()->with(Path::of('src/A.php'), Digest::of('a'))->with(Path::of('src/B.php'), Unkeyed::because('No git.')), true],
+    'another key' => [fn(): Keys => Keys::none()->with(Path::of('src/A.php'), Digest::of('c'))->with(Path::of('src/B.php'), Unkeyed::because('No git.')), false],
+    'another reason' => [fn(): Keys => Keys::none()->with(Path::of('src/A.php'), Digest::of('a'))->with(Path::of('src/B.php'), Unkeyed::because('No map.')), false],
+    'a key for a reason' => [fn(): Keys => Keys::none()->with(Path::of('src/A.php'), Digest::of('a'))->with(Path::of('src/B.php'), Digest::of('No git.')), false],
+    'another order' => [fn(): Keys => Keys::none()->with(Path::of('src/B.php'), Unkeyed::because('No git.'))->with(Path::of('src/A.php'), Digest::of('a')), false],
+    'one fewer' => [fn(): Keys => Keys::none()->with(Path::of('src/A.php'), Digest::of('a')), false],
+]);

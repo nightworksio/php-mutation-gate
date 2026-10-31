@@ -16,7 +16,6 @@ use function count;
 use Countable;
 use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\File\Digest;
-use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use Traversable;
 
 /**
@@ -62,12 +61,15 @@ final readonly class Proofs implements Countable, IteratorAggregate
         return new self($proofs);
     }
 
-    /** Of these proofs, those whose run recorded what a run of this kind asks for. */
-    public function recording(MatrixKind $asked): self
+    /**
+     * Of these proofs, those that stand for a run of this kind: made with the
+     * same mutators, judged by the same tests, and recording what it asks for.
+     */
+    public function standingFor(RunProfile $asked): self
     {
         return new self(array_filter(
             $this->proofs,
-            static fn(Proof $proof): bool => $proof->run()->matrix()->holds($asked),
+            static fn(Proof $proof): bool => $proof->run()->profile()->holds($asked),
         ));
     }
 

@@ -23,11 +23,15 @@ use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\Delivery\DeliveryFile;
 use NightWorksIO\MutationGate\Core\Delivery\KeptPost;
 use NightWorksIO\MutationGate\Core\Delivery\LedgerPost;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\PlanFile;
+use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
+use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
@@ -173,6 +177,52 @@ it('cannot judge a shard that left no result', function () use ($composed): void
     expect($verdict->code)->toBe(2)
         ->and($verdict->output)->toBe('')
         ->and($verdict->errors)->toStartWith('Shard 1 (');
+});
+
+it('writes the badge and trend into the directory --publish-dir names, in CI on the default branch', function (string $option, string $directory) use ($ran): void {
+    $project = FlowCommands::project();
+    $composition = FlowCommands::over(
+        Trees::of(Tree::at(Path::of('src'), Floor::of(40), Package::at(Path::root()))),
+        $project,
+        ScriptedRunner::fixture(),
+        new ProofStoreFake(),
+        Flows::ci(),
+        Variables::of(['CI' => 'true']),
+    );
+    $ran($composition, '.mutation-gate/results');
+
+    $here = (string) getcwd();
+    chdir($project);
+    $verdict = FlowCommands::run(VerdictCommand::command($composition), $option);
+    chdir($here);
+
+    expect($verdict->code)->toBe(0)
+        ->and($verdict->output)->toContain(sprintf("Wrote %s.\n", $directory))
+        ->and(is_file(sprintf('%s/%s/badge.json', $project, $directory)))->toBeTrue();
+})->with([
+    'a directory it names' => ['--publish-dir=site/badge', 'site/badge'],
+    'an empty one' => ['--publish-dir=', '.mutation-gate/publish'],
+    'none' => ['', '.mutation-gate/publish'],
+]);
+
+it('cannot judge a plan made on another commit than the checkout', function () use ($composed): void {
+    $project = FlowCommands::project();
+    Scratch::write($project, 'elsewhere.json', PlanFile::encode(Plan::of(
+        Revision::ref('0ddba110c0ffee0ddba110c0ffee0ddba110c0ff'),
+        Digest::sha256Of('base'),
+        Keys::none(),
+        Shards::none(),
+    )));
+
+    $verdict = FlowCommands::run(VerdictCommand::command($composed($project, 40)), '--plan=elsewhere.json');
+
+    expect($verdict->code)->toBe(2)
+        ->and($verdict->output)->toBe('')
+        ->and($verdict->errors)->toBe(sprintf(
+            "The plan was made on %s, and this checkout is %s.\nRun each shard and the verdict on the commit its plan was made on.\n",
+            '0ddba110c0ffee0ddba110c0ffee0ddba110c0ff',
+            Flows::HEAD,
+        ));
 });
 
 it('cannot judge with a config it cannot read', function (): void {

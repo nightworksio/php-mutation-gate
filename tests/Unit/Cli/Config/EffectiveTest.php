@@ -426,10 +426,14 @@ it('reads what decides how the gate runs in the config a copy of the config file
         Path::of($project),
     );
 
-    expect($effective($project)->decidingOf($line, $copy('.mutation-gate/base')))
-        ->toBe($now instanceof Settings ? Canonical::decidingIn($now) : $now)
-        ->and($effective($project)->decidingOf($line, $copy('.mutation-gate/moved')))
-        ->not->toBe($now instanceof Settings ? Canonical::decidingIn($now) : $now);
+    $deciding = static fn(Settings|Invalid|CannotJudge $settings): string|Invalid|CannotJudge => $settings instanceof Settings
+        ? Canonical::decidingIn($settings)
+        : $settings;
+
+    expect($deciding($effective($project)->settingsOf($line, $copy('.mutation-gate/base'))))
+        ->toBe($deciding($now))
+        ->and($deciding($effective($project)->settingsOf($line, $copy('.mutation-gate/moved'))))
+        ->not->toBe($deciding($now));
 });
 
 it('cannot read the config a copy sets where the copy is not a config', function () use ($effective): void {
@@ -437,7 +441,7 @@ it('cannot read the config a copy sets where the copy is not a config', function
     Scratch::write($project, 'mutation-gate.json', '{"runner": "pest"}');
     Scratch::write($project, '.mutation-gate/base/mutation-gate.json', '{"runner": 3}');
 
-    expect($effective($project)->decidingOf(CommandLine::nothing(), ConfigFile::copyOf(
+    expect($effective($project)->settingsOf(CommandLine::nothing(), ConfigFile::copyOf(
         Path::of(sprintf('%s/.mutation-gate/base/mutation-gate.json', $project)),
         Path::of(sprintf('%s/mutation-gate.json', $project)),
         Path::of($project),

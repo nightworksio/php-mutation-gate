@@ -262,7 +262,7 @@ has to bring its result with it.
 
    ```json
    {
-       "format": 3,
+       "format": 4,
        "bases": ["5be0…64 hex…", "a7c2…64 hex…"],
        "mutators": ["Plus", "LessThan"],
        "tests": ["Tests\\MoneyTest::testAdds", "Tests\\CartTest::testTotal"],
@@ -319,6 +319,14 @@ has to bring its result with it.
      mutant (`--kill-matrix=full`, ADR-0014). A proof without it
      holds first killers. Where two proofs share a key, the ledger keeps the
      first, unless only the later has `matrix`.
+   - `security` is `true` where that run made mutants with the security
+     mutators alone (`--security`, ADR-0021), and `suite` names the one suite
+     whose tests alone judged them (`--suite`, ADR-0025). A proof stands only
+     for a run of its own kind: a run proves, carries and measures a unit only
+     by proofs made with the same mutators and judged by the same tests, so a
+     narrowed run's proof never stands in for a whole unit's. A ledger of
+     another format, whose proofs do not say what kind of run made them, is
+     not read.
    - Each proof also keeps the digest of each item of its content key, so
      that `doctor` can name the file whose change invalidated most proofs
      (ADR-0017). The digests are read for that alone, never to match a key.

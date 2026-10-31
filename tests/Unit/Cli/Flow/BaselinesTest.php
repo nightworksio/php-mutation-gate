@@ -2,7 +2,14 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Cli\CommandLine;
+use NightWorksIO\MutationGate\Cli\Config\Detected;
+use NightWorksIO\MutationGate\Cli\Config\Effective;
+use NightWorksIO\MutationGate\Cli\Config\Registered;
 use NightWorksIO\MutationGate\Cli\Flow\Baselines;
+use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
+use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\BaselineFile;
 use NightWorksIO\MutationGate\Core\Baseline\Entry;
@@ -12,9 +19,12 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Written;
+use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -77,14 +87,50 @@ it('reads the baseline the default branch holds at its remote', function () use 
     ]);
     $baselines = new Baselines(Flows::adapters(Flows::project(), [], $changes), Path::of('floors.json'), GateCommand::installed());
 
-    expect($baselines->onDefaultBranch(Scope::branch('main')))->toEqual($floors(70.0))
-        ->and($baselines->onDefaultBranch(Scope::branch('release/2')))->toEqual($floors(55.0));
+    expect($baselines->onDefaultBranch(Scope::branch('main'), Flows::setup()))->toEqual($floors(70.0))
+        ->and($baselines->onDefaultBranch(Scope::branch('release/2'), Flows::setup()))->toEqual($floors(55.0));
 });
+
+it('reads the baseline the default branch holds in the file its own config file names, where a change moved it', function (string $config, Baseline|CannotJudge $read) use ($floors): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'mutation-gate.json', '{"runner": "pest", "baseline": {"path": "moved.json"}}');
+    $effective = new Effective(
+        $project,
+        Registered::config(new Extensions(Origin::of('nightworksio/mutation-gate')), static fn(): bool => true),
+        new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project))),
+        new DateTimeImmutable(Configs::NOW),
+    );
+    $deciding = DecidingConfig::read($effective, CommandLine::nothing(), $project, Path::of('mutation-gate.json'));
+    $base = Flows::setup();
+    $setup = new Setup(Path::of('mutation-gate.json'), $base->gate, $base->installed, $base->clock, $base->memory, $deciding, $base->command);
+    $remote = ['floors.json' => BaselineFile::encode($floors(70.0)), 'moved.json' => BaselineFile::encode($floors(10.0))];
+    $files = [Revision::workingTree()->name() => Flows::FILES];
+    $files = $config === 'unfetched'
+        ? $files
+        : [...$files, 'refs/remotes/origin/main' => $config === '' ? $remote : [...$remote, 'mutation-gate.json' => $config]];
+    $changes = new ChangeSourceFake(Revision::ref('base'), Changes::none(), $files);
+    $baselines = new Baselines(Flows::adapters($project, [], $changes), Path::of('moved.json'), GateCommand::installed());
+
+    expect($baselines->onDefaultBranch(Scope::branch('main'), $setup))->toEqual($read);
+})->with([
+    'named there' => ['{"runner": "pest", "baseline": {"path": "floors.json"}}', fn(): Baseline => Baseline::of(Entry::of(Path::of('src'), Floor::of(70.0)))],
+    'the standard file, where the default branch holds no config file' => ['', fn(): Baseline => Baseline::none()],
+    'a config file it cannot read' => ['{"runner": 5}', fn(): CannotJudge => CannotJudge::because(<<<'SAID'
+        The baseline refs/remotes/origin/main holds cannot be read,
+        so a floor lowered here cannot be checked against it. mutation-gate.json on the default branch cannot be read, so the file it keeps its baseline in is not known. runner: expected a name, a class, or an object with use and with, got 5
+        Fetch the default branch into the checkout before the verdict.
+        SAID)],
+    'a default branch git cannot read' => ['unfetched', fn(): CannotJudge => CannotJudge::because(<<<'SAID'
+        The baseline refs/remotes/origin/main holds cannot be read,
+        so a floor lowered here cannot be checked against it. refs/remotes/origin/main is not a revision this repository has.
+        Fetch the default branch into the checkout before the verdict.
+        SAID)],
+]);
 
 it('reads no baseline where the default branch holds none', function () use ($remotes): void {
     $baselines = new Baselines(Flows::adapters(Flows::project(), [], $remotes(main: '')), Path::of('elsewhere.json'), GateCommand::installed());
 
-    expect($baselines->onDefaultBranch(Scope::branch('main')))->toEqual(Baseline::none());
+    expect($baselines->onDefaultBranch(Scope::branch('main'), Flows::setup()))->toEqual(Baseline::none());
 });
 
 it('cannot judge where git cannot read the default branch, or its file is not a baseline', function (
@@ -93,7 +139,7 @@ it('cannot judge where git cannot read the default branch, or its file is not a 
 ): void {
     $baselines = new Baselines(Flows::adapters(Flows::project(), [], $changes), Path::of('floors.json'), GateCommand::installed());
 
-    expect($baselines->onDefaultBranch(Scope::branch('main')))->toEqual(CannotJudge::because(sprintf(<<<'SAID'
+    expect($baselines->onDefaultBranch(Scope::branch('main'), Flows::setup()))->toEqual(CannotJudge::because(sprintf(<<<'SAID'
         The baseline refs/remotes/origin/main holds cannot be read,
         so a floor lowered here cannot be checked against it. %s
         Fetch the default branch into the checkout before the verdict.

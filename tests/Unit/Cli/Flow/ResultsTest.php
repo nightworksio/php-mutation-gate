@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -153,6 +154,37 @@ it('cannot judge a result that followed another plan', function () use ($ran): v
             SAID));
 });
 
+it('cannot judge a result left in the place of another shard', function () use ($ran): void {
+    $project = Flows::project();
+    $ran($project, ScriptedRunner::fixture());
+    $results = sprintf('%s/%s', $project, Workspace::results()->value());
+    $first = (string) file_get_contents(sprintf('%s/1.json', $results));
+    file_put_contents(sprintf('%s/1.json', $results), (string) file_get_contents(sprintf('%s/2.json', $results)));
+    file_put_contents(sprintf('%s/2.json', $results), $first);
+
+    expect(Results::read(Planned::handedIn($project, Planned::twoShards()), Workspace::results(), Directory::at($project)))
+        ->toEqual(CannotJudge::because(<<<'SAID'
+            The result in the place of shard 1 is the result of shard 2, so it cannot stand for it.
+            Leave each shard's result under its own number.
+            The result in the place of shard 2 is the result of shard 1, so it cannot stand for it.
+            Leave each shard's result under its own number.
+            SAID));
+});
+
+it('cannot judge a result that holds other units than its shard', function () use ($ran): void {
+    $project = Flows::project();
+    $ran($project, ScriptedRunner::fixture());
+    $file = sprintf('%s/%s/1.json', $project, Workspace::results()->value());
+    $result = json_decode((string) file_get_contents($file), associative: true);
+    file_put_contents($file, JsonText::encode([...(is_array($result) ? $result : []), 'units' => ['src/Other.php' => str_repeat('a', 64)]]));
+
+    expect(Results::read(Planned::handedIn($project, Planned::twoShards()), Workspace::results(), Directory::at($project)))
+        ->toEqual(CannotJudge::because(<<<'SAID'
+            The result of shard 1 holds other units than the plan gives it, so it cannot stand for it.
+            Run every shard of one plan, and the verdict with that plan.
+            SAID));
+});
+
 it('cannot judge a shard the runner could not judge, saying why for every one', function () use ($ran): void {
     expect($ran(Flows::project(), ScriptedRunner::fixture()->refusing('The suite failed without mutants.')))
         ->toEqual(CannotJudge::because(<<<'SAID'
@@ -285,10 +317,11 @@ it('says a run was cut short where its budget ran out before a unit or left a mu
 
 /** A shard's result of a plan, written where the verdict reads it: its units, the units it left, and its doom. */
 $left = static function (string $project, Plan $plan, int $shard, Units $left, Doomed|Undoomed $doomed): void {
+    $planned = $plan->shard(ShardId::of($shard));
     $result = ShardResult::of(
         $plan->digest(),
         ShardId::of($shard),
-        Keys::none(),
+        $planned instanceof Shard ? $plan->keys()->of($planned->units()) : Keys::none(),
         MutationResult::of(Flows::mutantsOf('src/Money.php'), 0),
         Measurement::of(Seconds::of(1.0), 'fake', Instant::at(new DateTimeImmutable('2026-10-07T12:00:00Z'))),
     )->withUnjudged($left)->withDoomed($doomed);
