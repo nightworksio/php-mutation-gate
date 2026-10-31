@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace StaticCheckFixture\Composition;
 
-use function getenv;
-use function is_string;
-
 final class Wiring
 {
     public function cents(): int
