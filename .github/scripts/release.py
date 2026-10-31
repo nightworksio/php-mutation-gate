@@ -4,8 +4,10 @@
 Usage:
   release.py next       the version the commits since the last tag make, or
                         VERSION where given; writes version= and line= lines
-                        to $GITHUB_OUTPUT, and moves gate_action.py's LINE at
-                        a new release line
+                        to $GITHUB_OUTPUT, and at a new release line moves it
+                        everywhere it is written: gate_action.py's LINE, the
+                        address each JSON Schema is published at, and what each
+                        first-party plugin requires
   release.py prepend    puts the section on stdin at the top of CHANGELOG.md
   release.py notes      prints TAG's section of CHANGELOG.md
   release.py check-tag  refuses TAG where its release line is not
@@ -33,6 +35,31 @@ SUBJECT = re.compile(r"^(?P<type>[a-z]+)(\([^)]*\))?(?P<breaking>!)?: ")
 BREAKING_FOOTER = re.compile(r"^BREAKING[ -]CHANGE: ", re.MULTILINE)
 
 LINE_ASSIGNMENT = re.compile(r'^LINE = "\d+(\.\d+)?"$', re.MULTILINE)
+
+# The release line in the address each JSON Schema of the gate is published at,
+# which the gate names once and each schema it writes carries.
+PUBLISHED_AT = re.compile(r"(/php-mutation-gate/)v\d+(?:\.\d+)?(/resources/)")
+
+PUBLISHING = (
+    "src/Core/ThisPackage.php",
+    "resources/mutation-gate.schema.json",
+    "resources/report.schema.json",
+    "resources/tests.schema.json",
+    "resources/doctor.schema.json",
+    "resources/webhook.schema.json",
+    "resources/explain.schema.json",
+    "resources/summary.schema.json",
+)
+
+# What each first-party plugin requires of the package: its release line.
+PLUGIN_REQUIREMENT = re.compile(r'("nightworksio/mutation-gate": "\^)\d+(?:\.\d+)?(")')
+
+PLUGINS = (
+    "plugins/default/composer.json",
+    "plugins/laravel/composer.json",
+    "plugins/security/composer.json",
+    "plugins/symfony/composer.json",
+)
 
 CHANGELOG = "CHANGELOG.md"
 
@@ -131,6 +158,22 @@ def with_line(source: str, moved_to: str) -> str:
     return moved
 
 
+def with_published_line(source: str, moved_to: str, path: str) -> str:
+    """A file naming where a schema is published, naming it at this release line."""
+    moved, count = PUBLISHED_AT.subn(rf"\g<1>v{moved_to}\g<2>", source)
+    if count != 1:
+        raise Refused(f"{path} names no single published address of a schema to move.")
+    return moved
+
+
+def with_plugin_line(source: str, moved_to: str, path: str) -> str:
+    """A first-party plugin's manifest, requiring the package at this release line."""
+    moved, count = PLUGIN_REQUIREMENT.subn(rf"\g<1>{moved_to}\g<2>", source)
+    if count != 1:
+        raise Refused(f"{path} requires nightworksio/mutation-gate at no single release line to move.")
+    return moved
+
+
 def main(argv: list[str]) -> int:
     commands = {"next": _next, "prepend": _prepend, "notes": _notes, "check-tag": _check_tag}
     if len(argv) != 2 or argv[1] not in commands:
@@ -151,6 +194,10 @@ def _next() -> None:
     released = line(version)
     if released != gate_action.LINE:
         _write_file(action_script.PATH, with_line(_read_file(action_script.PATH), released))
+        for path in PUBLISHING:
+            _write_file(path, with_published_line(_read_file(path), released, path))
+        for path in PLUGINS:
+            _write_file(path, with_plugin_line(_read_file(path), released, path))
     _write_outputs({"version": version, "line": released})
 
 

@@ -1,6 +1,6 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
-    "$id": "https://github.com/nightworksio/php-mutation-gate/blob/main/resources/webhook.schema.json",
+    "$id": "https://raw.githubusercontent.com/nightworksio/php-mutation-gate/v0.1/resources/webhook.schema.json",
     "title": "mutation-gate webhook",
     "description": "What the webhook reporter posts when the default branch changes state (ADR-0016).",
     "type": "object",

@@ -40,20 +40,20 @@ final readonly class PublishedSchema
         $written = $config->fragment($key);
 
         return $written instanceof JsonFragment && self::anotherLine($written->scalar())
-            ? $config->with($key, JsonFragment::encoding(Definition::PUBLISHED))
+            ? $config->with($key, JsonFragment::encoding(Definition::published()))
             : $config;
     }
 
     /** Whether a `$schema` is the published schema's URL of a release line other than the current one. */
     private static function anotherLine(string|int|float|bool|NotGiven $schema): bool
     {
-        return is_string($schema) && $schema !== Definition::PUBLISHED && preg_match(self::anyLine(), $schema) === 1;
+        return is_string($schema) && $schema !== Definition::published() && preg_match(self::anyLine(), $schema) === 1;
     }
 
     /** The published schema's URL, of whichever release line. */
     private static function anyLine(): string
     {
-        $quoted = preg_quote(Definition::PUBLISHED, '~');
+        $quoted = preg_quote(Definition::published(), '~');
 
         return sprintf(self::WHOLE, preg_replace(self::LINE, self::ANY_LINE, $quoted));
     }

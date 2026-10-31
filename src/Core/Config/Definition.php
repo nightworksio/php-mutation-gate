@@ -32,6 +32,8 @@ use NightWorksIO\MutationGate\Core\Migration\Migrations;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 
+use function sprintf;
+
 /**
  * Every setting of the config, with its type and what it can change, as the
  * keys of each part of a layer declare them. Every layer is read through this
@@ -41,9 +43,6 @@ use NightWorksIO\MutationGate\Core\ThisPackage;
  */
 final readonly class Definition
 {
-    public const string PUBLISHED
-        = 'https://raw.githubusercontent.com/nightworksio/php-mutation-gate/v0.1/resources/mutation-gate.schema.json';
-
     private const string SCHEMA = 'https://json-schema.org/draft/2020-12/schema';
 
     private const string DESCRIPTION
@@ -126,13 +125,19 @@ final readonly class Definition
     }
 
     /** The JSON Schema (draft 2020-12) of a config, as `config:schema` prints it and the package ships it. */
+    /** Where the config's JSON Schema is published, under the gate's own name, at the tag of its release line. */
+    public static function published(): string
+    {
+        return sprintf(ThisPackage::SCHEMA, ThisPackage::NAME);
+    }
+
     public static function schema(): string
     {
         $origin = ProjectRoot::origin();
 
         return Json::object()
             ->with(Member::of('$schema', self::SCHEMA))
-            ->with(Member::of('$id', self::PUBLISHED))
+            ->with(Member::of('$id', self::published()))
             ->with(Member::of('title', ThisPackage::NAME))
             ->with(Member::of('description', self::DESCRIPTION))
             ->merged(self::config($origin)->schemaUnder(Layer::standard()->written($origin)))

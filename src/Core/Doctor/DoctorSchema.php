@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Doctor;
 
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Report\ReportSchema;
+use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 
 use function sprintf;
@@ -35,7 +36,7 @@ final readonly class DoctorSchema
 
         return JsonText::encode([
             '$schema' => ReportSchema::DRAFT,
-            '$id' => sprintf(ReportSchema::ID, 'doctor'),
+            '$id' => sprintf(ThisPackage::SCHEMA, 'doctor'),
             'title' => 'mutation-gate doctor',
             'description' => 'What would fail, or run slowly, before a run does (ADR-0017).',
             'type' => 'object',

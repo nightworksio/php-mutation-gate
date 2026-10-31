@@ -1,6 +1,6 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
-    "$id": "https://github.com/nightworksio/php-mutation-gate/blob/main/resources/doctor.schema.json",
+    "$id": "https://raw.githubusercontent.com/nightworksio/php-mutation-gate/v0.1/resources/doctor.schema.json",
     "title": "mutation-gate doctor",
     "description": "What would fail, or run slowly, before a run does (ADR-0017).",
     "type": "object",
@@ -22,6 +22,8 @@
                             "xdebug-slows-tests",
                             "opcache-on-the-command-line",
                             "two-runners",
+                            "runner-unsupported",
+                            "pest-mutate-untested",
                             "no-tree",
                             "config-refused",
                             "php-not-read",

@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Sample\Confidence;
 use NightWorksIO\MutationGate\Core\Score\Percentage;
+use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Core\Verdict\BaselineState;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
@@ -69,10 +70,6 @@ use function sprintf;
  */
 final readonly class ReportSchema
 {
-    /** Where each of the gate's JSON Schemas is published, by its name. */
-    public const string ID
-        = 'https://github.com/nightworksio/php-mutation-gate/blob/main/resources/%s.schema.json';
-
     /** The JSON Schema draft the gate's schemas are written in. */
     public const string DRAFT = 'http://json-schema.org/draft-07/schema#';
 
@@ -146,7 +143,7 @@ final readonly class ReportSchema
 
         return JsonText::encode([
             '$schema' => self::DRAFT,
-            '$id' => sprintf(self::ID, 'report'),
+            '$id' => sprintf(ThisPackage::SCHEMA, 'report'),
             'title' => 'mutation-gate report',
             'description' => 'Everything a mutation-gate verdict decided (ADR-0009).',
             ...self::object([
@@ -257,7 +254,7 @@ final readonly class ReportSchema
 
         return JsonText::encode([
             '$schema' => self::DRAFT,
-            '$id' => sprintf(self::ID, 'tests'),
+            '$id' => sprintf(ThisPackage::SCHEMA, 'tests'),
             'title' => 'mutation-gate tests report',
             'description' => self::TESTS,
             ...self::object([
@@ -301,7 +298,7 @@ final readonly class ReportSchema
 
         return JsonText::encode([
             '$schema' => self::DRAFT,
-            '$id' => sprintf(self::ID, 'explain'),
+            '$id' => sprintf(ThisPackage::SCHEMA, 'explain'),
             'title' => 'mutation-gate explain',
             'description' => self::EXPLAIN,
             ...self::object([
@@ -329,7 +326,7 @@ final readonly class ReportSchema
 
         return JsonText::encode([
             '$schema' => self::DRAFT,
-            '$id' => sprintf(self::ID, 'webhook'),
+            '$id' => sprintf(ThisPackage::SCHEMA, 'webhook'),
             'title' => 'mutation-gate webhook',
             'description' => 'What the webhook reporter posts when the default branch changes state (ADR-0016).',
             ...self::object([

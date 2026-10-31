@@ -1,6 +1,6 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
-    "$id": "https://github.com/nightworksio/php-mutation-gate/blob/main/resources/explain.schema.json",
+    "$id": "https://raw.githubusercontent.com/nightworksio/php-mutation-gate/v0.1/resources/explain.schema.json",
     "title": "mutation-gate explain",
     "description": "One mutant, or a cluster of survivors and each of them, explained from what the gate keeps (ADR-0014).",
     "type": "object",
