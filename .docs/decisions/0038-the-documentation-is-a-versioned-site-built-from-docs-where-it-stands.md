@@ -64,11 +64,12 @@ under `.docs/`, readable on GitHub, and are also published as a site.
    - The logo is `.docs/brand/mutation-gate.svg`, 576 by 512, and the social
      card `.docs/brand/mutation-gate-social.svg`, 1280 by 640. The site's
      Open Graph image is the card rendered to PNG.
-   - Every colour of the theme is one of the logo's fills: the night blues
-     `#0b0914` and `#12101f`, the slates `#2b2638`, `#36314b`, `#5a5470` and
-     `#7a7392`, the greens `#1d7a43`, `#39d36b` and `#8dffab`, and the
-     creams `#f2eedc` and `#f4f1c9`. The dark scheme sets green on night,
-     and the light scheme sets night and deep green on cream.
+   - Every colour of the theme is one of the logo's fills. The dark scheme
+     sets the greens `#39d36b` and `#8dffab` and the cream `#f4f1c9` on the
+     night blue `#12101f`. The light scheme sets the night blues `#0b0914`
+     and `#12101f` and the deep greens `#1d7a43` and `#124a2c` on the cream
+     `#f2eedc`. The slates between them, from `#2b2638` to `#c6c6d6`, are
+     the greys of both.
 
 4. **The site project lives in `.site/`, beside `.docs/`, and is
    export-ignored as `.docs/` is.**
