@@ -31,8 +31,8 @@ read at source:
 
 ## Decision
 
-This amends ADR-0004's item 3 and its consequences, ADR-0017's context,
-items 8 and 10, and ADR-0023's item 11.
+This amends ADR-0004's item 3 and its consequences, ADR-0011's item 10,
+ADR-0017's context, items 8 and 10, and ADR-0023's item 11.
 
 1. **pest-plugin-mutate is allowed from 5.0.2 to below the next major.**
    - `composer.json` declares `conflict: pestphp/pest-plugin-mutate <5.0.2
