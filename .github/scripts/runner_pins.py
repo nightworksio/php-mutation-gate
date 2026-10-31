@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A runner release the canary saw pass that the package does not take, or does not count as tested, yet.
+"""A runner release the canary saw pass that the package refuses, or does not count as tested.
 
 Usage: runner_pins.py <installed.json> [<installed.json> ...] [--findings <file>]
 
