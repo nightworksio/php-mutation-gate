@@ -163,6 +163,19 @@
         "error": "A test threw against the lowest dependencies: a lower bound in composer.json no longer works."
       }
     },
+    "macos": {
+      "check": "tests on macOS",
+      "checks": "The suite on macOS, against the lock, so the gate's local use there is tested.",
+      "reproduce": "on macOS: composer install && composer test",
+      "evidence": [
+        {"step": "suite", "tool": "pest", "raw": "evidence/raw/macos.xml"}
+      ],
+      "rules": {
+        "pest": "The suite did not run to the end, so it wrote no log of its tests.",
+        "failure": "A test's expectation failed on macOS: the code or the test assumes something of Linux.",
+        "error": "A test threw on macOS: the code or the test assumes something of Linux."
+      }
+    },
     "phar": {
       "check": "phar",
       "checks": "The gate's PHAR builds as a release builds it, says its version, prints the committed config schema, judges an Infection project that installs no copy of the gate, and refuses the Pest runner.",

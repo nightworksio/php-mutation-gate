@@ -1,4 +1,4 @@
-# ADR-0042: The gate runs on PHP 8.4 and later, and CI runs it on 8.4 and 8.5
+# ADR-0042: The gate runs on PHP 8.4 and later, on Linux and macOS, and CI runs it on each
 
 **Status:** Accepted
 **Date:** 2026-10-31
@@ -22,8 +22,12 @@ What holds the gate to PHP 8.5, read at source:
   conflicts with PHP 8.4 below 8.4.27.
 - **What checks the version.** PHPStan and Rector's PHP sets read the
   lowest PHP from `composer.json`'s `require.php`.
-- **CI.** Every job runs PHP 8.5, and the `lowest` job runs the suite
-  against the oldest release of every dependency.
+- **CI.** Every job runs PHP 8.5 on Linux, and the `lowest` job runs the
+  suite against the oldest release of every dependency.
+- **Platforms.** The README names no platform. A developer runs the gate
+  locally through `watch`, `pre-push` and the editor's commands, and the
+  processes the gate starts and its forked workers are tested on Linux
+  alone.
 
 ## Decision
 
@@ -54,6 +58,10 @@ This amends ADR-0011's items 3 and 10 and ADR-0015's item 16.
 5. **A CI definition the gate writes sets up PHP 8.4 at least**, where the
    project asks for nothing higher (ADR-0015).
 
+6. **Linux and macOS are supported, and Windows is not.** The `macos` job
+   runs the suite on macOS against the lock. The README says so beside the
+   PHP version.
+
 ## Alternatives considered
 
 | Option | Why it lost |
@@ -63,10 +71,12 @@ This amends ADR-0011's items 3 and 10 and ADR-0015's item 16.
 | **Properties left writable inside the class, `private(set)`, and changed on a clone** | Each value would lose `readonly`, which holds that nothing changes it once built. |
 | **The whole CI on both versions** | Twice the jobs for what the `lowest` job already runs on 8.4. |
 | **A `tests` job matrix on 8.4 and 8.5** | Coverage is measured once, and the `lowest` job already runs the suite on 8.4. |
+| **Windows supported** | Nothing tests it, and a CI leg on Windows is a third platform to keep green for local use alone. |
 
 ## Consequences
 
-**A project on PHP 8.4 installs the gate.**
+**A project on PHP 8.4 installs the gate, and a developer on macOS runs it
+on a tested platform.**
 
 **A copy names every field,** so a value with many fields has long
 methods that change one. PHPStan checks each field's type.

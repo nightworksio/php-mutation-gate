@@ -36,6 +36,7 @@ GitHub; [SECURITY.md](SECURITY.md#verifying-a-release) says how to check both.
 ## Requirements
 
 - PHP 8.4 or a later 8.x, with pcov or Xdebug for coverage.
+- Linux or macOS. Windows is not supported.
 - One of the runners:
   - **Pest**: `pestphp/pest` ^5.1 with `pestphp/pest-plugin-mutate` ^5.0.2, on
     the PHPUnit 13 release Pest pins;
