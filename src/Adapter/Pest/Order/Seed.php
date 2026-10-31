@@ -22,7 +22,7 @@ use stdClass;
 
 /**
  * One mutant's order, as the PHPUnit test run history Pest reads under
- * `--order-by=defects,duration-ascending`: its likely killers as defects,
+ * `--order-by=duration-ascending,defects`: its likely killers as defects,
  * the first ahead of the rest, and every covering test's time, so the rest
  * run fastest first. PHPUnit weighs an error above a failure and every other status the
  * same as none, so two tiers are all a history can say. It orders by file,

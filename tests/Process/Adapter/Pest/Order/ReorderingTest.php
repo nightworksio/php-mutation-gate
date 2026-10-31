@@ -25,7 +25,7 @@ it('adds only options PHPUnit takes without a deprecation, a notice or a warning
             echo $issue ? $event->message() . "\n" : '';
         }
     });
-    new PHPUnit\TextUI\CliArguments\Builder()->fromParameters(%s);
+    new PHPUnit\TextUI\CliArguments\Builder(PHPUnit\Event\Facade::emitter())->fromParameters(%s);
     PHPUnit\Event\Facade::instance()->seal();
     PHP_WRAP, var_export(sprintf('%s/vendor/autoload.php', dirname(__DIR__, 5)), return: true), var_export($added, return: true))]);
     $php->run();

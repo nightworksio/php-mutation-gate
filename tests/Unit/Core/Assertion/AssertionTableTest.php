@@ -119,7 +119,7 @@ function ownNames(array $names): array
 }
 
 /** The releases whose names are pinned: the lowest and highest of each supported minor line. */
-const PINNED_PHPUNIT = ['12.5.8', '12.5.37', '13.0.0', '13.3.4'];
+const PINNED_PHPUNIT = ['12.5.8', '12.5.37', '13.0.0', '13.4.5'];
 
 it('holds as PHPUnit\'s own exactly the methods no assertion that every supported release declares', function (): void {
     $common = ownNames(phpUnitNames(PINNED_PHPUNIT[0]));

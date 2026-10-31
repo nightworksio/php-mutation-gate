@@ -17,7 +17,10 @@ it('builds PHPUnit\'s configuration loader and PHP settings handler from 13.4 to
         expect($emitter)->toBeInstanceOf(Emitter::class)
             ->and($emitter === Facade::emitter())->toBeFalse();
     }
-});
+})->skip(
+    fn(): bool => Configuring::installed()->told() === [],
+    'The installed PHPUnit is one before 13.4, whose loader and handler hold no emitter, such as the lowest a dependency range resolves to.',
+);
 
 it('builds them as the PHPUnit installed beside it builds them', function (): void {
     expect(Configuring::installed()->loader())->toBeInstanceOf(Loader::class)
