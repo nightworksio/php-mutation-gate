@@ -495,7 +495,6 @@ final readonly class AssertionTable
         'resetCount',
         'result',
         'run',
-        'runBare',
         'setBackupGlobals',
         'setBackupGlobalsExcludeList',
         'setBackupStaticProperties',

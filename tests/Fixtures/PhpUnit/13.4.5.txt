@@ -258,6 +258,7 @@ TestCase::attempt
 TestCase::count
 TestCase::createConfiguredMock
 TestCase::createConfiguredStub
+TestCase::createInvocationJournal
 TestCase::createMock
 TestCase::createMockForIntersectionOfInterfaces
 TestCase::createPartialMock
@@ -290,7 +291,7 @@ TestCase::groups
 TestCase::hasDependencyInput
 TestCase::hasUnexpectedOutput
 TestCase::invokeTestMethod
-TestCase::markSkippedForRepeatAbort
+TestCase::isInIsolation
 TestCase::maxAttempts
 TestCase::name
 TestCase::nameWithDataSet
@@ -299,6 +300,7 @@ TestCase::numberOfAssertionsPerformed
 TestCase::onNotSuccessfulTest
 TestCase::once
 TestCase::output
+TestCase::preservesGlobalState
 TestCase::provideAdditionalInformation
 TestCase::providedData
 TestCase::provides
@@ -310,7 +312,8 @@ TestCase::repetition
 TestCase::requires
 TestCase::result
 TestCase::run
-TestCase::runBare
+TestCase::runLifecycle
+TestCase::runsTestInSeparateProcess
 TestCase::setAttempt
 TestCase::setBackupGlobals
 TestCase::setBackupGlobalsExcludeList

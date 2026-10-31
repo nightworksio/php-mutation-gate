@@ -4,14 +4,23 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Configuring;
 use PHPUnit\Event\Emitter;
+use PHPUnit\Event\Facade;
 use PHPUnit\TextUI\Configuration\PhpHandler;
 use PHPUnit\TextUI\XmlConfiguration\Loader;
 
-it('builds PHPUnit\'s configuration loader and PHP settings handler for a PHPUnit before 13.4, and for one from it', function (string $version): void {
-    $configuring = Configuring::at($version);
+it('builds PHPUnit\'s configuration loader and PHP settings handler from 13.4 told an emitter of their own, not PHPUnit\'s facade', function (): void {
+    $configuring = Configuring::at('13.4.0');
 
-    expect([$configuring->loader(), $configuring->handler()])->toEqual([new Loader(), new PhpHandler()]);
-})->with(['before 13.4' => ['13.3.6'], 'from 13.4' => ['13.4.0']]);
+    foreach ([$configuring->loader(), $configuring->handler()] as $built) {
+        $emitter = (fn(): Emitter => $this->emitter)->call($built);
+
+        expect($emitter)->toBeInstanceOf(Emitter::class)
+            ->and($emitter === Facade::emitter())->toBeFalse();
+    }
+})->skip(
+    fn(): bool => Configuring::installed()->told() === [],
+    'The installed PHPUnit is one before 13.4, whose loader and handler hold no emitter, such as the lowest a dependency range resolves to.',
+);
 
 it('builds them as the PHPUnit installed beside it builds them', function (): void {
     expect(Configuring::installed()->loader())->toBeInstanceOf(Loader::class)

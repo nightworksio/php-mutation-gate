@@ -23,7 +23,7 @@ it('runs a mutant\'s tests in the order written for it, dropping every option th
         'vendor/bin/pest', '--no-tia', '--bail', '--filter=MoneySpec',
         sprintf('--cache-directory=%s/abc/run-%d', $order, getmypid()),
         '--record-test-run-history',
-        '--order-by=defects,duration-ascending',
+        '--order-by=duration-ascending,defects',
     ]);
 });
 

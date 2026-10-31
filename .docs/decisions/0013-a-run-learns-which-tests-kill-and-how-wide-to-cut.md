@@ -113,12 +113,13 @@ decides are accepted for that release too.
      that process, the plugin's `HandlesArguments` copies the order into
      `<that directory>/run-<process id>` and points PHPUnit at the copy with
      `--cache-directory=<the copy> --record-test-run-history
-     --order-by=defects,duration-ascending`. PHPUnit writes its history back
+     --order-by=duration-ascending,defects`. PHPUnit writes its history back
      into the copy, so the order stays as it was written for a replay of the
      run to take again (ADR-0004), which names the mutant's copy
      in `MUTATION_GATE_ORDER_OF` in place of `PEST_MUTATION_FILE`. PHPUnit deprecates the bare
-     `duration`, and a project that fails its run on PHPUnit's deprecations
-     would see every mutant run in an order fail.
+     `duration`, and from 13.4 `defects` written before the order, and a
+     project that fails its run on PHPUnit's deprecations would see every
+     mutant run in an order fail.
    - **What an order can say.** Pest keeps PHPUnit's test run history in a
      file of its own, whose `version` is `pest_` and the version
      `Pest\version()` answers, which is not always the version Composer
