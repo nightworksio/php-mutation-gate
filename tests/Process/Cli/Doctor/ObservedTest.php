@@ -5,10 +5,12 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Infection\Patch as InfectionPatch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Cli\CommandLine;
+use NightWorksIO\MutationGate\Cli\Config\RunnerReleases;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\BaselineFile;
 use NightWorksIO\MutationGate\Core\Baseline\Entry;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Doctor\ComposerSetup;
 use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
@@ -32,6 +34,7 @@ use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
+use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
@@ -85,7 +88,8 @@ it('observes the config, the runner, the trees, .gitignore, the Infection config
     $trees = $observed->trees();
 
     expect($observed->settings())->toBeInstanceOf(Settings::class)
-        ->and($observed->runners())->toEqual(InstalledRunners::of(pest: false, infection: true, chosen: false))
+        ->and($observed->runners())->toEqual(InstalledRunners::of(pest: false, infection: true, chosen: false)
+            ->releasing(RunnerReleases::of(BuiltinRunner::Infection, sprintf('%s/vendor/composer/installed.json', $project))))
         ->and($trees instanceof Trees ? array_map(static fn(Tree $tree): string => $tree->path()->value(), [...$trees]) : [])->toBe(['src'])
         ->and($observed->files()->gitIgnore() instanceof GitIgnore && $observed->files()->gitIgnore()->names(Path::of('.mutation-gate')))->toBeTrue()
         ->and($observed->files()->infection())->toEqual(InfectionConfig::in('infection.json5', minMsi: true, ignores: false))
@@ -260,7 +264,8 @@ it('observes both runners left to choose, and no trees where the config cannot b
     $php = FakePhp::printing(Described::output(['pcov' => '1.0.12'], []));
     $observed = Doctored::observed($project, sprintf('%s/php', $php))->of(CommandLine::nothing());
 
-    expect($observed->runners())->toEqual(InstalledRunners::of(pest: true, infection: true, chosen: false))
+    expect($observed->runners())->toEqual(InstalledRunners::of(pest: true, infection: true, chosen: false)
+        ->withPestMutate(Version::of('pestphp/pest-plugin-mutate', '', '')))
         ->and($observed->settings())->toBeInstanceOf(CannotJudge::class)
         ->and($observed->trees())->toEqual(NotGiven::value())
         ->and($observed->files()->infection())->toEqual(NotGiven::value())
@@ -287,7 +292,9 @@ it('observes a runner the command line chooses, and none installed where Compose
     $php = sprintf('%s/php', FakePhp::printing(Described::output([], [])));
 
     expect(Doctored::observed($two, $php)->of(CommandLine::nothing()->withRunner('pest'))->runners())
-        ->toEqual(InstalledRunners::of(pest: true, infection: true, chosen: true))
+        ->toEqual(InstalledRunners::of(pest: true, infection: true, chosen: true)
+            ->releasing(RunnerReleases::of(BuiltinRunner::Pest, sprintf('%s/vendor/composer/installed.json', $two)))
+            ->withPestMutate(Version::of('pestphp/pest-plugin-mutate', '', '')))
         ->and(Doctored::observed($none, $php)->of(CommandLine::nothing())->runners())
         ->toEqual(InstalledRunners::of(pest: false, infection: false, chosen: false));
 })->group(...$holds);
@@ -351,4 +358,22 @@ it('observes why the last run\'s warm workers forked nothing, and nothing where 
 
     expect($observed($kept))->toEqual(WarmRefusal::of('The boot left 1 socket open once tests/bootstrap.php ran.'))
         ->and($observed(Scratch::copy('tests/Fixtures/Projects/Library')))->toEqual(NotGiven::value());
+})->group(...$holds);
+
+it('observes why the gate drives none of the chosen runner\'s releases, and the pest-plugin-mutate release installed', function (): void {
+    $project = Scratch::copy('tests/Fixtures/Projects/Library');
+    Scratch::write($project, 'vendor/composer/installed.json', (string) json_encode(['packages' => [
+        ['name' => 'phpunit/phpunit', 'version' => '12.5.42'],
+        ['name' => 'phpunit/php-code-coverage', 'version' => '13.0.0'],
+        ['name' => 'pestphp/pest-plugin-mutate', 'version' => 'v5.0.3'],
+    ]]));
+    $php = sprintf('%s/php', FakePhp::printing(Described::output(['pcov' => '1.0.12'], [])));
+    $runners = Doctored::observed($project, $php)->of(CommandLine::nothing()->withRunner('phpunit'))->runners();
+
+    expect($runners instanceof InstalledRunners ? $runners->unsupported() : $runners)->toEqual(CannotJudge::because(sprintf(
+        'The phpunit runner needs PHPUnit 13.2.0 or later, for --test-id-filter-file, and %s/vendor/composer/installed.json holds 12.5.42.',
+        $project,
+    )))
+        ->and($runners instanceof InstalledRunners ? $runners->pestMutateOtherThan('5.0.2') : $runners)
+        ->toEqual(Version::of('pestphp/pest-plugin-mutate', 'v5.0.3', ''));
 })->group(...$holds);

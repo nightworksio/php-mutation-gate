@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Config\StaticCheck;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 
 use function sprintf;
 
@@ -43,6 +44,13 @@ final readonly class Detected
 
     /** Why runners installed side by side leave the choice to a person. */
     private const string CHOOSE = '%s Choose one: set runner in the config, or pass --runner.';
+
+    /** Why the PHPUnit runner cannot drive the PHPUnit installed, and the two ways on. */
+    private const string PHPUNIT_TOO_OLD = 'PHPUnit %s is installed, and the PHPUnit runner needs %s or later.';
+
+    /** The two ways on from a PHPUnit the PHPUnit runner cannot drive. */
+    private const string PHPUNIT_WAYS
+        = 'Require %s to mutate through Infection with this PHPUnit, or require %s %s or later.';
 
     /** Why Pest alone, without its mutation plugin, leaves nothing to mutate with. */
     private const string PEST_WITHOUT_PLUGIN
@@ -106,6 +114,12 @@ final readonly class Detected
         }
 
         return Name::of(StaticCheck::NONE);
+    }
+
+    /** Where Composer's `installed.json` is on disk, which each runner reads its releases from. */
+    public function installedFile(): string
+    {
+        return $this->vendor->root()->at(Installed::fileIn(Path::root()))->value();
     }
 
     /** What Composer installed in the vendor directory, as its `installed.json` lists it. */
@@ -205,7 +219,7 @@ final readonly class Detected
             $installed->has(Package::Pest->value) => CannotJudge::because(
                 sprintf(self::PEST_WITHOUT_PLUGIN, Package::Pest->value, Package::PestMutate->value),
             ),
-            $native !== [] => $native[0],
+            $native !== [] => $this->supported($installed, $native[0]),
             default => CannotJudge::because(sprintf(
                 'None of %s, %s, %s, %s and %s is installed, so nothing can mutate. Install one of them.',
                 Package::PestMutate->value,
@@ -215,6 +229,32 @@ final readonly class Detected
                 Package::Codeception->value,
             )),
         };
+    }
+
+    /**
+     * The native framework the project uses; but where it is PHPUnit at a
+     * release the PHPUnit runner does not drive, why not, and what does.
+     */
+    private function supported(Installed $installed, BuiltinRunner $runner): BuiltinRunner|CannotJudge
+    {
+        $installs = $runner === BuiltinRunner::PhpUnit ? $installed->versionsOf(Package::PhpUnit->value) : [];
+
+        foreach ($installs as $phpunit) {
+            if (! PhpUnitOption::selectsByIdsIn($phpunit)) {
+                return CannotJudge::because(sprintf(
+                    '%s %s',
+                    sprintf(self::PHPUNIT_TOO_OLD, $phpunit->release(), PhpUnitOption::IDS_SINCE),
+                    sprintf(
+                        self::PHPUNIT_WAYS,
+                        Package::Infection->value,
+                        Package::PhpUnit->value,
+                        PhpUnitOption::IDS_SINCE,
+                    ),
+                ));
+            }
+        }
+
+        return $runner;
     }
 
     /** Whether Composer linked this command into the vendor directory. */

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Library;
 
+use function fwrite;
+
 /** Counters whose loops never end under a mutant: one says nothing, the other keeps printing. */
 final readonly class Hang
 {
