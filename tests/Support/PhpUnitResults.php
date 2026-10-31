@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 use function array_values;
 use function file_put_contents;
 
+use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Configuring;
 use PHPUnit\Event\Code\Test;
 use PHPUnit\Event\Facade;
 use PHPUnit\Event\Test\ConsideredRisky;
@@ -39,9 +40,10 @@ final class PhpUnitResults
     /** The configuration these command line options give, read with no XML file. */
     public static function configured(string ...$options): Configuration
     {
-        $cli = new Builder()->fromParameters(array_values(['--no-configuration', ...$options]));
+        $told = Configuring::installed()->told();
+        $cli = new Builder(...$told)->fromParameters(array_values(['--no-configuration', ...$options]));
 
-        return new Merger()->merge($cli, DefaultConfiguration::create());
+        return new Merger(...$told)->merge($cli, DefaultConfiguration::create());
     }
 
     /**
@@ -54,9 +56,10 @@ final class PhpUnitResults
     {
         $file = sprintf('%s/phpunit.xml', Scratch::directory());
         file_put_contents($file, sprintf('<?xml version="1.0"?>%s<phpunit %s="true"/>%s', PHP_EOL, $attribute, PHP_EOL));
-        $cli = new Builder()->fromParameters(array_values(['--configuration', $file, ...$options]));
+        $told = Configuring::installed()->told();
+        $cli = new Builder(...$told)->fromParameters(array_values(['--configuration', $file, ...$options]));
 
-        return new Merger()->merge($cli, new Loader()->load($file));
+        return new Merger(...$told)->merge($cli, new Loader(...$told)->load($file));
     }
 
     /**

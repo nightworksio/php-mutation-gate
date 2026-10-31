@@ -68,8 +68,8 @@ final readonly class Configuring
     /**
      * One of the two, told where to emit where its constructor takes that.
      * Its class is named at run time because PHPUnit's releases declare its
-     * constructor differently, and the package's own PHPUnit, which the
-     * analyser reads, is one before 13.4.
+     * constructor differently, and a worker boots beside whichever release
+     * the project installed.
      *
      * @template T of object
      *
