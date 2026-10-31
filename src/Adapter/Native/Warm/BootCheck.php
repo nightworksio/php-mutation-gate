@@ -29,9 +29,11 @@ use function str_starts_with;
 
 /**
  * The guard a warm worker passes once it has booted, before it forks a
- * child (ADR-0023): no socket open, which every child would
- * share, such as a database connection the bootstrap made, and no file the
- * run mutates loaded, which no child could serve its mutant in place of.
+ * child (ADR-0023, ADR-0042): no socket the boot opened, which every child
+ * would share, such as a database connection the bootstrap made, and no file
+ * the run mutates loaded, which no child could serve its mutant in place of.
+ * A socket the worker held before it booted, as one a CI runner leaves its
+ * processes, is not the boot's, and every process the gate starts holds it.
  * Sockets are counted among the process's open files where the system lists
  * them, so a connection held by an object, as PHP 8 holds `pgsql` and
  * `mysqli`'s, counts too; elsewhere among PHP's own stream resources.
@@ -58,9 +60,16 @@ final readonly class BootCheck
 
     private const string LOADED = 'The boot loaded %s, which this run mutates, at %s, so each mutant ran fresh.';
 
-    /** @param list<string> $mutated each file the run mutates, by its absolute path */
-    private function __construct(private array $mutated, private Boot $boot, private string $openFiles)
-    {
+    /**
+     * @param list<string> $mutated each file the run mutates, by its absolute path
+     * @param int          $held    how many sockets the process held before it booted
+     */
+    private function __construct(
+        private array $mutated,
+        private Boot $boot,
+        private string $openFiles,
+        private int $held,
+    ) {
     }
 
     /**
@@ -68,16 +77,33 @@ final readonly class BootCheck
      * process's open files where the system lists them, or where a test does.
      *
      * @param list<string> $mutated each file the run mutates, by its absolute path
+     * @param int          $held    how many sockets the process held before it booted, as `open()` counts them
      */
-    public static function of(array $mutated, Boot $boot, string $openFiles = self::OPEN_FILES): self
+    public static function of(
+        array $mutated,
+        Boot $boot,
+        string $openFiles = self::OPEN_FILES,
+        int $held = 0,
+    ): self {
+        return new self($mutated, $boot, $openFiles, $held);
+    }
+
+    /** How many sockets the process holds open now, beyond its standard streams, which a boot is measured from. */
+    public static function open(string $openFiles = self::OPEN_FILES): int
     {
-        return new self($mutated, $boot, $openFiles);
+        if (! is_dir($openFiles)) {
+            return self::socketStreams();
+        }
+
+        $listed = scandir($openFiles);
+
+        return is_array($listed) ? self::socketsAmong($openFiles, $listed) : self::socketStreams();
     }
 
     /** Why the booted process must not be forked from; or none, where it may. */
     public function refusal(): Refusal|NotGiven
     {
-        $sockets = $this->sockets();
+        $sockets = self::open($this->openFiles) - $this->held;
         $loaded = $this->loaded();
 
         return match (true) {
@@ -100,22 +126,9 @@ final readonly class BootCheck
         return str_starts_with($path, $root) ? mb_substr($path, mb_strlen($root)) : $path;
     }
 
-    /** How many sockets the process holds open beyond its standard streams. */
-    private function sockets(): int
-    {
-        if (! is_dir($this->openFiles)) {
-            return $this->socketStreams();
-        }
-
-        $listed = scandir($this->openFiles);
-
-        return is_array($listed) ? $this->socketsAmong($listed) : $this->socketStreams();
-    }
-
     /** @param list<string> $listed the names the system lists the process's open files by */
-    private function socketsAmong(array $listed): int
+    private static function socketsAmong(string $directory, array $listed): int
     {
-        $directory = $this->openFiles;
         $sockets = array_filter($listed, static function (string $name) use ($directory): bool {
             $path = sprintf('%s/%s', $directory, $name);
             $own = WholeNumber::isDigits($name) && StandardStream::tryFrom($name) === null;
@@ -133,7 +146,7 @@ final readonly class BootCheck
     }
 
     /** How many of PHP's own stream resources are sockets. */
-    private function socketStreams(): int
+    private static function socketStreams(): int
     {
         return SocketStreams::among(get_resources(self::STREAM));
     }

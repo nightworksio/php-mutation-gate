@@ -28,10 +28,15 @@ What holds the gate to PHP 8.5, read at source:
   locally through `watch`, `pre-push` and the editor's commands, and the
   processes the gate starts and its forked workers are tested on Linux
   alone.
+- **The warm worker's guard.** Before its first fork, a warm worker refuses
+  to fork while it holds any socket beyond its standard streams (ADR-0023).
+  A process a macOS CI runner starts holds a socket of the runner's before
+  the gate starts, so every worker there refuses and each mutant runs fresh.
 
 ## Decision
 
-This amends ADR-0011's items 3 and 10 and ADR-0015's item 16.
+This amends ADR-0011's items 3 and 10, ADR-0015's item 16 and ADR-0023's
+item 13.
 
 1. **The gate runs on PHP 8.4 and later 8.x.**
    - `composer.json` and each plugin's require `php: ^8.4`, and
@@ -62,6 +67,12 @@ This amends ADR-0011's items 3 and 10 and ADR-0015's item 16.
    runs the suite on macOS against the lock. The README says so beside the
    PHP version.
 
+7. **The warm worker's guard counts the sockets its boot opened.** The
+   worker counts the sockets it holds before it boots, and refuses to fork
+   only where the boot left more open. A socket held before the boot was
+   inherited from the process that started the worker, and every process the
+   gate starts, warm or fresh, holds it alike.
+
 ## Alternatives considered
 
 | Option | Why it lost |
@@ -71,6 +82,7 @@ This amends ADR-0011's items 3 and 10 and ADR-0015's item 16.
 | **Properties left writable inside the class, `private(set)`, and changed on a clone** | Each value would lose `readonly`, which holds that nothing changes it once built. |
 | **The whole CI on both versions** | Twice the jobs for what the `lowest` job already runs on 8.4. |
 | **A `tests` job matrix on 8.4 and 8.5** | Coverage is measured once, and the `lowest` job already runs the suite on 8.4. |
+| **The guard left as it is, and macOS runners running each mutant fresh** | Warm workers would never run on a macOS runner, for a socket no boot opened and no child uses. |
 | **Windows supported** | Nothing tests it, and a CI leg on Windows is a third platform to keep green for local use alone. |
 
 ## Consequences
