@@ -70,7 +70,9 @@ composer require --dev "nightworksio/mutation-gate:dev-main" -W
 release the gate allows. `composer.lock` holds the commit it installed, and
 `composer update nightworksio/mutation-gate` moves it to the head of `main`.
 A run refuses releases its runner does not drive before it starts, and
-`vendor/bin/mutation-gate doctor` says so first, with what to require.
+`vendor/bin/mutation-gate doctor` says so first, with what to require. It also
+advises where `pestphp/pest-plugin-mutate` is newer than any release the gate
+is tested with.
 
 Set the project up, then run the gate:
 

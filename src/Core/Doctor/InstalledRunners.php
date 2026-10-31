@@ -9,6 +9,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 
+use function version_compare;
+
 /**
  * Which runners Composer installed, whether the config or the command line
  * chooses one, the releases the chosen runner drives or why the gate drives
@@ -54,12 +56,13 @@ final readonly class InstalledRunners
         return $this->releases instanceof CannotJudge ? $this->releases : NotGiven::value();
     }
 
-    /** The pest-plugin-mutate release installed where it is a release other than this one; nothing otherwise. */
-    public function pestMutateOtherThan(string $tested): Version|NotGiven
+    /** The pest-plugin-mutate release installed where it is a release newer than this one; nothing otherwise. */
+    public function pestMutatePast(string $newest): Version|NotGiven
     {
         $installed = $this->pestMutate;
 
-        return $installed instanceof Version && $installed->isRelease() && $installed->release() !== $tested
+        return $installed instanceof Version && $installed->isRelease()
+            && version_compare($installed->release(), $newest, '>')
             ? $installed
             : NotGiven::value();
     }

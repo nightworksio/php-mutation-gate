@@ -55,10 +55,13 @@ through Infection, or require `phpunit/phpunit` 13.2 or later.
 
 ## pest-mutate-untested
 
-`pestphp/pest-plugin-mutate` is installed at a release the gate is not tested
-with. The Pest runner reads how the plugin runs each mutant, and `pest:patch`
-changes it in place, so a release it is not tested with can run its mutants
-otherwise, and `pest:patch` refuses one whose code it does not find.
+`pestphp/pest-plugin-mutate` is installed at a release newer than any the gate
+is tested with. The Pest runner reads how the plugin runs each mutant, and
+`pest:patch` changes it in place, so a release it is not tested with can run
+its mutants otherwise, and `pest:patch` refuses one whose code it does not
+find. The runner canary runs the Runner contracts against the newest release
+every day, and a release that passes them is counted as tested from the next
+release of the gate.
 
 Require the release `doctor` names, or run `doctor` again once a release of
 the gate tests the one installed.

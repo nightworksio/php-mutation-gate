@@ -429,6 +429,9 @@ manual.
       Infection config.
     - This amends ADR-0001's runner row, ADR-0002, and
       ADR-0011 (the PHPUnit versions supported).
+    - ADR-0041 amends this: where PHPUnit is installed below 13.2.0,
+      zero-config refuses the PHPUnit runner, naming Infection and PHPUnit
+      13.2.0 as the ways on.
 
 ### Warm workers
 

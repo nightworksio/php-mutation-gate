@@ -374,6 +374,6 @@ it('observes why the gate drives none of the chosen runner\'s releases, and the 
         'The phpunit runner needs PHPUnit 13.2.0 or later, for --test-id-filter-file, and %s/vendor/composer/installed.json holds 12.5.42.',
         $project,
     )))
-        ->and($runners instanceof InstalledRunners ? $runners->pestMutateOtherThan('5.0.2') : $runners)
+        ->and($runners instanceof InstalledRunners ? $runners->pestMutatePast('5.0.2') : $runners)
         ->toEqual(Version::of('pestphp/pest-plugin-mutate', 'v5.0.3', ''));
 })->group(...$holds);

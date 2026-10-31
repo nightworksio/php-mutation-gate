@@ -289,7 +289,7 @@ it('runs again, patched, only the mutants the file it hands over names, on the m
         ->toBe([true, false]);
 })->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
-// composer.json allows pest-plugin-mutate 5.0.2 alone. 5.0.1 reads each line's
+// composer.json allows pest-plugin-mutate from 5.0.2. 5.0.1 reads each line's
 // covering tests from php-code-coverage 14.3's map as hit counts rather than test
 // ids, and passes an int to preg_match, a TypeError under every Pest ^5.1.
 it('reports the same four mutants from warm workers, and warns of nothing, with Pest patched', function (): void {
@@ -318,7 +318,7 @@ it('holds the library to the pest-plugin-mutate the package allows', function ()
         ->and($conflict('composer.json'))
         ->toBe([
             'pestphp/pest' => '<5.1',
-            'pestphp/pest-plugin-mutate' => '<5.0.2 || >5.0.2',
+            'pestphp/pest-plugin-mutate' => '<5.0.2 || >=6.0',
             'phpunit/phpunit' => '<12.5.8 || >=12.5.21 <12.5.22 || >=13.1.5 <13.1.6',
             'symfony/yaml' => '<7.4.12 || >=8.0 <8.0.12',
         ]);

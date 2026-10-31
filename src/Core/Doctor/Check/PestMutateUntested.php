@@ -17,13 +17,14 @@ use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 
 use function sprintf;
 
-/** The Pest runner, over a pest-plugin-mutate release other than the one the gate is tested with. */
+/** The Pest runner, over a pest-plugin-mutate release newer than any the gate is tested with. */
 final readonly class PestMutateUntested
 {
-    /** The pest-plugin-mutate release the gate is tested with, the least its Composer package allows. */
-    public const string TESTED = '5.0.2';
+    /** The newest pest-plugin-mutate release the gate is tested with, which the runner canary raises. */
+    public const string NEWEST = '5.0.2';
 
-    private const string FOUND = 'pest-plugin-mutate %s is installed, and the gate is tested with %s.';
+    private const string FOUND
+        = 'pest-plugin-mutate %s is installed, and the newest release the gate is tested with is %s.';
 
     private const string WHY = <<<'SAID'
         The Pest runner reads how pest-plugin-mutate runs each mutant, and pest:patch changes it in place. A release it
@@ -40,16 +41,16 @@ final readonly class PestMutateUntested
         $pest = $settings instanceof Settings
             && $settings->runner()->choice()->use()->value() === BuiltinRunner::Pest->value;
         $installed = $pest && $runners instanceof InstalledRunners
-            ? $runners->pestMutateOtherThan(self::TESTED)
+            ? $runners->pestMutatePast(self::NEWEST)
             : NotGiven::value();
 
         return $installed instanceof Version
             ? Findings::of(Finding::of(
                 Slug::PestMutateUntested,
                 Severity::Advice,
-                sprintf(self::FOUND, $installed->release(), self::TESTED),
+                sprintf(self::FOUND, $installed->release(), self::NEWEST),
                 self::WHY,
-                sprintf(self::FIX, self::TESTED),
+                sprintf(self::FIX, self::NEWEST),
             ))
             : Findings::none();
     }
