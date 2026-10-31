@@ -625,10 +625,11 @@ jobs:
       #   PHPUnit XML coverage and JUnit log its own PHPUnit writes, so it keeps
       #   its own php-code-coverage.
       # - phpunit: the PHPUnit runner's fixture, at the highest PHPUnit its lock
-      #   holds and the lowest the runner supports, the one `Installed::FLOOR`
-      #   names (ADR-0023). It holds the quirks of a project's tests and, in
-      #   library/, the code every runner's contract mutates. Its lowest is
-      #   pinned to the package's php-code-coverage, as the Pest library's is:
+      #   holds and the lowest the runner supports, the one
+      #   `PhpUnitOption::IDS_SINCE` names (ADR-0023). It holds the quirks of a
+      #   project's tests and, in library/, the code every runner's contract
+      #   mutates. Its lowest is pinned to the package's php-code-coverage, as
+      #   the Pest library's is:
       #   in a user's project the gate and PHPUnit share one vendor directory,
       #   so one php-code-coverage writes and reads each map; here there are
       #   two, and a map one release writes can be one another refuses.
