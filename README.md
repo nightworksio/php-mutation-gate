@@ -254,6 +254,7 @@ No benchmark result is committed. `bench.yml` measures one, and a pull request b
 - [CONTRIBUTING.md](https://github.com/nightworksio/php-mutation-gate/blob/main/CONTRIBUTING.md) says what a contribution needs and how
   to run the checks locally. [ARCHITECTURE.md](https://github.com/nightworksio/php-mutation-gate/blob/main/ARCHITECTURE.md) is the
   structure every change keeps to.
+- Ask a question in the [Q&A category of Discussions](https://github.com/nightworksio/php-mutation-gate/discussions/categories/q-a).
 - Report a vulnerability privately, as [SECURITY.md](https://github.com/nightworksio/php-mutation-gate/blob/main/SECURITY.md) says.
 - Everyone here keeps the [code of conduct](https://github.com/nightworksio/php-mutation-gate/blob/main/CODE_OF_CONDUCT.md).
 

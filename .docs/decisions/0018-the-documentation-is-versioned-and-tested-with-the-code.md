@@ -231,6 +231,7 @@ adopt the gate from. What exists, read at source and through GitHub's API:
     - **Feature request:** asks for the problem before the proposal.
     - **Blank issues are off.** `config.yml` sends security reports to the
       private form and questions to the docs. Discussions stay off.
+      ADR-0045 amends this: questions go to the Q&A category of Discussions.
     - **The pull request template:** *What*, *Why*, *Spec:*, *Migration* (for
       a breaking change only), and the local-gates checklist.
 
@@ -317,3 +318,4 @@ vulnerability is one private button.
 - [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): the benchmark's table, `doctor`'s slugs, and the PHPUnit config names
 - [ADR-0019](0019-contributor-automation-runs-no-pull-request-content-where-it-can-write.md): the release pull request, and the bot that links the slugs
 - [ADR-0038](0038-the-documentation-is-a-versioned-site-built-from-docs-where-it-stands.md): the site that renders `.docs/`, its versions, and the links into it
+- [ADR-0045](0045-questions-go-to-a-q-and-a-category-of-discussions.md): Discussions, whose Q&A category takes questions

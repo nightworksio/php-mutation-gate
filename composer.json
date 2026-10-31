@@ -30,6 +30,7 @@
     "support": {
         "issues": "https://github.com/nightworksio/php-mutation-gate/issues",
         "source": "https://github.com/nightworksio/php-mutation-gate",
+        "docs": "https://nightworksio.github.io/php-mutation-gate/",
         "security": "https://github.com/nightworksio/php-mutation-gate/security/policy"
     },
     "require": {
