@@ -19,7 +19,7 @@ use function sprintf;
 
 /**
  * Infection's `minMsi` and `minCoveredMsi` as the floor every imported tree
- * declares (ADR-0016): truncated to two decimals, as the policy
+ * declares (ADR-0016): rounded up to two decimals, as the policy
  * minimum rather than a baseline, since nothing was measured. `minCoveredMsi`
  * leaves uncovered mutants out of the score, and is the floor where `minMsi`
  * is not set.
@@ -78,7 +78,7 @@ final readonly class Floor
 
     private static function floorOf(Node $value): TreeFloor|Undeclared
     {
-        $percentage = self::isNumber($value) ? Percentage::parse($value->number()) : Undeclared::floor();
+        $percentage = self::isNumber($value) ? Percentage::parseUp($value->number()) : Undeclared::floor();
 
         return $percentage instanceof Percentage && $percentage->hundredths() > 0
             ? TreeFloor::ofHundredths($percentage->hundredths())

@@ -26,6 +26,7 @@ it('declares the floor extra.mutation-gate.floor says', function (string $json, 
     'a whole number' => ['{"extra": {"mutation-gate": {"floor": 100}}}', fn(): Floor => Floor::of(100)],
     'a fraction' => ['{"extra": {"mutation-gate": {"floor": 83.41}}}', fn(): Floor => Floor::of(83.41)],
     'just above none' => ['{"extra": {"mutation-gate": {"floor": 0.01}}}', fn(): Floor => Floor::ofHundredths(1)],
+    'a sliver above none, rounded up' => ['{"extra": {"mutation-gate": {"floor": 0.001}}}', fn(): Floor => Floor::ofHundredths(1)],
     'none at all, with its reason' => [
         '{"extra": {"mutation-gate": {"floor": 0, "floorReason": "Generated"}}}',
         fn(): Exempt => Exempt::because('Generated'),
@@ -36,6 +37,7 @@ it('cannot judge a floor that is no number from 0 to 100', function (string $jso
     expect(gateEntryOf($json)->floor())->toEqual(CannotJudge::because($said));
 })->with([
     'above 100' => ['{"extra": {"mutation-gate": {"floor": 100.5}}}', 'modules/billing/composer.json: extra.mutation-gate.floor is not a number from 0 to 100.'],
+    'a sliver above 100' => ['{"extra": {"mutation-gate": {"floor": 100.001}}}', 'modules/billing/composer.json: extra.mutation-gate.floor is not a number from 0 to 100.'],
     'below 0' => ['{"extra": {"mutation-gate": {"floor": -1}}}', 'modules/billing/composer.json: extra.mutation-gate.floor is not a number from 0 to 100.'],
     'text' => ['{"extra": {"mutation-gate": {"floor": "90"}}}', 'modules/billing/composer.json: extra.mutation-gate.floor is not a number from 0 to 100.'],
     'nothing' => ['{"extra": {"mutation-gate": {"floor": null}}}', 'modules/billing/composer.json: extra.mutation-gate.floor is not a number from 0 to 100.'],
@@ -45,10 +47,6 @@ it('cannot judge a floor that is no number from 0 to 100', function (string $jso
     ],
     'none at all with an empty reason' => [
         '{"extra": {"mutation-gate": {"floor": 0.0, "floorReason": ""}}}',
-        'modules/billing/composer.json declares extra.mutation-gate.floor as 0 without a floorReason beside it.',
-    ],
-    'a fraction that records as none, without a reason' => [
-        '{"extra": {"mutation-gate": {"floor": 0.001, "floorReason": 1}}}',
         'modules/billing/composer.json declares extra.mutation-gate.floor as 0 without a floorReason beside it.',
     ],
 ]);

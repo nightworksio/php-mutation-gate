@@ -85,8 +85,8 @@ Operating the gate raises four needs its reports do not yet meet.
    | `threads`, `tmpDir` | stays in the file; the gate overrides both (ADR-0004) |
    | `mutators` profiles and settings, `bootstrap`, `phpUnit`, `initialTestsPhpOptions`, `testFrameworkExtraArgs`, `staticAnalysisTool`, `staticAnalysisToolOptions` | stays in the file; the adapter reads it |
 
-2. **`minMsi` becomes each tree's declared floor.** It is truncated to two
-   decimals, and it is the policy minimum of ADR-0003, not a
+2. **`minMsi` becomes each tree's declared floor.** It is rounded up to two
+   decimals, as every floor is (ADR-0003), and it is the policy minimum of ADR-0003, not a
    baseline entry, because nothing was measured.
    - `minCoveredMsi` sets `uncovered: exclude` and, when `minMsi` is absent,
      the floor.
