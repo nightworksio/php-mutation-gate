@@ -39,6 +39,7 @@ jobs:
       code: ${{ steps.diff.outputs.code }}
       warm: ${{ steps.diff.outputs.warm }}
       runners: ${{ steps.diff.outputs.runners }}
+      site: ${{ steps.diff.outputs.site }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -101,6 +102,13 @@ jobs:
   # installs.
   security:
     uses: ./.github/workflows/security.yml # zizmor: ignore[self-repository]
+
+  # The docs site, built and its links checked, where `scope` says the docs,
+  # the site or what prints a link changed (ADR-0038).
+  site:
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.site == 'true') }}
+    uses: ./.github/workflows/site.yml # zizmor: ignore[self-repository]
 
   # Every test file a mutant's narrowed run can load passes alone on the
   # unmutated code, so that its run can vouch for its kills, and a file that
@@ -888,7 +896,7 @@ jobs:
   # left none.
   evidence:
     name: evidence
-    needs: [scope, scripts, alone, hygiene, security, rules, guards, checks, tests, lowest, phar, runner-contract, runner-contracts, end-to-end, mutation, sonar, gate]
+    needs: [scope, scripts, alone, hygiene, security, site, rules, guards, checks, tests, lowest, phar, runner-contract, runner-contracts, end-to-end, mutation, sonar, gate]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10

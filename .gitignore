@@ -32,3 +32,7 @@ __pycache__/
 /tests/Fixtures/Archive/vendor/
 /tests/Fixtures/Archive/.mutation-gate/
 /tests/Fixtures/Archive/.phpunit.cache/
+
+# What the docs site's build writes (ADR-0038).
+/.site/dist/
+/.site/.astro/

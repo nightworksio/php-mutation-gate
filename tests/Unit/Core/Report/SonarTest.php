@@ -63,7 +63,7 @@ it('lists six rules of the engine mutation-gate, for code that lacks tests', fun
         ->and(Decoded::at($json, 'rules', 0))->toBe([
             'id' => 'survived',
             'name' => 'Surviving mutant',
-            'description' => sprintf('A mutant no test fails on. See %s', 'https://github.com/nightworksio/php-mutation-gate/blob/main/.docs/guide/troubleshooting.md#survived'),
+            'description' => sprintf('A mutant no test fails on. See %s', 'https://nightworksio.github.io/php-mutation-gate/guide/troubleshooting/#survived'),
             'engineId' => 'mutation-gate',
             'cleanCodeAttribute' => 'TESTED',
             'impacts' => [['softwareQuality' => 'RELIABILITY', 'severity' => 'MEDIUM']],
@@ -75,7 +75,7 @@ it('lists six rules of the engine mutation-gate, for code that lacks tests', fun
 it('links each rule into the troubleshooting guide of the release that wrote it', function () use ($sources): void {
     $json = Sonar::json(Verdicts::passing(), $sources(), Guide::ofInstalled('1.2.3'));
 
-    expect(Decoded::at($json, 'rules', 2, 'description'))->toEndWith('/blob/v1.2.3/.docs/guide/troubleshooting.md#unjudged');
+    expect(Decoded::at($json, 'rules', 2, 'description'))->toEndWith('/1.2/guide/troubleshooting/#unjudged');
 });
 
 it('raises an issue for every mutant counted as not killed, under the rule SARIF reports it by', function () use ($report): void {

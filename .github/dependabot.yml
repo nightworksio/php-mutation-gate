@@ -82,6 +82,23 @@ updates:
       prefix: build
       include: scope
 
+  # The docs site, locked in .site/package-lock.json (ADR-0038). Astro,
+  # Starlight and their integrations move together, so a week's updates are
+  # one pull request.
+  - package-ecosystem: npm
+    directory: /.site
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      site:
+        patterns: ['*']
+    commit-message:
+      prefix: build
+      include: scope
+
   - package-ecosystem: github-actions
     directory: /
     schedule:

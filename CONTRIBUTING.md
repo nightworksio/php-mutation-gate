@@ -12,7 +12,8 @@ privately, as [SECURITY.md](SECURITY.md) says, and everyone here keeps the
   `bin/mutation-gate pest:patch`.
 - **Python 3** runs the scripts under `.github/scripts`, the action's script under
   `resources/action`, and their tests.
-- **Node** runs markdownlint, locked in `.github/bot/markdownlint`.
+- **Node** runs markdownlint, locked in `.github/bot/markdownlint`, and builds
+  the docs site, locked in `.site` (ADR-0038).
 
 The hooks in `.githooks` say early what CI says later:
 
@@ -40,6 +41,7 @@ Before each push, run the entries for what you changed:
 | PHP, `composer.json`, `phpstan.neon`, `phpstan/layers.neon`, `rector.php` or `pint.json` | `checks` and `rules`, and the tests of the code you changed: `vendor/bin/pest <test files>` |
 | Markdown | `hygiene/markdown` and `hygiene/links` |
 | `ARCHITECTURE.md`, `.docs/reference/`, `.docs/guide/ci/` or `.docs/guide/troubleshooting.md` | the Markdown entries, and `composer test`, because tests read them |
+| `.docs/`, `.site/`, `README.md` or what prints a link into the docs | `site/build` |
 | a workflow | `hygiene/actionlint` and `hygiene/zizmor` |
 | `.github/scripts` or `resources/action` | `scripts` |
 

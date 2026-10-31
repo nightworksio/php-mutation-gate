@@ -15,7 +15,7 @@ import os
 import sys
 from pathlib import Path
 
-TROUBLESHOOTING = "https://github.com/nightworksio/php-mutation-gate/blob/main/.docs/guide/troubleshooting.md#{}"
+TROUBLESHOOTING = "https://nightworksio.github.io/php-mutation-gate/guide/troubleshooting/#{}"
 
 
 def summary(entry: dict) -> str:

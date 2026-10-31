@@ -60,14 +60,18 @@ under `.docs/`, readable on GitHub, and are also published as a site.
      GitHub renders the same block natively, so `.docs/` needs no second
      form of a diagram.
 
-3. **The theme is the pixel-art logo and its palette.**
-   - The logo is `.docs/brand/mutation-gate.svg`, 576 by 512, and the social
-     card `.docs/brand/mutation-gate-social.svg`, 1280 by 640. The site's
-     Open Graph image is the card rendered to PNG.
-   - Every colour of the theme is one of the logo's fills. The dark scheme
-     sets the greens `#39d36b` and `#8dffab` and the cream `#f4f1c9` on the
-     night blue `#12101f`. The light scheme sets the night blues `#0b0914`
-     and `#12101f` and the deep greens `#1d7a43` and `#124a2c` on the cream
+3. **The site is titled php-mutation-gate, and its theme is the pixel-art
+   artwork in `.docs/brand/` and its palette.**
+   - The logo, `php-mutation-gate-logo.svg`, 576 by 512, heads the README.
+     The mark, the logo without the name beneath it, is the site's logo, and
+     the mark padded to a square is its icon, as an SVG and as PNG files of
+     32, 180 and 512 pixels. The site's Open Graph image is the social card,
+     `php-mutation-gate-social.svg`, 1280 by 640, rendered to PNG.
+   - Every colour of the theme is one of the logo's fills, and code keeps
+     the colours of its highlighter's own themes. The dark scheme sets the
+     greens `#39d36b` and `#8dffab` and the cream `#f4f1c9` on the night
+     blue `#12101f`. The light scheme sets the night blues `#0b0914` and
+     `#12101f` and the deep greens `#1d7a43` and `#124a2c` on the cream
      `#f2eedc`. The slates between them, from `#2b2638` to `#c6c6d6`, are
      the greys of both.
 

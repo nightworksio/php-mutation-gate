@@ -1,0 +1,75 @@
+# The docs site, built from .docs where it stands, with every link into it
+# checked, and the links the gate prints checked against the pages it built
+# (ADR-0038). Called by ci.yml where `scope` says the docs, the site or what
+# prints a link changed, and by pages.yml, which deploys what it builds.
+name: site
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: The ref to build, or the event's own where empty.
+        type: string
+        default: ''
+      pages:
+        description: Whether to upload the build as the Pages artifact.
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  PHP_VERSION: '8.5'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      # The locked packages, with no install script run: each native binary
+      # comes as a package of its own.
+      - id: install
+        run: npm ci --ignore-scripts --no-audit --no-fund --prefix .site
+      # Astro's build, which fails on a link to a file that is not there, and
+      # then on a link into the site to a page or an anchor it did not build.
+      - id: build
+        run: npm run build --prefix .site
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      - id: links
+        env:
+          SITE_BUILD: .site/dist
+        run: |
+          mkdir -p evidence/raw
+          vendor/bin/pest tests/Docs/PrintedLinksTest.php --log-junit=evidence/raw/site.xml
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        if: ${{ inputs.pages }}
+        with:
+          path: .site/dist
+      # The job's evidence, whatever the steps above did (ADR-0019).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py site/build
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-site-build
+          path: evidence/site-build*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py site/build

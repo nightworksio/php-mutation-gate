@@ -1,10 +1,8 @@
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".docs/brand/mark-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset=".docs/brand/mark-light.svg">
-  <img alt="mutation-gate" src=".docs/brand/mark-light.svg" height="48">
-</picture>
+<p align="center">
+  <img alt="php-mutation-gate: a pixel-art gate with the PHP elephant standing in its arch" src=".docs/brand/php-mutation-gate-logo.svg" width="288">
+</p>
 
-# mutation-gate
+# php-mutation-gate
 
 mutation-gate turns mutation testing into a check your pull requests must pass.
 It is for PHP projects tested with Pest, Infection or PHPUnit that want a

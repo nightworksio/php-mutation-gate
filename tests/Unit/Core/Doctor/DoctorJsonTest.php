@@ -28,7 +28,7 @@ it('writes each finding, its link into the release\'s guide and whether any fail
                 'found' => 'No tree.',
                 'why' => 'Nothing to mutate.',
                 'fix' => 'Name one.',
-                'link' => 'https://github.com/nightworksio/php-mutation-gate/blob/v1.2.0/.docs/guide/troubleshooting.md#no-tree',
+                'link' => 'https://nightworksio.github.io/php-mutation-gate/1.2/guide/troubleshooting/#no-tree',
             ],
             [
                 'slug' => 'xdebug-slows-tests',
@@ -37,7 +37,7 @@ it('writes each finding, its link into the release\'s guide and whether any fail
                 'why' => 'It slows tests.',
                 'fix' => 'Set XDEBUG_MODE=coverage.',
                 'seconds' => 120.0,
-                'link' => 'https://github.com/nightworksio/php-mutation-gate/blob/v1.2.0/.docs/guide/troubleshooting.md#xdebug-slows-tests',
+                'link' => 'https://nightworksio.github.io/php-mutation-gate/1.2/guide/troubleshooting/#xdebug-slows-tests',
             ],
         ],
     ]);

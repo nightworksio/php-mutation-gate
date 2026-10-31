@@ -1,0 +1,74 @@
+/* Every colour is one of the logo's fills (.docs/brand). */
+
+:root {
+    --sl-color-accent-low: #124a2c;
+    --sl-color-accent: #39d36b;
+    --sl-color-accent-high: #8dffab;
+    --sl-color-white: #f4f1c9;
+    --sl-color-gray-1: #f2eedc;
+    --sl-color-gray-2: #c6c6d6;
+    --sl-color-gray-3: #9b9bb0;
+    --sl-color-gray-4: #6b6b82;
+    --sl-color-gray-5: #36314b;
+    --sl-color-gray-6: #2b2638;
+    --sl-color-black: #12101f;
+    --sl-color-green-low: #124a2c;
+    --sl-color-green: #39d36b;
+    --sl-color-green-high: #8dffab;
+    --sl-color-blue-low: #2b2638;
+    --sl-color-blue: #8f88c7;
+    --sl-color-blue-high: #c6c6d6;
+    --sl-color-purple-low: #2b2638;
+    --sl-color-purple: #8f88c7;
+    --sl-color-purple-high: #c6c6d6;
+    --sl-color-orange-low: #36314b;
+    --sl-color-orange: #f4f1c9;
+    --sl-color-orange-high: #f2eedc;
+    --sl-color-red-low: #36314b;
+    --sl-color-red: #d89aa8;
+    --sl-color-red-high: #f2eedc;
+}
+
+:root[data-theme='light'] {
+    --sl-color-accent-low: #e2ffe8;
+    --sl-color-accent: #1d7a43;
+    --sl-color-accent-high: #124a2c;
+    --sl-color-white: #0b0914;
+    --sl-color-gray-1: #12101f;
+    --sl-color-gray-2: #2b2638;
+    --sl-color-gray-3: #36314b;
+    --sl-color-gray-4: #5a5470;
+    --sl-color-gray-5: #9b9bb0;
+    --sl-color-gray-6: #f4f1c9;
+    --sl-color-gray-7: #f4f1c9;
+    --sl-color-black: #f2eedc;
+    --sl-color-green-low: #e2ffe8;
+    --sl-color-green: #1d7a43;
+    --sl-color-green-high: #124a2c;
+    --sl-color-blue-low: #f4f1c9;
+    --sl-color-blue: #5a5470;
+    --sl-color-blue-high: #2b2638;
+    --sl-color-purple-low: #f4f1c9;
+    --sl-color-purple: #5a5470;
+    --sl-color-purple-high: #2b2638;
+    --sl-color-orange-low: #f4f1c9;
+    --sl-color-orange: #443f5a;
+    --sl-color-orange-high: #12101f;
+    --sl-color-red-low: #f4f1c9;
+    --sl-color-red: #d89aa8;
+    --sl-color-red-high: #0b0914;
+}
+
+.site-title img,
+.hero img {
+    image-rendering: pixelated;
+}
+
+.hero img {
+    max-width: min(100%, 24rem);
+}
+
+pre.mermaid {
+    background: #12101f;
+    border: 1px solid #36314b;
+}

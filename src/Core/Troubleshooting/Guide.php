@@ -12,36 +12,40 @@ use function preg_match;
 use function sprintf;
 
 /**
- * The guides of the release that prints a message or renders a report: the
- * troubleshooting guide, which each slug's link points into, and the guide
- * to reading the report, which each term's link points into, so a link never
- * outlives what it explains.
+ * The guides of the release that prints a message or renders a report, as
+ * the documentation site serves them: the troubleshooting guide, which each
+ * slug's link points into, and the guide to reading the report, which each
+ * term's link points into, so a link never outlives what it explains
+ * (ADR-0038).
  */
 final readonly class Guide
 {
-    /** Where a guide of a git ref is, by its file's name, and a section in it. */
-    private const string SECTION = '%s/blob/%s/.docs/guide/%s.md#%s';
+    /** Where a guide of a version's copy of the site is, by its page, and a section in it. */
+    private const string SECTION = '%s%s/guide/%s/#%s';
+
+    /** A release's copy of the site: its minor's path. */
+    private const string COPY = '/%s';
 
     private const string TROUBLESHOOTING = 'troubleshooting';
 
     private const string READING = 'reading-the-report';
 
-    /** A released version, as Composer spells it, with or without its `v`. */
-    private const string RELEASED = '/^v?(?<version>\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)$/D';
+    /** A released version, a pre-release included, as Composer spells it, with or without its `v`. */
+    private const string RELEASED = '/^v?(?<minor>\d+\.\d+)\.\d+(?:-[0-9A-Za-z.]+)?$/D';
 
-    /** The branch the guide is read from when no release printed the message. */
-    private const string UNRELEASED = 'main';
+    /** The path of `main`'s pages, which are the site's root while no version is tagged. */
+    private const string UNRELEASED = '';
 
-    private function __construct(private string $ref)
+    private function __construct(private string $copy)
     {
     }
 
-    /** The guide of the version Composer installed: its tag, or `main` for anything that is not a release. */
+    /** The guide of the version Composer installed: its minor's copy, or `main`'s for anything but a release. */
     public static function ofInstalled(string $version): self
     {
         return new self(
             preg_match(self::RELEASED, $version, $released) === 1
-                ? sprintf('v%s', $released['version'])
+                ? sprintf(self::COPY, $released['minor'])
                 : self::UNRELEASED,
         );
     }
@@ -58,7 +62,7 @@ final readonly class Guide
         return $guide;
     }
 
-    /** The guide on `main`, for a gate that is not installed as a package. */
+    /** The guide of `main`, for a gate that is not installed as a package. */
     public static function unreleased(): self
     {
         return new self(self::UNRELEASED);
@@ -66,12 +70,12 @@ final readonly class Guide
 
     public function link(Slug $slug): string
     {
-        return sprintf(self::SECTION, ThisPackage::REPOSITORY, $this->ref, self::TROUBLESHOOTING, $slug->value);
+        return sprintf(self::SECTION, ThisPackage::SITE, $this->copy, self::TROUBLESHOOTING, $slug->value);
     }
 
     /** Where the guide to reading the report says what a term means. */
     public function term(Term $term): string
     {
-        return sprintf(self::SECTION, ThisPackage::REPOSITORY, $this->ref, self::READING, $term->value);
+        return sprintf(self::SECTION, ThisPackage::SITE, $this->copy, self::READING, $term->value);
     }
 }
