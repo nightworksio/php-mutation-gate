@@ -32,6 +32,12 @@ sentence saying what the tests miss.
 Each release's PHAR is signed with the release key, whose fingerprint is
 `5EAA 6082 E57F F4C5 42A2  EA66 B757 A4B1 1361 16D2`, and attested by
 GitHub; [SECURITY.md](SECURITY.md#verifying-a-release) says how to check both.
+The PHAR keeps its dependencies apart from the project's, but for
+`nikic/php-parser` and `psr/clock`, which mutators and extensions share with
+the gate. The gate loads the PHAR's autoloader ahead of the project's in every
+test run it starts, so a project that requires another major of either runs
+its tests with the PHAR's copy. Such a project installs the gate through
+Composer.
 
 ## Requirements
 
