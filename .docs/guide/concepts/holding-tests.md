@@ -21,6 +21,11 @@ describe('Kernel', function () {
 })->group('holds:src/Kernel.php');
 ```
 
+The package registers a Pest plugin, so every Pest run, the gate's or not,
+puts a test with `#[Holds('src/Kernel.php')]` in the group
+`holds:src/Kernel.php`. `pest --group=holds:src/Kernel.php` runs the tests that
+hold the file. Beside that, the plugin acts only in runs the gate starts.
+
 `pest()->group('holds:src/Kernel.php')` holds the whole file too, but it changes
 Pest's configuration as the file loads, so every mutant's narrowed run has to
 load that file
