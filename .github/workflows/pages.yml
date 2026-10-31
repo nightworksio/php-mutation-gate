@@ -1,7 +1,8 @@
 # The docs site on GitHub Pages, at https://nightworksio.github.io/php-mutation-gate/
-# (ADR-0038). site.yml builds `main` with a read-only token, and `deploy`
-# publishes the build over OIDC: it runs no npm and no project code, and no
-# secret is stored. It is never a required check, so `on.paths` limits it.
+# (ADR-0038): `main`'s docs at the root, while no version is tagged. site.yml
+# builds them with a read-only token, and `deploy` publishes the build over
+# OIDC: it runs no npm and no project code, and no secret is stored. It is
+# never a required check, so `on.paths` limits it.
 name: pages
 
 on:
@@ -12,13 +13,11 @@ on:
       - '.site/**'
       - '.github/workflows/pages.yml'
       - '.github/workflows/site.yml'
-  release:
-    types: [published]
   workflow_dispatch:
 
 permissions: {}
 
-# One deploy at a time, each of the newest `main`; none is cancelled halfway.
+# One deploy at a time; none is cancelled halfway.
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -29,7 +28,6 @@ jobs:
       contents: read
     uses: ./.github/workflows/site.yml # zizmor: ignore[self-repository]
     with:
-      ref: main
       pages: true
 
   deploy:
