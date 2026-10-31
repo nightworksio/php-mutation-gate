@@ -9,8 +9,7 @@ name: mutation-gate
 # installs the project with, which their install steps alone read (ADR-0029).
 # What needs a credential happens in fetch, deliver-plan, deliver-survivors
 # and deliver, which run none of it, from the gate's own installation at this
-# workflow's commit, its runtime packages installed from the lock under
-# resources/action/keyed (ADR-0007).
+# workflow's commit, installed from resources/action/keyed's lock (ADR-0007).
 #
 # The shard jobs run the action from this workflow's own commit, which each
 # checks out at job.workflow_sha, so the workflow and the action are always
@@ -70,16 +69,11 @@ on:
         type: string
         default: ''
       runs-on:
-        description: >-
-          The runner the plan, the shards, the survivors and the verdict run on: a label, such as ubuntu-24.04-arm,
-          or a JSON list of labels a runner must all have, such as ["self-hosted", "linux"].
+        description: 'The runner the plan, the shards, the survivors and the verdict run on: a label, such as ubuntu-24.04-arm, or a JSON list of labels a runner must all have, such as ["self-hosted", "linux"].'
         type: string
         default: ubuntu-latest
       keyed-runs-on:
-        description: >-
-          The runner fetch, the deliver jobs and publish run on, which hold a key or a token that writes: a label or
-          a JSON list of labels, as runs-on takes. A runner a pull request's code ran on can keep what that code
-          left for the next job, so name a GitHub-hosted or an ephemeral runner here.
+        description: 'The runner fetch, the deliver jobs and publish run on, which hold a key or a token that writes: a label or a JSON list of labels, as runs-on takes. A runner a pull request''s code ran on can keep what that code left for the next job, so name a GitHub-hosted or an ephemeral one.'
         type: string
         default: ubuntu-latest
     # A called job reads an environment's secret only under a name its caller
@@ -89,10 +83,7 @@ on:
     # which only the steps that install the project's dependencies read.
     secrets:
       COMPOSER_AUTH:
-        description: >-
-          The credentials Composer installs the project's dependencies with, for a private repository; read by the
-          install steps alone, never by a step that runs the project's tests or mutants. An install step runs the
-          project's Composer scripts and plugins, which can read it.
+        description: The credentials Composer installs the project's dependencies with, for a private repository; read by the install steps alone, never by a step that runs the project's tests or mutants, though an install step runs the project's Composer scripts and plugins, which can read it.
         required: false
       MUTATION_GATE_READ_AWS_ACCESS_KEY_ID:
         description: The key that reads the default branch's ledger, from the environment mutation-gate-read.
