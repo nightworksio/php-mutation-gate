@@ -47,7 +47,8 @@ adopt the gate from. What exists, read at source and through GitHub's API:
 
 1. **The docs are plain Markdown in the repository, rendered by GitHub.**
    There is no site. The tree is laid out so a generator could read it later
-   without a file moving.
+   without a file moving. ADR-0038 amends this: Starlight renders the tree in
+   place as a site on GitHub Pages.
 
 2. **Everything lives under `.docs/`, and nothing under `docs/`.**
 
@@ -77,7 +78,7 @@ adopt the gate from. What exists, read at source and through GitHub's API:
    - Users read `.docs/guide/` and `.docs/reference/`. Contributors read
      `.docs/decisions/` and `ARCHITECTURE.md`.
    - `/.docs` stays export-ignored. The package ships no docs, and every link
-     the gate prints points at GitHub.
+     the gate prints points at GitHub. ADR-0038 points them at the site.
 
 3. **Path-based handling follows the one directory.**
    - `scope` keeps counting `.docs/` as documentation, so a docs-only change
@@ -89,7 +90,7 @@ adopt the gate from. What exists, read at source and through GitHub's API:
    - typos, lychee and markdownlint already read `.docs/`, and their
      configurations stay as they are.
    - The README's links into `.docs/` are relative, so the README at a tag
-     links that tag's docs.
+     links that tag's docs. ADR-0038 makes them absolute URLs of the site.
 
 4. **The README becomes the front door.**
    - It holds what the gate is, the benchmark's table (ADR-0017), a quick
@@ -127,6 +128,8 @@ adopt the gate from. What exists, read at source and through GitHub's API:
      where it matters.
    - A reader on a release reads `tree/v<version>/.docs/`. The README says
      so, and every link the gate prints is pinned to its own version.
+     ADR-0038 amends this: each minor has a copy on the site, behind a
+     version picker.
 
 ### Keeping the docs true
 
@@ -160,7 +163,8 @@ adopt the gate from. What exists, read at source and through GitHub's API:
      `pest-filter-too-long`, and so on.
    - The message ends with
      `https://github.com/nightworksio/php-mutation-gate/blob/v<installed>/.docs/guide/troubleshooting.md#<slug>`,
-     pinned to the version that printed it.
+     pinned to the version that printed it. ADR-0038 amends this: the link
+     is the site's page for that version.
    - A test fails when a slug has no section, or a section has no slug.
    - `doctor`'s findings use the same slugs (ADR-0017).
    - Slugs are words, not the requirement IDs ADR-0011 refuses. They are
@@ -312,3 +316,4 @@ vulnerability is one private button.
 - [ADR-0015](0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md): the offline schemas the YAML examples are checked against
 - [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): the benchmark's table, `doctor`'s slugs, and the PHPUnit config names
 - [ADR-0019](0019-contributor-automation-runs-no-pull-request-content-where-it-can-write.md): the release pull request, and the bot that links the slugs
+- [ADR-0038](0038-the-documentation-is-a-versioned-site-built-from-docs-where-it-stands.md): the site that renders `.docs/`, its versions, and the links into it
