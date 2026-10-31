@@ -29,7 +29,7 @@ final readonly class Entries
     {
     }
 
-    /** @return self<never> nothing registered at this extension point yet */
+    /** @return self<never> an extension point with nothing registered at it */
     public static function none(ExtensionPoint $point): self
     {
         return new self($point, self::nothing());
