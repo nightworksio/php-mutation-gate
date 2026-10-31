@@ -204,8 +204,8 @@
         "ci": "The PHP gates CI runs, in the order CI runs them, but for the lowest dependencies, which would rewrite vendor, and mutation, which runs in CI only. The hygiene, security and commit checks run in CI as well.",
         "report:schema": "Writes resources/report.schema.json, resources/tests.schema.json, resources/doctor.schema.json, resources/webhook.schema.json and resources/explain.schema.json, the JSON Schemas of the json and tests reports, of doctor's JSON, of the webhook and of explain's JSON, from their own definitions.",
         "test": "Every suite but Guards, in parallel.",
-        "test:coverage": "The same run as test, held to 100% line coverage of src (G7).",
-        "test:guards": "Plants a violation of every rule in a throwaway copy of the tree and requires each rule to report it (R2).",
+        "test:coverage": "The same run as test, held to 100% line coverage of src.",
+        "test:guards": "Plants a violation of every rule in a throwaway copy of the tree and requires each rule to report it.",
         "test:guards:ci": "The guards CI runs besides: an advisory planted in the lock, and an uncovered line in a copy of its own, run under coverage. They need the network and a coverage driver.",
         "test:network": "The tests that validate against a schema fetched from its publisher, each pinned by its SHA-256; every other run leaves them out. They need the network, or a cache of the schemas.",
         "test:report": "The same run as test:coverage, writing the clover and JUnit reports SonarCloud reads to coverage/."

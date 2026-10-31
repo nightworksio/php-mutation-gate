@@ -17,3 +17,7 @@ retry_wait_time = 3
 #   5xx  the host is unwell, which says nothing about whether the link is wrong
 # A link that is wrong answers 404 or 410, and those still fail.
 accept = ["200", "206", "429", "500..=599"]
+
+# The docs site's own pages are checked against its build, by site.yml's link
+# test, so a page a pull request adds is checked before it is deployed.
+exclude = ['^https://nightworksio\.github\.io/php-mutation-gate/']

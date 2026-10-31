@@ -40,7 +40,7 @@ import sys
 
 # The events that run the default branch's workflow with a token or a cache
 # that can write, over content a pull request supplies (ADR-0019). The gate
-# never runs under them, so it never saves a ledger under them (C2.1).
+# never runs under them, so it never saves a ledger under them.
 LOW_TRUST = frozenset({"pull_request_target", "issue_comment", "workflow_run"})
 
 # The events whose ref is a branch a run may write the ledger of: none runs

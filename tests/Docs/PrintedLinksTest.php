@@ -9,9 +9,10 @@ use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 
 // ADR-0038: every link the gate prints is a page, and a heading on it, that
-// the site builds from `.docs`. Here each link is mapped back to its file and
-// heading under `.docs`; with SITE_BUILD naming a built site, as `site.yml`
-// sets it, to the built page and its anchor.
+// the site builds from `.docs`, and so is every link the README gives into the
+// site. Here each link is mapped back to its file and heading under `.docs`;
+// with SITE_BUILD naming a built site, as `site.yml` sets it, to the built
+// page and its anchor.
 
 /** @return list<string> every link the gate prints into main's pages */
 function printedLinks(): array
@@ -53,38 +54,66 @@ function sourceOf(string $page): string
     return is_file(Tree::at(sprintf('.docs/%s.md', $path))) ? sprintf('.docs/%s.md', $path) : sprintf('.docs/%s/README.md', $path);
 }
 
+/** @return list<string> every link the README gives into the site */
+function readmeLinks(): array
+{
+    preg_match_all(
+        sprintf('#\]\((?<link>%s/[^)\s]*)\)#', preg_quote(ThisPackage::SITE, '#')),
+        (string) file_get_contents(Tree::at('README.md')),
+        $linked,
+    );
+
+    return $linked['link'];
+}
+
+/** Whether a link names a file under `.docs`, and the heading its anchor names where it names one. */
+function inDocs(string $link): bool
+{
+    [$page, $anchor] = pageAndAnchor($link);
+    $source = Tree::at(sourceOf($page));
+
+    return is_file($source) && ($anchor === '' || in_array($anchor, headingAnchors((string) file_get_contents($source)), strict: true));
+}
+
+/** Whether a link names a page the site build produced, and the anchor it names where it names one. */
+function inBuild(string $link): bool
+{
+    [$page, $anchor] = pageAndAnchor($link);
+    $file = sprintf('%s%sindex.html', rtrim((string) getenv('SITE_BUILD'), '/'), $page);
+
+    return is_file($file) && ($anchor === '' || str_contains((string) file_get_contents($file), sprintf(' id="%s"', $anchor)));
+}
+
+/**
+ * The links of a list a check refuses.
+ *
+ * @param  list<string>           $links
+ * @param  Closure(string): bool $holds
+ * @return list<string>
+ */
+function refused(array $links, Closure $holds): array
+{
+    return array_values(array_filter($links, static fn(string $link): bool => ! $holds($link)));
+}
+
 it('prints links that each name a page with a trailing slash and a heading on it', function (): void {
-    $wrong = [];
-
-    foreach (printedLinks() as $link) {
+    expect(refused(printedLinks(), static function (string $link): bool {
         [$page, $anchor] = pageAndAnchor($link);
-        $wrong[] = str_ends_with($page, '/') && $anchor !== '' ? '' : $link;
-    }
 
-    expect(array_values(array_filter($wrong, static fn(string $link): bool => $link !== '')))->toBe([], 'A printed link names no page with a trailing slash, or no heading on it.');
+        return str_ends_with($page, '/') && $anchor !== '';
+    }))->toBe([], 'A printed link names no page with a trailing slash, or no heading on it.');
 });
 
 it('prints links to a file and a heading under .docs, by the page each file is built into', function (): void {
-    $wrong = [];
-
-    foreach (printedLinks() as $link) {
-        [$page, $anchor] = pageAndAnchor($link);
-        $source = sourceOf($page);
-        $wrong[] = is_file(Tree::at($source)) && in_array($anchor, headingAnchors((string) file_get_contents(Tree::at($source))), strict: true) ? '' : $link;
-    }
-
-    expect(array_values(array_filter($wrong, static fn(string $link): bool => $link !== '')))->toBe([], 'A printed link names no file under .docs, or no heading in it.');
+    expect(refused(printedLinks(), inDocs(...)))->toBe([], 'A printed link names no file under .docs, or no heading in it.');
 });
 
-it('prints links to a page and an anchor the site build produced', function (): void {
-    $built = rtrim((string) getenv('SITE_BUILD'), '/');
-    $wrong = [];
+it('links the README into the site, to a file and a heading under .docs for each page', function (): void {
+    expect(readmeLinks())->not->toBe([])
+        ->and(refused(readmeLinks(), inDocs(...)))->toBe([], 'A link of the README into the site names no file under .docs, or no heading in it.');
+});
 
-    foreach (printedLinks() as $link) {
-        [$page, $anchor] = pageAndAnchor($link);
-        $file = sprintf('%s%sindex.html', $built, $page);
-        $wrong[] = is_file($file) && str_contains((string) file_get_contents($file), sprintf(' id="%s"', $anchor)) ? '' : $link;
-    }
-
-    expect(array_values(array_filter($wrong, static fn(string $link): bool => $link !== '')))->toBe([], 'A printed link names a page, or an anchor, the site build did not produce.');
+it('prints links, and links the README, to pages and anchors the site build produced', function (): void {
+    expect(refused([...printedLinks(), ...readmeLinks()], inBuild(...)))
+        ->toBe([], 'A link names a page, or an anchor, the site build did not produce.');
 })->skip(fn(): bool => getenv('SITE_BUILD') === false, 'No built site is named: SITE_BUILD is set by site.yml.');

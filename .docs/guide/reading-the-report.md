@@ -76,7 +76,7 @@ change added and the code the security mutators reach.
 
 The lowest score a part of the code may have. A run fails when a score drops
 below its floor, and the floor rises as the score does, so it never goes
-back down. Where a part has no floor yet, `mutation-gate baseline --write`
+back down. Where a part has no floor, `mutation-gate baseline --write`
 writes one at its score.
 
 When a score is below its floor, *What to do* says how many more mutants

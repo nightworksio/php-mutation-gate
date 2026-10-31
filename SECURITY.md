@@ -24,8 +24,8 @@ security fixes for six months.
 |---------|----------------|
 | 0.1.x | yes |
 
-No version is tagged yet; the first release is 0.1.0. Until it is tagged, a
-fix lands on `main`, which a project requiring `dev-main` installs.
+No version is tagged. A fix lands on `main`, which a project requiring
+`dev-main` installs.
 
 ## Verifying a release
 
@@ -66,7 +66,7 @@ In scope is what this repository ships:
 - the proof ledger's trust boundaries: a run that may not write the default
   branch's proofs must not be able to plant one that the default branch's run
   trusts
-  ([ADR-0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md));
+  ([ADR-0007](https://nightworksio.github.io/php-mutation-gate/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads/));
 - the gate's own secrets: where a job's documented setup hands a credential to
   the project's code, as when it runs the tests with it in the environment.
 
