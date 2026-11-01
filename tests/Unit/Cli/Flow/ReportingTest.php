@@ -167,7 +167,7 @@ it('draws the badge in CI on the default branch, in the colours the config sets'
 
 it('draws the badge into the directory --publish-dir names', function (): void {
     $settings = Flows::settings(Badge::colour('green', 90), Badge::colour('red', 0));
-    $chosen = new Chosen(new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER))));
+    $chosen = new Chosen(new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER))));
     $reporters = new Reporting($chosen, Variables::of(['CI' => 'true']))
         ->publishingInto(Path::of('site/badge'))
         ->reporters($settings, reportingOnMain());
