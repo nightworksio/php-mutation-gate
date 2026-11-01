@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Report\JsonReport;
+use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -33,5 +34,5 @@ it('needs a path', function (): void {
         'The JSON report is written to a file, whose `path` the entry names.',
     )))
         ->and(JUnitReportFile::fromOptions(Options::none()))->toBeInstanceOf(Invalid::class)
-        ->and(SarifReportFile::fromOptions(Options::none()))->toBeInstanceOf(Invalid::class);
+        ->and(SarifReportFile::configured(Options::none(), Guide::unreleased()))->toBeInstanceOf(Invalid::class);
 });

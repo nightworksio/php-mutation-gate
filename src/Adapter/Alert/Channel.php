@@ -28,7 +28,7 @@ enum Channel
             BuiltinReporter::Discord => self::Discord,
             BuiltinReporter::Webhook => self::Webhook,
             BuiltinReporter::Json, BuiltinReporter::JUnit, BuiltinReporter::Sarif, BuiltinReporter::Html,
-            BuiltinReporter::Digest,
+            BuiltinReporter::Stryker, BuiltinReporter::Digest,
             BuiltinReporter::Tests, BuiltinReporter::KillMatrix, BuiltinReporter::GitLab, BuiltinReporter::Sonar,
             BuiltinReporter::Badge, BuiltinReporter::Console, BuiltinReporter::Problems, BuiltinReporter::Otlp,
             BuiltinReporter::GitHubAnnotations, BuiltinReporter::GitHubSummary,

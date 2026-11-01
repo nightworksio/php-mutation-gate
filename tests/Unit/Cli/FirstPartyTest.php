@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
 use NightWorksIO\MutationGate\Adapter\Filesystem\SarifReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\SonarReportFile;
+use NightWorksIO\MutationGate\Adapter\Filesystem\StrykerReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\TestsReportFile;
 use NightWorksIO\MutationGate\Adapter\Gcs\BucketLedger as GcsBucket;
 use NightWorksIO\MutationGate\Adapter\Git\Git;
@@ -238,9 +239,13 @@ it('registers the console, every file report, GitHub\'s three and the badge by n
     expect($reporter('console'))->toBeInstanceOf(ConsoleReport::class)
         ->and($reporter('problems', '{"only": "changed"}'))->toBeInstanceOf(ProblemsReport::class)
         ->and($reporter('json', '{"path": "build/mutation.json"}'))->toEqual(JsonReportFile::at('build/mutation.json'))
+        ->and($reporter('stryker', '{"path": "build/mutation-report.json"}'))->toEqual(StrykerReportFile::at('build/mutation-report.json', '.'))
         ->and($reporter('junit', '{"path": "build/junit.xml"}'))->toEqual(JUnitReportFile::at('build/junit.xml'))
         ->and($reporter('digest', '{"path": "build/digest.txt"}'))->toEqual(DigestReportFile::at('build/digest.txt'))
-        ->and($sarif)->toEqual(SarifReportFile::at('build/mutation.sarif'))
+        ->and($sarif)->toEqual(SarifReportFile::at(
+            'build/mutation.sarif',
+            Guide::ofInstalled(InstalledVersions::getPrettyVersion(ThisPackage::COMPOSER) ?? ''),
+        ))
         ->and($reporter('gitlab', '{"path": "build/gl-code-quality.json"}'))->toEqual(CodeQualityReportFile::at('build/gl-code-quality.json'))
         ->and($reporter('sonar', '{"path": "build/mutation-sonar.json"}'))->toEqual(SonarReportFile::at(
             'build/mutation-sonar.json',

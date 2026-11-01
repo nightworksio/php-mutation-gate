@@ -60,10 +60,17 @@ sentence saying what the tests miss.
 Each release's PHAR is signed with the release key, whose fingerprint is
 `5EAA 6082 E57F F4C5 42A2  EA66 B757 A4B1 1361 16D2`, and attested by
 GitHub; [SECURITY.md](https://github.com/nightworksio/php-mutation-gate/blob/main/SECURITY.md#verifying-a-release) says how to check both.
+The PHAR keeps its dependencies apart from the project's, but for
+`nikic/php-parser` and `psr/clock`, which mutators and extensions share with
+the gate. The gate loads the PHAR's autoloader ahead of the project's in every
+test run it starts, so a project that requires another major of either runs
+its tests with the PHAR's copy. Such a project installs the gate through
+Composer.
 
 ## Requirements
 
-- PHP 8.4 or a later 8.x, with pcov or Xdebug for coverage.
+- PHP 8.4 or a later 8.x, with pcov or Xdebug for coverage, and the sodium
+  extension, which the gate encodes with because it is timing-safe.
 - Linux or macOS. Windows is not supported.
 - One of the runners:
   - **Pest**: `pestphp/pest` ^5.1 with `pestphp/pest-plugin-mutate` ^5.0.2, on
