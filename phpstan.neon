@@ -630,6 +630,16 @@ services:
                     - LOWEST # the lowest process id that names one process, not an exit code or an argument
                 'NightWorksIO\MutationGate\Core\Runner\Headroom':
                     - TIMES # times a suite's peak memory a cap holds
+                'NightWorksIO\MutationGate\Extension\LibraryChange':
+                    - FIRST_METHOD_LINE # a line of the runner contract's library, not a cluster id's length
+                    - LARGE_LINE # a line of the runner contract's library, not a span id's length
+                'NightWorksIO\MutationGate\Extension\ProofStoreContract':
+                    - LEDGER # what a failure calls the ledger, not the workspace's directory
+                    - LEDGER_REQUEST # the pull request a contract writes to, not a mutant id's length
+                'NightWorksIO\MutationGate\Extension\Checks\RunnerSurvivors':
+                    - MOST # seconds a survivor's run again is allowed, not the ledger's limit
+                'NightWorksIO\MutationGate\Extension\Checks\RunnerCoverage':
+                    - AT_ONCE # test files measured again at once, not an argument's place or an exit code
             # Constants still to refer to their value's one home, by the builder whose area holds them.
             awaiting:
                 'NightWorksIO\MutationGate\Core\Proof\Key\Exceptions':
@@ -687,6 +697,8 @@ services:
                     - at # prose: what a place should hold
                 'NightWorksIO\MutationGate\Core\Runner\Withheld':
                     - of # vocabulary: a CI's secret variables
+                'NightWorksIO\MutationGate\Extension\Checks\Records':
+                    - unless # prose: what a runner breaks of its contract
                 'NightWorksIO\MutationGate\Mutator\Hint':
                     - that # prose: each mutator's own sentence for its survivors
                 'NightWorksIO\MutationGateDefault\Calls':

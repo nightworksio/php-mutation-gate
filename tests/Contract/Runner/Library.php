@@ -41,8 +41,6 @@ use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
-use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
-use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
@@ -52,6 +50,8 @@ use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Extension\Extensions;
+use NightWorksIO\MutationGate\Extension\LibraryChange;
+use NightWorksIO\MutationGate\Extension\RunnerLibrary;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
@@ -79,10 +79,10 @@ use function substr;
 
 /**
  * The fixture library the runner contract suite mutates, as one runner names
- * its mutators. Each change the library's code allows is named here once, with
- * the file, line, lines and status every runner must report for it.
+ * its mutators: each `LibraryChange`, with the file, line and status every
+ * runner must report for it, by the name this runner gives the mutator that
+ * makes it.
  *
- * @phpstan-type Change array{file: string, line: int, removed: string, added: string, status: MutantStatus}
  * @phpstan-type Record array{string, string, string, int, int, string, string}
  */
 final class Library
@@ -122,82 +122,43 @@ final class Library
     /** Where that marker is. */
     public const string MARKER = 'marked/Marked.php:9';
 
-    /** @var array<string, Change> every change, by a name no runner uses */
-    public const array CHANGES = [
-        'adds' => [
-            'file' => 'src/Money.php',
-            'line' => 11,
-            'removed' => 'return $a + $b;',
-            'added' => 'return $a - $b;',
-            'status' => MutantStatus::Killed,
-        ],
-        'large' => [
-            'file' => 'src/Money.php',
-            'line' => 16,
-            'removed' => 'return $amount > 100;',
-            'added' => 'return $amount >= 100;',
-            'status' => MutantStatus::Survived,
-        ],
-        'unused' => [
-            'file' => 'src/Money.php',
-            'line' => 21,
-            'removed' => 'return $amount - 1;',
-            'added' => 'return $amount + 1;',
-            'status' => MutantStatus::Uncovered,
-        ],
-        'drains' => [
-            'file' => 'src/Money.php',
-            'line' => 27,
-            'removed' => '$amount--;',
-            'added' => '$amount++;',
-            'status' => MutantStatus::TimedOut,
-        ],
-        'held' => [
-            'file' => 'src/Held.php',
-            'line' => 11,
-            'removed' => 'return $amount + $amount;',
-            'added' => 'return $amount - $amount;',
-            'status' => MutantStatus::Survived,
-        ],
-    ];
-
-    /** @var array<string, array{string, MutatorFamily}> the fake's mutator for each change, and its family */
+    /** @var array<string, string> the fake's mutator for each change, by the change */
     public const array FAKE = [
-        'adds' => ['Plus', MutatorFamily::Arithmetic],
-        'large' => ['GreaterThan', MutatorFamily::Boundary],
-        'unused' => ['Minus', MutatorFamily::Arithmetic],
-        'drains' => ['Decrement', MutatorFamily::Arithmetic],
-        'held' => ['Plus', MutatorFamily::Arithmetic],
+        'adds' => 'Plus',
+        'large' => 'GreaterThan',
+        'unused' => 'Minus',
+        'drains' => 'Decrement',
+        'held' => 'Plus',
     ];
 
     /** The library's test files that run more at their top than Pest registrations kept to the file. */
     private const array ACTING = ['tests/MoneySpec.php', 'tests/UnexecutableMoreSpec.php'];
 
-    /** @var array<string, array{string, MutatorFamily}> Pest's mutator for each change, and its family */
+    /** @var array<string, string> Pest's mutator for each change, by the change */
     private const array PEST = [
-        'adds' => [PlusToMinus::class, MutatorFamily::Arithmetic],
-        'large' => [GreaterToGreaterOrEqual::class, MutatorFamily::Boundary],
-        'unused' => [MinusToPlus::class, MutatorFamily::Arithmetic],
-        'drains' => [PostDecrementToPostIncrement::class, MutatorFamily::Arithmetic],
-        'held' => [PlusToMinus::class, MutatorFamily::Arithmetic],
+        'adds' => PlusToMinus::class,
+        'large' => GreaterToGreaterOrEqual::class,
+        'unused' => MinusToPlus::class,
+        'drains' => PostDecrementToPostIncrement::class,
+        'held' => PlusToMinus::class,
     ];
 
-    /** @var array<string, array{string, MutatorFamily}> Infection's mutator for each change, and its family */
+    /** @var array<string, string> Infection's mutator for each change, by the change */
     private const array INFECTION = [
-        'adds' => ['Plus', MutatorFamily::Arithmetic],
-        'large' => ['GreaterThan', MutatorFamily::Boundary],
-        'unused' => ['Minus', MutatorFamily::Arithmetic],
-        'drains' => ['Decrement', MutatorFamily::Arithmetic],
-        'held' => ['Plus', MutatorFamily::Arithmetic],
+        'adds' => 'Plus',
+        'large' => 'GreaterThan',
+        'unused' => 'Minus',
+        'drains' => 'Decrement',
+        'held' => 'Plus',
     ];
 
-    /** @var array<string, array{string, MutatorFamily}> the default set's mutator for each change, and its family */
+    /** @var array<string, string> the default set's mutator for each change, by the change */
     private const array NATIVE = [
-        'adds' => ['default/PlusToMinus', MutatorFamily::Arithmetic],
-        'large' => ['default/GreaterToGreaterOrEqual', MutatorFamily::Boundary],
-        'unused' => ['default/MinusToPlus', MutatorFamily::Arithmetic],
-        'drains' => ['default/PostDecrementToPostIncrement', MutatorFamily::Arithmetic],
-        'held' => ['default/PlusToMinus', MutatorFamily::Arithmetic],
+        'adds' => 'default/PlusToMinus',
+        'large' => 'default/GreaterToGreaterOrEqual',
+        'unused' => 'default/MinusToPlus',
+        'drains' => 'default/PostDecrementToPostIncrement',
+        'held' => 'default/PlusToMinus',
     ];
 
     /** @var array<string, string> what the fake names each test it is asked, by the test's id */
@@ -248,7 +209,7 @@ final class Library
     private static array $runs = [];
 
     /**
-     * @param array<string, array{string, MutatorFamily}> $vocabulary
+     * @param array<string, string>                        $vocabulary the runner's mutator for each change, by the change
      * @param bool                                         $endsReported whether the runner reports the line a mutant ends on,
      *                                                                   and how long each mutant it ran took
      * @param Paths                                        $defining     the files of the library that define its runner
@@ -609,9 +570,22 @@ final class Library
     /** The runner's mutators for these changes. */
     public function mutators(string $change, string ...$more): Mutators
     {
-        $others = array_map(fn(string $each): string => $this->vocabulary[$each][0], $more);
+        return $this->spelling()->mutators(LibraryChange::from($change), ...array_map(LibraryChange::from(...), $more));
+    }
 
-        return Mutators::named($this->vocabulary[$change][0], ...$others);
+    /** The library as the runner contract reads it of this runner. */
+    public function spelling(): RunnerLibrary
+    {
+        $spelling = RunnerLibrary::spelling(
+            adds: $this->vocabulary['adds'],
+            large: $this->vocabulary['large'],
+            unused: $this->vocabulary['unused'],
+            drains: $this->vocabulary['drains'],
+            held: $this->vocabulary['held'],
+            testEnding: $this->suffix,
+        );
+
+        return $this->endsReported ? $spelling : $spelling->unmeasured();
     }
 
     /** A request's answer, run once for this library whatever the number of tests that ask. */
@@ -637,13 +611,12 @@ final class Library
         $records = [];
 
         foreach ($changes as $name) {
-            $change = self::CHANGES[$name];
-            [$mutator, $family] = $this->vocabulary[$name];
-            $diff = sprintf("@@ @@\n-%s\n+%s", $change['removed'], $change['added']);
-            $id = MutantId::hash(Path::of($change['file']), $mutator, $diff, 0)->value();
-            $line = $change['line'];
+            $change = LibraryChange::from($name);
+            $mutator = $this->vocabulary[$name];
+            $id = MutantId::hash($change->file(), $mutator, $change->diff(), 0)->value();
+            $line = $change->line();
             $end = $this->endsReported ? $line : 0;
-            $records[] = [$id, $change['status']->value, $change['file'], $line, $end, $mutator, $family->value];
+            $records[] = [$id, $change->status()->value, $change->file()->value(), $line, $end, $mutator, $change->family()->value];
         }
 
         return $records;

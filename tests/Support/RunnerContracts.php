@@ -6,8 +6,6 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 
 use function array_keys;
 use function array_map;
-use function array_unique;
-use function array_values;
 
 use Closure;
 
@@ -82,15 +80,6 @@ final readonly class RunnerContracts
             MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
             ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('adds', 'large', 'unused', 'drains'))),
         );
-    }
-
-    /** @return list<string> */
-    public static function files(Mutants $mutants): array
-    {
-        return array_values(array_unique(array_map(
-            static fn(Mutant $mutant): string => $mutant->location()->file()->value(),
-            iterator_to_array($mutants, preserve_keys: false),
-        )));
     }
 
     /** @return array<string, list<string>> each covered line of a map, by its file and line, with its tests sorted */

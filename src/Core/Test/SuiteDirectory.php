@@ -17,7 +17,7 @@ use function str_ends_with;
 final readonly class SuiteDirectory
 {
     /** The suffix PHPUnit tells a file of test cases by where a directory names none. */
-    private const string SUFFIX = 'Test.php';
+    public const string SUFFIX = 'Test.php';
 
     private function __construct(private Path $path, private string $suffix)
     {
