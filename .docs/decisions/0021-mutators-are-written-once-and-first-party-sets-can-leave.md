@@ -59,7 +59,8 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
      ADR-0001's first rule, A1 in `ARCHITECTURE.md`.
    - `nikic/php-parser` ^5.9 is in `require`, since every runner process
      loads the SDK.
-   - The layer is public API. This amends ADR-0011.
+   - The layer is public API. This amends ADR-0011. ADR-0043 amends this:
+     the layer's engine, `Mutator\Engine`, is internal.
 
 2. **The interface.**
 
@@ -505,3 +506,4 @@ listed where a reviewer reads first.
 - [ADR-0015](0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md): the stub that runs the code and reads its source
 - [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): the first run that hands over a floor
 - [ADR-0023](0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md): the gate's own engine, built on this SDK, and its wrapper serving a read of the mutated file
+- [ADR-0043](0043-what-semver-covers-is-marked-in-the-code-and-the-port-contracts-ship-as-kits.md): the engine left out of the public API, which amends the layer's promise

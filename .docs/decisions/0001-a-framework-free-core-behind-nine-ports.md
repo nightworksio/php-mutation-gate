@@ -231,7 +231,11 @@ registered, configured and reported exactly like Pest.
 the `Extensions` registry, the eleven ports, the mutator SDK and the `Core` value
 types they use.
 Moving any of them is a major release. What `Cli` looks up is not: an
-extension registers, and never reads the registry back.
+extension registers, and never reads the registry back. ADR-0043 amends
+this: while the major is 0, a minor release may move them, with a
+*Migration* section saying how to move; the surface takes in every core type
+a doc block of the public layers names, and leaves out their machinery,
+`Mutator\Engine` and `Extension\Checks`.
 
 ## Related
 
@@ -245,3 +249,4 @@ extension registers, and never reads the registry back.
 - [ADR-0024](0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md): the Bitbucket, Azure DevOps and Jenkins plans
 - [ADR-0027](0027-codeception-phpspec-and-testo-get-native-runners.md): the Codeception, PhpSpec and Testo runners
 - [ADR-0028](0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md): the Google Cloud Storage and Azure Blob stores
+- [ADR-0043](0043-what-semver-covers-is-marked-in-the-code-and-the-port-contracts-ship-as-kits.md): the boundary of what semver covers, marked and enforced, which amends the API surface and the major-only moves
