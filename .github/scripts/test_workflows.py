@@ -19,6 +19,12 @@ ACTION = os.path.join(ROOT, "action.yml")
 WORKFLOW = os.path.join(ROOT, ".github", "workflows", "mutation-gate.yml")
 RELEASE = os.path.join(ROOT, ".github", "workflows", "release.yml")
 PUBLISH_SCRIPT = os.path.join(ROOT, "resources", "action", "publish.sh")
+INSTALL_SCRIPT = os.path.join(ROOT, "resources", "action", "install.sh")
+
+# The manifest and the lock the gate's own copy installs from, from the root of
+# the gate's checkout.
+KEYED_MANIFEST = "resources/action/keyed/composer.json"
+KEYED_LOCK = "resources/action/keyed/composer.lock"
 
 # More than any one argument, and every argument together, may hold on Linux
 # (128 KiB) and macOS (1 MiB).
@@ -37,6 +43,12 @@ esac
 # A file the action runs from its own repository: GitHub serves the action as
 # the archive git makes of it, which leaves out every export-ignore path.
 ACTION_FILE = re.compile(r"\$\{GITHUB_ACTION_PATH\}/([^\"'\s]+)")
+
+
+# A composer that writes where it was asked to install, and from which manifest.
+FAKE_COMPOSER = """#!/bin/sh
+printf '%s\\n' "COMPOSER=${COMPOSER}" "$@" > "${CALLED}"
+"""
 
 
 FAKE_GH_RELEASE = """#!/bin/sh
@@ -89,13 +101,13 @@ def env_of(lines: list[str]) -> dict[str, str]:
     return {key: value.strip("'") for key, value in pairs if not value.startswith("${{")}
 
 
-def fake(directory: str, gh: str) -> str:
-    """A directory whose gh is the one given, for PATH."""
+def fake(directory: str, gh: str, name: str = "gh") -> str:
+    """A directory whose gh, or the command named, is the one given, for PATH."""
     found = os.path.join(directory, "bin")
     os.makedirs(found)
-    with open(os.path.join(found, "gh"), "w", encoding="utf-8") as file:
+    with open(os.path.join(found, name), "w", encoding="utf-8") as file:
         file.write(gh)
-    os.chmod(os.path.join(found, "gh"), 0o755)
+    os.chmod(os.path.join(found, name), 0o755)
     return found
 
 
@@ -108,18 +120,83 @@ def script(of_step: list[str]) -> str:
     return textwrap.dedent("\n".join(block(of_step, at)[1:])) + "\n"
 
 
+def archived() -> set[str]:
+    """Every path in the archive git makes of the tracked tree, as GitHub serves the action."""
+    tracked = subprocess.run(["git", "stash", "create"], cwd=ROOT, capture_output=True, text=True, check=True)
+    tree = tracked.stdout.strip() or "HEAD"
+    archive = subprocess.run(["git", "archive", "--format=tar", tree], cwd=ROOT, capture_output=True, check=True)
+    with tarfile.open(fileobj=io.BytesIO(archive.stdout)) as tar:
+        return set(tar.getnames())
+
+
 class Archive(unittest.TestCase):
     def test_every_file_the_action_runs_is_in_its_archive(self):
-        tracked = subprocess.run(["git", "stash", "create"], cwd=ROOT, capture_output=True, text=True, check=True)
-        tree = tracked.stdout.strip() or "HEAD"
-        archive = subprocess.run(["git", "archive", "--format=tar", tree], cwd=ROOT, capture_output=True, check=True)
-        with tarfile.open(fileobj=io.BytesIO(archive.stdout)) as tar:
-            archived = set(tar.getnames())
         with open(ACTION, encoding="utf-8") as file:
             run = set(ACTION_FILE.findall(file.read()))
 
         self.assertTrue(run)
-        self.assertEqual(set(), run - archived)
+        self.assertEqual(set(), run - archived())
+
+    def test_the_manifest_and_the_lock_the_gate_s_own_copy_installs_from_are_in_its_archive(self):
+        self.assertLessEqual({KEYED_MANIFEST, KEYED_LOCK}, archived())
+
+
+def install(directory: str, gate: str) -> tuple[subprocess.CompletedProcess, str]:
+    """install.sh run for the gate's copy at gate, with a composer that only says how it was called."""
+    called = os.path.join(directory, "called.txt")
+    composer = fake(directory, FAKE_COMPOSER, "composer")
+    ran = subprocess.run(
+        ["bash", INSTALL_SCRIPT, gate],
+        cwd=directory,
+        env={**os.environ, "PATH": f"{composer}{os.pathsep}{os.environ['PATH']}", "CALLED": called},
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+    return ran, called
+
+
+class OwnCopy(unittest.TestCase):
+    def test_installs_the_gate_s_own_copy_from_its_lock_with_no_dev_packages_scripts_or_plugins(self):
+        with tempfile.TemporaryDirectory() as directory:
+            gate = os.path.join(directory, "gate")
+            os.makedirs(os.path.dirname(os.path.join(gate, KEYED_LOCK)))
+            for path in (KEYED_MANIFEST, KEYED_LOCK):
+                with open(os.path.join(gate, path), "w", encoding="utf-8") as file:
+                    file.write("{}")
+            ran, called = install(directory, gate)
+
+            self.assertEqual(0, ran.returncode, ran.stderr)
+            with open(called, encoding="utf-8") as file:
+                said = file.read().splitlines()
+            self.assertEqual(f"COMPOSER={KEYED_MANIFEST}", said[0])
+            self.assertEqual(["install", f"--working-dir={gate}"], said[1:3])
+            self.assertLessEqual({"--no-dev", "--no-scripts", "--no-plugins", "--no-interaction"}, set(said[3:]))
+
+    def test_installs_nothing_where_the_lock_is_missing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            gate = os.path.join(directory, "gate")
+            os.makedirs(os.path.dirname(os.path.join(gate, KEYED_MANIFEST)))
+            with open(os.path.join(gate, KEYED_MANIFEST), "w", encoding="utf-8") as file:
+                file.write("{}")
+            ran, called = install(directory, gate)
+
+            self.assertEqual(1, ran.returncode)
+            self.assertIn(f"::error::{gate} has no {KEYED_LOCK}", ran.stdout)
+            self.assertFalse(os.path.exists(called))
+
+    def test_the_action_and_every_keyed_job_install_the_gate_s_own_copy_with_it(self):
+        delivering = step(lines_of(ACTION), "Install the gate's own copy")
+
+        self.assertIn('run: bash "${GITHUB_ACTION_PATH}/resources/action/install.sh" "${GITHUB_ACTION_PATH}"', [line.strip() for line in delivering])
+        for name in CREDENTIALED:
+            with self.subTest(job=name):
+                self.assertIn(
+                    'run: bash "${GATE_ACTION}/resources/action/install.sh" "${GATE_ACTION}"',
+                    [line.strip() for line in step(job(WORKFLOW, name), "Install the gate")],
+                )
 
 
 class Publish(unittest.TestCase):
@@ -439,13 +516,12 @@ class ProjectCode(unittest.TestCase):
         for name in CREDENTIALED:
             lines = job(WORKFLOW, name)
             checkouts = [one for one in steps(lines) if "actions/checkout@" in one[0]]
-            composer = [line.strip() for line in lines if re.search(r"\bcomposer\b", line) and "run:" in line]
+            installing = [line.strip() for line in lines if "install.sh" in line or (re.search(r"\bcomposer\b", line) and "run:" in line)]
             with self.subTest(job=name):
                 self.assertFalse(runs_project_code(lines))
                 self.assertTrue(checkouts)
                 self.assertTrue(all("repository: ${{ job.workflow_repository }}" in "\n".join(one) for one in checkouts))
-                self.assertEqual(1, len(composer))
-                self.assertIn('--working-dir="${GATE_ACTION}" --no-scripts --no-plugins', composer[0])
+                self.assertEqual(['run: bash "${GATE_ACTION}/resources/action/install.sh" "${GATE_ACTION}"'], installing)
                 self.assertEqual([], [line for line in lines if '"${GATE}"' in line])
                 self.assertTrue(any('php "${GATE_ACTION}/bin/mutation-gate"' in line for line in lines))
 
@@ -608,24 +684,32 @@ class StaleResults(unittest.TestCase):
         self.assertLess(removing[0], judging[0])
 
 
-# A job's runner, as the reusable workflow names it: its `runs-on` input,
-# a label or a JSON list of labels.
-RUNS_ON = "    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}"
+def runs_on(name: str) -> str:
+    """A job's runner, as the reusable workflow names it from the input named: a label or a JSON list of labels."""
+    return f"    runs-on: ${{{{ startsWith(inputs.{name}, '[') && fromJSON(inputs.{name}) || inputs.{name} }}}}"
+
+
+# The jobs that hold a key or a token that writes, and run none of the
+# project's code: they run on a runner of their own.
+KEYED_JOBS = (*CREDENTIALED, "publish")
 
 
 class Runner(unittest.TestCase):
-    def test_every_job_runs_on_the_runner_the_caller_names(self):
+    def test_every_job_runs_on_the_runner_the_caller_names_and_a_keyed_job_on_the_keyed_one(self):
         for name, lines in jobs(WORKFLOW).items():
             with self.subTest(job=name):
-                self.assertEqual([line for line in lines if line.startswith("    runs-on:")], [RUNS_ON])
+                named = runs_on("keyed-runs-on" if name in KEYED_JOBS else "runs-on")
+                self.assertEqual([line for line in lines if line.startswith("    runs-on:")], [named])
 
-    def test_the_runner_is_ubuntu_latest_where_the_caller_names_none(self):
+    def test_both_runners_are_ubuntu_latest_where_the_caller_names_none(self):
         lines = lines_of(WORKFLOW)
         inputs = block(lines, lines.index("    inputs:"))
-        runs_on = block(inputs, inputs.index("      runs-on:"))
+        for name in ("runs-on", "keyed-runs-on"):
+            with self.subTest(input=name):
+                named = block(inputs, inputs.index(f"      {name}:"))
 
-        self.assertIn("        type: string", runs_on)
-        self.assertIn("        default: ubuntu-latest", runs_on)
+                self.assertIn("        type: string", named)
+                self.assertIn("        default: ubuntu-latest", named)
 
     def test_this_repository_s_callers_name_one_runner(self):
         named = set()

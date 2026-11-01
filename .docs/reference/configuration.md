@@ -254,13 +254,15 @@ In a `composer.json`, under `extra.mutation-gate`:
 
 ## In the reusable workflow's call
 
-The reusable workflow takes the action's inputs less `shard`, which the
-[GitHub Actions guide](../guide/ci/github-actions.md) lists, and two of its own:
+The reusable workflow takes the action's inputs less `shard`, `deliver` and
+`composer-auth`, which the [GitHub Actions guide](../guide/ci/github-actions.md)
+lists, and three of its own:
 
 | Input | Type | Default | Decided in |
 |-------|------|---------|------------|
 | `coverage` | the name of an artifact of the run that holds `map.json.gz` | none: the plan runs the suite under coverage | [0006](../decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
-| `runs-on` | the runner every job runs on: a label, or a JSON list of labels a runner must all have | `ubuntu-latest` | [0035](../decisions/0035-the-reusable-workflow-runs-on-the-runner-its-caller-names.md) |
+| `runs-on` | the runner the plan, the shards, the survivors and the verdict run on: a label, or a JSON list of labels a runner must all have | `ubuntu-latest` | [0035](../decisions/0035-the-reusable-workflow-runs-on-the-runner-its-caller-names.md) |
+| `keyed-runs-on` | the runner `fetch`, the `deliver` jobs and `publish` run on, which hold a key or a token that writes: a label, or a JSON list of labels | `ubuntu-latest` | [0039](../decisions/0039-the-jobs-that-hold-a-credential-run-on-a-runner-of-their-own.md) |
 
 The one-step action runs on the runner of the job that uses it, so that job's
 `runs-on` sets it.

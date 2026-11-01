@@ -198,22 +198,62 @@ jobs:
       mode: full
       runs-on: ubuntu-24.04-arm
 
-  # The release, its PHAR and its image (ADR-0022), from the commit verify and
-  # the gate judged, once both passed. The PHAR is built as composer phar builds
-  # it, signed with the release key, which lives in the release environment
-  # whose deployment policy allows only v* tags, and attested; the image is
-  # built from it for linux/amd64 and linux/arm64, pushed to GHCR as
-  # <version>, <major>.<minor> and <major>, and its provenance attested beside
-  # it in the registry.
-  publish:
-    name: publish
+  # The PHAR (ADR-0022), built as composer phar builds it from the commit
+  # verify and the gate judged, once both passed. The build installs the whole
+  # development tree and runs its Composer plugins, so this job holds no secret,
+  # enters no environment and may write nothing: it hands the PHAR on as an
+  # artifact, and its SHA-256 as an output.
+  build:
+    name: build
     needs: [verify, gate]
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    outputs:
+      digest: ${{ steps.digest.outputs.digest }}
+      attempt: ${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.5'
+          coverage: none
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+        with:
+          ignore-cache: true
+      # Composer gives the archive the version the tag names, which the gate
+      # says it is and init --ci pins.
+      - name: Build the PHAR
+        env:
+          TAG: ${{ github.ref_name }}
+        run: COMPOSER_ROOT_VERSION="${TAG#v}" composer phar
+      - name: Name the PHAR's SHA-256
+        id: digest
+        run: echo "digest=$(sha256sum build/mutation-gate.phar | cut -d' ' -f1)" >> "${GITHUB_OUTPUT}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mutation-gate-phar-${{ github.run_attempt }}
+          path: build/mutation-gate.phar
+          if-no-files-found: error
+          retention-days: 1
+
+  # The release, from the commit verify and the gate judged: the PHAR build
+  # made, once its SHA-256 is the one build named, signed with the release key,
+  # which lives in the release environment whose deployment policy allows only
+  # v* tags, attested, and published with the version's notes. It runs no
+  # Composer and installs nothing.
+  publish:
+    name: publish
+    needs: [verify, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment: release
     permissions:
       contents: write
-      packages: write
       id-token: write
       attestations: write
     steps:
@@ -235,19 +275,20 @@ jobs:
             echo "::error::${TAG} is at ${tagged} now, not at ${COMMIT}, which this run verified and judged."
             exit 1
           fi
-      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          php-version: '8.5'
-          coverage: none
-      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
-        with:
-          ignore-cache: true
-      # Composer gives the archive the version the tag names, which the gate
-      # says it is and init --ci pins.
-      - name: Build the PHAR
+          name: mutation-gate-phar-${{ needs.build.outputs.attempt }}
+          path: build
+      - name: Check the PHAR is the one build made
         env:
-          TAG: ${{ github.ref_name }}
-        run: COMPOSER_ROOT_VERSION="${TAG#v}" composer phar
+          DIGEST: ${{ needs.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DIGEST}" ]; then
+            echo "::error::build named no SHA-256 for the PHAR, so nothing is signed."
+            exit 1
+          fi
+          echo "${DIGEST}  build/mutation-gate.phar" | sha256sum --check --strict
       - name: Sign the PHAR with the release key
         env:
           RELEASE_GPG_KEY: ${{ secrets.RELEASE_GPG_KEY }}
@@ -278,6 +319,41 @@ jobs:
           gh release create "${TAG}" --repo "${GITHUB_REPOSITORY}" --verify-tag \
             --title "${TAG}" --notes-file "${RUNNER_TEMP}/notes.md" \
             build/mutation-gate.phar build/mutation-gate.phar.asc
+
+  # The image (ADR-0022), built from the PHAR build made, once its SHA-256 is
+  # the one build named, for linux/amd64 and linux/arm64, pushed to GHCR as
+  # <version>, <major>.<minor> and <major>, and its provenance attested beside
+  # it in the registry. It runs once the release is published, holds no
+  # secret and runs no Composer.
+  image:
+    name: image
+    needs: [build, publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: mutation-gate-phar-${{ needs.build.outputs.attempt }}
+          path: build
+      - name: Check the PHAR is the one build made
+        env:
+          DIGEST: ${{ needs.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DIGEST}" ]; then
+            echo "::error::build named no SHA-256 for the PHAR, so no image is built."
+            exit 1
+          fi
+          echo "${DIGEST}  build/mutation-gate.phar" | sha256sum --check --strict
       - name: Name the image's tags
         id: tags
         env:
@@ -312,6 +388,17 @@ jobs:
           subject-name: ${{ steps.tags.outputs.image }}
           subject-digest: ${{ steps.image.outputs.digest }}
           push-to-registry: true
+
+  # The tag of the release line, moved to the released commit once the
+  # release and its image are published.
+  line:
+    name: line
+    needs: [verify, publish, image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
       - name: Move the release line's tag
         env:
           GH_TOKEN: ${{ github.token }}

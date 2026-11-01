@@ -39,8 +39,10 @@ its detached signature by the release key:
 | Algorithm | ed25519, signing only |
 
 The key signs nothing else, and only the release workflow, in the `release`
-environment that deploys from `v*` tags alone, can use it. With the key
-imported, check that `gpg` names this fingerprint:
+environment that deploys from `v*` tags alone, can use it. The job that holds
+it runs no Composer: it signs the PHAR another job built, holding no secret,
+once the PHAR's SHA-256 is the one that job named. With the key imported,
+check that `gpg` names this fingerprint:
 
 ```sh
 gpg --verify mutation-gate.phar.asc mutation-gate.phar

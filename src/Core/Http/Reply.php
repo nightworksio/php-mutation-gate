@@ -92,13 +92,20 @@ final readonly class Reply
 
     /**
      * Why a post to what the reader knows as this was not written: it could
-     * not be reached. Every URL in the reason becomes that name, as a chat's
-     * URL holds its credential, and the reason is one plain line.
+     * not be reached, for the reason `named` gives.
      */
     public static function unreached(string $to, string $why): NotWritten
     {
-        $named = sprintf('%s', preg_replace(self::URL, $to, $why));
+        return NotWritten::because(sprintf(self::UNREACHED, $to, self::named($to, $why)));
+    }
 
-        return NotWritten::because(sprintf(self::UNREACHED, $to, Fit::plain($named)));
+    /**
+     * A reason a place could not be reached, as one plain line, every URL in
+     * it the name the reader knows the place by, as a chat's URL holds its
+     * credential.
+     */
+    public static function named(string $to, string $why): string
+    {
+        return Fit::plain(sprintf('%s', preg_replace(self::URL, $to, $why)));
     }
 }

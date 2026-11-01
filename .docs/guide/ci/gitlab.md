@@ -44,6 +44,14 @@ a verdict that runs even after a failed shard, and the `mutation` trigger job
 takes its result. Keep `.mutation-gate/ledger` in a `cache:` keyed by branch,
 such as `key: mutation-gate-ledger-$CI_COMMIT_REF_SLUG`.
 
+That cache is safe only while the project's CI/CD setting *Use separate
+caches for protected branches* stays on, as it is by default. With it on, a
+protected branch's pipelines keep a cache apart from every other pipeline's
+under the same key, so a merge request can neither write nor read the default
+branch's ledger. With it off, a branch can edit the pipeline to use the
+default branch's key, and the next default-branch run reads what that branch
+wrote.
+
 For an S3 store, set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` as
 protected, masked CI/CD variables, which only protected branches' pipelines
 see, never a merge request's; keep the default branch the only protected one,

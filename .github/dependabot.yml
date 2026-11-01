@@ -8,15 +8,17 @@ version: 2
 # run. Security updates are never held by a cooldown.
 
 updates:
-  # The package, the contract suites' fixture libraries and the project the
+  # The package, the runtime packages the keyed jobs install the gate's own
+  # copy from, the contract suites' fixture libraries and the project the
   # PHAR's smoke suite judges, in one entry, so a group's update moves the
-  # package's lock and every fixture's in one pull request: the fixtures'
+  # package's lock and every other lock in one pull request: the fixtures'
   # php-code-coverage moves with the package's, whose maps the adapters read.
   # The fixtures' locks hold the highest releases the required `runner
   # contracts` job runs; the runner canary runs the newest.
   - package-ecosystem: composer
     directories:
       - /
+      - /resources/action/keyed
       - /tests/Contract/Runner/fixture
       - /tests/Contract/Runner/infection-fixture
       - /tests/Contract/Runner/infection-fixture/phpunit-12

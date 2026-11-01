@@ -32,9 +32,10 @@ ledger in S3, Cloud Storage or Azure Blob Storage, with credentials that can
 write the default branch's prefix held only by default-branch runs
 ([ADR-0007](../../decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md)).
 With an AWS OIDC role, make its trust policy match a GitHub environment that
-only the default branch may deploy to, or the verdict workflow's
-`job_workflow_ref`, never `ref: refs/heads/main` alone: every job a workflow
-runs on the default branch carries that `ref`, whatever started it
+only the default branch may deploy to, such as `mutation-gate-store`, or the
+verdict workflow's `job_workflow_ref`, never `ref: refs/heads/main` alone:
+every job a workflow runs on the default branch carries that `ref`, whatever
+started it
 ([ADR-0019](../../decisions/0019-contributor-automation-runs-no-pull-request-content-where-it-can-write.md)).
 
 ## Cloud Storage and Azure Blob Storage
@@ -44,35 +45,63 @@ plain HTTP, so they need no package beyond the gate. `gcs` exchanges the
 external-account file `google-github-actions/auth` writes, and refuses a
 service-account key (exit 2). `azure` exchanges GitHub's OIDC token for the
 tenant and client `azure/login` reads, and has no option for an account key or
-a shared access signature. Bind the identity to a GitHub environment that only
-the default branch may deploy to, used only by the verdict job, or to the
-verdict workflow's `job_workflow_ref`, never to a bare `ref`. A repository
-created after 2026-07-15 issues `sub` as
+a shared access signature.
+
+Bind each identity to a GitHub environment, never to a bare `ref`. The
+reusable workflow's `fetch` job enters `mutation-gate-read` to read the
+default branch's ledger, and any run may enter it, a pull request's included.
+Its `deliver` job enters `mutation-gate-store`, whose deployment branches are
+the default branch alone, to write the ledger, and so does the `deliver` job
+`init --ci=github --single` writes. So bind two identities: one that only
+reads, for `mutation-gate-read`, and one that writes, for
+`mutation-gate-store`. Name each in its own environment's variables,
+`MUTATION_GATE_GCS_SERVICE_ACCOUNT` or `AZURE_CLIENT_ID`, never the
+repository's: an environment's variable wins over the repository's, and a
+`deliver` job that enters no environment then holds no identity. One identity
+whose condition admits both environments gives every run's `fetch` job the
+right to write. A repository created after 2026-07-15 issues `sub` as
 `repo:<owner>@<owner id>/<repo>@<repo id>:…`, and a credential that matches
 `sub` exactly has to use that form
 ([ADR-0028](../../decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md)):
 
 ```sh
-# Cloud Storage: a provider only the verdict environment's runs pass
+# Cloud Storage: a provider only this repository's two environments pass, and a
+# service account for each, which only that environment may impersonate
 gcloud iam workload-identity-pools create github --location=global
 gcloud iam workload-identity-pools providers create-oidc github --location=global \
   --workload-identity-pool=github --issuer-uri=https://token.actions.githubusercontent.com \
-  --attribute-mapping=google.subject=assertion.sub,attribute.repository_id=assertion.repository_id \
-  --attribute-condition="assertion.repository_id == '<repo id>' && assertion.environment == 'mutation-verdict'"
+  --attribute-mapping=google.subject=assertion.sub,attribute.environment=assertion.environment \
+  --attribute-condition="assertion.repository_id == '<repo id>' && assertion.environment in ['mutation-gate-read', 'mutation-gate-store']"
+gcloud iam service-accounts create mutation-gate-read
+gcloud iam service-accounts create mutation-gate-store
+gcloud storage buckets add-iam-policy-binding gs://<bucket> --role=roles/storage.objectViewer \
+  --member=serviceAccount:mutation-gate-read@<project>.iam.gserviceaccount.com
 gcloud storage buckets add-iam-policy-binding gs://<bucket> --role=roles/storage.objectUser \
-  --member=principalSet://iam.googleapis.com/projects/<project number>/locations/global/workloadIdentityPools/github/attribute.repository_id/<repo id>
+  --member=serviceAccount:mutation-gate-store@<project>.iam.gserviceaccount.com
+gcloud iam service-accounts add-iam-policy-binding mutation-gate-read@<project>.iam.gserviceaccount.com \
+  --role=roles/iam.workloadIdentityUser \
+  --member=principalSet://iam.googleapis.com/projects/<project number>/locations/global/workloadIdentityPools/github/attribute.environment/mutation-gate-read
+gcloud iam service-accounts add-iam-policy-binding mutation-gate-store@<project>.iam.gserviceaccount.com \
+  --role=roles/iam.workloadIdentityUser \
+  --member=principalSet://iam.googleapis.com/projects/<project number>/locations/global/workloadIdentityPools/github/attribute.environment/mutation-gate-store
 
-# Azure: a federated credential on the verdict environment's subject
-az ad app federated-credential create --id <app id> --parameters '{"name": "mutation-verdict",
+# Azure: an app for each environment, with a federated credential on that
+# environment's subject, the reader's role able only to read
+az ad app federated-credential create --id <reader app id> --parameters '{"name": "mutation-gate-read",
   "issuer": "https://token.actions.githubusercontent.com", "audiences": ["api://AzureADTokenExchange"],
-  "subject": "repo:<owner>/<repo>:environment:mutation-verdict"}'
-az role assignment create --assignee <app id> --role "Storage Blob Data Contributor" \
+  "subject": "repo:<owner>/<repo>:environment:mutation-gate-read"}'
+az role assignment create --assignee <reader app id> --role "Storage Blob Data Reader" \
+  --scope /subscriptions/<subscription>/resourceGroups/<group>/providers/Microsoft.Storage/storageAccounts/<account>
+az ad app federated-credential create --id <writer app id> --parameters '{"name": "mutation-gate-store",
+  "issuer": "https://token.actions.githubusercontent.com", "audiences": ["api://AzureADTokenExchange"],
+  "subject": "repo:<owner>/<repo>:environment:mutation-gate-store"}'
+az role assignment create --assignee <writer app id> --role "Storage Blob Data Contributor" \
   --scope /subscriptions/<subscription>/resourceGroups/<group>/providers/Microsoft.Storage/storageAccounts/<account>
 ```
 
-To bind the workflow instead, the Cloud Storage condition tests
-`assertion.job_workflow_ref`, and on Azure the `sub` GitHub issues has to
-include `job_workflow_ref`, or the credential is a flexible one.
+A binding to the workflow's `job_workflow_ref` alone cannot tell `fetch`
+from `deliver`, which run in the same workflow, so keep the write binding on
+`mutation-gate-store`.
 
 ## Pull requests from forks
 

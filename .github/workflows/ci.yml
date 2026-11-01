@@ -271,17 +271,34 @@ jobs:
       # form, into evidence/raw, and the evidence step shows every finding as an
       # annotation (ADR-0019).
       # Each plugin's composer.json is checked on its own too, as it will be
-      # once the plugin leaves (A8).
+      # once the plugin leaves (A8), and so is the manifest the keyed jobs
+      # install the gate's own copy from, with its lock.
       - id: validate
         run: |
           mkdir -p evidence/raw
           composer validate --strict
           for manifest in plugins/*/composer.json; do composer validate --strict --no-check-lock "$manifest"; done
+          COMPOSER=resources/action/keyed/composer.json composer validate --strict
       - id: normalize
         run: |
           set -o pipefail
           composer normalize --dry-run 2>&1 | tee evidence/raw/normalize.txt
-          for manifest in plugins/*/composer.json; do composer normalize --dry-run "$manifest" 2>&1 | tee -a evidence/raw/normalize.txt; done
+          for manifest in plugins/*/composer.json resources/action/keyed/composer.json; do composer normalize --dry-run "$manifest" 2>&1 | tee -a evidence/raw/normalize.txt; done
+      # The gate's own copy, as the action's deliver job installs it from the
+      # archive GitHub serves the action as, which leaves out every
+      # export-ignore path: it installs from its lock alone, and starts.
+      - id: own-copy
+        run: |
+          set -euo pipefail
+          copy="${RUNNER_TEMP}/action"
+          mkdir -p "${copy}"
+          git archive --format=tar HEAD | tar -x -C "${copy}"
+          bash "${copy}/resources/action/install.sh" "${copy}"
+          said="$(php "${copy}/bin/mutation-gate" deliver --from="${RUNNER_TEMP}/no-delivery" 2>&1 || true)"
+          if [[ "${said}" != *"so deliver sends nothing."* ]]; then
+            echo "::error::The gate's own copy did not start deliver: ${said}"
+            exit 1
+          fi
       - id: audit
         run: composer audit --locked --format=json > evidence/raw/audit.json
       - id: lint

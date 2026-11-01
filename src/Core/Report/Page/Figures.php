@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Report\Page;
 
 use function array_key_exists;
 use function array_sum;
+use function array_values;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\Report\Grade;
@@ -53,11 +54,17 @@ final readonly class Figures
 
     private const string BAR = <<<'HTML'
         <div class="bar" role="img" aria-label="%1$s">
-        <span class="bar-fill" style="width: %2$.2F%%"></span>%3$s
+        <span class="bar-fill" style="%2$s"></span>%3$s
         </div>
         HTML;
 
-    private const string FLOOR = '<span class="bar-floor" style="left: %.2F%%" title="floor %s"></span>';
+    private const string FLOOR = '<span class="bar-floor" style="%s" title="floor %s"></span>';
+
+    /** How far a bar is filled: its score. */
+    private const string FILLED = 'width: %.2F%%';
+
+    /** Where a bar's floor is marked: at the floor. */
+    private const string MARKED = 'left: %.2F%%';
 
     private const string SCORED = 'Score %s';
 
@@ -83,7 +90,7 @@ final readonly class Figures
 
         $sets = [];
 
-        foreach ([...$report['trees'], ...$report['newCode'], ...$report['security']] as $set) {
+        foreach (self::sets($report) as $set) {
             $sets[] = self::set($set);
         }
 
@@ -109,6 +116,35 @@ final readonly class Figures
         );
     }
 
+    /**
+     * Every style attribute the figures write, each once: each bar's fill and
+     * each floor's mark, which the page's Content Security Policy names.
+     *
+     * @param Report $report
+     *
+     * @return list<string>
+     */
+    public static function styles(array $report): array
+    {
+        $styles = [];
+
+        foreach (self::sets($report) as $set) {
+            if (! array_key_exists('score', $set)) {
+                continue;
+            }
+
+            $filled = sprintf(self::FILLED, $set['score']);
+            $styles[$filled] = $filled;
+
+            if (array_key_exists('floor', $set)) {
+                $marked = sprintf(self::MARKED, $set['floor']);
+                $styles[$marked] = $marked;
+            }
+        }
+
+        return array_values($styles);
+    }
+
     /** An outcome's grade, said in a word so that no reader needs the colour to tell. */
     public static function grade(Grade $grade): string
     {
@@ -123,7 +159,7 @@ final readonly class Figures
             array_key_exists('floor', $set) => self::bar(
                 $set['score'],
                 sprintf(self::AGAINST, Html::percent($set['score']), Html::percent($set['floor'])),
-                sprintf(self::FLOOR, $set['floor'], Html::percent($set['floor'])),
+                sprintf(self::FLOOR, sprintf(self::MARKED, $set['floor']), Html::percent($set['floor'])),
             ),
             default => self::bar($set['score'], sprintf(self::SCORED, Html::percent($set['score'])), ''),
         };
@@ -134,6 +170,18 @@ final readonly class Figures
     /** A bar filled to a score, said for a reader that sees no bar, with its floor marked where it has one. */
     private static function bar(float $score, string $said, string $floor): string
     {
-        return sprintf(self::BAR, Html::text($said), $score, $floor);
+        return sprintf(self::BAR, Html::text($said), sprintf(self::FILLED, $score), $floor);
+    }
+
+    /**
+     * Every set the figures score: each tree, the new code and each security set.
+     *
+     * @param Report $report
+     *
+     * @return list<SecurityEntry>
+     */
+    private static function sets(array $report): array
+    {
+        return [...$report['trees'], ...$report['newCode'], ...$report['security']];
     }
 }

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Dashboard;
 
 use function count;
-use function hash;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -16,7 +15,6 @@ use NightWorksIO\MutationGate\Core\Report\TrendSvg;
 use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
-use function sodium_bin2base64;
 use function sprintf;
 use function str_starts_with;
 
@@ -95,8 +93,6 @@ final readonly class DashboardPage
     /** What the page may load and run: its own style and script, by their hashes, and nothing else. */
     private const string POLICY = "default-src 'none'; style-src '%s'; script-src '%s'";
 
-    private const string HASH = 'sha256-%s';
-
     private const string LINK = '<a href="%s">%s</a>';
 
     private const string PRIVATE = ' <span class="private">private</span>';
@@ -133,16 +129,7 @@ final readonly class DashboardPage
             )),
             implode("\n", $rows),
             $script,
-            sprintf(self::POLICY, self::hash($style), self::hash($script)),
-        );
-    }
-
-    /** The hash a Content Security Policy names an inline style or script by. */
-    private static function hash(string $inline): string
-    {
-        return sprintf(
-            self::HASH,
-            sodium_bin2base64(hash('sha256', $inline, binary: true), SODIUM_BASE64_VARIANT_ORIGINAL),
+            sprintf(self::POLICY, Html::source($style), Html::source($script)),
         );
     }
 

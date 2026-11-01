@@ -82,6 +82,13 @@ it('says a ledger it could not fetch was unreachable, or did not come in time', 
         ->toEqual(Unreadable::because(UnreadReason::TimedOut, 'gs://ledgers/main', 'no answer came in time'));
 });
 
+it('names an unreachable ledger by the name the reader knows it by, never by a URL its reason carries', function (): void {
+    $unreached = new MockHttpClient(new MockResponse('', ['error' => 'Could not resolve host for "https://ledgers.example/main?sig=secret"']));
+
+    expect(HttpExchange::over($unreached)->fetch(Request::get('https://ledgers.example/main?sig=secret'), LedgerLimits::standard(), 'gs://ledgers/main'))
+        ->toEqual(Unreadable::because(UnreadReason::Unreachable, 'gs://ledgers/main', 'Could not resolve host for "gs://ledgers/main"'));
+});
+
 it('puts a ledger, saying where it went, or why it did not', function (): void {
     $cloud = new Cloud()->answering('https://ledgers.example/denied', 403, 'AuthorizationPermissionMismatch');
     $unreached = new MockHttpClient(new MockResponse('', ['error' => 'Could not resolve host']));

@@ -98,12 +98,13 @@
     },
     "checks": {
       "check": "checks",
-      "checks": "The manifests, the root's and each plugin's, the formatting (Pint), the static analysis (PHPStan), dead idioms (Rector), the advisories and the dependencies.",
-      "reproduce": "composer validate --strict && composer normalize --dry-run && composer validate --strict --no-check-lock plugins/default/composer.json && composer normalize --dry-run plugins/default/composer.json && composer validate --strict --no-check-lock plugins/laravel/composer.json && composer normalize --dry-run plugins/laravel/composer.json && composer validate --strict --no-check-lock plugins/symfony/composer.json && composer normalize --dry-run plugins/symfony/composer.json && composer validate --strict --no-check-lock plugins/security/composer.json && composer normalize --dry-run plugins/security/composer.json && composer audit --locked && composer lint && composer analyse && composer refactor && composer deps",
+      "checks": "The manifests, the root's, each plugin's and the keyed jobs' with its lock, the gate's own copy the action installs from its archive, the formatting (Pint), the static analysis (PHPStan), dead idioms (Rector), the advisories and the dependencies.",
+      "reproduce": "composer validate --strict && composer normalize --dry-run && composer validate --strict --no-check-lock plugins/default/composer.json && composer normalize --dry-run plugins/default/composer.json && composer validate --strict --no-check-lock plugins/laravel/composer.json && composer normalize --dry-run plugins/laravel/composer.json && composer validate --strict --no-check-lock plugins/symfony/composer.json && composer normalize --dry-run plugins/symfony/composer.json && composer validate --strict --no-check-lock plugins/security/composer.json && composer normalize --dry-run plugins/security/composer.json && COMPOSER=resources/action/keyed/composer.json composer validate --strict && composer normalize --dry-run resources/action/keyed/composer.json && mkdir -p /tmp/action && git archive HEAD | tar -x -C /tmp/action && bash /tmp/action/resources/action/install.sh /tmp/action && composer audit --locked && composer lint && composer analyse && composer refactor && composer deps",
       "fix": "composer refactor:fix && composer lint:fix && composer normalize",
       "evidence": [
         {"step": "validate", "tool": "composer-validate"},
         {"step": "normalize", "tool": "composer-normalize", "raw": "evidence/raw/normalize.txt"},
+        {"step": "own-copy", "tool": "own-copy"},
         {"step": "audit", "tool": "composer-audit", "raw": "evidence/raw/audit.json"},
         {"step": "lint", "tool": "pint", "raw": "evidence/raw/pint.json"},
         {"step": "analyse", "tool": "phpstan", "raw": "evidence/raw/phpstan.json"},
@@ -113,6 +114,7 @@
       "rules": {
         "composer-validate": "composer.json is not valid. Run composer validate --strict for what it says.",
         "composer-normalize": "composer.json is not normalized. composer normalize writes it in the order and shape it wants.",
+        "own-copy": "The gate's own copy, which the action's deliver job installs from the archive GitHub serves the action as, did not install from the lock under resources/action/keyed, or did not start. Check that the lock is committed and not export-ignored, and that COMPOSER=resources/action/keyed/composer.json composer validate --strict passes.",
         "composer-audit": "The audit did not run to the end.",
         "advisory": "A package the lock file installs has a security advisory. Raise it to a release the advisory says is fixed.",
         "abandoned": "A package the lock file installs is abandoned. Replace it with the package its author names, or drop it.",

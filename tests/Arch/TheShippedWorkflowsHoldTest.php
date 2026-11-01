@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
+use NightWorksIO\MutationGate\Tests\Support\Tree;
 use NightWorksIO\MutationGate\Tests\Support\WorkflowFile;
 
 // What the action, the reusable workflow and the release workflow promise a
@@ -17,6 +18,9 @@ use NightWorksIO\MutationGate\Tests\Support\WorkflowFile;
 
 /** The reusable workflow's path. */
 const REUSABLE = '.github/workflows/mutation-gate.yml';
+
+/** The release workflow's path. */
+const RELEASE = '.github/workflows/release.yml';
 
 /** How a step's `run` starts the gate from its own installation, which loads none of the project's code. */
 const OWN_GATE = 'php "${GATE_ACTION}/bin/mutation-gate" ';
@@ -217,7 +221,7 @@ it('restores no ledger for one shard, which reads none', function (): void {
 });
 
 it('publishes the commit it verified and judged, never the tag read again by name', function (): void {
-    $publish = WorkflowFile::at('.github/workflows/release.yml')->field('jobs')->field('publish');
+    $publish = WorkflowFile::at(RELEASE)->field('jobs')->field('publish');
     $steps = jobSteps($publish);
     $runs = implode("\n", array_map(static fn(Node $step): string => Lenient::text($step->field('run')), $steps));
 
@@ -228,7 +232,7 @@ it('publishes the commit it verified and judged, never the tag read again by nam
 });
 
 it('never resets a release branch a dispatch finds, which may hold the maintainer\'s edits', function (): void {
-    $draft = WorkflowFile::at('.github/workflows/release.yml')->field('jobs')->field('draft');
+    $draft = WorkflowFile::at(RELEASE)->field('jobs')->field('draft');
     $runs = implode("\n", array_map(static fn(Node $step): string => Lenient::text($step->field('run')), jobSteps($draft)));
 
     expect($runs)->not->toContain('force=true')
@@ -264,14 +268,15 @@ it('gives the action\'s token only to naming the default branch, before the proj
         ->and(Lenient::text($steps[$installs]->field('if')))->toBe("inputs.deliver != 'true'");
 });
 
-it('installs the gate the action delivers with from the gate\'s own lock, running none of its scripts or plugins', function (): void {
+it('installs the gate the action delivers with from its own lock alone, running none of its scripts or plugins', function (): void {
     $steps = WorkflowFile::at('action.yml')->field('runs')->field('steps');
     $installing = WorkflowFile::stepsWhere($steps, 'name', static fn(string $name): bool => $name === "Install the gate's own copy");
     $run = Lenient::text(Lenient::items($steps)[$installing[0]]->field('run'));
+    $script = (string) file_get_contents(Tree::at('resources/action/install.sh'));
 
-    expect($run)->toContain('composer install --working-dir="${GITHUB_ACTION_PATH}"')
-        ->and($run)->toContain('--no-scripts')
-        ->and($run)->toContain('--no-plugins');
+    expect($run)->toBe('bash "${GITHUB_ACTION_PATH}/resources/action/install.sh" "${GITHUB_ACTION_PATH}"')
+        ->and($script)->toContain('if [ ! -f "${gate}/${lock}" ]; then')
+        ->and($script)->toContain('COMPOSER="${manifest}" composer install --working-dir="${gate}" --no-dev --no-scripts --no-plugins');
 });
 
 it('caches the ledger and the kept coverage map the verdict left, keyed by both, in the action and the reusable workflow', function (): void {
@@ -384,5 +389,47 @@ it('grants the reusable workflow, wherever this repository calls it, every permi
         ->and($short)->toBe([]);
 })->with([
     'the self-gate' => ['.github/workflows/ci.yml', 'mutation'],
-    'the release' => ['.github/workflows/release.yml', 'gate'],
+    'the release' => [RELEASE, 'gate'],
+]);
+
+it('builds the PHAR in a job that holds no secret and may write nothing, and signs it in one that runs no Composer', function (): void {
+    $jobs = Lenient::entries(WorkflowFile::at(RELEASE)->field('jobs'));
+    $build = $jobs['build'];
+    $composing = [];
+
+    foreach ($jobs as $id => $job) {
+        foreach (jobSteps($job) as $step) {
+            $composer = installs($step)
+                || str_starts_with(Lenient::text($step->field('uses')), 'shivammathur/setup-php@')
+                || preg_match('/\bcomposer\b/', Lenient::text($step->field('run'))) === 1;
+            $composing = $composer ? [...$composing, $id] : $composing;
+        }
+    }
+
+    $buildSteps = jobSteps($build);
+    $granted = array_map(Lenient::text(...), Lenient::entries($build->field('permissions')));
+    $holding = array_filter($buildSteps, static fn(Node $step): bool => namesASecret($step->field('env')) || namesASecret($step->field('with')));
+
+    expect(array_values(array_unique($composing)))->toBe(['build'])
+        ->and($granted)->toBe(['contents' => 'read'])
+        ->and($build->field('environment')->isPresent())->toBeFalse()
+        ->and($holding)->toBe([]);
+});
+
+it('signs, attests and pushes only the PHAR whose SHA-256 build named', function (string $id, string $using): void {
+    $steps = WorkflowFile::at(RELEASE)->field('jobs')->field($id)->field('steps');
+    $checked = WorkflowFile::stepsWhere($steps, 'name', static fn(string $name): bool => $name === 'Check the PHAR is the one build made');
+    $used = WorkflowFile::stepsWhere($steps, 'uses', static fn(string $uses): bool => str_starts_with($uses, $using));
+    $signed = WorkflowFile::stepsWhere($steps, 'name', static fn(string $name): bool => $name === 'Sign the PHAR with the release key');
+    $guarded = [...$used, ...$signed];
+    $check = Lenient::items($steps)[$checked[0]];
+
+    expect($checked)->toHaveCount(1)
+        ->and($guarded)->not->toBe([])
+        ->and($guarded)->each->toBeGreaterThan($checked[0])
+        ->and(Lenient::text($check->field('env')->field('DIGEST')))->toBe('${{ needs.build.outputs.digest }}')
+        ->and(Lenient::text($check->field('run')))->toContain('echo "${DIGEST}  build/mutation-gate.phar" | sha256sum --check --strict');
+})->with([
+    'the release' => ['publish', 'actions/attest-build-provenance@'],
+    'the image' => ['image', 'docker/build-push-action@'],
 ]);

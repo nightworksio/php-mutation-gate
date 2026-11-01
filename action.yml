@@ -55,7 +55,8 @@ inputs:
   composer-auth:
     description: >-
       The credentials Composer installs the project's dependencies with, as COMPOSER_AUTH holds them, for a private
-      repository. Pass a secret; only the step that installs the dependencies reads it.
+      repository. Pass a secret; only the step that installs the dependencies reads it, and that step runs the
+      project's Composer scripts and plugins, which can read it.
     required: false
     default: ''
 
@@ -372,10 +373,10 @@ runs:
 
     # `deliver: true`: a job of its own, after the run's, that runs none of
     # the project's code. It installs the gate's own copy at the action's path
-    # from the gate's own lock, never the project's vendor, which a pull
-    # request controls, and sends each stage's delivery with the token. A
-    # step after the project's code in one job could not hold it: that code
-    # can change what every later step of its job runs (ADR-0007).
+    # from the lock under resources/action/keyed, never the project's vendor,
+    # which a pull request controls, and sends each stage's delivery with the
+    # token. A step after the project's code in one job could not hold it:
+    # that code can change what every later step of its job runs (ADR-0007).
     - name: Set up PHP to deliver
       if: inputs.deliver == 'true'
       uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
@@ -386,7 +387,7 @@ runs:
     - name: Install the gate's own copy
       if: inputs.deliver == 'true'
       shell: bash
-      run: composer install --working-dir="${GITHUB_ACTION_PATH}" --no-dev --no-scripts --no-plugins --no-interaction --no-progress --prefer-dist
+      run: bash "${GITHUB_ACTION_PATH}/resources/action/install.sh" "${GITHUB_ACTION_PATH}"
 
     # A run that stopped before it left anything uploaded nothing, and then
     # there is nothing to deliver.
