@@ -49,7 +49,7 @@ final readonly class OwnerMentions
     /** A placeholder, capturing the user or team it names. */
     private const string PLACEHOLDERS = '#<!-- mutation-gate: mention (@[A-Za-z0-9/_.-]+) -->#';
 
-    private const string RECORDS = '#<!-- mutation-gate: mentioned ([@A-Za-z0-9/_. -]*) -->#';
+    private const string RECORDS = '#<!-- mutation-gate: mentioned (?<owners>[@A-Za-z0-9/_. -]*) -->#';
 
     /** How the comment heads an owner group. */
     private const string HEADING = '#### ';
@@ -72,9 +72,8 @@ final readonly class OwnerMentions
     public static function in(string $body, bool $teams): self
     {
         preg_match_all(self::RECORDS, $body, $records);
-        $tokens = array_merge(
-            ...array_map(static fn(string $record): array => explode(' ', $record), array_slice($records[1], -1)),
-        );
+        $last = array_slice($records['owners'], -1);
+        $tokens = array_merge(...array_map(static fn(string $record): array => explode(' ', $record), $last));
         $mentioned = [];
 
         foreach ($tokens as $token) {
