@@ -21,7 +21,7 @@ it('is a branch, scoped by its ref, with the default branch the CI names', funct
 
 it('is a pull request, scoped by its number, where the CI may not name the default branch', function (): void {
     $unknown = CannotTell::because('The CI does not say.');
-    $run = RunOn::pullRequest(PullRequestNumber::parse('12'), $unknown);
+    $run = RunOn::pullRequest(PullRequestNumber::parse('12'), $unknown, $unknown);
 
     expect($run instanceof RunOn ? $run->scope() : null)->toEqual(Scope::of('refs/pull/12'))
         ->and($run instanceof RunOn && $run->isPullRequest())->toBeTrue()
@@ -30,7 +30,7 @@ it('is a pull request, scoped by its number, where the CI may not name the defau
 });
 
 it('merges into the branch its CI names, which every copy of the run keeps, and a branch run merges into none', function (): void {
-    $run = RunOn::pullRequest(PullRequestNumber::parse('12'), Scope::branch('main'), 'release/2.x');
+    $run = RunOn::pullRequest(PullRequestNumber::parse('12'), Scope::branch('main'), RunOn::branchNamed('release/2.x'));
     $branch = RunOn::branch('feature', Scope::branch('main'));
 
     expect($run instanceof RunOn ? [
@@ -41,14 +41,14 @@ it('merges into the branch its CI names, which every copy of the run keeps, and 
         ->and($branch instanceof RunOn ? $branch->target() : null)->toEqual(CannotTell::because(
             'The run is on no pull request, or its CI names no branch it merges into.',
         ))
-        ->and(RunOn::pullRequest(PullRequestNumber::parse('12'), Scope::branch('main'), 'a b'))
-        ->toEqual(RunOn::pullRequest(PullRequestNumber::parse('12'), Scope::branch('main'), ''));
+        ->and(RunOn::pullRequest(PullRequestNumber::parse('12'), Scope::branch('main'), RunOn::branchNamed('a b')))
+        ->toEqual(RunOn::pullRequest(PullRequestNumber::parse('12'), Scope::branch('main'), RunOn::branchNamed('')));
 });
 
 it('cannot tell the scope of a ref that is not a branch or a pull request', function (): void {
     expect(RunOn::branch('a b', Scope::branch('main')))->toEqual(CannotTell::because(
         '"refs/heads/a b" is not a scope. A scope is refs/heads/<branch> or refs/pull/<number>.',
-    ))->and(RunOn::pullRequest(PullRequestNumber::parse('twelve'), Scope::branch('main'), 'main'))->toEqual(CannotTell::because(
+    ))->and(RunOn::pullRequest(PullRequestNumber::parse('twelve'), Scope::branch('main'), RunOn::branchNamed('main')))->toEqual(CannotTell::because(
         '"twelve" is not the number of a pull request.',
     ));
 });

@@ -44,14 +44,13 @@ final readonly class RunOn
     public static function pullRequest(
         PullRequestNumber|CannotTell $number,
         Scope|CannotTell $defaultBranch,
-        string $target = '',
+        Scope|CannotTell $target,
     ): self|CannotTell {
         $run = $number instanceof PullRequestNumber
             ? self::scoped(sprintf('%s%d', self::PULL_REQUEST, $number->value()), $defaultBranch)
             : $number;
-        $into = self::branchNamed($target);
 
-        return $run instanceof self && $into instanceof Scope ? $run->withTarget($into) : $run;
+        return $run instanceof self && $target instanceof Scope ? $run->withTarget($target) : $run;
     }
 
     /** A run on a ref already read as a scope, as a plan records it. */

@@ -99,7 +99,9 @@ final readonly class AzurePlan implements CiPlan, Configurable
             ? RunOn::pullRequest(
                 PullRequestNumber::parse($number),
                 $defaultBranch,
-                (string) preg_replace(self::BRANCH_REF, '', $variables->valueOf('SYSTEM_PULLREQUEST_TARGETBRANCH')),
+                RunOn::branchNamed(
+                    (string) preg_replace(self::BRANCH_REF, '', $variables->valueOf('SYSTEM_PULLREQUEST_TARGETBRANCH')),
+                ),
             )
             : RunOn::onRef($variables->valueOf('BUILD_SOURCEBRANCH'), $defaultBranch);
     }

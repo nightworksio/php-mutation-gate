@@ -149,7 +149,7 @@ final readonly class GitHubPlan implements CiPlan, Configurable
             $number instanceof PullRequestNumber => RunOn::pullRequest(
                 $number,
                 $defaultBranch,
-                $this->baseIn($payload),
+                RunOn::branchNamed($this->baseIn($payload)),
             ),
             $trusted && $branch !== '' => RunOn::branch($branch, $defaultBranch),
             default => RunOn::detached($defaultBranch),

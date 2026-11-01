@@ -123,7 +123,7 @@ it('reads a merge request, a branch and the default branch from GitLab', functio
         '"refs/heads/" is not a scope. A scope is refs/heads/<branch> or refs/pull/<number>.',
     );
 
-    expect($on($mergeRequest)->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('7'), $main, 'release/2.x'))
+    expect($on($mergeRequest)->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('7'), $main, RunOn::branchNamed('release/2.x')))
         ->and($on($push)->runOn())->toEqual(RunOn::branch('feature', $main))
         ->and($on(Variables::of(['CI_COMMIT_REF_NAME' => 'feature']))->runOn())
         ->toEqual(RunOn::branch('feature', $unnamed));

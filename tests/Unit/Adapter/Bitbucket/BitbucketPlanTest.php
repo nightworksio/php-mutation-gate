@@ -57,7 +57,7 @@ it('reads a pull request from its id, and the branch it builds otherwise', funct
     $push = Variables::of(['BITBUCKET_BRANCH' => 'feature/money']);
 
     expect(bitbucketPlanIn($pullRequest)->runOn())
-        ->toEqual(RunOn::pullRequest(PullRequestNumber::parse('31'), bitbucketUnnamed(), 'release/2.x'))
+        ->toEqual(RunOn::pullRequest(PullRequestNumber::parse('31'), bitbucketUnnamed(), RunOn::branchNamed('release/2.x')))
         ->and(bitbucketPlanIn($push)->runOn())->toEqual(RunOn::branch('feature/money', bitbucketUnnamed()));
 });
 
