@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Report\Page;
 
 use function array_key_exists;
-use function array_keys;
 use function array_sum;
+use function array_values;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\Report\Grade;
@@ -129,18 +129,20 @@ final readonly class Figures
         $styles = [];
 
         foreach (self::sets($report) as $set) {
-            $styles = match (true) {
-                ! array_key_exists('score', $set) => $styles,
-                array_key_exists('floor', $set) => [
-                    ...$styles,
-                    sprintf(self::FILLED, $set['score']) => true,
-                    sprintf(self::MARKED, $set['floor']) => true,
-                ],
-                default => [...$styles, sprintf(self::FILLED, $set['score']) => true],
-            };
+            if (! array_key_exists('score', $set)) {
+                continue;
+            }
+
+            $filled = sprintf(self::FILLED, $set['score']);
+            $styles[$filled] = $filled;
+
+            if (array_key_exists('floor', $set)) {
+                $marked = sprintf(self::MARKED, $set['floor']);
+                $styles[$marked] = $marked;
+            }
         }
 
-        return array_keys($styles);
+        return array_values($styles);
     }
 
     /** An outcome's grade, said in a word so that no reader needs the colour to tell. */
