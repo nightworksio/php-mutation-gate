@@ -13,6 +13,8 @@ use Throwable;
  * The console application, which ends every command it could not finish with
  * could-not-judge: a command line it cannot read, a command it does not know,
  * and a failure nobody anticipated never read as a failed gate.
+ *
+ * @internal
  */
 final class GateApplication extends Application
 {
