@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-11-01
+**Amends:** [0027](0027-codeception-phpspec-and-testo-get-native-runners.md): its Testo pin, selection, first failure and timings
 
 ## Context
 
