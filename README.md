@@ -2,7 +2,37 @@
   <img alt="php-mutation-gate: a pixel-art gate with the PHP elephant standing in its arch" src="https://raw.githubusercontent.com/nightworksio/php-mutation-gate/main/.docs/brand/php-mutation-gate-logo.svg" width="288">
 </p>
 
-# php-mutation-gate
+<h1 align="center">php-mutation-gate</h1>
+
+<p align="center">
+  <strong>Mutation testing as a CI gate for PHP.</strong><br>
+  Floors that only rise, sharded and cached runs, and every survivor with the command that reproduces it.
+</p>
+
+<div align="center">
+
+[![ci](https://github.com/nightworksio/php-mutation-gate/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/nightworksio/php-mutation-gate/actions/workflows/ci.yml?query=branch%3Amain)
+[![mutation score](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fnightworksio%2Fphp-mutation-gate%2Fmutation-gate%2Fbadge.json)](https://github.com/nightworksio/php-mutation-gate/actions/workflows/mutation-gate.yml?query=branch%3Amain)
+[![codeql](https://github.com/nightworksio/php-mutation-gate/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/nightworksio/php-mutation-gate/actions/workflows/codeql.yml?query=branch%3Amain)
+[![quality gate](https://sonarcloud.io/api/project_badges/measure?project=nightworksio_php-mutation-gate&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=nightworksio_php-mutation-gate)
+[![coverage](https://sonarcloud.io/api/project_badges/measure?project=nightworksio_php-mutation-gate&metric=coverage)](https://sonarcloud.io/summary/new_code?id=nightworksio_php-mutation-gate)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/nightworksio/php-mutation-gate/badge)](https://scorecard.dev/viewer/?uri=github.com/nightworksio/php-mutation-gate)
+
+[![PHP](https://img.shields.io/badge/PHP-%5E8.5-777BB4?logo=php&logoColor=white)](#requirements)
+[![runners](https://img.shields.io/badge/runs-Pest%20%C2%B7%20Infection%20%C2%B7%20PHPUnit%20%C2%B7%20PhpSpec%20%C2%B7%20Codeception-4b5563)](#requirements)
+[![docs](https://img.shields.io/badge/docs-nightworksio.github.io-0f766e)](https://nightworksio.github.io/php-mutation-gate/guide/)
+[![discussions](https://img.shields.io/github/discussions/nightworksio/php-mutation-gate?label=Q%26A)](https://github.com/nightworksio/php-mutation-gate/discussions/categories/q-a)
+[![licence](https://img.shields.io/github/license/nightworksio/php-mutation-gate?label=licence)](https://github.com/nightworksio/php-mutation-gate/blob/main/LICENSE)
+
+**[Documentation](https://nightworksio.github.io/php-mutation-gate/guide/)** ·
+[Quick start](#quick-start) ·
+[CI setup](https://nightworksio.github.io/php-mutation-gate/guide/ci/) ·
+[Reading the report](https://nightworksio.github.io/php-mutation-gate/guide/reading-the-report/) ·
+[Command line](https://nightworksio.github.io/php-mutation-gate/reference/cli/) ·
+[Configuration](https://nightworksio.github.io/php-mutation-gate/reference/configuration/) ·
+[Decisions](https://nightworksio.github.io/php-mutation-gate/decisions/)
+
+</div>
 
 php-mutation-gate turns mutation testing into a check your pull requests must pass.
 It is for PHP projects tested with Pest, Infection or PHPUnit that want a
@@ -248,6 +278,15 @@ machines. Every scenario is shown, those where the gate is slower too.
 No benchmark result is committed. `bench.yml` measures one, and a pull request brings it here.
 
 <!-- bench:end -->
+
+## Its own gate
+
+php-mutation-gate gates its own pull requests through its reusable workflow,
+and its default branch publishes the badge above and this trend:
+
+<p align="center">
+  <img alt="php-mutation-gate's mutation score on its default branch, run by run" src="https://raw.githubusercontent.com/nightworksio/php-mutation-gate/mutation-gate/trend.svg" width="480">
+</p>
 
 ## Contributing and security
 
