@@ -159,6 +159,19 @@ it('writes one annotation of a mutant at its file and line, saying what survived
         ->and(Decoded::at($annotation, 'details'))->toContain('Reproduce: ');
 });
 
+it('annotates a survivor in a set that passed as medium, in a report that passes', function (): void {
+    $cloud = insightsCloud();
+    $mutants = [
+        ...insightsMutants('src/Kept.php', 9, MutantJudgement::Killed),
+        ...insightsMutants('src/Big.php', 1, MutantJudgement::Survived),
+    ];
+    CodeInsights::inEnvironment(insightsStep(), $cloud->exchange())->report(Verdicts::of(Floor::of(50), ...$mutants));
+
+    expect(Decoded::at($cloud->requests[1]['body'], 'result'))->toBe('PASSED')
+        ->and(Decoded::column($cloud->requests[2]['body'], 'severity'))->toBe(['MEDIUM'])
+        ->and(Decoded::column($cloud->requests[2]['body'], 'path'))->toBe(['src/Big.php']);
+});
+
 it('marks a mutant in a set that failed as high, and cuts its summary and details to fit', function (): void {
     $long = JudgedMutant::of(
         Verdicts::mutant('src/A.php:3', str_repeat('M', 600), MutatorFamily::Arithmetic, Verdicts::diff(str_repeat('$a + 1; ', 400), '$a - 1;')),
