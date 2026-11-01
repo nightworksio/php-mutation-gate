@@ -81,6 +81,15 @@ it('reads what does not begin with the program\'s own code as no dump, which pro
     'the header alone, run on' => ['$_main: 0000 RETURN int(1)'],
 ]);
 
+it('reads a dump in which a literal prints as the name of the path or the directory as no dump, which proves nothing', function (string $name): void {
+    $dump = sprintf("\n\$_main:\n0000 RETURN int(1)\n\nf:\n0000 RETURN string(\"%s\")\n", $name);
+
+    expect(Opcodes::dumped($dump, '/a/program.php'))->toBe(Uncompiled::Failed);
+})->with([
+    'the path' => [Opcodes::FILE],
+    'the directory' => [Opcodes::DIRECTORY],
+]);
+
 it('hides the values it prints only in part: an array, a float and a constant expression', function (string $body, bool $hides): void {
     $opcodes = Opcodes::dumped(opcodesDump('/a/program.php', '1', $body), '/a/program.php');
 
