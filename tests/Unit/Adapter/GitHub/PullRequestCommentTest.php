@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
+use NightWorksIO\MutationGate\Tests\Support\Owners;
 use NightWorksIO\MutationGate\Tests\Support\Rechecks;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShardedPlan;
@@ -285,3 +286,51 @@ it('leaves no comment for deliver on a run that is no pull request\'s', function
     'a push' => ['push', fn(): string => $event()],
     'no pull request in the event' => ['pull_request', '{}'],
 ]);
+
+it('mentions each owner group\'s users and teams the first time, as a token that can mention a team', function () use ($environment, $event, $comment, $report): void {
+    $patch = new JsonMockResponse(['html_url' => 'u']);
+    $requests = [new JsonMockResponse([$comment(5, 'gate-bot', Markdown::MARKER)]), $report(1), $patch];
+    PullRequestComment::inRun($environment, $event(), new MockHttpClient($requests), 'gate-bot')->report(Owners::mentioned());
+    $body = Decoded::at(is_string($patch->getRequestOptions()['body']) ? $patch->getRequestOptions()['body'] : '', 'body');
+
+    expect($body)->toContain("\n#### @acme/payments @jo (1)\n")
+        ->and($body)->toEndWith("\n<!-- mutation-gate: mentioned @acme/payments @jo -->\n");
+});
+
+it('mentions no team as GitHub Actions\' own bot, and mentions its users', function () use ($environment, $event, $comment, $report): void {
+    $patch = new JsonMockResponse(['html_url' => 'u']);
+    $requests = [
+        new MockResponse('{"message": "Resource not accessible by integration"}', ['http_code' => 403]),
+        new JsonMockResponse([$comment(5, 'github-actions[bot]', Markdown::MARKER)]),
+        $report(1),
+        $patch,
+    ];
+    PullRequestComment::inRun($environment, $event(), new MockHttpClient($requests), '')->report(Owners::mentioned());
+    $body = Decoded::at(is_string($patch->getRequestOptions()['body']) ? $patch->getRequestOptions()['body'] : '', 'body');
+
+    expect($body)->toContain("\n#### &#64;acme/payments @jo (1)\n")
+        ->and($body)->toEndWith("\n<!-- mutation-gate: mentioned @jo -->\n");
+});
+
+it('names owners its earlier updates mentioned without a mention, and keeps their record through its planned state', function () use ($environment, $event, $comment, $report): void {
+    $before = sprintf("%s\nold\n<!-- mutation-gate: mentioned @acme/payments @jo -->\n", Markdown::MARKER);
+    $planned = new JsonMockResponse(['html_url' => 'u']);
+    $verdict = new JsonMockResponse(['html_url' => 'u']);
+    $plannedBody = sprintf("%s<!-- mutation-gate: mentioned @acme/payments @jo -->\n", PlannedMarkdown::comment(ShardedPlan::planned(2), 'https://github.example/octo/gate/actions/runs/7'));
+    $client = new MockHttpClient([
+        new JsonMockResponse([$comment(5, 'gate-bot', $before)]),
+        $planned,
+        new JsonMockResponse([$comment(5, 'gate-bot', $plannedBody)]),
+        $report(1),
+        $verdict,
+    ]);
+    $writer = PullRequestComment::inRun($environment, $event(), $client, 'gate-bot');
+    $writer->planned(ShardedPlan::planned(2));
+    $writer->report(Owners::mentioned());
+    $body = Decoded::at(is_string($verdict->getRequestOptions()['body']) ? $verdict->getRequestOptions()['body'] : '', 'body');
+
+    expect(Decoded::at(is_string($planned->getRequestOptions()['body']) ? $planned->getRequestOptions()['body'] : '', 'body'))->toBe($plannedBody)
+        ->and($body)->toContain("\n#### &#64;acme/payments &#64;jo (1)\n")
+        ->and($body)->not->toContain('@jo (1)')
+        ->and($body)->toEndWith("\n<!-- mutation-gate: mentioned @acme/payments @jo -->\n");
+});

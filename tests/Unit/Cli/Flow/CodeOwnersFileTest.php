@@ -2,12 +2,14 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Composer\Disk;
 use NightWorksIO\MutationGate\Cli\Flow\CodeOwnersFile;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Owner\CodeOwners;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
@@ -15,6 +17,12 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
+use NightWorksIO\MutationGate\Tests\Support\Project;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;
+
+afterEach(function (): void {
+    Scratch::sweep();
+});
 
 /** @param array<string, array<string, string>> $files what each file holds, by revision name and path */
 function codeOwnersSource(array $files): ChangeSourceFake
@@ -82,4 +90,14 @@ it('reads no file where git cannot read the base, and says why', function (): vo
         ->and(array_map(static fn(Warning $warning): string => $warning->text(), [...$owners->warnings()]))->toBe([
             'CODEOWNERS cannot be read at refs/remotes/origin/main, so no survivor has an owner: refs/remotes/origin/main is not a revision this repository has.',
         ]);
+});
+
+it('reads the file as it stands on disk for doctor, from the first of GitHub\'s places that holds one', function (): void {
+    $both = Disk::at(Root::of(Project::with(['docs/CODEOWNERS' => '* @in-docs', '.github/CODEOWNERS' => '* @in-github'])));
+    $docs = Disk::at(Root::of(Project::with(['docs/CODEOWNERS' => '* @in-docs'])));
+    $none = Disk::at(Root::of(Project::with(['composer.json' => '{}'])));
+
+    expect(ownerOf(CodeOwnersFile::standing($both), 'src/Money.php'))->toBe('@in-github')
+        ->and(ownerOf(CodeOwnersFile::standing($docs), 'src/Money.php'))->toBe('@in-docs')
+        ->and(CodeOwnersFile::standing($none)->wasRead())->toBeFalse();
 });

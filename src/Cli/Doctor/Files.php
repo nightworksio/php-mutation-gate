@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Patch as PestPatch;
 use NightWorksIO\MutationGate\Adapter\Project\SuiteConfig;
 use NightWorksIO\MutationGate\Adapter\Project\TestSuite;
 use NightWorksIO\MutationGate\Cli\ComposerVendor;
+use NightWorksIO\MutationGate\Cli\Flow\CodeOwnersFile;
 use NightWorksIO\MutationGate\Cli\Flow\ProjectMemoryLimit;
 use NightWorksIO\MutationGate\Cli\Flow\Suite;
 use NightWorksIO\MutationGate\Cli\StartedGate;
@@ -34,6 +35,7 @@ use NightWorksIO\MutationGate\Core\Doctor\Patched;
 use NightWorksIO\MutationGate\Core\Doctor\PhpUnitMemory;
 use NightWorksIO\MutationGate\Core\Doctor\ProjectFiles;
 use NightWorksIO\MutationGate\Core\Doctor\RunnerConfig;
+use NightWorksIO\MutationGate\Core\Doctor\ServiceFiles;
 use NightWorksIO\MutationGate\Core\Doctor\SonarSources;
 use NightWorksIO\MutationGate\Core\Doctor\WarmRefusal;
 use NightWorksIO\MutationGate\Core\File\GitIgnore;
@@ -86,7 +88,8 @@ final readonly class Files
         $files = $files->withRunnerConfig($this->runnerConfig($settings));
         $files = $this->git->isShallow() === true ? $files->shallow() : $files;
         $sonar = SonarSources::in(Properties::decode($this->text(Path::of(SonarSources::FILE))));
-        $files = $sonar instanceof SonarSources ? $files->withSonarSources($sonar) : $files;
+        $services = ServiceFiles::none()->withCodeOwners(CodeOwnersFile::standing($this->disk));
+        $files = $files->withServices($sonar instanceof SonarSources ? $services->withSonarSources($sonar) : $services);
         $warm = trim($this->text(WarmRefusal::file()));
         $files = $warm === '' ? $files : $files->withWarmRefusal(WarmRefusal::of($warm));
 

@@ -41,3 +41,12 @@ it('is another spelling of an owner only in case', function (): void {
         Owners::owner('@acme/web')->is(Owners::owner('@acme/webs')),
     ])->toBe([true, true, false]);
 });
+
+it('is a handle GitHub mentions where it is a user or a team, and a team where it names an organisation', function (string $token, bool $handle, bool $team): void {
+    expect([Owners::owner($token)->isHandle(), Owners::owner($token)->isTeam()])->toBe([$handle, $team]);
+})->with([
+    'a user' => ['@octocat', true, false],
+    'a team' => ['@octo-org/octocats', true, true],
+    'an email address' => ['docs@example.com', false, false],
+    'an email address with a slash before its at sign' => ['octo/docs@example.com', false, false],
+]);

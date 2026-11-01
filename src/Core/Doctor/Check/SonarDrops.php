@@ -35,7 +35,7 @@ final readonly class SonarDrops
     {
         $settings = $observed->settings();
         $trees = $observed->trees();
-        $sources = $observed->files()->sonarSources();
+        $sources = $observed->files()->services()->sonarSources();
 
         return $settings instanceof Settings && self::reportsTo($settings) && $trees instanceof Trees
             && $sources instanceof SonarSources

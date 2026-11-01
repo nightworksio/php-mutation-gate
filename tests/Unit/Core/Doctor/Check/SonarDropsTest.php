@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Doctor\Finding;
 use NightWorksIO\MutationGate\Core\Doctor\Findings;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
 use NightWorksIO\MutationGate\Core\Doctor\ProjectFiles;
+use NightWorksIO\MutationGate\Core\Doctor\ServiceFiles;
 use NightWorksIO\MutationGate\Core\Doctor\Severity;
 use NightWorksIO\MutationGate\Core\Doctor\SonarSources;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -29,7 +30,7 @@ $reporting = static fn(string ...$reporters): Observations => Observations::none
         $reporters,
     )]))
     ->withTrees($makeTrees())
-    ->withFiles(ProjectFiles::none()->withSonarSources(SonarSources::of(Path::of('src'))));
+    ->withFiles(ProjectFiles::none()->withServices(ServiceFiles::none()->withSonarSources(SonarSources::of(Path::of('src')))));
 $finding = static fn(string $tree): Finding => Finding::of(
     Slug::OutsideSonarSources,
     Severity::Advice,
@@ -45,12 +46,12 @@ it('advises of each tree outside sonar.sources where a sonar report is written',
 it('finds nothing where no sonar report is written, every tree is inside, or nothing was observed', function () use ($reporting, $makeTrees): void {
     $trees = $makeTrees();
 
-    $inside = $reporting('sonar')->withFiles(ProjectFiles::none()->withSonarSources(SonarSources::of(Path::of('src'), Path::of('app'), Path::of('lib'))));
+    $inside = $reporting('sonar')->withFiles(ProjectFiles::none()->withServices(ServiceFiles::none()->withSonarSources(SonarSources::of(Path::of('src'), Path::of('app'), Path::of('lib')))));
 
     expect(SonarDrops::in($reporting('json', 'sarif')))->toEqual(Findings::none())
         ->and(SonarDrops::in($inside))->toEqual(Findings::none())
         ->and(SonarDrops::in($reporting('sonar')->withFiles(ProjectFiles::none())))->toEqual(Findings::none())
-        ->and(SonarDrops::in(Observations::none()->withTrees($trees)->withFiles(ProjectFiles::none()->withSonarSources(SonarSources::of(Path::of('src'))))))->toEqual(Findings::none())
+        ->and(SonarDrops::in(Observations::none()->withTrees($trees)->withFiles(ProjectFiles::none()->withServices(ServiceFiles::none()->withSonarSources(SonarSources::of(Path::of('src')))))))->toEqual(Findings::none())
         ->and(SonarDrops::in(Observations::none()))->toEqual(Findings::none());
 });
 

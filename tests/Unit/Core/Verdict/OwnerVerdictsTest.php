@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Owner\CodeOwners;
+use NightWorksIO\MutationGate\Core\Owner\OwnerMention;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Score;
@@ -153,4 +154,15 @@ it('holds a group, its mutants and the score they add up to, and passes with no 
         ->and(count($billing->mutants()))->toBe(3)
         ->and($billing->isTouched())->toBeTrue()
         ->and([...Owners::verdicts()][1]->isTouched())->toBeFalse();
+});
+
+it('mentions owners the first time only where it is told to, and keeps that through the groups a change touched', function (): void {
+    $first = Owners::verdicts()->mentioning(OwnerMention::First);
+
+    expect(Owners::verdicts()->mentionsFirst())->toBeFalse()
+        ->and(OwnerVerdicts::none()->mentionsFirst())->toBeFalse()
+        ->and($first->mentionsFirst())->toBeTrue()
+        ->and($first->touched()->mentionsFirst())->toBeTrue()
+        ->and(ownerGroupNames($first))->toBe(ownerGroupNames(Owners::verdicts()))
+        ->and($first->mentioning(OwnerMention::Never)->mentionsFirst())->toBeFalse();
 });

@@ -34,7 +34,8 @@ final readonly class SettingsCases
             "improvement": "require"
         },
         "owners": {
-            "floors": {}
+            "floors": {},
+            "mention": "first"
         },
         "packages": [],
         "reach": {
@@ -184,7 +185,7 @@ final readonly class SettingsCases
         'security' => ['floor' => 97.5],
         'uncovered' => 'exclude',
         'baseline' => ['path' => 'build/baseline.json', 'improvement' => 'report'],
-        'owners' => ['floors' => ['@acme/payments' => 90, 'jo@acme.example' => 75.5]],
+        'owners' => ['floors' => ['@acme/payments' => 90, 'jo@acme.example' => 75.5], 'mention' => 'never'],
         'packages' => ['packages/*'],
         'reach' => ['everything' => ['config/**', 'routes/**'], 'lockPackages' => ['pestphp/*', 'phpunit/phpunit']],
         'holds' => ['hotPath' => 1],

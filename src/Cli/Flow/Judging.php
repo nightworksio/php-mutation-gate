@@ -398,12 +398,15 @@ final readonly class Judging
         $verdict = Verdict::of($verdicts, $heldTo)
             ->withSets(
                 HeldSets::of($newCode, $security)
-                    ->owned(OwnerVerdicts::of($verdicts, $owners, $this->uncovered()))
+                    ->owned(
+                        OwnerVerdicts::of($verdicts, $owners, $this->uncovered())
+                            ->mentioning($this->settings->floors()->owners()->mention()),
+                    )
                     ->floored(OwnerFloorVerdicts::of(
                         $verdicts,
                         $owners,
                         $this->uncovered(),
-                        ConfiguredOwnerFloors::of($this->settings->floors()->owners()),
+                        ConfiguredOwnerFloors::of($this->settings->floors()->owners()->floors()),
                     )),
             )
             ->withReach($plan->considered()->reach())
@@ -412,7 +415,7 @@ final readonly class Judging
                 $warnings->of($plan, $verdicts, $shards, $map)
                     ->and($warnings->unfloored($security))
                     ->and($owners->warnings())
-                    ->and(ConfiguredOwnerFloors::unnamed($this->settings->floors()->owners())),
+                    ->and(ConfiguredOwnerFloors::unnamed($this->settings->floors()->owners()->floors())),
             )
             ->withFailures($failures);
 
