@@ -323,6 +323,16 @@ it('says a runner that reports other files than a request asks for', function ()
     ]);
 });
 
+it('finds nothing wrong with a runner that reports several mutants of one file it is asked for', function (): void {
+    $runner = new MisbehavingRunner(RunnerFake::ofTheFixture(), mutate: static fn(MutationRequest $request): MutationResult => RunnerFake::ofTheFixture()->mutate(
+        $request->files()->has(Path::of('src'))
+            ? MutationRequest::of($request->files(), $request->judgedBy())->leavingOut($request->leftOut())
+            : $request,
+    ));
+
+    expect(runnerFailures($runner))->toBe([]);
+});
+
 it('says a runner that judges a file otherwise beside another, or reports none of it alone', function (): void {
     $runner = new MisbehavingRunner(RunnerFake::ofTheFixture(), mutate: static fn(MutationRequest $request): MutationResult => count($request->files()) === 1 && count($request->narrowing()->mutators()) === 1
         ? MutationResult::skippingNone(Mutants::none())
