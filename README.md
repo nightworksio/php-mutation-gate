@@ -186,6 +186,7 @@ has a page for each, and the commands for any other CI.
 | [Reports](https://nightworksio.github.io/php-mutation-gate/reference/reports/) | Every report the gate writes |
 | [Environment variables](https://nightworksio.github.io/php-mutation-gate/reference/environment/) | Every variable the gate reads |
 | [Files](https://nightworksio.github.io/php-mutation-gate/reference/files/) | Every file the gate reads and writes |
+| [Compatibility](https://nightworksio.github.io/php-mutation-gate/reference/compatibility/) | What semver covers, and what an upgrade may change |
 | [Decisions](https://nightworksio.github.io/php-mutation-gate/decisions/) | The design, and why |
 
 ## Features
