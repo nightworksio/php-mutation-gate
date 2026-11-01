@@ -299,6 +299,14 @@ it('observes a runner the command line chooses, and none installed where Compose
         ->toEqual(InstalledRunners::of(pest: false, infection: false, chosen: false));
 })->group(...$holds);
 
+it('observes no runners where Composer\'s installed.json cannot be read', function (): void {
+    $project = Scratch::copy('tests/Fixtures/Projects/Library');
+    Scratch::write($project, 'vendor/composer/installed.json', '{"packages": ');
+    $php = sprintf('%s/php', FakePhp::printing(Described::output([], [])));
+
+    expect(Doctored::observed($project, $php)->of(CommandLine::nothing())->runners())->toEqual(NotGiven::value());
+})->group(...$holds);
+
 it('hands the runner\'s PHP none of the CI plan\'s credentials, nor those the runner\'s config withholds', function (): void {
     $project = Scratch::copy('tests/Fixtures/Projects/Library');
     Scratch::write($project, 'mutation-gate.json', '{"runner": {"use": "infection", "withhold": ["DEPLOY_*"]}}');
