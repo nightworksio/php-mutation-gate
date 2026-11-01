@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Cli\Command\PlanCommand;
 use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
+use NightWorksIO\MutationGate\Core\Ci\JobCommands;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\Delivery\DeliveryFile;
@@ -232,9 +233,14 @@ it('writes no planned state where the run is not a pull request\'s', function ()
 it('begins the planned stage\'s delivery under --deliver-later, emptying what an earlier run left', function () use ($plan): void {
     $project = FlowCommands::project();
     Scratch::write($project, '.mutation-gate/delivery/planned/delivery.json', '{"format": 1, "comment": "an earlier run\'s"}');
-    $planned = $plan($project, '--shards=1 --deliver-later', ScriptedRunner::fixture(), Flows::ci());
+    $later = Flows::ci();
+    $now = Flows::ci();
+    $planned = $plan($project, '--shards=1 --deliver-later', ScriptedRunner::fixture(), $later);
+    $plan(FlowCommands::project(), '--shards=1', ScriptedRunner::fixture(), $now);
 
     expect($planned->code)->toBe(0)
+        ->and(array_map(static fn(JobCommands $jobs): bool => $jobs->deliversLater(), [...$later->jobs, ...$now->jobs]))
+        ->toBe([true, false])
         ->and(DeliveryFile::decode((string) file_get_contents(sprintf('%s/.mutation-gate/delivery/planned/delivery.json', $project))))
         ->toEqual(Delivery::none());
 });

@@ -14,11 +14,14 @@ use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Port\CiPlan;
 
-/** A CI that describes the run it was started in, and keeps the plans handed to it. */
+/** A CI that describes the run it was started in, and keeps the plans handed to it, with their jobs' commands. */
 final class CiPlanFake implements CiPlan
 {
     /** @var list<Plan> */
     public private(set) array $published = [];
+
+    /** @var list<JobCommands> */
+    public private(set) array $jobs = [];
 
     private Paths $definitions;
 
@@ -39,6 +42,7 @@ final class CiPlanFake implements CiPlan
     public function publish(Plan $plan, JobCommands $jobs): Publication
     {
         $this->published[] = $plan;
+        $this->jobs[] = $jobs;
 
         return Publication::printed('');
     }

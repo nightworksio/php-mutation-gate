@@ -2,9 +2,6 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\GitHub\HtmlReport;
-use NightWorksIO\MutationGate\Adapter\GitHub\Markdown;
-use NightWorksIO\MutationGate\Adapter\GitHub\MarkdownItems;
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -26,6 +23,8 @@ use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Report\ClusterText;
 use NightWorksIO\MutationGate\Core\Report\CostText;
 use NightWorksIO\MutationGate\Core\Report\Escape;
+use NightWorksIO\MutationGate\Core\Report\Markdown;
+use NightWorksIO\MutationGate\Core\Report\MarkdownItems;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
 use NightWorksIO\MutationGate\Core\Report\SavingsText;
 use NightWorksIO\MutationGate\Core\Report\SetText;
@@ -105,7 +104,7 @@ it('writes the sticky comment: the verdict, trees, new code, survivors on change
         '- The ignore of 3f9a1c2b7d04 matched no mutant. Remove it.',
         '### Warnings',
         '- src/Kernel.php is run by 412 of 430 tests and nothing holds it.',
-        sprintf("%s\n", HtmlReport::SLOT),
+        sprintf("%s\n", Markdown::REPORT_SLOT),
     ]));
 });
 
@@ -128,7 +127,7 @@ it('writes the comment of a passing run, with the floors that can rise and a run
         '### Floors that can rise',
         '- <code>src</code> to 100.00%',
         'Raise them with `vendor/bin/mutation-gate baseline --write`, and commit the baseline.',
-        sprintf("%s\n", HtmlReport::SLOT),
+        sprintf("%s\n", Markdown::REPORT_SLOT),
     ]));
 });
 

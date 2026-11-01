@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace NightWorksIO\MutationGate\Adapter\GitHub;
+namespace NightWorksIO\MutationGate\Core\Report;
 
 use function array_filter;
 use function array_slice;
@@ -11,10 +11,6 @@ use function implode;
 
 use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Recheck\Rechecked;
-use NightWorksIO\MutationGate\Core\Report\Commented;
-use NightWorksIO\MutationGate\Core\Report\Escape;
-use NightWorksIO\MutationGate\Core\Report\Mutator;
-use NightWorksIO\MutationGate\Core\Report\RecheckedText;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 
 use function sprintf;

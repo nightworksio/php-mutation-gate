@@ -37,9 +37,6 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
  */
 final readonly class HttpExchange implements Exchange
 {
-    /** The answer for a ledger that is not there yet. */
-    private const int NOT_FOUND = 404;
-
     private const string UNREAD_ANSWER = '%s answered, and its answer was not read: %s';
 
     private function __construct(private HttpClientInterface $client, private LedgerLimits $limits)
@@ -67,7 +64,7 @@ final readonly class HttpExchange implements Exchange
             $status = $response->getStatusCode();
 
             return match (true) {
-                $status === self::NOT_FOUND => Ledger::empty(),
+                $status === Reply::NOT_FOUND => Ledger::empty(),
                 Reply::accepts($status) => $this->ledgerBytes($this->bodyOf($response, $limits), $limits, $from),
                 default => Unreadable::because(UnreadReason::Refused, $from, sprintf('HTTP %d', $status)),
             };

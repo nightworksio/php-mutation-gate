@@ -531,7 +531,7 @@ it('prints Bitbucket\'s pipelines to add to bitbucket-pipelines.yml, writes none
 
     expect($ran->code)->toBe(0)
         ->and($ran->output)->toContain("\nAdd this to bitbucket-pipelines.yml:\n\n# Written by `mutation-gate init --ci=bitbucket`")
-        ->and($ran->output)->toContain("      - final: *mutation-verdict\n")
+        ->and($ran->output)->toContain("      - final:\n          <<: *mutation-comment\n")
         ->and(InitRuns::file($project, 'bitbucket-pipelines.yml'))->toBe('')
         ->and(is_array($config) ? $config['ci'] : null)->toBe(['defaultBranch' => 'main']);
 })->group(...$holds);

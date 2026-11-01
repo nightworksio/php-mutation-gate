@@ -89,3 +89,14 @@ it('pins the version built into the PHAR it runs from, and otherwise the one Com
         ->toBe(sprintf('%s # v1.3.0', GATE_COMMIT))
         ->and(GatePin::running(NotGiven::value(), $built, $installed)->isKnown())->toBeFalse();
 });
+
+it('names the container image a release is tagged as, without its tag\'s v, and stands in for any other\'s version', function (): void {
+    $tagged = GatePin::of(Version::of('nightworksio/mutation-gate', 'v1.4.0', GATE_COMMIT));
+    $built = GatePin::of(Version::of('nightworksio/mutation-gate', '1.4.0', GATE_COMMIT));
+    $branch = GatePin::of(Version::of('nightworksio/mutation-gate', 'dev-main', GATE_COMMIT));
+
+    expect($tagged->image())->toBe('ghcr.io/nightworksio/mutation-gate:1.4.0')
+        ->and($built->image())->toBe('ghcr.io/nightworksio/mutation-gate:1.4.0')
+        ->and($branch->image())->toBe('ghcr.io/nightworksio/mutation-gate:<its version>')
+        ->and(GatePin::unknown()->image())->toBe('ghcr.io/nightworksio/mutation-gate:<its version>');
+});
