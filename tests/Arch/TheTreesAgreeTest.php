@@ -16,6 +16,7 @@ const THE_TREES = [
     'bin/mutation-gate-pest-client',
     'bin/mutation-gate-pest-worker',
     'bin/mutation-gate-phpspec',
+    'bin/mutation-gate-testo',
     'bin/mutation-gate-worker',
     'phpstan',
     'plugins',

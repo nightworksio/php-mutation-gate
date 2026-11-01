@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Workspace;
+use NightWorksIO\MutationGate\Core\Native\CoverageReport;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\PcovReach;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
@@ -53,7 +54,7 @@ final readonly class Invocation
     public const string TMP = 'tmp';
 
     /** PHPUnit's XML coverage in a coverage directory, where Infection's `--coverage` looks for it. */
-    public const string XML = 'coverage-xml';
+    public const string XML = CoverageReport::Xml->value;
 
     /** PHPUnit's JUnit log in a coverage directory, where Infection's `--coverage` looks for it. */
     public const string JUNIT = JUnitLog::NAME;

@@ -195,6 +195,7 @@ final readonly class Detected
             ...$phpunit ? [BuiltinRunner::PhpUnit] : [],
             ...$installed->has(Package::PhpSpec->value) ? [BuiltinRunner::PhpSpec] : [],
             ...$codeception ? [BuiltinRunner::Codeception] : [],
+            ...$installed->has(Package::Testo->value) ? [BuiltinRunner::Testo] : [],
         ];
     }
 
@@ -221,12 +222,13 @@ final readonly class Detected
             ),
             $native !== [] => $this->supported($installed, $native[0]),
             default => CannotJudge::because(sprintf(
-                'None of %s, %s, %s, %s and %s is installed, so nothing can mutate. Install one of them.',
+                'None of %s, %s, %s, %s, %s and %s is installed, so nothing can mutate. Install one of them.',
                 Package::PestMutate->value,
                 Package::Infection->value,
                 Package::PhpUnit->value,
                 Package::PhpSpec->value,
                 Package::Codeception->value,
+                Package::Testo->value,
             )),
         };
     }

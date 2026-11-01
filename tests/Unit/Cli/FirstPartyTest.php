@@ -89,6 +89,7 @@ use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\NativeCodeception;
 use NightWorksIO\MutationGate\Tests\Support\NativePhpSpec;
 use NightWorksIO\MutationGate\Tests\Support\NativePhpUnit;
+use NightWorksIO\MutationGate\Tests\Support\NativeTesto;
 
 $registry = static fn(): Extensions => new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER)));
 
@@ -230,6 +231,14 @@ it('registers the Codeception runner, in the vendor directory Composer installed
     expect(Lookup::in($registry())->runner(Name::of('codeception'), Options::none()))
         ->toEqual(NativeRunner::fromOptions(Options::none(), BuiltinRunner::Codeception, NativeCodeception::framework(...), ComposerVendor::of('.'), new CapDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock()))))
         ->and(Lookup::in($registry())->runner(Name::of('codeception'), Configs::options('{"timeout": "ten"}')))->toBeInstanceOf(Invalid::class);
+});
+
+it('registers the Testo runner, in the vendor directory Composer installed the project into, from the options the flows write', function () use (
+    $registry,
+): void {
+    expect(Lookup::in($registry())->runner(Name::of('testo'), Options::none()))
+        ->toEqual(NativeRunner::fromOptions(Options::none(), BuiltinRunner::Testo, NativeTesto::framework(...), ComposerVendor::of('.'), new CapDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock()))))
+        ->and(Lookup::in($registry())->runner(Name::of('testo'), Configs::options('{"timeout": "ten"}')))->toBeInstanceOf(Invalid::class);
 });
 
 it('registers the console, every file report, GitHub\'s three and the badge by name', function () use ($registry): void {

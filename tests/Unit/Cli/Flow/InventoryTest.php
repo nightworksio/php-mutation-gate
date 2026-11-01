@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Hold\Additions;
 use NightWorksIO\MutationGate\Core\Hold\Holdings;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\HoldsReading;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
@@ -257,6 +258,58 @@ it('cannot find the units under Pest where a #[Holds] stands where no group can 
 
     expect($found instanceof CannotJudge ? $found->why() : $found)
         ->toStartWith("tests/Pest.php:5: #[Holds('src/Held.php')] stands in tests/Pest.php");
+});
+
+/** The inventory of a project whose test class holds src/Held.php, under a runner listing its holding group. */
+$heldClass = static function (RunnerBehaviour $behaviour): Inventory|CannotJudge {
+    $project = Flows::project();
+    $test = <<<'PHP'
+        <?php
+
+        use NightWorksIO\MutationGate\Attribute\Holds;
+
+        #[Holds('src/Held.php')]
+        final class HeldTest
+        {
+        }
+
+        PHP;
+    Scratch::write($project, 'tests/HeldTest.php', $test);
+    $runner = new RunnerFake(
+        Identity::of('native', Versions::none(), Digest::of('php')),
+        Groups::of(Group::named('holds:src/Held.php')),
+        CoverageMap::empty(),
+        Mutants::none(),
+        Paths::none(),
+        Paths::none(),
+        TestNames::none(),
+        Paths::none(),
+    )->behaving($behaviour);
+    $checkout = new ChangeSourceFake(Revision::ref('base'), Changes::none(), [
+        Revision::workingTree()->name() => [...Flows::FILES, 'tests/HeldTest.php' => $test],
+    ]);
+
+    return Inventory::of(Flows::adapters($project, [], $checkout, $runner), Flows::settings());
+};
+
+it('holds what the groups a runner lists hold where its listing reads each #[Holds], reading none from the files', function () use (
+    $heldClass,
+): void {
+    $found = $heldClass(RunnerBehaviour::standard()->readingHolds(HoldsReading::Listed));
+
+    expect($found instanceof Inventory ? [...$found->units] : $found)->toEqual([
+        Unit::held(Path::of('src/Held.php'), Group::named('holds:src/Held.php')),
+        Unit::file(Path::of('src/Money.php')),
+    ]);
+});
+
+it('cannot find the units where a runner lists a holding group a #[Holds] its files write holds as well', function () use (
+    $heldClass,
+): void {
+    $found = $heldClass(RunnerBehaviour::standard());
+
+    expect($found instanceof CannotJudge ? $found->why() : $found)
+        ->toStartWith('src/Held.php is held both by the group holds:src/Held.php and by #[Holds].');
 });
 
 it('lists the runner\'s groups withholding what every process running the project\'s code does', function (): void {

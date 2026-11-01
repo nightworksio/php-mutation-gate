@@ -37,6 +37,7 @@ use NightWorksIO\MutationGate\Core\Native\Outcome;
 use NightWorksIO\MutationGate\Core\Native\Variable;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
+use NightWorksIO\MutationGate\Core\Runner\HoldsReading;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
@@ -162,14 +163,19 @@ it('cannot name a PHPUnit it cannot drive, or a PHP that does not describe itsel
         ->and(phpUnitRunner($silent, $shell)->identity(Withheld::standard()))->toEqual(Platform::ofRunner('Segmentation fault'));
 });
 
-it('behaves as a standard runner: holds as groups, a limit it can raise, the map the plan handed on, a mutant per core at once, its tests in its framework\'s style', function (): void {
+it('behaves as a standard runner: holds as its framework reads them, a limit it can raise, the map the plan handed on, a mutant per core at once, its tests in its framework\'s style', function (): void {
     $project = phpUnitRunnerProject();
     $shell = PhpUnitShellFake::answering(Ran::finished(succeeded: true, output: ''));
     $phpspec = new NativeRunner($project, $shell, NativePhpSpec::in($project), Engine::with(new PlusToMinus()), LimitBounds::between(Seconds::of(5.0), Seconds::of(6.0)), new CapDirectory());
 
     expect(phpUnitRunner($project, $shell)->behaviour())
         ->toEqual(RunnerBehaviour::standard()->runningPerCore()->writingTestsIn(AssertionStyle::PhpUnit))
-        ->and($phpspec->behaviour())->toEqual(RunnerBehaviour::standard()->runningPerCore()->writingTestsIn(AssertionStyle::PhpSpec));
+        ->and($phpspec->behaviour())->toEqual(
+            RunnerBehaviour::standard()
+                ->runningPerCore()
+                ->writingTestsIn(AssertionStyle::PhpSpec)
+                ->readingHolds(HoldsReading::Listed),
+        );
 });
 
 it('lists the tests of some suites and their groups as PHPUnit lists them into a file of its own', function (): void {

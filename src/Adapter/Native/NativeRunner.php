@@ -153,14 +153,18 @@ final readonly class NativeRunner implements Runner
     }
 
     /**
-     * `#[Holds]` is read as groups, the gate lays each mutant's limit itself
-     * and can raise it, and each shard reads the map the plan handed on. It
-     * stops each mutant at its first failing test, runs a mutant per core at
-     * once (ADR-0023), and its tests are in the style its framework's are.
+     * `#[Holds]` is read as its framework reads it, the gate lays each
+     * mutant's limit itself and can raise it, and each shard reads the map
+     * the plan handed on. It stops each mutant at its first failing test,
+     * runs a mutant per core at once (ADR-0023), and its tests are in the
+     * style its framework's are.
      */
     public function behaviour(): RunnerBehaviour
     {
-        return RunnerBehaviour::standard()->runningPerCore()->writingTestsIn($this->framework->testStyle());
+        return RunnerBehaviour::standard()
+            ->runningPerCore()
+            ->writingTestsIn($this->framework->testStyle())
+            ->readingHolds($this->framework->holds());
     }
 
     /** These suites' tests and their groups, as the framework lists them into a file; or why it lists none. */
@@ -215,7 +219,7 @@ final readonly class NativeRunner implements Runner
             $ran instanceof CannotJudge => $ran,
             $ran->succeeded() => $ran->timed(),
             default => CannotJudge::because(
-                sprintf(self::NOT_STARTED, $this->framework->program()->title(), $ran->output()),
+                sprintf(self::NOT_STARTED, $this->framework->runner()->program()->title(), $ran->output()),
             ),
         };
     }
@@ -325,7 +329,7 @@ final readonly class NativeRunner implements Runner
                 self::NO_PROJECT,
                 $package->value(),
                 $framework->runner()->value,
-                $framework->program()->title(),
+                $framework->runner()->program()->title(),
                 $project->vendor()->value(),
             ));
     }

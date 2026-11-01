@@ -294,6 +294,7 @@ it('names each built-in adapter by a method of its own', function (Closure $gate
     'the phpunit runner' => [fn(): Gate => Gate::configure()->runner(Runner::phpunit()), ['runner' => 'phpunit']],
     'the phpspec runner' => [fn(): Gate => Gate::configure()->runner(Runner::phpspec()), ['runner' => 'phpspec']],
     'the codeception runner' => [fn(): Gate => Gate::configure()->runner(Runner::codeception()), ['runner' => 'codeception']],
+    'the testo runner' => [fn(): Gate => Gate::configure()->runner(Runner::testo()), ['runner' => 'testo']],
     'a runner by name' => [fn(): Gate => Gate::configure()->runner(Runner::uses('acme')), ['runner' => 'acme']],
     'phpunit' => [fn(): Gate => Gate::configure()->treeSource(Source::phpunit()), ['treeSource' => 'phpunit']],
     'a tree source by name' => [

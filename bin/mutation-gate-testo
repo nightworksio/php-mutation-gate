@@ -1,0 +1,35 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+// The Testo runner's launcher (ADR-0027, ADR-0047), which the gate starts in
+// place of Testo's own script, on the PHP a mutant's run starts on, with the
+// override prepended, in the project's root: the project's autoloader, what
+// the gate tells it, then Testo's own arguments. It runs Testo's `run` over
+// the gate's config, which loads the project's own testo.php and adds the
+// gate's plugin.
+
+use NightWorksIO\MutationGate\Adapter\Testo\Launch;
+
+$given = is_array($_SERVER['argv']) ? $_SERVER['argv'] : [];
+$arguments = [];
+
+foreach ($given as $argument) {
+    $arguments[] = is_string($argument) ? $argument : '';
+}
+
+[$script, $autoloader] = [...$arguments, '', ''];
+
+require $autoloader;
+
+$launch = Launch::of(array_slice($arguments, 2));
+$config = $launch->written();
+
+try {
+    $exit = $launch->testo()->run($launch->input($script, $config));
+} finally {
+    Launch::cleared($config);
+}
+
+exit($exit);

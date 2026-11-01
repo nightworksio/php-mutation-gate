@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Order\Ordering;
 use NightWorksIO\MutationGate\Core\OwnScript;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\ErrorDisplay;
+use NightWorksIO\MutationGate\Core\Runner\HoldsReading;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\Program;
@@ -70,11 +71,12 @@ $request = static fn(): MutationRequest => MutationRequest::of(Paths::of(Path::o
 it('is PHPUnit, run as the phpunit runner, defined by the PHPUnit config in the root', function (): void {
     $framework = phpUnitFramework();
 
-    expect($framework->program())->toBe(Program::PhpUnit)
+    expect($framework->runner()->program())->toBe(Program::PhpUnit)
         ->and($framework->runner())->toBe(BuiltinRunner::PhpUnit)
         ->and($framework->definitions())->toEqual(Paths::of(Path::of('phpunit.xml'), Path::of('phpunit.dist.xml'), Path::of('phpunit.xml.dist')))
         ->and($framework->tests())->toBeInstanceOf(TestFiles::class)
-        ->and($framework->testStyle())->toBe(AssertionStyle::PhpUnit);
+        ->and($framework->testStyle())->toBe(AssertionStyle::PhpUnit)
+        ->and($framework->holds())->toBe(HoldsReading::Written);
 });
 
 it('names the packages it drives at a version the runner supports, and cannot judge an older PHPUnit', function (): void {
