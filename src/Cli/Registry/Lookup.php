@@ -31,6 +31,8 @@ use function sprintf;
  * options. Extensions only register; the composition root looks up, and
  * refuses what a registration built that is not what its extension point
  * takes.
+ *
+ * @internal
  */
 final readonly class Lookup
 {

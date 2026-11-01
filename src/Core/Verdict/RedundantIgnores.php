@@ -16,6 +16,8 @@ use function sprintf;
  * that leaves mutants out, every one of them a survivor proven equivalent.
  * It still leaves them out, and a notice says it can go. It never fails the
  * run, so a PHP whose optimizer proves less cannot turn a clean run red.
+ *
+ * @internal
  */
 final readonly class RedundantIgnores
 {

@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\Score\Floor;
 /**
  * A floor: a number from 0 to 100.
  *
+ * @internal
+ *
  * @implements Shape<Floor>
  */
 final readonly class Percent implements Shape

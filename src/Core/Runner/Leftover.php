@@ -11,6 +11,8 @@ use function sprintf;
 /**
  * A file an earlier run left where a run writes its own, which the gate
  * could not remove, so the run could not be told from the earlier one.
+ *
+ * @internal
  */
 final readonly class Leftover
 {

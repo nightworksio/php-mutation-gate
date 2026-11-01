@@ -58,6 +58,8 @@ use function trim;
  * runner's own config says, whether git cloned it shallow, why the last
  * run's warm workers forked nothing, and whether its Infection and
  * pest-plugin-mutate carry the gate's patches.
+ *
+ * @internal
  */
 final readonly class Files
 {

@@ -10,6 +10,8 @@ use PDOException;
  * How one kind of database lists its tables and the counters a rolled-back
  * transaction leaves where they moved, and sets those counters back
  * (ADR-0023).
+ *
+ * @internal
  */
 interface Dialect
 {

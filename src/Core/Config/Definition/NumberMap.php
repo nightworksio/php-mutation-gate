@@ -27,6 +27,8 @@ use function sprintf;
  * An object whose keys are data, such as path prefixes or colour names, and
  * whose values are numbers.
  *
+ * @internal
+ *
  * @implements Shape<Table>
  */
 final readonly class NumberMap implements Shape

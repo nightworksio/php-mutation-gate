@@ -13,6 +13,8 @@ use function mb_strtolower;
  * the constructor such a class declares, which runs however the instance is
  * made, by a container or by reflection too. `new` of a class held in a
  * variable is a creation the scan cannot follow.
+ *
+ * @internal
  */
 final readonly class Creations
 {

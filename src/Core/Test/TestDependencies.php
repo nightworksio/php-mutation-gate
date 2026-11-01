@@ -16,6 +16,8 @@ use function count;
  * attributes name them: PHPUnit skips a test whose dependency did not run
  * before it in the same run, so a run that selects a test must select what it
  * depends on too.
+ *
+ * @internal
  */
 final readonly class TestDependencies
 {

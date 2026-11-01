@@ -18,6 +18,8 @@ use function sprintf;
  * and digits joined by single hyphens, and never the set this repository
  * ships, which is on in every run.
  *
+ * @internal
+ *
  * @implements Shape<non-empty-string>
  */
 final readonly class MutatorSetName implements Shape

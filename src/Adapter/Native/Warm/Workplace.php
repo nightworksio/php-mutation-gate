@@ -19,6 +19,8 @@ use function unlink;
  * The directory a mutation run's warm workers share: the job, the count of
  * runs claimed so far, what each worker and its children printed, how each
  * run ended, and each worker's refusal, where its boot failed the guard.
+ *
+ * @internal
  */
 final readonly class Workplace
 {

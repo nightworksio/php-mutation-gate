@@ -24,6 +24,8 @@ use function realpath;
  * What the gate told its PhpSpec launcher, ahead of PhpSpec's own arguments
  * (see LaunchOption): which examples to run, and which files to write the
  * run's coverage and listing to, where it names them.
+ *
+ * @internal
  */
 final readonly class Told
 {

@@ -22,6 +22,8 @@ use function sprintf;
  * was and as it is, and those {@see ReadingTests} finds read what it
  * declares; a new file reaches the tests that name what it declares,
  * directly or through the support they use.
+ *
+ * @internal
  */
 final readonly class SourceTests
 {

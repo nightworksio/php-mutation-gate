@@ -31,6 +31,8 @@ use function sprintf;
  * floor, `prov` where the verdict comes from, `warn` a warning, then each
  * survivor under the `@` line of its file, those on changed lines first, as
  * many as asked, and `more` how many it left out.
+ *
+ * @internal
  */
 final readonly class Digest
 {

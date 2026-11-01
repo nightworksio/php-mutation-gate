@@ -35,7 +35,11 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 
-/** The options the flows take on the command line, declared once and read into what each flow asks for. */
+/**
+ * The options the flows take on the command line, declared once and read into what each flow asks for.
+ *
+ * @internal
+ */
 final readonly class FlowOptions
 {
     public const string CHANGED_SINCE = 'changed-since';

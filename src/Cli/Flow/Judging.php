@@ -81,6 +81,8 @@ use function sprintf;
  * by the owners CODEOWNERS names at the base. Then the reports, and the
  * ledger. A tree held to no floor stops a run in CI, and is warned of
  * elsewhere.
+ *
+ * @internal
  */
 final readonly class Judging
 {

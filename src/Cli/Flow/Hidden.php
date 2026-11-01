@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * each of its mutants killed as it ends, what a process printed screened
  * for the secrets the gate withholds before its tail is cut, and kept
  * only where none is in it, so none reaches the result.
+ *
+ * @internal
  */
 final readonly class Hidden
 {

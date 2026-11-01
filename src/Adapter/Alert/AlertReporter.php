@@ -36,6 +36,8 @@ use function sprintf;
  * variable that `urlEnv` names; the config's validator refuses a URL written
  * in the config. The webhook's request is signed where a secret is set. A
  * post that fails says so and fails nothing (ADR-0016).
+ *
+ * @internal
  */
 final readonly class AlertReporter implements Deferring, Reporter
 {

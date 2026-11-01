@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantId;
  * A mutant's id: twelve lowercase hex characters, which YAML and NEON read as
  * a number unless it is quoted.
  *
+ * @internal
+ *
  * @implements Shape<MutantId>
  */
 final readonly class Identifier implements Shape

@@ -45,6 +45,8 @@ use function sprintf;
  * `needs: pipeline: $PARENT_PIPELINE_ID`, and both extend the hidden job
  * `.mutation-gate`, defined in the file `ci.gitlab.template` names, which the
  * child pipeline includes.
+ *
+ * @internal
  */
 final readonly class GitLabPlan implements CiPlan, Configurable
 {

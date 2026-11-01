@@ -47,6 +47,8 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * written* (ADR-0016). `OTEL_EXPORTER_OTLP_HEADERS`,
  * which may hold a collector's key, go only to the endpoint
  * `OTEL_EXPORTER_OTLP_ENDPOINT` names.
+ *
+ * @internal
  */
 final readonly class OtlpReporter implements Deferring, Reporter
 {

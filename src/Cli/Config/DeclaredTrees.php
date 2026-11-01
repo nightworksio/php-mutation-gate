@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Port\TreeSource;
  * config's `trees` laid over them, so a declared floor, reason and exclude
  * win over a manifest's, and a declared path the source does not list is a
  * tree of its own (ADR-0003).
+ *
+ * @internal
  */
 final readonly class DeclaredTrees implements TreeSource
 {

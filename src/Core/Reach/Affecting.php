@@ -31,6 +31,8 @@ use function sprintf;
  * 4. changed test support reaches the tests that use it;
  * 5. a file `proofs.ignore` matches reaches no test;
  * 6. any other file reaches every test, since no rule can say which read it.
+ *
+ * @internal
  */
 final readonly class Affecting
 {

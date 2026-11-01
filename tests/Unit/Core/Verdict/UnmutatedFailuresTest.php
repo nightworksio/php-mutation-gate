@@ -24,7 +24,7 @@ function failingSets(UnmutatedFailures $failing): array
 {
     return array_map(static fn(FailingTests $tests): array => [
         $tests->line(),
-        array_map(static fn(JudgedMutant $mutant): string => $mutant->mutant()->id()->value(), $tests->mutants()),
+        array_map(static fn(JudgedMutant $mutant): string => $mutant->mutant()->id()->value(), [...$tests]),
     ], [...$failing]);
 }
 

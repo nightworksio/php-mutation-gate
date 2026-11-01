@@ -12,6 +12,8 @@ use function sprintf;
  * One record of a mutant on one line: its status, the run whose proof holds
  * it, that ledger's scope and when the run was, as `survived, by github:7/1
  * on main at 2026-09-29T10:00:00Z`.
+ *
+ * @internal
  */
 final readonly class RecordText
 {

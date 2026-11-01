@@ -10,6 +10,8 @@ use PDOException;
  * A connection to a test database, as a warm worker's child reads and resets
  * it (ADR-0023): each row a query returns, every value as text, one digest
  * of every row a query returns, and statements that return nothing.
+ *
+ * @internal
  */
 interface Statements
 {

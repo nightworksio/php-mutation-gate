@@ -40,6 +40,8 @@ use function unlink;
  * the request's deadline has passed. A control whose file cannot be read, or
  * whose run is not started, never runs; one stopped at its limit ran out,
  * whether or not it had served the file yet.
+ *
+ * @internal
  */
 final readonly class UnmutatedRuns
 {

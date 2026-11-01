@@ -24,6 +24,8 @@ use function sprintf;
  * one past. The decompressed bytes are what the reading process's memory
  * holds, since reading a map takes 23 bytes for each of them, and no more
  * than so many times the compressed bytes.
+ *
+ * @internal
  */
 final readonly class HandoffLimits
 {

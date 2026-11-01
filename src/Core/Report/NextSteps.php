@@ -28,6 +28,8 @@ use function sprintf;
  * keeps the gate from judging, then for each set below its floor how many
  * more mutants its tests must catch, then each set a sample left undecided,
  * then the failures no floor decides. A run that passes needs nothing.
+ *
+ * @internal
  */
 final readonly class NextSteps
 {

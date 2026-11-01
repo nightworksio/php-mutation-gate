@@ -9,7 +9,11 @@ use NightWorksIO\MutationGate\Core\Baseline\Unlowered;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 
-/** A tree whose floor is below the floor the newest trend entry recorded, with why, where its baseline says. */
+/**
+ * A tree whose floor is below the floor the newest trend entry recorded, with why, where its baseline says.
+ *
+ * @internal
+ */
 final readonly class LoweredFloor
 {
     private function __construct(

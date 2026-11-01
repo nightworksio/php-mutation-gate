@@ -24,6 +24,8 @@ use function str_replace;
  * value to a logical line, split from the key by `=`, `:` or white space,
  * with `#` and `!` beginning a comment, a line ending in an unescaped `\`
  * going on on the next, and the later of two equal keys winning.
+ *
+ * @internal
  */
 final readonly class Properties
 {

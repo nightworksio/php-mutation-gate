@@ -21,6 +21,8 @@ use function sprintf;
  * this one does, is answered 409 by an account whose
  * `AllowBlobPublicAccess` is off, whatever the container's access level,
  * and otherwise with something else (ADR-0028).
+ *
+ * @internal
  */
 final readonly class PublicAccess
 {

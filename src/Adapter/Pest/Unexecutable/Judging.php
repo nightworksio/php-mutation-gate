@@ -45,6 +45,8 @@ use function strval;
  * which coverage may not mark run, by the tests that run its other lines
  * (ADR-0004). A mutant on any other executable line stays
  * uncovered.
+ *
+ * @internal
  */
 final readonly class Judging
 {

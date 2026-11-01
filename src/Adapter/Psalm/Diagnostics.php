@@ -28,6 +28,8 @@ use function str_starts_with;
  * reads it, and its message, which starts with the type in brackets, as the
  * command line's report does not. An `Error` is an error, and every lower
  * severity is lesser.
+ *
+ * @internal
  */
 final readonly class Diagnostics
 {

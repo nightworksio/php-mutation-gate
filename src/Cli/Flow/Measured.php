@@ -29,6 +29,8 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
  * Each tree's last measured score, from the newest result of every one of its
  * units in the ledgers the run reads: its own scope's and the default
  * branch's. A tree with a unit that has no result yet has no measured score.
+ *
+ * @internal
  */
 final readonly class Measured
 {

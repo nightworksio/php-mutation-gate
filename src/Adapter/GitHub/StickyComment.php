@@ -15,6 +15,8 @@ use function str_contains;
 /**
  * The sticky comment on a pull request: the one comment carrying the hidden
  * marker that the commenting identity wrote, looked up page by page.
+ *
+ * @internal
  */
 final readonly class StickyComment
 {

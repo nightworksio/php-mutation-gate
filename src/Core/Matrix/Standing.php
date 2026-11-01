@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Matrix;
 
-/** What mutation says of one test, over the mutants it judged with a known result (ADR-0014). */
+/**
+ * What mutation says of one test, over the mutants it judged with a known result (ADR-0014).
+ *
+ * @internal
+ */
 enum Standing: string
 {
     /** Every mutant it judged with a known result passed it: it certainly caught none. */

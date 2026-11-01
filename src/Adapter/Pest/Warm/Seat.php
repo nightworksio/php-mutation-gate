@@ -14,6 +14,8 @@ use function sprintf;
  * mutant's run leaves for it, where each run it took started and how it
  * ended, what the worker and its children printed, its test databases'
  * report, and why it forked a mutant's run no child.
+ *
+ * @internal
  */
 final readonly class Seat
 {

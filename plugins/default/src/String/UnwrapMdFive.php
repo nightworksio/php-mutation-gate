@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `md5(…)` becomes its first argument. */
+/**
+ * `md5(…)` becomes its first argument.
+ *
+ * @internal
+ */
 final readonly class UnwrapMdFive implements Mutator
 {
     public function name(): MutatorName

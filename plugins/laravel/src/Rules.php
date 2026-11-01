@@ -22,6 +22,8 @@ use PhpParser\Node\Scalar\String_;
  * The validation rules Laravel code writes: the list `validate()` or
  * `Validator::make()` is given, each field of it by its name, and each field's
  * rules, as a list or as one string of rules joined by `|`.
+ *
+ * @internal
  */
 final readonly class Rules
 {

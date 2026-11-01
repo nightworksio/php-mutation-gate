@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\File\Paths;
  * The test files that run each covered file, as the runner selects them to
  * judge it: what a coverage map says once its tests are placed in their files.
  * It is held both ways round, so the files a test runs are a lookup.
+ *
+ * @internal
  */
 final readonly class Judges
 {

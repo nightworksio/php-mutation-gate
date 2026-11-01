@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\Format\Json;
  * configuration reference lists their keys: laid over another layer's part
  * by part, and written part by part. A layer reads its parts through this,
  * each by the accessor of its own.
+ *
+ * @internal
  */
 final readonly class Parts
 {

@@ -30,6 +30,8 @@ use function sprintf;
  * one; a Cept or a scenario by its file's name and its own, as
  * `file:name`. It is in each group Codeception puts it in, and in the
  * holding group of each `#[Holds]` on its class or its method.
+ *
+ * @internal
  */
 final readonly class Test
 {

@@ -18,7 +18,11 @@ use NightWorksIO\MutationGateSymfony\SymfonySet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\MethodCall;
 
-/** `->isPasswordValid(…)` becomes `true`, on any receiver. */
+/**
+ * `->isPasswordValid(…)` becomes `true`, on any receiver.
+ *
+ * @internal
+ */
 final readonly class PasswordValidToTrue implements Mutator
 {
     public function name(): MutatorName

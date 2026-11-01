@@ -16,7 +16,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\AssignOp\BitwiseAnd;
 use PhpParser\Node\Expr\AssignOp\BitwiseOr;
 
-/** `|=` becomes `&=`. */
+/**
+ * `|=` becomes `&=`.
+ *
+ * @internal
+ */
 final readonly class BitwiseOrEqualToBitwiseAndEqual implements Mutator
 {
     public function name(): MutatorName

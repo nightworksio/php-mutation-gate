@@ -26,6 +26,8 @@ use PhpToken;
  * same class by its name, one of another class by `<class>::class` and its
  * name. An attribute that names its method by anything but a string literal,
  * or that names a whole class, names nothing here. The file is never loaded.
+ *
+ * @internal
  */
 final readonly class DependsReader
 {

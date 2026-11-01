@@ -22,6 +22,8 @@ use function trim;
  * a reason; a tree leaves the file only when its path is no longer a tree,
  * and a security set only when its package's path is no longer a package
  * (ADR-0021).
+ *
+ * @internal
  */
 final readonly class Lowering
 {

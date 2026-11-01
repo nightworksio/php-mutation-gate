@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Port\Reporter;
 /**
  * The reporter `junit`: JUnit XML, a suite per tree and one for new code,
  * written to the `path` its entry names (ADR-0009).
+ *
+ * @internal
  */
 final readonly class JUnitReportFile implements Configurable, Reporter
 {

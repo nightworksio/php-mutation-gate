@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Format\Node;
  * A value read in one shape, then made into what a layer holds: `uncovered`
  * read as a word, and kept as the part of the floors it sets.
  *
+ * @internal
+ *
  * @template T of object|scalar
  * @template-covariant U of object|scalar
  *

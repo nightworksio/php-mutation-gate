@@ -6,7 +6,11 @@ namespace NightWorksIO\MutationGate\Adapter\Console;
 
 use Symfony\Component\Console\Output\StreamOutput;
 
-/** One stream of the console whose every line starts no command in a CI runner's log (Inert). */
+/**
+ * One stream of the console whose every line starts no command in a CI runner's log (Inert).
+ *
+ * @internal
+ */
 final class InertStream extends StreamOutput
 {
     /** The line this stream has open, which the next write continues. */

@@ -16,6 +16,8 @@ use function sprintf;
  * The run that establishes a proof, as the ledger names it: as its CI numbers
  * it (`CiRun::id()`), and otherwise `local:<time of the run>`. Every proof it
  * establishes records the base its keys were built on.
+ *
+ * @internal
  */
 final readonly class RunName
 {

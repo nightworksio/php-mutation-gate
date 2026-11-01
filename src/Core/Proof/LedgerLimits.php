@@ -21,6 +21,8 @@ use function sprintf;
  * what a ledger at the retention cap measures (ADR-0013), as
  * compressed bytes, as decompressed bytes, and the seconds a read over a
  * network may take.
+ *
+ * @internal
  */
 final readonly class LedgerLimits
 {

@@ -7,6 +7,8 @@ namespace NightWorksIO\MutationGate\Core\Test;
 /**
  * Where a mutant's own run, once its tests have run, reads the tests its
  * issues name as its killers (see IssueKillers).
+ *
+ * @internal
  */
 interface RunIssues
 {

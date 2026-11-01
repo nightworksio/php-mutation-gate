@@ -52,6 +52,8 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * `AWS_ROLE_ARN` set, those keys assume that role. A key that is not there is
  * an empty ledger; one that cannot be fetched or read is unreadable, which
  * costs a run and never a verdict, and says why.
+ *
+ * @internal
  */
 final readonly class BucketLedger implements Configurable, ProofStore
 {

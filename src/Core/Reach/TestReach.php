@@ -23,6 +23,8 @@ use function sprintf;
  * What a change to a test, to test support or to anything else reaches: a
  * test reaches what it runs by the coverage map, support reaches what the
  * tests that use it run, and anything else reaches nothing by itself.
+ *
+ * @internal
  */
 final readonly class TestReach
 {

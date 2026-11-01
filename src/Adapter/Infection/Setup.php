@@ -35,6 +35,8 @@ use function sprintf;
  * `infection` by default; and `mutators`, the classes of the registered
  * mutators Infection makes mutants with beside its own, which the flows write
  * (ADR-0021), none by default.
+ *
+ * @internal
  */
 final readonly class Setup
 {

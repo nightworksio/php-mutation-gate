@@ -11,6 +11,8 @@ use PHPUnit\Event\TestSuite\SkippedSubscriber;
  * Records every test of a suite skipped whole, such as in
  * `setUpBeforeClass`, as ended, neither passed nor failed: none of them
  * starts or finishes, so this is their only end.
+ *
+ * @internal
  */
 final readonly class OnSuiteSkipped implements SkippedSubscriber
 {

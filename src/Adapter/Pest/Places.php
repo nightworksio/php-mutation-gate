@@ -18,6 +18,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * their lines came (see Recording\Placed): its position and the digest of
  * the order up to it, where the run started it as a test, and the process
  * it came from, where its line names one.
+ *
+ * @internal
  */
 final readonly class Places
 {

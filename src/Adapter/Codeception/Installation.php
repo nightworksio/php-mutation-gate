@@ -12,7 +12,11 @@ use NightWorksIO\MutationGate\Core\File\Root;
 
 use function realpath;
 
-/** Codeception as a project installed it: the project's root, and the vendor directory it is in. */
+/**
+ * Codeception as a project installed it: the project's root, and the vendor directory it is in.
+ *
+ * @internal
+ */
 final readonly class Installation
 {
     /** Codeception's script, in the vendor directory's `bin`. */

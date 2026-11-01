@@ -13,6 +13,8 @@ use function count;
  * …`, static or not, by reference or not, with or without attributes, read
  * from where it starts among a run of tokens: where its body opens and where
  * it ends. None starts at an index that begins anything else.
+ *
+ * @internal
  */
 final readonly class ClosureLiteral
 {

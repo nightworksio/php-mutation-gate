@@ -18,6 +18,8 @@ use function sprintf;
  * public API (ADR-0011). The framework has no PHP language: each
  * hook runs the gate Composer installed in the project, from the top of the
  * working tree, with git's refs in the variables the framework sets.
+ *
+ * @internal
  */
 final readonly class PreCommitHooks
 {

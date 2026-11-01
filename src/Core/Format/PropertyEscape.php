@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Format;
 
-/** The letters a properties file escapes a control character with, after a `\`. */
+/**
+ * The letters a properties file escapes a control character with, after a `\`.
+ *
+ * @internal
+ */
 enum PropertyEscape: string
 {
     case Tab = 't';

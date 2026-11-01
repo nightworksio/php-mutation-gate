@@ -23,6 +23,8 @@ use function sprintf;
  * it read, the substitute's for a mutant. An issue with no primary
  * annotation belongs to no file, and like anything that is no report,
  * means the analysis did not finish.
+ *
+ * @internal
  */
 final readonly class Report
 {

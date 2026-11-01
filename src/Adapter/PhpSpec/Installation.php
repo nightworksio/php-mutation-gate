@@ -13,7 +13,11 @@ use NightWorksIO\MutationGate\Core\File\Root;
 
 use function realpath;
 
-/** PhpSpec as a project installed it: the project's root, and the vendor directory it is in. */
+/**
+ * PhpSpec as a project installed it: the project's root, and the vendor directory it is in.
+ *
+ * @internal
+ */
 final readonly class Installation
 {
     /** PhpSpec's script, in the vendor directory's `bin`. */

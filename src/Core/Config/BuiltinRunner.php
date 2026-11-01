@@ -6,7 +6,11 @@ namespace NightWorksIO\MutationGate\Core\Config;
 
 use NightWorksIO\MutationGate\Core\Composer\Package;
 
-/** The runners this package builds in, by the name a config chooses each by. */
+/**
+ * The runners this package builds in, by the name a config chooses each by.
+ *
+ * @internal
+ */
 enum BuiltinRunner: string
 {
     case Pest = 'pest';

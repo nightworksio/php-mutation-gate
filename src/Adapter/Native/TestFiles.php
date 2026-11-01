@@ -29,6 +29,8 @@ use function sprintf;
  * dependencies a test declares are PHPUnit's, which no other framework's
  * test declares. The directories are walked once, and a file
  * is read only where it is named after a class asked about.
+ *
+ * @internal
  */
 final class TestFiles implements TestLayout
 {

@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Format\Fit;
  * rule's unbounded message must not grow them without bound. A cut ends in
  * `…`. The finding itself is compared whole; only what is
  * recorded of it is cut.
+ *
+ * @internal
  */
 final readonly class RejectionLength
 {

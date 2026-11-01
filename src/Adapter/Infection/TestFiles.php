@@ -19,7 +19,11 @@ use NightWorksIO\MutationGate\Core\Test\TestsByClass;
 
 use function sprintf;
 
-/** The files in the test directories that declare some test classes, found by their tokens. */
+/**
+ * The files in the test directories that declare some test classes, found by their tokens.
+ *
+ * @internal
+ */
 final readonly class TestFiles
 {
     /** The files that declare the classes of these tests. */

@@ -34,6 +34,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * hooks from too; for each, the line that calls the gate is printed.
  * `mutation-gate hook uninstall` removes the hooks the gate wrote, and only
  * those (ADR-0010).
+ *
+ * @internal
  */
 final readonly class HookCommand
 {

@@ -33,6 +33,8 @@ use function str_ends_with;
  * What a call is made on, read from the code around it: an entity manager by
  * the name an app gives it, and a message bus by the type its parameter or
  * property declares.
+ *
+ * @internal
  */
 final readonly class Receivers
 {

@@ -31,6 +31,8 @@ use function sprintf;
  * under the mutators and the memory cap of a run, and each mutant's tests
  * run in the order asked: with killers first, the history every ledger
  * the run reads learned of the unit's files.
+ *
+ * @internal
  */
 final readonly class Triaging
 {

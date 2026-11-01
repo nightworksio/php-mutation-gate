@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\File\Paths;
  * directory: it reads the first it finds. Both runners run PHPUnit with it.
  * Infection, looking for itself, tries `phpunit.xml.dist` before
  * `phpunit.dist.xml`.
+ *
+ * @internal
  */
 enum PhpUnitConfig: string
 {

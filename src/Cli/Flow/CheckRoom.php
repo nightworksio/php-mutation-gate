@@ -23,6 +23,8 @@ use Psr\Clock\ClockInterface;
  * side by side (ADR-0020): each survivor needs its own check, and the first
  * of a file its runner prints the print's too, each as long as a check is
  * taken to be, the processes sharing them out.
+ *
+ * @internal
  */
 final readonly class CheckRoom
 {

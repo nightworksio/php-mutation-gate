@@ -16,6 +16,8 @@ use function sprintf;
  * The top of the HTML report: the verdict, a plain sentence on what mutation
  * testing is, why, and what to do, the JSON report's `why` and `next`.
  *
+ * @internal
+ *
  * @phpstan-import-type Report from JsonReport
  */
 final readonly class Headline

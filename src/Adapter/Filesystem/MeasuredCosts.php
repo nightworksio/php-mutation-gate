@@ -47,6 +47,8 @@ use function scandir;
  * nothing of is guessed as its lines of code times `costs.secondsPerLine`
  * for its path, read from the files on disk; a held path that is a
  * directory is the sum of the PHP files under it.
+ *
+ * @internal
  */
 final readonly class MeasuredCosts implements Configurable, CostModel
 {

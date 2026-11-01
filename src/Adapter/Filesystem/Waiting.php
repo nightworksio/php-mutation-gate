@@ -9,7 +9,11 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function usleep;
 
-/** Waiting in real time between two looks at the files `watch` polls (ADR-0010). */
+/**
+ * Waiting in real time between two looks at the files `watch` polls (ADR-0010).
+ *
+ * @internal
+ */
 final readonly class Waiting
 {
     /**

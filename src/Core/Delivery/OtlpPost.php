@@ -6,7 +6,11 @@ namespace NightWorksIO\MutationGate\Core\Delivery;
 
 use NightWorksIO\MutationGate\Core\NotGiven;
 
-/** The OTLP/HTTP JSON a run leaves for `deliver` to export: the trace, for a timed run, and the metrics. */
+/**
+ * The OTLP/HTTP JSON a run leaves for `deliver` to export: the trace, for a timed run, and the metrics.
+ *
+ * @internal
+ */
 final readonly class OtlpPost
 {
     private function __construct(private string|NotGiven $traces, private string $metrics)

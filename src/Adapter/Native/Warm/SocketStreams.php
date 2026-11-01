@@ -7,7 +7,11 @@ namespace NightWorksIO\MutationGate\Adapter\Native\Warm;
 use function str_contains;
 use function stream_get_meta_data;
 
-/** The sockets among some of PHP's stream resources, told by the word their stream type holds. */
+/**
+ * The sockets among some of PHP's stream resources, told by the word their stream type holds.
+ *
+ * @internal
+ */
 final readonly class SocketStreams
 {
     /** The word in a stream's type that says it is a socket. */

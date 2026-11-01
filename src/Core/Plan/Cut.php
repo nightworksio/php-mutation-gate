@@ -34,6 +34,8 @@ use function sprintf;
  * and those the units do not fill are empty and say so. Packages never share a shard, because a shard runs in
  * one package's directory; floors may, because the verdict adds up each
  * mutant itself.
+ *
+ * @internal
  */
 final readonly class Cut
 {

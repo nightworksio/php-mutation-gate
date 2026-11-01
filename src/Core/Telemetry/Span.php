@@ -11,6 +11,8 @@ use NightWorksIO\MutationGate\Core\Cost\Phase;
  * parent's, drawn from the trace id and its path so every job names it
  * alike, when it started and how long it took, and its attributes
  * (ADR-0016).
+ *
+ * @internal
  */
 final readonly class Span
 {

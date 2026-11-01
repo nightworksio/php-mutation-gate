@@ -11,6 +11,8 @@ use Pest\Mutate\Event\Events\TestSuite\FinishMutationSuiteSubscriber;
  * Records every mutant's final status and duration.
  * Pest's facade files a subscriber under the first interface it implements,
  * so this implements that one alone.
+ *
+ * @internal
  */
 final readonly class OnFinishMutationSuite implements FinishMutationSuiteSubscriber
 {

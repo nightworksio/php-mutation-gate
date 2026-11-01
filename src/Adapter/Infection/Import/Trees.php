@@ -32,6 +32,8 @@ use function sprintf;
  * one tree per directory, each excluding what `source.excludes` names inside
  * it, each with the imported floor. Without `source.directories`, the trees
  * zero-config found take the floor and the excludes.
+ *
+ * @internal
  */
 final readonly class Trees
 {

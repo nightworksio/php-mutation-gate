@@ -10,6 +10,8 @@ use NightWorksIO\MutationGate\Core\File\Path;
  * Where a manifest's `config` has Composer install packages and link their
  * commands: `config.vendor-dir`, or `vendor`, and `config.bin-dir`, as it is
  * written, or nothing where it names none.
+ *
+ * @internal
  */
 final readonly class Directories
 {

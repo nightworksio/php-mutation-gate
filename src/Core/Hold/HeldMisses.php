@@ -21,6 +21,8 @@ use Traversable;
  * covers (ADR-0005), each once, by its path: none of them is
  * mutated, and each fails the verdict with the lines it misses.
  *
+ * @internal
+ *
  * @implements IteratorAggregate<int, NotCovered>
  */
 final readonly class HeldMisses implements Countable, IteratorAggregate

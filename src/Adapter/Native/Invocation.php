@@ -34,6 +34,8 @@ use function sprintf;
  *   the framework's run of the tests the run asks for.
  * - For the PHP a mutant runs on: described, with opcache off as a mutant's
  *   run has it.
+ *
+ * @internal
  */
 final readonly class Invocation
 {

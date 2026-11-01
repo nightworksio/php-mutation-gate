@@ -23,6 +23,8 @@ use function str_starts_with;
  * the source directories they are in, none inside another, since Infection
  * finds a file once for each source directory that holds it. Where a run
  * leaves paths out, it is given the PHP files left, one by one.
+ *
+ * @internal
  */
 final readonly class Targets
 {

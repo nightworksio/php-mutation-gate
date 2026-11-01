@@ -23,6 +23,8 @@ use NightWorksIO\MutationGate\Core\Runner\MutationResult;
  * Pest's id leave the same source, so each is paired with the one found on
  * its own line; one found on no line of its own is unjudged, rather than take
  * another's result, and the evidence of each kill found again goes with it.
+ *
+ * @internal
  */
 final readonly class FoundAgain
 {

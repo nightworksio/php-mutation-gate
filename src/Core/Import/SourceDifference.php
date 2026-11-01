@@ -16,6 +16,8 @@ use function sprintf;
  * `phpunit.xml`'s `<source>` includes (ADR-0016). The gate's
  * `trees` replaces the tree source's list whole, so the difference is said
  * rather than merged.
+ *
+ * @internal
  */
 final readonly class SourceDifference
 {

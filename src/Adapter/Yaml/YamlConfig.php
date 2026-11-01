@@ -30,6 +30,8 @@ use Symfony\Component\Yaml\Yaml;
  * A `mutation-gate.yaml` or `.yml`, read with `symfony/yaml`, which is
  * optional. A date needs no quotes: it is read as a date and written
  * `YYYY-MM-DD` again.
+ *
+ * @internal
  */
 final readonly class YamlConfig implements ConfigLoader
 {

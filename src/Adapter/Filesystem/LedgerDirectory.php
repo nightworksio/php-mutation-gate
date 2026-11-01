@@ -50,6 +50,8 @@ use function usort;
  * `<path>/<scope>/ledger.json.gz`, where the path is `.mutation-gate/ledger`
  * unless `with: {path: …}` names another. It is the default locally, and
  * what every CI cache keeps.
+ *
+ * @internal
  */
 final readonly class LedgerDirectory implements Configurable, ProofStore
 {

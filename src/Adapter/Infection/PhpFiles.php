@@ -15,7 +15,11 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 
 use function scandir;
 
-/** The PHP files a path names: the file itself, or every PHP file under the directory, in name order. */
+/**
+ * The PHP files a path names: the file itself, or every PHP file under the directory, in name order.
+ *
+ * @internal
+ */
 final readonly class PhpFiles
 {
     /**

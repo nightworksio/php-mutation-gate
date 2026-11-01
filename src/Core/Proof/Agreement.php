@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
  * (ADR-0007; ADR-0008). The same key means the same
  * code, so where the two differ, the mutants that differ are flaky, and
  * neither result is used: the fresh one is not recorded, and the proof goes.
+ *
+ * @internal
  */
 final readonly class Agreement
 {

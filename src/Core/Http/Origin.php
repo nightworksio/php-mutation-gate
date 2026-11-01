@@ -18,6 +18,8 @@ use function sprintf;
  * How a report names a URL it posted to: its scheme, host and port alone.
  * Its userinfo, path and query are left out, as a service may hold its key
  * in any of them, and a report is printed to a CI's log.
+ *
+ * @internal
  */
 final readonly class Origin
 {

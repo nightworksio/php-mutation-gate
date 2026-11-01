@@ -16,7 +16,11 @@ use NightWorksIO\MutationGateDefault\Numbers;
 use PhpParser\Node;
 use PhpParser\Node\Scalar\Int_;
 
-/** An integer becomes one less, but for a `declare` value and the largest integer. */
+/**
+ * An integer becomes one less, but for a `declare` value and the largest integer.
+ *
+ * @internal
+ */
 final readonly class DecrementInteger implements Mutator
 {
     public function name(): MutatorName

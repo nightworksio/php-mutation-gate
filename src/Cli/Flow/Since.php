@@ -30,6 +30,8 @@ use function sprintf;
  * established at, read from git and from the files on disk (ADR-0008). The
  * files are read, and what each names looked up, once for every commit;
  * each commit's change is read once, however many results share it.
+ *
+ * @internal
  */
 final readonly class Since
 {

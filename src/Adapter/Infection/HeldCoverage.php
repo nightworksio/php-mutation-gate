@@ -24,6 +24,8 @@ use function sprintf;
  * collects its own, so coverage never outlives an edit between runs, as
  * `watch` makes. The key is the command and what it withheld; a cap on the
  * coverage run, were there one, would belong in it too.
+ *
+ * @internal
  */
 final class HeldCoverage
 {

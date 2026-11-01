@@ -18,6 +18,8 @@ use function sprintf;
  * The runner's suites that serve the application from another process,
  * such as Codeception's with PhpBrowser or WebDriver: a mutant cannot be
  * served there, so the gate runs none of their tests (ADR-0027).
+ *
+ * @internal
  */
 final readonly class SuitesElsewhere
 {

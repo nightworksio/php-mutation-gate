@@ -21,6 +21,8 @@ use function sprintf;
  * console's last line, a line of the step summary, and the PR comment's line
  * under the verdict. It carries no money, which stays in the cost section
  * (ADR-0017).
+ *
+ * @internal
  */
 final readonly class SavingsText
 {

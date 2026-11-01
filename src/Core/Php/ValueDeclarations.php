@@ -21,6 +21,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * or `define()` with its name written out declares. A constant of an
  * anonymous class has no name a read could spell, and a `case` outside a
  * class-like belongs to a `switch`.
+ *
+ * @internal
  */
 final readonly class ValueDeclarations
 {

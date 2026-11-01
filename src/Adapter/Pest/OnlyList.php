@@ -20,6 +20,8 @@ use function trim;
  * pest-plugin-mutate reads it once, in Pest's own process, before it makes a
  * mutant. A file, because one environment string holds at most 128 KiB on
  * Linux, which a list of some 7,700 ids passes.
+ *
+ * @internal
  */
 final readonly class OnlyList
 {

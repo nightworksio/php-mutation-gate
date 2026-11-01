@@ -9,6 +9,8 @@ namespace NightWorksIO\MutationGate\Core\Runner;
  * an error is shown or logged, or how PHP's interactive shell looks, and
  * never what a test computes or whether it finishes. Every setting not named
  * here is in the digest, including one PHP or an extension adds later.
+ *
+ * @internal
  */
 enum InertSetting: string
 {

@@ -16,6 +16,8 @@ use function sprintf;
 /**
  * Git's own pre-push hook as `init --hook` sets it up (ADR-0017):
  * written as `hook install` writes it, or printed whole with `--dry-run`.
+ *
+ * @internal
  */
 final readonly class GitHooks
 {

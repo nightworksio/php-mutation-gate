@@ -10,7 +10,11 @@ use NightWorksIO\MutationGate\Core\Config\Floors;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Table;
 
-/** How the `owners` keys a config writes are read into its `Floors` part (ADR-0022). */
+/**
+ * How the `owners` keys a config writes are read into its `Floors` part (ADR-0022).
+ *
+ * @internal
+ */
 final readonly class OwnersKeys
 {
     /** @return list<Field<Layer>> */

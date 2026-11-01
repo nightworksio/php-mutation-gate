@@ -22,6 +22,8 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  * process recorded, with its copy and the seconds Pest allowed it, and which
  * mutants Pest left uncovered, whose kills are the trial's (ADR-0004).
  * Records that cannot be read say nothing of any.
+ *
+ * @internal
  */
 final readonly class RecordedKills
 {

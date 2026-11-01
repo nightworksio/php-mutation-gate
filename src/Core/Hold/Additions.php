@@ -32,6 +32,8 @@ use Traversable;
  * inside the paths it holds, where it judges as any covering test does, and
  * each hold must run a line of what it holds.
  *
+ * @internal
+ *
  * @implements IteratorAggregate<int, Addition>
  */
 final readonly class Additions implements Countable, IteratorAggregate

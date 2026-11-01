@@ -42,6 +42,8 @@ use function sprintf;
  * or holds a line no file has, refuses the file.
  *
  * It is read once, a line at a time, and changes no more once read.
+ *
+ * @internal
  */
 final class Records
 {

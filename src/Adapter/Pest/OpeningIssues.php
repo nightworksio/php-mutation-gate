@@ -42,6 +42,8 @@ use function str_replace;
  * raised outside a test. The opening tests run again alone, as the run
  * selected them and within the opening run's own limit, logging PHPUnit's
  * events, and the issues the log names are quoted.
+ *
+ * @internal
  */
 final readonly class OpeningIssues
 {

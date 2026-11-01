@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `array_diff_assoc(…)` becomes its first argument. */
+/**
+ * `array_diff_assoc(…)` becomes its first argument.
+ *
+ * @internal
+ */
 final readonly class UnwrapArrayDiffAssoc implements Mutator
 {
     public function name(): MutatorName

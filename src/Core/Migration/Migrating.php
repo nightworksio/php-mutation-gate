@@ -11,7 +11,11 @@ use NightWorksIO\MutationGate\Core\Format\JsonDocument;
 
 use function sprintf;
 
-/** A file's migration, by the format it is written in (ADR-0026). */
+/**
+ * A file's migration, by the format it is written in (ADR-0026).
+ *
+ * @internal
+ */
 final readonly class Migrating
 {
     private const string NOT_AN_OBJECT = '%s cannot be migrated: %s';

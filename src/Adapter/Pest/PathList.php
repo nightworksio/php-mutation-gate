@@ -10,7 +10,11 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 
 use function str_contains;
 
-/** Paths as Pest's options list them: joined by commas, which none of them may hold. */
+/**
+ * Paths as Pest's options list them: joined by commas, which none of them may hold.
+ *
+ * @internal
+ */
 final readonly class PathList
 {
     private function __construct(private Paths $paths)

@@ -26,6 +26,8 @@ use function preg_match;
  * that leave the same source share their copy, so what their runs recorded
  * is kept together. Where each killer stood in its run's order, and how a
  * failed run ended, is the evidence of a kill (ADR-0014).
+ *
+ * @internal
  */
 final class OwnRuns
 {

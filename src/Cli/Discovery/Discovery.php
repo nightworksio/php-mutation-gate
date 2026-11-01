@@ -33,6 +33,8 @@ use function sprintf;
  * the archive names, which no `installed.json` of the project lists
  * (ADR-0022). This is the one class that constructs a class by a name it
  * read, which is what naming an extension in `composer.json` asks for.
+ *
+ * @internal
  */
 final readonly class Discovery
 {

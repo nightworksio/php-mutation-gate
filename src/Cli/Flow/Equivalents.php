@@ -7,7 +7,11 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
-/** The survivors proven equivalent, and a warning where opcache could check none of them. */
+/**
+ * The survivors proven equivalent, and a warning where opcache could check none of them.
+ *
+ * @internal
+ */
 final readonly class Equivalents
 {
     public function __construct(public MutantIds $proven, public Warnings $warnings)

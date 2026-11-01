@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
  * The source of each file a survivor that asks for a test is in, read once
  * from the project, for the clusters its survivors form (ADR-0022). A file
  * that cannot be read is left out, and clusters nothing.
+ *
+ * @internal
  */
 final readonly class Sources
 {

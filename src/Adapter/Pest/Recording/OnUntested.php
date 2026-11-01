@@ -11,6 +11,8 @@ use Pest\Mutate\Event\Events\Test\Outcome\UntestedSubscriber;
  * Records a mutant every test passed with.
  * Pest's facade files a subscriber under the first interface it implements,
  * so this implements that one alone.
+ *
+ * @internal
  */
 final readonly class OnUntested implements UntestedSubscriber
 {

@@ -25,6 +25,8 @@ use const PHP_INT_MAX;
  * full or the last mutant has come. Once a batch's runs could not all start
  * by the deadline, on `hrtime`'s clock, the batch has run out of time, and so
  * has every mutant after.
+ *
+ * @internal
  */
 final class PreparedBatch
 {

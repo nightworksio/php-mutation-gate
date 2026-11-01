@@ -33,6 +33,8 @@ use function sprintf;
  * it stands as it does, the tests that judge it by name, what they miss, the
  * command that reproduces it and the one that explains it. `explain`,
  * `reproduce` and a cluster's block are built from the same pieces.
+ *
+ * @internal
  */
 final readonly class MutantText
 {

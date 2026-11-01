@@ -28,6 +28,8 @@ use function sprintf;
  * they hold. Under Pest, whose plugin turns each `#[Holds]` into a group, the
  * groups Pest lists are the holdings, once every path the tokens find is
  * among them (ADR-0005).
+ *
+ * @internal
  */
 final readonly class Inventory
 {

@@ -16,6 +16,8 @@ use function sprintf;
  * Text that is not empty, named for what it holds: `a reason`, `a glob`; or
  * a word, text with no whitespace in it: `a group name`.
  *
+ * @internal
+ *
  * @implements Shape<non-empty-string>
  */
 final readonly class Text implements Shape

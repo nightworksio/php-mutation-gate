@@ -10,7 +10,11 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
-/** One mutant's trial: the tests that judge it, the file it mutates, its mutated copy, and how long a run may take. */
+/**
+ * One mutant's trial: the tests that judge it, the file it mutates, its mutated copy, and how long a run may take.
+ *
+ * @internal
+ */
 final readonly class TrialRun
 {
     private function __construct(

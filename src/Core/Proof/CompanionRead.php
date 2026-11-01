@@ -10,7 +10,11 @@ use NightWorksIO\MutationGate\Core\Coverage\MapLimits;
 use function rtrim;
 use function sprintf;
 
-/** How a store reads an object it keeps beside a ledger: within that object's limits, and why it could not. */
+/**
+ * How a store reads an object it keeps beside a ledger: within that object's limits, and why it could not.
+ *
+ * @internal
+ */
 final readonly class CompanionRead
 {
     /** Why a store could not read one, where and as the store says. */

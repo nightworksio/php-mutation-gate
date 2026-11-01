@@ -17,6 +17,8 @@ use function sprintf;
  * Under `--online`, an Azure storage account that refuses anonymous reads,
  * which keeps a job without credentials, such as a fork's, from reading
  * the default branch's ledger from the public container (ADR-0028).
+ *
+ * @internal
  */
 final readonly class PublicContainer
 {

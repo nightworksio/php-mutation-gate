@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\Config\Listed;
  * written: its templates, what fills them in, whether they are written or
  * printed, what to tell the person beside them, and what a config `init`
  * writes gains for it.
+ *
+ * @internal
  */
 final readonly class PreparedCi
 {

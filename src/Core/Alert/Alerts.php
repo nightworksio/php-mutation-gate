@@ -27,6 +27,8 @@ use Traversable;
  * A verdict with no trend, off the default branch, cut short by its
  * budget, or sampled, alerts nothing.
  *
+ * @internal
+ *
  * @implements IteratorAggregate<int, Alert>
  */
 final readonly class Alerts implements Countable, IteratorAggregate

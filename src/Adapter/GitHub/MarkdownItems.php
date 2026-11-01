@@ -30,6 +30,8 @@ use function sprintf;
  * as folded blocks, or as rows of a table, then how many more there are,
  * under the owner group of their files where the run read a CODEOWNERS; and
  * the ignored mutants as a table of their own.
+ *
+ * @internal
  */
 final readonly class MarkdownItems
 {

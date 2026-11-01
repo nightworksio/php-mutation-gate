@@ -7,7 +7,11 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
 use PHPUnit\Event\TestRunner\ExecutionStarted;
 use PHPUnit\Event\TestRunner\ExecutionStartedSubscriber;
 
-/** Beats as a mutant's own process begins its tests, once every test file it loads is loaded. */
+/**
+ * Beats as a mutant's own process begins its tests, once every test file it loads is loaded.
+ *
+ * @internal
+ */
 final readonly class OnExecutionStarted implements ExecutionStartedSubscriber
 {
     public function __construct(private Heartbeat $heartbeat)

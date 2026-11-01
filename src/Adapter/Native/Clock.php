@@ -6,7 +6,11 @@ namespace NightWorksIO\MutationGate\Adapter\Native;
 
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
-/** What the runner times its steps on: the system's clock, or one a test drives. */
+/**
+ * What the runner times its steps on: the system's clock, or one a test drives.
+ *
+ * @internal
+ */
 interface Clock
 {
     /** The seconds it reads, from any start. */

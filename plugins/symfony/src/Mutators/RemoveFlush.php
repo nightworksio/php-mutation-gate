@@ -25,6 +25,8 @@ use PhpParser\Node\Stmt\Expression;
  * An entity manager is told by its name: `$em`, `$manager`, a name that ends in
  * `EntityManager` or `ObjectManager`, a property of `$this` so named, or what
  * `getManager()` hands out.
+ *
+ * @internal
  */
 final readonly class RemoveFlush implements Mutator
 {

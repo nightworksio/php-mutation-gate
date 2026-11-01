@@ -9,6 +9,8 @@ namespace NightWorksIO\MutationGate\Core\Php;
  * inside the owner itself. Any use of an enum may read a case's backing
  * value, since `from()`, `tryFrom()`, `cases()` and serialisation all do, and
  * a reflection that makes an attribute names the owner of its arguments.
+ *
+ * @internal
  */
 final readonly class Mentions
 {

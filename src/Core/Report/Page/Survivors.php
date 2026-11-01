@@ -20,6 +20,8 @@ use function sprintf;
  * to, with what test would catch it, each a link to it in the files below.
  * A run with none says so.
  *
+ * @internal
+ *
  * @phpstan-import-type MutantEntry from MutantJson
  */
 final readonly class Survivors

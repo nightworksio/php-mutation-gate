@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 /**
  * A test as a framework's extension finds it, about to run: its id, the
  * file it is declared in, by its path on disk, and the groups it is in.
+ *
+ * @internal
  */
 final readonly class Candidate
 {

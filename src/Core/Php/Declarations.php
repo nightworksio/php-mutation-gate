@@ -16,6 +16,8 @@ use function sprintf;
  * a method by its class's fully qualified name and its own, a function by
  * its fully qualified name, each in lower case, as PHP compares them. A
  * method of an anonymous class, and one without a body, is not held.
+ *
+ * @internal
  */
 final readonly class Declarations
 {

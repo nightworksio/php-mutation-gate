@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `array_replace_recursive(…)` becomes its first argument. */
+/**
+ * `array_replace_recursive(…)` becomes its first argument.
+ *
+ * @internal
+ */
 final readonly class UnwrapArrayReplaceRecursive implements Mutator
 {
     public function name(): MutatorName

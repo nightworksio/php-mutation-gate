@@ -27,6 +27,8 @@ use function sprintf;
  * guard, it claims nothing and says why; where the boot itself fails, the
  * worker fails as the framework would. Either way the gate runs those mutants
  * in fresh processes.
+ *
+ * @internal
  */
 final readonly class Worker
 {

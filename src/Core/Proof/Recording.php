@@ -23,6 +23,8 @@ use function sprintf;
  * that the runner skipped as too slow to judge, ran to the end and is
  * recorded. A unit with no key is never recorded, and a shard that cannot
  * judge records nothing, so it never reaches here.
+ *
+ * @internal
  */
 final readonly class Recording
 {

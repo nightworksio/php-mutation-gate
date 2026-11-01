@@ -30,6 +30,8 @@ use ReflectionFunction;
  * `describe` it is registered inside. Pest passes a test to it before it
  * builds the test's class, so the group reaches PHPUnit the way Pest's own
  * `->group()` does. It never drops a test.
+ *
+ * @internal
  */
 final readonly class HoldsGroups implements TestCaseMethodFilter
 {

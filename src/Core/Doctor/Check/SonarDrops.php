@@ -21,6 +21,8 @@ use function sprintf;
  * A tree outside `sonar.sources`, while a `sonar` report is written:
  * SonarQube drops an issue on a file it did not index, and says only how
  * many it dropped (ADR-0028).
+ *
+ * @internal
  */
 final readonly class SonarDrops
 {

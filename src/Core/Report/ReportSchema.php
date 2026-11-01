@@ -38,6 +38,8 @@ use function sprintf;
  * The JSON Schemas of the gate's own reports and of `explain`, built from the
  * same enums they are written from, and committed in `resources/`.
  *
+ * @internal
+ *
  * @phpstan-type Leaf array{
  *     type?: string,
  *     minimum?: int,

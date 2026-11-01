@@ -6,7 +6,11 @@ namespace NightWorksIO\MutationGate\Core\Php;
 
 use NightWorksIO\MutationGate\Core\File\Line;
 
-/** A value a file declares by name, and the lines from its name to the end of its value. */
+/**
+ * A value a file declares by name, and the lines from its name to the end of its value.
+ *
+ * @internal
+ */
 final readonly class ValueDeclaration
 {
     private function __construct(private Symbol $symbol, private Line $first, private Line $last)

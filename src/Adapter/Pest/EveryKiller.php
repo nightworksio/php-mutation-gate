@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
  * pest-plugin-mutate starts each with `--bail`, which stops it at its first
  * failing test, so the plugin drops it there, every covering test runs, and
  * each that fails is recorded. Every other run keeps its arguments.
+ *
+ * @internal
  */
 final readonly class EveryKiller
 {

@@ -11,7 +11,11 @@ use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Port\TreeSource;
 
-/** The `composer` tree source (ADR-0005): one tree per `autoload` path of `composer.json`, not `autoload-dev`. */
+/**
+ * The `composer` tree source (ADR-0005): one tree per `autoload` path of `composer.json`, not `autoload-dev`.
+ *
+ * @internal
+ */
 final readonly class AutoloadTrees implements TreeSource
 {
     private function __construct(private Manifests $manifests)

@@ -18,6 +18,8 @@ use function usort;
  * Class names spelt backwards and in byte order, each with its place in the
  * list it came from, so the names that end in a name are found by searching
  * for the names that begin with it backwards, not by reading every name.
+ *
+ * @internal
  */
 final readonly class ClassNameEndings
 {

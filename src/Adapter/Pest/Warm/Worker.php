@@ -48,6 +48,8 @@ use function trait_exists;
  * loaded, one of the gate's own, or of a file that declares a class or function
  * the worker declared from another, starts fresh. The worker ends once its
  * parent is gone, or the gate says the run is done.
+ *
+ * @internal
  */
 final readonly class Worker
 {

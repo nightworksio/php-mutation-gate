@@ -16,6 +16,8 @@ use Traversable;
  * What `explain` explains: one mutant, or a cluster of survivors with each
  * of its members (ADR-0022).
  *
+ * @internal
+ *
  * @implements IteratorAggregate<int, Explanation>
  */
 final readonly class Explanations implements IteratorAggregate

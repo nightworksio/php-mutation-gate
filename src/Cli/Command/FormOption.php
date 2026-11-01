@@ -13,7 +13,11 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 
-/** `--format=text|json`, on a command that writes for a person by default, or as its public JSON. */
+/**
+ * `--format=text|json`, on a command that writes for a person by default, or as its public JSON.
+ *
+ * @internal
+ */
 final readonly class FormOption
 {
     /** The option's name, which every command with formats spells so. */

@@ -20,6 +20,8 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  * The units one shard mutates, in the order it takes them, and what they
  * cost together. A run of no units is an empty shard.
  *
+ * @internal
+ *
  * @implements IteratorAggregate<int, Weighed>
  */
 final readonly class Run implements Countable, IteratorAggregate

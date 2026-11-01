@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateDefault\Returns;
 use PhpParser\Node;
 use PhpParser\Node\Stmt\Return_;
 
-/** A `return` directly in a function's body returns `[]`, where the function returns an `array`. */
+/**
+ * A `return` directly in a function's body returns `[]`, where the function returns an `array`.
+ *
+ * @internal
+ */
 final readonly class AlwaysReturnEmptyArray implements Mutator
 {
     public function name(): MutatorName

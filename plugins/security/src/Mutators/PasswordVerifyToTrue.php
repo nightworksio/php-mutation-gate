@@ -18,7 +18,11 @@ use NightWorksIO\MutationGateSecurity\SecuritySet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `password_verify(…)` becomes `true`. */
+/**
+ * `password_verify(…)` becomes `true`.
+ *
+ * @internal
+ */
 final readonly class PasswordVerifyToTrue implements Mutator
 {
     public function name(): MutatorName

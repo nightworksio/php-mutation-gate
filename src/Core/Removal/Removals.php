@@ -38,6 +38,8 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
  * - the callee's body holds another mutant, and every other one survived,
  *   but those proven equivalent or ignored, which say nothing either way;
  * - at least one test judges it, and none of those is weak.
+ *
+ * @internal
  */
 final readonly class Removals
 {

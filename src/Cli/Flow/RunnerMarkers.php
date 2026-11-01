@@ -25,6 +25,8 @@ use function sprintf;
  * `ignores.native: refuse` a plan stops before anything is mutated,
  * listing each with the `ignores.entries` entry that replaces it; under
  * `allow` the verdict says how many there are.
+ *
+ * @internal
  */
 final readonly class RunnerMarkers
 {

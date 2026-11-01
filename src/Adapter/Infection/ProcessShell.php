@@ -38,6 +38,8 @@ use NightWorksIO\MutationGate\Port\Processes;
  * - At its deadline it is stopped with every process it started.
  * - A process that cannot start ends as a failure, with the reason as its
  *   output.
+ *
+ * @internal
  */
 final readonly class ProcessShell implements Shell
 {

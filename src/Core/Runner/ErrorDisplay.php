@@ -12,6 +12,8 @@ use function mb_strtolower;
  * else a number, where 0 prints nowhere, 2 on standard error and any other on
  * standard output. Text that is none of these, such as `off` or nothing,
  * reads as 0.
+ *
+ * @internal
  */
 enum ErrorDisplay
 {

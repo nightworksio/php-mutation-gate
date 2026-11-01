@@ -24,6 +24,8 @@ use function sprintf;
  * where a GitHub workflow runs it: one GitHub disabled after 60 days without
  * activity, or none that ran on a schedule. The scheduled run keeps the default branch's ledger
  * and the survivors' list current, so every pull request starts from them.
+ *
+ * @internal
  */
 final readonly class ScheduleRunning
 {

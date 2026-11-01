@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Alert;
 
-/** The default branch's state did not change, so there is nothing to alert. */
+/**
+ * The default branch's state did not change, so there is nothing to alert.
+ *
+ * @internal
+ */
 final readonly class Steady
 {
     public static function state(): self

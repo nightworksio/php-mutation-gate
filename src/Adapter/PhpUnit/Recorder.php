@@ -27,6 +27,8 @@ use PHPUnit\Runner\Extension\Facade;
  * these ways is one whose process died while it ran. The outcome is
  * forgotten as each test starts and finishes, so none is written against
  * another test.
+ *
+ * @internal
  */
 final class Recorder
 {

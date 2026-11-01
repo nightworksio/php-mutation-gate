@@ -16,6 +16,8 @@ use function sprintf;
  * and the framework's recorder whether opcache could have served a cached
  * original in its place. A run that served no mutated file, or could have
  * served a cached original, says nothing of the mutant.
+ *
+ * @internal
  */
 final readonly class Guard
 {

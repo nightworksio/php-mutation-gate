@@ -23,6 +23,8 @@ use NightWorksIO\MutationGate\Core\Reach\AffectedTests;
  * `reasons`; and each changed source file no test reaches, `unreached`. A
  * base or a map there is none of is `null`.
  *
+ * @internal
+ *
  * @phpstan-type TestEntry array{file: string, ids: list<string>, reasons: list<string>}
  */
 final readonly class AffectedJson

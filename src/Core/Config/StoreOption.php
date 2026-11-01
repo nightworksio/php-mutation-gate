@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-/** The options the built-in object stores take under `proofs.store.with` (ADR-0007, ADR-0013, ADR-0028). */
+/**
+ * The options the built-in object stores take under `proofs.store.with` (ADR-0007, ADR-0013, ADR-0028).
+ *
+ * @internal
+ */
 enum StoreOption: string
 {
     case Bucket = 'bucket';

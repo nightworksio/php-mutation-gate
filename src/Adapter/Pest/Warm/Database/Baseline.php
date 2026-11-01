@@ -16,6 +16,8 @@ use PDOException;
  * Every test database a warm worker's child found freshly migrated, as it
  * stood then (ADR-0023). A child of the worker starts on them as migrated
  * only while each still stands so once its counters are set back.
+ *
+ * @internal
  */
 final readonly class Baseline
 {

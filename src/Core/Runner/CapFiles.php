@@ -10,6 +10,8 @@ use NightWorksIO\MutationGate\Core\File\DiskPath;
  * The files of a run's memory cap (ADR-0004): an ini file in a
  * directory of the gate's own, which every PHP process of the run scans. A
  * runner adapter says where the directory is; these write and remove it.
+ *
+ * @internal
  */
 interface CapFiles
 {

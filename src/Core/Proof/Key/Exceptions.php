@@ -20,6 +20,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Warnings;
  * `.gitignore` says, since the ledger changes after every run; and what
  * `proofs.ignore` matches. None of them leaves out a file that defines the
  * runner: every key reads those.
+ *
+ * @internal
  */
 final readonly class Exceptions
 {

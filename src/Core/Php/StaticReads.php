@@ -18,6 +18,8 @@ use function sprintf;
  * read it (see Reflections). A variable class, a `constant()` of a name not
  * written out, and `static::` where a subclass declares the constant anew are
  * reads the scan cannot follow.
+ *
+ * @internal
  */
 final readonly class StaticReads
 {

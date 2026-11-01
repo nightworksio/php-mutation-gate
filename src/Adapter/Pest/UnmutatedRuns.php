@@ -43,6 +43,8 @@ use function strval;
  * request's deadline has passed. Its tests' time is the time its process
  * took, and its peak what the launcher it starts through measured (see
  * PeakLauncher).
+ *
+ * @internal
  */
 final readonly class UnmutatedRuns
 {

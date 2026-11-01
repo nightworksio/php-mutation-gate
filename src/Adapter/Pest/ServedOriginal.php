@@ -27,6 +27,8 @@ use function sprintf;
  * A test that fails only while the override serves a file, as one does that
  * stats a dangling link through it, then fails in the control as well, and
  * its failure is never read as a kill.
+ *
+ * @internal
  */
 final readonly class ServedOriginal
 {

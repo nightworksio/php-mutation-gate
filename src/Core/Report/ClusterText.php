@@ -16,6 +16,8 @@ use function sprintf;
  * how many it holds, by which rule and its id; then each member's heading
  * and diff, why one test may kill them all, what the tests miss, and the
  * commands that write that test and explain the cluster.
+ *
+ * @internal
  */
 final readonly class ClusterText
 {

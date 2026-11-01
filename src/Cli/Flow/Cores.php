@@ -10,6 +10,8 @@ use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 /**
  * The cores of the machine the gate runs on, counted as pest-plugin-mutate
  * counts them, with `fidry/cpu-core-counter`: one where it finds no count.
+ *
+ * @internal
  */
 final readonly class Cores
 {

@@ -27,6 +27,8 @@ use NightWorksIO\MutationGate\Core\Test\TestListing;
  * what its runs read and are started with, and where its tests are. The
  * native runner serves each mutant through the override and records each
  * run, whatever the framework.
+ *
+ * @internal
  */
 interface Framework
 {

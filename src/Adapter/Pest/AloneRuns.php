@@ -40,6 +40,8 @@ use function strval;
  * which names the tests that failed. Each runs once for each key in a
  * process, side by side in the places of the request's pool as the mutants'
  * own runs were.
+ *
+ * @internal
  */
 final readonly class AloneRuns
 {

@@ -17,6 +17,8 @@ use PhpSpec\Specification;
  * `let` nor its collaborators run. PhpSpec dispatches `beforeExample`
  * outside the example's own handling, where an exception breaks the run,
  * so the skip is a maintainer's.
+ *
+ * @internal
  */
 final readonly class Selecting implements Maintainer
 {

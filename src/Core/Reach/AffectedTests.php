@@ -18,6 +18,8 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
  * every test file of the suite where some reason reaches every test; the
  * changed source files no test runs or reads; and the reasons that list no
  * test at all.
+ *
+ * @internal
  */
 final readonly class AffectedTests
 {

@@ -16,7 +16,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\PostDec;
 use PhpParser\Node\Expr\PostInc;
 
-/** `$a++` becomes `$a--`. */
+/**
+ * `$a++` becomes `$a--`.
+ *
+ * @internal
+ */
 final readonly class PostIncrementToPostDecrement implements Mutator
 {
     public function name(): MutatorName

@@ -16,7 +16,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `str_starts_with(…)` becomes `str_ends_with(…)`. */
+/**
+ * `str_starts_with(…)` becomes `str_ends_with(…)`.
+ *
+ * @internal
+ */
 final readonly class StrStartsWithToStrEndsWith implements Mutator
 {
     public function name(): MutatorName

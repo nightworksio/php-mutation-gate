@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Http;
 
-/** The field of a token endpoint's JSON answer that holds the token it gives. */
+/**
+ * The field of a token endpoint's JSON answer that holds the token it gives.
+ *
+ * @internal
+ */
 enum TokenField: string
 {
     /** OAuth 2.0's, as Google's security token service and Microsoft Entra ID answer. */

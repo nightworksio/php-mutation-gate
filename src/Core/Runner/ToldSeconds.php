@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  * A number of seconds the gate tells a runner's process in a variable, as
  * that process reads it back: none where it was told nothing, no number, or
  * no time past nothing.
+ *
+ * @internal
  */
 final readonly class ToldSeconds
 {

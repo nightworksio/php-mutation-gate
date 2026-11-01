@@ -16,7 +16,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\PreDec;
 use PhpParser\Node\Expr\PreInc;
 
-/** `++$a` becomes `--$a`. */
+/**
+ * `++$a` becomes `--$a`.
+ *
+ * @internal
+ */
 final readonly class PreIncrementToPreDecrement implements Mutator
 {
     public function name(): MutatorName

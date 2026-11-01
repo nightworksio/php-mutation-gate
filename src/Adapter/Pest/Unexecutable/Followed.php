@@ -19,6 +19,8 @@ use function sprintf;
  * while the judging that read the codebase runs: every mutant of one constant
  * asks the same question. Every case of one enum asks it too, as any use of
  * the enum reads each case's value.
+ *
+ * @internal
  */
 final class Followed
 {

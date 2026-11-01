@@ -21,6 +21,8 @@ use NightWorksIO\MutationGate\Core\Runner\FatalError;
  * FatalError). Infection logs neither the code the process exited with nor
  * whether a signal ended it, nor the order its tests ran in, so those are
  * not given.
+ *
+ * @internal
  */
 final readonly class KillOutput
 {

@@ -27,6 +27,8 @@ use function sprintf;
  * finding sits in the trait's file. An error that belongs to no file, such
  * as its own, means the analysis did not finish, and so does anything that
  * is no report.
+ *
+ * @internal
  */
 final readonly class Report
 {

@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
  * Every test file of the suite, each with the coverage map's tests it holds,
  * as the runner places a test in its file; a file the map holds no test of
  * holds none. It is held both ways round, so the file of a test is a lookup.
+ *
+ * @internal
  */
 final readonly class TestPlaces
 {

@@ -46,6 +46,8 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * of the repository it runs in, `GITHUB_REPOSITORY`. It exits 0 once it
  * wrote both files, and 2 where it was not told where, cannot list the
  * repositories, may not show private ones, or cannot write.
+ *
+ * @internal
  */
 final readonly class DashboardCommand
 {

@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Warnings;
  * What a mutation run's warm workers came to: each mutant a child judged, by
  * its position among the runs, with the evidence of each kill, and a warning
  * for each worker whose boot the guard refused. A run no child judged is left to a fresh process.
+ *
+ * @internal
  */
 final readonly class Forked
 {

@@ -12,6 +12,8 @@ use Pest\Mutate\Event\Events\Test\Outcome\TestedSubscriber;
  * out of, where it did.
  * Pest's facade files a subscriber under the first interface it implements,
  * so this implements that one alone.
+ *
+ * @internal
  */
 final readonly class OnTested implements TestedSubscriber
 {

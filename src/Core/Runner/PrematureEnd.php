@@ -11,6 +11,8 @@ use function str_contains;
  * What PHPUnit prints where its PHP process ends mid-test (ADR-0004): after a
  * fatal error, shown or hidden, or `exit`, and, where `display_errors` was
  * off as the test started, that it hid the error.
+ *
+ * @internal
  */
 final readonly class PrematureEnd
 {

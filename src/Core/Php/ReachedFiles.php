@@ -23,6 +23,8 @@ use function str_repeat;
  * kept as one bit per file, takes in the reach of every file it leads to
  * until no reach widens. So the files any set of files reaches come out
  * in byte order, at the cost of their own number, rather than of a walk.
+ *
+ * @internal
  */
 final readonly class ReachedFiles
 {

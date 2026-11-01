@@ -27,6 +27,8 @@ use function str_starts_with;
  * What git's log says of when paths last changed: the log asked for, and each
  * asked path's newest commit read from what it printed, a directory by the
  * newest of its files.
+ *
+ * @internal
  */
 final readonly class History
 {

@@ -23,6 +23,8 @@ use function sprintf;
  * Where the config is (ADR-0002): the file `--config` names, or the one
  * `mutation-gate.*` in the project. Two of them is an error rather than a
  * precedence rule, and none is zero-config.
+ *
+ * @internal
  */
 final readonly class ConfigLocation
 {

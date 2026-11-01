@@ -6,7 +6,11 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 
-/** A mutant's status as Pest names it in the plugin's records, and, but for one word, on its summary line. */
+/**
+ * A mutant's status as Pest names it in the plugin's records, and, but for one word, on its summary line.
+ *
+ * @internal
+ */
 enum PestStatus: string
 {
     /** A test failed against the mutant. */

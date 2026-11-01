@@ -14,6 +14,8 @@ use function sprintf;
  * The other mutators that unwrap an escape function as one of the set's
  * does, by the own name each shares with it: the `default` set's, and Pest's
  * own, as the gate names their mutants.
+ *
+ * @internal
  */
 final readonly class OtherUnwraps
 {

@@ -7,7 +7,11 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 
-/** A plan, and the line that says how its coverage map was measured, where one does. */
+/**
+ * A plan, and the line that says how its coverage map was measured, where one does.
+ *
+ * @internal
+ */
 final readonly class PlanMade
 {
     private function __construct(private Plan $plan, private string|NotGiven $coverage)

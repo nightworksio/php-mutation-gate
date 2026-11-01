@@ -18,6 +18,8 @@ use function sprintf;
 /**
  * `proofs.ignore`: globs of paths the project states no test reads, such as
  * `docs/**`, each a `Glob` as every glob of the config is.
+ *
+ * @internal
  */
 final readonly class Ignored
 {

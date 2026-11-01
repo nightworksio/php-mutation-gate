@@ -35,6 +35,8 @@ use function str_contains;
  * it, before anything is written, so a moved one changes nothing, and
  * patching again finds the patch in place. A file that carries a hunk
  * another version of the gate wrote, which this one does not, is refused.
+ *
+ * @internal
  */
 final readonly class VendorPatch
 {

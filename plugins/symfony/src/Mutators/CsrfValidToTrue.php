@@ -18,7 +18,11 @@ use NightWorksIO\MutationGateSymfony\SymfonySet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\MethodCall;
 
-/** `$this->isCsrfTokenValid(…)` becomes `true`. */
+/**
+ * `$this->isCsrfTokenValid(…)` becomes `true`.
+ *
+ * @internal
+ */
 final readonly class CsrfValidToTrue implements Mutator
 {
     public function name(): MutatorName

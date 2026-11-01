@@ -25,6 +25,8 @@ use NightWorksIO\MutationGate\Core\Test\Role;
  *
  * What each file names is looked up once, when the files are read, so
  * following it from any file is a walk over what it names.
+ *
+ * @internal
  */
 final readonly class Tests
 {

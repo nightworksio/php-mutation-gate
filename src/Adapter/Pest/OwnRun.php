@@ -25,6 +25,8 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
  * in its order, and how it ended (ADR-0014). Any two mutants
  * that leave the same source share their mutated copy, and so this, even
  * under different mutators.
+ *
+ * @internal
  */
 final readonly class OwnRun
 {

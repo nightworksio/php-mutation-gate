@@ -21,6 +21,8 @@ use function sprintf;
  * Writes every floor a verdict raised, and every missing one at its measured
  * score, into the committed baseline, and says which lines to commit. A floor
  * is never lowered here.
+ *
+ * @internal
  */
 final readonly class Raising
 {

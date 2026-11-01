@@ -28,6 +28,8 @@ use function str_starts_with;
  * The `mutators` block of the project's Infection config, as it was read:
  * which mutators and profiles it turns on, each mutator's settings, and the
  * patterns that hide mutants.
+ *
+ * @internal
  */
 final readonly class MutatorSettings
 {

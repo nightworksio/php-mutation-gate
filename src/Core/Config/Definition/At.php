@@ -6,7 +6,11 @@ namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
 use function sprintf;
 
-/** Where a value sits in a config, as a problem names it: `trees[1].floor`, `costs.secondsPerLine["src"]`. */
+/**
+ * Where a value sits in a config, as a problem names it: `trees[1].floor`, `costs.secondsPerLine["src"]`.
+ *
+ * @internal
+ */
 final readonly class At
 {
     /** An entry of the list at a path. */

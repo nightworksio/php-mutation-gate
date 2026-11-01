@@ -20,6 +20,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Undoomed;
  * cancelled then leaves none. The verdict reads those units as stopped only
  * where a shard stopped; otherwise a shard that left no result cannot be
  * judged.
+ *
+ * @internal
  */
 final readonly class Stopped
 {

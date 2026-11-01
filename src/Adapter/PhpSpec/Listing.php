@@ -15,6 +15,8 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
  * Lists every example of the suite and the holding groups each is in, in
  * the order PhpSpec loads them, and writes the list once the suite is done
  * (see ListedTests). The run selects no example, so none runs.
+ *
+ * @internal
  */
 final class Listing implements EventSubscriberInterface
 {

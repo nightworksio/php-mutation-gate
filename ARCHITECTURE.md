@@ -21,9 +21,12 @@ src/
   Core/        decides. Values and the steps that turn one into the next. No I/O.
   Attribute/   #[Holds], which tests write and the gate reads from their tokens. Public API.
   Port/        the interfaces the core asks. Public API.
-  Mutator/     the SDK a mutator is written against, on php-parser, and its testing kit. Public API.
+  Mutator/     the SDK a mutator is written against, on php-parser, and its testing kit. Public API,
+               but for the engine in Mutator/Engine.
   Config/      the typed config and its builder. Public API.
-  Extension/   the Extension interface and the Extensions registry. Public API.
+  Extension/   the Extension interface, the Extensions registry, and the kits that
+               hold an adapter to its port's contract. Public API, but for the
+               kits' checks in Extension/Checks.
   Adapter/     one directory per outside thing: Pest, Infection, git, GitHub, S3.
   Cli/         the composition root and the command line.
 plugins/
@@ -36,7 +39,8 @@ tests/
   Unit/        one test file per source file, mirroring src.
   Process/     the tests that start a real process, mirroring src.
   PHPStan/     the tests of the rules in phpstan/Rules, mirroring phpstan.
-  Contract/    one directory per port: its suite, run against its fake and every adapter.
+  Contract/    one directory per port: its suite, run against its fake and every adapter,
+               through the port's kit where the package ships one.
   Fakes/       a hand-written fake of every port.
   Guards/      the planted violation of every rule.
   Support/     what the Arch suite and the guards read the tree with, and what other tests share.
@@ -104,8 +108,11 @@ without a repository, a runner or a CI.
 
 ## D — types
 
-The API surface is every class in Attribute, Port, Mutator, Config and
-Extension, and every core type their public signatures reach (ADR-0001).
+The API surface is every class in Attribute, Port, Mutator but its engine
+(`Mutator\Engine`), Config and Extension, and every core type their public
+faces reach: their parents and interfaces, and every type their public methods
+and properties write, natively or in a doc block (ADR-0001, ADR-0043). It is
+what semver covers of the code.
 
 | Rule | Says | Enforced by |
 |---|---|---|
@@ -121,6 +128,7 @@ Extension, and every core type their public signatures reach (ADR-0001).
 | **D10** | `mixed` appears only in a decoder of untrusted input, which hands on typed values, or in a class whose signatures a PHP protocol fixes, which holds what PHP hands it; the files still to type are listed, and the list only shrinks | phpstan: own rule, over `src` and `tests/Support`; arch: every listed file still holds a `mixed` |
 | **D11** | A public property is readonly, but for one PHP itself writes | phpstan: own rule, with those files named in `phpstan.neon` |
 | **D12** | A parameter that two classes hand string literals takes an enum or a constant they share, but for a method whose parameters take prose, keys or an outside vocabulary; those methods are listed, and the list only shrinks | phpstan: own rule with a collector, over calls under `src` to methods declared there, which on a run over every configured path refuses a listed method no two classes need any more; arch: every listed method is there |
+| **D13** | A type outside the API surface says `@internal` in its doc block, and a type on it does not (ADR-0043) | arch: every class-like under `src` and each plugin's `src`, against the API surface computed |
 
 ## H — names, size and layout
 

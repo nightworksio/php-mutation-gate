@@ -27,6 +27,8 @@ use function sprintf;
  * each cluster once with its members' diffs and stub command; under the
  * owner group of their files, each headed by its owners and how many
  * survivors it has, where the run read a CODEOWNERS (ADR-0022).
+ *
+ * @internal
  */
 final readonly class SurvivorLines
 {

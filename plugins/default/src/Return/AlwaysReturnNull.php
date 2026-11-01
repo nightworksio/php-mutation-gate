@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateDefault\Returns;
 use PhpParser\Node;
 use PhpParser\Node\Stmt\Return_;
 
-/** A `return` directly in a function's body returns `null`, where the function's return type allows it. */
+/**
+ * A `return` directly in a function's body returns `null`, where the function's return type allows it.
+ *
+ * @internal
+ */
 final readonly class AlwaysReturnNull implements Mutator
 {
     public function name(): MutatorName

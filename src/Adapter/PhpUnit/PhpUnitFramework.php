@@ -41,6 +41,8 @@ use NightWorksIO\MutationGate\Core\Test\TestListing;
  * project's vendor directory, started on its command line (see CommandLine)
  * with the extension recording each test, and booted by its warm workers
  * (see PhpUnitBoot).
+ *
+ * @internal
  */
 final readonly class PhpUnitFramework implements Framework
 {

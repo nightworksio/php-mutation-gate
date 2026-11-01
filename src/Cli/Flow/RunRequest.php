@@ -22,6 +22,8 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
  * told which files the suite runs as files of test cases.
  * What decides a mutant's outcome is set here once, so a run and its
  * reproduction cannot differ in it.
+ *
+ * @internal
  */
 final readonly class RunRequest
 {

@@ -9,6 +9,8 @@ use function array_any;
 /**
  * What a class declares anew that stops a read through it reaching the class
  * above: a constant of the same name, or nothing where no declaration can.
+ *
+ * @internal
  */
 final readonly class Shadowing
 {

@@ -8,6 +8,8 @@ namespace NightWorksIO\MutationGate\Core\Doctor;
  * An Azure storage account that refused an anonymous read of the public
  * container the `azure` store names, as one whose `AllowBlobPublicAccess`
  * is off does (ADR-0028).
+ *
+ * @internal
  */
 final readonly class AnonymousReadsRefused
 {

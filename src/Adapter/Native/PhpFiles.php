@@ -17,7 +17,11 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 
-/** The PHP files some paths of a project name, each file itself or every PHP file a directory holds, in byte order. */
+/**
+ * The PHP files some paths of a project name, each file itself or every PHP file a directory holds, in byte order.
+ *
+ * @internal
+ */
 final readonly class PhpFiles
 {
     /** @return list<Path> each as a path of the project, but those inside a path left out */

@@ -13,7 +13,11 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 
 use function sprintf;
 
-/** The options written beside an adapter, as the builder's `Option` calls that write them. */
+/**
+ * The options written beside an adapter, as the builder's `Option` calls that write them.
+ *
+ * @internal
+ */
 final readonly class PhpOptions
 {
     /** @return list<string> each option as the `Option` call that writes it */

@@ -10,6 +10,8 @@ namespace NightWorksIO\MutationGate\Adapter\Infection;
  * checks the survivors itself where `staticCheck.tool` chooses an analyser.
  * The config the gate writes keeps the project's static analysis keys only
  * where Infection runs it.
+ *
+ * @internal
  */
 enum StaticAnalysis: string
 {

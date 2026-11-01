@@ -41,6 +41,8 @@ use function sprintf;
  * The adapters this package builds in for one setting, each with the
  * options it takes, checked strictly, where any other name or class takes
  * any options.
+ *
+ * @internal
  */
 final readonly class Builtins
 {

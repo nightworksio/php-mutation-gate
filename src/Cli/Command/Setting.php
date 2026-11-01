@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Extension\Extensions;
  * What `init` and `import` write a config with: the project, its extensions,
  * its effective config and the formats, and the gate's release a CI
  * definition pins.
+ *
+ * @internal
  */
 final readonly class Setting
 {

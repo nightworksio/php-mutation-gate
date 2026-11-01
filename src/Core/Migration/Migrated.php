@@ -11,6 +11,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * A file as it is and as `migrate` would write it (ADR-0026):
  * the changes it can make, those left for a hand edit, and what the reader
  * must know before it is written.
+ *
+ * @internal
  */
 final readonly class Migrated
 {

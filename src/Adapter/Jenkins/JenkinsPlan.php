@@ -29,6 +29,8 @@ use NightWorksIO\MutationGate\Port\CiPlan;
  * the map of closures it hands to `parallel`, one per shard, each of which
  * names its shard in `SHARD`, as WhichShard reads it on every CI. Jenkins does not name the default branch;
  * `ci.defaultBranch` does.
+ *
+ * @internal
  */
 final readonly class JenkinsPlan implements CiPlan, Configurable
 {

@@ -6,7 +6,11 @@ namespace NightWorksIO\MutationGate\Adapter\PhpSpec;
 
 use PhpSpec\Exception\Example\SkippingException;
 
-/** An example the run does not select, skipped as PhpSpec skips one: before anything of it runs. */
+/**
+ * An example the run does not select, skipped as PhpSpec skips one: before anything of it runs.
+ *
+ * @internal
+ */
 final class NotSelected extends SkippingException
 {
     private const string NOT_SELECTED = 'The gate runs only the examples it selects.';

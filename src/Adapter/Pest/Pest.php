@@ -64,6 +64,8 @@ use function sprintf;
  * Pest's own mutation testing, pestphp/pest-plugin-mutate, behind the Runner
  * port (ADR-0004). Pest runs in the project's root, and its results come from
  * this package's Pest plugin.
+ *
+ * @internal
  */
 final readonly class Pest implements Runner
 {

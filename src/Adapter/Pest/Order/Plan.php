@@ -23,6 +23,8 @@ use function sprintf;
  * kill history file holds it, in the order directory.
  * A plan that cannot be read is no history: every mutant runs its tests
  * fastest first.
+ *
+ * @internal
  */
 final readonly class Plan
 {

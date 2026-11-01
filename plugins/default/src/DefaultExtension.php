@@ -173,6 +173,8 @@ use NightWorksIO\MutationGateDefault\Visibility\PublicToProtected;
  * Registers the `default` set: the mutators of Pest's own default set, and one
  * for each of the Exception and Visibility families it leaves out, written
  * against the gate's SDK.
+ *
+ * @internal
  */
 final readonly class DefaultExtension implements Extension
 {

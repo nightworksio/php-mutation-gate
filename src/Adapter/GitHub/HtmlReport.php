@@ -16,6 +16,8 @@ use function str_replace;
  * this name, found among the run's own artifacts as the comment is written,
  * so a comment updated in place links the run that wrote it. Where the run
  * holds none, the line says so (ADR-0009).
+ *
+ * @internal
  */
 final readonly class HtmlReport
 {

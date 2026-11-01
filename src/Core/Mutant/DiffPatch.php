@@ -31,6 +31,8 @@ use function usort;
  * where it stands in one place. A diff that does not apply, or could apply
  * in more than one place, gives no mutant, so the mutant is left unchecked,
  * never killed.
+ *
+ * @internal
  */
 final readonly class DiffPatch
 {

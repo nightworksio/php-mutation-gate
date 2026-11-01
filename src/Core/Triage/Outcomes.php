@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
  * One mutant over repeated runs of its unit: what each run gave it, its
  * status or that it did not make it, grouped by what it gave with the runs
  * that gave it and the tests that killed it in them.
+ *
+ * @internal
  */
 final readonly class Outcomes
 {

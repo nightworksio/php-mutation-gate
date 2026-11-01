@@ -6,7 +6,11 @@ namespace NightWorksIO\MutationGate\Core\Delivery;
 
 use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
 
-/** An alert a run leaves for `deliver` to post: the channel, a built-in alert reporter, and the body it posts. */
+/**
+ * An alert a run leaves for `deliver` to post: the channel, a built-in alert reporter, and the body it posts.
+ *
+ * @internal
+ */
 final readonly class AlertPost
 {
     private function __construct(private BuiltinReporter $channel, private string $body)

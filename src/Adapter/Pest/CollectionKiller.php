@@ -28,6 +28,8 @@ use function sprintf;
  * description. None where what the run printed names no such test, so the
  * id never carries text the run printed, which can hold what the gate
  * withholds, but only names this process already had.
+ *
+ * @internal
  */
 final readonly class CollectionKiller
 {

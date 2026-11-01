@@ -18,6 +18,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
  * took, and how the baseline file stands (ADR-0009). Each part a run could
  * not tell is left out; the baseline's state is always given.
  *
+ * @internal
+ *
  * @phpstan-type PackageEntry array{package: string, version: string, reference: string}
  * @phpstan-type ProvenanceEntry array{
  *     gate?: PackageEntry,

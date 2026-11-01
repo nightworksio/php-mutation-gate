@@ -8,7 +8,11 @@ use NightWorksIO\MutationGate\Core\Native\Outcome;
 use PHPUnit\Event\Test\Passed;
 use PHPUnit\Event\Test\PassedSubscriber;
 
-/** Notes that the running test passed. */
+/**
+ * Notes that the running test passed.
+ *
+ * @internal
+ */
 final readonly class OnPassed implements PassedSubscriber
 {
     public function __construct(private Recorder $recorder)

@@ -22,6 +22,8 @@ use function strval;
  * the rest, one family in one function judged by the same tests. A cluster
  * holds two survivors at least, and a survivor is in one at most. A file
  * that cannot be read clusters nothing (ADR-0022).
+ *
+ * @internal
  */
 final readonly class Clustering
 {

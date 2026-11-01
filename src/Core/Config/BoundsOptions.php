@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  * write them into a built-in runner's options, and as the runner reads them
  * back: what each mutant's limit is kept between, the standard where they
  * write none.
+ *
+ * @internal
  */
 final readonly class BoundsOptions
 {

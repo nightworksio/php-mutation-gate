@@ -19,6 +19,8 @@ use Traversable;
  * What every check found, the findings that fail a run first, then those
  * that slow it, then advice, each kind in the order the checks ran.
  *
+ * @internal
+ *
  * @implements IteratorAggregate<int, Finding>
  */
 final readonly class Findings implements Countable, IteratorAggregate

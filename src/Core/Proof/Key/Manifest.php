@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\File\Path;
  * `extra.mutation-gate` entry taken out, because the key holds what of the
  * gate's config affects results already. A manifest that is not a JSON
  * object is read as it is.
+ *
+ * @internal
  */
 final readonly class Manifest
 {

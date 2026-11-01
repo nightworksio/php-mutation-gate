@@ -23,6 +23,8 @@ use PhpParser\Node;
  * pest-plugin-mutate's map of mutators by node class, without which Pest
  * never applies a mutator it does not ship, and keeps its mutator's name,
  * which is the bridged mutant's name wherever the gate names it.
+ *
+ * @internal
  */
 final class Bridged
 {

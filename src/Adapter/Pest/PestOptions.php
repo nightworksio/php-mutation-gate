@@ -29,6 +29,8 @@ use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
  * the flows write from `timeouts.seconds` and `timeouts.most`; and
  * `mutators`, the classes of the registered mutators Pest makes mutants with
  * beside its own, which the flows write (ADR-0021), none by default.
+ *
+ * @internal
  */
 final readonly class PestOptions
 {

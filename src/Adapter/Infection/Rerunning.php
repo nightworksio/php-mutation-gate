@@ -30,6 +30,8 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  * its runs together ending by the request's deadline, and one mutant
  * reproduced by the tests given, with what Infection printed. The run under
  * coverage Infection reads first is not part of what it printed.
+ *
+ * @internal
  */
 final readonly class Rerunning
 {

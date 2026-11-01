@@ -19,6 +19,8 @@ use function sprintf;
  * change against the base, or that it is not measured yet; how many reached
  * units have no local result for what is on disk; and how many of their
  * files hold changes that are not staged, which the scores include.
+ *
+ * @internal
  */
 final readonly class ScoreChangeText
 {

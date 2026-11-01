@@ -19,6 +19,8 @@ use function sprintf;
  * The gate's config as another tool's config seeds it (ADR-0016): the layer
  * it becomes, what became of each of its keys, and what else a person should
  * know before deleting any of them.
+ *
+ * @internal
  */
 final readonly class Import
 {

@@ -11,7 +11,11 @@ use NightWorksIO\MutationGate\Core\Doctor\Observations;
 use NightWorksIO\MutationGate\Core\Doctor\Severity;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 
-/** The PHP the runner uses could not describe itself, and a run starts the same PHP. */
+/**
+ * The PHP the runner uses could not describe itself, and a run starts the same PHP.
+ *
+ * @internal
+ */
 final readonly class Php
 {
     private const string WHY = 'A run starts the same PHP with the same options, so it would fail the same way.';

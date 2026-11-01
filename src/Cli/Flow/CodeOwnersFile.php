@@ -23,6 +23,8 @@ use function sprintf;
  * a pull request, the default branch as the checkout fetched it; otherwise
  * the commit the plan was made on. The file is the first of GitHub's three
  * places that holds one.
+ *
+ * @internal
  */
 final readonly class CodeOwnersFile
 {

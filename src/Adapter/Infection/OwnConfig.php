@@ -37,6 +37,8 @@ use Symfony\Component\Console\Input\StringInput;
  * each run starts from: its mutators, `bootstrap`, `phpUnit`,
  * `initialTestsPhpOptions` and `testFrameworkExtraArgs`. What the gate owns,
  * it writes over.
+ *
+ * @internal
  */
 final readonly class OwnConfig
 {

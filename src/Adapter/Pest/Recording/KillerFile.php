@@ -41,6 +41,8 @@ use function unlink;
  * mutated code: in a mutant's own process the plugin's own classes can be the
  * mutant, as they are in the gate's run on this package, and a record they
  * wrote could be one the adapter refuses.
+ *
+ * @internal
  */
 final readonly class KillerFile
 {

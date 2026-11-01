@@ -22,6 +22,8 @@ use function str_replace;
  * `vendor`. The Pest runner reads Pest there, and `pest:patch` patches it.
  * Composer links each package's commands into its bin directory, where the
  * gate's hooks call the gate.
+ *
+ * @internal
  */
 final readonly class ComposerVendor
 {

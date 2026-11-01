@@ -17,6 +17,8 @@ use function sprintf;
 /**
  * The memory cap a plan holds the suite's coverage run to: `runner.memory`,
  * or the project's own `memory_limit` where that lifts it (ADR-0004).
+ *
+ * @internal
  */
 final readonly class CoverageCap
 {

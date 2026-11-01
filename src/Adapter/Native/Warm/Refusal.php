@@ -20,6 +20,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * (ADR-0023): a boot the guard refused, which the run
  * warns of, or a PHP that cannot fork, which leaves `runner.workers` at
  * `fresh` as its default does and warns of nothing.
+ *
+ * @internal
  */
 final readonly class Refusal
 {

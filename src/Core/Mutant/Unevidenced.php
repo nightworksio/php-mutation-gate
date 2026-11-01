@@ -19,6 +19,8 @@ use function sprintf;
  * says how its process ended: the code it exited with and the end of what it
  * printed, as the screen for secrets kept it (see Secrets), where the runner
  * gave them.
+ *
+ * @internal
  */
 final readonly class Unevidenced
 {

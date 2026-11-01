@@ -8,7 +8,11 @@ use NightWorksIO\MutationGate\Core\Native\WarmBoot;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use PHPUnit\Event\Facade;
 
-/** A warm worker's boot as PHPUnit boots before it runs: its config's PHP settings, then its bootstrap. */
+/**
+ * A warm worker's boot as PHPUnit boots before it runs: its config's PHP settings, then its bootstrap.
+ *
+ * @internal
+ */
 final readonly class PhpUnitBoot implements WarmBoot
 {
     /** PHPUnit's event facade, which PHPUnit before 13.4 starts as its config loads. */

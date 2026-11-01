@@ -13,6 +13,8 @@ use function preg_match;
  * file. PHPUnit's `Fatal error: Premature end of PHP process`,
  * which it prints after an `exit` as after a fatal error, is PHPUnit's word,
  * not PHP's, and is none (ADR-0014).
+ *
+ * @internal
  */
 final readonly class FatalError
 {

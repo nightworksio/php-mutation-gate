@@ -53,6 +53,8 @@ use function sprintf;
  * under coverage first. A run again reads the map the run it follows read,
  * makes only the mutants it is asked for, and hands each back under its id,
  * or unjudged where it made no mutant with that id.
+ *
+ * @internal
  */
 final readonly class Mutating
 {

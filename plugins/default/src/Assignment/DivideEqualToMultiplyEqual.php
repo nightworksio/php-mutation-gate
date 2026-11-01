@@ -16,7 +16,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\AssignOp\Div;
 use PhpParser\Node\Expr\AssignOp\Mul;
 
-/** `/=` becomes `*=`. */
+/**
+ * `/=` becomes `*=`.
+ *
+ * @internal
+ */
 final readonly class DivideEqualToMultiplyEqual implements Mutator
 {
     public function name(): MutatorName

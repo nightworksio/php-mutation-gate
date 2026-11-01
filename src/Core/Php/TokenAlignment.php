@@ -19,6 +19,8 @@ use function range;
  * that both hold in order, which Myers' diff finds in time that grows with
  * how many tokens differ. A token of the second that the first does not
  * share stands for the token after the last shared one before it.
+ *
+ * @internal
  */
 final readonly class TokenAlignment
 {

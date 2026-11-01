@@ -15,6 +15,8 @@ use function sprintf;
  * A file whose print, as its runner prints its mutants, analyses otherwise
  * than the file as written does where the print is read, so its mutants are
  * left to their tests (ADR-0020); with the findings only one of them has.
+ *
+ * @internal
  */
 final readonly class DifferingPrint
 {

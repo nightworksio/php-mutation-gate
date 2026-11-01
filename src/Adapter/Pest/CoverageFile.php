@@ -35,6 +35,8 @@ use function sprintf;
  * phpunit/php-code-coverage: which tests ran each executable line of each
  * file, none for a line no test ran, by the file's path on disk, and how
  * long each test took.
+ *
+ * @internal
  */
 final readonly class CoverageFile implements Covering
 {

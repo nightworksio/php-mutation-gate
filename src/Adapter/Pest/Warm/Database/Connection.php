@@ -23,6 +23,8 @@ use function str_replace;
  * password, the PDO attributes the config sets, and the schemas PostgreSQL
  * searches. A warm worker's children each open their own connection with
  * it, and close it as they end, so the worker never holds one it forks with.
+ *
+ * @internal
  */
 final readonly class Connection
 {

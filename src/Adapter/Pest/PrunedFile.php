@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\Pruning\PrunedList;
  * The file of the mutators a run leaves out of its unchanged files (see
  * PrunedList): the gate writes it beside the run's results, and the patched plugin
  * reads it once, in its own process, before it makes a mutant.
+ *
+ * @internal
  */
 final class PrunedFile
 {

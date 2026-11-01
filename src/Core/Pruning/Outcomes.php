@@ -21,6 +21,8 @@ use function usort;
  * a survivor, a flaky, an unjudged or an uncovered mutant let the change
  * through. A mutant an ignore marker or the runner left out, and one carried
  * from a last result, was not judged by the run and teaches nothing.
+ *
+ * @internal
  */
 final readonly class Outcomes
 {

@@ -37,6 +37,8 @@ use function sprintf;
  * they leave in the adapter's own directory. Infection always reads a
  * coverage directory the gate chose, so it never runs an opening suite of
  * its own.
+ *
+ * @internal
  */
 final readonly class Invocation
 {

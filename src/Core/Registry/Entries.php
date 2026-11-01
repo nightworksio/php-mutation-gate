@@ -20,6 +20,8 @@ use function sprintf;
  * package that registered it. A package that registers a name again replaces
  * its own entry; two packages registering one name is a conflict.
  *
+ * @internal
+ *
  * @template-covariant T of object
  */
 final readonly class Entries

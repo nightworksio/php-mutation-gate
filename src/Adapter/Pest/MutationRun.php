@@ -49,6 +49,8 @@ use function sprintf;
  * plan handed over, which the run then reads its mutants' covering tests
  * from, and judges its mutants on lines that are not executable by the plan's
  * whole map; every other run reads its own opening map once, for both.
+ *
+ * @internal
  */
 final readonly class MutationRun
 {

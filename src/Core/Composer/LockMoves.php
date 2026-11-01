@@ -25,6 +25,8 @@ use function sprintf;
  * entry under `packages` or `packages-dev` was added, removed or changed in
  * any field, and whether any other key moved besides `content-hash` and
  * `_readme`, which only follow from the rest (ADR-0030).
+ *
+ * @internal
  */
 final readonly class LockMoves
 {

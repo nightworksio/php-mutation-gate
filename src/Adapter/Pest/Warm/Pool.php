@@ -26,6 +26,8 @@ use function strval;
  * the place is asked of it through a client, which stands for the run as
  * Pest's process and prints what the run prints. A place whose worker could
  * not start runs its mutants as Pest ships them.
+ *
+ * @internal
  */
 final class Pool
 {

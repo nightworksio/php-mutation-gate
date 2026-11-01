@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Written;
  * Where a store's requests go: the one place a proof store's HTTP happens,
  * following no redirect. A store builds its requests and reads their
  * answers; an adapter sends them.
+ *
+ * @internal
  */
 interface Exchange
 {

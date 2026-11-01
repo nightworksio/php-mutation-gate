@@ -24,6 +24,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * score, the one the newest result of each of its units adds up to.
  * `baseline --write` sets every improved floor, and every missing one, to
  * that score; it never lowers one.
+ *
+ * @internal
  */
 final readonly class BaselineCommand
 {

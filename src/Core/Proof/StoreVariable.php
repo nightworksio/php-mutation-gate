@@ -7,6 +7,8 @@ namespace NightWorksIO\MutationGate\Core\Proof;
 /**
  * The environment variables the `s3` store reads its keys from
  * (ADR-0007), and the `gcs` and `azure` stores their tokens (ADR-0028).
+ *
+ * @internal
  */
 enum StoreVariable: string
 {

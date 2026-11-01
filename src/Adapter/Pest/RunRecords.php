@@ -16,6 +16,8 @@ use function sprintf;
  * that failed, or records that do not add up to Pest's own summary, cannot
  * be judged; one whose own process ran out of the memory cap says to raise
  * it.
+ *
+ * @internal
  */
 final readonly class RunRecords
 {

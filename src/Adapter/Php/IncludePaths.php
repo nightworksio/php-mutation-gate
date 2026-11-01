@@ -30,6 +30,8 @@ use function str_starts_with;
  * for an absolute one; the working directory, where the gate runs from the
  * project's root, for one that begins with a dot; that directory and then
  * the including file's own, for any other.
+ *
+ * @internal
  */
 final readonly class IncludePaths
 {

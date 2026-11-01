@@ -11,6 +11,8 @@ use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 /**
  * What one check found: how much it matters, what it is, why it matters, the
  * exact fix, and, for a slow finding the timings measured, the time at stake.
+ *
+ * @internal
  */
 final readonly class Finding
 {

@@ -25,6 +25,8 @@ use function str_starts_with;
  * impersonating the service account `MUTATION_GATE_GCS_SERVICE_ACCOUNT` names, as `google-github-actions/auth` sets
  * it up, so no third-party action runs in a job that holds the store's keys. The token is asked for the provider's
  * default audience, `https://iam.googleapis.com/<provider>`.
+ *
+ * @internal
  */
 final readonly class GitHubIdentity
 {

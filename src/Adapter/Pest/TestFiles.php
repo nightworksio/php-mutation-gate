@@ -51,6 +51,8 @@ use function str_replace;
  * of classes once, by searching the class names from their ends rather than
  * reading them all: many units share a set, and a project holds thousands of
  * test files.
+ *
+ * @internal
  */
 final class TestFiles
 {

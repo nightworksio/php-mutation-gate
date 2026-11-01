@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
  * An amount of memory written as PHP's `memory_limit` writes one: `512M`,
  * `1G`, a number of bytes, or `-1` for none.
  *
+ * @internal
+ *
  * @implements Shape<MemoryCap>
  */
 final readonly class MemoryAmount implements Shape

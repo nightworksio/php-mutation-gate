@@ -18,7 +18,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 use PhpParser\Node\Expr\StaticCall;
 
-/** `DB::transaction($callback)` becomes `$callback()`. */
+/**
+ * `DB::transaction($callback)` becomes `$callback()`.
+ *
+ * @internal
+ */
 final readonly class UnwrapTransaction implements Mutator
 {
     public function name(): MutatorName

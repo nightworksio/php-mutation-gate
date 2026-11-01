@@ -6,7 +6,11 @@ namespace NightWorksIO\MutationGate\Adapter\Infection;
 
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 
-/** A list of Infection's JSON log (`logs.json`), each of the mutants of one outcome. */
+/**
+ * A list of Infection's JSON log (`logs.json`), each of the mutants of one outcome.
+ *
+ * @internal
+ */
 enum LogList: string
 {
     case Killed = 'killed';

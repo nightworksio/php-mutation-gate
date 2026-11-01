@@ -42,6 +42,8 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * nothing; the step summary carries the same content. The plan job writes
  * it first in its planned state, and the verdict's links the run's HTML
  * report, found as the comment is written (ADR-0009).
+ *
+ * @internal
  */
 final readonly class PullRequestComment implements Configurable, Deferring, Reporter
 {

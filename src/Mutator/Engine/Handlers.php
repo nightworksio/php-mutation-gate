@@ -21,6 +21,8 @@ use Traversable;
  * The mutators of one run, each by its place, filed under each node class it
  * handles, so the mutators that handle a node are found by its class: those
  * filed under it, a class it extends or an interface it implements.
+ *
+ * @internal
  */
 final readonly class Handlers
 {

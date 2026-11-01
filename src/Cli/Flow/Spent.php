@@ -20,6 +20,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Warnings;
  * of, the evidence of its kills, the survivor that made its run certain to
  * fail, where one did, and what static analysis's checks of the survivors
  * of its chunks came to, with the survivors they took up (ADR-0008).
+ *
+ * @internal
  */
 final readonly class Spent
 {

@@ -20,6 +20,8 @@ use function sprintf;
  * Both affect results: they decide which mutants are made. Each list keeps
  * an entry once, and `mutators.sets` never names the set this repository
  * ships.
+ *
+ * @internal
  */
 final readonly class MutatorsKeys
 {

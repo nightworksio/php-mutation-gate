@@ -16,6 +16,8 @@ use PhpParser\Node\Scalar\Int_;
 /**
  * A number literal one more or one less. The sign of a negative integer is
  * a unary minus around the literal, so the literal moves the other way.
+ *
+ * @internal
  */
 final readonly class Numbers
 {

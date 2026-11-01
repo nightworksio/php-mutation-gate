@@ -26,6 +26,8 @@ use function trim;
  * own PHP can differ, by a `-d` on the gate's command line or a variable
  * withheld. Its text, which a proof's key reads, leaves out the inert
  * settings and where php.ini is.
+ *
+ * @internal
  */
 final readonly class Platform
 {

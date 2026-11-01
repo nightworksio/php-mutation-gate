@@ -24,6 +24,8 @@ use function sprintf;
  * planned state and the verdict (ADR-0020): how many still
  * survive, each that does with its diff, hint and reproduce command, and
  * each the run made no mutant for again, each list as long as the verdict's.
+ *
+ * @internal
  */
 final readonly class RecheckedMarkdown
 {

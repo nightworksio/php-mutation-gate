@@ -25,6 +25,8 @@ use function unlink;
  * of its environment, the directory it started in, and the process that
  * asked, which waits for the run and stands for it: a run whose asker has
  * gone is stopped, or never started.
+ *
+ * @internal
  */
 final readonly class Request
 {

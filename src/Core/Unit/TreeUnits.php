@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Tree\Trees;
  * Every unit of the trees the gate mutates: each held path in such a tree,
  * then each PHP file of such a tree that no held path holds. A path whose
  * innermost tree is exempt is not mutated.
+ *
+ * @internal
  */
 final readonly class TreeUnits
 {

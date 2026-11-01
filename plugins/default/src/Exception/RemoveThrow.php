@@ -17,7 +17,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\Throw_;
 use PhpParser\Node\Stmt\Expression;
 
-/** A statement that only throws is removed. */
+/**
+ * A statement that only throws is removed.
+ *
+ * @internal
+ */
 final readonly class RemoveThrow implements Mutator
 {
     public function name(): MutatorName

@@ -12,7 +12,11 @@ use NightWorksIO\MutationGate\Core\Time\Day;
 
 use function sprintf;
 
-/** One mutant the config ignores, by the gate's id, with the reason and when the ignore ends (ADR-0008). */
+/**
+ * One mutant the config ignores, by the gate's id, with the reason and when the ignore ends (ADR-0008).
+ *
+ * @internal
+ */
 final readonly class IgnoredMutant implements Ignored
 {
     private function __construct(private MutantId $mutant, private string $reason, private Day|Absent $expires)

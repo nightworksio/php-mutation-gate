@@ -6,7 +6,11 @@ namespace NightWorksIO\MutationGate\Core\Composer;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 
-/** Composer's autoloader, which it writes into the vendor directory it installs into. */
+/**
+ * Composer's autoloader, which it writes into the vendor directory it installs into.
+ *
+ * @internal
+ */
 final readonly class Autoloader
 {
     private const string FILE = 'autoload.php';

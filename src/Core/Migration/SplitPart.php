@@ -6,7 +6,11 @@ namespace NightWorksIO\MutationGate\Core\Migration;
 
 use function sprintf;
 
-/** A part of a split object, and the key it moves to: `seconds` to `timeouts.seconds`. */
+/**
+ * A part of a split object, and the key it moves to: `seconds` to `timeouts.seconds`.
+ *
+ * @internal
+ */
 final readonly class SplitPart
 {
     private function __construct(private string $part, private KeyPath $to)

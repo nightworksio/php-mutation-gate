@@ -15,7 +15,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\Cast\Object_;
 
-/** `(object) $a` becomes `$a`. */
+/**
+ * `(object) $a` becomes `$a`.
+ *
+ * @internal
+ */
 final readonly class RemoveObjectCast implements Mutator
 {
     public function name(): MutatorName

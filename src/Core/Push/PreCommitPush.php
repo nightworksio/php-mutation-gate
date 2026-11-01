@@ -21,6 +21,8 @@ use function str_repeat;
  * the remote holds none of the ref's history, it names the refs alone, and
  * the line pushes the commit the working tree is at over no commit. A ref it
  * does not name is written `HEAD`, which only the gate's messages show.
+ *
+ * @internal
  */
 final readonly class PreCommitPush
 {

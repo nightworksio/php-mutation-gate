@@ -7,7 +7,11 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
 use PHPUnit\Event\Test\Errored;
 use PHPUnit\Event\Test\ErroredSubscriber;
 
-/** Names a test that errored in a mutant's own process as one that killed it. */
+/**
+ * Names a test that errored in a mutant's own process as one that killed it.
+ *
+ * @internal
+ */
 final readonly class OnErrored implements ErroredSubscriber
 {
     public function __construct(private Killers $killers)

@@ -21,6 +21,8 @@ use NightWorksIO\MutationGate\Port\ProofStore;
  * in a directory, read together with the store the config names, which it
  * never writes. What a machine judged stays on it, and what CI proved still
  * completes each tree (ADR-0015).
+ *
+ * @internal
  */
 final readonly class LocalLedgers implements ProofStore
 {

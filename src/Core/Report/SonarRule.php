@@ -13,6 +13,8 @@ use function sprintf;
  * The rules the SonarQube report raises its issues under: SARIF's, and one
  * for a surviving mutant a security-tagged mutator made, each with the
  * quality of software it affects (ADR-0028).
+ *
+ * @internal
  */
 enum SonarRule: string
 {

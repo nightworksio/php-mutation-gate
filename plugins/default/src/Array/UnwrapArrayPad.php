@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `array_pad(…)` becomes its first argument. */
+/**
+ * `array_pad(…)` becomes its first argument.
+ *
+ * @internal
+ */
 final readonly class UnwrapArrayPad implements Mutator
 {
     public function name(): MutatorName

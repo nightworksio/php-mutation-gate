@@ -20,6 +20,8 @@ use function sprintf;
  * the files its autoload loads in every process, read without loading
  * anything: each file spelt from the repository's root. Whether one is there
  * is for the disk to say.
+ *
+ * @internal
  */
 final readonly class ClassLocations
 {

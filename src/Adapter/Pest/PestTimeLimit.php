@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 /**
  * The seconds pest-plugin-mutate allows each mutant: the opening run's, and
  * the larger of five seconds and a fifth of them more, in whole seconds.
+ *
+ * @internal
  */
 final readonly class PestTimeLimit
 {

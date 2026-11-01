@@ -27,6 +27,8 @@ use function sprintf;
  * in success, and the pull request's own ledger records the head as passed
  * under that check with no proof of its own scope used. Without the ledgers
  * to read, nothing is proved.
+ *
+ * @internal
  */
 final readonly class MergedHeads
 {

@@ -13,7 +13,11 @@ use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\Config\Reach;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
-/** How the keys a config writes are read into its `Reach` part (ADR-0002). */
+/**
+ * How the keys a config writes are read into its `Reach` part (ADR-0002).
+ *
+ * @internal
+ */
 final readonly class ReachKeys
 {
     /** What an entry of `reach.lockPackages` is, as a problem names it. */

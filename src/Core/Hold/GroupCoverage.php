@@ -18,6 +18,8 @@ use function sprintf;
  * Whether the tests that hold a unit may judge it: they must cover every line
  * of it that the whole suite covers, and a unit of which they run nothing is
  * unreached as a whole.
+ *
+ * @internal
  */
 final readonly class GroupCoverage
 {

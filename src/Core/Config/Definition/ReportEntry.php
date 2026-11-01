@@ -30,6 +30,8 @@ use function sprintf;
  * its options. A built-in reporter that writes a file needs a path, and one
  * that sends takes none.
  *
+ * @internal
+ *
  * @implements Shape<Report>
  */
 final readonly class ReportEntry implements Shape

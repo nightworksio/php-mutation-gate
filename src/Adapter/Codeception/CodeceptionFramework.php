@@ -37,6 +37,8 @@ use NightWorksIO\MutationGate\Core\Test\TestListing;
  * selected by their ids, from a file the extension reads, and listed by a
  * run of none. It has no warm workers, its config sets no PHP setting, it
  * runs every suite in one run, and the gate writes no stub of its tests.
+ *
+ * @internal
  */
 final readonly class CodeceptionFramework implements Framework
 {

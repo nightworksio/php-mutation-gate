@@ -32,6 +32,8 @@ use function sprintf;
  * adapter planned and the opening run's coverage map, where the mutant's own
  * process reads it (ADR-0013). Where it has no map, it writes
  * none, and each mutant runs its tests in Pest's own order.
+ *
+ * @internal
  */
 final readonly class Seeder
 {

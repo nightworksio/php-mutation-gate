@@ -56,6 +56,8 @@ use function var_export;
  * string. They are found whatever their case, in the text as it is and with
  * each terminal escape sequence taken out, and, where a form keeps the
  * fewest characters without its whitespace, with no whitespace in either.
+ *
+ * @internal
  */
 final readonly class Secrets
 {

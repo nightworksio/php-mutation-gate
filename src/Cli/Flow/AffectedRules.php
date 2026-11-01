@@ -35,6 +35,8 @@ use function sprintf;
  * suite's files and each changed file as it is and as it was, which test
  * files the runner says judge each changed file, the map, and the scan of
  * the suite, the files the map covers and the changed source files.
+ *
+ * @internal
  */
 final readonly class AffectedRules
 {

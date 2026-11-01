@@ -6,7 +6,11 @@ namespace NightWorksIO\MutationGate\Core\Config;
 
 use function array_map;
 
-/** The CI plans this package builds in, by the name a config chooses each by. */
+/**
+ * The CI plans this package builds in, by the name a config chooses each by.
+ *
+ * @internal
+ */
 enum BuiltinCiPlan: string
 {
     case GitHub = 'github';

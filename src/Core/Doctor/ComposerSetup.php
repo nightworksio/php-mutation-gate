@@ -6,7 +6,11 @@ namespace NightWorksIO\MutationGate\Core\Doctor;
 
 use NightWorksIO\MutationGate\Core\File\Paths;
 
-/** How the project's `composer.json` installs its packages, and what it does to them, as far as a check asks it. */
+/**
+ * How the project's `composer.json` installs its packages, and what it does to them, as far as a check asks it.
+ *
+ * @internal
+ */
 final readonly class ComposerSetup
 {
     private function __construct(private Paths $mirrored, private Patched $infection, private Patched $pest)

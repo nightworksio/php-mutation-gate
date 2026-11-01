@@ -64,6 +64,8 @@ use Psr\Clock\ClockInterface;
  * unjudged. The runner checks its mutants with static analysis before their
  * tests where it can and that pays (see PreChecking). Each step is timed on
  * the shard's stopwatch.
+ *
+ * @internal
  */
 final readonly class Invoking
 {

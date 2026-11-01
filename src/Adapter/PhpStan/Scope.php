@@ -23,6 +23,8 @@ use function sprintf;
  * them (ADR-0020): under one of its `paths`, and under none of
  * its `excludePaths`, each a file, a directory, or a pattern PHPStan
  * matches with `fnmatch`. Every one is absolute, as PHPStan resolves it.
+ *
+ * @internal
  */
 final readonly class Scope
 {

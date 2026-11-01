@@ -18,6 +18,8 @@ use Symfony\Component\Console\Input\InputOption;
  * needs a credential and writes no store. It leaves its ledger and those payloads in its stage's delivery directory,
  * `.mutation-gate/delivery/planned`, `.mutation-gate/delivery/survivors` or `.mutation-gate/delivery/verdict`,
  * begun empty, for `deliver` to send.
+ *
+ * @internal
  */
 final readonly class DeliverLater
 {

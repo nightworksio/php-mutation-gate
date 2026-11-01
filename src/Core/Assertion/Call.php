@@ -19,6 +19,8 @@ use NightWorksIO\MutationGate\Core\Php\Tokens;
  * A call as a test writes it: the name it calls, the last segment of a
  * qualified one, and each argument as written. The table reads what an
  * assertion checks from these (ADR-0025).
+ *
+ * @internal
  */
 final readonly class Call
 {

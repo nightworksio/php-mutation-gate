@@ -16,6 +16,8 @@ use function version_compare;
 /**
  * An option of PHPUnit's command line that the PHPUnit runner's adapter
  * writes, or that more than one runner's adapter writes.
+ *
+ * @internal
  */
 enum PhpUnitOption: string
 {

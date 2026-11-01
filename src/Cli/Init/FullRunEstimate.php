@@ -47,6 +47,8 @@ use Symfony\Component\Console\Input\InputOption;
  * coverage, so a failure is said now, with why, rather than on a first run.
  * With `--no-measure`, or where `init` runs nothing, as `--dry-run` does, the
  * estimate comes from lines of code.
+ *
+ * @internal
  */
 final readonly class FullRunEstimate
 {

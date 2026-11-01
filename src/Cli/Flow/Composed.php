@@ -16,7 +16,11 @@ use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
-/** What a command runs its flow with: the settings, the adapters they chose, the setup and the reporting. */
+/**
+ * What a command runs its flow with: the settings, the adapters they chose, the setup and the reporting.
+ *
+ * @internal
+ */
 final readonly class Composed
 {
     public function __construct(

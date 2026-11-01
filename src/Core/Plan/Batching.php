@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  * units in a row as fit the time left and the chunk, since every invocation
  * pays the runner's opening run. Where the first unit does not fit the time
  * left, nothing is started; a chunk always starts with its first unit.
+ *
+ * @internal
  */
 final readonly class Batching
 {

@@ -16,7 +16,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\BooleanNot;
 use PhpParser\Node\Stmt\ElseIf_;
 
-/** An `elseif`'s condition is negated. */
+/**
+ * An `elseif`'s condition is negated.
+ *
+ * @internal
+ */
 final readonly class ElseIfNegated implements Mutator
 {
     public function name(): MutatorName

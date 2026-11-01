@@ -24,6 +24,8 @@ use function sprintf;
  * many of its mutants are checked, and declarations are compared only for a
  * mutant whose opcodes are its original's, which few are. Opcache that
  * dumps nothing proves none of them.
+ *
+ * @internal
  */
 final readonly class Prover
 {

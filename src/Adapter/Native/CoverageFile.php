@@ -28,6 +28,8 @@ use function sprintf;
  * php-code-coverage: the tests that ran each executable line of each file, as
  * paths of the project, none for a line no test ran, and how long each test
  * took, as php-code-coverage timed it.
+ *
+ * @internal
  */
 final readonly class CoverageFile
 {

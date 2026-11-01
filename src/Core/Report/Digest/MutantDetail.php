@@ -25,6 +25,8 @@ use function sprintf;
  * more as `explain` finds one: where it is, what it came to and the gate's
  * own judgement, its diff, its hint, why, the tests that cover it, the first
  * few by id, those that killed it, its cluster, and how to run it again.
+ *
+ * @internal
  */
 final readonly class MutantDetail
 {

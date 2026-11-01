@@ -17,7 +17,11 @@ use NightWorksIO\MutationGate\Core\Runner\Versions;
 
 use function sprintf;
 
-/** The exact versions of the packages the Pest adapter drives, as Composer installed them. */
+/**
+ * The exact versions of the packages the Pest adapter drives, as Composer installed them.
+ *
+ * @internal
+ */
 final readonly class Installed
 {
     /** The packages whose versions decide how Pest mutates and judges. */

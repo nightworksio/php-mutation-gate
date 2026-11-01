@@ -19,6 +19,8 @@ use NightWorksIO\MutationGate\Core\Report\Digest\SurvivorsShown;
  * report the verdict kept, running nothing (ADR-0009): the overview, or the
  * detail `--detail` asks for. A report not in the shape the gate writes is
  * refused with where it is not.
+ *
+ * @internal
  */
 final readonly class Digesting
 {

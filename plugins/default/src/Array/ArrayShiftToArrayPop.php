@@ -16,7 +16,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `array_shift(…)` becomes `array_pop(…)`. */
+/**
+ * `array_shift(…)` becomes `array_pop(…)`.
+ *
+ * @internal
+ */
 final readonly class ArrayShiftToArrayPop implements Mutator
 {
     public function name(): MutatorName

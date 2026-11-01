@@ -16,6 +16,8 @@ use function strtr;
  * escaped as the runner reads it: `%`, line breaks, `:` and `,` in a
  * property, and `%` and line breaks in the message. Each is printable first
  * (Printable), so no escape sequence in it reaches the log.
+ *
+ * @internal
  */
 final readonly class WorkflowCommand
 {

@@ -8,6 +8,8 @@ namespace NightWorksIO\MutationGate\Core\Time;
  * How long each kind of process may take when its config sets no budget
  * (ADR-0008; ADR-0010): a run has none, `watch` a minute, and
  * `pre-push` five.
+ *
+ * @internal
  */
 final readonly class Budgets
 {

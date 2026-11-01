@@ -41,6 +41,8 @@ use function sprintf;
  * again. Each test and mutator is named once in a file's list, which its
  * mutants point into, and a mutant says nothing the page shows nothing of.
  *
+ * @internal
+ *
  * @phpstan-import-type Report from JsonReport
  * @phpstan-import-type MutantEntry from MutantJson
  * @phpstan-import-type FileEntry from Mutants

@@ -18,6 +18,8 @@ use function sprintf;
  * program. Where the gate records the run, the patched generation loop keeps
  * each such mutant out of Pest's run, and the plugin records it beside those
  * Pest planned, so the adapter judges it as the first: by its copy's run.
+ *
+ * @internal
  */
 final class Twins
 {

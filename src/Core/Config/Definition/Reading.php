@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
  * written, or every problem found reading it. A value with a problem has no
  * typed value.
  *
+ * @internal
+ *
  * @template-covariant T of object|scalar = never
  */
 final readonly class Reading

@@ -14,6 +14,8 @@ use Stringable;
  * What the console is given to write, as it writes it: each message printable (Printable) before the console
  * formats it, so the only escape sequences it writes are the colours it adds. A message that is neither scalar nor
  * Stringable is written as an empty one.
+ *
+ * @internal
  */
 final readonly class Messages
 {

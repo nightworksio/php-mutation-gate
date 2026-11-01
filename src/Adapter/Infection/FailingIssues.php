@@ -21,6 +21,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * not, and on every issue where `failOnAllIssues` says so. An attribute
  * set to what PHPUnit cannot read as `true` or `false` keeps PHPUnit's
  * default, which Infection then leaves alone.
+ *
+ * @internal
  */
 final readonly class FailingIssues
 {

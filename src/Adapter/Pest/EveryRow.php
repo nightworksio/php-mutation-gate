@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
  * A mutant's own run as an unpatched Pest selects it: the tests of a map
  * pest-plugin-mutate's filter of the tests that judge it selects, every row
  * of their data sets among them (see Selection).
+ *
+ * @internal
  */
 final readonly class EveryRow implements RunSelection
 {

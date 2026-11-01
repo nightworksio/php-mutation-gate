@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Infection\Import;
 
-/** Why an `ignore` pattern of Infection's maps to no entry of the gate's `ignores.entries`. */
+/**
+ * Why an `ignore` pattern of Infection's maps to no entry of the gate's `ignores.entries`.
+ *
+ * @internal
+ */
 enum Unmapped
 {
     /** It is a pattern over source, which no entry of the gate's can say. */

@@ -23,6 +23,8 @@ use function trim;
  * revision names, each resolved once, what a commit was made of, and a
  * revision git can read for a commit a run judged, made again from its
  * parents where it is gone (ADR-0005).
+ *
+ * @internal
  */
 final class Objects
 {

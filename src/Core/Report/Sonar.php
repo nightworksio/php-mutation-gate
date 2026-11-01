@@ -26,6 +26,8 @@ use function sprintf;
  * (ADR-0028). An issue leaves its effort out, so
  * SonarQube's default of none applies.
  *
+ * @internal
+ *
  * @phpstan-type Range array{startLine: int, endLine?: int, startColumn?: int, endColumn?: int}
  * @phpstan-type Issue array{
  *     ruleId: value-of<SonarRule>,

@@ -12,6 +12,8 @@ use function mb_strtolower;
  * The arguments of a file's attributes, each owned by the attribute's class,
  * or, for `#[Attribute]`, by the class-like it makes an attribute: a
  * reflection that makes the attribute reads them, and names that owner.
+ *
+ * @internal
  */
 final readonly class AttributeArguments
 {

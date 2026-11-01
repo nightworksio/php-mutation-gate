@@ -19,6 +19,8 @@ use function sprintf;
 /**
  * One line of the results file, as the plugin writes it and the adapter reads
  * it: a JSON object naming its event, and the fields that event carries.
+ *
+ * @internal
  */
 final readonly class RecordLine
 {

@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\Score\Score;
  * of them killed (ADR-0025). It is exact under a full kill
  * matrix, and otherwise a lower bound, read from first killers, which the
  * reports show as *at least*. It is reported, never judged.
+ *
+ * @internal
  */
 final readonly class SuiteScore
 {

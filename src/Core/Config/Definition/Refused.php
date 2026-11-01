@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Format\Node;
  * A key that is refused whatever it holds, with what to do instead: a
  * webhook URL, which is a credential, and belongs in the environment.
  *
+ * @internal
+ *
  * @implements Shape<never>
  */
 final readonly class Refused implements Shape

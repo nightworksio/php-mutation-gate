@@ -20,6 +20,8 @@ use function sprintf;
  * The last run's JSON report, which every verdict keeps in the workspace
  * for `digest` to render later, running nothing (ADR-0009). A report another
  * format of it wrote is refused, as the digest would misread it.
+ *
+ * @internal
  */
 final readonly class KeptReport
 {

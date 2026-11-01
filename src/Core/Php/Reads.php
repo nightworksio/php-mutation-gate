@@ -8,7 +8,11 @@ use function array_any;
 use function array_last;
 use function explode;
 
-/** Where one file reads a value, by what kind of value it is. */
+/**
+ * Where one file reads a value, by what kind of value it is.
+ *
+ * @internal
+ */
 final readonly class Reads
 {
     /** The name of PHP's function that reads a constant by a name given as a string: the kind's own word. */

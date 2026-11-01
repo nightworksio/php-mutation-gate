@@ -26,6 +26,8 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  * weighs units by it; a run lays each mutant's limit on it (ADR-0008),
  * measuring once, before its first mutant, on the machine its mutants run
  * on.
+ *
+ * @internal
  */
 final readonly class StartUpTiming
 {

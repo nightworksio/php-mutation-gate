@@ -20,6 +20,8 @@ use Symfony\Component\Console\Input\InputOption;
 /**
  * The one option a command that holds the gate's keys takes, a directory, as its command line gives it: the
  * command's name and that option alone, so any other argument or option is refused rather than ignored.
+ *
+ * @internal
  */
 final readonly class DirectoryOption
 {

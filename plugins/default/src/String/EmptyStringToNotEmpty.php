@@ -15,7 +15,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Scalar\String_;
 
-/** `''` becomes a string that is not empty. */
+/**
+ * `''` becomes a string that is not empty.
+ *
+ * @internal
+ */
 final readonly class EmptyStringToNotEmpty implements Mutator
 {
     /** What an empty string becomes. */

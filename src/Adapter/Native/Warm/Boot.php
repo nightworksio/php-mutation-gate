@@ -17,6 +17,8 @@ use function realpath;
  * loaded before the rest of the boot began, the bootstrap PHPUnit's config
  * names, the spy that saw what the boot autoloaded from where, and whether
  * the boot started PHPUnit's event facade.
+ *
+ * @internal
  */
 final readonly class Boot
 {

@@ -9,6 +9,7 @@ use function array_key_exists;
 use function array_map;
 use function array_merge;
 use function array_pop;
+use function array_udiff;
 use function array_values;
 use function class_exists;
 use function enum_exists;
@@ -29,11 +30,18 @@ use function trait_exists;
 
 /**
  * The classes under `src`, loaded, and the API surface among them: every class
- * in Attribute, Port, Mutator, Config and Extension, and every core type their
- * public signatures reach, followed as far as it goes (ADR-0001).
+ * in Attribute, Port, Mutator, Config and Extension but their machinery, and
+ * every core type their public faces reach, followed as far as it goes
+ * (ADR-0001, ADR-0043).
  */
 final readonly class Api
 {
+    /**
+     * The machinery inside the public layers, which no public signature reaches: the mutator engine, and the
+     * checks the contract kits make.
+     */
+    public const array MACHINERY = ['src/Mutator/Engine', 'src/Extension/Checks'];
+
     /**
      * Every class-like of the code the package ships, src's and each
      * plugin's, loaded.
@@ -76,13 +84,18 @@ final readonly class Api
     public static function surface(): array
     {
         $surface = [];
-        $pending = [
-            ...self::classesUnder(Layer::Attribute->directory()),
-            ...self::classesUnder(Layer::Port->directory()),
-            ...self::classesUnder(Layer::Mutator->directory()),
-            ...self::classesUnder(Layer::Config->directory()),
-            ...self::classesUnder(Layer::Extension->directory()),
-        ];
+        $machinery = array_merge(...array_map(self::classesUnder(...), self::MACHINERY));
+        $pending = array_udiff(
+            [
+                ...self::classesUnder(Layer::Attribute->directory()),
+                ...self::classesUnder(Layer::Port->directory()),
+                ...self::classesUnder(Layer::Mutator->directory()),
+                ...self::classesUnder(Layer::Config->directory()),
+                ...self::classesUnder(Layer::Extension->directory()),
+            ],
+            $machinery,
+            static fn(ReflectionClass $one, ReflectionClass $other): int => $one->getName() <=> $other->getName(),
+        );
 
         while ($pending !== []) {
             $class = array_pop($pending);
@@ -93,10 +106,8 @@ final readonly class Api
 
             $surface[$class->getName()] = $class;
 
-            foreach (self::publicMethodsOf($class) as $method) {
-                foreach (self::coreTypesIn($method) as $reached) {
-                    $pending[] = new ReflectionClass($reached);
-                }
+            foreach (PublicFace::of($class)->coreTypes() as $reached) {
+                $pending[] = new ReflectionClass($reached);
             }
         }
 
@@ -187,29 +198,5 @@ final readonly class Api
         $name = $type instanceof ReflectionNamedType ? $type->getName() : '';
 
         return $type->allowsNull() && ! in_array($name, ['null', 'mixed'], strict: true) ? [$name, 'null'] : [$name];
-    }
-
-    /**
-     * The core types a method's signature names.
-     *
-     * @return list<class-string>
-     */
-    private static function coreTypesIn(ReflectionMethod $method): array
-    {
-        $names = self::returnNames($method);
-
-        foreach ($method->getParameters() as $parameter) {
-            $names = [...$names, ...self::parameterNames($parameter)];
-        }
-
-        $found = [];
-
-        foreach ($names as $name) {
-            if (Layer::Core->holds($name) && (class_exists($name) || interface_exists($name) || enum_exists($name))) {
-                $found[] = $name;
-            }
-        }
-
-        return $found;
     }
 }

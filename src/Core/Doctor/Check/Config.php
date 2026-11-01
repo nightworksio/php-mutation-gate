@@ -22,6 +22,8 @@ use function sprintf;
 /**
  * A config every command refuses. Two runners left to choose between are the
  * runners check's, which says what to set.
+ *
+ * @internal
  */
 final readonly class Config
 {

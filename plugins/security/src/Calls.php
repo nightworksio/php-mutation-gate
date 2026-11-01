@@ -19,6 +19,8 @@ use PhpParser\Node\Name;
 /**
  * The calls of PHP's own functions, by the bare name code calls them by, as
  * written or with a leading backslash, in any case, as PHP matches them.
+ *
+ * @internal
  */
 final readonly class Calls
 {

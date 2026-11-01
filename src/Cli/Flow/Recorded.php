@@ -42,6 +42,8 @@ use NightWorksIO\MutationGate\Core\Written;
  * unit it considered and git can say what the commit it judged was made of,
  * that commit as the scope's last run, which any other run removes
  * (ADR-0007).
+ *
+ * @internal
  */
 final readonly class Recorded
 {

@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Php;
 
-/** A variable a scope does not own: the object a method runs on, and those PHP shares with every scope. */
+/**
+ * A variable a scope does not own: the object a method runs on, and those PHP shares with every scope.
+ *
+ * @internal
+ */
 enum ReachingVariable: string
 {
     case This = '$this';

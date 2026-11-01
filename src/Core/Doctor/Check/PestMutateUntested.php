@@ -17,7 +17,11 @@ use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 
 use function sprintf;
 
-/** The Pest runner, over a pest-plugin-mutate release newer than any the gate is tested with. */
+/**
+ * The Pest runner, over a pest-plugin-mutate release newer than any the gate is tested with.
+ *
+ * @internal
+ */
 final readonly class PestMutateUntested
 {
     /** The newest pest-plugin-mutate release the gate is tested with, which the runner canary raises. */

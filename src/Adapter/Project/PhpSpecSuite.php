@@ -38,6 +38,8 @@ use function trim;
  * `spec_prefix` and its `namespace` less its `psr4_prefix`, as PhpSpec's
  * own locator places them, each file of specs ending in `Spec.php`. PhpSpec runs every suite in one run, so none is
  * declared by its name.
+ *
+ * @internal
  */
 final readonly class PhpSpecSuite
 {

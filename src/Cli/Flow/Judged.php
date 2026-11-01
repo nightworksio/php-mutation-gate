@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
  * whether the run, having judged, reported and recorded, still cannot pass
  * judgement, as a CI run on a tree held to no floor cannot. A verdict that
  * cannot judge, as one with a sampled tree undecided, exits as one.
+ *
+ * @internal
  */
 final readonly class Judged
 {

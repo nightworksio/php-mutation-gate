@@ -26,6 +26,8 @@ use function sprintf;
  * that would kill them, in the test's own style, on the result of the
  * function around the first of them (ADR-0025).
  *
+ * @internal
+ *
  * @phpstan-type WeakEntry array{test: string, assertions: list<string>, survivors: list<string>, assert: string}
  */
 final readonly class WeakAssertions

@@ -19,6 +19,8 @@ use function sprintf;
  * The four formats a config file is written in (ADR-0002), each by the word
  * `--format` takes and the extension its file has. YAML and NEON are read by
  * a library the gate only suggests.
+ *
+ * @internal
  */
 enum Format: string
 {

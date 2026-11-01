@@ -20,6 +20,8 @@ use function sprintf;
 /**
  * A ledger past the compressed limit a run reads a ledger to (ADR-0017;
  * ADR-0013), which no run reads.
+ *
+ * @internal
  */
 final readonly class LedgerSize
 {

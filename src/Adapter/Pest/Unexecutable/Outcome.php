@@ -21,6 +21,8 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  * What one run of a mutant against the tests that read its value found, and
  * why it found nothing where it did; of a kill, the tests that killed it,
  * and, where none is named, how its run ended (ADR-0014).
+ *
+ * @internal
  */
 final readonly class Outcome
 {

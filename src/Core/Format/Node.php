@@ -25,6 +25,8 @@ use function sprintf;
  * refused with where it is, so a reader drops the entry or refuses the file
  * rather than guessing. A config a person wrote is read by first asking what
  * a place holds, so that every mistake in it is reported at once.
+ *
+ * @internal
  */
 final readonly class Node
 {

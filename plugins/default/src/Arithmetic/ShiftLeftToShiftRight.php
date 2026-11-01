@@ -16,7 +16,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\BinaryOp\ShiftLeft;
 use PhpParser\Node\Expr\BinaryOp\ShiftRight;
 
-/** `<<` becomes `>>`. */
+/**
+ * `<<` becomes `>>`.
+ *
+ * @internal
+ */
 final readonly class ShiftLeftToShiftRight implements Mutator
 {
     public function name(): MutatorName

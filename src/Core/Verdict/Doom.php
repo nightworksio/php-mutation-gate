@@ -25,6 +25,8 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  * survivor leaves, so either floor fails. A survivor static analysis
  * proved equivalent is no survivor to the verdict, so it dooms nothing;
  * one static analysis killed is a survivor no more.
+ *
+ * @internal
  */
 final readonly class Doom
 {

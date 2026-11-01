@@ -33,6 +33,8 @@ use function sprintf;
  * tells the mutant from its original, and it is unjudged; where they run
  * out of the cap or of time too, or never run, the mutant is too heavy to
  * judge, saying why.
+ *
+ * @internal
  */
 final readonly class MemoryControls implements ControlJudge
 {

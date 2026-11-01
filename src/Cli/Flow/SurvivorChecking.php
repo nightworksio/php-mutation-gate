@@ -35,6 +35,8 @@ use Psr\Clock\ClockInterface;
  * way, which must first analyse as the file itself does. The checks record
  * their time alone (ADR-0020), and each round of them is timed
  * on the shard's stopwatch.
+ *
+ * @internal
  */
 final readonly class SurvivorChecking
 {

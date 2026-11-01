@@ -7,6 +7,8 @@ namespace NightWorksIO\MutationGate\Cli\Config;
 /**
  * Where a config file would be, none: zero-config reads the project instead,
  * and `init` may write one there.
+ *
+ * @internal
  */
 final readonly class NoConfigFile
 {

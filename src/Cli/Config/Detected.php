@@ -33,6 +33,8 @@ use function sprintf;
  * What zero-config finds out about a project (ADR-0002): its preset, from
  * what its `composer.json` requires, and its runner and static analyser,
  * from what is installed.
+ *
+ * @internal
  */
 final readonly class Detected
 {

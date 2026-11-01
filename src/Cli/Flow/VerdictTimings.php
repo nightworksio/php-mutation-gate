@@ -27,6 +27,8 @@ use function sprintf;
  * estimated, each job's setup taken from `shards.setup`: the wall time from
  * the first job's setup to now, and the runner time of every shard and the
  * verdict together, each with its setup.
+ *
+ * @internal
  */
 final readonly class VerdictTimings
 {

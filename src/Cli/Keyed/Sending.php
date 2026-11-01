@@ -55,6 +55,8 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * event names, each alert to its channel's `MUTATION_GATE_*_URL`, signed with
  * `MUTATION_GATE_WEBHOOK_SECRET`, and the export to
  * `OTEL_EXPORTER_OTLP_ENDPOINT` with its headers.
+ *
+ * @internal
  */
 final readonly class Sending
 {

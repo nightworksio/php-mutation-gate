@@ -33,6 +33,8 @@ use function str_ends_with;
  *
  * A class authorizes requests where it uses Laravel's `AuthorizesRequests`, or
  * extends a controller, as an app's base controller does.
+ *
+ * @internal
  */
 final readonly class RemoveAuthorize implements Mutator
 {

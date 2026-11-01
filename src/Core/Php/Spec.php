@@ -14,6 +14,8 @@ use function str_ends_with;
  * A PhpSpec spec, read from its file's tokens: a class that extends
  * PhpSpec's `ObjectBehavior`, by that name however it is qualified, and the
  * matchers of its own its `getMatchers()` names by their keys.
+ *
+ * @internal
  */
 final readonly class Spec
 {

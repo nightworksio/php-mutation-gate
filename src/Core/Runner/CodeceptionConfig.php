@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 /**
  * The names Codeception's config has in a directory, in the order the gate
  * reads them: Codeception reads both, the first over the second.
+ *
+ * @internal
  */
 enum CodeceptionConfig: string
 {

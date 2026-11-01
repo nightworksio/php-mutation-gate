@@ -21,6 +21,8 @@ use function sprintf;
  * project's `vendor/composer/installed.json`; or, under the gate's PHAR, the
  * commit and version built into it (ADR-0022). A gate Composer did not
  * install, such as its own checkout, pins nothing, and says so.
+ *
+ * @internal
  */
 final readonly class GatePin
 {

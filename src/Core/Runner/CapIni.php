@@ -11,6 +11,8 @@ use function sprintf;
  * cap, and, for a runner that reads a mutant's fatal error from its standard
  * output alone, `display_errors` set to print there. That setting is inert:
  * it decides where an error is shown, never what a test computes.
+ *
+ * @internal
  */
 final readonly class CapIni
 {

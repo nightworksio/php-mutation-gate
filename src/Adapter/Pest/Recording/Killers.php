@@ -34,6 +34,8 @@ use PHPUnit\Event\UnknownSubscriberTypeException;
  * reads for a fatal error Pest's own handling would lose, such as running
  * out of memory (ADR-0004). A test or config that sets
  * `error_log` itself logs elsewhere.
+ *
+ * @internal
  */
 final readonly class Killers
 {

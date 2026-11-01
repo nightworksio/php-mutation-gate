@@ -30,6 +30,8 @@ use Symfony\Component\Process\Process;
  * The test framework prints its header once it has loaded every test, and a
  * mark as each test ends, so its loading before is held only to the whole
  * limit. A run whose limit is none is never stopped for silence.
+ *
+ * @internal
  */
 final class Silence
 {

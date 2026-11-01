@@ -10,6 +10,8 @@ use NightWorksIO\MutationGate\Core\Hold\Standing;
  * One run of attribute groups written together: where each attribute's name
  * stands among the file's tokens, and what the run stands on, with the class,
  * method or function it names, `<class>::<method>` for a method.
+ *
+ * @internal
  */
 final readonly class AttributedMember
 {

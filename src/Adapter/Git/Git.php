@@ -48,6 +48,8 @@ use function trim;
  * A revision is resolved to its commit once, the first time a file is read
  * at it, so every file read at it is read at the same commit, and the files
  * read at it together are read in one batch.
+ *
+ * @internal
  */
 final readonly class Git implements ChangeSource, Repository
 {

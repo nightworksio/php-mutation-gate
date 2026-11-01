@@ -15,6 +15,8 @@ use function sprintf;
  * directory that lists them, one to a line, the option that has the
  * framework read that file, and whether the file names exactly those tests
  * or the files that hold them, which runs their other tests too.
+ *
+ * @internal
  */
 final readonly class Selection
 {

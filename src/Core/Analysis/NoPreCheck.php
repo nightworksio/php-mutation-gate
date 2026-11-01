@@ -6,7 +6,11 @@ namespace NightWorksIO\MutationGate\Core\Analysis;
 
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 
-/** No check before the tests: every mutant goes to its tests, as under Infection or with no analyser. */
+/**
+ * No check before the tests: every mutant goes to its tests, as under Infection or with no analyser.
+ *
+ * @internal
+ */
 final readonly class NoPreCheck implements PreChecker
 {
     public function rejected(PreCheckables $mutants, ProcessCount $side): Rejections

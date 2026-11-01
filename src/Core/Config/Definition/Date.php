@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Time\Day;
 /**
  * A calendar day written `YYYY-MM-DD`.
  *
+ * @internal
+ *
  * @implements Shape<Day>
  */
 final readonly class Date implements Shape
