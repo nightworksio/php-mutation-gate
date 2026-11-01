@@ -1,6 +1,6 @@
 {
     "name": "nightworksio/mutation-gate",
-    "description": "Mutation testing as a CI gate for PHP: floors per tree that only rise, sharded runs, and proofs that skip what is already proved, for Pest, Infection, PHPUnit, PhpSpec and Codeception.",
+    "description": "Mutation testing as a CI gate for PHP: floors per tree that only rise, sharded runs, and proofs that skip what is already proved, for Pest, Infection, PHPUnit, PhpSpec, Codeception and Testo.",
     "license": "MIT",
     "type": "library",
     "keywords": [
@@ -11,6 +11,7 @@
         "phpunit",
         "phpspec",
         "codeception",
+        "testo",
         "ci",
         "github-actions",
         "quality gate",

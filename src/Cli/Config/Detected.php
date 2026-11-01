@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Config;
 
 use function array_any;
+use function array_filter;
 use function array_map;
 use function array_pop;
+use function array_values;
 use function count;
 use function implode;
 
@@ -193,9 +195,10 @@ final readonly class Detected
 
         return [
             ...$phpunit ? [BuiltinRunner::PhpUnit] : [],
-            ...$installed->has(Package::PhpSpec->value) ? [BuiltinRunner::PhpSpec] : [],
-            ...$codeception ? [BuiltinRunner::Codeception] : [],
-            ...$installed->has(Package::Testo->value) ? [BuiltinRunner::Testo] : [],
+            ...array_values(array_filter(
+                [BuiltinRunner::PhpSpec, BuiltinRunner::Codeception, BuiltinRunner::Testo],
+                static fn(BuiltinRunner $runner): bool => $installed->has($runner->package()->value),
+            )),
         ];
     }
 
