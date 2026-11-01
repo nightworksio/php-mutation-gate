@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace NightWorksIO\MutationGate\Adapter\GitHub;
+namespace NightWorksIO\MutationGate\Core\Report;
 
 use Closure;
 
@@ -13,12 +13,6 @@ use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Owner\OwnerGroup;
-use NightWorksIO\MutationGate\Core\Report\ClusterText;
-use NightWorksIO\MutationGate\Core\Report\Escape;
-use NightWorksIO\MutationGate\Core\Report\Label;
-use NightWorksIO\MutationGate\Core\Report\MutantText;
-use NightWorksIO\MutationGate\Core\Report\Mutator;
-use NightWorksIO\MutationGate\Core\Report\Owned;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\OwnerVerdicts;
 

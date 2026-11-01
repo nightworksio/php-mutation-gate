@@ -6,6 +6,8 @@ use Composer\InstalledVersions;
 use NightWorksIO\MutationGate\Adapter\Azure\AzurePlan;
 use NightWorksIO\MutationGate\Adapter\Azure\ContainerLedger;
 use NightWorksIO\MutationGate\Adapter\Bitbucket\BitbucketPlan;
+use NightWorksIO\MutationGate\Adapter\Bitbucket\CodeInsights;
+use NightWorksIO\MutationGate\Adapter\Bitbucket\PullRequestComment as BitbucketComment;
 use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
 use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
 use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
@@ -31,6 +33,7 @@ use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
 use NightWorksIO\MutationGate\Adapter\GitHub\StepSummary;
 use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
+use NightWorksIO\MutationGate\Adapter\GitLab\MergeRequestNote;
 use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Jenkins\JenkinsPlan;
@@ -259,6 +262,9 @@ it('registers the console, every file report, GitHub\'s three and the badge by n
         ->and($reporter('github-annotations'))->toEqual(Annotations::printingTo('php://stdout'))
         ->and($reporter('github-summary'))->toBeInstanceOf(StepSummary::class)
         ->and($reporter('github-comment'))->toBeInstanceOf(PullRequestComment::class)
+        ->and($reporter('gitlab-comment'))->toBeInstanceOf(MergeRequestNote::class)
+        ->and($reporter('bitbucket-comment'))->toBeInstanceOf(BitbucketComment::class)
+        ->and($reporter('bitbucket-insights'))->toBeInstanceOf(CodeInsights::class)
         ->and($reporter('badge'))->toBeInstanceOf(BadgeDirectory::class)
         ->and($reporter('json'))->toBeInstanceOf(Invalid::class);
 });

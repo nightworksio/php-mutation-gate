@@ -6,6 +6,8 @@ use NightWorksIO\MutationGate\Adapter\Alert\AlertReporter;
 use NightWorksIO\MutationGate\Adapter\Alert\Channel;
 use NightWorksIO\MutationGate\Adapter\Alert\Delivery;
 use NightWorksIO\MutationGate\Adapter\Alert\Pause;
+use NightWorksIO\MutationGate\Adapter\Bitbucket\CodeInsights;
+use NightWorksIO\MutationGate\Adapter\Bitbucket\PullRequestComment as BitbucketComment;
 use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
 use NightWorksIO\MutationGate\Adapter\Console\ProblemsReport;
 use NightWorksIO\MutationGate\Adapter\Filesystem\BadgeDirectory;
@@ -25,6 +27,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\TestsReportFile;
 use NightWorksIO\MutationGate\Adapter\GitHub\Annotations;
 use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
 use NightWorksIO\MutationGate\Adapter\GitHub\StepSummary;
+use NightWorksIO\MutationGate\Adapter\GitLab\MergeRequestNote;
 use NightWorksIO\MutationGate\Adapter\Otlp\OtlpReporter;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Delivery\Stage;
@@ -36,6 +39,7 @@ use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\Reporter;
 use NightWorksIO\MutationGate\Tests\Fakes\ReporterFake;
+use NightWorksIO\MutationGate\Tests\Support\Cloud;
 use NightWorksIO\MutationGate\Tests\Support\Previous;
 use NightWorksIO\MutationGate\Tests\Support\Schema;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -48,6 +52,11 @@ use Symfony\Component\HttpClient\Response\MockResponse;
 
 $holds = [
     'holds:src/Adapter/Alert',
+    'holds:src/Adapter/Bitbucket/CodeInsights.php',
+    'holds:src/Adapter/Bitbucket/CommentMarkdown.php',
+    'holds:src/Adapter/Bitbucket/InsightAnnotation.php',
+    'holds:src/Adapter/Bitbucket/PullRequestComment.php',
+    'holds:src/Adapter/Bitbucket/PullRequestThread.php',
     'holds:src/Adapter/Console',
     'holds:src/Adapter/Filesystem/BadgeDirectory.php',
     'holds:src/Adapter/Filesystem/DeliveredReport.php',
@@ -61,6 +70,9 @@ $holds = [
     'holds:src/Adapter/Filesystem/StrykerReportFile.php',
     'holds:src/Adapter/Filesystem/TestsReportFile.php',
     'holds:src/Adapter/GitHub',
+    'holds:src/Adapter/GitLab/MergeRequestNote.php',
+    'holds:src/Adapter/GitLab/MergeRequestThread.php',
+    'holds:src/Adapter/GitLab/NoteMarkdown.php',
     'holds:src/Adapter/Otlp',
     'holds:src/Core/Alert/AlertLines.php',
     'holds:src/Core/Alert/Alerts.php',
@@ -70,18 +82,24 @@ $holds = [
     'holds:src/Core/Alert/WebhookPayload.php',
     'holds:src/Core/Ci/PullRequestNumber.php',
     'holds:src/Core/Cost/RunAccount.php',
+    'holds:src/Core/Delivery/CommentStates.php',
     'holds:src/Core/Delivery/DeliveryFile.php',
     'holds:src/Core/Http/Reply.php',
+    'holds:src/Core/Http/RestApi.php',
     'holds:src/Core/Matrix/KillMatrix.php',
     'holds:src/Core/Matrix/TestStandings.php',
     'holds:src/Core/Proof/Scope.php',
     'holds:src/Core/Report/AccountJson.php',
+    'holds:src/Core/Report/AnnotationOrder.php',
+    'holds:src/Core/Report/AnnotationText.php',
     'holds:src/Core/Report/Badge.php',
     'holds:src/Core/Report/BadgeColors.php',
     'holds:src/Core/Report/Columns.php',
     'holds:src/Core/Report/FileColumns.php',
     'holds:src/Core/Report/JUnit.php',
     'holds:src/Core/Report/JsonReport.php',
+    'holds:src/Core/Report/Markdown.php',
+    'holds:src/Core/Report/MarkdownItems.php',
     'holds:src/Core/Report/MutantText.php',
     'holds:src/Core/Report/Overview.php',
     'holds:src/Core/Report/Problems.php',
@@ -165,6 +183,37 @@ $reporters = [
     'Slack' => fn(): Reporter => $alerting(Channel::Slack),
     'Discord' => fn(): Reporter => $alerting(Channel::Discord),
     'the webhook' => fn(): Reporter => $alerting(Channel::Webhook),
+    'the merge request note' => fn(): Reporter => MergeRequestNote::inEnvironment(
+        Variables::of([
+            'GITLAB_CI' => 'true',
+            'CI_API_V4_URL' => 'https://gitlab.example/api/v4',
+            'CI_PROJECT_ID' => '42',
+            'CI_PROJECT_URL' => 'https://gitlab.example/acme/shop',
+            'CI_MERGE_REQUEST_IID' => '7',
+            'MUTATION_GATE_GITLAB_TOKEN' => 'secret',
+        ]),
+        new Cloud()
+            ->answering('https://gitlab.example/api/v4/user', 200, '{"username": "bot"}')
+            ->answering('https://gitlab.example/api/v4/projects/42/merge_requests/7/notes?sort=asc&order_by=created_at&per_page=100&page=1', 200, '[]')
+            ->answering('https://gitlab.example/api/v4/projects/42/merge_requests/7/notes', 201, '{"id": 3}')
+            ->exchange(),
+        'MUTATION_GATE_GITLAB_TOKEN',
+    ),
+    'the Bitbucket pull request comment' => fn(): Reporter => BitbucketComment::inEnvironment(
+        Variables::of(['BITBUCKET_BUILD_NUMBER' => '9', 'BITBUCKET_WORKSPACE' => 'acme', 'BITBUCKET_REPO_SLUG' => 'shop', 'BITBUCKET_PR_ID' => '7', 'MUTATION_GATE_BITBUCKET_TOKEN' => 'secret']),
+        new Cloud()
+            ->answering('https://api.bitbucket.org/2.0/repositories/acme/shop/pullrequests/7/comments?pagelen=50&page=1', 200, '{"values": []}')
+            ->answering('https://api.bitbucket.org/2.0/repositories/acme/shop/pullrequests/7/comments', 201, '{"links": {"html": {"href": "https://bitbucket.org/acme/shop/pull-requests/7#comment-3"}}}')
+            ->exchange(),
+        'MUTATION_GATE_BITBUCKET_TOKEN',
+    ),
+    'Code Insights' => fn(): Reporter => CodeInsights::inEnvironment(
+        Variables::of(['BITBUCKET_BUILD_NUMBER' => '9', 'BITBUCKET_WORKSPACE' => 'acme', 'BITBUCKET_REPO_SLUG' => 'shop', 'BITBUCKET_COMMIT' => '5eeca8f']),
+        new Cloud()
+            ->answering('http://api.bitbucket.org/2.0/repositories/acme/shop/commit/5eeca8f/reports/mutation-gate', 200, '{}')
+            ->answering('http://api.bitbucket.org/2.0/repositories/acme/shop/commit/5eeca8f/reports/mutation-gate/annotations', 200, '[]')
+            ->exchange(),
+    ),
     'OTLP' => fn(): Reporter => OtlpReporter::to(
         Variables::of([]),
         new MockHttpClient(static fn(): MockResponse => new MockResponse('{}')),

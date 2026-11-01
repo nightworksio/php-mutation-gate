@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace NightWorksIO\MutationGate\Adapter\GitHub;
+namespace NightWorksIO\MutationGate\Core\Report;
 
 use function array_filter;
 use function array_slice;
@@ -11,10 +11,9 @@ use function implode;
 
 use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Plan\PlannedWork;
-use NightWorksIO\MutationGate\Core\Report\Commented;
-use NightWorksIO\MutationGate\Core\Report\Escape;
 
 use function sprintf;
+use function str_contains;
 
 /**
  * The PR comment's planned state, which the plan posts and the verdict
@@ -39,6 +38,12 @@ final readonly class PlannedMarkdown
     private const string UNITS = '<details><summary>Units (%d)</summary>';
 
     private const string UNCOVERED = '### Changed lines no test covers (%d)';
+
+    /** Whether a comment's body is in its planned state: it holds the heading on a line of its own. */
+    public static function isPlanned(string $body): bool
+    {
+        return str_contains($body, sprintf("\n%s\n", self::HEADING));
+    }
 
     /** The comment, with its marker, and a link to the run where there is one. */
     public static function comment(PlannedWork $work, string $run): string

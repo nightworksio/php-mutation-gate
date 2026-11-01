@@ -30,3 +30,10 @@ it('gets with no body, posts one, and sets a header to its last value', function
         ->toBe([Method::Post, 'a=b', ['Content-Type' => 'application/x-www-form-urlencoded']])
         ->and(MediaType::Json->value)->toBe('application/json');
 });
+
+it('deletes with no body', function (): void {
+    $delete = Request::delete('https://api.example/report');
+
+    expect([$delete->method(), $delete->url(), $delete->body(), $delete->headers()])
+        ->toBe([Method::Delete, 'https://api.example/report', '', []]);
+});

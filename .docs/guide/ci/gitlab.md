@@ -17,12 +17,15 @@ mutation-plan:
   extends: .mutation-gate
   script:
     - |
+      later=""
       case "$CI_PIPELINE_SOURCE" in
-        merge_request_event) base="--changed-since=$CI_MERGE_REQUEST_DIFF_BASE_SHA" ;;
+        merge_request_event)
+          base="--changed-since=$CI_MERGE_REQUEST_DIFF_BASE_SHA"
+          later="--deliver-later" ;;
         schedule) base="" ;;
         *) base="--changed-since=last-passed" ;;
       esac
-      vendor/bin/mutation-gate plan --ci=gitlab $base
+      vendor/bin/mutation-gate plan --ci=gitlab $base $later
   artifacts:
     paths: [.mutation-gate/]
 
@@ -32,11 +35,21 @@ mutation:
   variables:
     PARENT_PIPELINE_ID: $CI_PIPELINE_ID
     MUTATION_GATE_SOURCE: $CI_PIPELINE_SOURCE
+    MUTATION_GATE_MERGE_REQUEST_IID: $CI_MERGE_REQUEST_IID
   trigger:
     include:
       - artifact: .mutation-gate/pipeline.yml
         job: mutation-plan
     strategy: mirror
+
+mutation-comment:
+  stage: test
+  extends: .mutation-gate-comment
+  needs: [mutation-plan]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  variables:
+    MUTATION_GATE_DELIVERY: .mutation-gate/delivery/planned
 ```
 
 The child pipeline holds one job with `parallel: matrix` over the shards and
@@ -65,3 +78,35 @@ every variable the S3 store reads before `composer install` in every job but
 project's tests, read the store through `proofs.store.with.publicUrl`. A
 branch can edit the pipeline, so the variables' protection, not the jobs'
 conditions, keeps the keys from other branches.
+
+## The merge request note
+
+List `gitlab-comment` in the config's `reports`, and the gate keeps one note on
+each merge request, updated in place on every run: its planned state once the
+plan is made, and the verdict once the shards are judged
+([ADR-0024](../../decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md)).
+Set `MUTATION_GATE_GITLAB_TOKEN` to a project access token with the scope `api`
+and the role Reporter, as a masked CI/CD variable that is not protected, since
+a merge request's pipeline runs on its own branch.
+
+No job that runs the project's code holds the token. On a merge request the
+plan and the verdict that holds no keys run with `--deliver-later`, and leave
+the note in `.mutation-gate/delivery`. Two jobs send it with `deliver`: the
+`mutation-comment` job above, after the plan, and `mutation-gate-comment` in
+the child pipeline, after the verdict. Both extend `.mutation-gate-comment`,
+the hidden job the template defines with the gate's own image, pinned to the
+release `init` names, so they load none of the project's code. The trigger job
+hands the child pipeline the merge request's IID in
+`MUTATION_GATE_MERGE_REQUEST_IID`, since GitLab gives a child pipeline none of
+the merge request's variables. Every job that extends `.mutation-gate` drops
+the token before `composer install`, and the runners withhold it from the
+tests. A branch can edit the pipeline, so anyone who may push one can read the
+token: give it no role above Reporter.
+
+A fork's merge request pipeline runs in the fork, with none of the project's
+variables, so it writes no note and says why. GitLab finds mentions and issue
+references in the rendered note, so each `@`, `#`, `!` and `~` the project
+wrote stands in an element of its own
+([ADR-0048](../../decisions/0048-the-gitlab-and-bitbucket-comments-relay-the-delivery-and-bitbucket-finds-its-own-by-editing.md)).
+The `gitlab` report puts the survivors in the merge request's Code Quality
+widget.

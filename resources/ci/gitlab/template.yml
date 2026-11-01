@@ -10,6 +10,14 @@
 # reads the store through proofs.store.with.publicUrl. A branch can edit this
 # file, so the keys' protection is the variables' protection, not the line
 # below.
+# For the merge request note, list gitlab-comment in the config's reports, and
+# set %%gitlabToken%% to a project access token with the scope api and
+# the role Reporter, as a masked CI/CD variable that is not protected: a merge
+# request's pipeline runs on its own branch. Every job that extends
+# .mutation-gate drops it before composer install, and the comment jobs extend
+# .mutation-gate-comment, which runs the gate's own image and none of the
+# project's code. A branch can edit this file, so anyone who may push one can
+# read the token.
 .mutation-gate:
   # image: <an image with PHP %%php%% and pcov>
   # No official image is known to include pcov, and without it the first run
@@ -20,4 +28,12 @@
       - .mutation-gate/ledger/
   before_script:
     - '[ "$CI_JOB_NAME" = "mutation-gate-verdict-store" ] || unset %%s3%%'
+    - unset %%gitlabToken%%
     - composer install --no-interaction --no-progress
+
+.mutation-gate-comment:
+  image:
+    name: %%image%%
+    entrypoint: ['']
+  script:
+    - mutation-gate deliver "--from=$MUTATION_GATE_DELIVERY"

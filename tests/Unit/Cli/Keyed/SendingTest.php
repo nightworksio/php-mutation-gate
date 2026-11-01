@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Alert\Delivery as AlertDelivery;
 use NightWorksIO\MutationGate\Adapter\Alert\Pause;
-use NightWorksIO\MutationGate\Adapter\GitHub\Markdown;
-use NightWorksIO\MutationGate\Adapter\GitHub\PlannedMarkdown;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\Keyed\LocatedStore;
 use NightWorksIO\MutationGate\Cli\Keyed\Sending;
@@ -16,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Delivery\AlertPost;
+use NightWorksIO\MutationGate\Core\Delivery\CommentStates;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\Delivery\KeptPost;
 use NightWorksIO\MutationGate\Core\Delivery\LedgerPost;
@@ -32,6 +31,8 @@ use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\ScopeRuns;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\Report\Markdown;
+use NightWorksIO\MutationGate\Core\Report\PlannedMarkdown;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
@@ -64,6 +65,30 @@ function sendingOf(array $environment, ArrayObject $built, ProofStoreFake $store
     $clock = new StoppedClock('2026-10-05T12:00:00Z');
 
     return new Sending($environment, new LocatedStore(Variables::of($environment), $extensions), $client, AlertDelivery::over($client, $clock, Pause::for(...)), $clock);
+}
+
+/**
+ * The variables of a merge request's job under GitLab CI, or of a pull request's step under Bitbucket Pipelines,
+ * each holding its forge's token.
+ *
+ * @return array<string, string>
+ */
+function sendingOnForge(string $forge): array
+{
+    return $forge === 'gitlab' ? [
+        'GITLAB_CI' => 'true',
+        'CI_API_V4_URL' => 'https://gitlab.example/api/v4',
+        'CI_PROJECT_ID' => '42',
+        'CI_PROJECT_URL' => 'https://gitlab.example/acme/shop',
+        'CI_MERGE_REQUEST_IID' => '7',
+        'MUTATION_GATE_GITLAB_TOKEN' => 'forge-token',
+    ] : [
+        'BITBUCKET_BUILD_NUMBER' => '9',
+        'BITBUCKET_WORKSPACE' => 'acme',
+        'BITBUCKET_REPO_SLUG' => 'shop',
+        'BITBUCKET_PR_ID' => '7',
+        'MUTATION_GATE_BITBUCKET_TOKEN' => 'forge-token',
+    ];
 }
 
 /** A delivery that holds a ledger for this scope. */
@@ -321,12 +346,42 @@ it('writes a comment left over the planned state only over it, so a verdict alre
     'over a verdict' => [
         fn(): string => Markdown::comment(Verdicts::failing()),
         fn(): Delivery => Delivery::none()->withCommentOverPlanned('## Re-checked'),
-        'The pull request comment is no longer in its planned state, so the re-checked survivors leave it as it is.',
+        CommentStates::NOT_PLANNED,
     ],
     'a verdict over a verdict' => [
         fn(): string => Markdown::comment(Verdicts::failing()),
         fn(): Delivery => Delivery::none()->withComment('## Passed'),
         'Wrote https://github.com/octo/gate/pull/7#issuecomment-5.',
+    ],
+]);
+
+it('writes the comment on the forge its own CI keeps, with the token in that forge\'s variable', function (
+    string $forge,
+    string $url,
+    string $said,
+): void {
+    $user = new MockResponse('{"username": "project_42_bot"}');
+    $listed = new MockResponse('[]');
+    $comments = new MockResponse('{"values": []}');
+    $posted = new MockResponse('{"id": 3, "links": {"html": {"href": "https://bitbucket.org/acme/shop/pull-requests/7#comment-3"}}}', ['http_code' => 201]);
+    $answers = $forge === 'gitlab' ? [$user, $listed, $posted] : [$comments, $posted];
+    $sent = sendingOf(sendingOnForge($forge), new ArrayObject(), new ProofStoreFake(), $answers)
+        ->sent(Delivery::none()->withComment(sprintf("%s\n\n## Passed", Markdown::MARKER)), NotWritten::because('untrusted'), static fn(): Ledger => Ledger::empty());
+
+    expect($posted->getRequestMethod())->toBe('POST')
+        ->and($posted->getRequestUrl())->toBe($url)
+        ->and(sendingHeaders($posted))->toContain('Authorization: Bearer forge-token')
+        ->and($sent->said())->toBe([$said]);
+})->with([
+    'a merge request\'s note under GitLab CI' => [
+        'gitlab',
+        'https://gitlab.example/api/v4/projects/42/merge_requests/7/notes',
+        'Wrote https://gitlab.example/acme/shop/-/merge_requests/7#note_3.',
+    ],
+    'a pull request\'s comment under Bitbucket Pipelines' => [
+        'bitbucket',
+        'https://api.bitbucket.org/2.0/repositories/acme/shop/pullrequests/7/comments',
+        'Wrote https://bitbucket.org/acme/shop/pull-requests/7#comment-3.',
     ],
 ]);
 

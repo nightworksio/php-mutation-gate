@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace NightWorksIO\MutationGate\Adapter\GitHub;
+namespace NightWorksIO\MutationGate\Core\Report;
 
 use function array_filter;
 use function array_map;
@@ -21,17 +21,6 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Matrix\SuiteScores;
-use NightWorksIO\MutationGate\Core\Report\Commented;
-use NightWorksIO\MutationGate\Core\Report\CostText;
-use NightWorksIO\MutationGate\Core\Report\Escape;
-use NightWorksIO\MutationGate\Core\Report\FailingText;
-use NightWorksIO\MutationGate\Core\Report\Folded;
-use NightWorksIO\MutationGate\Core\Report\Overview;
-use NightWorksIO\MutationGate\Core\Report\Percent;
-use NightWorksIO\MutationGate\Core\Report\RisingFloors;
-use NightWorksIO\MutationGate\Core\Report\SavingsText;
-use NightWorksIO\MutationGate\Core\Report\SetText;
-use NightWorksIO\MutationGate\Core\Report\SuiteText;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Time\Instant;
@@ -67,6 +56,9 @@ final readonly class Markdown
 {
     /** The hidden marker the sticky comment is found by. */
     public const string MARKER = '<!-- mutation-gate -->';
+
+    /** Where a comment holds the line that links its run's HTML report, until the comment is written. */
+    public const string REPORT_SLOT = '<!-- mutation-gate: html report -->';
 
     /** The most bytes one step's summary may hold. */
     public const int SUMMARY_BYTES = 1_048_576;
@@ -123,7 +115,7 @@ final readonly class Markdown
                 MarkdownItems::table(array_slice($other, 0, $shown), count($other), $overview->gate()),
             ),
             ...self::ignored($overview, $shown),
-            ...self::tail($verdict, HtmlReport::SLOT),
+            ...self::tail($verdict, self::REPORT_SLOT),
             CostText::of($verdict),
         ]);
 
@@ -132,6 +124,12 @@ final readonly class Markdown
             Commented::MOST,
             static fn(string $comment): bool => mb_strlen($comment) <= self::COMMENT_CHARACTERS,
         );
+    }
+
+    /** The line that links the run at this URL, which keeps the HTML report among its artifacts. */
+    public static function runLine(string $run): string
+    {
+        return sprintf(self::RUN, $run);
     }
 
     /**
@@ -143,7 +141,7 @@ final readonly class Markdown
         $overview = Overview::of($verdict);
         $items = Folded::of($overview->survivors(), $verdict->trees()->clusters());
         $head = self::head($verdict, $overview, $verdict->account()->savedSince($since));
-        $tail = self::tail($verdict, $run === '' ? '' : sprintf(self::RUN, $run));
+        $tail = self::tail($verdict, $run === '' ? '' : self::runLine($run));
         $document = static fn(int $shown): string => self::document([
             ...$head,
             ...self::sets($verdict),

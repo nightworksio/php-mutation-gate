@@ -102,9 +102,9 @@ final readonly class PlanCommand
     {
         $plan = $made->plan();
         $written = LastRun::keep($composed->adapters->project, $plan);
-        $publication = $written instanceof Written
-            ? $composed->adapters->ci->publish($plan, $composed->setup->command->jobs())
-            : $written;
+        $commands = $composed->setup->command->jobs();
+        $jobs = $composed->reporting->deliversLater() ? $commands->deliveringLater() : $commands;
+        $publication = $written instanceof Written ? $composed->adapters->ci->publish($plan, $jobs) : $written;
         $published = $publication instanceof Publication ? PublicationFile::written($publication) : $publication;
         $commented = $published instanceof Written
             ? $composed->reporting->planned($composed->settings, $plan)

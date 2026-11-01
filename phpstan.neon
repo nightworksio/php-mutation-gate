@@ -374,10 +374,24 @@ services:
                 'NightWorksIO\MutationGate\Adapter\GitHub\StickyComment':
                     - PAGE # comments a page
                     - PAGES # pages read
+                'NightWorksIO\MutationGate\Adapter\GitLab\MergeRequestThread':
+                    - PAGE # notes a page
+                    - PAGES # pages read
+                'NightWorksIO\MutationGate\Adapter\Bitbucket\PullRequestThread':
+                    - PAGE # comments a page
+                    - PAGES # pages read
+                    - TRIES # comments tried
+                'NightWorksIO\MutationGate\Adapter\Bitbucket\CodeInsights':
+                    - MOST # annotations a report holds
+                    - BATCH # annotations a request posts
+                'NightWorksIO\MutationGate\Adapter\Bitbucket\InsightAnnotation':
+                    - SUMMARY # characters of a summary
+                    - DETAILS # characters of the details
                 'NightWorksIO\MutationGate\Adapter\Alert\Delivery':
                     - TIMEOUT # seconds a post may take
                     - LONGEST_WAIT # seconds a Retry-After is waited
                 'NightWorksIO\MutationGate\Core\Http\Reply':
+                    - FORBIDDEN # an HTTP status
                     - SERVER # an HTTP status
                     - REDIRECT # an HTTP status
                     - ANSWER # characters of an answer repeated
