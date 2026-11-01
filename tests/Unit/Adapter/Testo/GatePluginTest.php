@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Native\Outcome;
 use NightWorksIO\MutationGate\Core\Native\TestTimes;
 use NightWorksIO\MutationGate\Core\Native\Variable;
 use NightWorksIO\MutationGate\Core\Runner\Opcache;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Testo\Application\Application;
 use Testo\Application\Config\ApplicationConfig;
@@ -97,7 +98,9 @@ it('runs only the tests it selects, records each as it starts and as it ended, a
             Outcome::Passed->line(sprintf('%s::later', $class)),
         ]))
         ->and(array_map(static fn(TimedTest $test): string => $test->test()->value(), $timed))
-        ->toBe([sprintf('%s::passes', $class), sprintf('%s::fails', $class), sprintf('%s::later', $class)]);
+        ->toBe([sprintf('%s::passes', $class), sprintf('%s::fails', $class), sprintf('%s::later', $class)])
+        ->and(array_filter($timed, static fn(TimedTest $test): bool => $test->seconds()->outlasts(Seconds::of(10.0))))
+        ->toBe([]);
 });
 
 it('stops after the first test that fails where the run stops, and runs none it does not select', function () use ($suite, $run): void {
@@ -124,6 +127,22 @@ it('runs only the tests in the group that judges the unit', function () use ($su
             Outcome::Started->line(sprintf('%s::passes', $class)),
             Outcome::Passed->line(sprintf('%s::passes', $class)),
         ]));
+});
+
+it('runs as told, recording to no file, where the results file it is named is empty', function () use ($suite, $run): void {
+    [$root] = $suite();
+
+    expect($run($root, Told::from(['--mutation-gate-group=slow'])))->toBe(Status::Passed);
+});
+
+it('says in the guard file the run names whether opcache could serve a cached original', function () use ($suite, $run): void {
+    [$root] = $suite();
+    $guard = sprintf('%s/guard.txt', $root);
+    putenv(sprintf('%s=%s', Variable::Guard->value, $guard));
+
+    $run($root, Told::from(['--mutation-gate-group=slow']));
+
+    expect(file_get_contents($guard))->toBe(Guard::noting(Opcache::ofCommandLine(ini_get(Opcache::CLI))));
 });
 
 it('lists every test and the groups each is in, running none and recording none', function () use ($suite, $run): void {
@@ -183,13 +202,15 @@ it('configures nothing in a container it does not know, noting nothing in the gu
     expect(is_file($guard))->toBeFalse();
 });
 
-it('says in the guard file whether opcache could serve a cached original, and nothing where none is named', function (): void {
+it('appends to the guard file whether opcache could serve a cached original, and notes nothing where none is named', function (): void {
     $root = Scratch::directory();
     $guard = sprintf('%s/guard.txt', $root);
 
     GatePlugin::noting($guard, Opcache::ofCommandLine('0'));
+    GatePlugin::noting($guard, Opcache::ofCommandLine('1'));
     GatePlugin::noting('', Opcache::ofCommandLine('0'));
     GatePlugin::noting(file: false, opcache: Opcache::ofCommandLine('0'));
 
-    expect(file_get_contents($guard))->toBe(Guard::noting(Opcache::ofCommandLine('0')));
+    expect(file_get_contents($guard))
+        ->toBe(sprintf('%s%s', Guard::noting(Opcache::ofCommandLine('0')), Guard::noting(Opcache::ofCommandLine('1'))));
 });

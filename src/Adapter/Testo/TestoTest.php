@@ -38,7 +38,8 @@ final readonly class TestoTest
     }
 
     /**
-     * The groups the `#[Group]` and `#[Holds]` on a test's function or class put it in.
+     * The groups the `#[Group]`, which Testo allows once, and each `#[Holds]`
+     * on a test's function or class put it in.
      *
      * @param ReflectionFunctionAbstract|ReflectionClass<object> $reflected
      *
@@ -49,7 +50,7 @@ final readonly class TestoTest
         $groups = [];
 
         foreach ($reflected->getAttributes(Group::class) as $group) {
-            $groups = [...$groups, ...array_map(GateGroup::named(...), array_values($group->newInstance()->names))];
+            $groups = array_map(GateGroup::named(...), array_values($group->newInstance()->names));
         }
 
         foreach ($reflected->getAttributes(Holds::class) as $held) {

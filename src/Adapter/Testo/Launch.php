@@ -57,9 +57,10 @@ final readonly class Launch
     public function written(): string
     {
         $config = tempnam(sys_get_temp_dir(), self::WRITTEN);
-        $written = is_string($config) && file_put_contents($config, $this->config()) !== false;
 
-        return is_string($config) && $written ? $config : throw UnwrittenConfig::in(sys_get_temp_dir());
+        return is_string($config) && file_put_contents($config, $this->config()) !== false
+            ? $config
+            : throw UnwrittenConfig::in(sys_get_temp_dir());
     }
 
     /** Deletes the config written for a run, once the run has ended. */
@@ -76,12 +77,11 @@ final readonly class Launch
         return sprintf(self::CONFIG, GateConfig::class, var_export($this->arguments, return: true));
     }
 
-    /** Testo's console, as Testo's own script builds it, with its `run` alone. */
+    /** Testo's console, with its `run` alone. */
     public function testo(): Application
     {
         $testo = new Application(Info::NAME, Info::version());
         $testo->addCommand(new Run());
-        $testo->setDefaultCommand(self::RUN);
         $testo->setAutoExit(boolean: false);
 
         return $testo;
