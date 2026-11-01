@@ -37,7 +37,7 @@ final readonly class Cost
     /** This cost, priced at the team's rate for a runner minute. */
     public function pricedAt(Rate $price): self
     {
-        return clone($this, ['price' => $price]);
+        return new self($this->planned, $this->measured, $this->spared, $this->setup, $price);
     }
 
     public function planned(): RunTime

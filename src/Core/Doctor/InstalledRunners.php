@@ -35,13 +35,13 @@ final readonly class InstalledRunners
     /** These, with the releases the chosen runner drives, or why the gate drives none of them. */
     public function releasing(Versions|CannotJudge $releases): self
     {
-        return clone($this, ['releases' => $releases]);
+        return new self($this->pest, $this->infection, $this->chosen, $releases, $this->pestMutate);
     }
 
     /** These, with the pest-plugin-mutate release Composer installed. */
     public function withPestMutate(Version $installed): self
     {
-        return clone($this, ['pestMutate' => $installed]);
+        return new self($this->pest, $this->infection, $this->chosen, $this->releases, $installed);
     }
 
     /** Whether both are installed and nothing chooses between them, which zero-config cannot do. */

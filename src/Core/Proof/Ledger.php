@@ -45,7 +45,15 @@ final readonly class Ledger
 
     public function withProof(Proof $proof): self
     {
-        return clone($this, ['proofs' => $this->proofs->with($proof)]);
+        return new self(
+            $this->proofs->with($proof),
+            $this->timings,
+            $this->bases,
+            $this->runs,
+            $this->killers,
+            $this->analysers,
+            $this->survival,
+        );
     }
 
     /**
@@ -54,37 +62,85 @@ final readonly class Ledger
      */
     public function withProofs(Proofs $proofs): self
     {
-        return clone($this, ['proofs' => Proofs::of(...$this->proofs, ...$proofs)]);
+        return new self(
+            Proofs::of(...$this->proofs, ...$proofs),
+            $this->timings,
+            $this->bases,
+            $this->runs,
+            $this->killers,
+            $this->analysers,
+            $this->survival,
+        );
     }
 
     /** This ledger without the proof under a key, such as one a fresh result disagrees with. */
     public function withoutProof(Digest $key): self
     {
-        return clone($this, ['proofs' => $this->proofs->without($key)]);
+        return new self(
+            $this->proofs->without($key),
+            $this->timings,
+            $this->bases,
+            $this->runs,
+            $this->killers,
+            $this->analysers,
+            $this->survival,
+        );
     }
 
     /** This ledger, with what a finished shard measured, each unit keeping its newest timing. */
     public function withTimings(Timings $timings): self
     {
-        return clone($this, ['timings' => $this->timings->and($timings)]);
+        return new self(
+            $this->proofs,
+            $this->timings->and($timings),
+            $this->bases,
+            $this->runs,
+            $this->killers,
+            $this->analysers,
+            $this->survival,
+        );
     }
 
     /** This ledger, written by a run that keyed its units at this base, which it has now seen most recently. */
     public function atBase(Digest $base): self
     {
-        return clone($this, ['bases' => $this->bases->seen($base)]);
+        return new self(
+            $this->proofs,
+            $this->timings,
+            $this->bases->seen($base),
+            $this->runs,
+            $this->killers,
+            $this->analysers,
+            $this->survival,
+        );
     }
 
     /** This ledger, with these bases seen after the ones it holds. */
     public function withBases(Bases $bases): self
     {
-        return clone($this, ['bases' => $this->bases->and($bases)]);
+        return new self(
+            $this->proofs,
+            $this->timings,
+            $this->bases->and($bases),
+            $this->runs,
+            $this->killers,
+            $this->analysers,
+            $this->survival,
+        );
     }
 
     /** This ledger, with what it holds of its runs, replacing what it held. */
     public function withRuns(ScopeRuns $runs): self
     {
-        return clone($this, ['runs' => $runs]);
+        return new self(
+            $this->proofs,
+            $this->timings,
+            $this->bases,
+            $runs,
+            $this->killers,
+            $this->analysers,
+            $this->survival,
+        );
     }
 
     /**
@@ -95,9 +151,33 @@ final readonly class Ledger
     public function withLearned(KillHistory|AnalyserHistories|Survival $learned): self
     {
         return match (true) {
-            $learned instanceof KillHistory => clone($this, ['killers' => $learned]),
-            $learned instanceof AnalyserHistories => clone($this, ['analysers' => $learned]),
-            default => clone($this, ['survival' => $learned]),
+            $learned instanceof KillHistory => new self(
+                $this->proofs,
+                $this->timings,
+                $this->bases,
+                $this->runs,
+                $learned,
+                $this->analysers,
+                $this->survival,
+            ),
+            $learned instanceof AnalyserHistories => new self(
+                $this->proofs,
+                $this->timings,
+                $this->bases,
+                $this->runs,
+                $this->killers,
+                $learned,
+                $this->survival,
+            ),
+            default => new self(
+                $this->proofs,
+                $this->timings,
+                $this->bases,
+                $this->runs,
+                $this->killers,
+                $this->analysers,
+                $learned,
+            ),
         };
     }
 
@@ -125,13 +205,29 @@ final readonly class Ledger
     /** This ledger with timings only for these units, which are the ones that still exist. */
     public function keepingTimingsOf(Paths $units): self
     {
-        return clone($this, ['timings' => $this->timings->onlyFor($units)]);
+        return new self(
+            $this->proofs,
+            $this->timings->onlyFor($units),
+            $this->bases,
+            $this->runs,
+            $this->killers,
+            $this->analysers,
+            $this->survival,
+        );
     }
 
     /** This ledger with the kill history of the functions in these files only, which are the ones that still exist. */
     public function keepingKillersIn(Paths $files): self
     {
-        return clone($this, ['killers' => $this->killers->onlyIn($files)]);
+        return new self(
+            $this->proofs,
+            $this->timings,
+            $this->bases,
+            $this->runs,
+            $this->killers->onlyIn($files),
+            $this->analysers,
+            $this->survival,
+        );
     }
 
     public function proofs(): Proofs

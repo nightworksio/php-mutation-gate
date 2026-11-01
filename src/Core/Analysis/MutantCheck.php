@@ -36,18 +36,18 @@ final readonly class MutantCheck
 
     public function withDependents(Paths $dependents): self
     {
-        return clone($this, ['dependents' => $dependents]);
+        return new self($this->original, $this->mutant, $dependents, $this->withheld, $this->limit);
     }
 
     public function withholding(Withheld $withheld): self
     {
-        return clone($this, ['withheld' => $withheld]);
+        return new self($this->original, $this->mutant, $this->dependents, $withheld, $this->limit);
     }
 
     /** This check, which may take this long. */
     public function within(Seconds $limit): self
     {
-        return clone($this, ['limit' => $limit]);
+        return new self($this->original, $this->mutant, $this->dependents, $this->withheld, $limit);
     }
 
     /** The file the mutant stands in for. */

@@ -81,17 +81,41 @@ final readonly class Command
 
     public function telling(Variable $variable, string $value): self
     {
-        return clone($this, ['told' => [...$this->told, $variable->value => $value]]);
+        return new self(
+            $this->arguments,
+            [...$this->told, $variable->value => $value],
+            $this->withheld,
+            $this->deadline,
+            $this->scanned,
+            $this->writing,
+            $this->silence,
+        );
     }
 
     public function withholding(Withheld $withheld): self
     {
-        return clone($this, ['withheld' => $this->withheld->and($withheld)]);
+        return new self(
+            $this->arguments,
+            $this->told,
+            $this->withheld->and($withheld),
+            $this->deadline,
+            $this->scanned,
+            $this->writing,
+            $this->silence,
+        );
     }
 
     public function within(Seconds|Unlimited $deadline): self
     {
-        return clone($this, ['deadline' => $deadline]);
+        return new self(
+            $this->arguments,
+            $this->told,
+            $this->withheld,
+            $deadline,
+            $this->scanned,
+            $this->writing,
+            $this->silence,
+        );
     }
 
     /**
@@ -100,13 +124,29 @@ final readonly class Command
      */
     public function launchedBy(string $launcher, string $peak): self
     {
-        return clone($this, ['arguments' => [$launcher, $peak, PHP_BINARY, ...$this->arguments]]);
+        return new self(
+            [$launcher, $peak, PHP_BINARY, ...$this->arguments],
+            $this->told,
+            $this->withheld,
+            $this->deadline,
+            $this->scanned,
+            $this->writing,
+            $this->silence,
+        );
     }
 
     /** This command, also stopped once it has made no progress for its silence limit. */
     public function silencedAfter(SilenceLimit $silence): self
     {
-        return clone($this, ['silence' => $silence]);
+        return new self(
+            $this->arguments,
+            $this->told,
+            $this->withheld,
+            $this->deadline,
+            $this->scanned,
+            $this->writing,
+            $silence,
+        );
     }
 
     /**
@@ -115,7 +155,15 @@ final readonly class Command
      */
     public function scanning(DiskPath $directory): self
     {
-        return clone($this, ['scanned' => $directory]);
+        return new self(
+            $this->arguments,
+            $this->told,
+            $this->withheld,
+            $this->deadline,
+            $directory,
+            $this->writing,
+            $this->silence,
+        );
     }
 
     /**
@@ -124,7 +172,15 @@ final readonly class Command
      */
     public function writingTo(string $out, string $err): self
     {
-        return clone($this, ['writing' => [...self::WRITING, $out, $err]]);
+        return new self(
+            $this->arguments,
+            $this->told,
+            $this->withheld,
+            $this->deadline,
+            $this->scanned,
+            [...self::WRITING, $out, $err],
+            $this->silence,
+        );
     }
 
     /** @return list<string> the PHP binary, then the arguments: after the shell writing its output, where one does */

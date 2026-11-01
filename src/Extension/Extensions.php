@@ -44,97 +44,150 @@ use function sprintf;
  */
 final readonly class Extensions
 {
-    /** @var Entries<Closure(Options): (Runner|Invalid)> */
-    private Entries $runners;
-
-    /** @var Entries<Closure(Options): (TreeSource|Invalid)> */
-    private Entries $treeSources;
-
-    /** @var Entries<Closure(Options): (CostModel|Invalid)> */
-    private Entries $costModels;
-
-    /** @var Entries<Closure(Options): (ProofStore|Invalid)> */
-    private Entries $proofStores;
-
-    /** @var Entries<Closure(Options): (CiPlan|Invalid)> */
-    private Entries $ciPlans;
-
-    /** @var Entries<Closure(Options): (Reporter|Invalid)> */
-    private Entries $reporters;
-
-    /** @var Entries<Closure(Options): (ChangeSource|Invalid)> */
-    private Entries $changeSources;
-
-    /** @var Entries<Closure(Options): (Repository|Invalid)> */
-    private Entries $repositories;
-
-    /** @var Entries<Closure(Options): (ConfigLoader|Invalid)> */
-    private Entries $configLoaders;
-
-    /** @var Entries<Closure(Options): (StaticChecker|Invalid)> */
-    private Entries $staticCheckers;
-
-    /** @var Entries<Layer> */
-    private Entries $presets;
-
-    /** @var Entries<MutatorSet> */
-    private Entries $mutatorSets;
-
-    /** What the CI plans registered here declare no runner may see, whether or not a config lets them build. */
-    private Withheld $ciWithheld;
-
-    /** How each CI plan registered here tells a job runs in its CI. */
-    private Detections $ciDetections;
+    /**
+     * @param Entries<Closure(Options): (Runner|Invalid)> $runners
+     * @param Entries<Closure(Options): (TreeSource|Invalid)> $treeSources
+     * @param Entries<Closure(Options): (CostModel|Invalid)> $costModels
+     * @param Entries<Closure(Options): (ProofStore|Invalid)> $proofStores
+     * @param Entries<Closure(Options): (CiPlan|Invalid)> $ciPlans
+     * @param Entries<Closure(Options): (Reporter|Invalid)> $reporters
+     * @param Entries<Closure(Options): (ChangeSource|Invalid)> $changeSources
+     * @param Entries<Closure(Options): (Repository|Invalid)> $repositories
+     * @param Entries<Closure(Options): (ConfigLoader|Invalid)> $configLoaders
+     * @param Entries<Closure(Options): (StaticChecker|Invalid)> $staticCheckers
+     * @param Entries<Layer> $presets
+     * @param Entries<MutatorSet> $mutatorSets
+     * @param Withheld $ciWithheld what the CI plans registered here declare no runner may see, whether or not a
+     *                             config lets them build
+     * @param Detections $ciDetections how each CI plan registered here tells a job runs in its CI
+     */
+    private function __construct(
+        private Origin $origin,
+        private Entries $runners,
+        private Entries $treeSources,
+        private Entries $costModels,
+        private Entries $proofStores,
+        private Entries $ciPlans,
+        private Entries $reporters,
+        private Entries $changeSources,
+        private Entries $repositories,
+        private Entries $configLoaders,
+        private Entries $staticCheckers,
+        private Entries $presets,
+        private Entries $mutatorSets,
+        private Withheld $ciWithheld,
+        private Detections $ciDetections,
+    ) {
+    }
 
     /** An empty registry, whose additions come from this package. */
-    public function __construct(private Origin $origin)
+    public static function of(Origin $origin): self
     {
-        $this->runners = new Entries(ExtensionPoint::Runner);
-        $this->treeSources = new Entries(ExtensionPoint::TreeSource);
-        $this->costModels = new Entries(ExtensionPoint::CostModel);
-        $this->proofStores = new Entries(ExtensionPoint::ProofStore);
-        $this->ciPlans = new Entries(ExtensionPoint::CiPlan);
-        $this->reporters = new Entries(ExtensionPoint::Reporter);
-        $this->changeSources = new Entries(ExtensionPoint::ChangeSource);
-        $this->repositories = new Entries(ExtensionPoint::Repository);
-        $this->configLoaders = new Entries(ExtensionPoint::ConfigLoader);
-        $this->staticCheckers = new Entries(ExtensionPoint::StaticChecker);
-        $this->presets = new Entries(ExtensionPoint::Preset);
-        $this->mutatorSets = new Entries(ExtensionPoint::MutatorSet);
-        $this->ciWithheld = Withheld::nothing();
-        $this->ciDetections = Detections::none();
+        return new self(
+            $origin,
+            Entries::none(ExtensionPoint::Runner),
+            Entries::none(ExtensionPoint::TreeSource),
+            Entries::none(ExtensionPoint::CostModel),
+            Entries::none(ExtensionPoint::ProofStore),
+            Entries::none(ExtensionPoint::CiPlan),
+            Entries::none(ExtensionPoint::Reporter),
+            Entries::none(ExtensionPoint::ChangeSource),
+            Entries::none(ExtensionPoint::Repository),
+            Entries::none(ExtensionPoint::ConfigLoader),
+            Entries::none(ExtensionPoint::StaticChecker),
+            Entries::none(ExtensionPoint::Preset),
+            Entries::none(ExtensionPoint::MutatorSet),
+            Withheld::nothing(),
+            Detections::none(),
+        );
     }
 
     /** @param Closure(Options): (Runner|Invalid) $build */
     public function withRunner(Name $name, Closure $build): self
     {
-        return clone($this, [
-            'runners' => $this->runners->with(Entry::of($name, $this->origin, $build)),
-        ]);
+        return new self(
+            $this->origin,
+            $this->runners->with(Entry::of($name, $this->origin, $build)),
+            $this->treeSources,
+            $this->costModels,
+            $this->proofStores,
+            $this->ciPlans,
+            $this->reporters,
+            $this->changeSources,
+            $this->repositories,
+            $this->configLoaders,
+            $this->staticCheckers,
+            $this->presets,
+            $this->mutatorSets,
+            $this->ciWithheld,
+            $this->ciDetections,
+        );
     }
 
     /** @param Closure(Options): (TreeSource|Invalid) $build */
     public function withTreeSource(Name $name, Closure $build): self
     {
-        return clone($this, [
-            'treeSources' => $this->treeSources->with(Entry::of($name, $this->origin, $build)),
-        ]);
+        return new self(
+            $this->origin,
+            $this->runners,
+            $this->treeSources->with(Entry::of($name, $this->origin, $build)),
+            $this->costModels,
+            $this->proofStores,
+            $this->ciPlans,
+            $this->reporters,
+            $this->changeSources,
+            $this->repositories,
+            $this->configLoaders,
+            $this->staticCheckers,
+            $this->presets,
+            $this->mutatorSets,
+            $this->ciWithheld,
+            $this->ciDetections,
+        );
     }
 
     /** @param Closure(Options): (CostModel|Invalid) $build */
     public function withCostModel(Name $name, Closure $build): self
     {
-        return clone($this, [
-            'costModels' => $this->costModels->with(Entry::of($name, $this->origin, $build)),
-        ]);
+        return new self(
+            $this->origin,
+            $this->runners,
+            $this->treeSources,
+            $this->costModels->with(Entry::of($name, $this->origin, $build)),
+            $this->proofStores,
+            $this->ciPlans,
+            $this->reporters,
+            $this->changeSources,
+            $this->repositories,
+            $this->configLoaders,
+            $this->staticCheckers,
+            $this->presets,
+            $this->mutatorSets,
+            $this->ciWithheld,
+            $this->ciDetections,
+        );
     }
 
     /** @param Closure(Options): (ProofStore|Invalid) $build */
     public function withProofStore(Name $name, Closure $build): self
     {
-        return clone($this, [
-            'proofStores' => $this->proofStores->with(Entry::of($name, $this->origin, $build)),
-        ]);
+        return new self(
+            $this->origin,
+            $this->runners,
+            $this->treeSources,
+            $this->costModels,
+            $this->proofStores->with(Entry::of($name, $this->origin, $build)),
+            $this->ciPlans,
+            $this->reporters,
+            $this->changeSources,
+            $this->repositories,
+            $this->configLoaders,
+            $this->staticCheckers,
+            $this->presets,
+            $this->mutatorSets,
+            $this->ciWithheld,
+            $this->ciDetections,
+        );
     }
 
     /**
@@ -146,59 +199,155 @@ final readonly class Extensions
      */
     public function withCiPlan(Name $name, Closure $build, Withheld $withheld, CiMarker $marker): self
     {
-        return clone($this, [
-            'ciPlans' => $this->ciPlans->with(Entry::of($name, $this->origin, $build)),
-            'ciWithheld' => $this->ciWithheld->and($withheld),
-            'ciDetections' => $this->ciDetections->with($name, $this->origin, $marker),
-        ]);
+        return new self(
+            $this->origin,
+            $this->runners,
+            $this->treeSources,
+            $this->costModels,
+            $this->proofStores,
+            $this->ciPlans->with(Entry::of($name, $this->origin, $build)),
+            $this->reporters,
+            $this->changeSources,
+            $this->repositories,
+            $this->configLoaders,
+            $this->staticCheckers,
+            $this->presets,
+            $this->mutatorSets,
+            $this->ciWithheld->and($withheld),
+            $this->ciDetections->with($name, $this->origin, $marker),
+        );
     }
 
     /** @param Closure(Options): (Reporter|Invalid) $build */
     public function withReporter(Name $name, Closure $build): self
     {
-        return clone($this, [
-            'reporters' => $this->reporters->with(Entry::of($name, $this->origin, $build)),
-        ]);
+        return new self(
+            $this->origin,
+            $this->runners,
+            $this->treeSources,
+            $this->costModels,
+            $this->proofStores,
+            $this->ciPlans,
+            $this->reporters->with(Entry::of($name, $this->origin, $build)),
+            $this->changeSources,
+            $this->repositories,
+            $this->configLoaders,
+            $this->staticCheckers,
+            $this->presets,
+            $this->mutatorSets,
+            $this->ciWithheld,
+            $this->ciDetections,
+        );
     }
 
     /** @param Closure(Options): (ChangeSource|Invalid) $build */
     public function withChangeSource(Name $name, Closure $build): self
     {
-        return clone($this, [
-            'changeSources' => $this->changeSources->with(Entry::of($name, $this->origin, $build)),
-        ]);
+        return new self(
+            $this->origin,
+            $this->runners,
+            $this->treeSources,
+            $this->costModels,
+            $this->proofStores,
+            $this->ciPlans,
+            $this->reporters,
+            $this->changeSources->with(Entry::of($name, $this->origin, $build)),
+            $this->repositories,
+            $this->configLoaders,
+            $this->staticCheckers,
+            $this->presets,
+            $this->mutatorSets,
+            $this->ciWithheld,
+            $this->ciDetections,
+        );
     }
 
     /** @param Closure(Options): (Repository|Invalid) $build */
     public function withRepository(Name $name, Closure $build): self
     {
-        return clone($this, [
-            'repositories' => $this->repositories->with(Entry::of($name, $this->origin, $build)),
-        ]);
+        return new self(
+            $this->origin,
+            $this->runners,
+            $this->treeSources,
+            $this->costModels,
+            $this->proofStores,
+            $this->ciPlans,
+            $this->reporters,
+            $this->changeSources,
+            $this->repositories->with(Entry::of($name, $this->origin, $build)),
+            $this->configLoaders,
+            $this->staticCheckers,
+            $this->presets,
+            $this->mutatorSets,
+            $this->ciWithheld,
+            $this->ciDetections,
+        );
     }
 
     /** @param Closure(Options): (ConfigLoader|Invalid) $build */
     public function withConfigLoader(Name $name, Closure $build): self
     {
-        return clone($this, [
-            'configLoaders' => $this->configLoaders->with(Entry::of($name, $this->origin, $build)),
-        ]);
+        return new self(
+            $this->origin,
+            $this->runners,
+            $this->treeSources,
+            $this->costModels,
+            $this->proofStores,
+            $this->ciPlans,
+            $this->reporters,
+            $this->changeSources,
+            $this->repositories,
+            $this->configLoaders->with(Entry::of($name, $this->origin, $build)),
+            $this->staticCheckers,
+            $this->presets,
+            $this->mutatorSets,
+            $this->ciWithheld,
+            $this->ciDetections,
+        );
     }
 
     /** @param Closure(Options): (StaticChecker|Invalid) $build */
     public function withStaticChecker(Name $name, Closure $build): self
     {
-        return clone($this, [
-            'staticCheckers' => $this->staticCheckers->with(Entry::of($name, $this->origin, $build)),
-        ]);
+        return new self(
+            $this->origin,
+            $this->runners,
+            $this->treeSources,
+            $this->costModels,
+            $this->proofStores,
+            $this->ciPlans,
+            $this->reporters,
+            $this->changeSources,
+            $this->repositories,
+            $this->configLoaders,
+            $this->staticCheckers->with(Entry::of($name, $this->origin, $build)),
+            $this->presets,
+            $this->mutatorSets,
+            $this->ciWithheld,
+            $this->ciDetections,
+        );
     }
 
     /** A config fragment with a name, applied before the config file so the project's own settings win. */
     public function withPreset(Name $name, Layer $fragment): self
     {
-        return clone($this, [
-            'presets' => $this->presets->with(Entry::of($name, $this->origin, $fragment)),
-        ]);
+        return new self(
+            $this->origin,
+            $this->runners,
+            $this->treeSources,
+            $this->costModels,
+            $this->proofStores,
+            $this->ciPlans,
+            $this->reporters,
+            $this->changeSources,
+            $this->repositories,
+            $this->configLoaders,
+            $this->staticCheckers,
+            $this->presets->with(Entry::of($name, $this->origin, $fragment)),
+            $this->mutatorSets,
+            $this->ciWithheld,
+            $this->ciDetections,
+        );
     }
 
     /**
@@ -207,9 +356,23 @@ final readonly class Extensions
      */
     public function withMutators(Name $set, MutatorSet $mutators): self
     {
-        return clone($this, [
-            'mutatorSets' => $this->mutatorSets->with(Entry::of($set, $this->origin, $mutators)),
-        ]);
+        return new self(
+            $this->origin,
+            $this->runners,
+            $this->treeSources,
+            $this->costModels,
+            $this->proofStores,
+            $this->ciPlans,
+            $this->reporters,
+            $this->changeSources,
+            $this->repositories,
+            $this->configLoaders,
+            $this->staticCheckers,
+            $this->presets,
+            $this->mutatorSets->with(Entry::of($set, $this->origin, $mutators)),
+            $this->ciWithheld,
+            $this->ciDetections,
+        );
     }
 
     /**
@@ -241,22 +404,23 @@ final readonly class Extensions
             ));
         }
 
-        return clone($this, [
-            'runners' => $this->runners->merge($other->runners),
-            'treeSources' => $this->treeSources->merge($other->treeSources),
-            'costModels' => $this->costModels->merge($other->costModels),
-            'proofStores' => $this->proofStores->merge($other->proofStores),
-            'ciPlans' => $this->ciPlans->merge($other->ciPlans),
-            'reporters' => $this->reporters->merge($other->reporters),
-            'changeSources' => $this->changeSources->merge($other->changeSources),
-            'repositories' => $this->repositories->merge($other->repositories),
-            'configLoaders' => $this->configLoaders->merge($other->configLoaders),
-            'staticCheckers' => $this->staticCheckers->merge($other->staticCheckers),
-            'presets' => $this->presets->merge($other->presets),
-            'mutatorSets' => $this->mutatorSets->merge($other->mutatorSets),
-            'ciWithheld' => $this->ciWithheld->and($other->ciWithheld),
-            'ciDetections' => $this->ciDetections->merge($other->ciDetections),
-        ]);
+        return new self(
+            $this->origin,
+            $this->runners->merge($other->runners),
+            $this->treeSources->merge($other->treeSources),
+            $this->costModels->merge($other->costModels),
+            $this->proofStores->merge($other->proofStores),
+            $this->ciPlans->merge($other->ciPlans),
+            $this->reporters->merge($other->reporters),
+            $this->changeSources->merge($other->changeSources),
+            $this->repositories->merge($other->repositories),
+            $this->configLoaders->merge($other->configLoaders),
+            $this->staticCheckers->merge($other->staticCheckers),
+            $this->presets->merge($other->presets),
+            $this->mutatorSets->merge($other->mutatorSets),
+            $this->ciWithheld->and($other->ciWithheld),
+            $this->ciDetections->merge($other->ciDetections),
+        );
     }
 
     /**

@@ -34,19 +34,19 @@ final readonly class RunProfile
     /** This kind, recording this much of the kill matrix. */
     public function recording(MatrixKind $matrix): self
     {
-        return clone($this, ['matrix' => $matrix]);
+        return new self($matrix, $this->securityOnly, $this->suite);
     }
 
     /** This kind, for a run that makes mutants with the security mutators alone, as `--security` asks. */
     public function securityOnly(): self
     {
-        return clone($this, ['securityOnly' => true]);
+        return new self($this->matrix, securityOnly: true, suite: $this->suite);
     }
 
     /** This kind, for a run whose mutants one suite's tests alone judge, as `--suite` asks. */
     public function inSuite(SuiteName $suite): self
     {
-        return clone($this, ['suite' => $suite]);
+        return new self($this->matrix, $this->securityOnly, $suite);
     }
 
     /** How much of the kill matrix the run records. */

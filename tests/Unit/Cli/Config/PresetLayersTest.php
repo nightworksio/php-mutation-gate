@@ -11,7 +11,7 @@ use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Extension\Extensions;
 
 it('has a problem at the path of each preset nothing registers, in order', function (): void {
-    $registry = new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)));
+    $registry = new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER)));
     $problems = PresetLayers::named(Listed::of('library', 'nowhere', 'elsewhere'), $registry)->problems();
 
     expect(array_map(static fn(Problem $problem): string => sprintf('%s: %s', $problem->path(), $problem->message()), $problems))

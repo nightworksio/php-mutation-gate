@@ -35,13 +35,13 @@ final readonly class Passed
     /** This pass, whose coverage map was measured against the map its own scope keeps. */
     public function onOwnScopeCoverage(): self
     {
-        return clone($this, ['ownScopeCoverage' => true]);
+        return new self($this->commit, $this->check, $this->ownScopeProofs, ownScopeCoverage: true, at: $this->at);
     }
 
     /** This pass, its verdict having passed at this instant. */
     public function passedAt(Instant $at): self
     {
-        return clone($this, ['at' => $at]);
+        return new self($this->commit, $this->check, $this->ownScopeProofs, $this->ownScopeCoverage, $at);
     }
 
     /** When the verdict passed; nothing where the record does not say. */

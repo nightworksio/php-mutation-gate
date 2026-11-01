@@ -36,7 +36,7 @@ final readonly class Measurement
     /** This, with the most memory the suite's processes held, as the smallest cap that holds it. */
     public function peakingAt(MemoryCap $peak): self
     {
-        return clone($this, ['peak' => $peak]);
+        return new self($this->coverage, $this->held, $this->timings, $peak);
     }
 
     /** The map of one coverage run of the whole suite, or why the run gave none. */

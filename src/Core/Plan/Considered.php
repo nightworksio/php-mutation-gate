@@ -55,7 +55,16 @@ final readonly class Considered
     /** This, for a change: the lines it added or modified in each source file, and why it reached what it did. */
     public function reaching(Changes $changed, Reasons $reach): self
     {
-        return clone($this, ['changed' => $changed, 'reach' => $reach]);
+        return new self(
+            $changed,
+            $reach,
+            $this->proved,
+            $this->carried,
+            $this->untested,
+            $this->carriedOwn,
+            $this->pruned,
+            $this->sample,
+        );
     }
 
     /**
@@ -64,31 +73,76 @@ final readonly class Considered
      */
     public function untesting(Changes $untested): self
     {
-        return clone($this, ['untested' => $untested]);
+        return new self(
+            $this->changed,
+            $this->reach,
+            $this->proved,
+            $this->carried,
+            $untested,
+            $this->carriedOwn,
+            $this->pruned,
+            $this->sample,
+        );
     }
 
     /** This, taking the result of each of these units from the proof its key matches. */
     public function proving(Units $proved): self
     {
-        return clone($this, ['proved' => $proved]);
+        return new self(
+            $this->changed,
+            $this->reach,
+            $proved,
+            $this->carried,
+            $this->untested,
+            $this->carriedOwn,
+            $this->pruned,
+            $this->sample,
+        );
     }
 
     /** This, carrying the newest result of each of these units, which the change does not reach. */
     public function carrying(Units $carried): self
     {
-        return clone($this, ['carried' => $carried]);
+        return new self(
+            $this->changed,
+            $this->reach,
+            $this->proved,
+            $carried,
+            $this->untested,
+            $this->carriedOwn,
+            $this->pruned,
+            $this->sample,
+        );
     }
 
     /** This, leaving these mutators out of these units it runs. */
     public function pruning(Pruned $pruned): self
     {
-        return clone($this, ['pruned' => $pruned]);
+        return new self(
+            $this->changed,
+            $this->reach,
+            $this->proved,
+            $this->carried,
+            $this->untested,
+            $this->carriedOwn,
+            $pruned,
+            $this->sample,
+        );
     }
 
     /** This, running the units this sample drew of the sampled strata, and leaving the rest out. */
     public function sampling(Sample $sample): self
     {
-        return clone($this, ['sample' => $sample]);
+        return new self(
+            $this->changed,
+            $this->reach,
+            $this->proved,
+            $this->carried,
+            $this->untested,
+            $this->carriedOwn,
+            $this->pruned,
+            $sample,
+        );
     }
 
     /** What the run's sample drew; none for a run that is not sampled. */
@@ -151,7 +205,16 @@ final readonly class Considered
     /** This, with the units that carry only the run's own scope's newest result. */
     public function carryingOwn(Units $carried): self
     {
-        return clone($this, ['carriedOwn' => $carried]);
+        return new self(
+            $this->changed,
+            $this->reach,
+            $this->proved,
+            $this->carried,
+            $this->untested,
+            $carried,
+            $this->pruned,
+            $this->sample,
+        );
     }
 
     /** The units that carry only the run's own scope's newest result. */

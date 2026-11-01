@@ -40,19 +40,25 @@ final readonly class CoverageRun
 
     public function across(ProcessCount $processes): self
     {
-        return clone($this, ['processes' => $processes]);
+        return new self($this->tests, $this->directory, $processes, $this->withheld, $this->suites);
     }
 
     /** This run, withholding these variables from the tests as well as those it already withholds. */
     public function withholding(Withheld $withheld): self
     {
-        return clone($this, ['withheld' => $this->withheld->and($withheld)]);
+        return new self(
+            $this->tests,
+            $this->directory,
+            $this->processes,
+            $this->withheld->and($withheld),
+            $this->suites,
+        );
     }
 
     /** This run, of these suites' tests alone, as `tests.suites` lists them or `--suite` names one. */
     public function amongSuites(Suites $suites): self
     {
-        return clone($this, ['suites' => $suites]);
+        return new self($this->tests, $this->directory, $this->processes, $this->withheld, $suites);
     }
 
     /** The suites whose tests the run runs: every suite where it names none. */

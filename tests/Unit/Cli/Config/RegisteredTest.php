@@ -36,7 +36,7 @@ afterEach(function () use ($makeHere): void {
 
 /** This package's config adapters, with YAML and NEON installed or not. */
 $registered = static fn(bool $installed): Extensions => Registered::config(
-    new Extensions(Origin::of('nightworksio/mutation-gate')),
+    Extensions::of(Origin::of('nightworksio/mutation-gate')),
     static fn(): bool => $installed,
 );
 
@@ -73,7 +73,7 @@ it('registers no YAML or NEON loader where their library is missing', function (
 it('asks whether the class each library reads with can be loaded', function (): void {
     $asked = [];
     Registered::config(
-        new Extensions(Origin::of('nightworksio/mutation-gate')),
+        Extensions::of(Origin::of('nightworksio/mutation-gate')),
         static function (string $class) use (&$asked): bool {
             $asked[] = $class;
 
@@ -85,7 +85,7 @@ it('asks whether the class each library reads with can be loaded', function (): 
 });
 
 it('registers the presets this package ships', function (string $preset) use ($registered): void {
-    $shipped = Presets::registered(new Extensions(Origin::of('nightworksio/mutation-gate')));
+    $shipped = Presets::registered(Extensions::of(Origin::of('nightworksio/mutation-gate')));
 
     expect(Lookup::in($registered(installed: false))->preset(Name::of($preset)))
         ->toEqual(Lookup::in($shipped)->preset(Name::of($preset)))

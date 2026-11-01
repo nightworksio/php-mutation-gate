@@ -56,47 +56,135 @@ final readonly class Verdict
     /** This verdict, with the sets it judges beside its trees: a change-scoped run's new code, and security. */
     public function withSets(HeldSets $sets): self
     {
-        return clone($this, ['sets' => $sets]);
+        return new self(
+            $this->trees,
+            $sets,
+            $this->reach,
+            $this->warnings,
+            $this->failures,
+            $this->cutShort,
+            $this->matrix,
+            $this->account,
+            $this->obstacles,
+            $this->heldTo,
+        );
     }
 
     /** This verdict, with the reasons for what the change reached. */
     public function withReach(Reasons $reach): self
     {
-        return clone($this, ['reach' => $reach]);
+        return new self(
+            $this->trees,
+            $this->sets,
+            $reach,
+            $this->warnings,
+            $this->failures,
+            $this->cutShort,
+            $this->matrix,
+            $this->account,
+            $this->obstacles,
+            $this->heldTo,
+        );
     }
 
     public function withWarnings(Warnings $warnings): self
     {
-        return clone($this, ['warnings' => $warnings]);
+        return new self(
+            $this->trees,
+            $this->sets,
+            $this->reach,
+            $warnings,
+            $this->failures,
+            $this->cutShort,
+            $this->matrix,
+            $this->account,
+            $this->obstacles,
+            $this->heldTo,
+        );
     }
 
     public function withFailures(Failures $failures): self
     {
-        return clone($this, ['failures' => $failures]);
+        return new self(
+            $this->trees,
+            $this->sets,
+            $this->reach,
+            $this->warnings,
+            $failures,
+            $this->cutShort,
+            $this->matrix,
+            $this->account,
+            $this->obstacles,
+            $this->heldTo,
+        );
     }
 
     /** This verdict, with which tests cover each of its mutants and what each did with it in place (ADR-0014). */
     public function withMatrix(KillMatrix $matrix): self
     {
-        return clone($this, ['matrix' => $matrix]);
+        return new self(
+            $this->trees,
+            $this->sets,
+            $this->reach,
+            $this->warnings,
+            $this->failures,
+            $this->cutShort,
+            $matrix,
+            $this->account,
+            $this->obstacles,
+            $this->heldTo,
+        );
     }
 
     /** This verdict, with its run's timings, cost, savings and the trend before it. */
     public function withAccount(RunAccount $account): self
     {
-        return clone($this, ['account' => $account]);
+        return new self(
+            $this->trees,
+            $this->sets,
+            $this->reach,
+            $this->warnings,
+            $this->failures,
+            $this->cutShort,
+            $this->matrix,
+            $account,
+            $this->obstacles,
+            $this->heldTo,
+        );
     }
 
     /** This verdict, from a run that met something it cannot judge honestly past, which decides it. */
     public function withCannotJudge(CannotJudge $why): self
     {
-        return clone($this, ['obstacles' => $this->obstacles->with($why)]);
+        return new self(
+            $this->trees,
+            $this->sets,
+            $this->reach,
+            $this->warnings,
+            $this->failures,
+            $this->cutShort,
+            $this->matrix,
+            $this->account,
+            $this->obstacles->with($why),
+            $this->heldTo,
+        );
     }
 
     /** This verdict, from a run a budget or a deadline stopped before it judged every mutant. */
     public function cutShort(): self
     {
-        return clone($this, ['cutShort' => true]);
+        return new self(
+            $this->trees,
+            $this->sets,
+            $this->reach,
+            $this->warnings,
+            $this->failures,
+            cutShort: true,
+            matrix: $this->matrix,
+            account: $this->account,
+            obstacles: $this->obstacles,
+            heldTo: $this->heldTo,
+        );
     }
 
     public function trees(): TreeVerdicts

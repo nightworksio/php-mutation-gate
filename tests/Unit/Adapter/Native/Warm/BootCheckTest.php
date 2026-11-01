@@ -64,6 +64,24 @@ it('refuses a boot that holds a socket open, beyond the standard streams, naming
     ));
 });
 
+it('passes over a socket the process held before it booted, and counts each the boot opened', function (): void {
+    [$listing, $held] = bootCheckListing('3');
+    $before = BootCheck::open($listing);
+    $passed = BootCheck::of([], bootCheckBoot(), $listing, held: $before)->refusal();
+    $opened = stream_socket_server(sprintf('unix://%s/4', $listing));
+    $refused = BootCheck::of([], bootCheckBoot(), $listing, held: $before)->refusal();
+
+    foreach ([...$held, $opened] as $socket) {
+        if (is_resource($socket)) {
+            fclose($socket);
+        }
+    }
+
+    expect([$before, $passed, $refused])->toEqual([1, NotGiven::value(), Refusal::guarded(
+        'The boot left 1 socket open once vendor/autoload.php ran, which every forked child would share, so each mutant ran fresh.',
+    )]);
+});
+
 it('refuses a boot that loaded a file the run mutates, naming where, and passes over one it did not load', function (): void {
     $unloaded = sprintf('%s/Unloaded.php', Scratch::directory());
     file_put_contents($unloaded, "<?php\n");

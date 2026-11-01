@@ -23,6 +23,8 @@ concurrency:
 
 env:
   PHP_VERSION: '8.5'
+  # The lowest PHP composer.json admits, which the lowest dependencies run on.
+  LOWEST_PHP: '8.4'
 
 # The fast PHP gates share one job and one install. The slow ones (the planted
 # rules, coverage and the lowest dependencies) each have their own.
@@ -440,7 +442,7 @@ jobs:
           persist-credentials: false
       - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
-          php-version: ${{ env.PHP_VERSION }}
+          php-version: ${{ env.LOWEST_PHP }}
           coverage: none
       # `lowest` is `composer update --prefer-lowest --prefer-stable`.
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
@@ -487,6 +489,44 @@ jobs:
       - name: what failed
         if: failure()
         run: python3 .github/scripts/gate_summary.py lowest
+
+  # The suite on macOS, the other platform the gate supports for local use
+  # (ADR-0042), against the lock.
+  macos:
+    name: tests on macOS
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      - id: suite
+        run: |
+          mkdir -p evidence/raw
+          composer test -- --log-junit=evidence/raw/macos.xml
+      # The job's evidence, whatever the steps above did (ADR-0019).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py macos
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-macos
+          path: evidence/macos*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py macos
 
   # The gate's PHAR (ADR-0022), built as a release builds it, and its smoke
   # suite run against it: its version, its config schema, an Infection
@@ -585,10 +625,11 @@ jobs:
       #   PHPUnit XML coverage and JUnit log its own PHPUnit writes, so it keeps
       #   its own php-code-coverage.
       # - phpunit: the PHPUnit runner's fixture, at the highest PHPUnit its lock
-      #   holds and the lowest the runner supports, the one `Installed::FLOOR`
-      #   names (ADR-0023). It holds the quirks of a project's tests and, in
-      #   library/, the code every runner's contract mutates. Its lowest is
-      #   pinned to the package's php-code-coverage, as the Pest library's is:
+      #   holds and the lowest the runner supports, the one
+      #   `PhpUnitOption::IDS_SINCE` names (ADR-0023). It holds the quirks of a
+      #   project's tests and, in library/, the code every runner's contract
+      #   mutates. Its lowest is pinned to the package's php-code-coverage, as
+      #   the Pest library's is:
       #   in a user's project the gate and PHPUnit share one vendor directory,
       #   so one php-code-coverage writes and reads each map; here there are
       #   two, and a map one release writes can be one another refuses.
@@ -913,7 +954,7 @@ jobs:
   # left none.
   evidence:
     name: evidence
-    needs: [scope, scripts, alone, hygiene, security, site, rules, guards, checks, tests, lowest, phar, runner-contract, runner-contracts, end-to-end, mutation, sonar, gate]
+    needs: [scope, scripts, alone, hygiene, security, site, rules, guards, checks, tests, lowest, macos, phar, runner-contract, runner-contracts, end-to-end, mutation, sonar, gate]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10

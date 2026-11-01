@@ -12,7 +12,7 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use NightWorksIO\MutationGateDefault\String\EmptyStringToNotEmpty;
 
 it('registers every mutator of the set under its name', function (): void {
-    $set = new DefaultExtension()->extend(new Extensions(Origin::of('nightworksio/mutation-gate')))
+    $set = new DefaultExtension()->extend(Extensions::of(Origin::of('nightworksio/mutation-gate')))
         ->registered(ExtensionPoint::MutatorSet, DefaultSet::name());
     $mutators = $set instanceof MutatorSet ? iterator_to_array($set, preserve_keys: false) : [];
 

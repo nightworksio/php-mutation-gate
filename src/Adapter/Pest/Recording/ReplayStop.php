@@ -50,16 +50,17 @@ final class ReplayStop
             getenv(GateVariable::Results->value),
             getenv(Recorder::MUTATED),
             $events,
+            TestResults::interrupt(...),
         );
     }
 
-    /** @param Closure(): void $interrupt how PHPUnit is asked to run no more tests: as a signal does, by default */
+    /** @param Closure(): void $interrupt how PHPUnit is asked to run no more tests */
     public static function listening(
         string|false $after,
         string|false $results,
         string|false $mutated,
         Facade $events,
-        Closure $interrupt = TestResults::interrupt(...),
+        Closure $interrupt,
     ): self|Off {
         $named = is_string($after) && WholeNumber::isPositive($after)
             && is_string($results) && $results !== '' && is_string($mutated) && $mutated !== '';

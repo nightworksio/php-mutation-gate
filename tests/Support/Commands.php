@@ -36,7 +36,7 @@ final readonly class Commands
     public static function console(string $project, array $environment = []): GateApplication
     {
         return Console::application(
-            new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER))),
+            new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER))),
             $project,
             sprintf('%s/vendor', $project),
             new StoppedClock(Configs::NOW),

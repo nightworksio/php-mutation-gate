@@ -92,7 +92,10 @@ final readonly class Worker
     /** Why the worker may not fork once booted; or nothing, where it may. */
     private function booted(Job $job, WarmBoot $warmBoot): Refusal|NotGiven
     {
-        return BootCheck::of($job->mutated(), $this->boot($job, $warmBoot)->done())->refusal();
+        $held = BootCheck::open();
+        $boot = $this->boot($job, $warmBoot)->done();
+
+        return BootCheck::of($job->mutated(), $boot, held: $held)->refusal();
     }
 
     /** PHP set up as the framework and its config set it up before a test runs, its bootstrap included. */

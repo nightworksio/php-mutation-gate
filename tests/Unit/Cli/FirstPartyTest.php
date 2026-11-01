@@ -89,7 +89,7 @@ use NightWorksIO\MutationGate\Tests\Support\NativeCodeception;
 use NightWorksIO\MutationGate\Tests\Support\NativePhpSpec;
 use NightWorksIO\MutationGate\Tests\Support\NativePhpUnit;
 
-$registry = static fn(): Extensions => new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)));
+$registry = static fn(): Extensions => new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER)));
 
 it('is named in this package\'s own composer.json', function (): void {
     $manifest = json_decode((string) file_get_contents(sprintf('%s/composer.json', dirname(__DIR__, 3))), associative: true);
@@ -277,7 +277,7 @@ it('detects the plan of the CI a job runs in, GitHub Actions first, and none any
     Variables $environment,
     Name|NotGiven $plan,
 ): void {
-    $registry = new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)));
+    $registry = new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER)));
 
     expect($registry->detectedCiPlan(CiEnvironment::of($environment)->shows(...)))->toEqual($plan);
 })->with([
@@ -317,7 +317,7 @@ it('detects the plan of the CI a job runs in, GitHub Actions first, and none any
 ]);
 
 it('keeps GitHub Actions for github where an extension claims it too, and detects the extension\'s own CI', function (): void {
-    $extension = new Extensions(Origin::of('acme/ci'))
+    $extension = Extensions::of(Origin::of('acme/ci'))
         ->withCiPlan(
             Name::of('acme'),
             static fn(): Invalid => Invalid::because(Problem::at('x', 'unbuilt')),
@@ -330,7 +330,7 @@ it('keeps GitHub Actions for github where an extension claims it too, and detect
             Withheld::nothing(),
             CiMarker::setting('ACME_BUILD'),
         );
-    $registry = new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)))->merge($extension);
+    $registry = new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER)))->merge($extension);
 
     expect($registry instanceof Extensions ? $registry->detectedCiPlan(CiEnvironment::of(Variables::of(['GITHUB_ACTIONS' => 'true']))->shows(...)) : $registry)
         ->toEqual(BuiltinCiPlan::GitHub->named())

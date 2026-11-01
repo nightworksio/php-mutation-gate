@@ -34,7 +34,7 @@ use Pest\Mutate\Mutators\String\UnwrapStripTags as PestUnwrapStripTags;
 /** A registry with a `default` set and two others. */
 function enablingLookup(): Lookup
 {
-    return Lookup::in(new Extensions(Origin::of('acme/gate'))
+    return Lookup::in(Extensions::of(Origin::of('acme/gate'))
         ->withMutators(MutatorSet::defaultName(), MutatorSet::of(DecrementToIncrement::class))
         ->withMutators(Name::of('acme'), MutatorSet::of(PlusToMinus::class, RemoveEcho::class))
         ->withMutators(Name::of('acme-lists'), MutatorSet::of(RemoveItem::class)));
@@ -103,7 +103,7 @@ it('cannot judge a set nobody registered, naming the one most likely meant', fun
 });
 
 it('gives the engine only the sets the config names where no default set is registered', function (): void {
-    $lookup = Lookup::in(new Extensions(Origin::of('acme/gate'))->withMutators(Name::of('acme'), MutatorSet::of(PlusToMinus::class)));
+    $lookup = Lookup::in(Extensions::of(Origin::of('acme/gate'))->withMutators(Name::of('acme'), MutatorSet::of(PlusToMinus::class)));
     $enabled = EnabledMutators::in($lookup, Mutators::of(Listed::of('acme')));
 
     expect($enabled instanceof EnabledMutators ? enabledClasses($enabled->forTheEngine()) : $enabled)->toBe([PlusToMinus::class]);
@@ -139,7 +139,7 @@ it('skips nothing where every set is registered', function (): void {
 });
 
 it('stands down beside the default set for the engine, and beside the sets the config turns on for a runner', function (): void {
-    $lookup = Lookup::in(new Extensions(Origin::of('acme/gate'))
+    $lookup = Lookup::in(Extensions::of(Origin::of('acme/gate'))
         ->withMutators(MutatorSet::defaultName(), MutatorSet::of(PlusToMinus::class))
         ->withMutators(Name::of('acme'), MutatorSet::of(PlusToMinusToo::class, RemoveEcho::class))
         ->withMutators(Name::of('acme-plus'), MutatorSet::of(PlusToMinus::class)));
@@ -155,7 +155,7 @@ it('stands down beside the default set for the engine, and beside the sets the c
 });
 
 it('names the security-tagged mutators the config turns on, and those each names as making its change', function (): void {
-    $lookup = Lookup::in(new Extensions(Origin::of('acme/gate'))
+    $lookup = Lookup::in(Extensions::of(Origin::of('acme/gate'))
         ->withMutators(MutatorSet::defaultName(), MutatorSet::of(DefaultUnwrapStripTags::class))
         ->withMutators(Name::of('security'), MutatorSet::of(HashEqualsToTrue::class, UnwrapStripTags::class))
         ->withMutators(Name::of('acme'), MutatorSet::of(RemoveEcho::class)));

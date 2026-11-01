@@ -40,19 +40,25 @@ final readonly class ProcessCommand
     /** This command, also told this; where it was told a variable already, it is told this instead. */
     public function with(Environment $environment): self
     {
-        return clone($this, ['environment' => $this->environment->and($environment)]);
+        return new self(
+            $this->arguments,
+            $this->directory,
+            $this->environment->and($environment),
+            $this->deadline,
+            $this->silence,
+        );
     }
 
     /** This command, stopped once it has run this long. */
     public function within(Seconds|Unlimited $deadline): self
     {
-        return clone($this, ['deadline' => $deadline]);
+        return new self($this->arguments, $this->directory, $this->environment, $deadline, $this->silence);
     }
 
     /** This command, also stopped once it has made no progress for its silence limit. */
     public function silencedAfter(SilenceLimit $silence): self
     {
-        return clone($this, ['silence' => $silence]);
+        return new self($this->arguments, $this->directory, $this->environment, $this->deadline, $silence);
     }
 
     /** This command as it runs in one of several places side by side: told what that place tells it. */

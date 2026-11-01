@@ -36,7 +36,7 @@ it('says a template the package is missing is to be reinstalled, and why one it 
     Scratch::write($project, 'templates/circleci/config.yml/unreadable', '');
     $definition = new CiDefinition(
         $project,
-        new Extensions(Origin::of('acme/gate')),
+        Extensions::of(Origin::of('acme/gate')),
         GatePin::unknown(),
         Directory::at(sprintf('%s/%s', $project, $templates)),
     );
@@ -60,7 +60,7 @@ it('reads the trees for an estimate only for a GitHub definition whose workflow 
     int $reads,
 ): void {
     $read = new ArrayObject();
-    $extensions = new Extensions(Origin::of('acme/gate'))->withTreeSource(
+    $extensions = Extensions::of(Origin::of('acme/gate'))->withTreeSource(
         Name::of('phpunit'),
         static function () use ($read): TreeSource {
             $read->append('read');

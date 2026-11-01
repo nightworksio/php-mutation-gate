@@ -33,13 +33,13 @@ final readonly class Run
     /** This run, recording this much of the kill matrix. */
     public function recording(MatrixKind $matrix): self
     {
-        return clone($this, ['profile' => $this->profile->recording($matrix)]);
+        return new self($this->id, $this->at, $this->base, $this->profile->recording($matrix));
     }
 
     /** This run, of this kind: its matrix, its mutators and its suite. */
     public function profiled(RunProfile $profile): self
     {
-        return clone($this, ['profile' => $profile]);
+        return new self($this->id, $this->at, $this->base, $profile);
     }
 
     public function id(): string

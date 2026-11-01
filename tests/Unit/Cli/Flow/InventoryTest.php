@@ -46,7 +46,7 @@ afterEach(function (): void {
 });
 
 /** A runner that lists these groups, or cannot. */
-$listing = static fn(Groups|CannotJudge $groups): RunnerFake => new RunnerFake(
+$listing = static fn(Groups|CannotJudge $groups): RunnerFake => RunnerFake::of(
     Identity::of('fake', Versions::none(), Digest::of('php')),
     $groups,
     CoverageMap::empty(),
@@ -186,7 +186,7 @@ $underPest = static function (
     $project = Flows::project();
     $files = [...Flows::FILES, $file => $test];
     Scratch::write($project, $file, $test);
-    $pest = new RunnerFake(
+    $pest = RunnerFake::of(
         Identity::of('pest', Versions::none(), Digest::of('php')),
         $groups,
         CoverageMap::empty(),

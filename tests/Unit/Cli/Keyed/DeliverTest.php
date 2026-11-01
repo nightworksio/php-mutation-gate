@@ -45,7 +45,7 @@ function deliverRun(string $project, string $vendor, bool $throughComposer, arra
 {
     $client = new MockHttpClient($answers);
     $clock = new StoppedClock('2026-10-05T12:00:00Z');
-    $sending = new Sending($environment, new LocatedStore(Variables::of($environment), new Extensions(Origin::of('acme/gate'))->withProofStore(Name::of('s3'), static fn(): ProofStore => new ProofStoreFake())), $client, AlertDelivery::over($client, $clock, Pause::for(...)), $clock);
+    $sending = new Sending($environment, new LocatedStore(Variables::of($environment), Extensions::of(Origin::of('acme/gate'))->withProofStore(Name::of('s3'), static fn(): ProofStore => new ProofStoreFake())), $client, AlertDelivery::over($client, $clock, Pause::for(...)), $clock);
     $output = new BufferedOutput();
     $errors = new BufferedOutput();
     $code = new Deliver(Installation::of($project, $vendor, $throughComposer), $environment, $sending)->run(new ArgvInput($argv), $output, $errors);
@@ -134,7 +134,7 @@ it('writes the ledger and keeps the coverage map beside the delivery only on a t
         'AWS_ACCESS_KEY_ID' => 'id',
         'AWS_SECRET_ACCESS_KEY' => 'secret',
     ];
-    $located = new LocatedStore(Variables::of($environment), new Extensions(Origin::of('acme/gate'))->withProofStore(Name::of('s3'), static fn(): ProofStore => $store));
+    $located = new LocatedStore(Variables::of($environment), Extensions::of(Origin::of('acme/gate'))->withProofStore(Name::of('s3'), static fn(): ProofStore => $store));
     $sending = new Sending($environment, $located, $client, AlertDelivery::over($client, $clock, Pause::for(...)), $clock);
     $output = new BufferedOutput();
     $code = new Deliver(Installation::of($project, Scratch::directory(), throughComposer: false), $environment, $sending)

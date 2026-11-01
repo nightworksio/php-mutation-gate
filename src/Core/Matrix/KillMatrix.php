@@ -64,7 +64,15 @@ final readonly class KillMatrix
         $carried = $this->carried;
         $carried[$mutant->key()] = $covering;
 
-        return clone($this, ['carried' => $carried]);
+        return new self(
+            $this->kind,
+            $this->coverage,
+            $carried,
+            $this->moved,
+            $this->names,
+            $this->notFull,
+            $this->suites,
+        );
     }
 
     /**
@@ -76,19 +84,43 @@ final readonly class KillMatrix
         $moved = $this->moved;
         $moved[$mutant->key()] = true;
 
-        return clone($this, ['moved' => $moved]);
+        return new self(
+            $this->kind,
+            $this->coverage,
+            $this->carried,
+            $moved,
+            $this->names,
+            $this->notFull,
+            $this->suites,
+        );
     }
 
     /** This matrix, with the names the runner gives its tests. */
     public function named(TestNames $names): self
     {
-        return clone($this, ['names' => $names]);
+        return new self(
+            $this->kind,
+            $this->coverage,
+            $this->carried,
+            $this->moved,
+            $names,
+            $this->notFull,
+            $this->suites,
+        );
     }
 
     /** This matrix, with the suites the project declares its tests in (ADR-0025). */
     public function grouping(DeclaredSuites $suites): self
     {
-        return clone($this, ['suites' => $suites]);
+        return new self(
+            $this->kind,
+            $this->coverage,
+            $this->carried,
+            $this->moved,
+            $this->names,
+            $this->notFull,
+            $suites,
+        );
     }
 
     /** The suites the project declares its tests in; none where it declares no suite by name. */
@@ -100,7 +132,7 @@ final readonly class KillMatrix
     /** This matrix, whose runner cannot record every killer, and why. */
     public function cannotBeFull(NotFull $why): self
     {
-        return clone($this, ['notFull' => $why]);
+        return new self($this->kind, $this->coverage, $this->carried, $this->moved, $this->names, $why, $this->suites);
     }
 
     public function kind(): MatrixKind

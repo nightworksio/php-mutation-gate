@@ -84,13 +84,13 @@ final readonly class PublicLedger implements ProofStore
     /** Reading within these limits. */
     public function within(LedgerLimits $limits): self
     {
-        return clone($this, ['limits' => $limits]);
+        return new self($this->exchange, $this->url, $this->objects, $limits, $this->readable);
     }
 
     /** Reading this scope's ledger alone, the default branch's, the only one a public URL serves. */
     public function onlyReading(Scope $scope): self
     {
-        return clone($this, ['readable' => $scope]);
+        return new self($this->exchange, $this->url, $this->objects, $this->limits, $scope);
     }
 
     public function read(Scope $scope): Ledger|Unreadable

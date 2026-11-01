@@ -12,7 +12,7 @@ use NightWorksIO\MutationGateSecurity\SecurityExtension;
 use NightWorksIO\MutationGateSecurity\SecuritySet;
 
 it('registers every mutator of the set under its name', function (): void {
-    $set = new SecurityExtension()->extend(new Extensions(Origin::of('nightworksio/mutation-gate-security')))
+    $set = new SecurityExtension()->extend(Extensions::of(Origin::of('nightworksio/mutation-gate-security')))
         ->registered(ExtensionPoint::MutatorSet, SecuritySet::name());
     $mutators = $set instanceof MutatorSet ? iterator_to_array($set, preserve_keys: false) : [];
 

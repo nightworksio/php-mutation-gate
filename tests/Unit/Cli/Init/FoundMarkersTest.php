@@ -14,7 +14,7 @@ use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 
 /** The extensions of a project whose runner, the flows' fake, answers its markers so. */
-$extensions = static fn(Markers|CannotJudge $markers): Extensions => new Extensions(Origin::of('acme/gate'))
+$extensions = static fn(Markers|CannotJudge $markers): Extensions => Extensions::of(Origin::of('acme/gate'))
     ->withRunner(Name::of('fake'), static fn(): Runner => ScriptedRunner::fixture()->marking($markers));
 
 it('counts the markers the chosen runner finds', function () use ($extensions): void {

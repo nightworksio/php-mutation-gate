@@ -103,19 +103,40 @@ final readonly class ContainerLedger implements ObjectStore, ProofStore
     /** This store, keeping the default branch's scope in this container, which anyone may read. */
     public function publishing(string|NotGiven $container): self
     {
-        return clone($this, ['publicContainer' => $container]);
+        return new self(
+            $this->ledgers,
+            $this->account,
+            $this->container,
+            $container,
+            $this->defaultBranch,
+            $this->tokens,
+        );
     }
 
     /** This store, knowing which scope is the default branch's. */
     public function forDefaultBranch(Scope $scope): self
     {
-        return clone($this, ['defaultBranch' => $scope]);
+        return new self(
+            $this->ledgers,
+            $this->account,
+            $this->container,
+            $this->publicContainer,
+            $scope,
+            $this->tokens,
+        );
     }
 
     /** Reading and writing ledgers within these limits. */
     public function within(LedgerLimits $limits): self
     {
-        return clone($this, ['ledgers' => $this->ledgers->within($limits)]);
+        return new self(
+            $this->ledgers->within($limits),
+            $this->account,
+            $this->container,
+            $this->publicContainer,
+            $this->defaultBranch,
+            $this->tokens,
+        );
     }
 
     public function read(Scope $scope): Ledger|Unreadable

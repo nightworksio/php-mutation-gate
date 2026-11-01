@@ -44,18 +44,18 @@ final readonly class Digests
 
     public function withSource(Path $unit, Digest $digest): self
     {
-        return clone($this, ['sources' => $this->sources->with($unit, $digest)]);
+        return new self($this->mutation, $this->sources->with($unit, $digest), $this->tests, $this->commit);
     }
 
     public function withTest(Path $file, Digest $digest): self
     {
-        return clone($this, ['tests' => $this->tests->with($file, $digest)]);
+        return new self($this->mutation, $this->sources, $this->tests->with($file, $digest), $this->commit);
     }
 
     /** These digests, taken at this commit from a working tree that held nothing it does not. */
     public function takenAt(Revision $commit): self
     {
-        return clone($this, ['commit' => $commit]);
+        return new self($this->mutation, $this->sources, $this->tests, $commit);
     }
 
     /** The commit these digests were taken at, or none where the working tree held more. */

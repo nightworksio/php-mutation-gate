@@ -478,6 +478,8 @@ manual.
       start time every child would inherit, as PHPUnit before 13.4 starts it
       to report a deprecation in its configuration, and that no file the run
       mutates is loaded.
+      ADR-0042 amends this: the guard counts only the sockets the boot
+      opened, beyond those the worker held before it booted.
     - A worker that fails the guard forks nothing, and its mutants run in
       fresh processes. A worker that cannot fork, as where `pcntl` is not
       loaded, does the same and warns of nothing.

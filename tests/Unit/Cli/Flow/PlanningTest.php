@@ -640,7 +640,7 @@ it('cannot plan where the units cannot be found, the coverage taken or the run k
         'The suite failed.',
     ],
     'the keys' => [
-        fn(): RunnerFake => new RunnerFake(
+        fn(): RunnerFake => RunnerFake::of(
             CannotJudge::because('The runner is not installed.'),
             Groups::of(),
             CoverageMap::empty(),

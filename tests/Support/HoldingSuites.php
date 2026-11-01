@@ -105,7 +105,7 @@ final readonly class HoldingSuites
     /** A runner whose map is this, listing these tests over Unit and these over Process. */
     public static function runner(TestListing $unit, TestListing $process, CoverageMap $map): RunnerFake
     {
-        return new RunnerFake(
+        return RunnerFake::of(
             Identity::of('fake', Versions::none(), Digest::of('php')),
             Groups::none(),
             $map,

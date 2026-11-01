@@ -112,7 +112,7 @@ final readonly class ControlRun
     /** This run, whose processes held at most this much memory. */
     public function withPeak(MemoryCap $peak): self
     {
-        return clone($this, ['peak' => $peak]);
+        return new self($this->end, $this->took, $this->why, $this->failing, $peak);
     }
 
     /** The most memory its processes held, where the launcher measured it (see PeakLauncher). */

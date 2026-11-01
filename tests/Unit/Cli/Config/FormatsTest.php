@@ -24,7 +24,7 @@ use Symfony\Component\Yaml\Yaml;
 
 /** This package's registry, with YAML and NEON installed or not. */
 $registry = static fn(bool $installed): Extensions => Registered::config(
-    new Extensions(Origin::of('nightworksio/mutation-gate')),
+    Extensions::of(Origin::of('nightworksio/mutation-gate')),
     static fn(): bool => $installed,
 );
 
@@ -63,7 +63,7 @@ it('cannot judge a config file in no format a loader reads', function () use ($r
 });
 
 it('cannot judge a PHP or JSON file where no loader is registered', function () use ($file): void {
-    expect(Formats::loader(new Extensions(Origin::of('acme/gate')), $file('gate.json')))->toEqual(
+    expect(Formats::loader(Extensions::of(Origin::of('acme/gate')), $file('gate.json')))->toEqual(
         CannotJudge::because(
             'No config loader reads gate.json. Name a mutation-gate.php, .json, .yaml, .yml or .neon file.',
         ),
@@ -71,7 +71,7 @@ it('cannot judge a PHP or JSON file where no loader is registered', function () 
 });
 
 it('cannot judge with a loader that will not be built without options', function () use ($file): void {
-    $registry = new Extensions(Origin::of('acme/gate'))->withConfigLoader(
+    $registry = Extensions::of(Origin::of('acme/gate'))->withConfigLoader(
         Name::of('toml'),
         static fn(): Invalid => Invalid::because(Problem::at('strict', 'expected true or false, got nothing')),
     );

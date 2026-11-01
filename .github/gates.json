@@ -151,8 +151,8 @@
     },
     "lowest": {
       "check": "lowest dependencies",
-      "checks": "The suite against the oldest release of every dependency composer.json admits.",
-      "reproduce": "composer update --prefer-lowest --prefer-stable && composer test && composer test:network",
+      "checks": "The suite on the lowest PHP composer.json admits, 8.4, against the oldest release of every dependency it admits.",
+      "reproduce": "on PHP 8.4: composer update --prefer-lowest --prefer-stable && composer test && composer test:network",
       "evidence": [
         {"step": "suite", "tool": "pest", "raw": "evidence/raw/lowest.xml"},
         {"step": "network", "tool": "pest", "raw": "evidence/raw/lowest-network.xml"}
@@ -161,6 +161,19 @@
         "pest": "The suite did not run to the end, so it wrote no log of its tests.",
         "failure": "A test's expectation failed against the lowest dependencies: a lower bound in composer.json no longer works.",
         "error": "A test threw against the lowest dependencies: a lower bound in composer.json no longer works."
+      }
+    },
+    "macos": {
+      "check": "tests on macOS",
+      "checks": "The suite on macOS, against the lock, so the gate's local use there is tested.",
+      "reproduce": "on macOS: composer install && composer test",
+      "evidence": [
+        {"step": "suite", "tool": "pest", "raw": "evidence/raw/macos.xml"}
+      ],
+      "rules": {
+        "pest": "The suite did not run to the end, so it wrote no log of its tests.",
+        "failure": "A test's expectation failed on macOS: the code or the test assumes something of Linux.",
+        "error": "A test threw on macOS: the code or the test assumes something of Linux."
       }
     },
     "phar": {

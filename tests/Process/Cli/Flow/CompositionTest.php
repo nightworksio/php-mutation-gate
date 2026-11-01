@@ -69,7 +69,7 @@ function compositionOf(array $files, Variables $environment, bool $fake): Compos
     }
 
     $vendor = sprintf('%s/vendor', $project);
-    $firstParty = new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)));
+    $firstParty = new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER)));
     $extensions = $fake ? new ExtensionFake()->extend($firstParty) : $firstParty;
     $clock = new StoppedClock(Configs::NOW);
     $effective = new Effective(

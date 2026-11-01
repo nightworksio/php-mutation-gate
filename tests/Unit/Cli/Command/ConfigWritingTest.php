@@ -29,7 +29,7 @@ afterEach(function (): void {
 
 it('writes nothing, and says what to install, where the format needs a library the project lacks', function (): void {
     $project = Scratch::copy('tests/Fixtures/Projects/Laravel');
-    $extensions = new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)));
+    $extensions = new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER)));
     $now = new DateTimeImmutable(Configs::NOW);
     $detected = new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project)));
     $effective = new Effective($project, $extensions, $detected, $now);

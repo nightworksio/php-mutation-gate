@@ -74,7 +74,13 @@ final readonly class Cut
     /** This cut, where each shard's runner first spends this long on its opening run. */
     public function opening(Seconds $run): self
     {
-        return clone($this, ['overhead' => Seconds::of($this->overhead->seconds() + $run->seconds())]);
+        return new self(
+            $this->size,
+            $this->most,
+            $this->exact,
+            $this->target,
+            Seconds::of($this->overhead->seconds() + $run->seconds()),
+        );
     }
 
     public function cut(Workload $work, Trees $trees): Shards|CannotJudge

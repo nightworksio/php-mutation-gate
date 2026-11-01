@@ -48,7 +48,7 @@ const FETCH_STORE = [
  */
 function fetchRun(string $project, array $argv, array $environment, ProofStore $store, string $vendor = '', bool $throughComposer = false): array
 {
-    $located = new LocatedStore(Variables::of($environment), new Extensions(Origin::of('acme/gate'))->withProofStore(Name::of('s3'), static fn(): ProofStore => $store));
+    $located = new LocatedStore(Variables::of($environment), Extensions::of(Origin::of('acme/gate'))->withProofStore(Name::of('s3'), static fn(): ProofStore => $store));
     $output = new BufferedOutput();
     $errors = new BufferedOutput();
     $installation = Installation::of($project, $vendor === '' ? Scratch::directory() : $vendor, $throughComposer);

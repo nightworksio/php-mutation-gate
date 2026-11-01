@@ -52,43 +52,113 @@ final readonly class ProjectFiles
     /** These, with the project's `.gitignore`, empty where it has none. */
     public function withGitIgnore(GitIgnore $gitIgnore): self
     {
-        return clone($this, ['gitIgnore' => $gitIgnore]);
+        return new self(
+            $gitIgnore,
+            $this->infection,
+            $this->composer,
+            $this->runningTheGate,
+            $this->baseline,
+            $this->runnerConfig,
+            $this->shallow,
+            $this->sonarSources,
+            $this->warmRefusal,
+        );
     }
 
     /** These, with the project's Infection config, where it has one. */
     public function withInfection(InfectionConfig $infection): self
     {
-        return clone($this, ['infection' => $infection]);
+        return new self(
+            $this->gitIgnore,
+            $infection,
+            $this->composer,
+            $this->runningTheGate,
+            $this->baseline,
+            $this->runnerConfig,
+            $this->shallow,
+            $this->sonarSources,
+            $this->warmRefusal,
+        );
     }
 
     /** These, with how `composer.json` installs the project's packages. */
     public function withComposer(ComposerSetup $composer): self
     {
-        return clone($this, ['composer' => $composer]);
+        return new self(
+            $this->gitIgnore,
+            $this->infection,
+            $composer,
+            $this->runningTheGate,
+            $this->baseline,
+            $this->runnerConfig,
+            $this->shallow,
+            $this->sonarSources,
+            $this->warmRefusal,
+        );
     }
 
     /** These, with every CI definition that runs the gate, none where no definition does. */
     public function withRunningTheGate(Paths $definitions): self
     {
-        return clone($this, ['runningTheGate' => $definitions]);
+        return new self(
+            $this->gitIgnore,
+            $this->infection,
+            $this->composer,
+            $definitions,
+            $this->baseline,
+            $this->runnerConfig,
+            $this->shallow,
+            $this->sonarSources,
+            $this->warmRefusal,
+        );
     }
 
     /** These, with the baseline, empty where there is none, or why it cannot be read. */
     public function withBaseline(Baseline|CannotJudge $baseline): self
     {
-        return clone($this, ['baseline' => $baseline]);
+        return new self(
+            $this->gitIgnore,
+            $this->infection,
+            $this->composer,
+            $this->runningTheGate,
+            $baseline,
+            $this->runnerConfig,
+            $this->shallow,
+            $this->sonarSources,
+            $this->warmRefusal,
+        );
     }
 
     /** These, with what the runner's own config says. */
     public function withRunnerConfig(RunnerConfig $config): self
     {
-        return clone($this, ['runnerConfig' => $config]);
+        return new self(
+            $this->gitIgnore,
+            $this->infection,
+            $this->composer,
+            $this->runningTheGate,
+            $this->baseline,
+            $config,
+            $this->shallow,
+            $this->sonarSources,
+            $this->warmRefusal,
+        );
     }
 
     /** These, from a shallow clone: one that holds only the newest commits, and not the history before them. */
     public function shallow(): self
     {
-        return clone($this, ['shallow' => true]);
+        return new self(
+            $this->gitIgnore,
+            $this->infection,
+            $this->composer,
+            $this->runningTheGate,
+            $this->baseline,
+            $this->runnerConfig,
+            shallow: true,
+            sonarSources: $this->sonarSources,
+            warmRefusal: $this->warmRefusal,
+        );
     }
 
     /** Whether the clone holds only the newest commits. */
@@ -100,13 +170,33 @@ final readonly class ProjectFiles
     /** These, with the paths `sonar.sources` names, where `sonar-project.properties` sets it. */
     public function withSonarSources(SonarSources $sources): self
     {
-        return clone($this, ['sonarSources' => $sources]);
+        return new self(
+            $this->gitIgnore,
+            $this->infection,
+            $this->composer,
+            $this->runningTheGate,
+            $this->baseline,
+            $this->runnerConfig,
+            $this->shallow,
+            $sources,
+            $this->warmRefusal,
+        );
     }
 
     /** These, with why the last run's warm workers forked nothing (ADR-0023). */
     public function withWarmRefusal(WarmRefusal $refusal): self
     {
-        return clone($this, ['warmRefusal' => $refusal]);
+        return new self(
+            $this->gitIgnore,
+            $this->infection,
+            $this->composer,
+            $this->runningTheGate,
+            $this->baseline,
+            $this->runnerConfig,
+            $this->shallow,
+            $this->sonarSources,
+            $refusal,
+        );
     }
 
     public function warmRefusal(): WarmRefusal|NotGiven

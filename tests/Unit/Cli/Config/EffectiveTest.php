@@ -50,7 +50,7 @@ afterEach(function (): void {
 /** The effective config of a project, with this package's own extension, and YAML and NEON installed or not. */
 $effective = static fn(string $project, bool $installed = true): Effective => new Effective(
     $project,
-    Registered::config(new Extensions(Origin::of('nightworksio/mutation-gate')), static fn(): bool => $installed),
+    Registered::config(Extensions::of(Origin::of('nightworksio/mutation-gate')), static fn(): bool => $installed),
     new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project))),
     new DateTimeImmutable(Configs::NOW),
 );
@@ -370,7 +370,7 @@ it('judges a layer a loader or a preset built by hand, as the definition judges 
             return ConfigReads::none();
         }
     };
-    $extensions = new Extensions(Origin::of('acme/smuggler'))
+    $extensions = Extensions::of(Origin::of('acme/smuggler'))
         ->withConfigLoader(Name::of('smuggled'), static fn(): ConfigLoader => $loader)
         ->withPreset(Name::of('smuggled'), $smuggled);
     $project = Scratch::directory();

@@ -57,7 +57,7 @@ function sendingOf(array $environment, ArrayObject $built, ProofStoreFake $store
 
         return $store;
     };
-    $extensions = new Extensions(Origin::of('acme/gate'))
+    $extensions = Extensions::of(Origin::of('acme/gate'))
         ->withProofStore(Name::of('s3'), $build)
         ->withProofStore(Name::of('gcs'), $build);
     $client = new MockHttpClient($answers);

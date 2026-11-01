@@ -72,11 +72,13 @@ final readonly class Compiler
     private const string NO_OPCACHE = 'U';
 
     /**
-     * What the child runs with besides PHP's own defaults, which `-n` leaves it: opcache on the command line, its
-     * optimized opcodes dumped, every file cached however new, and no error shown among the answers. PHP logs no
-     * error by default.
+     * What the child runs with besides PHP's own defaults, which `-n` leaves it: opcache loaded, as PHP before 8.5
+     * builds it as a shared extension, on the command line, its optimized opcodes dumped, every file cached however
+     * new, and no error shown among the answers. PHP logs no error by default. A PHP that builds opcache in warns
+     * that it cannot load it again, on the dump's stream before the first program's marker, which is never read.
      */
     private const array SETTINGS = [
+        'zend_extension=opcache',
         'opcache.enable_cli=1',
         'opcache.opt_debug_level=0x20000',
         'opcache.file_update_protection=0',

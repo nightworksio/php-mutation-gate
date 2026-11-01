@@ -416,7 +416,7 @@ it('writes the GitHub one-step action --single asks for, and says which check to
         INIT_CI_UNPINNED,
     ]), INIT_NEXT), ''])
         ->and($workflow)->toContain("branches: ['main']")
-        ->and($workflow)->toContain("php-version: '8.5'")
+        ->and($workflow)->toContain("php-version: '8.4'")
         ->and($workflow)->toContain("runner: 'pest'")
         ->and($workflow)->toContain("nightworksio/php-mutation-gate@<the commit of a release>\n")
         ->and($workflow)->not->toContain('%%');

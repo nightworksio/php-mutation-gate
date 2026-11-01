@@ -128,7 +128,7 @@ final readonly class Platform
     /** This PHP, loading a php.ini. */
     public function loadingIni(string $file): self
     {
-        return clone($this, ['iniFile' => $file]);
+        return new self($this->php, $this->extensions, $this->ini, $this->system, $this->architecture, $file);
     }
 
     /** @return array<string, string> each extension it loads, with its version, by name */

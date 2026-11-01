@@ -31,7 +31,7 @@ final class Doctored
     /** @param array<string, string> $environment */
     public static function observed(string $project, string $php, array $environment = []): Observed
     {
-        $extensions = new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)));
+        $extensions = new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER)));
         $detected = new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project)));
 
         $now = new DateTimeImmutable(Configs::NOW);

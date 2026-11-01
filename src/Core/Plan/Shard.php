@@ -53,7 +53,7 @@ final readonly class Shard
     /** This shard, expected to take what this estimate says, which says what it rests on. */
     public function estimated(ShardEstimate $estimate): self
     {
-        return clone($this, ['estimate' => $estimate]);
+        return new self($this->id, $this->package, $this->units, $estimate, $this->label);
     }
 
     public function id(): ShardId
@@ -93,7 +93,7 @@ final readonly class Shard
     /** The shard with its units in this order, the riskiest first (ADR-0008). */
     public function ordered(RiskOrder $order): self
     {
-        return clone($this, ['units' => $order->ordered($this->units)]);
+        return new self($this->id, $this->package, $order->ordered($this->units), $this->estimate, $this->label);
     }
 
     public function isEmpty(): bool

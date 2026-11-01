@@ -37,7 +37,15 @@ final readonly class Savings
     /** These savings, from a sharded run: the wait it cut, and the setup it cost. */
     public function sharded(Seconds $waitSaved, Seconds $setup): self
     {
-        return clone($this, ['waitSaved' => $waitSaved, 'shardingSetup' => $setup, 'sharded' => true]);
+        return new self(
+            $this->fullRun,
+            $this->measured,
+            $this->reach,
+            $this->proofs,
+            $waitSaved,
+            $setup,
+            sharded: true,
+        );
     }
 
     public function fullRun(): Seconds

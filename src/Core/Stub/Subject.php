@@ -41,7 +41,7 @@ final readonly class Subject
     /** This subject, standing for the whole of a cluster whose first survivor it is. */
     public function forCluster(Cluster $cluster): self
     {
-        return clone($this, ['members' => $cluster->members(), 'cluster' => $cluster]);
+        return new self($this->first, $cluster->members(), $cluster, $this->function, $this->unit, $this->pin);
     }
 
     /**
@@ -51,7 +51,7 @@ final readonly class Subject
      */
     public function pinned(SourcePin $pin): self
     {
-        return clone($this, ['pin' => $pin]);
+        return new self($this->first, $this->members, $this->cluster, $this->function, $this->unit, $pin);
     }
 
     /** What a test that reads the file must find there, where the first mutant's mutator is pinned by source. */

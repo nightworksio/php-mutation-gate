@@ -54,10 +54,14 @@ final readonly class Sample
     /** This sample, running these units of a sampled stratum and leaving those out. */
     public function holding(Units $sampled, Unsampled $unsampled): self
     {
-        return clone($this, [
-            'sampled' => $this->sampled->and($sampled),
-            'unsampled' => $this->unsampled->and($unsampled),
-        ]);
+        return new self(
+            $this->drawn,
+            $this->seed,
+            $this->confidence,
+            $this->margin,
+            $this->sampled->and($sampled),
+            $this->unsampled->and($unsampled),
+        );
     }
 
     /** Whether the run was sampled. */

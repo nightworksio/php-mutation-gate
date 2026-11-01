@@ -1,0 +1,102 @@
+# ADR-0042: The gate runs on PHP 8.4 and later, on Linux and macOS, and CI runs it on each
+
+**Status:** Accepted
+**Date:** 2026-10-31
+
+## Context
+
+What holds the gate to PHP 8.5, read at source:
+
+- **The requirement.** `composer.json` requires `php: ^8.5`, its
+  `config.platform.php` is 8.5.12, and ADR-0011 supports 8.5 and later 8.x.
+  The plugins require `^8.5` too.
+- **PHP 8.4 is supported upstream.** It has security support until
+  31 December 2028, and a project on it cannot install the gate.
+- **What of 8.5 the code uses.**
+  - Clone-with, `clone($object, ['property' => $value])`, in 247 places: it
+    is how each immutable value returns a copy with a field changed.
+  - `array_first` and `array_last`, which `symfony/polyfill-php85` provides
+    on 8.4. `symfony/console` 8 and `infection/infection` already require it.
+  - Nothing else: PHPStan, set to PHP 8.4, reports clone-with alone.
+- **The lowest 8.4 the lock can name.** `roave/security-advisories`
+  conflicts with PHP 8.4 below 8.4.27.
+- **What checks the version.** PHPStan and Rector's PHP sets read the
+  lowest PHP from `composer.json`'s `require.php`.
+- **CI.** Every job runs PHP 8.5 on Linux, and the `lowest` job runs the
+  suite against the oldest release of every dependency.
+- **Platforms.** The README names no platform. A developer runs the gate
+  locally through `watch`, `pre-push` and the editor's commands, and the
+  processes the gate starts and its forked workers are tested on Linux
+  alone.
+- **The warm worker's guard.** Before its first fork, a warm worker refuses
+  to fork while it holds any socket beyond its standard streams (ADR-0023).
+  A process a macOS CI runner starts holds a socket of the runner's before
+  the gate starts, so every worker there refuses and each mutant runs fresh.
+
+## Decision
+
+This amends ADR-0011's items 3 and 10, ADR-0015's item 16 and ADR-0023's
+item 13.
+
+1. **The gate runs on PHP 8.4 and later 8.x.**
+   - `composer.json` and each plugin's require `php: ^8.4`, and
+     `config.platform.php` is 8.4.27, the lowest 8.4 the lock can name.
+   - `composer.json` requires `symfony/polyfill-php85` for `array_first`
+     and `array_last`.
+
+2. **An immutable value returns a copy through its constructor.** A
+   method that changes a field returns `new self(...)` with every field, the
+   changed one in its place. A class whose constructor took less than every
+   field takes every field in a private constructor, and a static `of`
+   takes what the public constructor took.
+   - `Extensions` is built by `Extensions::of(Origin)`, and an empty
+     `Entries` by `Entries::none(ExtensionPoint)`.
+
+3. **Syntax PHP 8.4 lacks is refused before a run.** PHPStan reads PHP 8.4
+   from `require.php` and fails on clone-with, and Rector's PHP sets offer no
+   rule past 8.4.
+
+4. **CI runs the suite on PHP 8.4 and 8.5.** The `lowest` job runs PHP 8.4,
+   the lowest `require.php` admits, against the oldest release of every
+   dependency. Every other job runs PHP 8.5 against the lock.
+
+5. **A CI definition the gate writes sets up PHP 8.4 at least**, where the
+   project asks for nothing higher (ADR-0015).
+
+6. **Linux and macOS are supported, and Windows is not.** The `macos` job
+   runs the suite on macOS against the lock. The README says so beside the
+   PHP version.
+
+7. **The warm worker's guard counts the sockets its boot opened.** The
+   worker counts the sockets it holds before it boots, and refuses to fork
+   only where the boot left more open. A socket held before the boot was
+   inherited from the process that started the worker, and every process the
+   gate starts, warm or fresh, holds it alike.
+
+## Alternatives considered
+
+| Option | Why it lost |
+|--------|-------------|
+| **PHP 8.5 alone, as ADR-0011 has it** | Every project on 8.4, which upstream supports for two more years, cannot install the gate. |
+| **A helper that copies an object by reflection, with an array of changes** | PHPStan cannot check the changed fields' types, which it checks on `new self(...)`. |
+| **Properties left writable inside the class, `private(set)`, and changed on a clone** | Each value would lose `readonly`, which holds that nothing changes it once built. |
+| **The whole CI on both versions** | Twice the jobs for what the `lowest` job already runs on 8.4. |
+| **A `tests` job matrix on 8.4 and 8.5** | Coverage is measured once, and the `lowest` job already runs the suite on 8.4. |
+| **The guard left as it is, and macOS runners running each mutant fresh** | Warm workers would never run on a macOS runner, for a socket no boot opened and no child uses. |
+| **Windows supported** | Nothing tests it, and a CI leg on Windows is a third platform to keep green for local use alone. |
+
+## Consequences
+
+**A project on PHP 8.4 installs the gate, and a developer on macOS runs it
+on a tested platform.**
+
+**A copy names every field,** so a value with many fields has long
+methods that change one. PHPStan checks each field's type.
+
+**A change that uses syntax PHP 8.4 lacks fails PHPStan,** and one that
+breaks on 8.4 at run time fails the `lowest` job.
+
+## Related
+
+- [ADR-0011](0011-the-package-holds-itself-to-the-gate-it-ships.md): the supported versions and the copied `config`, which this amends
+- [ADR-0015](0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md): the PHP version a written CI definition sets up, which this amends

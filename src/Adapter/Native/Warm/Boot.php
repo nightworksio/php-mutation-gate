@@ -69,7 +69,14 @@ final readonly class Boot
     /** This boot, going on through this bootstrap. */
     public function through(string $bootstrap): self
     {
-        return clone($this, ['bootstrap' => (string) realpath($bootstrap)]);
+        return new self(
+            $this->autoloader,
+            $this->before,
+            (string) realpath($bootstrap),
+            $this->spy,
+            $this->events,
+            $this->eventsBefore,
+        );
     }
 
     /**

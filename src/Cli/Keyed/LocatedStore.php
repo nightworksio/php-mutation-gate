@@ -42,7 +42,7 @@ final readonly class LocatedStore
     {
         return new self(
             Variables::of(getenv()),
-            new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER))),
+            new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER))),
         );
     }
 

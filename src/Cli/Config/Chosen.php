@@ -167,7 +167,7 @@ final readonly class Chosen
         }
 
         try {
-            return $registry->merge(new $class()->extend(new Extensions(Origin::of(self::CONFIG))));
+            return $registry->merge(new $class()->extend(Extensions::of(Origin::of(self::CONFIG))));
         } catch (Error|LogicException|RuntimeException $failed) {
             return CannotJudge::because(sprintf(
                 '%s names %s in extensions, and it failed as it started: %s',

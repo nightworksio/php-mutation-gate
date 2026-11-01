@@ -92,7 +92,7 @@ final readonly class Running
     /** The same, stopping before its next batch once this says so, as at its deadline. */
     public function interrupted(Interruption $interruption): self
     {
-        return clone($this, ['interruption' => $interruption]);
+        return new self($this->adapters, $this->settings, $this->setup, $interruption);
     }
 
     /** The plan, where the checkout is the commit it was made on, as every shard and the verdict need. */

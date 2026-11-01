@@ -37,13 +37,13 @@ final readonly class AnalyserHistory implements IteratorAggregate
     /** This history, with a mutator's rate, replacing the one held. */
     public function withRate(RejectionRate $rate): self
     {
-        return clone($this, ['rates' => array_replace($this->rates, [$rate->mutator() => $rate])]);
+        return new self($this->analyser, array_replace($this->rates, [$rate->mutator() => $rate]), $this->time);
     }
 
     /** This history, with the time its checks took, replacing the one held. */
     public function withTime(CheckTime $time): self
     {
-        return clone($this, ['time' => $time]);
+        return new self($this->analyser, $this->rates, $time);
     }
 
     /** This history, after a check of a mutant that took these seconds and passed it. */

@@ -30,18 +30,18 @@ final readonly class Asked
 
     public function withMeasurement(Measurement $measurement): self
     {
-        return clone($this, ['measurement' => $measurement]);
+        return new self($measurement, $this->gitHub, $this->anonymousReads);
     }
 
     public function withGitHub(GitHubSettings|CannotTell $gitHub): self
     {
-        return clone($this, ['gitHub' => $gitHub]);
+        return new self($this->measurement, $gitHub, $this->anonymousReads);
     }
 
     /** These, with the Azure storage account that refused an anonymous read of the store's public container. */
     public function withAnonymousReadsRefused(AnonymousReadsRefused $refused): self
     {
-        return clone($this, ['anonymousReads' => $refused]);
+        return new self($this->measurement, $this->gitHub, $refused);
     }
 
     public function measurement(): Measurement|NotGiven

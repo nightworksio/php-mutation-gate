@@ -67,13 +67,35 @@ final readonly class Mutant
      */
     public function identifiedAs(MutantId $id): self
     {
-        return clone($this, ['id' => $id]);
+        return new self(
+            $id,
+            $this->nativeId,
+            $this->location,
+            $this->mutation,
+            $this->status,
+            $this->duration,
+            $this->limit,
+            $this->unmutatedNeed,
+            $this->reason,
+            $this->killers,
+        );
     }
 
     /** This mutant, with the limit that stopped it: the seconds its runner allowed it, or the memory cap. */
     public function withLimit(Seconds|MemoryCap $limit): self
     {
-        return clone($this, ['limit' => $limit]);
+        return new self(
+            $this->id,
+            $this->nativeId,
+            $this->location,
+            $this->mutation,
+            $this->status,
+            $this->duration,
+            $limit,
+            $this->unmutatedNeed,
+            $this->reason,
+            $this->killers,
+        );
     }
 
     /**
@@ -84,13 +106,35 @@ final readonly class Mutant
      */
     public function withUnmutatedNeed(Seconds|MemoryCap $need): self
     {
-        return clone($this, ['unmutatedNeed' => $need]);
+        return new self(
+            $this->id,
+            $this->nativeId,
+            $this->location,
+            $this->mutation,
+            $this->status,
+            $this->duration,
+            $this->limit,
+            $need,
+            $this->reason,
+            $this->killers,
+        );
     }
 
     /** This mutant, saying why it has the status it has. */
     public function because(Reason $reason): self
     {
-        return clone($this, ['reason' => $reason]);
+        return new self(
+            $this->id,
+            $this->nativeId,
+            $this->location,
+            $this->mutation,
+            $this->status,
+            $this->duration,
+            $this->limit,
+            $this->unmutatedNeed,
+            $reason,
+            $this->killers,
+        );
     }
 
     /**
@@ -102,15 +146,30 @@ final readonly class Mutant
     public function unjudged(OutOfTime|Reason|UnmutatedFailure $why): self
     {
         return match (true) {
-            $why instanceof UnmutatedFailure => clone($this, [
-                'status' => MutantStatus::FailsUnmutated,
-                'reason' => $why->why(),
-                'killers' => $why->failing(),
-            ]),
-            default => clone($this, [
-                'status' => MutantStatus::Unjudged,
-                'reason' => $why instanceof OutOfTime ? $why->reason() : $why,
-            ]),
+            $why instanceof UnmutatedFailure => new self(
+                $this->id,
+                $this->nativeId,
+                $this->location,
+                $this->mutation,
+                MutantStatus::FailsUnmutated,
+                $this->duration,
+                $this->limit,
+                $this->unmutatedNeed,
+                $why->why(),
+                $why->failing(),
+            ),
+            default => new self(
+                $this->id,
+                $this->nativeId,
+                $this->location,
+                $this->mutation,
+                MutantStatus::Unjudged,
+                $this->duration,
+                $this->limit,
+                $this->unmutatedNeed,
+                $why instanceof OutOfTime ? $why->reason() : $why,
+                $this->killers,
+            ),
         };
     }
 
@@ -120,11 +179,18 @@ final readonly class Mutant
      */
     public function rejected(Rejection $rejection): self
     {
-        return clone($this, [
-            'status' => MutantStatus::KilledByStaticAnalysis,
-            'reason' => $rejection,
-            'killers' => TestIds::none(),
-        ]);
+        return new self(
+            $this->id,
+            $this->nativeId,
+            $this->location,
+            $this->mutation,
+            MutantStatus::KilledByStaticAnalysis,
+            $this->duration,
+            $this->limit,
+            $this->unmutatedNeed,
+            $rejection,
+            TestIds::none(),
+        );
     }
 
     /**
@@ -133,7 +199,18 @@ final readonly class Mutant
      */
     public function killedBy(TestIds $tests): self
     {
-        return clone($this, ['killers' => $tests]);
+        return new self(
+            $this->id,
+            $this->nativeId,
+            $this->location,
+            $this->mutation,
+            $this->status,
+            $this->duration,
+            $this->limit,
+            $this->unmutatedNeed,
+            $this->reason,
+            $tests,
+        );
     }
 
     public function id(): MutantId

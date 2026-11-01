@@ -21,7 +21,7 @@ use function version_compare;
 final readonly class PhpVersion
 {
     /** The lowest PHP version the gate runs on. */
-    public const string LOWEST = '8.5';
+    public const string LOWEST = '8.4';
 
     /** A version's major and minor. */
     private const string MINOR = '/(\d+)\.(\d+)/';

@@ -92,7 +92,20 @@ final readonly class MutationRun
      */
     public function checkingWith(PreChecker $preChecker): self
     {
-        return clone($this, ['preChecker' => $preChecker]);
+        return new self(
+            $this->project,
+            $this->shell,
+            $this->files,
+            $this->patching,
+            $this->remembered,
+            $this->listing,
+            $this->bounds,
+            $this->only,
+            $this->clock,
+            $this->whole,
+            $this->bridges,
+            $preChecker,
+        );
     }
 
     /**
@@ -102,13 +115,39 @@ final readonly class MutationRun
      */
     public function only(string ...$nativeIds): self
     {
-        return clone($this, ['only' => array_values($nativeIds)]);
+        return new self(
+            $this->project,
+            $this->shell,
+            $this->files,
+            $this->patching,
+            $this->remembered,
+            $this->listing,
+            $this->bounds,
+            array_values($nativeIds),
+            $this->clock,
+            $this->whole,
+            $this->bridges,
+            $this->preChecker,
+        );
     }
 
     /** This run, in which a patched run allows no mutant more than this long: the most a run again asks for. */
     public function upTo(Seconds $most): self
     {
-        return clone($this, ['bounds' => $this->bounds->upToInstead($most)]);
+        return new self(
+            $this->project,
+            $this->shell,
+            $this->files,
+            $this->patching,
+            $this->remembered,
+            $this->listing,
+            $this->bounds->upToInstead($most),
+            $this->only,
+            $this->clock,
+            $this->whole,
+            $this->bridges,
+            $this->preChecker,
+        );
     }
 
     /**
@@ -117,7 +156,20 @@ final readonly class MutationRun
      */
     public function whole(): self
     {
-        return clone($this, ['whole' => true]);
+        return new self(
+            $this->project,
+            $this->shell,
+            $this->files,
+            $this->patching,
+            $this->remembered,
+            $this->listing,
+            $this->bounds,
+            $this->only,
+            $this->clock,
+            whole: true,
+            bridges: $this->bridges,
+            preChecker: $this->preChecker,
+        );
     }
 
     /**

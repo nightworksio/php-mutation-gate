@@ -283,7 +283,8 @@ one of those values the gate can know or check.
     - **Detected:**
       - the default branch, by `ci.defaultBranch`'s rule;
       - the PHP version: `config.platform.php`, else the lowest version
-        `require.php` allows, at least 8.5;
+        `require.php` allows, at least 8.5 (ADR-0042 amends this: at least
+        8.4);
       - the runner;
       - the ledger cache for that CI, keyed as ADR-0007 says;
       - the twice-weekly schedule (ADR-0013).

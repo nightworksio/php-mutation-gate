@@ -47,12 +47,16 @@ final readonly class Opcodes
 
     /**
      * The opcodes opcache dumped of the program it compiled at a path; or
-     * that what was dumped is not a dump, which does not begin with the
-     * program's own code, and proves nothing.
+     * that what was dumped proves nothing: it is not a dump, which begins
+     * with the program's own code, or a literal of it reads as the name the
+     * program's own path or directory is given, as where opcache before PHP
+     * 8.5 prints a literal's control characters as they are.
      */
     public static function dumped(string $dump, string $path): self|Uncompiled
     {
-        if (! str_starts_with(ltrim($dump), self::MAIN)) {
+        $named = str_contains($dump, self::FILE) || str_contains($dump, self::DIRECTORY);
+
+        if ($named || ! str_starts_with(ltrim($dump), self::MAIN)) {
             return Uncompiled::Failed;
         }
 

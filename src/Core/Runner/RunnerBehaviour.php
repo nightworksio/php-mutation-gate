@@ -59,7 +59,15 @@ final readonly class RunnerBehaviour
      */
     public function writingTestsIn(AssertionStyle|NotGiven $style): self
     {
-        return clone($this, ['writes' => $style]);
+        return new self(
+            $this->holdsAsLoaded,
+            $this->readByEveryKey,
+            $this->opensEachShard,
+            $this->whyNotFull,
+            $this->parallelism,
+            $style,
+            $this->selection,
+        );
     }
 
     /**
@@ -74,19 +82,43 @@ final readonly class RunnerBehaviour
     /** This behaviour, reading each `#[Holds]` as the runner loads its test files, where a group may never form. */
     public function holdingAsLoaded(): self
     {
-        return clone($this, ['holdsAsLoaded' => true]);
+        return new self(
+            holdsAsLoaded: true,
+            readByEveryKey: $this->readByEveryKey,
+            opensEachShard: $this->opensEachShard,
+            whyNotFull: $this->whyNotFull,
+            parallelism: $this->parallelism,
+            writes: $this->writes,
+            selection: $this->selection,
+        );
     }
 
     /** This behaviour, where every proof key reads a group's test files, since every shard opens on them. */
     public function readingInEveryKey(Group $group): self
     {
-        return clone($this, ['readByEveryKey' => $this->readByEveryKey->with($group)]);
+        return new self(
+            $this->holdsAsLoaded,
+            $this->readByEveryKey->with($group),
+            $this->opensEachShard,
+            $this->whyNotFull,
+            $this->parallelism,
+            $this->writes,
+            $this->selection,
+        );
     }
 
     /** This behaviour, where each shard pays a full opening run under coverage. */
     public function openingEachShard(): self
     {
-        return clone($this, ['opensEachShard' => true]);
+        return new self(
+            $this->holdsAsLoaded,
+            $this->readByEveryKey,
+            opensEachShard: true,
+            whyNotFull: $this->whyNotFull,
+            parallelism: $this->parallelism,
+            writes: $this->writes,
+            selection: $this->selection,
+        );
     }
 
     /**
@@ -95,19 +127,43 @@ final readonly class RunnerBehaviour
      */
     public function stoppingAtFirstKiller(NotFull $why): self
     {
-        return clone($this, ['whyNotFull' => $why]);
+        return new self(
+            $this->holdsAsLoaded,
+            $this->readByEveryKey,
+            $this->opensEachShard,
+            $why,
+            $this->parallelism,
+            $this->writes,
+            $this->selection,
+        );
     }
 
     /** This behaviour, where the runner runs one mutant per core, as many at once as a request asks. */
     public function runningPerCore(): self
     {
-        return clone($this, ['parallelism' => Parallelism::PerCore]);
+        return new self(
+            $this->holdsAsLoaded,
+            $this->readByEveryKey,
+            $this->opensEachShard,
+            $this->whyNotFull,
+            Parallelism::PerCore,
+            $this->writes,
+            $this->selection,
+        );
     }
 
     /** This behaviour, where a mutant's own run selects the tests that judge it this way. */
     public function selecting(RunSelection $selection): self
     {
-        return clone($this, ['selection' => $selection]);
+        return new self(
+            $this->holdsAsLoaded,
+            $this->readByEveryKey,
+            $this->opensEachShard,
+            $this->whyNotFull,
+            $this->parallelism,
+            $this->writes,
+            $selection,
+        );
     }
 
     /** Which tests a mutant's own run runs of those that judge it: what a control that reproduces the run runs. */

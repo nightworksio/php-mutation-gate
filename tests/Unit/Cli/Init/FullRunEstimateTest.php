@@ -36,7 +36,7 @@ function fullRunEstimateIn(string $project, Runner $runner): FullRunEstimate
 {
     return new FullRunEstimate(
         FlowCommands::composition($project, $runner, new ProofStoreFake(), Flows::ci()),
-        new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER))),
+        new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER))),
         $project,
     );
 }
