@@ -26,7 +26,7 @@ use NightWorksIO\MutationGate\Port\Runner;
  * - its code is `resources/contract/runner/src`, copied into the library's
  *   `src`, whose `Library` namespace its Composer autoloading maps;
  * - its tests are the files `LibraryTest` lists, written in the runner's own
- *   framework, each saying what it asserts;
+ *   framework, each asserting what its case's docblock says;
  * - its runner is the runner under test, built in the library's root, with a
  *   limit on each mutant short enough that `LibraryChange::Drains` times out.
  *
