@@ -295,16 +295,15 @@ describe('Directory', function (): void {
 
     it('leaves no file anywhere for a write into a directory it cannot write', function (): void {
         $root = Scratch::directory();
+        $file = sprintf('%s.json', basename($root));
         mkdir(sprintf('%s/locked', $root), 0o500);
-        $beside = static fn(): array|false => glob(sprintf('%s/.unwritable-plan.json.*', sys_get_temp_dir()));
-        $before = $beside();
         set_error_handler(static fn(): bool => true);
-        $written = Directory::at($root)->write(Path::of('locked/unwritable-plan.json'), Contents::of('{}'));
+        $written = Directory::at($root)->write(Path::of(sprintf('locked/%s', $file)), Contents::of('{}'));
         restore_error_handler();
         chmod(sprintf('%s/locked', $root), 0o700);
 
-        expect($written)->toEqual(CannotJudge::because(sprintf('%s/locked/unwritable-plan.json could not be written.', $root)))
-            ->and($beside())->toBe($before)
+        expect($written)->toEqual(CannotJudge::because(sprintf('%s/locked/%s could not be written.', $root, $file)))
+            ->and(glob(sprintf('%s/.%s.*', sys_get_temp_dir(), $file)))->toBe([])
             ->and(scandir(sprintf('%s/locked', $root)))->toBe(['.', '..']);
     });
 
