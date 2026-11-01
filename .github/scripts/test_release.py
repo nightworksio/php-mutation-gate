@@ -97,6 +97,34 @@ class Line(unittest.TestCase):
         with self.assertRaises(release.Refused):
             release.with_line("A = 1\n", "0.2")
 
+    def test_moves_the_published_address_of_the_config_schema(self):
+        address = "https://raw.githubusercontent.com/nightworksio/php-mutation-gate/v0.1/resources/mutation-gate.schema.json"
+        self.assertEqual(
+            release.with_published_line(f"x = '{address}';", "0.2", "Definition.php"),
+            f"x = '{address.replace('/v0.1/', '/v0.2/')}';",
+        )
+        self.assertEqual(
+            release.with_published_line(f'"$id": "{address}"', "1", "schema.json"),
+            f'"$id": "{address.replace('/v0.1/', '/v1/')}"',
+        )
+        with self.assertRaises(release.Refused):
+            release.with_published_line("no address", "0.2", "Definition.php")
+        with self.assertRaises(release.Refused):
+            release.with_published_line(f"{address} {address}", "0.2", "Definition.php")
+
+    def test_moves_what_each_plugin_requires_of_the_package(self):
+        manifest = '{"require": {"php": "^8.4", "nightworksio/mutation-gate": "^0.1", "nikic/php-parser": "^5.9"}}'
+        self.assertEqual(
+            release.with_plugin_line(manifest, "0.2", "composer.json"),
+            manifest.replace('"^0.1"', '"^0.2"'),
+        )
+        self.assertEqual(
+            release.with_plugin_line(manifest, "1", "composer.json"),
+            manifest.replace('"^0.1"', '"^1"'),
+        )
+        with self.assertRaises(release.Refused):
+            release.with_plugin_line('{"require": {}}', "0.2", "composer.json")
+
 
 if __name__ == "__main__":
     unittest.main()

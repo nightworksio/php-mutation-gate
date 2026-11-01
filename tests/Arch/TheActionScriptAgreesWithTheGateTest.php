@@ -98,14 +98,21 @@ it('names the package as Composer does', function (): void {
     expect(scriptText('GATE'))->toBe(ThisPackage::COMPOSER);
 });
 
-it('publishes the config schema under its release line\'s tag, which the default set requires', function (): void {
+it('publishes the config schema under its release line\'s tag, which every first-party plugin requires', function (string $plugin): void {
     $line = scriptText('LINE');
-    $manifest = (string) file_get_contents(Tree::at('plugins/default/composer.json'));
+    $manifest = (string) file_get_contents(Tree::at(sprintf('plugins/%s/composer.json', $plugin)));
 
     expect($line)->not->toBe('')
         ->and(Decoded::at(Definition::schema(), '$id'))->toContain(sprintf('/php-mutation-gate/v%s/', $line))
         ->and(Decoded::at($manifest, 'require', ThisPackage::COMPOSER))->toBe(sprintf('^%s', $line));
-});
+})->with(['default', 'laravel', 'security', 'symfony']);
+
+it('publishes each JSON Schema of the gate at its release line\'s tag, under its own name', function (string $name): void {
+    $schema = (string) file_get_contents(Tree::at(sprintf('resources/%s.schema.json', $name)));
+
+    expect(ThisPackage::SCHEMA)->toContain(sprintf('/php-mutation-gate/v%s/', scriptText('LINE')))
+        ->and(Decoded::at($schema, '$id'))->toBe(sprintf(ThisPackage::SCHEMA, $name));
+})->with(['mutation-gate', 'report', 'tests', 'doctor', 'webhook', 'explain', 'summary']);
 
 it('trusts the events the GitHub plan trusts to write a branch\'s ledger', function (): void {
     expect(scriptSet('TRUSTED'))->toBe(sortedCopy(array_map(static fn(TrustedEvent $event): string => $event->value, TrustedEvent::cases())));

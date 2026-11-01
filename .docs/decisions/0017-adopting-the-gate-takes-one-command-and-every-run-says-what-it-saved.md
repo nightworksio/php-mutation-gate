@@ -14,7 +14,8 @@ The path a new user walks, read at source:
 - **Install.** `composer.json` declares `conflict: pestphp/pest-plugin-mutate
   <5.0.2 || >5.0.2` (ADR-0004). A project on any other
   pest-plugin-mutate release cannot install, and Composer's message names
-  only the conflict.
+  only the conflict. ADR-0041 amends this: the conflict is
+  `<5.0.2 || >=6.0`.
 - **The first run with no config.** Runner, preset and trees come from
   zero-config (ADR-0002).
   - Laravel's default `phpunit.xml` has `<source><include>app`.
@@ -185,7 +186,9 @@ would have cost without them.
 
 8. **The runner pin stays exact, and a daily job keeps it current.**
    - The `conflict` on untested runner releases stays (ADR-0004,
-     ADR-0011).
+     ADR-0011). ADR-0041 amends this: pest-plugin-mutate is allowed to
+     below its next major, `doctor` advises on a release newer than the
+     newest it is tested with, and the canary names both bounds to raise.
    - A daily scheduled job, the runner canary, runs the Runner contract
      suite against the newest releases of `pestphp/pest-plugin-mutate` and
      `infection/infection`, each freed from the package's pin. It fails,
@@ -287,6 +290,10 @@ would have cost without them.
     | An `infection.json5` with `minMsi` or native ignores | advice: `init --from` (ADR-0016) |
     | Infection as the runner, its installed Infection without `infection:patch` (ADR-0004) | advice |
     | `runner.memory` at `-1`, a PHPUnit config whose `memory_limit` lifts the cap, or, under `--measure`, a suite that held over half the cap (ADR-0004) | advice |
+
+    ADR-0041 amends this table: a chosen runner at releases its adapter
+    refuses is *will fail*, and a pest-plugin-mutate newer than the newest
+    the gate is tested with, under the Pest runner, is *advice*.
 
     The size threshold is the limit ADR-0013 sets, twice what a
     ledger at the retention cap measures, so a ledger past it is one no run

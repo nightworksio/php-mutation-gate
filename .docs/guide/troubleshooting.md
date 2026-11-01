@@ -42,6 +42,30 @@ runner from what is installed, so with both it cannot.
 
 Set `runner: pest` or `runner: infection` in the config, or pass `--runner`.
 
+## runner-unsupported
+
+The chosen runner is installed at releases the gate does not drive: PHPUnit
+below 13.2 for the PHPUnit runner, for example, which selects each mutant's
+tests with `--test-id-filter-file`. Every run reads the releases Composer
+installed before it starts, and refuses these.
+
+Require the releases the [requirements](https://github.com/nightworksio/php-mutation-gate#requirements)
+list for the runner. On PHPUnit 12, require `infection/infection` and mutate
+through Infection, or require `phpunit/phpunit` 13.2 or later.
+
+## pest-mutate-untested
+
+`pestphp/pest-plugin-mutate` is installed at a release newer than any the gate
+is tested with. The Pest runner reads how the plugin runs each mutant, and
+`pest:patch` changes it in place, so a release it is not tested with can run
+its mutants otherwise, and `pest:patch` refuses one whose code it does not
+find. The runner canary runs the Runner contracts against the newest release
+every day, and a release that passes them is counted as tested from the next
+release of the gate.
+
+Require the release `doctor` names, or run `doctor` again once a release of
+the gate tests the one installed.
+
 ## no-tree
 
 The tree source finds no tree to mutate. A tree is what the gate mutates and

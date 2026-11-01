@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Report;
 
 use NightWorksIO\MutationGate\Core\Format\JsonText;
+use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 
 use function sprintf;
@@ -30,7 +31,7 @@ final readonly class SummarySchema
 
         return JsonText::encode([
             '$schema' => ReportSchema::DRAFT,
-            '$id' => sprintf(ReportSchema::ID, 'summary'),
+            '$id' => sprintf(ThisPackage::SCHEMA, 'summary'),
             'title' => 'mutation-gate summary',
             'description' => 'What an organisation\'s dashboard reads of a repository\'s latest verdict (ADR-0024).',
             'type' => 'object',

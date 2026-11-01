@@ -6,7 +6,7 @@ import runner_pins
 
 MANIFEST = {
     "require-dev": {"infection/infection": "~0.35.0"},
-    "conflict": {"pestphp/pest-plugin-mutate": "<5.0.2 || >5.0.2", "pestphp/pest": "<5.1"},
+    "conflict": {"pestphp/pest-plugin-mutate": "<5.0.2 || >=6.0", "pestphp/pest": "<5.1"},
 }
 
 
@@ -60,11 +60,11 @@ class Satisfies(unittest.TestCase):
 
 
 class Behind(unittest.TestCase):
-    def test_a_conflict_refuses_the_release_it_meets_and_names_its_upper_bound_raised(self):
-        found = runner_pins.behind({"pestphp/pest-plugin-mutate": "5.0.3"}, MANIFEST)
+    def test_a_conflict_refuses_the_release_it_meets_and_names_its_major_raised_past_it(self):
+        found = runner_pins.behind({"pestphp/pest-plugin-mutate": "v6.1.0"}, MANIFEST)
 
         self.assertEqual([item["rule"] for item in found], ["refuses-a-passing-release"])
-        self.assertIn('Write "pestphp/pest-plugin-mutate": "<5.0.2 || >5.0.3" in the conflict of composer.json', found[0]["detail"])
+        self.assertIn('Write "pestphp/pest-plugin-mutate": "<5.0.2 || >=7.0" in the conflict of composer.json', found[0]["detail"])
         self.assertIn("tests/Contract/Runner/fixture/composer.json", found[0]["detail"])
 
     def test_a_requirement_refuses_the_release_it_does_not_meet_and_names_it_widened_by_its_minor(self):
@@ -74,13 +74,35 @@ class Behind(unittest.TestCase):
         self.assertIn("infection-fixture/phpunit-12/composer.json", found[0]["detail"])
 
     def test_nothing_where_composer_json_takes_every_release_or_lists_none(self):
-        self.assertEqual(runner_pins.behind({"pestphp/pest-plugin-mutate": "5.0.2", "infection/infection": "0.35.6", "pestphp/pest": "5.0.0"}, MANIFEST), [])
+        self.assertEqual(runner_pins.behind({"pestphp/pest-plugin-mutate": "5.9.0", "infection/infection": "0.35.6", "pestphp/pest": "5.0.0"}, MANIFEST), [])
         self.assertEqual(runner_pins.behind({"pestphp/pest-plugin-mutate": "5.0.3"}, {}), [])
 
     def test_a_conflict_it_cannot_raise_says_what_to_change(self):
         found = runner_pins.behind({"pestphp/pest-plugin-mutate": "5.1.0"}, {"conflict": {"pestphp/pest-plugin-mutate": ">=5.1"}})
 
         self.assertIn("so it takes 5.1.0", found[0]["detail"])
+
+
+class Untested(unittest.TestCase):
+    NEWEST = {"pestphp/pest-plugin-mutate": "5.0.2"}
+
+    def test_a_release_newer_than_the_newest_tested_names_the_constant_to_raise(self):
+        found = runner_pins.untested({"pestphp/pest-plugin-mutate": "v5.0.3"}, self.NEWEST)
+
+        self.assertEqual([item["rule"] for item in found], ["untested-passing-release"])
+        self.assertIn("Write NEWEST = '5.0.3' in src/Core/Doctor/Check/PestMutateUntested.php.", found[0]["detail"])
+
+    def test_nothing_for_the_newest_tested_release_an_older_one_or_none_installed(self):
+        self.assertEqual(runner_pins.untested({"pestphp/pest-plugin-mutate": "5.0.2"}, self.NEWEST), [])
+        self.assertEqual(runner_pins.untested({"pestphp/pest-plugin-mutate": "5.0.1"}, self.NEWEST), [])
+        self.assertEqual(runner_pins.untested({"infection/infection": "0.36.0"}, self.NEWEST), [])
+
+    def test_the_newest_tested_release_is_read_from_the_constant_doctor_reads(self):
+        declared = "    public const string NEWEST = '5.0.2';\n"
+
+        self.assertEqual(runner_pins.tested(lambda file: declared), self.NEWEST)
+        with self.assertRaises(ValueError):
+            runner_pins.tested(lambda file: "")
 
 
 class Releases(unittest.TestCase):

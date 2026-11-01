@@ -1,5 +1,7 @@
 {
     "packages": [
-        { "name": "infection/infection" }
+        { "name": "infection/infection", "version": "0.35.8" },
+        { "name": "phpunit/phpunit", "version": "13.4.5" },
+        { "name": "phpunit/php-code-coverage", "version": "14.5.0" }
     ]
 }

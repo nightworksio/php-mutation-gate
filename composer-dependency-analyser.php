@@ -82,7 +82,7 @@ return new Configuration()
     )
     // The Pest adapter and its plugin run only in a project that runs Pest,
     // which installs these; composer.json suggests Pest, and its `conflict`
-    // holds pest-plugin-mutate to the release the runner contract suite passes.
+    // holds pest-plugin-mutate from 5.0.2 to below 6.0.
     ->ignoreErrorsOnPackages(
         ['pestphp/pest', 'pestphp/pest-plugin-mutate', 'phpunit/php-code-coverage', 'phpunit/phpunit'],
         [ErrorType::DEV_DEPENDENCY_IN_PROD],

@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
-"""A runner release the canary saw pass that composer.json does not take yet.
+"""A runner release the canary saw pass that the package refuses, or does not count as tested.
 
 Usage: runner_pins.py <installed.json> [<installed.json> ...] [--findings <file>]
 
 Run by the runner canary once the Runner contract suite has passed against
-the newest releases (ADR-0017). Each pinned runner package is held
+the newest releases (ADR-0017, ADR-0041). Each pinned runner package is held
 by one line of composer.json: pest-plugin-mutate by its `conflict`, Infection
 by its `require-dev`. For each one a fixture installed, it fails where that
-line refuses the release that passed, naming the line to write, so each
-release is taken by a pull request within a day. With --findings, what it
-found is also written there as the job's evidence (ADR-0019).
+line refuses the release that passed, naming the line to write. It also fails
+where the release that passed is newer than the newest pest-plugin-mutate
+release doctor counts as tested, naming the constant to raise. So each release
+is taken by a pull request within a day. With --findings, what it found is
+also written there as the job's evidence (ADR-0019).
 
-Two halves: `satisfies`, `refused` and `line_to_write` decide from text, and
-`main` reads the files.
+Two halves: `satisfies`, `refused`, `line_to_write`, `behind` and `untested`
+decide from text, and `main` reads the files.
 """
 import json
 import re
@@ -35,8 +37,15 @@ PINS = {
 # One comparison of a constraint: an operator, then a version.
 TERM = re.compile(r"\A(<=|>=|<|>|!=|==|=|~|\^)?v?(\d+(?:\.\d+)*)(\.\*)?\Z")
 
-# The upper bound a conflict that pins a release ends with: "<5.0.2 || >5.0.2".
-UPPER = re.compile(r"\A(?P<rest>.*\|\|\s*)>v?\d+(?:\.\d+)*\Z")
+# The major a conflict refuses from, which it ends with: "<5.0.2 || >=6.0".
+UPPER = re.compile(r"\A(?P<rest>.*\|\|\s*)>=v?\d+(?:\.\d+)*\Z")
+
+# Each runner package whose newest tested release doctor reads, by the file
+# that holds it as the constant NEWEST.
+TESTED = {"pestphp/pest-plugin-mutate": "src/Core/Doctor/Check/PestMutateUntested.php"}
+
+# The newest tested release, as the file declares it.
+NEWEST = re.compile(r"const string NEWEST = '(?P<release>[^']+)';")
 
 
 def version(text: str) -> tuple[int, ...]:
@@ -92,10 +101,10 @@ def refused(key: str, release: str, constraint: str) -> bool:
 
 
 def line_to_write(key: str, release: str, constraint: str) -> str:
-    """The constraint that takes the release too: a pinning conflict's upper bound raised to it, or a requirement widened by its minor."""
+    """The constraint that takes the release too: a conflict's major raised past it, or a requirement widened by its minor."""
     if key == "conflict":
         bound = UPPER.match(constraint)
-        return f"{bound.group('rest')}>{release}" if bound else ""
+        return f"{bound.group('rest')}>={version(release)[0] + 1}.0" if bound else ""
     major, minor = version(release)[:2]
     return f"{constraint} || ~{major}.{minor}.0"
 
@@ -118,6 +127,33 @@ def behind(installed: dict[str, str], manifest: dict) -> list[dict]:
     return found
 
 
+def untested(installed: dict[str, str], newest: dict[str, str]) -> list[dict]:
+    """Each package whose installed release is newer than the newest one doctor counts as tested, as evidence."""
+    found = []
+    for package, file in TESTED.items():
+        release = installed.get(package)
+        known = newest.get(package)
+        if release is None or known is None or version(release) <= version(known):
+            continue
+        detail = (
+            f"{package} {release} passes the Runner contracts, and doctor counts {known} as the newest release tested. "
+            f"Write NEWEST = '{release.lstrip('v')}' in {file}."
+        )
+        found.append({"path": file, "line": 0, "rule": "untested-passing-release", "detail": detail})
+    return found
+
+
+def tested(read) -> dict[str, str]:
+    """The newest tested release of each package in TESTED, read through `read` from the file that declares it."""
+    found = {}
+    for package, file in TESTED.items():
+        declared = NEWEST.search(read(file))
+        if declared is None:
+            raise ValueError(f"{file} declares no NEWEST")
+        found[package] = declared.group("release")
+    return found
+
+
 def releases(text: str) -> dict[str, str]:
     """Each package Composer's installed.json lists, by its name, at its release."""
     listed = json.loads(text)
@@ -135,14 +171,16 @@ def main(argv: list[str]) -> int:
     installed = {}
     for file in arguments:
         installed.update(releases(Path(file).read_text(encoding="utf-8")))
-    found = behind(installed, json.loads(Path("composer.json").read_text(encoding="utf-8")))
+    found = behind(installed, json.loads(Path("composer.json").read_text(encoding="utf-8"))) + untested(
+        installed, tested(lambda file: Path(file).read_text(encoding="utf-8"))
+    )
     if findings_file:
         Path(findings_file).parent.mkdir(parents=True, exist_ok=True)
         Path(findings_file).write_text(json.dumps(found), encoding="utf-8")
     for item in found:
         print(f"::error::{item['detail']}")
     if not found:
-        print("runner pins: composer.json takes every pinned release that passed")
+        print("runner pins: the package takes, and counts as tested, every pinned release that passed")
     return 1 if found else 0
 
 

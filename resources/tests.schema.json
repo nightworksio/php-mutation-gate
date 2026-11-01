@@ -1,6 +1,6 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
-    "$id": "https://github.com/nightworksio/php-mutation-gate/blob/main/resources/tests.schema.json",
+    "$id": "https://raw.githubusercontent.com/nightworksio/php-mutation-gate/v0.1/resources/tests.schema.json",
     "title": "mutation-gate tests report",
     "description": "The tests mutation says catch nothing, and those that can go without losing a kill (ADR-0014).",
     "type": "object",

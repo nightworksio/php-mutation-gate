@@ -15,6 +15,8 @@ enum Slug: string
     case XdebugSlowsTests = 'xdebug-slows-tests';
     case OpcacheOnTheCommandLine = 'opcache-on-the-command-line';
     case TwoRunners = 'two-runners';
+    case RunnerUnsupported = 'runner-unsupported';
+    case PestMutateUntested = 'pest-mutate-untested';
     case NoTree = 'no-tree';
     case ConfigRefused = 'config-refused';
     case PhpNotRead = 'php-not-read';

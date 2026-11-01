@@ -1,6 +1,6 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
-    "$id": "https://github.com/nightworksio/php-mutation-gate/blob/main/resources/report.schema.json",
+    "$id": "https://raw.githubusercontent.com/nightworksio/php-mutation-gate/v0.1/resources/report.schema.json",
     "title": "mutation-gate report",
     "description": "Everything a mutation-gate verdict decided (ADR-0009).",
     "type": "object",

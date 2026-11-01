@@ -1,14 +1,20 @@
 {
     "name": "nightworksio/mutation-gate",
-    "description": "Mutation testing as a CI gate: floors per tree that only rise, sharded runs, proofs that skip what is already proved, for Pest and Infection.",
+    "description": "Mutation testing as a CI gate for PHP: floors per tree that only rise, sharded runs, and proofs that skip what is already proved, for Pest, Infection, PHPUnit, PhpSpec and Codeception.",
     "license": "MIT",
     "type": "library",
     "keywords": [
         "mutation testing",
+        "mutation-testing",
         "pest",
         "infection",
+        "phpunit",
+        "phpspec",
+        "codeception",
         "ci",
-        "quality gate"
+        "github-actions",
+        "quality gate",
+        "code quality"
     ],
     "authors": [
         {
@@ -23,7 +29,8 @@
     "homepage": "https://github.com/nightworksio/php-mutation-gate",
     "support": {
         "issues": "https://github.com/nightworksio/php-mutation-gate/issues",
-        "source": "https://github.com/nightworksio/php-mutation-gate"
+        "source": "https://github.com/nightworksio/php-mutation-gate",
+        "security": "https://github.com/nightworksio/php-mutation-gate/security/policy"
     },
     "require": {
         "php": "^8.5",
@@ -82,7 +89,7 @@
     },
     "conflict": {
         "pestphp/pest": "<5.1",
-        "pestphp/pest-plugin-mutate": "<5.0.2 || >5.0.2",
+        "pestphp/pest-plugin-mutate": "<5.0.2 || >=6.0",
         "phpunit/phpunit": "<12.5.8 || >=12.5.21 <12.5.22 || >=13.1.5 <13.1.6",
         "symfony/yaml": "<7.4.12 || >=8.0 <8.0.12"
     },

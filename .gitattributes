@@ -8,6 +8,10 @@
 /.docs export-ignore
 /.site export-ignore
 /bench export-ignore
+/box.json.dist export-ignore
+/cliff.toml export-ignore
+/.dockerignore export-ignore
+/Dockerfile export-ignore
 /.editorconfig export-ignore
 /.gitattributes export-ignore
 /.githooks export-ignore
@@ -21,12 +25,15 @@
 /composer-dependency-analyser.php export-ignore
 /composer.lock export-ignore
 /lychee.toml export-ignore
+/mutation-gate.baseline.json export-ignore
+/mutation-gate.json export-ignore
 /phpstan export-ignore
 /phpstan.neon export-ignore
 /phpunit.xml export-ignore
 /plugins/*/tests export-ignore
 /pint.json export-ignore
 /rector.php export-ignore
+/scoper.inc.php export-ignore
 /scripts export-ignore
 /sonar-project.properties export-ignore
 /src/.gitkeep export-ignore

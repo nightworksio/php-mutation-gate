@@ -22,6 +22,10 @@ final readonly class ThisPackage
     /** Its documentation site, whose root holds `main`'s pages while no version is tagged (ADR-0038). */
     public const string SITE = 'https://nightworksio.github.io/php-mutation-gate';
 
+    /** Where each of its JSON Schemas is published, by its name, at the tag of its release line. */
+    public const string SCHEMA
+        = 'https://raw.githubusercontent.com/nightworksio/php-mutation-gate/v0.1/resources/%s.schema.json';
+
     /** Where its scripts are, in its own directory: two up from this file. */
     private const string SCRIPT = '%s/bin/%s';
 

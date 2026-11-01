@@ -37,7 +37,7 @@ GitHub; [SECURITY.md](SECURITY.md#verifying-a-release) says how to check both.
 
 - PHP 8.5 or a later 8.x, with pcov or Xdebug for coverage.
 - One of the runners:
-  - **Pest**: `pestphp/pest` ^5.1 with `pestphp/pest-plugin-mutate` ^5.0, on
+  - **Pest**: `pestphp/pest` ^5.1 with `pestphp/pest-plugin-mutate` ^5.0.2, on
     the PHPUnit 13 release Pest pins;
   - **Infection**: `infection/infection` ~0.35.0, with PHPUnit 12 or 13;
   - **PHPUnit** on its own: `phpunit/phpunit` 13.2 or later;
@@ -66,10 +66,13 @@ composer config repositories.mutation-gate vcs https://github.com/nightworksio/p
 composer require --dev "nightworksio/mutation-gate:dev-main" -W
 ```
 
-`-W` lets Composer move `pestphp/pest-plugin-mutate` to the release the gate
-has tested, which it pins exactly. `composer.lock` holds the commit it
-installed, and `composer update nightworksio/mutation-gate` moves it to the
-head of `main`.
+`-W` lets Composer move `pestphp/pest-plugin-mutate` up to 5.0.2, the least
+release the gate allows. `composer.lock` holds the commit it installed, and
+`composer update nightworksio/mutation-gate` moves it to the head of `main`.
+A run refuses releases its runner does not drive before it starts, and
+`vendor/bin/mutation-gate doctor` says so first, with what to require. It also
+advises where `pestphp/pest-plugin-mutate` is newer than any release the gate
+is tested with.
 
 Set the project up, then run the gate:
 

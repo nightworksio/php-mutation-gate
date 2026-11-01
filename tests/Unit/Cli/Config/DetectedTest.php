@@ -126,6 +126,27 @@ it('cannot judge without a runner installed', function () use ($detected): void 
     ));
 });
 
+it('steers a project on a PHPUnit the PHPUnit runner does not drive to Infection, or to a newer PHPUnit', function (string $version, BuiltinRunner|CannotJudge $runner): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'vendor/composer/installed.json', (string) json_encode(['packages' => [
+        ['name' => 'phpunit/phpunit', 'version' => $version],
+        ['name' => 'phpunit/php-code-coverage', 'version' => '14.3.0'],
+    ]]));
+
+    expect(new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project)))->runner())->toEqual($runner);
+})->with([
+    'PHPUnit 12' => ['12.5.42', fn(): CannotJudge => CannotJudge::because(
+        'PHPUnit 12.5.42 is installed, and the PHPUnit runner needs 13.2.0 or later. '
+        . 'Require infection/infection to mutate through Infection with this PHPUnit, or require phpunit/phpunit 13.2.0 or later.',
+    )],
+    'PHPUnit 13.1' => ['13.1.9', fn(): CannotJudge => CannotJudge::because(
+        'PHPUnit 13.1.9 is installed, and the PHPUnit runner needs 13.2.0 or later. '
+        . 'Require infection/infection to mutate through Infection with this PHPUnit, or require phpunit/phpunit 13.2.0 or later.',
+    )],
+    'PHPUnit 13.2' => ['13.2.0', BuiltinRunner::PhpUnit],
+    'a branch' => ['dev-main', BuiltinRunner::PhpUnit],
+]);
+
 it('cannot judge a Pest suite without Pest\'s mutation plugin, which PHPUnit cannot run', function () use ($detected): void {
     expect($detected('', ['pestphp/pest', 'phpunit/phpunit'])->runner())->toEqual(CannotJudge::because(
         'pestphp/pest is installed without pestphp/pest-plugin-mutate, so nothing can mutate its tests. '

@@ -171,6 +171,8 @@ its parser attributes. Both change when the checkout moves.
    ^5.0, and the PHPUnit 13 release Pest pins), as [the Pest adapter](0004-pest-and-infection-behind-one-runner-port/pest-adapter.md)
    sets it out: how it is invoked, where Pest's filter and the wrapper fall
    short, its plugin, statuses, coverage, its patches, and timeouts.
+   ADR-0041 amends this: pest-plugin-mutate is allowed from 5.0.2 to below
+   6.0.
 
 4. **The Infection adapter** (`infection/infection` ~0.35.0, with PHPUnit 12
    or 13), as [the Infection adapter](0004-pest-and-infection-behind-one-runner-port/infection-adapter.md)
@@ -611,7 +613,9 @@ the proofs, the reports and the hints all read the same normalised records.
 
 **The Pest adapter depends on an undocumented API and `@internal` plugin
 contracts.** Each pest-plugin-mutate release has to pass the contract suite
-before its `conflict` entry is relaxed. A Pest release that moves them fails
+before its `conflict` entry is relaxed. ADR-0041 amends this: the `conflict`
+refuses only below 5.0.2 and from the next major, and each release that
+passes is counted as tested by `doctor`. A Pest release that moves them fails
 the contract suite, not a user's gate.
 
 **Sharded Pest runs are fastest with the patch.** Without it each shard pays

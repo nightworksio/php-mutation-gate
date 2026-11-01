@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Doctor\Check\MirroredRepository;
 use NightWorksIO\MutationGate\Core\Doctor\Check\NativeMarkers;
 use NightWorksIO\MutationGate\Core\Doctor\Check\OnlineRead;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Opcache;
+use NightWorksIO\MutationGate\Core\Doctor\Check\PestMutateUntested;
 use NightWorksIO\MutationGate\Core\Doctor\Check\PestUnpatched;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Php;
 use NightWorksIO\MutationGate\Core\Doctor\Check\PublicContainer;
@@ -29,6 +30,7 @@ use NightWorksIO\MutationGate\Core\Doctor\Check\SonarDrops;
 use NightWorksIO\MutationGate\Core\Doctor\Check\SuitesElsewhere;
 use NightWorksIO\MutationGate\Core\Doctor\Check\TreeFloors;
 use NightWorksIO\MutationGate\Core\Doctor\Check\TreesFound;
+use NightWorksIO\MutationGate\Core\Doctor\Check\UnsupportedRunner;
 use NightWorksIO\MutationGate\Core\Doctor\Check\VerdictRequired;
 use NightWorksIO\MutationGate\Core\Doctor\Check\WarmBoot;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Workspace;
@@ -49,6 +51,8 @@ final readonly class Diagnosis
             Opcache::in($observed),
             Memory::in($observed),
             Runners::in($observed),
+            UnsupportedRunner::in($observed),
+            PestMutateUntested::in($observed),
             Config::in($observed),
             TreesFound::in($observed),
             TreeFloors::in($observed),

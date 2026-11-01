@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\Config\DeclaredTrees;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
+use NightWorksIO\MutationGate\Cli\Config\RunnerReleases;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Composer\Package;
@@ -64,13 +65,39 @@ final readonly class Observed
             ->withPhp($this->phpOf($settings))
             ->withFiles(Files::in($this->project)->of($settings));
         $installed = $this->detected->installed();
-        $observed = $installed instanceof Installed ? $observed->withRunners(InstalledRunners::of(
+        $observed = $installed instanceof Installed
+            ? $observed->withRunners($this->runnersIn($installed, $settings, $given))
+            : $observed;
+
+        return $settings instanceof Settings ? $this->withTrees($observed, $settings) : $observed;
+    }
+
+    /**
+     * The runners Composer installed, the releases the chosen one drives or why
+     * it drives none of them, and the pest-plugin-mutate release installed.
+     */
+    private function runnersIn(
+        Installed $installed,
+        Settings|Invalid|CannotJudge $settings,
+        CommandLine $given,
+    ): InstalledRunners {
+        $runners = InstalledRunners::of(
             pest: $installed->has(Package::PestMutate->value),
             infection: $installed->has(Package::Infection->value),
             chosen: $this->effective->choosesRunner($given),
-        )) : $observed;
+        );
+        $chosen = $settings instanceof Settings
+            ? BuiltinRunner::tryFrom($settings->runner()->choice()->use()->value())
+            : NotGiven::value();
+        $runners = $chosen instanceof BuiltinRunner
+            ? $runners->releasing(RunnerReleases::of($chosen, $this->detected->installedFile()))
+            : $runners;
 
-        return $settings instanceof Settings ? $this->withTrees($observed, $settings) : $observed;
+        foreach ($installed->versionsOf(Package::PestMutate->value) as $pestMutate) {
+            $runners = $runners->withPestMutate($pestMutate);
+        }
+
+        return $runners;
     }
 
     /**

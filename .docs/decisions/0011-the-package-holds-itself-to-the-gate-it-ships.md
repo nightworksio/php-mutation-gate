@@ -380,6 +380,10 @@ about Laravel, NativePHP or the project's modules, and does not.
     | `symfony/console`, `symfony/process`, `symfony/http-client`, `psr/clock` | ^7.4 \|\| ^8.0 for Symfony, ^1.0 for `psr/clock` | lowest and highest |
     | Optional: `symfony/yaml`, `nette/neon`, `async-aws/s3` | ^7.4 \|\| ^8.0, ^3.4 and ^3 | lowest and highest |
 
+    ADR-0041 amends this table: pest-plugin-mutate is allowed from 5.0.2 to
+    below 6.0, and `doctor` advises on a release newer than the newest the
+    contract suite has passed.
+
     A runner release outside these ranges is added in a minor release, once
     its contract suite passes. Infection is 0.x, so each of its minor
     releases is treated as a potential break.
