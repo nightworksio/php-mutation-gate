@@ -116,15 +116,30 @@ it('waits on every child of a wave, though one that started after it ends first'
         ->toBe(['slow' => true, 'fast' => true]);
 });
 
-it('loads opcache in its child, which PHP before 8.5 builds as a shared extension that `-n` leaves out', function (): void {
-    $arguments = sprintf('%s/arguments', Scratch::directory());
+it('starts its child with opcache loaded, as PHP before 8.5 builds it shared, and its optimized opcodes dumped', function (): void {
+    $argv = sprintf('%s/argv', Scratch::directory());
     $child = sprintf('%s/recording-php', Scratch::directory());
-    $recording = "#!%s\n<?php\nfile_put_contents(%s, implode(\"\\n\", \$argv));\n";
-    file_put_contents($child, sprintf($recording, PHP_BINARY, var_export($arguments, return: true)));
+    file_put_contents($child, sprintf(
+        "#!%s\n<?php\nfile_put_contents(%s, implode(\"\\n\", array_slice(\$argv, 1)));\necho '1';\n",
+        PHP_BINARY,
+        var_export($argv, return: true),
+    ));
     chmod($child, 0o755);
 
-    $compiler = new Compiler($child, sprintf('%s/equivalence', Scratch::directory()), 30.0, 1);
-    $compiler->compiled(['one' => Contents::of(CompilerChildren::PROGRAM)]);
+    new Compiler($child, sprintf('%s/equivalence', Scratch::directory()), 30.0, 1)
+        ->compiled(['one' => Contents::of(CompilerChildren::PROGRAM)]);
 
-    expect((string) file_get_contents($arguments))->toContain("\n-n\n-d\nzend_extension=opcache\n");
-});
+    expect(array_slice(explode("\n", (string) file_get_contents($argv)), 0, 11))->toBe([
+        '-n',
+        '-d',
+        'zend_extension=opcache',
+        '-d',
+        'opcache.enable_cli=1',
+        '-d',
+        'opcache.opt_debug_level=0x20000',
+        '-d',
+        'opcache.file_update_protection=0',
+        '-d',
+        'display_errors=0',
+    ]);
+})->group('holds:src/Adapter/Opcache/Compiler.php');
