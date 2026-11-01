@@ -2,6 +2,8 @@
 
 **Status:** Accepted
 **Date:** 2026-11-01
+**Amends:** [0022](0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md): its CODEOWNERS base
+**Amends:** [0040](0040-a-verdict-stands-only-on-what-it-can-stand-behind.md): its lowered-floor base
 
 ## Context
 
