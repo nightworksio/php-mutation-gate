@@ -18,7 +18,7 @@
 [![coverage](https://sonarcloud.io/api/project_badges/measure?project=nightworksio_php-mutation-gate&metric=coverage)](https://sonarcloud.io/summary/new_code?id=nightworksio_php-mutation-gate)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/nightworksio/php-mutation-gate/badge)](https://scorecard.dev/viewer/?uri=github.com/nightworksio/php-mutation-gate)
 
-[![PHP](https://img.shields.io/badge/PHP-%5E8.5-777BB4?logo=php&logoColor=white)](#requirements)
+[![PHP](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fnightworksio%2Fphp-mutation-gate%2Fmain%2Fcomposer.json&query=%24.require.php&label=PHP&color=777BB4&logo=php&logoColor=white)](#requirements)
 [![runners](https://img.shields.io/badge/runs-Pest%20%C2%B7%20Infection%20%C2%B7%20PHPUnit%20%C2%B7%20PhpSpec%20%C2%B7%20Codeception-4b5563)](#requirements)
 [![docs](https://img.shields.io/badge/docs-nightworksio.github.io-0f766e)](https://nightworksio.github.io/php-mutation-gate/guide/)
 [![discussions](https://img.shields.io/github/discussions/nightworksio/php-mutation-gate?label=Q%26A)](https://github.com/nightworksio/php-mutation-gate/discussions/categories/q-a)
