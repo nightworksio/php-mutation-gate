@@ -19,6 +19,8 @@ use NightWorksIO\MutationGate\Core\Test\TestMethod;
  * counted by both, read once for every mutant a filter is built for: the
  * tests a filter names exactly can then be named by a class, or a data set,
  * they hold whole (see Wholes). None where it names no test.
+ *
+ * @internal
  */
 final readonly class Suite
 {

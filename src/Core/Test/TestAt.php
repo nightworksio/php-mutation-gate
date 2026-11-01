@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Php\Source;
  * `<class>::<method>`, the class fully qualified by the file's namespace. A
  * line inside a closure is in the method around it; a line in no method, or
  * in a method of an anonymous class, is in none.
+ *
+ * @internal
  */
 final readonly class TestAt
 {

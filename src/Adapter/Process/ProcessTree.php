@@ -7,7 +7,11 @@ namespace NightWorksIO\MutationGate\Adapter\Process;
 use NightWorksIO\MutationGate\Core\Runner\ProcessTable;
 use Symfony\Component\Process\Process;
 
-/** A running process and every process under it, at any depth, as `ps` lists them. */
+/**
+ * A running process and every process under it, at any depth, as `ps` lists them.
+ *
+ * @internal
+ */
 final readonly class ProcessTree
 {
     private function __construct(private int $pid)

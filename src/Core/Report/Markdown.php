@@ -53,6 +53,8 @@ use function sprintf;
  * group of their files, and under `owners.mention: first` the comment's
  * headings hold the placeholders {@see OwnerMentions} resolves as the
  * comment is written (ADR-0022).
+ *
+ * @internal
  */
 final readonly class Markdown
 {

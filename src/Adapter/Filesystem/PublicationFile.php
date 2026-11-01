@@ -17,7 +17,11 @@ use NightWorksIO\MutationGate\Core\Ci\Delivery;
 use NightWorksIO\MutationGate\Core\Ci\Publication;
 use NightWorksIO\MutationGate\Core\Written;
 
-/** A CI plan's publication, put where it says: printed, written to its file, or appended to it. */
+/**
+ * A CI plan's publication, put where it says: printed, written to its file, or appended to it.
+ *
+ * @internal
+ */
 final readonly class PublicationFile
 {
     /** Where it went; or why it could not go there. */

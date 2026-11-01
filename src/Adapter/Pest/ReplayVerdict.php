@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * it stands only where the replay ran as many tests as the run did up to its
  * last killer, every one passed, the replay ended well, and it took them in
  * the same order. Anything else leaves the kill unjudged, saying which.
+ *
+ * @internal
  */
 enum ReplayVerdict
 {

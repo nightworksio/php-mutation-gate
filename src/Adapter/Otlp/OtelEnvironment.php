@@ -20,6 +20,8 @@ use function trim;
  * What OpenTelemetry's own variables say: where to export, with which
  * headers, and the resource's name and attributes. Each list is
  * `key=value,key=value`, its values percent-encoded (ADR-0016).
+ *
+ * @internal
  */
 final readonly class OtelEnvironment
 {

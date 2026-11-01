@@ -38,6 +38,8 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * a scope with no ledger yet. Any other answer, a request that fails or
  * outlasts the limits' seconds, a body past their bytes, or one that is no
  * ledger this gate reads, is unreadable, and says why.
+ *
+ * @internal
  */
 final readonly class PublicLedger implements ProofStore
 {

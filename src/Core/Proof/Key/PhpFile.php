@@ -32,6 +32,8 @@ use function trim;
  * does every word in a string, with a hyphenated word also read joined up.
  * Reading too much puts a file in a key it did not need, which costs a run;
  * reading too little would leave one out, which would cost a verdict.
+ *
+ * @internal
  */
 final readonly class PhpFile
 {

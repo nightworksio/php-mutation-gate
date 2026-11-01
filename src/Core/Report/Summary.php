@@ -22,6 +22,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
  * floor no floor, and a run with no history of what it saved no savings.
  * `resources/summary.schema.json` describes it, and it is public API.
  *
+ * @internal
+ *
  * @phpstan-type TreeSummary array{path: string, floor?: float, score?: float}
  * @phpstan-type Document array{
  *     format: int,

@@ -375,6 +375,16 @@ final readonly class Fixtures
 
                 class PlantedOpen {}
                 PHP, 'seals every class, and keeps every value readonly'),
+            Fixture::suite('D13', 'src/Core/PlantedUnmarked.php', <<<'PHP'
+                <?php
+
+                declare(strict_types=1);
+
+                namespace NightWorksIO\MutationGate\Core;
+
+                /** A value no public signature reaches. */
+                final readonly class PlantedUnmarked {}
+                PHP, 'marks every type outside the public API internal, and none on it'),
         ];
     }
 

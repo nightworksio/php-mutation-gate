@@ -18,6 +18,8 @@ use function sprintf;
  * Workflows of pull requests from forks that run without a maintainer's
  * approval (ADR-0017; ADR-0019): anything short of
  * approval for every outside contributor.
+ *
+ * @internal
  */
 final readonly class ForkApprovalPolicy
 {

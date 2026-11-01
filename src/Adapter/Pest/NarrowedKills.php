@@ -52,6 +52,8 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  * kill of a mutant Pest left uncovered is the trial's (ADR-0004),
  * which ran no own process of Pest's and first ran its tests alone on the
  * unmutated code, served as its mutant is, so it is never doubted.
+ *
+ * @internal
  */
 final readonly class NarrowedKills
 {

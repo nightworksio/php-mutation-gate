@@ -18,6 +18,8 @@ use function trim;
  * be JSON, by characters: each object's members by their keys, and where
  * every value starts and ends, so an edit can change one value and leave
  * each other character as it was.
+ *
+ * @internal
  */
 final readonly class JsonScanner
 {

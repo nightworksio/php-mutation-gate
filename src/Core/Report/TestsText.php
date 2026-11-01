@@ -25,6 +25,8 @@ use function sprintf;
  * The `tests` report as the console prints it: the same lists as its
  * Markdown, each test on one plain line under its section, indented, with
  * each test's name as its runner gave it (ADR-0014).
+ *
+ * @internal
  */
 final readonly class TestsText
 {

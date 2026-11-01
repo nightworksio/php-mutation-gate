@@ -19,6 +19,8 @@ use NightWorksIO\MutationGate\Port\Reporter;
  * per mutant counted as not killed, written to the `path` its entry names,
  * with how many issues it wrote under each directory at the root beside the
  * line that says where (ADR-0028).
+ *
+ * @internal
  */
 final readonly class SonarReportFile implements Reporter
 {

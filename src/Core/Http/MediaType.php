@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Http;
 
-/** The media types of the bodies the gate's requests send. */
+/**
+ * The media types of the bodies the gate's requests send.
+ *
+ * @internal
+ */
 enum MediaType: string
 {
     case Json = 'application/json';

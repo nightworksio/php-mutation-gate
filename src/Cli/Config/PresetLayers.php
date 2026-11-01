@@ -25,6 +25,8 @@ use function sprintf;
  * The layers of the presets a config names, in order (ADR-0002),
  * and a problem at the path it names each at for each that nothing registers
  * or whose layer does not read as a config.
+ *
+ * @internal
  */
 final readonly class PresetLayers
 {

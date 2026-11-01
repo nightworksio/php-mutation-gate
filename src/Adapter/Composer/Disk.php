@@ -32,7 +32,11 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use function scandir;
 use function sprintf;
 
-/** The directory a project lives in, read by paths as the repository spells them. */
+/**
+ * The directory a project lives in, read by paths as the repository spells them.
+ *
+ * @internal
+ */
 final readonly class Disk
 {
     private function __construct(private Root $root)

@@ -34,6 +34,8 @@ use function sprintf;
  * last run holds is explained as its verdict judged it; any other by its
  * newest record, judged as a verdict judges it. A cluster is found by the
  * last run alone, since its verdict is what clusters survivors.
+ *
+ * @internal
  */
 final readonly class Explaining
 {

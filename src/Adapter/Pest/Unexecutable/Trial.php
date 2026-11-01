@@ -64,6 +64,8 @@ use function sprintf;
  * failed or errored, or every one under a full kill matrix (see
  * JUnitFailures), and gives how its run ended where it names none
  * (ADR-0014).
+ *
+ * @internal
  */
 final class Trial
 {

@@ -6,7 +6,11 @@ namespace NightWorksIO\MutationGate\Core\Runner;
 
 use function preg_match;
 
-/** A path as an ini setting's value, which PHP reads as it is only where it holds no ini syntax. */
+/**
+ * A path as an ini setting's value, which PHP reads as it is only where it holds no ini syntax.
+ *
+ * @internal
+ */
 final readonly class IniPath
 {
     /**

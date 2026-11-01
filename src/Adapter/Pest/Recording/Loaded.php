@@ -8,7 +8,11 @@ use function in_array;
 use function is_string;
 use function realpath;
 
-/** The files a PHP process had loaded at one moment, each by its real path, as `get_included_files()` lists them. */
+/**
+ * The files a PHP process had loaded at one moment, each by its real path, as `get_included_files()` lists them.
+ *
+ * @internal
+ */
 final readonly class Loaded
 {
     /** @param list<string> $files */

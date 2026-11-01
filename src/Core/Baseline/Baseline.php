@@ -29,6 +29,8 @@ use Traversable;
  * (ADR-0021), each kept in byte order of those paths. It holds
  * floors and nothing else, so it changes only when a floor moves.
  *
+ * @internal
+ *
  * @implements IteratorAggregate<int, Entry>
  */
 final readonly class Baseline implements Countable, IteratorAggregate

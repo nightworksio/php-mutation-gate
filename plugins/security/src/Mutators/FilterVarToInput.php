@@ -21,7 +21,11 @@ use PhpParser\Node\Expr\FuncCall;
 
 use function str_starts_with;
 
-/** `filter_var($x, FILTER_VALIDATE_…)` becomes `$x`. */
+/**
+ * `filter_var($x, FILTER_VALIDATE_…)` becomes `$x`.
+ *
+ * @internal
+ */
 final readonly class FilterVarToInput implements Mutator
 {
     /** How the name of every filter that validates starts. */

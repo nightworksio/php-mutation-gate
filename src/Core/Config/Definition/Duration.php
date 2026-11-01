@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 /**
  * A duration written `90s`, `15m`, `1h30m` or `7d`.
  *
+ * @internal
+ *
  * @implements Shape<Seconds>
  */
 final readonly class Duration implements Shape

@@ -41,6 +41,8 @@ use function trim;
  * the file itself, with the files it names: its baseline, its autoloader, its
  * stubs, its file plugins and the configs it includes. Every path in it is
  * spelt from the config's own directory.
+ *
+ * @internal
  */
 final readonly class PsalmXml
 {

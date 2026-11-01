@@ -17,6 +17,8 @@ use PhpParser\Node;
  * (ADR-0021): it offers its mutator the nodes the mutator handles, yields
  * its one change, put in place as the testing kit says Infection does, and
  * describes it by its name and its hint.
+ *
+ * @internal
  */
 final readonly class Bridged
 {

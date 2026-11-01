@@ -55,6 +55,8 @@ use function sprintf;
  * substitute outside the paths it is configured with too, so a mutant of
  * such a file is left unchecked, and says so. The gate runs the binary
  * Composer's package downloaded, and never downloads it itself.
+ *
+ * @internal
  */
 final readonly class Mago implements StaticChecker
 {

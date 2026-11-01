@@ -48,6 +48,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  * program reads. `resources/report.schema.json` describes it, and it is
  * public API (ADR-0009).
  *
+ * @internal
+ *
  * @phpstan-import-type MutantEntry from MutantJson
  * @phpstan-import-type EstimateEntry from EstimateJson
  * @phpstan-import-type SampleEntry from EstimateJson
@@ -282,7 +284,7 @@ final readonly class JsonReport
             'tests' => $table->placesOf($failing->tests()),
             'mutants' => array_map(
                 static fn(JudgedMutant $judged): string => $judged->mutant()->id()->value(),
-                $failing->mutants(),
+                [...$failing],
             ),
         ];
     }

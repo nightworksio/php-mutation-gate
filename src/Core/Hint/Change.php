@@ -37,6 +37,8 @@ use function trim;
  * What a mutant's diff changed, read from its tokens: the lines it removed and
  * added, the tokens of the original that differ, and the expression around
  * them, as far as the nearest bracket, comma, statement or boolean operator.
+ *
+ * @internal
  */
 final readonly class Change
 {

@@ -37,6 +37,8 @@ use Symfony\Component\Process\Process;
  * nothing, and lets every other message go by. It is started once, and kept
  * running, warm, for the checks that follow. Its start, and each check, may
  * take as long as the gate allows one check.
+ *
+ * @internal
  */
 final class LanguageServer
 {

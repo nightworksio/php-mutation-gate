@@ -24,6 +24,8 @@ use function sprintf;
  * units, opening run and `shards.setup`, and what the estimate rests on,
  * learned from earlier shards, measured from the plan's first run, or
  * guessed from `costs.secondsPerLine`. A shard of no units is no job.
+ *
+ * @internal
  */
 final readonly class PlanEstimates
 {

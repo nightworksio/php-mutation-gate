@@ -7,7 +7,11 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Unexecutable;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Php\Source;
 
-/** A mutated file's original as its mutants are judged against it: printed as Pest prints it, and scanned. */
+/**
+ * A mutated file's original as its mutants are judged against it: printed as Pest prints it, and scanned.
+ *
+ * @internal
+ */
 final readonly class Original
 {
     private function __construct(private Contents $printed, private Source $source)

@@ -16,7 +16,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Stmt\For_;
 
-/** A `for` loop's condition becomes `false`. */
+/**
+ * A `for` loop's condition becomes `false`.
+ *
+ * @internal
+ */
 final readonly class ForAlwaysFalse implements Mutator
 {
     public function name(): MutatorName

@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\File\Path;
  * missing where a tree or security set with a score is held to no floor at
  * all; stale where a score rose above a floor, which the baseline rises to
  * once that is committed; current otherwise.
+ *
+ * @internal
  */
 enum BaselineState: string
 {

@@ -19,6 +19,8 @@ use function str_starts_with;
  * other line, among them an anchor, an alias, a tag, a merge key, a complex
  * key, a second document, a directive, a quote or a list left open, and a
  * value carried onto the next line, is unread.
+ *
+ * @internal
  */
 final readonly class DefinitionLine
 {

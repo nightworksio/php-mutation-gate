@@ -10,7 +10,11 @@ use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
 use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 
-/** One tree as a repository's `summary.json` says it: its path, its floor and its score (ADR-0024). */
+/**
+ * One tree as a repository's `summary.json` says it: its path, its floor and its score (ADR-0024).
+ *
+ * @internal
+ */
 final readonly class PublishedTree
 {
     private function __construct(

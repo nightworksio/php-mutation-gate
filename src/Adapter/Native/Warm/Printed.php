@@ -19,6 +19,8 @@ use function sprintf;
  * from where they stood when the child was forked to where they stood once it
  * ended. A worker runs one child at a time, and prints nothing itself while
  * one runs, so those bytes are the child's alone.
+ *
+ * @internal
  */
 final readonly class Printed
 {

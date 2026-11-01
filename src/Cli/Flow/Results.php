@@ -43,6 +43,8 @@ use function sprintf;
  * verdict fails whatever they come to. Nor can it judge a shard whose
  * runner skipped mutants it kept no record of: they are unjudged, and
  * belong to no unit.
+ *
+ * @internal
  */
 final readonly class Results
 {

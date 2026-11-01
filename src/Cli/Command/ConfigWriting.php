@@ -32,6 +32,8 @@ use function sprintf;
  * The config `init` writes: what zero-config found, with an Infection config
  * imported over it where one is named, in the destination's format, and
  * `.mutation-gate/` added to `.gitignore`.
+ *
+ * @internal
  */
 final readonly class ConfigWriting
 {

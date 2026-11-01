@@ -19,6 +19,8 @@ use function sprintf;
  * A run again for Infection, as survivor confirmation asks (ADR-0008): each
  * mutant runs again, narrowed to its file and mutator, and is matched back
  * by the gate's id.
+ *
+ * @internal
  */
 final readonly class Retrial
 {

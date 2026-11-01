@@ -15,7 +15,11 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 
 use function sprintf;
 
-/** The digest of each set of tests a coverage map names, as a key reads it, worked out once for every key. */
+/**
+ * The digest of each set of tests a coverage map names, as a key reads it, worked out once for every key.
+ *
+ * @internal
+ */
 final readonly class SetDigests
 {
     /** @param array<string, string> $digests each set's digest, by the name the map gives it */

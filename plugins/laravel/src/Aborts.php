@@ -10,7 +10,11 @@ use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\FuncCall;
 use PhpParser\Node\Scalar\Int_;
 
-/** The calls of `abort_if()` and `abort_unless()`, and among them those that refuse a request. */
+/**
+ * The calls of `abort_if()` and `abort_unless()`, and among them those that refuse a request.
+ *
+ * @internal
+ */
 final readonly class Aborts
 {
     /** The status codes that refuse a request: not signed in, and not allowed. */

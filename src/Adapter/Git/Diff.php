@@ -32,6 +32,8 @@ use function stripcslashes;
 /**
  * What git's diffs say: which paths changed and how, and which lines each
  * gained on its new side; and whether its listing of the index hides a change.
+ *
+ * @internal
  */
 final readonly class Diff
 {

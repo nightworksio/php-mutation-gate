@@ -8,7 +8,11 @@ use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 
-/** What a test may declare it holds: a tree, or a file or directory on disk inside one. */
+/**
+ * What a test may declare it holds: a tree, or a file or directory on disk inside one.
+ *
+ * @internal
+ */
 final readonly class Holdable
 {
     private function __construct(private Trees $trees, private Fingerprints $files)

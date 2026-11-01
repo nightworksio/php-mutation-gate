@@ -11,6 +11,8 @@ use NightWorksIO\MutationGate\Core\Report\Trend;
  * One repository as an organisation's dashboard lists it (ADR-0024): its
  * name, where it is, whether it is private, what its `summary.json` says or
  * why it says nothing, and its trend.
+ *
+ * @internal
  */
 final readonly class Listing
 {

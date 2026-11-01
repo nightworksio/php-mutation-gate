@@ -20,6 +20,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * running and writing nothing (ADR-0014). It exits 0 whatever
  * the report finds, since a test can have value mutation cannot see, and 2
  * where there is no last run, or it cannot be read.
+ *
+ * @internal
  */
 final readonly class TestsCommand
 {

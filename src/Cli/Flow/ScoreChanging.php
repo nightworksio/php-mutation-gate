@@ -39,6 +39,8 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
  * otherwise carries the newest result the ledgers hold for it, and is
  * counted as unjudged. The keys come from the coverage map the last local
  * run left, so where there is none, no score is shown.
+ *
+ * @internal
  */
 final readonly class ScoreChanging
 {

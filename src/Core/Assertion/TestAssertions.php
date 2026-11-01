@@ -29,6 +29,8 @@ use function stripslashes;
  * with the calls chained after it. A test inside a `describe()` is described
  * by it, so a bare description does not find it. A test the file does not
  * hold is not assessed (ADR-0025).
+ *
+ * @internal
  */
 final readonly class TestAssertions
 {

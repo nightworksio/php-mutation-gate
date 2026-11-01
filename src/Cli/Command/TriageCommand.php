@@ -34,6 +34,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * status varied listed (ADR-0008), each run said on standard
  * error as it ends. It exits 1 where a mutant varied, 0 where none did, and
  * 2 where the unit cannot be run.
+ *
+ * @internal
  */
 final readonly class TriageCommand
 {

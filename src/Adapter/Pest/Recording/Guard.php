@@ -21,6 +21,8 @@ use NightWorksIO\MutationGate\Core\Runner\Opcache;
  * ServedClasses), whether it or that copy was loaded at all, and whether
  * opcache could have served a cached original. Each makes the run's result
  * one the gate cannot trust.
+ *
+ * @internal
  */
 final readonly class Guard
 {

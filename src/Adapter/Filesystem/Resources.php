@@ -7,7 +7,11 @@ namespace NightWorksIO\MutationGate\Adapter\Filesystem;
 use function dirname;
 use function sprintf;
 
-/** The package's own `resources/` directory, wherever Composer installed the package. */
+/**
+ * The package's own `resources/` directory, wherever Composer installed the package.
+ *
+ * @internal
+ */
 final readonly class Resources
 {
     /** How far above this file the package's root is. */

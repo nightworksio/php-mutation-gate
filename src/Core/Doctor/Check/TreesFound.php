@@ -16,7 +16,11 @@ use NightWorksIO\MutationGate\Core\Doctor\Severity;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 
-/** The tree source finds no tree, so a run has nothing to mutate. */
+/**
+ * The tree source finds no tree, so a run has nothing to mutate.
+ *
+ * @internal
+ */
 final readonly class TreesFound
 {
     private const string NONE = 'The tree source finds no tree to mutate.';

@@ -26,6 +26,8 @@ use function strtr;
  * GitLab and Bitbucket comments read their tokens from. A template lands in YAML, Groovy and shell
  * lines, so each value that comes from the project holds no character any
  * of them would read as more than text.
+ *
+ * @internal
  */
 final readonly class TemplateValues
 {

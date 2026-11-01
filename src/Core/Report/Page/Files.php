@@ -17,6 +17,8 @@ use function sprintf;
  * mutants are on changed lines and how many of those survive, and the files
  * with the most survivors, each a link to it below.
  *
+ * @internal
+ *
  * @phpstan-import-type MutantEntry from MutantJson
  * @phpstan-import-type FileEntry from Mutants
  */

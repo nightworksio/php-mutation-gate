@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 /**
  * `true` or `false`.
  *
+ * @internal
+ *
  * @implements Shape<bool>
  */
 final readonly class Flag implements Shape

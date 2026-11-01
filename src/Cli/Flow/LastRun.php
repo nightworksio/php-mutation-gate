@@ -22,6 +22,8 @@ use function sprintf;
  * shards' results, judged again as its verdict judged them, reporting
  * nothing and writing no ledger (ADR-0014). `plan` and a run
  * in one process both leave their plan there.
+ *
+ * @internal
  */
 final readonly class LastRun
 {

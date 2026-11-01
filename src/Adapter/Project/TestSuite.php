@@ -20,6 +20,8 @@ use NightWorksIO\MutationGate\Core\Test\TestCases;
  * tests of, as they serve the application from another process. Without a
  * config, or one whose directories are none, the tests are in the
  * framework's conventional directory.
+ *
+ * @internal
  */
 final readonly class TestSuite
 {

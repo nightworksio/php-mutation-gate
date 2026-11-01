@@ -19,7 +19,11 @@ use PhpParser\Node\Expr\ConstFetch;
 use PhpParser\Node\Expr\Variable;
 use PhpParser\Node\Scalar\String_;
 
-/** `$a . $b` becomes `$b . $a`, where the two sides differ. */
+/**
+ * `$a . $b` becomes `$b . $a`, where the two sides differ.
+ *
+ * @internal
+ */
 final readonly class ConcatSwitchSides implements Mutator
 {
     public function name(): MutatorName

@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Cluster;
 
-/** The run of a file's significant tokens a mutant changed, by where the first and the last stand among them. */
+/**
+ * The run of a file's significant tokens a mutant changed, by where the first and the last stand among them.
+ *
+ * @internal
+ */
 final readonly class Span
 {
     private function __construct(private int $first, private int $last)

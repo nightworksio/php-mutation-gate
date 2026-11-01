@@ -13,6 +13,8 @@ use function asort;
 /**
  * The order a report's survivors are listed in, as the HTML report and the
  * digest list them: those on changed lines first, then by file and line.
+ *
+ * @internal
  */
 final readonly class SurvivorOrder
 {

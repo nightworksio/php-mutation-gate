@@ -20,6 +20,8 @@ use function sprintf;
 /**
  * A coverage id as PHPUnit spells a test method's, and Pest's with it:
  * `<class>::<method>`, with `#<data set>` for a row of a data set.
+ *
+ * @internal
  */
 final readonly class TestMethod
 {

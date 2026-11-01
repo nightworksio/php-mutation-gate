@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `strrev(…)` becomes its first argument. */
+/**
+ * `strrev(…)` becomes its first argument.
+ *
+ * @internal
+ */
 final readonly class UnwrapStrrev implements Mutator
 {
     public function name(): MutatorName

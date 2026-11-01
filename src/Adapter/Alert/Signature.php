@@ -14,6 +14,8 @@ use function sprintf;
  * the HMAC-SHA256 of `<t>.<body>` under the team's secret. A receiver
  * recomputes it and rejects a `t` more than 5 minutes off its own clock, so a
  * captured post cannot be replayed (ADR-0016).
+ *
+ * @internal
  */
 final readonly class Signature
 {

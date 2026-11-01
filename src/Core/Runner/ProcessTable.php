@@ -17,6 +17,8 @@ use function sprintf;
  * shell reads to stop a process at its deadline with every process under it,
  * such as a runner's workers and each mutant's own run, so none is left
  * running on its own.
+ *
+ * @internal
  */
 final readonly class ProcessTable
 {

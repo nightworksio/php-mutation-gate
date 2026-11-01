@@ -16,6 +16,8 @@ use function sprintf;
 /**
  * The project's PHPUnit config, which Infection runs each mutant with: the
  * first of its names PHPUnit finds in `phpUnit.configDir`, or in the root.
+ *
+ * @internal
  */
 final readonly class ProjectPhpUnit
 {

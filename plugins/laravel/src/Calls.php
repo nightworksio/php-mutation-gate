@@ -28,6 +28,8 @@ use function sprintf;
  * `config/app.php` registers for it, a helper function by its bare name, and
  * a method called on `$this`. Names are matched as PHP matches them, in any
  * case.
+ *
+ * @internal
  */
 final readonly class Calls
 {

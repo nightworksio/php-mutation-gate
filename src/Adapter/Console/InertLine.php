@@ -14,6 +14,8 @@ use function preg_split;
 /**
  * The line a stream of the console has open, which a runner reads whole however many writes made it: each write is
  * made inert as it continues that line (Inert), so two writes start no command together that neither starts alone.
+ *
+ * @internal
  */
 final class InertLine
 {

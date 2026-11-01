@@ -19,6 +19,8 @@ use function sprintf;
  * CaptainHook's actions, GrumPHP's shell task, and the pre-commit
  * framework's hooks from this repository, pinned to the gate's own
  * commit. No code of the gate depends on any of them.
+ *
+ * @internal
  */
 final readonly class HookRecipe
 {

@@ -18,6 +18,8 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
  * (see Selection), by that filter. Where the run left its filter out, as too
  * long to pass, every test of the test files it loaded, or of every test
  * file, by those files.
+ *
+ * @internal
  */
 final readonly class ExactRows implements RunSelection
 {

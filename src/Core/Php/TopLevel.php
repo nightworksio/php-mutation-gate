@@ -17,6 +17,8 @@ use PhpToken;
 /**
  * The statements at the top of a PHP file, each as its significant tokens: a
  * declaration, an import, or code that runs when the file is loaded.
+ *
+ * @internal
  */
 final readonly class TopLevel
 {

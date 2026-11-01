@@ -9,6 +9,8 @@ namespace NightWorksIO\MutationGate\Core\Runner;
  * default: the OTLP collector's headers, the alert channels' URLs and
  * webhook secret (ADR-0016), and the tokens the GitLab and Bitbucket comments
  * are written with (ADR-0024). A runner never hands one to the project's tests.
+ *
+ * @internal
  */
 enum GateSecret: string
 {

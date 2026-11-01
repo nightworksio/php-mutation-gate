@@ -13,6 +13,8 @@ use function sprintf;
  * Where an `ignores.entries` entry that ends stands against its day on the
  * day of a run (ADR-0008): it lasts past the notice, it expires
  * within it, today included, or its day has passed and it no longer applies.
+ *
+ * @internal
  */
 enum Expiry
 {

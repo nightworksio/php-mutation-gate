@@ -21,6 +21,8 @@ use function sprintf;
  * or that the runner named no test, so none can be put in a suite. The
  * suites are shown where the PHPUnit config declares two or more: one
  * suite's score is the run's own.
+ *
+ * @internal
  */
 final readonly class SuiteText
 {

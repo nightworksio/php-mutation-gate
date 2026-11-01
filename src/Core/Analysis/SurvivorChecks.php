@@ -33,6 +33,8 @@ use Traversable;
  * why. The run warns once for each reason, with how many survivors it left
  * and the first of their files.
  *
+ * @internal
+ *
  * @implements IteratorAggregate<int, UncheckedSurvivor>
  */
 final readonly class SurvivorChecks implements IteratorAggregate

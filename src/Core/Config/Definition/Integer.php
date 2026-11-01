@@ -14,6 +14,8 @@ use function sprintf;
 /**
  * A whole number of at least some least one.
  *
+ * @internal
+ *
  * @implements Shape<int>
  */
 final readonly class Integer implements Shape

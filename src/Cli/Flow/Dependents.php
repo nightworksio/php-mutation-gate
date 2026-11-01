@@ -24,6 +24,8 @@ use NightWorksIO\MutationGate\Core\Php\PhpFile;
  * only bodies breaks none. The project's name graph is read once, the first
  * time a mutant needs it; where it cannot be read, a mutant has none, and
  * its check sees only its own file.
+ *
+ * @internal
  */
 final class Dependents
 {

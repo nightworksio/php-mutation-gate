@@ -30,6 +30,8 @@ use function sprintf;
  * A `mutation-gate.php`, the canonical format (ADR-0002). The file returns
  * `Gate::configure()` with its settings, and anything else is refused: a
  * config is data, and code that has to run belongs in an extension.
+ *
+ * @internal
  */
 final readonly class PhpConfig implements ConfigLoader
 {

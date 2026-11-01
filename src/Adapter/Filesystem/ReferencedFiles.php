@@ -36,6 +36,8 @@ use SplFileInfo;
  * are read wherever they are. Where version control lists the project's
  * files, a file under the root it does not list, as it ignores a framework's
  * generated cache, is none of them, as no source key reads one (ADR-0020).
+ *
+ * @internal
  */
 final readonly class ReferencedFiles
 {

@@ -21,6 +21,8 @@ use function rename;
  * another to read while both run (ADR-0023): written beside its name first,
  * then moved there, so a reader finds it whole or not at all (see
  * Core\Runner\Staged), and read as the JSON it holds.
+ *
+ * @internal
  */
 final readonly class WholeFile
 {

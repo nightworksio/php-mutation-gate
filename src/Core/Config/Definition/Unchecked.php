@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\Format\Node;
  * A key that may hold anything and changes nothing: the `$schema` an editor
  * checks a file by.
  *
+ * @internal
+ *
  * @implements Shape<never>
  */
 final readonly class Unchecked implements Shape

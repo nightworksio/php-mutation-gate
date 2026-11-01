@@ -11,6 +11,8 @@ use Pest\Mutate\Event\Events\TestSuite\StartMutationSuiteSubscriber;
  * Writes every mutant's order once they are all made, before any runs.
  * Pest's facade files a subscriber under the first interface it implements,
  * so this implements that one alone.
+ *
+ * @internal
  */
 final readonly class OnSeeding implements StartMutationSuiteSubscriber
 {

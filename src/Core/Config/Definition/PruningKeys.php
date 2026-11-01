@@ -11,7 +11,11 @@ use NightWorksIO\MutationGate\Core\Config\Pruning;
 use NightWorksIO\MutationGate\Core\Config\Reach;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
-/** How the `pruning` keys a config writes are read into its `Reach` part (ADR-0002, ADR-0025). */
+/**
+ * How the `pruning` keys a config writes are read into its `Reach` part (ADR-0002, ADR-0025).
+ *
+ * @internal
+ */
 final readonly class PruningKeys
 {
     /** @return list<Field<Layer>> */

@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `chop(…)` becomes its first argument. */
+/**
+ * `chop(…)` becomes its first argument.
+ *
+ * @internal
+ */
 final readonly class UnwrapChop implements Mutator
 {
     public function name(): MutatorName

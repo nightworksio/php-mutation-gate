@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * scope's last run of the same kind judged, which the change is read from
  * itself (ADR-0005). The ref still gives the run's new code, and
  * every file changed since it carries only the run's own scope's results.
+ *
+ * @internal
  */
 final readonly class ChangeBase
 {

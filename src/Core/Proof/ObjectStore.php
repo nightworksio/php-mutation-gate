@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\Http\Tokens;
  * A cloud's object API that keeps one ledger per scope, as an object a
  * bearer token reads and writes: how it names a scope's object, and the
  * requests that read and write it.
+ *
+ * @internal
  */
 interface ObjectStore extends Tokens
 {

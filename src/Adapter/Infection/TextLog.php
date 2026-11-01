@@ -26,6 +26,8 @@ use function trim;
  * followed by its diff. It is the only place the skipped mutants are named,
  * and it gives the native id of every mutant it names.
  *
+ * @internal
+ *
  * @phpstan-type Entry array{status: string, file: string, line: int, mutator: string, id: string, diff: list<string>}
  */
 final readonly class TextLog

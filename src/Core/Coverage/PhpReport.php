@@ -15,6 +15,8 @@ use function trim;
  * PHPUnit write into the directory the gate gives it and the gate reads back:
  * PHP that returns the serialized map, whole only where it ends as
  * php-code-coverage ends it.
+ *
+ * @internal
  */
 final readonly class PhpReport
 {

@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
-/** What a process is told, read from its variables by name, as a runner's shell holds them. */
+/**
+ * What a process is told, read from its variables by name, as a runner's shell holds them.
+ *
+ * @internal
+ */
 final readonly class EnvironmentRead
 {
     /**

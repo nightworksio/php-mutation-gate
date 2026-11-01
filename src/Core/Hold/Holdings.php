@@ -27,6 +27,8 @@ use function sprintf;
  * Every declaration that some tests hold a path, from the groups a runner
  * lists and the `#[Holds]` a test file writes, and the units they make: one
  * per held path, judged by the tests that hold it alone.
+ *
+ * @internal
  */
 final readonly class Holdings
 {

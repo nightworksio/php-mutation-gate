@@ -7,7 +7,11 @@ namespace NightWorksIO\MutationGate\Core\Migration;
 use NightWorksIO\MutationGate\Core\Format\JsonDocument;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
-/** A key no release reads any more, taken out with its value, and why it went. */
+/**
+ * A key no release reads any more, taken out with its value, and why it went.
+ *
+ * @internal
+ */
 final readonly class Remove implements Step
 {
     private function __construct(private KeyPath $key, private string $because, private Spelling|NotGiven $spelling)

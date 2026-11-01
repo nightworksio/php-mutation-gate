@@ -15,6 +15,8 @@ use function sprintf;
  * many of the units it could sample it runs, from which seed and for which
  * margin and confidence; or, where no unit could be sampled, that the run
  * judges every tree whole. A plan that drew no sample says nothing.
+ *
+ * @internal
  */
 final readonly class SampleText
 {

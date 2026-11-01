@@ -15,6 +15,8 @@ use function sprintf;
 /**
  * How a process of a patched runner is told `timeouts.tighter`: its floor
  * and its mutators, each in a variable of its own.
+ *
+ * @internal
  */
 final readonly class TighterVariables
 {

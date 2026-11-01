@@ -16,7 +16,11 @@ use PhpParser\Node;
 use PhpParser\Node\Stmt\Break_;
 use PhpParser\Node\Stmt\Continue_;
 
-/** `continue` becomes `break`. */
+/**
+ * `continue` becomes `break`.
+ *
+ * @internal
+ */
 final readonly class ContinueToBreak implements Mutator
 {
     public function name(): MutatorName

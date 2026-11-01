@@ -18,6 +18,8 @@ use function sprintf;
  * `stats` that does not match its list, a `totalMutantsCount` that is not
  * the sum of the counts, or mutants ignored by markers `ignores.native`
  * refuses.
+ *
+ * @internal
  */
 final readonly class LogProblems
 {

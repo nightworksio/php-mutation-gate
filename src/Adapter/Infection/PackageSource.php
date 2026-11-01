@@ -27,7 +27,11 @@ use RecursiveIteratorIterator;
 
 use function sprintf;
 
-/** The source of Infection's packages in a vendor directory, as a VendorPatch reads and writes it. */
+/**
+ * The source of Infection's packages in a vendor directory, as a VendorPatch reads and writes it.
+ *
+ * @internal
+ */
 final readonly class PackageSource
 {
     /**

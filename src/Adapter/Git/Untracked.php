@@ -8,6 +8,8 @@ namespace NightWorksIO\MutationGate\Adapter\Git;
  * The command that lists the untracked files that are not ignored, leaving
  * out the gate's own workspace: what the gate writes, or checks out, while it
  * runs is never a change.
+ *
+ * @internal
  */
 final readonly class Untracked
 {

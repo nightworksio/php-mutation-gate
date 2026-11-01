@@ -21,6 +21,8 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  *
  * Placement only judges: a mutant is killed whether the tests or the
  * analyser caught it, so no placement moves a score.
+ *
+ * @internal
  */
 final readonly class PreCheck
 {

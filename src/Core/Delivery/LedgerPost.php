@@ -10,6 +10,8 @@ use NightWorksIO\MutationGate\Core\Proof\Scope;
  * The ledger a run leaves for `deliver` to write, by the scope the run wrote it for, which `deliver` writes only
  * where it is the one its own trusted run of the default branch writes. Where the store is, `deliver` takes from
  * its own environment. The ledger itself is a file of its own beside the delivery.
+ *
+ * @internal
  */
 final readonly class LedgerPost
 {

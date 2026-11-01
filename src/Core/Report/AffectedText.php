@@ -27,6 +27,8 @@ use function sprintf;
  * command: making it inert would change it, so the list is refused, naming
  * the JSON, which holds every entry as a string. Each reason is one plain
  * line, made inert (Fit, Inert).
+ *
+ * @internal
  */
 final readonly class AffectedText
 {

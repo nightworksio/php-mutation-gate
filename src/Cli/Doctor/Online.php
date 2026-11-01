@@ -39,6 +39,8 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * remote is on GitHub's host, `GITHUB_SERVER_URL`'s or github.com. It asks
  * with `GITHUB_TOKEN`, else `GH_TOKEN`, at `GITHUB_API_URL` or GitHub's own
  * API, about the workflows under `.github/workflows` that run the gate.
+ *
+ * @internal
  */
 final readonly class Online
 {

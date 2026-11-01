@@ -16,7 +16,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\Instanceof_;
 
-/** `$a instanceof B` becomes `false`. */
+/**
+ * `$a instanceof B` becomes `false`.
+ *
+ * @internal
+ */
 final readonly class InstanceOfToFalse implements Mutator
 {
     public function name(): MutatorName

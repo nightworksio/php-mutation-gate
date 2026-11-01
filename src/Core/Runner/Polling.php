@@ -13,7 +13,11 @@ use function max;
 
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
-/** How often the gate looks at a process it waits on to end by a deadline. */
+/**
+ * How often the gate looks at a process it waits on to end by a deadline.
+ *
+ * @internal
+ */
 final readonly class Polling
 {
     /** The wait between looks, in seconds, short beside the shortest mutant's run: about a hundred looks a second. */

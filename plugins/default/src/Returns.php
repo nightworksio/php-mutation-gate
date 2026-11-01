@@ -33,6 +33,8 @@ use PhpParser\Node\UnionType;
 /**
  * What a `return` stands in: the method it returns early from, and the type
  * the function it ends declares.
+ *
+ * @internal
  */
 final readonly class Returns
 {

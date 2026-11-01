@@ -23,6 +23,8 @@ use function str_contains;
  * A runner's ignore marker wherever a comment of a PHP file holds it, each at
  * the line it is on and in the function it is in or, from a doc comment, the
  * function the comment documents. Text in a string is not a marker.
+ *
+ * @internal
  */
 final readonly class SourceMarkers
 {

@@ -28,6 +28,8 @@ use function sprintf;
  * read it (ADR-0037), and each line of a match's arms by the tests of the
  * arms after it too, written again for Pest, which opens on the canary
  * group with it; or why the shard cannot open on it.
+ *
+ * @internal
  */
 final readonly class ShardMap
 {

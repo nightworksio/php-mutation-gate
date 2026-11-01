@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 /**
  * A built-in adapter's option as the definition read it, written back as
  * JSON: a path as its path from the project, a list item by item.
+ *
+ * @internal
  */
 final readonly class OptionJson
 {

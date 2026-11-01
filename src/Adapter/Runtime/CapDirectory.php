@@ -28,6 +28,8 @@ use function unlink;
  * A run's memory cap, written as an ini file into a directory on disk, and
  * removed from it, for both runner adapters, each of which lays out where
  * the directory is.
+ *
+ * @internal
  */
 final readonly class CapDirectory implements CapFiles
 {

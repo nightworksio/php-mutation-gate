@@ -45,6 +45,8 @@ use function sprintf;
  * options through `Configurable`, and checks them itself; its problems are
  * reported under the setting's `with`, as the gate's own are. This is the
  * one file besides extension discovery that builds a class by a name it read.
+ *
+ * @internal
  */
 final readonly class Chosen
 {

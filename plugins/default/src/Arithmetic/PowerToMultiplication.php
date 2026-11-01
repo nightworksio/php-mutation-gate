@@ -16,7 +16,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\BinaryOp\Mul;
 use PhpParser\Node\Expr\BinaryOp\Pow;
 
-/** `**` becomes `*`. */
+/**
+ * `**` becomes `*`.
+ *
+ * @internal
+ */
 final readonly class PowerToMultiplication implements Mutator
 {
     public function name(): MutatorName

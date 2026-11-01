@@ -26,6 +26,8 @@ use function sprintf;
  * on a merge group, the commit its queue built it on; otherwise the commit the
  * plan was made on; and, for `doctor`, as it stands on disk. The file is the
  * first of GitHub's three places that holds one.
+ *
+ * @internal
  */
 final readonly class CodeOwnersFile
 {

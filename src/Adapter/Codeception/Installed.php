@@ -24,6 +24,8 @@ use function sprintf;
  * (ADR-0027): Codeception at its floor or later, and php-code-coverage at
  * the release whose map the native runner reads, which the runner measures
  * each test's coverage with (see Floors).
+ *
+ * @internal
  */
 final readonly class Installed
 {

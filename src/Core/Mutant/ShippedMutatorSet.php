@@ -9,6 +9,8 @@ namespace NightWorksIO\MutationGate\Core\Mutant;
  * makes its mutants with it and counts a plan's mutants with it (ADR-0023),
  * and Pest and Infection apply their own mutators in its place, so it is on
  * in every run and a config never turns it on (ADR-0021).
+ *
+ * @internal
  */
 final readonly class ShippedMutatorSet
 {

@@ -30,6 +30,8 @@ use function sprintf;
  * established at, read once for each commit however many results share it
  * (ADR-0008): what the change reaches of their kills, or why git
  * cannot say what changed.
+ *
+ * @internal
  */
 final readonly class ChangesSince
 {

@@ -23,6 +23,8 @@ use function sprintf;
  * A list, each of whose entries has the same shape, and where the list is
  * distinct, each kept once.
  *
+ * @internal
+ *
  * @template-covariant T of object|scalar
  *
  * @implements Shape<Listed<T>>

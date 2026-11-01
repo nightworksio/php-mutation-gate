@@ -26,6 +26,8 @@ use function sprintf;
  * where it triggered it more than once. A class whose `setUpBeforeClass`
  * failed or errored is listed by its name alone, and named so.
  *
+ * @internal
+ *
  * @phpstan-type Place array{file: string, line: int}
  */
 final readonly class PrintedTests

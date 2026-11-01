@@ -20,7 +20,11 @@ use PhpParser\Node;
 use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\Node\Stmt\Expression;
 
-/** `$this->middleware(…)` in a constructor is removed, as a controller's is. */
+/**
+ * `$this->middleware(…)` in a constructor is removed, as a controller's is.
+ *
+ * @internal
+ */
 final readonly class RemoveMiddleware implements Mutator
 {
     public function name(): MutatorName

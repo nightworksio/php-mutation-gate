@@ -21,6 +21,8 @@ use function sprintf;
  * Where a file report is written: the `path` of its `reports` entry, which
  * the command line hands it among its options, from the project and inside
  * it, or absolute where the command line names it.
+ *
+ * @internal
  */
 final readonly class ReportPath
 {

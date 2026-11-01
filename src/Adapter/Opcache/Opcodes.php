@@ -22,6 +22,8 @@ use function str_starts_with;
  * compares equal. The dump prints an integer, a string, a boolean and null
  * in full, but an array as `array(...)`, a float to six significant digits
  * and a constant expression by its type alone.
+ *
+ * @internal
  */
 final readonly class Opcodes
 {

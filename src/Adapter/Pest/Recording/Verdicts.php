@@ -28,6 +28,8 @@ use function usleep;
  * mutant static analysis rejected, one to a line, and none where it
  * rejected none. Pest then runs none of them: each is tested without a
  * run, and the gate reads it as killed by static analysis.
+ *
+ * @internal
  */
 final class Verdicts
 {

@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
  * `<ini name="memory_limit">` under `<php>`, and the config that sets it.
  * PHPUnit sets it as it starts, after PHP has read the cap `runner.memory`
  * sets, so each test process runs under it in place of the cap.
+ *
+ * @internal
  */
 final readonly class PhpUnitMemory
 {

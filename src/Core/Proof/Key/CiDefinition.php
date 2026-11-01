@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\Reach\AsItRuns;
  * A CI definition that runs the gate, read as it runs: without its comments,
  * its blank lines, and the commit an action is pinned at. A pin that moves or
  * a comment that changes is not a change to how a mutant runs.
+ *
+ * @internal
  */
 final readonly class CiDefinition
 {

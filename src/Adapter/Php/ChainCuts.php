@@ -31,6 +31,8 @@ use function usort;
  * than printing the chain again, keeps each comment that stands beside
  * what goes: what stands on its own line goes with that line, and what
  * shares its line goes alone, with its comma.
+ *
+ * @internal
  */
 final readonly class ChainCuts
 {

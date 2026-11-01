@@ -18,6 +18,8 @@ use function sprintf;
  * refused, and every path the tokens find must be a group Pest lists. Which
  * files Pest loads before any plugin starts is the runner's to say, among the
  * files that define it.
+ *
+ * @internal
  */
 final readonly class PestHolds
 {

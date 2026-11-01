@@ -27,6 +27,8 @@ use function sprintf;
  * such as what an analyser, a test or a process said, can then reach the
  * log only as text. The gate's own commands, such as the Azure plan's
  * output variable, are written past it.
+ *
+ * @internal
  */
 final readonly class Inert
 {

@@ -53,6 +53,8 @@ use function usort;
  * config sets `display_errors` or as PHPUnit's own word says, is out of memory
  * with no limit known, which memory triage never counts as a kill.
  *
+ * @internal
+ *
  * @phpstan-type Found array{
  *     status: MutantStatus,
  *     file: string,

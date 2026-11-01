@@ -26,6 +26,8 @@ use function strtr;
  * name, made inert in GitHub Markdown: no markup, no link, bare address
  * included, no mention, no table cell or fence it can end, and no control or
  * format character, a bidirectional override included.
+ *
+ * @internal
  */
 final readonly class Escape
 {

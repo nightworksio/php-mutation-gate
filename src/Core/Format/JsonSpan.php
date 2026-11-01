@@ -11,6 +11,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 /**
  * A JSON value as it stands in its text: where it starts, where it ends, past
  * its last byte, and, for an object, its members in the order written.
+ *
+ * @internal
  */
 final readonly class JsonSpan
 {

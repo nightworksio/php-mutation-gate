@@ -28,6 +28,8 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  * the lines it ran in every other file too: a framework runs its boot
  * code only while its cache is cold, so a measure on a warm cache misses
  * what an earlier measure of the same, unchanged file saw it run.
+ *
+ * @internal
  */
 final readonly class Remeasured
 {

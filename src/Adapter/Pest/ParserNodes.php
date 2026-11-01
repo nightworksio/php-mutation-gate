@@ -29,6 +29,8 @@ use function sprintf;
  * mutator handles, and each subclass of one: a mutator that handles an
  * abstract class or an interface is offered the nodes of its subclasses, as
  * every other runner offers them.
+ *
+ * @internal
  */
 final readonly class ParserNodes
 {

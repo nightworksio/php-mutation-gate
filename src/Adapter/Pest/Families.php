@@ -176,6 +176,8 @@ use Pest\Mutate\Mutators\Visibility\PropertyPublicToProtected;
 /**
  * The family of every mutator pest-plugin-mutate has, by its class. A mutator
  * that makes no change a family's hint describes is marked as having none.
+ *
+ * @internal
  */
 final readonly class Families
 {

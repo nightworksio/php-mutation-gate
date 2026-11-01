@@ -19,7 +19,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 use PhpParser\Node\Stmt\Expression;
 
-/** A statement that only calls `session_regenerate_id(…)` is removed. */
+/**
+ * A statement that only calls `session_regenerate_id(…)` is removed.
+ *
+ * @internal
+ */
 final readonly class RemoveSessionRegenerate implements Mutator
 {
     public function name(): MutatorName

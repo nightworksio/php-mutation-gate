@@ -27,6 +27,8 @@ use function sprintf;
  * measured run can say what is held, since the groups that hold are the ones
  * the runner lists. The time at stake is what the ledgers learned the file
  * takes, or else what its covering tests take once, for each of its mutants.
+ *
+ * @internal
  */
 final readonly class HotPath
 {

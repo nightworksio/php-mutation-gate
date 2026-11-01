@@ -18,6 +18,8 @@ use NightWorksIO\MutationGate\Core\Runner\Versions;
  * The releases a built-in runner drives, as Composer's `installed.json`
  * lists them, or why it drives none of them: read as each runner reads them
  * before it starts, without starting anything.
+ *
+ * @internal
  */
 final readonly class RunnerReleases
 {

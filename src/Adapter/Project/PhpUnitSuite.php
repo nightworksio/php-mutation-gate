@@ -28,6 +28,8 @@ use function trim;
  * runners over it, read them, each directory with the suffix that tells its
  * files of test cases, and each `<testsuite>` by its name. A `<directory>`
  * with a wildcard is each directory it matches, as PHPUnit expands it.
+ *
+ * @internal
  */
 final readonly class PhpUnitSuite
 {

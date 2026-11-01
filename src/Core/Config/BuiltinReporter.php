@@ -7,7 +7,11 @@ namespace NightWorksIO\MutationGate\Core\Config;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\GateSecret;
 
-/** The reporters this package builds in, by the name a config or the gate chooses each by. */
+/**
+ * The reporters this package builds in, by the name a config or the gate chooses each by.
+ *
+ * @internal
+ */
 enum BuiltinReporter: string
 {
     case Console = 'console';

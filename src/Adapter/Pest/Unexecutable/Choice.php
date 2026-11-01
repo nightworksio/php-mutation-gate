@@ -21,6 +21,8 @@ use function sprintf;
  * fallback alone. An ambiguous read may have readers the scan did not follow,
  * so a mutant it leaves alive is a survivor only once the fallback ran: past
  * the bound it is unjudged.
+ *
+ * @internal
  */
 final readonly class Choice
 {

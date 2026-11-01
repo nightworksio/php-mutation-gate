@@ -12,7 +12,11 @@ use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
-/** What GitHub's API answered, read one field at a time; a field it did not send reads as empty. */
+/**
+ * What GitHub's API answered, read one field at a time; a field it did not send reads as empty.
+ *
+ * @internal
+ */
 final readonly class Answer
 {
     private function __construct(private Node $node)

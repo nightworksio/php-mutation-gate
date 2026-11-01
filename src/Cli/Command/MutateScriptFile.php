@@ -20,6 +20,8 @@ use function sprintf;
  * written into the project's `composer.json` where nothing else in it
  * changes, and otherwise printed as the line to add to its scripts; with
  * `--stdout`, printed.
+ *
+ * @internal
  */
 final readonly class MutateScriptFile
 {

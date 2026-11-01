@@ -19,6 +19,8 @@ use NightWorksIO\MutationGate\Core\Runner\Ran;
  * the child is gone (ADR-0023): the code it exited with, or the signal that
  * ended it, with where the worker's output files stood then; or that the
  * worker forked it no child, and why, so its run starts fresh.
+ *
+ * @internal
  */
 final readonly class Finish
 {

@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Reach;
 
-/** What a line of a CI definition, outside every block scalar, is to the value it starts. */
+/**
+ * What a line of a CI definition, outside every block scalar, is to the value it starts.
+ *
+ * @internal
+ */
 enum LineRole
 {
     /** A key, or a list's entry, whose value is the node on the lines below it. */

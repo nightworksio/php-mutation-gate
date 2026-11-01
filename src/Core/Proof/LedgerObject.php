@@ -20,6 +20,8 @@ use function preg_split;
  * request's ref and nothing else. In a URL each segment is percent-encoded
  * as S3 encodes a key, so the path names the object the key names and no
  * branch's name walks out of its scope.
+ *
+ * @internal
  */
 final readonly class LedgerObject
 {

@@ -27,6 +27,8 @@ use function sprintf;
  * An Infection config taken over (ADR-0016): the gate's config
  * it seeds over what zero-config found, what became of each of its keys,
  * and where the directories it names differ from `phpunit.xml`'s `<source>`.
+ *
+ * @internal
  */
 final readonly class Imported
 {

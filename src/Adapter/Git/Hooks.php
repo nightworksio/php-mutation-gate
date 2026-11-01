@@ -35,6 +35,8 @@ use function unlink;
  * The hooks of the repository a project is in, in the directory git runs
  * them from: `.git/hooks`, the main worktree's for a linked one, or what
  * `core.hooksPath` names (ADR-0010).
+ *
+ * @internal
  */
 final readonly class Hooks
 {

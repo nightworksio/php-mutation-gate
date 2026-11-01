@@ -16,7 +16,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\BinaryOp\Minus;
 use PhpParser\Node\Expr\BinaryOp\Plus;
 
-/** `-` becomes `+`. */
+/**
+ * `-` becomes `+`.
+ *
+ * @internal
+ */
 final readonly class MinusToPlus implements Mutator
 {
     public function name(): MutatorName

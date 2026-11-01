@@ -18,6 +18,8 @@ use function sprintf;
  * `trend.svg`: the project's score over the runs a trend holds, as a plain
  * sparkline on a scale of 0 to 100, with no script, for the step summary and
  * the HTML report to show.
+ *
+ * @internal
  */
 final readonly class TrendSvg
 {

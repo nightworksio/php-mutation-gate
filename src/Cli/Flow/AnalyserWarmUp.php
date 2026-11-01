@@ -19,6 +19,8 @@ use Psr\Clock\ClockInterface;
  * for every check after: the checks of each chunk's survivors, where the run
  * stops once it cannot pass, and the check of the rest once the run is done.
  * Where the run fails, no survivor can be checked.
+ *
+ * @internal
  */
 final class AnalyserWarmUp
 {

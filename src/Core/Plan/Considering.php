@@ -23,6 +23,8 @@ use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
  * back to carries its own scope's alone, since only its own scope judged it
  * as it is (ADR-0005). A unit with none to carry is treated as
  * reached, so a change-scoped run on an empty ledger is a full one.
+ *
+ * @internal
  */
 final readonly class Considering
 {

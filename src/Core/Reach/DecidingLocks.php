@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\File\Path;
  * a change to one decides only where it moved a package `reach.lockPackages`
  * names, or a key besides the package lists, or where either version cannot
  * be read.
+ *
+ * @internal
  */
 final readonly class DecidingLocks
 {

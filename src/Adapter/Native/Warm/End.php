@@ -25,6 +25,8 @@ use function rename;
  * output once the child is gone: the code it exited with, the signal that
  * ended it, or that it was stopped at its limit or its silence limit; and
  * how long it ran.
+ *
+ * @internal
  */
 final readonly class End
 {

@@ -21,6 +21,8 @@ use Pest\Contracts\Plugins\Terminable;
  * Pest loads this class before pest-plugin-mutate puts a mutated file in the
  * place of the original, so a mutant of this file would never run, and the
  * gate's own config leaves it out of the trees it mutates.
+ *
+ * @internal
  */
 final readonly class PestPlugin implements Bootable, HandlesArguments, Terminable
 {

@@ -24,6 +24,8 @@ use function sprintf;
  * for them, and the files, as the runner finds them, from the project's root.
  * A list that cannot be read leaves nothing out: the runner makes every
  * mutant, and the gate carries no result over one it ran.
+ *
+ * @internal
  */
 final readonly class PrunedList
 {

@@ -19,6 +19,8 @@ use function sprintf;
  * survivor and an uncovered mutant are stubbed. A flaky, unjudged or too
  * slow or heavy mutant gets the next step instead, and a killed, ignored
  * or proven equivalent one has nothing to stub.
+ *
+ * @internal
  */
 final readonly class Unstubbable
 {

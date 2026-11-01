@@ -21,6 +21,8 @@ use function sprintf;
  * a file's original in place of its mutant, so a mutant judged by reference
  * is left unjudged (ADR-0004). A runner that turns opcache off on
  * each mutant's command line is never served a cached original (ADR-0023).
+ *
+ * @internal
  */
 final readonly class Opcache
 {

@@ -38,6 +38,8 @@ use function sprintf;
  * 5. anything else reaches nothing by itself.
  *
  * Where version control cannot tell what changed, everything is reached.
+ *
+ * @internal
  */
 final readonly class Reaching
 {

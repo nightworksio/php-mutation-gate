@@ -39,6 +39,8 @@ use function sprintf;
  * that run a line reading a value a mutant changes (ADR-0006); and the verdict
  * the lines of every unit the plan considered, for the kill matrix (ADR-0014).
  * A runner's own map, which may be code, never leaves the job that read it.
+ *
+ * @internal
  */
 final readonly class Handoff
 {

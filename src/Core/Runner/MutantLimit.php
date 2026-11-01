@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  * the same multiple of how long a run of no test took to start on this
  * machine, where the run measured one, and 5 s where it did not; Infection's
  * own is always 5 s. Where the tests' time is not measured, the floor.
+ *
+ * @internal
  */
 final readonly class MutantLimit
 {

@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * gate reads: every test the map ran, and how long each took. Each mutant's
  * filter names a class or a data set whole by them (see Selection), and its
  * limit is sized from them (see MutantTime).
+ *
+ * @internal
  */
 final class LoadedMap
 {

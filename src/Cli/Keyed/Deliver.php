@@ -38,6 +38,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * the project's code. It decides which scope it may write from its own run
  * before it reads the delivery, which it reads as JSON within the ledger's
  * byte limits.
+ *
+ * @internal
  */
 final readonly class Deliver
 {

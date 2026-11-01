@@ -24,6 +24,8 @@ use function trim;
  * URL asked with the headers the file names, as `google-github-actions/auth`
  * writes it; and, for a JSON one, the field that holds it
  * (ADR-0028).
+ *
+ * @internal
  */
 final readonly class SubjectSource
 {

@@ -75,6 +75,8 @@ use function sprintf;
  * Every field is written with its length before it, and every list with its
  * count, so no two sets of inputs hash alike. The first eight are the same
  * for every unit of a run: they are the run's base, and are hashed once.
+ *
+ * @internal
  */
 final readonly class ContentKeys
 {

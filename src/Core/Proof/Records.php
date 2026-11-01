@@ -21,6 +21,8 @@ use function usort;
  * names: each proof that holds one, with the mutant as it proved it, the
  * newest first. A mutant's history is its records (ADR-0014).
  *
+ * @internal
+ *
  * @implements IteratorAggregate<int, Recorded>
  */
 final readonly class Records implements Countable, IteratorAggregate

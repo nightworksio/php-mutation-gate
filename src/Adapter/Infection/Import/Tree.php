@@ -12,7 +12,11 @@ use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 
-/** A tree an import declares: its path, an exemption zero-config found for it, and the globs it excludes. */
+/**
+ * A tree an import declares: its path, an exemption zero-config found for it, and the globs it excludes.
+ *
+ * @internal
+ */
 final readonly class Tree
 {
     /** @param list<Glob> $excludes */

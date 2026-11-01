@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 /**
  * The names PhpSpec's config has, in the order PhpSpec looks for them in a
  * directory: it reads the first it finds.
+ *
+ * @internal
  */
 enum PhpSpecConfig: string
 {

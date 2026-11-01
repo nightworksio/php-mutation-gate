@@ -32,6 +32,8 @@ use function str_replace;
  * - For a coverage map: the tests the run asks for, with their map written
  *   to a file.
  * - For the suite's tests: listed into a file, and none run.
+ *
+ * @internal
  */
 final readonly class CommandLine
 {

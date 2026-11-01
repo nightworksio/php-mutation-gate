@@ -11,6 +11,8 @@ use function sprintf;
 /**
  * An option an adapter cannot do without, read as text or as a name its
  * service allows: its value, or the problem of options that give none.
+ *
+ * @internal
  */
 final readonly class Required
 {

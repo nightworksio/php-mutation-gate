@@ -7,6 +7,8 @@ namespace NightWorksIO\MutationGate\Core\Http;
 /**
  * A request to send: its method, its URL, its headers and its body. Its
  * headers may hold a credential, so nothing prints a request.
+ *
+ * @internal
  */
 final readonly class Request
 {

@@ -23,6 +23,8 @@ use function sprintf;
  * tests cover the mutant, the one named for its class, as `MoneyTest.php`
  * is for `Money.php`; else the one that holds the most of them; the first
  * by path among equals. A test its runner names no file for is in none.
+ *
+ * @internal
  */
 final readonly class Nearest
 {

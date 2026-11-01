@@ -18,6 +18,8 @@ use function sprintf;
  * request comment show under the run's headline (ADR-0025):
  * `Pruned: 4 mutators on 212 units; 3,180 mutants carried from runs of the
  * last 7 days.` Nothing where the run pruned nothing.
+ *
+ * @internal
  */
 final readonly class PruningText
 {

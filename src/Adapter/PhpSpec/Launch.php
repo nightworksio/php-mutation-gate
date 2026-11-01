@@ -19,6 +19,8 @@ use Symfony\Component\Console\Input\ArgvInput;
  * script: PhpSpec's console, with the gate's extension loaded into its
  * container before PhpSpec reads the project's config, and PhpSpec's own
  * arguments, which it runs on and exits with what it says.
+ *
+ * @internal
  */
 final readonly class Launch
 {

@@ -22,6 +22,8 @@ use Traversable;
  * Every whole test a verdict's mutants name, in the order they first name
  * it, with what its rows killed and how long they ran.
  *
+ * @internal
+ *
  * @implements IteratorAggregate<int, KillingTest>
  */
 final readonly class KillingTests implements IteratorAggregate

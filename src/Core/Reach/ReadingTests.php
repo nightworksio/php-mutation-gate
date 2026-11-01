@@ -32,6 +32,8 @@ use function sprintf;
  * lists every test. An attribute's argument is not listed: a reflection no
  * name leads to may read it, so it would list every test for each file
  * that holds an attribute with an argument.
+ *
+ * @internal
  */
 final readonly class ReadingTests
 {

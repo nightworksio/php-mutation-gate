@@ -10,6 +10,8 @@ namespace NightWorksIO\MutationGate\Adapter\Codeception;
  * mutant's run selects, the group or filter that judges the unit, the test
  * files a coverage run runs, the files a coverage run and a listing write,
  * and the project's vendor directory, whose files a coverage map leaves out.
+ *
+ * @internal
  */
 enum Option: string
 {

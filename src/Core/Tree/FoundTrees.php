@@ -15,6 +15,8 @@ use function sprintf;
  * (ADR-0017): a run finds them again, so a tree added later is
  * judged with no edit to the config. PHP, YAML and NEON configs list them in
  * a comment; for JSON, which holds none, `init` says them.
+ *
+ * @internal
  */
 final readonly class FoundTrees
 {

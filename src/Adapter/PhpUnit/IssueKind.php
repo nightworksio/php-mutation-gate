@@ -22,6 +22,8 @@ use PHPUnit\TextUI\Configuration\Configuration;
  * marks incomplete or skipped, and a warning, notice or deprecation PHPUnit
  * raised of a test. Deprecations count where the run fails on any of them,
  * whatever triggered each.
+ *
+ * @internal
  */
 enum IssueKind
 {

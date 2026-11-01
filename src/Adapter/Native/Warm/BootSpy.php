@@ -27,6 +27,8 @@ use function sprintf;
  * the bootstrap whose call loaded a file can be named (ADR-0023).
  * A file loaded other than through an autoloader is named by the bootstrap
  * alone.
+ *
+ * @internal
  */
 final class BootSpy
 {

@@ -39,6 +39,8 @@ use function trim;
  * inside a tree is a tree of its own with a floor of 0, so it is never
  * mutated and every run says why. Without an `<include>`, the preset's
  * trees: the fallback paths, or the `autoload` paths of `composer.json`.
+ *
+ * @internal
  */
 final readonly class PhpUnitTrees implements TreeSource
 {

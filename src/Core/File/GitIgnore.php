@@ -10,7 +10,11 @@ use function array_map;
 use function explode;
 use function trim;
 
-/** A `.gitignore`, as far as the gate asks it whether a directory of its own is kept out of git. */
+/**
+ * A `.gitignore`, as far as the gate asks it whether a directory of its own is kept out of git.
+ *
+ * @internal
+ */
 final readonly class GitIgnore
 {
     /** The file, in the project's root. */

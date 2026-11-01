@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  * read time after time on a clock in seconds: it has stalled once that has
  * not grown for the limit since it last grew, and never before it first
  * grows.
+ *
+ * @internal
  */
 final readonly class Progress
 {

@@ -6,7 +6,11 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
 
 use function error_get_last;
 
-/** The last error PHP raised in this process, as `error_get_last()` gives it. */
+/**
+ * The last error PHP raised in this process, as `error_get_last()` gives it.
+ *
+ * @internal
+ */
 final readonly class LastError
 {
     /** The file it stands in; empty where PHP has raised none. */

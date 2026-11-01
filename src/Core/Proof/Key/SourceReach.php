@@ -44,6 +44,8 @@ use function sprintf;
  * resets every key. Where what a unit reaches cannot be traced, its key
  * reads every file the map observes, failing closed: for a held unit, since
  * any test can join its group, and for a unit no test covers.
+ *
+ * @internal
  */
 final readonly class SourceReach
 {

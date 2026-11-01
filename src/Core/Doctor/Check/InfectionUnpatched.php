@@ -18,7 +18,11 @@ use NightWorksIO\MutationGate\Core\Verb;
 
 use function sprintf;
 
-/** Infection as the runner, without `infection:patch` (ADR-0008). */
+/**
+ * Infection as the runner, without `infection:patch` (ADR-0008).
+ *
+ * @internal
+ */
 final readonly class InfectionUnpatched
 {
     private const string FOUND = 'The runner is Infection, and the installed Infection does not carry infection:patch.';

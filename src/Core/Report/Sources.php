@@ -9,7 +9,11 @@ use function array_key_exists;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 
-/** Each mutated file the gate could read, by its path. A file it could not read holds nothing. */
+/**
+ * Each mutated file the gate could read, by its path. A file it could not read holds nothing.
+ *
+ * @internal
+ */
 final readonly class Sources
 {
     /** @param array<string, Contents> $files */

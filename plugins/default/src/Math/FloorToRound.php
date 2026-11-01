@@ -16,7 +16,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `floor(…)` becomes `round(…)`. */
+/**
+ * `floor(…)` becomes `round(…)`.
+ *
+ * @internal
+ */
 final readonly class FloorToRound implements Mutator
 {
     public function name(): MutatorName

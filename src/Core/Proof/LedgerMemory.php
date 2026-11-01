@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\Format\Bytes;
  * rest of a run, and so many bytes for each byte of that largest ledger,
  * decompressed. A run holds at most two ledgers, the default branch's and
  * its own, and writes one.
+ *
+ * @internal
  */
 final readonly class LedgerMemory
 {

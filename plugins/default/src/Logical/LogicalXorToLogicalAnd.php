@@ -16,7 +16,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\BinaryOp\LogicalAnd;
 use PhpParser\Node\Expr\BinaryOp\LogicalXor;
 
-/** `xor` becomes `and`. */
+/**
+ * `xor` becomes `and`.
+ *
+ * @internal
+ */
 final readonly class LogicalXorToLogicalAnd implements Mutator
 {
     public function name(): MutatorName

@@ -15,6 +15,8 @@ use function sprintf;
  * proof the default branch will trust. A run on a detached `HEAD` has no
  * scope: it reads the default branch's and writes none. The coverage map
  * kept beside a ledger follows the same rules (ADR-0023).
+ *
+ * @internal
  */
 final readonly class Access
 {

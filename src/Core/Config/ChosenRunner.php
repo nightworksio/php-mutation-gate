@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Runner\Workers;
  * the runner withholds from the project's tests, the memory each of its
  * mutants' processes may use (ADR-0004), and how each of its mutants' runs
  * starts (ADR-0023).
+ *
+ * @internal
  */
 final readonly class ChosenRunner
 {

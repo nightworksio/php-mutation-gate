@@ -8,7 +8,11 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Fingerprint;
 use NightWorksIO\MutationGate\Core\Test\Role;
 
-/** A file under the test directories, what it is to a content key, and what it declares and names. */
+/**
+ * A file under the test directories, what it is to a content key, and what it declares and names.
+ *
+ * @internal
+ */
 final readonly class TestFile
 {
     private function __construct(private Fingerprint $fingerprint, private Role $role, private PhpFile $php)

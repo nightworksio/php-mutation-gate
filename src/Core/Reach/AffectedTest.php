@@ -10,6 +10,8 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
 /**
  * One test file a change can make fail: the coverage map's tests in it that
  * the change reaches, and every reason it is listed.
+ *
+ * @internal
  */
 final readonly class AffectedTest
 {

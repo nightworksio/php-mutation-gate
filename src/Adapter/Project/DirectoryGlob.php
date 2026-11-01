@@ -26,6 +26,8 @@ use function strpbrk;
  * directory it matches, where `**` matches any depth of directories, none
  * among them, and none where it matches nothing. A path with no wildcard is
  * itself.
+ *
+ * @internal
  */
 final readonly class DirectoryGlob
 {

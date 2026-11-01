@@ -10,7 +10,11 @@ use NightWorksIO\MutationGate\Core\Test\TestName;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
-/** A whole test, the mutants its rows killed, and the time its rows ran for under coverage. */
+/**
+ * A whole test, the mutants its rows killed, and the time its rows ran for under coverage.
+ *
+ * @internal
+ */
 final readonly class KillingTest
 {
     private function __construct(

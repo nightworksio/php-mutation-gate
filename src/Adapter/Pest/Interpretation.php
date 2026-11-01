@@ -46,6 +46,8 @@ use function sprintf;
  * place, because its tests ran the original code; and a survivor whose own
  * process said it ran no test, because nothing judged it. Each kill keeps
  * the evidence its own run recorded (ADR-0014).
+ *
+ * @internal
  */
 final readonly class Interpretation
 {

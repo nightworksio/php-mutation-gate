@@ -21,6 +21,8 @@ use NightWorksIO\MutationGate\Extension\Extensions;
  * What a full run is estimated to take in one job where nothing was
  * measured: each tree's lines of code at `costs.secondsPerLine` (ADR-0006;
  * ADR-0017).
+ *
+ * @internal
  */
 final readonly class LineCountEstimate
 {

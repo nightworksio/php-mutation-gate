@@ -13,6 +13,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 /**
  * `pest:patch`, run from a project's `post-install-cmd` and `post-update-cmd`
  * when `pest.patch` is on. A patch that cannot be applied fails the install.
+ *
+ * @internal
  */
 final readonly class PestPatch
 {

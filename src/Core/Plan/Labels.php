@@ -27,6 +27,8 @@ use function usort;
  * under no tree is named by its own path. A tree that spans several shards is
  * named with the part each takes, such as "src, part 2 of 4". An empty run is
  * an empty shard.
+ *
+ * @internal
  */
 final readonly class Labels
 {

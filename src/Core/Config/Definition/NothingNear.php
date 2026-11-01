@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
-/** What a misspelt key is nearest to when no known key is close enough to suggest. */
+/**
+ * What a misspelt key is nearest to when no known key is close enough to suggest.
+ *
+ * @internal
+ */
 final readonly class NothingNear
 {
     private function __construct()

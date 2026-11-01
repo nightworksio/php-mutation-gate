@@ -37,6 +37,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * With `--from`, or as `import`, an Infection config seeds it too, and every
  * key of that file is said to be imported, left in place or dropped
  * (ADR-0016). It also keeps `.mutation-gate/` out of git.
+ *
+ * @internal
  */
 final readonly class Init
 {

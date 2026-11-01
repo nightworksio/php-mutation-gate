@@ -22,6 +22,8 @@ use function trim;
 /**
  * Xdebug slows every test: loaded in a mode other than `coverage` or `off`,
  * or collecting coverage where pcov, which is faster, is installed beside it.
+ *
+ * @internal
  */
 final readonly class Xdebug
 {

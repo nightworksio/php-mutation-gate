@@ -14,6 +14,8 @@ use function sprintf;
  * (ADR-0008): that result's mutant set is not the one the code on
  * disk makes, or nothing says whether it is. The unit fails the verdict,
  * named with the command that judges it.
+ *
+ * @internal
  */
 enum Uncounted
 {

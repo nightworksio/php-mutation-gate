@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `nl2br(…)` becomes its first argument. */
+/**
+ * `nl2br(…)` becomes its first argument.
+ *
+ * @internal
+ */
 final readonly class UnwrapNlToBr implements Mutator
 {
     public function name(): MutatorName

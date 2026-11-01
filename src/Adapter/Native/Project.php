@@ -28,6 +28,8 @@ use function unlink;
  * The project a native runner runs in: its root, its test directories, the
  * vendor directory its framework is installed in, the gate's directory, and
  * the runner, whose own directory inside it the runner writes to.
+ *
+ * @internal
  */
 final readonly class Project
 {

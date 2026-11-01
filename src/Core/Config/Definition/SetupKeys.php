@@ -11,7 +11,11 @@ use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\Config\Setup;
 
-/** How the keys a config writes are read into its `Setup` part (ADR-0002). */
+/**
+ * How the keys a config writes are read into its `Setup` part (ADR-0002).
+ *
+ * @internal
+ */
 final readonly class SetupKeys
 {
     /** What the `$schema` key of a config file is for. */

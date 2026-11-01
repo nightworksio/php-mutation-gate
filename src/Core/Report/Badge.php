@@ -16,6 +16,8 @@ use function sprintf;
  * Badges for shields.io's endpoint: `badge.json`, the whole project's score
  * in its colour, and `savings.json`, the mutation time the gate saved over
  * the last 30 days (ADR-0009, and ADR-0017).
+ *
+ * @internal
  */
 final readonly class Badge
 {

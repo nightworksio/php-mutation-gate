@@ -14,6 +14,8 @@ use function sprintf;
 /**
  * The JSON Schema of `doctor --format=json`, built from the same enums the
  * output is written from, and committed at `resources/doctor.schema.json`.
+ *
+ * @internal
  */
 final readonly class DoctorSchema
 {

@@ -23,6 +23,8 @@ use function sprintf;
  * The file of a class, or the directory of a namespace, as the project's
  * `composer.json` autoloads it by psr-4 or psr-0, where it is there. Nothing
  * is loaded to find it.
+ *
+ * @internal
  */
 final readonly class ClassFiles
 {

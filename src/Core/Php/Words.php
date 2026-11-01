@@ -15,6 +15,8 @@ use function str_replace;
  * letters, digits and underscores, and every run of those joined by hyphens,
  * read joined up as well as word by word, so that `exchange-rates` spells
  * `exchangerates`, `exchange` and `rates`.
+ *
+ * @internal
  */
 final readonly class Words
 {

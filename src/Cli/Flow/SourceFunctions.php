@@ -22,6 +22,8 @@ use NightWorksIO\MutationGate\Core\Php\Nameless;
  * The named functions of the source files a kill history speaks of, as they
  * are on disk, each file read once: the function each mutant is in, and which
  * of the files still exist.
+ *
+ * @internal
  */
 final readonly class SourceFunctions
 {

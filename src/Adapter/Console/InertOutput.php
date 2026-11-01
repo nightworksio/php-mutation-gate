@@ -17,6 +17,8 @@ use Symfony\Component\Console\Output\StreamOutput;
  * (Printable), so the only escape sequences it writes are the colours it
  * adds. Text from outside is written raw, so the formatter reads no markup
  * in it. The gate writes its own annotations elsewhere, with their encoding.
+ *
+ * @internal
  */
 final class InertOutput extends ConsoleOutput
 {

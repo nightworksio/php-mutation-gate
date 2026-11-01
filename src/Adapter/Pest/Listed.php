@@ -14,7 +14,11 @@ use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestListing;
 
-/** Some suites' tests and the groups each is in, as Pest lists them into a file of the adapter's own, running none. */
+/**
+ * Some suites' tests and the groups each is in, as Pest lists them into a file of the adapter's own, running none.
+ *
+ * @internal
+ */
 final readonly class Listed
 {
     /** What Pest lists for these suites, never seeing the variables withheld; or why it lists nothing. */

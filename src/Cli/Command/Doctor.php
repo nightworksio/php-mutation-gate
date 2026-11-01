@@ -27,6 +27,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * It reads and never writes, runs none of the project's code unless
  * `--measure` asks it to run the suite once, reads GitHub only when
  * `--online` asks it to, and exits 1 when anything would fail a run.
+ *
+ * @internal
  */
 final readonly class Doctor
 {

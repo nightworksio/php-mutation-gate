@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Mutator\Engine\MadeMutant;
  * files the framework reads and writes for it, the command that runs them,
  * and the limit, memory cap and silence limit it runs under, where it has
  * one.
+ *
+ * @internal
  */
 final readonly class PreparedRun
 {

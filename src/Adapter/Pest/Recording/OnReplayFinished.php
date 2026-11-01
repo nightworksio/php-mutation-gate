@@ -7,7 +7,11 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
 use PHPUnit\Event\Test\Finished;
 use PHPUnit\Event\Test\FinishedSubscriber;
 
-/** Counts a test that finished in a replay, which stops once it has run as many as the run it replays. */
+/**
+ * Counts a test that finished in a replay, which stops once it has run as many as the run it replays.
+ *
+ * @internal
+ */
 final readonly class OnReplayFinished implements FinishedSubscriber
 {
     public function __construct(private ReplayStop $stop)

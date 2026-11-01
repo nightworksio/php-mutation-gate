@@ -29,6 +29,8 @@ use function str_starts_with;
  * does not hold, a matcher the spec names as its own, a chained call that
  * is neither an expectation nor a change of subject, or a call of a helper
  * the file declares leaves the test not assessed.
+ *
+ * @internal
  */
 final readonly class AssertionScan
 {

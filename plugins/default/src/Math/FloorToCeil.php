@@ -16,7 +16,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `floor(…)` becomes `ceil(…)`. */
+/**
+ * `floor(…)` becomes `ceil(…)`.
+ *
+ * @internal
+ */
 final readonly class FloorToCeil implements Mutator
 {
     public function name(): MutatorName

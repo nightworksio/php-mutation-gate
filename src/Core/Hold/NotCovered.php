@@ -9,6 +9,8 @@ use NightWorksIO\MutationGate\Core\Unit\Unit;
 /**
  * The tests that hold a unit miss lines of it the whole suite covers, so they
  * cannot judge it, and the unit fails with the sentence that lists them.
+ *
+ * @internal
  */
 final readonly class NotCovered
 {

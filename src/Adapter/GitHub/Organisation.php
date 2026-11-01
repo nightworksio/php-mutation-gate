@@ -28,6 +28,8 @@ use function sprintf;
  * what its default branch's verdict published on the branch the publish job
  * writes, `summary.json` and `trend.json`. A repository GitHub does not show
  * is listed as private, so a public dashboard leaves it out.
+ *
+ * @internal
  */
 final readonly class Organisation
 {

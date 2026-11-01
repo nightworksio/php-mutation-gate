@@ -12,6 +12,8 @@ use function array_map;
  * tests. A runner's shell unsets each by its name, whether or not the
  * environment it reads holds it, since a process also inherits what `$_ENV`
  * holds.
+ *
+ * @internal
  */
 enum WorkerVariable: string
 {

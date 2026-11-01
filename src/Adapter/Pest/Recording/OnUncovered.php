@@ -11,6 +11,8 @@ use Pest\Mutate\Event\Events\Test\Outcome\UncoveredSubscriber;
  * Records a mutant no test ran, and keeps its mutated copy.
  * Pest's facade files a subscriber under the first interface it implements,
  * so this implements that one alone.
+ *
+ * @internal
  */
 final readonly class OnUncovered implements UncoveredSubscriber
 {

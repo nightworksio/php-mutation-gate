@@ -34,6 +34,8 @@ use function sprintf;
  * there, cannot be read, does not say where it was measured or was measured
  * in a dirty tree lists every test, as does a change since its commit git
  * cannot tell.
+ *
+ * @internal
  */
 final readonly class Selecting
 {

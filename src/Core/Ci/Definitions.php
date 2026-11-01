@@ -10,7 +10,11 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
-/** Where the CIs the gate knows keep their definitions, from the repository's root. */
+/**
+ * Where the CIs the gate knows keep their definitions, from the repository's root.
+ *
+ * @internal
+ */
 final readonly class Definitions
 {
     /** The directory of GitHub's workflows. */

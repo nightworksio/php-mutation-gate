@@ -10,6 +10,8 @@ use LogicException;
  * Code asked the inert console for a section, which writes past its lines
  * and so could print one that is not inert. The gate draws no section, so
  * reaching this is a mistake in the code that asked.
+ *
+ * @internal
  */
 final class NoSection extends LogicException
 {

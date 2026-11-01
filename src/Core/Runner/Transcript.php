@@ -12,6 +12,8 @@ use function implode;
  * What the commands a runner ran for one reproduction printed, in the order
  * they ran. Each adapter's shell writes to it, because adapters share no code
  * and the keeping of the printed text is the same for every runner.
+ *
+ * @internal
  */
 final readonly class Transcript
 {

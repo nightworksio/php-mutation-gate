@@ -49,6 +49,8 @@ use function str_replace;
  * `#[Group]` beside it where the runner reads each `#[Holds]` as its test
  * files load, since that runner cannot add a group to a class it did not
  * build.
+ *
+ * @internal
  */
 final readonly class StubText
 {

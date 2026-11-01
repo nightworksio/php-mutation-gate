@@ -15,7 +15,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\Cast\Int_;
 
-/** `(int) $a` becomes `$a`. */
+/**
+ * `(int) $a` becomes `$a`.
+ *
+ * @internal
+ */
 final readonly class RemoveIntegerCast implements Mutator
 {
     public function name(): MutatorName

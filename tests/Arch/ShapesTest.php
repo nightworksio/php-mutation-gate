@@ -6,9 +6,10 @@ use NightWorksIO\MutationGate\Tests\Support\Api;
 use NightWorksIO\MutationGate\Tests\Support\Layer;
 
 // C1, C2, D1, D2 and D3, over the API surface: every class in Attribute, Port,
-// Config and Extension, and every core type their public signatures reach; and
-// C2 again over every class in the core. Read by reflection, because a nullable
-// return or a primitive parameter is not a name an import shows.
+// Mutator, Config and Extension but their machinery, and every core type their
+// public faces reach; and C2 again over every class in the core. Read by
+// reflection, because a nullable return or a primitive parameter is not a
+// name an import shows.
 
 /** The primitives D2 keeps to named constructors. */
 const PRIMITIVES = ['string', 'int', 'float'];

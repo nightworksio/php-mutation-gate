@@ -27,6 +27,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
  * A security mutant's result says so, and is an error when its package's
  * security set fails (ADR-0021).
  *
+ * @internal
+ *
  * @phpstan-type Result array{
  *     ruleId: value-of<ResultRule>,
  *     ruleIndex: int,
@@ -128,7 +130,7 @@ final readonly class Sarif
         $results = [];
 
         foreach ($verdict->obstacles()->unmutatedFailures() as $failing) {
-            foreach ($failing->mutants() as $mutant) {
+            foreach ($failing as $mutant) {
                 $results[] = self::result($mutant, 'error', $overview);
             }
         }

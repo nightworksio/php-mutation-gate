@@ -8,6 +8,8 @@ namespace NightWorksIO\MutationGate\Adapter\Infection;
  * One value of `ignore` or `ignoreSourceCodeByRegex` under Infection's
  * `mutators`: the key it is under, the mutator it applies to, and the pattern,
  * over mutated names or over source.
+ *
+ * @internal
  */
 final readonly class IgnorePattern
 {

@@ -25,6 +25,8 @@ use function str_replace;
  * method by its name. A data set's test is logged with ` with data set
  * #<n>` or ` with data set "<name>"` after it, and named with `#<n>` or
  * `#<name>`. None where there is no log, or it is empty or not JUnit.
+ *
+ * @internal
  */
 final readonly class JUnitFailures
 {

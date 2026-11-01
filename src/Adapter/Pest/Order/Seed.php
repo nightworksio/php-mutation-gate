@@ -27,6 +27,8 @@ use stdClass;
  * run fastest first. PHPUnit weighs an error above a failure and every other status the
  * same as none, so two tiers are all a history can say. It orders by file,
  * so a file with a likely killer runs first, that test first within it.
+ *
+ * @internal
  */
 final readonly class Seed
 {

@@ -8,7 +8,11 @@ use NightWorksIO\MutationGate\Core\Test\RunIssues;
 use PHPUnit\Event\TestRunner\ExecutionFinished;
 use PHPUnit\Event\TestRunner\ExecutionFinishedSubscriber;
 
-/** Records, once PHPUnit ends a mutant's run, the tests whose issues failed it as its killers. */
+/**
+ * Records, once PHPUnit ends a mutant's run, the tests whose issues failed it as its killers.
+ *
+ * @internal
+ */
 final readonly class OnExecutionFinished implements ExecutionFinishedSubscriber
 {
     public function __construct(private Recorder $recorder, private RunIssues $issues)

@@ -16,7 +16,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\BinaryOp\Greater;
 use PhpParser\Node\Expr\BinaryOp\GreaterOrEqual;
 
-/** `>=` becomes `>`. */
+/**
+ * `>=` becomes `>`.
+ *
+ * @internal
+ */
 final readonly class GreaterOrEqualToGreater implements Mutator
 {
     public function name(): MutatorName

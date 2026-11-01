@@ -46,6 +46,8 @@ use function sprintf;
  * follows the nearest test file that covers the mutant, and is added to it;
  * with none, the runner's style, in a new file under the first test
  * directory, at the source's path from its tree.
+ *
+ * @internal
  */
 final readonly class Stubbing
 {

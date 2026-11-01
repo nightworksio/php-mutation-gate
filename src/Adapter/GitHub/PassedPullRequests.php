@@ -38,6 +38,8 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * commits than the proving range holds, or one commit it cannot prove, is
  * read from the other source whole. Where the checkout stands, and what
  * changed from a commit itself, the other source says.
+ *
+ * @internal
  */
 final readonly class PassedPullRequests implements ChangeSource, Repository
 {

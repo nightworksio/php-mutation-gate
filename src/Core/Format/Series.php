@@ -9,7 +9,11 @@ use function array_values;
 use function implode;
 use function sprintf;
 
-/** Words, as a sentence lists them: `a`, `a and b`, `a, b and c`; or with `or` in place of `and`. */
+/**
+ * Words, as a sentence lists them: `a`, `a and b`, `a, b and c`; or with `or` in place of `and`.
+ *
+ * @internal
+ */
 final readonly class Series
 {
     public static function and(string ...$words): string

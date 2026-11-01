@@ -13,6 +13,8 @@ use function sprintf;
  * its killer. Thrown from the plugin's shutdown function and caught by
  * nothing, it ends the process with PHP's code of a fatal error, so Pest
  * counts the mutant tested however the process would have ended (ADR-0014).
+ *
+ * @internal
  */
 final class EndedInTest extends RuntimeException
 {

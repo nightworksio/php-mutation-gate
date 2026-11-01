@@ -12,7 +12,11 @@ use NightWorksIO\MutationGate\Core\Config\Proofs;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 
-/** How the keys a config writes are read into its `Proofs` part (ADR-0002). */
+/**
+ * How the keys a config writes are read into its `Proofs` part (ADR-0002).
+ *
+ * @internal
+ */
 final readonly class ProofsKeys
 {
     /** @return list<Field<Layer>> */

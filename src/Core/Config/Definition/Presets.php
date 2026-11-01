@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 /**
  * The presets a config names: one name, or a list of them applied in order.
  *
+ * @internal
+ *
  * @implements Shape<Listed<string>>
  */
 final readonly class Presets implements Shape

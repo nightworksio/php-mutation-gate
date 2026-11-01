@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Triage;
 
-/** A run of a unit that did not make one of the mutants another run made. */
+/**
+ * A run of a unit that did not make one of the mutants another run made.
+ *
+ * @internal
+ */
 final readonly class NotMade
 {
     private function __construct()

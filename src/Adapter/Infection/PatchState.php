@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
-/** Whether the project's Infection carries `infection:patch`, which decides whose limit each mutant gets. */
+/**
+ * Whether the project's Infection carries `infection:patch`, which decides whose limit each mutant gets.
+ *
+ * @internal
+ */
 enum PatchState
 {
     /** Each mutant gets the gate's limit, within `timeouts.seconds` and `timeouts.most`, and none is skipped. */

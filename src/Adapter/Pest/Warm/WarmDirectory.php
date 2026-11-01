@@ -34,6 +34,8 @@ use function usleep;
  * (ADR-0023): named beside the run's results, so no other run's files are
  * read as this one's; read for what the workers warned of once the run is
  * done and they have ended, and then removed with every file in it.
+ *
+ * @internal
  */
 final readonly class WarmDirectory
 {

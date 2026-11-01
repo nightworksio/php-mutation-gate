@@ -44,6 +44,8 @@ use function sprintf;
  * organisation's dashboard reads (ADR-0024). A run its budget cut short
  * updates none of them (ADR-0009). The command line runs it only for
  * a verdict in CI on the default branch.
+ *
+ * @internal
  */
 final readonly class BadgeDirectory implements Reporter
 {

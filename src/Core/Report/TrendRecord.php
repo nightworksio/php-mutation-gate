@@ -26,6 +26,8 @@ use function sprintf;
  * One entry of `trend.json`, as it is written from a verdict, read back from
  * the file, and handed on as the entry a verdict is compared with.
  *
+ * @internal
+ *
  * @phpstan-type Entry array{
  *     commit: string,
  *     time: string,

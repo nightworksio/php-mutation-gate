@@ -6,7 +6,11 @@ namespace NightWorksIO\MutationGate\Core;
 
 use function preg_match;
 
-/** A whole number as text writes it: digits alone, the first of them no nought. */
+/**
+ * A whole number as text writes it: digits alone, the first of them no nought.
+ *
+ * @internal
+ */
 final readonly class WholeNumber
 {
     private const string POSITIVE = '/^[1-9]\d*$/D';

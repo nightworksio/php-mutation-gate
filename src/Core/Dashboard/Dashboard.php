@@ -19,6 +19,8 @@ use function usort;
  * the time the gate saved it over the last 30 days, as of an instant; and
  * `dashboard.json`, `"format": 1`, the same as data.
  *
+ * @internal
+ *
  * @phpstan-type BelowEntry array{path: string, floor: float, score: float}
  * @phpstan-type RepositoryEntry array{
  *     name: string,

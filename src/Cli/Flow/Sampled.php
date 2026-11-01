@@ -33,6 +33,8 @@ use NightWorksIO\MutationGate\Core\Verdict\HeldFloor;
  * own engine makes of its file. The seed is `sampling.seed`, or the
  * change's base commit in a change-scoped run and the plan's commit
  * otherwise.
+ *
+ * @internal
  */
 final readonly class Sampled
 {

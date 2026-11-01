@@ -18,6 +18,8 @@ use Traversable;
  * A whole test outside the kept set, what it costs, and for each mutant it
  * kills, the kept test that kills it too (ADR-0014).
  *
+ * @internal
+ *
  * @implements IteratorAggregate<int, KeptKill>
  */
 final readonly class RemovableTest implements IteratorAggregate

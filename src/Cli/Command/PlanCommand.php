@@ -37,6 +37,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * writes the pull request comment in its planned state (ADR-0009).
  * What it wrote it says on standard error, since a CI may read the plan's
  * own document from standard output.
+ *
+ * @internal
  */
 final readonly class PlanCommand
 {

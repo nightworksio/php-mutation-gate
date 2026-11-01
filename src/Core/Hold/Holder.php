@@ -10,7 +10,11 @@ use function preg_quote;
 use function sprintf;
 use function str_contains;
 
-/** What a `#[Holds]` stands on: a test class, or one of its methods, written `Class::method`. */
+/**
+ * What a `#[Holds]` stands on: a test class, or one of its methods, written `Class::method`.
+ *
+ * @internal
+ */
 final readonly class Holder
 {
     private function __construct(private string $written)

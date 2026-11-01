@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Adapter\Pest\Silence;
  * What a mutant's own process tells Pest's parent of its progress, on its
  * error output, which the parent's Silence reads: a beat as its tests begin
  * and as each finishes.
+ *
+ * @internal
  */
 final readonly class Heartbeat
 {

@@ -21,6 +21,8 @@ use function sprintf;
  * published schema where it names another line's (ADR-0026). A local
  * path, such as the one `init` writes into `vendor`, is the installed
  * release's own, and stays.
+ *
+ * @internal
  */
 final readonly class PublishedSchema
 {

@@ -32,6 +32,8 @@ use function sprintf;
  * decides and at most five survivors; why the run cannot judge; each tree
  * again after a recovery; or each lowered floor with its reason
  * (ADR-0016). Whatever the project wrote is cut to 120 characters.
+ *
+ * @internal
  */
 final readonly class AlertLines
 {

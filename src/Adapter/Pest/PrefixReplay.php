@@ -20,6 +20,8 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  * arguments Pest started it with, the test files it loaded, how many tests
  * it ran up to its last killer, the key of its order up to there, and the
  * seconds Pest allowed its mutant.
+ *
+ * @internal
  */
 final readonly class PrefixReplay
 {

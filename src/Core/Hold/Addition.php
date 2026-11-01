@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
  * the path it holds, the tests that hold it there, and the declaration
  * as its author wrote it. It adds those tests to the judges of the
  * path's lines they run, and narrows nothing.
+ *
+ * @internal
  */
 final readonly class Addition
 {

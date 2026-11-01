@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
  * The test files each mutant's own run loaded with no filter, or every one,
  * where the runner left the filter of its tests out (ADR-0008), by the
  * mutant's id: its controls load them the same way.
+ *
+ * @internal
  */
 final readonly class UnfilteredRuns
 {

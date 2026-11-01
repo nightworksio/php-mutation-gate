@@ -24,6 +24,8 @@ use function sprintf;
  * HTML report, or the Stryker dashboard's, as the gate's HTML report, and
  * its GitLab Code Quality file as the gate's. The gate writes every other
  * log of Infection's itself, in the config it generates for each run.
+ *
+ * @internal
  */
 final readonly class Logs
 {

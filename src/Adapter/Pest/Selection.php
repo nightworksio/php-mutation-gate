@@ -30,6 +30,8 @@ use function sprintf;
  * or attempt in it does not select that test. Built to select exactly the
  * tests named, as a patched Pest's mutant run and every control select them,
  * it holds one alternative per class (see Alternatives).
+ *
+ * @internal
  */
 final readonly class Selection
 {

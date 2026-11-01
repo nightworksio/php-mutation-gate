@@ -15,6 +15,8 @@ use function sprintf;
  * confirm, or a mutant of a carried result that no longer stands. Each counts
  * as not killed, and each unit fails the verdict, since a budgeted run never
  * passes a mutant it did not judge.
+ *
+ * @internal
  */
 final readonly class Unfinished
 {

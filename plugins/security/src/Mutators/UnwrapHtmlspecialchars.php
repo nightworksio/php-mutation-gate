@@ -24,6 +24,8 @@ use PhpParser\Node\Expr\FuncCall;
 /**
  * `htmlspecialchars($x, …)` becomes `$x`, where neither the `default` set nor Pest's own
  * set runs to make that change.
+ *
+ * @internal
  */
 final readonly class UnwrapHtmlspecialchars implements Mutator, SameChange
 {

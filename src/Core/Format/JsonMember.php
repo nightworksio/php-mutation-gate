@@ -7,6 +7,8 @@ namespace NightWorksIO\MutationGate\Core\Format;
 /**
  * A member of a JSON object as it stands in its text: its key, decoded,
  * where the key's string starts and ends, and its value.
+ *
+ * @internal
  */
 final readonly class JsonMember
 {

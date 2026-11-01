@@ -16,7 +16,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\AssignOp\Mul;
 use PhpParser\Node\Expr\AssignOp\Pow;
 
-/** `**=` becomes `*=`. */
+/**
+ * `**=` becomes `*=`.
+ *
+ * @internal
+ */
 final readonly class PowerEqualToMultiplyEqual implements Mutator
 {
     public function name(): MutatorName

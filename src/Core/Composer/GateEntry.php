@@ -24,6 +24,8 @@ use function sprintf;
  * A manifest's `extra.mutation-gate` entry: the floor it declares for the
  * trees below it and for their new lines (ADR-0005), and the extension
  * classes it names (ADR-0001).
+ *
+ * @internal
  */
 final readonly class GateEntry
 {

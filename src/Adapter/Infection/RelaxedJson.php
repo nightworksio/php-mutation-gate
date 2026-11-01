@@ -20,6 +20,8 @@ use stdClass;
 /**
  * An Infection config file's JSON5 text, read as the object it must hold. The
  * JSON5 library's untyped result stops here: every reader gets a Node.
+ *
+ * @internal
  */
 final readonly class RelaxedJson
 {

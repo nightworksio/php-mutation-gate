@@ -24,7 +24,11 @@ use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 
-/** How the keys a config writes are read into its `Floors` part (ADR-0002). */
+/**
+ * How the keys a config writes are read into its `Floors` part (ADR-0002).
+ *
+ * @internal
+ */
 final readonly class FloorsKeys
 {
     /** @return list<Field<Layer>> */

@@ -27,6 +27,8 @@ use function sprintf;
  * and the mutated file it serves in its place. A run of no test, timing a
  * mutant's start-up, has files of its own: no test listed, and the file
  * unchanged as its mutant.
+ *
+ * @internal
  */
 final readonly class MutantFiles
 {

@@ -11,6 +11,8 @@ use Pest\Mutate\Event\Events\TestSuite\StartMutationGenerationSubscriber;
  * Keeps the opening run's coverage map before Pest deletes it.
  * Pest's facade files a subscriber under the first interface it implements,
  * so this implements that one alone.
+ *
+ * @internal
  */
 final readonly class OnStartMutationGeneration implements StartMutationGenerationSubscriber
 {

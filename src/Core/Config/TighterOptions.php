@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 /**
  * `timeouts.tighter` as the flows write it into a built-in runner's options,
  * and as the runner reads it back: the standard where they write none.
+ *
+ * @internal
  */
 final readonly class TighterOptions
 {

@@ -37,6 +37,8 @@ use function sprintf;
  * some directories alone, reads that path, and each mutant's check is read
  * from there too. A file whose print analyses otherwise leaves its mutants to
  * their tests, saying which findings differ.
+ *
+ * @internal
  */
 final readonly class PrintBaselines
 {

@@ -18,6 +18,8 @@ use function str_replace;
  * MariaDB has no such cache, and no setting to ask with. A table's counter
  * is set back by `ALTER TABLE`, which waits for no lock longer than a test
  * database's own process could hold one.
+ *
+ * @internal
  */
 final readonly class MySqlDialect implements Dialect
 {

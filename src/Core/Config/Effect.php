@@ -11,6 +11,8 @@ namespace NightWorksIO\MutationGate\Core\Config;
  * trusted, is not in the key, but a change to it leaves no proof carried
  * across it (ADR-0005). One that only judges or reports changes
  * neither, so changing it re-runs nothing.
+ *
+ * @internal
  */
 enum Effect: string
 {

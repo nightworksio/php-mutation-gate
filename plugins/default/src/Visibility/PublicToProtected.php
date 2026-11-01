@@ -18,7 +18,11 @@ use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\Node\Stmt\Enum_;
 use PhpParser\Node\Stmt\Interface_;
 
-/** A public method becomes protected, but for a magic method and a method of an interface or an enum. */
+/**
+ * A public method becomes protected, but for a magic method and a method of an interface or an enum.
+ *
+ * @internal
+ */
 final readonly class PublicToProtected implements Mutator
 {
     public function name(): MutatorName

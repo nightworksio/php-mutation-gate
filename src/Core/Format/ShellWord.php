@@ -8,7 +8,11 @@ use function preg_match;
 use function sprintf;
 use function str_replace;
 
-/** A word as a POSIX shell reads it: as it is where that is safe, and otherwise in single quotes. */
+/**
+ * A word as a POSIX shell reads it: as it is where that is safe, and otherwise in single quotes.
+ *
+ * @internal
+ */
 final readonly class ShellWord
 {
     /** A word the shell reads as it is written, with nothing to quote. */

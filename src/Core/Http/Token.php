@@ -6,7 +6,11 @@ namespace NightWorksIO\MutationGate\Core\Http;
 
 use function sprintf;
 
-/** A bearer token a request carries. It is a credential: nothing prints it. */
+/**
+ * A bearer token a request carries. It is a credential: nothing prints it.
+ *
+ * @internal
+ */
 final readonly class Token
 {
     private function __construct(private string $value)

@@ -9,7 +9,11 @@ use NightWorksIO\MutationGate\Core\Format\Series;
 
 use function sprintf;
 
-/** How each step says what it changed, as a sentence starts. */
+/**
+ * How each step says what it changed, as a sentence starts.
+ *
+ * @internal
+ */
 final readonly class Changes
 {
     private const string BECAME = '%s became %s';

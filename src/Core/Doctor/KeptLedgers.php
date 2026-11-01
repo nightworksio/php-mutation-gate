@@ -13,6 +13,8 @@ use Traversable;
 /**
  * Every ledger the proof store keeps, one per scope, as `doctor` weighs them.
  *
+ * @internal
+ *
  * @implements IteratorAggregate<int, KeptLedger>
  */
 final readonly class KeptLedgers implements IteratorAggregate

@@ -11,6 +11,8 @@ use function sprintf;
 /**
  * An option or an argument whose definition always gives text held none:
  * reaching this is a mistake in the definition of the command that read it.
+ *
+ * @internal
  */
 final class MissingCommandText extends LogicException
 {

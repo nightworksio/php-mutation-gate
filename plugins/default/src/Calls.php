@@ -20,6 +20,8 @@ use PhpParser\Node\Param;
 /**
  * Calls of a function by its bare name, as written: `array_map(…)` and
  * `\array_map(…)`, never `Foo\array_map(…)` nor a call through a variable.
+ *
+ * @internal
  */
 final readonly class Calls
 {

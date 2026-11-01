@@ -19,6 +19,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Undoomed;
  * it did, the units its budget ran out before or its doom left, what static
  * analysis's checks of its survivors came to, and the survivor that made its
  * run certain to fail, where one did.
+ *
+ * @internal
  */
 final readonly class Mutated
 {

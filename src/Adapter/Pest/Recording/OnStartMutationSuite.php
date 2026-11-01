@@ -11,6 +11,8 @@ use Pest\Mutate\Event\Events\TestSuite\StartMutationSuiteSubscriber;
  * Records every mutant once they are all made.
  * Pest's facade files a subscriber under the first interface it implements,
  * so this implements that one alone.
+ *
+ * @internal
  */
 final readonly class OnStartMutationSuite implements StartMutationSuiteSubscriber
 {

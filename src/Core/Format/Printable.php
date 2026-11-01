@@ -13,6 +13,8 @@ use function preg_replace;
  * starts no escape sequence there and reorders no text around it. The console takes everything it is given to write
  * through it before it adds its own colour (InertOutput), and a workflow command its message and properties
  * (WorkflowCommand).
+ *
+ * @internal
  */
 final readonly class Printable
 {

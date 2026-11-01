@@ -23,6 +23,8 @@ use function trim;
  * The keys of a manifest's `autoload` whose values are paths, in the order
  * the gate reads them. `exclude-from-classmap` names paths too, but to leave
  * them out, so it names no tree.
+ *
+ * @internal
  */
 enum AutoloadKind: string
 {

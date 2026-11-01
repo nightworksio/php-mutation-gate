@@ -6,7 +6,11 @@ namespace NightWorksIO\MutationGate\Core\Doctor;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 
-/** A ledger the proof store keeps, as `doctor` weighs it: its file, and its size compressed, as it is kept. */
+/**
+ * A ledger the proof store keeps, as `doctor` weighs it: its file, and its size compressed, as it is kept.
+ *
+ * @internal
+ */
 final readonly class KeptLedger
 {
     private function __construct(private Path $file, private int $bytes)

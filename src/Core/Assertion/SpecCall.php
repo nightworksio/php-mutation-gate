@@ -14,6 +14,8 @@ use function sprintf;
  * for any other call, such as one on `$this` of a method of the object the
  * spec describes, or a collaborator's, but a call of a helper the spec
  * declares, which leaves the example not assessed.
+ *
+ * @internal
  */
 final readonly class SpecCall
 {

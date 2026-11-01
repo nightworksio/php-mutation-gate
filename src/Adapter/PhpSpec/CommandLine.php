@@ -30,6 +30,8 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
  * - For a coverage map: the examples the run asks for, with their map
  *   written to a file.
  * - For the suite's examples: listed into a file, and none run.
+ *
+ * @internal
  */
 final readonly class CommandLine
 {

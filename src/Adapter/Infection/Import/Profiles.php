@@ -24,6 +24,8 @@ use function str_starts_with;
  * mutators a config's `mutators` block turns on, and a set of its mutators
  * as the fewest names a gate ignore takes: each family whose every mutator
  * is in the set, then the rest by name (ADR-0016).
+ *
+ * @internal
  */
 final readonly class Profiles
 {

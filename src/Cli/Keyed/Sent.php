@@ -6,7 +6,11 @@ namespace NightWorksIO\MutationGate\Cli\Keyed;
 
 use NightWorksIO\MutationGate\Cli\ExitCode;
 
-/** What `deliver` sent, a line for each part of the delivery, and how it ends. */
+/**
+ * What `deliver` sent, a line for each part of the delivery, and how it ends.
+ *
+ * @internal
+ */
 final readonly class Sent
 {
     /** @param list<string> $said */

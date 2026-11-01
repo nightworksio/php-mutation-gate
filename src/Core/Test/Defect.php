@@ -7,6 +7,8 @@ namespace NightWorksIO\MutationGate\Core\Test;
 /**
  * How a test failed a run, as PHPUnit names it in a JUnit log's elements and
  * in the lists it prints after a run.
+ *
+ * @internal
  */
 enum Defect: string
 {

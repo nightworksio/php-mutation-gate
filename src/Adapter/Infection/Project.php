@@ -28,6 +28,8 @@ use function unlink;
  * The project Infection runs in: its root, the directories its tests live in,
  * and the directory the gate works in. Infection reports files by the paths
  * its config names, which the adapter writes from the root's real path.
+ *
+ * @internal
  */
 final readonly class Project
 {

@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Core\Format\Node;
  * A setting that chooses an adapter (ADR-0002): a name or a class alone, or
  * `{"use": …, "with": …}` with its options.
  *
+ * @internal
+ *
  * @implements Shape<Choice>
  */
 final readonly class Adapter implements Shape

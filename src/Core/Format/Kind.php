@@ -8,6 +8,8 @@ namespace NightWorksIO\MutationGate\Core\Format;
  * What a place in a decoded JSON text holds, as JSON names it. An empty `{}`
  * and an empty `[]` decode alike, so either is empty rather than a map or a
  * list, and a key that is not there holds nothing.
+ *
+ * @internal
  */
 enum Kind
 {

@@ -22,6 +22,8 @@ use Traversable;
  * in the order they were taken: a signal only, which enters no ledger, no
  * score and no verdict.
  *
+ * @internal
+ *
  * @implements IteratorAggregate<int, Recheck>
  */
 final readonly class Rechecked implements Countable, IteratorAggregate

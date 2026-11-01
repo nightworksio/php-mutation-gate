@@ -24,6 +24,8 @@ use function sprintf;
  * removed call, the exception a test expects, and otherwise one assertion
  * on the function's result; and, for a mutant only a test that reads the
  * source kills, that assertion then a read of the function's file.
+ *
+ * @internal
  */
 final readonly class Scaffold
 {

@@ -18,6 +18,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
  * each that alone among its holding group covers a line of what the group
  * holds, whose removal would leave the group short of the coverage it must
  * have (ADR-0014, and ADR-0005).
+ *
+ * @internal
  */
 final readonly class MustStay
 {

@@ -19,6 +19,8 @@ use function sprintf;
  * The counts on Pest's own summary line, `Mutations: 1 untested, 2 uncovered,
  * 1 pending, 1 timeout, 4 tested`, by the status each names. Pest leaves out a
  * count of 0, and calls a mutant with no result pending.
+ *
+ * @internal
  */
 final readonly class Summary
 {

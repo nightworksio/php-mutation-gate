@@ -8,7 +8,11 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function usleep;
 
-/** Waiting in real time, as an alert does before it tries again. */
+/**
+ * Waiting in real time, as an alert does before it tries again.
+ *
+ * @internal
+ */
 final readonly class Pause
 {
     public static function for(int $seconds): void

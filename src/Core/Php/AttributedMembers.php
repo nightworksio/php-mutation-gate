@@ -19,6 +19,8 @@ use function sprintf;
  * Every run of attribute groups a PHP file writes together, read from its
  * tokens: where each attribute's name stands, and what the run stands on,
  * with the class, method or function it names. The file is never loaded.
+ *
+ * @internal
  */
 final readonly class AttributedMembers
 {

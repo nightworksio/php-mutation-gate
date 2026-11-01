@@ -22,6 +22,8 @@ use NightWorksIO\MutationGateSymfony\Mutators\RemoveMessageDispatch;
  * and password checks, forms, flushes and message dispatches, matched on
  * syntax and resolved names, so the set needs no Symfony installed
  * (ADR-0021).
+ *
+ * @internal
  */
 final readonly class SymfonyExtension implements Extension
 {

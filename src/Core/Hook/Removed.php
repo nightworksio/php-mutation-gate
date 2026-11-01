@@ -6,7 +6,11 @@ namespace NightWorksIO\MutationGate\Core\Hook;
 
 use function sprintf;
 
-/** A hook the gate wrote is gone, and where it was. */
+/**
+ * A hook the gate wrote is gone, and where it was.
+ *
+ * @internal
+ */
 final readonly class Removed
 {
     private function __construct(private string $where)

@@ -16,7 +16,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\AssignOp\Mod;
 use PhpParser\Node\Expr\AssignOp\Mul;
 
-/** `%=` becomes `*=`. */
+/**
+ * `%=` becomes `*=`.
+ *
+ * @internal
+ */
 final readonly class ModulusEqualToMultiplyEqual implements Mutator
 {
     public function name(): MutatorName

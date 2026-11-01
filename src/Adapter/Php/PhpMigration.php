@@ -31,6 +31,8 @@ use function sprintf;
  * ChainCuts); each other call a step retires is then rewritten through
  * php-parser's format-preserving printer, which keeps every comment and the
  * layout.
+ *
+ * @internal
  */
 final readonly class PhpMigration
 {

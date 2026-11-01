@@ -13,6 +13,8 @@ use function str_starts_with;
  * class of the builder's package, and the values of the core it names. None
  * of them reads a file, so a config that names only these reads none by
  * naming them.
+ *
+ * @internal
  */
 final readonly class BuilderClasses
 {

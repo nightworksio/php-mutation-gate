@@ -18,6 +18,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * their defaults: the `bucket`, the `prefix`, and the `publicUrl` a job
  * without credentials reads the default branch's ledger from
  * (ADR-0028).
+ *
+ * @internal
  */
 final readonly class GcsOptions
 {

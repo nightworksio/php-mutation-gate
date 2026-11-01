@@ -18,6 +18,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * the ref asked for besides. A path both changed is taken as it changed since
  * the map's commit, which is what the map's lines are of; each change was
  * made since the revision its file is read at as it was.
+ *
+ * @internal
  */
 final readonly class AskedChanges
 {

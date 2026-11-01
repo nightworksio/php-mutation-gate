@@ -25,6 +25,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Warnings;
  * units its budget ran out before, what static analysis's checks of its
  * survivors came to, and the survivor it stopped on once the run could not
  * pass, where it did.
+ *
+ * @internal
  */
 final readonly class ShardResult
 {

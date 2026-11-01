@@ -32,6 +32,8 @@ use function sprintf;
  * limit it ran out of; how the last run took its unit and why; its history;
  * and last the command that runs it again. A cluster is headed by its own
  * heading, hint and stub command, then each member.
+ *
+ * @internal
  */
 final readonly class ExplanationText
 {

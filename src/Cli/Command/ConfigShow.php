@@ -25,6 +25,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * `config:show`: the effective config, every setting with its value, after
  * presets, the config file and the command line (ADR-0002), in any of the
  * four formats.
+ *
+ * @internal
  */
 final readonly class ConfigShow
 {

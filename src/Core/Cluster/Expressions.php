@@ -21,6 +21,8 @@ use function usort;
  * `<` to `<=`, `<` to `>` and the negated condition of one `if`: one boundary
  * test kills them all. Overlap is read through: where a overlaps b and b
  * overlaps c, all three are one group.
+ *
+ * @internal
  */
 final readonly class Expressions
 {

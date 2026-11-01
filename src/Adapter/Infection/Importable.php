@@ -37,6 +37,8 @@ use NightWorksIO\MutationGate\Core\Import\Import;
  * asks; and the gate's config it seeds, with what became of each of its
  * keys, as `init --from` writes it. A config the gate cannot run Infection
  * over, such as one for another test framework, is not imported at all.
+ *
+ * @internal
  */
 final readonly class Importable
 {

@@ -10,7 +10,11 @@ use function sprintf;
 use function str_starts_with;
 use function strpbrk;
 
-/** A shell wildcard pattern, as `fnmatch` reads it, which names many files or classes at once. */
+/**
+ * A shell wildcard pattern, as `fnmatch` reads it, which names many files or classes at once.
+ *
+ * @internal
+ */
 final readonly class ShellPattern
 {
     /** The characters that make a text a pattern rather than one name. */

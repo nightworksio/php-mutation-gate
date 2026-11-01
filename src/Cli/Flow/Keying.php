@@ -36,6 +36,8 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  * the runner, what is installed and the files outside the tests no map shows
  * run say, the files outside the tests the unit reaches, and of the tests,
  * what can judge the unit.
+ *
+ * @internal
  */
 final readonly class Keying
 {

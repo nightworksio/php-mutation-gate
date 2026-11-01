@@ -14,6 +14,8 @@ use function sprintf;
  * config file and the command line, over the value each setting takes when
  * every layer leaves it out, and typed. It holds a runner, no ignore that
  * outlasts `ignores.maxDays`, and no `timeouts.most` under `timeouts.seconds`.
+ *
+ * @internal
  */
 final readonly class Settings
 {

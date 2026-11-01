@@ -15,7 +15,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\BinaryOp\Concat;
 
-/** `$a . $b` becomes `$a`. */
+/**
+ * `$a . $b` becomes `$a`.
+ *
+ * @internal
+ */
 final readonly class ConcatRemoveRight implements Mutator
 {
     public function name(): MutatorName

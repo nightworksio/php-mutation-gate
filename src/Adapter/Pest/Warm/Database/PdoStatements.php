@@ -28,6 +28,8 @@ use function strval;
  * bytes. A digest marks each value as none, a NUL, or as text by the
  * digest of its text, which holds neither a NUL nor what joins values, so
  * two rows digest alike exactly where they hold the same values.
+ *
+ * @internal
  */
 final readonly class PdoStatements implements Statements
 {

@@ -12,7 +12,11 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 
 use function sprintf;
 
-/** What a token endpoint answered: its body, or the text of one field of its JSON, such as `access_token`. */
+/**
+ * What a token endpoint answered: its body, or the text of one field of its JSON, such as `access_token`.
+ *
+ * @internal
+ */
 final readonly class Answer
 {
     private const string NO_FIELD = '%s answered without %s';

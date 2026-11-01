@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * The unmutated control each of some mutants is judged by, by the mutant's
  * gate id (see Control), each control asked for once, however many mutants
  * share it.
+ *
+ * @internal
  */
 final readonly class MutantControls
 {

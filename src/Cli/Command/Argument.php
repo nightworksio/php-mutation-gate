@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Command;
 
-/** The arguments the commands take, by the name each is read by. */
+/**
+ * The arguments the commands take, by the name each is read by.
+ *
+ * @internal
+ */
 enum Argument: string
 {
     /** A mutant, by its id or the start of one, or a cluster, by its id. */

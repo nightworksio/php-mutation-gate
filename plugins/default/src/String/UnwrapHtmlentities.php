@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `htmlentities(…)` becomes its first argument. */
+/**
+ * `htmlentities(…)` becomes its first argument.
+ *
+ * @internal
+ */
 final readonly class UnwrapHtmlentities implements Mutator
 {
     public function name(): MutatorName

@@ -6,7 +6,11 @@ namespace NightWorksIO\MutationGate\Core\Analysis;
 
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 
-/** A survivor offered to static analysis after its tests (ADR-0020), as its analyser reads it. */
+/**
+ * A survivor offered to static analysis after its tests (ADR-0020), as its analyser reads it.
+ *
+ * @internal
+ */
 final readonly class CheckableSurvivor implements CheckableMutant
 {
     private function __construct(private Mutant $mutant, private Checkable $checkable)

@@ -30,6 +30,8 @@ use NightWorksIO\MutationGate\Core\Tree\Package;
  * path repositories that has a PHPUnit config too; each with the packages it
  * requires among them, and the floor its manifest declares for its security
  * set.
+ *
+ * @internal
  */
 final readonly class Packages
 {

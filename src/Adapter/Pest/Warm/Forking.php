@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * command line, readies its test databases from the worker's baseline to
  * report to the given file, and runs Pest's script. The worker goes on with
  * the child's process id.
+ *
+ * @internal
  */
 interface Forking
 {

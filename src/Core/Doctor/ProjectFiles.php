@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * runner's own config says, whether its clone holds the whole of its
  * history, and what its files say to the services around it. A file nobody
  * read is not given.
+ *
+ * @internal
  */
 final readonly class ProjectFiles
 {

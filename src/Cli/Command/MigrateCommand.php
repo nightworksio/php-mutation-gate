@@ -32,6 +32,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * only with `--write`. Exit 0 where every file is current or written, 1
  * where a migration is pending without `--write` or a hand edit is left,
  * and 2 where a file cannot be read.
+ *
+ * @internal
  */
 final readonly class MigrateCommand
 {

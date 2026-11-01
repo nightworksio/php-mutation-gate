@@ -40,6 +40,8 @@ use Psr\Clock\ClockInterface;
  * its mutator's rejection rate and the time a check takes, which the
  * shard's results carry to the ledger. A check that cannot run, or is out
  * of the analyser's scope, leaves its mutant to its tests.
+ *
+ * @internal
  */
 final class PreChecking implements PreChecker
 {

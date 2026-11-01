@@ -16,7 +16,11 @@ use NightWorksIO\MutationGateDefault\Numbers;
 use PhpParser\Node;
 use PhpParser\Node\Scalar\Float_;
 
-/** A float becomes one less. */
+/**
+ * A float becomes one less.
+ *
+ * @internal
+ */
 final readonly class DecrementFloat implements Mutator
 {
     public function name(): MutatorName

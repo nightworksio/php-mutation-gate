@@ -18,6 +18,8 @@ use function sprintf;
  * writes says, for the gate's log: how many of the mutants Pest planned it
  * has judged, and one it is running. Every look is the watch's it wraps,
  * such as the hand-off to static analysis.
+ *
+ * @internal
  */
 final readonly class MutantsProgress implements ProcessWatch
 {

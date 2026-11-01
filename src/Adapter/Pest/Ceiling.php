@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\Format\Bytes;
  * by spaces. The operating system bounds a command line in bytes, and the
  * patched plugin counts the filter with `strlen()`, so every side measures
  * bytes.
+ *
+ * @internal
  */
 final readonly class Ceiling
 {

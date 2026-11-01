@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Removal;
 
-/** What a removed call statement calls its function on. */
+/**
+ * What a removed call statement calls its function on.
+ *
+ * @internal
+ */
 enum Receiver
 {
     /** The class the statement is in: `$this->m()`, `self::m()` or `static::m()`. */

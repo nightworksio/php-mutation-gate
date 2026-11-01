@@ -28,6 +28,8 @@ use function sprintf;
 /**
  * A `mutation-gate.neon`, read with `nette/neon`, which is optional. NEON
  * reads a date as a date by itself, and it is written `YYYY-MM-DD` again.
+ *
+ * @internal
  */
 final readonly class NeonConfig implements ConfigLoader
 {

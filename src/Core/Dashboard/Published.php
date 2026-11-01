@@ -29,6 +29,8 @@ use function sprintf;
  * the project's score, each tree, the floor for new code, and what the gate
  * saved over the last 30 days. Whatever the file holds is the repository's
  * word, so a file not in the shape of `"format": 1` is refused whole.
+ *
+ * @internal
  */
 final readonly class Published
 {

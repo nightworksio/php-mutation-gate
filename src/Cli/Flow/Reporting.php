@@ -47,6 +47,8 @@ use function str_contains;
  * entry of `reports`; GitHub's annotations and step summary under GitHub
  * Actions; the sticky comment on a pull request's run with a token to write
  * it; and the badge and trend in CI on the default branch (ADR-0009).
+ *
+ * @internal
  */
 final readonly class Reporting
 {

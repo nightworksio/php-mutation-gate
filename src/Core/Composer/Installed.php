@@ -35,6 +35,8 @@ use Traversable;
  * it has one and the `dist` one otherwise. An entry that is not a map is no
  * package.
  *
+ * @internal
+ *
  * @implements IteratorAggregate<int, Manifest>
  */
 final readonly class Installed implements IteratorAggregate

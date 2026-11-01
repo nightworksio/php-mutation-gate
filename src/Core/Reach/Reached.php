@@ -20,6 +20,8 @@ use function sprintf;
  * that whether one is inside another is a lookup: each path by itself, and
  * each path and every directory it is inside, but the root, which holds
  * every path.
+ *
+ * @internal
  */
 final readonly class Reached
 {

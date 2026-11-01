@@ -12,7 +12,11 @@ use NightWorksIO\MutationGate\Core\Doctor\Observations;
 use NightWorksIO\MutationGate\Core\Doctor\Severity;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 
-/** The chosen runner installed at releases the gate does not drive, which every run refuses before it starts. */
+/**
+ * The chosen runner installed at releases the gate does not drive, which every run refuses before it starts.
+ *
+ * @internal
+ */
 final readonly class UnsupportedRunner
 {
     private const string WHY

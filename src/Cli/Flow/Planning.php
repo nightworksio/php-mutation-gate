@@ -52,6 +52,8 @@ use function sprintf;
  * unit's key, and the shards the units no proof covers are cut into. A shard
  * of a package other than the project's root cannot be planned: the runner
  * runs the root package's suite, which does not judge another package's code.
+ *
+ * @internal
  */
 final readonly class Planning
 {

@@ -12,6 +12,8 @@ use function strtr;
 /**
  * A chat an alert is written for, and how it writes text and code so that
  * nothing the project wrote becomes markup, a link or a mention there.
+ *
+ * @internal
  */
 enum Chat
 {

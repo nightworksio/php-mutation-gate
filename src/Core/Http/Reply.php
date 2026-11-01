@@ -14,6 +14,8 @@ use function sprintf;
  * What a service answered a post, a chat's, a webhook's or a collector's:
  * its status, its `Retry-After`, and its body, and how a report says it
  * was refused.
+ *
+ * @internal
  */
 final readonly class Reply
 {

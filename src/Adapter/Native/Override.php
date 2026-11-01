@@ -19,6 +19,8 @@ use function var_export;
  * `auto_prepend_file`: it registers the gate's `file://` wrapper before
  * Composer's autoloader loads anything, `files` autoloads included
  * (ADR-0023).
+ *
+ * @internal
  */
 final readonly class Override
 {

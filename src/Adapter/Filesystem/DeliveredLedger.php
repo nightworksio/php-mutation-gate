@@ -21,6 +21,8 @@ use function sprintf;
  * The proofs of a run under `--deliver-later` (ADR-0007): read from the store the config names, which
  * `fetch` filled, and written beside the run's delivery for `deliver` to write to the store, so the run holds none
  * of the store's keys.
+ *
+ * @internal
  */
 final readonly class DeliveredLedger implements ProofStore
 {

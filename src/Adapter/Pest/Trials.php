@@ -20,6 +20,8 @@ use NightWorksIO\MutationGate\Core\Runner\MutationResult;
  * A run's result, each mutant Pest left uncovered on a line that is not
  * executable judged by its trial (ADR-0004), reading the map of
  * every file a line that reads its value may be in: each step timed.
+ *
+ * @internal
  */
 final readonly class Trials
 {

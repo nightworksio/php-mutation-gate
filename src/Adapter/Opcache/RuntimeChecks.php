@@ -40,6 +40,8 @@ use function strspn;
  * closure such a check is in, the constant, property or case of a class it
  * is in, or, where it is in code outside any, anything in the program, is
  * never proven equivalent (ADR-0013).
+ *
+ * @internal
  */
 final readonly class RuntimeChecks
 {

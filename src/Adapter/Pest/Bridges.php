@@ -41,6 +41,8 @@ use function var_export;
  * `--mutator` replaces Pest's list rather than adding to it, so a run of
  * every mutator names Pest's `DefaultSet` beside the bridges, and a run of
  * some names each bridged one by its bridge's class.
+ *
+ * @internal
  */
 final readonly class Bridges
 {

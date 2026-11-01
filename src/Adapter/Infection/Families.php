@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
  * `Concat` and `ConcatOperandRemoval` change a string in no way a hint can
  * name, and `SyntaxError` is Infection's own, so each is marked as having no
  * family.
+ *
+ * @internal
  */
 final readonly class Families
 {

@@ -21,6 +21,8 @@ use function sprintf;
  * PHPUnit's JUnit log of a coverage run: how long each test took, and how long
  * each test class took, which is the time Infection sums for a mutant's
  * covering tests.
+ *
+ * @internal
  */
 final readonly class JUnit
 {

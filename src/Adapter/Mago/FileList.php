@@ -17,7 +17,11 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
 use function sprintf;
 
-/** The files Mago analyses, as `mago list-files -0` prints them, each ended by a NUL. */
+/**
+ * The files Mago analyses, as `mago list-files -0` prints them, each ended by a NUL.
+ *
+ * @internal
+ */
 final readonly class FileList
 {
     private const string UNLISTED = 'Mago could not list the files it analyses (%s).';

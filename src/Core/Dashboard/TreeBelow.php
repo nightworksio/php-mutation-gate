@@ -7,7 +7,11 @@ namespace NightWorksIO\MutationGate\Core\Dashboard;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Score;
 
-/** A tree a repository published as scoring below its floor: its path, the floor and the score (ADR-0024). */
+/**
+ * A tree a repository published as scoring below its floor: its path, the floor and the score (ADR-0024).
+ *
+ * @internal
+ */
 final readonly class TreeBelow
 {
     private function __construct(private string $path, private Floor $floor, private Score $score)

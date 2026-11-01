@@ -17,7 +17,11 @@ use NightWorksIO\MutationGate\Core\Proof\Access;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Port\ProofStore;
 
-/** The coverage map a store keeps for a run, or why there is none to read, and the scope it was read from. */
+/**
+ * The coverage map a store keeps for a run, or why there is none to read, and the scope it was read from.
+ *
+ * @internal
+ */
 final readonly class StoredCoverage
 {
     private function __construct(private KeptMap|Missing|CannotJudge $map, private KeptFrom $from)

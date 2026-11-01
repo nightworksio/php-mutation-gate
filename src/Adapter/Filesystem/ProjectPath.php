@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\File\Root;
  * a file outside the project. Each is read and written through a `Directory`,
  * so a path that goes up out of the project, or a link that leads out of it,
  * is refused.
+ *
+ * @internal
  */
 final readonly class ProjectPath
 {

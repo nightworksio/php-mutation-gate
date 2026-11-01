@@ -41,6 +41,8 @@ use function sprintf;
  * Each keeps PHPUnit's caches in the gate's own directory for them, whatever
  * the project's config names, so no run writes a file a content key reads
  * (ADR-0007).
+ *
+ * @internal
  */
 final readonly class CommandLine
 {

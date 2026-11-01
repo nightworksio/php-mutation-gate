@@ -19,6 +19,8 @@ use function sprintf;
  * The owners `owners.floors` holds to floors (ADR-0022): each key an owner a
  * CODEOWNERS rule can write, with its floor; and a warning for each key that
  * is none, which holds no code to anything.
+ *
+ * @internal
  */
 final readonly class ConfiguredOwnerFloors
 {

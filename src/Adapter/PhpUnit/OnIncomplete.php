@@ -10,6 +10,8 @@ use PHPUnit\Event\Test\MarkedIncompleteSubscriber;
 /**
  * Records a test marked incomplete as ended, neither passed nor failed. One
  * marked so in `setUp` never finishes, so this is its only end.
+ *
+ * @internal
  */
 final readonly class OnIncomplete implements MarkedIncompleteSubscriber
 {

@@ -10,7 +10,11 @@ use function floor;
 use function max;
 use function min;
 
-/** When a budgeted process must stop (ADR-0008): its budget after it started. */
+/**
+ * When a budgeted process must stop (ADR-0008): its budget after it started.
+ *
+ * @internal
+ */
 final readonly class Deadline
 {
     /** @param float $at the instant, in seconds since the epoch */

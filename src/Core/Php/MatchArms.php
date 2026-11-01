@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * statement, inside an argument list, after a ternary's `?`, or in another
  * match's arm. Coverage may never mark that head run, as pcov never marks
  * the head of a `match (true)`.
+ *
+ * @internal
  */
 final readonly class MatchArms
 {

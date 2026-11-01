@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Telemetry;
 
-/** One metric a verdict emits: its name, unit and kind, and its points. */
+/**
+ * One metric a verdict emits: its name, unit and kind, and its points.
+ *
+ * @internal
+ */
 final readonly class Metric
 {
     /** @param list<DataPoint> $points */

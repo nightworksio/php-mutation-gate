@@ -16,6 +16,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * `--output=problems`, one line per result for an editor's problem matcher,
  * after the line a background matcher waits for before the run; with
  * `--only=changed`, only the results on changed lines (ADR-0015).
+ *
+ * @internal
  */
 final readonly class Printing
 {

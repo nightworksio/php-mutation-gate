@@ -26,6 +26,8 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
  * existence or shape, as the kill matrix names the tests that judge it. A
  * test the runner named no file for is not assessed (ADR-0025). A
  * surviving removal reads its judging tests too.
+ *
+ * @internal
  */
 final readonly class Weakness
 {

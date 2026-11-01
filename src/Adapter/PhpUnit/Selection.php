@@ -14,6 +14,8 @@ use function sprintf;
  * How a mutant's run selects the tests that cover it, from a file in its
  * directory: by their ids, one to a line, or by the files their classes are
  * in, where PHPUnit cannot read an id back from a line.
+ *
+ * @internal
  */
 enum Selection: string
 {

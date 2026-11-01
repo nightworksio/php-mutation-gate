@@ -7,7 +7,11 @@ namespace NightWorksIO\MutationGate\Core\Migration;
 use function count;
 use function min;
 
-/** The lines two texts share, and those each holds alone, in order: the longest common subsequence of their lines. */
+/**
+ * The lines two texts share, and those each holds alone, in order: the longest common subsequence of their lines.
+ *
+ * @internal
+ */
 final readonly class LineDiff
 {
     public const string SAME = ' ';

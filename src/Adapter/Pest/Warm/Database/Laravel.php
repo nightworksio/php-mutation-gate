@@ -29,6 +29,8 @@ use function spl_autoload_register;
  *   time, which it does after it migrated and before its first transaction;
  * - the connections Laravel's database manager holds open then, and the
  *   config each was made from (see LaravelConfig).
+ *
+ * @internal
  */
 final readonly class Laravel
 {

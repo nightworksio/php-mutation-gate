@@ -23,6 +23,8 @@ use function sprintf;
  * none at all; one the project's PHPUnit config lifts, since PHPUnit sets its
  * own `memory_limit` after PHP reads the cap; and, under `--measure`, one the
  * suite itself comes near.
+ *
+ * @internal
  */
 final readonly class Memory
 {

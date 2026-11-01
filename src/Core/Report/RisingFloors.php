@@ -15,6 +15,8 @@ use function sprintf;
  * The floors a verdict's scores raise, each by what it is of: a tree by its
  * path, and a security set by its package's (ADR-0021), each
  * path one plain line, with no control character.
+ *
+ * @internal
  */
 final readonly class RisingFloors
 {

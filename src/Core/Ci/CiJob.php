@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Core\File\Paths;
  * The CI job a plan's process runs in, as a CI plan holds it: the variables
  * its CI set, which say what the run is, and the definitions that run the gate
  * there.
+ *
+ * @internal
  */
 final readonly class CiJob
 {

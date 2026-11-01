@@ -12,6 +12,8 @@ use PDOException;
 /**
  * One test database as it stood once freshly migrated, with how to reach it
  * again (ADR-0023).
+ *
+ * @internal
  */
 final readonly class Snapshot
 {

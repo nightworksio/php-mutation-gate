@@ -26,6 +26,8 @@ use function sprintf;
  * run, the one that has run longest and for how long, and what its watch
  * tells of its progress. A run that is slow or stalled can so be read from
  * the log as it runs.
+ *
+ * @internal
  */
 final readonly class Saying
 {

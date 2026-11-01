@@ -19,6 +19,8 @@ use function realpath;
  * from the project's root where the PHAR is inside the project, and run by
  * PHP where the file cannot run itself; else as Composer linked it into the
  * project's binaries. It takes the project as the console spells it.
+ *
+ * @internal
  */
 final readonly class StartedGate
 {

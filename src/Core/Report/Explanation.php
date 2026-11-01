@@ -18,6 +18,8 @@ use NightWorksIO\MutationGate\Core\Verdict\JudgedUnit;
  * where the last run does not; the tests that cover it and what each did;
  * how the last run took its unit and why; and every record the ledgers read
  * hold of it.
+ *
+ * @internal
  */
 final readonly class Explanation
 {

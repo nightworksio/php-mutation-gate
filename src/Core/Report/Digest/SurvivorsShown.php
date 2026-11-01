@@ -20,6 +20,8 @@ use function sprintf;
  * How many survivors the digest's overview lists: as many as the HTML
  * report's overview names, by default, as many as `--survivors=<n>` asks
  * for, or every one with `--survivors=all`, the word `--only` takes too.
+ *
+ * @internal
  */
 final readonly class SurvivorsShown
 {
