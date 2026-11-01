@@ -74,6 +74,8 @@ sees the same verdict.
      (ADR-0016), and `sonar`, SonarQube's generic external-issues format
      (ADR-0028), each needing a `path`. `reports` is empty by default, and `--report=<name>:<path>` adds
      one for a single command.
+     ADR-0046 amends this: `stryker`, the Stryker report on its own, is a
+     built-in file report too.
    - **GitHub annotations** (`github-annotations`) and **the step summary**
      (`github-summary`, written to `GITHUB_STEP_SUMMARY`) whenever
      `GITHUB_ACTIONS` is set.

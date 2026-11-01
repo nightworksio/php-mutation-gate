@@ -152,6 +152,7 @@ final readonly class Builtins
                 BuiltinReporter::JUnit,
                 BuiltinReporter::Sarif,
                 BuiltinReporter::Html,
+                BuiltinReporter::Stryker,
                 BuiltinReporter::Digest,
                 BuiltinReporter::Tests,
                 BuiltinReporter::KillMatrix,

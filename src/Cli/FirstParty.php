@@ -34,6 +34,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
 use NightWorksIO\MutationGate\Adapter\Filesystem\SarifReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\SonarReportFile;
+use NightWorksIO\MutationGate\Adapter\Filesystem\StrykerReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\TestsReportFile;
 use NightWorksIO\MutationGate\Adapter\Gcs\BucketLedger as GcsBucket;
 use NightWorksIO\MutationGate\Adapter\Git\Git;
@@ -194,8 +195,15 @@ final readonly class FirstParty implements Extension
             )
             ->withReporter(BuiltinReporter::Console->named(), ConsoleReport::fromOptions(...))
             ->withReporter(BuiltinReporter::Json->named(), JsonReportFile::fromOptions(...))
+            ->withReporter(BuiltinReporter::Stryker->named(), StrykerReportFile::fromOptions(...))
             ->withReporter(BuiltinReporter::JUnit->named(), JUnitReportFile::fromOptions(...))
-            ->withReporter(BuiltinReporter::Sarif->named(), SarifReportFile::fromOptions(...))
+            ->withReporter(
+                BuiltinReporter::Sarif->named(),
+                static fn(Options $options): Reporter|Invalid => SarifReportFile::configured(
+                    $options,
+                    self::guide(),
+                ),
+            )
             ->withReporter(BuiltinReporter::Html->named(), HtmlReportDirectory::fromOptions(...))
             ->withReporter(BuiltinReporter::Digest->named(), DigestReportFile::fromOptions(...))
             ->withReporter(BuiltinReporter::GitHubAnnotations->named(), Annotations::fromOptions(...))
@@ -216,7 +224,7 @@ final readonly class FirstParty implements Extension
                 BuiltinReporter::Sonar->named(),
                 static fn(Options $options): Reporter|Invalid => SonarReportFile::configured(
                     $options,
-                    Guide::ofInstalled(InstalledGate::version()->version()),
+                    self::guide(),
                 ),
             )
             ->withReporter(BuiltinReporter::KillMatrix->named(), KillMatrixFile::fromOptions(...))
@@ -331,6 +339,12 @@ final readonly class FirstParty implements Extension
     }
 
     /** The project's root, where the gate runs, as an absolute path, which the analysers name files by. */
+    /** The troubleshooting guide of the gate that runs, which its reports link into. */
+    private static function guide(): Guide
+    {
+        return Guide::ofInstalled(InstalledGate::version()->version());
+    }
+
     private static function root(): string
     {
         $here = getcwd();

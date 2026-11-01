@@ -56,3 +56,18 @@ it('loads the polyfill of PHP 8.5\'s array functions from the gate\'s own vendor
 it('loads no polyfill where no vendor directory beside the gate holds one', function (): void {
     expect(GateClasses::polyfilledFrom(Scratch::directory()))->toEqual(NotGiven::value());
 });
+
+it('loads no polyfill on registering where PHP\'s array functions are already there', function (): void {
+    $gate = sprintf('%s/gate', Scratch::directory());
+    $polyfill = sprintf('%s/vendor/symfony/polyfill-php85/bootstrap.php', $gate);
+    mkdir(dirname($polyfill), recursive: true);
+    file_put_contents($polyfill, "<?php\n");
+    file_put_contents(sprintf('%s/Php85.php', dirname($polyfill)), "<?php\n");
+
+    LaravelTesting::spiesOf(static function () use ($gate): void {
+        GateClasses::register(sprintf('%s/src', $gate));
+    });
+
+    expect(function_exists('array_last'))->toBeTrue()
+        ->and(get_included_files())->not->toContain((string) realpath($polyfill));
+});

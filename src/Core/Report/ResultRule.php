@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Report;
 
 use function array_search;
 
+use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 
 /**
@@ -57,6 +58,18 @@ enum ResultRule: string
             self::Unjudged => 'A mutant the run did not judge, or could not judge in its time or memory limit.',
             self::Flaky => 'A mutant its tests killed on one run and not on another.',
             self::FailsUnmutated => 'A mutant whose tests fail without any mutant, so nothing judges it.',
+        };
+    }
+
+    /** The section of the troubleshooting guide that explains the rule. */
+    public function slug(): Slug
+    {
+        return match ($this) {
+            self::Survived => Slug::Survived,
+            self::Uncovered => Slug::Uncovered,
+            self::Unjudged => Slug::Unjudged,
+            self::Flaky => Slug::Flaky,
+            self::FailsUnmutated => Slug::FailsUnmutated,
         };
     }
 

@@ -225,6 +225,7 @@ it('writes a report that writes no file with uses, and one that writes a file wi
         ['use' => 'junit', 'path' => 'build/m.xml'],
         ['use' => 'sarif', 'path' => 'build/m.sarif'],
         ['use' => 'html', 'path' => 'build/m.html'],
+        ['use' => 'stryker', 'path' => 'build/m-report.json'],
         ['use' => 'digest', 'path' => 'build/m.txt'],
         ['use' => 'acme', 'with' => ['channel' => '#ci']],
         ['use' => 'acme', 'path' => 'build/a.txt', 'with' => ['channel' => '#ci']],
@@ -234,6 +235,7 @@ it('writes a report that writes no file with uses, and one that writes a file wi
         ->toContain("Report::junit('build/m.xml'),")
         ->toContain("Report::sarif('build/m.sarif'),")
         ->toContain("Report::html('build/m.html'),")
+        ->toContain("Report::stryker('build/m-report.json'),")
         ->toContain("Report::digest('build/m.txt'),")
         ->toContain("Report::uses('acme', Option::of('channel', '#ci')),")
         ->toContain("Report::writing('acme', 'build/a.txt', Option::of('channel', '#ci')),")

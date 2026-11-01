@@ -31,8 +31,6 @@ final readonly class Logs
 
     private const string REPORT = 'a reports entry %s at %s';
 
-    private const string STRYKER = 'stryker';
-
     private const string GENERATED
         = 'the gate writes Infection\'s logs itself, in the config it generates for each run';
 
@@ -65,7 +63,7 @@ final readonly class Logs
             $key === $gitlab && $path !== '' => self::report($key, $gitlab, Path::of($path)),
             $key === 'json' && $path !== '' => self::dropped($key, Choices::json(Path::of($path))),
             $key === 'github' => self::dropped($key, self::GITHUB),
-            $key === self::STRYKER => self::stryker($value, $logs),
+            $key === BuiltinReporter::Stryker->value => self::stryker($value, $logs),
             default => self::dropped($key, self::GENERATED),
         };
     }
@@ -77,7 +75,7 @@ final readonly class Logs
         $html = BuiltinReporter::Html->value;
 
         foreach (Lenient::entries($stryker) as $key => $value) {
-            $key = sprintf('%s.%s', self::STRYKER, $key);
+            $key = sprintf('%s.%s', BuiltinReporter::Stryker->value, $key);
             $import = $import->and(match (true) {
                 $key === 'stryker.report' && Lenient::text($logs->field($html)) === '' => self::report(
                     $key,

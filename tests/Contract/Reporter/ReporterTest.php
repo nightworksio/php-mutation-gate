@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\JUnitReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\KillMatrixFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\SarifReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\SonarReportFile;
+use NightWorksIO\MutationGate\Adapter\Filesystem\StrykerReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\TestsReportFile;
 use NightWorksIO\MutationGate\Adapter\GitHub\Annotations;
 use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
@@ -57,6 +58,7 @@ $holds = [
     'holds:src/Adapter/Filesystem/ReportPath.php',
     'holds:src/Adapter/Filesystem/SarifReportFile.php',
     'holds:src/Adapter/Filesystem/SonarReportFile.php',
+    'holds:src/Adapter/Filesystem/StrykerReportFile.php',
     'holds:src/Adapter/Filesystem/TestsReportFile.php',
     'holds:src/Adapter/GitHub',
     'holds:src/Adapter/Otlp',
@@ -136,12 +138,17 @@ $reporters = [
     'JSON' => fn(): Reporter => JsonReportFile::at(sprintf('%s/mutation.json', Scratch::directory())),
     'JUnit' => fn(): Reporter => JUnitReportFile::at(sprintf('%s/junit.xml', Scratch::directory())),
     'the digest' => fn(): Reporter => DigestReportFile::at(sprintf('%s/mutation-gate-digest.txt', Scratch::directory())),
-    'SARIF' => fn(): Reporter => SarifReportFile::at(sprintf('%s/mutation.sarif', Scratch::directory())),
-    'SARIF for an editor' => fn(): Reporter => SarifReportFile::rootedAt(sprintf('%s/mutation.sarif', Scratch::directory()), '/work/gate'),
+    'SARIF' => fn(): Reporter => SarifReportFile::at(sprintf('%s/mutation.sarif', Scratch::directory()), Guide::unreleased()),
+    'SARIF for an editor' => fn(): Reporter => SarifReportFile::rootedAt(
+        sprintf('%s/mutation.sarif', Scratch::directory()),
+        '/work/gate',
+        Guide::unreleased(),
+    ),
     'GitLab Code Quality' => fn(): Reporter => CodeQualityReportFile::at(sprintf('%s/gl-code-quality.json', Scratch::directory())),
     'SonarQube' => fn(): Reporter => SonarReportFile::at(sprintf('%s/mutation-sonar.json', Scratch::directory()), Scratch::directory(), Guide::unreleased()),
     'the kill matrix' => fn(): Reporter => KillMatrixFile::at(sprintf('%s/kill-matrix.csv', Scratch::directory())),
     'the tests report' => fn(): Reporter => TestsReportFile::at(sprintf('%s/tests.json', Scratch::directory())),
+    'Stryker' => fn(): Reporter => StrykerReportFile::at(sprintf('%s/mutation-report.json', Scratch::directory()), Scratch::directory()),
     'HTML' => fn(): Reporter => HtmlReportDirectory::at(
         sprintf('%s/html', Scratch::directory()),
         Scratch::directory(),

@@ -7,6 +7,8 @@ use NightWorksIO\MutationGate\Core\Report\Sarif;
 use NightWorksIO\MutationGate\Core\Report\SourceRoot;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\ThisPackage;
+use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
+use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Tests\Support\Clustered;
@@ -24,25 +26,25 @@ const SARIF_SCHEMA = [
 it('writes SARIF 2.1.0 as its schema describes it', function (string $verdict): void {
     $schema = Schema::fetched(...SARIF_SCHEMA);
 
-    expect(Schema::errors(Sarif::json(Verdicts::named($verdict)), $schema))->toBe([])
-        ->and(Schema::errors(Sarif::rootedAt(Verdicts::named($verdict), SourceRoot::at('/work/gate')), $schema))->toBe([]);
+    expect(Schema::errors(Sarif::json(Verdicts::named($verdict), Guide::unreleased()), $schema))->toBe([])
+        ->and(Schema::errors(Sarif::rootedAt(Verdicts::named($verdict), SourceRoot::at('/work/gate'), Guide::unreleased()), $schema))->toBe([]);
 })->with(['failing', 'passing', 'empty', 'clustered'])->group('network');
 
 it('names the root its paths are relative to only for an editor on this machine', function (): void {
     $root = static fn(string $sarif): mixed => Decoded::at($sarif, 'runs', 0, 'originalUriBaseIds', '%SRCROOT%');
 
-    expect($root(Sarif::json(Verdicts::failing())))->toBe(['description' => ['text' => 'The repository root']])
-        ->and($root(Sarif::rootedAt(Verdicts::failing(), SourceRoot::at('/work/gate'))))
+    expect($root(Sarif::json(Verdicts::failing(), Guide::unreleased())))->toBe(['description' => ['text' => 'The repository root']])
+        ->and($root(Sarif::rootedAt(Verdicts::failing(), SourceRoot::at('/work/gate'), Guide::unreleased())))
         ->toBe(['uri' => 'file:///work/gate/', 'description' => ['text' => 'The repository root']]);
 });
 
 it('never reports a mutant the score leaves out', function (): void {
-    expect(Decoded::column(Sarif::json(Verdicts::failing()), 'properties', 'runs', 0, 'results'))
+    expect(Decoded::column(Sarif::json(Verdicts::failing(), Guide::unreleased()), 'properties', 'runs', 0, 'results'))
         ->each->not->toMatchArray(['judgement' => 'equivalent']);
 });
 
 it('writes one run of the tool with its four rules', function (): void {
-    $sarif = Sarif::json(Verdicts::passing());
+    $sarif = Sarif::json(Verdicts::passing(), Guide::unreleased());
 
     expect(Decoded::at($sarif, 'version'))->toBe('2.1.0')
         ->and(Decoded::at($sarif, 'runs'))->toHaveCount(1)
@@ -52,7 +54,7 @@ it('writes one run of the tool with its four rules', function (): void {
 });
 
 it('reports every mutant counted as not killed under its rule, an error in a set that failed', function (): void {
-    $sarif = Sarif::json(Verdicts::failing());
+    $sarif = Sarif::json(Verdicts::failing(), Guide::unreleased());
 
     expect(Decoded::column($sarif, 'ruleId', 'runs', 0, 'results'))->toBe(['survived', 'uncovered', 'flaky', 'unjudged', 'unjudged', 'survived', 'survived'])
         ->and(Decoded::column($sarif, 'ruleIndex', 'runs', 0, 'results'))->toBe([0, 1, 3, 2, 2, 0, 0])
@@ -60,7 +62,7 @@ it('reports every mutant counted as not killed under its rule, an error in a set
 });
 
 it('reports each ignored mutant as a note, suppressed with why: by the config externally, by a marker in source', function (): void {
-    $sarif = Sarif::json(Verdicts::failing());
+    $sarif = Sarif::json(Verdicts::failing(), Guide::unreleased());
     $result = static fn(int $at, string|int ...$keys): mixed => Decoded::at($sarif, 'runs', 0, 'results', $at, ...$keys);
 
     expect($result(5, 'properties', 'judgement'))->toBe('ignored')
@@ -74,7 +76,7 @@ it('reports each ignored mutant as a note, suppressed with why: by the config ex
 it('places a result at the mutant, fingerprinted by the gate\'s id', function (): void {
     $survivor = Verdicts::survivor();
     $id = $survivor->mutant()->id()->value();
-    $sarif = Sarif::json(Verdicts::failing());
+    $sarif = Sarif::json(Verdicts::failing(), Guide::unreleased());
     $result = static fn(string|int ...$keys): mixed => Decoded::at($sarif, 'runs', 0, 'results', 0, ...$keys);
 
     expect($result('locations', 0, 'physicalLocation'))->toBe([
@@ -93,13 +95,13 @@ it('places a result at the mutant, fingerprinted by the gate\'s id', function ()
 it('warns of a mutant in a set that passed', function (): void {
     $verdict = Verdicts::of(Floor::of(0), Verdicts::survivor());
 
-    expect(Decoded::at(Sarif::json($verdict), 'runs', 0, 'results', 0, 'level'))->toBe('warning');
+    expect(Decoded::at(Sarif::json($verdict, Guide::unreleased()), 'runs', 0, 'results', 0, 'level'))->toBe('warning');
 });
 
 it('keeps every member of a cluster a result of its own, naming its cluster', function (): void {
     $verdict = Clustered::verdict();
     [$expression] = iterator_to_array($verdict->trees()->clusters(), preserve_keys: false);
-    $sarif = Sarif::json($verdict);
+    $sarif = Sarif::json($verdict, Guide::unreleased());
 
     expect(Decoded::at($sarif, 'runs', 0, 'results'))->toHaveCount(7)
         ->and(Decoded::at($sarif, 'runs', 0, 'results', 0, 'properties', 'cluster'))->toBe($expression->id()->value())
@@ -109,7 +111,7 @@ it('keeps every member of a cluster a result of its own, naming its cluster', fu
 
 it('keeps a message that holds a workflow command JSON-escaped, on no line of its own', function (): void {
     $mutant = Verdicts::mutant('src/Money.php:7', "Evil\n::error::injected,a:b%0A", MutatorFamily::None, Verdicts::BOUNDARY);
-    $sarif = Sarif::json(Verdicts::of(Floor::of(80), JudgedMutant::of($mutant, MutantJudgement::Survived)));
+    $sarif = Sarif::json(Verdicts::of(Floor::of(80), JudgedMutant::of($mutant, MutantJudgement::Survived)), Guide::unreleased());
     $lines = explode("\n", $sarif);
 
     expect(array_values(array_filter($lines, static fn(string $line): bool => str_starts_with(ltrim($line), '::'))))->toBe([])
@@ -117,7 +119,7 @@ it('keeps a message that holds a workflow command JSON-escaped, on no line of it
 });
 
 it('says a security mutant\'s result is one, and makes it an error where its security set failed', function (): void {
-    $results = Decoded::at(Sarif::json(Verdicts::secured()), 'runs', 0, 'results');
+    $results = Decoded::at(Sarif::json(Verdicts::secured(), Guide::unreleased()), 'runs', 0, 'results');
     $properties = array_map(
         static fn(mixed $result): mixed => is_array($result) ? $result['properties'] ?? null : null,
         is_array($results) ? $results : [],
@@ -132,23 +134,30 @@ it('says a security mutant\'s result is one, and makes it an error where its sec
 });
 
 it('writes a security mutant\'s result as SARIF 2.1.0\'s schema describes it', function (): void {
-    expect(Schema::errors(Sarif::json(Verdicts::secured()), Schema::fetched(...SARIF_SCHEMA)))->toBe([]);
+    expect(Schema::errors(Sarif::json(Verdicts::secured(), Guide::unreleased()), Schema::fetched(...SARIF_SCHEMA)))->toBe([]);
 })->group('network');
 
-it('describes each rule and the tool where a reader can learn more of them', function (): void {
-    $sarif = Sarif::json(Verdicts::passing());
+it('describes the tool, and links each rule to the section of the guide that explains it', function (): void {
+    $guide = Guide::unreleased();
+    $sarif = Sarif::json(Verdicts::passing(), $guide);
 
     expect(Decoded::at($sarif, 'runs', 0, 'tool', 'driver', 'informationUri'))->toBe(ThisPackage::REPOSITORY)
         ->and(Decoded::at($sarif, 'runs', 0, 'tool', 'driver', 'rules', 0))->toBe([
             'id' => 'survived',
             'shortDescription' => ['text' => 'A mutant no test fails on.'],
-            'helpUri' => ThisPackage::REPOSITORY,
+            'helpUri' => $guide->link(Slug::Survived),
         ])
-        ->and(Decoded::column($sarif, 'helpUri', 'runs', 0, 'tool', 'driver', 'rules'))->toBe(array_fill(0, 5, ThisPackage::REPOSITORY));
+        ->and(Decoded::column($sarif, 'helpUri', 'runs', 0, 'tool', 'driver', 'rules'))->toBe([
+            $guide->link(Slug::Survived),
+            $guide->link(Slug::Uncovered),
+            $guide->link(Slug::Unjudged),
+            $guide->link(Slug::Flaky),
+            $guide->link(Slug::FailsUnmutated),
+        ]);
 });
 
 it('reports each mutant a set of tests that fails without any mutant leaves out as an error under its own rule', function (): void {
-    $sarif = Sarif::json(Verdicts::of(Floor::of(50), Verdicts::failingUnmutated()));
+    $sarif = Sarif::json(Verdicts::of(Floor::of(50), Verdicts::failingUnmutated()), Guide::unreleased());
 
     expect(Decoded::column($sarif, 'ruleId', 'runs', 0, 'results'))->toBe(['fails-unmutated'])
         ->and(Decoded::column($sarif, 'level', 'runs', 0, 'results'))->toBe(['error'])

@@ -68,12 +68,6 @@ enum SonarRule: string
 
     private function slug(): Slug
     {
-        return match ($this) {
-            self::Survived, self::SurvivedSecurity => Slug::Survived,
-            self::Uncovered => Slug::Uncovered,
-            self::Unjudged => Slug::Unjudged,
-            self::Flaky => Slug::Flaky,
-            self::FailsUnmutated => Slug::FailsUnmutated,
-        };
+        return $this === self::SurvivedSecurity ? Slug::Survived : ResultRule::from($this->value)->slug();
     }
 }

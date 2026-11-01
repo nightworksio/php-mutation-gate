@@ -8,13 +8,15 @@ use NightWorksIO\MutationGate\Core\Cluster\Membership;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\ThisPackage;
+use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 
 /**
  * The verdict as SARIF 2.1.0, for code scanning: one run of the tool
- * `mutation-gate`, four rules, and a result for every mutant the score counts
+ * `mutation-gate`, its rules each with the section of the troubleshooting
+ * guide that explains it, and a result for every mutant the score counts
  * as not killed. A result is an error when its mutant is in a set that
  * failed, and a warning otherwise. Each ignored mutant is a note, suppressed
  * with why it is ignored: externally by the config, in source by a runner's
@@ -60,19 +62,19 @@ final readonly class Sarif
     private const string IGNORED = 'note';
 
     /** The report as CI uploads it, with paths relative to a root it does not name. */
-    public static function json(Verdict $verdict): string
+    public static function json(Verdict $verdict, Guide $guide): string
     {
-        return self::encoded($verdict, []);
+        return self::encoded($verdict, $guide, []);
     }
 
     /** The report for an editor on this machine, which names the root its paths are relative to. */
-    public static function rootedAt(Verdict $verdict, SourceRoot $root): string
+    public static function rootedAt(Verdict $verdict, SourceRoot $root, Guide $guide): string
     {
-        return self::encoded($verdict, ['uri' => $root->uri()]);
+        return self::encoded($verdict, $guide, ['uri' => $root->uri()]);
     }
 
     /** @param array{uri?: string} $root */
-    private static function encoded(Verdict $verdict, array $root): string
+    private static function encoded(Verdict $verdict, Guide $guide, array $root): string
     {
         $overview = Overview::of($verdict);
         $rules = [];
@@ -82,7 +84,7 @@ final readonly class Sarif
             $rules[] = [
                 'id' => $rule->value,
                 'shortDescription' => ['text' => $rule->text()],
-                'helpUri' => ThisPackage::REPOSITORY,
+                'helpUri' => $guide->link($rule->slug()),
             ];
         }
 
