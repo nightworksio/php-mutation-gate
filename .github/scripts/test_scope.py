@@ -13,13 +13,34 @@ class Outputs(unittest.TestCase):
     def test_runs_every_gate_on_a_push_a_schedule_or_without_a_base(self):
         for event, paths in (("push", ["README.md"]), ("schedule", []), ("pull_request", None)):
             found = scope.outputs(event, paths)
-            self.assertEqual((found["code"], found["warm"]), ("true", "true"))
+            self.assertEqual((found["code"], found["warm"], found["site"]), ("true", "true", "true"))
             self.assertEqual(json.loads(found["runners"]), list(scope.RUNNERS))
 
     def test_runs_no_gate_for_documentation(self):
         documentation = [".docs/guide/concepts/holding-tests.md", "README.md", "LICENSE", ".github/workflows/pr.yml"]
         found = scope.outputs("pull_request", documentation)
-        self.assertEqual(found, {"code": "false", "warm": "false", "runners": "[]"})
+        self.assertEqual(found, {"code": "false", "warm": "false", "runners": "[]", "site": "true"})
+
+    def test_runs_no_php_gate_for_the_docs_site(self):
+        found = scope.outputs("pull_request", [".site/astro.config.mjs", ".site/package-lock.json"])
+        self.assertEqual(found, {"code": "false", "warm": "false", "runners": "[]", "site": "true"})
+
+    def test_builds_the_site_where_the_docs_the_site_its_workflows_or_a_printed_link_changed(self):
+        built = (
+            ".docs/guide/README.md",
+            ".site/src/theme.css",
+            "README.md",
+            "src/Core/ThisPackage.php",
+            "src/Core/Troubleshooting/Slug.php",
+            "src/Core/Report/Term.php",
+            "tests/Docs/PrintedLinksTest.php",
+            ".github/workflows/site.yml",
+            ".github/workflows/pages.yml",
+        )
+        for path in built:
+            self.assertEqual(scope.outputs("pull_request", [path])["site"], "true", path)
+        for path in ("src/Core/Report/Overview.php", "CONTRIBUTING.md", ".github/workflows/pr.yml", "tests/Docs/TroubleshootingTest.php"):
+            self.assertEqual(scope.outputs("pull_request", [path])["site"], "false", path)
 
     def test_reads_the_documentation_the_suites_read_as_code(self):
         read = (
@@ -34,7 +55,7 @@ class Outputs(unittest.TestCase):
 
     def test_runs_neither_warm_workers_nor_a_leg_for_code_no_runner_runs_through(self):
         found = scope.outputs("pull_request", ["src/Core/Report/Overview.php", "tests/Unit/Core/Report/X.php"])
-        self.assertEqual(found, {"code": "true", "warm": "false", "runners": "[]"})
+        self.assertEqual(found, {"code": "true", "warm": "false", "runners": "[]", "site": "false"})
 
     def test_runs_only_the_legs_whose_adapter_or_fixture_changed(self):
         cases = {

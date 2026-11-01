@@ -1,0 +1,39 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+import logo from '../../../.docs/brand/php-mutation-gate-mark.svg?url';
+import { BASE, REPOSITORY } from '../where.mjs';
+---
+
+<StarlightPage
+    frontmatter={{
+        title: 'php-mutation-gate',
+        description: 'Mutation testing as a check your pull requests must pass, for PHP projects.',
+        template: 'splash',
+        hero: {
+            tagline: 'Mutation testing as a check your pull requests must pass, for PHP projects tested with Pest, Infection, PHPUnit, PhpSpec or Codeception.',
+            image: { html: `<img src="${logo}" alt="A pixel-art gate with the PHP elephant standing in its arch" width="576" height="456">` },
+            actions: [
+                { text: 'Read the guide', link: `${BASE}/guide/`, icon: 'right-arrow' },
+                { text: 'GitHub', link: REPOSITORY, icon: 'github', variant: 'minimal' },
+            ],
+        },
+    }}
+>
+    <CardGrid>
+        <Card title="What it decides" icon="approve-check">
+            What to mutate, where to run it, what an earlier run already proved,
+            and whether a pull request may merge: each tree of the code has a
+            floor that only rises.
+        </Card>
+        <Card title="Every survivor explained" icon="information">
+            Every surviving mutant arrives with the one command that reproduces
+            it and a sentence saying what the tests miss.
+        </Card>
+    </CardGrid>
+    <CardGrid>
+        <LinkCard title="Guide" description="Setting up CI, proofs and trust, holding tests, and every message the gate prints." href={`${BASE}/guide/`} />
+        <LinkCard title="Reference" description="Every command, configuration key, report, environment variable and file." href={`${BASE}/reference/cli/`} />
+        <LinkCard title="Design" description="The decisions behind the gate, and the alternatives that lost." href={`${BASE}/decisions/`} />
+    </CardGrid>
+</StarlightPage>

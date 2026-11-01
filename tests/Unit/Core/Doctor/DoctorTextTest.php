@@ -10,7 +10,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 
-const DOCTOR_GUIDE = 'https://github.com/nightworksio/php-mutation-gate/blob/main/.docs/guide/troubleshooting.md';
+const DOCTOR_GUIDE = 'https://nightworksio.github.io/php-mutation-gate/guide/troubleshooting/';
 
 $findings = static fn(): Findings => Findings::none()->and(Findings::of(
     Finding::of(Slug::WorkspaceNotIgnored, Severity::Advice, 'Not ignored.', 'It holds runs.', 'Add it.'),

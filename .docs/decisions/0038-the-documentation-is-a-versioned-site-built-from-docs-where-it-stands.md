@@ -70,6 +70,10 @@ under `.docs/`, readable on GitHub, and are also published as a site.
      and `#12101f` and the deep greens `#1d7a43` and `#124a2c` on the cream
      `#f2eedc`. The slates between them, from `#2b2638` to `#c6c6d6`, are
      the greys of both.
+   - ADR-0044 amends this: the artwork is the set in `.docs/brand/`, the
+     mark without the name is the site's logo and icon, the full logo heads
+     the README, the site is titled php-mutation-gate, and code keeps its
+     highlighter's colours.
 
 4. **The site project lives in `.site/`, beside `.docs/`, and is
    export-ignored as `.docs/` is.**
@@ -193,3 +197,4 @@ it changes what the gate links.
 - [ADR-0011](0011-the-package-holds-itself-to-the-gate-it-ships.md): releases, which publish a version's copy
 - [ADR-0018](0018-the-documentation-is-versioned-and-tested-with-the-code.md): the docs in `.docs/`, tested with the code, which this amends
 - [ADR-0019](0019-contributor-automation-runs-no-pull-request-content-where-it-can-write.md): workflows that run no pull request content where they can write
+- [ADR-0044](0044-the-artwork-is-one-named-set-and-the-site-shows-it-as-php-mutation-gate.md): the artwork set, the display name, and code's colours, which amend item 3

@@ -14,6 +14,9 @@ Run by `what changed`. It prints the job's outputs, one `name=value` per line:
 - `runners`: the runners whose `runner contract` legs run, both resolutions
   of each, as a JSON list. A runner's legs run where its adapter or its
   fixture changed, or anything every runner shares.
+- `site`: whether `site` builds the docs site and checks the links the gate
+  prints against it: where the docs, the site, its workflows or what prints
+  a link changed (ADR-0038).
 
 Only a pull request is narrowed. A push to main, a scheduled run, or a run
 with no base to compare against runs every gate, so a break a pull request's
@@ -68,6 +71,22 @@ SHARED = (
 )
 
 INFECTION = ("src/Adapter/Infection/", "tests/Contract/Runner/infection-fixture/")
+
+# What the docs site is built from, how it is built, and what prints a link
+# into it (ADR-0038).
+SITE = (
+    ".docs/",
+    ".site/",
+    "README.md",
+    "src/Core/ThisPackage.php",
+    "src/Core/Troubleshooting/",
+    "src/Core/Report/Term.php",
+    "tests/Docs/PrintedLinksTest.php",
+    ".github/workflows/site.yml",
+    ".github/workflows/pages.yml",
+    ".github/workflows/ci.yml",
+    ".github/scripts/scope.py",
+)
 
 # The native runner, which drives each framework that has no runner of its own.
 NATIVE = ("src/Adapter/Native/", "src/Core/Native/")
@@ -158,7 +177,7 @@ def under(path: str, prefixes: tuple[str, ...]) -> bool:
 def is_code(path: str) -> bool:
     if under(path, CODE_DOCS):
         return True
-    documentation = path.startswith((".docs/", ".github/")) or path.endswith(".md") or path == "LICENSE"
+    documentation = path.startswith((".docs/", ".site/", ".github/")) or path.endswith(".md") or path == "LICENSE"
     return path != "" and not documentation
 
 
@@ -172,12 +191,13 @@ def reaches_runner(path: str, runner: str) -> bool:
 def outputs(event: str, paths: list[str] | None) -> dict[str, str]:
     """The job's outputs: every gate where the run is not a pull request or has no base, else those its paths reach."""
     if event != "pull_request" or paths is None:
-        return {"code": "true", "warm": "true", "runners": json.dumps(list(RUNNERS))}
+        return {"code": "true", "warm": "true", "runners": json.dumps(list(RUNNERS)), "site": "true"}
     changed = [path for path in paths if path != ""]
     code = any(is_code(path) for path in changed)
     warm = code and any(under(path, SHARED) or under(path, WARM) for path in changed)
     runners = [runner for runner in RUNNERS if code and any(reaches_runner(path, runner) for path in changed)]
-    return {"code": str(code).lower(), "warm": str(warm).lower(), "runners": json.dumps(runners)}
+    site = any(under(path, SITE) for path in changed)
+    return {"code": str(code).lower(), "warm": str(warm).lower(), "runners": json.dumps(runners), "site": str(site).lower()}
 
 
 def main() -> int:

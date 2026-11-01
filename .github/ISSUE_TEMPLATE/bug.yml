@@ -17,7 +17,7 @@ body:
     id: message
     attributes:
       label: The full message
-      description: Everything the gate printed about it. A refusal, a failure or a warning ends with a link to `.docs/guide/troubleshooting.md`; keep the link, whose part after `#` is the message's slug.
+      description: Everything the gate printed about it. A refusal, a failure or a warning ends with a link to its section of the troubleshooting guide; keep the link, whose part after `#` is the message's slug.
       render: text
     validations:
       required: true

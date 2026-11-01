@@ -510,6 +510,23 @@
         "osv-scanner": "osv-scanner did not run to the end.",
         "vulnerability": "A package a lock file installs has a known vulnerability. Raise it to a release the advisory says is fixed."
       }
+    },
+    "site/build": {
+      "check": "site / build",
+      "checks": "The docs site: Astro builds it from .docs, every link into it reaches a page and an anchor it built, and every link the gate prints reaches one too (ADR-0038).",
+      "reproduce": "npm ci --ignore-scripts --prefix .site && npm run build --prefix .site && SITE_BUILD=.site/dist vendor/bin/pest tests/Docs/PrintedLinksTest.php",
+      "evidence": [
+        {"step": "install", "tool": "site-install"},
+        {"step": "build", "tool": "site-build"},
+        {"step": "links", "tool": "pest", "raw": "evidence/raw/site.xml"}
+      ],
+      "rules": {
+        "site-install": "npm could not install what .site/package-lock.json locks. Run npm install --prefix .site and commit the lock.",
+        "site-build": "Astro could not build the site, a page under .docs links a file that is not there, or a link into the site reaches a page or an anchor the build did not produce. The build's log names each.",
+        "pest": "The test did not run to the end, so it wrote no log of its tests.",
+        "failure": "A link the gate prints reaches no page, or no anchor, the site built. Restore the heading, or change the link.",
+        "error": "A test threw before it could finish."
+      }
     }
   }
 }

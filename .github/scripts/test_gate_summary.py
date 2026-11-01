@@ -24,7 +24,7 @@ class Summary(unittest.TestCase):
 
         self.assertNotIn("Fix it with", text)
         self.assertIn(
-            "[no-coverage-driver](https://github.com/nightworksio/php-mutation-gate/blob/main/.docs/guide/troubleshooting.md#no-coverage-driver)",
+            "[no-coverage-driver](https://nightworksio.github.io/php-mutation-gate/guide/troubleshooting/#no-coverage-driver)",
             text,
         )
 
