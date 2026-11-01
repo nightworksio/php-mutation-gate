@@ -67,6 +67,7 @@ use NightWorksIO\MutationGate\Core\Test\TestRow;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+use NightWorksIO\MutationGate\Extension\LibraryChange;
 use NightWorksIO\MutationGate\Port\Runner;
 use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
 use NightWorksIO\MutationGate\Tests\Support\FilesOfTests;
@@ -204,12 +205,7 @@ final readonly class RunnerFake implements Runner
     public function killingAlso(Path $file, Line $line, TestId $killer, Seconds $took): self
     {
         $map = $this->map->covered($file, $line, $killer)->timed($killer, $took);
-        $mutant = self::mutant(
-            ['file' => $file->value(), 'line' => $line->number(), 'removed' => 'a', 'added' => 'b', 'status' => MutantStatus::Killed],
-            'Minus',
-            MutatorFamily::Arithmetic,
-            $map,
-        );
+        $mutant = self::mutant($file, $line, Mutation::of('Minus', MutatorFamily::Arithmetic, "@@ @@\n-a\n+b"), MutantStatus::Killed, $map);
 
         return new self(
             $this->identity,
@@ -235,9 +231,9 @@ final readonly class RunnerFake implements Runner
             ->timed(TestId::of('MoneyTest::adds'), Seconds::of(0.2));
         $mutants = Mutants::none();
 
-        foreach (Library::CHANGES as $name => $change) {
-            [$mutator, $family] = Library::FAKE[$name];
-            $mutants = $mutants->with(self::mutant($change, $mutator, $family, $map));
+        foreach (LibraryChange::cases() as $change) {
+            $mutation = Mutation::of(Library::FAKE[$change->value], $change->family(), $change->diff());
+            $mutants = $mutants->with(self::mutant($change->file(), Line::of($change->line()), $mutation, $change->status(), $map));
         }
 
         $listed = TestListing::of(TestIds::of(TestId::of('MoneyTest::adds'), TestId::of('HeldTest::doubles')))
@@ -439,27 +435,19 @@ final readonly class RunnerFake implements Runner
             : CannotJudge::because(sprintf('%s holds no project the fake runner can run.', $package->value()));
     }
 
-    /**
-     * The mutant of a change, a kill naming the tests the map says cover its line.
-     *
-     * @param array{file: string, line: int, removed: string, added: string, status: MutantStatus} $change
-     */
-    private static function mutant(array $change, string $mutator, MutatorFamily $family, CoverageMap $map): Mutant
+    /** The mutant of a change, a kill naming the tests the map says cover its line. */
+    private static function mutant(Path $file, Line $line, Mutation $mutation, MutantStatus $status, CoverageMap $map): Mutant
     {
-        $file = Path::of($change['file']);
-        $line = Line::of($change['line']);
-        $diff = sprintf("@@ @@\n-%s\n+%s", $change['removed'], $change['added']);
-
         $mutant = Mutant::of(
-            MutantId::hash($file, $mutator, $diff, 0),
-            sprintf('%s-%d', $mutator, $change['line']),
+            MutantId::hash($file, $mutation->mutator(), $mutation->diff(), 0),
+            sprintf('%s-%d', $mutation->mutator(), $line->number()),
             Location::of($file, $line, $line),
-            Mutation::of($mutator, $family, $diff),
-            $change['status'],
-            $change['status'] === MutantStatus::Uncovered ? Unmeasured::duration() : Seconds::of(0.1),
+            $mutation,
+            $status,
+            $status === MutantStatus::Uncovered ? Unmeasured::duration() : Seconds::of(0.1),
         );
 
-        return match ($change['status']) {
+        return match ($status) {
             MutantStatus::Killed => $mutant->killedBy($map->testsCovering($file, $line, $line)),
             MutantStatus::TimedOut => $mutant->withLimit(Seconds::of(5.0)),
             MutantStatus::KilledByStaticAnalysis,
