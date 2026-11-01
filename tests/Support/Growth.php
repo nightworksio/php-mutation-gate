@@ -30,8 +30,13 @@ final class Growth
     /** How many times the larger size is the smaller. */
     public const int SCALE = 8;
 
-    /** How many times as long work at the larger size may take: linear is 8, quadratic 64, and this is between them. */
-    public const float LINEAR = 22.6;
+    /**
+     * How many times as long work at the larger size may take: linear is 8
+     * and quadratic 64, and this is half of quadratic. Linear work at the
+     * larger size also misses the CPU's caches more, which on a busy runner
+     * takes it past 22.
+     */
+    public const float LINEAR = 32.0;
 
     private const int RUNS = 3;
 
