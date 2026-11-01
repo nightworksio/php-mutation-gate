@@ -10,7 +10,9 @@
 #   project's `replayJobs` cuts the replay, in a job for the warm and
 #   unchanged runs and one for each cut, read together by a last job;
 # - sharded: the gate arm `sharded` names, planned once, each shard of the
-#   plan on a machine of its own three times, and each round judged.
+#   plan on a machine of its own three times, and each round judged. The
+#   shards and the verdict install the packages the plan's job resolved,
+#   from the lock it keeps, so each prepares the commit it planned on.
 name: bench project
 
 on:
@@ -265,16 +267,17 @@ jobs:
           coverage: pcov
           extensions: ${{ inputs.extensions }}
           ini-values: ${{ inputs.ini-values }}
-      - name: the project at its pinned commit, prepared, timed as this machine's setup
-        env:
-          SHARD: ${{ matrix.shard }}
-        run: |
-          python3 .github/scripts/bench_sharded.py setup "${RUNNER_TEMP}/bench" "shard-${SHARD}" -- \
-            bench/prepare.sh "${PROJECT}" "${RUNNER_TEMP}/${PROJECT}"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: bench-${{ env.PROJECT }}-sharded-plan
           path: ${{ runner.temp }}/plan
+      - name: the project at its pinned commit, prepared from the plan's lock, timed as this machine's setup
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          BENCH_LOCK="${RUNNER_TEMP}/plan/composer.lock" \
+            python3 .github/scripts/bench_sharded.py setup "${RUNNER_TEMP}/bench" "shard-${SHARD}" -- \
+            bench/prepare.sh "${PROJECT}" "${RUNNER_TEMP}/${PROJECT}"
       - name: run this shard three times
         env:
           SHARD: ${{ matrix.shard }}
@@ -316,14 +319,15 @@ jobs:
           coverage: pcov
           extensions: ${{ inputs.extensions }}
           ini-values: ${{ inputs.ini-values }}
-      - name: the project at its pinned commit, prepared, timed as this machine's setup
-        run: |
-          python3 .github/scripts/bench_sharded.py setup "${RUNNER_TEMP}/bench" verdict -- \
-            bench/prepare.sh "${PROJECT}" "${RUNNER_TEMP}/${PROJECT}"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: bench-${{ env.PROJECT }}-sharded-plan
           path: ${{ runner.temp }}/bench
+      - name: the project at its pinned commit, prepared from the plan's lock, timed as this machine's setup
+        run: |
+          BENCH_LOCK="${RUNNER_TEMP}/bench/composer.lock" \
+            python3 .github/scripts/bench_sharded.py setup "${RUNNER_TEMP}/bench" verdict -- \
+            bench/prepare.sh "${PROJECT}" "${RUNNER_TEMP}/${PROJECT}"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: bench-${{ env.PROJECT }}-shard-*

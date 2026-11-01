@@ -18,8 +18,9 @@ the `shards.seconds` that config has, the default where it sets none.
   long it took as that job's setup;
 - `plan` makes a full plan from a cold start, timed, and keeps the gate's
   state as it left it, the plan and the coverage it measured, in `planned`
-  in the out directory, writing the shards' ids as `shards=` to
-  `GITHUB_OUTPUT`;
+  in the out directory, and the project's Composer lock beside it, which
+  the shards and the verdict prepare their packages from as `BENCH_LOCK`,
+  writing the shards' ids as `shards=` to `GITHUB_OUTPUT`;
 - `shard` runs one shard of that plan once a round, each round from the
   state `--planned` names, and keeps its result and wall time;
 - `verdict` judges each round's results of every shard from that state,
@@ -51,6 +52,7 @@ RESULTS = f"{STATE}/results"
 
 # What the plan job leaves for the shards and the verdict, in the out directory.
 PLANNED = "planned"
+LOCK = "composer.lock"
 
 
 def gate(project: dict, *arguments: str) -> list[str]:
@@ -105,6 +107,7 @@ def planned(project: dict, directory: Path, out: Path) -> int:
     if not (directory / PLAN).exists():
         return 1
     shutil.copytree(directory / STATE, out / PLANNED, dirs_exist_ok=True)
+    shutil.copyfile(directory / LOCK, out / LOCK)
     # The raw reports of the suite's coverage run: the shards read the map and their own maps the gate made of them.
     for report in [*(out / PLANNED / "coverage").glob("*.php"), *(out / PLANNED / "coverage").glob("*.xml")]:
         bench.removed(report)

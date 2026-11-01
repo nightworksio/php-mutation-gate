@@ -14,7 +14,7 @@ composer config prefer-stable true
 composer config allow-plugins.infection/extension-installer false
 composer require --dev --no-interaction --no-progress --no-update \
   "infection/infection:${infection}" 'nightworksio/mutation-gate:@dev'
-composer update --no-interaction --no-progress
+bench_resolve update --no-interaction --no-progress
 bench_versions phpunit/phpunit infection/infection nightworksio/mutation-gate
 printf '.mutation-gate/\nbench-*.json\nbench-*.txt\ninfection.txt\n' >> .gitignore
 bench_baselines src

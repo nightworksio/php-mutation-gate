@@ -14,6 +14,13 @@
 #                               any width, where its table drops all but the
 #                               name once a line is wider than the terminal
 #   bench_baselines <tree>...   floors of 0, so a score never fails a gate arm
+#   bench_resolve <command>...  the Composer command that resolves the
+#                               project's packages; where BENCH_LOCK names a
+#                               lock, composer.json changed as the command
+#                               would change it and the packages installed
+#                               from that lock, so a job prepares the packages
+#                               another job resolved, as a sharded plan's
+#                               shards and verdict need
 #   bench_commit <message>      git init and one commit, as a checkout is, the
 #                               same commit on every machine that prepares the
 #                               same files, as a sharded plan's shards need
@@ -37,6 +44,22 @@ bench_baselines() {
     trees="${trees:+${trees}, }\"${tree}\": {\"floor\": 0}"
   done
   printf '{"format": 1, "trees": {%s}, "security": {".": {"floor": 0}}}\n' "${trees}" > bench-baseline.json
+}
+
+bench_resolve() {
+  if [[ -z "${BENCH_LOCK:-}" ]]; then
+    composer "$@"
+    return
+  fi
+  if [[ "$1" == require ]]; then
+    composer "$@" --no-update
+  fi
+  local install=(install --no-interaction --no-progress)
+  if [[ " $* " == *" --no-scripts "* ]]; then
+    install+=(--no-scripts)
+  fi
+  cp "${BENCH_LOCK}" composer.lock
+  composer "${install[@]}"
 }
 
 bench_commit() {
