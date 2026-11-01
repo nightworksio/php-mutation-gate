@@ -3,6 +3,11 @@
 
 Usage:
   gate_action.py guard     refuses an event the gate never runs under
+  gate_action.py install   how the gate is installed, `install`: from the project's
+                           Composer packages, or the release's PHAR, whose `tag`
+                           it names from the ref the action is pinned to
+  gate_action.py phar      downloads that release's PHAR, verifies its signature
+                           and its attestation, and names it as `gate`
   gate_action.py resolve   the run's scope, ledger cache, gate binary and options:
                            `plan_options` adds the mode's to `options`
   gate_action.py config    from the effective config on stdin: whether it keeps
@@ -33,7 +38,9 @@ import hashlib
 import json
 import os
 import re
+import subprocess
 import sys
+import tempfile
 
 # Each value below that the gate also holds is tied to the gate's own by
 # tests/Arch/TheActionScriptAgreesWithTheGateTest.php.
@@ -76,6 +83,36 @@ INSTALLED = "vendor/composer/installed.json"
 # reads a version. The release pull request of a new line moves it
 # (release.py).
 LINE = "0.1"
+
+# How the action may install the gate (ADR-0051): `auto` takes the project's
+# Composer copy where it requires the gate, and the release's PHAR where not.
+COMPOSER = "composer"
+PHAR_INSTALL = "phar"
+INSTALLS = frozenset({"auto", COMPOSER, PHAR_INSTALL})
+
+# The repository each release is published from, whose release workflow signs
+# and attests its PHAR (ADR-0022), and that workflow.
+RELEASES = "nightworksio/php-mutation-gate"
+RELEASE_WORKFLOW = f"{RELEASES}/.github/workflows/release.yml"
+
+# The fingerprint of the key that signs each release's PHAR, as README.md and
+# SECURITY.md name it, and the key itself, beside this script.
+RELEASE_FINGERPRINT = "5EAA6082E57FF4C542A2EA66B757A4B1136116D2"
+RELEASE_KEY_FILE = "release-key.asc"
+
+# A release's PHAR and its detached signature, as the release names them.
+PHAR = "mutation-gate.phar"
+SIGNATURE = "mutation-gate.phar.asc"
+
+# A release's tag, a release line's tag, and a commit, as a ref may name them.
+RELEASE_TAG = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
+LINE_TAG = re.compile(r"^v\d+(?:\.\d+)?$")
+COMMIT = re.compile(r"^[0-9a-f]{40}$")
+
+# How `git ls-remote --tags` names a tag, and the commit an annotated one
+# points at.
+TAGS = "refs/tags/"
+PEELED = "^{}"
 
 EXIT_CODES = {0: "passed", 1: "failed", 2: "cannot-judge"}
 
@@ -228,6 +265,71 @@ def version_refusal(installed: str, line: str) -> str | None:
     return None
 
 
+def requires_gate(manifest: dict) -> bool:
+    """Whether a project's composer.json requires the gate, or is the gate."""
+    required = {**(manifest.get("require") or {}), **(manifest.get("require-dev") or {})}
+    return manifest.get("name") == GATE or GATE in required
+
+
+def install(asked: str, manifest: dict) -> str:
+    """How the gate is installed: `composer` or `phar`, as asked, or by whether the project requires it."""
+    if asked not in INSTALLS:
+        raise Refused(f"install is auto, composer or phar, not {asked}.")
+    if asked != "auto":
+        return asked
+    return COMPOSER if requires_gate(manifest) else PHAR_INSTALL
+
+
+def action_ref(ref: str, path: str) -> str:
+    """The ref the action is pinned to: GitHub's, or the last part of the path GitHub fetched the action into."""
+    return ref or path.rstrip("/").rsplit("/", 1)[-1]
+
+
+def remote_tags(listed: str) -> dict[str, str]:
+    """Each tag `git ls-remote --tags` lists, with the commit it points at."""
+    tags = {}
+    for line in listed.splitlines():
+        commit, _, name = line.partition("\t")
+        if name.startswith(TAGS):
+            tag = name[len(TAGS):]
+            peeled = tag.endswith(PEELED)
+            tag = tag.removesuffix(PEELED)
+            tags[tag] = commit if peeled or tag not in tags else tags[tag]
+    return tags
+
+
+def release_tag(ref: str, tags: dict[str, str]) -> str:
+    """The release whose PHAR the action runs: the one its ref names, a release tag, a line's tag or a commit."""
+    commit = ref if COMMIT.match(ref) else tags.get(ref) if RELEASE_TAG.match(ref) or LINE_TAG.match(ref) else None
+    releases = [tag for tag, at in tags.items() if RELEASE_TAG.match(tag) and at == commit]
+    if commit is None or not releases:
+        raise Refused(
+            f"The action runs the gate's PHAR from the release it is pinned to, and {ref or 'its ref'} is no release's "
+            f"tag or commit. Pin it to a release, as {RELEASES}@<commit> # v{LINE}.<patch>, "
+            f"or require {GATE} ^{LINE} with Composer."
+        )
+    return max(releases, key=lambda tag: tuple(int(part) for part in RELEASE_TAG.match(tag).groups()))
+
+
+def signed_by(status: str, fingerprint: str) -> bool:
+    """Whether gpg's status lines say a good signature, by the key with this fingerprint, that has not expired."""
+    lines = [line.split() for line in status.splitlines()]
+    good = any(fields[:2] == ["[GNUPG:]", "GOODSIG"] for fields in lines)
+    return good and any(
+        fields[:2] == ["[GNUPG:]", "VALIDSIG"] and fingerprint in fields[2:3] + fields[11:12] for fields in lines
+    )
+
+
+def phar_refusal(config: dict, installed_by: str) -> str | None:
+    """Why the PHAR cannot run the effective config's runner, or nothing where it can (ADR-0022)."""
+    if installed_by == PHAR_INSTALL and (config.get("runner") or {}).get("use") == PEST:
+        return (
+            "Pest runs the gate's plugin, which only the Composer package installs, so the PHAR cannot run it: "
+            f"composer require --dev {GATE} -W, and the action runs that copy."
+        )
+    return None
+
+
 def keeps_default_store(config: dict) -> bool:
     """Whether the effective config keeps its ledger in the directory the cache holds."""
     store = (config.get("proofs") or {}).get("store") or {}
@@ -347,7 +449,15 @@ def output_lines(values: dict[str, str]) -> str:
 
 
 def main(argv: list[str]) -> int:
-    commands = {"guard": _guard, "resolve": _resolve, "config": _config, "infection": _infection, "outputs": _outputs}
+    commands = {
+        "guard": _guard,
+        "install": _install,
+        "phar": _phar,
+        "resolve": _resolve,
+        "config": _config,
+        "infection": _infection,
+        "outputs": _outputs,
+    }
     if len(argv) == 2 and argv[1] == "doomed":
         return _doomed()
     if len(argv) == 2 and argv[1] == "stale":
@@ -370,14 +480,50 @@ def _guard() -> dict[str, str]:
     return {}
 
 
+def _install() -> dict[str, str]:
+    _guard()
+    installed_by = install(os.environ.get("INSTALL", "auto"), _json_file("composer.json"))
+    if installed_by == COMPOSER:
+        return {"install": COMPOSER}
+    ref = action_ref(os.environ.get("GITHUB_ACTION_REF", ""), os.environ.get("GITHUB_ACTION_PATH", ""))
+    listed = _ran(
+        ["git", "ls-remote", "--tags", f"https://github.com/{RELEASES}"], f"The tags of {RELEASES} could not be listed"
+    )
+    return {"install": PHAR_INSTALL, "tag": release_tag(ref, remote_tags(listed))}
+
+
+def _phar() -> dict[str, str]:
+    tag = os.environ["TAG"]
+    directory = tempfile.mkdtemp(prefix="mutation-gate-", dir=os.environ["RUNNER_TEMP"])
+    phar = os.path.join(directory, PHAR)
+    signature = os.path.join(directory, SIGNATURE)
+    download = ["gh", "release", "download", tag, "--repo", RELEASES, "--dir", directory]
+    _ran([*download, "--pattern", PHAR, "--pattern", SIGNATURE], f"The PHAR of {tag} could not be downloaded")
+    home = tempfile.mkdtemp(prefix="gnupg-", dir=os.environ["RUNNER_TEMP"])
+    key = os.path.join(os.path.dirname(os.path.abspath(__file__)), RELEASE_KEY_FILE)
+    _ran(["gpg", "--homedir", home, "--batch", "--quiet", "--import", key], "The release key could not be read")
+    verified = subprocess.run(
+        ["gpg", "--homedir", home, "--batch", "--status-fd", "1", "--verify", signature, phar],
+        capture_output=True, text=True, check=False, timeout=60,
+    )
+    if not signed_by(verified.stdout, RELEASE_FINGERPRINT):
+        raise Refused(f"The PHAR of {tag} is not signed by the release key {RELEASE_FINGERPRINT}, so it is not run.")
+    attested = ["gh", "attestation", "verify", phar, "--repo", RELEASES, "--signer-workflow", RELEASE_WORKFLOW]
+    unattested = f"The PHAR of {tag} carries no attestation of {RELEASE_WORKFLOW}, so it is not run"
+    _ran([*attested, "--source-ref", f"{TAGS}{tag}"], unattested)
+    os.chmod(phar, 0o755)
+    return {"gate": phar}
+
+
 def _resolve() -> dict[str, str]:
     _guard()
     event = os.environ.get("GITHUB_EVENT_NAME", "")
     ref = os.environ.get("GITHUB_REF", "")
     payload = _payload()
     manifest = _json_file("composer.json")
-    gate = binary(manifest)
-    why = None if gate.startswith("bin/") else version_refusal(installed_version(_installed()), LINE)
+    phar = os.environ.get("INSTALLED_BY") == PHAR_INSTALL
+    gate = os.environ.get("GATE_PHAR", "") if phar else binary(manifest)
+    why = None if phar or gate.startswith("bin/") else version_refusal(installed_version(_installed()), LINE)
     if why is not None:
         raise Refused(why)
     default_branch = os.environ.get("DEFAULT_BRANCH", "")
@@ -391,6 +537,9 @@ def _resolve() -> dict[str, str]:
 
 def _config() -> dict[str, str]:
     config = json.load(sys.stdin)
+    refused = phar_refusal(config, os.environ.get("INSTALLED_BY", COMPOSER))
+    if refused is not None:
+        raise Refused(refused)
     kept = keeps_default_store(config)
     if not kept and os.environ.get("CACHE") == "true":
         print(f"::notice::The config keeps its ledger outside {LEDGERS}, so the Actions cache is not used.")
@@ -472,6 +621,14 @@ def _options() -> list[str]:
     if os.environ.get("BUDGET"):
         options.append(f"--budget={os.environ['BUDGET']}")
     return options + report_options(os.environ.get("REPORTS", ""))
+
+
+def _ran(command: list[str], failed: str) -> str:
+    """What a command printed; refused, with what it said, where it failed."""
+    ran = subprocess.run(command, capture_output=True, text=True, check=False, timeout=300)
+    if ran.returncode != 0:
+        raise Refused(f"{failed}: {command_text(ran.stderr.strip() or ran.stdout.strip())}")
+    return ran.stdout
 
 
 def _payload() -> dict:

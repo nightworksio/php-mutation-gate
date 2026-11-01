@@ -98,6 +98,18 @@ it('names the package as Composer does', function (): void {
     expect(scriptText('GATE'))->toBe(ThisPackage::COMPOSER);
 });
 
+it('fetches the PHAR from the package\'s own repository, signed by the key its policy names', function (): void {
+    $fingerprint = scriptText('RELEASE_FINGERPRINT');
+    $spaced = implode(' ', str_split($fingerprint, 4));
+    $printed = sprintf('%s  %s', substr($spaced, 0, 24), substr($spaced, 25));
+    $key = (string) file_get_contents(Tree::at('resources/action/release-key.asc'));
+
+    expect(sprintf('https://github.com/%s', scriptText('RELEASES')))->toBe(ThisPackage::REPOSITORY)
+        ->and((string) file_get_contents(Tree::at('SECURITY.md')))->toContain(sprintf('| Fingerprint | `%s` |', $printed))
+        ->and((string) file_get_contents(Tree::at('README.md')))->toContain(sprintf('`%s`', $printed))
+        ->and($key)->toStartWith(sprintf("-----BEGIN PGP PUBLIC KEY BLOCK-----\nComment: %s\n", $printed));
+});
+
 it('publishes the config schema under its release line\'s tag, which every first-party plugin requires', function (string $plugin): void {
     $line = scriptText('LINE');
     $manifest = (string) file_get_contents(Tree::at(sprintf('plugins/%s/composer.json', $plugin)));

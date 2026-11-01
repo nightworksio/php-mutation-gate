@@ -1,5 +1,11 @@
-"""The deciding half of gate_action.py: python3 -m unittest discover .github/scripts"""
+"""gate_action.py: its deciding half, and the steps that fetch and verify the PHAR, run against fakes of git,
+gh and gpg so no test reaches a real release: python3 -m unittest discover .github/scripts"""
 import hashlib
+import json
+import os
+import subprocess
+import sys
+import tempfile
 import unittest
 
 import action_script  # puts the action's script on the import path
@@ -295,3 +301,244 @@ class Outputs(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# What `git ls-remote --tags` lists: a release tag, annotated, with the commit
+# it points at; the line's tag at the same commit; and a release at another.
+LISTED = (
+    f"{'1' * 40}\trefs/tags/v0.1.0\n"
+    f"{'a' * 40}\trefs/tags/v0.1.1\n"
+    f"{'2' * 40}\trefs/tags/v0.1.1^{{}}\n"
+    f"{'2' * 40}\trefs/tags/v0.1\n"
+    f"{'3' * 40}\trefs/heads/main\n"
+)
+
+# gpg's status lines for a good signature by the release key, and by another.
+GOOD = (
+    f"[GNUPG:] GOODSIG B757A4B1136116D2 NightWorksIO Releases\n"
+    f"[GNUPG:] VALIDSIG {action.RELEASE_FINGERPRINT} 2026-10-31 1793106457 0 4 0 22 10 00 {action.RELEASE_FINGERPRINT}\n"
+)
+OTHER = GOOD.replace(action.RELEASE_FINGERPRINT, "F" * 40)
+
+
+class Install(unittest.TestCase):
+    def test_auto_runs_the_project_s_copy_where_it_requires_the_gate_and_the_phar_where_it_does_not(self):
+        for manifest in ({"require": {action.GATE: "^0.1"}}, {"require-dev": {action.GATE: "^0.1"}}, {"name": action.GATE}):
+            self.assertEqual("composer", action.install("auto", manifest))
+        self.assertEqual("phar", action.install("auto", {"require-dev": {"phpunit/phpunit": "^13"}}))
+
+    def test_composer_and_phar_are_as_asked(self):
+        self.assertEqual("composer", action.install("composer", {}))
+        self.assertEqual("phar", action.install("phar", {"require": {action.GATE: "^0.1"}}))
+
+    def test_refuses_a_way_it_does_not_know(self):
+        with self.assertRaises(action.Refused) as refused:
+            action.install("docker", {})
+        self.assertIn("auto, composer or phar, not docker", str(refused.exception))
+
+
+class ReleaseTag(unittest.TestCase):
+    def test_the_ref_is_github_s_or_the_last_part_of_the_path_it_fetched_the_action_into(self):
+        self.assertEqual("v0.1", action.action_ref("v0.1", "/runner/_actions/nightworksio/php-mutation-gate/main"))
+        self.assertEqual("v0.1.1", action.action_ref("", "/runner/_actions/nightworksio/php-mutation-gate/v0.1.1/"))
+
+    def test_reads_each_tag_s_commit_an_annotated_tag_by_the_commit_it_points_at(self):
+        self.assertEqual(
+            {"v0.1.0": "1" * 40, "v0.1.1": "2" * 40, "v0.1": "2" * 40},
+            action.remote_tags(LISTED),
+        )
+
+    def test_names_the_release_a_release_tag_a_line_s_tag_or_a_commit_names(self):
+        tags = action.remote_tags(LISTED)
+        self.assertEqual("v0.1.0", action.release_tag("v0.1.0", tags))
+        self.assertEqual("v0.1.1", action.release_tag("v0.1", tags))
+        self.assertEqual("v0.1.1", action.release_tag("2" * 40, tags))
+
+    def test_names_the_highest_release_at_one_commit(self):
+        self.assertEqual("v0.1.10", action.release_tag("4" * 40, {"v0.1.9": "4" * 40, "v0.1.10": "4" * 40}))
+
+    def test_refuses_a_ref_that_is_no_release_s_tag_or_commit(self):
+        tags = action.remote_tags(LISTED)
+        for ref in ("main", "3" * 40, "v0.2.0", "v0.2", ""):
+            with self.subTest(ref=ref), self.assertRaises(action.Refused) as refused:
+                action.release_tag(ref, tags)
+            self.assertIn("is no release's tag or commit", str(refused.exception))
+            self.assertIn(f"or require {action.GATE} ^{action.LINE} with Composer.", str(refused.exception))
+
+
+class Signature(unittest.TestCase):
+    def test_accepts_a_good_signature_by_the_release_key(self):
+        self.assertTrue(action.signed_by(GOOD, action.RELEASE_FINGERPRINT))
+
+    def test_refuses_a_signature_by_another_key_a_bad_one_and_one_by_an_expired_key(self):
+        self.assertFalse(action.signed_by(OTHER, action.RELEASE_FINGERPRINT))
+        self.assertFalse(action.signed_by(GOOD.replace("GOODSIG", "BADSIG"), action.RELEASE_FINGERPRINT))
+        self.assertFalse(action.signed_by(GOOD.replace("GOODSIG", "EXPKEYSIG"), action.RELEASE_FINGERPRINT))
+        self.assertFalse(action.signed_by(GOOD.splitlines()[0], action.RELEASE_FINGERPRINT))
+
+
+class PharRunner(unittest.TestCase):
+    def test_the_phar_refuses_pest_which_only_the_composer_package_runs(self):
+        self.assertIn("composer require --dev", action.phar_refusal({"runner": {"use": "pest"}}, "phar"))
+
+    def test_runs_every_other_runner_and_pest_from_the_project_s_copy(self):
+        self.assertIsNone(action.phar_refusal({"runner": {"use": "infection"}}, "phar"))
+        self.assertIsNone(action.phar_refusal({"runner": {"use": "pest"}}, "composer"))
+
+
+# Fakes of the commands the PHAR steps run, each doing what its environment
+# says: git lists LISTED, gh downloads a release and verifies its attestation,
+# gpg imports the key and prints the status lines in STATUS.
+FAKE_GIT = """#!/bin/sh
+[ -n "${GIT_FAILS}" ] && { echo "could not resolve host" >&2; exit 128; }
+printf '%s' "${LISTED}"
+"""
+
+FAKE_GH = """#!/bin/sh
+case "$*" in
+  "release download"*)
+    [ -n "${DOWNLOAD_FAILS}" ] && { echo "release not found" >&2; exit 1; }
+    while [ "$#" -gt 0 ]; do [ "$1" = "--dir" ] && dir="$2"; shift; done
+    echo phar > "${dir}/mutation-gate.phar"; echo signature > "${dir}/mutation-gate.phar.asc" ;;
+  "attestation verify"*)
+    echo "$*" > "${ASKED}"
+    [ -n "${UNATTESTED}" ] && { echo "no attestations found" >&2; exit 1; }
+    exit 0 ;;
+esac
+"""
+
+FAKE_GPG = """#!/bin/sh
+case "$*" in
+  *--verify*) cat "${STATUS}" ;;
+esac
+"""
+
+
+def faked(directory: str) -> str:
+    """A directory of the fake commands, for PATH."""
+    found = os.path.join(directory, "bin")
+    os.makedirs(found)
+    for name, script in (("git", FAKE_GIT), ("gh", FAKE_GH), ("gpg", FAKE_GPG)):
+        with open(os.path.join(found, name), "w", encoding="utf-8") as file:
+            file.write(script)
+        os.chmod(os.path.join(found, name), 0o755)
+    return found
+
+
+def step(subcommand: str, directory: str, manifest: dict, stdin: str = "", **env: str) -> tuple[int, dict, str]:
+    """A subcommand run in a project of this composer.json: its exit code, its outputs and what it said."""
+    with open(os.path.join(directory, "composer.json"), "w", encoding="utf-8") as file:
+        json.dump(manifest, file)
+    outputs = os.path.join(directory, "outputs")
+    status = os.path.join(directory, "status")
+    with open(status, "w", encoding="utf-8") as file:
+        file.write(env.pop("status", GOOD))
+    ran = subprocess.run(
+        [sys.executable, action_script.PATH, subcommand],
+        cwd=directory,
+        input=stdin,
+        env={
+            **os.environ,
+            "PATH": f"{faked(directory)}{os.pathsep}{os.environ['PATH']}",
+            "GITHUB_OUTPUT": outputs,
+            "GITHUB_EVENT_NAME": "pull_request",
+            "RUNNER_TEMP": directory,
+            "LISTED": LISTED,
+            "STATUS": status,
+            "ASKED": os.path.join(directory, "asked"),
+            **env,
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+    written = {}
+    if os.path.isfile(outputs):
+        with open(outputs, encoding="utf-8") as file:
+            written = dict(line.split("=", 1) for line in file.read().splitlines() if "=" in line)
+    return ran.returncode, written, ran.stderr
+
+
+NOT_REQUIRED = {"require-dev": {"phpunit/phpunit": "^13"}}
+
+
+class InstallStep(unittest.TestCase):
+    def test_runs_the_project_s_copy_where_it_requires_the_gate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            code, outputs, _ = step("install", directory, {"require-dev": {action.GATE: "^0.1"}}, INSTALL="auto")
+
+            self.assertEqual((0, {"install": "composer"}), (code, outputs))
+
+    def test_names_the_release_of_the_ref_the_action_is_pinned_to_where_it_does_not(self):
+        with tempfile.TemporaryDirectory() as directory:
+            code, outputs, said = step("install", directory, NOT_REQUIRED, INSTALL="auto", GITHUB_ACTION_REF="v0.1")
+
+            self.assertEqual((0, {"install": "phar", "tag": "v0.1.1"}), (code, outputs), said)
+
+    def test_refuses_where_the_release_tags_cannot_be_listed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            code, _, said = step("install", directory, NOT_REQUIRED, INSTALL="phar", GITHUB_ACTION_REF="v0.1", GIT_FAILS="1")
+
+            self.assertEqual(2, code)
+            self.assertIn(f"::error::The tags of {action.RELEASES} could not be listed: could not resolve host", said)
+
+
+class PharStep(unittest.TestCase):
+    def test_names_the_downloaded_phar_once_its_signature_and_attestation_hold(self):
+        with tempfile.TemporaryDirectory() as directory:
+            code, outputs, said = step("phar", directory, NOT_REQUIRED, TAG="v0.1.1")
+
+            self.assertEqual(0, code, said)
+            self.assertTrue(outputs["gate"].endswith(f"/{action.PHAR}"))
+            self.assertTrue(os.access(outputs["gate"], os.X_OK))
+            with open(os.path.join(directory, "asked"), encoding="utf-8") as file:
+                asked = file.read().split()
+            self.assertEqual(["--repo", action.RELEASES, "--signer-workflow", action.RELEASE_WORKFLOW], asked[3:7])
+            self.assertEqual(["--source-ref", "refs/tags/v0.1.1"], asked[7:9])
+
+    def test_runs_nothing_whose_signature_is_not_the_release_key_s(self):
+        with tempfile.TemporaryDirectory() as directory:
+            code, outputs, said = step("phar", directory, NOT_REQUIRED, TAG="v0.1.1", status=OTHER)
+
+            self.assertEqual((2, {}), (code, outputs))
+            self.assertIn(f"The PHAR of v0.1.1 is not signed by the release key {action.RELEASE_FINGERPRINT}", said)
+            self.assertFalse(os.path.exists(os.path.join(directory, "asked")))
+
+    def test_runs_nothing_that_carries_no_attestation_of_the_release_workflow(self):
+        with tempfile.TemporaryDirectory() as directory:
+            code, outputs, said = step("phar", directory, NOT_REQUIRED, TAG="v0.1.1", UNATTESTED="1")
+
+            self.assertEqual((2, {}), (code, outputs))
+            self.assertIn(f"carries no attestation of {action.RELEASE_WORKFLOW}, so it is not run: no attestations found", said)
+
+    def test_refuses_where_the_release_cannot_be_downloaded(self):
+        with tempfile.TemporaryDirectory() as directory:
+            code, _, said = step("phar", directory, NOT_REQUIRED, TAG="v0.1.1", DOWNLOAD_FAILS="1")
+
+            self.assertEqual(2, code)
+            self.assertIn("The PHAR of v0.1.1 could not be downloaded: release not found", said)
+
+
+class PharRun(unittest.TestCase):
+    def test_runs_the_phar_where_the_project_installs_no_gate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            code, outputs, said = step("resolve", directory, NOT_REQUIRED, INSTALLED_BY="phar", GATE_PHAR="/tmp/gate.phar")
+
+            self.assertEqual(0, code, said)
+            self.assertEqual("/tmp/gate.phar", outputs["gate"])
+
+    def test_the_project_s_copy_is_still_held_to_the_action_s_line(self):
+        with tempfile.TemporaryDirectory() as directory:
+            code, _, said = step("resolve", directory, NOT_REQUIRED, INSTALLED_BY="composer")
+
+            self.assertEqual(2, code)
+            self.assertIn(f"The project does not install {action.GATE}", said)
+
+    def test_refuses_pest_under_the_phar_before_anything_runs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            pest = json.dumps({"runner": {"use": "pest"}})
+            code, _, said = step("config", directory, NOT_REQUIRED, stdin=pest, INSTALLED_BY="phar")
+
+            self.assertEqual(2, code)
+            self.assertIn("so the PHAR cannot run it", said)

@@ -12,9 +12,9 @@ proof ledger in the Actions cache and runs the whole gate. It writes line
 annotations and the step summary, and holds no token once your code runs. In
 the second job, with `deliver: 'true'`, it runs none of your code. It posts
 the sticky PR comment and, on a trusted run, writes the ledger to the store
-`MUTATION_GATE_STORE` names, where it names one. Its steps run `python3`, `jq`
-and `gh`, which GitHub's hosted runners hold; a self-hosted runner needs all
-three on its `PATH`.
+`MUTATION_GATE_STORE` names, where it names one. Its steps run `python3`, `jq`,
+`gh` and, for the PHAR, `gpg`, which GitHub's hosted runners hold; a
+self-hosted runner needs them on its `PATH`.
 
 ```yaml
 name: mutation
@@ -76,7 +76,21 @@ jobs:
 | `reports` | none; `<name>:<path>` lines, such as `sarif:build/mutation.sarif` |
 | `cache` | `true`: keep the ledger in the Actions cache |
 | `deliver` | `false`; `true` in a job of its own, after the run's, to send what the run left |
+| `install` | `auto`: the project's own copy where its `composer.json` requires `nightworksio/mutation-gate`, the release's PHAR where it does not; or `composer`, or `phar` |
 | `composer-auth` | none; the credentials Composer installs the project's dependencies with, as `COMPOSER_AUTH` holds them, for a private repository. Pass a secret: only the install step reads it, and that step runs the project's Composer scripts and plugins, which can read it |
+
+A project that does not require the gate with Composer, such as one whose
+constraints conflict with the gate's, runs the release's PHAR. The action
+reads which release from the ref it is pinned to: a release's tag, its line's
+tag, or the commit a release's tag points at, as in the examples above. It
+downloads that release's `mutation-gate.phar` and `mutation-gate.phar.asc`,
+checks that the release key whose fingerprint
+[SECURITY.md](../../../SECURITY.md#verifying-a-release) names signed it, and
+that `release.yml` attested it for that tag, before the project's
+dependencies install. It runs nothing that fails either check. A ref that is
+no release refuses, as does the Pest runner, which only the Composer package
+runs: require the gate with Composer to run either
+([ADR-0051](../../decisions/0051-the-action-runs-the-release-s-signed-phar-where-the-project-has-no-copy.md)).
 
 Its outputs are `verdict` (`passed`, `failed` or `cannot-judge`), `scores`
 (JSON), `report-paths` (JSON) and `plan` (JSON). The one-step action writes

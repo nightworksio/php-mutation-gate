@@ -127,8 +127,11 @@ result in a verdict job, which is the check to require.
 `vendor/bin/mutation-gate init --ci` writes the definition for GitHub
 Actions, GitLab CI, Buildkite, CircleCI, Azure DevOps, Bitbucket Pipelines or
 Jenkins; on GitHub it uses this repository as an action, or calls its
-reusable workflow. [Running the gate in CI](https://nightworksio.github.io/php-mutation-gate/guide/ci/) has a
-page for each, and the commands for any other CI.
+reusable workflow. The action runs the project's own copy where its
+`composer.json` requires the gate, and otherwise the signed PHAR of the
+release the action is pinned to, once the PHAR's signature and attestation
+hold. [Running the gate in CI](https://nightworksio.github.io/php-mutation-gate/guide/ci/)
+has a page for each, and the commands for any other CI.
 
 ## Documentation
 
