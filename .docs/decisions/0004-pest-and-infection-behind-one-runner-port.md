@@ -237,7 +237,10 @@ its parser attributes. Both change when the checkout moves.
    - `--list-groups`, which shows every `holds:` group.
 
    CI runs the suite against the lowest and highest supported version of each
-   runner (ADR-0011).
+   runner (ADR-0011). ADR-0043 amends this: what every runner answers over
+   the library ships as `RunnerContract`, with the library's code under
+   `resources/contract/runner`, and the suite runs it against every runner;
+   what only one runner gets wrong stays in the suite.
 
 8. **A mutant on a line that is not executable is judged by the tests that
    reference its symbol, and one on a statement's first line by the tests
@@ -635,3 +638,4 @@ interfaces, so each is added only once the contract suite passes on it.
 - [ADR-0014](0014-every-test-is-judged-by-what-it-kills.md): every killer recorded, for a full kill matrix
 - [ADR-0036](0036-a-kill-only-errors-made-counts-where-its-control-passes.md): a narrowed kill only errors made, judged by its control
 - [ADR-0037](0037-a-value-is-covered-by-the-tests-that-read-it.md): a declared value's lines covered by the tests that read it
+- [ADR-0043](0043-what-semver-covers-is-marked-in-the-code-and-the-port-contracts-ship-as-kits.md): the runner contract shipped as a kit, which amends the contract suite
