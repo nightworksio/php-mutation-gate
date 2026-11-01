@@ -5,8 +5,9 @@
 # `.git` holds compressed objects rather than text, so it comes back out.
 ignore-hidden = false
 # The vendored viewer is minified, the fixtures are other projects' schemas,
-# and the docs site's packages, lock and build are not its own writing.
-extend-exclude = [".git/", "vendor/", "composer.lock", "tests/Fixtures/", ".site/node_modules/", ".site/dist/", ".site/.astro/", ".site/package-lock.json"]
+# the docs site's packages, lock and build are not its own writing, and the
+# release key is base64.
+extend-exclude = [".git/", "vendor/", "composer.lock", "tests/Fixtures/", ".site/node_modules/", ".site/dist/", ".site/.astro/", ".site/package-lock.json", "*.asc"]
 
 [default]
 # A mutant's id is twelve hex digits, read as words where it starts with letters.

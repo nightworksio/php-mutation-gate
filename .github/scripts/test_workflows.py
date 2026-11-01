@@ -140,6 +140,9 @@ class Archive(unittest.TestCase):
     def test_the_manifest_and_the_lock_the_gate_s_own_copy_installs_from_are_in_its_archive(self):
         self.assertLessEqual({KEYED_MANIFEST, KEYED_LOCK}, archived())
 
+    def test_the_release_key_the_phar_is_verified_against_is_in_its_archive(self):
+        self.assertIn(f"resources/action/{action.RELEASE_KEY_FILE}", archived())
+
 
 def install(directory: str, gate: str) -> tuple[subprocess.CompletedProcess, str]:
     """install.sh run for the gate's copy at gate, with a composer that only says how it was called."""
@@ -540,6 +543,11 @@ class Shards(unittest.TestCase):
 
         self.assertEqual(["- name: Deliver"], [one[0].strip() for one in late])
         self.assertIn("      if: inputs.deliver == 'true'", late[0])
+
+    def test_a_shard_runs_the_project_s_copy_as_the_plan_and_the_verdict_do(self):
+        action_step = next(found for found in steps(job(WORKFLOW, "shard")) if "uses: ./.mutation-gate/workflow" in found[0])
+
+        self.assertIn("install: composer", [line.strip() for line in action_step])
 
     def test_a_step_that_runs_a_shard_holds_no_token(self):
         running = [found for found in steps(lines_of(ACTION)) if any("run --plan=" in line for line in found)]

@@ -52,6 +52,13 @@ inputs:
       The job needs pull-requests: write to comment, and actions: read for the comment to link the run's HTML report.
     required: false
     default: 'false'
+  install:
+    description: >-
+      How the gate runs: composer, the copy the project installs with Composer; phar, the signed PHAR of the release
+      the action is pinned to, verified by its signature and its attestation before it runs; or auto, composer where
+      the project's composer.json requires nightworksio/mutation-gate and phar where it does not.
+    required: false
+    default: auto
   composer-auth:
     description: >-
       The credentials Composer installs the project's dependencies with, as COMPOSER_AUTH holds them, for a private
@@ -106,6 +113,27 @@ runs:
         fi
         echo "name=${NAMED}" >> "${GITHUB_OUTPUT}"
 
+    # ADR-0051: the project's copy where it requires the gate, the release's
+    # PHAR where it does not, which these two steps fetch and verify before the
+    # project's dependencies install, so its code runs while no step holds the
+    # token.
+    - name: Choose how the gate runs
+      id: install
+      if: inputs.deliver != 'true'
+      shell: bash
+      env:
+        INSTALL: ${{ inputs.install }}
+      run: python3 "${GITHUB_ACTION_PATH}/resources/action/gate_action.py" install
+
+    - name: Fetch and verify the release's PHAR
+      id: phar
+      if: inputs.deliver != 'true' && steps.install.outputs.install == 'phar'
+      shell: bash
+      env:
+        TAG: ${{ steps.install.outputs.tag }}
+        GH_TOKEN: ${{ github.token }}
+      run: python3 "${GITHUB_ACTION_PATH}/resources/action/gate_action.py" phar
+
     - name: Install the project's dependencies
       if: inputs.deliver != 'true'
       uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
@@ -125,6 +153,8 @@ runs:
         REPORTS: ${{ inputs.reports }}
         CACHE: ${{ inputs.cache }}
         DEFAULT_BRANCH: ${{ steps.default.outputs.name }}
+        INSTALLED_BY: ${{ steps.install.outputs.install }}
+        GATE_PHAR: ${{ steps.phar.outputs.gate }}
       run: python3 "${GITHUB_ACTION_PATH}/resources/action/gate_action.py" resolve
 
     # ADR-0007: the Actions cache holds the directory store at its default path
@@ -137,6 +167,7 @@ runs:
         GATE: ${{ steps.resolve.outputs.gate }}
         OPTIONS: ${{ steps.resolve.outputs.options }}
         CACHE: ${{ inputs.cache }}
+        INSTALLED_BY: ${{ steps.install.outputs.install }}
       run: |
         set -euo pipefail
         mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")

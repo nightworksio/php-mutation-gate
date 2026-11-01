@@ -247,7 +247,7 @@ it('hands no step that runs the project\'s code a token or a secret, in the acti
         ->and(array_keys($holding))->toBe([]);
 });
 
-it('gives the action\'s token only to naming the default branch, before the project installs, and to deliver, in a job of its own', function (): void {
+it('gives the action\'s token only to naming the default branch and fetching the PHAR, before the project installs, and to deliver, in a job of its own', function (): void {
     $steps = Lenient::items(WorkflowFile::at('action.yml')->field('runs')->field('steps'));
     $holding = [];
     $installs = 0;
@@ -257,11 +257,13 @@ it('gives the action\'s token only to naming the default branch, before the proj
         $holding = holdsACredential($step->field('env')) ? [...$holding, $at] : $holding;
     }
 
-    [$default, $deliver] = $holding;
+    [$default, $phar, $deliver] = $holding;
     $delivering = Lenient::text($steps[$deliver]->field('run'));
 
-    expect($holding)->toHaveCount(2)
+    expect($holding)->toHaveCount(3)
         ->and(Lenient::text($steps[$default]->field('id')))->toBe('default')
+        ->and(Lenient::text($steps[$phar]->field('id')))->toBe('phar')
+        ->and($phar)->toBeLessThan($installs)
         ->and($default)->toBeLessThan($installs)
         ->and(Lenient::text($steps[$deliver]->field('if')))->toBe("inputs.deliver == 'true'")
         ->and($delivering)->toContain('php "${GITHUB_ACTION_PATH}/bin/mutation-gate" deliver --from=')
