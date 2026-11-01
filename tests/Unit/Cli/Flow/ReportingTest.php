@@ -286,7 +286,7 @@ it('leaves the planned state of a GitLab note in the delivery under --deliver-la
     $mergeRequest = ['GITLAB_CI' => 'true', 'CI_MERGE_REQUEST_IID' => '7', 'CI_PIPELINE_URL' => $pipeline];
     $chosen = Environment::during(
         [...$mergeRequest, 'GITHUB_ACTIONS' => null, 'MUTATION_GATE_GITLAB_TOKEN' => null],
-        static fn(): Chosen => new Chosen(new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)))),
+        static fn(): Chosen => new Chosen(new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER)))),
     );
     $plan = Planned::twoShards()->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')));
     $settings = Flows::settings(Report::uses('gitlab-comment'));
