@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-11-01
+**Amends:** [0024](0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md): its comment job that renders the JSON report, and its Bitbucket pull request's `final` verdict
 
 ## Context
 
