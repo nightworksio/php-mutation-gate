@@ -561,7 +561,11 @@ final readonly class Fixtures
 
                 namespace NightWorksIO\MutationGate\Core\Planted;
 
-                /** A class no test reaches. */
+                /**
+                 * A class no test reaches.
+                 *
+                 * @internal
+                 */
                 final readonly class Uncovered
                 {
                     public static function reached(): string
