@@ -55,8 +55,14 @@ final readonly class MutatorSettings
     {
     }
 
+    /** The `mutators` block, its profiles looked up among the classes that can be loaded. */
+    public static function of(Node $block): self
+    {
+        return self::loading($block, class_exists(...));
+    }
+
     /** @param Closure(string): bool $exists whether a class can be loaded, Infection's profiles among them */
-    public static function of(Node $block, Closure $exists = class_exists(...)): self
+    public static function loading(Node $block, Closure $exists): self
     {
         return new self($block, $exists);
     }

@@ -80,7 +80,7 @@ it('turns on no bridge to a mutator that stands down beside Infection\'s own mut
 
 it('stands no bridge down beside Infection\'s own mutators where Infection is not installed', function (): void {
     $bridges = Bridges::to(Enabled::of(MutatorSet::of(PlusToMinusToo::class)));
-    $settings = MutatorSettings::of(Node::decode('{"@arithmetic": true}'), static fn(): bool => false);
+    $settings = MutatorSettings::loading(Node::decode('{"@arithmetic": true}'), static fn(): bool => false);
 
     expect($settings->narrowedTo(Mutators::all(), $bridges))->toBe(['mutators' => sprintf(
         '{"@arithmetic":true,"%s":true}',
