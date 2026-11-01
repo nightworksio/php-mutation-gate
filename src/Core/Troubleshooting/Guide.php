@@ -17,6 +17,8 @@ use function sprintf;
  * slug's link points into, and the guide to reading the report, which each
  * term's link points into, so a link never outlives what it explains
  * (ADR-0038).
+ *
+ * @internal
  */
 final readonly class Guide
 {
