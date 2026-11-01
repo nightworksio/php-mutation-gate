@@ -115,3 +115,16 @@ it('waits on every child of a wave, though one that started after it ends first'
     expect(array_map(static fn(Opcodes|Uncompiled $one): bool => $one instanceof Opcodes, $compiled))
         ->toBe(['slow' => true, 'fast' => true]);
 });
+
+it('loads opcache in its child, which PHP before 8.5 builds as a shared extension that `-n` leaves out', function (): void {
+    $arguments = sprintf('%s/arguments', Scratch::directory());
+    $child = sprintf('%s/recording-php', Scratch::directory());
+    $recording = "#!%s\n<?php\nfile_put_contents(%s, implode(\"\\n\", \$argv));\n";
+    file_put_contents($child, sprintf($recording, PHP_BINARY, var_export($arguments, return: true)));
+    chmod($child, 0o755);
+
+    $compiler = new Compiler($child, sprintf('%s/equivalence', Scratch::directory()), 30.0, 1);
+    $compiler->compiled(['one' => Contents::of(CompilerChildren::PROGRAM)]);
+
+    expect((string) file_get_contents($arguments))->toContain("\n-n\n-d\nzend_extension=opcache\n");
+});
