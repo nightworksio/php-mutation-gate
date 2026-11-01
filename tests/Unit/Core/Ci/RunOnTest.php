@@ -21,7 +21,7 @@ it('is a branch, scoped by its ref, with the default branch the CI names', funct
 
 it('is a pull request, scoped by its number, where the CI may not name the default branch', function (): void {
     $unknown = CannotTell::because('The CI does not say.');
-    $run = RunOn::pullRequest(PullRequestNumber::parse('12'), $unknown, '');
+    $run = RunOn::pullRequest(PullRequestNumber::parse('12'), $unknown);
 
     expect($run instanceof RunOn ? $run->scope() : null)->toEqual(Scope::of('refs/pull/12'))
         ->and($run instanceof RunOn && $run->isPullRequest())->toBeTrue()

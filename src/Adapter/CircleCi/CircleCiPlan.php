@@ -37,9 +37,6 @@ final readonly class CircleCiPlan implements CiPlan, Configurable
 {
     private const string PULL_REQUEST = '#/pull/(\d+)$#';
 
-    /** The branch a pull request merges into, which CircleCI names in no variable. */
-    private const string NO_TARGET = '';
-
     private function __construct(private CiJob $job)
     {
     }
@@ -73,7 +70,7 @@ final readonly class CircleCiPlan implements CiPlan, Configurable
 
         return match (true) {
             preg_match(self::PULL_REQUEST, $variables->valueOf('CIRCLE_PULL_REQUEST'), $number) === 1
-                => RunOn::pullRequest(PullRequestNumber::parse($number[1]), $defaultBranch, self::NO_TARGET),
+                => RunOn::pullRequest(PullRequestNumber::parse($number[1]), $defaultBranch),
             $variables->valueOf('CIRCLE_TAG') !== '' => RunOn::detached($defaultBranch),
             default => RunOn::branch($variables->valueOf('CIRCLE_BRANCH'), $defaultBranch),
         };

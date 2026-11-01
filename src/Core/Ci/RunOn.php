@@ -38,18 +38,18 @@ final readonly class RunOn
     }
 
     /**
-     * A run on a pull request that merges into the branch its CI names, empty where it names none; or why there is
-     * none where its CI names no number the gate can read.
+     * A run on a pull request that merges into the branch its CI names, where it names one; or why there is none
+     * where its CI names no number the gate can read.
      */
     public static function pullRequest(
         PullRequestNumber|CannotTell $number,
         Scope|CannotTell $defaultBranch,
-        string $target,
+        string $target = '',
     ): self|CannotTell {
         $run = $number instanceof PullRequestNumber
             ? self::scoped(sprintf('%s%d', self::PULL_REQUEST, $number->value()), $defaultBranch)
             : $number;
-        $into = $target === '' ? CannotTell::because(self::NO_TARGET) : self::branchNamed($target);
+        $into = self::branchNamed($target);
 
         return $run instanceof self && $into instanceof Scope ? $run->withTarget($into) : $run;
     }
