@@ -2,6 +2,9 @@
 
 **Status:** Accepted
 **Date:** 2026-09-30
+**Supersedes:** [0001](0001-a-framework-free-core-behind-nine-ports.md): its list of ports
+**Supersedes:** [0001](0001-a-framework-free-core-behind-nine-ports.md): its gate that never mutates, for native runners
+**Supersedes:** [0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): its rejected alternative of mutants made by the gate
 
 ## Context
 

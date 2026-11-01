@@ -2,6 +2,8 @@
 
 **Status:** Accepted
 **Date:** 2026-09-30
+**Supersedes:** [0001](0001-a-framework-free-core-behind-nine-ports.md): its list of ports
+**Supersedes:** [0003](0003-a-floor-only-rises.md): "a tree is judged whole", for sampled runs
 
 ## Context
 

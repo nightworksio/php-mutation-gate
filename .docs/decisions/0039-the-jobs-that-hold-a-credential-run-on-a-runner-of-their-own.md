@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-10-31
+**Supersedes:** [0035](0035-the-reusable-workflow-runs-on-the-runner-its-caller-names.md): its one runner for every job, for the jobs that hold a credential
 
 ## Context
 

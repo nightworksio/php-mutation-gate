@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-11-01
+**Amends:** [0011](0011-the-package-holds-itself-to-the-gate-it-ships.md): its action that stops where the project installs no gate of its line
 
 ## Context
 

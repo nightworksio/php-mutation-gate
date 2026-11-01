@@ -2,6 +2,10 @@
 
 **Status:** Accepted
 **Date:** 2026-10-31
+**Amends:** [0004](0004-pest-and-infection-behind-one-runner-port.md): its pest-plugin-mutate releases
+**Amends:** [0011](0011-the-package-holds-itself-to-the-gate-it-ships.md): its pest-plugin-mutate range
+**Amends:** [0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): its exact runner pin and its checks
+**Amends:** [0023](0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md): zero-config's choice of the PHPUnit runner
 
 ## Context
 

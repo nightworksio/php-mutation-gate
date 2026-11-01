@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-09-30
+**Supersedes:** [0011](0011-the-package-holds-itself-to-the-gate-it-ships.md): its rejected PHAR alternative
 
 ## Context
 

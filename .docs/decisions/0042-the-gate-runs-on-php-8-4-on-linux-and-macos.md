@@ -2,6 +2,9 @@
 
 **Status:** Accepted
 **Date:** 2026-10-31
+**Amends:** [0011](0011-the-package-holds-itself-to-the-gate-it-ships.md): its supported PHP
+**Amends:** [0015](0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md): the lowest PHP its written CI sets up
+**Amends:** [0023](0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md): its warm worker's socket guard
 
 ## Context
 

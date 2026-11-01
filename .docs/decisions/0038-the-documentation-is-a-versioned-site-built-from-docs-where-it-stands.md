@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-10-31
+**Amends:** [0018](0018-the-documentation-is-versioned-and-tested-with-the-code.md): its plain Markdown with no site, and its links into GitHub
 
 ## Context
 

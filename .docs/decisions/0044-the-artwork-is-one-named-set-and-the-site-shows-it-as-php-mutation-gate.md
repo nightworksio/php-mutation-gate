@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-11-01
+**Amends:** [0038](0038-the-documentation-is-a-versioned-site-built-from-docs-where-it-stands.md): its theme's artwork, its title and code's colours
 
 ## Context
 

@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-09-30
+**Amends:** [0001](0001-a-framework-free-core-behind-nine-ports.md): its boundary rule A1, for the `Mutator` layer
 
 ## Context
 
