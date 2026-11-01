@@ -62,9 +62,15 @@ it('selects no test in a listing, which runs none', function (): void {
         ->and($told->selected())->toEqual(Selected::listing());
 });
 
-it('knows each of its options by its name and value, and none of Testo\'s', function (): void {
-    expect(LaunchOption::setBy('--mutation-gate-group=g'))->toBe(LaunchOption::Group)
-        ->and(LaunchOption::setBy('--group=g'))->toEqual(NotGiven::value())
-        ->and(LaunchOption::Group->valueIn('--mutation-gate-group=a=b'))->toBe('a=b')
+it('names the options the launcher keeps from Testo, each set by its name and value', function (): void {
+    expect(LaunchOption::names())->toBe([
+        '--mutation-gate-tests',
+        '--mutation-gate-group',
+        '--mutation-gate-filter',
+        '--mutation-gate-file',
+        '--mutation-gate-stop',
+        '--mutation-gate-times',
+        '--mutation-gate-listing',
+    ])
         ->and(LaunchOption::Times->with('/t.txt'))->toBe('--mutation-gate-times=/t.txt');
 });

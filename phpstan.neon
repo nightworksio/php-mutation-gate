@@ -258,6 +258,8 @@ services:
                     - EXCLUDE # the name of a FinderConfig's argument, not a line's coverage
                 'NightWorksIO\MutationGate\Cli\Init\InitQuestions':
                     - NONE # init's answer of no CI, not a hook setup's or a status
+                'NightWorksIO\MutationGate\Core\Native\Launched':
+                    - SET # a launcher's long option given its value, not one of PHP's ini settings
                 'NightWorksIO\MutationGate\Core\Hook\HookRecipe':
                     - ACTION # a key of CaptainHook's config, not hook's argument
                 'NightWorksIO\MutationGate\Core\GateCommand':
