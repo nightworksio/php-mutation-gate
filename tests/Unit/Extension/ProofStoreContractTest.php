@@ -126,6 +126,28 @@ it('says a store opened read-only that keeps nothing and gives no reason', funct
     ]);
 });
 
+it('says a store opened read-only that reads proofs and a map for a branch nothing wrote to', function (): void {
+    $store = storeAnsweringAlike(ledgerOfAnotherUnit(), Contents::of('another map'), NotWritten::because('Read-only.'));
+
+    expect([...ProofStoreContract::readOnlyFailures($store)])->toBe([
+        'It reads proofs for refs/heads/main, which nothing wrote.',
+        'It reads a coverage map beside refs/heads/main, where none was kept.',
+        'It reads proofs for refs/pull/12, which nothing wrote.',
+        'It reads a coverage map beside refs/pull/13, where none was kept.',
+    ]);
+});
+
+it('says a store that leaves what it writes for deliver and reads proofs and a map for a branch nothing wrote to', function (): void {
+    $store = storeAnsweringAlike(ledgerOfAnotherUnit(), Contents::of('another map'), Written::to('deliver'));
+
+    expect([...ProofStoreContract::deliveringFailures($store)])->toBe([
+        'It reads proofs for refs/heads/main, which nothing wrote.',
+        'It reads a coverage map beside refs/heads/main, where none was kept.',
+        'It reads back proofs written for refs/pull/12, which it leaves for deliver.',
+        'It reads back the coverage map kept beside refs/pull/12, which it leaves for deliver.',
+    ]);
+});
+
 it('says each way a store that leaves what it writes for deliver reads it back, or refuses it', function (): void {
     $refusing = storeAnsweringAlike(Ledger::empty(), Missing::at(Path::of('nowhere')), NotWritten::because('Read-only.'));
 

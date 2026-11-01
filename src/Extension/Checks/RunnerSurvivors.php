@@ -42,9 +42,6 @@ use function str_replace;
  */
 final readonly class RunnerSurvivors
 {
-    /** How long a survivor's run again is allowed, where the runner lays a limit. */
-    private const float MOST = 60.0;
-
     /** The mutator a run of the library never names. */
     private const string GONE = 'gone';
 
@@ -110,8 +107,8 @@ final readonly class RunnerSurvivors
             $this->most(),
         );
         $unmade = Mutant::of(
-            MutantId::hash($this->survivor->location()->file(), self::GONE, $this->survivor->mutation()->diff(), 0),
-            '',
+            MutantId::firstOf($this->survivor->location()->file(), self::GONE, $this->survivor->mutation()->diff()),
+            $this->survivor->nativeId(),
             $this->survivor->location(),
             $this->survivor->mutation(),
             MutantStatus::Survived,
@@ -197,9 +194,10 @@ final readonly class RunnerSurvivors
         return Group::holding(LibraryChange::Held->file()->value());
     }
 
+    /** How long a survivor's run again is allowed, where the runner lays a limit: a minute. */
     private function most(): Seconds
     {
-        return Seconds::of(self::MOST);
+        return Seconds::of(Seconds::PER_MINUTE);
     }
 
     /** @return list<string> */

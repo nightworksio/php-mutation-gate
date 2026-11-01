@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Extension\Checks;
 
 use function array_map;
 use function array_unique;
-use function array_values;
 use function dirname;
 use function implode;
 
@@ -85,8 +84,7 @@ final readonly class RunnerRequests
         $together = Records::of($this->runner->mutate($this->request($money, $held)));
         $moneyAlone = Records::of($this->runner->mutate($this->request($money)));
         $heldAlone = Records::of($this->runner->mutate($this->request($held)));
-        $apart = [...$moneyAlone, ...$heldAlone];
-        sort($apart);
+        $apart = Records::sorted([...$moneyAlone, ...$heldAlone]);
 
         return [
             ...Records::unless(
@@ -151,10 +149,10 @@ final readonly class RunnerRequests
             return Records::of($result);
         }
 
-        $files = array_values(array_unique(array_map(
+        $files = array_unique(array_map(
             static fn(Mutant $mutant): string => $mutant->location()->file()->value(),
             [...$result->mutants()],
-        )));
+        ));
         sort($files);
 
         return $files;

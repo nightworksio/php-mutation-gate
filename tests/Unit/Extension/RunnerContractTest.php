@@ -38,6 +38,7 @@ use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestListing;
+use NightWorksIO\MutationGate\Core\Test\TestName;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -48,6 +49,7 @@ use NightWorksIO\MutationGate\Extension\RunnerContract;
 use NightWorksIO\MutationGate\Extension\RunnerLibrary;
 use NightWorksIO\MutationGate\Port\Runner;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
+use NightWorksIO\MutationGate\Tests\Support\FilesOfTests;
 use NightWorksIO\MutationGate\Tests\Support\MisbehavingRunner;
 
 /** The library as the fake runner spells it. */
@@ -79,6 +81,20 @@ function fakeMoney(Closure $changed): Closure
 
         return count($request->narrowing()->mutators()) === 4 ? $changed($result) : $result;
     };
+}
+
+/**
+ * What the fake gives a static analyser, but its survivor of `src/Money.php` printed beside its original as this
+ * text.
+ *
+ * @return Closure(Mutant): (Checkable|CannotJudge)
+ */
+function printedBeside(Contents $mutant): Closure
+{
+    return static fn(Mutant $survivor): Checkable|CannotJudge => $survivor->status() === MutantStatus::Survived
+        && $survivor->location()->file()->value() === LibraryChange::Large->file()->value()
+        ? Checkable::printed(Contents::of('<?php return $amount > 100;'), $mutant)
+        : RunnerFake::ofTheFixture()->checkable($survivor);
 }
 
 it('finds nothing the fake breaks', function (): void {
@@ -154,6 +170,26 @@ it('says a runner whose every key reads a group it does not list, or that also o
     ])->and(runnerFailures($listed))->toBe([]);
 });
 
+it('says each group a runner says every key reads and does not list', function (): void {
+    $runner = new MisbehavingRunner(
+        RunnerFake::ofTheFixture(),
+        behaviour: static fn(): RunnerBehaviour => RunnerBehaviour::standard()
+            ->readingInEveryKey(Group::named('nowhere'))
+            ->readingInEveryKey(Group::named('elsewhere')),
+    );
+
+    expect(runnerFailures($runner))->toBe([
+        'It says every key reads the group nowhere, which it does not list.',
+        'It says every key reads the group elsewhere, which it does not list.',
+    ]);
+});
+
+it('finds nothing wrong with a run of no test that takes less than a second', function (): void {
+    $runner = new MisbehavingRunner(RunnerFake::ofTheFixture(), startUp: static fn(): Seconds => Seconds::of(0.5));
+
+    expect(runnerFailures($runner))->toBe([]);
+});
+
 it('says how a runner reports the four mutants of src/Money.php otherwise', function (): void {
     expect(runnerFailures(RunnerFake::ofTheFixture(), fakeSpelling()->unmeasured()))->toContain(
         'It says how long its killed mutant took, which never ran.',
@@ -197,6 +233,49 @@ it('says a runner that skips mutants, gives two one id, times and limits them wr
         'It gives its timed-out mutant no time limit.',
         'It kills 2 mutants of src/Money.php, where its tests kill one.',
     );
+});
+
+it('says a runner that times a mutant that ran at no time, or limits its timed-out one to none', function (): void {
+    $runner = new MisbehavingRunner(RunnerFake::ofTheFixture(), mutate: fakeMoney(static function (MutationResult $result): MutationResult {
+        $mutants = [...$result->mutants()];
+        $killed = $mutants[0];
+
+        return MutationResult::of(
+            Mutants::of(
+                Mutant::of($killed->id(), '', $killed->location(), $killed->mutation(), MutantStatus::Killed, Seconds::none()),
+                $mutants[1],
+                $mutants[2],
+                $mutants[3]->withLimit(Seconds::none()),
+            ),
+            0,
+        )->withSteps($result->steps());
+    }));
+
+    expect(runnerFailures($runner))->toBe([
+        'It does not say how long its killed mutant took.',
+        'It gives its timed-out mutant no time limit.',
+    ]);
+});
+
+it('finds nothing wrong with a timed-out mutant limited to less than a second', function (): void {
+    $runner = new MisbehavingRunner(RunnerFake::ofTheFixture(), mutate: fakeMoney(static function (MutationResult $result): MutationResult {
+        $mutants = [...$result->mutants()];
+
+        return MutationResult::of(Mutants::of($mutants[0], $mutants[1], $mutants[2], $mutants[3]->withLimit(Seconds::of(0.5))), 0)
+            ->withSteps($result->steps());
+    }));
+
+    expect(runnerFailures($runner))->toBe([]);
+});
+
+it('finds nothing wrong with a step before the one that runs the mutants, which counts one', function (): void {
+    $runner = new MisbehavingRunner(RunnerFake::ofTheFixture(), mutate: fakeMoney(
+        static fn(MutationResult $result): MutationResult => $result->withStepsBefore(
+            StepTimes::of(StepTime::of(Step::Coverage, Seconds::none(), Seconds::none())),
+        ),
+    ));
+
+    expect(runnerFailures($runner))->toBe([]);
 });
 
 it('says a runner whose steps are out of order, took less than no time, or count other mutants', function (StepTimes $steps): void {
@@ -257,6 +336,16 @@ it('says a runner that judges a file otherwise beside another, or reports none o
     )))->toHaveCount(1);
 });
 
+it('says a runner that reports no mutant of one file alone, though it does of the other', function (): void {
+    $held = LibraryChange::Held->file();
+    $runner = new MisbehavingRunner(RunnerFake::ofTheFixture(), mutate: static fn(MutationRequest $request): MutationResult => count($request->files()) === 1 && $request->files()->has($held) && $request->judgedBy() instanceof WholeSuite
+        ? MutationResult::skippingNone(Mutants::none())
+        : RunnerFake::ofTheFixture()->mutate($request));
+
+    expect(runnerFailures($runner))->toHaveCount(2)
+        ->and(runnerFailures($runner)[0])->toBe('It reports no mutant of src/Money.php or src/Held.php, alone, which each hold one.');
+});
+
 it('says a runner that does not judge a held file by its group alone', function (): void {
     $runner = new MisbehavingRunner(RunnerFake::ofTheFixture(), mutate: static fn(MutationRequest $request): MutationResult|CannotJudge => $request->judgedBy() instanceof Group
         ? CannotJudge::because('No groups.')
@@ -304,6 +393,27 @@ it('says a runner that reproduces every mutant as unmade, printing nothing, and 
     ]);
 });
 
+it('finds nothing wrong with a runner that gives an analyser its survivor printed beside its original', function (): void {
+    $runner = new MisbehavingRunner(
+        RunnerFake::ofTheFixture(),
+        checkable: printedBeside(Contents::of('<?php return $amount >= 100;')),
+    );
+
+    expect(runnerFailures($runner))->toBe([]);
+});
+
+it('says a runner that gives an analyser its survivor with the change made beside the line it replaces', function (): void {
+    $runner = new MisbehavingRunner(
+        RunnerFake::ofTheFixture(),
+        checkable: printedBeside(Contents::of('<?php return $amount >= 100; return $amount > 100;')),
+    );
+
+    expect(runnerFailures($runner))->toBe([
+        'It gives its survivor to a static analyser without its change made: <?php return $amount >= 100; return $amount > 100;',
+        'It gives its survivor to a static analyser with more changed than its change.',
+    ]);
+});
+
 it('says a runner that measures no coverage of the whole suite', function (): void {
     $runner = new MisbehavingRunner(RunnerFake::ofTheFixture(), coverage: static fn(): CannotJudge => CannotJudge::because('No driver.'));
 
@@ -327,6 +437,42 @@ it('says a runner that names other judges, reads back another map, or measures a
         'It reads the reports its own coverage run left as another map than that run measured.',
         'It measures another map across two processes than in one.',
     ]);
+});
+
+it('says a runner that measures other lines across two processes, though it runs the same tests', function (): void {
+    $fewer = CoverageMap::empty()
+        ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds'))
+        ->covered(Path::of('src/Held.php'), Line::of(11), TestId::of('HeldTest::doubles'));
+    $runner = new MisbehavingRunner(
+        RunnerFake::ofTheFixture(),
+        coverage: static fn(CoverageRun|CoverageRead|CoverageRan $request): CoverageMap => $request instanceof CoverageRun && $request->processes()->count() === 2 && $request->tests() instanceof WholeSuite
+            ? $fewer
+            : RunnerFake::ofTheFixture()->coverage($request),
+    );
+
+    expect(runnerFailures($runner))->toBe(['It measures another map across two processes than in one.']);
+});
+
+it('measures two test files again at once, of the three its map holds tests of', function (): void {
+    $names = TestNames::none()
+        ->with(TestId::of('MoneyTest::adds'), TestName::in(Path::of('tests/MoneyTest.php'), 'it adds'))
+        ->with(TestId::of('HeldTest::doubles'), TestName::in(Path::of('tests/HeldTest.php'), 'it doubles'))
+        ->with(TestId::of('DrainTest::drains'), TestName::in(Path::of('tests/DrainTest.php'), 'it drains'));
+    $files = new FilesOfTests($names);
+    $whole = RunnerFake::ofTheFixture()->coverage(CoverageRan::in(Path::of('.mutation-gate/coverage')))
+        ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('DrainTest::drains'));
+    $runner = new MisbehavingRunner(
+        RunnerFake::ofTheFixture(),
+        coverage: static fn(CoverageRun|CoverageRead|CoverageRan $request): CoverageMap|CannotJudge => match (true) {
+            ! $request instanceof CoverageRun || ! $request->tests() instanceof TestPaths => $whole,
+            count($request->tests()->files()) > 2 => CannotJudge::because('Three files at once.'),
+            default => $files->measured($request->tests()->files(), $whole),
+        },
+        testsIn: static fn(Paths $paths, CoverageMap $map): TestIds => $files->holding($paths, $map),
+        names: static fn(): TestNames => $names,
+    );
+
+    expect(runnerFailures($runner))->toBe([]);
 });
 
 it('says a runner that cannot place its tests in test files, nor measure them again', function (): void {
