@@ -7,7 +7,11 @@ Usage: scope.py <event> < changed paths, one per line
 Run by `what changed`. It prints the job's outputs, one `name=value` per line:
 
 - `code`: whether any PHP gate runs. Anything that is not documentation is
-  code, so a new kind of file runs the gates.
+  code, so a new kind of file runs the gates. A script under .github/scripts
+  is code only where a PHP gate job runs it: one a job of ci.yml that this
+  output, `runners` or `warm` decides runs, or a job of a workflow such a job
+  calls, names, and any script those import. Every other script, and its
+  test, is the `scripts` job's alone.
 - `warm`: whether `warm workers` runs. It measures the PHPUnit runner's warm
   workers, so it runs where that runner, the worker, the code every runner
   shares or the measuring script changed.
@@ -26,7 +30,10 @@ Two halves: `outputs` decides from the event and the paths, and `main` reads
 them and prints.
 """
 import json
+import re
 import sys
+from functools import cache
+from pathlib import Path
 
 RUNNERS = ("pest", "infection-13", "infection-12", "phpunit", "phpspec", "codeception", "analysers")
 
@@ -35,7 +42,7 @@ RUNNERS = ("pest", "infection-13", "infection-12", "phpunit", "phpspec", "codece
 # reference and examples the config tests read, .docs/guide/ci/ the CI setups
 # the CI tests read, and the troubleshooting guide the slugs the Docs suite
 # reads. Under .github/, only ci.yml, the end-to-end workflow it calls and the
-# scripts they run start a PHP gate.
+# scripts their PHP gate jobs run (see gate_scripts) start a PHP gate.
 CODE_DOCS = (
     "ARCHITECTURE.md",
     ".docs/reference/",
@@ -43,8 +50,22 @@ CODE_DOCS = (
     ".docs/guide/troubleshooting.md",
     ".github/workflows/ci.yml",
     ".github/workflows/end-to-end.yml",
-    ".github/scripts/",
 )
+
+# The repository's root, from this script's place in it.
+ROOT = Path(__file__).resolve().parents[2]
+
+# Where the scripts are, from the root, and the workflow whose jobs this decides.
+SCRIPTS = ".github/scripts/"
+WORKFLOWS = ".github/workflows/"
+CI = "ci.yml"
+
+# A job this script's PHP outputs decide runs, a script a job runs, a workflow
+# of this repository a job calls, and a script's import of another.
+GATED = re.compile(r"^    if: .*needs\.scope\.outputs\.(?:code|runners|warm)\b", re.M)
+RUN = re.compile(r"\.github/scripts/([a-z0-9_]+\.py)")
+CALLED = re.compile(r"^    uses: \./\.github/workflows/([a-z0-9-]+\.ya?ml)", re.M)
+IMPORTED = re.compile(r"^(?:from|import) ([a-z0-9_]+)", re.M)
 
 # What every runner's contract and the warm workers run through: the runner
 # port and the core it drives, the processes and runtime every adapter starts,
@@ -67,7 +88,6 @@ SHARED = (
     "composer.lock",
     "phpunit.xml",
     ".github/workflows/ci.yml",
-    ".github/scripts/scope.py",
 )
 
 INFECTION = ("src/Adapter/Infection/", "tests/Contract/Runner/infection-fixture/")
@@ -85,7 +105,6 @@ SITE = (
     ".github/workflows/site.yml",
     ".github/workflows/pages.yml",
     ".github/workflows/ci.yml",
-    ".github/scripts/scope.py",
 )
 
 # The native runner, which drives each framework that has no runner of its own.
@@ -174,8 +193,47 @@ def under(path: str, prefixes: tuple[str, ...]) -> bool:
     return any(path == prefix or (prefix.endswith("/") and path.startswith(prefix)) for prefix in prefixes)
 
 
+def jobs(workflow: str) -> list[str]:
+    """Each job of a workflow, as the lines under its id."""
+    lines = workflow.split("\n")
+    starts = [at for at, line in enumerate(lines) if re.match(r"^  [a-z0-9_-]+:\s*$", line)]
+    return ["\n".join(lines[start:end]) for start, end in zip(starts, [*starts[1:], len(lines)])]
+
+
+def gate_scripts(workflows: dict[str, str], scripts: dict[str, str]) -> frozenset[str]:
+    """The scripts a PHP gate job runs, by their file names, and those they import, transitively.
+
+    The PHP gate jobs are the jobs of ci.yml its `if:` gives one of this
+    script's PHP outputs, and every job of a workflow such a job calls.
+    """
+    gated = [job for job in jobs(workflows.get(CI, "")) if GATED.search(job)]
+    texts, called = list(gated), [name for job in gated for name in CALLED.findall(job)]
+    while called:
+        name = called.pop()
+        for job in jobs(workflows.get(name, "")):
+            texts.append(job)
+            called.extend(CALLED.findall(job))
+    found = {name for text in texts for name in RUN.findall(text) if name in scripts}
+    pending = list(found)
+    while pending:
+        for module in IMPORTED.findall(scripts[pending.pop()]):
+            name = f"{module}.py"
+            if name in scripts and name not in found:
+                found.add(name)
+                pending.append(name)
+    return frozenset(found)
+
+
+@cache
+def own_gate_scripts() -> frozenset[str]:
+    """The scripts this repository's PHP gate jobs run, as paths from the root."""
+    workflows = {path.name: path.read_text(encoding="utf-8") for path in (ROOT / WORKFLOWS).glob("*.y*ml")}
+    scripts = {path.name: path.read_text(encoding="utf-8") for path in (ROOT / SCRIPTS).glob("*.py")}
+    return frozenset(f"{SCRIPTS}{name}" for name in gate_scripts(workflows, scripts))
+
+
 def is_code(path: str) -> bool:
-    if under(path, CODE_DOCS):
+    if under(path, CODE_DOCS) or path in own_gate_scripts():
         return True
     documentation = path.startswith((".docs/", ".site/", ".github/")) or path.endswith(".md") or path == "LICENSE"
     return path != "" and not documentation
