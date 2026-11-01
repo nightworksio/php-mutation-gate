@@ -10,8 +10,10 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Native\CoverageReport;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
+use NightWorksIO\MutationGate\Core\Runner\HoldsReading;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Program;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
@@ -56,7 +58,7 @@ function codeceptionFramework(string $version = ''): CodeceptionFramework
 it('is Codeception, run as the codeception runner, defined by the Codeception config in the root, under either name', function (): void {
     $framework = codeceptionFramework();
 
-    expect($framework->program())->toBe(Program::Codeception)
+    expect($framework->runner()->program())->toBe(Program::Codeception)
         ->and($framework->runner())->toBe(BuiltinRunner::Codeception)
         ->and($framework->definitions())->toEqual(Paths::of(Path::of('codeception.yml'), Path::of('codeception.dist.yml')))
         ->and($framework->tests())->toBeInstanceOf(TestFiles::class);
@@ -79,7 +81,9 @@ it('runs Codeception\'s own script, which reads no config of PHP\'s settings, bo
         ->and($framework->config())->toEqual(NotGiven::value())
         ->and($framework->workerScript())->toEqual(NotGiven::value())
         ->and($framework->endedHidden('PHP Fatal error: Allowed memory size exhausted', configuredToHide: true))->toBeFalse()
-        ->and($framework->testStyle())->toEqual(NotGiven::value());
+        ->and($framework->testStyle())->toEqual(NotGiven::value())
+        ->and($framework->holds())->toBe(HoldsReading::Listed)
+        ->and($framework->report())->toBe(CoverageReport::Php);
 });
 
 it('is Codeception where Composer installed its script, and in a package where Composer installed it there', function (): void {

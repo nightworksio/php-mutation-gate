@@ -12,19 +12,18 @@ use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 
 /**
- * How a runner behaves where the flows must know it: whether it reads each
- * `#[Holds]` as its test files load, which groups' test files every proof
- * key reads (ADR-0007), whether each shard pays a full opening run under coverage
- * (ADR-0006), whether it can record every test that kills a mutant, for
- * a full kill matrix (ADR-0014), whether it runs a mutant per core, the
- * style its own tests are written in (ADR-0015), and which tests a mutant's
- * own run selects (ADR-0008). The flows ask the runner,
- * never its name.
+ * How a runner behaves where the flows must know it: how it reads each
+ * `#[Holds]`, which groups' test files every proof key reads (ADR-0007),
+ * whether each shard pays a full opening run under coverage (ADR-0006),
+ * whether it can record every test that kills a mutant, for a full kill
+ * matrix (ADR-0014), whether it runs a mutant per core, the style its own
+ * tests are written in (ADR-0015), and which tests a mutant's own run
+ * selects (ADR-0008). The flows ask the runner, never its name.
  */
 final readonly class RunnerBehaviour
 {
     private function __construct(
-        private bool $holdsAsLoaded,
+        private HoldsReading $holds,
         private Groups $readByEveryKey,
         private bool $opensEachShard,
         private NotFull $whyNotFull,
@@ -35,15 +34,15 @@ final readonly class RunnerBehaviour
     }
 
     /**
-     * A runner that lists `#[Holds]` as groups, has no group every key
-     * reads, reuses the map the plan handed each shard, runs one mutant at a
-     * time, whose tests are PHPUnit classes, and whose mutant's run selects
-     * exactly the tests that judge it.
+     * A runner whose `#[Holds]` are read from its test files, has no group
+     * every key reads, reuses the map the plan handed each shard, runs one
+     * mutant at a time, whose tests are PHPUnit classes, and whose mutant's
+     * run selects exactly the tests that judge it.
      */
     public static function standard(): self
     {
         return new self(
-            holdsAsLoaded: false,
+            holds: HoldsReading::Written,
             readByEveryKey: Groups::none(),
             opensEachShard: false,
             whyNotFull: NotFull::FirstKillers,
@@ -60,7 +59,7 @@ final readonly class RunnerBehaviour
     public function writingTestsIn(AssertionStyle|NotGiven $style): self
     {
         return new self(
-            $this->holdsAsLoaded,
+            $this->holds,
             $this->readByEveryKey,
             $this->opensEachShard,
             $this->whyNotFull,
@@ -82,8 +81,14 @@ final readonly class RunnerBehaviour
     /** This behaviour, reading each `#[Holds]` as the runner loads its test files, where a group may never form. */
     public function holdingAsLoaded(): self
     {
+        return $this->readingHolds(HoldsReading::AsLoaded);
+    }
+
+    /** This behaviour, whose runner's tests come to hold the paths each `#[Holds]` names this way. */
+    public function readingHolds(HoldsReading $holds): self
+    {
         return new self(
-            holdsAsLoaded: true,
+            holds: $holds,
             readByEveryKey: $this->readByEveryKey,
             opensEachShard: $this->opensEachShard,
             whyNotFull: $this->whyNotFull,
@@ -97,7 +102,7 @@ final readonly class RunnerBehaviour
     public function readingInEveryKey(Group $group): self
     {
         return new self(
-            $this->holdsAsLoaded,
+            $this->holds,
             $this->readByEveryKey->with($group),
             $this->opensEachShard,
             $this->whyNotFull,
@@ -111,7 +116,7 @@ final readonly class RunnerBehaviour
     public function openingEachShard(): self
     {
         return new self(
-            $this->holdsAsLoaded,
+            $this->holds,
             $this->readByEveryKey,
             opensEachShard: true,
             whyNotFull: $this->whyNotFull,
@@ -128,7 +133,7 @@ final readonly class RunnerBehaviour
     public function stoppingAtFirstKiller(NotFull $why): self
     {
         return new self(
-            $this->holdsAsLoaded,
+            $this->holds,
             $this->readByEveryKey,
             $this->opensEachShard,
             $why,
@@ -142,7 +147,7 @@ final readonly class RunnerBehaviour
     public function runningPerCore(): self
     {
         return new self(
-            $this->holdsAsLoaded,
+            $this->holds,
             $this->readByEveryKey,
             $this->opensEachShard,
             $this->whyNotFull,
@@ -156,7 +161,7 @@ final readonly class RunnerBehaviour
     public function selecting(RunSelection $selection): self
     {
         return new self(
-            $this->holdsAsLoaded,
+            $this->holds,
             $this->readByEveryKey,
             $this->opensEachShard,
             $this->whyNotFull,
@@ -174,8 +179,15 @@ final readonly class RunnerBehaviour
 
     public function holdsAsLoaded(): bool
     {
-        return $this->holdsAsLoaded;
+        return $this->holds === HoldsReading::AsLoaded;
     }
+
+    /** How the runner's tests come to hold the paths each `#[Holds]` names. */
+    public function holds(): HoldsReading
+    {
+        return $this->holds;
+    }
+
 
     /** The groups whose test files every proof key reads. */
     public function readByEveryKey(): Groups

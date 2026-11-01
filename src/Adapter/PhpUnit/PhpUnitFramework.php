@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Native\Command;
+use NightWorksIO\MutationGate\Core\Native\CoverageReport;
 use NightWorksIO\MutationGate\Core\Native\Framework;
 use NightWorksIO\MutationGate\Core\Native\Selection as SelectionFile;
 use NightWorksIO\MutationGate\Core\Native\Shell;
@@ -24,6 +25,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\OwnScript;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\ErrorDisplay;
+use NightWorksIO\MutationGate\Core\Runner\HoldsReading;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitTestList;
@@ -59,10 +61,6 @@ final readonly class PhpUnitFramework implements Framework
         );
     }
 
-    public function program(): Program
-    {
-        return Program::PhpUnit;
-    }
 
     public function runner(): BuiltinRunner
     {
@@ -140,6 +138,12 @@ final readonly class PhpUnitFramework implements Framework
         return $this->commandLine->startUp($selection);
     }
 
+    /** php-code-coverage's PHP report, which times each test. */
+    public function report(): CoverageReport
+    {
+        return CoverageReport::Php;
+    }
+
     public function coverage(CoverageRun $request, string $map): array
     {
         return $this->commandLine->coverage($request, $map);
@@ -152,6 +156,12 @@ final readonly class PhpUnitFramework implements Framework
         $xml = is_file($file) ? file_get_contents($file) : false;
 
         return PhpUnitTestList::listedIn($ran, $xml, $file, Program::PhpUnit);
+    }
+
+    /** PHPUnit knows no `#[Holds]`, so the files its tests are in are read for it. */
+    public function holds(): HoldsReading
+    {
+        return HoldsReading::Written;
     }
 
     /** As PHPUnit prints a premature end of its process (ADR-0004). */

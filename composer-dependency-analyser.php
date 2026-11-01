@@ -46,6 +46,7 @@ return new Configuration()
     ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/phpunit-fixture')
     ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/phpspec-fixture')
     ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/codeception-fixture')
+    ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/testo-fixture')
     ->addPathToExclude(__DIR__ . '/tests/Contract/StaticChecker/fixture')
     ->ignoreErrorsOnPackages(
         [
@@ -109,6 +110,17 @@ return new Configuration()
     // which installs it; its extension loads only in Codeception's own
     // process. composer.json suggests it.
     ->ignoreErrorsOnPackages(['codeception/codeception'], [ErrorType::DEV_DEPENDENCY_IN_PROD])
+    // The Testo adapter runs only in a project that runs Testo, which
+    // installs it; its launcher, config and plugin load only in Testo's own
+    // process. composer.json suggests it.
+    ->ignoreErrorsOnPackages(['testo/testo'], [ErrorType::DEV_DEPENDENCY_IN_PROD])
+    // Testo's own packages, installed wherever testo/testo is: the console
+    // the launcher runs, the group attribute the plugin reads tests' groups
+    // from, and the container the plugin is configured through.
+    ->ignoreErrorsOnPackages(
+        ['testo/bridge-symfony-console', 'testo/filter', 'internal/container'],
+        [ErrorType::SHADOW_DEPENDENCY],
+    )
     // PhpSpec's own dependency, installed wherever phpspec/phpspec is: its
     // events reach the extension's listeners as its dispatcher's subscribers.
     // The package's own development holds it at the Symfony releases the

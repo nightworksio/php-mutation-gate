@@ -22,6 +22,8 @@
 /tests/Contract/Runner/codeception-fixture/library/.mutation-gate/
 /tests/Contract/Runner/codeception-fixture/library/.codeception/
 /tests/Contract/Runner/codeception-fixture/library/tests/_generated/
+/tests/Contract/Runner/testo-fixture/vendor/
+/tests/Contract/Runner/testo-fixture/library/.mutation-gate/
 
 # What the bot's evidence steps write, what installs the markdownlint they run,
 # and what Python compiles of the scripts it runs.

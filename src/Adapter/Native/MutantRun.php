@@ -297,7 +297,7 @@ final readonly class MutantRun
     {
         $output = trim($ran->output());
 
-        $program = $this->framework->program()->title();
+        $program = $this->framework->runner()->program()->title();
 
         return Reason::that(
             $output === '' ? sprintf(self::SAID_NOTHING, $why, $program) : sprintf(self::SAID, $why, $program, $output),
@@ -307,7 +307,7 @@ final readonly class MutantRun
     /** One of the reasons below, naming the framework first, then these. */
     private function named(string $reason, int ...$values): string
     {
-        return sprintf($reason, $this->framework->program()->title(), ...$values);
+        return sprintf($reason, $this->framework->runner()->program()->title(), ...$values);
     }
 
     /** A timed-out mutant, saying its run was stopped at its silence limit where it was. */

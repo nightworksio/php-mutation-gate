@@ -54,6 +54,7 @@ $processes = [
     'phpunit' => [fn(): Library => Library::installed('phpunit'), 'Tests\MoneySpec::addsTwoAmounts'],
     'phpspec' => [fn(): Library => Library::installed('phpspec'), 'tests\MoneySpec::it_adds_two_amounts'],
     'codeception' => [fn(): Library => Library::installed('codeception'), 'CodeceptionLibrary\MoneyTest::testAddsTwoAmounts'],
+    'testo' => [fn(): Library => Library::installed('testo'), 'TestoLibrary\MoneyTest::addsTwoAmounts'],
 ];
 
 $libraries = ['the fake' => [fn(): Library => Library::fake(), 'MoneyTest::adds'], ...$processes];

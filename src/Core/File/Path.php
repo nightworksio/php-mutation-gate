@@ -28,14 +28,14 @@ use function str_starts_with;
  */
 final readonly class Path
 {
+    /** How the name of a PHP file ends. */
+    public const string PHP = '.php';
+
     /** The segment that goes up out of the directory it is in. */
     private const string UP = '..';
 
     /** Where an absolute path is spelt from: the file system's root. */
     private const string FILE_SYSTEM = '/';
-
-    /** How the name of a PHP file ends. */
-    private const string PHP = '.php';
 
     private const string ROOT = '.';
 

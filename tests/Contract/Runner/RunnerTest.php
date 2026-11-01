@@ -129,6 +129,7 @@ $onDisk = [
     'phpunit' => fn(): Library => Library::installed('phpunit'),
     'phpspec' => fn(): Library => Library::installed('phpspec'),
     'codeception' => fn(): Library => Library::installed('codeception'),
+    'testo' => fn(): Library => Library::installed('testo'),
 ];
 
 $libraries = ['the fake' => fn(): Library => Library::fake(), ...$onDisk];
@@ -735,6 +736,10 @@ it('cannot judge a directory that holds no project it can run', function (Librar
 it('has the Codeception library installed wherever the Codeception runner contracts run', function (): void {
     expect(Library::isCodeceptionInstalled())->toBeTrue();
 })->skip(fn(): bool => getenv('RUNNER_CONTRACTS') !== 'codeception', 'only the Codeception runner contracts job installs its library')->group(...$holds);
+
+it('has the Testo library installed wherever the Testo runner contracts run', function (): void {
+    expect(Library::isTestoInstalled())->toBeTrue();
+})->skip(fn(): bool => getenv('RUNNER_CONTRACTS') !== 'testo', 'only the Testo runner contracts job installs its library')->group(...$holds);
 
 it('has the PhpSpec library installed wherever the PhpSpec runner contracts run', function (): void {
     expect(Library::isPhpSpecInstalled())->toBeTrue();

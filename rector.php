@@ -16,6 +16,7 @@ return RectorConfig::configure()
         __DIR__ . '/bin/mutation-gate',
         __DIR__ . '/bin/mutation-gate-worker',
         __DIR__ . '/bin/mutation-gate-phpspec',
+        __DIR__ . '/bin/mutation-gate-testo',
         __DIR__ . '/bin/mutation-gate-pest-worker',
         __DIR__ . '/bin/mutation-gate-pest-client',
     ])
@@ -63,6 +64,7 @@ return RectorConfig::configure()
         __DIR__ . '/tests/Contract/Runner/phpspec-fixture',
         __DIR__ . '/tests/Fixtures/Archive',
         __DIR__ . '/tests/Contract/Runner/codeception-fixture',
+        __DIR__ . '/tests/Contract/Runner/testo-fixture',
         // The static checker contract suite's fixture holds mutants, which are wrong on purpose.
         __DIR__ . '/tests/Contract/StaticChecker/fixture',
     ])
