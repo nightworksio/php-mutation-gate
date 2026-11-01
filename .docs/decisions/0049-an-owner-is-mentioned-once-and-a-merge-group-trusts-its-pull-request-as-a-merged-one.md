@@ -33,9 +33,11 @@ into the default branch's cache. What holds, read at source:
   `passed`, with `ownScopeProofs`, into the ledger of the scope that ran.
   ADR-0022 item 7 asks for a pull request's `passed` record and also says
   the pull request's own ledger is never read.
-- **A merge group saves no cache.** It has no proof scope (ADR-0022 item 6),
-  and the action and the reusable workflow save a ledger only for the run's
-  own scope (ADR-0007), so a `merge_group` run saves nothing into any cache.
+- **A merge group saves no ledger into any cache.** It has no proof scope
+  (ADR-0022 item 6), and the action and the reusable workflow save a ledger
+  only for the run's own scope (ADR-0007). GitHub keeps every cache under the
+  ref that saved it, so what else a group's job saves, such as a dependency
+  installer's cache, is kept under the group's own branch.
 - **ADR-0022 records owner groups, and a person can be in several.** A user
   named by two rules, alone in one and beside a team in another, would be
   mentioned once for each group.
@@ -110,8 +112,9 @@ into the default branch's cache. What holds, read at source:
    - This amends ADR-0022 item 8's search for another commit of the same
      tree.
 
-8. **No cache step changes for `merge_group`.** A group saves nothing into
-   any cache scope, so there is nothing for the reusable workflow to skip.
+8. **No cache step changes for `merge_group`.** A group saves no ledger into
+   any cache, and nothing into the default branch's, so there is nothing for
+   the reusable workflow to skip.
 
 ## Alternatives considered
 
