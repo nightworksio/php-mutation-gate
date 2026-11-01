@@ -34,11 +34,14 @@ phpstan/Rules/ this repository's own analyser rules.
 tests/
   Arch/        the rules in this document that the suite enforces.
   Unit/        one test file per source file, mirroring src.
+  Process/     the tests that start a real process, mirroring src.
   PHPStan/     the tests of the rules in phpstan/Rules, mirroring phpstan.
   Contract/    one directory per port: its suite, run against its fake and every adapter.
   Fakes/       a hand-written fake of every port.
   Guards/      the planted violation of every rule.
   Support/     what the Arch suite and the guards read the tree with, and what other tests share.
+  Docs/        the documentation held to the code.
+  Fixtures/    the projects, files and recorded output the tests read.
 ```
 
 The layers are ordered: Core, Attribute, Port, Mutator, Config, Extension,

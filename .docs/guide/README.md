@@ -17,8 +17,8 @@ keys in the [configuration](../reference/configuration.md#every-key).
 **Working locally:** the [pre-push hook and watch mode](recipes/pre-push-and-watch.md),
 and [survivors in your editor](recipes/editors.md).
 
-**When the gate refuses, fails or warns:** every message links to its section
-of [troubleshooting](troubleshooting.md).
+**When the gate refuses, fails or warns:** each finding `doctor` prints links
+to its section of [troubleshooting](troubleshooting.md).
 
 **Extending the gate:** [writing an adapter](extending/writing-an-adapter.md).
 

@@ -160,7 +160,7 @@ than written: `79.999` holds a score to `80`.
 | `newCode.floor` | number, 0 to 100 | `100` | [0003](../decisions/0003-a-floor-only-rises.md) |
 | `security.floor` | number, 0 to 100 | none | [0021](../decisions/0021-mutators-are-written-once-and-first-party-sets-can-leave.md) |
 | `uncovered` | `count` or `exclude` | `count` | [0003](../decisions/0003-a-floor-only-rises.md) |
-| `baseline.path` | path. A pull request that moves the baseline is checked against the floors the default branch keeps in the file its own config names | `mutation-gate.baseline.json` | [0003](../decisions/0003-a-floor-only-rises.md) |
+| `baseline.path` | path of the committed floors, in the [baseline format](files.md#the-baseline). A pull request that moves the baseline is checked against the floors the default branch keeps in the file its own config names | `mutation-gate.baseline.json` | [0003](../decisions/0003-a-floor-only-rises.md) |
 | `baseline.improvement` | `require` or `report` | `require` | [0003](../decisions/0003-a-floor-only-rises.md) |
 | `owners.floors` | map of an owner as CODEOWNERS writes it, `@user`, `@org/team` or an email address, to a number from 0 to 100: the floor of the code of every file whose rule names the owner | `{}` | [0022](../decisions/0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md) |
 | `packages` | list of globs | `[]` | [0005](../decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
@@ -218,7 +218,7 @@ than written: `79.999` holds a score to `80`.
 | `ignores.maxDays` | integer | none | [0008](../decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `ignores.native` | `refuse` or `allow` | `refuse` | [0008](../decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `equivalence.static` | boolean | `true` | [0013](../decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
-| `reports` | list of `{use, path, with}`; built-in `json`, `junit`, `sarif`, `html`, `tests`, `kill-matrix`, `gitlab`, `sonar`; `badge`, whose `path` is `--publish-dir` where it names none; and without a `path` `console`, `problems`, `slack`, `discord`, `webhook`, `otlp`, `github-annotations`, `github-summary`, `github-comment`. A config names every `path` inside the project | `[]` | [0009](../decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| `reports` | list of `{use, path, with}`; built-in `json`, `junit`, `sarif`, `html`, `digest`, `tests`, `kill-matrix`, `gitlab`, `sonar`; `badge`, whose `path` is `--publish-dir` where it names none; and without a `path` `console`, `problems`, `slack`, `discord`, `webhook`, `otlp`, `github-annotations`, `github-summary`, `github-comment`. A config names every `path` inside the project. `with` holds a built-in reporter's options: `problems` `{only: changed}`; `github-comment` `{identity: <account>}`; `badge` `{commit: <sha>}`, the commit the trend records, which is otherwise `GITHUB_SHA`, `CI_COMMIT_SHA`, `BUILDKITE_COMMIT` or `CIRCLE_SHA1`; `slack`, `discord` and `webhook` `{urlEnv: <variable>}`, the variable holding the URL, and never the URL itself; `webhook` `{secretEnv: <variable>}`; `otlp` `{endpoint: <https URL>}` ([reports](reports.md)) | `[]` | [0009](../decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | `badge.colors` | map of shields.io colour to lowest score | `{"brightgreen": 90, "green": 80, "yellow": 70, "orange": 60}`, red below | [0009](../decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | `dashboard.topic` | string: the GitHub topic of the repositories `mutation-gate dashboard` shows, where `dashboard.repositories` names none | `"mutation-gate"` | [0024](../decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
 | `dashboard.repositories` | list of the names of the organisation's repositories that `mutation-gate dashboard` shows, in place of a topic | none | [0024](../decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
@@ -254,9 +254,10 @@ In a `composer.json`, under `extra.mutation-gate`:
 
 ## In the reusable workflow's call
 
-The reusable workflow takes the action's inputs less `shard`, `deliver` and
-`composer-auth`, which the [GitHub Actions guide](../guide/ci/github-actions.md)
-lists, and three of its own:
+The reusable workflow takes the action's inputs, which the
+[GitHub Actions guide](../guide/ci/github-actions.md) lists, less `shard`,
+`deliver` and `composer-auth`, whose credentials it takes as the secret
+`COMPOSER_AUTH`, and three inputs of its own:
 
 | Input | Type | Default | Decided in |
 |-------|------|---------|------------|

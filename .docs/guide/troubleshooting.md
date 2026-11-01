@@ -1,9 +1,9 @@
 # Troubleshooting
 
-Every refusal, failure and warning the gate prints ends with a link to its
-section here. The section is named by the message's slug, which never changes
-meaning once released (ADR-0018). `mutation-gate doctor` finds most
-of these before a run does (ADR-0017).
+Each finding `mutation-gate doctor` prints, and each rule of the `sonar`
+report, ends with a link to its section here, named by its slug, which never
+changes meaning once released (ADR-0018). `doctor` finds most of these before
+a run does (ADR-0017).
 
 ## no-coverage-driver
 
@@ -163,14 +163,14 @@ An entry of `ignores.entries` has expired, or expires within 14 days
 an end, and its mutants count again once it passes.
 
 Check each entry's reason again. Where it still holds, move `expires` later.
-Where a test can now tell the mutants apart, remove the entry.
+Where a test tells the mutants apart, remove the entry.
 
 ## tree-without-floor
 
 A tree has no floor in the config, and the baseline records none for it.
 There is no default floor, so the first CI run measures such a tree, offers
 the baseline it measured, and fails (ADR-0017). Where no CI
-definition runs the gate yet, this is advice.
+definition runs the gate, this is advice.
 
 Declare a floor for the tree, as `trees: [{path: src, floor: 80}]`, or
 commit the `mutation-gate.baseline.json` the first CI run measures.

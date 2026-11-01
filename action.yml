@@ -77,7 +77,7 @@ outputs:
 runs:
   using: composite
   steps:
-    # C2.1: an event that runs the default branch's workflow with write access
+    # An event that runs the default branch's workflow with write access
     # over a pull request's content is refused before anything is installed.
     - name: Refuse an event the gate never runs under
       shell: bash

@@ -30,7 +30,7 @@ START = "<!-- bench:start -->"
 END = "<!-- bench:end -->"
 
 # What the table says while no result file is committed.
-NONE = "No benchmark result is committed yet. `bench.yml` measures one, and a pull request brings it here."
+NONE = "No benchmark result is committed. `bench.yml` measures one, and a pull request brings it here."
 
 # Each project's result files, by what measured them.
 KINDS = {"": "cold", "-sharded": "sharded", "-scenarios": "scenarios"}
