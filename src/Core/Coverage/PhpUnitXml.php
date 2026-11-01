@@ -10,6 +10,9 @@ use function array_values;
 use Closure;
 use DOMDocument;
 use DOMElement;
+
+use function ltrim;
+
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -17,7 +20,6 @@ use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Format\Xml;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
-use function rtrim;
 use function sprintf;
 
 /**
@@ -182,11 +184,9 @@ final readonly class PhpUnitXml
      */
     private static function onDisk(string $source, DOMElement $file): string
     {
-        $directory = $file->getAttribute('path');
-        $joined = $directory === '' || $directory[0] === self::SEPARATOR
-            ? sprintf('%s%s', $source, $directory)
-            : sprintf('%s%s%s', rtrim($source, self::SEPARATOR), self::SEPARATOR, $directory);
-
-        return DiskPath::of($joined)->child($file->getAttribute('name'))->value();
+        return DiskPath::of($source)
+            ->child(ltrim($file->getAttribute('path'), self::SEPARATOR))
+            ->child($file->getAttribute('name'))
+            ->value();
     }
 }

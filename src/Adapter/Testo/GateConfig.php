@@ -49,7 +49,7 @@ final readonly class GateConfig
     /** The project's own config, in the directory Testo runs in, or Testo's default where there is none. */
     private static function project(): ApplicationConfig
     {
-        $file = sprintf('%s/%s', (string) getcwd(), TestoConfig::Php->value);
+        $file = sprintf('%s/%s', getcwd(), TestoConfig::Php->value);
         $config = is_file($file) ? (static fn(string $file): mixed => require $file)($file) : new ApplicationConfig();
 
         return $config instanceof ApplicationConfig

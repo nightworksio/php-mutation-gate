@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Native\Outcome;
 use NightWorksIO\MutationGate\Core\Native\Selected;
 use NightWorksIO\MutationGate\Core\Native\TestTimes;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use Testo\Core\Context\TestInfo;
 use Testo\Core\Context\TestResult;
 use Testo\Core\Value\Status;
@@ -27,11 +28,9 @@ use Testo\Pipeline\Middleware\TestRunInterceptor;
  * and how it ended, and, where it is told one, its time to the times file.
  * A listing runs none, and lists each instead.
  */
-#[InterceptorOptions(order: InterceptorOptions::ORDER_FILTER + 1)]
+#[InterceptorOptions(order: InterceptorOptions::ORDER_FILTER)]
 final class Running implements TestRunInterceptor
 {
-    private const float NANOSECONDS = 1e9;
-
     private bool $failed = false;
 
     public function __construct(
@@ -64,7 +63,7 @@ final class Running implements TestRunInterceptor
         $this->write($this->results, Outcome::Started->line($key));
         $from = hrtime(as_number: true);
         $result = $next($info);
-        $seconds = (hrtime(as_number: true) - $from) / self::NANOSECONDS;
+        $seconds = (hrtime(as_number: true) - $from) / Seconds::NANOSECONDS;
         $outcome = $this->outcomeOf($result->status);
         $this->write($this->results, $outcome->line($key));
         $this->write($this->times, TestTimes::line($key, $seconds));

@@ -52,18 +52,33 @@ it('keeps each suite\'s directories and files, named or in their place, and none
         ->and($suite instanceof TestSuite ? $suite->suites() : $suite)->toEqual(DeclaredSuites::none())
         ->and($suite instanceof TestSuite && $suite->holdsTestCase(Path::of('checks/MoneyTest.php')))->toBeTrue()
         ->and($suite instanceof TestSuite && $suite->holdsTestCase(Path::of('plugins/stock/tests/StockTest.php')))->toBeTrue()
-        ->and($suite instanceof TestSuite && $suite->holdsTestCase(Path::of('checks/LedgerTest.php')))->toBeFalse();
+        ->and($suite instanceof TestSuite && $suite->holdsTestCase(Path::of('checks/LedgerTest.php')))->toBeFalse()
+        ->and($suite instanceof TestSuite && $suite->holdsTestCase(Path::of('tests/Unit')))->toBeFalse();
 });
 
 it('keeps what a finder includes, less what it leaves out, by name or in place', function (): void {
-    $named = testoSuite("return new ApplicationConfig(suites: [new SuiteConfig(name: 'unit', location: new FinderConfig(include: ['tests'], exclude: ['tests/Fixtures']))]);");
-    $placed = testoSuite("return new ApplicationConfig(suites: [new SuiteConfig('unit', new FinderConfig(['tests'], ['tests/Fixtures']))]);");
+    $named = testoSuite("return new ApplicationConfig(suites: [new SuiteConfig(name: 'unit', location: new FinderConfig(include: ['spec'], exclude: ['spec/Fixtures']))]);");
+    $placed = testoSuite("return new ApplicationConfig(suites: [new SuiteConfig('unit', new FinderConfig(['spec'], ['spec/Fixtures']))]);");
 
     foreach ([$named, $placed] as $suite) {
-        expect($suite instanceof TestSuite ? $suite->paths() : $suite)->toEqual(Paths::of(Path::of('tests')))
-            ->and($suite instanceof TestSuite && $suite->holds(Path::of('tests/MoneyTest.php')))->toBeTrue()
-            ->and($suite instanceof TestSuite && $suite->holds(Path::of('tests/Fixtures/Money.php')))->toBeFalse();
+        expect($suite instanceof TestSuite ? $suite->paths() : $suite)->toEqual(Paths::of(Path::of('spec')))
+            ->and($suite instanceof TestSuite && $suite->holds(Path::of('spec/MoneyTest.php')))->toBeTrue()
+            ->and($suite instanceof TestSuite && $suite->holds(Path::of('spec/Fixtures/Money.php')))->toBeFalse();
     }
+});
+
+it('leaves out what each suite\'s finder leaves out, whichever suite comes after it', function (): void {
+    $suite = testoSuite(<<<'PHP'
+        return new ApplicationConfig(suites: [
+            new SuiteConfig('unit', new FinderConfig(['spec'], ['spec/Fixtures'])),
+            new SuiteConfig('feature', new FinderConfig(['tests'], ['tests/Stubs'])),
+        ]);
+        PHP);
+
+    expect($suite instanceof TestSuite ? $suite->paths() : $suite)->toEqual(Paths::of(Path::of('spec'), Path::of('tests')))
+        ->and($suite instanceof TestSuite && $suite->holds(Path::of('spec/Fixtures/Money.php')))->toBeFalse()
+        ->and($suite instanceof TestSuite && $suite->holds(Path::of('tests/Stubs/Money.php')))->toBeFalse()
+        ->and($suite instanceof TestSuite && $suite->holds(Path::of('tests/MoneyTest.php')))->toBeTrue();
 });
 
 it('reads __DIR__ as the root, alone or with a literal path after it', function (): void {
@@ -74,9 +89,11 @@ it('reads __DIR__ as the root, alone or with a literal path after it', function 
 
 it('keeps Testo\'s default suite where the config makes no suite, and the conventional one with no location', function (): void {
     $default = testoSuite("return new ApplicationConfig(src: ['src']);");
+    $placed = testoSuite("return new ApplicationConfig(['src']);");
     $unlocated = testoSuite("return new ApplicationConfig(suites: [new SuiteConfig(name: 'unit')]);");
 
     expect($default instanceof TestSuite ? $default->paths() : $default)->toEqual(Paths::of(Path::of('tests')))
+        ->and($placed instanceof TestSuite ? $placed->paths() : $placed)->toEqual(Paths::of(Path::of('tests')))
         ->and($unlocated instanceof TestSuite ? $unlocated->paths() : $unlocated)->toEqual(Paths::of(Path::of('tests')));
 });
 
@@ -94,6 +111,7 @@ it('cannot read the tests of a config that builds its suites or their locations 
     'a location under a key' => fn(): array => ["return new ApplicationConfig(suites: [new SuiteConfig(name: 'unit', location: ['unit' => 'tests'])]);", 7],
     'a finder that leaves out what it builds' => fn(): array => ["return new ApplicationConfig(suites: [new SuiteConfig(name: 'unit', location: new FinderConfig(['tests'], [getenv('SKIP')]))]);", 7],
     'suites the application builds' => fn(): array => ["return new ApplicationConfig(\n    suites: suites(),\n);", 7],
+    'suites the application builds in their place' => fn(): array => ["return new ApplicationConfig(['src'], suites());", 7],
 ]);
 
 it('cannot read the tests of a config that is no PHP it can parse', function (): void {

@@ -60,15 +60,6 @@ final readonly class TestoSuite
 
     private const string APPLICATION = ApplicationConfig::class;
 
-    /** Each argument the gate reads, by its name and its position. */
-    private const array LOCATION = ['location', 1];
-
-    private const array INCLUDE = ['include', 0];
-
-    private const array EXCLUDE = ['exclude', 1];
-
-    private const array SUITES = ['suites', 1];
-
     /** What `__DIR__` is, the config being in the project's root. */
     private const string ROOT = '.';
 
@@ -111,7 +102,8 @@ final readonly class TestoSuite
     {
         $named = array_find(
             self::made($statements, self::APPLICATION),
-            static fn(New_ $application): bool => ! self::argument($application, self::SUITES) instanceof NotGiven,
+            static fn(New_ $application): bool
+                => ! self::argument($application, TestoArgument::Suites) instanceof NotGiven,
         );
 
         return $named instanceof New_ ? self::built($file, $named) : self::conventional();
@@ -124,7 +116,7 @@ final readonly class TestoSuite
         $excluded = [];
 
         foreach ($suites as $suite) {
-            [$in, $out] = self::locations(self::argument($suite, self::LOCATION));
+            [$in, $out] = self::locations(self::argument($suite, TestoArgument::Location));
             $included = [...$included, ...$in];
             $excluded = [...$excluded, ...$out];
         }
@@ -169,8 +161,8 @@ final readonly class TestoSuite
     {
         return $location instanceof New_ && self::isA($location, self::FINDER)
             ? [
-                self::items(self::argument($location, self::INCLUDE)),
-                self::items(self::argument($location, self::EXCLUDE)),
+                self::items(self::argument($location, TestoArgument::Include)),
+                self::items(self::argument($location, TestoArgument::Exclude)),
             ]
             : [self::items($location), []];
     }
@@ -217,18 +209,14 @@ final readonly class TestoSuite
         };
     }
 
-    /**
-     * The argument of a constructor's call by its name, or at its position; none where it is not given.
-     *
-     * @param array{string, int} $argument
-     */
-    private static function argument(New_ $call, array $argument): Expr|NotGiven
+    /** The argument of a constructor's call by its name, or at its position; none where it is not given. */
+    private static function argument(New_ $call, TestoArgument $argument): Expr|NotGiven
     {
-        [$name, $position] = $argument;
         $given = array_find(
-            array_values($call->args),
-            static fn(Node $arg, int $index): bool => $arg instanceof Arg
-                && ($arg->name instanceof Identifier ? $arg->name->toString() === $name : $index === $position),
+            $call->args,
+            static fn(Node $arg, int $index): bool => $arg instanceof Arg && ($arg->name instanceof Identifier
+                ? $arg->name->toString() === $argument->value
+                : $index === $argument->position()),
         );
 
         return $given instanceof Arg ? $given->value : NotGiven::value();
