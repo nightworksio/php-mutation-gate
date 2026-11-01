@@ -253,6 +253,23 @@ class Running(unittest.TestCase):
                 "gate-warm-2.time",
             ])
 
+    def test_clears_the_ignored_files_under_each_generated_directory_and_nothing_beside_it_as_symfony_demo_needs(self):
+        with tempfile.TemporaryDirectory() as work:
+            project = Path(work)
+            git(project, "init", "--quiet")
+            commit(project, {".gitignore": "/var/\n", "src/A.php": "<?php",
+                             "storage/views/.gitignore": "*\n!.gitignore\n"}, "prepared")
+            built = ["var/cache/test/Container.php", "var/sass/app.output.css", "var/cachet/kept",
+                     "storage/views/compiled.php"]
+            for path in built:
+                (project / path).parent.mkdir(parents=True, exist_ok=True)
+                (project / path).write_text("built")
+            bench_scenarios.cleared(project, ["var/cache", "storage/views"])
+            self.assertEqual([path for path in built if (project / path).exists()],
+                             ["var/sass/app.output.css", "var/cachet/kept"])
+            self.assertTrue((project / "storage/views/.gitignore").exists())
+            self.assertTrue((project / "src/A.php").exists())
+
     def test_runs_the_plain_arm_on_each_pull_request_s_change_from_its_base_with_its_own_diff_option(self):
         with tempfile.TemporaryDirectory() as work:
             upstream, plain, out = Path(work) / "upstream", Path(work) / "project-plain", Path(work) / "out"

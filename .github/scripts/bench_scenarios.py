@@ -255,9 +255,17 @@ def published(directory: Path) -> None:
 
 
 def cleared(directory: Path, generated: list[str]) -> None:
-    """The files git ignores under each of these directories removed, those it tracks left."""
+    """
+    The files git ignores under each of these directories removed, those it
+    tracks and every file outside them left. Each is listed file by file, as
+    `git clean -X` removes an ignored directory whole once a path under it is
+    named: `var/cache` would take all of an ignored `var/` with it.
+    """
     if generated:
-        git(directory, "clean", "--quiet", "--force", "-d", "-X", "--", *generated)
+        ignored = git(directory, "ls-files", "-z", "--others", "--ignored", "--exclude-standard", "--", *generated)
+        for path in ignored.split("\0"):
+            if path:
+                (directory / path).unlink()
 
 
 def name_of(step: dict, at: int) -> str:
