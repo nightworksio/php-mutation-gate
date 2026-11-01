@@ -16,7 +16,7 @@ composer config allow-plugins.infection/extension-installer false
 composer require --dev --no-interaction --no-progress --no-update \
   "phpunit/phpunit:$(bench_locked phpunit/phpunit)" "infection/infection:$(bench_locked infection/infection)" \
   'nightworksio/mutation-gate:@dev'
-composer update --no-interaction --no-progress --with-all-dependencies
+bench_resolve update --no-interaction --no-progress --with-all-dependencies
 bench_versions phpunit/phpunit infection/infection nightworksio/mutation-gate
 printf '.mutation-gate/\nbench-*.json\nbench-*.txt\ninfection.txt\ndata/database_test?*.sqlite\n' >> .gitignore
 # The suite writes to one SQLite file, and processes that share it lock each

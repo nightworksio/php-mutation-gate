@@ -91,6 +91,7 @@ class Running(unittest.TestCase):
             gate.chmod(0o755)
             (directory / "bench.json").write_text("{}")
             (directory / ".gitignore").write_text(".mutation-gate/\nbaseline.json\n")
+            (directory / "composer.lock").write_text('{"packages": [{"name": "lcobucci/clock", "version": "3.6.0"}]}')
             git(directory, "init", "--quiet")
             git(directory, "add", "--all")
             git(directory, "-c", "user.name=t", "-c", "user.email=t@localhost", "commit", "--quiet", "-m", "prepared")
@@ -103,6 +104,7 @@ class Running(unittest.TestCase):
                 del os.environ["GITHUB_OUTPUT"]
             self.assertEqual(output.read_text(), "shards=[1, 2]\n")
             self.assertEqual(sorted(path.name for path in (out / "planned" / "coverage").iterdir()), ["map.json.gz"])
+            self.assertEqual((out / "composer.lock").read_text(), (directory / "composer.lock").read_text())
             for shard in ("1", "2"):
                 bench_sharded.shard(described, directory, out, out / "planned", shard, 2, None)
             bench_sharded.verdict(described, directory, out, out / "planned", 2)
