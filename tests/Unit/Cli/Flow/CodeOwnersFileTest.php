@@ -24,7 +24,7 @@ function codeOwnersSource(array $files): ChangeSourceFake
 
 function pullRequestPlan(): Plan
 {
-    $run = RunOn::pullRequest(PullRequestNumber::of(7), Scope::branch('main'));
+    $run = RunOn::pullRequest(PullRequestNumber::of(7), Scope::branch('main'), '');
 
     return $run instanceof RunOn ? Planned::twoShards()->on($run) : Planned::twoShards();
 }
@@ -50,6 +50,16 @@ it('reads the file on a pull request at the default branch as the checkout fetch
     ]), pullRequestPlan());
 
     expect(ownerOf($owners, 'src/Money.php'))->toBe('@on-the-base');
+});
+
+it('reads the file on a pull request at the branch it merges into, where its CI names one', function (): void {
+    $run = RunOn::pullRequest(PullRequestNumber::of(7), Scope::branch('main'), 'release/2.x');
+    $owners = CodeOwnersFile::of(codeOwnersSource([
+        'refs/remotes/origin/main' => ['CODEOWNERS' => '* @on-main'],
+        'refs/remotes/origin/release/2.x' => ['CODEOWNERS' => '* @on-the-release'],
+    ]), $run instanceof RunOn ? Planned::twoShards()->on($run) : Planned::twoShards());
+
+    expect(ownerOf($owners, 'src/Money.php'))->toBe('@on-the-release');
 });
 
 it('reads the first file of GitHub\'s three places that holds one, an empty one among them', function (ChangeSourceFake $source, string $owner, bool $read): void {

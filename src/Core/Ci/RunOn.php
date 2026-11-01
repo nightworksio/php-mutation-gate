@@ -14,18 +14,21 @@ use function str_starts_with;
 
 /**
  * What a CI, or git outside one, says of a run: its ref, which is its proof
- * scope, whether that is a pull request, and the default branch where it is
- * named. On a pull request the scope is `refs/pull/<n>`, and otherwise
+ * scope, whether that is a pull request, the branch a pull request merges
+ * into, and the default branch, each where it is named. On a pull request the scope is `refs/pull/<n>`, and otherwise
  * `refs/heads/<branch>`. A detached `HEAD` has no scope.
  */
 final readonly class RunOn
 {
     private const string PULL_REQUEST = 'refs/pull/';
 
+    private const string NO_TARGET = 'The run is on no pull request, or its CI names no branch it merges into.';
+
     private function __construct(
         private Scope|Detached $scope,
         private Scope|CannotTell $defaultBranch,
         private Revision|Unnamed $commit,
+        private Scope|CannotTell $target,
     ) {
     }
 
@@ -34,20 +37,27 @@ final readonly class RunOn
         return self::scoped(sprintf('refs/heads/%s', $branch), $defaultBranch);
     }
 
-    /** A run on a pull request, or why there is none where its CI names no number the gate can read. */
+    /**
+     * A run on a pull request that merges into the branch its CI names, empty where it names none; or why there is
+     * none where its CI names no number the gate can read.
+     */
     public static function pullRequest(
         PullRequestNumber|CannotTell $number,
         Scope|CannotTell $defaultBranch,
+        string $target,
     ): self|CannotTell {
-        return $number instanceof PullRequestNumber
+        $run = $number instanceof PullRequestNumber
             ? self::scoped(sprintf('%s%d', self::PULL_REQUEST, $number->value()), $defaultBranch)
             : $number;
+        $into = $target === '' ? CannotTell::because(self::NO_TARGET) : self::branchNamed($target);
+
+        return $run instanceof self && $into instanceof Scope ? $run->withTarget($into) : $run;
     }
 
     /** A run on a ref already read as a scope, as a plan records it. */
     public static function at(Scope $scope, Scope|CannotTell $defaultBranch): self
     {
-        return new self($scope, $defaultBranch, Unnamed::commit());
+        return new self($scope, $defaultBranch, Unnamed::commit(), CannotTell::because(self::NO_TARGET));
     }
 
     /**
@@ -64,7 +74,7 @@ final readonly class RunOn
     /** A run on a detached `HEAD`, which is never a pull request. */
     public static function detached(Scope|CannotTell $defaultBranch): self
     {
-        return new self(Detached::head(), $defaultBranch, Unnamed::commit());
+        return new self(Detached::head(), $defaultBranch, Unnamed::commit(), CannotTell::because(self::NO_TARGET));
     }
 
     /** A default branch as a CI names it, which it may not. */
@@ -90,16 +100,28 @@ final readonly class RunOn
         return $this->defaultBranch;
     }
 
+    /** The branch the pull request merges into, where the run is on one and its CI names it. */
+    public function target(): Scope|CannotTell
+    {
+        return $this->target;
+    }
+
+    /** This run, on a pull request that merges into this branch. */
+    public function withTarget(Scope $target): self
+    {
+        return new self($this->scope, $this->defaultBranch, $this->commit, $target);
+    }
+
     /** This run, with the default branch `ci.defaultBranch` or git names, which replaces the CI's own answer. */
     public function withDefaultBranch(Scope $defaultBranch): self
     {
-        return new self($this->scope, $defaultBranch, $this->commit);
+        return new self($this->scope, $defaultBranch, $this->commit, $this->target);
     }
 
     /** This run, for the commit the CI says it builds. */
     public function withCommit(Revision $commit): self
     {
-        return new self($this->scope, $this->defaultBranch, $commit);
+        return new self($this->scope, $this->defaultBranch, $commit, $this->target);
     }
 
     /** The commit the CI says the run builds, where it names one. */
@@ -122,7 +144,7 @@ final readonly class RunOn
 
         $scope = $named && $onDefault ? Detached::head() : $this->scope;
 
-        return new self($scope, $this->defaultBranch, Unnamed::commit());
+        return new self($scope, $this->defaultBranch, Unnamed::commit(), $this->target);
     }
 
     private static function scoped(string $ref, Scope|CannotTell $defaultBranch): self|CannotTell
@@ -131,6 +153,6 @@ final readonly class RunOn
 
         return $scope instanceof CannotJudge
             ? CannotTell::because($scope->why())
-            : new self($scope, $defaultBranch, Unnamed::commit());
+            : new self($scope, $defaultBranch, Unnamed::commit(), CannotTell::because(self::NO_TARGET));
     }
 }

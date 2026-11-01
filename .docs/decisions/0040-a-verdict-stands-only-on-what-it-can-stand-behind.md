@@ -60,7 +60,8 @@ What holds, read at source before this decision:
    in the file the default branch's own config names.** The base's config
    is read as the base holds it; a base that holds no config file keeps its
    baseline in the standard file. A lowering reason that is blank space is
-   no reason.
+   no reason. ADR-0050 amends this: the floors are those of the branch the
+   pull request merges into, where its CI names it.
 6. **A declared floor is held in hundredths, rounded up**, wherever it is
    read: the config, a package's `composer.json`, the baseline and an
    imported Infection `minMsi`. `79.999` holds a score to 80. A floor that is

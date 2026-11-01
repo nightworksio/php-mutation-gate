@@ -331,12 +331,12 @@ final readonly class Planning
      * The lines the verdict holds to the floor for new code: those the change
      * added or modified. A pull request's new code is judged whatever the run
      * considers, so where the run does not know its lines, as a full run
-     * does not, they are those since the default branch.
+     * does not, they are those since the branch it merges into.
      */
     private function newCode(Standing $standing, Reached $reached): Changes|CannotJudge
     {
         $changed = $reached->changed();
-        $fetched = $standing->fetchedDefaultBranch();
+        $fetched = $standing->fetchedBase();
         $changed = $changed instanceof CannotTell && $standing->runOn()->isPullRequest()
             ? Reached::linesSince($fetched, $this->adapters)
             : $changed;

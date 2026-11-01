@@ -87,8 +87,8 @@ it('reads the baseline the default branch holds at its remote', function () use 
     ]);
     $baselines = new Baselines(Flows::adapters(Flows::project(), [], $changes), Path::of('floors.json'), GateCommand::installed());
 
-    expect($baselines->onDefaultBranch(Scope::branch('main'), Flows::setup()))->toEqual($floors(70.0))
-        ->and($baselines->onDefaultBranch(Scope::branch('release/2'), Flows::setup()))->toEqual($floors(55.0));
+    expect($baselines->onBase(Scope::branch('main'), Flows::setup()))->toEqual($floors(70.0))
+        ->and($baselines->onBase(Scope::branch('release/2'), Flows::setup()))->toEqual($floors(55.0));
 });
 
 it('reads the baseline the default branch holds in the file its own config file names, where a change moved it', function (string $config, Baseline|CannotJudge $read) use ($floors): void {
@@ -111,7 +111,7 @@ it('reads the baseline the default branch holds in the file its own config file 
     $changes = new ChangeSourceFake(Revision::ref('base'), Changes::none(), $files);
     $baselines = new Baselines(Flows::adapters($project, [], $changes), Path::of('moved.json'), GateCommand::installed());
 
-    expect($baselines->onDefaultBranch(Scope::branch('main'), $setup))->toEqual($read);
+    expect($baselines->onBase(Scope::branch('main'), $setup))->toEqual($read);
 })->with([
     'named there' => ['{"runner": "pest", "baseline": {"path": "floors.json"}}', fn(): Baseline => Baseline::of(Entry::of(Path::of('src'), Floor::of(70.0)))],
     'the standard file, where the default branch holds no config file' => ['', fn(): Baseline => Baseline::none()],
@@ -130,7 +130,7 @@ it('reads the baseline the default branch holds in the file its own config file 
 it('reads no baseline where the default branch holds none', function () use ($remotes): void {
     $baselines = new Baselines(Flows::adapters(Flows::project(), [], $remotes(main: '')), Path::of('elsewhere.json'), GateCommand::installed());
 
-    expect($baselines->onDefaultBranch(Scope::branch('main'), Flows::setup()))->toEqual(Baseline::none());
+    expect($baselines->onBase(Scope::branch('main'), Flows::setup()))->toEqual(Baseline::none());
 });
 
 it('cannot judge where git cannot read the default branch, or its file is not a baseline', function (
@@ -139,7 +139,7 @@ it('cannot judge where git cannot read the default branch, or its file is not a 
 ): void {
     $baselines = new Baselines(Flows::adapters(Flows::project(), [], $changes), Path::of('floors.json'), GateCommand::installed());
 
-    expect($baselines->onDefaultBranch(Scope::branch('main'), Flows::setup()))->toEqual(CannotJudge::because(sprintf(<<<'SAID'
+    expect($baselines->onBase(Scope::branch('main'), Flows::setup()))->toEqual(CannotJudge::because(sprintf(<<<'SAID'
         The baseline refs/remotes/origin/main holds cannot be read,
         so a floor lowered here cannot be checked against it. %s
         Fetch the default branch into the checkout before the verdict.

@@ -69,6 +69,7 @@ final readonly class JenkinsPlan implements CiPlan, Configurable
             $variables->has(Variables::CHANGE_ID) => RunOn::pullRequest(
                 PullRequestNumber::parse($variables->valueOf(Variables::CHANGE_ID)),
                 $defaultBranch,
+                $variables->valueOf(Variables::CHANGE_TARGET),
             ),
             $variables->has(Variables::TAG_NAME) => RunOn::detached($defaultBranch),
             default => RunOn::branch($variables->valueOf(Variables::BRANCH_NAME), $defaultBranch),

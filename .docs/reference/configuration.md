@@ -160,7 +160,7 @@ than written: `79.999` holds a score to `80`.
 | `newCode.floor` | number, 0 to 100 | `100` | [0003](../decisions/0003-a-floor-only-rises.md) |
 | `security.floor` | number, 0 to 100 | none | [0021](../decisions/0021-mutators-are-written-once-and-first-party-sets-can-leave.md) |
 | `uncovered` | `count` or `exclude` | `count` | [0003](../decisions/0003-a-floor-only-rises.md) |
-| `baseline.path` | path of the committed floors, in the [baseline format](files.md#the-baseline). A pull request that moves the baseline is checked against the floors the default branch keeps in the file its own config names | `mutation-gate.baseline.json` | [0003](../decisions/0003-a-floor-only-rises.md) |
+| `baseline.path` | path of the committed floors, in the [baseline format](files.md#the-baseline). A pull request that moves the baseline is checked against the floors the branch it merges into keeps, or the default branch where its CI names none, in the file that branch's own config names | `mutation-gate.baseline.json` | [0003](../decisions/0003-a-floor-only-rises.md) |
 | `baseline.improvement` | `require` or `report` | `require` | [0003](../decisions/0003-a-floor-only-rises.md) |
 | `owners.floors` | map of an owner as CODEOWNERS writes it, `@user`, `@org/team` or an email address, to a number from 0 to 100: the floor of the code of every file whose rule names the owner | `{}` | [0022](../decisions/0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md) |
 | `packages` | list of globs | `[]` | [0005](../decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |

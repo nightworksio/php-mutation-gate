@@ -50,7 +50,7 @@ it('reads a pull request from its number, and the branch a multibranch build bui
     $push = Variables::of(['BRANCH_NAME' => 'feature/money']);
 
     expect(jenkinsPlanIn($pullRequest)->runOn())
-        ->toEqual(RunOn::pullRequest(PullRequestNumber::parse('31'), jenkinsUnnamed()))
+        ->toEqual(RunOn::pullRequest(PullRequestNumber::parse('31'), jenkinsUnnamed(), 'main'))
         ->and(jenkinsPlanIn($push)->runOn())->toEqual(RunOn::branch('feature/money', jenkinsUnnamed()));
 });
 

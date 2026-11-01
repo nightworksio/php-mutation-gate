@@ -8,11 +8,9 @@ use function array_map;
 use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Commit;
-use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
@@ -23,7 +21,6 @@ use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\DigestsRecord;
 use NightWorksIO\MutationGate\Core\Proof\KeysRecord;
-use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
@@ -66,7 +63,6 @@ use stdClass;
  * @phpstan-import-type RunWritten from DigestsRecord as RunDigests
  * @phpstan-import-type Written from BriefingRecord as BriefingWritten
  *
- * @phpstan-type RunOnWritten array{ref?: string, defaultBranch?: string}
  * @phpstan-type ShardWritten array<string, int|string|float|list<UnitWritten>>
  * @phpstan-import-type Written from PrunedRecord as PrunedWritten
  * @phpstan-import-type Written from SampleRecord as SampleWritten
@@ -87,6 +83,7 @@ use stdClass;
  *     base: string,
  *     ref?: string,
  *     defaultBranch?: string,
+ *     target?: string,
  *     keys: KeysWritten|stdClass,
  *     shards: list<ShardWritten>,
  *     proved?: list<UnitWritten>,
@@ -107,10 +104,6 @@ final readonly class PlanFile
     private const string DIGEST = 'digest';
 
     private const string BASE = 'base';
-
-    private const string REF = 'ref';
-
-    private const string DEFAULT_BRANCH = 'defaultBranch';
 
     private const string PROVED = 'proved';
 
@@ -168,7 +161,7 @@ final readonly class PlanFile
             'format' => self::FORMAT,
             'commit' => $plan->commit()->name(),
             self::BASE => $plan->base()->value(),
-            ...self::runOn($plan->runOn()),
+            ...RunOnRecord::of($plan->runOn()),
             'keys' => KeysRecord::of($plan->keys()),
             'shards' => array_map(self::shard(...), [...$plan]),
             ...self::considered($plan->considered()),
@@ -177,18 +170,6 @@ final readonly class PlanFile
             ...self::change($plan->considered()),
             ...DigestsRecord::field($plan->digests()),
             ...BriefingRecord::of($plan->briefing()),
-        ];
-    }
-
-    /** @return RunOnWritten the ref and the default branch, each where there is one */
-    private static function runOn(RunOn $runOn): array
-    {
-        $scope = $runOn->scope();
-        $defaultBranch = $runOn->defaultBranch();
-
-        return [
-            ...$scope instanceof Scope ? [self::REF => $scope->ref()] : [],
-            ...$defaultBranch instanceof Scope ? [self::DEFAULT_BRANCH => $defaultBranch->ref()] : [],
         ];
     }
 
@@ -281,7 +262,7 @@ final readonly class PlanFile
             KeysRecord::read($file->field('keys')),
             Shards::of(...$shards),
         )
-            ->on(self::runOnIn($file))
+            ->on(RunOnRecord::read($file))
             ->considering(
                 Considered::everything()
                     ->reaching(self::changesIn($file->field(self::CHANGED)), self::reachIn($file))
@@ -367,25 +348,6 @@ final readonly class PlanFile
         return $number > 0 ? Line::of($number) : throw NotInShape::at($line->at(), 'a line');
     }
 
-    /** @throws NotInShape */
-    private static function runOnIn(Node $file): RunOn
-    {
-        $named = $file->field(self::DEFAULT_BRANCH);
-        $defaultBranch = $named->isPresent()
-            ? self::scopeIn($named)
-            : CannotTell::because('The plan names no default branch.');
-        $ref = $file->field(self::REF);
-
-        return $ref->isPresent() ? RunOn::at(self::scopeIn($ref), $defaultBranch) : RunOn::detached($defaultBranch);
-    }
-
-    /** @throws NotInShape */
-    private static function scopeIn(Node $ref): Scope
-    {
-        $scope = Scope::parse($ref->text());
-
-        return $scope instanceof CannotJudge ? throw NotInShape::at($ref->at(), 'a scope') : $scope;
-    }
 
     /** @throws NotInShape */
     private static function shardIn(Node $shard): Shard

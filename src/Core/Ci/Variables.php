@@ -37,6 +37,9 @@ final readonly class Variables
     /** Set by Bitbucket Pipelines, to the pull request's id, in a pull request's pipeline. */
     public const string BITBUCKET_PR_ID = 'BITBUCKET_PR_ID';
 
+    /** Set by Bitbucket Pipelines, to the branch a pull request merges into, in a pull request's pipeline. */
+    public const string BITBUCKET_PR_DESTINATION_BRANCH = 'BITBUCKET_PR_DESTINATION_BRANCH';
+
     /** Set by Jenkins in every build it runs, to `jenkins-<job>-<build number>`. */
     public const string BUILD_TAG = 'BUILD_TAG';
 
@@ -45,6 +48,9 @@ final readonly class Variables
 
     /** Set by Jenkins, in a multibranch project, to the pull request's number where a build builds one. */
     public const string CHANGE_ID = 'CHANGE_ID';
+
+    /** Set by Jenkins, in a multibranch project, to the branch a pull request merges into. */
+    public const string CHANGE_TARGET = 'CHANGE_TARGET';
 
     /** Set by Jenkins, in a multibranch project, to the branch a pull request comes from. */
     public const string CHANGE_BRANCH = 'CHANGE_BRANCH';

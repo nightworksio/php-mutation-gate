@@ -243,6 +243,15 @@ it('reads back a plan for a detached HEAD, with or without a default branch', fu
     'none' => [fn(): RunOn => RunOn::detached(CannotTell::because('The plan names no default branch.'))],
 ]);
 
+it('reads back the branch a pull request merges into, where the plan names one', function (): void {
+    $plan = planFileEmpty()->on(RunOn::at(Scope::pullRequest(12), Scope::branch('main'))->withTarget(Scope::branch('release/2.x')));
+    $read = PlanFile::decode(PlanFile::encode($plan));
+
+    expect($read)->toEqual($plan)
+        ->and($read instanceof Plan ? $read->runOn()->target() : $read)->toEqual(Scope::branch('release/2.x'))
+        ->and(PlanFile::encode($plan))->toContain('"target": "refs/heads/release/2.x"');
+});
+
 it('reads a plan that names no default branch as one that cannot tell it', function (): void {
     $plan = PlanFile::decode(PlanFile::encode(planFileEmpty()));
 

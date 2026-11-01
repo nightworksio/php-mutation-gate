@@ -72,10 +72,27 @@ final readonly class Standing
         return DefaultBranch::of(new Absent(), $this->runOn->defaultBranch());
     }
 
-    /** The default branch as a checkout that fetched it holds it, which a pull request is read against. */
+    /** The default branch as a checkout that fetched it holds it. */
     public function fetchedDefaultBranch(): Revision
     {
         return self::fetched($this->defaultBranch());
+    }
+
+    /**
+     * The branch a run is read against: the one a pull request merges into,
+     * where its CI names it, and the default branch otherwise.
+     */
+    public function base(): Scope
+    {
+        $target = $this->runOn->target();
+
+        return $this->runOn->isPullRequest() && $target instanceof Scope ? $target : $this->defaultBranch();
+    }
+
+    /** The branch a run is read against, as a checkout that fetched it holds it. */
+    public function fetchedBase(): Revision
+    {
+        return self::fetched($this->base());
     }
 
     /** A branch as a checkout that fetched it from `origin` holds it. */

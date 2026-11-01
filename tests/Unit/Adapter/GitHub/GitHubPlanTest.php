@@ -108,20 +108,21 @@ it('reads a pull request from its merge ref, and the default branch from the eve
     $github = GitHubPlan::in(Variables::of([
         'GITHUB_EVENT_NAME' => 'pull_request',
         'GITHUB_REF' => 'refs/pull/12/merge',
+        'GITHUB_BASE_REF' => 'release/2.x',
         'GITHUB_EVENT_PATH' => $event('{"repository": {"default_branch": "trunk"}}'),
     ]));
 
-    expect($github->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('12'), RunOn::branchNamed('trunk')));
+    expect($github->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('12'), RunOn::branchNamed('trunk'), 'release/2.x'));
 });
 
 it('takes the pull request the payload names, whatever the event and its ref', function (string $name) use ($event): void {
     $github = GitHubPlan::in(Variables::of([
         'GITHUB_EVENT_NAME' => $name,
         'GITHUB_REF' => 'refs/heads/main',
-        'GITHUB_EVENT_PATH' => $event('{"repository": {"default_branch": "main"}, "pull_request": {"number": 7}}'),
+        'GITHUB_EVENT_PATH' => $event('{"repository": {"default_branch": "main"}, "pull_request": {"number": 7, "base": {"ref": "trunk"}}}'),
     ]));
 
-    expect($github->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('7'), RunOn::branchNamed('main')));
+    expect($github->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('7'), RunOn::branchNamed('main'), 'trunk'));
 })->with(['pull_request_target', 'pull_request', 'push']);
 
 it('reads a branch on push, schedule and workflow_dispatch, for the commit GitHub names', function (string $name) use ($event): void {
@@ -157,6 +158,7 @@ it('reads a pull request event with no payload from its merge ref alone', functi
     expect($github->runOn())->toEqual(RunOn::pullRequest(
         PullRequestNumber::parse('12'),
         CannotTell::because('No event payload could be read, so the default branch is not known.'),
+        '',
     ));
 });
 

@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
+use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -61,6 +62,9 @@ final readonly class GitHubPlan implements CiPlan, Configurable
     private const string BRANCH = '#^refs/heads/(.+)$#';
 
     private const string EVENT = 'GITHUB_EVENT_NAME';
+
+    /** The branch a `pull_request` event's pull request merges into. */
+    private const string BASE = 'GITHUB_BASE_REF';
 
     private const string NO_PULL_REQUEST = 'This run is not for a pull request.';
 
@@ -142,7 +146,11 @@ final readonly class GitHubPlan implements CiPlan, Configurable
         $trusted = TrustedEvent::names($this->job->variables()->valueOf(self::EVENT));
 
         return match (true) {
-            $number instanceof PullRequestNumber => RunOn::pullRequest($number, $defaultBranch),
+            $number instanceof PullRequestNumber => RunOn::pullRequest(
+                $number,
+                $defaultBranch,
+                $this->baseIn($payload),
+            ),
             $trusted && $branch !== '' => RunOn::branch($branch, $defaultBranch),
             default => RunOn::detached($defaultBranch),
         };
@@ -167,6 +175,17 @@ final readonly class GitHubPlan implements CiPlan, Configurable
         } catch (NotInShape $misread) {
             return CannotTell::because($misread->getMessage());
         }
+    }
+
+    /** The branch the pull request merges into: the payload's, else `GITHUB_BASE_REF`; empty where neither names it. */
+    private function baseIn(Node|CannotTell $payload): string
+    {
+        $named = Lenient::text(($payload instanceof Node ? $payload : Node::decode(Node::NO_KEYS))
+            ->field('pull_request')
+            ->field('base')
+            ->field('ref'));
+
+        return $named !== '' ? $named : $this->job->variables()->valueOf(self::BASE);
     }
 
     /** The branch `GITHUB_REF` names; empty for a tag or a pull request's ref. */

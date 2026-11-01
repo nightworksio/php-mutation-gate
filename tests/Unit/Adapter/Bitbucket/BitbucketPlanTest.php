@@ -49,11 +49,15 @@ it('prints the plan, built from its options', function (): void {
 });
 
 it('reads a pull request from its id, and the branch it builds otherwise', function (): void {
-    $pullRequest = Variables::of(['BITBUCKET_BRANCH' => 'feature/money', 'BITBUCKET_PR_ID' => '31']);
+    $pullRequest = Variables::of([
+        'BITBUCKET_BRANCH' => 'feature/money',
+        'BITBUCKET_PR_ID' => '31',
+        'BITBUCKET_PR_DESTINATION_BRANCH' => 'release/2.x',
+    ]);
     $push = Variables::of(['BITBUCKET_BRANCH' => 'feature/money']);
 
     expect(bitbucketPlanIn($pullRequest)->runOn())
-        ->toEqual(RunOn::pullRequest(PullRequestNumber::parse('31'), bitbucketUnnamed()))
+        ->toEqual(RunOn::pullRequest(PullRequestNumber::parse('31'), bitbucketUnnamed(), 'release/2.x'))
         ->and(bitbucketPlanIn($push)->runOn())->toEqual(RunOn::branch('feature/money', bitbucketUnnamed()));
 });
 

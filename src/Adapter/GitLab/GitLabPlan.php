@@ -133,6 +133,7 @@ final readonly class GitLabPlan implements CiPlan, Configurable
             $variables->has('CI_MERGE_REQUEST_IID') => RunOn::pullRequest(
                 PullRequestNumber::parse($variables->valueOf('CI_MERGE_REQUEST_IID')),
                 $defaultBranch,
+                $variables->valueOf('CI_MERGE_REQUEST_TARGET_BRANCH_NAME'),
             ),
             $variables->has('CI_COMMIT_TAG') => RunOn::detached($defaultBranch),
             default => RunOn::branch($variables->valueOf('CI_COMMIT_REF_NAME'), $defaultBranch),

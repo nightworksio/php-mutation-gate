@@ -485,7 +485,7 @@ final readonly class Judging
         $baselines = Baselines::of($this->adapters, $this->settings, $this->setup);
 
         return $plan->runOn()->isPullRequest()
-            ? $baselines->onDefaultBranch(Standing::planned($plan)->defaultBranch(), $this->setup)
+            ? $baselines->onBase(Standing::planned($plan)->base(), $this->setup)
             : Baseline::none();
     }
 
