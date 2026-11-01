@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-10-20
+**Amends:** [0014](0014-every-test-is-judged-by-what-it-kills.md): its control once for each file and set of killers
 
 ## Context
 

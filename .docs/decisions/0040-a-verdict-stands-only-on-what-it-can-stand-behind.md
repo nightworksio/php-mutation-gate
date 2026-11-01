@@ -2,6 +2,9 @@
 
 **Status:** Accepted
 **Date:** 2026-10-31
+**Amends:** [0003](0003-a-floor-only-rises.md): its lowering and truncated floors
+**Amends:** [0007](0007-a-proof-is-keyed-by-everything-its-verdict-reads.md): its ledger of format 3
+**Amends:** [0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md): its truncated `minMsi`
 
 ## Context
 

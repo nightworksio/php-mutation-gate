@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-10-20
+**Grows:** [0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): its chunks of two minutes
 
 ## Context
 

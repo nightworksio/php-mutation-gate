@@ -2,6 +2,8 @@
 
 **Status:** Accepted
 **Date:** 2026-10-20
+**Narrows:** [0005](0005-what-a-change-reaches-is-what-is-mutated.md): its lock file that reaches everything
+**Narrows:** [0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): its lock file that reaches every carried kill
 
 ## Context
 

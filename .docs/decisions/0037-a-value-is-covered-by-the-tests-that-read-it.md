@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-10-21
+**Amends:** [0004](0004-pest-and-infection-behind-one-runner-port.md): its tests that judge a mutant on a line that is not executable, for a patched shard
 
 ## Context
 

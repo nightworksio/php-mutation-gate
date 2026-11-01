@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-11-01
+**Amends:** [0018](0018-the-documentation-is-versioned-and-tested-with-the-code.md): its Discussions that stay off
 
 ## Context
 

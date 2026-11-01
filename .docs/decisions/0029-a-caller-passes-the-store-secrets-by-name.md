@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-10-20
+**Supersedes:** [0011](0011-the-package-holds-itself-to-the-gate-it-ships.md): its secrets "never from the caller"
 
 ## Context
 

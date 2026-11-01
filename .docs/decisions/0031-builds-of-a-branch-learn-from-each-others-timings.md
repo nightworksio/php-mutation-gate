@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-10-20
+**Supersedes:** [0006](0006-shards-are-cut-by-learned-cost-and-planned-once.md): its timing that counts only for the gate that measured it, for builds of a branch
 
 ## Context
 
