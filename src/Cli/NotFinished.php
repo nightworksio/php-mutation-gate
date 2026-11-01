@@ -7,7 +7,11 @@ namespace NightWorksIO\MutationGate\Cli;
 use RuntimeException;
 use Throwable;
 
-/** A command that could not finish, whose exit code says it could not judge. */
+/**
+ * A command that could not finish, whose exit code says it could not judge.
+ *
+ * @internal
+ */
 final class NotFinished extends RuntimeException
 {
     public static function by(Throwable $failed): self
