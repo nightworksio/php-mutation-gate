@@ -70,7 +70,7 @@ final readonly class Records
         return self::sorted(array_map(
             static fn(LibraryChange $change): string => sprintf(
                 self::RECORD,
-                MutantId::hash($change->file(), $library->mutatorOf($change), $change->diff(), 0)->value(),
+                MutantId::firstOf($change->file(), $library->mutatorOf($change), $change->diff())->value(),
                 $change->status()->value,
                 $change->file()->value(),
                 $change->line(),
@@ -155,6 +155,19 @@ final readonly class Records
         return $holds ? [] : [$failure];
     }
 
+    /**
+     * Texts in order.
+     *
+     * @param  list<string> $texts
+     * @return list<string>
+     */
+    public static function sorted(array $texts): array
+    {
+        sort($texts);
+
+        return $texts;
+    }
+
     private static function record(Mutant $mutant): string
     {
         $end = $mutant->location()->end();
@@ -169,16 +182,5 @@ final readonly class Records
             $mutant->mutation()->mutator(),
             $mutant->mutation()->family()->value,
         );
-    }
-
-    /**
-     * @param  list<string> $texts
-     * @return list<string>
-     */
-    private static function sorted(array $texts): array
-    {
-        sort($texts);
-
-        return $texts;
     }
 }
