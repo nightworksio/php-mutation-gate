@@ -275,7 +275,7 @@ $heldClass = static function (RunnerBehaviour $behaviour): Inventory|CannotJudge
 
         PHP;
     Scratch::write($project, 'tests/HeldTest.php', $test);
-    $runner = new RunnerFake(
+    $runner = RunnerFake::of(
         Identity::of('native', Versions::none(), Digest::of('php')),
         Groups::of(Group::named('holds:src/Held.php')),
         CoverageMap::empty(),
