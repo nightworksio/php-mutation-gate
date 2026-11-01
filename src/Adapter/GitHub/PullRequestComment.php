@@ -223,13 +223,16 @@ final readonly class PullRequestComment implements Configurable, Deferring, Repo
         $author = $sticky->author($this->identity);
         $existing = $sticky->on($number, $author);
         $id = $existing instanceof Answer ? $existing->number('id') : 0;
-        $before = $existing instanceof Answer ? $existing->text('body') : '';
+        $planned = $existing instanceof Answer && str_contains($existing->text('body'), $this->plannedHeading());
 
-        if ($overPlanned && ! str_contains($before, $this->plannedHeading())) {
+        if ($overPlanned && ! $planned) {
             return NotWritten::because(self::NOT_PLANNED);
         }
 
-        $mentions = OwnerMentions::in($before, teams: $author !== StickyComment::ACTIONS);
+        $teams = $author !== StickyComment::ACTIONS;
+        $mentions = $existing instanceof Answer
+            ? OwnerMentions::in($existing->text('body'), teams: $teams)
+            : OwnerMentions::none(teams: $teams);
         $body = ['body' => $mentions->into($this->report->into($markdown))];
 
         $answer = $id === 0

@@ -101,3 +101,14 @@ it('reads the file as it stands on disk for doctor, from the first of GitHub\'s 
         ->and(ownerOf(CodeOwnersFile::standing($docs), 'src/Money.php'))->toBe('@in-docs')
         ->and(CodeOwnersFile::standing($none)->wasRead())->toBeFalse();
 });
+
+it('reads no file for doctor where the first that is there cannot be read, and says why', function (): void {
+    $root = Project::with(['.github/CODEOWNERS' => '* @in-github', 'CODEOWNERS' => '* @at-the-root']);
+    chmod(sprintf('%s/.github/CODEOWNERS', $root), 0o000);
+    $owners = CodeOwnersFile::standing(Disk::at(Root::of($root)));
+    chmod(sprintf('%s/.github/CODEOWNERS', $root), 0o644);
+
+    expect($owners->wasRead())->toBeFalse()
+        ->and(array_map(static fn(Warning $warning): string => $warning->text(), [...$owners->warnings()]))
+        ->toBe(['.github/CODEOWNERS could not be read.']);
+});

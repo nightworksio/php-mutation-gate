@@ -82,3 +82,12 @@ it('leaves a placeholder anywhere but on a heading as it is, mentioning and reco
 
     expect(OwnerMentions::in('', teams: true)->into($markdown))->toBe($markdown);
 });
+
+it('has mentioned no one on a pull request with no comment, and mentions teams only where its author can', function (): void {
+    $heading = "#### <!-- mutation-gate: mention @acme/payments --> <!-- mutation-gate: mention @jo --> (1)\n";
+
+    expect(OwnerMentions::none(teams: true)->into($heading))
+        ->toBe("#### @acme/payments @jo (1)\n<!-- mutation-gate: mentioned @acme/payments @jo -->\n")
+        ->and(OwnerMentions::none(teams: false)->into($heading))
+        ->toBe("#### &#64;acme/payments @jo (1)\n<!-- mutation-gate: mentioned @jo -->\n");
+});

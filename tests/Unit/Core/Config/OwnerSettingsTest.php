@@ -26,6 +26,14 @@ it('lays a later layer\'s settings over an earlier one\'s, each on its own', fun
         ->toEqual(PhpCalls::inWith('Owner::neverMentioned()'));
 });
 
+it('calls the builder for each owner\'s floor before whether owners are mentioned', function (OwnerMention $mention, string $call): void {
+    expect(OwnerSettings::of(Table::row('@acme/payments', 90), $mention)->php())
+        ->toEqual(PhpCalls::inWith("Owner::floor('@acme/payments', 90)", $call));
+})->with([
+    'first' => [OwnerMention::First, 'Owner::mentionedFirst()'],
+    'never' => [OwnerMention::Never, 'Owner::neverMentioned()'],
+]);
+
 it('writes nothing for owners where it sets nothing', function (): void {
     expect(Json::object(OwnerSettings::of()->written())->isEmpty())->toBeTrue()
         ->and(OwnerSettings::of()->php())->toEqual(PhpCalls::none());

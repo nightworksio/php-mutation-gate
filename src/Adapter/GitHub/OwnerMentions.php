@@ -5,13 +5,15 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
 use function array_any;
-use function array_last;
 use function array_map;
+use function array_merge;
+use function array_slice;
 
 use Closure;
 
 use function explode;
 use function implode;
+use function is_array;
 
 use NightWorksIO\MutationGate\Core\Owner\Owner;
 use NightWorksIO\MutationGate\Core\Owner\OwnerGroup;
@@ -57,6 +59,12 @@ final readonly class OwnerMentions
     {
     }
 
+    /** No owner mentioned yet, as on a pull request with no comment; teams mentioned where its author can. */
+    public static function none(bool $teams): self
+    {
+        return new self([], $teams);
+    }
+
     /**
      * The owners the last record in this comment's body holds, whom no update
      * mentions again; teams mentioned where the comment's author can mention one.
@@ -64,10 +72,12 @@ final readonly class OwnerMentions
     public static function in(string $body, bool $teams): self
     {
         preg_match_all(self::RECORDS, $body, $records);
-        $last = $records[1] === [] ? '' : array_last($records[1]);
+        $tokens = array_merge(
+            ...array_map(static fn(string $record): array => explode(' ', $record), array_slice($records[1], -1)),
+        );
         $mentioned = [];
 
-        foreach (explode(' ', $last) as $token) {
+        foreach ($tokens as $token) {
             $owner = Owner::parse($token);
             $mentioned = $owner instanceof Owner && $owner->isHandle() ? [...$mentioned, $owner] : $mentioned;
         }
@@ -130,7 +140,7 @@ final readonly class OwnerMentions
         $parts = [];
         $split = preg_split(self::PLACEHOLDERS, $heading, flags: PREG_SPLIT_DELIM_CAPTURE);
 
-        foreach ($split === false ? [$heading] : $split as $at => $part) {
+        foreach (is_array($split) ? $split : [] as $at => $part) {
             [$shown, $mentions] = $at % 2 === 1 ? $mentions->mentioning($part) : [$part, $mentions];
             $parts[] = $shown;
         }
