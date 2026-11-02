@@ -13,13 +13,14 @@ permissions:
   contents: read
 
 # A pull request pushed again cancels the run on its old head, which nobody will
-# read, and a push to main cancels the run of the push before it: the newer run
-# judges everything the older one would have, from the last commit that passed.
-# A scheduled run is grouped by its own run, so it is never cancelled and never
+# read. A push to main never cancels the run before it (ADR-0059): only a
+# verdict writes the ledger, so a cancelled run's shards would be run again by
+# the next. The newer push waits, and a newer one still takes its place. A
+# scheduled run is grouped by its own run, so it is never cancelled and never
 # cancels.
 concurrency:
   group: ${{ github.workflow }}-${{ contains(fromJSON('["pull_request","push"]'), github.event_name) && github.ref || github.run_id }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   PHP_VERSION: '8.5'

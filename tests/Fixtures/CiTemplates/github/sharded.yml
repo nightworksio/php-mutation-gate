@@ -19,6 +19,13 @@ on:
 permissions:
   contents: read
 
+# A pull request pushed again cancels its run on the older head. A push to the
+# default branch waits for the run before it, since only a verdict writes the
+# ledger. Every other run is a group of its own.
+concurrency:
+  group: mutation-${{ contains(fromJSON('["pull_request","push"]'), github.event_name) && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   mutation:
     uses: nightworksio/php-mutation-gate/.github/workflows/mutation-gate.yml@eea11e875234b32127cf23dde00d149b04c6ac4c
