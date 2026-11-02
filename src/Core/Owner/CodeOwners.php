@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Owner;
 
+use function array_any;
 use function array_first;
 use function array_reverse;
 use function array_slice;
@@ -115,6 +116,15 @@ final readonly class CodeOwners
         }
 
         return OwnerGroup::unowned();
+    }
+
+    /** Whether any rule names an organisation's team. */
+    public function namesTeam(): bool
+    {
+        return array_any(
+            $this->rules,
+            static fn(array $rule): bool => array_any([...$rule[1]], static fn(Owner $owner): bool => $owner->isTeam()),
+        );
     }
 
     /** Each line skipped, and a file too large to read. */

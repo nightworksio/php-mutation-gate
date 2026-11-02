@@ -61,7 +61,9 @@ use function sprintf;
  * ADR-0008). A cluster of survivors is one item of either, with its members'
  * diffs, one hint and its stub command. Where the project has a CODEOWNERS,
  * the survivors on changed lines and those not killed are under the owner
- * group of their files (ADR-0022).
+ * group of their files, and under `owners.mention: first` the comment's
+ * headings hold the placeholders {@see OwnerMentions} resolves as the
+ * comment is written (ADR-0022).
  */
 final readonly class Markdown
 {
@@ -116,6 +118,7 @@ final readonly class Markdown
                     $folded,
                     $shown,
                     static fn(array $items, int $of): array => MarkdownItems::details($items, $of, $overview->gate()),
+                    OwnerMentions::headings($verdict->sets()->owners()),
                 ),
             ),
             ...self::section(
@@ -156,6 +159,7 @@ final readonly class Markdown
                     $items,
                     $shown,
                     static fn(array $items, int $of): array => MarkdownItems::table($items, $of, $overview->gate()),
+                    MarkdownItems::named(...),
                 ),
             ),
             ...self::ignored($overview, $shown),

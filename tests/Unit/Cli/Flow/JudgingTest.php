@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
+use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Cost\RunTimings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -384,6 +385,28 @@ it('holds each owner `owners.floors` names to its floor, over the files the CODE
         ->toContain('owners.floors names money, which no CODEOWNERS rule can name as an owner, so it holds no code to its floor.')
         ->and($verdict->judgement())->toBe(Judgement::Failed);
 });
+
+it('has the comment mention owners the first time unless owners.mention says never', function (Settings $settings, bool $first) use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+    $checkout = new ChangeSourceFake(Revision::ref('base'), Changes::none(), [
+        Flows::HEAD => [...Flows::FILES, '.github/CODEOWNERS' => "/src/Money.php @acme/money\n"],
+    ]);
+
+    $verdict = JudgingRuns::verdictOf($judged(
+        Planned::twoShards(),
+        Flows::adapters(Flows::project(), [], $tree(Floor::of(0)), $checkout),
+        $settings,
+        $reporting(new ReporterFake()),
+    ));
+
+    expect($verdict->sets()->owners()->mentionsFirst())->toBe($first);
+})->with([
+    'by default' => [fn(): Settings => JudgingRuns::settings(), true],
+    'never' => [fn(): Settings => JudgingRuns::settings(Owner::neverMentioned()), false],
+    'first' => [fn(): Settings => JudgingRuns::settings(Owner::mentionedFirst()), true],
+]);
 
 it('warns of each mutator set a preset turns on that is not installed', function () use ($makeReporting, $makeJudged): void {
     $reporting = $makeReporting();

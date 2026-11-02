@@ -14,8 +14,9 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * What the project's own files say, as far as the checks ask them: its
  * `.gitignore`, its Infection config, how its `composer.json` installs its
  * packages, which CI definitions run the gate, its baseline, what its
- * runner's own config says, and whether its clone holds the whole of its
- * history. A file nobody read is not given.
+ * runner's own config says, whether its clone holds the whole of its
+ * history, and what its files say to the services around it. A file nobody
+ * read is not given.
  */
 final readonly class ProjectFiles
 {
@@ -27,7 +28,7 @@ final readonly class ProjectFiles
         private Baseline|CannotJudge|NotGiven $baseline,
         private RunnerConfig $runnerConfig,
         private bool $shallow,
-        private SonarSources|NotGiven $sonarSources,
+        private ServiceFiles $services,
         private WarmRefusal|NotGiven $warmRefusal,
     ) {
     }
@@ -44,7 +45,7 @@ final readonly class ProjectFiles
             $none,
             RunnerConfig::none(),
             shallow: false,
-            sonarSources: $none,
+            services: ServiceFiles::none(),
             warmRefusal: $none,
         );
     }
@@ -60,7 +61,7 @@ final readonly class ProjectFiles
             $this->baseline,
             $this->runnerConfig,
             $this->shallow,
-            $this->sonarSources,
+            $this->services,
             $this->warmRefusal,
         );
     }
@@ -76,7 +77,7 @@ final readonly class ProjectFiles
             $this->baseline,
             $this->runnerConfig,
             $this->shallow,
-            $this->sonarSources,
+            $this->services,
             $this->warmRefusal,
         );
     }
@@ -92,7 +93,7 @@ final readonly class ProjectFiles
             $this->baseline,
             $this->runnerConfig,
             $this->shallow,
-            $this->sonarSources,
+            $this->services,
             $this->warmRefusal,
         );
     }
@@ -108,7 +109,7 @@ final readonly class ProjectFiles
             $this->baseline,
             $this->runnerConfig,
             $this->shallow,
-            $this->sonarSources,
+            $this->services,
             $this->warmRefusal,
         );
     }
@@ -124,7 +125,7 @@ final readonly class ProjectFiles
             $baseline,
             $this->runnerConfig,
             $this->shallow,
-            $this->sonarSources,
+            $this->services,
             $this->warmRefusal,
         );
     }
@@ -140,7 +141,7 @@ final readonly class ProjectFiles
             $this->baseline,
             $config,
             $this->shallow,
-            $this->sonarSources,
+            $this->services,
             $this->warmRefusal,
         );
     }
@@ -156,7 +157,7 @@ final readonly class ProjectFiles
             $this->baseline,
             $this->runnerConfig,
             shallow: true,
-            sonarSources: $this->sonarSources,
+            services: $this->services,
             warmRefusal: $this->warmRefusal,
         );
     }
@@ -167,8 +168,8 @@ final readonly class ProjectFiles
         return $this->shallow;
     }
 
-    /** These, with the paths `sonar.sources` names, where `sonar-project.properties` sets it. */
-    public function withSonarSources(SonarSources $sources): self
+    /** These, with what the project's files say to the services around it. */
+    public function withServices(ServiceFiles $services): self
     {
         return new self(
             $this->gitIgnore,
@@ -178,7 +179,7 @@ final readonly class ProjectFiles
             $this->baseline,
             $this->runnerConfig,
             $this->shallow,
-            $sources,
+            $services,
             $this->warmRefusal,
         );
     }
@@ -194,7 +195,7 @@ final readonly class ProjectFiles
             $this->baseline,
             $this->runnerConfig,
             $this->shallow,
-            $this->sonarSources,
+            $this->services,
             $refusal,
         );
     }
@@ -234,8 +235,8 @@ final readonly class ProjectFiles
         return $this->runnerConfig;
     }
 
-    public function sonarSources(): SonarSources|NotGiven
+    public function services(): ServiceFiles
     {
-        return $this->sonarSources;
+        return $this->services;
     }
 }

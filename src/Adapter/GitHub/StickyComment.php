@@ -19,7 +19,7 @@ use function str_contains;
 final readonly class StickyComment
 {
     /** The identity `GITHUB_TOKEN` comments as, which cannot read `/user`. */
-    private const string ACTIONS = 'github-actions[bot]';
+    public const string ACTIONS = 'github-actions[bot]';
 
     private const int PAGE = 100;
 
@@ -36,13 +36,15 @@ final readonly class StickyComment
         return new self($api, $repository);
     }
 
-    /**
-     * The sticky comment this identity wrote on the pull request, where an
-     * identity left empty is the token's own; none where there is none.
-     */
-    public function on(PullRequestNumber $number, string $identity): Answer|NotGiven
+    /** Who comments: this identity, or the token's own where it is left empty. */
+    public function author(string $identity): string
     {
-        $author = $identity === '' ? $this->identityOfToken() : $identity;
+        return $identity === '' ? $this->identityOfToken() : $identity;
+    }
+
+    /** The sticky comment this author wrote on the pull request; none where there is none. */
+    public function on(PullRequestNumber $number, string $author): Answer|NotGiven
+    {
         $found = NotGiven::value();
         $full = true;
 

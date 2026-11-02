@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Owner\CodeOwners;
 use NightWorksIO\MutationGate\Core\Owner\OwnerGroup;
+use NightWorksIO\MutationGate\Core\Owner\OwnerMention;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 
 use function strcmp;
@@ -42,13 +43,17 @@ final readonly class OwnerVerdicts implements Countable, IteratorAggregate
      * @param list<OwnerVerdict>        $verdicts
      * @param array<string, OwnerGroup> $groups   the group of each file the mutants are in, by its path
      */
-    private function __construct(private bool $grouped, private array $verdicts, private array $groups)
-    {
+    private function __construct(
+        private bool $grouped,
+        private array $verdicts,
+        private array $groups,
+        private OwnerMention $mention,
+    ) {
     }
 
     public static function none(): self
     {
-        return new self(grouped: false, verdicts: [], groups: []);
+        return new self(grouped: false, verdicts: [], groups: [], mention: OwnerMention::Never);
     }
 
     /** Each group of these trees' mutants, by the CODEOWNERS rule of each one's file. */
@@ -82,7 +87,7 @@ final readonly class OwnerVerdicts implements Countable, IteratorAggregate
 
         usort($verdicts, self::ordered(...));
 
-        return new self(grouped: true, verdicts: $verdicts, groups: $byFile);
+        return new self(grouped: true, verdicts: $verdicts, groups: $byFile, mention: OwnerMention::Never);
     }
 
     /** The groups a change touched, each with a mutant on a line it added or modified. */
@@ -92,7 +97,20 @@ final readonly class OwnerVerdicts implements Countable, IteratorAggregate
             $this->grouped,
             array_values(array_filter($this->verdicts, static fn(OwnerVerdict $group): bool => $group->isTouched())),
             $this->groups,
+            $this->mention,
         );
+    }
+
+    /** These groups, whose owners the pull request comment mentions as `owners.mention` says. */
+    public function mentioning(OwnerMention $mention): self
+    {
+        return new self($this->grouped, $this->verdicts, $this->groups, $mention);
+    }
+
+    /** Whether the pull request comment mentions an owner the first time it gives the owner a survivor. */
+    public function mentionsFirst(): bool
+    {
+        return $this->mention === OwnerMention::First;
     }
 
     /** The group a file of the mutants belongs to; unowned for any other file. */

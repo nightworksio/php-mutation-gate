@@ -41,7 +41,9 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * such as a fork's, whose token GitHub makes read-only, says why and fails
  * nothing; the step summary carries the same content. The plan job writes
  * it first in its planned state, and the verdict's links the run's HTML
- * report, found as the comment is written (ADR-0009).
+ * report, found as the comment is written (ADR-0009). Each write keeps the
+ * record of the owners the comment has mentioned, and mentions only those
+ * it has not (ADR-0022).
  */
 final readonly class PullRequestComment implements Configurable, Deferring, Reporter
 {
@@ -217,7 +219,9 @@ final readonly class PullRequestComment implements Configurable, Deferring, Repo
             return $number;
         }
 
-        $existing = StickyComment::in($this->api, $this->repository)->on($number, $this->identity);
+        $sticky = StickyComment::in($this->api, $this->repository);
+        $author = $sticky->author($this->identity);
+        $existing = $sticky->on($number, $author);
         $id = $existing instanceof Answer ? $existing->number('id') : 0;
         $planned = $existing instanceof Answer && str_contains($existing->text('body'), $this->plannedHeading());
 
@@ -225,7 +229,11 @@ final readonly class PullRequestComment implements Configurable, Deferring, Repo
             return NotWritten::because(self::NOT_PLANNED);
         }
 
-        $body = ['body' => $this->report->into($markdown)];
+        $teams = $author !== StickyComment::ACTIONS;
+        $mentions = $existing instanceof Answer
+            ? OwnerMentions::in($existing->text('body'), teams: $teams)
+            : OwnerMentions::none(teams: $teams);
+        $body = ['body' => $mentions->into($this->report->into($markdown))];
 
         $answer = $id === 0
             ? $this->api->send('POST', sprintf(self::COMMENTS, $this->repository, $number->value()), $body)

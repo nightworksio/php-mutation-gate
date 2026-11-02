@@ -65,6 +65,7 @@ $holds = [
     'holds:src/Cli/Config/Effective.php',
     'holds:src/Cli/Doctor/Files.php',
     'holds:src/Cli/Doctor/Observed.php',
+    'holds:src/Cli/Flow/CodeOwnersFile.php',
     'holds:src/Cli/Flow/ProjectMemoryLimit.php',
     'holds:src/Core/Ci/Definitions.php',
     'holds:src/Core/Composer/Manifest.php',
@@ -193,6 +194,17 @@ it('observes the Codeception suites that serve the application from another proc
         ->toBe([]);
 })->group(...$holds);
 
+it('observes the CODEOWNERS as it stands, and none where the project has none', function (): void {
+    $owned = Scratch::copy('tests/Fixtures/Projects/Library');
+    Scratch::write($owned, '.github/CODEOWNERS', "/src/ @acme/payments\n");
+    $php = sprintf('%s/php', FakePhp::printing(Described::output([], [])));
+
+    expect(Doctored::observed($owned, $php)->of(CommandLine::nothing())->files()->services()->codeOwners()->namesTeam())
+        ->toBeTrue()
+        ->and(Doctored::observed(Scratch::copy('tests/Fixtures/Projects/Library'), $php)->of(CommandLine::nothing())->files()->services()->codeOwners()->wasRead())
+        ->toBeFalse();
+})->group(...$holds);
+
 it('observes the paths sonar.sources names, and none where sonar-project.properties names none', function (): void {
     $naming = Scratch::copy('tests/Fixtures/Projects/Library');
     Scratch::write($naming, 'sonar-project.properties', "sonar.projectKey=library\nsonar.sources=src,lib\n");
@@ -200,10 +212,10 @@ it('observes the paths sonar.sources names, and none where sonar-project.propert
     Scratch::write($silent, 'sonar-project.properties', "sonar.projectKey=library\n");
     $php = sprintf('%s/php', FakePhp::printing(Described::output([], [])));
 
-    expect(Doctored::observed($naming, $php)->of(CommandLine::nothing())->files()->sonarSources())
+    expect(Doctored::observed($naming, $php)->of(CommandLine::nothing())->files()->services()->sonarSources())
         ->toEqual(SonarSources::of(Path::of('src'), Path::of('lib')))
-        ->and(Doctored::observed($silent, $php)->of(CommandLine::nothing())->files()->sonarSources())->toEqual(NotGiven::value())
-        ->and(Doctored::observed(Scratch::copy('tests/Fixtures/Projects/Library'), $php)->of(CommandLine::nothing())->files()->sonarSources())
+        ->and(Doctored::observed($silent, $php)->of(CommandLine::nothing())->files()->services()->sonarSources())->toEqual(NotGiven::value())
+        ->and(Doctored::observed(Scratch::copy('tests/Fixtures/Projects/Library'), $php)->of(CommandLine::nothing())->files()->services()->sonarSources())
         ->toEqual(NotGiven::value());
 })->group(...$holds);
 

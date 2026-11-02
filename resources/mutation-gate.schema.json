@@ -444,6 +444,13 @@
                         "maximum": 100
                     },
                     "default": {}
+                },
+                "mention": {
+                    "enum": [
+                        "first",
+                        "never"
+                    ],
+                    "default": "first"
                 }
             },
             "additionalProperties": false

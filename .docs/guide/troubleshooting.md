@@ -379,6 +379,17 @@ Cover what only those suites run with tests in a suite that runs in the test
 process, such as a unit or functional suite, or leave that code out of the
 trees.
 
+## teams-not-mentioned
+
+CODEOWNERS names a team, and `owners.mention` is `first`, as it is by
+default. GitHub Actions' own `GITHUB_TOKEN` cannot read an organisation's
+teams, so a comment `github-actions[bot]` writes mentions no team: the gate
+names each team in it without a mention, and still mentions each user once
+([ADR-0049](../decisions/0049-an-owner-is-mentioned-once-and-a-merge-group-trusts-its-pull-request-as-a-merged-one.md)).
+
+Write the comment with a token of a user or GitHub App that can read the
+organisation's teams, or set `owners.mention` to `never`.
+
 ## survived
 
 The tests that run the mutant's line all passed with it in place, so none of

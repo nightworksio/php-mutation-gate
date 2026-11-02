@@ -42,12 +42,14 @@ final readonly class MarkdownItems
     private const string MORE = 'And %d more; the JSON report lists every one.';
 
     /**
-     * Up to this many of the items, under the owner group of each one's file, each group headed by its owners and
-     * how many of the survivors it has; or as they are, where the run read no CODEOWNERS (ADR-0022).
+     * Up to this many of the items, under the owner group of each one's file, each group headed by its owners, as
+     * the heading names them, and how many of the survivors it has; or as they are, where the run read no
+     * CODEOWNERS (ADR-0022).
      *
      * @param  iterable<JudgedMutant>                                 $survivors
      * @param  list<JudgedMutant|Cluster>                             $items     the survivors, folded
      * @param  Closure(list<JudgedMutant|Cluster>, int): list<string> $listed    up to this many items, of how many
+     * @param  Closure(OwnerGroup): string                            $named     a group's owners, as its heading says
      * @return list<string>
      */
     public static function owned(
@@ -56,6 +58,7 @@ final readonly class MarkdownItems
         array $items,
         int $shown,
         Closure $listed,
+        Closure $named,
     ): array {
         $blocks = [];
 
@@ -64,13 +67,19 @@ final readonly class MarkdownItems
             $blocks = [
                 ...$blocks,
                 ...$group instanceof OwnerGroup
-                    ? [sprintf('#### %s (%d)', Escape::text($group->name()), $part->survivors())]
+                    ? [sprintf('#### %s (%d)', $named($group), $part->survivors())]
                     : [],
                 ...$listed($part->shown(), $part->items()),
             ];
         }
 
         return $blocks;
+    }
+
+    /** A group's owners as a heading names them where it mentions no one: as text. */
+    public static function named(OwnerGroup $group): string
+    {
+        return Escape::text($group->name());
     }
 
     /**

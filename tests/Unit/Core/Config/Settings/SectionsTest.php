@@ -221,7 +221,7 @@ describe('Settings sections', function (): void {
             ->toContain("Tests::holding('Process')");
     });
 
-    it('writes how uncovered mutants count, the baseline\'s path and improvement, and each owner\'s floor into a config written as PHP', function (array $config, string $with): void {
+    it('writes how uncovered mutants count, the baseline\'s path and improvement, each owner\'s floor and whether owners are mentioned into a config written as PHP', function (array $config, string $with): void {
         expect(Configs::valid(['runner' => 'pest', ...$config])->php(ProjectRoot::origin())->code())
             ->toContain(sprintf("    ->with(\n%s\n    )", $with));
     })->with([
@@ -236,6 +236,14 @@ describe('Settings sections', function (): void {
         'owners held to floors' => [
             ['owners' => ['floors' => ['@acme/payments' => 90, 'jo@acme.example' => 75.5]]],
             "        Owner::floor('@acme/payments', 90),\n        Owner::floor('jo@acme.example', 75.5),",
+        ],
+        'owners never mentioned' => [
+            ['owners' => ['floors' => ['@acme/payments' => 90], 'mention' => 'never']],
+            "        Owner::floor('@acme/payments', 90),\n        Owner::neverMentioned(),",
+        ],
+        'owners mentioned the first time, beside the baseline' => [
+            ['baseline' => ['improvement' => 'report'], 'owners' => ['mention' => 'first']],
+            "        Baseline::reportingImprovement(),\n        Owner::mentionedFirst(),",
         ],
     ]);
 

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_map;
+use function is_string;
 
+use NightWorksIO\MutationGate\Adapter\Composer\Disk;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
@@ -21,8 +23,8 @@ use function sprintf;
  * The CODEOWNERS a verdict groups survivors by, as it is at the base, so a
  * pull request cannot reroute its own survivors by editing it (ADR-0022): on
  * a pull request, the default branch as the checkout fetched it; otherwise
- * the commit the plan was made on. The file is the first of GitHub's three
- * places that holds one.
+ * the commit the plan was made on; and, for `doctor`, as it stands on disk.
+ * The file is the first of GitHub's three places that holds one.
  */
 final readonly class CodeOwnersFile
 {
@@ -42,6 +44,22 @@ final readonly class CodeOwnersFile
 
             if ($file instanceof Contents) {
                 return CodeOwners::read(Path::of($location), $file->text());
+            }
+        }
+
+        return CodeOwners::none();
+    }
+
+    /** The CODEOWNERS as it stands on this disk, which `doctor` reads. */
+    public static function standing(Disk $disk): CodeOwners
+    {
+        foreach (CodeOwners::LOCATIONS as $location) {
+            $text = $disk->read(Path::of($location));
+
+            if (! $text instanceof Missing) {
+                return is_string($text)
+                    ? CodeOwners::read(Path::of($location), $text)
+                    : CodeOwners::unread($text->why());
             }
         }
 
