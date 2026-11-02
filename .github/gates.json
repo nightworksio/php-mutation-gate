@@ -466,8 +466,8 @@
     },
     "hygiene/lines": {
       "check": "hygiene / lines",
-      "checks": "That no tracked file is over 1,000 lines, by the organisation's canonical check: lockfiles, images and fonts are not counted, and a file scripts/generated.py registers is held to the cap through its sources.",
-      "reproduce": "curl -sSf https://raw.githubusercontent.com/lemonfiber/spec/main/scripts/check_line_cap.py | python3 - --root .",
+      "checks": "That no tracked file is over 1,000 lines, by .github/scripts/line_cap.py: lockfiles, images and fonts are not counted, and a file scripts/generated.py registers is held to the cap through its sources.",
+      "reproduce": "python3 .github/scripts/line_cap.py --root .",
       "evidence": [
         {"step": "lines", "tool": "lines", "raw": "evidence/raw/lines.txt"}
       ],
