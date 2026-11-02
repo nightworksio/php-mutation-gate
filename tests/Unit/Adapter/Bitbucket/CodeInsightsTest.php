@@ -24,8 +24,12 @@ use Symfony\Component\HttpClient\Response\MockResponse;
 
 const INSIGHTS_REPORT = 'http://api.bitbucket.org/2.0/repositories/acme/shop/commit/5eeca8f/reports/mutation-gate';
 
-/** The variables of a Bitbucket Pipelines step building the commit 5eeca8f of acme/shop. */
-function insightsStep(): Variables
+/**
+ * The variables of a Bitbucket Pipelines step building the commit 5eeca8f of acme/shop, with these set.
+ *
+ * @param array<string, string> $with
+ */
+function insightsStep(array $with = []): Variables
 {
     return Variables::of([
         'BITBUCKET_BUILD_NUMBER' => '99',
@@ -34,6 +38,7 @@ function insightsStep(): Variables
         'BITBUCKET_REPO_SLUG' => 'shop',
         'BITBUCKET_BRANCH' => 'feature',
         'BITBUCKET_COMMIT' => '5eeca8f',
+        ...$with,
     ]);
 }
 
@@ -232,3 +237,12 @@ it('says why, naming Bitbucket by its origin alone, where it refuses the report 
     'the report' => [INSIGHTS_REPORT, 1],
     'the annotations' => [fn(): string => sprintf('%s/annotations', INSIGHTS_REPORT), 3],
 ]);
+
+it('writes to the report of a workspace, a repository and a commit each encoded where it holds a reserved character', function (): void {
+    $cloud = new Cloud();
+    $step = insightsStep(['BITBUCKET_WORKSPACE' => 'ac?me', 'BITBUCKET_REPO_SLUG' => 'sh/op', 'BITBUCKET_COMMIT' => 'c#1']);
+    CodeInsights::inEnvironment($step, $cloud->exchange())->report(Verdicts::failing());
+
+    expect($cloud->requests[0]['url'])
+        ->toBe('http://api.bitbucket.org/2.0/repositories/ac%3Fme/sh%2Fop/commit/c%231/reports/mutation-gate');
+});
