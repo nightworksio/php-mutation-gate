@@ -26,11 +26,11 @@ inputs:
     required: false
     default: ''
   mode:
-    description: auto (change-scoped on pull requests and pushes, full on schedules, manual runs, releases and tags), full, changed, or sampled (as auto, sampling the units no proof covers).
+    description: auto (change-scoped on pull requests, merge groups and pushes, full on schedules, manual runs, releases and tags), full, changed, or sampled (as auto, sampling the units no proof covers).
     required: false
     default: auto
   changed-since:
-    description: A git ref, or last-passed; where empty, the pull request's base on pull_request, the default branch on another branch, and last-passed on the default branch.
+    description: A git ref, or last-passed; where empty, the pull request's base on pull_request, the group's base on merge_group, the default branch on another branch, and last-passed on the default branch.
     required: false
     default: ''
   budget:

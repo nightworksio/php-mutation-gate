@@ -252,6 +252,18 @@ it('reads back the branch a pull request merges into, where the plan names one',
         ->and(PlanFile::encode($plan))->toContain('"target": "refs/heads/release/2.x"');
 });
 
+it('writes a merge group\'s base, and reads the plan back as a merge group\'s', function (): void {
+    $plan = planFileEmpty()->on(RunOn::mergeGroup(Revision::ref(str_repeat('a', 40)), Scope::branch('main')));
+    $written = PlanFile::encode($plan);
+    $read = PlanFile::decode($written);
+
+    expect($written)->toContain(sprintf('"mergeGroup": "%s"', str_repeat('a', 40)))
+        ->and($written)->not->toContain('"ref"')
+        ->and($read)->toEqual($plan)
+        ->and($read instanceof Plan ? $read->runOn()->groupBase() instanceof Revision : $read)->toBeTrue()
+        ->and(PlanFile::digestOf($plan))->not->toEqual(PlanFile::digestOf(planFileEmpty()->on(RunOn::detached(Scope::branch('main')))));
+});
+
 it('reads a plan that names no default branch as one that cannot tell it', function (): void {
     $plan = PlanFile::decode(PlanFile::encode(planFileEmpty()));
 

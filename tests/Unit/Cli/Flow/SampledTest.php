@@ -188,5 +188,5 @@ it('draws nothing where the plan cannot tell a pull request\'s new code, which i
     Scratch::write($project, 'mutation-gate.baseline.json', 'not json');
     $planned = $plan($project, Mode::full()->sampled(), Flows::settings(), new CiPlanFake(RunOn::at(Scope::pullRequest(7), Scope::branch('main'))));
 
-    expect($planned instanceof CannotJudge ? $planned->why() : '')->toStartWith('A pull request\'s new code is judged against');
+    expect($planned instanceof CannotJudge ? $planned->why() : '')->toStartWith('A pull request\'s or merge group\'s new code is judged against');
 });

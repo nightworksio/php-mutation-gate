@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Baseline\Lowering;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
+use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Config\Improvement;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Settings;
@@ -379,18 +380,18 @@ final readonly class Judging
         CoverageMap|CannotJudge $map,
         KillMatrix $matrix,
     ): Verdict {
-        $pullRequest = $plan->runOn()->isPullRequest();
+        $proposed = $plan->runOn()->isProposed();
         $named = match (true) {
             $this->adapters->isSecurityOnly() => HeldTo::Security,
             $this->adapters->isSuiteOnly() => HeldTo::Nothing,
             default => $this->heldTo,
         };
-        $heldTo = HeldTo::named($named, pullRequest: $pullRequest);
+        $heldTo = HeldTo::named($named, proposed: $proposed);
         $newCode = $heldTo->holdsNewCode()
             ? $judge->newCode($verdicts, $this->settings->floors()->newCode())
             : NewCodeVerdicts::none();
-        $failures = $pullRequest
-            ? $this->pullRequestFailures($lowered, $verdicts, $security)->and($missed)
+        $failures = $proposed
+            ? $this->proposedFailures($plan->runOn(), $lowered, $verdicts, $security)->and($missed)
             : $missed;
         $warnings = new VerdictWarnings($this->adapters, $this->settings, $this->setup);
         $owners = CodeOwnersFile::of($this->adapters->changes, $plan);
@@ -446,14 +447,19 @@ final readonly class Judging
         return $failures;
     }
 
-    /** In a pull request, a raise that must be committed with it, and a floor lowered without its reason. */
-    private function pullRequestFailures(
+    /**
+     * In a pull request, a raise that must be committed with it, and in it or a merge group, a floor lowered
+     * without its reason. Nothing can be committed to a merge group, so its raises are reported alone (ADR-0022).
+     */
+    private function proposedFailures(
+        RunOn $runOn,
         Failures $lowered,
         TreeVerdicts $verdicts,
         SecurityVerdicts $security,
     ): Failures {
         $file = $this->settings->floors()->baseline();
         $required = $this->settings->floors()->improvement() === Improvement::Require
+            && $runOn->groupBase() instanceof NotGiven
             ? Ratchet::required($verdicts, $file, $this->setup->command)
                 ->and(Ratchet::securityRequired($security, $file, $this->setup->command))
             : Failures::none();
@@ -482,12 +488,12 @@ final readonly class Judging
             : CannotJudge::because(sprintf(self::VANISHED, implode(', ', $vanished)));
     }
 
-    /** The baseline a floor lowered in a pull request is checked against; none outside one. */
+    /** The baseline a floor lowered in a pull request or merge group is checked against; none outside one. */
     private function committedBefore(Plan $plan): Baseline|CannotJudge
     {
         $baselines = Baselines::of($this->adapters, $this->settings, $this->setup);
 
-        return $plan->runOn()->isPullRequest()
+        return $plan->runOn()->isProposed()
             ? $baselines->onBase(Standing::planned($plan)->base(), $this->setup)
             : Baseline::none();
     }

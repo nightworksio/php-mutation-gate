@@ -57,6 +57,9 @@ TRUSTED = frozenset({"push", "schedule", "workflow_dispatch"})
 # Where a ref names a branch.
 HEADS = "refs/heads/"
 
+# The event a merge queue runs a group's checks on (ADR-0022).
+MERGE_GROUP = "merge_group"
+
 # The events `mode: auto` runs in full on (ADR-0005).
 FULL = frozenset({"schedule", "workflow_dispatch", "release"})
 
@@ -177,10 +180,11 @@ def mode_arguments(
 ) -> list[str]:
     """The options that choose what the gate considers: every unit, or what changed since a ref.
 
-    With no base given, a pull request runs from its base, another branch
-    from the default branch, and the default branch from the last commit
-    whose verdict passed (ADR-0005). `sampled` considers what
-    `auto` does, and samples the units no proof covers (ADR-0020).
+    With no base given, a pull request runs from its base, a merge group from
+    the commit its queue built it on (ADR-0022), another branch from the
+    default branch, and the default branch from the last commit whose verdict
+    passed (ADR-0005). `sampled` considers what `auto` does, and samples the
+    units no proof covers (ADR-0020).
     """
     if mode not in MODES:
         raise Refused(f"mode is {mode!r}; it is auto, full, changed or sampled.")
@@ -194,6 +198,9 @@ def mode_arguments(
     base = ((payload.get("pull_request") or {}).get("base") or {}).get("sha")
     if event == "pull_request" and isinstance(base, str) and base:
         return [f"--changed-since={base}"]
+    group = (payload.get("merge_group") or {}).get("base_sha")
+    if event == MERGE_GROUP and isinstance(group, str) and group:
+        return [f"--changed-since={group}"]
     branch = ref.removeprefix(HEADS) if ref.startswith(HEADS) else ""
     if branch and default_branch and branch != default_branch:
         return [f"--changed-since=origin/{default_branch}"]

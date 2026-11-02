@@ -147,6 +147,37 @@ it('gives no scope to an event that acts on code from elsewhere, so it writes no
     expect($github->runOn())->toEqual(RunOn::detached(RunOn::branchNamed('main')));
 })->with(['workflow_run', 'issue_comment', 'pull_request_target', 'release', '']);
 
+it('reads a merge group, with no scope, built on the commit its payload names', function () use ($event): void {
+    $base = '85c329847be78b0a7192b7c949beca23d38ca32f';
+    $github = GitHubPlan::in(Variables::of([
+        'GITHUB_EVENT_NAME' => 'merge_group',
+        'GITHUB_REF' => sprintf('refs/heads/gh-readonly-queue/main/pr-46758-%s', $base),
+        'GITHUB_SHA' => '33b1f4a6fec2d9b6fd3d374afa56bcd9f0875b57',
+        'GITHUB_EVENT_PATH' => $event(sprintf('{"repository": {"default_branch": "main"}, "merge_group": {"base_sha": "%s"}}', $base)),
+    ]));
+
+    expect($github->runOn())->toEqual(
+        RunOn::mergeGroup(Revision::ref($base), RunOn::branchNamed('main'))
+            ->withCommit(Revision::ref('33b1f4a6fec2d9b6fd3d374afa56bcd9f0875b57')),
+    );
+});
+
+it('reads no merge group from a payload that names no full commit, or from another event', function (string $name, string $payload) use ($event): void {
+    $github = GitHubPlan::in(Variables::of([
+        'GITHUB_EVENT_NAME' => $name,
+        'GITHUB_REF' => 'refs/heads/gh-readonly-queue/main/pr-7-85c329847be78b0a7192b7c949beca23d38ca32f',
+        'GITHUB_EVENT_PATH' => $event($payload),
+    ]));
+
+    expect($github->runOn())->toEqual(RunOn::detached(RunOn::branchNamed('main')));
+})->with([
+    'a short commit' => ['merge_group', '{"repository": {"default_branch": "main"}, "merge_group": {"base_sha": "85c3298"}}'],
+    'an option' => ['merge_group', '{"repository": {"default_branch": "main"}, "merge_group": {"base_sha": "--output=x"}}'],
+    'a number' => ['merge_group', '{"repository": {"default_branch": "main"}, "merge_group": {"base_sha": 7}}'],
+    'no base' => ['merge_group', '{"repository": {"default_branch": "main"}, "merge_group": {}}'],
+    'another event' => ['workflow_run', '{"repository": {"default_branch": "main"}, "merge_group": {"base_sha": "85c329847be78b0a7192b7c949beca23d38ca32f"}}'],
+]);
+
 it('gives no scope to a tag, or to a pull request ref outside a pull request event', function (string $ref): void {
     expect(GitHubPlan::in(Variables::of(['GITHUB_EVENT_NAME' => 'push', 'GITHUB_REF' => $ref]))->runOn())
         ->toEqual(RunOn::detached(CannotTell::because('No event payload could be read, so the default branch is not known.')));

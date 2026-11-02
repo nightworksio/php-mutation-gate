@@ -748,10 +748,24 @@ it('cannot plan a full pull request run where git cannot tell what changed since
 
     expect($plan(Flows::project(), Mode::full(), Cut::exactly(1), $pullRequest))->toEqual(CannotJudge::because(sprintf(
         "%s %s\n%s\n%s",
-        'A pull request\'s new code is judged against refs/remotes/origin/main,',
+        'A pull request\'s or merge group\'s new code is judged against refs/remotes/origin/main,',
         'and git cannot tell what changed since it,',
         'so no floor for new code can be held. refs/remotes/origin/main is not a revision this repository has.',
-        'Fetch the default branch into the checkout before the plan.',
+        'Fetch it into the checkout before the plan.',
+    )));
+});
+
+it('judges a full merge group run\'s new code since the commit its queue built it on', function () use (
+    $plan,
+): void {
+    $group = new CiPlanFake(RunOn::mergeGroup(Revision::ref('85c3298'), Scope::branch('main')));
+
+    expect($plan(Flows::project(), Mode::full(), Cut::exactly(1), $group))->toEqual(CannotJudge::because(sprintf(
+        "%s %s\n%s\n%s",
+        'A pull request\'s or merge group\'s new code is judged against 85c3298,',
+        'and git cannot tell what changed since it,',
+        'so no floor for new code can be held. 85c3298 is not a revision this repository has.',
+        'Fetch it into the checkout before the plan.',
     )));
 });
 

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
@@ -34,3 +35,20 @@ it('refuses a field that names no scope', function (string $file): void {
     'a default branch' => ['{"defaultBranch": "main"}'],
     'a target' => ['{"ref": "refs/pull/12", "target": "release"}'],
 ]);
+
+it('writes and reads back a pull request, a merge group and a detached HEAD', function (RunOn $runOn): void {
+    expect(RunOnRecord::read(Node::decode((string) json_encode(RunOnRecord::of($runOn)))))->toEqual($runOn);
+})->with([
+    'a pull request' => [fn(): RunOn => RunOn::at(Scope::pullRequest(7), Scope::branch('main'))],
+    'a merge group' => [fn(): RunOn => RunOn::mergeGroup(Revision::ref(str_repeat('a', 40)), Scope::branch('main'))],
+    'a detached HEAD' => [fn(): RunOn => RunOn::detached(CannotTell::because('The plan names no default branch.'))],
+]);
+
+it('writes a merge group\'s base alone, with no ref', function (): void {
+    expect(RunOnRecord::of(RunOn::mergeGroup(Revision::ref(str_repeat('b', 40)), Scope::branch('main'))))
+        ->toBe(['defaultBranch' => 'refs/heads/main', 'mergeGroup' => str_repeat('b', 40)]);
+});
+
+it('refuses a merge group that names no full commit, such as an option git would read', function (string $base): void {
+    RunOnRecord::read(Node::decode((string) json_encode(['mergeGroup' => $base])));
+})->throws(NotInShape::class)->with(['--output=/tmp/x', '85c3298', '']);

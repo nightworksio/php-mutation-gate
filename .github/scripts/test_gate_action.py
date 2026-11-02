@@ -66,6 +66,27 @@ class Mode(unittest.TestCase):
             [f"--changed-since={'b' * 40}"],
         )
 
+    def test_auto_on_a_merge_group_is_what_changed_since_the_commit_its_queue_built_it_on(self):
+        ref = f"refs/heads/gh-readonly-queue/main/pr-12-{'c' * 40}"
+        group = {"merge_group": {"base_sha": "c" * 40, "head_sha": "d" * 40}}
+        self.assertEqual(
+            action.mode_arguments("auto", "", "merge_group", ref, group, "main"), [f"--changed-since={'c' * 40}"]
+        )
+        self.assertEqual(
+            action.mode_arguments("changed", "v1.2.0", "merge_group", ref, group, "main"), ["--changed-since=v1.2.0"]
+        )
+        self.assertEqual(
+            action.mode_arguments("auto", "", "merge_group", ref, {"merge_group": {}}, "main"),
+            ["--changed-since=origin/main"],
+        )
+
+    def test_a_merge_group_has_no_scope_and_saves_no_ledger(self):
+        ref = f"refs/heads/gh-readonly-queue/main/pr-12-{'c' * 40}"
+        self.assertIsNone(action.scope("merge_group", ref, {"merge_group": {"base_sha": "c" * 40}}))
+        kept = action.ledgers("merge_group", ref, {"merge_group": {"base_sha": "c" * 40}}, "main", True)
+        self.assertEqual([kept["own_dir"], kept["save"]], ["", "false"])
+        self.assertEqual(kept["default_dir"], ".mutation-gate/ledger/refs/heads/main")
+
     def test_auto_on_a_push_to_the_default_branch_is_what_changed_since_the_last_commit_that_passed(self):
         self.assertEqual(
             action.mode_arguments("auto", "", "push", "refs/heads/main", {}, "main"), ["--changed-since=last-passed"]
