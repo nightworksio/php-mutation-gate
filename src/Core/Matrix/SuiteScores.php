@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Matrix;
 
+use function array_fill;
+
 use ArrayIterator;
 
 use function count;
 
 use Countable;
-
-use function in_array;
-
 use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Test\DeclaredSuite;
@@ -47,11 +46,22 @@ final readonly class SuiteScores implements Countable, IteratorAggregate
     {
         $matrix = $verdict->matrix();
         $exact = $matrix->kind() === MatrixKind::Full;
+        $suites = [...$matrix->suites()];
+        $covered = array_fill(0, count($suites), 0);
+        $killed = $covered;
+        $placed = [];
+
+        foreach ($verdict->trees()->mutants() as $judged) {
+            foreach (self::outcomesFor($matrix, $judged, $suites, $placed) as $at => $outcome) {
+                $covered[$at] += $outcome->ran() ? 1 : 0;
+                $killed[$at] += $outcome === Outcome::Killed ? 1 : 0;
+            }
+        }
+
         $scores = [];
 
-        foreach ($matrix->suites() as $suite) {
-            [$covered, $killed] = self::tally($verdict, $suite);
-            $scores[] = SuiteScore::of($suite->name(), $covered, $killed, $exact);
+        foreach ($suites as $at => $suite) {
+            $scores[] = SuiteScore::of($suite->name(), $covered[$at], $killed[$at], $exact);
         }
 
         return new self($scores, count($matrix->names()) > 0);
@@ -78,64 +88,77 @@ final readonly class SuiteScores implements Countable, IteratorAggregate
     }
 
     /**
-     * How many of the verdict's mutants the suite's tests cover with a known
-     * outcome, and how many of those one of them killed.
+     * What each suite's tests did with the mutant, taken together, by the
+     * suite's place among them: killed where one of them killed it; unknown
+     * where one of them has no known outcome; passed where one of them
+     * passed it, or where each was stopped behind another suite's first
+     * kill, which a lower bound counts as not killed; and no entry where no
+     * test of the suite ran with it, as for a mutant a static analyser
+     * killed, or the score leaves it out. The mutant's covering tests are
+     * read once for every suite.
      *
-     * @return array{int, int}
+     * @param  list<DeclaredSuite>     $suites
+     * @param  array<string, list<int>> $placed the places of the suites each test read so far is in, by its id
+     * @return array<int, Outcome>
      */
-    private static function tally(Verdict $verdict, DeclaredSuite $suite): array
-    {
-        $covered = 0;
-        $killed = 0;
-
-        foreach ($verdict->trees()->mutants() as $judged) {
-            $outcome = self::outcomeFor($verdict->matrix(), $judged, $suite);
-            $covered += $outcome === Outcome::Killed || $outcome === Outcome::Passed ? 1 : 0;
-            $killed += $outcome === Outcome::Killed ? 1 : 0;
-        }
-
-        return [$covered, $killed];
-    }
-
-    /**
-     * What the suite's tests did with the mutant, taken together: killed
-     * where one of them killed it; unknown where one of them has no known
-     * outcome; passed where one of them passed it, or where each was stopped
-     * behind another suite's first kill, which a lower bound counts as not
-     * killed; not run where no test of the suite ran with it, as for a
-     * mutant a static analyser killed, or the score leaves it out.
-     */
-    private static function outcomeFor(
+    private static function outcomesFor(
         KillMatrix $matrix,
         JudgedMutant|JudgedKill $judged,
-        DeclaredSuite $suite,
-    ): Outcome {
+        array $suites,
+        array &$placed,
+    ): array {
         if ($judged->judgement()->scoring(Uncovered::Count) === Scoring::LeftOut) {
-            return Outcome::NotRun;
+            return [];
         }
 
-        $outcomes = [];
+        $seen = [];
 
         foreach ($matrix->coveredBy($judged) as $test) {
-            if ($matrix->judges($judged, $test) && self::holds($matrix, $suite, $test)) {
-                $outcomes[] = $matrix->outcome($judged, $test);
+            if (! $matrix->judges($judged, $test)) {
+                continue;
+            }
+
+            $placed[$test->value()] ??= self::placesOf($matrix, $suites, $test);
+            $outcome = $matrix->outcome($judged, $test);
+
+            foreach ($placed[$test->value()] as $at) {
+                $seen[$at][$outcome->value] = true;
             }
         }
 
-        return match (true) {
-            in_array(Outcome::Killed, $outcomes, strict: true) => Outcome::Killed,
-            in_array(Outcome::Unknown, $outcomes, strict: true) => Outcome::Unknown,
-            in_array(Outcome::Passed, $outcomes, strict: true),
-            $outcomes !== [] && count($judged->mutant()->killers()) > 0 => Outcome::Passed,
-            default => Outcome::NotRun,
-        };
+        $stopped = count($judged->mutant()->killers()) > 0;
+        $outcomes = [];
+
+        foreach ($seen as $at => $outcome) {
+            $outcomes[$at] = match (true) {
+                isset($outcome[Outcome::Killed->value]) => Outcome::Killed,
+                isset($outcome[Outcome::Unknown->value]) => Outcome::Unknown,
+                isset($outcome[Outcome::Passed->value]), $stopped => Outcome::Passed,
+                default => Outcome::NotRun,
+            };
+        }
+
+        return $outcomes;
     }
 
-    /** Whether a test is in the suite, by the file the runner named it in. */
-    private static function holds(KillMatrix $matrix, DeclaredSuite $suite, TestId $test): bool
+    /**
+     * The places of the suites a test is in, by the file the runner named it
+     * in; none for a test the runner named no file for.
+     *
+     * @param  list<DeclaredSuite> $suites
+     * @return list<int>
+     */
+    private static function placesOf(KillMatrix $matrix, array $suites, TestId $test): array
     {
         $named = $matrix->names()->testOf($test);
+        $places = [];
 
-        return $named instanceof TestName && $suite->holds($named->file());
+        foreach ($suites as $at => $suite) {
+            if ($named instanceof TestName && $suite->holds($named->file())) {
+                $places[] = $at;
+            }
+        }
+
+        return $places;
     }
 }

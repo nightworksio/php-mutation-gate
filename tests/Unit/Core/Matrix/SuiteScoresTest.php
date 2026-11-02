@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
+use NightWorksIO\MutationGate\Core\Matrix\Outcome;
 use NightWorksIO\MutationGate\Core\Matrix\SuiteScore;
 use NightWorksIO\MutationGate\Core\Matrix\SuiteScores;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
@@ -21,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Test\DeclaredSuite;
 use NightWorksIO\MutationGate\Core\Test\DeclaredSuites;
 use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
+use NightWorksIO\MutationGate\Core\Test\TestName;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Tree\Package;
@@ -29,6 +31,7 @@ use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnits;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
+use NightWorksIO\MutationGate\Core\Verdict\Scoring;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
@@ -41,17 +44,17 @@ $grouped = static fn(Verdict $verdict, DeclaredSuites $suites): Verdict => $verd
     $verdict->matrix()->grouping($suites),
 );
 
-/** Each suite's name, covered, killed, score in hundredths and exactness. */
-$summary = static fn(SuiteScores $scores): array => array_map(
-    static fn(SuiteScore $score): array => [
-        $score->suite(),
-        $score->covered(),
-        $score->killed(),
-        $score->score() instanceof Score ? $score->score()->hundredths() : 'nothing to mutate',
-        $score->isExact(),
-    ],
-    iterator_to_array($scores, preserve_keys: false),
-);
+/** A suite's name, covered, killed, score in hundredths and exactness. */
+$row = static fn(SuiteScore $score): array => [
+    $score->suite(),
+    $score->covered(),
+    $score->killed(),
+    $score->score() instanceof Score ? $score->score()->hundredths() : 'nothing to mutate',
+    $score->isExact(),
+];
+
+/** Each suite's row. */
+$summary = static fn(SuiteScores $scores): array => array_map($row, iterator_to_array($scores, preserve_keys: false));
 
 it('scores what each suite alone kills, a lower bound from first killers and exact under a full matrix', function (
     MatrixKind $kind,
@@ -158,3 +161,63 @@ it('counts as covered by a suite a mutant whose one killer is elsewhere, though 
 
     expect($summary(SuiteScores::of($grouped(Killings::verdict(MatrixKind::FirstKiller), $suites))))->toBe([['b', 3, 0, 0, false]]);
 });
+
+it('scores each suite as a pass over that suite alone would, for every fixture run and overlapping suites', function (
+    Verdict $verdict,
+    DeclaredSuites $suites,
+) use ($grouped, $row, $summary): void {
+    $verdict = $grouped($verdict, $suites);
+    $matrix = $verdict->matrix();
+    $exact = $matrix->kind() === MatrixKind::Full;
+    $expected = [];
+
+    foreach ($matrix->suites() as $suite) {
+        $covered = 0;
+        $killed = 0;
+
+        foreach ($verdict->trees()->mutants() as $judged) {
+            $outcomes = [];
+
+            foreach ($matrix->coveredBy($judged) as $test) {
+                $named = $matrix->names()->testOf($test);
+
+                if ($matrix->judges($judged, $test) && $named instanceof TestName && $suite->holds($named->file())) {
+                    $outcomes[] = $matrix->outcome($judged, $test);
+                }
+            }
+
+            $outcome = match (true) {
+                $judged->judgement()->scoring(Uncovered::Count) === Scoring::LeftOut => Outcome::NotRun,
+                in_array(Outcome::Killed, $outcomes, strict: true) => Outcome::Killed,
+                in_array(Outcome::Unknown, $outcomes, strict: true) => Outcome::Unknown,
+                in_array(Outcome::Passed, $outcomes, strict: true),
+                $outcomes !== [] && count($judged->mutant()->killers()) > 0 => Outcome::Passed,
+                default => Outcome::NotRun,
+            };
+            $covered += $outcome->ran() ? 1 : 0;
+            $killed += $outcome === Outcome::Killed ? 1 : 0;
+        }
+
+        $expected[] = $row(SuiteScore::of($suite->name(), $covered, $killed, $exact));
+    }
+
+    expect($summary(SuiteScores::of($verdict)))->toBe($expected);
+})->with([
+    'first killer' => [fn(): Verdict => Killings::verdict(MatrixKind::FirstKiller)],
+    'full' => [fn(): Verdict => Killings::verdict(MatrixKind::Full)],
+    'statically killed' => [fn(): Verdict => Killings::verdict(MatrixKind::Full, MutantStatus::KilledByStaticAnalysis)],
+    'held' => [fn(): Verdict => Killings::heldVerdict()],
+    'tied' => [fn(): Verdict => Killings::tiedVerdict()],
+    'untimed' => [fn(): Verdict => Killings::untimedVerdict()],
+    'shared' => [fn(): Verdict => Killings::sharedVerdict()],
+    'suited' => [fn(): Verdict => Killings::suited(MatrixKind::Full)],
+])->with([
+    'unit and feature' => [fn(): DeclaredSuites => Killings::suites()],
+    'overlapping' => [fn(): DeclaredSuites => DeclaredSuites::of(
+        DeclaredSuite::named('all', Paths::none(), Paths::none(), SuiteDirectory::of(Path::of('tests'), '')),
+        DeclaredSuite::named('a', Paths::of(Path::of('tests/ATest.php')), Paths::none()),
+        DeclaredSuite::named('ab', Paths::of(Path::of('tests/ATest.php'), Path::of('tests/BTest.php')), Paths::none()),
+        DeclaredSuite::named('b', Paths::of(Path::of('tests/BTest.php')), Paths::none()),
+        DeclaredSuite::named('spec', Paths::none(), Paths::none(), SuiteDirectory::of(Path::of('spec'), '')),
+    )],
+]);
