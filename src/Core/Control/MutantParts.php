@@ -30,6 +30,8 @@ use function usort;
  * fastest, by the map's own time, those it did not time last; a file's
  * tests together in one part where they fit in one, and one test at a time
  * where they do not. A test the runner places in no file comes last.
+ *
+ * @internal
  */
 final readonly class MutantParts
 {

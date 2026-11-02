@@ -28,6 +28,8 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
  * and stopped where no test finishes for the silence limit of its slowest;
  * and a part split in two by the test files its tests are in, the first
  * half of its files and the rest, where it holds more than one.
+ *
+ * @internal
  */
 final readonly class PartControls
 {

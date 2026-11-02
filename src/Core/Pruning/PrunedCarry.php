@@ -28,6 +28,8 @@ use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
  * mutant the run made itself, as a runner that is not patched makes them
  * all. A unit whose last result no longer stands carries nothing, and its
  * pruned mutators' mutants are missing from it.
+ *
+ * @internal
  */
 final readonly class PrunedCarry
 {

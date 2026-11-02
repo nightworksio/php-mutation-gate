@@ -24,6 +24,8 @@ use function usort;
  * the most survivors first. A file of a unit this run did not judge, whose
  * result a proof or an earlier run carried, holds its counts alone.
  *
+ * @internal
+ *
  * @phpstan-import-type Report from JsonReport
  * @phpstan-import-type MutantEntry from MutantJson
  *

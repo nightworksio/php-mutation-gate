@@ -15,7 +15,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\Cast\String_;
 
-/** `(string) $a` becomes `$a`. */
+/**
+ * `(string) $a` becomes `$a`.
+ *
+ * @internal
+ */
 final readonly class RemoveStringCast implements Mutator
 {
     public function name(): MutatorName

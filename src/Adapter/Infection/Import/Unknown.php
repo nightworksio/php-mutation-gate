@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Infection\Import;
 
-/** A key of Infection's config the gate does not know. */
+/**
+ * A key of Infection's config the gate does not know.
+ *
+ * @internal
+ */
 final readonly class Unknown
 {
     private function __construct()

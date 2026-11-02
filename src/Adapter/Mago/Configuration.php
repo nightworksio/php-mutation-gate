@@ -19,6 +19,8 @@ use function sprintf;
  * (ADR-0020), without the sections for its other commands, and with the
  * files it names besides the code: its config file, the analyser's
  * baseline, and the sources it includes and patches.
+ *
+ * @internal
  */
 final readonly class Configuration
 {

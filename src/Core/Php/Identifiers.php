@@ -16,6 +16,8 @@ use function preg_match;
  * word such as `GLOBAL`, `Default` or `and` as its name, and tokenizes it as
  * that keyword where it is declared and after `::`; the readers look for a
  * `T_STRING` there.
+ *
+ * @internal
  */
 final readonly class Identifiers
 {

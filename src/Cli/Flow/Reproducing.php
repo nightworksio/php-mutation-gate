@@ -25,6 +25,8 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  * now, allowed the configured time limit (ADR-0004), withholding
  * what a run withholds and under the memory cap a run has. A
  * unit no holding names is judged by the whole suite, as a run judges it.
+ *
+ * @internal
  */
 final readonly class Reproducing
 {

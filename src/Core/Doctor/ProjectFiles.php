@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * packages, which CI definitions run the gate, its baseline, what its
  * runner's own config says, and whether its clone holds the whole of its
  * history. A file nobody read is not given.
+ *
+ * @internal
  */
 final readonly class ProjectFiles
 {

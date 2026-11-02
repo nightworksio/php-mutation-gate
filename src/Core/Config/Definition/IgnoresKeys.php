@@ -20,7 +20,11 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Time\Day;
 
-/** How the keys a config writes are read into its `Ignores` part (ADR-0002). */
+/**
+ * How the keys a config writes are read into its `Ignores` part (ADR-0002).
+ *
+ * @internal
+ */
 final readonly class IgnoresKeys
 {
     /** @return list<Field<Layer>> */

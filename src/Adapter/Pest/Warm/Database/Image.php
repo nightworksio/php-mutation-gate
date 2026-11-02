@@ -18,6 +18,8 @@ use function sprintf;
  * of them in any order, and each counter a rolled-back transaction leaves
  * moved, by its name. Two images are alike exactly where every table holds
  * the same rows and every counter stands at the same value.
+ *
+ * @internal
  */
 final readonly class Image
 {

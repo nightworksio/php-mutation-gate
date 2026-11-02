@@ -17,6 +17,8 @@ use function str_starts_with;
  * outside its vendor directory, as pcov collects from them where the native
  * runner sets it (see PcovReach), so a coverage map a framework's extension
  * measures with any driver reaches the same files.
+ *
+ * @internal
  */
 final readonly class OwnFiles
 {

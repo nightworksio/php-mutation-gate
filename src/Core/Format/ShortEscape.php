@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Format;
 
-/** A character visible text writes as a short escape, by the character it stands for. */
+/**
+ * A character visible text writes as a short escape, by the character it stands for.
+ *
+ * @internal
+ */
 enum ShortEscape: string
 {
     case Backslash = '\\';

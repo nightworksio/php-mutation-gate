@@ -30,6 +30,8 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  * the gate names and Infection's `timeout`, which the gate sets to
  * `timeouts.most`. Where the gate names no floor, as when Infection runs
  * outside it, Infection's own limit.
+ *
+ * @internal
  */
 final class MutantTime
 {

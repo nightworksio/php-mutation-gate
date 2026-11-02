@@ -15,7 +15,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\Cast\Double;
 
-/** `(float) $a` becomes `$a`. */
+/**
+ * `(float) $a` becomes `$a`.
+ *
+ * @internal
+ */
 final readonly class RemoveDoubleCast implements Mutator
 {
     public function name(): MutatorName

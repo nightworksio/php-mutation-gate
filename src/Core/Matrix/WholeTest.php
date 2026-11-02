@@ -20,6 +20,8 @@ use Traversable;
  * A whole test, with its data set rows folded in: useless only when every
  * row is (ADR-0014). A test with no data set is its own one row.
  *
+ * @internal
+ *
  * @implements IteratorAggregate<int, TestStanding>
  */
 final readonly class WholeTest implements Countable, IteratorAggregate

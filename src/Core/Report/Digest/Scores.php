@@ -16,6 +16,8 @@ use function sprintf;
  * The digest's scores: a percentage as every report prints one, and a line
  * for each set, a tree by its path and a new-code or security set by its
  * package, with its score, its floor and its judgement.
+ *
+ * @internal
  */
 final readonly class Scores
 {

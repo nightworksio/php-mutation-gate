@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\File\Lines;
  * The lines of a change that no test runs: those a coverage map holds as
  * executable lines the run measuring it missed. A line the map does not hold,
  * such as a comment, is no such line.
+ *
+ * @internal
  */
 final readonly class Untested
 {

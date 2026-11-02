@@ -16,7 +16,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\BinaryOp\Equal;
 use PhpParser\Node\Expr\BinaryOp\NotEqual;
 
-/** `==` becomes `!=`. */
+/**
+ * `==` becomes `!=`.
+ *
+ * @internal
+ */
 final readonly class EqualToNotEqual implements Mutator
 {
     public function name(): MutatorName

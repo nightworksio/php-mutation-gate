@@ -21,6 +21,8 @@ use NightWorksIO\MutationGate\Core\Proof\Undigested;
  * are now; where either differs, or the run took no digests, the unit is
  * reached. A last run only says where to look: what a result is of decides
  * whether it is carried.
+ *
+ * @internal
  */
 final readonly class OwnOnly
 {

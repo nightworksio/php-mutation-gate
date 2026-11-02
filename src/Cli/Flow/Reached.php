@@ -34,6 +34,8 @@ use NightWorksIO\MutationGate\Core\Tree\Trees;
  * changed. Where the base is a last run whose commit git can read, or whose
  * merge git makes again into the tree it held, the change is read from it, and the files changed since the ref carry
  * only the run's own scope's results (ADR-0005).
+ *
+ * @internal
  */
 final readonly class Reached
 {

@@ -26,6 +26,8 @@ use PhpParser\Node\Stmt\Expression;
  * A statement that dispatches is removed: `event(…)`, `dispatch(…)`,
  * `Event::dispatch(…)`, `Bus::dispatch(…)`, `Notification::send(…)`,
  * `Mail::send(…)`, and a `->send(…)` on a chain that starts at the `Mail` facade.
+ *
+ * @internal
  */
 final readonly class RemoveDispatch implements Mutator
 {

@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Provenance;
  * Where a verdict comes from, as the verdict's flow reads it: this gate, the
  * commit the plan judged, where git can name it, the runner, where it can
  * say which it is, and the baseline file the floors are read from.
+ *
+ * @internal
  */
 final readonly class VerdictProvenance
 {

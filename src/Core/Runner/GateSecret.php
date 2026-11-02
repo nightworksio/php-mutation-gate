@@ -8,6 +8,8 @@ namespace NightWorksIO\MutationGate\Core\Runner;
  * The environment variables that hold a secret the gate itself reads, by
  * default: the OTLP collector's headers and the alert channels' URLs and
  * webhook secret (ADR-0016). A runner never hands one to the project's tests.
+ *
+ * @internal
  */
 enum GateSecret: string
 {

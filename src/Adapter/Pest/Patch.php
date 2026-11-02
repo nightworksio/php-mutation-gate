@@ -62,6 +62,8 @@ use function sprintf;
  *   served through the override, which shows its test the mutant's text.
  *
  * Applied as a VendorPatch: every anchor checked before anything is written.
+ *
+ * @internal
  */
 final readonly class Patch
 {

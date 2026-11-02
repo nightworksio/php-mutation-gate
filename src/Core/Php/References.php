@@ -9,6 +9,8 @@ namespace NightWorksIO\MutationGate\Core\Php;
  * says so: through a variable class, a `constant()` of a name that is not
  * written out, a subclass's own constant, or a chain of declarations too long
  * to follow.
+ *
+ * @internal
  */
 final readonly class References
 {

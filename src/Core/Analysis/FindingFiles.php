@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\File\Root;
  * the project's root and normalised, and a mutant's own file named as the
  * original it stands in for. A file outside the root is spelt as the
  * analyser names it, normalised.
+ *
+ * @internal
  */
 final readonly class FindingFiles
 {

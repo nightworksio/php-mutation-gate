@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `wordwrap(…)` becomes its first argument. */
+/**
+ * `wordwrap(…)` becomes its first argument.
+ *
+ * @internal
+ */
 final readonly class UnwrapWordwrap implements Mutator
 {
     public function name(): MutatorName

@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-/** The reporters this package builds in, by the name a config or the gate chooses each by. */
+/**
+ * The reporters this package builds in, by the name a config or the gate chooses each by.
+ *
+ * @internal
+ */
 enum BuiltinReporter: string
 {
     case Console = 'console';

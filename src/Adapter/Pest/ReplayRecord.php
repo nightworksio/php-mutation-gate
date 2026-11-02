@@ -23,6 +23,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * the digest of the order it took them in where it stopped. A line that is
  * no record, as one cut short, records nothing, and neither does any other
  * event the plugin writes there.
+ *
+ * @internal
  */
 final readonly class ReplayRecord
 {

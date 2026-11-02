@@ -18,7 +18,11 @@ use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Expr\StaticCall;
 use PhpParser\Node\Stmt\Expression;
 
-/** A statement that only calls a method is removed. */
+/**
+ * A statement that only calls a method is removed.
+ *
+ * @internal
+ */
 final readonly class RemoveMethodCall implements Mutator
 {
     public function name(): MutatorName

@@ -39,6 +39,8 @@ use function sprintf;
  * The default branch's scope is kept in the `publicContainer`, where one is
  * named and the default branch is known, so a job without credentials can
  * read it; every other scope is kept in the private container.
+ *
+ * @internal
  */
 final readonly class ContainerLedger implements ObjectStore, ProofStore
 {

@@ -8,6 +8,8 @@ namespace NightWorksIO\MutationGate\Core\Runner;
  * The variables the gate sets for a process of more than one runner, which
  * that runner's plugin or extension reads. Each adapter's own enum of the
  * variables it sets names these from here.
+ *
+ * @internal
  */
 enum ChildVariable: string
 {

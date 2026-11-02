@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\Format\Node;
  * absolute, is refused, but for a file the command line names by its
  * absolute path.
  *
+ * @internal
+ *
  * @implements Shape<Path>
  */
 final readonly class Location implements Shape

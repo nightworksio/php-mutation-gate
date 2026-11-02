@@ -14,6 +14,8 @@ use Closure;
  * already run keep their results; the units no batch took are left
  * unjudged, as when the time runs out. A run with none is stopped only by
  * its deadline.
+ *
+ * @internal
  */
 final readonly class Interruption
 {

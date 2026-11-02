@@ -10,6 +10,8 @@ namespace NightWorksIO\MutationGate\Core\Php;
  * whose value is read wherever its name is. A named constant, case, property,
  * plain function's parameter or attribute's argument can be followed to the
  * code that reads it; a method's or a closure's parameter is always unnamed.
+ *
+ * @internal
  */
 enum SymbolKind: string
 {

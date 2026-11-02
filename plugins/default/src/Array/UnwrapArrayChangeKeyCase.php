@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `array_change_key_case(…)` becomes its first argument. */
+/**
+ * `array_change_key_case(…)` becomes its first argument.
+ *
+ * @internal
+ */
 final readonly class UnwrapArrayChangeKeyCase implements Mutator
 {
     public function name(): MutatorName

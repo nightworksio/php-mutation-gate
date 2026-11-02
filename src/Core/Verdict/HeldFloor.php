@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Core\Score\Unrecorded;
  * The floor a ratcheted set is held to, a tree or a package's security set:
  * the higher of the one declared for it and the one the baseline holds, and
  * the floor its score raises the baseline to (ADR-0003).
+ *
+ * @internal
  */
 final readonly class HeldFloor
 {

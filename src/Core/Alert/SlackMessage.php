@@ -14,6 +14,8 @@ use function sprintf;
  * An alert as a Slack message: the title as the one-line `text` fallback,
  * then Block Kit, a header, a section per group and a link to the run. Each
  * block is cut to Slack's limit (ADR-0016).
+ *
+ * @internal
  */
 final readonly class SlackMessage
 {

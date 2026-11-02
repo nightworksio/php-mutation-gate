@@ -9,7 +9,11 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 
-/** A unit to be cut into a shard, the package it runs in, and what the cost model expects it to take. */
+/**
+ * A unit to be cut into a shard, the package it runs in, and what the cost model expects it to take.
+ *
+ * @internal
+ */
 final readonly class Weighed
 {
     private function __construct(private Unit $unit, private Package $package, private Estimated $estimated)

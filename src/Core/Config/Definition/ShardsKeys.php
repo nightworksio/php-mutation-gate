@@ -15,7 +15,11 @@ use NightWorksIO\MutationGate\Core\Cost\SecondsPerLine;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
-/** How the keys a config writes are read into its `Shards` part (ADR-0002). */
+/**
+ * How the keys a config writes are read into its `Shards` part (ADR-0002).
+ *
+ * @internal
+ */
 final readonly class ShardsKeys
 {
     /** @return list<Field<Layer>> */

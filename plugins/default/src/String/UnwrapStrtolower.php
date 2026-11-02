@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `strtolower(…)` becomes its first argument. */
+/**
+ * `strtolower(…)` becomes its first argument.
+ *
+ * @internal
+ */
 final readonly class UnwrapStrtolower implements Mutator
 {
     public function name(): MutatorName

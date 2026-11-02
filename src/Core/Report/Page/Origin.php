@@ -21,6 +21,8 @@ use function sprintf;
  * and the packages it drives, how long the run took, and how the baseline
  * file stands. A part the run could not tell is left out.
  *
+ * @internal
+ *
  * @phpstan-import-type Report from JsonReport
  * @phpstan-import-type ProvenanceEntry from ProvenanceJson
  * @phpstan-import-type PackageEntry from ProvenanceJson

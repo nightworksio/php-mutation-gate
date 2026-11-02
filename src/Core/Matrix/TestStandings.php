@@ -29,6 +29,8 @@ use Traversable;
  * one never run are left out, and a held unit's mutants count only for
  * its group's tests (ADR-0014).
  *
+ * @internal
+ *
  * @implements IteratorAggregate<int, WholeTest>
  */
 final readonly class TestStandings implements Countable, IteratorAggregate

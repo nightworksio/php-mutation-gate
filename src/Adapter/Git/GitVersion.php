@@ -10,6 +10,8 @@ use function preg_match;
  * The version of git, as `git version` prints it: `git version 2.50.1`, with
  * whatever a vendor adds after it. A version it cannot read is older than
  * every version, so nothing that needs a newer git is tried with it.
+ *
+ * @internal
  */
 final readonly class GitVersion
 {

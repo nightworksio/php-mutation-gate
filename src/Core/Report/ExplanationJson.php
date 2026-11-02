@@ -21,6 +21,8 @@ use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
  * `tests`. Public API (ADR-0011), described by
  * `resources/explain.schema.json`.
  *
+ * @internal
+ *
  * @phpstan-import-type MutantEntry from MutantJson
  *
  * @phpstan-type CoveringEntry array{

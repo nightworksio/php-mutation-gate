@@ -11,26 +11,21 @@ use NightWorksIO\MutationGate\Core\Analysis\AsWritten;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
-use NightWorksIO\MutationGate\Core\Cost\Step;
-use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\EntryKeys;
 use NightWorksIO\MutationGate\Core\Coverage\KeptMap;
 use NightWorksIO\MutationGate\Core\Coverage\MapLimits;
 use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
-use NightWorksIO\MutationGate\Core\Coverage\Remeasured;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Evidence;
-use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Marker;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
-use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
@@ -51,10 +46,8 @@ use NightWorksIO\MutationGate\Core\Pruning\MutatorNames;
 use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
-use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
-use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
@@ -62,17 +55,13 @@ use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Runner\Reproduction;
-use NightWorksIO\MutationGate\Core\Runner\Unmade;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
-use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestListing;
-use NightWorksIO\MutationGate\Core\Test\TestName;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
-use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\TestRow;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -80,6 +69,8 @@ use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
+use NightWorksIO\MutationGate\Extension\LibraryChange;
+use NightWorksIO\MutationGate\Extension\RunnerContract;
 use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
@@ -99,11 +90,17 @@ $holds = [
     'holds:src/Core/Runner/MutationRequest.php',
     'holds:src/Core/Runner/Reproduction.php',
     'holds:src/Core/Test/TestIds.php',
+    'holds:src/Extension/Checks',
+    'holds:src/Extension/LibraryChange.php',
+    'holds:src/Extension/RunnerContract.php',
+    'holds:src/Extension/RunnerLibrary.php',
 ];
 
 // What every runner reports over the fixture library in fixture/: in
 // src/Money.php a killed, a survived, an uncovered and a timed-out mutant, and
-// in src/Held.php one held by the group holds:src/Held.php. Each runs against
+// in src/Held.php one held by the group holds:src/Held.php, which
+// RunnerContract holds every runner to, the gate's own and an extension's
+// alike, and the rest of what each of the gate's own runners reports. Each runs against
 // the fake (RunnerFake) and against every adapter whose runner is installed:
 // the Pest adapter (Pest) once the runner contracts job has installed the
 // library, the Infection adapter (Infection) once its job has installed
@@ -134,18 +131,12 @@ $onDisk = [
 $libraries = ['the fake' => fn(): Library => Library::fake(), ...$onDisk];
 
 $makeMoney = static fn(): Closure => RunnerContracts::money(...);
-$makeFiles = static fn(): Closure => RunnerContracts::files(...);
 
-it('answers the same identity every time it is asked', function (Library $library): void {
-    $identity = $library->runner()->identity(Withheld::standard());
-
-    expect($identity)->toBeInstanceOf(Identity::class)
-        ->and($library->runner()->identity(Withheld::standard()))->toEqual($identity)
-        ->and($identity instanceof Identity ? $identity->runner() : '')->not->toBe('')
-        ->and($identity instanceof Identity ? count($identity->versions()) : 0)->toBeGreaterThan(0);
+it('keeps the runner contract', function (Library $library): void {
+    expect([...RunnerContract::failures($library->runner(), $library->spelling())])->toBe([]);
 })->with($libraries)->group(...$holds);
 
-it('behaves consistently: every key reads only groups of its suite', function (Library $library): void {
+it('behaves consistently when patched: every key reads only groups of its suite', function (Library $library): void {
     $groups = $library->runner()->listing(Withheld::standard(), Suites::all());
     $behaviour = $library->runner()->behaviour();
 
@@ -155,35 +146,21 @@ it('behaves consistently: every key reads only groups of its suite', function (L
 
     expect($behaviour->readByEveryKey()->count() === 0 || ! $behaviour->opensEachShard())->toBeTrue();
 })->with([
-    ...$libraries,
     'pest patched' => fn(): Library => Library::installed('pest patched'),
 ])->group(...$holds);
 
-it('lists the group that holds a path, with its tests, and the canary where its tests hold it, among the suite\'s groups', function (Library $library): void {
+it('lists the canary among the suite\'s groups where its tests hold it', function (Library $library): void {
     $groups = $library->runner()->listing(Withheld::standard(), Suites::all());
 
-    expect($groups instanceof TestListing && $groups->groups()->has(Group::named('holds:src/Held.php')))->toBeTrue()
-        ->and($groups instanceof TestListing ? count($groups->inGroup(Group::named('holds:src/Held.php'))) : 0)->toBeGreaterThan(0)
-        ->and($groups instanceof TestListing && $groups->groups()->has(Library::canary()))->toBe($library->isCanaried());
+    expect($groups instanceof TestListing && $groups->groups()->has(Library::canary()))->toBe($library->isCanaried());
 })->with($libraries)->group(...$holds);
 
-it('times a run of no test, started as a mutant\'s own run', function (Library $library): void {
-    $startUp = $library->runner()->startUp(Path::of('src/Money.php'), Withheld::standard());
-
-    expect($startUp)->toBeInstanceOf(Seconds::class)
-        ->and($startUp instanceof Seconds ? $startUp->seconds() : 0.0)->toBeGreaterThan(0.0);
-})->with($libraries)->group(...$holds);
-
-it('reports a killed, a survived, an uncovered and a timed-out mutant', function (Library $library) use ($makeMoney): void {
+it('warns of the four mutants only where its runner runs unpatched', function (Library $library) use ($makeMoney): void {
     $money = $makeMoney();
 
     $result = $money($library);
 
-    expect($result)->toBeInstanceOf(MutationResult::class)
-        ->and($result instanceof MutationResult ? $result->skipped() : -1)->toBe(0)
-        ->and($result instanceof MutationResult ? Library::records($result->mutants()) : [])
-        ->toEqualCanonicalizing($library->expected('adds', 'large', 'unused', 'drains'))
-        ->and($result instanceof MutationResult ? array_map(static fn(Warning $warning): string => $warning->text(), [...$result->warnings()]) : ['cannot judge'])
+    expect($result instanceof MutationResult ? array_map(static fn(Warning $warning): string => $warning->text(), [...$result->warnings()]) : ['cannot judge'])
         ->toBe($library->runner() instanceof Infection ? [RunnerContracts::INFECTION_UNPATCHED] : []);
 })->with($libraries)->group(...$holds);
 
@@ -237,7 +214,7 @@ it('leaves a proof of what it judged, which a last-run change carries while its 
         ->and(count($carrying(Digests::of($mutation)->withSource($unit, Digest::sha256Of('money since')))->considered()))->toBe(1);
 })->with($libraries)->group(...$holds);
 
-it('gives a kill how far its run went where its runner can tell, and no ending where it names a killer', function (Library $library) use ($makeMoney): void {
+it('keys how far a kill went where its runner can tell', function (Library $library) use ($makeMoney): void {
     $money = $makeMoney();
 
     $result = $money($library);
@@ -248,29 +225,10 @@ it('gives a kill how far its run went where its runner can tell, and no ending w
     $evidence = $result instanceof MutationResult && $killed !== [] ? $result->evidence()->of($killed[0]->id()) : Evidence::none();
     $prefix = $evidence->prefix();
 
-    expect($killed)->toHaveCount(1)
-        ->and($evidence->ended())->toBeInstanceOf(NotGiven::class)
-        ->and($library->runner() instanceof Infection ? $prefix instanceof NotGiven : $prefix instanceof Prefix && $prefix->position() >= 1)
-        ->toBeTrue()
+    expect($library->runner() instanceof Infection ? $prefix instanceof NotGiven : $prefix instanceof Prefix)->toBeTrue()
         ->and($prefix instanceof Prefix && is_string($prefix->key()) ? $prefix->key() : '')
         ->toMatch($library->runner() instanceof Infection || $library->runner() instanceof RunnerFake ? '/^$/' : '/^[0-9a-f]{12}$/')
         ->and($result instanceof MutationResult ? count($result->evidence()) : -1)->toBe($library->runner() instanceof Infection ? 0 : 1);
-})->with($libraries)->group(...$holds);
-
-it('names the steps its time went to, in the order they started, the mutants\' run among them with every mutant it judged', function (Library $library) use ($makeMoney): void {
-    $money = $makeMoney();
-
-    $result = $money($library);
-    $steps = $result instanceof MutationResult ? [...$result->steps()] : [];
-    $since = array_map(static fn(StepTime $step): float => $step->since()->seconds(), $steps);
-    $ordered = $since;
-    sort($ordered);
-    $mutation = array_values(array_filter($steps, static fn(StepTime $step): bool => $step->step() === Step::Mutation));
-
-    expect($mutation)->toHaveCount(1)
-        ->and($mutation[0]->count())->toBe($result instanceof MutationResult ? count($result->mutants()) : -1)
-        ->and($since)->toBe($ordered)
-        ->and(array_filter($steps, static fn(StepTime $step): bool => $step->took()->seconds() < 0.0))->toBe([]);
 })->with($libraries)->group(...$holds);
 
 it('reports the same four mutants from warm workers, and warns of nothing, with PHPUnit', function (): void {
@@ -302,97 +260,22 @@ it('lets a mutant survive in a project that fails on PHPUnit\'s own deprecations
         ->toContain(...$library->expected('large'));
 })->skip(fn(): bool => ! Library::isPhpUnitInstalled(), 'the PHPUnit runner contracts steps install its library')->group(...$holds);
 
-it('measures each mutant it ran, and gives a timed-out one its limit', function (Library $library) use ($makeMoney): void {
+it('holds a timed-out mutant to a limit of five seconds at least', function (Library $library) use ($makeMoney): void {
     $money = $makeMoney();
 
     $result = $money($library);
-    $measured = [];
     $limits = [];
 
     foreach ($result instanceof MutationResult ? $result->mutants() : Mutants::none() as $mutant) {
-        $duration = $mutant->duration();
         $limit = $mutant->limit();
-        $measured[$mutant->status()->value] = $duration instanceof Seconds && $duration->seconds() > 0.0;
         $limits[$mutant->status()->value] = $limit instanceof Seconds && $limit->seconds() >= 5.0;
     }
 
-    $ran = $library->measures();
-
-    expect($measured)
-        ->toEqualCanonicalizing(['killed' => $ran, 'survived' => $ran, 'uncovered' => false, 'timed-out' => $ran])
-        ->and($limits)
+    expect($limits)
         ->toEqualCanonicalizing(['killed' => false, 'survived' => false, 'uncovered' => false, 'timed-out' => true]);
 })->with($libraries)->group(...$holds);
 
-it('reports only the files it was asked for, less the paths left out', function (Library $library) use ($makeFiles): void {
-    $files = $makeFiles();
-
-    $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests())
-        ->narrowedTo(Paths::of(Path::of('src')), Narrowing::none()->toMutators($library->mutators('adds')));
-    $everything = $library->mutate('src', $request);
-    $leftOut = $library->mutate('src less held', $request->leavingOut(Paths::of(Path::of('src/Held.php'))));
-
-    $asked = $everything instanceof MutationResult ? $files($everything->mutants()) : [];
-
-    expect($asked)->toEqualCanonicalizing(['src/Money.php', 'src/Held.php'])
-        ->and($leftOut instanceof MutationResult ? $files($leftOut->mutants()) : [])->toBe(['src/Money.php']);
-})->with($libraries)->group(...$holds);
-
-it('judges each file alike in a chunk of its own and in one beside another file, as a doomed run\'s chunks rely on', function (Library $library): void {
-    $request = static fn(Path ...$files): MutationRequest => MutationRequest::of(Paths::of(...$files), WholeSuite::tests())
-        ->narrowedTo(Paths::of(...$files), Narrowing::none()->toMutators($library->mutators('adds')));
-    $records = static fn(MutationResult|CannotJudge $result): array => $result instanceof MutationResult
-        ? Library::records($result->mutants())
-        : [$result->why()];
-    $together = $library->mutate('money and held', $request(Path::of('src/Money.php'), Path::of('src/Held.php')));
-    $money = $library->mutate('money alone', $request(Path::of('src/Money.php')));
-    $held = $library->mutate('held alone', $request(Path::of('src/Held.php')));
-
-    expect($records($together))->not->toBe([])
-        ->and($records($together))->toEqualCanonicalizing([...$records($money), ...$records($held)])
-        ->and($records($money))->not->toBe([])
-        ->and($records($held))->not->toBe([]);
-})->with($libraries)->group(...$holds);
-
-it('gives every mutant an id of its own in the gate\'s spelling', function (Library $library) use ($makeMoney): void {
-    $money = $makeMoney();
-
-    $result = $money($library);
-    $mutants = $result instanceof MutationResult ? iterator_to_array($result->mutants(), preserve_keys: false) : [];
-    $ids = array_map(static fn(Mutant $mutant): string => $mutant->id()->value(), $mutants);
-
-    expect($ids)->not->toBe([])
-        ->and(array_unique($ids))->toBe($ids)
-        ->and(array_filter($ids, static fn(string $id): bool => ! MutantId::parse($id) instanceof MutantId))->toBe([]);
-})->with($libraries)->group(...$holds);
-
-it('judges a held path by its group alone, where a test outside it would kill it', function (Library $library): void {
-    $request = MutationRequest::of(Paths::of(Path::of('src/Held.php')), Group::named('holds:src/Held.php'))
-        ->narrowedTo(Paths::of(Path::of('src/Held.php')), Narrowing::none()->toMutators($library->mutators('held')));
-    $result = $library->mutate('held', $request);
-
-    $records = $result instanceof MutationResult ? Library::records($result->mutants()) : [];
-
-    expect($records)->toBe($library->expected('held'));
-})->with($libraries)->group(...$holds);
-
-it('runs a survivor again alone and matches it back by the gate\'s id', function (Library $library) use ($makeMoney): void {
-    $money = $makeMoney();
-
-    $result = $money($library);
-    $survivors = Mutants::none();
-
-    foreach ($result instanceof MutationResult ? $result->mutants() : Mutants::none() as $mutant) {
-        $survivors = $mutant->status() === MutantStatus::Survived ? $survivors->with($mutant) : $survivors;
-    }
-
-    $retried = $library->runner()->retry(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()), $survivors, Seconds::of(60.0));
-
-    expect(count($survivors))->toBe(1)
-        ->and($retried instanceof Mutants ? Library::records($retried) : [])->toBe(Library::records($survivors));
-})->with($libraries)->group(...$holds);
-
-it('gives a survivor as a static analyser checks it: its original with only its change made', function (Library $library) use ($makeMoney): void {
+it('gives a survivor as a static analyser checks it, against the library\'s file as written', function (Library $library) use ($makeMoney): void {
     $money = $makeMoney();
 
     $result = $money($library);
@@ -408,99 +291,26 @@ it('gives a survivor as a static analyser checks it: its original with only its 
         ? sprintf('%s', file_get_contents(Tree::at(sprintf('%s/src/Money.php', Library::DIRECTORY))))
         : $original->text();
     $mutantText = $checkable instanceof Checkable ? $checkable->mutant()->text() : '';
-    $change = Library::CHANGES['large'];
+    $change = LibraryChange::Large;
 
-    expect($checkable)->toBeInstanceOf(Checkable::class)
-        ->and($mutantText)->toContain($change['added'])
-        ->and($mutantText)->not->toContain($change['removed'])
-        ->and(str_replace($change['added'], $change['removed'], $mutantText))->toBe($originalText);
+    expect(str_replace($change->added(), $change->removed(), $mutantText))->toBe($originalText);
 })->with($libraries)->group(...$holds);
 
-it('cannot give a mutant as an analyser checks it where its file is gone', function (Library $library) use ($makeMoney): void {
+it('reproduces a survivor printing what its runner printed', function (Library $library) use ($makeMoney): void {
     $money = $makeMoney();
 
     $result = $money($library);
-    $gone = [];
+    $printed = [];
 
     foreach ($result instanceof MutationResult ? $result->mutants() : Mutants::none() as $mutant) {
-        $gone = [Mutant::of(
-            $mutant->id(),
-            $mutant->nativeId(),
-            Location::of(Path::of('src/Gone.php'), $mutant->location()->start(), $mutant->location()->end()),
-            $mutant->mutation(),
-            $mutant->status(),
-            $mutant->duration(),
-        )];
+        $reproduced = $mutant->status() === MutantStatus::Survived
+            ? $library->runner()->reproduce(Reproducible::of($mutant), MutationRequest::of(Paths::none(), WholeSuite::tests())->withholding(Withheld::standard()), Seconds::of(60.0))
+            : null;
+        $printed = $reproduced instanceof Reproduction ? [...$printed, $reproduced->printed()] : $printed;
     }
 
-    $answers = array_map(static fn(Mutant $mutant): string => $library->runner()->checkable($mutant)::class, $gone);
-
-    expect($answers)->toBe([CannotJudge::class]);
-})->with($libraries)->group(...$holds);
-
-it('reproduces a survivor on its own, matched back by the gate\'s id, with what the runner printed', function (Library $library) use ($makeMoney): void {
-    $money = $makeMoney();
-
-    $result = $money($library);
-    $survivors = Mutants::none();
-
-    foreach ($result instanceof MutationResult ? $result->mutants() : Mutants::none() as $mutant) {
-        $survivors = $mutant->status() === MutantStatus::Survived ? $survivors->with($mutant) : $survivors;
-    }
-
-    $reproduced = [];
-
-    foreach ($survivors as $survivor) {
-        $reproduced[] = $library->runner()->reproduce(Reproducible::of($survivor), MutationRequest::of(Paths::none(), WholeSuite::tests())->withholding(Withheld::standard()), Seconds::of(60.0));
-    }
-
-    expect($reproduced)->toHaveCount(1)
-        ->and($reproduced[0] instanceof Reproduction && $reproduced[0]->mutant() instanceof Mutant ? Library::records(Mutants::of($reproduced[0]->mutant())) : $reproduced)->toBe(Library::records($survivors))
-        ->and($reproduced[0] instanceof Reproduction ? $reproduced[0]->printed() : '')->toContain($library->prints());
-})->with($libraries)->group(...$holds);
-
-it('reproduces a mutant by the tests that judged its unit, and says the run made none where it no longer makes it', function (Library $library) use ($makeMoney): void {
-    $money = $makeMoney();
-
-    $result = $money($library);
-    $survivor = null;
-
-    foreach ($result instanceof MutationResult ? $result->mutants() : Mutants::none() as $mutant) {
-        $survivor = $mutant->status() === MutantStatus::Survived ? $mutant : $survivor;
-    }
-
-    $runner = $library->runner();
-    $held = $survivor instanceof Mutant ? $runner->reproduce(Reproducible::of($survivor), MutationRequest::of(Paths::none(), Group::named('holds:src/Held.php'))->withholding(Withheld::standard()), Seconds::of(60.0)) : null;
-    $gone = $survivor instanceof Mutant ? $runner->reproduce(
-        Reproducible::of(Mutant::of(MutantId::hash(Path::of('src/Money.php'), 'gone', '-a', 0), '', $survivor->location(), $survivor->mutation(), MutantStatus::Survived, $survivor->duration())),
-        MutationRequest::of(Paths::none(), WholeSuite::tests()),
-        Seconds::of(60.0),
-    ) : null;
-
-    // The group holds another file, so none of its tests reaches the survivor.
-    expect($held instanceof Reproduction && $held->mutant() instanceof Mutant ? $held->mutant()->status() : $held)->toBe(MutantStatus::Uncovered)
-        ->and($gone instanceof Reproduction ? $gone->mutant() : $gone)->toBeInstanceOf(Unmade::class);
-})->with($libraries)->group(...$holds);
-
-it('retries a mutant by the tests that judged its unit', function (Library $library) use ($makeMoney): void {
-    $money = $makeMoney();
-
-    $result = $money($library);
-    $survivors = Mutants::none();
-
-    foreach ($result instanceof MutationResult ? $result->mutants() : Mutants::none() as $mutant) {
-        $survivors = $mutant->status() === MutantStatus::Survived ? $survivors->with($mutant) : $survivors;
-    }
-
-    $retried = $library->runner()->retry(MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('holds:src/Held.php')), $survivors, Seconds::of(60.0));
-    $statuses = [];
-
-    foreach ($retried instanceof Mutants ? $retried : Mutants::none() as $mutant) {
-        $statuses[] = $mutant->status();
-    }
-
-    // The group holds another file, so none of its tests reaches the survivor.
-    expect($statuses)->toBe([MutantStatus::Uncovered]);
+    expect($printed)->toHaveCount(1)
+        ->and($printed[0] ?? '')->toContain($library->prints());
 })->with($libraries)->group(...$holds);
 
 it('reads back the gate\'s own map of what it ran, and cannot judge a map that is not there', function (
@@ -522,16 +332,6 @@ it('reads back the gate\'s own map of what it ran, and cannot judge a map that i
         ->and($read)->toEqual(CoverageMapFile::decode($written, HandedMaps::limits()))
         ->and($missing)->toBeInstanceOf(CannotJudge::class);
 })->with($onDisk)->group(...$holds);
-
-it('names the test files that judge a covered file, and none for an uncovered one', function (Library $library): void {
-    $request = CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));
-    $map = $library->runner()->coverage($request);
-    $covered = $map instanceof CoverageMap ? $library->runner()->judges(Path::of('src/Money.php'), $map) : $map;
-    $uncovered = $map instanceof CoverageMap ? $library->runner()->judges(Path::of('src/Nowhere.php'), $map) : $map;
-
-    expect($covered)->toEqual(Paths::of($library->testFile('tests/DrainSpec.php'), $library->testFile('tests/MoneySpec.php')))
-        ->and($uncovered)->toEqual(Paths::none());
-})->with($libraries)->group(...$holds);
 
 // pcov, left unset, collects from src/ alone, so the lines of beside/ would
 // read as run by no test.
@@ -568,103 +368,17 @@ it('keeps its map beside a pull request\'s ledger, and reads it back first, from
         ->and($kept instanceof KeptMap ? RunnerContracts::lines($kept->map()) : $kept)->toBe(RunnerContracts::lines($full));
 })->with($onDisk)->group(...$holds);
 
-it('measures a test file again, names the tests it holds, and the merged map is a full run\'s', function (Library $library): void {
-    $runner = $library->runner();
-    $full = $runner->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage')));
-    $covering = $full instanceof CoverageMap
-        ? $full->testsCoveringFile(Path::of('src/Money.php'))
-        : TestIds::none();
-    $first = [...$covering][0] ?? TestId::of('none');
-    $names = $runner->names(TestIds::of($first), Withheld::standard());
-    $name = $names instanceof TestNames ? $names->testOf($first) : $first;
-    $files = Paths::of($name instanceof TestName ? $name->file() : Path::of('none'));
-    $held = $full instanceof CoverageMap ? $runner->testsIn($files, $full) : $full;
-    $again = $runner->coverage(CoverageRun::of(TestPaths::of($files), Path::of('.mutation-gate/again')));
-    $merged = $full instanceof CoverageMap && $held instanceof TestIds && $again instanceof CoverageMap
-        ? Remeasured::over($full, $held, $again)
-        : $again;
-
-    expect($held instanceof TestIds && $held->has($first))->toBeTrue()
-        ->and($again instanceof CoverageMap ? count($again->tests()) : $again)->toBeGreaterThan(0)
-        ->and($merged instanceof CoverageMap ? RunnerContracts::lines($merged) : $merged)
-        ->toBe($full instanceof CoverageMap ? RunnerContracts::lines($full) : $full);
-})->with($libraries)->group(...$holds);
-
-it('measures the same map across two processes as in one', function (Library $library): void {
-    $runner = $library->runner();
-    $one = $runner->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage')));
-    $two = $runner->coverage(
-        CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/across'))->across(ProcessCount::of(2)),
-    );
-
-    expect($two instanceof CoverageMap ? RunnerContracts::lines($two) : $two)
-        ->toBe($one instanceof CoverageMap ? RunnerContracts::lines($one) : $one)
-        ->and($two instanceof CoverageMap ? $two->tests() : $two)->toEqual($one instanceof CoverageMap ? $one->tests() : $one);
-})->with($libraries)->group(...$holds);
-
-it('measures several test files again at once, naming the tests of each', function (Library $library): void {
-    $runner = $library->runner();
-    $full = $runner->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage')));
-    $tests = $full instanceof CoverageMap ? $full->tests() : TestIds::none();
-    $names = $runner->names($tests, Withheld::standard());
-    $files = Paths::none();
-
-    foreach ($tests as $test) {
-        $name = $names instanceof TestNames ? $names->testOf($test) : $test;
-        $files = $name instanceof TestName && count($files) < 2 ? $files->with($name->file()) : $files;
-    }
-
-    $again = $runner->coverage(CoverageRun::of(TestPaths::of($files), Path::of('.mutation-gate/again'))->across(ProcessCount::of(2)));
-    $held = $full instanceof CoverageMap ? $runner->testsIn($files, $full) : $full;
-
-    expect($files)->toHaveCount(2)
-        ->and($again instanceof CoverageMap ? $again->tests() : $again)->toEqual($held);
-})->with($libraries)->group(...$holds);
-
-it('reads the reports a coverage run it did not start left in a directory as the map its own run measures', function (Library $library): void {
-    $runner = $library->runner();
-    $own = $runner->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage')));
-
-    expect($own)->toBeInstanceOf(CoverageMap::class)
-        ->and($runner->coverage(CoverageRan::in(Path::of('.mutation-gate/coverage'))))->toEqual($own);
-})->with($libraries)->group(...$holds);
-
-it('places every test of a full run\'s map in the test files that hold them, so a kept map can be measured by file', function (Library $library): void {
-    $runner = $library->runner();
-    $full = $runner->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage')));
-    $tests = $full instanceof CoverageMap ? $full->tests() : TestIds::none();
-    $names = $runner->names($tests, Withheld::standard());
-    $files = Paths::none();
-
-    foreach ($tests as $test) {
-        $name = $names instanceof TestNames ? $names->testOf($test) : $test;
-        $files = $name instanceof TestName ? $files->with($name->file()) : $files;
-    }
-
-    $placed = $full instanceof CoverageMap ? $runner->testsIn($files, $full) : $full;
-
-    expect(count($tests))->toBeGreaterThan(0)
-        ->and($placed instanceof TestIds ? count($tests->without($placed)) : $placed)->toBe(0);
-})->with($libraries)->group(...$holds);
-
-it('finds its runner\'s own ignore marker, and none in code without one', function (Library $library): void {
+it('finds its runner\'s own ignore marker', function (Library $library): void {
     $found = $library->runner()->markers(Paths::of(Path::of('marked')));
-    $none = $library->runner()->markers(Paths::of(Path::of('src/Money.php')));
     $where = $found instanceof Markers
         ? array_map(static fn(Marker $marker): string => $marker->where(), iterator_to_array($found, preserve_keys: false))
         : [];
 
-    expect($where)->toBe($library->markers())
-        ->and($none instanceof Markers ? count($none) : -1)->toBe(0);
+    expect($where)->toBe($library->markers());
 })->with($libraries)->group(...$holds);
 
-it('names the files that define it, the library\'s own among them, from the project\'s root', function (Library $library): void {
+it('names the library\'s own files among those that define it', function (Library $library): void {
     $definitions = $library->runner()->definitions();
-
-    foreach ($definitions as $definition) {
-        expect($definition->value())->not->toStartWith('/')
-            ->and($definition->value())->not->toBe('.');
-    }
 
     foreach ($library->defining() as $file) {
         expect($definitions->has($file))->toBeTrue();
@@ -727,9 +441,8 @@ it('judges by the tests a package\'s own PHPUnit config names when rooted in it 
     expect($judges)->toEqual(Paths::of($library->testFile('plugins/stock/tests/StockSpec.php')));
 })->with($onDisk)->group(...$holds);
 
-it('cannot judge a directory that holds no project it can run', function (Library $library): void {
-    expect($library->runner()->rootedAt(Path::of('src'), $library->packageTests()))->toBeInstanceOf(CannotJudge::class)
-        ->and($library->outside()->rootedAt(Path::of('nowhere'), $library->packageTests()))->toBeInstanceOf(CannotJudge::class);
+it('cannot judge a directory that holds no project it can run, rooted from the directory around it', function (Library $library): void {
+    expect($library->outside()->rootedAt(Path::of('nowhere'), $library->packageTests()))->toBeInstanceOf(CannotJudge::class);
 })->with($libraries)->group(...$holds);
 
 it('has the Codeception library installed wherever the Codeception runner contracts run', function (): void {

@@ -13,6 +13,8 @@ use PhpToken;
  * The plain variables a scope assigns only what runs nothing, which reading
  * then runs nothing either: each assigned, by value, a value that runs
  * nothing, reading at most variables that are its own in turn.
+ *
+ * @internal
  */
 final readonly class OwnVariables
 {

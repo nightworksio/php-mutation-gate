@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
 /**
  * A PHP program to run: its arguments, the environment it sets, the
  * variables it never inherits, and how long it may take.
+ *
+ * @internal
  */
 final readonly class Command
 {

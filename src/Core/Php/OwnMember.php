@@ -9,6 +9,8 @@ use function mb_strtolower;
 /**
  * How a class names itself and its parent, and calls its own members:
  * `$this->m()`, `self::m()`, `static::m()` or `parent::m()`.
+ *
+ * @internal
  */
 final readonly class OwnMember
 {

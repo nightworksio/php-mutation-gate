@@ -7,7 +7,11 @@ namespace NightWorksIO\MutationGate\Core\Runner;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 
-/** An amount of memory as the gate's files write one: a whole number of bytes, more than none. */
+/**
+ * An amount of memory as the gate's files write one: a whole number of bytes, more than none.
+ *
+ * @internal
+ */
 final readonly class WrittenBytes
 {
     /** @throws NotInShape */

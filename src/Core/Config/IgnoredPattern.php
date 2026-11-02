@@ -16,6 +16,8 @@ use function sprintf;
 /**
  * The mutants of one mutator, by its full name or its family, in the paths a
  * glob matches, which the config ignores with a reason (ADR-0008).
+ *
+ * @internal
  */
 final readonly class IgnoredPattern implements Ignored
 {

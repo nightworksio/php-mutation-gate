@@ -18,6 +18,8 @@ use function token_get_all;
  * whitespace, a comment or the opening tag. A line holding only a brace or a
  * semicolon counts for nothing, because the tokenizer gives those tokens with
  * no line of their own.
+ *
+ * @internal
  */
 final readonly class LinesOfCode
 {

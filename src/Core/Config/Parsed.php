@@ -30,6 +30,8 @@ use function var_export;
  * and one with a time of day is refused. A number JSON cannot hold, such as
  * an unquoted mutant id read as an infinite float, becomes text the definition
  * can name. Any other object is refused: config is data (ADR-0002).
+ *
+ * @internal
  */
 final readonly class Parsed
 {

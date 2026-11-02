@@ -28,6 +28,8 @@ use function str_starts_with;
  * file is compared by (ADR-0005). A key no setting declares,
  * outside every setting that declares what it holds, is kept in both, so a
  * key the definition does not know never goes unnoticed.
+ *
+ * @internal
  */
 final readonly class Canonical
 {

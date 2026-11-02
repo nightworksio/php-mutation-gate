@@ -11,6 +11,8 @@ namespace NightWorksIO\MutationGate\Core\Runner;
  * cap needed far more than its suite, so it ran away. Under it, a mutant
  * the cap stopped may have needed only a little more than the suite did,
  * which says nothing of its tests.
+ *
+ * @internal
  */
 final readonly class Headroom
 {

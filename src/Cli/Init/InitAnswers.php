@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * What `init`'s first questions settle, before the settings are read: the
  * command line with the runner a person chose, the Infection config to
  * import, and the CI to write a definition for.
+ *
+ * @internal
  */
 final readonly class InitAnswers
 {

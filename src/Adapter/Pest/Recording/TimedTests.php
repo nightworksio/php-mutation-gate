@@ -37,6 +37,8 @@ use function sprintf;
  * the file `MUTATION_GATE_TIMED_TESTS` names, by every process of the run.
  * The map PHPUnit writes leaves out a test that ran no line it measures, so
  * the gate adds these to it: the map then knows every test that ran.
+ *
+ * @internal
  */
 final class TimedTests
 {

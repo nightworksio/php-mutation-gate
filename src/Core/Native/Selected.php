@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
  * in the group or matching the filter that judges the unit, and declared in
  * the files it names, where it is told each; every test where it is told
  * none of them; and none for a listing, which runs no test.
+ *
+ * @internal
  */
 final readonly class Selected
 {

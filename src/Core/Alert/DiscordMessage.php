@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Format\JsonText;
  * recovery and grey otherwise, titled and linked to the run, its groups in
  * the description. It lets nothing mention anyone, and each part is cut to
  * Discord's limit (ADR-0016).
+ *
+ * @internal
  */
 final readonly class DiscordMessage
 {

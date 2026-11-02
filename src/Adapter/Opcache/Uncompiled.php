@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Opcache;
 
-/** Why opcache gave no opcodes of a program, which then proves nothing. */
+/**
+ * Why opcache gave no opcodes of a program, which then proves nothing.
+ *
+ * @internal
+ */
 enum Uncompiled
 {
     /** PHP could not compile the program, or the child that compiled it stopped. */

@@ -114,6 +114,26 @@ final readonly class Source
         return $names;
     }
 
+    /**
+     * Every class the file imports, by the name the file gives it.
+     *
+     * @return array<string, string>
+     */
+    public function imports(): array
+    {
+        $found = [];
+
+        foreach (new NodeFinder()->findInstanceOf($this->statements, Use_::class) as $use) {
+            foreach ($use->uses as $item) {
+                if ($use->type === Use_::TYPE_NORMAL || $item->type === Use_::TYPE_NORMAL) {
+                    $found[$item->getAlias()->toString()] = $item->name->toString();
+                }
+            }
+        }
+
+        return $found;
+    }
+
     /** The class PSR-4 says a file at this path declares, or nothing where no PSR-4 root holds it. */
     public static function classAtPath(string $path): string
     {
@@ -155,16 +175,6 @@ final readonly class Source
      */
     private function imported(): array
     {
-        $found = [];
-
-        foreach (new NodeFinder()->findInstanceOf($this->statements, Use_::class) as $use) {
-            foreach ($use->uses as $item) {
-                if ($use->type === Use_::TYPE_NORMAL || $item->type === Use_::TYPE_NORMAL) {
-                    $found[] = $item->name->toString();
-                }
-            }
-        }
-
-        return $found;
+        return array_values($this->imports());
     }
 }

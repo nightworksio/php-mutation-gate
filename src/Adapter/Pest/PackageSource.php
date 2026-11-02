@@ -22,7 +22,11 @@ use RecursiveIteratorIterator;
 
 use function sprintf;
 
-/** The source of pest-plugin-mutate in a vendor directory, as a VendorPatch reads and writes it. */
+/**
+ * The source of pest-plugin-mutate in a vendor directory, as a VendorPatch reads and writes it.
+ *
+ * @internal
+ */
 final readonly class PackageSource
 {
     /** Patch the package in a vendor directory, and say what was done. */

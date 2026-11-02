@@ -16,7 +16,11 @@ use NightWorksIO\MutationGateDefault\Numbers;
 use PhpParser\Node;
 use PhpParser\Node\Scalar\Float_;
 
-/** A float becomes one more. */
+/**
+ * A float becomes one more.
+ *
+ * @internal
+ */
 final readonly class IncrementFloat implements Mutator
 {
     public function name(): MutatorName

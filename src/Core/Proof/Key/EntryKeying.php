@@ -27,6 +27,8 @@ use function sprintf;
  * code, support and executed files are unchanged takes the same path, so it
  * covers the same lines; a test that could reach new code must execute or
  * name a changed file to get there, so its key moves.
+ *
+ * @internal
  */
 final readonly class EntryKeying
 {

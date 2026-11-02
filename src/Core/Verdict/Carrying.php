@@ -32,6 +32,8 @@ use NightWorksIO\MutationGate\Core\Test\TestNames;
  * coverage map. A result stands for the unit only where its source and what
  * decides its mutant set are unchanged; then each of its mutants stands, or
  * is unjudged, as {@see Carry} says.
+ *
+ * @internal
  */
 final readonly class Carrying
 {

@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * An object whose named parts each move to a key of their own. A part it
  * does not name stays where it was, and a scalar cannot be split: either is
  * left for a hand edit (ADR-0026).
+ *
+ * @internal
  */
 final readonly class Split implements Step
 {

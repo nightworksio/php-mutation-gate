@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
  * first: each set below its floor, as every report says it, what kept the
  * run from judging, and each failure no floor decides; then that the run was
  * cut short, where it was, and last the project's score.
+ *
+ * @internal
  */
 final readonly class Reasons
 {

@@ -43,6 +43,8 @@ use NightWorksIO\MutationGate\Port\Processes;
  *   it is where it has made no progress for its silence limit.
  * - A process that cannot start, or fails while running, ends as a failure,
  *   with the reason as its output.
+ *
+ * @internal
  */
 final readonly class ProcessShell implements Shell
 {

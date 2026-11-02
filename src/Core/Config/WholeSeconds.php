@@ -8,7 +8,11 @@ use function intval;
 
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
-/** Seconds a layer sets, as a config writes them: a whole count; nothing where the layer sets none. */
+/**
+ * Seconds a layer sets, as a config writes them: a whole count; nothing where the layer sets none.
+ *
+ * @internal
+ */
 final readonly class WholeSeconds
 {
     public static function written(Seconds|Absent $seconds): int|Absent

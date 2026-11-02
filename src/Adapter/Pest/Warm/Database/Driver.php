@@ -12,6 +12,8 @@ use function str_contains;
 /**
  * The databases whose state a warm worker can tell and reset (ADR-0023), by
  * the driver name Laravel's database config gives each.
+ *
+ * @internal
  */
 enum Driver: string
 {

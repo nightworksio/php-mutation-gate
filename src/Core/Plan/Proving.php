@@ -22,6 +22,8 @@ use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
  * already covers, and those left to run. The default branch's proof is taken
  * before the run's own scope's, and where the two disagree the unit runs. A
  * unit with no key always runs.
+ *
+ * @internal
  */
 final readonly class Proving
 {

@@ -21,6 +21,8 @@ use NightWorksIO\MutationGate\Core\Test\Role;
  * the runner; outside them, the config, the files that define the runner,
  * every CI definition, and every file that is no PHP source and that no key
  * leaves out.
+ *
+ * @internal
  */
 final readonly class EveryEntryReads
 {

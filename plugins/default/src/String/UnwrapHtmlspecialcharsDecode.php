@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `htmlspecialchars_decode(…)` becomes its first argument. */
+/**
+ * `htmlspecialchars_decode(…)` becomes its first argument.
+ *
+ * @internal
+ */
 final readonly class UnwrapHtmlspecialcharsDecode implements Mutator
 {
     public function name(): MutatorName

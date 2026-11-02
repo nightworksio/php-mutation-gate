@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\S3;
 
-/** The URL of a store that speaks S3 other than AWS's own: R2's, or MinIO's. */
+/**
+ * The URL of a store that speaks S3 other than AWS's own: R2's, or MinIO's.
+ *
+ * @internal
+ */
 final readonly class Endpoint
 {
     private function __construct(private string $url)

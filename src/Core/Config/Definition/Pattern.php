@@ -18,6 +18,8 @@ use NightWorksIO\MutationGate\Core\Format\Node;
  * there is `src/**`. Every path a glob matches is a path from the project, so
  * one that goes up out of it, or is absolute, is refused.
  *
+ * @internal
+ *
  * @implements Shape<Glob>
  */
 final readonly class Pattern implements Shape

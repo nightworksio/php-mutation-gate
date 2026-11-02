@@ -34,6 +34,8 @@ use Symfony\Component\Console\Input\InputOption;
  * where the manager reads none, and otherwise printed as what to add to
  * the one it reads; with `--stdout`, printed whole. Each manager calls the
  * gate Composer linked into the project.
+ *
+ * @internal
  */
 final readonly class HookFrameworkFiles
 {

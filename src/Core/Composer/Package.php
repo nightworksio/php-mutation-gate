@@ -8,6 +8,8 @@ namespace NightWorksIO\MutationGate\Core\Composer;
  * A package the gate names, as Composer names it: a runner or an analyser it
  * drives or detects, a package whose version decides how a runner judges, or
  * a framework that says which preset fits.
+ *
+ * @internal
  */
 enum Package: string
 {

@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  * How long tests take on their own, one after another, as a coverage map
  * timed them: what a mutant's limit and timeout triage weigh its run
  * against (ADR-0008).
+ *
+ * @internal
  */
 final readonly class OwnTime
 {

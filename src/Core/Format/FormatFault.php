@@ -11,6 +11,8 @@ use LogicException;
  * fixed pattern over text scrubbed to valid UTF-8, gzip packing at its
  * default level, or decoding a key of text already read as JSON. Reaching
  * this is a mistake in the code, not in what it was handed.
+ *
+ * @internal
  */
 final class FormatFault extends LogicException
 {

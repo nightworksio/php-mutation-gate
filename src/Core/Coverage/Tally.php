@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
  * Covered lines, read into what LineTests holds: each test's place in the
  * list of tests, in the order they are first read, and each line's places in
  * the order its tests ran it.
+ *
+ * @internal
  */
 final readonly class Tally
 {

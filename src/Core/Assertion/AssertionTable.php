@@ -21,6 +21,8 @@ use function var_export;
  * Pest and every matcher PhpSpec builds in, and a test proves it does. An
  * assertion it does not hold, such as a project's own, is unclassified
  * (ADR-0025).
+ *
+ * @internal
  */
 final readonly class AssertionTable
 {

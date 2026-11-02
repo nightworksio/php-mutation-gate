@@ -7,7 +7,11 @@ namespace NightWorksIO\MutationGate\Core;
 use function dirname;
 use function sprintf;
 
-/** The gate itself, as Composer installs it and as a project names it. */
+/**
+ * The gate itself, as Composer installs it and as a project names it.
+ *
+ * @internal
+ */
 final readonly class ThisPackage
 {
     /** Its Composer package. */

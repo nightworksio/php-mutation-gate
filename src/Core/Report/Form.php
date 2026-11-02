@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report;
 
-/** How a command that reports, such as `doctor` or `explain`, writes: for a person, or as its public JSON. */
+/**
+ * How a command that reports, such as `doctor` or `explain`, writes: for a person, or as its public JSON.
+ *
+ * @internal
+ */
 enum Form: string
 {
     case Text = 'text';

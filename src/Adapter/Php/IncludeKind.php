@@ -8,7 +8,11 @@ use PhpParser\Node\Expr\Include_;
 
 use function sprintf;
 
-/** A kind of include, by the word PHP spells it with. */
+/**
+ * A kind of include, by the word PHP spells it with.
+ *
+ * @internal
+ */
 enum IncludeKind: string
 {
     case Include = 'include';

@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `str_pad(…)` becomes its first argument. */
+/**
+ * `str_pad(…)` becomes its first argument.
+ *
+ * @internal
+ */
 final readonly class UnwrapStrPad implements Mutator
 {
     public function name(): MutatorName

@@ -35,6 +35,8 @@ use function str_starts_with;
  * trait, function or constant one of those uses, fully qualified or spelt in
  * a string, and what those need in turn. A name none of them declares comes
  * from what every run loads, such as the autoloader.
+ *
+ * @internal
  */
 final class LoadedTests
 {

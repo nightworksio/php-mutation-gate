@@ -25,6 +25,8 @@ use function sprintf;
  * nowhere. It is in Infection's own directory of the gate's workspace, one
  * for each process of the gate, so two runs in one checkout never share it,
  * and it is removed when the run is done.
+ *
+ * @internal
  */
 final readonly class MemoryScan
 {

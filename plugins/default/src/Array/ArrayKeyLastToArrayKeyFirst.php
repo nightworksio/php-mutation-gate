@@ -16,7 +16,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `array_key_last(…)` becomes `array_key_first(…)`. */
+/**
+ * `array_key_last(…)` becomes `array_key_first(…)`.
+ *
+ * @internal
+ */
 final readonly class ArrayKeyLastToArrayKeyFirst implements Mutator
 {
     public function name(): MutatorName

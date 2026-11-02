@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * package builds in wins its own CI's variables: another package's plan is
  * detected only where none of this package's is, and is otherwise chosen by
  * name.
+ *
+ * @internal
  */
 final readonly class Detections
 {

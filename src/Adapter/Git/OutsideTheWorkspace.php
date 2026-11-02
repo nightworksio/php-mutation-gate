@@ -14,6 +14,8 @@ use function sprintf;
  * never makes a working tree hold more than its commit. A pathspec that only
  * excludes matches everything else, and git reads an argument of pathspec
  * magic as a path, so it needs neither `.` nor `--`.
+ *
+ * @internal
  */
 final readonly class OutsideTheWorkspace
 {

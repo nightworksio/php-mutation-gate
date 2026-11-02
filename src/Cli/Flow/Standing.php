@@ -23,6 +23,8 @@ use function sprintf;
  * run's ref, and a detached `HEAD` has none. The default branch is
  * `ci.defaultBranch` where the config sets it, then the CI's, then the one
  * `origin/HEAD` points at, and `main` where nothing names one.
+ *
+ * @internal
  */
 final readonly class Standing
 {

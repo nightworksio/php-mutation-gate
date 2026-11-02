@@ -16,7 +16,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\BinaryOp\BitwiseAnd;
 use PhpParser\Node\Expr\BinaryOp\BitwiseXor;
 
-/** `^` becomes `&`. */
+/**
+ * `^` becomes `&`.
+ *
+ * @internal
+ */
 final readonly class BitwiseXorToBitwiseAnd implements Mutator
 {
     public function name(): MutatorName

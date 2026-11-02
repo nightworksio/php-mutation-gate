@@ -27,6 +27,8 @@ use function sprintf;
  * mutator set a preset turns on that is not installed; the suites whose
  * tests the gate runs none of, as they serve the application from another
  * process; and what the shards warn of.
+ *
+ * @internal
  */
 final readonly class VerdictWarnings
 {

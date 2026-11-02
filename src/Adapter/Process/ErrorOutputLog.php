@@ -10,7 +10,11 @@ use NightWorksIO\MutationGate\Core\Runner\ProcessLog;
 
 use function sprintf;
 
-/** A log the gate says its lines on, each a line of its own: its error output, which CI keeps as the job's log. */
+/**
+ * A log the gate says its lines on, each a line of its own: its error output, which CI keeps as the job's log.
+ *
+ * @internal
+ */
 final readonly class ErrorOutputLog implements ProcessLog
 {
     /** The gate's own error output. */

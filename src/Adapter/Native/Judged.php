@@ -8,7 +8,11 @@ use NightWorksIO\MutationGate\Core\Mutant\Evidences;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
-/** The mutants a mutation run judged, in the order they were made, what it warns of, and the evidence of its kills. */
+/**
+ * The mutants a mutation run judged, in the order they were made, what it warns of, and the evidence of its kills.
+ *
+ * @internal
+ */
 final readonly class Judged
 {
     /** @param list<Mutant> $mutants */

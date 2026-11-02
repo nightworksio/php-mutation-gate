@@ -40,6 +40,8 @@ use function sprintf;
  * proof it came from (ADR-0015), and each mutant is judged by
  * the tests the kill matrix says cover it, of a held unit only those its
  * holding tests that run it are among (ADR-0004, ADR-0005).
+ *
+ * @internal
  */
 final readonly class Judge
 {

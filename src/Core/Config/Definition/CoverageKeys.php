@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Core\Format\Node;
  * in a proof's key: an entry is reused only under its own key, so it never
  * changes what a key reads. It decides how the gate runs, since the map it
  * keeps tells what a changed test reaches (ADR-0005).
+ *
+ * @internal
  */
 final readonly class CoverageKeys
 {

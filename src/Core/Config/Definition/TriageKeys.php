@@ -25,7 +25,11 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
 
-/** How the keys a config writes are read into its `Triage` part (ADR-0002). */
+/**
+ * How the keys a config writes are read into its `Triage` part (ADR-0002).
+ *
+ * @internal
+ */
 final readonly class TriageKeys
 {
     private const string SHORT = "a mutator's short name, the last part of the name a runner gives it";

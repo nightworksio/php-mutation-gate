@@ -38,6 +38,8 @@ use function sprintf;
  * and keeps PHPUnit's caches, Pest's test run history among them, in the
  * gate's own directory for them, whatever the project's config names, so no
  * run writes a file a content key reads (ADR-0007).
+ *
+ * @internal
  */
 final readonly class Invocation
 {

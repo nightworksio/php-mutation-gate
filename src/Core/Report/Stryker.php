@@ -35,6 +35,8 @@ use stdClass;
  * shows the gate's score; the gate's own judgement goes in `statusReason`
  * (ADR-0009).
  *
+ * @internal
+ *
  * @phpstan-type Place array{line: int, column: int}
  * @phpstan-type MutantEntry array{
  *     id: string,

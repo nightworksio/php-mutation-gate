@@ -20,6 +20,8 @@ use NightWorksIO\MutationGate\Core\Test\Group;
  * Every `#[Holds]` a PHP file writes, read from its tokens: where it stands,
  * the path it names, its line, and PHPUnit's `#[Group]` beside it. The file is
  * never loaded.
+ *
+ * @internal
  */
 final readonly class HoldsReader
 {

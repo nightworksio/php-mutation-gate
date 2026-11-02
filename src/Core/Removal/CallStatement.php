@@ -18,6 +18,8 @@ use NightWorksIO\MutationGate\Core\Php\Undeclared;
  * to: `$this->m(…);`, `self::m(…);`, `static::m(…);`, `Name::m(…);` or
  * `f(…);`. Any other statement, a chain or a call on another object among
  * them, calls nothing a removal can suggest deleting (ADR-0025).
+ *
+ * @internal
  */
 final readonly class CallStatement
 {

@@ -19,6 +19,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * part passes, it survived; where none judged it, it is what the first part
  * that could not judge it found, one that failed on its own before one
  * that ran out of time.
+ *
+ * @internal
  */
 final readonly class PartedTrial
 {

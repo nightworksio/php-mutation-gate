@@ -28,6 +28,8 @@ use stdClass;
  * the verdict no timings (ADR-0016, and ADR-0017); and what pruning left out,
  * left out where it left nothing out (ADR-0025).
  *
+ * @internal
+ *
  * @phpstan-type Timed array{start: string, seconds: float}
  * @phpstan-type Shard array{
  *     shard: int,

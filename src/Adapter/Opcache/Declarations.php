@@ -22,6 +22,8 @@ use PhpParser\PrettyPrinter\Standard;
  * Two programs whose opcodes and declarations are the same are one
  * program, where the dump prints every value in full or both write the
  * same constant expressions.
+ *
+ * @internal
  */
 final readonly class Declarations
 {

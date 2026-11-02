@@ -68,6 +68,8 @@ use function sprintf;
  * vendor directory. It runs in the project's root, and allows each mutant's
  * run the standard mutant limit within `timeouts.seconds` and `timeouts.most`
  * (ADR-0008).
+ *
+ * @internal
  */
 final readonly class NativeRunner implements Runner
 {

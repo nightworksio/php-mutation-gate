@@ -12,6 +12,8 @@ use function is_string;
  * The classes, interfaces, traits and enums the project declares, each with
  * what it extends and implements and the traits it uses, so that a name can be followed to the class
  * whose constant, case or property it reaches.
+ *
+ * @internal
  */
 final readonly class Hierarchy
 {

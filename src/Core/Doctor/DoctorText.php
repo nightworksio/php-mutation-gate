@@ -17,6 +17,8 @@ use function sprintf;
  * it matters, the fix and its link, and a line that counts them. `plan` and
  * a one-process `run` begin with the brief, one line for each finding that
  * fails or slows a run.
+ *
+ * @internal
  */
 final readonly class DoctorText
 {

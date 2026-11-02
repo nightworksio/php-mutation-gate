@@ -19,6 +19,8 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
  * from the one kept, or that has none, is measured again; each the kept map
  * keys that is gone is dropped; and whether every test the kept map holds is
  * still in a test file.
+ *
+ * @internal
  */
 final readonly class Moving
 {

@@ -14,6 +14,8 @@ use function sprintf;
  * A failing test, and the file it goes in (ADR-0015): added to
  * the test file it follows, or the whole of a new one. It is printed unless
  * `--write` is given, and writing it never overwrites a file.
+ *
+ * @internal
  */
 final readonly class Stub
 {

@@ -19,6 +19,8 @@ use function trim;
  * counts the processes it waited for, to the file it is told first, and
  * exits as the command did. It knows nothing of the runner, so each
  * measures alike (see MaxRss).
+ *
+ * @internal
  */
 final readonly class PeakLauncher
 {

@@ -8,7 +8,11 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestName;
 
-/** A mutant a removable test kills, and the kept test that kills it too. */
+/**
+ * A mutant a removable test kills, and the kept test that kills it too.
+ *
+ * @internal
+ */
 final readonly class KeptKill
 {
     private function __construct(private MutantId $mutant, private TestName|TestId $keptBy)

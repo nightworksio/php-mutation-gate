@@ -15,7 +15,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\BinaryOp\Spaceship;
 
-/** `$a <=> $b` becomes `$b <=> $a`. */
+/**
+ * `$a <=> $b` becomes `$b <=> $a`.
+ *
+ * @internal
+ */
 final readonly class SpaceshipSwitchSides implements Mutator
 {
     public function name(): MutatorName

@@ -7,6 +7,8 @@ namespace NightWorksIO\MutationGate\Core\Doctor\GitHub;
 /**
  * Whose pull requests from forks wait for a maintainer's approval before
  * their workflows run: GitHub's `approval_policy`, weakest first.
+ *
+ * @internal
  */
 enum ForkApproval: string
 {

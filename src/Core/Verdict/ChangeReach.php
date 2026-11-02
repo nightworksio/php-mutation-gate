@@ -43,6 +43,8 @@ use function sprintf;
  * Composer's autoloader loads in every process ({@see FileRoles}). What a
  * killing test reads is also judged by its digests, and what every test
  * reads by the mutation digest.
+ *
+ * @internal
  */
 final readonly class ChangeReach
 {

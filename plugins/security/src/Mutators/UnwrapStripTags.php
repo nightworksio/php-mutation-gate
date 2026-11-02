@@ -24,6 +24,8 @@ use PhpParser\Node\Expr\FuncCall;
 /**
  * `strip_tags($x, …)` becomes `$x`, where neither the `default` set nor Pest's own
  * set runs to make that change.
+ *
+ * @internal
  */
 final readonly class UnwrapStripTags implements Mutator, SameChange
 {

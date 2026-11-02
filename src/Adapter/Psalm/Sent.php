@@ -26,6 +26,8 @@ use function sprintf;
  * mutant; and the original's text, sent back after. What the check finds is
  * what the server published of each file sent, and for every other file what
  * the run over the originals found.
+ *
+ * @internal
  */
 final readonly class Sent
 {

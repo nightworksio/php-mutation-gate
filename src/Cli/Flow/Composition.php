@@ -34,6 +34,8 @@ use Symfony\Component\Console\Input\InputInterface;
  * every layer of the config comes to, the adapters they choose from the
  * registry and the config's own extensions, what the gate knows of its own
  * setup, and a reporter for each entry of `reports`.
+ *
+ * @internal
  */
 final readonly class Composition
 {

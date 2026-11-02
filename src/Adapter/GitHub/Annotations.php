@@ -40,6 +40,8 @@ use function sprintf;
  * one step, ranked: changed lines first, then sets that failed (ADR-0009). A
  * cluster of survivors is one annotation, at its first member (ADR-0022).
  * The step summary lists them all.
+ *
+ * @internal
  */
 final readonly class Annotations implements Configurable, Reporter
 {

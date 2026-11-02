@@ -29,6 +29,8 @@ use Symfony\Component\Process\Process;
  * gate withholds, so it cannot screen it for them, and the results file
  * sits in the workspace a CI may upload. A killer it names is the id of
  * a test this process collected, not text the run printed.
+ *
+ * @internal
  */
 final readonly class Ending
 {

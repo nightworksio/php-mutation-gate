@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\Config\Listed;
  * its default branch and the checks it requires, the fork approval
  * policy, and how the gate's workflows run on a schedule. A setting
  * GitHub would not show says why, which the token usually is.
+ *
+ * @internal
  */
 final readonly class GitHubSettings
 {

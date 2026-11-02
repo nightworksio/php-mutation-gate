@@ -39,6 +39,8 @@ use NightWorksIO\MutationGate\Core\Test\TestListing;
  * project's config. Its examples are selected by their ids, which no line
  * break is ever in, and listed by a run of none. It has no warm workers,
  * its config sets no PHP setting, and it runs every suite in one run.
+ *
+ * @internal
  */
 final readonly class PhpSpecFramework implements Framework
 {

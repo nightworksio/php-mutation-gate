@@ -23,6 +23,8 @@ use function sprintf;
  * One of a closed set of words, or of whole numbers, read into the enum case
  * it names.
  *
+ * @internal
+ *
  * @template-covariant T of BackedEnum
  *
  * @implements Shape<T>

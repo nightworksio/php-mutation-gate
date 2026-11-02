@@ -19,6 +19,8 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
  * cannot judge. A field a tree has no value for is left out. Its schema is
  * `resources/webhook.schema.json` (ADR-0016).
  *
+ * @internal
+ *
  * @phpstan-type Lowering array{from: float, reason?: string}
  * @phpstan-type TreeEntry array{path: string, floor?: float, score?: float, previous?: float, lowered?: Lowering}
  */

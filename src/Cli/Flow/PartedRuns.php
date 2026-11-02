@@ -27,6 +27,8 @@ use NightWorksIO\MutationGate\Core\Runner\RunSelection;
  * one round after another, every heavy mutant's next run side by side in a
  * round, until each is judged. The file each test is in is read from the
  * suite only where a mutant is heavy.
+ *
+ * @internal
  */
 final readonly class PartedRuns
 {

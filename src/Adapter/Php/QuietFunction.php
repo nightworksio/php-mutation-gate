@@ -8,6 +8,8 @@ namespace NightWorksIO\MutationGate\Adapter\Php;
  * A function a config may call and still read no file: none opens one or
  * calls a callable it is handed. `getenv` reads the environment, which a run
  * reads the base and now in alike.
+ *
+ * @internal
  */
 enum QuietFunction: string
 {

@@ -21,6 +21,8 @@ use Traversable;
  * Names a manifest lists, in the order it lists them: the packages it
  * requires, or the extension classes it declares.
  *
+ * @internal
+ *
  * @implements IteratorAggregate<int, string>
  */
 final readonly class Names implements Countable, IteratorAggregate

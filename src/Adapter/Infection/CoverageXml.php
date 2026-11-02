@@ -22,6 +22,8 @@ use function sprintf;
  * A coverage directory in the layout Infection's `--coverage` reads: PHPUnit's
  * XML coverage, whose `covered by` entries say which tests run which line, and
  * its JUnit log, which says how long each test took.
+ *
+ * @internal
  */
 final readonly class CoverageXml
 {

@@ -11,6 +11,8 @@ use NightWorksIO\MutationGate\Core\Proof\Scope;
  * An object a run leaves for `deliver` to keep beside a ledger, such as the coverage map, by the scope the run kept
  * it for, which `deliver` keeps only where it is the one its own trusted run of the default branch writes. The
  * object itself is a file of its own beside the delivery, named as the store names it.
+ *
+ * @internal
  */
 final readonly class KeptPost
 {

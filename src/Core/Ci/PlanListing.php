@@ -17,6 +17,8 @@ use function round;
  * `{"plan": "<digest>", "commit": "<sha>", "shards": [{"id": 1, "label": "…",
  * "seconds": 540, "units": ["src/A.php", …]}]}`, each shard's seconds the
  * cost model's estimate to the whole second. On one line, it lists no units.
+ *
+ * @internal
  */
 final readonly class PlanListing
 {

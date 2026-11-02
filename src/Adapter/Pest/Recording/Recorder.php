@@ -51,6 +51,8 @@ use function unlink;
  *   own process ran out of, where its output says it did;
  * - `finished`, every mutant's final status and duration, which Pest sets only
  *   after the outcome is announced, and `end`.
+ *
+ * @internal
  */
 final readonly class Recorder
 {

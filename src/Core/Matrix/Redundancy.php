@@ -21,6 +21,8 @@ use Traversable;
  * must stay, then each time the test that keeps the most kills not yet kept
  * per second of its own time, ties by name. A test no coverage run timed is
  * taken to run as long as the slowest one that was (ADR-0014).
+ *
+ * @internal
  */
 final readonly class Redundancy
 {

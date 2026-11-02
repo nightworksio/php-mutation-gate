@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
  * that reads the same reads it as it is, so it runs no suite under coverage a
  * second time. Each mutation run forgets it and reads its own, so coverage
  * never outlives an edit between runs, as `watch` makes.
+ *
+ * @internal
  */
 final class HeldCoverage
 {

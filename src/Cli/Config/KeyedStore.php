@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Port\ProofStore;
  * A job that holds them gets the store itself. A job without them gets the
  * store read-only, as the store's own options build it, and never sends
  * the store a request it has no credentials to sign.
+ *
+ * @internal
  */
 final readonly class KeyedStore
 {

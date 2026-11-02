@@ -27,6 +27,8 @@ use function sprintf;
  * weak assertions let survivors through. It judges mutation kills only, and
  * never fails anything (ADR-0014; ADR-0025).
  *
+ * @internal
+ *
  * @phpstan-type Row array{name: string, standing: value-of<Standing>}
  * @phpstan-type Useless array{test: string, standing: value-of<Standing>, covers: int, rows?: list<Row>}
  * @phpstan-type Kill array{mutant: string, keptBy: string}

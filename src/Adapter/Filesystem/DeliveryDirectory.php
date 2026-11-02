@@ -30,6 +30,8 @@ use NightWorksIO\MutationGate\Core\Written;
  * `.mutation-gate/delivery` (ADR-0007): `delivery.json`, begun empty so nothing an earlier run left there
  * is sent again and added to as the run goes, and the ledger, `ledger.json.gz`, and each object a store keeps
  * beside a ledger, such as the coverage map, `coverage.json.gz`, beside it.
+ *
+ * @internal
  */
 final readonly class DeliveryDirectory
 {

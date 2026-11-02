@@ -25,6 +25,8 @@ use function strval;
  * takes in turn under an exclusive lock, so no run is claimed twice and they
  * are claimed in their order: the next is claimed only where one is left and
  * the job's end has not come.
+ *
+ * @internal
  */
 final readonly class Claims
 {

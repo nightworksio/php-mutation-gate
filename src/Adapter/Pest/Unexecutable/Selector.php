@@ -52,6 +52,8 @@ use function range;
  * them by. Another file there, such as a helper or a fixture, is no test
  * file Pest runs, and run as one it fails. A read in such a helper chooses the
  * test files that name it (see Helpers), and is ambiguous.
+ *
+ * @internal
  */
 final readonly class Selector
 {

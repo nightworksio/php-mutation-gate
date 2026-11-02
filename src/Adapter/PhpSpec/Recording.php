@@ -18,6 +18,8 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
  * which the gate reads as errored, or neither, skipped or pending. An
  * example that started and ended none of these ways is one whose process
  * died while it ran.
+ *
+ * @internal
  */
 final readonly class Recording implements EventSubscriberInterface
 {

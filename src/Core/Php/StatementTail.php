@@ -19,6 +19,8 @@ use PhpToken;
  * mark that first line run, as pcov never marks the head of a `match (true)`.
  * A line that starts no statement, such as a `match` arm's, may never run
  * while the lines around it do, and has no tail.
+ *
+ * @internal
  */
 final readonly class StatementTail
 {

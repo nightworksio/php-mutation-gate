@@ -95,6 +95,8 @@ use Symfony\Component\HttpClient\HttpClient;
  * This package's own adapters and presets, registered through the same
  * discovery as any other package's, and named in this package's
  * `composer.json`.
+ *
+ * @internal
  */
 final readonly class FirstParty implements Extension
 {

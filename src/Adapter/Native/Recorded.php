@@ -29,6 +29,8 @@ use function rawurldecode;
  * too. The tests that killed it are those that failed or errored, and each
  * that started and never ended, since its process died as it ran. The kill is
  * credited only to those of them the run selected.
+ *
+ * @internal
  */
 final readonly class Recorded
 {

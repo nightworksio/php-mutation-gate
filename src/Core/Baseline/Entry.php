@@ -10,6 +10,8 @@ use NightWorksIO\MutationGate\Core\Score\Floor;
 /**
  * One line of the baseline: the path of a tree, or of a package for its
  * security set, the floor it achieved, and why it was lowered where it was.
+ *
+ * @internal
  */
 final readonly class Entry
 {

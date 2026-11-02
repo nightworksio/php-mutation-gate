@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdicts;
  * (ADR-0025), and a sampled run, which estimates its trees, judges no
  * security set, since the units it left out hold security mutants it did
  * not run (ADR-0020).
+ *
+ * @internal
  */
 final readonly class NarrowRunHolding
 {

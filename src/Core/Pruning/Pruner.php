@@ -28,6 +28,8 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  * and was made since the audit's start. A run with no base, a held unit, a
  * unit whose result is older or of other code, and every unit where pruning
  * is off, run every mutator.
+ *
+ * @internal
  */
 final readonly class Pruner
 {

@@ -25,6 +25,8 @@ use PhpParser\ParserFactory;
  * (ADR-0026): the literal path of its first `Baseline::at()`
  * call, as the file's imports resolve the class. `migrate` never runs a
  * config, so a path built any other way is not read.
+ *
+ * @internal
  */
 final readonly class BaselineCall
 {

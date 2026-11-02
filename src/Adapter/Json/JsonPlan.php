@@ -25,6 +25,8 @@ use NightWorksIO\MutationGate\Port\CiPlan;
  * the plan printed as the generic JSON, and each job's shard named by
  * `--shard` or by the variables the generic parallel jobs of GitLab and
  * Buildkite set. It knows nothing of the run's ref, which the gate asks git.
+ *
+ * @internal
  */
 final readonly class JsonPlan implements CiPlan, Configurable
 {

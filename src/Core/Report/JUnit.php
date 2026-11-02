@@ -30,6 +30,8 @@ use function sprintf;
  * and each failure that belongs to no floor, and an `ignored` suite with a
  * skipped test case for each mutant an ignore left out, with why
  * (ADR-0008). JUnit failures match gate failures one to one (ADR-0009).
+ *
+ * @internal
  */
 final readonly class JUnit
 {

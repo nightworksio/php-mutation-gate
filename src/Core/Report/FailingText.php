@@ -16,6 +16,8 @@ use function sprintf;
  * then each mutant it leaves out of every score, by its heading, under it
  * (ADR-0008); as plain lines, the same in the console and in a JUnit failure,
  * or as a Markdown list item with the mutants nested.
+ *
+ * @internal
  */
 final readonly class FailingText
 {
@@ -30,7 +32,7 @@ final readonly class FailingText
             ...array_map(
                 static fn(JudgedMutant $mutant): string
                     => sprintf('%s%s', MutantText::INDENT, MutantText::heading($mutant)),
-                $failing->mutants(),
+                [...$failing],
             ),
         ];
     }
@@ -43,7 +45,7 @@ final readonly class FailingText
             ...array_map(
                 static fn(JudgedMutant $mutant): string
                     => sprintf(self::ITEM, TestsText::INDENT, Escape::code(MutantText::heading($mutant))),
-                $failing->mutants(),
+                [...$failing],
             ),
         ];
     }

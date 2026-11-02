@@ -21,6 +21,8 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
  * the native runner reads. Each file PHP loaded by an example's end is one
  * the map measures where it is the project's own, so no driver measures a
  * file of the vendor directory.
+ *
+ * @internal
  */
 final class Covering implements EventSubscriberInterface
 {

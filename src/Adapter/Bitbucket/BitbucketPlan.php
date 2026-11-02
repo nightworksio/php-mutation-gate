@@ -30,6 +30,8 @@ use NightWorksIO\MutationGate\Port\CiPlan;
  * `BITBUCKET_PARALLEL_STEP` + 1, and a `BITBUCKET_PARALLEL_STEP_COUNT` that
  * is not the plan's count of shards cannot be judged. Bitbucket does not
  * name the default branch; `ci.defaultBranch` does.
+ *
+ * @internal
  */
 final readonly class BitbucketPlan implements CiPlan, Configurable
 {

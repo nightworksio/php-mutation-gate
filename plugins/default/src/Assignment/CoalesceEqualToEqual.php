@@ -16,7 +16,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\Assign;
 use PhpParser\Node\Expr\AssignOp\Coalesce;
 
-/** `??=` becomes `=`. */
+/**
+ * `??=` becomes `=`.
+ *
+ * @internal
+ */
 final readonly class CoalesceEqualToEqual implements Mutator
 {
     public function name(): MutatorName

@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateLaravel\LaravelSet;
 use PhpParser\Node;
 use PhpParser\Node\Stmt\Expression;
 
-/** `abort_if(…)` and `abort_unless(…)` are removed, but those that refuse with 401 or 403 (see RemoveAuthAbort). */
+/**
+ * `abort_if(…)` and `abort_unless(…)` are removed, but those that refuse with 401 or 403 (see RemoveAuthAbort).
+ *
+ * @internal
+ */
 final readonly class RemoveAbort implements Mutator
 {
     public function name(): MutatorName

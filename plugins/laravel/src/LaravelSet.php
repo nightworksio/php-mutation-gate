@@ -7,7 +7,11 @@ namespace NightWorksIO\MutationGateLaravel;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Mutator\MutatorName;
 
-/** The set's name, which a config's `mutators.sets` turns it on by, and each of its mutators' names. */
+/**
+ * The set's name, which a config's `mutators.sets` turns it on by, and each of its mutators' names.
+ *
+ * @internal
+ */
 final readonly class LaravelSet
 {
     private const string NAME = 'laravel';

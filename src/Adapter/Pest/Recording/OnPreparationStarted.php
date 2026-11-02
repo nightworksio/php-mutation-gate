@@ -7,7 +7,11 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
 use PHPUnit\Event\Test\PreparationStarted;
 use PHPUnit\Event\Test\PreparationStartedSubscriber;
 
-/** Counts a test that started in a mutant's own process into the order it took its tests in. */
+/**
+ * Counts a test that started in a mutant's own process into the order it took its tests in.
+ *
+ * @internal
+ */
 final readonly class OnPreparationStarted implements PreparationStartedSubscriber
 {
     public function __construct(private RunOrder $order)

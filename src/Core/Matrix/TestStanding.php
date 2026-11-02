@@ -8,7 +8,11 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestName;
 use NightWorksIO\MutationGate\Core\Test\TestRow;
 
-/** One test or data set row, by its runner's name, and what the mutants it judged say of it. */
+/**
+ * One test or data set row, by its runner's name, and what the mutants it judged say of it.
+ *
+ * @internal
+ */
 final readonly class TestStanding
 {
     private function __construct(

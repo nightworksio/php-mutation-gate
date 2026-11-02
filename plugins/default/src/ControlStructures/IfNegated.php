@@ -16,7 +16,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\BooleanNot;
 use PhpParser\Node\Stmt\If_;
 
-/** An `if`'s condition is negated. */
+/**
+ * An `if`'s condition is negated.
+ *
+ * @internal
+ */
 final readonly class IfNegated implements Mutator
 {
     public function name(): MutatorName

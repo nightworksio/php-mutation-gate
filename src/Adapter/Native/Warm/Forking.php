@@ -10,6 +10,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * How a warm worker starts a run in a child (ADR-0023): the
  * worker's script forks one that runs the framework for the mutant and exits
  * with the framework's code. The parent goes on with the child's process id.
+ *
+ * @internal
  */
 interface Forking
 {

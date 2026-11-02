@@ -26,6 +26,8 @@ use PhpParser\Node\PropertyItem;
  * That widens mass assignment, and only a test that posts the guarded field
  * notices. Infection never offers a property's default, so only Pest makes these
  * mutants.
+ *
+ * @internal
  */
 final readonly class RemoveGuardedEntry implements Mutator
 {

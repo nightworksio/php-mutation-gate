@@ -17,6 +17,8 @@ use function sprintf;
  * Retention caps proofs, not bytes, so a project whose units hold many
  * mutants can reach the limits first; then the oldest proofs of those kept
  * are dropped until the ledger is within them, and the run says so.
+ *
+ * @internal
  */
 final readonly class EncodedLedger
 {

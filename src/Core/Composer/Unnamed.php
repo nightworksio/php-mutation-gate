@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Composer;
 
-/** A manifest that declares no package name, as a project's root one may. */
+/**
+ * A manifest that declares no package name, as a project's root one may.
+ *
+ * @internal
+ */
 final readonly class Unnamed
 {
     public static function package(): self

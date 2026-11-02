@@ -27,6 +27,8 @@ use function str_starts_with;
  * stream, inflating it no further than a limit, and refuses anything else, a
  * stream cut short among it, and leaves whatever follows the stream's end
  * unread.
+ *
+ * @internal
  */
 final readonly class Gzip
 {

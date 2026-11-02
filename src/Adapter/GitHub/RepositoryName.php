@@ -14,6 +14,8 @@ use function sprintf;
  * A repository on GitHub by its `owner/name`: as `GITHUB_REPOSITORY` names
  * it, or as a git remote's URL on GitHub's host does, over HTTPS or SSH.
  * Nothing else is taken, so the name can stand in an API path as it is.
+ *
+ * @internal
  */
 final readonly class RepositoryName
 {

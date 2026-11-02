@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  * How the keys a config writes are read into its `StaticCheck` part
  * (ADR-0002). All three affect results: a mutant the analyser rejects is
  * killed, and a check stopped at its deadline rejects none.
+ *
+ * @internal
  */
 final readonly class StaticCheckKeys
 {

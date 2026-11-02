@@ -12,6 +12,8 @@ use Symfony\Component\Console\Input\InputInterface;
  * What the command line wrote for an option that takes a value and has a
  * default of text, or for an argument that is required or has a default of
  * text, which Symfony always gives as text.
+ *
+ * @internal
  */
 final readonly class CommandText
 {

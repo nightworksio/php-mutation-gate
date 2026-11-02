@@ -19,6 +19,8 @@ use function sprintf;
  * the same network may be spoken to in the clear, such as MinIO beside a CI
  * job, `http://` too.
  *
+ * @internal
+ *
  * @implements Shape<non-empty-string>
  */
 final readonly class Url implements Shape

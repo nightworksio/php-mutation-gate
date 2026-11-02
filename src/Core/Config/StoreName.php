@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * A name a store's options hold that a request's URL carries, as its service
  * allows it. A name a host holds can then end no host, and one a path holds
  * can start no query, so a store's credentials reach only its own service.
+ *
+ * @internal
  */
 enum StoreName: string
 {

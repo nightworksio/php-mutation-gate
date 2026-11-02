@@ -10,7 +10,11 @@ use NightWorksIO\MutationGate\Core\Report\TestsText;
 
 use function sprintf;
 
-/** Lines as the console nests them under a heading: each one of them indented once, a blank one left as it is. */
+/**
+ * Lines as the console nests them under a heading: each one of them indented once, a blank one left as it is.
+ *
+ * @internal
+ */
 final readonly class Indented
 {
     /**

@@ -16,7 +16,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\AssignOp\ShiftLeft;
 use PhpParser\Node\Expr\AssignOp\ShiftRight;
 
-/** `>>=` becomes `<<=`. */
+/**
+ * `>>=` becomes `<<=`.
+ *
+ * @internal
+ */
 final readonly class ShiftRightEqualToShiftLeftEqual implements Mutator
 {
     public function name(): MutatorName

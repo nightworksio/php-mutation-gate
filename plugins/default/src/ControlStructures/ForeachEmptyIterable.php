@@ -16,7 +16,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Stmt\Foreach_;
 
-/** A `foreach` loops over `[]`. */
+/**
+ * A `foreach` loops over `[]`.
+ *
+ * @internal
+ */
 final readonly class ForeachEmptyIterable implements Mutator
 {
     public function name(): MutatorName

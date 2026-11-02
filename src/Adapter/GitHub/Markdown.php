@@ -62,6 +62,8 @@ use function sprintf;
  * diffs, one hint and its stub command. Where the project has a CODEOWNERS,
  * the survivors on changed lines and those not killed are under the owner
  * group of their files (ADR-0022).
+ *
+ * @internal
  */
 final readonly class Markdown
 {

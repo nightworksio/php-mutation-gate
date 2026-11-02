@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * commit its change's base ref is at, which is the default branch's, and the
  * ref itself where git cannot say; and otherwise the commit the plan is made
  * on.
+ *
+ * @internal
  */
 final readonly class SampleSeed
 {

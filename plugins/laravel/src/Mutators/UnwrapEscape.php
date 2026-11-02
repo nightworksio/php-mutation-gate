@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateLaravel\LaravelSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `e($x)` becomes `$x`. */
+/**
+ * `e($x)` becomes `$x`.
+ *
+ * @internal
+ */
 final readonly class UnwrapEscape implements Mutator
 {
     public function name(): MutatorName

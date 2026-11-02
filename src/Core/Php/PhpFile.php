@@ -26,6 +26,8 @@ use function trim;
  * What a PHP file declares, the names it mentions, the words its strings
  * spell, whether loading it runs anything, and the paths its `#[Holds]`
  * declare held, read from its tokens. Reading it runs none of it.
+ *
+ * @internal
  */
 final readonly class PhpFile
 {

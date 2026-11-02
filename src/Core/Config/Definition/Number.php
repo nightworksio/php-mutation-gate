@@ -17,6 +17,8 @@ use function sprintf;
  * A number in a range, kept as it is written: a whole number stays whole.
  * Its least is allowed, or, for a number that must be above it, refused.
  *
+ * @internal
+ *
  * @implements Shape<int|float>
  */
 final readonly class Number implements Shape

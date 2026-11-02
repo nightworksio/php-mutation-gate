@@ -27,6 +27,8 @@ use function sprintf;
  * the original's place as it serves a mutant's, so the control's run and the
  * mutant's differ in the mutation alone. Its id is made from the control, so
  * each control's files are its own.
+ *
+ * @internal
  */
 final readonly class ControlMutant
 {

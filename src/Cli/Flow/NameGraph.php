@@ -21,6 +21,8 @@ use NightWorksIO\MutationGate\Core\Proof\Key\SourceReach;
  * it names. A carried kill follows a change through it (ADR-0008), a
  * check finds a mutant's dependents in it (ADR-0020), and a unit's key
  * reads the files it reaches through it (ADR-0007).
+ *
+ * @internal
  */
 final readonly class NameGraph
 {

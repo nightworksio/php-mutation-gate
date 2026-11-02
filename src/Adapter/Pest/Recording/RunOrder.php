@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
  * else is named a killer, as a class whose set-up failed, stands nowhere.
  * A test is running from its start until it finishes, is named a killer, or
  * the run ends.
+ *
+ * @internal
  */
 final class RunOrder
 {

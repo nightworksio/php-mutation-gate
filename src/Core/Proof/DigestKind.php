@@ -8,6 +8,8 @@ namespace NightWorksIO\MutationGate\Core\Proof;
  * What a proof records a digest of, beside its key (ADR-0008): the
  * inputs that decide whether a result of other code can still stand for the
  * code on disk.
+ *
+ * @internal
  */
 enum DigestKind: string
 {

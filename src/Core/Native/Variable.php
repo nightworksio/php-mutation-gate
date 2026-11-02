@@ -9,6 +9,8 @@ use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
 /**
  * The variables the gate sets for the framework it starts for a mutant, which
  * the framework's recorder and the override read. Each names one file.
+ *
+ * @internal
  */
 enum Variable: string
 {

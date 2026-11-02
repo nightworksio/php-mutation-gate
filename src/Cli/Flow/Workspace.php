@@ -15,6 +15,8 @@ use function sprintf;
  * Where the gate keeps what one job hands the next: the plan, the coverage
  * map it used, each shard's own map, each shard's result, and the last
  * run's JSON report.
+ *
+ * @internal
  */
 final readonly class Workspace
 {

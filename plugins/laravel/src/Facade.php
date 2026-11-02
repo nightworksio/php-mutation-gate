@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGateLaravel;
 
-/** The facades the set's mutators call through, each by the short name its class and its global alias share. */
+/**
+ * The facades the set's mutators call through, each by the short name its class and its global alias share.
+ *
+ * @internal
+ */
 enum Facade: string
 {
     case Auth = 'Auth';

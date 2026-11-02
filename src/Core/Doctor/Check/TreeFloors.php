@@ -24,6 +24,8 @@ use function sprintf;
  * A tree with no floor and no baseline (ADR-0017). Where
  * a CI definition runs the gate, its first run there measures the tree and
  * then fails, as there is no default floor; elsewhere it is advice.
+ *
+ * @internal
  */
 final readonly class TreeFloors
 {

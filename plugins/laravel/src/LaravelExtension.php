@@ -27,6 +27,8 @@ use NightWorksIO\MutationGateLaravel\Mutators\UnwrapTransaction;
  * escaping, validation, transactions, caches and dispatches, matched on
  * syntax and resolved names, so the set needs no Laravel installed
  * (ADR-0021).
+ *
+ * @internal
  */
 final readonly class LaravelExtension implements Extension
 {

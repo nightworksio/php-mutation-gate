@@ -14,6 +14,8 @@ use function mb_strtolower;
 /**
  * Fully qualified names of classes and functions, each once and in lower case,
  * because PHP resolves both without regard to case.
+ *
+ * @internal
  */
 final readonly class Names
 {

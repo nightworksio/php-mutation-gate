@@ -26,6 +26,8 @@ use NightWorksIO\MutationGate\Core\Runner\RunSelection;
  * killer unknown. Where they fail, run out of the cap or the limit, or never
  * run, nothing tells the mutant from its original, and it is unjudged,
  * saying why.
+ *
+ * @internal
  */
 final readonly class UnnamedKillControls implements ControlJudge
 {

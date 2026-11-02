@@ -8,6 +8,8 @@ namespace NightWorksIO\MutationGate\Core\Troubleshooting;
  * The stable name of a kind of refusal, failure or warning, which its section
  * of the troubleshooting guide is headed by (ADR-0018). A slug is
  * public API: it never changes meaning once released.
+ *
+ * @internal
  */
 enum Slug: string
 {

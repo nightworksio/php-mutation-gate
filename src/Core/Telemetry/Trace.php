@@ -18,6 +18,8 @@ use function sprintf;
  * went to, named by the step, and `verdict`, each measured, in one trace whose id the run
  * names. A span's id is the first 8 bytes of `sha256(<trace id>/<path>)`,
  * so the gate draws no random number (ADR-0016).
+ *
+ * @internal
  */
 final readonly class Trace
 {

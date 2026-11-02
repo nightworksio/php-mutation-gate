@@ -18,6 +18,8 @@ use NightWorksIO\MutationGate\Core\File\Path;
 /**
  * The coverage map another job handed over in a directory: only ever the
  * gate's own, which is data, and never the reports the runner wrote there.
+ *
+ * @internal
  */
 final readonly class HandedMap
 {

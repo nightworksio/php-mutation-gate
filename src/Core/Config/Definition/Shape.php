@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Format\Node;
  * Schema is written from it, and the settings under it declare what they can
  * change, so the three cannot disagree.
  *
+ * @internal
+ *
  * @template-covariant T of object|scalar
  */
 interface Shape

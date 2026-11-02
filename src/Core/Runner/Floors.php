@@ -17,6 +17,8 @@ use function version_compare;
  * framework at its floor, and php-code-coverage at the release whose map the
  * native runner reads. A version that is not a release, such as a branch,
  * is taken as it is.
+ *
+ * @internal
  */
 final readonly class Floors
 {

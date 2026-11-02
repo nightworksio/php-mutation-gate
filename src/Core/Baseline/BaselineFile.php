@@ -36,6 +36,8 @@ use function sprintf;
  *     }
  * }
  * ```
+ *
+ * @internal
  */
 final readonly class BaselineFile
 {

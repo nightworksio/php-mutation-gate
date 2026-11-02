@@ -18,7 +18,11 @@ use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 
 use function sprintf;
 
-/** A runner's own ignore markers where `ignores.native` refuses them (ADR-0017). */
+/**
+ * A runner's own ignore markers where `ignores.native` refuses them (ADR-0017).
+ *
+ * @internal
+ */
 final readonly class NativeMarkers
 {
     private const string FOUND = '%d native %s: %s.';

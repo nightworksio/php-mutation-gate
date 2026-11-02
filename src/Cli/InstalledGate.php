@@ -10,7 +10,11 @@ use NightWorksIO\MutationGate\Core\ThisPackage;
 
 use function sprintf;
 
-/** The gate as Composer installed it: its version and the commit it was installed from. */
+/**
+ * The gate as Composer installed it: its version and the commit it was installed from.
+ *
+ * @internal
+ */
 final readonly class InstalledGate
 {
     public static function version(): Version

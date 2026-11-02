@@ -205,6 +205,10 @@ about Laravel, NativePHP or the project's modules, and does not.
    `.mutation-gate/plan.json` and the shard result files, which only pass
    between jobs of one version. A removal is deprecated with
    a warning for at least one minor release first, and happens only in a major.
+   ADR-0043 amends this: while the major is 0, a minor release may break
+   what semver covers, with a *Migration* section in its release notes, and
+   a patch never does; the deprecation holds from 1.0.0. Every type outside
+   the surface is marked `@internal`, and D13 enforces the marks.
 
 8. **The package, its CI and its GitHub integration live in one repository,
    `nightworksio/php-mutation-gate`.** GitHub's Marketplace asks for a public
@@ -442,3 +446,4 @@ points at the ADR that decides it.
 - [ADR-0023](0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md): the native PHPUnit runner
 - [ADR-0024](0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md): the `.pre-commit-hooks.yaml` ids
 - [ADR-0027](0027-codeception-phpspec-and-testo-get-native-runners.md): the Codeception, PhpSpec and Testo runners
+- [ADR-0043](0043-what-semver-covers-is-marked-in-the-code-and-the-port-contracts-ship-as-kits.md): what a 0.x release may break, and the marked boundary, which amend the public API

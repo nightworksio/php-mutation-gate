@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  * run is a trial's own run of its tests on their own, or the unmutated
  * control of the mutant (see TimeoutControls). Under `timeouts.mode:
  * unjudged` every timeout is too slow to judge.
+ *
+ * @internal
  */
 final readonly class TimeoutTriage
 {

@@ -43,6 +43,8 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  * mutant rejected, whose run Pest then skips. It writes the file however the
  * checks end, so Pest never waits on a check that failed. A mutant and its
  * twins share their copy, and so their rejection.
+ *
+ * @internal
  */
 final class HandOff implements ProcessWatch
 {

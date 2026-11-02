@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `str_shuffle(…)` becomes its first argument. */
+/**
+ * `str_shuffle(…)` becomes its first argument.
+ *
+ * @internal
+ */
 final readonly class UnwrapStrShuffle implements Mutator
 {
     public function name(): MutatorName

@@ -13,6 +13,8 @@ use function sprintf;
 /**
  * The JSON Schema of `summary.json`, what an organisation's dashboard reads
  * of a repository (ADR-0024), committed at `resources/summary.schema.json`.
+ *
+ * @internal
  */
 final readonly class SummarySchema
 {

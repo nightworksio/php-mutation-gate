@@ -16,7 +16,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\AssignOp\BitwiseAnd;
 use PhpParser\Node\Expr\AssignOp\BitwiseXor;
 
-/** `^=` becomes `&=`. */
+/**
+ * `^=` becomes `&=`.
+ *
+ * @internal
+ */
 final readonly class BitwiseXorEqualToBitwiseAndEqual implements Mutator
 {
     public function name(): MutatorName

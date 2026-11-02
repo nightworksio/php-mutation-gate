@@ -37,6 +37,8 @@ use function str_starts_with;
  * Sockets are counted among the process's open files where the system lists
  * them, so a connection held by an object, as PHP 8 holds `pgsql` and
  * `mysqli`'s, counts too; elsewhere among PHP's own stream resources.
+ *
+ * @internal
  */
 final readonly class BootCheck
 {

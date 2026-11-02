@@ -25,6 +25,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * report the verdict kept, running nothing (ADR-0009). It exits 0 once it
  * has said it, and 2 where no run left a report, the report cannot be read,
  * or the detail names nothing the run holds.
+ *
+ * @internal
  */
 final readonly class DigestCommand
 {

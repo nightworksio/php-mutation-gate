@@ -18,6 +18,8 @@ use function str_starts_with;
  * reads them: the file of the examples a mutant's run selects, the group or
  * filter that judges the unit, the spec files a coverage run runs, and the
  * files a coverage run and a listing write.
+ *
+ * @internal
  */
 enum LaunchOption: string
 {

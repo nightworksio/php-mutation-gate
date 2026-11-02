@@ -8,7 +8,11 @@ use function clearstatcache;
 use function filesize;
 use function is_file;
 
-/** The size of a file as it stands now, past PHP's stat cache. */
+/**
+ * The size of a file as it stands now, past PHP's stat cache.
+ *
+ * @internal
+ */
 final readonly class FileSize
 {
     /** The file's size in bytes; none where there is no file. */

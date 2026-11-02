@@ -22,6 +22,8 @@ use function sprintf;
  * phase's duration, each shard's and its steps', and the runner minutes, the last two for a timed run
  * only. No attribute names a mutant or a file, so there are at most as many
  * points as trees times statuses (ADR-0016).
+ *
+ * @internal
  */
 final readonly class Metrics
 {

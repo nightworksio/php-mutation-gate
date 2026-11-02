@@ -36,6 +36,8 @@ use Psr\Clock\ClockInterface;
  * its original does not have is killed by static analysis; one the analyser
  * cannot check, or the time left has no room for, stays a survivor, and the
  * checks say why.
+ *
+ * @internal
  */
 final readonly class SurvivorBatch
 {

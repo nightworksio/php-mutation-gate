@@ -28,6 +28,8 @@ use NightWorksIO\MutationGate\Extension\Extensions;
  * test runs through, such as a Laravel app's `app/Providers` and a Symfony
  * app's `src/Kernel.php`, stay in their trees, where the hot-path warning
  * finds them.
+ *
+ * @internal
  */
 final readonly class Presets
 {

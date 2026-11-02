@@ -27,6 +27,8 @@ use Symfony\Component\Console\Input\InputOption;
  * watch task and the SARIF Viewer's recommendation, each written only
  * where the file is not there, and otherwise printed as what to add. With
  * `--stdout`, both are printed whole.
+ *
+ * @internal
  */
 final readonly class EditorFiles
 {

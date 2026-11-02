@@ -16,6 +16,8 @@ use function sprintf;
  * The plan's whole map, which a shard is handed beside the map of its own
  * files: a line that reads a value a mutant changes may be in any file, so
  * the tests that run it are found there, read once for each directory.
+ *
+ * @internal
  */
 final readonly class WholeMap
 {

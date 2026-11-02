@@ -10,6 +10,8 @@ use LogicException;
  * Code handed the inert console a standard error that is no stream, which it
  * cannot make inert. The gate hands it none, so reaching this is a mistake in
  * the code that did.
+ *
+ * @internal
  */
 final class NotInert extends LogicException
 {

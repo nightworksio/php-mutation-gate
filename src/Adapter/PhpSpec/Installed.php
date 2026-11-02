@@ -24,6 +24,8 @@ use function sprintf;
  * PhpSpec at its floor or later, and php-code-coverage at the release whose
  * map the native runner reads, which the runner measures each example's
  * coverage with (see Floors).
+ *
+ * @internal
  */
 final readonly class Installed
 {

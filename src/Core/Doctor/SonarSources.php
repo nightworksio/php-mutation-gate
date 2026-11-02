@@ -18,6 +18,8 @@ use function trim;
 /**
  * The paths `sonar.sources` names in `sonar-project.properties`: the only
  * files SonarQube indexes, and so the only ones it imports an issue on.
+ *
+ * @internal
  */
 final readonly class SonarSources
 {

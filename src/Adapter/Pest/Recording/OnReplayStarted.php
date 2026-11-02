@@ -7,7 +7,11 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
 use PHPUnit\Event\Test\PreparationStarted;
 use PHPUnit\Event\Test\PreparationStartedSubscriber;
 
-/** Takes a test that started in a replay into the order the replay digests. */
+/**
+ * Takes a test that started in a replay into the order the replay digests.
+ *
+ * @internal
+ */
 final readonly class OnReplayStarted implements PreparationStartedSubscriber
 {
     public function __construct(private ReplayStop $stop)

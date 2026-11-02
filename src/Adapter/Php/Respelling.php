@@ -33,6 +33,8 @@ use function sprintf;
  * hand edit, and so is, wherever a step names a spelling, a `with()`
  * argument that is no builder call, since only running it says what it
  * writes.
+ *
+ * @internal
  */
 final class Respelling extends NodeVisitorAbstract
 {

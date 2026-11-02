@@ -23,6 +23,8 @@ use function sprintf;
  * report with its style and script inlined, so it loads nothing from a
  * network, and the report in the `mutation-testing-report-schema` format as
  * `mutation-report.json` (ADR-0009).
+ *
+ * @internal
  */
 final readonly class HtmlReportDirectory implements Configurable, Reporter
 {

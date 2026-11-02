@@ -6,7 +6,11 @@ namespace NightWorksIO\MutationGate\Core\Test;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 
-/** Where a project keeps its tests when nothing it configures says otherwise. */
+/**
+ * Where a project keeps its tests when nothing it configures says otherwise.
+ *
+ * @internal
+ */
 final readonly class TestsDirectory
 {
     private const string CONVENTIONAL = 'tests';

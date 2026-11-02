@@ -48,6 +48,7 @@ const EVIDENCE_HOLDERS = [
     'src/Core/Mutant/Unevidenced.php',
     'src/Core/Plan/ShardResultFile.php',
     'src/Core/Runner/MutationResult.php',
+    'src/Extension/Checks/RunnerMutants.php',
 ];
 
 it('keeps a kill\'s evidence, which holds what project code printed, out of every report, comment and log', function (): void {

@@ -21,6 +21,8 @@ use function sprintf;
  * is as their newest result recorded it (ADR-0025), by what
  * every ledger read learned of each mutator, carrying no result older than
  * `pruning.audit`.
+ *
+ * @internal
  */
 final readonly class PrunedUnits
 {

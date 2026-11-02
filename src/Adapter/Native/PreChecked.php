@@ -26,6 +26,8 @@ use NightWorksIO\MutationGate\Mutator\Engine\MadeMutant;
  * mutant is offered, with the file as the engine wrote it and its covering
  * tests' own time; one the analyser rejects is killed by static analysis, in
  * no time, and never runs; the rest run.
+ *
+ * @internal
  */
 final readonly class PreChecked
 {

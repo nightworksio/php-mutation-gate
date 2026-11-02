@@ -21,6 +21,8 @@ use function sprintf;
  * still survive, then one line each, in the order they were taken, with its
  * place, its mutator and its id (ADR-0020). What a ledger holds
  * is text from outside, so each line is plain and starts no CI command.
+ *
+ * @internal
  */
 final readonly class RecheckedText
 {

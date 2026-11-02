@@ -14,6 +14,8 @@ use function sprintf;
  * each stage's alone and in its own job (ADR-0007): the plan's comment in its planned state, the
  * comment while the last run's survivors are re-checked, written only over that planned state, and the verdict's
  * ledger, comment, alerts and export.
+ *
+ * @internal
  */
 enum Stage: string
 {

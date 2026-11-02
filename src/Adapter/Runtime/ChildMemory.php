@@ -18,6 +18,8 @@ use NightWorksIO\MutationGate\Core\Runner\PeakMemory;
  * used: `getrusage`'s `ru_maxrss` over its children, which counts each
  * descendant a child waited for in turn. macOS gives it in bytes, Linux and
  * the BSDs in kilobytes.
+ *
+ * @internal
  */
 final readonly class ChildMemory implements PeakMemory
 {

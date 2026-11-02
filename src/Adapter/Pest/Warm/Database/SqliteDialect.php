@@ -11,6 +11,8 @@ use function str_replace;
  * SQLite's tables, `sqlite_sequence` among them: SQLite keeps each
  * `AUTOINCREMENT` counter in that table, so a rolled-back insert leaves
  * none moved, and there is nothing to set back.
+ *
+ * @internal
  */
 final readonly class SqliteDialect implements Dialect
 {

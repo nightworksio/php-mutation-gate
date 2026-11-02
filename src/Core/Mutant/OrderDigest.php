@@ -18,6 +18,8 @@ use function sprintf;
  * far as it went: each test's id, as the run names it, followed by a line
  * end, so a process can build it test by test as it runs and a runner that
  * knows the whole order gets the same digest at once.
+ *
+ * @internal
  */
 final readonly class OrderDigest
 {

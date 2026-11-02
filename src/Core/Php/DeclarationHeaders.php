@@ -22,6 +22,8 @@ use function sprintf;
  * use; and each function's signature, and each constant, a file or a
  * namespace declares. A change to any of these can break a file that uses
  * them; a change inside a function's or a method's body cannot.
+ *
+ * @internal
  */
 final readonly class DeclarationHeaders
 {

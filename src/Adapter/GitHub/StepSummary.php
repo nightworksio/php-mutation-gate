@@ -29,6 +29,8 @@ use function sprintf;
  * The reporter `github-summary`: the verdict appended to the step summary
  * `GITHUB_STEP_SUMMARY` names, with every mutant counted as not killed in one
  * table, as much of it as one step's summary holds (ADR-0009).
+ *
+ * @internal
  */
 final readonly class StepSummary implements Reporter
 {

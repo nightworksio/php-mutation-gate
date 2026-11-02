@@ -19,7 +19,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\Throw_;
 use PhpParser\Node\Stmt\Expression;
 
-/** `throw $this->createAccessDeniedException(…)` is removed. */
+/**
+ * `throw $this->createAccessDeniedException(…)` is removed.
+ *
+ * @internal
+ */
 final readonly class RemoveAccessDeniedThrow implements Mutator
 {
     public function name(): MutatorName

@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `str_repeat(…)` becomes its first argument. */
+/**
+ * `str_repeat(…)` becomes its first argument.
+ *
+ * @internal
+ */
 final readonly class UnwrapStrRepeat implements Mutator
 {
     public function name(): MutatorName

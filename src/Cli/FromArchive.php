@@ -28,6 +28,8 @@ use function sprintf;
  * gate's classes cannot coexist; so is an archive whose path PHP would not
  * read as it is in the setting that has each PHP process the gate starts
  * load it.
+ *
+ * @internal
  */
 final readonly class FromArchive
 {

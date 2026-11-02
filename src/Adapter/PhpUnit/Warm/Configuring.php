@@ -27,6 +27,8 @@ use function version_compare;
  * PHPUnit loads the configuration again and reports it there, once. Before
  * 13.4 each emits through PHPUnit's event facade, which the guard then finds
  * started.
+ *
+ * @internal
  */
 final readonly class Configuring
 {

@@ -20,6 +20,8 @@ use function sprintf;
  * The digest's detail of one cluster of survivors that share a cause: its
  * kind, each member as the overview lists a survivor, and the command that
  * writes one test for them all.
+ *
+ * @internal
  */
 final readonly class ClusterDetail
 {

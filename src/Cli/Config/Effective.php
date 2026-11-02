@@ -33,6 +33,8 @@ use NightWorksIO\MutationGate\Extension\Extensions;
  * read on its own, and what only every layer together can say, such as that
  * no runner is chosen, once all of them are laid. When no layer sets the
  * preset or the runner, zero-config finds them.
+ *
+ * @internal
  */
 final readonly class Effective
 {

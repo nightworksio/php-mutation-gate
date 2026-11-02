@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Hold;
 
-/** Where a `#[Holds]` stands in a test file, which says whether a group can follow from it. */
+/**
+ * Where a `#[Holds]` stands in a test file, which says whether a group can follow from it.
+ *
+ * @internal
+ */
 enum Standing: string
 {
     /** On the closure passed to `it()`, `test()` or `arch()`: the test it becomes. */

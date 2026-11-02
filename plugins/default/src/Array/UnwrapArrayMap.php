@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `array_map(…)` becomes its second argument. */
+/**
+ * `array_map(…)` becomes its second argument.
+ *
+ * @internal
+ */
 final readonly class UnwrapArrayMap implements Mutator
 {
     public function name(): MutatorName

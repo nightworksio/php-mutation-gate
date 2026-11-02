@@ -18,7 +18,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 use PhpParser\Node\Expr\StaticCall;
 
-/** `Cache::remember($key, $ttl, $callback)` becomes `$callback()`. */
+/**
+ * `Cache::remember($key, $ttl, $callback)` becomes `$callback()`.
+ *
+ * @internal
+ */
 final readonly class UnwrapCacheRemember implements Mutator
 {
     /** Where `remember()` takes the callback that computes the value. */

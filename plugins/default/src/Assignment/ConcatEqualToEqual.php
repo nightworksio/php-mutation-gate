@@ -16,7 +16,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\Assign;
 use PhpParser\Node\Expr\AssignOp\Concat;
 
-/** `.=` becomes `=`. */
+/**
+ * `.=` becomes `=`.
+ *
+ * @internal
+ */
 final readonly class ConcatEqualToEqual implements Mutator
 {
     public function name(): MutatorName

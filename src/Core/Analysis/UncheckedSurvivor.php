@@ -11,6 +11,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * A survivor static analysis left unchecked: why, the file it is a mutant
  * of, and what was said of it where anything was: why a check could not run,
  * or which findings a print that analyses otherwise differs by.
+ *
+ * @internal
  */
 final readonly class UncheckedSurvivor
 {

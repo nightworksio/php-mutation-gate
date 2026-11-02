@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Telemetry;
 
-/** One value of a metric, with the attributes that tell it from the metric's others. */
+/**
+ * One value of a metric, with the attributes that tell it from the metric's others.
+ *
+ * @internal
+ */
 final readonly class DataPoint
 {
     /** @param array<string, string|int> $attributes by name */

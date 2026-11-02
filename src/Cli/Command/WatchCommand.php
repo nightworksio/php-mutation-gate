@@ -46,6 +46,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * tests or test support measures the tests it touched again, and a change
  * that reaches everything builds it again. It never writes the baseline,
  * and it runs until it is stopped.
+ *
+ * @internal
  */
 final readonly class WatchCommand
 {

@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateDefault\Returns;
 use PhpParser\Node;
 use PhpParser\Node\Stmt\Return_;
 
-/** A `return` another `return` of its method follows is removed. */
+/**
+ * A `return` another `return` of its method follows is removed.
+ *
+ * @internal
+ */
 final readonly class RemoveEarlyReturn implements Mutator
 {
     public function name(): MutatorName

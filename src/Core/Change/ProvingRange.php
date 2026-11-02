@@ -8,6 +8,8 @@ namespace NightWorksIO\MutationGate\Core\Change;
  * How many commits since a base a change source asks to have proved, one
  * question each, before it reads the range whole instead. Past that, a full
  * reach is the safe answer.
+ *
+ * @internal
  */
 final readonly class ProvingRange
 {

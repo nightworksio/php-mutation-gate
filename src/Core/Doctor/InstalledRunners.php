@@ -15,6 +15,8 @@ use function version_compare;
  * Which runners Composer installed, whether the config or the command line
  * chooses one, the releases the chosen runner drives or why the gate drives
  * none of them, and the pest-plugin-mutate release installed.
+ *
+ * @internal
  */
 final readonly class InstalledRunners
 {

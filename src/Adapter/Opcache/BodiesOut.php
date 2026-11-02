@@ -28,6 +28,8 @@ use PhpParser\NodeVisitorAbstract;
  * them as the statements of a closure in its place.
  * Bodies inside are taken out first, so what a body keeps is already
  * without its own.
+ *
+ * @internal
  */
 final class BodiesOut extends NodeVisitorAbstract
 {

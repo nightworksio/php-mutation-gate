@@ -24,6 +24,8 @@ use function strval;
  * `keys` (ADR-0023): one digest over what the entries could
  * depend on. An entry whose key is unchanged is reused, and one whose key
  * moved, or that has none, is measured again.
+ *
+ * @internal
  */
 final readonly class EntryKeys
 {

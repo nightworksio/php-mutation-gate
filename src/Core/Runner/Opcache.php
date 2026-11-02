@@ -11,6 +11,8 @@ use function mb_strtolower;
  * Whether opcache could serve a cached original of a file in place of the
  * mutated copy an override serves: on for the command line, or keeping a
  * file cache.
+ *
+ * @internal
  */
 final readonly class Opcache
 {

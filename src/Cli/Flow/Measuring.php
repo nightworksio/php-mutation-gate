@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
  * Where a coverage map a job holds was measured (ADR-0020): at
  * the checkout as it is now, for a map this job measured, or where the map
  * another job wrote says, for a map read from a directory.
+ *
+ * @internal
  */
 final readonly class Measuring
 {

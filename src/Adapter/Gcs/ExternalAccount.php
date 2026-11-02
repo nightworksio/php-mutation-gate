@@ -37,6 +37,8 @@ use function str_starts_with;
  * and `url` credential sources are read, which are what CI identity
  * providers write. A file that holds a service-account key, or any other
  * long-lived credential, is refused.
+ *
+ * @internal
  */
 final readonly class ExternalAccount
 {

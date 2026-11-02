@@ -21,6 +21,8 @@ use function sprintf;
  * judged, the runner and the packages it drives, how long the run took in
  * seconds, and how the baseline file stands. A part the run could not tell
  * is left out.
+ *
+ * @internal
  */
 final readonly class ProvenanceLine
 {

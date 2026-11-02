@@ -32,6 +32,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Warnings;
  * checkout. A survivor whose file cannot be read, or whose change does not
  * go back onto it, is proven nothing. Where opcache dumps nothing, none is
  * proven, and a warning says so.
+ *
+ * @internal
  */
 final readonly class StaticEquivalence
 {

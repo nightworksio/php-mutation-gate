@@ -18,6 +18,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * files the run mutates, which no worker may have loaded once it booted, the
  * time after which no run starts, and every run, in the order they are
  * claimed.
+ *
+ * @internal
  */
 final readonly class Job
 {

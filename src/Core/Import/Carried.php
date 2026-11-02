@@ -6,7 +6,11 @@ namespace NightWorksIO\MutationGate\Core\Import;
 
 use function sprintf;
 
-/** One key of another tool's config, and what became of it in the gate's config. */
+/**
+ * One key of another tool's config, and what became of it in the gate's config.
+ *
+ * @internal
+ */
 final readonly class Carried
 {
     private function __construct(private string $key, private Fate $fate, private string $said)

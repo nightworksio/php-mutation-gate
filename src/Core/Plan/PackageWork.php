@@ -16,6 +16,8 @@ use function usort;
 /**
  * The units of one package, in path order, which its shards take in turn.
  * Packages never share a shard.
+ *
+ * @internal
  */
 final readonly class PackageWork
 {

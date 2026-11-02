@@ -12,6 +12,8 @@ use function preg_match;
  * One ref git is about to push, as it hands the line to the `pre-push` hook:
  * the local ref and the commit it pushes, and the commit the remote holds at
  * the ref it pushes to. Git names no commit, on either side, by zeros.
+ *
+ * @internal
  */
 final readonly class PushedRef
 {

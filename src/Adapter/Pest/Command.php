@@ -25,6 +25,8 @@ use function sprintf;
 /**
  * A program to run: its arguments, the environment it changes, where a false
  * variable is one it does not inherit, and how long it may take.
+ *
+ * @internal
  */
 final readonly class Command
 {

@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\Test\TestMethod;
  * The classes, and the test methods' data sets, that some tests hold whole:
  * every test of them a suite names is among those tests (see Suite). A
  * filter names each of those whole, and still selects exactly the tests.
+ *
+ * @internal
  */
 final readonly class Wholes
 {

@@ -18,6 +18,8 @@ use function sprintf;
  * shows it: the planned and measured wall and runner time, what reach and
  * proofs spared, whether setup was estimated, and money where the team gives
  * a rate (ADR-0016).
+ *
+ * @internal
  */
 final readonly class CostText
 {

@@ -32,6 +32,8 @@ use function preg_match;
  * generic JSON. Each node's shard is `CIRCLE_NODE_INDEX` + 1, and a
  * `CIRCLE_NODE_TOTAL` that is not the plan's count of shards cannot be judged.
  * CircleCI does not name the default branch; `ci.defaultBranch` does.
+ *
+ * @internal
  */
 final readonly class CircleCiPlan implements CiPlan, Configurable
 {

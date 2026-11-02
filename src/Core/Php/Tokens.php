@@ -34,6 +34,8 @@ use function trim;
 /**
  * A PHP file's significant tokens, in order, each with the bracket it stands
  * inside and each bracket with where it closes.
+ *
+ * @internal
  */
 final readonly class Tokens implements Countable
 {

@@ -18,6 +18,8 @@ use NightWorksIO\MutationGate\Core\Test\Defect;
  * names none, as a list of issues that do not fail the run does (see
  * FailingIssues), and a list of errors PHP's `E_USER_ERROR` raised, under `1
  * test triggered 1 error:`.
+ *
+ * @internal
  */
 enum PrintedList
 {

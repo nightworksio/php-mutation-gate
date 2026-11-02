@@ -11,7 +11,11 @@ use function sprintf;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
-/** GitHub's REST API, asked with a token. */
+/**
+ * GitHub's REST API, asked with a token.
+ *
+ * @internal
+ */
 final readonly class Api
 {
     /** The version of the API the answers are read as. */

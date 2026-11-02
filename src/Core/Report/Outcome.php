@@ -20,6 +20,8 @@ use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
  * graded for a reader new to mutation testing, with why. The cases are
  * declared in the order a file lists its mutants, those that need a test
  * first.
+ *
+ * @internal
  */
 enum Outcome: string
 {

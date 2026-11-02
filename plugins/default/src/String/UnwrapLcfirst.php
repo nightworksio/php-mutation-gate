@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `lcfirst(…)` becomes its first argument. */
+/**
+ * `lcfirst(…)` becomes its first argument.
+ *
+ * @internal
+ */
 final readonly class UnwrapLcfirst implements Mutator
 {
     public function name(): MutatorName

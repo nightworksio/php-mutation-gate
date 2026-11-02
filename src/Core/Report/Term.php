@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\Format\Fit;
  * "what is this?" where the word appears, the digest lists them all as its
  * legend, and the guide explains each under a heading of its value
  * (ADR-0009).
+ *
+ * @internal
  */
 enum Term: string
 {

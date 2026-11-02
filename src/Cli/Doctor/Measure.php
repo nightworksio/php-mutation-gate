@@ -28,6 +28,8 @@ use Symfony\Component\Console\Input\InputInterface;
  * held. It writes no coverage map. Where a run could not get as far as the
  * coverage run, the measurement says why; an invalid config it leaves to
  * the check that reports it.
+ *
+ * @internal
  */
 final readonly class Measure
 {

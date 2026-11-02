@@ -18,6 +18,8 @@ use function usort;
  * for one Pest ships, a bridged mutator's own name for a registered one),
  * Pest's diff of it, and the mutated copy Pest serves in the mutant's own
  * process.
+ *
+ * @internal
  */
 final readonly class PlannedMutant
 {

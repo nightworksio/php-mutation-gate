@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  * run gave none; the units the suite holds, as a run finds them; and how
  * long each unit took, as the ledgers learned it; and the most resident
  * memory the suite's processes held.
+ *
+ * @internal
  */
 final readonly class Measurement
 {

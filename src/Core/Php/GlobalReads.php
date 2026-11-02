@@ -14,6 +14,8 @@ use function mb_strtolower;
  * `::` or a variable, or after `new`, `->`, `as` or a keyword that declares
  * or imports, is no read. A `constant()` of a name not written out is a read the
  * scan cannot follow.
+ *
+ * @internal
  */
 final readonly class GlobalReads
 {

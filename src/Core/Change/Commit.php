@@ -11,6 +11,8 @@ use function sprintf;
  * A commit as git names it in full: 40 lowercase hex digits in a SHA-1
  * repository, 64 in a SHA-256 one. Read from a file the gate wrote, where
  * anything else, such as an option git would read, is refused.
+ *
+ * @internal
  */
 final readonly class Commit
 {

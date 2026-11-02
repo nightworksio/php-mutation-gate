@@ -21,6 +21,8 @@ use NightWorksIO\MutationGate\Port\Reporter;
  * The reporter `digest`: the digest's overview of the verdict, one fact a
  * line for an agent, rendered from the JSON report as `mutation-gate digest`
  * renders it, written to the `path` its entry names (ADR-0009).
+ *
+ * @internal
  */
 final readonly class DigestReportFile implements Configurable, Reporter
 {

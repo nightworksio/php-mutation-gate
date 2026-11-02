@@ -18,7 +18,11 @@ use NightWorksIO\MutationGateSymfony\SymfonySet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\MethodCall;
 
-/** `->isGranted(…)` becomes `true`, on any receiver. */
+/**
+ * `->isGranted(…)` becomes `true`, on any receiver.
+ *
+ * @internal
+ */
 final readonly class IsGrantedToTrue implements Mutator
 {
     public function name(): MutatorName

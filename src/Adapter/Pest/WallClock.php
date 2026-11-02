@@ -6,7 +6,11 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function microtime;
 
-/** The system's clock. */
+/**
+ * The system's clock.
+ *
+ * @internal
+ */
 final readonly class WallClock implements Clock
 {
     public function seconds(): float

@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
  * run ran, in the test files it loaded, every one where it names none, with
  * the file the mutant changes served unmutated through Pest's override (see
  * ServedOriginal).
+ *
+ * @internal
  */
 final readonly class Control
 {

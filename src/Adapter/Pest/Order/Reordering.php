@@ -24,6 +24,8 @@ use function sprintf;
  * asked to order by defects with its test run history not recorded. So the
  * rewrite drops every cache directory, order, recording and caching option
  * the arguments hold, Pest's own among them, before it adds its own.
+ *
+ * @internal
  */
 final readonly class Reordering
 {

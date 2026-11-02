@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * What a run that ran the project's code leaves for `deliver`, which holds the credentials and runs none of that
  * code (ADR-0007): payloads only, each ready to send. Where each goes, and with which credential, is
  * `deliver`'s own environment's to say, never the delivery's.
+ *
+ * @internal
  */
 final readonly class Delivery
 {

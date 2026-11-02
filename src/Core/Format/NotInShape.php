@@ -12,6 +12,8 @@ use function sprintf;
  * A file the gate wrote does not hold what it should where it should. Thrown
  * while a codec reads one entry, and answered at the codec's edge: a ledger
  * drops the entry, and a plan or a shard's result is refused.
+ *
+ * @internal
  */
 final class NotInShape extends RuntimeException
 {

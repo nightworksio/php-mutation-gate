@@ -19,6 +19,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
  * explained, each once, in the order the mutants first name them, so a
  * report can list the tests once and point at them by their place
  * (ADR-0014).
+ *
+ * @internal
  */
 final readonly class TestTable
 {

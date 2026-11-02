@@ -40,6 +40,8 @@ use function sprintf;
  * definition, and the JSON Schema is written from it, with the value each
  * setting takes when every layer leaves it out, so the two cannot drift
  * (ADR-0002).
+ *
+ * @internal
  */
 final readonly class Definition
 {

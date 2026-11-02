@@ -10,7 +10,11 @@ use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Local;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
-/** How the keys a config writes are read into its `Local` part (ADR-0002). */
+/**
+ * How the keys a config writes are read into its `Local` part (ADR-0002).
+ *
+ * @internal
+ */
 final readonly class LocalKeys
 {
     /** @return list<Field<Layer>> */

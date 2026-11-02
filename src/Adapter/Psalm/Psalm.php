@@ -59,6 +59,8 @@ use Symfony\Component\Process\Process;
  * file outside the `<projectFiles>` of the project's `psalm.xml`, or
  * among their `<ignoreFiles>`, or one whose original the server
  * publishes nothing for, is out of its scope.
+ *
+ * @internal
  */
 final class Psalm implements StaticChecker
 {

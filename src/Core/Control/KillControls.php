@@ -26,6 +26,8 @@ use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
  * runs out of the limit or never runs, nothing tells the mutant from
  * its original, and it is unjudged, saying why. A kill no test is named
  * for is controlled by its covering tests instead (see UnnamedKillControls).
+ *
+ * @internal
  */
 final readonly class KillControls implements ControlJudge
 {

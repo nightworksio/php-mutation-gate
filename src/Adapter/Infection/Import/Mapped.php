@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Infection\Import;
 
-/** The top-level keys of Infection's config an import maps into the gate's own. */
+/**
+ * The top-level keys of Infection's config an import maps into the gate's own.
+ *
+ * @internal
+ */
 enum Mapped: string
 {
     case Source = 'source';

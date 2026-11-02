@@ -44,6 +44,8 @@ use function sprintf;
  * action exposes as its output. An empty array
  * skips the matrix job, and the verdict still runs. A matrix holds at most
  * {@see MOST_JOBS} jobs.
+ *
+ * @internal
  */
 final readonly class GitHubPlan implements CiPlan, Configurable
 {

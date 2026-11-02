@@ -35,6 +35,8 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  * finishes for the silence limit of its slowest, so a line many tests cover
  * is judged by every one of them, and a mutant whose text the runner cannot
  * give is left to its control.
+ *
+ * @internal
  */
 final readonly class HeavyMutants
 {

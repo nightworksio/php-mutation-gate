@@ -24,6 +24,8 @@ use function sprintf;
 /**
  * The committed baseline, as the checkout holds it and as the default
  * branch does, and writing it back.
+ *
+ * @internal
  */
 final readonly class Baselines
 {

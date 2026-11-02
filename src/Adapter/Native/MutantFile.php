@@ -72,6 +72,8 @@ use function var_export;
  * end, where PHP's own wrapper says it is: PHP asks a wrapper for one chunk
  * whatever a caller asks for, so the wrapper cannot tell that read from the
  * one a line reader makes, and it answers as a line reader needs.
+ *
+ * @internal
  */
 final class MutantFile
 {

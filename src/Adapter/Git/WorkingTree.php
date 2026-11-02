@@ -34,6 +34,8 @@ use function trim;
  * each holds, and the blob id git gives it. A link is what git stores for
  * it, the path it points to, and never what it points to, which may lie
  * outside the repository.
+ *
+ * @internal
  */
 final readonly class WorkingTree
 {

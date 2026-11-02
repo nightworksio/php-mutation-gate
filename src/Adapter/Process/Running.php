@@ -51,6 +51,8 @@ use function usleep;
  * has made no progress for its silence limit where it has one, on a clock
  * read in seconds. What it prints is read as it prints it, so a wait on
  * running processes ends as soon as one prints or ends.
+ *
+ * @internal
  */
 final class Running
 {

@@ -32,6 +32,8 @@ use function unlink;
  * report a run the project started in this job wrote, or the gate's own map
  * another job handed over, and never a runner's map another job wrote.
  * The framework runs its tests in one process, however many a run is given.
+ *
+ * @internal
  */
 final readonly class Coverage
 {

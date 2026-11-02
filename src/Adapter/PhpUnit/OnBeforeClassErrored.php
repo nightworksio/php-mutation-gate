@@ -10,6 +10,8 @@ use PHPUnit\Event\Test\BeforeFirstTestMethodErroredSubscriber;
 /**
  * Records a test class whose `setUpBeforeClass` errored: none of its tests
  * starts, and each of them the run selected ended as though it had errored.
+ *
+ * @internal
  */
 final readonly class OnBeforeClassErrored implements BeforeFirstTestMethodErroredSubscriber
 {

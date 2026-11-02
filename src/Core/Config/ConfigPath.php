@@ -13,6 +13,8 @@ use function str_starts_with;
  * A path a config wrote, with the directory it was written from (ADR-0002):
  * `src` in `ci/mutation-gate.json` is `ci/src`, and `../src` there is `src`.
  * An absolute path is itself wherever it is written.
+ *
+ * @internal
  */
 final readonly class ConfigPath
 {

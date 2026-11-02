@@ -12,7 +12,11 @@ use Countable;
 
 use function ksort;
 
-/** The units a plan cuts into shards, each weighed. */
+/**
+ * The units a plan cuts into shards, each weighed.
+ *
+ * @internal
+ */
 final readonly class Workload implements Countable
 {
     /** @param array<Weighed> $units */

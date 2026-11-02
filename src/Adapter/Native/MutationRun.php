@@ -60,6 +60,8 @@ use function strval;
  * request's deadline is skipped with no record. A run again makes only the
  * mutants it names. A mutant that leaves its file as one made before it does
  * is not run, and takes that one's verdict (see Twins).
+ *
+ * @internal
  */
 final readonly class MutationRun
 {

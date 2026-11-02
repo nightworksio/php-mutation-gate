@@ -44,6 +44,8 @@ use function sprintf;
  * is kept, the kept map cannot be read or was measured in a dirty working
  * tree, a test it holds is in no test file, every entry's key moved, or
  * `coverage.incremental` is false.
+ *
+ * @internal
  */
 final readonly class KeptCoverage
 {

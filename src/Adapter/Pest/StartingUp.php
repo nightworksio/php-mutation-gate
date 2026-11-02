@@ -21,6 +21,8 @@ use function sprintf;
  * pest-plugin-mutate starts a mutant's own run of a file, its mutant an
  * unchanged copy, so the plugin serves the file through its own wrapper as
  * it does a mutant's.
+ *
+ * @internal
  */
 final readonly class StartingUp
 {

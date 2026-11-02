@@ -45,6 +45,8 @@ use function sprintf;
  *
  * Run by Infection outside the gate, the patched limits keep Infection's own;
  * the interceptor stats as PHP does either way.
+ *
+ * @internal
  */
 final readonly class Patch
 {

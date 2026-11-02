@@ -35,6 +35,8 @@ use function sprintf;
  * at least one job, so a plan with no shards is one leg, `none`, whose
  * `SHARD` is empty and which runs nothing. Azure DevOps does not name the
  * default branch; `ci.defaultBranch` does.
+ *
+ * @internal
  */
 final readonly class AzurePlan implements CiPlan, Configurable
 {

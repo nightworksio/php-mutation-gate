@@ -6,7 +6,11 @@ namespace NightWorksIO\MutationGate\Core\Report;
 
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 
-/** The words every report prints for how the gate judged a mutant. */
+/**
+ * The words every report prints for how the gate judged a mutant.
+ *
+ * @internal
+ */
 final readonly class Label
 {
     public static function of(MutantJudgement $judgement): string

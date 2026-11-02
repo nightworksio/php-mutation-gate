@@ -19,6 +19,8 @@ use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
  * The config a project's tests are declared in: PhpSpec's, for the PhpSpec
  * runner, Codeception's, for the Codeception runner, and PHPUnit's, for
  * every other runner, which all run PHPUnit's tests.
+ *
+ * @internal
  */
 enum SuiteConfig
 {

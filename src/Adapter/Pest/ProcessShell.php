@@ -20,6 +20,8 @@ use NightWorksIO\MutationGate\Port\Processes;
  * Runs a command as a process in one directory, through the processes the
  * gate runs. At its deadline the process is stopped with every process under
  * it, such as Pest's paratest workers and each mutant's own run.
+ *
+ * @internal
  */
 final readonly class ProcessShell implements Shell
 {

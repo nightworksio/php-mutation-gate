@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-/** The cost models this package builds in, by the name the registry holds each by. */
+/**
+ * The cost models this package builds in, by the name the registry holds each by.
+ *
+ * @internal
+ */
 enum BuiltinCostModel: string
 {
     case Learned = 'learned';

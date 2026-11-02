@@ -8,6 +8,8 @@ namespace NightWorksIO\MutationGate\Core\Alert;
  * How the default branch changed state, which is what an alert says: it
  * failed, it cannot be judged, it passes again after either, or a floor went
  * down (ADR-0016).
+ *
+ * @internal
  */
 enum AlertEvent: string
 {

@@ -33,6 +33,8 @@ use Psr\Clock\ClockInterface;
  * and at least about a hundred times a second, and at a watched one's watch
  * as often, and timing each on a clock; where they are given a saying,
  * saying in its log once a minute while any runs what runs (see Saying).
+ *
+ * @internal
  */
 final readonly class LocalProcesses implements Processes
 {

@@ -17,6 +17,8 @@ use function sprintf;
  * One key of an object of settings: the shape of its value, what leaving it
  * out means, and what it can change.
  *
+ * @internal
+ *
  * @template-covariant T of object|scalar
  */
 final readonly class Field

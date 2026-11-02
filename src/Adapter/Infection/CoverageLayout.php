@@ -33,6 +33,8 @@ use function sprintf;
  * layout Infection's `--coverage` reads: PHPUnit's XML coverage, each file's
  * report with the lines its tests ran and the methods they ran, and a JUnit
  * log of each test class, with its file and the time its tests took.
+ *
+ * @internal
  */
 final readonly class CoverageLayout
 {

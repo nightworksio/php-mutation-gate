@@ -11,7 +11,11 @@ use function is_int;
 use function sprintf;
 use function str_starts_with;
 
-/** The lines of a unified diff's hunks, without the header before the first, and one hunk made from changed lines. */
+/**
+ * The lines of a unified diff's hunks, without the header before the first, and one hunk made from changed lines.
+ *
+ * @internal
+ */
 final readonly class Hunks
 {
     /** The line a unified diff's first hunk starts with; what comes before it is the header. */

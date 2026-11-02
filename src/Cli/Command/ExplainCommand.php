@@ -30,6 +30,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * exits 0 once it has explained, and 2 where no record holds the mutant, a
  * prefix names several, or the id is not one. A cluster's id is twelve hex
  * characters too, so the flow tells the two apart by what the last run holds.
+ *
+ * @internal
  */
 final readonly class ExplainCommand
 {

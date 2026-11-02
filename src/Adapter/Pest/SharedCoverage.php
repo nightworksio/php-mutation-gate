@@ -34,6 +34,8 @@ use function sprintf;
  * data, and never a runner's map, which is PHP that reading runs. For Pest
  * patched to open on a canary group, the map is written again as
  * `--coverage-php` writes one, by this job, for this job's Pest to load.
+ *
+ * @internal
  */
 final readonly class SharedCoverage
 {

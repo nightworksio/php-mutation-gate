@@ -18,6 +18,8 @@ use function sprintf;
  * so a test can call it with its parameters' names as placeholders
  * (ADR-0015). A closure has no name, so a line inside one is in
  * the function around it.
+ *
+ * @internal
  */
 final readonly class Enclosing
 {

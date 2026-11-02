@@ -24,6 +24,8 @@ use NightWorksIO\MutationGate\Core\Php\Source;
  * judged against the same original. A file is scanned as the codebase the run
  * reads already scanned it, and scanned here only where the codebase holds it
  * as a test or not at all.
+ *
+ * @internal
  */
 final class Originals
 {

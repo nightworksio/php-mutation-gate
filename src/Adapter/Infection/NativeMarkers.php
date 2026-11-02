@@ -20,6 +20,8 @@ use function sprintf;
  * its config. Each is found with the `ignores.entries` entry that replaces
  * it; whether a run may go ahead with them is the verdict's to decide. No
  * comment here spells the marker, or Infection would read it as one.
+ *
+ * @internal
  */
 final readonly class NativeMarkers
 {

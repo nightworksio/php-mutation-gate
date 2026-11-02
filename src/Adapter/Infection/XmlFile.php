@@ -12,7 +12,11 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Format\Xml;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
-/** An XML report Infection or PHPUnit wrote, read without the network and without libxml's own warnings. */
+/**
+ * An XML report Infection or PHPUnit wrote, read without the network and without libxml's own warnings.
+ *
+ * @internal
+ */
 final readonly class XmlFile
 {
     /** The file's document, or the refusal given where the file is not there or not XML. */

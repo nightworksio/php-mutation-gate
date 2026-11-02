@@ -23,6 +23,8 @@ use function sprintf;
  * from 0. Where the CI also says how many jobs it started, that must be the
  * plan's count of shards, or the jobs and the plan were not made for each
  * other.
+ *
+ * @internal
  */
 final readonly class WhichShard
 {

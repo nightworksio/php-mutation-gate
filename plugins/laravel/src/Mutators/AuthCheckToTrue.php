@@ -19,7 +19,11 @@ use NightWorksIO\MutationGateLaravel\LaravelSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\StaticCall;
 
-/** `Auth::check()` becomes `true`, and `Auth::guest()` becomes `false`. */
+/**
+ * `Auth::check()` becomes `true`, and `Auth::guest()` becomes `false`.
+ *
+ * @internal
+ */
 final readonly class AuthCheckToTrue implements Mutator
 {
     public function name(): MutatorName

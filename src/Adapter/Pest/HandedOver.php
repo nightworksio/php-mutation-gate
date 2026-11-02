@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
  * The map another job handed over, as a mutation run that opened on it covers
  * each line: Pest's opening map is that map again, so the gate reads the one
  * it already holds rather than a copy it would have to read back.
+ *
+ * @internal
  */
 final readonly class HandedOver implements Covering
 {

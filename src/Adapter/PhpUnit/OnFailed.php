@@ -8,7 +8,11 @@ use NightWorksIO\MutationGate\Core\Native\Outcome;
 use PHPUnit\Event\Test\Failed;
 use PHPUnit\Event\Test\FailedSubscriber;
 
-/** Notes that the running test failed. */
+/**
+ * Notes that the running test failed.
+ *
+ * @internal
+ */
 final readonly class OnFailed implements FailedSubscriber
 {
     public function __construct(private Recorder $recorder)

@@ -37,6 +37,8 @@ use function sprintf;
  * in the results file the gate names, so the gate triages each timeout by
  * the limit that applied; where it cannot be recorded, or the gate names no
  * bounds, the mutant keeps the limit Pest gave it.
+ *
+ * @internal
  */
 final class MutantTime
 {

@@ -24,6 +24,8 @@ use function sprintf;
  * is public API (ADR-0015, and ADR-0011). A path, a run's
  * id and a message hold no line break or other control character, so none
  * starts a line of its own a matcher would read as a result.
+ *
+ * @internal
  */
 final readonly class Problems
 {

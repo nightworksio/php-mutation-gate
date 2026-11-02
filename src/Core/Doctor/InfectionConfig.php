@@ -8,6 +8,8 @@ namespace NightWorksIO\MutationGate\Core\Doctor;
  * An Infection config file in the project, and what in it the gate reads
  * elsewhere: a `minMsi`, which floors replace, and Infection's own ignores,
  * which `ignores.entries` replaces (ADR-0016).
+ *
+ * @internal
  */
 final readonly class InfectionConfig
 {

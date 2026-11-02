@@ -16,7 +16,11 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 
 use function sprintf;
 
-/** How the keys a config writes are read into its `Publishing` part (ADR-0002). */
+/**
+ * How the keys a config writes are read into its `Publishing` part (ADR-0002).
+ *
+ * @internal
+ */
 final readonly class PublishingKeys
 {
     /** @return list<Field<Layer>> */

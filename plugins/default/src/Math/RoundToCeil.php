@@ -16,7 +16,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `round(…)` becomes `ceil(…)`. */
+/**
+ * `round(…)` becomes `ceil(…)`.
+ *
+ * @internal
+ */
 final readonly class RoundToCeil implements Mutator
 {
     public function name(): MutatorName

@@ -29,6 +29,8 @@ use function strval;
  * description is the one Pest gives it, its TestDox, and its file the one
  * Pest built its class from; a PHPUnit test's is its method's name, in the
  * file that declares its class.
+ *
+ * @internal
  */
 final readonly class Naming
 {

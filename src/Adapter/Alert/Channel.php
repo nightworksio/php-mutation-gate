@@ -13,7 +13,11 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\GateSecret;
 
-/** Where an alert goes, the variable its URL is read from by default, and how it is written there (ADR-0016). */
+/**
+ * Where an alert goes, the variable its URL is read from by default, and how it is written there (ADR-0016).
+ *
+ * @internal
+ */
 enum Channel
 {
     case Slack;

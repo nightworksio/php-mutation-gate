@@ -23,6 +23,8 @@ use function range;
  * before it; coverage may mark an arm's line run only for the tests whose
  * result it is, as pcov marks the condition of the first arm of a
  * `match (true)` on its head.
+ *
+ * @internal
  */
 final readonly class ArmCoverage
 {

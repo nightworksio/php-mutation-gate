@@ -69,6 +69,8 @@ use function sprintf;
  * a coverage directory the gate chose: one another job wrote for the whole
  * suite, or one the adapter writes first by running PHPUnit under coverage,
  * narrowed to the tests that judge a held path.
+ *
+ * @internal
  */
 final readonly class Infection implements Runner
 {

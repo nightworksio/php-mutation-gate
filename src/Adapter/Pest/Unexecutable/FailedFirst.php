@@ -25,6 +25,8 @@ use function trim;
  * `file` attribute names it, its path and its description, and the first
  * line of what PHPUnit said of it, each one plain line. Pest begins what it
  * says of a test with the test's own name, which is left out.
+ *
+ * @internal
  */
 final readonly class FailedFirst
 {

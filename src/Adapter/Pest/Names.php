@@ -26,6 +26,8 @@ use function sprintf;
  * the file Pest built it from and the description Pest gives it, or a PHPUnit
  * test by its class's file and its method's name, with the data set row
  * where its id runs one.
+ *
+ * @internal
  */
 final readonly class Names
 {

@@ -21,6 +21,8 @@ use function str_replace;
  * Navigation). Every part is rendered from the JSON report, so every reader
  * of a run reads one verdict.
  *
+ * @internal
+ *
  * @phpstan-import-type Report from JsonReport
  */
 final readonly class ReportPage

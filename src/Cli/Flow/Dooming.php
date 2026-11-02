@@ -23,6 +23,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Undoomed;
  * security mutators alone or of one suite's tests alone holds no tree to a
  * floor, so it runs to its end, as any other run does, and as one does
  * whose trees or baseline cannot be read.
+ *
+ * @internal
  */
 final readonly class Dooming
 {

@@ -21,6 +21,8 @@ use NightWorksIO\MutationGate\Core\File\Paths;
  * decide are those the layout names (ADR-0005, rule 1), and each
  * package's `composer.lock`, which pins what the runner and its plugins are,
  * where its change moved a package that decides (ADR-0030).
+ *
+ * @internal
  */
 final readonly class FileRoles
 {

@@ -22,6 +22,8 @@ use function sprintf;
  * score against its floor as a bar, the floor marked on it. Each word a
  * reader new to mutation testing may not know has its "what is this?".
  *
+ * @internal
+ *
  * @phpstan-import-type Report from JsonReport
  * @phpstan-import-type SecurityEntry from JsonReport
  */

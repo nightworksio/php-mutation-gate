@@ -10,6 +10,8 @@ namespace NightWorksIO\MutationGate\Core\Runner;
  * and whose packages Composer does not list. Each is also a runner a config
  * chooses by name (`BuiltinRunner`), and PHPUnit runs Infection's coverage
  * too. An analyser is chosen apart, by `BuiltinAnalyser`.
+ *
+ * @internal
  */
 enum Program
 {

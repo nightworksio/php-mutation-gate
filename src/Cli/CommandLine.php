@@ -24,6 +24,8 @@ use Symfony\Component\Console\Input\InputInterface;
  * What the command line says about the config: the file `--config` names,
  * and the settings `--runner`, `--report`, `--budget` and `--ci` lay over
  * everything else (ADR-0002).
+ *
+ * @internal
  */
 final readonly class CommandLine
 {

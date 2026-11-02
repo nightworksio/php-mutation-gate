@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateSecurity\SecuritySet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `escapeshellarg($x)` and `escapeshellcmd($x)` become `$x`. */
+/**
+ * `escapeshellarg($x)` and `escapeshellcmd($x)` become `$x`.
+ *
+ * @internal
+ */
 final readonly class UnwrapShellEscape implements Mutator
 {
     public function name(): MutatorName

@@ -56,6 +56,8 @@ use function trim;
  * `local.prePushBudget`, prints each reached tree's score change, then the
  * verdict, and exits as the worst verdict does: anything but 0 blocks the
  * push, an unjudged mutant included (ADR-0010).
+ *
+ * @internal
  */
 final readonly class PrePushCommand
 {

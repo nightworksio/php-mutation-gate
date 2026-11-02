@@ -18,6 +18,8 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  * verdict replaces it: the units its shards mutate, what the run is
  * expected to take, how much of that estimate rests on measured timings,
  * and the changed lines no test covers (ADR-0009, and ADR-0019).
+ *
+ * @internal
  */
 final readonly class PlannedWork
 {

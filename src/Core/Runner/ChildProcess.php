@@ -19,6 +19,8 @@ use function sprintf;
  * stopped at its limit, with what it wrote until then. Adapters share no
  * code (A3), so each starts its own process, and this is what they have in
  * common.
+ *
+ * @internal
  */
 final readonly class ChildProcess
 {

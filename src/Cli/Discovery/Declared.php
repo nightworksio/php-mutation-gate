@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Discovery;
 
-/** An extension class a package names in its `composer.json`. */
+/**
+ * An extension class a package names in its `composer.json`.
+ *
+ * @internal
+ */
 final readonly class Declared
 {
     /** @param string $origin the package that names it */

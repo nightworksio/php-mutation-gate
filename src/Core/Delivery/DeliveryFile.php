@@ -31,6 +31,8 @@ use function sprintf;
  * not know, such as a store, a bucket, a URL, an endpoint or the name of a
  * variable, is refused, never followed, so the run that wrote it cannot
  * choose where `deliver`'s credentials, or its ledger, go.
+ *
+ * @internal
  */
 final readonly class DeliveryFile
 {

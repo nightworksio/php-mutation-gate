@@ -21,6 +21,8 @@ use Symfony\Component\Console\Question\ConfirmationQuestion;
  * the console, each question offering the detected answer as its default.
  * With `--no-interaction`, with no terminal, or with `CI` set, it asks
  * nothing, and each question takes its default.
+ *
+ * @internal
  */
 final readonly class Asking
 {

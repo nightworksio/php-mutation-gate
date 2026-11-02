@@ -16,6 +16,8 @@ use function sprintf;
  * the class or function it belongs to and its name as written. The owner is
  * fully qualified; one an anonymous class owns is unnamed, since no reference
  * can name it.
+ *
+ * @internal
  */
 final readonly class Symbol
 {

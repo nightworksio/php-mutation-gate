@@ -55,6 +55,8 @@ use function register_shutdown_function;
  * place of the original, so a mutant of this file would never run, and the
  * gate's own config leaves it out of the trees it mutates. The recording is
  * the recorder's.
+ *
+ * @internal
  */
 final class Plugin implements Bootable, HandlesArguments
 {

@@ -22,6 +22,8 @@ use function str_starts_with;
 /**
  * A commit as `git cat-file commit` prints it: its headers, up to the first
  * blank line, name its tree and each of its parents; its message follows.
+ *
+ * @internal
  */
 final readonly class CommitObject
 {

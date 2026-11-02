@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
  * How the workflows that run the gate run on a schedule, as GitHub tells
  * it: which of them GitHub knows, the ones it disabled for inactivity, and
  * the last run any of them made on a schedule, if any did.
+ *
+ * @internal
  */
 final readonly class Schedule
 {

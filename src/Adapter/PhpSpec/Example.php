@@ -19,6 +19,8 @@ use function sprintf;
  * method, as `Class::method`, the id a test of any runner has, the file its
  * spec is declared in, and the holding groups the `#[Holds]` on its spec or
  * on its method put it in.
+ *
+ * @internal
  */
 final readonly class Example
 {

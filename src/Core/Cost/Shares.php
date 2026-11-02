@@ -25,6 +25,8 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  * of its own, as every mutant of Infection's is, stands in with the time the
  * tests covering its line took. Where nothing was timed at all, the units
  * share the time equally.
+ *
+ * @internal
  */
 final readonly class Shares
 {

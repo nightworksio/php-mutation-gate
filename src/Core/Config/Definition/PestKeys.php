@@ -12,7 +12,11 @@ use NightWorksIO\MutationGate\Core\Config\Pest;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Test\Group;
 
-/** How the keys a config writes are read into its `Pest` part (ADR-0002). */
+/**
+ * How the keys a config writes are read into its `Pest` part (ADR-0002).
+ *
+ * @internal
+ */
 final readonly class PestKeys
 {
     /** @return list<Field<Layer>> */

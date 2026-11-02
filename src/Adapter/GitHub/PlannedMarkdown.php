@@ -21,6 +21,8 @@ use function sprintf;
  * replaces: the units the run mutates and in how many shards, what it is
  * expected to take, and the changed lines no test covers, each list as long
  * as the verdict's (ADR-0009, and ADR-0019).
+ *
+ * @internal
  */
 final readonly class PlannedMarkdown
 {

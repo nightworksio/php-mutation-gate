@@ -19,6 +19,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
  * each survivor the analyser rejected killed by static analysis, the checks'
  * time and the survivors they left unchecked, and the survivors they took
  * up, as they were before it.
+ *
+ * @internal
  */
 final readonly class Checked
 {

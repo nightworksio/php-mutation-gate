@@ -22,6 +22,8 @@ use function trim;
  * mutant is left unjudged: its exit code, the first test that failed, or
  * where none did and it failed, the last line it printed, and the test files
  * it ran.
+ *
+ * @internal
  */
 final readonly class Evidence
 {

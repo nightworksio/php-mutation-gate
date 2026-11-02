@@ -19,6 +19,8 @@ use Traversable;
  * Every file under the test directories, one per path; a later file of a path
  * replaces the earlier.
  *
+ * @internal
+ *
  * @implements IteratorAggregate<int, TestFile>
  */
 final readonly class TestFiles implements Countable, IteratorAggregate

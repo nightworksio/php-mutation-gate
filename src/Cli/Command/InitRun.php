@@ -34,6 +34,8 @@ use Symfony\Component\Console\Input\InputInterface;
  * files and the hooks, each made where it is asked for and not there; then
  * what a full run takes (ADR-0017), and what to run next. With a config
  * here, it makes only what the command line asks for, and asks nothing.
+ *
+ * @internal
  */
 final readonly class InitRun
 {

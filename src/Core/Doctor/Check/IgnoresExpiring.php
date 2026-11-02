@@ -23,7 +23,11 @@ use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 
 use function sprintf;
 
-/** Ignores that have expired, or expire within 14 days (ADR-0008). */
+/**
+ * Ignores that have expired, or expire within 14 days (ADR-0008).
+ *
+ * @internal
+ */
 final readonly class IgnoresExpiring
 {
     private const string ENTRY = 'ignores.entries[%d] %s %s';
