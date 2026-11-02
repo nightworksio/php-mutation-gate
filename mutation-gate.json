@@ -82,9 +82,6 @@
     "shards": {
         "max": 20
     },
-    "timeouts": {
-        "seconds": 30
-    },
     "staticCheck": {
         "config": "phpstan/mutants.neon"
     },
