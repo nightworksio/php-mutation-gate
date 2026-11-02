@@ -7,6 +7,8 @@ namespace NightWorksIO\MutationGate\Core\Ci;
 /**
  * Where a CI definition `init` does not write belongs: printed for the person
  * to add to a file the CI reads, which `init` never edits (ADR-0015).
+ *
+ * @internal
  */
 final readonly class Printed
 {

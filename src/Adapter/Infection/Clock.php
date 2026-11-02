@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
-/** What the shell measures a deadline on: the system's clock, or one a test drives. */
+/**
+ * What the shell measures a deadline on: the system's clock, or one a test drives.
+ *
+ * @internal
+ */
 interface Clock
 {
     /** The nanoseconds it reads, from any start. */

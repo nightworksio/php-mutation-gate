@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Test;
 
-/** What a file is to the tests: to the reach of a change to support, and to a content key. */
+/**
+ * What a file is to the tests: to the reach of a change to support, and to a content key.
+ *
+ * @internal
+ */
 enum Role: string
 {
     /** A file of test cases. */

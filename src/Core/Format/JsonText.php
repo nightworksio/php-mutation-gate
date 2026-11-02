@@ -15,6 +15,8 @@ use function str_replace;
  * bytes that are not UTF-8, such as a diff of a file in another encoding,
  * replaced rather than refused. A file only the gate reads, which can be
  * large, is written compactly, on one line.
+ *
+ * @internal
  */
 final readonly class JsonText
 {

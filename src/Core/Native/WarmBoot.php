@@ -10,6 +10,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * How a warm worker sets PHP up as a framework does before it runs a test
  * (ADR-0023): the settings and variables the framework's config sets, and
  * the bootstrap it names, which the worker includes.
+ *
+ * @internal
  */
 interface WarmBoot
 {

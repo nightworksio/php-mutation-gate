@@ -8,6 +8,8 @@ namespace NightWorksIO\MutationGate\Core\Php;
  * Where one file calls a plain function, whose parameter defaults each call
  * that leaves the parameter out reads: its name, as the file resolves it,
  * before `(`, and not as a method, a declaration or a class.
+ *
+ * @internal
  */
 final readonly class Calls
 {

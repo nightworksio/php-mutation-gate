@@ -14,7 +14,11 @@ use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 
 use function sprintf;
 
-/** `.gitignore` leaves the gate's own directory to git. */
+/**
+ * `.gitignore` leaves the gate's own directory to git.
+ *
+ * @internal
+ */
 final readonly class Workspace
 {
     private const string FOUND = '.gitignore does not name %s/.';

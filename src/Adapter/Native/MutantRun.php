@@ -75,6 +75,8 @@ use function trim;
  *   with what the framework said where it failed the run, and a run that
  *   fails before any test started or the mutated file ran, with what the
  *   framework said.
+ *
+ * @internal
  */
 final readonly class MutantRun
 {

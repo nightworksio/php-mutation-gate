@@ -10,7 +10,11 @@ use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
-/** What runs PHPUnit and Infection for the adapter: a process in the project's root, or a fake in a test. */
+/**
+ * What runs PHPUnit and Infection for the adapter: a process in the project's root, or a fake in a test.
+ *
+ * @internal
+ */
 interface Shell
 {
     public function run(Command $command): Ran;

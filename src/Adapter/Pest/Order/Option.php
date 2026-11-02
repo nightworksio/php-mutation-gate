@@ -13,6 +13,8 @@ use function str_starts_with;
  * An option of PHPUnit's that decides where a mutant's own process reads its
  * test run history, in which order it runs its tests, or whether it records
  * the history: each one the rewrite drops before it adds its own.
+ *
+ * @internal
  */
 enum Option: string
 {

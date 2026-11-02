@@ -24,6 +24,8 @@ use function trim;
  * file under a directory it names, and one ending in a slash only the
  * latter. A last segment of a lone `*` matches the files directly in its
  * directory and nothing deeper. Its wildcards are a glob's.
+ *
+ * @internal
  */
 final readonly class OwnerPattern
 {

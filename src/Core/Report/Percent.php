@@ -17,6 +17,8 @@ use function sprintf;
  * A score or a floor as every report prints it: two decimals, never rounded,
  * so 83.419 is 83.41%. A set with nothing to mutate has no percentage, and
  * never prints as 100%.
+ *
+ * @internal
  */
 final readonly class Percent
 {

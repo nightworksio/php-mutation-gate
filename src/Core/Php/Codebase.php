@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * in a method's or a closure's parameter default is run by the function's
  * body. A longer chain, or a read inside another value no reference names, is
  * one the scan cannot follow.
+ *
+ * @internal
  */
 final readonly class Codebase
 {

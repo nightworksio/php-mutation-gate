@@ -11,6 +11,8 @@ use function sprintf;
  * the line it is written on, with the class, method or function it stands on
  * and, for a class or method, whether PHPUnit's `#[Group('holds:<path>')]`
  * stands beside it.
+ *
+ * @internal
  */
 final readonly class HoldsAttribute
 {

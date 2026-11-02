@@ -26,6 +26,8 @@ use function version_compare;
  * interceptors and console are read from, and the coverage plugin that
  * writes its XML coverage. A version that is not a release, such as a
  * branch, is taken as it is.
+ *
+ * @internal
  */
 final readonly class Installed
 {

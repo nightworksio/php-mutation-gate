@@ -18,7 +18,11 @@ use PhpParser\Node\Expr\NullsafeMethodCall;
 use PhpParser\Node\Expr\NullsafePropertyFetch;
 use PhpParser\Node\Expr\PropertyFetch;
 
-/** `?->` becomes `->`. */
+/**
+ * `?->` becomes `->`.
+ *
+ * @internal
+ */
 final readonly class RemoveNullSafeOperator implements Mutator
 {
     public function name(): MutatorName

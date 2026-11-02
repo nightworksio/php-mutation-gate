@@ -19,6 +19,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * `mutation-gate pre-commit`, which the pre-commit hook calls: each reached
  * tree's score change from what the ledgers hold. It runs nothing, and it
  * always exits 0, whatever it could or could not say (ADR-0015).
+ *
+ * @internal
  */
 final readonly class PreCommitCommand
 {

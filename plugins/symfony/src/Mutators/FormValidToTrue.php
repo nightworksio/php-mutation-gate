@@ -30,6 +30,8 @@ use function str_ends_with;
  *
  * A form is told by its name: a variable or a property of `$this` named `form`,
  * or whose name ends in `Form`.
+ *
+ * @internal
  */
 final readonly class FormValidToTrue implements Mutator
 {

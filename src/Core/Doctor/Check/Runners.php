@@ -11,7 +11,11 @@ use NightWorksIO\MutationGate\Core\Doctor\Observations;
 use NightWorksIO\MutationGate\Core\Doctor\Severity;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 
-/** Both runners installed, and neither the config nor the command line chooses one. */
+/**
+ * Both runners installed, and neither the config nor the command line chooses one.
+ *
+ * @internal
+ */
 final readonly class Runners
 {
     private const string FOUND

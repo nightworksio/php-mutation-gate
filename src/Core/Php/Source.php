@@ -21,6 +21,8 @@ use PhpToken;
  * A PHP file of the project, read by its tokens for what reads a value it or
  * another file declares: a test, which judges a mutant when it reads it, or a
  * source file, whose line that reads it is judged by the tests that cover it.
+ *
+ * @internal
  */
 final readonly class Source
 {

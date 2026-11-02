@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
  * measured, where one does, and whether it was measured against the map its
  * own scope keeps, which its own code could have written (ADR-0023), so its
  * verdict counts as one that used its own scope (ADR-0007).
+ *
+ * @internal
  */
 final readonly class CoverageMeasured
 {

@@ -17,6 +17,8 @@ use PhpToken;
  * Every named function and method a PHP file declares, with the lines from its
  * `function` keyword to its closing brace, read from its tokens. A closure has
  * no name, so a line inside one is inside the function around it.
+ *
+ * @internal
  */
 final readonly class Functions
 {

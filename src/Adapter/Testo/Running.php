@@ -27,6 +27,8 @@ use Testo\Pipeline\Middleware\TestRunInterceptor;
  * cancelled. It appends to the results file each test it runs as it starts
  * and how it ended, and, where it is told one, its time to the times file.
  * A listing runs none, and lists each instead.
+ *
+ * @internal
  */
 #[InterceptorOptions(order: InterceptorOptions::ORDER_FILTER)]
 final class Running implements TestRunInterceptor

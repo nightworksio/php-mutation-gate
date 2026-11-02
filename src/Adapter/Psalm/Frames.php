@@ -14,6 +14,8 @@ use function sprintf;
  * language server speaks it: each message a JSON body after a header that
  * gives its length in bytes, `Content-Length: <bytes>`, ended by an empty
  * line.
+ *
+ * @internal
  */
 final readonly class Frames
 {

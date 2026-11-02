@@ -8,7 +8,11 @@ use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Mutator\MutatorName;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 
-/** The set's name, which a config's `mutators.sets` turns it on by, and each of its mutators' names. */
+/**
+ * The set's name, which a config's `mutators.sets` turns it on by, and each of its mutators' names.
+ *
+ * @internal
+ */
 final readonly class DefaultSet
 {
     public static function name(): Name

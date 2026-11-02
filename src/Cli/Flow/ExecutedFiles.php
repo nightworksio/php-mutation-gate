@@ -11,7 +11,11 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
-/** The files each test of a map executed: those it covers a line of, read from the map once. */
+/**
+ * The files each test of a map executed: those it covers a line of, read from the map once.
+ *
+ * @internal
+ */
 final readonly class ExecutedFiles
 {
     /** @param array<array-key, array<array-key, Path>> $byTest each test's executed files, by its id and their paths */

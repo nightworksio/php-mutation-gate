@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * How a static analyser exits once it finished an analysis, Mago and PHPStan
  * alike: with nothing found, or with something. Any other exit, or none,
  * means it did not finish, and its report cannot be trusted.
+ *
+ * @internal
  */
 enum AnalysisExit: int
 {

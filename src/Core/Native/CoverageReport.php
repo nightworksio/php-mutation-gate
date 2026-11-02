@@ -16,6 +16,8 @@ use function sprintf;
  * ADR-0027): php-code-coverage's PHP report, which times each test, or
  * PHPUnit's XML coverage in a directory, which times none, beside the times
  * the gate's own recorder wrote as each test ended.
+ *
+ * @internal
  */
 enum CoverageReport: string
 {

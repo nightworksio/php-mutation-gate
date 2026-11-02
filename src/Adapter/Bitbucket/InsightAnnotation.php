@@ -19,6 +19,8 @@ use function sprintf;
  * of type `BUG` (ADR-0024): at its file and line, `HIGH` in a set that failed and `MEDIUM` elsewhere, its summary
  * the gate's judgement and the mutator, and its details the hint and the command that reproduces it, or a
  * cluster's stub, each one plain line cut to fit.
+ *
+ * @internal
  */
 final readonly class InsightAnnotation
 {

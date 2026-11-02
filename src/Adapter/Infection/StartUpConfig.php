@@ -49,6 +49,8 @@ use function var_export;
  * only order, stop or report a run are left out. Infection's builder is in
  * the project's vendor, which the gate's own process never loads, so the
  * gate takes the same steps.
+ *
+ * @internal
  */
 final readonly class StartUpConfig
 {

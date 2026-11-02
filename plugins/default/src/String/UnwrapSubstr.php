@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `substr(…)` becomes its first argument. */
+/**
+ * `substr(…)` becomes its first argument.
+ *
+ * @internal
+ */
 final readonly class UnwrapSubstr implements Mutator
 {
     public function name(): MutatorName

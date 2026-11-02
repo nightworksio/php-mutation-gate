@@ -18,6 +18,8 @@ use NightWorksIO\MutationGate\Port\Reporter;
  * format, with the source of every mutated file, written to the `path` its
  * entry names, for Stryker's dashboard and the viewers that read the format
  * (ADR-0046).
+ *
+ * @internal
  */
 final readonly class StrykerReportFile implements Configurable, Reporter
 {

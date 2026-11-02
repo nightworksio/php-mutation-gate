@@ -21,6 +21,8 @@ use function sprintf;
 /**
  * What `init` says to do once it has set the project up (ADR-0017,
  * ADR-0024): `doctor`, the first run, and `git add` of the files it wrote.
+ *
+ * @internal
  */
 final readonly class NextSteps
 {

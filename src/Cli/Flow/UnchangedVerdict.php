@@ -29,6 +29,8 @@ use function sprintf;
  * why, and records the commit the plan was made on as passed; unless an
  * ignore that applied when that commit passed has expired since the plan
  * was made, when it cannot judge.
+ *
+ * @internal
  */
 final readonly class UnchangedVerdict
 {

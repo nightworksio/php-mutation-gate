@@ -20,6 +20,8 @@ use function sprintf;
  * line, the variables the child is told, the limit it is stopped at, the file
  * the override serves the mutated file in place of, with the guard it says so
  * in, and the silence limit it is stopped at too, where it has one.
+ *
+ * @internal
  */
 final readonly class WarmRun
 {

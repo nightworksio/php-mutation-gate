@@ -17,6 +17,8 @@ use Symfony\Component\Console\Input\InputOption;
 /**
  * `--publish-dir`, which `verdict` and a one-process `run` take (ADR-0009): the directory the badge and trend are
  * written into on the default branch, `.mutation-gate/publish` where it names none.
+ *
+ * @internal
  */
 final readonly class PublishDir
 {

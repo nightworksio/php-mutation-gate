@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Php;
 
-/** Where the body of what a declaration declares opens, read from its tokens. */
+/**
+ * Where the body of what a declaration declares opens, read from its tokens.
+ *
+ * @internal
+ */
 final readonly class Body
 {
     /** The `{` that opens the body declared after an index; none where a `;` ends it bodiless first. */

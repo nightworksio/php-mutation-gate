@@ -33,6 +33,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * the default branch's, and writes nothing to the store. A ledger it cannot read costs a run, never a verdict, so
  * it says why and passes, as it does where no store is named; a store it cannot locate, a default branch nothing
  * names, or a ledger it cannot write where it was asked to, cannot be judged.
+ *
+ * @internal
  */
 final readonly class Fetch
 {

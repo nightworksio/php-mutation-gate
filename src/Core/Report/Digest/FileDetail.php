@@ -20,6 +20,8 @@ use function sprintf;
  * every mutant of it not killed, as the overview lists a survivor; the
  * killed are counted alone. A file of a unit this run did not judge, whose
  * result was carried, is said to be and holds its counts alone.
+ *
+ * @internal
  */
 final readonly class FileDetail
 {

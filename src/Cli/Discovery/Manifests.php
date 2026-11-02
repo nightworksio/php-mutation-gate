@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Core\File\Path;
  * The extension classes Composer manifests name under
  * `extra.mutation-gate.extensions`: the root `composer.json`, and every
  * package in `vendor/composer/installed.json`.
+ *
+ * @internal
  */
 final readonly class Manifests
 {

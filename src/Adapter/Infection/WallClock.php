@@ -8,7 +8,11 @@ use function hrtime;
 
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
-/** The system's monotonic clock. */
+/**
+ * The system's monotonic clock.
+ *
+ * @internal
+ */
 final readonly class WallClock implements Clock
 {
     public function nanoseconds(): int

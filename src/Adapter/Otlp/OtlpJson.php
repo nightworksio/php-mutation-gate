@@ -24,6 +24,8 @@ use function sprintf;
  * 64-bit integer, a time among them, as a decimal string, and trace and span
  * ids as lowercase hex (ADR-0016).
  *
+ * @internal
+ *
  * @phpstan-type KeyValue array{key: string, value: array{stringValue: string}|array{intValue: string}}
  */
 final readonly class OtlpJson

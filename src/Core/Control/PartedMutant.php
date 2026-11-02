@@ -32,6 +32,8 @@ use function sprintf;
  * cannot judge it, and the next runs. Where every part passes, it
  * survived; where none killed it and some part could not judge it, it is
  * too slow to judge, or unjudged where a part fails unmutated.
+ *
+ * @internal
  */
 final readonly class PartedMutant
 {

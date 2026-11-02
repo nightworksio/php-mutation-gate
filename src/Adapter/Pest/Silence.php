@@ -29,6 +29,8 @@ use Symfony\Component\Process\Process;
  * of its progress on its error output (see Recording\Heartbeat): once as
  * its tests begin, which its loading before is not held to, and as each
  * test finishes. A run whose limit is none is never stopped for silence.
+ *
+ * @internal
  */
 final class Silence
 {

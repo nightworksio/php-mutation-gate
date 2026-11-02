@@ -38,6 +38,8 @@ use PhpParser\PrettyPrinter\Standard;
  * what opcache can work out from them as it compiles, printed, and none
  * inside one already found. Opcache folds them into the values it dumps,
  * and prints some of those only in part.
+ *
+ * @internal
  */
 final class Constants extends NodeVisitorAbstract
 {

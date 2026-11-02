@@ -44,6 +44,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Survivors;
  * mutators alone, and each survivor is found again by the gate's id, which
  * holds no line, or is gone. The ledgers are only read: the result is a
  * signal, never a proof.
+ *
+ * @internal
  */
 final readonly class Rechecking
 {

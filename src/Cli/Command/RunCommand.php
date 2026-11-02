@@ -38,6 +38,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * it then writes every floor it raised, and every missing one, into the
  * baseline, and says which lines to commit. With `--output=problems` it
  * prints the verdict as one line per result, for an editor.
+ *
+ * @internal
  */
 final readonly class RunCommand
 {

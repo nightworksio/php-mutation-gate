@@ -14,6 +14,8 @@ use PhpToken;
  * properties read on what it returns, in turn, as in `test('adds', fn () =>
  * …)->with([1, 2])->group('money');`. A statement in any other shape is no
  * chain.
+ *
+ * @internal
  */
 final readonly class Chain
 {

@@ -26,6 +26,8 @@ use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
  * Where a repository keeps what the reach rules ask about: the files that
  * decide how the gate runs, the CI definitions that run it, the directories
  * of tests, and the modules.
+ *
+ * @internal
  */
 final readonly class Layout
 {

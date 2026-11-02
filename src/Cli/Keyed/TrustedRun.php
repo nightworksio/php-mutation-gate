@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Proof\Scope;
  * The one scope `deliver` writes a ledger to, decided from its own run before it reads a delivery (ADR-0007): the
  * default branch's, where GitHub Actions says the run is a push, a schedule or a manual run of that branch, by its
  * event and its ref. Any other run, a run whose default branch nothing names, and any other CI, writes none.
+ *
+ * @internal
  */
 final readonly class TrustedRun
 {

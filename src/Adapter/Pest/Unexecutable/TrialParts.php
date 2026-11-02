@@ -29,6 +29,8 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  * files that hold no test the map times in the last. Each is allowed the
  * standard limit of the own time of the tests its files hold, kept between
  * the bounds.
+ *
+ * @internal
  */
 final readonly class TrialParts
 {

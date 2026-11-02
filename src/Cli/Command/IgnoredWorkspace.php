@@ -14,7 +14,11 @@ use NightWorksIO\MutationGate\Core\File\Workspace;
 use function sprintf;
 use function str_ends_with;
 
-/** The gate's own directory kept out of git: the line `init` adds to `.gitignore` where it is not there. */
+/**
+ * The gate's own directory kept out of git: the line `init` adds to `.gitignore` where it is not there.
+ *
+ * @internal
+ */
 final readonly class IgnoredWorkspace
 {
     /** Whether `.mutation-gate/` had to be added to `.gitignore`, as `init` adds it. */

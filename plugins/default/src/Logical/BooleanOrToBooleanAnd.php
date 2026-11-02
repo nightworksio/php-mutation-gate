@@ -16,7 +16,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\BinaryOp\BooleanAnd;
 use PhpParser\Node\Expr\BinaryOp\BooleanOr;
 
-/** `||` becomes `&&`. */
+/**
+ * `||` becomes `&&`.
+ *
+ * @internal
+ */
 final readonly class BooleanOrToBooleanAnd implements Mutator
 {
     public function name(): MutatorName

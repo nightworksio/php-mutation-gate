@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Format\Node;
  * prints (ADR-0020): its parameters less those that differ
  * between machines and runs, and every file they name that PHPStan reads
  * besides the code.
+ *
+ * @internal
  */
 final readonly class Parameters
 {

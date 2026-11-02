@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `trim(…)` becomes its first argument. */
+/**
+ * `trim(…)` becomes its first argument.
+ *
+ * @internal
+ */
 final readonly class UnwrapTrim implements Mutator
 {
     public function name(): MutatorName

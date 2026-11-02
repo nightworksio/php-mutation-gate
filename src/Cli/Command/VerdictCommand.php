@@ -38,6 +38,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * `mutation-gate verdict --plan=<file> --results=<dir>`: merges every shard's
  * result with the proved and carried ones, judges the floors, and writes the
  * reports and the ledger. Exit code 0 passes, 1 fails and 2 cannot judge.
+ *
+ * @internal
  */
 final readonly class VerdictCommand
 {

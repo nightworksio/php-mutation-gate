@@ -29,6 +29,8 @@ use SebastianBergmann\CodeCoverage\Filter;
  * says in the file `MUTATION_GATE_GUARD` names whether opcache could serve
  * a cached original in place of the mutated file; and measures the
  * coverage, or lists the examples, where the launcher was told to.
+ *
+ * @internal
  */
 final readonly class Extension implements PhpSpecExtension
 {

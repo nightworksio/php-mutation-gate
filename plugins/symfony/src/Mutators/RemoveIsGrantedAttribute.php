@@ -29,6 +29,8 @@ use PhpParser\Node\AttributeGroup;
  *
  * On a method, both runners make the mutant. Infection never offers an
  * attribute of a class, so only Pest removes one there.
+ *
+ * @internal
  */
 final readonly class RemoveIsGrantedAttribute implements Mutator
 {

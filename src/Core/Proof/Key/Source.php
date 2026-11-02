@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\File\Fingerprints;
  * as it runs. It keeps every file there too, exceptions and all, since a
  * unit's own source is what it is whatever a key leaves out, and names the
  * files that define the runner, which decide a unit's mutant set.
+ *
+ * @internal
  */
 final readonly class Source
 {

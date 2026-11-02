@@ -7,6 +7,8 @@ namespace NightWorksIO\MutationGate\Core\Runner;
 /**
  * A word PHP reads in a `display_errors` value, in any case, that names where
  * an error is printed; a switch that is on prints on standard output too.
+ *
+ * @internal
  */
 enum DisplayWord: string
 {

@@ -9,6 +9,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 /**
  * The most memory the processes the gate started have held, so far
  * (ADR-0004): what a run weighs its memory cap against.
+ *
+ * @internal
  */
 interface PeakMemory
 {

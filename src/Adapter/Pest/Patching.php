@@ -18,6 +18,8 @@ use function sprintf;
 /**
  * Whether the project applies `pest:patch`, the canary group a shard's
  * opening run is when it does, and which tests a mutant's own run selects.
+ *
+ * @internal
  */
 final readonly class Patching
 {

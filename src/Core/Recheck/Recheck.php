@@ -8,7 +8,11 @@ use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\Scoring;
 
-/** One survivor of the last run, and what running it again found: the same mutant judged now, or none. */
+/**
+ * One survivor of the last run, and what running it again found: the same mutant judged now, or none.
+ *
+ * @internal
+ */
 final readonly class Recheck
 {
     private function __construct(private JudgedMutant $before, private JudgedMutant|Gone $now)

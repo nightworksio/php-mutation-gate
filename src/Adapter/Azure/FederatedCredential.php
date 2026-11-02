@@ -35,6 +35,8 @@ use function str_contains;
  * as a client assertion, with the tenant and client `AZURE_TENANT_ID` and
  * `AZURE_CLIENT_ID` name, as `azure/login` reads them. The token is asked
  * for once, so a run's reads and its write share one exchange.
+ *
+ * @internal
  */
 final class FederatedCredential implements Tokens
 {

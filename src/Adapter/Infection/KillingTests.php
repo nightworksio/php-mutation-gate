@@ -32,6 +32,8 @@ use function sprintf;
  * list names alone, as it names one whose `setUpBeforeClass` failed, stands
  * for each test of it the coverage map knows. A run killed with no such
  * list, by a crash or a timeout, names none.
+ *
+ * @internal
  */
 final readonly class KillingTests
 {

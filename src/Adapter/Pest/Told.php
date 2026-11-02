@@ -19,6 +19,8 @@ use NightWorksIO\MutationGate\Core\Runner\Workers;
  * mutant's own run is narrowed (see CoveringFiles), where it waits for the
  * gate's verdicts (see Verdicts), where its warm workers share their files
  * (see Warm\Pool), and the bounds of each mutant's limits.
+ *
+ * @internal
  */
 final readonly class Told
 {

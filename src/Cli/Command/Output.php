@@ -12,6 +12,8 @@ use Symfony\Component\Console\Input\InputOption;
  * Whether `init` writes the files it makes, or prints every one of them,
  * the config and the `.gitignore` line among them, with `--dry-run` or its
  * other name, `--stdout` (ADR-0015, ADR-0017).
+ *
+ * @internal
  */
 enum Output
 {

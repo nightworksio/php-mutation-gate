@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\Written;
  * every run. The plan writes its planned state, a re-check writes over that state alone, and the verdict replaces
  * it (ADR-0009, ADR-0019, ADR-0024). Each state is written now or, under `--deliver-later`, left in a delivery
  * for `deliver`, which writes the comment with the credential its own environment holds.
+ *
+ * @internal
  */
 interface Commenting
 {

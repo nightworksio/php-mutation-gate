@@ -6,7 +6,11 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 
-/** A map's tests, counted once (see Suite), kept for every question about the map asked about last. */
+/**
+ * A map's tests, counted once (see Suite), kept for every question about the map asked about last.
+ *
+ * @internal
+ */
 final class MapSuites
 {
     /** @var array{CoverageMap, Suite}|array{} the last map asked about, and its tests, counted */

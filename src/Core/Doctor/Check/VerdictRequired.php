@@ -20,6 +20,8 @@ use function sprintf;
 /**
  * The default branch not requiring the verdict's check-run, `ci.check`
  * (ADR-0017): by a ruleset or by branch protection.
+ *
+ * @internal
  */
 final readonly class VerdictRequired
 {

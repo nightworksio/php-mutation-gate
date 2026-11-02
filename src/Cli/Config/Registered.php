@@ -33,6 +33,8 @@ use Symfony\Component\Yaml\Yaml;
  * registers them: the four config formats, YAML and NEON only where their
  * library is installed, the `phpunit` and `composer` tree sources, and the
  * `library`, `laravel` and `symfony` presets.
+ *
+ * @internal
  */
 final readonly class Registered
 {

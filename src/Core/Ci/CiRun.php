@@ -16,6 +16,8 @@ use function sprintf;
  * A CI run as an alert and a trace name it: the repository as owner/name,
  * the full ref it ran on, the full commit, the link to the run, and the
  * pipeline or workflow it ran in (ADR-0016).
+ *
+ * @internal
  */
 final readonly class CiRun
 {

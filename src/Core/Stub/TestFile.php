@@ -25,6 +25,8 @@ use function sprintf;
  * a PHPUnit class or a PhpSpec spec, an `ObjectBehavior`, whose new test
  * goes before the class's closing brace, found by tokens; or Pest's
  * closures, whose new test goes at the end.
+ *
+ * @internal
  */
 final readonly class TestFile
 {

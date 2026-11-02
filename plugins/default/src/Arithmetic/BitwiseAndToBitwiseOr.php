@@ -16,7 +16,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\BinaryOp\BitwiseAnd;
 use PhpParser\Node\Expr\BinaryOp\BitwiseOr;
 
-/** `&` becomes `|`. */
+/**
+ * `&` becomes `|`.
+ *
+ * @internal
+ */
 final readonly class BitwiseAndToBitwiseOr implements Mutator
 {
     public function name(): MutatorName

@@ -22,6 +22,8 @@ use function sprintf;
  * file (see FileDetail); a mutant, by its id or a prefix of six or more as
  * `explain` finds one (see MutantDetail); or a cluster of survivors, by its
  * id (see ClusterDetail).
+ *
+ * @internal
  */
 final readonly class DigestDetail
 {

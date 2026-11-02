@@ -9,6 +9,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 /**
  * The options the alert reporters `slack`, `discord` and `webhook` take under a `reports` entry's `with`, each
  * naming the environment variable a credential is read from (ADR-0016).
+ *
+ * @internal
  */
 enum AlertOption: string
 {

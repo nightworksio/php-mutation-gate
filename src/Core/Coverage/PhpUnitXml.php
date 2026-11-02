@@ -27,6 +27,8 @@ use function sprintf;
  * an index of every file's report, and each report's `covered by` entries,
  * which say which tests run which line. It holds no time, so the map it
  * reads times no test. The adapter that ran the framework reads its files.
+ *
+ * @internal
  */
 final readonly class PhpUnitXml
 {

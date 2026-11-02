@@ -18,6 +18,8 @@ use Traversable;
 /**
  * Every `#[Holds]` a test file writes, in the order it writes them.
  *
+ * @internal
+ *
  * @implements IteratorAggregate<int, HoldsAttribute>
  */
 final readonly class HoldsAttributes implements Countable, IteratorAggregate

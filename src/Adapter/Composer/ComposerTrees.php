@@ -30,6 +30,8 @@ use NightWorksIO\MutationGate\Port\TreeSource;
  * matches, and every package's own. Each tree declares the floor of the
  * nearest `composer.json` at or above it that declares one, and belongs to the
  * innermost package around it.
+ *
+ * @internal
  */
 final readonly class ComposerTrees implements TreeSource
 {

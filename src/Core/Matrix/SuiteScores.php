@@ -32,6 +32,8 @@ use Traversable;
  * the suite ran with, as the tests report leaves them out (ADR-0014). A
  * held unit's mutants count only for its group's tests.
  *
+ * @internal
+ *
  * @implements IteratorAggregate<int, SuiteScore>
  */
 final readonly class SuiteScores implements Countable, IteratorAggregate

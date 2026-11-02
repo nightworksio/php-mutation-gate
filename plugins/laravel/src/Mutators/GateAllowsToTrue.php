@@ -19,7 +19,11 @@ use NightWorksIO\MutationGateLaravel\LaravelSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\StaticCall;
 
-/** `Gate::allows(…)` and `Gate::check(…)` become `true`, and `Gate::denies(…)` becomes `false`. */
+/**
+ * `Gate::allows(…)` and `Gate::check(…)` become `true`, and `Gate::denies(…)` becomes `false`.
+ *
+ * @internal
+ */
 final readonly class GateAllowsToTrue implements Mutator
 {
     public function name(): MutatorName

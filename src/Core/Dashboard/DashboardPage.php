@@ -28,6 +28,8 @@ use function str_starts_with;
  * published nothing says why. The script sorts the table by any column;
  * without it, the table reads in the order of the names. Everything a
  * repository published is its own word, and escaped.
+ *
+ * @internal
  */
 final readonly class DashboardPage
 {

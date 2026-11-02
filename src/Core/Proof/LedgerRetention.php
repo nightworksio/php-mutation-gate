@@ -21,6 +21,8 @@ use function usort;
  * that bounds the file whatever the runs do. Its kill history keeps the
  * mutants those proofs hold, and of those and of its functions the ones that
  * most recently learned a killer, each up to a cap of its own.
+ *
+ * @internal
  */
 final readonly class LedgerRetention
 {

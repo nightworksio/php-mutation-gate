@@ -30,6 +30,8 @@ use function strtr;
  * the class alone where the tests hold it whole, and otherwise its tests'
  * names, each narrowed to the rows of a data set the ids name, matched to
  * the end of the name, unless the tests hold every row of it.
+ *
+ * @internal
  */
 final readonly class Alternatives
 {

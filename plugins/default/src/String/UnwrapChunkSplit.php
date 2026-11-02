@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `chunk_split(…)` becomes its first argument. */
+/**
+ * `chunk_split(…)` becomes its first argument.
+ *
+ * @internal
+ */
 final readonly class UnwrapChunkSplit implements Mutator
 {
     public function name(): MutatorName

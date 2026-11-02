@@ -30,6 +30,8 @@ use function trim;
  * Infection's own log says of each: its original file, its first line, its
  * mutator and its diff, cleaned as the log cleans it, then the silence
  * limit.
+ *
+ * @internal
  */
 final readonly class Silenced
 {

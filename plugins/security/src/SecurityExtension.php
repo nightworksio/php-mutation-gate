@@ -21,6 +21,8 @@ use NightWorksIO\MutationGateSecurity\Mutators\UnwrapUrlEncode;
 /**
  * Registers the `security` set: mutants of the defences PHP itself offers,
  * whatever the framework (ADR-0021). Every one of them is tagged `security`.
+ *
+ * @internal
  */
 final readonly class SecurityExtension implements Extension
 {

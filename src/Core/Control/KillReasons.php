@@ -16,6 +16,8 @@ use function sprintf;
  * and UnnamedKillControls): where its tests fail unmutated too, run out of
  * the memory cap or their limit, or never run, each said in a kill's own
  * words.
+ *
+ * @internal
  */
 final readonly class KillReasons
 {

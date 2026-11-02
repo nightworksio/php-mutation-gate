@@ -48,6 +48,8 @@ use function var_export;
  * copy's file, and a run that loads the original by its path, as a `require`
  * does, runs the original's code: the process then counts it as loaded before
  * the mutant was in place.
+ *
+ * @internal
  */
 final class ServedClasses
 {

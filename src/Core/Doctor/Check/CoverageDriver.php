@@ -13,7 +13,11 @@ use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 
 use function sprintf;
 
-/** The PHP the runner uses loads no coverage driver, so no run can map a line to its tests. */
+/**
+ * The PHP the runner uses loads no coverage driver, so no run can map a line to its tests.
+ *
+ * @internal
+ */
 final readonly class CoverageDriver
 {
     private const string FOUND = 'The PHP the runner runs its tests on, %s, loads neither pcov nor Xdebug.';

@@ -10,6 +10,8 @@ use NightWorksIO\MutationGate\Core\Written;
 /**
  * Where a forge keeps a pull request's or merge request's comments: the one place a sticky comment's markdown is
  * turned into what the forge shows and written through its API (ADR-0024).
+ *
+ * @internal
  */
 interface CommentThread
 {

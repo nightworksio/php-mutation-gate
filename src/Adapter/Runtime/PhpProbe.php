@@ -31,6 +31,8 @@ use function trim;
  * The PHP a runner starts, as it describes itself when started with the
  * runner's own options (see Platform). Describing runs none of the project's
  * code, and never sees a variable withheld.
+ *
+ * @internal
  */
 final readonly class PhpProbe
 {

@@ -25,6 +25,8 @@ use PHPUnit\TestRunner\TestResult\Facade as TestResults;
  * and the digest of the order it started them in, by the copy it serves,
  * and asks PHPUnit to run no more, as a signal does. A process the adapter
  * names no such count for runs every test.
+ *
+ * @internal
  */
 final class ReplayStop
 {

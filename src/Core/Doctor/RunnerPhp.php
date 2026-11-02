@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * them that it does not, its settings, the php.ini it loads, the variables it
  * sees, and whether the runner turns opcache off on each mutant's command
  * line.
+ *
+ * @internal
  */
 final readonly class RunnerPhp
 {

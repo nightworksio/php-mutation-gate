@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
  * Every file of test cases in the suite, each with the coverage map's tests
  * the runner places in it by its own rules; a file it cannot place tests in
  * holds none.
+ *
+ * @internal
  */
 final readonly class TestsOfTheSuite
 {

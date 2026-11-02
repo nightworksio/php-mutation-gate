@@ -34,6 +34,8 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
  * it streams in, and dropped once it passes the limits' bytes. A
  * failure is told by the name the reader knows the place by, never by the
  * URL, which may hold more than a reader should see.
+ *
+ * @internal
  */
 final readonly class HttpExchange implements Exchange
 {

@@ -43,6 +43,8 @@ use function sprintf;
  * run again confirms stands only where its control passes; otherwise its
  * tests fail with the file unmutated as well, so they cannot tell the
  * mutant from the original, and it is unjudged.
+ *
+ * @internal
  */
 final readonly class Controls
 {

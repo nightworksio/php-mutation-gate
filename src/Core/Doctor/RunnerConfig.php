@@ -11,6 +11,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * `memory_limit` the project's PHPUnit config sets, and the Codeception
  * suites that serve the application from another process, whose tests the
  * gate runs none of. A config nobody read says nothing.
+ *
+ * @internal
  */
 final readonly class RunnerConfig
 {

@@ -26,6 +26,8 @@ use function sprintf;
  * lists them into a file, running none: JSON whose `listed` is each id in the
  * order the framework loads them, and whose `groups` is each group's ids by
  * its name.
+ *
+ * @internal
  */
 final readonly class ListedTests
 {

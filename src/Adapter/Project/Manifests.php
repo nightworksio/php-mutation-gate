@@ -29,6 +29,8 @@ use NightWorksIO\MutationGate\Core\Tree\Trees;
  * `composer.json`, the floor each tree declares in the nearest
  * `composer.json` above it, under `extra.mutation-gate` (ADR-0005), and the
  * floor the root's declares for its security set (ADR-0021).
+ *
+ * @internal
  */
 final readonly class Manifests
 {

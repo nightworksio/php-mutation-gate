@@ -19,6 +19,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Survivors;
  * survivor of a cluster with every member (ADR-0022); the
  * function its code is in; its unit, which says what judges it; and what a
  * test that reads the source must find, where only such a test kills it.
+ *
+ * @internal
  */
 final readonly class Subject
 {

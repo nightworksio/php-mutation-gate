@@ -18,6 +18,8 @@ use NightWorksIO\MutationGate\Core\Score\Percentage;
  * for the stratum's size, at least `sampling.minUnits`, and at most every
  * unit. Fewer than two last results give no variance, so every unit runs;
  * a stratum estimated to hold no mutant runs only the least.
+ *
+ * @internal
  */
 final readonly class SampleSize
 {

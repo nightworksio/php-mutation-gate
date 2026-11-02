@@ -24,6 +24,8 @@ use function sprintf;
  * The tests PHPUnit's `--list-tests-xml` writes, which every runner that
  * starts PHPUnit, Pest among them, writes the same: each test of a class by
  * its id, and each group with the ids of its tests.
+ *
+ * @internal
  */
 final readonly class PhpUnitTestList
 {

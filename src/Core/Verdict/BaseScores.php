@@ -21,6 +21,8 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  * units in the default branch's ledger. A tree with a unit that has no
  * result there has no base score, so no change is shown for it rather than a
  * wrong one.
+ *
+ * @internal
  */
 final readonly class BaseScores
 {

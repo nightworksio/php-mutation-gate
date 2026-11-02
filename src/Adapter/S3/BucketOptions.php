@@ -26,6 +26,8 @@ use function str_starts_with;
  * the network is trusted, and the `publicUrl` a job without credentials
  * reads the default branch's ledger from. A store at another endpoint, such as
  * R2 or MinIO, is addressed by path rather than by a host name per bucket.
+ *
+ * @internal
  */
 final readonly class BucketOptions
 {

@@ -9,7 +9,11 @@ use NightWorksIO\MutationGate\Core\Mutant\IdPrefix;
 
 use function sprintf;
 
-/** No ledger read holds a mutant the id or prefix names. */
+/**
+ * No ledger read holds a mutant the id or prefix names.
+ *
+ * @internal
+ */
 final readonly class NoRecord
 {
     private const string WHY = <<<'SAID'

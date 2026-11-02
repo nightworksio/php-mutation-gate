@@ -28,6 +28,8 @@ use NightWorksIO\MutationGate\Core\Php\Site;
  * helper can also run where no name shows it, as a base test case's set-up
  * or a Pest.php hook runs it, so a read in one is ambiguous.
  * The test files are read once, the first time a helper is asked about.
+ *
+ * @internal
  */
 final class Helpers
 {

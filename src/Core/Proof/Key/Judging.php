@@ -8,7 +8,11 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 
-/** A unit and the test files the runner says can judge it, or why it cannot say. */
+/**
+ * A unit and the test files the runner says can judge it, or why it cannot say.
+ *
+ * @internal
+ */
 final readonly class Judging
 {
     private function __construct(private Unit $unit, private Paths|CannotJudge $judges)

@@ -18,7 +18,11 @@ use NightWorksIO\MutationGateSecurity\SecuritySet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `hash_equals($a, $b)` becomes `true`. */
+/**
+ * `hash_equals($a, $b)` becomes `true`.
+ *
+ * @internal
+ */
 final readonly class HashEqualsToTrue implements Mutator
 {
     public function name(): MutatorName

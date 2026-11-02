@@ -10,6 +10,8 @@ use function sprintf;
 /**
  * Where a file or a directory is on disk, as the gate opens it: a root's
  * spelling joined with a path under it, or an absolute path as it is.
+ *
+ * @internal
  */
 final readonly class DiskPath
 {

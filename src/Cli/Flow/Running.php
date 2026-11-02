@@ -74,6 +74,8 @@ use function sprintf;
  * naming that survivor in its result (ADR-0008). Each kill's
  * evidence the runner gave is left beside its mutant, what a process printed
  * kept only where it holds no secret the gate withholds (ADR-0014).
+ *
+ * @internal
  */
 final readonly class Running
 {

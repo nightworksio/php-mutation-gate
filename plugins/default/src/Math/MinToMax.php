@@ -16,7 +16,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `min(…)` becomes `max(…)`. */
+/**
+ * `min(…)` becomes `max(…)`.
+ *
+ * @internal
+ */
 final readonly class MinToMax implements Mutator
 {
     public function name(): MutatorName

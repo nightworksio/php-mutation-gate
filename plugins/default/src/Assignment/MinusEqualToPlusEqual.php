@@ -16,7 +16,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\AssignOp\Minus;
 use PhpParser\Node\Expr\AssignOp\Plus;
 
-/** `-=` becomes `+=`. */
+/**
+ * `-=` becomes `+=`.
+ *
+ * @internal
+ */
 final readonly class MinusEqualToPlusEqual implements Mutator
 {
     public function name(): MutatorName

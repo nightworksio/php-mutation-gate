@@ -32,6 +32,8 @@ use Psr\Clock\ClockInterface;
  * it equivalent (see SurvivorChecking and Invoking). A batch the runner
  * cannot judge once the time is up is unjudged, as is every unit no batch
  * took.
+ *
+ * @internal
  */
 final readonly class Batched
 {

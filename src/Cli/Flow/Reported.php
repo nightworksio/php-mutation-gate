@@ -8,7 +8,11 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\Reporter;
 
-/** A verdict handed to each reporter, and what each said: where it wrote, or why it could not. */
+/**
+ * A verdict handed to each reporter, and what each said: where it wrote, or why it could not.
+ *
+ * @internal
+ */
 final readonly class Reported
 {
     /**

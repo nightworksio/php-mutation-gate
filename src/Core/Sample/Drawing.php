@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  * it leaves out (ADR-0020): the stratum is the tree's units no run knows
  * exactly, its share of the tree's mutants and its units' last results
  * size it, and the first units the draw ranks fill it.
+ *
+ * @internal
  */
 final readonly class Drawing
 {

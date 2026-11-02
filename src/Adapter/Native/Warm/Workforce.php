@@ -49,6 +49,8 @@ use function unlink;
  * earlier run left there is read as this one's. Once they are done, each run
  * a child ended is judged, every other is left to a fresh process, and the
  * reason a worker's boot was refused is warned of once.
+ *
+ * @internal
  */
 final readonly class Workforce
 {

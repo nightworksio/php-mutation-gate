@@ -51,6 +51,8 @@ use Testo\Application\Config\SuiteConfig;
  * that builds a location as it runs declares nothing the gate can read
  * without running it. Testo runs every suite in one run, so none is
  * declared by its name.
+ *
+ * @internal
  */
 final readonly class TestoSuite
 {

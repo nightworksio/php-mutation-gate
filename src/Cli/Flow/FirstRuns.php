@@ -25,6 +25,8 @@ use NightWorksIO\MutationGate\Mutator\Engine\Engine;
  * Where the default set is not registered, or a run of no test cannot run,
  * nothing is measured, and every unit is guessed: an estimate decides where
  * a unit runs, never whether a plan can be made.
+ *
+ * @internal
  */
 final readonly class FirstRuns
 {

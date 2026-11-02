@@ -28,6 +28,8 @@ use function sprintf;
  * need, in turn, that the proof key's support and a mutant's narrowed run
  * both take, and the walk back from some names to every file that needs
  * them, that a kill carried across commits takes.
+ *
+ * @internal
  */
 final readonly class NamedFiles
 {

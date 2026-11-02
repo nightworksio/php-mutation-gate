@@ -33,6 +33,8 @@ use function sprintf;
  * `tokenEnv` names, `MUTATION_GATE_BITBUCKET_TOKEN` by default: a repository access token with
  * `pullrequest:write` alone. A pull request from a fork starts no pipeline, so every run that comments is the
  * repository's own; one that cannot comment says why and fails nothing.
+ *
+ * @internal
  */
 final readonly class PullRequestComment implements Commenting, Deferring, Reporter
 {

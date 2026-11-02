@@ -30,6 +30,8 @@ use function sprintf;
  * of them it mirrors, where it installs packages, and its
  * `extra.mutation-gate` entry. What holds another shape than Composer's reads
  * as holding nothing.
+ *
+ * @internal
  */
 final readonly class Manifest
 {

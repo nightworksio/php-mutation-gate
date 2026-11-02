@@ -24,6 +24,8 @@ use function str_starts_with;
 /**
  * The namespace a file declares and the names it imports, which together say
  * what a name written in it stands for.
+ *
+ * @internal
  */
 final readonly class Scope
 {

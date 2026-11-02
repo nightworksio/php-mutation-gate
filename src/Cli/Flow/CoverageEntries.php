@@ -23,6 +23,8 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
  * the files its tests executed by a map, what runs before every test, and
  * every file those name. A test file's tests are those the runner names after
  * it in the map.
+ *
+ * @internal
  */
 final readonly class CoverageEntries
 {

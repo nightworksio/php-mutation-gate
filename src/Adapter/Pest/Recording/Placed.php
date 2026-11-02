@@ -15,6 +15,8 @@ use function sprintf;
  * digest of that order up to it (see OrderDigest), where it is the test
  * that process started last; and, always, the process, so the lines of two
  * runs on one mutated copy are told apart.
+ *
+ * @internal
  */
 final readonly class Placed
 {

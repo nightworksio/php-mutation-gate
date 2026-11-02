@@ -33,6 +33,8 @@ use function sprintf;
  * One run of Infection over a coverage directory: the config the gate writes
  * for it, the command, and the results its logs hold. The logs of an earlier
  * run are removed first, so a run that writes none is never read from them.
+ *
+ * @internal
  */
 final readonly class MutationRun
 {

@@ -21,6 +21,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Scoring;
  * units its sample ran tallied as its sampled stratum, with those it left
  * out at the mutants each is estimated to hold, and every other unit it
  * judged counted exactly. A tree of a run that was not sampled is a census.
+ *
+ * @internal
  */
 final readonly class Estimating
 {

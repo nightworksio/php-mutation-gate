@@ -34,6 +34,8 @@ use function sprintf;
  *
  * Every PHP file on disk is read once, and each name any of them mentions
  * leads straight to the files that mention it.
+ *
+ * @internal
  */
 final readonly class SupportUsers
 {

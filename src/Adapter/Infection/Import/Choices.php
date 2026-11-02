@@ -16,6 +16,8 @@ use function sprintf;
  * What an import does where the Infection config does not say it on its own:
  * the runner it chooses, where the HTML report goes, what becomes of
  * Infection's JSON log.
+ *
+ * @internal
  */
 final readonly class Choices
 {

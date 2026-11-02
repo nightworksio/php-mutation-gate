@@ -18,7 +18,11 @@ use NightWorksIO\MutationGate\Port\ConfigLoader;
 
 use function sprintf;
 
-/** A `mutation-gate.json`, which the published JSON Schema checks in an editor. */
+/**
+ * A `mutation-gate.json`, which the published JSON Schema checks in an editor.
+ *
+ * @internal
+ */
 final readonly class JsonConfig implements ConfigLoader
 {
     /** JSON names no other file. */

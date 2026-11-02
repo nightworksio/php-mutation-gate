@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 /**
  * How long the tests a JUnit log names took on their own, one after another:
  * the sum of each test case's `time`, which leaves out the run's start-up.
+ *
+ * @internal
  */
 final readonly class TestTimes
 {

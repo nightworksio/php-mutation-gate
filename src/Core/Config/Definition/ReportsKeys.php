@@ -10,7 +10,11 @@ use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\Config\Reports;
 
-/** How the keys a config writes are read into its `Reports` part (ADR-0002). */
+/**
+ * How the keys a config writes are read into its `Reports` part (ADR-0002).
+ *
+ * @internal
+ */
 final readonly class ReportsKeys
 {
     /** @return list<Field<Layer>> */

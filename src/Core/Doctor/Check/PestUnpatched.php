@@ -18,7 +18,11 @@ use NightWorksIO\MutationGate\Core\Verb;
 
 use function sprintf;
 
-/** `pest.patch: true` while the installed pest-plugin-mutate does not carry `pest:patch` (ADR-0004). */
+/**
+ * `pest.patch: true` while the installed pest-plugin-mutate does not carry `pest:patch` (ADR-0004).
+ *
+ * @internal
+ */
 final readonly class PestUnpatched
 {
     /** What adds a patch command of the gate to the project's install scripts. */

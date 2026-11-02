@@ -25,6 +25,8 @@ use function sprintf;
  * `GOOGLE_APPLICATION_CREDENTIALS` names. A file that
  * holds a key is refused wherever it is named, a ready token or not. The
  * token is asked for once, so a run's reads and its write share one exchange.
+ *
+ * @internal
  */
 final class Federation implements Tokens
 {

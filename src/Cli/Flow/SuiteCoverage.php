@@ -37,6 +37,8 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  * inside the paths they hold, and no test of a suite neither list names.
  * A file of tests is run by its path, which PHPUnit and Pest take in
  * place of `--testsuite`, so the gate sorts the tests by their files.
+ *
+ * @internal
  */
 final readonly class SuiteCoverage
 {

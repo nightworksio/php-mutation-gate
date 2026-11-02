@@ -26,6 +26,8 @@ use NightWorksIO\MutationGate\Core\Tree\Package;
  * the baseline holds its set; where none is, one empty set at the root
  * passes and says so. There is no set where no mutator makes security
  * mutants.
+ *
+ * @internal
  */
 final readonly class SecurityJudge
 {

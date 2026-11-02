@@ -7,7 +7,11 @@ namespace NightWorksIO\MutationGate\Core\Proof;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 
-/** A mutant as a proof in a scope's ledger holds it, a kill as the proof keeps it, with that proof and scope. */
+/**
+ * A mutant as a proof in a scope's ledger holds it, a kill as the proof keeps it, with that proof and scope.
+ *
+ * @internal
+ */
 final readonly class Recorded
 {
     private function __construct(private Mutant|ProvedKill $mutant, private Proof $proof, private Scope $scope)

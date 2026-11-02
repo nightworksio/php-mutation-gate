@@ -16,6 +16,8 @@ use function sprintf;
  * its unit, its id, the tree that holds it, the floor of 100 it fails and
  * which floor that is. The shard it is in stops there, and the verdict fails
  * naming it.
+ *
+ * @internal
  */
 final readonly class Doomed
 {

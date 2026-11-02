@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Opcache;
 
-/** A read of the PHP a program runs on that opcache answers as it compiles, by what the compiling PHP has. */
+/**
+ * A read of the PHP a program runs on that opcache answers as it compiles, by what the compiling PHP has.
+ *
+ * @internal
+ */
 enum RuntimeCheck: string
 {
     case FunctionExists = 'function_exists';

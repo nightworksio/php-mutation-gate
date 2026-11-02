@@ -10,6 +10,8 @@ use NightWorksIO\MutationGate\Core\GateCommand;
 /**
  * The run of doctor itself: the instant it looks, the memory_limit of its own
  * process, the gate's, and the gate as it was started, which each fix names.
+ *
+ * @internal
  */
 final readonly class DoctorRun
 {

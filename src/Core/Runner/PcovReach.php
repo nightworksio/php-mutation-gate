@@ -15,6 +15,8 @@ use function sprintf;
  * project's root but those in its vendor directory. Left unset, pcov collects
  * only from the first of `src`, `lib` and `app` in the directory it runs in,
  * so a tree beside it reads as run by no test. Xdebug reads neither setting.
+ *
+ * @internal
  */
 final readonly class PcovReach
 {

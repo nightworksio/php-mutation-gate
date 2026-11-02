@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Proof;
 
-/** A run that writes no ledger, and why. */
+/**
+ * A run that writes no ledger, and why.
+ *
+ * @internal
+ */
 final readonly class ReadsOnly
 {
     private function __construct(private string $why)

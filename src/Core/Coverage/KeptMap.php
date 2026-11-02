@@ -7,6 +7,8 @@ namespace NightWorksIO\MutationGate\Core\Coverage;
 /**
  * A coverage map as a store keeps it beside a scope's ledger: the map, where
  * it was measured, and each test file's entry key (ADR-0023).
+ *
+ * @internal
  */
 final readonly class KeptMap
 {

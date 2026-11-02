@@ -29,6 +29,8 @@ use function sprintf;
  * The comparison behaves the same in every test and only its timing differs,
  * so only a test that runs it and then reads its file, expecting
  * `hash_equals(`, kills it.
+ *
+ * @internal
  */
 final readonly class HashEqualsToIdentical implements Mutator, PinnedBySource
 {

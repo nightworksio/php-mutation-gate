@@ -32,6 +32,8 @@ use Symfony\Component\Yaml\Yaml;
  * each, and how `init` and `config:show` write each. YAML and NEON need a
  * library that is only suggested, and without it the gate says which one to
  * install.
+ *
+ * @internal
  */
 final readonly class Formats
 {

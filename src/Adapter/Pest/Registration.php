@@ -52,6 +52,8 @@ use PhpToken;
  * configuration, a write to `$_ENV`, the environment or `$GLOBALS`, an
  * include, a call, or any statement not on this list. Every run narrowed
  * around it loads it.
+ *
+ * @internal
  */
 enum Registration: string
 {

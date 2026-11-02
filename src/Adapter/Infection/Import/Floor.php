@@ -23,6 +23,8 @@ use function sprintf;
  * minimum rather than a baseline, since nothing was measured. `minCoveredMsi`
  * leaves uncovered mutants out of the score, and is the floor where `minMsi`
  * is not set.
+ *
+ * @internal
  */
 final readonly class Floor
 {

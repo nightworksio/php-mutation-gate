@@ -43,6 +43,8 @@ use Symfony\Component\Yaml\Yaml;
  * It runs nothing of the project's: a PHP config is parsed, never
  * included, and a data format is read by the gate's own loader, so no
  * extension's loader runs either.
+ *
+ * @internal
  */
 final readonly class MigrationFiles
 {

@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * config or the JUnit log a run wrote: it fetches nothing from the network
  * and prints no error or warning of libxml's, so a file that is not XML
  * reads as none.
+ *
+ * @internal
  */
 final readonly class Xml
 {

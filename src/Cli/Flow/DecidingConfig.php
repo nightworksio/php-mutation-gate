@@ -38,6 +38,8 @@ use function sprintf;
  * directory, and the copy is removed once read. Where either version
  * cannot be read, or the change renamed, moved, added or deleted the
  * file, it decides.
+ *
+ * @internal
  */
 final readonly class DecidingConfig
 {

@@ -14,6 +14,8 @@ use function str_replace;
  * would read as a formula, one starting with `=`, `+`, `-`, `@`, a tab or a
  * carriage return, is written after a `'`, so a name the project chose never
  * runs in someone's spreadsheet.
+ *
+ * @internal
  */
 final readonly class Csv
 {

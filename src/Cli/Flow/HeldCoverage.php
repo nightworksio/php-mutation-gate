@@ -24,6 +24,8 @@ use function sprintf;
  * lines of is not mutated, and fails the verdict; tests that do not pass
  * on their own cannot judge. Of a held unit they cover, the tests of
  * theirs that run it are kept: they are the tests that judge its mutants.
+ *
+ * @internal
  */
 final readonly class HeldCoverage
 {

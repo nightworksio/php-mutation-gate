@@ -14,6 +14,8 @@ use function sprintf;
  * What a line annotation says of a mutant counted as not killed, or of a cluster of survivors at its first member,
  * on whichever forge shows it (ADR-0009, ADR-0022): its title, the gate's judgement and the mutator, or the
  * cluster's size; and its message, the hint and the command that reproduces it, or the cluster's hint and stub.
+ *
+ * @internal
  */
 final readonly class AnnotationText
 {

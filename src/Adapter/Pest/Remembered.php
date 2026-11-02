@@ -35,6 +35,8 @@ use NightWorksIO\MutationGate\Core\Test\TestListing;
  * replay of a kill's own run said (see PrefixReplays). Each is slow to
  * learn, from a process started for it or a map that can reach hundreds of
  * megabytes, and none changes while the gate runs.
+ *
+ * @internal
  */
 final class Remembered
 {

@@ -19,6 +19,8 @@ use function sprintf;
  * on one, or whose coverage is collected remotely, serves it from another
  * process, which a mutant the override serves in the test's process never
  * reaches.
+ *
+ * @internal
  */
 final readonly class CodeceptionSuiteSettings
 {

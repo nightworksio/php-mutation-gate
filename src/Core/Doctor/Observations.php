@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Core\Tree\Trees;
  * running its code, and the day it read it (ADR-0017); and what
  * `--measure` and `--online` found out beyond that. A part nobody read is
  * not given, and the checks that ask for it find nothing.
+ *
+ * @internal
  */
 final readonly class Observations
 {

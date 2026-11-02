@@ -24,6 +24,8 @@ use function var_export;
  * alone; another script loads it by its file and the name the archive is
  * known by, since PHP opens a file inside an archive whose name does not end
  * in `.phar` only once something has loaded it.
+ *
+ * @internal
  */
 final readonly class OwnArchive
 {

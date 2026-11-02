@@ -7,7 +7,11 @@ namespace NightWorksIO\MutationGate\Core\Ci;
 use function array_key_exists;
 use function preg_match;
 
-/** The environment variables a CI set for a job, as the adapter that read them hands them on. */
+/**
+ * The environment variables a CI set for a job, as the adapter that read them hands them on.
+ *
+ * @internal
+ */
 final readonly class Variables
 {
     /** Set to `true` by GitHub Actions in every job it runs. */

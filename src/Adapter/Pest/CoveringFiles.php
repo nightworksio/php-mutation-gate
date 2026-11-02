@@ -37,6 +37,8 @@ use function sprintf;
  *
  * What the suite's files declare and use is read once, the first time a
  * mutant asks, and kept for the rest of the process.
+ *
+ * @internal
  */
 final class CoveringFiles
 {

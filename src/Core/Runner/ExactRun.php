@@ -10,7 +10,11 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
-/** A mutant's own run of exactly the tests that judge it, a row of a data set alone. */
+/**
+ * A mutant's own run of exactly the tests that judge it, a row of a data set alone.
+ *
+ * @internal
+ */
 final readonly class ExactRun implements RunSelection
 {
     public function of(TestIds $judging, CoverageMap $map, Paths|WholeSuite|NotGiven $unfiltered): RunTests

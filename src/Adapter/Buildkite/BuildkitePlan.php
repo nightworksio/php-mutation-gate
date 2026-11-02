@@ -48,6 +48,8 @@ use function str_replace;
  * template `ci.buildkite.step`: its keys, such as agents, plugins and env, are
  * in the step, and its commands run before the gate's. The plan and the
  * results travel with `buildkite-agent artifact`.
+ *
+ * @internal
  */
 final readonly class BuildkitePlan implements CiPlan, Configurable
 {

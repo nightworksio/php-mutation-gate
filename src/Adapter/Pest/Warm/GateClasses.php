@@ -26,6 +26,8 @@ use function str_starts_with;
  * autoloader as Pest's script does in a fresh process. On PHP 8.4, which has
  * no `array_first` and `array_last`, it loads the polyfill the gate requires
  * for them, from the vendor directory the gate is installed in or its own.
+ *
+ * @internal
  */
 final readonly class GateClasses
 {

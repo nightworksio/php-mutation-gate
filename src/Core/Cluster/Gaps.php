@@ -20,6 +20,8 @@ use function sort;
  * by exactly the same tests, such as three removed calls none of which is
  * asserted. A mutant in no function, or of a mutator with no family, is in no
  * gap.
+ *
+ * @internal
  */
 final readonly class Gaps
 {

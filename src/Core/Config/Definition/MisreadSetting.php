@@ -12,6 +12,8 @@ use function sprintf;
  * A setting was asked for a value its reading does not hold: one that must
  * be written, read with problems, or a part a layer does not hold. A layer
  * is read whole, so reaching this is a mistake in the code that asked.
+ *
+ * @internal
  */
 final class MisreadSetting extends LogicException
 {

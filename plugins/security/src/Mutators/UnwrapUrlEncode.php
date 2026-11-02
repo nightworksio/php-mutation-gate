@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateSecurity\SecuritySet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `urlencode($x)` and `rawurlencode($x)` become `$x`. */
+/**
+ * `urlencode($x)` and `rawurlencode($x)` become `$x`.
+ *
+ * @internal
+ */
 final readonly class UnwrapUrlEncode implements Mutator
 {
     public function name(): MutatorName

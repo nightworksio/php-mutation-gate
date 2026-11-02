@@ -13,6 +13,8 @@ use function file_put_contents;
  * whether or not its filter selected a test (ADR-0004). A
  * process that never ends its run, as one stopped or crashed does, writes
  * no count.
+ *
+ * @internal
  */
 final class RanTests
 {

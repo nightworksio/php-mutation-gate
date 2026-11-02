@@ -15,6 +15,8 @@ namespace NightWorksIO\MutationGate\Core\Verdict;
  * no narrower bound than what the code names holds. A kill by static analysis
  * stands as a kill does, the file its finding sits in taking the place of the
  * tests.
+ *
+ * @internal
  */
 enum Carry
 {

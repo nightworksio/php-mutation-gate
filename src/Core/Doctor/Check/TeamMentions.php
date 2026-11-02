@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
  * CODEOWNERS names a team while the comment mentions owners: a comment
  * GitHub Actions' own token writes cannot mention a team, so the team is
  * named without a mention (ADR-0022, ADR-0049).
+ *
+ * @internal
  */
 final readonly class TeamMentions
 {

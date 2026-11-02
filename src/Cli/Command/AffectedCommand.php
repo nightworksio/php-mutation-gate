@@ -34,6 +34,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * output in the format `--format` names, and the reasons to standard error,
  * but in JSON, which holds them. It exits 0 whenever it answered, and 2 where
  * git cannot say what changed or the format cannot list the tests.
+ *
+ * @internal
  */
 final readonly class AffectedCommand
 {

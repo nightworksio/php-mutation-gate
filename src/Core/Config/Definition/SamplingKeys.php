@@ -12,7 +12,11 @@ use NightWorksIO\MutationGate\Core\Config\Sampling;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Sample\Confidence;
 
-/** How the `sampling` keys a config writes are read into its `Reach` part (ADR-0002, ADR-0020). */
+/**
+ * How the `sampling` keys a config writes are read into its `Reach` part (ADR-0002, ADR-0020).
+ *
+ * @internal
+ */
 final readonly class SamplingKeys
 {
     /** The widest half-width in points a tree's interval may be sized for. */

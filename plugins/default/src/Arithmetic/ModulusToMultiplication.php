@@ -16,7 +16,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\BinaryOp\Mod;
 use PhpParser\Node\Expr\BinaryOp\Mul;
 
-/** `%` becomes `*`. */
+/**
+ * `%` becomes `*`.
+ *
+ * @internal
+ */
 final readonly class ModulusToMultiplication implements Mutator
 {
     public function name(): MutatorName

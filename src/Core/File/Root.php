@@ -14,6 +14,8 @@ use function str_starts_with;
  * A directory on disk that paths are relative to, such as the project's root,
  * as the command line or the working directory spells it: absolute, or
  * relative to where the gate runs.
+ *
+ * @internal
  */
 final readonly class Root
 {

@@ -43,6 +43,8 @@ use function strpbrk;
  * and an end 90 days on. A pattern over source, and one that maps to no
  * entry, stays in Infection's config, and `ignores.native: allow` keeps it
  * working.
+ *
+ * @internal
  */
 final readonly class Ignores
 {

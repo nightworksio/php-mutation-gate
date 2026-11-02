@@ -13,7 +13,11 @@ use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
-/** A shell that keeps what each command it runs printed, for a reproduction to show. */
+/**
+ * A shell that keeps what each command it runs printed, for a reproduction to show.
+ *
+ * @internal
+ */
 final readonly class Transcribing implements Shell
 {
     private function __construct(private Shell $shell, private Transcript $transcript)

@@ -15,6 +15,8 @@ use function is_string;
  * PrefixReplays). A process that a timeout stops while it writes them leaves
  * a line its killer file drops, never one cut short inside the results file.
  * A process the adapter names no results file or copy for records nothing.
+ *
+ * @internal
  */
 final readonly class StartedWith
 {

@@ -20,6 +20,8 @@ use function sprintf;
 /**
  * Where `init` writes a config (ADR-0002): `mutation-gate.<format>` in the
  * project, or the file `--config` names, in the format its extension names.
+ *
+ * @internal
  */
 final readonly class Destination
 {

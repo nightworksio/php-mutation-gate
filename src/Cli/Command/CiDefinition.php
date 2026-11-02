@@ -44,6 +44,8 @@ use function sprintf;
  * CI already reads, which `init` never edits, or, with `--stdout`, printed
  * whole. On GitHub, a full run estimated to fit one shard gets the one-step
  * action, and a larger one the reusable workflow.
+ *
+ * @internal
  */
 final readonly class CiDefinition
 {

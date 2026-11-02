@@ -16,6 +16,8 @@ use PhpToken;
  * of the token that opened the statement being read, and naming says the next
  * bare name is the one a declaration declares. A `use` of a function or a
  * constant imports a name, and declares none.
+ *
+ * @internal
  */
 final readonly class Reading
 {

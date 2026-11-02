@@ -21,6 +21,8 @@ use function sprintf;
  * One mutant of a JSON report as the digest reads it: where it is, its
  * mutator, what it came to, the gate's own judgement, whether it is on a
  * changed line, its diff and hint, and the tests the report points it at.
+ *
+ * @internal
  */
 final readonly class DigestMutant
 {

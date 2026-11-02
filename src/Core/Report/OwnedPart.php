@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
  * One part of a list of survivors: the owner group it is under, or none
  * where the run read no CODEOWNERS, how many survivors that is, the items
  * shown of it and how many items it has (ADR-0022).
+ *
+ * @internal
  */
 final readonly class OwnedPart
 {

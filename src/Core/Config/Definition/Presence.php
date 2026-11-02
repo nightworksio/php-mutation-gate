@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
-/** What leaving a setting out of a layer of config means. */
+/**
+ * What leaving a setting out of a layer of config means.
+ *
+ * @internal
+ */
 enum Presence
 {
     /** Nothing: a later layer, or the setting's own default, gives it. */

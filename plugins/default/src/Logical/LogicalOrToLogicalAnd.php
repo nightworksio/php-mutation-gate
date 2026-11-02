@@ -16,7 +16,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\BinaryOp\LogicalAnd;
 use PhpParser\Node\Expr\BinaryOp\LogicalOr;
 
-/** `or` becomes `and`. */
+/**
+ * `or` becomes `and`.
+ *
+ * @internal
+ */
 final readonly class LogicalOrToLogicalAnd implements Mutator
 {
     public function name(): MutatorName

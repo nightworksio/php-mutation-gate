@@ -19,6 +19,8 @@ use Testo\Application\Config\Plugin\PluginCollection;
  * project's own `testo.php`, loaded as it is, or Testo's default where there
  * is none, with the gate's plugin added to the plugins it loads for every
  * suite, told what the gate told the launcher, which Testo never reads.
+ *
+ * @internal
  */
 final readonly class GateConfig
 {

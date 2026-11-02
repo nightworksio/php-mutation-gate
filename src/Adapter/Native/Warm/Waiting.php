@@ -28,6 +28,8 @@ use function usleep;
  * no test of it has started or ended for its silence limit where it has one,
  * when the child and every process under it are stopped, looking about a
  * hundred times a second, on `hrtime`'s clock.
+ *
+ * @internal
  */
 final readonly class Waiting
 {

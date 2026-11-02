@@ -23,6 +23,8 @@ use function trim;
  * MySQL's socket, its database, its user and password, the PDO attributes it
  * sets and PostgreSQL's schemas to search. Laravel lists the hosts a
  * connection may use where it has several; the first is the one read.
+ *
+ * @internal
  */
 final readonly class LaravelConfig
 {

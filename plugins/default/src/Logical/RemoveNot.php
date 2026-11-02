@@ -15,7 +15,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\BooleanNot;
 
-/** `! $a` becomes `$a`. */
+/**
+ * `! $a` becomes `$a`.
+ *
+ * @internal
+ */
 final readonly class RemoveNot implements Mutator
 {
     public function name(): MutatorName

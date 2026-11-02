@@ -18,6 +18,8 @@ use Psr\Clock\ClockInterface;
  * it reads the time from, the most memory the processes it started have
  * held, and how its config file decides how the gate runs, which a change
  * to it is read against.
+ *
+ * @internal
  */
 final readonly class Setup
 {

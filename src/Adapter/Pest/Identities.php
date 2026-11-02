@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantId;
  * The gate's id of each mutant Pest planned, the one place it is made: its
  * file as the project spells it, its mutator and its change, and how many
  * mutants before it, by file and then by line, share all three.
+ *
+ * @internal
  */
 final readonly class Identities
 {

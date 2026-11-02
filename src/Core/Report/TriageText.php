@@ -22,6 +22,8 @@ use function sprintf;
  * varied, where it is and what made it, with the runs that gave it each
  * status and the tests that killed it in them, and its reproduce command;
  * then how many of the mutants varied.
+ *
+ * @internal
  */
 final readonly class TriageText
 {

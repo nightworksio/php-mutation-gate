@@ -32,6 +32,8 @@ use function trim;
  * ADR-0024). The lines reach the gate on standard input, through
  * `--stdin`, or rebuilt from what the pre-commit framework sets.
  *
+ * @internal
+ *
  * @implements IteratorAggregate<int, PushedRef>
  */
 final readonly class Pushes implements Countable, IteratorAggregate

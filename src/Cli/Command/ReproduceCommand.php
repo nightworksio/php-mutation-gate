@@ -28,6 +28,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * what the runner printed. It exits 0 where the run found what the ledger
  * recorded, 1 where it found something else, and 2 where there is no record
  * to run, the run no longer makes the mutant, or the runner cannot judge.
+ *
+ * @internal
  */
 final readonly class ReproduceCommand
 {

@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
 
-/** What one line of the results file the plugin writes, and the adapter reads, records. */
+/**
+ * What one line of the results file the plugin writes, and the adapter reads, records.
+ *
+ * @internal
+ */
 enum RecordEvent: string
 {
     /** A mutant Pest made, with its file, lines, mutator, diff and mutated copy. */

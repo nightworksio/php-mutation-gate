@@ -29,6 +29,8 @@ use function sprintf;
  * every directory of tests, none decides how the gate runs (ADR-0005, rule
  * 1) or is the baseline, and no ignore that applied when it passed has
  * expired since. Anything else, and the plan runs as ever.
+ *
+ * @internal
  */
 final readonly class Unchanging
 {

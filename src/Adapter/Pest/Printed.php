@@ -26,6 +26,8 @@ use function sprintf;
  * diff is between two such prints, so it goes onto this print, and not onto
  * the file as written. The mutant's line is the file's, not the print's, so
  * the diff goes back only where its lines stand in one place of the print.
+ *
+ * @internal
  */
 final readonly class Printed
 {

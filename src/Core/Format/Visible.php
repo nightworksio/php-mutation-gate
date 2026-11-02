@@ -18,6 +18,8 @@ use function sprintf;
  * break, a carriage return and a tab are escaped too, so no value ends its
  * line or starts one a reader would take for the gate's; as text, line
  * breaks and tabs are kept.
+ *
+ * @internal
  */
 final readonly class Visible
 {

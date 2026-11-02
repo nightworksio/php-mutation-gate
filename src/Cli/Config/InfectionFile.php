@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * The Infection config `init --from` and `import` take over from: the file
  * the command line names, or, where it names none, the first Infection
  * itself would read in the project's root.
+ *
+ * @internal
  */
 final readonly class InfectionFile
 {

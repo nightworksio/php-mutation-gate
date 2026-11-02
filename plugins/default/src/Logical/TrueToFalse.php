@@ -20,6 +20,8 @@ use PhpParser\Node\Expr\ConstFetch;
 /**
  * `true` becomes `false`, but for an argument of `in_array()` or `array_search()`,
  * whose strict flag it would only loosen.
+ *
+ * @internal
  */
 final readonly class TrueToFalse implements Mutator
 {

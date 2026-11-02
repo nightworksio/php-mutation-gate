@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
  * pairs. A map past either is not kept, which costs the next run a full
  * measure and never a verdict. A read over a network takes as long as a
  * ledger's may, since it is the same read.
+ *
+ * @internal
  */
 final readonly class MapLimits
 {

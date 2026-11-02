@@ -29,6 +29,8 @@ use function var_export;
  * told the launcher. Testo includes its config from a file on disk by its
  * path, which no file inside the gate's PHAR is, so the config is written
  * to a file of its own for each run.
+ *
+ * @internal
  */
 final readonly class Launch
 {

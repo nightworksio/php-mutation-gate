@@ -16,7 +16,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\ConstFetch;
 
-/** `false` becomes `true`. */
+/**
+ * `false` becomes `true`.
+ *
+ * @internal
+ */
 final readonly class FalseToTrue implements Mutator
 {
     public function name(): MutatorName

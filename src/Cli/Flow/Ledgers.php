@@ -41,6 +41,8 @@ use NightWorksIO\MutationGate\Port\ProofStore;
  * The ledgers a run reads, the default branch's and its own scope's where it
  * has one of its own, and which of them it may write. A ledger the store
  * could not read is judged without, and a warning says why.
+ *
+ * @internal
  */
 final readonly class Ledgers
 {

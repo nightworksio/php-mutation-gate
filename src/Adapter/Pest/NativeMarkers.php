@@ -24,6 +24,8 @@ use function sprintf;
  * each found with the `ignores.entries` entry that replaces it. Whether a run
  * may go ahead with them is the verdict's to decide. No comment here spells
  * the marker, or Pest would read it as one.
+ *
+ * @internal
  */
 final readonly class NativeMarkers
 {

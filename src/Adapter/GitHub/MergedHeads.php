@@ -33,6 +33,8 @@ use function sprintf;
  * own head is proved where its tree is the head of the pull request it was
  * built for, into the default branch, whose verdict passed on that head
  * (ADR-0022). Without the ledgers to read, nothing is proved.
+ *
+ * @internal
  */
 final readonly class MergedHeads
 {

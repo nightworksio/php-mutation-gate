@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Doctor;
 
-/** How much a finding matters to the next run, its cases from the most to the least (ADR-0017). */
+/**
+ * How much a finding matters to the next run, its cases from the most to the least (ADR-0017).
+ *
+ * @internal
+ */
 enum Severity: string
 {
     /** A run would exit 2 or be cannot judge. */

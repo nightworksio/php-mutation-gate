@@ -23,6 +23,8 @@ use function sprintf;
  * requires, by its rulesets and by branch protection; the fork approval
  * policy; and how the workflows that run the gate ran on a schedule. Each
  * setting GitHub would not show says why, and the others are still read.
+ *
+ * @internal
  */
 final readonly class RepositorySettings
 {

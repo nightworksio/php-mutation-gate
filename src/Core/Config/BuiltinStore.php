@@ -7,7 +7,11 @@ namespace NightWorksIO\MutationGate\Core\Config;
 use NightWorksIO\MutationGate\Core\Proof\Credentials;
 use NightWorksIO\MutationGate\Core\Proof\StoreVariable;
 
-/** The proof stores this package builds in, by the name a config chooses each by. */
+/**
+ * The proof stores this package builds in, by the name a config chooses each by.
+ *
+ * @internal
+ */
 enum BuiltinStore: string
 {
     case Directory = 'directory';

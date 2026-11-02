@@ -18,6 +18,8 @@ use function sprintf;
  * script, on what it means and a link to the guide of the gate that rendered
  * the report, read from the JSON report's `provenance`.
  *
+ * @internal
+ *
  * @phpstan-import-type Report from JsonReport
  */
 final readonly class Glossary

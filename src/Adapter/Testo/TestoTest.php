@@ -21,6 +21,8 @@ use Testo\Filter\Group;
  * XML coverage says covers a line; the file its case is declared in; and the
  * groups its `#[Group]` and the holding groups its `#[Holds]` put it in, on
  * its function or on its class.
+ *
+ * @internal
  */
 final readonly class TestoTest
 {

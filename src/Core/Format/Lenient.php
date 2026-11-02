@@ -8,6 +8,8 @@ namespace NightWorksIO\MutationGate\Core\Format;
  * Reading a file whose shape nothing promises, such as one Composer wrote: a
  * place that holds something other than what is asked for reads as holding
  * none of it, so a reader skips it rather than refusing the file.
+ *
+ * @internal
  */
 final readonly class Lenient
 {

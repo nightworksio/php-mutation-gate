@@ -17,6 +17,8 @@ use function sprintf;
  * runs `watch --output=problems`, with the one problem matcher that reads its
  * lines, and the SARIF Viewer recommended for the `sarif` report. `init
  * --editor=vscode` writes these (ADR-0015).
+ *
+ * @internal
  */
 final readonly class VsCode
 {

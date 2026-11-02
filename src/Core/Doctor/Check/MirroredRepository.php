@@ -21,6 +21,8 @@ use function sprintf;
 /**
  * A path repository that copies a tree into the vendor directory, so the
  * tests load the copy and no mutant of the tree is ever run.
+ *
+ * @internal
  */
 final readonly class MirroredRepository
 {

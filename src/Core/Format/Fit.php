@@ -22,6 +22,8 @@ use function trim;
  * project gave a test, is made one plain line first, so it can start no
  * command in a CI's log. A long list of names shows its first few and how
  * many more it holds.
+ *
+ * @internal
  */
 final readonly class Fit
 {

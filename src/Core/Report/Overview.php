@@ -23,6 +23,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
  * project's score, how uncovered mutants count, which mutants are in a set
  * that failed, whether a tree below its floor, new code, a security set or
  * an owner below its own, and which an ignore or a proof left out.
+ *
+ * @internal
  */
 final readonly class Overview
 {

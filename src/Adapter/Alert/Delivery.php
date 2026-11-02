@@ -29,6 +29,8 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * redirect is not followed, so the body and its signature go nowhere but
  * the URL given, and a failure never repeats that URL, which holds the
  * chat's credential.
+ *
+ * @internal
  */
 final readonly class Delivery
 {

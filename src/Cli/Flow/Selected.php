@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\Reach\AffectedTests;
  * What `affected` found: the tests the change can make fail, the ref the
  * change was read since where one was given, and where the coverage map was
  * measured where a map was read.
+ *
+ * @internal
  */
 final readonly class Selected
 {

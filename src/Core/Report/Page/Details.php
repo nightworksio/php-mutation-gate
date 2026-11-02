@@ -25,6 +25,8 @@ use function sprintf;
  * reached what it did, what each suite alone kills, and how long each part
  * of the run took. A part with nothing in it is left out.
  *
+ * @internal
+ *
  * @phpstan-import-type Report from JsonReport
  * @phpstan-import-type Run from AccountJson
  */

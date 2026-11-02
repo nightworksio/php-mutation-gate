@@ -8,7 +8,11 @@ use RuntimeException;
 
 use function sprintf;
 
-/** The gate's Testo config, which its launcher could not write to a file for Testo to read. */
+/**
+ * The gate's Testo config, which its launcher could not write to a file for Testo to read.
+ *
+ * @internal
+ */
 final class UnwrittenConfig extends RuntimeException
 {
     private const string UNWRITTEN = 'The gate cannot write its Testo config into %s.';

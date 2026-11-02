@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Format\Node;
  * to Buildkite unread, but for `command`, which the gate runs before its own
  * and so reads: a command, or a list of commands, as text.
  *
+ * @internal
+ *
  * @implements Shape<Json>
  */
 final readonly class StepTemplate implements Shape

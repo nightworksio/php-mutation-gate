@@ -10,6 +10,8 @@ use NightWorksIO\MutationGate\Core\Ci\Variables;
  * The change sources and repositories this package builds in, by the name
  * the registry holds each by: git's, and git's with GitHub's word on what the
  * default branch already proved, where GitHub Actions runs the job.
+ *
+ * @internal
  */
 enum BuiltinVersionControl: string
 {

@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\File\Path;
  * token among the file's own. A read runs on its own line, or, in a
  * parameter's default, on the lines of the body of the function it defaults
  * for, which runs it wherever a call leaves the parameter out.
+ *
+ * @internal
  */
 final readonly class Site
 {

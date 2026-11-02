@@ -49,6 +49,8 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * report, found as the comment is written (ADR-0009). Each write keeps the
  * record of the owners the comment has mentioned, and mentions only those
  * it has not (ADR-0022).
+ *
+ * @internal
  */
 final readonly class PullRequestComment implements Commenting, CommentThread, Configurable, Deferring, Reporter
 {

@@ -26,6 +26,8 @@ use NightWorksIO\MutationGate\Core\Verdict\NoFinding;
  * what it changed, how it was judged and why, the tests that cover, judged
  * and killed it, and what applies only to some (ADR-0009).
  *
+ * @internal
+ *
  * @phpstan-import-type RejectionWritten from MutantRecord
  *
  * @phpstan-type MutantEntry array{

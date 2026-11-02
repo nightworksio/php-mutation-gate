@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Core\Format\Member;
 /**
  * Paths a layer holds from the project, as the layer at an origin writes
  * them: `src/Gen/**` from `ci/` is `../src/Gen/**`.
+ *
+ * @internal
  */
 final readonly class WrittenPaths
 {

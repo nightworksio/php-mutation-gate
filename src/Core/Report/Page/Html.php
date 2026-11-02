@@ -21,6 +21,8 @@ use function sprintf;
  * How the HTML report writes what it shows: every text escaped, as a diff,
  * a path or a test name is the project's own and may hold markup; a
  * percentage as every report prints a score; a duration as reports say it.
+ *
+ * @internal
  */
 final readonly class Html
 {

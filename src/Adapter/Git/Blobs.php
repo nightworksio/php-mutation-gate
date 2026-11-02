@@ -22,6 +22,8 @@ use function strpbrk;
  * Files as a commit holds them, read from git in one `cat-file --batch`. A
  * file whose name holds a line feed or a carriage return, which the batch
  * reads a name to end at, is read on its own.
+ *
+ * @internal
  */
 final readonly class Blobs
 {

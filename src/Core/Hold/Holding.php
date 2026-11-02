@@ -14,6 +14,8 @@ use function sprintf;
 /**
  * One declaration that some tests hold a path: a group the runner lists as
  * `holds:<path>`, or a `#[Holds]` on a test class or method.
+ *
+ * @internal
  */
 final readonly class Holding
 {

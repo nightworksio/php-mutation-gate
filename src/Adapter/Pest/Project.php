@@ -35,6 +35,8 @@ use function unlink;
  * directory the gate works in, and the one Composer installed its packages
  * in. Pest reports files by their real path, so the root is held as its real
  * path too.
+ *
+ * @internal
  */
 final readonly class Project
 {

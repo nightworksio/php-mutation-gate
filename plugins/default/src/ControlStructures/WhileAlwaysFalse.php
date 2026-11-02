@@ -16,7 +16,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Stmt\While_;
 
-/** A `while` loop's condition becomes `false`. */
+/**
+ * A `while` loop's condition becomes `false`.
+ *
+ * @internal
+ */
 final readonly class WhileAlwaysFalse implements Mutator
 {
     public function name(): MutatorName

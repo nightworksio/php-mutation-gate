@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * key under another parent is moved there, as `Move` moves it. Where the new
  * key is already written, nothing is changed, and the step is left for a
  * hand edit.
+ *
+ * @internal
  */
 final readonly class Rename implements Step
 {

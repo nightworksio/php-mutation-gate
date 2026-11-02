@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\Verdict\OwnerVerdicts;
  * its file, a cluster under its representative's, the groups in the
  * verdict's order, each one's survivors in theirs, and a group with none
  * left out (ADR-0022).
+ *
+ * @internal
  */
 final readonly class Owned
 {

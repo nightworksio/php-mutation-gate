@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\File\Paths;
  * `staticCheck.tool` chooses it with, in the order `auto` asks about them
  * (ADR-0020): Mago leads, being the fastest to check one mutant
  * with. An extension may register others by names of its own.
+ *
+ * @internal
  */
 enum BuiltinAnalyser: string
 {

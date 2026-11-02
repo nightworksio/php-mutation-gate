@@ -29,6 +29,8 @@ use function sprintf;
  * what is there now ({@see Unchanging}): only for a standard run whose change
  * is read since that commit, as by default. Its keys are built on nothing, as
  * it keys nothing and establishes no proof.
+ *
+ * @internal
  */
 final readonly class UnchangedPlan
 {

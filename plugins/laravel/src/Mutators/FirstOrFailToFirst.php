@@ -23,6 +23,8 @@ use PhpParser\Node\Identifier;
 /**
  * `->firstOrFail()` becomes `->first()`, and `->findOrFail(…)` becomes
  * `->find(…)`, on any receiver, a model class included.
+ *
+ * @internal
  */
 final readonly class FirstOrFailToFirst implements Mutator
 {

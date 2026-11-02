@@ -10,6 +10,8 @@ use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
  * An environment variable the Pest adapter sets for this package's plugin,
  * or for the code `pest:patch` writes into pest-plugin-mutate. Only the
  * command that needs one sets it, and no Pest the gate starts inherits it.
+ *
+ * @internal
  */
 enum GateVariable: string
 {

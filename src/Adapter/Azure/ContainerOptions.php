@@ -20,6 +20,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * the `publicUrl` a job without credentials reads it from (ADR-0028). It has
  * no option for an account key or a shared access signature, so a config
  * that gives one names a key the store does not know.
+ *
+ * @internal
  */
 final readonly class ContainerOptions
 {

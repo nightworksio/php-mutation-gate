@@ -11,6 +11,8 @@ use NightWorksIO\MutationGate\Core\Owner\CodeOwners;
  * What the project's files say to the services around it, as far as the
  * checks ask them: the paths SonarQube's `sonar.sources` names (ADR-0028),
  * and the CODEOWNERS GitHub reads (ADR-0022), each as it stands.
+ *
+ * @internal
  */
 final readonly class ServiceFiles
 {

@@ -24,6 +24,8 @@ use function sprintf;
  * A mutant run again, as `reproduce` prints it: where it is and what made
  * it, its diff, what the ledger recorded and what the run found now, the
  * tests that judged it, and then what the runner printed (ADR-0004).
+ *
+ * @internal
  */
 final readonly class ReproductionText
 {

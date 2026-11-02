@@ -43,6 +43,8 @@ use NightWorksIO\MutationGate\Port\Runner;
  * runner starts. Nothing runs the project's code. The runner and the store
  * are the ones a run builds, in the directory the gate runs in, which is the
  * project's root.
+ *
+ * @internal
  */
 final readonly class Observed
 {

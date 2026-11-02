@@ -8,6 +8,8 @@ namespace NightWorksIO\MutationGate\Core\Report;
  * Whether an outcome is good, needs attention or is bad, said in a word
  * beside every count, so that no reader needs the colour to tell (ADR-0009).
  * The value is the word the digest writes.
+ *
+ * @internal
  */
 enum Grade: string
 {

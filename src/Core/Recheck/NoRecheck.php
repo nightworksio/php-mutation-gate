@@ -9,6 +9,8 @@ namespace NightWorksIO\MutationGate\Core\Recheck;
  * that plans and judges in one process says so only where a pull
  * request's run would expect a re-check: where the branch has no earlier
  * run, or its last run left no survivor.
+ *
+ * @internal
  */
 final readonly class NoRecheck
 {

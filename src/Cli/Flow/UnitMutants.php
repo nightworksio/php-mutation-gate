@@ -26,6 +26,8 @@ use NightWorksIO\MutationGate\Mutator\Engine\Engine;
  * them, or else as many as the gate's own engine makes of its file. A
  * held unit no proof records, or a file the engine cannot read, is
  * estimated by nothing.
+ *
+ * @internal
  */
 final readonly class UnitMutants
 {

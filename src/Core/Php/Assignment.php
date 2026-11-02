@@ -15,6 +15,8 @@ use PhpToken;
  * in a block, such as a closure's body, and leave out the `;` after it. The
  * variable belongs to the scope it is written in, unless it is one that
  * reaches past it (ReachingVariable).
+ *
+ * @internal
  */
 final readonly class Assignment
 {

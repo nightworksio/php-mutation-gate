@@ -18,7 +18,11 @@ use NightWorksIO\MutationGate\Core\Runner\PhpUnitIni;
 use function realpath;
 use function sprintf;
 
-/** PHPUnit as a project installed it: the project's root, and the vendor directory it is in. */
+/**
+ * PHPUnit as a project installed it: the project's root, and the vendor directory it is in.
+ *
+ * @internal
+ */
 final readonly class Installation
 {
     /** PHPUnit's script, in the vendor directory's `bin`. */

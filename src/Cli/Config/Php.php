@@ -14,6 +14,8 @@ use function sprintf;
  * A config written as a `mutation-gate.php` (ADR-0002): `Gate::configure()`
  * and one call for each setting it holds, which reads back into the same
  * config.
+ *
+ * @internal
  */
 final readonly class Php
 {

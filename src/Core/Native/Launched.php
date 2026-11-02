@@ -27,6 +27,8 @@ use function str_starts_with;
  * gate started it in place of a framework's own script: the values of each
  * option the gate told it, `<option>=<value>`, and the framework's own
  * arguments, in their order, which the launcher hands on.
+ *
+ * @internal
  */
 final readonly class Launched
 {

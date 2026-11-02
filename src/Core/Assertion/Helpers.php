@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Php\Tokens;
  * file declares, and those the files that define the runner declare, such
  * as `tests/Pest.php`. A test that calls one is not assessed, since the
  * helper may assert what the test does not (ADR-0025).
+ *
+ * @internal
  */
 final readonly class Helpers
 {

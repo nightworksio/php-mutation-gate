@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * new place needs; an object the old place leaves empty goes too. Where the
  * new key is already written, nothing is changed, and the step is left for a
  * hand edit.
+ *
+ * @internal
  */
 final readonly class Move implements Step
 {

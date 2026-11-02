@@ -34,6 +34,8 @@ use function unlink;
  * prints it, and ends as the run ended. Where the worker forks the run no
  * child, or is gone, the client becomes the run Pest would have started,
  * in place, so Pest stops the run where it stops the client.
+ *
+ * @internal
  */
 final readonly class Client
 {

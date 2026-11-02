@@ -18,6 +18,8 @@ use Symfony\Component\Console\Input\InputInterface;
  * definition `--ci` asks for, the editor files `--editor` names and the
  * hooks `--hook` sets up, as the command line or the answers to `init`'s
  * questions settle them; written, or printed with `--dry-run`.
+ *
+ * @internal
  */
 final readonly class Additions
 {

@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\Php\PhpFile;
  * What the reach rules read: files as they are on disk, changed files as
  * they were at the base, and the changed files that decide how the gate runs
  * as they did at the base.
+ *
+ * @internal
  */
 final readonly class Sources
 {

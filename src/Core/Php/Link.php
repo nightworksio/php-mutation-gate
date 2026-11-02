@@ -7,7 +7,11 @@ namespace NightWorksIO\MutationGate\Core\Php;
 use function ltrim;
 use function mb_strtolower;
 
-/** One call of a chain, or a property it reads: its name, as PHP matches it in any case, and its arguments. */
+/**
+ * One call of a chain, or a property it reads: its name, as PHP matches it in any case, and its arguments.
+ *
+ * @internal
+ */
 final readonly class Link
 {
     /** @param list<Argument> $arguments */

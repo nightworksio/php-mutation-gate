@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `array_reverse(…)` becomes its first argument. */
+/**
+ * `array_reverse(…)` becomes its first argument.
+ *
+ * @internal
+ */
 final readonly class UnwrapArrayReverse implements Mutator
 {
     public function name(): MutatorName

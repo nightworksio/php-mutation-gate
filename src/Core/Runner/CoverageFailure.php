@@ -8,7 +8,11 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 
 use function sprintf;
 
-/** Why a runner's run of the tests under coverage gave no map: it failed, and said why. */
+/**
+ * Why a runner's run of the tests under coverage gave no map: it failed, and said why.
+ *
+ * @internal
+ */
 final readonly class CoverageFailure
 {
     private const string FAILED = "%s's coverage run failed. %s said:\n%s";

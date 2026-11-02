@@ -41,6 +41,8 @@ use SebastianBergmann\CodeCoverage\Filter;
  * names, where it names one; says in the file `MUTATION_GATE_GUARD` names
  * whether opcache could serve a cached original in place of the mutated
  * file; and measures the coverage, or lists the tests, where it is told to.
+ *
+ * @internal
  */
 final class Extension extends CodeceptionExtension
 {

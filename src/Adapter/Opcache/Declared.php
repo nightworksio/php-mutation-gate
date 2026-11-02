@@ -21,6 +21,8 @@ use PhpParser\NodeVisitorAbstract;
  * among them without the arguments they are made with, which run as the
  * body does, and its closures. What one of them holds is its own, so the
  * search goes no deeper into it.
+ *
+ * @internal
  */
 final class Declared extends NodeVisitorAbstract
 {

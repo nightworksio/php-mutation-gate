@@ -11,6 +11,8 @@ use function sprintf;
  * The `PATH` a process the gate starts gets: the running PHP's directory
  * first, so that a script's `#!` line, and every process a runner starts
  * through one, runs on the PHP that runs the gate.
+ *
+ * @internal
  */
 final readonly class SearchPath
 {

@@ -43,6 +43,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * CODEOWNERS, the ignored mutants with their reasons, the mutants proven
  * equivalent, the floors that can rise, the failures and warnings, and last
  * what the run took and saved.
+ *
+ * @internal
  */
 final readonly class ConsoleReport implements Configurable, Reporter
 {

@@ -7,7 +7,11 @@ namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 use PHPUnit\Event\Test\PreparationStarted;
 use PHPUnit\Event\Test\PreparationStartedSubscriber;
 
-/** Records the test about to be prepared, by its id, before anything of it runs. */
+/**
+ * Records the test about to be prepared, by its id, before anything of it runs.
+ *
+ * @internal
+ */
 final readonly class OnStarted implements PreparationStartedSubscriber
 {
     public function __construct(private Recorder $recorder)

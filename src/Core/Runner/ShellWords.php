@@ -8,7 +8,11 @@ use function array_map;
 use function escapeshellarg;
 use function implode;
 
-/** Words joined into one line a POSIX shell splits back into the same words, each quoted whatever it holds. */
+/**
+ * Words joined into one line a POSIX shell splits back into the same words, each quoted whatever it holds.
+ *
+ * @internal
+ */
 final readonly class ShellWords
 {
     /** @param list<string> $words */

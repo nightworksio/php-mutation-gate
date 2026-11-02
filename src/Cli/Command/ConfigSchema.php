@@ -13,6 +13,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * `config:schema`: the JSON Schema of the config (ADR-0002), written from
  * the definition every layer of config is read through. The package ships
  * the same text at `resources/mutation-gate.schema.json`.
+ *
+ * @internal
  */
 final readonly class ConfigSchema
 {

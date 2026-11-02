@@ -9,6 +9,8 @@ namespace NightWorksIO\MutationGate\Adapter\Project;
  * by its name and by its position in its constructor: a `SuiteConfig`'s
  * location, a `FinderConfig`'s paths it includes and leaves out, and an
  * `ApplicationConfig`'s suites.
+ *
+ * @internal
  */
 enum TestoArgument: string
 {

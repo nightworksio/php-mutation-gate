@@ -14,6 +14,8 @@ use PhpToken;
  * One argument of a call, as its significant tokens: a closure written in
  * place, or an expression, which may run nothing when it is evaluated or may
  * run code. A closure runs nothing where it stands; it runs when it is called.
+ *
+ * @internal
  */
 final readonly class Argument
 {

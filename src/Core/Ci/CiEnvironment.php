@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Ci;
 
-/** The environment of a job as a CI plan's marker reads it, to tell the CI the job runs in. */
+/**
+ * The environment of a job as a CI plan's marker reads it, to tell the CI the job runs in.
+ *
+ * @internal
+ */
 final readonly class CiEnvironment
 {
     private function __construct(private Variables $variables)

@@ -12,6 +12,8 @@ use function array_values;
  * Where a file's declarations stand among its tokens: the body of each class,
  * interface, trait and enum, the parameter list of each function, method and
  * closure, and the body of each of those that has one.
+ *
+ * @internal
  */
 final readonly class Shape
 {

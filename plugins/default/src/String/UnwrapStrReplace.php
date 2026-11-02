@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `str_replace(…)` becomes its third argument. */
+/**
+ * `str_replace(…)` becomes its third argument.
+ *
+ * @internal
+ */
 final readonly class UnwrapStrReplace implements Mutator
 {
     public function name(): MutatorName

@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\Runner\MutationResult;
  * What one invocation of a shard came to: its mutants, the survivors a
  * second run killed, those proven equivalent, and what static analysis's
  * checks of its survivors came to.
+ *
+ * @internal
  */
 final readonly class Invoked
 {

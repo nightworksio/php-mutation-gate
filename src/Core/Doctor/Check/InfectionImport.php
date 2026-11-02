@@ -17,7 +17,11 @@ use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 
 use function sprintf;
 
-/** An Infection config whose `minMsi` or ignores the gate reads elsewhere (ADR-0016). */
+/**
+ * An Infection config whose `minMsi` or ignores the gate reads elsewhere (ADR-0016).
+ *
+ * @internal
+ */
 final readonly class InfectionImport
 {
     private const string FOUND = '%s %s.';

@@ -55,6 +55,8 @@ use function usleep;
  * PHP declares a program's functions as it compiles it, so a second
  * program declaring one of them fails beside the first, and a child that
  * stops on a compile error fails every program it holds.
+ *
+ * @internal
  */
 final readonly class Compiler
 {

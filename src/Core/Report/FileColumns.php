@@ -11,7 +11,11 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\Survivors;
 
-/** Where on its lines each mutant is, for every file some mutants are in, each file's tokens read once. */
+/**
+ * Where on its lines each mutant is, for every file some mutants are in, each file's tokens read once.
+ *
+ * @internal
+ */
 final readonly class FileColumns
 {
     /** @param array<string, Columns> $columns by the file's path */

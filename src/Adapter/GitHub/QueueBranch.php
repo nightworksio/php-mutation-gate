@@ -14,6 +14,8 @@ use function preg_match;
  * `gh-readonly-queue/<base branch>/pr-<number>-<base commit>`: the base
  * branch, slashes and all, then the pull request the group was built for and
  * the commit it was built on (ADR-0022, ADR-0049).
+ *
+ * @internal
  */
 final readonly class QueueBranch
 {

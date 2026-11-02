@@ -11,6 +11,8 @@ use function array_map;
  * lists a directory without running what it reads. A test whose code names
  * one can read a source no coverage map shows it ran and no name of it
  * reaches, so its units' keys read every file the map observes (ADR-0007).
+ *
+ * @internal
  */
 enum FileReader: string
 {

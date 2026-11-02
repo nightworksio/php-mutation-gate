@@ -39,6 +39,8 @@ use function unlink;
  * not. Git inherits the gate's environment but the CI's credentials, which it
  * never needs, so that a hook or a config the repository ships cannot read
  * them.
+ *
+ * @internal
  */
 final readonly class Command
 {

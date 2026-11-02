@@ -8,7 +8,11 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 
 use function sprintf;
 
-/** The directory the gate keeps its own files under in a project, wherever nothing else is configured. */
+/**
+ * The directory the gate keeps its own files under in a project, wherever nothing else is configured.
+ *
+ * @internal
+ */
 final readonly class Workspace
 {
     private const string ROOT = '.mutation-gate';

@@ -11,6 +11,8 @@ use NightWorksIO\MutationGate\Core\Hold\Standing;
 /**
  * Where a closure stands by what it is handed to: assigned, passed to one of
  * Pest's functions or methods, directly or inside an array, or anything else.
+ *
+ * @internal
  */
 final readonly class ClosureCall
 {

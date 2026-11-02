@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-/** Whether a `reports` entry names a path for its reporter (ADR-0009, ADR-0016). */
+/**
+ * Whether a `reports` entry names a path for its reporter (ADR-0009, ADR-0016).
+ *
+ * @internal
+ */
 enum EntryPath
 {
     /** A report written to a file, which the entry must name. */

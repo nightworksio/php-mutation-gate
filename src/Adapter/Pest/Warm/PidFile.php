@@ -15,6 +15,8 @@ use function posix_kill;
 /**
  * A file a Pest run's warm worker writes a process id to, its own or a
  * child's (ADR-0023), written whole (see WholeFile).
+ *
+ * @internal
  */
 final readonly class PidFile
 {

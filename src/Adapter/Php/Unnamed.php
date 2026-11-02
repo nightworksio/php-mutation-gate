@@ -31,6 +31,8 @@ use function sprintf;
  * those that read nothing, a class outside the gate's builder, a call by a
  * name held as it runs, `eval` or a shell command. Every other expression
  * reads nothing by itself.
+ *
+ * @internal
  */
 final readonly class Unnamed
 {

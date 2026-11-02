@@ -36,6 +36,8 @@ use function sprintf;
  * own, so a mutator to turn off that only the `default` set holds would turn
  * nothing off there, and the config is refused. The gate's own engine takes
  * them beside the `default` set's (ADR-0023).
+ *
+ * @internal
  */
 final readonly class EnabledMutators
 {

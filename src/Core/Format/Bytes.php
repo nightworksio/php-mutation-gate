@@ -14,6 +14,8 @@ use function mb_substr;
  * Text measured and cut in bytes, as a file's size, a program's output, a
  * token's offset or a limit a service sets counts it, rather than in
  * characters.
+ *
+ * @internal
  */
 final readonly class Bytes
 {

@@ -22,6 +22,8 @@ use function realpath;
  * LaunchOption): which tests to run, whether to stop after the first that
  * fails, and which files to write a coverage run's times and a listing to,
  * where it names them.
+ *
+ * @internal
  */
 final readonly class Told
 {

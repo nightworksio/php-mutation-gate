@@ -20,6 +20,8 @@ use function trim;
 /**
  * A unified diff from the one Pest keeps, which wraps each line in console
  * colour tags, escapes it for the console, and indents it by two spaces.
+ *
+ * @internal
  */
 final readonly class Diff
 {

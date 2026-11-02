@@ -23,6 +23,8 @@ use function sprintf;
  * the variables it is told, those it never sees, its deadline, its silence
  * limit and the directory of the memory cap its PHP processes scan, where it
  * has them.
+ *
+ * @internal
  */
 final readonly class Command
 {

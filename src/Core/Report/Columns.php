@@ -33,6 +33,8 @@ use PhpToken;
  * lines. A mutant it cannot place there spans its lines from the first column
  * to the end. Columns count characters from 1, and the end is the column
  * after the last. The file is read once for all its mutants.
+ *
+ * @internal
  */
 final readonly class Columns
 {

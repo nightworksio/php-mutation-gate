@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli;
 
-/** What a run ends with, for CI to read. */
+/**
+ * What a run ends with, for CI to read.
+ *
+ * @internal
+ */
 enum ExitCode: int
 {
     case Passed = 0;

@@ -18,6 +18,8 @@ use function sprintf;
  * What keeps floors rising: the trees and security sets a score holds to no
  * floor at all, and, where a raise must be committed with the change that
  * earned it, a failure for each floor the score raised.
+ *
+ * @internal
  */
 final readonly class Ratchet
 {

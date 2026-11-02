@@ -23,6 +23,8 @@ use PhpParser\Node\Scalar\String_;
  *
  * A field's list of rules loses one item, and a field's `'a|b'` string loses its
  * first rule, since a node takes one change.
+ *
+ * @internal
  */
 final readonly class RemoveValidationRule implements Mutator
 {

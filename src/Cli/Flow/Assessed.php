@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
  * judged from, how many of the results it took
  * from a proof came from the run's own scope, and whether a CI run must
  * refuse it for a tree held to no floor.
+ *
+ * @internal
  */
 final readonly class Assessed
 {

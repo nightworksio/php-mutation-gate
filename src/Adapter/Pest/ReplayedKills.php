@@ -11,6 +11,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
  * kills a failed assertion made, unjudged where their replay does not let
  * them stand, and the kills only tests that errored made, doubted there, so
  * they run again with every test file (ADR-0036).
+ *
+ * @internal
  */
 final readonly class ReplayedKills
 {

@@ -23,6 +23,8 @@ use function sprintf;
  * file. An `error` is an error, and `info` is lesser. Psalm exits 0 when it
  * finds no error and 2 when it finds one; any other exit, or anything that
  * is no list, means the analysis did not finish.
+ *
+ * @internal
  */
 final readonly class Report
 {

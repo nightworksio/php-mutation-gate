@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `strtoupper(…)` becomes its first argument. */
+/**
+ * `strtoupper(…)` becomes its first argument.
+ *
+ * @internal
+ */
 final readonly class UnwrapStrtoupper implements Mutator
 {
     public function name(): MutatorName

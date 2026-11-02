@@ -35,6 +35,8 @@ use function unlink;
  *   stopped at its limit still leaves it.
  * The report holds the connections' passwords, so only its owner may read it,
  * and the worker removes it once read.
+ *
+ * @internal
  */
 final class WarmDatabase
 {

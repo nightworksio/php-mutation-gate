@@ -17,7 +17,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\FuncCall;
 
-/** `array_intersect_key(…)` becomes its first argument. */
+/**
+ * `array_intersect_key(…)` becomes its first argument.
+ *
+ * @internal
+ */
 final readonly class UnwrapArrayIntersectKey implements Mutator
 {
     public function name(): MutatorName

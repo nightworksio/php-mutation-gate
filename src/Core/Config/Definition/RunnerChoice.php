@@ -26,6 +26,8 @@ use NightWorksIO\MutationGate\Core\Runner\Workers;
  * starts (ADR-0023). A layer may write `withhold`, `memory` or `workers`
  * alone, for a later layer or zero-config to choose the runner.
  *
+ * @internal
+ *
  * @implements Shape<Setup>
  */
 final readonly class RunnerChoice implements Shape

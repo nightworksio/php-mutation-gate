@@ -9,6 +9,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 /**
  * The option the comment reporters `gitlab-comment` and `bitbucket-comment` take under a `reports` entry's `with`,
  * naming the environment variable the token they write with is read from (ADR-0024).
+ *
+ * @internal
  */
 enum CommentOption: string
 {

@@ -7,7 +7,11 @@ namespace NightWorksIO\MutationGate\Core\Composer;
 use function mb_substr_count;
 use function str_replace;
 
-/** One place in a file of an installed package a patch rewrites: the lines it ships, and what they become. */
+/**
+ * One place in a file of an installed package a patch rewrites: the lines it ships, and what they become.
+ *
+ * @internal
+ */
 final readonly class Hunk
 {
     private function __construct(private string $file, private string $ships, private string $becomes)

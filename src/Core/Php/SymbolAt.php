@@ -12,6 +12,8 @@ use function range;
  * attribute's argument, a parameter's default, or a class member's value,
  * which coverage cannot see run. Anything inside a function's body, and
  * anything outside every class, is executable.
+ *
+ * @internal
  */
 final readonly class SymbolAt
 {

@@ -65,6 +65,8 @@ use function unlink;
  * files that depend on it alone, and saves nothing. The warm-up also keeps
  * which files PHPStan analyses, and a mutant of any other is out of its
  * scope.
+ *
+ * @internal
  */
 final readonly class PhpStan implements StaticChecker
 {

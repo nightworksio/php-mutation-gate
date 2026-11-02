@@ -48,6 +48,8 @@ use Symfony\Component\Yaml\Yaml;
  * application from another process holds no test the gate runs (see
  * CodeceptionSuiteSettings), and is named among the suites it leaves out.
  * Codeception runs every suite in one run, so none is declared by its name.
+ *
+ * @internal
  */
 final readonly class CodeceptionSuite
 {

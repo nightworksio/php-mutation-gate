@@ -15,7 +15,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\Cast\Array_;
 
-/** `(array) $a` becomes `$a`. */
+/**
+ * `(array) $a` becomes `$a`.
+ *
+ * @internal
+ */
 final readonly class RemoveArrayCast implements Mutator
 {
     public function name(): MutatorName

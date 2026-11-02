@@ -19,7 +19,11 @@ use NightWorksIO\MutationGateLaravel\LaravelSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\StaticCall;
 
-/** `Hash::check(…)` becomes `true`. */
+/**
+ * `Hash::check(…)` becomes `true`.
+ *
+ * @internal
+ */
 final readonly class HashCheckToTrue implements Mutator
 {
     public function name(): MutatorName

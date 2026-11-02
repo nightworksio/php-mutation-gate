@@ -17,6 +17,8 @@ use Traversable;
 /**
  * Scopes in the order they were added, each once.
  *
+ * @internal
+ *
  * @implements IteratorAggregate<int, Scope>
  */
 final readonly class Scopes implements Countable, IteratorAggregate

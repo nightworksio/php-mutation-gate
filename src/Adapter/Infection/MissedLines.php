@@ -18,6 +18,8 @@ use function sprintf;
  * counts no run of, as the project spells its file, with no test. Clover's
  * shape is the same in every PHPUnit the gate drives, where the
  * `--coverage-php` report's format moves with php-code-coverage.
+ *
+ * @internal
  */
 final readonly class MissedLines
 {

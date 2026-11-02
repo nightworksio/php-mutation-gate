@@ -20,6 +20,8 @@ use function sprintf;
  * timeout turned off, then the gate, which a whole run outlasts. It is added
  * to a `composer.json` only where nothing else in the file changes, so only
  * to one laid out as Composer writes it, which has no `mutate` script yet.
+ *
+ * @internal
  */
 final readonly class MutateScript
 {

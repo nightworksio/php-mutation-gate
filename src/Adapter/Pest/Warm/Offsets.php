@@ -18,6 +18,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * standard output had reached, and its standard error's. A worker runs one
  * child at a time and prints nothing itself while one runs, so what a child
  * printed is what the files grew by from its fork to its end.
+ *
+ * @internal
  */
 final readonly class Offsets
 {

@@ -18,6 +18,8 @@ use NightWorksIO\MutationGate\Core\Config\Listed;
  * them, where any of several sets will do, and those it reads beside them
  * where they are set. A job without a set it needs opens the store
  * read-only (ADR-0013).
+ *
+ * @internal
  */
 final readonly class Credentials
 {

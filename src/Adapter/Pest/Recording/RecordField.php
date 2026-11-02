@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
 
-/** A field of a line of the results file, as the plugin writes it and the adapter reads it. */
+/**
+ * A field of a line of the results file, as the plugin writes it and the adapter reads it.
+ *
+ * @internal
+ */
 enum RecordField: string
 {
     /** Which event the line records. */

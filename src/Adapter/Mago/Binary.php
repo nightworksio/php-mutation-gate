@@ -21,6 +21,8 @@ use function sprintf;
  * The Mago binary Composer's package downloaded for the version Composer
  * installed (ADR-0020). The package downloads it the first
  * time `vendor/bin/mago` runs; the gate runs it, and never downloads it.
+ *
+ * @internal
  */
 final readonly class Binary
 {

@@ -16,6 +16,8 @@ use function sprintf;
  * Every top-level key of Infection's config that no other part of an import
  * maps, and what became of it: a key the gate does not know stays, since it
  * does not read it.
+ *
+ * @internal
  */
 final readonly class Remaining
 {

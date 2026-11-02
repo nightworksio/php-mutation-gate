@@ -11,6 +11,8 @@ use function preg_replace;
 /**
  * Text made safe for an XML attribute or element: bytes that are not UTF-8
  * replaced, characters XML 1.0 cannot hold dropped, and markup escaped.
+ *
+ * @internal
  */
 final readonly class Xml
 {

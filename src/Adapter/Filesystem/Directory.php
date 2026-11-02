@@ -44,6 +44,8 @@ use function unlink;
  * through a link: a path whose last part is one, there or dangling, is
  * refused, and every file is written whole beside its place and then moved
  * into it, so a link put there meanwhile is replaced, never followed.
+ *
+ * @internal
  */
 final readonly class Directory
 {

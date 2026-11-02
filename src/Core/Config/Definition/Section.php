@@ -34,6 +34,8 @@ use function sprintf;
  * because a misspelt key that is silently ignored is a setting that silently
  * does nothing.
  *
+ * @internal
+ *
  * @template-covariant T of object|scalar
  *
  * @implements Shape<T>

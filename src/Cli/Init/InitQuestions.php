@@ -40,6 +40,8 @@ use Symfony\Component\Console\Input\InputOption;
  * Infection config's import, native markers, the hooks and the Composer
  * plugin. Each offers what detection found as its default; nobody asked,
  * each takes the default the decision names.
+ *
+ * @internal
  */
 final readonly class InitQuestions
 {

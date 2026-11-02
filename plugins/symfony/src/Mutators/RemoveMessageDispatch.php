@@ -24,6 +24,8 @@ use PhpParser\Node\Stmt\Expression;
  *
  * A message bus is a parameter of the function around the call, or a property
  * of `$this`, declared a `MessageBusInterface`.
+ *
+ * @internal
  */
 final readonly class RemoveMessageDispatch implements Mutator
 {

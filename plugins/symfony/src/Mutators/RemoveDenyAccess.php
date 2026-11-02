@@ -18,7 +18,11 @@ use NightWorksIO\MutationGateSymfony\SymfonySet;
 use PhpParser\Node;
 use PhpParser\Node\Stmt\Expression;
 
-/** `$this->denyAccessUnlessGranted(…)` is removed, as an `AbstractController` calls it. */
+/**
+ * `$this->denyAccessUnlessGranted(…)` is removed, as an `AbstractController` calls it.
+ *
+ * @internal
+ */
 final readonly class RemoveDenyAccess implements Mutator
 {
     public function name(): MutatorName

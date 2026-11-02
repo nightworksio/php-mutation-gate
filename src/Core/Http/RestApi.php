@@ -16,6 +16,8 @@ use function sprintf;
 /**
  * A forge's JSON REST API, asked through an exchange with a bearer token where there is one. A failure names the
  * API by its origin alone, never by a URL or the token.
+ *
+ * @internal
  */
 final readonly class RestApi
 {

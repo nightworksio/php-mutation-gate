@@ -22,6 +22,8 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  * the bounds; unpatched, Infection's own under its `timeout`, `timeouts.most`,
  * where a mutant whose classes alone take it is skipped. Patched, it knows
  * too which mutants were stopped at their silence limit.
+ *
+ * @internal
  */
 final readonly class Limits
 {

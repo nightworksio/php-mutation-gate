@@ -30,6 +30,8 @@ use function sprintf;
  * none is written; and `mutators`, the classes of the mutators the gate makes
  * its mutants with (ADR-0023). Without a mutator, the runner can
  * make no mutant, and says why.
+ *
+ * @internal
  */
 final readonly class NativeOptions
 {

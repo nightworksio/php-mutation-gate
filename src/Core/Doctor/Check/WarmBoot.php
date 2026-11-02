@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
  * Warm workers the last run's guard refused, so every mutant ran in a fresh
  * process and paid the boot (ADR-0023). It names the bootstrap
  * file, and its line where PHP can tell, as the run kept the reason.
+ *
+ * @internal
  */
 final readonly class WarmBoot
 {

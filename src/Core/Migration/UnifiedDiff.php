@@ -14,7 +14,11 @@ use function implode;
 use function max;
 use function sprintf;
 
-/** Two versions of a file, as `diff -u` shows them: each changed line, with three lines around it. */
+/**
+ * Two versions of a file, as `diff -u` shows them: each changed line, with three lines around it.
+ *
+ * @internal
+ */
 final readonly class UnifiedDiff
 {
     /** How many unchanged lines `diff -u` shows on each side of a change. */

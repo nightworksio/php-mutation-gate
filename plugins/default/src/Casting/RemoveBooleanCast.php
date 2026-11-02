@@ -15,7 +15,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\Expr\Cast\Bool_;
 
-/** `(bool) $a` becomes `$a`. */
+/**
+ * `(bool) $a` becomes `$a`.
+ *
+ * @internal
+ */
 final readonly class RemoveBooleanCast implements Mutator
 {
     public function name(): MutatorName

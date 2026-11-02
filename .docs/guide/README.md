@@ -26,4 +26,5 @@ The reference lists every [command](../reference/cli.md),
 [configuration key](../reference/configuration.md),
 [report](../reference/reports.md),
 [environment variable](../reference/environment.md) and
-[file](../reference/files.md).
+[file](../reference/files.md), and says what an upgrade may change in
+[compatibility](../reference/compatibility.md).

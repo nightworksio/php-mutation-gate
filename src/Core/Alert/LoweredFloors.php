@@ -19,6 +19,8 @@ use Traversable;
  * The trees whose floor went down since the newest trend entry, in the
  * order the verdict judged them.
  *
+ * @internal
+ *
  * @implements IteratorAggregate<int, LoweredFloor>
  */
 final readonly class LoweredFloors implements Countable, IteratorAggregate

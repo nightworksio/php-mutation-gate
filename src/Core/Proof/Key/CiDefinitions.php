@@ -23,6 +23,8 @@ use function usort;
  * once: one workflow under GitHub Actions, the pipeline and the template
  * under GitLab, and none outside CI.
  *
+ * @internal
+ *
  * @implements IteratorAggregate<int, CiDefinition>
  */
 final readonly class CiDefinitions implements Countable, IteratorAggregate

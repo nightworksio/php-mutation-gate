@@ -8,7 +8,11 @@ use NightWorksIO\MutationGate\Core\Format\JsonDocument;
 use NightWorksIO\MutationGate\Core\Format\JsonFragment;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
-/** A value a key may hold given another: `timeouts.mode`'s `"soft"` written `"hard"`. */
+/**
+ * A value a key may hold given another: `timeouts.mode`'s `"soft"` written `"hard"`.
+ *
+ * @internal
+ */
 final readonly class MapValue implements Step
 {
     private function __construct(

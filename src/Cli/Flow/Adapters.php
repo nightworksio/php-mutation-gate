@@ -55,6 +55,8 @@ use function sprintf;
  * to (ADR-0021), the suite whose tests alone judge them, where `--suite`
  * names one (ADR-0025), and what proves a survivor equivalent
  * (ADR-0013).
+ *
+ * @internal
  */
 final readonly class Adapters
 {

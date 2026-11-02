@@ -35,6 +35,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * written as a new one, never overwriting a file (ADR-0015). It exits 0
  * once it has printed or written the test, and 2 where there is nothing to
  * stub, no record holds the mutant, or the id is not one.
+ *
+ * @internal
  */
 final readonly class StubCommand
 {

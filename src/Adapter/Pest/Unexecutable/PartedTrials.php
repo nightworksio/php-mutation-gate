@@ -10,6 +10,8 @@ use function array_keys;
  * The trials of several mutants, each in its parts (see PartedTrial), by
  * position: each mutant's next part run side by side with the others' in a
  * round, round after round, until each is judged.
+ *
+ * @internal
  */
 final readonly class PartedTrials
 {

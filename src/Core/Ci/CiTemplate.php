@@ -19,6 +19,8 @@ use function sprintf;
  * package's `resources/ci/` (ADR-0015), and where it
  * goes: written to a file of its own, or printed to be added to one the CI
  * already reads.
+ *
+ * @internal
  */
 enum CiTemplate: string
 {

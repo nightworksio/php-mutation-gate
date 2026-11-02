@@ -9,6 +9,8 @@ namespace NightWorksIO\MutationGate\Core\Mutant;
  * set's name as a config writes it, and its own in the case a class is. Each
  * pattern is written without delimiters or anchors, so that PHP and a JSON
  * Schema's `pattern` read it alike.
+ *
+ * @internal
  */
 final readonly class MutatorNamePattern
 {

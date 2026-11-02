@@ -20,6 +20,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * The composition root: finds the extensions, then hands the command line to
  * the console. An extension that cannot be loaded stops the run before any
  * command.
+ *
+ * @internal
  */
 final readonly class Gate
 {

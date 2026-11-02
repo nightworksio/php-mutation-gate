@@ -12,6 +12,8 @@ use function sprintf;
  * A sequence a rolled-back insert drew from stays drawn; one never drawn
  * from has no last value, and is set back by restarting it, every other by
  * `setval`.
+ *
+ * @internal
  */
 final readonly class PostgresDialect implements Dialect
 {

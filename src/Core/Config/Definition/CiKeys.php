@@ -17,7 +17,11 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
-/** How the keys a config writes are read into its `Ci` part (ADR-0002). */
+/**
+ * How the keys a config writes are read into its `Ci` part (ADR-0002).
+ *
+ * @internal
+ */
 final readonly class CiKeys
 {
     /** @return list<Field<Layer>> */

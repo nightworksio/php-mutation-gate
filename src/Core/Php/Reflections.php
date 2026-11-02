@@ -19,6 +19,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * variable or an object, reads it where the file names the owner. A
  * reflection that reads it sits in the file that builds it, so the tests
  * that run that file judge the mutant, and the read is never ambiguous.
+ *
+ * @internal
  */
 final readonly class Reflections
 {

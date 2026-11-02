@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
  * rule SARIF reports it by, fingerprinted by the gate's id, `major` in a set
  * that failed and `minor` otherwise (ADR-0016).
  *
+ * @internal
+ *
  * @phpstan-type Issue array{
  *     description: string,
  *     check_name: value-of<ResultRule>,

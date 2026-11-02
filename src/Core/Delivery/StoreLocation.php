@@ -28,6 +28,8 @@ use function sprintf;
  * run of the project's code writes (ADR-0007): the store, and each option of where it is. No delivery
  * names any of them, so no run that ran the project's code chooses the bucket, the account or the host a credential
  * goes to.
+ *
+ * @internal
  */
 enum StoreLocation: string
 {

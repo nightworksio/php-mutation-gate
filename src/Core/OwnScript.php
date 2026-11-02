@@ -7,6 +7,8 @@ namespace NightWorksIO\MutationGate\Core;
 /**
  * A script of the gate's own that a runner starts in a PHP process of its
  * own, by its name in the gate's `bin`.
+ *
+ * @internal
  */
 enum OwnScript: string
 {

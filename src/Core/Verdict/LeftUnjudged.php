@@ -23,6 +23,8 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  * named with why and the command that judges it; one a doomed run stopped
  * before needs no failure of its own, since the survivor that stopped the
  * run fails the verdict. None of them reaches the ledger.
+ *
+ * @internal
  */
 final readonly class LeftUnjudged
 {

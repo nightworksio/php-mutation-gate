@@ -12,7 +12,11 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 
 use function sprintf;
 
-/** A prefix that names more than one recorded mutant, with each of them. */
+/**
+ * A prefix that names more than one recorded mutant, with each of them.
+ *
+ * @internal
+ */
 final readonly class Ambiguous
 {
     private function __construct(private IdPrefix $sought, private MutantIds $candidates)

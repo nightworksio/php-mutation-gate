@@ -31,6 +31,8 @@ use function sprintf;
  * the tests fail unmutated too, nothing tells the mutant from its original,
  * and it is unjudged; where they run out of the limit too, or never run,
  * the mutant is too slow to judge, and its reason says why.
+ *
+ * @internal
  */
 final readonly class TimeoutControls implements ControlJudge
 {

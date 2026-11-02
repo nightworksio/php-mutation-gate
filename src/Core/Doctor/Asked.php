@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * (ADR-0017): what running the suite measured, under
  * `--measure`, and the repository's settings on GitHub, under `--online`,
  * or why no repository on GitHub was found.
+ *
+ * @internal
  */
 final readonly class Asked
 {

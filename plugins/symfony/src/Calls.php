@@ -19,6 +19,8 @@ use PhpParser\Node\Identifier;
  * on any receiver, where the name is Symfony's own, or on `$this`, as a
  * controller calls `AbstractController`'s helpers. Names are matched as PHP
  * matches them, in any case.
+ *
+ * @internal
  */
 final readonly class Calls
 {

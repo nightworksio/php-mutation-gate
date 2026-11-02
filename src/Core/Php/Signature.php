@@ -7,6 +7,8 @@ namespace NightWorksIO\MutationGate\Core\Php;
 /**
  * A function's parameter list: a plain function's, which calls name, or a
  * method's or a closure's, whose calls a token scan cannot tell apart.
+ *
+ * @internal
  */
 final readonly class Signature
 {

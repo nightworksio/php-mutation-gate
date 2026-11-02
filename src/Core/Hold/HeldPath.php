@@ -11,6 +11,8 @@ use function sprintf;
 /**
  * The path a `#[Holds]` names: one string literal, which tokens can read, or
  * any other expression, such as a class constant, kept as it is written.
+ *
+ * @internal
  */
 final readonly class HeldPath
 {

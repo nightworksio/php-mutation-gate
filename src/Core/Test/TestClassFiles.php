@@ -25,6 +25,8 @@ use NightWorksIO\MutationGate\Core\Php\PhpFile;
  * from the file named after it, so only a file named after a class wanted is
  * worth reading, and it counts when its tokens declare the class. The first
  * file read that declares a class is the class's file.
+ *
+ * @internal
  */
 final readonly class TestClassFiles
 {

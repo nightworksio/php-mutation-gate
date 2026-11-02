@@ -9,6 +9,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 /**
  * `getrusage`'s `ru_maxrss`, the most resident memory a process held, which
  * macOS gives in bytes, and Linux and the BSDs in kilobytes.
+ *
+ * @internal
  */
 final readonly class MaxRss
 {

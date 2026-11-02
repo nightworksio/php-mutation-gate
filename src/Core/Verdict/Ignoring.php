@@ -30,6 +30,8 @@ use function sprintf;
  * advance, one that names no mutant in a run that judged every unit
  * fails the run, and one that leaves out only mutants proven equivalent is
  * named as one that can go.
+ *
+ * @internal
  */
 final readonly class Ignoring
 {

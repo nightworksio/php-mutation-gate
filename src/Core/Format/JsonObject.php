@@ -11,6 +11,8 @@ use function sprintf;
 /**
  * JSON put together from the JSON of each member: members read from a file
  * as they were, beside values the gate writes itself.
+ *
+ * @internal
  */
 final readonly class JsonObject
 {

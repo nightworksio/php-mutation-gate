@@ -16,7 +16,11 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\BooleanNot;
 use PhpParser\Node\Expr\Ternary;
 
-/** A ternary's condition is negated, and a short ternary's condition becomes its middle. */
+/**
+ * A ternary's condition is negated, and a short ternary's condition becomes its middle.
+ *
+ * @internal
+ */
 final readonly class TernaryNegated implements Mutator
 {
     public function name(): MutatorName

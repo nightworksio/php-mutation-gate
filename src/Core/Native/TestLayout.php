@@ -11,7 +11,11 @@ use NightWorksIO\MutationGate\Core\Test\TestClassFiles;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 
-/** Where a framework's tests are, by its own rules for naming a test after its file. */
+/**
+ * Where a framework's tests are, by its own rules for naming a test after its file.
+ *
+ * @internal
+ */
 interface TestLayout
 {
     /**

@@ -35,6 +35,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * output how many still survive and what became of each. It writes no
  * ledger and judges nothing, so it exits 0 whatever it found, and 2 where it
  * cannot re-check.
+ *
+ * @internal
  */
 final readonly class SurvivorsCommand
 {

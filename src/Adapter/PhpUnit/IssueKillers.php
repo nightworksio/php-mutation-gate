@@ -23,6 +23,8 @@ use PHPUnit\TextUI\ShellExitCodeCalculator;
  * PHPUnit's own result counts it. A run that passed, or one a test failed
  * or errored in, whose killers are named as they fail, names none here; so
  * does an issue raised outside any test.
+ *
+ * @internal
  */
 final readonly class IssueKillers implements RunIssues
 {

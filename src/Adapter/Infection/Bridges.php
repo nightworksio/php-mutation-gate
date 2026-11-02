@@ -39,6 +39,8 @@ use function var_export;
  * is written whether or not there are bridges, and begins by loading the
  * archive's autoloader behind Infection's own, so Infection's packages win
  * over the archive's and the gate's classes are found (ADR-0022).
+ *
+ * @internal
  */
 final readonly class Bridges
 {

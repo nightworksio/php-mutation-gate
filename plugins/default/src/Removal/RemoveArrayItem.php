@@ -16,7 +16,11 @@ use NightWorksIO\MutationGateDefault\DefaultSet;
 use PhpParser\Node;
 use PhpParser\Node\ArrayItem;
 
-/** An item of an array is removed. */
+/**
+ * An item of an array is removed.
+ *
+ * @internal
+ */
 final readonly class RemoveArrayItem implements Mutator
 {
     public function name(): MutatorName

@@ -10,6 +10,8 @@ use NightWorksIO\MutationGate\Core\Config\Name;
  * One thing an extension registered: its name, the package that registered
  * it, and the thing itself.
  *
+ * @internal
+ *
  * @template-covariant T of object
  */
 final readonly class Entry

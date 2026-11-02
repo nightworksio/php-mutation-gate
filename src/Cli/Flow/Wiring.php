@@ -76,6 +76,8 @@ use const PHP_BINARY;
  * and what no process that runs the project's code may see: every run's
  * credentials, the tokens of every CI plan, since the job may run on any,
  * and `runner.withhold`.
+ *
+ * @internal
  */
 final readonly class Wiring
 {

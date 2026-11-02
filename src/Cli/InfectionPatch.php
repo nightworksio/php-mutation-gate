@@ -18,6 +18,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * It exits 1 for a release it does not patch, which runs with Infection's own
  * limit, and 2 where it cannot patch a release it supports; either fails an
  * install, and the action warns of the first and fails on the second.
+ *
+ * @internal
  */
 final readonly class InfectionPatch
 {

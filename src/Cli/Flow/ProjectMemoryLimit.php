@@ -22,6 +22,8 @@ use NightWorksIO\MutationGate\Core\Runner\PhpUnitIni;
  * Infection.
  * PHPUnit sets it after PHP has read `runner.memory`'s cap, so where it is
  * higher, or none, it is the limit each mutant's process runs under.
+ *
+ * @internal
  */
 final readonly class ProjectMemoryLimit
 {

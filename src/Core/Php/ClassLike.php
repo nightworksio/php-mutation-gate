@@ -12,6 +12,8 @@ use function range;
  * A class, interface, trait or enum a file declares: its fully qualified name,
  * what it may extend or implement, the traits it uses, and the constants it
  * declares. An anonymous class has no name.
+ *
+ * @internal
  */
 final readonly class ClassLike
 {

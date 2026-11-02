@@ -16,7 +16,11 @@ use function str_replace;
 use function str_starts_with;
 use function strspn;
 
-/** How a JSON file lays out what it holds: the indentation of each line, and a member written into it at a depth. */
+/**
+ * How a JSON file lays out what it holds: the indentation of each line, and a member written into it at a depth.
+ *
+ * @internal
+ */
 final readonly class JsonIndent
 {
     private const string NEWLINE = "\n";

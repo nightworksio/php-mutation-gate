@@ -36,6 +36,8 @@ use function unlink;
  * of its kill (see ReplayVerdict) is read from the records it writes beside
  * the run's results. Each runs once for each key in a process, side by side
  * in the places of the request's pool.
+ *
+ * @internal
  */
 final readonly class PrefixReplays
 {

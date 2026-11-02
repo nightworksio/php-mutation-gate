@@ -41,6 +41,8 @@ use function str_contains;
  * The test suite as it is on disk: the one the PHPUnit config declares and
  * every other package's `tests`, every file there with what it holds, and
  * every file outside them.
+ *
+ * @internal
  */
 final readonly class Suite
 {

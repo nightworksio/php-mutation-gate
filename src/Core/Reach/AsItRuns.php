@@ -27,6 +27,8 @@ use function trim;
  * whole, every line kept. Every other change is a change to how the gate
  * runs: a proof's key (ADR-0007, key item 6) and what the change reaches
  * (ADR-0005) move with it.
+ *
+ * @internal
  */
 final readonly class AsItRuns
 {

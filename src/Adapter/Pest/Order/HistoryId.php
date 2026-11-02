@@ -13,6 +13,8 @@ use function sprintf;
  * row of a data set: the map writes `Class::method#name`, and the history
  * `Class::method with data set "name"`, or `with data set #0` for a row PHP
  * keys by a number.
+ *
+ * @internal
  */
 final readonly class HistoryId
 {

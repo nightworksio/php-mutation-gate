@@ -31,6 +31,8 @@ use Symfony\Component\Console\Input\InputOption;
  * GitHub, the one-step action or the reusable workflow where `--single` or
  * `--sharded` picks one; and with `--stdout`, the files printed rather than
  * written.
+ *
+ * @internal
  */
 final readonly class CiRequest
 {

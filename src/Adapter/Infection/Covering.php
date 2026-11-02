@@ -18,6 +18,8 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
  * The coverage directories Infection reads: the map another job handed on, in
  * Infection's layout, or PHPUnit's run of the tests that judge a run, under
  * coverage, each held so a run again reads what the run it follows left.
+ *
+ * @internal
  */
 final readonly class Covering
 {

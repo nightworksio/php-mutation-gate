@@ -22,6 +22,8 @@ use function sprintf;
  * `source` whether the mutant's unit was run, proved or carried, and
  * `outcome` what is known of the test with the mutant in place
  * (ADR-0014).
+ *
+ * @internal
  */
 final readonly class KillMatrixCsv
 {

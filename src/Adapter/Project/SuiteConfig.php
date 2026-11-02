@@ -21,6 +21,8 @@ use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
  * runner, Codeception's, for the Codeception runner, Testo's, for the Testo
  * runner, and PHPUnit's, for every other runner, which all run PHPUnit's
  * tests.
+ *
+ * @internal
  */
 enum SuiteConfig
 {

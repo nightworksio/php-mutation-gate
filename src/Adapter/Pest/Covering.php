@@ -9,7 +9,11 @@ use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
-/** Which tests ran the lines of a file, as a mutation run's opening map says. */
+/**
+ * Which tests ran the lines of a file, as a mutation run's opening map says.
+ *
+ * @internal
+ */
 interface Covering
 {
     /** The tests that ran any line from the first to the last of a file on disk. */

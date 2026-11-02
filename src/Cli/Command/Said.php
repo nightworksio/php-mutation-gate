@@ -10,7 +10,11 @@ use function implode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 
-/** What a command made, step by step, said in order. */
+/**
+ * What a command made, step by step, said in order.
+ *
+ * @internal
+ */
 final readonly class Said
 {
     private const string LINE = "\n";

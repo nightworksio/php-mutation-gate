@@ -8,6 +8,8 @@ namespace NightWorksIO\MutationGate\Core\Php;
  * A value no reference names, so none can be followed to what reads it: a
  * method's or a closure's parameter default, a member of an anonymous class,
  * and an argument of `#[Attribute]` that stands on no named class-like.
+ *
+ * @internal
  */
 final readonly class Unnamed
 {

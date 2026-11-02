@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Order;
 
-/** An argument that is none of the options the rewrite drops, which it keeps. */
+/**
+ * An argument that is none of the options the rewrite drops, which it keeps.
+ *
+ * @internal
+ */
 enum NotAnOption
 {
     case Argument;

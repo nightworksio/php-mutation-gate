@@ -32,6 +32,8 @@ use function sprintf;
  * it, and what that file reads is read in turn. An include of a path built
  * as it runs, or of one outside the project, names none, and nor does any
  * expression `Unnamed` says reaches what cannot be named.
+ *
+ * @internal
  */
 final readonly class PhpReads
 {

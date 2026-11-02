@@ -35,6 +35,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * reports the project's own run of its suite under coverage left in that
  * directory, in this job, as a test job's run does, so the suite runs once
  * for both. The runner's own map, which may be code, never leaves this job.
+ *
+ * @internal
  */
 final readonly class CoverageCommand
 {

@@ -19,6 +19,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * A command that cannot go on, says why on the error stream and ends with
  * exit code 2. An invalid config prints every problem, one per line, each at
  * its path. A mutant looked up and not found says why the same way.
+ *
+ * @internal
  */
 final readonly class Failed
 {

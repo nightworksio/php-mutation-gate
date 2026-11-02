@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
  * and ran away, and is killed by the memory cap; any other, and one whose
  * tests never ran so, is too heavy to judge. The run is the mutant's
  * unmutated control (see MemoryControls), its peak the mutant's need.
+ *
+ * @internal
  */
 final readonly class MemoryTriage
 {

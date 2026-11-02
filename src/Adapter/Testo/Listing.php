@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Native\ListedTests;
  * Every test of the suites Testo runs and the groups each is in, in the
  * order Testo reaches them, written once the run is done (see ListedTests).
  * The run selects no test, so none runs.
+ *
+ * @internal
  */
 final class Listing
 {

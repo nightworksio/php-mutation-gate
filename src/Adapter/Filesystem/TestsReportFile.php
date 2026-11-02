@@ -23,6 +23,8 @@ use function str_ends_with;
  * The reporter `tests`: the tests mutation says catch nothing, and those
  * that can go, as JSON at the `path` its entry names and as Markdown beside
  * it, the same path with `.md` in place of `.json` (ADR-0014).
+ *
+ * @internal
  */
 final readonly class TestsReportFile implements Configurable, Reporter
 {

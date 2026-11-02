@@ -16,6 +16,8 @@ use function sprintf;
  * with no test failing or erroring (ADR-0014). A line is the outcome, a
  * space, and the test's id or the class's name, encoded so a data set's name
  * that holds a space or a line break stays on its line.
+ *
+ * @internal
  */
 enum Outcome: string
 {

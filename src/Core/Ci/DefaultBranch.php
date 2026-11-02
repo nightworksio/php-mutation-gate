@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Proof\Scope;
  * where the config sets it, then the first branch that is detected, such as
  * the CI's or the one git's `origin/HEAD` points at, and `main` where nothing
  * names one.
+ *
+ * @internal
  */
 final readonly class DefaultBranch
 {

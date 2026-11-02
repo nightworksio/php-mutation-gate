@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Port\StaticChecker;
  * what it found in the originals, against which each mutant's findings are
  * read, how long that run took, which stands for a check's time until
  * one is measured, and where each mutant's dependents are found.
+ *
+ * @internal
  */
 final readonly class WarmedUp
 {

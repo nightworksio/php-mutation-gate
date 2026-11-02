@@ -14,6 +14,8 @@ use function sort;
  * Some tests, each found by the class it is in, so that asking for the tests
  * of a few classes reads those classes' tests alone, and the files that may
  * declare them are told once.
+ *
+ * @internal
  */
 final readonly class TestsByClass
 {
