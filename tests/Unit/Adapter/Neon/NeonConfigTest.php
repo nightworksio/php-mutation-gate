@@ -94,6 +94,13 @@ it('writes a map keyed from 0 up as a list, which NEON reads into the same array
 
 // NEON's `includes:` is no key of the gate's config, so a NEON config that
 // would include another file is refused, and none reads another file.
+it('writes an empty map as an empty list, which NEON reads into the same array', function (): void {
+    $config = Json::parse('{"runner": {"use": "pest", "with": {}}}');
+
+    expect($config instanceof Json ? new NeonConfig()->render($config) : $config)
+        ->toBe("runner:\n    use: pest\n    with: []\n\n");
+});
+
 it('refuses includes, so a config reads no other file', function () use ($read, $file): void {
     $project = Scratch::directory();
     Scratch::write($project, 'mutation-gate.neon', "includes:\n    - shared.neon\n");
