@@ -10,6 +10,10 @@ use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Tests\Support\CompilerChildren;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
+$holds = [
+    'holds:src/Adapter/Opcache/Compiler.php',
+];
+
 afterEach(function (): void {
     Scratch::sweep();
 });
@@ -22,7 +26,7 @@ it('takes away every program it wrote once they are compiled', function (): void
     new Compiler(PHP_BINARY, $directory, 30.0, 1)->compiled(['one' => Contents::of(CompilerChildren::PROGRAM)]);
 
     expect(glob(sprintf('%s/*', $directory)))->toBe([]);
-});
+})->group(...$holds);
 
 it('says each program failed where its child cannot start or is given no time', function (string $binary, float $seconds): void {
     $compiler = new Compiler($binary, sprintf('%s/equivalence', Scratch::directory()), $seconds, 1);
@@ -32,7 +36,7 @@ it('says each program failed where its child cannot start or is given no time', 
 })->with([
     'no PHP there' => [fn(): string => sprintf('%s/no-such-php', __DIR__), 30.0],
     'no time at all' => [PHP_BINARY, -1.0],
-])->group('holds:src/Adapter/Opcache/Compiler.php');
+])->group(...$holds);
 
 it('stops a child that runs past its time, and says each of its programs failed', function (): void {
     $compiler = new Compiler(sleepingChild(), sprintf('%s/equivalence', Scratch::directory()), 0.2, 1);
@@ -41,7 +45,7 @@ it('stops a child that runs past its time, and says each of its programs failed'
     expect($compiler->compiled(['one' => Contents::of(CompilerChildren::PROGRAM), 'two' => Contents::of(CompilerChildren::PROGRAM)]))
         ->toBe(['one' => Uncompiled::Failed, 'two' => Uncompiled::Failed])
         ->and((hrtime(as_number: true) - $started) / 1e9)->toBeLessThan(SLEEPING_CHILD_SECONDS / 2);
-})->group('holds:src/Adapter/Opcache/Compiler.php');
+})->group(...$holds);
 
 /** A child that is still running long after any time a test gives it. */
 function sleepingChild(): string
@@ -69,7 +73,7 @@ it('says each program failed where its child\'s dump does not read back whole, r
     ],
     'fewer sections than programs' => [fn(): string => CompilerChildren::dump("\n\$_main:\n0000 RETURN int(1)\n"), 0],
     'sections that are not dumps' => [fn(): string => CompilerChildren::dump("Opcache cannot allocate shared memory\n", "Opcache cannot allocate shared memory\n"), 0],
-]);
+])->group(...$holds);
 
 it('reads the answers of a child apart from the space around them', function (): void {
     $dump = CompilerChildren::dump("\n\$_main:\n0000 RETURN int(1)\n", "\n\$_main:\n0000 RETURN int(2)\n");
@@ -79,14 +83,14 @@ it('reads the answers of a child apart from the space around them', function ():
         'one' => Contents::of(CompilerChildren::PROGRAM),
         'two' => Contents::of(CompilerChildren::PROGRAM),
     ])))->toBe(['one' => "\n\$_main:\n0000 RETURN int(1)\n", 'two' => "\n\$_main:\n0000 RETURN int(2)\n"]);
-})->group('holds:src/Adapter/Opcache/Compiler.php');
+})->group(...$holds);
 
 it('says opcache dumped nothing of a program whose section of the dump is only space', function (): void {
     $compiler = new Compiler(CompilerChildren::child(CompilerChildren::dump("\n", " \n"), 0), sprintf('%s/equivalence', Scratch::directory()), 30.0, 1);
 
     expect($compiler->compiled(['one' => Contents::of(CompilerChildren::PROGRAM), 'two' => Contents::of(CompilerChildren::PROGRAM)]))
         ->toBe(['one' => Uncompiled::NoOpcache, 'two' => Uncompiled::NoOpcache]);
-});
+})->group(...$holds);
 
 it('pauses a moment between reads of the children it waits on', function (): void {
     $pauses = new ArrayObject();
@@ -98,7 +102,7 @@ it('pauses a moment between reads of the children it waits on', function (): voi
 
     expect($pauses->count())->toBeGreaterThan(0)
         ->and(array_unique($pauses->getArrayCopy()))->toBe([Polling::moment()->microseconds()]);
-});
+})->group(...$holds);
 
 it('waits on every child of a wave, though one that started after it ends first', function (): void {
     $child = sprintf('%s/slow-or-fast-php', Scratch::directory());
@@ -114,7 +118,7 @@ it('waits on every child of a wave, though one that started after it ends first'
 
     expect(array_map(static fn(Opcodes|Uncompiled $one): bool => $one instanceof Opcodes, $compiled))
         ->toBe(['slow' => true, 'fast' => true]);
-});
+})->group(...$holds);
 
 it('starts its child with opcache loaded, as PHP before 8.5 builds it shared, and its optimized opcodes dumped', function (): void {
     $argv = sprintf('%s/argv', Scratch::directory());
@@ -142,4 +146,4 @@ it('starts its child with opcache loaded, as PHP before 8.5 builds it shared, an
         '-d',
         'display_errors=0',
     ]);
-})->group('holds:src/Adapter/Opcache/Compiler.php');
+})->group(...$holds);
