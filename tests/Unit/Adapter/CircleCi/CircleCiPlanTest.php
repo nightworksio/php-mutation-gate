@@ -36,7 +36,7 @@ it('reads a pull request from its address, and a branch otherwise', function ():
     ]);
     $branch = Variables::of(['CIRCLE_BRANCH' => 'feature']);
 
-    expect(CircleCiPlan::in($pullRequest)->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('31'), $unnamed))
+    expect(CircleCiPlan::in($pullRequest)->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('31'), $unnamed, $unnamed))
         ->and(CircleCiPlan::in($branch)->runOn())->toEqual(RunOn::branch('feature', $unnamed));
 });
 

@@ -116,13 +116,14 @@ it('reads a merge request, a branch and the default branch from GitLab', functio
         'CI_COMMIT_REF_NAME' => 'feature',
         'CI_MERGE_REQUEST_IID' => '7',
         'CI_DEFAULT_BRANCH' => 'main',
+        'CI_MERGE_REQUEST_TARGET_BRANCH_NAME' => 'release/2.x',
     ]);
     $push = Variables::of(['CI_COMMIT_REF_NAME' => 'feature', 'CI_DEFAULT_BRANCH' => 'main']);
     $unnamed = CannotTell::because(
         '"refs/heads/" is not a scope. A scope is refs/heads/<branch> or refs/pull/<number>.',
     );
 
-    expect($on($mergeRequest)->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('7'), $main))
+    expect($on($mergeRequest)->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('7'), $main, RunOn::branchNamed('release/2.x')))
         ->and($on($push)->runOn())->toEqual(RunOn::branch('feature', $main))
         ->and($on(Variables::of(['CI_COMMIT_REF_NAME' => 'feature']))->runOn())
         ->toEqual(RunOn::branch('feature', $unnamed));

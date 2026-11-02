@@ -81,7 +81,9 @@ verdict reaches and how.
    - On a pull request the base is the default branch as the checkout
      fetched it, which the lowered-floor check reads too (ADR-0003);
      otherwise it is the commit the plan was made on. Where git cannot read
-     it, no survivor has an owner, and the verdict warns why.
+     it, no survivor has an owner, and the verdict warns why. ADR-0050
+     amends this: on a pull request the base is the branch it merges into,
+     where its CI names it.
    - The syntax and limits are GitHub's: gitignore-like patterns without
      `!`, `[ ]` or an escaped `#`, the last match winning, case-sensitive
      paths. An invalid line is skipped and listed as a warning. A file over

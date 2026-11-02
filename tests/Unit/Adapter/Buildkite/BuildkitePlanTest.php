@@ -172,6 +172,7 @@ it('prints only the wait and the verdict for a plan with no shards', function ()
 it('reads a pull request, a branch and the default branch from Buildkite', function () use ($on): void {
     $main = RunOn::branchNamed('main');
     $pullRequest = Variables::of([
+        'BUILDKITE_PULL_REQUEST_BASE_BRANCH' => 'release/2.x',
         'BUILDKITE_BRANCH' => 'feature',
         'BUILDKITE_PULL_REQUEST' => '42',
         'BUILDKITE_PIPELINE_DEFAULT_BRANCH' => 'main',
@@ -182,7 +183,7 @@ it('reads a pull request, a branch and the default branch from Buildkite', funct
         'BUILDKITE_PIPELINE_DEFAULT_BRANCH' => 'main',
     ]);
 
-    expect($on($pullRequest)->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('42'), $main))
+    expect($on($pullRequest)->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('42'), $main, RunOn::branchNamed('release/2.x')))
         ->and($on($push)->runOn())->toEqual(RunOn::branch('main', $main))
         ->and($on(Variables::of(['BUILDKITE_BRANCH' => 'feature']))->runOn())
         ->toEqual(RunOn::branch('feature', RunOn::branchNamed('')));

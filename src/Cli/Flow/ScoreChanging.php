@@ -73,7 +73,7 @@ final readonly class ScoreChanging
         $ledgers = Ledgers::read($this->adapters->proofs, $inventory->standing, Writing::Never);
         $defaultBranch = $ledgers->defaultBranch()->proofs();
         $reach = Reached::since(
-            ChangeBase::since($inventory->standing->fetchedDefaultBranch()),
+            ChangeBase::since($inventory->standing->fetchedBase()),
             $trees,
             $this->adapters,
             $this->settings,

@@ -107,6 +107,24 @@ it('stands where a plan says it was made', function (): void {
         ->and($at->defaultBranch())->toEqual(Scope::branch('trunk'));
 });
 
+it('reads a pull request against the branch it merges into, where named, and every other run against the default branch', function (): void {
+    $plan = Plan::of(Revision::ref('made'), Digest::sha256Of('base'), Keys::none(), Shards::none());
+    $pullRequest = RunOn::at(Scope::pullRequest(7), Scope::branch('main'));
+    $branch = RunOn::at(Scope::branch('feature'), Scope::branch('main'));
+
+    expect([
+        Standing::planned($plan->on($pullRequest->withTarget(Scope::branch('release/2.x'))))->base(),
+        Standing::planned($plan->on($pullRequest))->base(),
+        Standing::planned($plan->on($branch->withTarget(Scope::branch('release/2.x'))))->base(),
+        Standing::planned($plan->on($pullRequest->withTarget(Scope::branch('release/2.x'))))->fetchedBase(),
+    ])->toEqual([
+        Scope::branch('release/2.x'),
+        Scope::branch('main'),
+        Scope::branch('main'),
+        Revision::ref('refs/remotes/origin/release/2.x'),
+    ]);
+});
+
 it('takes main as the default branch of a plan that names none', function (): void {
     $plan = Plan::of(Revision::ref('made'), Digest::sha256Of('base'), Keys::none(), Shards::none())
         ->on(RunOn::detached(CannotTell::because('unnamed')));

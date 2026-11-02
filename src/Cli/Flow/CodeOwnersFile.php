@@ -30,7 +30,7 @@ final readonly class CodeOwnersFile
 
     public static function of(ChangeSource $changes, Plan $plan): CodeOwners
     {
-        $base = $plan->runOn()->isPullRequest() ? Standing::planned($plan)->fetchedDefaultBranch() : $plan->commit();
+        $base = $plan->runOn()->isPullRequest() ? Standing::planned($plan)->fetchedBase() : $plan->commit();
         $files = $changes->filesAt(Paths::of(...array_map(Path::of(...), CodeOwners::LOCATIONS)), $base);
 
         if ($files instanceof CannotTell) {

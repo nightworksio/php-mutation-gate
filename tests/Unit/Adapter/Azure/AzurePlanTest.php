@@ -58,10 +58,11 @@ it('reads a pull request from its id where the build is for one, and the ref it 
         'BUILD_REASON' => 'PullRequest',
         'BUILD_SOURCEBRANCH' => 'refs/pull/31/merge',
         'SYSTEM_PULLREQUEST_PULLREQUESTID' => '31',
+        'SYSTEM_PULLREQUEST_TARGETBRANCH' => 'refs/heads/release/2.x',
     ]);
     $push = Variables::of(['BUILD_REASON' => 'IndividualCI', 'BUILD_SOURCEBRANCH' => 'refs/heads/feature/money']);
 
-    expect(azurePlanIn($pullRequest)->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('31'), azureUnnamed()))
+    expect(azurePlanIn($pullRequest)->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('31'), azureUnnamed(), RunOn::branchNamed('release/2.x')))
         ->and(azurePlanIn($push)->runOn())->toEqual(RunOn::at(Scope::branch('feature/money'), azureUnnamed()));
 });
 
@@ -70,9 +71,10 @@ it('reads a GitHub pull request by its number, which Azure sets apart from its i
         'BUILD_REASON' => 'PullRequest',
         'SYSTEM_PULLREQUEST_PULLREQUESTID' => '1742905561',
         'SYSTEM_PULLREQUEST_PULLREQUESTNUMBER' => '31',
+        'SYSTEM_PULLREQUEST_TARGETBRANCH' => 'main',
     ]);
 
-    expect(azurePlanIn($github)->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('31'), azureUnnamed()));
+    expect(azurePlanIn($github)->runOn())->toEqual(RunOn::pullRequest(PullRequestNumber::parse('31'), azureUnnamed(), RunOn::branchNamed('main')));
 });
 
 it('gives no scope to a tag, which is no branch the gate writes for', function (): void {

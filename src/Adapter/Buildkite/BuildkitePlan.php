@@ -162,7 +162,11 @@ final readonly class BuildkitePlan implements CiPlan, Configurable
 
         return match (true) {
             $pullRequest !== '' && $pullRequest !== 'false'
-                => RunOn::pullRequest(PullRequestNumber::parse($pullRequest), $defaultBranch),
+                => RunOn::pullRequest(
+                    PullRequestNumber::parse($pullRequest),
+                    $defaultBranch,
+                    RunOn::branchNamed($variables->valueOf('BUILDKITE_PULL_REQUEST_BASE_BRANCH')),
+                ),
             $variables->valueOf('BUILDKITE_TAG') !== '' => RunOn::detached($defaultBranch),
             default => RunOn::branch($variables->valueOf('BUILDKITE_BRANCH'), $defaultBranch),
         };

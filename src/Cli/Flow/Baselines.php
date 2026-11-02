@@ -71,16 +71,16 @@ final readonly class Baselines
     }
 
     /**
-     * The baseline as the default branch holds it, in the file its own config
-     * file names, which a floor lowered here is checked against; none where the
-     * branch has no file, since a floor is lowered only against one that was
-     * committed. Where git cannot read the branch, as in a shallow checkout,
+     * The baseline as the branch the run is read against holds it, in the file
+     * its own config file names, which a floor lowered here is checked against;
+     * none where the branch has no file, since a floor is lowered only against
+     * one that was committed. Where git cannot read the branch, as in a shallow checkout,
      * its config file cannot be read, or its file is not a baseline, no
      * lowered floor can be checked, and the verdict cannot judge.
      */
-    public function onDefaultBranch(Scope $defaultBranch, Setup $setup): Baseline|CannotJudge
+    public function onBase(Scope $base, Setup $setup): Baseline|CannotJudge
     {
-        $remote = Standing::fetched($defaultBranch);
+        $remote = Standing::fetched($base);
         $file = $this->fileOn($remote, $setup);
         $contents = $file instanceof Path ? $this->adapters->changes->fileAt($file, $remote) : $file;
         $read = match (true) {
@@ -101,9 +101,9 @@ final readonly class Baselines
     }
 
     /**
-     * The file the default branch commits its baseline in, as its own config
+     * The file the base branch commits its baseline in, as its own config
      * file names it, so a change that moves the baseline is still checked
-     * against the floors the default branch holds.
+     * against the floors the base branch holds.
      */
     private function fileOn(Revision $remote, Setup $setup): Path|CannotJudge
     {

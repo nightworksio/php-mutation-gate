@@ -75,6 +75,7 @@ final readonly class BitbucketPlan implements CiPlan, Configurable
             $variables->has(Variables::BITBUCKET_PR_ID) => RunOn::pullRequest(
                 PullRequestNumber::parse($variables->valueOf(Variables::BITBUCKET_PR_ID)),
                 $defaultBranch,
+                RunOn::branchNamed($variables->valueOf(Variables::BITBUCKET_PR_DESTINATION_BRANCH)),
             ),
             $variables->has(Variables::BITBUCKET_TAG) => RunOn::detached($defaultBranch),
             default => RunOn::branch($variables->valueOf(Variables::BITBUCKET_BRANCH), $defaultBranch),

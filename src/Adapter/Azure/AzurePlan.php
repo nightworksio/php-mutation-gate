@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Port\CiPlan;
 
+use function preg_replace;
 use function sprintf;
 
 /**
@@ -48,6 +49,9 @@ final readonly class AzurePlan implements CiPlan, Configurable
 
     /** A GitHub pull request's number, which Azure sets where it differs from the pull request's id. */
     private const string PULL_REQUEST_NUMBER = 'SYSTEM_PULLREQUEST_PULLREQUESTNUMBER';
+
+    /** The prefix Azure DevOps writes the branch a pull request merges into with. */
+    private const string BRANCH_REF = '#^refs/heads/#';
 
     private function __construct(private CiJob $job)
     {
@@ -92,7 +96,13 @@ final readonly class AzurePlan implements CiPlan, Configurable
             : $variables->valueOf('SYSTEM_PULLREQUEST_PULLREQUESTID');
 
         return $variables->valueOf('BUILD_REASON') === 'PullRequest'
-            ? RunOn::pullRequest(PullRequestNumber::parse($number), $defaultBranch)
+            ? RunOn::pullRequest(
+                PullRequestNumber::parse($number),
+                $defaultBranch,
+                RunOn::branchNamed(
+                    (string) preg_replace(self::BRANCH_REF, '', $variables->valueOf('SYSTEM_PULLREQUEST_TARGETBRANCH')),
+                ),
+            )
             : RunOn::onRef($variables->valueOf('BUILD_SOURCEBRANCH'), $defaultBranch);
     }
 

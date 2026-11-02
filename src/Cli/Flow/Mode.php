@@ -106,10 +106,13 @@ final readonly class Mode
         };
     }
 
-    /** What `last-run` falls back to: the fetched default branch off it, the last commit that passed on it. */
+    /**
+     * What `last-run` falls back to: off the default branch, the fetched branch the run is read against; on it,
+     * the last commit that passed on it.
+     */
     private function fallback(Ledgers $ledgers, Standing $standing): Revision|CannotTell
     {
-        return $ledgers->readsOwnScope() ? $standing->fetchedDefaultBranch() : $this->lastPassed($ledgers);
+        return $ledgers->readsOwnScope() ? $standing->fetchedBase() : $this->lastPassed($ledgers);
     }
 
     private function lastPassed(Ledgers $ledgers): Revision|CannotTell
