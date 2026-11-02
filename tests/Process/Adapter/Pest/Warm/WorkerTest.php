@@ -56,6 +56,18 @@ function warmWorker(string $results): int
     return $pid > 1 ? $pid : throw new RuntimeException('The worker wrote no process id, so no test signals one.');
 }
 
+/** The process id of the child place 1's warm worker forked for the run that records to these results, once the worker wrote it. */
+function recordedChild(string $results): int
+{
+    $written = new Process(
+        ['sh', '-c', 'for _ in $(seq 100); do for f in "$1"/1.*.child; do [ -s "$f" ] && exec cat "$f"; done; sleep 0.1; done; exit 1', 'sh', WarmDirectory::beside($results)],
+    );
+    $written->run();
+    $child = (int) $written->getOutput();
+
+    return $child > 1 ? $child : throw new RuntimeException('The worker wrote no child process id, so no test stops one.');
+}
+
 /** Whether a process still runs: `ps` lists it, and not as one ended and waiting to be reaped. */
 function isThere(int $pid): bool
 {
@@ -217,13 +229,15 @@ it('stops the child of a run whose worker went before it ended, and starts the r
     $waiting = warmRun($results, 'wait');
     $waiting->start();
     $waiting->waitUntil(static fn(string $type, string $printed): bool => str_contains($printed, 'parent'));
-    $child = preg_match('/run (\d+)/', $waiting->getOutput(), $found) === 1 ? (int) $found[1] : 0;
+    $ran = preg_match('/run (\d+)/', $waiting->getOutput(), $found) === 1 ? (int) $found[1] : 0;
+    $child = recordedChild($results);
     new Process(['kill', '-KILL', (string) warmWorker($results)])->run();
     $waiting->waitUntil(static fn(string $type, string $printed): bool => str_contains($printed, sprintf('parent %d', getmypid())));
     $orphaned = isThere($child);
     $waiting->stop(0);
 
     expect($child)->toBeGreaterThan(0)
+        ->and($child)->toBe($ran)
         ->and($orphaned)->toBeFalse();
 })->group(...$holds);
 
