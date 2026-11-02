@@ -180,4 +180,24 @@ it('reads a lock at the commit and now, and follows every kill only where it mov
 })->with([
     'only the console moved' => ['5.2.1', false],
     'pest moved' => ['5.2.2', true],
-])->group(...[...$holds, 'holds:src/Core/Reach/DecidingLocks.php', 'holds:src/Core/Reach/FileRoles.php']);
+])->group(...[...$holds, 'holds:src/Core/Reach/DecidingManifests.php', 'holds:src/Core/Reach/FileRoles.php']);
+
+it('reads a manifest at the commit and now, and follows every kill only where it moved what installs or loads', function (string $support, string $pest, bool $everything): void {
+    $manifest = static fn(string $docs, string $constraint): string => (string) json_encode([
+        'name' => 'acme/billing',
+        'support' => ['docs' => $docs],
+        'require-dev' => ['pestphp/pest' => $constraint, 'symfony/console' => '^8.1'],
+    ]);
+    $repository = sinceRepository()->write('composer.json', $manifest('https://a.example', '^5.2'))->commit('The manifest.');
+    $commit = Revision::ref(trim($repository->git('rev-parse', 'HEAD')));
+    $repository->write('composer.json', $manifest($support, $pest));
+    $settings = Flows::settings(Reach::lockPackages('pestphp/*'));
+    $since = new Since(Flows::adapters($repository->root, [], Git::at($repository->root)), $settings)->of($commit)->at($commit);
+
+    expect($since)->toBeInstanceOf(ChangeReach::class)
+        ->and($since instanceof ChangeReach ? count($since->everything()) : $since)->toBe($everything ? 1 : 0)
+        ->and($since instanceof ChangeReach ? $since->reaches(Path::of('src/Tax.php'), Paths::none()) : $since)->toBe($everything);
+})->with([
+    'only a support link moved' => ['https://b.example', '^5.2', false],
+    'pest moved' => ['https://a.example', '^5.3', true],
+])->group(...[...$holds, 'holds:src/Core/Reach/DecidingManifests.php', 'holds:src/Core/Reach/FileRoles.php', 'holds:src/Core/Composer/ManifestMoves.php']);

@@ -17,7 +17,7 @@ use NightWorksIO\MutationGate\Core\Coverage\Judges;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Paths;
-use NightWorksIO\MutationGate\Core\Reach\DecidingLocks;
+use NightWorksIO\MutationGate\Core\Reach\DecidingManifests;
 use NightWorksIO\MutationGate\Core\Reach\Layout;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
@@ -74,7 +74,7 @@ final readonly class Reached
                 $adapters,
                 $suite->sources(),
                 $config,
-                DecidingLocks::in(Packages::of($trees), $settings->reach()->lockPackages()),
+                DecidingManifests::in(Packages::of($trees), $settings->reach()->lockPackages()),
             ),
         );
 
@@ -145,10 +145,10 @@ final readonly class Reached
         Adapters $adapters,
         Sources $sources,
         DecidingConfig $config,
-        DecidingLocks $locks,
+        DecidingManifests $manifests,
     ): Sources {
         foreach ($changes instanceof Changes ? $changes : Changes::none() as $change) {
-            $sources = $locks->marking(self::withChange($sources, $change, $base, $adapters, $config), $change);
+            $sources = $manifests->marking(self::withChange($sources, $change, $base, $adapters, $config), $change);
         }
 
         return $sources;

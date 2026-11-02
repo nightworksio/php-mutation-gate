@@ -33,7 +33,7 @@ final readonly class FileRoles
     private function __construct(
         private Layout $layout,
         private Packages $packages,
-        private DecidingLocks $locks,
+        private DecidingManifests $manifests,
         private Paths $loaded,
     ) {
     }
@@ -44,13 +44,19 @@ final readonly class FileRoles
      */
     public static function of(Layout $layout, Packages $packages, Paths $loaded, DecidingPackages $deciding): self
     {
-        return new self($layout, $packages, DecidingLocks::in($packages, $deciding), $loaded);
+        return new self($layout, $packages, DecidingManifests::in($packages, $deciding), $loaded);
     }
 
     /** Whether a file is the lock of the package that holds it, whose versions decide whether its change decides. */
     public function isLock(Path $file): bool
     {
-        return $this->locks->isLock($file);
+        return $this->manifests->isLock($file);
+    }
+
+    /** Whether a file is the manifest of the package that holds it. */
+    public function isManifest(Path $file): bool
+    {
+        return $this->manifests->isManifest($file);
     }
 
     /**
@@ -63,7 +69,8 @@ final readonly class FileRoles
     {
         return match (true) {
             is_string($this->layout->unnamed()) => true,
-            $this->locks->isLock($file) => $this->locks->decides($before, $now),
+            $this->manifests->isLock($file) => $this->manifests->decides($before, $now),
+            $this->manifests->isManifest($file) => $this->manifests->manifestDecides($before, $now),
             default => $this->layout->decides($file, $this->packages->holding($file)->path()),
         };
     }

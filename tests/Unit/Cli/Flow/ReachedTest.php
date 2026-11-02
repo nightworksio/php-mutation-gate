@@ -44,6 +44,7 @@ use NightWorksIO\MutationGate\Tests\Support\JudgedCommits;
 use NightWorksIO\MutationGate\Tests\Support\Locks;
 use NightWorksIO\MutationGate\Tests\Support\ReadSuite;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\Tree;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -252,6 +253,27 @@ it('reaches nothing where the lock moved only packages the config leaves out, an
 })->with([
     'only the console' => ['8.1.9', '5.2.1', false],
     'pest' => ['8.1.7', '5.2.2', true],
+]);
+
+it('reaches nothing where the manifest moved only what describes the package, and everything where it moved a package the config names', function (string $change, bool $everywhere) use ($makeMoney): void {
+    $money = $makeMoney();
+    $read = static fn(string $end): string => (string) file_get_contents(Tree::at(sprintf('tests/Fixtures/Manifests/%s.%s.json', $change, $end)));
+
+    $reached = reachedSince(
+        Changes::of(Change::modified(Path::of('composer.json'), Lines::of(Line::of(33)))),
+        ['composer.json' => $read('after')],
+        ['composer.json' => $read('before')],
+    );
+
+    expect($reached->reach()->isEverywhere())->toBe($everywhere)
+        ->and($reached->reach()->reaches($money))->toBe($everywhere)
+        ->and($reached->reach()->reasons())->toEqual(Reasons::of(Reason::that(sprintf(
+            $everywhere ? '`%s` decides how the gate runs, so every unit is reached.' : '`%s` changed nothing that decides how the gate runs, so it reaches nothing.',
+            'composer.json',
+        ))));
+})->with([
+    'a support link and script descriptions' => ['support-and-scripts', false],
+    'the description, keywords, and a conflict on a Pest package' => ['a-pinned-conflict', true],
 ]);
 
 it('reaches everything where a lock was added, whatever it pins', function (): void {

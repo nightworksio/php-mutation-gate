@@ -27,8 +27,6 @@ final readonly class MutateScript
 {
     public const string NAME = 'mutate';
 
-    private const string SCRIPTS = 'scripts';
-
     /** What runs first, so Composer stops no run after its default 300 seconds. */
     private const string NO_TIMEOUT = 'Composer\\Config::disableProcessTimeout';
 
@@ -45,14 +43,14 @@ final readonly class MutateScript
     /** Whether a `composer.json` already has a `mutate` script, which is left as it is. */
     public static function isIn(Contents $manifest): bool
     {
-        return Node::decode($manifest->text())->field(self::SCRIPTS)->field(self::NAME)->isPresent();
+        return Node::decode($manifest->text())->field(ManifestKey::Scripts->value)->field(self::NAME)->isPresent();
     }
 
     /** The `composer.json` with the script added; none where adding it would change anything else in the file. */
     public static function addedTo(Contents $manifest): Contents|NotGiven
     {
         $read = Json::parse($manifest->text());
-        $script = Json::at(sprintf('%s.%s', self::SCRIPTS, self::NAME), Json::items(...self::runs()));
+        $script = Json::at(sprintf('%s.%s', ManifestKey::Scripts->value, self::NAME), Json::items(...self::runs()));
 
         return $read instanceof Json && self::takes($manifest, $read)
             ? Contents::of(sprintf(self::ENDED, $read->merged($script)->pretty()))
@@ -65,7 +63,7 @@ final readonly class MutateScript
         $top = Node::decode($manifest->text());
 
         return $top->kind() === Kind::Map
-            && in_array($top->field(self::SCRIPTS)->kind(), [Kind::Nothing, Kind::Map], strict: true)
+            && in_array($top->field(ManifestKey::Scripts->value)->kind(), [Kind::Nothing, Kind::Map], strict: true)
             && sprintf(self::ENDED, $read->pretty()) === $manifest->text()
             && ! self::isIn($manifest);
     }

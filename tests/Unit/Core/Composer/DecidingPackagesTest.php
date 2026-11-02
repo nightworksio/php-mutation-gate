@@ -109,3 +109,20 @@ it('leaves the gate\'s own verdict standing where the lock moves only a package 
     expect($moved)->not->toBe($lock->text())
         ->and($deciding->decide($lock, Contents::of($moved)))->toBeFalse();
 });
+
+it('decides on a manifest only where it moved a package line it decides by or a key besides those that describe', function (array $before, array $now, bool $every, bool $named): void {
+    $read = static fn(array $keys): Contents => Contents::of((string) json_encode($keys));
+
+    expect(DecidingPackages::every()->decideManifest($read($before), $read($now)))->toBe($every)
+        ->and(DecidingPackages::named(Glob::of('pestphp/*'))->decideManifest($read($before), $read($now)))->toBe($named);
+})->with([
+    'a description' => [['description' => 'a'], ['description' => 'b'], false, false],
+    'a package no pattern names' => [['require' => ['psr/log' => '^3.0']], ['require' => ['psr/log' => '^3.1']], true, false],
+    'a conflict on a package a pattern names' => [['conflict' => ['pestphp/pest-plugin-mutate' => '<5.0.2 || >5.0.2']], ['conflict' => ['pestphp/pest-plugin-mutate' => '<5.0.2 || >=6.0']], true, true],
+    'the gate itself' => [['require-dev' => []], fn(): array => ['require-dev' => [FirstPartyPackage::Gate->value => '^0.1']], true, true],
+    'autoload' => [['autoload' => []], ['autoload' => ['files' => ['src/helpers.php']]], true, true],
+]);
+
+it('decides on a manifest it cannot read', function (): void {
+    expect(DecidingPackages::named(Glob::of('pestphp/*'))->decideManifest(Contents::of('{}'), Contents::of('[')))->toBeTrue();
+});
