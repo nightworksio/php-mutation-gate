@@ -79,10 +79,10 @@ enum BuiltinReporter: string
     {
         return match ($this) {
             self::Slack, self::Discord, self::Webhook => true,
-            self::Json, self::JUnit, self::Sarif, self::Html, self::Stryker, self::Digest, self::Tests, self::KillMatrix,
-            self::GitLab, self::Sonar, self::Badge, self::Console, self::Problems, self::Otlp, self::GitHubAnnotations,
-            self::GitHubSummary, self::GitHubComment, self::GitLabComment, self::BitbucketComment,
-            self::BitbucketInsights => false,
+            self::Json, self::JUnit, self::Sarif, self::Html, self::Stryker, self::Digest, self::Tests,
+            self::KillMatrix, self::GitLab, self::Sonar, self::Badge, self::Console, self::Problems, self::Otlp,
+            self::GitHubAnnotations, self::GitHubSummary, self::GitHubComment, self::GitLabComment,
+            self::BitbucketComment, self::BitbucketInsights => false,
         };
     }
 
@@ -95,10 +95,10 @@ enum BuiltinReporter: string
         return match ($this) {
             self::GitLabComment => GateSecret::GitLabToken,
             self::BitbucketComment => GateSecret::BitbucketToken,
-            self::Json, self::JUnit, self::Sarif, self::Html, self::Stryker, self::Digest, self::Tests, self::KillMatrix,
-            self::GitLab, self::Sonar, self::Badge, self::Console, self::Problems, self::Slack, self::Discord,
-            self::Webhook, self::Otlp, self::GitHubAnnotations, self::GitHubSummary, self::GitHubComment,
-            self::BitbucketInsights => NotGiven::value(),
+            self::Json, self::JUnit, self::Sarif, self::Html, self::Stryker, self::Digest, self::Tests,
+            self::KillMatrix, self::GitLab, self::Sonar, self::Badge, self::Console, self::Problems, self::Slack,
+            self::Discord, self::Webhook, self::Otlp, self::GitHubAnnotations, self::GitHubSummary,
+            self::GitHubComment, self::BitbucketInsights => NotGiven::value(),
         };
     }
 }
