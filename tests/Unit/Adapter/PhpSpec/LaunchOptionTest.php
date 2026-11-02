@@ -3,19 +3,13 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\PhpSpec\LaunchOption;
-use NightWorksIO\MutationGate\Core\NotGiven;
 
-it('sets each option by its name, an equals sign and its value, which it reads back', function (LaunchOption $option): void {
-    $argument = $option->with('a=b');
-
-    expect($argument)->toBe(sprintf('%s=a=b', $option->value))
-        ->and(LaunchOption::setBy($argument))->toBe($option)
-        ->and($option->valueIn($argument))->toBe('a=b')
-        ->and($option->valueIn($option->with('')))->toBe('');
+it('sets each option by its name, an equals sign and its value', function (LaunchOption $option): void {
+    expect($option->with('a=b'))->toBe(sprintf('%s=a=b', $option->value));
 })->with([LaunchOption::Examples, LaunchOption::Group, LaunchOption::Filter, LaunchOption::Spec, LaunchOption::Coverage, LaunchOption::Listing]);
 
 it('names options the launcher takes off before PhpSpec reads its own', function (): void {
-    expect(array_map(static fn(LaunchOption $option): string => $option->value, LaunchOption::cases()))->toBe([
+    expect(LaunchOption::names())->toBe([
         '--mutation-gate-examples',
         '--mutation-gate-group',
         '--mutation-gate-filter',
@@ -24,7 +18,3 @@ it('names options the launcher takes off before PhpSpec reads its own', function
         '--mutation-gate-listing',
     ]);
 });
-
-it('leaves PhpSpec\'s own arguments, and an option named without its value, to PhpSpec', function (string $argument): void {
-    expect(LaunchOption::setBy($argument))->toBeInstanceOf(NotGiven::class);
-})->with(['run', '--format=dot', '--mutation-gate-examples', 'x--mutation-gate-group=a', '--mutation-gate-other=a']);

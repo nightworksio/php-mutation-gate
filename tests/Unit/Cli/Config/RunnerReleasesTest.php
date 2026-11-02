@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Adapter\Infection\Installed as InfectionReleases;
 use NightWorksIO\MutationGate\Adapter\Pest\Installed as PestReleases;
 use NightWorksIO\MutationGate\Adapter\PhpSpec\Installed as PhpSpecReleases;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Installed as PhpUnitReleases;
+use NightWorksIO\MutationGate\Adapter\Testo\Installed as TestoReleases;
 use NightWorksIO\MutationGate\Cli\Config\RunnerReleases;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -25,6 +26,7 @@ it('reads the releases each built-in runner drives as that runner reads them', f
         ['name' => 'infection/infection', 'version' => '0.35.8'],
         ['name' => 'phpspec/phpspec', 'version' => '8.2.0'],
         ['name' => 'codeception/codeception', 'version' => '5.3.6'],
+        ['name' => 'testo/testo', 'version' => '0.10.56'],
     ]]));
     $manifest = sprintf('%s/vendor/composer/installed.json', $project);
 
@@ -35,4 +37,5 @@ it('reads the releases each built-in runner drives as that runner reads them', f
     'PHPUnit' => [BuiltinRunner::PhpUnit, static fn(string $manifest): mixed => PhpUnitReleases::versionsIn($manifest)],
     'PhpSpec' => [BuiltinRunner::PhpSpec, static fn(string $manifest): mixed => PhpSpecReleases::versionsIn($manifest)],
     'Codeception' => [BuiltinRunner::Codeception, static fn(string $manifest): mixed => CodeceptionReleases::versionsIn($manifest)],
+    'Testo' => [BuiltinRunner::Testo, static fn(string $manifest): mixed => TestoReleases::versionsIn($manifest)],
 ]);

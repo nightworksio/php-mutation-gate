@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Native\CoverageReport;
 use NightWorksIO\MutationGate\Core\Native\Framework;
 use NightWorksIO\MutationGate\Core\Native\Selection;
 use NightWorksIO\MutationGate\Core\Native\Shell;
@@ -17,8 +18,8 @@ use NightWorksIO\MutationGate\Core\Native\TestLayout;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\ErrorDisplay;
+use NightWorksIO\MutationGate\Core\Runner\HoldsReading;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
-use NightWorksIO\MutationGate\Core\Runner\Program;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Suites;
@@ -32,10 +33,6 @@ final readonly class WithoutWorkers implements Framework
     {
     }
 
-    public function program(): Program
-    {
-        return $this->framework->program();
-    }
 
     public function runner(): BuiltinRunner
     {
@@ -97,6 +94,11 @@ final readonly class WithoutWorkers implements Framework
         return $this->framework->startUp($selection);
     }
 
+    public function report(): CoverageReport
+    {
+        return $this->framework->report();
+    }
+
     public function coverage(CoverageRun $request, string $map): array
     {
         return $this->framework->coverage($request, $map);
@@ -105,6 +107,11 @@ final readonly class WithoutWorkers implements Framework
     public function listing(Shell $shell, Withheld $withheld, Suites $suites, string $file): TestListing|CannotJudge
     {
         return $this->framework->listing($shell, $withheld, $suites, $file);
+    }
+
+    public function holds(): HoldsReading
+    {
+        return $this->framework->holds();
     }
 
     public function endedHidden(string $output, bool $configuredToHide): bool

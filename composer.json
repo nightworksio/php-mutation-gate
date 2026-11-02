@@ -1,6 +1,6 @@
 {
     "name": "nightworksio/mutation-gate",
-    "description": "Mutation testing as a CI gate for PHP: floors per tree that only rise, sharded runs, and proofs that skip what is already proved, for Pest, Infection, PHPUnit, PhpSpec and Codeception.",
+    "description": "Mutation testing as a CI gate for PHP: floors per tree that only rise, sharded runs, and proofs that skip what is already proved, for Pest, Infection, PHPUnit, PhpSpec, Codeception and Testo.",
     "license": "MIT",
     "type": "library",
     "keywords": [
@@ -11,6 +11,7 @@
         "phpunit",
         "phpspec",
         "codeception",
+        "testo",
         "ci",
         "github-actions",
         "quality gate",
@@ -86,6 +87,7 @@
         "symfony/event-dispatcher-contracts": "^3.5",
         "symfony/finder": "^7.4 || ^8.0",
         "symfony/yaml": "^7.4 || ^8.0",
+        "testo/testo": "~0.10.56",
         "tomasvotruba/cognitive-complexity": "^1.2",
         "tomasvotruba/type-coverage": "^2.3"
     },
@@ -93,7 +95,8 @@
         "pestphp/pest": "<5.1",
         "pestphp/pest-plugin-mutate": "<5.0.2 || >=6.0",
         "phpunit/phpunit": "<12.5.8 || >=12.5.21 <12.5.22 || >=13.1.5 <13.1.6",
-        "symfony/yaml": "<7.4.12 || >=8.0 <8.0.12"
+        "symfony/yaml": "<7.4.12 || >=8.0 <8.0.12",
+        "testo/testo": "<0.10.56 || >=0.11"
     },
     "suggest": {
         "ext-dom": "To read PHPUnit's XML coverage and JUnit log, which the Infection adapter does (infection/infection requires it)",
@@ -107,7 +110,8 @@
         "nette/neon": "To read a mutation-gate.neon config",
         "pestphp/pest": "To mutate with Pest (^5.1), through the Pest adapter and its plugin",
         "phpspec/phpspec": "To mutate with PhpSpec (^8.2), through the PhpSpec runner, which measures its coverage with phpunit/php-code-coverage (^14)",
-        "symfony/yaml": "To read a mutation-gate.yaml config"
+        "symfony/yaml": "To read a mutation-gate.yaml config",
+        "testo/testo": "To mutate with Testo (~0.10.56), through the Testo runner, which measures its coverage with Testo's own testo/codecov"
     },
     "minimum-stability": "stable",
     "prefer-stable": true,

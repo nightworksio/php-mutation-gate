@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Infection;
 
 use DOMDocument;
 
+use function file_get_contents;
 use function is_file;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -26,8 +27,6 @@ final readonly class XmlFile
     /** The file's document; none where the file is not there or not XML. */
     public static function document(string $file): DOMDocument|NotGiven
     {
-        $document = new DOMDocument();
-
-        return is_file($file) && $document->load($file, Xml::QUIET) ? $document : NotGiven::value();
+        return Xml::document(is_file($file) ? file_get_contents($file) : false);
     }
 }

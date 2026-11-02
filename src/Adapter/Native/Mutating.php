@@ -18,7 +18,6 @@ use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTimes;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
-use NightWorksIO\MutationGate\Core\Coverage\PhpReport;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
@@ -184,7 +183,7 @@ final readonly class Mutating
         $run = CoverageRun::of($request->judgedBy(), $this->project->ownPath(CoverageRun::OWN_DIRECTORY))
             ->withholding($request->withheld())
             ->amongSuites($request->narrowing()->suitesFor($request->judgedBy()));
-        $command = $invocation->coverage($run, PhpReport::NAME);
+        $command = $invocation->coverage($run, $this->framework->report()->value);
 
         return $this->held->readFrom(
             sprintf(self::RAN, implode("\n", $command->arguments()), $run->withheld()->pattern()),

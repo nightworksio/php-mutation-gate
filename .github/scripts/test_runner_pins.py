@@ -5,8 +5,8 @@ import unittest
 import runner_pins
 
 MANIFEST = {
-    "require-dev": {"infection/infection": "~0.35.0"},
-    "conflict": {"pestphp/pest-plugin-mutate": "<5.0.2 || >=6.0", "pestphp/pest": "<5.1"},
+    "require-dev": {"infection/infection": "~0.35.0", "testo/testo": "~0.10.56"},
+    "conflict": {"pestphp/pest-plugin-mutate": "<5.0.2 || >=6.0", "pestphp/pest": "<5.1", "testo/testo": "<0.10.56 || >=0.11"},
 }
 
 
@@ -73,8 +73,20 @@ class Behind(unittest.TestCase):
         self.assertIn('Write "infection/infection": "~0.35.0 || ~0.36.0" in the require-dev of composer.json', found[0]["detail"])
         self.assertIn("infection-fixture/phpunit-12/composer.json", found[0]["detail"])
 
+    def test_a_minor_range_names_each_of_its_lines_its_requirement_widened_and_its_conflict_raised_past_the_series(self):
+        found = runner_pins.behind({"testo/testo": "0.11.3"}, MANIFEST)
+
+        self.assertEqual(len(found), 2)
+        self.assertIn('Write "testo/testo": "~0.10.56 || ~0.11.0" in the require-dev of composer.json and tests/Contract/Runner/testo-fixture/composer.json.', found[0]["detail"])
+        self.assertIn('Write "testo/testo": "<0.10.56 || >=0.12" in the conflict of composer.json.', found[1]["detail"])
+
+    def test_a_conflict_is_raised_past_the_release_s_series_as_a_caret_reads_it(self):
+        self.assertEqual(runner_pins.line_to_write("conflict", "2.3.1", "<1.4 || >=2"), "<1.4 || >=3.0")
+        self.assertEqual(runner_pins.line_to_write("conflict", "0.11.3", "<0.10.56 || >=0.11.0"), "<0.10.56 || >=0.12")
+        self.assertEqual(runner_pins.line_to_write("conflict", "0.0.4", "<0.0.2 || >=0.0.3"), "<0.0.2 || >=0.0.5")
+
     def test_nothing_where_composer_json_takes_every_release_or_lists_none(self):
-        self.assertEqual(runner_pins.behind({"pestphp/pest-plugin-mutate": "5.9.0", "infection/infection": "0.35.6", "pestphp/pest": "5.0.0"}, MANIFEST), [])
+        self.assertEqual(runner_pins.behind({"pestphp/pest-plugin-mutate": "5.9.0", "infection/infection": "0.35.6", "pestphp/pest": "5.0.0", "testo/testo": "0.10.57"}, MANIFEST), [])
         self.assertEqual(runner_pins.behind({"pestphp/pest-plugin-mutate": "5.0.3"}, {}), [])
 
     def test_a_conflict_it_cannot_raise_says_what_to_change(self):

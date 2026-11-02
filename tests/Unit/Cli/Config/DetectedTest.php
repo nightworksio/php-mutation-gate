@@ -56,6 +56,7 @@ it('chooses the runner that is installed', function (array $installed, BuiltinRu
     'Infection' => [['infection/infection', 'phpunit/phpunit'], BuiltinRunner::Infection],
     'PHPUnit alone' => [['phpunit/phpunit'], BuiltinRunner::PhpUnit],
     'PhpSpec alone' => [['phpspec/phpspec', 'phpunit/php-code-coverage'], BuiltinRunner::PhpSpec],
+    'Testo alone' => [['testo/testo', 'testo/codecov'], BuiltinRunner::Testo],
     'PhpSpec under Infection' => [['infection/infection', 'phpspec/phpspec'], BuiltinRunner::Infection],
     'PHPUnit and PhpSpec under Infection' => [['infection/infection', 'phpunit/phpunit', 'phpspec/phpspec'], BuiltinRunner::Infection],
     'Codeception, with the PHPUnit it installs' => [['codeception/codeception', 'phpunit/phpunit'], BuiltinRunner::Codeception],
@@ -109,6 +110,7 @@ it('names the runners a person must choose between, or none where zero-config ch
 })->with([
     'Pest\'s plugin and Infection' => [['infection/infection', 'pestphp/pest-plugin-mutate'], [BuiltinRunner::Pest, BuiltinRunner::Infection]],
     'PHPUnit and PhpSpec' => [['phpunit/phpunit', 'phpspec/phpspec'], [BuiltinRunner::PhpUnit, BuiltinRunner::PhpSpec]],
+    'PHPUnit and Testo' => [['phpunit/phpunit', 'testo/testo'], [BuiltinRunner::PhpUnit, BuiltinRunner::Testo]],
     'PHPUnit and PhpSpec under Infection' => [['infection/infection', 'phpunit/phpunit', 'phpspec/phpspec'], []],
     'PHPUnit alone' => [['phpunit/phpunit'], []],
 ]);
@@ -121,7 +123,8 @@ it('names no runner to choose between where nothing lists what is installed', fu
 
 it('cannot judge without a runner installed', function () use ($detected): void {
     expect($detected('', ['symfony/console'])->runner())->toEqual(CannotJudge::because(
-        'None of pestphp/pest-plugin-mutate, infection/infection, phpunit/phpunit, phpspec/phpspec and codeception/codeception is installed, '
+        'None of pestphp/pest-plugin-mutate, infection/infection, phpunit/phpunit, phpspec/phpspec, codeception/codeception and '
+        . 'testo/testo is installed, '
         . 'so nothing can mutate. Install one of them.',
     ));
 });

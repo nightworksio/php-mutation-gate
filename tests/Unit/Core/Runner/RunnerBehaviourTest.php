@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Matrix\NotFull;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ExactRun;
+use NightWorksIO\MutationGate\Core\Runner\HoldsReading;
 use NightWorksIO\MutationGate\Core\Runner\Parallelism;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -18,6 +19,7 @@ it('lists holds as groups, has no group in every key and opens no shard of its o
 
     expect([$standard->holdsAsLoaded(), $standard->opensEachShard()])
         ->toBe([false, false])
+        ->and($standard->holds())->toBe(HoldsReading::Written)
         ->and($standard->readByEveryKey())->toEqual(Groups::none())
         ->and($standard->whyNotFull())->toBe(NotFull::FirstKillers)
         ->and($standard->parallelism())->toBe(Parallelism::Serial)
@@ -37,6 +39,11 @@ it('says each way it behaves otherwise, and nothing more', function (): void {
         ->openingEachShard();
 
     expect([$pest->holdsAsLoaded(), $pest->opensEachShard()])->toBe([true, true])
+        ->and($pest->holds())->toBe(HoldsReading::AsLoaded)
+        ->and(RunnerBehaviour::standard()->readingHolds(HoldsReading::Listed)->holds())->toBe(HoldsReading::Listed)
+        ->and(RunnerBehaviour::standard()->readingHolds(HoldsReading::Listed)->holdsAsLoaded())->toBeFalse()
+        ->and(RunnerBehaviour::standard()->runningPerCore()->readingHolds(HoldsReading::Listed)->parallelism())
+        ->toBe(Parallelism::PerCore)
         ->and($pest->readByEveryKey())->toEqual(Groups::of($canary))
         ->and(RunnerBehaviour::standard()->openingEachShard()->holdsAsLoaded())->toBeFalse()
         ->and(RunnerBehaviour::standard()->stoppingAtFirstKiller(NotFull::Infection)->whyNotFull())

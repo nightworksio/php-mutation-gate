@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Native\Command;
+use NightWorksIO\MutationGate\Core\Native\TestTimes;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
@@ -30,6 +31,7 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Tests\Support\CoverageMaps;
 use NightWorksIO\MutationGate\Tests\Support\GzipBomb;
 use NightWorksIO\MutationGate\Tests\Support\NativePhpUnit;
+use NightWorksIO\MutationGate\Tests\Support\NativeTesto;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitShellFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -184,4 +186,74 @@ it('reads the report a coverage run this job started itself left in a directory,
         ->and($coverage->of(CoverageRan::in(Path::of('build/none'))))
         ->toEqual(PhpReport::missingAt(sprintf('%s/build/none/coverage.php', $project->root())))
         ->and($shell->commands())->toBe([]);
+});
+
+/**
+ * A shell whose Testo writes its XML coverage of one covered line into the
+ * directory its command names, and the gate's plugin the time of each test
+ * beside it, and ends so.
+ */
+function testoMapping(Project $project, bool $timed): PhpUnitShellFake
+{
+    return new PhpUnitShellFake(static function (Command $command) use ($project, $timed): Ran {
+        $option = array_values(array_filter($command->arguments(), static fn(string $a): bool => str_starts_with($a, '--coverage-xml=')));
+        $directory = substr($option[0], strlen('--coverage-xml='));
+        Scratch::write($directory, 'index.xml', sprintf(
+            '<phpunit><project source="%s"><directory><file name="Money.php" href="src/Money.php.xml"/></directory></project></phpunit>',
+            $project->root(),
+        ));
+        Scratch::write($directory, 'src/Money.php.xml', '<phpunit><file name="Money.php" path="src"><coverage><line nr="4"><covered by="Tests\MoneyTest::adds"/></line></coverage></file></phpunit>');
+
+        if ($timed) {
+            Scratch::write(dirname($directory), 'times.txt', TestTimes::line('Tests\MoneyTest::adds', 0.5));
+        }
+
+        return Ran::finished(succeeded: true, output: 'Testo said this');
+    });
+}
+
+/** The project's Testo, its coverage measured through this shell. */
+function testoCoverage(Project $project, PhpUnitShellFake $shell): Coverage
+{
+    return new Coverage($project, $shell, new Invocation($project, '/gate/override.php', NativeTesto::in($project)), NativeTesto::in($project));
+}
+
+it('runs Testo under coverage and reads its XML coverage, timed as the gate\'s plugin timed each test', function (): void {
+    $project = coverageProject();
+    $adds = TestId::of('Tests\MoneyTest::adds');
+    $run = CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));
+    $covered = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(4), $adds);
+
+    expect(testoCoverage($project, testoMapping($project, timed: true))->of($run))->toEqual($covered->timed($adds, Seconds::of(0.5)))
+        ->and(testoCoverage($project, testoMapping($project, timed: false))->of($run))->toEqual($covered);
+});
+
+it('removes an earlier run\'s XML index and times before it runs, and cannot judge an index it cannot remove', function (): void {
+    $project = coverageProject();
+    Scratch::write($project->root(), '.mutation-gate/coverage/coverage-xml/index.xml', 'an earlier index');
+    Scratch::write($project->root(), '.mutation-gate/coverage/times.txt', TestTimes::line('Tests\MoneyTest::old', 9.0));
+    Scratch::write($project->root(), '.mutation-gate/stuck/coverage-xml/index.xml/inside', 'a directory where the index goes');
+    $shell = PhpUnitShellFake::answering(Ran::finished(succeeded: true, output: ''));
+    $coverage = testoCoverage($project, $shell);
+
+    expect($coverage->of(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage'))))->toEqual(CannotJudge::because(sprintf(
+        '%s/.mutation-gate/coverage/coverage-xml/index.xml is not there or is not PHPUnit XML coverage, so the gate cannot say which tests run which line.',
+        $project->root(),
+    )))
+        ->and(is_file(sprintf('%s/.mutation-gate/coverage/times.txt', $project->root())))->toBeFalse()
+        ->and($coverage->of(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/stuck'))))->toEqual(CannotJudge::because(sprintf(
+            'An earlier run left %s/.mutation-gate/stuck/coverage-xml/index.xml, and the gate cannot remove it.',
+            $project->root(),
+        )))
+        ->and($shell->commands())->toHaveCount(1);
+});
+
+it('reads the XML coverage a Testo run this job started itself left in a directory, untimed, running nothing', function (): void {
+    $project = coverageProject();
+    $shell = testoMapping($project, timed: false);
+    $shell->run(Command::php(sprintf('--coverage-xml=%s/build/suite/coverage-xml', $project->root())));
+    $coverage = testoCoverage($project, PhpUnitShellFake::answering(Ran::finished(succeeded: true, output: '')));
+
+    expect($coverage->of(CoverageRan::in(Path::of('build/suite'))))
+        ->toEqual(CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(4), TestId::of('Tests\MoneyTest::adds')));
 });
