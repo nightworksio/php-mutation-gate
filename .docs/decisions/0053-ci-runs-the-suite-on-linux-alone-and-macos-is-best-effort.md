@@ -1,8 +1,8 @@
-# ADR-0053: CI runs the suite on Linux alone
+# ADR-0053: CI runs the suite on Linux alone, and macOS is best-effort
 
 **Status:** Accepted
 **Date:** 2026-11-02
-**Amends:** [0042](0042-the-gate-runs-on-php-8-4-on-linux-and-macos.md): its `macos` job, for where CI runs the suite
+**Amends:** [0042](0042-the-gate-runs-on-php-8-4-on-linux-and-macos.md): its supported platforms and `macos` job, for macOS
 
 ## Context
 
@@ -18,12 +18,14 @@ runs to an answer.
 1. **CI runs the suite on Linux alone.** The `macos` job, its entry in
    `.github/gates.json`, and its place among the jobs whose evidence the
    `evidence` job gathers are removed.
-2. **macOS stays supported for local use, untested by CI.** The code that
-   tells the two platforms apart stays, with its unit tests: the peak memory
-   macOS reports in bytes, and the socket the warm worker's guard counts
-   before the boot (ADR-0042, item 7). The README says that CI tests Linux.
+2. **Linux is supported, and macOS is best-effort: expected to work, not
+   tested by CI.** The code that tells the two platforms apart stays, with
+   its unit tests: the peak memory macOS reports in bytes, and the socket the
+   warm worker's guard counts before the boot (ADR-0042, item 7). The README
+   says so beside the PHP version.
 
-This amends ADR-0042's item 6, whose `macos` job runs the suite on macOS.
+This amends ADR-0042's item 6, which supports Linux and macOS and has its
+`macos` job run the suite on macOS.
 
 ## Alternatives considered
 
@@ -31,7 +33,8 @@ This amends ADR-0042's item 6, whose `macos` job runs the suite on macOS.
 |---|---|
 | **Keep the job, not required** | A job GitHub cancels before it starts is red on every pull request, and no pull request merges with a red check. |
 | **A self-hosted macOS runner** | A runner that runs pull requests' code and outlives the job keeps what one job left for the next (ADR-0039). |
-| **Drop macOS support** | The platform-specific code and its unit tests still hold, and the gate's maintainer develops on macOS. |
+| **Keep macOS supported, untested by CI** | A promise nothing checks, as ADR-0042 found for Windows. |
+| **Drop macOS** | The platform-specific code and its unit tests still hold, and the gate's maintainer develops on macOS. |
 
 ## Consequences
 
