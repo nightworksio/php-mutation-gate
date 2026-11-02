@@ -1,5 +1,6 @@
 """The deciding half of scope.py: python3 -m unittest discover .github/scripts"""
 import json
+import re
 import unittest
 
 import scope
@@ -98,7 +99,6 @@ class Outputs(unittest.TestCase):
             "src/Mutator/Engine/Source.php",
             "composer.lock",
             ".github/workflows/ci.yml",
-            ".github/scripts/scope.py",
         )
         for path in shared:
             found = scope.outputs("pull_request", [path])
@@ -122,6 +122,89 @@ class Outputs(unittest.TestCase):
     def test_takes_a_file_for_a_directory_only_where_it_is_one(self):
         self.assertEqual(legs(scope.outputs("pull_request", ["src/Adapter/PestLike.php"])), [])
         self.assertEqual(legs(scope.outputs("pull_request", ["composer.json.bak"])), [])
+
+
+# The jobs of ci.yml that run whatever the paths, or by an output that is no PHP gate's.
+UNGATED = ("scope", "scripts", "hygiene", "security", "site", "rules", "sonar", "gate", "evidence")
+
+GATED_CI = """jobs:
+  scope:
+    runs-on: ubuntu-latest
+    steps:
+      - run: python3 .github/scripts/scope.py pull_request
+  tests:
+    needs: scope
+    if: ${{ needs.scope.outputs.code == 'true' }}
+    steps:
+      - run: python3 .github/scripts/evidence.py tests
+  contract:
+    if: ${{ needs.scope.outputs.runners != '[]' }}
+    steps:
+      - run: python3 .github/scripts/legs.py
+  end-to-end:
+    if: ${{ needs.scope.outputs.code == 'true' }}
+    uses: ./.github/workflows/end-to-end.yml
+  site:
+    if: ${{ needs.scope.outputs.site == 'true' }}
+    steps:
+      - if: ${{ needs.scope.outputs.code == 'true' }}
+        run: python3 .github/scripts/site_only.py
+"""
+
+END_TO_END = """jobs:
+  warm:
+    steps:
+      - run: python3 .github/scripts/warm_measure.py
+  hooks:
+    uses: ./.github/workflows/hooks.yml
+"""
+
+HOOKS = """jobs:
+  managers:
+    steps:
+      - run: python3 .github/scripts/hook_managers.py
+"""
+
+SCRIPTS = {
+    "scope.py": "import json\n",
+    "evidence.py": "import json\nimport shared\n",
+    "shared.py": "from pathlib import Path\nimport deeper\n",
+    "deeper.py": "import os\n",
+    "legs.py": "",
+    "warm_measure.py": "",
+    "site_only.py": "",
+    "hook_managers.py": "",
+    "decisions_index.py": "import re\n",
+}
+
+
+class Scripts(unittest.TestCase):
+    def test_takes_as_code_each_script_a_php_gate_job_runs_and_every_script_those_import(self):
+        found = scope.gate_scripts({"ci.yml": GATED_CI, "end-to-end.yml": END_TO_END, "hooks.yml": HOOKS}, SCRIPTS)
+        self.assertEqual(sorted(found),
+                         ["deeper.py", "evidence.py", "hook_managers.py", "legs.py", "shared.py", "warm_measure.py"])
+
+    def test_takes_no_script_a_job_runs_whatever_the_paths_or_by_the_site_s_output_or_a_step_s_own_if(self):
+        found = scope.gate_scripts({"ci.yml": GATED_CI, "end-to-end.yml": END_TO_END}, SCRIPTS)
+        self.assertFalse({"scope.py", "site_only.py", "decisions_index.py"} & found)
+
+    def test_runs_no_php_gate_for_a_script_only_the_scripts_job_runs_or_a_script_s_test(self):
+        for path in (".github/scripts/decisions_index.py", ".github/scripts/test_decisions_index.py",
+                     ".github/scripts/bench_publish.py", ".github/scripts/scope.py", ".github/scripts/unit.py",
+                     ".github/scripts/test_evidence.py"):
+            self.assertEqual(scope.outputs("pull_request", [path]),
+                             {"code": "false", "warm": "false", "runners": "[]", "site": "false"}, path)
+
+    def test_runs_the_php_gates_for_every_script_a_php_gate_job_of_this_repository_runs(self):
+        run = re.compile(r"\.github/scripts/[a-z0-9_]+\.py")
+        ci = (scope.ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        gated = [job for job in scope.jobs(ci) if job.split(":", 1)[0].strip() not in UNGATED]
+        end_to_end = (scope.ROOT / ".github/workflows/end-to-end.yml").read_text(encoding="utf-8")
+        named = {path for text in [*gated, end_to_end] for path in run.findall(text)}
+        self.assertGreaterEqual(named, {".github/scripts/evidence.py", ".github/scripts/alone.py",
+                                        ".github/scripts/warm_measure.py", ".github/scripts/hook_managers.py"})
+        for path in sorted(named):
+            self.assertEqual(scope.outputs("pull_request", [path])["code"], "true", path)
 
 
 if __name__ == "__main__":
