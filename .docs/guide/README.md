@@ -5,7 +5,7 @@ From nothing to a first verdict, then what to read for what you are doing.
 ## Install
 
 The gate needs PHP 8.4 or a later 8.x with pcov or Xdebug and the sodium
-extension, on Linux or macOS, and one of the runners the
+extension, on Linux (macOS is best-effort), and one of the runners the
 [requirements](../../README.md#requirements) list: Pest, Infection, PHPUnit,
 PhpSpec, Codeception or Testo.
 

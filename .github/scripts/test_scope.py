@@ -211,5 +211,134 @@ class Scripts(unittest.TestCase):
             self.assertEqual(scope.outputs("pull_request", [path])["code"], "true", path)
 
 
+# A workflow of three jobs: the scope job, one gated by `code` and one by `runners`, and one no output gates.
+WORKFLOW = """name: ci
+
+on:
+  pull_request:
+
+env:
+  PHP_VERSION: '8.5'
+
+jobs:
+  scope:
+    name: what changed
+    runs-on: ubuntu-latest
+    steps:
+      - run: python3 .github/scripts/scope.py
+
+  checks:
+    needs: scope
+    if: ${{ needs.scope.outputs.code == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: composer analyse
+
+  legs:
+    needs: scope
+    if: ${{ needs.scope.outputs.runners != '[]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: composer contract
+
+  evidence:
+    needs: [scope, checks, legs]
+    runs-on: ubuntu-latest
+    steps:
+      - run: python3 .github/scripts/evidence.py
+"""
+
+CI_PATH = ".github/workflows/ci.yml"
+E2E_PATH = ".github/workflows/end-to-end.yml"
+NOTHING = {"code": "false", "warm": "false", "runners": "[]", "site": "false"}
+EVERYTHING = {"code": "true", "warm": "true", "runners": json.dumps(list(scope.RUNNERS)), "site": "true"}
+
+
+def ci_changed(after: str) -> dict[str, str]:
+    return scope.outputs("pull_request", [CI_PATH], {CI_PATH: (WORKFLOW, after)})
+
+
+class Workflows(unittest.TestCase):
+    def test_runs_nothing_for_a_removed_job_or_another_job_s_needs(self):
+        removed = WORKFLOW.replace("  legs:\n", "  gone:\n", 1).split("  gone:\n")[0] + WORKFLOW.split("  evidence:\n")[1].join(["  evidence:\n", ""])
+        self.assertEqual(ci_changed(removed.replace("needs: [scope, checks, legs]", "needs: [scope, checks]")), NOTHING)
+        self.assertEqual(ci_changed(WORKFLOW.replace("needs: [scope, checks, legs]", "needs: [scope, checks]")), NOTHING)
+
+    def test_runs_nothing_for_a_comment_or_a_blank_line(self):
+        self.assertEqual(ci_changed(WORKFLOW.replace("  checks:\n", "  # The static checks.\n\n  checks:\n")), NOTHING)
+
+    def test_runs_the_gates_a_changed_or_added_job_reads(self):
+        self.assertEqual(ci_changed(WORKFLOW.replace("composer analyse", "composer analyse --memory-limit=2G")),
+                         {"code": "true", "warm": "false", "runners": "[]", "site": "false"})
+        self.assertEqual(legs(ci_changed(WORKFLOW.replace("composer contract", "composer contract -v"))), sorted(scope.RUNNERS))
+        added = WORKFLOW + "\n  docs:\n    if: ${{ needs.scope.outputs.site == 'true' }}\n    steps:\n      - run: npm run build\n"
+        self.assertEqual(ci_changed(added), {"code": "false", "warm": "false", "runners": "[]", "site": "true"})
+
+    def test_runs_every_gate_for_what_every_job_shares_or_the_scope_job(self):
+        self.assertEqual(ci_changed(WORKFLOW.replace("PHP_VERSION: '8.5'", "PHP_VERSION: '8.6'")), EVERYTHING)
+        self.assertEqual(ci_changed(WORKFLOW.replace("on:\n  pull_request:", "on:\n  pull_request:\n  push:")), EVERYTHING)
+        self.assertEqual(ci_changed(WORKFLOW.replace("scope.py", "scope.py --verbose")), EVERYTHING)
+
+    def test_runs_every_gate_for_a_workflow_it_could_not_read_at_the_base(self):
+        self.assertEqual(scope.outputs("pull_request", [CI_PATH]), EVERYTHING)
+        self.assertEqual(scope.outputs("pull_request", [CI_PATH], {}), EVERYTHING)
+
+    def test_runs_the_warm_workers_for_the_end_to_end_job_that_reads_warm_and_the_php_gates_for_any_other(self):
+        before = "on:\n  workflow_call:\n\njobs:\n  warm-workers:\n    if: inputs.warm\n    steps:\n      - run: a\n\n  hooks:\n    steps:\n      - run: b\n"
+        warm = scope.outputs("pull_request", [E2E_PATH], {E2E_PATH: (before, before.replace("run: a", "run: c"))})
+        hooks = scope.outputs("pull_request", [E2E_PATH], {E2E_PATH: (before, before.replace("run: b", "run: c"))})
+        self.assertEqual((warm["code"], warm["warm"]), ("true", "true"))
+        self.assertEqual((hooks["code"], hooks["warm"]), ("true", "false"))
+
+    def test_runs_no_php_gate_for_the_removal_of_the_macos_job(self):
+        head = (scope.ROOT / CI_PATH).read_text(encoding="utf-8")
+        base = head.replace("  # The gate's PHAR", f"{MACOS_JOB}\n  # The gate's PHAR", 1).replace("lowest, phar,", "lowest, macos, phar,", 1)
+        paths = [CI_PATH, ".github/gates.json", ".docs/decisions/0053-ci-runs-the-suite-on-linux-alone-and-macos-is-best-effort.md", "README.md"]
+        found = scope.outputs("pull_request", paths, {CI_PATH: (base, head)})
+        self.assertNotEqual(base, head)
+        self.assertEqual((found["code"], found["runners"], found["warm"]), ("false", "[]", "false"))
+
+
+# The job that ran the suite on macOS, which ADR-0053 removes.
+MACOS_JOB = """  # The suite on macOS, the other platform the gate supports for local use
+  # (ADR-0042), against the lock.
+  macos:
+    name: tests on macOS
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      - id: suite
+        run: |
+          mkdir -p evidence/raw
+          composer test -- --log-junit=evidence/raw/macos.xml
+      # The job's evidence, whatever the steps above did (ADR-0019).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py macos
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-macos
+          path: evidence/macos*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py macos
+"""
+
+
 if __name__ == "__main__":
     unittest.main()

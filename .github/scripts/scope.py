@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Which of ci.yml's gates a run is worth, from the paths it changed.
 
-Usage: scope.py <event> < changed paths, one per line
+Usage: BASE=<commit> scope.py <event> < changed paths, one per line
        scope.py <event> --no-base
 
 Run by `what changed`. It prints the job's outputs, one `name=value` per line:
@@ -22,6 +22,16 @@ Run by `what changed`. It prints the job's outputs, one `name=value` per line:
   prints against it: where the docs, the site, its workflows or what prints
   a link changed (ADR-0038).
 
+A change to ci.yml or to end-to-end.yml, the workflow it calls, is read job
+by job against the base commit. A change to what every job shares (the
+workflow's `on`, `env`, `permissions`, `concurrency` or `defaults`, or the
+scope job) runs every gate. A job added or changed runs the gates of the
+outputs its `if:` reads, so editing a job no output gates, such as the
+`needs` of the job that gathers the evidence, runs nothing, and neither does
+removing a job. A change outside the jobs' keys, such as a comment, runs
+nothing. Without the base to read, a change to either workflow runs every
+gate.
+
 Only a pull request is narrowed. A push to main, a scheduled run, or a run
 with no base to compare against runs every gate, so a break a pull request's
 narrowed run missed shows on main within one merge (ADR-0019).
@@ -30,7 +40,9 @@ Two halves: `outputs` decides from the event and the paths, and `main` reads
 them and prints.
 """
 import json
+import os
 import re
+import subprocess
 import sys
 from functools import cache
 from pathlib import Path
@@ -41,15 +53,14 @@ RUNNERS = ("pest", "infection-13", "infection-12", "phpunit", "phpspec", "codece
 # holds the rule tables the Guards suite reads, .docs/reference/ the config
 # reference and examples the config tests read, .docs/guide/ci/ the CI setups
 # the CI tests read, and the troubleshooting guide the slugs the Docs suite
-# reads. Under .github/, only ci.yml, the end-to-end workflow it calls and the
-# scripts their PHP gate jobs run (see gate_scripts) start a PHP gate.
+# reads. Under .github/, only the scripts the PHP gate jobs run (see
+# gate_scripts) start a PHP gate by their path; ci.yml and the end-to-end
+# workflow it calls are read job by job (see workflow_outputs).
 CODE_DOCS = (
     "ARCHITECTURE.md",
     ".docs/reference/",
     ".docs/guide/ci/",
     ".docs/guide/troubleshooting.md",
-    ".github/workflows/ci.yml",
-    ".github/workflows/end-to-end.yml",
 )
 
 # The repository's root, from this script's place in it.
@@ -87,7 +98,6 @@ SHARED = (
     "composer.json",
     "composer.lock",
     "phpunit.xml",
-    ".github/workflows/ci.yml",
 )
 
 INFECTION = ("src/Adapter/Infection/", "src/Core/Coverage/PhpUnitXml.php", "tests/Contract/Runner/infection-fixture/")
@@ -104,7 +114,6 @@ SITE = (
     "tests/Docs/PrintedLinksTest.php",
     ".github/workflows/site.yml",
     ".github/workflows/pages.yml",
-    ".github/workflows/ci.yml",
 )
 
 # The native runner, which drives each framework that has no runner of its own.
@@ -197,8 +206,21 @@ OWN_FIXTURES = (
 WARM = (
     *NATIVE_PHPUNIT,
     ".github/scripts/warm_measure.py",
-    ".github/workflows/end-to-end.yml",
 )
+
+# The workflows read job by job: ci.yml, whose jobs the outputs gate, and the
+# workflow its `end-to-end` job calls, whose `warm-workers` job reads `warm`.
+END_TO_END = "end-to-end.yml"
+READ_BY_JOB = (f"{WORKFLOWS}{CI}", f"{WORKFLOWS}{END_TO_END}")
+
+# What every gate of a workflow runs on, read from the base and the head: its
+# keys outside `jobs`, and ci.yml's scope job, which decides every output.
+SCOPE_JOB = "scope"
+
+# The outputs a job of ci.yml reads in its `if:`, and the one a job of the
+# end-to-end workflow reads, by the job's text.
+READS = re.compile(r"needs\.scope\.outputs\.(code|runners|warm|site)\b")
+READS_WARM = re.compile(r"^    if: inputs\.warm\b", re.M)
 
 
 def under(path: str, prefixes: tuple[str, ...]) -> bool:
@@ -245,6 +267,36 @@ def own_gate_scripts() -> frozenset[str]:
     return frozenset(f"{SCRIPTS}{name}" for name in gate_scripts(workflows, scripts))
 
 
+def meaningful(text: str) -> list[str]:
+    """A workflow's lines as YAML reads them: no comment line and no blank one, each without its trailing space."""
+    lines = [line.rstrip() for line in text.split("\n")]
+    return [line for line in lines if line.strip() != "" and not line.lstrip().startswith("#")]
+
+
+def shape(workflow: str) -> tuple[list[str], dict[str, list[str]]]:
+    """A workflow's keys outside `jobs`, and each job by its id, as their meaningful lines."""
+    lines = workflow.split("\n")
+    start = next((at for at, line in enumerate(lines) if line.rstrip() == "jobs:"), len(lines))
+    shared = meaningful("\n".join(lines[:start]))
+    by_id = {}
+    for job in jobs("\n".join(lines[start + 1 :])):
+        name = job.split("\n", 1)[0].strip().rstrip(":")
+        by_id[name] = meaningful(job)
+    return shared, by_id
+
+
+def workflow_outputs(name: str, before: str, after: str) -> set[str]:
+    """The outputs a change to one workflow read job by job turns on: every one, or those its added and changed jobs read."""
+    shared_before, jobs_before = shape(before)
+    shared_after, jobs_after = shape(after)
+    if shared_before != shared_after or jobs_before.get(SCOPE_JOB) != jobs_after.get(SCOPE_JOB):
+        return {"code", "warm", "runners", "site"}
+    changed = [lines for job, lines in jobs_after.items() if jobs_before.get(job) != lines]
+    if name == END_TO_END:
+        return {"code", "warm"} if any(READS_WARM.search("\n".join(lines)) for lines in changed) else ({"code"} if changed else set())
+    return {output for lines in changed for output in READS.findall("\n".join(lines))}
+
+
 def is_code(path: str) -> bool:
     if under(path, CODE_DOCS) or path in own_gate_scripts():
         return True
@@ -259,16 +311,43 @@ def reaches_runner(path: str, runner: str) -> bool:
 
 
 
-def outputs(event: str, paths: list[str] | None) -> dict[str, str]:
-    """The job's outputs: every gate where the run is not a pull request or has no base, else those its paths reach."""
+def outputs(
+    event: str,
+    paths: list[str] | None,
+    workflows: dict[str, tuple[str, str]] | None = None,
+) -> dict[str, str]:
+    """The job's outputs: every gate where the run is not a pull request or has no base, else those its paths reach.
+
+    `workflows` holds each changed workflow read job by job, by its path, as
+    its text at the base and at the head; one changed but not held runs every
+    gate.
+    """
     if event != "pull_request" or paths is None:
         return {"code": "true", "warm": "true", "runners": json.dumps(list(RUNNERS)), "site": "true"}
     changed = [path for path in paths if path != ""]
-    code = any(is_code(path) for path in changed)
-    warm = code and any(under(path, SHARED) or under(path, WARM) for path in changed)
-    runners = [runner for runner in RUNNERS if code and any(reaches_runner(path, runner) for path in changed)]
-    site = any(under(path, SITE) for path in changed)
+    read = set()
+    for path in changed:
+        if path in READ_BY_JOB:
+            texts = (workflows or {}).get(path)
+            read |= {"code", "warm", "runners", "site"} if texts is None else workflow_outputs(Path(path).name, *texts)
+    code = "code" in read or "warm" in read or "runners" in read or any(is_code(path) for path in changed)
+    warm = code and ("warm" in read or any(under(path, SHARED) or under(path, WARM) for path in changed))
+    every = "runners" in read
+    runners = [runner for runner in RUNNERS if code and (every or any(reaches_runner(path, runner) for path in changed))]
+    site = "site" in read or any(under(path, SITE) for path in changed)
     return {"code": str(code).lower(), "warm": str(warm).lower(), "runners": json.dumps(runners), "site": str(site).lower()}
+
+
+def read_workflows(base: str, paths: list[str]) -> dict[str, tuple[str, str]]:
+    """Each changed workflow read job by job, as git holds it at the base and as the head checkout holds it."""
+    held = {}
+    for path in paths:
+        if path not in READ_BY_JOB:
+            continue
+        shown = subprocess.run(["git", "show", f"{base}:{path}"], capture_output=True, text=True, check=False, cwd=ROOT)
+        head = ROOT / path
+        held[path] = (shown.stdout if shown.returncode == 0 else "", head.read_text(encoding="utf-8") if head.is_file() else "")
+    return held
 
 
 def main() -> int:
@@ -276,7 +355,9 @@ def main() -> int:
         print(__doc__, file=sys.stderr)
         return 2
     paths = None if len(sys.argv) == 3 and sys.argv[2] == "--no-base" else sys.stdin.read().splitlines()
-    for name, value in outputs(sys.argv[1], paths).items():
+    base = os.environ.get("BASE", "")
+    workflows = read_workflows(base, paths) if base != "" and paths is not None else None
+    for name, value in outputs(sys.argv[1], paths, workflows).items():
         print(f"{name}={value}")
     return 0
 
