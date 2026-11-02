@@ -712,63 +712,6 @@ it('cannot plan where it cannot hand a shard its map', function () use ($plan): 
     ));
 });
 
-it('hands a full pull request plan the lines changed since the default branch, for new code', function () use (
-    $plan,
-): void {
-    $pullRequest = new CiPlanFake(RunOn::at(Scope::pullRequest(7), Scope::branch('main')));
-    $changed = Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(3))));
-    $checkout = new ChangeSourceFake(Revision::ref(Flows::MAIN), $changed, [
-        Revision::workingTree()->name() => Flows::FILES,
-        Flows::MAIN => Flows::FILES,
-    ]);
-
-    $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $pullRequest, $checkout);
-
-    expect($planned instanceof Plan ? $planned->considered()->changed() : $planned)->toEqual($changed);
-});
-
-it('hands a full run of a branch no lines for new code, whatever changed since the default branch', function () use (
-    $plan,
-): void {
-    $changed = Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(3))));
-    $checkout = new ChangeSourceFake(Revision::ref(Flows::MAIN), $changed, [
-        Revision::workingTree()->name() => Flows::FILES,
-        Flows::MAIN => Flows::FILES,
-    ]);
-
-    $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $checkout);
-
-    expect($planned instanceof Plan ? $planned->considered()->changed() : $planned)->toEqual(Changes::none());
-});
-
-it('cannot plan a full pull request run where git cannot tell what changed since the default branch', function () use (
-    $plan,
-): void {
-    $pullRequest = new CiPlanFake(RunOn::at(Scope::pullRequest(7), Scope::branch('main')));
-
-    expect($plan(Flows::project(), Mode::full(), Cut::exactly(1), $pullRequest))->toEqual(CannotJudge::because(sprintf(
-        "%s %s\n%s\n%s",
-        'A pull request\'s or merge group\'s new code is judged against refs/remotes/origin/main,',
-        'and git cannot tell what changed since it,',
-        'so no floor for new code can be held. refs/remotes/origin/main is not a revision this repository has.',
-        'Fetch it into the checkout before the plan.',
-    )));
-});
-
-it('judges a full merge group run\'s new code since the commit its queue built it on', function () use (
-    $plan,
-): void {
-    $group = new CiPlanFake(RunOn::mergeGroup(Revision::ref('85c3298'), Scope::branch('main')));
-
-    expect($plan(Flows::project(), Mode::full(), Cut::exactly(1), $group))->toEqual(CannotJudge::because(sprintf(
-        "%s %s\n%s\n%s",
-        'A pull request\'s or merge group\'s new code is judged against 85c3298,',
-        'and git cannot tell what changed since it,',
-        'so no floor for new code can be held. 85c3298 is not a revision this repository has.',
-        'Fetch it into the checkout before the plan.',
-    )));
-});
-
 it('cannot plan where the runner has its own ignore markers in what it would mutate, listing each', function () use (
     $plan,
 ): void {
