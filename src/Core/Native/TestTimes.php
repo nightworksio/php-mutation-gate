@@ -20,6 +20,8 @@ use function sprintf;
  * for each, its seconds, a space, and the test's id, encoded as an outcome's
  * is, so a data set's name that holds a space or a line break stays on its
  * line (see Outcome).
+ *
+ * @internal
  */
 final readonly class TestTimes
 {

@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
  * The mutants a verdict counts as not killed, as line annotations rank them (ADR-0009): those in a set that failed,
  * then the rest; within each, those on a changed line first, then security mutants (ADR-0021), each part in the
  * order it had. A cluster of survivors is one item, ranked where any of its members is (ADR-0022).
+ *
+ * @internal
  */
 final readonly class AnnotationOrder
 {

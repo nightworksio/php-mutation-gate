@@ -18,6 +18,8 @@ use function str_starts_with;
  * so a failed re-run outweighs an earlier success. A check-run is a hint,
  * not a proof: any workflow run at that commit can make one under any name
  * (ADR-0005).
+ *
+ * @internal
  */
 final readonly class VerdictChecks
 {

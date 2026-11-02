@@ -29,6 +29,8 @@ use function str_contains;
  * A merge request's notes, as GitLab's notes API serves them to a token: the sticky note is the one holding the
  * hidden marker among the notes of the token's own user, which `/user` names, read oldest first, and it is put in
  * place where there is one and posted where there is none (ADR-0024).
+ *
+ * @internal
  */
 final readonly class MergeRequestThread implements CommentThread
 {

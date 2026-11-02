@@ -35,6 +35,8 @@ use function sprintf;
  * - For a coverage map: the tests the run asks for in the suites it asks
  *   for, their map written as Testo's XML coverage, and each one's time.
  * - For the suites' tests: listed into a file, and none run.
+ *
+ * @internal
  */
 final readonly class CommandLine
 {

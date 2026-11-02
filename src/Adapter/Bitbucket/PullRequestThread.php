@@ -32,6 +32,8 @@ use function str_contains;
  * token edit, which someone else wrote, is passed over. Where none is the token's own, a new one is posted. Over
  * the planned state alone, a comment no longer in it is put back as it was, which tells the token's own from
  * another's without changing it.
+ *
+ * @internal
  */
 final readonly class PullRequestThread implements CommentThread
 {

@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Native\Launched;
  * unit, the test files a coverage run runs, whether the run stops after the
  * first test that fails, and the files a coverage run's times and a listing
  * are written to.
+ *
+ * @internal
  */
 enum LaunchOption: string
 {

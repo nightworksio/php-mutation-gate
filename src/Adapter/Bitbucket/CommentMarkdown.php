@@ -25,6 +25,8 @@ use function strtr;
  * fenced by more backticks than any run inside it. Every other entity stays one, which Bitbucket shows as its
  * character and reads as no mention. The line that links the HTML report links the pipeline, which keeps it
  * among its artifacts.
+ *
+ * @internal
  */
 final readonly class CommentMarkdown
 {

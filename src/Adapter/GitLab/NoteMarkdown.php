@@ -14,6 +14,8 @@ use function strtr;
  * `@`, `#`, `!` and `~`, written as an entity where the project wrote it, stands in an element of its own. GitLab
  * finds references in the text of the rendered note, where an entity is already its character, and never across
  * two elements.
+ *
+ * @internal
  */
 final readonly class NoteMarkdown
 {

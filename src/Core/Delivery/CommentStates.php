@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\Written;
  * The states a sticky comment is written in, whichever forge keeps it: planned, re-checked over its planned state
  * alone, and judged (ADR-0009, ADR-0019, ADR-0020). Each is written through the thread now, or left in a
  * delivery where the run is a pull request's or a merge request's.
+ *
+ * @internal
  */
 final readonly class CommentStates implements Commenting
 {

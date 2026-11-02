@@ -33,6 +33,8 @@ use function sprintf;
  * (ADR-0024). The token is read from the variable `tokenEnv` names, `MUTATION_GATE_GITLAB_TOKEN` by default: a
  * project access token with the scope `api`. A fork's merge request pipeline runs in the fork, with none of the
  * project's variables, so it writes no note, and says why; so does any run that cannot write one, failing nothing.
+ *
+ * @internal
  */
 final readonly class MergeRequestNote implements Commenting, Deferring, Reporter
 {

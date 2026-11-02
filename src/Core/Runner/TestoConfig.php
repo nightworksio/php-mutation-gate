@@ -7,7 +7,11 @@ namespace NightWorksIO\MutationGate\Core\Runner;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 
-/** The name Testo's config has in a directory, which Testo reads where no `--config` names another. */
+/**
+ * The name Testo's config has in a directory, which Testo reads where no `--config` names another.
+ *
+ * @internal
+ */
 enum TestoConfig: string
 {
     case Php = 'testo.php';

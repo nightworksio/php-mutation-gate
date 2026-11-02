@@ -36,6 +36,8 @@ use function str_starts_with;
  * cannot read an organisation's teams. A placeholder anywhere but on a
  * heading stays as it is, so the project's own text mentions and records no
  * one.
+ *
+ * @internal
  */
 final readonly class OwnerMentions
 {

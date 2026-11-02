@@ -39,6 +39,8 @@ use function sprintf;
  * written through the pipeline's own proxy, which authorises the request itself, so it holds no token. The report
  * is deleted first, so an annotation of an earlier run of the commit never stays. A step that cannot write it
  * says why and fails nothing.
+ *
+ * @internal
  */
 final readonly class CodeInsights implements Reporter
 {

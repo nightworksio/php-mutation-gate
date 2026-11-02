@@ -41,6 +41,8 @@ use NightWorksIO\MutationGate\Core\Test\TestListing;
  * ever in, listed by a run of none, and measured with Testo's own XML
  * coverage, which the plugin times. It has no warm workers, its config sets
  * no PHP setting, and no stub is written in its style.
+ *
+ * @internal
  */
 final readonly class TestoFramework implements Framework
 {
