@@ -263,3 +263,12 @@ it('leaves no note for deliver on a pipeline that is no merge request\'s', funct
         ->and($note->write('text'))->toEqual(NotWritten::because('This run is not for a merge request, so there is no note to write.'))
         ->and($note->writeOverPlanned('text'))->toEqual(NotWritten::because('This run is not for a merge request, so there is no note to write.'));
 });
+
+it('reads the notes of a project encoded where its id holds a reserved character', function (): void {
+    $cloud = new Cloud()->answering(sprintf('%s/user', GITLAB_API), 200, '{"username": "project_42_bot"}');
+    $job = gitlabMergeRequest(['CI_PROJECT_ID' => 'acme/shop', 'CI_MERGE_REQUEST_PROJECT_ID' => 'acme/shop']);
+    MergeRequestNote::inEnvironment($job, $cloud->exchange(), 'MUTATION_GATE_GITLAB_TOKEN')->report(Verdicts::failing());
+
+    expect($cloud->requests[1]['url'])
+        ->toBe(sprintf('%s/projects/acme%%2Fshop/merge_requests/7/notes?sort=asc&order_by=created_at&per_page=100&page=1', GITLAB_API));
+});

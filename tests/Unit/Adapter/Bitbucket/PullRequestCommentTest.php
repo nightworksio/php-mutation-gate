@@ -268,3 +268,12 @@ it('leaves no comment for deliver on a step that is no pull request\'s', functio
         ->and($comment->write('text'))->toEqual(NotWritten::because(CommentStates::NOT_A_PULL_REQUEST))
         ->and($comment->writeOverPlanned('text'))->toEqual(NotWritten::because(CommentStates::NOT_A_PULL_REQUEST));
 });
+
+it('reads the comments of a workspace and a repository each encoded where it holds a reserved character', function (): void {
+    $cloud = new Cloud();
+    $step = bitbucketPullRequest(['BITBUCKET_WORKSPACE' => 'ac?me', 'BITBUCKET_REPO_SLUG' => 'sh/op']);
+    PullRequestComment::inEnvironment($step, $cloud->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN')->report(Verdicts::failing());
+
+    expect($cloud->requests[0]['url'])
+        ->toBe('https://api.bitbucket.org/2.0/repositories/ac%3Fme/sh%2Fop/pullrequests/7/comments?pagelen=50&page=1');
+});
