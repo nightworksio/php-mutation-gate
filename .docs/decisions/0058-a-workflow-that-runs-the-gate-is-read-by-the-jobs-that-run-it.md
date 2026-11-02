@@ -30,7 +30,9 @@ reached".
 
 1. **A GitHub Actions workflow that runs the gate is read by its shared keys
    and the jobs that run the gate.** The shared keys are every top-level key
-   besides `jobs`. A job runs the gate where:
+   besides `jobs`, `name`, `run-name` and `concurrency`, which say what its
+   runs are called and whether one waits for another. A job runs the gate
+   where:
    - a step or the job `uses` the gate's action or reusable workflow (a
      `uses` naming `php-mutation-gate`, or a path that ends in
      `/mutation-gate.yml`);
@@ -64,8 +66,9 @@ reached".
 
 ## Consequences
 
-- A change to a job that does not run the gate, or to a gate job's `name`,
-  `if` or `needs`, reaches nothing. #490's, #489's and #524's diffs reach
+- A change to a job that does not run the gate, to a gate job's `name`, `if`
+  or `needs`, or to the workflow's `name`, `run-name` or `concurrency`,
+  reaches nothing. #490's, #489's and #524's diffs reach
   nothing.
 - A change to how the gate job runs the gate, such as an input it passes or
   a step it runs, still reaches every unit.

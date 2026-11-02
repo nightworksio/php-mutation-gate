@@ -19,7 +19,9 @@ use function preg_match;
 
 /**
  * A GitHub Actions workflow that runs the gate, read job by job (ADR-0058):
- * its keys outside `jobs`, which every job shares, and the jobs that run the
+ * its keys outside `jobs`, which every job shares, but for its `name`,
+ * `run-name` and `concurrency`, which say what its runs are called and
+ * whether one waits for another, and the jobs that run the
  * gate, each without the job's own `name`, `if` and `needs`, which say what
  * it is called, whether it runs and after what, and nothing of how it runs
  * the gate. Every other job is left out, so a change to it runs the gate as
@@ -53,6 +55,12 @@ final readonly class WorkflowJobs
 
     /** A line inside the key above it: deeper, or blank. */
     private const string INSIDE = '/^( {5,}| *$)/u';
+
+    /** A workflow's own key that says what its runs are called or whether one waits for another. */
+    private const string WORKFLOW_OWN = '/^(name|run-name|concurrency): */u';
+
+    /** A line inside a top-level key: indented, or blank. */
+    private const string INDENTED = '/^( +| *$)/u';
 
     /** A step or a job that uses the gate's action, or a job that calls its reusable workflow. */
     private const string USES = '/^ *(- )?uses: *[\'"]?[^\'"\s]*(php-mutation-gate|\/mutation-gate\.ya?ml)/u';
@@ -99,13 +107,13 @@ final readonly class WorkflowJobs
      */
     private static function joined(array $lines, int $start, int $end, array $gate): string
     {
-        $kept = array_slice($lines, 0, $start + 1);
+        $kept = self::without(array_slice($lines, 0, $start + 1), self::WORKFLOW_OWN, self::INDENTED);
 
         foreach ($gate as $job) {
-            array_push($kept, ...self::withoutOwnKeys($job));
+            array_push($kept, ...self::without($job, self::OWN, self::INSIDE));
         }
 
-        array_push($kept, ...array_slice($lines, $end));
+        array_push($kept, ...self::without(array_slice($lines, $end), self::WORKFLOW_OWN, self::INDENTED));
 
         return implode("\n", $kept);
     }
@@ -204,18 +212,19 @@ final readonly class WorkflowJobs
     }
 
     /**
-     * A job without its own `name`, `if` and `needs`, each with the lines it holds.
+     * These lines without each key the first pattern opens, nor the lines
+     * the second takes for inside it.
      *
-     * @param  list<string> $job
+     * @param  list<string> $lines
      * @return list<string>
      */
-    private static function withoutOwnKeys(array $job): array
+    private static function without(array $lines, string $key, string $inside): array
     {
         $kept = [];
         $skipping = false;
 
-        foreach ($job as $line) {
-            $skipping = preg_match(self::OWN, $line) === 1 || ($skipping && preg_match(self::INSIDE, $line) === 1);
+        foreach ($lines as $line) {
+            $skipping = preg_match($key, $line) === 1 || ($skipping && preg_match($inside, $line) === 1);
 
             if (! $skipping) {
                 $kept[] = $line;

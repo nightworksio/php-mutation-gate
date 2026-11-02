@@ -31,7 +31,6 @@ const GATED_WORKFLOW = <<<'YAML'
 
 it('keeps the keys every job shares and the job that runs the gate, without its own name, needs and if', function (): void {
     expect(WorkflowJobs::running(GATED_WORKFLOW))->toBe(<<<'YAML'
-        name: ci
         on: pull_request
         env:
           PHP: '8.5'
@@ -86,3 +85,22 @@ it('keeps a gate job\'s keys besides its own name, if and needs, and a step\'s o
 it('reads each GitHub workflow init writes by the job that runs the gate', function (string $template): void {
     expect(WorkflowJobs::running((string) file_get_contents(Tree::at(sprintf('resources/ci/github/%s.yml', $template)))))->toBeString();
 })->with(['single', 'sharded']);
+
+it('leaves out the workflow\'s own name, run-name and concurrency, which say what its runs are called and whether one waits', function (): void {
+    $workflow = <<<'YAML'
+        name: ci
+        run-name: ci of ${{ github.ref }}
+        concurrency:
+          group: ci-${{ github.ref }}
+          cancel-in-progress: true
+        env:
+          PHP: '8.5'
+        jobs:
+          gate:
+            steps:
+              - run: vendor/bin/mutation-gate
+        YAML;
+
+    expect(WorkflowJobs::running($workflow))
+        ->toBe("env:\n  PHP: '8.5'\njobs:\n  gate:\n    steps:\n      - run: vendor/bin/mutation-gate");
+});
