@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Doctor\ComposerSetup;
 use NightWorksIO\MutationGate\Core\Doctor\InfectionConfig;
 use NightWorksIO\MutationGate\Core\Doctor\ProjectFiles;
 use NightWorksIO\MutationGate\Core\Doctor\RunnerConfig;
+use NightWorksIO\MutationGate\Core\Doctor\ServiceFiles;
 use NightWorksIO\MutationGate\Core\Doctor\SonarSources;
 use NightWorksIO\MutationGate\Core\Doctor\WarmRefusal;
 use NightWorksIO\MutationGate\Core\File\GitIgnore;
@@ -18,9 +19,10 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 it('gives no file it was not given', function (): void {
     $none = ProjectFiles::none();
 
-    expect([$none->gitIgnore(), $none->infection(), $none->composer(), $none->runningTheGate(), $none->baseline(), $none->sonarSources(), $none->warmRefusal()])
-        ->toEqual(array_fill(0, 7, NotGiven::value()))
-        ->and($none->runnerConfig())->toEqual(RunnerConfig::none());
+    expect([$none->gitIgnore(), $none->infection(), $none->composer(), $none->runningTheGate(), $none->baseline(), $none->warmRefusal()])
+        ->toEqual(array_fill(0, 6, NotGiven::value()))
+        ->and($none->runnerConfig())->toEqual(RunnerConfig::none())
+        ->and($none->services())->toEqual(ServiceFiles::none());
 });
 
 it('keeps each file it is given, whatever order they come in', function (): void {
@@ -29,21 +31,21 @@ it('keeps each file it is given, whatever order they come in', function (): void
     $composer = ComposerSetup::of(Paths::of(Path::of('packages/money')));
     $running = Paths::of(Path::of('.github/workflows/mutation.yml'));
     $baseline = Baseline::none();
-    $sonar = SonarSources::of(Path::of('src'));
+    $services = ServiceFiles::none()->withSonarSources(SonarSources::of(Path::of('src')));
     $warm = WarmRefusal::of('The boot left 1 socket open once bootstrap.php ran.');
     $runner = RunnerConfig::none()->withSuitesElsewhere(['Acceptance']);
     $files = ProjectFiles::none()
         ->withRunnerConfig($runner)
         ->withWarmRefusal($warm)
-        ->withSonarSources($sonar)
+        ->withServices($services)
         ->withBaseline($baseline)
         ->withRunningTheGate($running)
         ->withComposer($composer)
         ->withInfection($infection)
         ->withGitIgnore($gitIgnore);
 
-    expect([$files->gitIgnore(), $files->infection(), $files->composer(), $files->runningTheGate(), $files->baseline(), $files->sonarSources(), $files->warmRefusal()])
-        ->toBe([$gitIgnore, $infection, $composer, $running, $baseline, $sonar, $warm])
+    expect([$files->gitIgnore(), $files->infection(), $files->composer(), $files->runningTheGate(), $files->baseline(), $files->services(), $files->warmRefusal()])
+        ->toBe([$gitIgnore, $infection, $composer, $running, $baseline, $services, $warm])
         ->and($files->runnerConfig())->toBe($runner)
         ->and(ProjectFiles::none()->withBaseline(CannotJudge::because('unreadable'))->baseline())->toEqual(CannotJudge::because('unreadable'));
 });

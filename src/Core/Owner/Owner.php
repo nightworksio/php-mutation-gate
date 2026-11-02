@@ -9,6 +9,7 @@ use function mb_strtolower;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
 use function preg_match;
+use function str_contains;
 
 /**
  * One owner a CODEOWNERS rule names, as GitHub spells it: `@user`,
@@ -38,6 +39,18 @@ final readonly class Owner
     public function is(self $other): bool
     {
         return mb_strtolower($this->value) === mb_strtolower($other->value);
+    }
+
+    /** Whether the owner is a user or a team, `@user` or `@org/team` exactly, which GitHub mentions. */
+    public function isHandle(): bool
+    {
+        return preg_match(self::HANDLE, $this->value) === 1;
+    }
+
+    /** Whether the owner is an organisation's team, `@org/team`. */
+    public function isTeam(): bool
+    {
+        return $this->isHandle() && str_contains($this->value, '/');
     }
 
     /** The owner as the rule writes it: `@acme/payments`. */

@@ -109,7 +109,9 @@ verdict reaches and how.
      an edit does not notify, `first` posts one short separate comment with
      the mentions and a link to the sticky comment. If the bot cannot
      mention a team, team names are printed without `@` and `doctor` says
-     so.
+     so. ADR-0049 amends this: the record holds each user and team rather
+     than each group, an edit mentions so no separate comment is posted, and
+     a comment `github-actions[bot]` writes mentions no team.
    - Owners are the one place the comment writes a mention. An owner token
      is printed only if it matches `@user` or `@org/team` exactly. An email
      owner is printed as plain text. Everything else the project wrote stays
@@ -173,7 +175,10 @@ verdict reaches and how.
      step of the build confirms GitHub's branch suffix, and otherwise
      through the API. With neither, the rule is not applied and the group is
      judged.
-   - The pull request's own ledger is never read.
+   - The pull request's own ledger is never read. ADR-0049 amends this: the
+     pull request is read from the branch's suffix, and its `passed` record
+     alone is read from its own ledger where `ci.trustMergedPullRequests` is
+     true.
 
 8. **After the queue merges, the push to the default branch reaches nothing
    the queue proved.**
@@ -181,7 +186,9 @@ verdict reaches and how.
      equals a merge group's head tree, whose `ci.check` passed with no
      own-scope proofs, reaches nothing.
    - Trees are compared, so the rule holds whether GitHub lands the group's
-     exact commit or another commit with the same tree.
+     exact commit or another commit with the same tree. ADR-0049 amends
+     this: GitHub lands the group's own commit, so the push reads that
+     commit's own check suites, and any other commit is judged.
 
 9. **The action, the reusable workflow and `init --ci` handle `merge_group`.**
    - `mode: auto` is change-scoped on `merge_group`, from
@@ -443,3 +450,4 @@ score and code scanning see every mutant as before.
 - [ADR-0019](0019-contributor-automation-runs-no-pull-request-content-where-it-can-write.md): the release workflow and the OIDC roles
 - [ADR-0021](0021-mutators-are-written-once-and-first-party-sets-can-leave.md): the SDK's namespace the PHAR leaves unscoped
 - [ADR-0024](0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md): GitLab's comment, where GitLab's CODEOWNERS syntax is read
+- [ADR-0049](0049-an-owner-is-mentioned-once-and-a-merge-group-trusts-its-pull-request-as-a-merged-one.md): owners recorded one by one, and the pull request's `passed` record a merge group reads, which amend this

@@ -53,6 +53,7 @@
                             "anonymous-reads-refused",
                             "outside-sonar-sources",
                             "suite-served-elsewhere",
+                            "teams-not-mentioned",
                             "survived",
                             "uncovered",
                             "unjudged",

@@ -46,6 +46,7 @@ enum Slug: string
     case AnonymousReadsRefused = 'anonymous-reads-refused';
     case OutsideSonarSources = 'outside-sonar-sources';
     case SuiteServedElsewhere = 'suite-served-elsewhere';
+    case TeamsNotMentioned = 'teams-not-mentioned';
     case Survived = 'survived';
     case Uncovered = 'uncovered';
     case Unjudged = 'unjudged';

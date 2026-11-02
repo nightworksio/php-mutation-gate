@@ -122,3 +122,9 @@ it('looks for the file where GitHub does, in its order', function (): void {
     expect(CodeOwners::LOCATIONS)->toBe(['.github/CODEOWNERS', 'CODEOWNERS', 'docs/CODEOWNERS'])
         ->and(CodeOwners::MOST_BYTES)->toBe(3 * 1024 * 1024);
 });
+
+it('names a team where any rule names one, and none where no rule does', function (): void {
+    expect(CodeOwners::read(Path::of('CODEOWNERS'), "/docs/ docs@acme.example\n/src/Http/ @jo @acme/web\n")->namesTeam())->toBeTrue()
+        ->and(CodeOwners::read(Path::of('CODEOWNERS'), "/src/ @jo docs@acme.example\n!/x @acme/x\n")->namesTeam())->toBeFalse()
+        ->and(CodeOwners::none()->namesTeam())->toBeFalse();
+});

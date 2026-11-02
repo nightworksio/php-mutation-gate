@@ -309,6 +309,8 @@ services:
                     - RUN # Codeception's own command and options, not a record's field or a verdict's origin
                 'NightWorksIO\MutationGate\Adapter\PhpSpec\Selecting':
                     - FIRST # a maintainer's priority above PhpSpec's own, not a poll's microseconds
+                'NightWorksIO\MutationGateLaravel\Mutators\FirstOrFailToFirst':
+                    - FORGIVING # Eloquent's method that forgives a missing row, not when the comment mentions an owner
                 'NightWorksIO\MutationGate\Core\ThisPackage':
                     - OWN # directories from this file up to the package's own, not an exit code
                 'NightWorksIO\MutationGate\Adapter\Native\Warm\Workforce':

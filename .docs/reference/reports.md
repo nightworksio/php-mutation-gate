@@ -26,7 +26,7 @@ command line:
 | `otlp` | Listed in `reports` | The run's trace (`plan`, each `shard <n>` with a span for each step its time went to, and `verdict`) and the verdict's metrics as OTLP/HTTP JSON, to `/v1/traces` and `/v1/metrics` under `with: {endpoint: …}` or `OTEL_EXPORTER_OTLP_ENDPOINT`, with `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_SERVICE_NAME` and `OTEL_RESOURCE_ATTRIBUTES` |
 | `github-annotations` | Under GitHub Actions | Up to 10 error, 10 warning and 10 notice annotations, changed lines first, and one for each cluster of survivors |
 | `github-summary` | Under GitHub Actions | The step summary: what a timed run took and saved, what the default branch saved over 30 days, what pruning left out, what each suite alone kills, and every mutant counted as not killed in one table, or one table per owner group where the project has a CODEOWNERS, a cluster of survivors as one row, and every ignored mutant with why in another |
-| `github-comment` | On a pull request, with `GITHUB_TOKEN` | One sticky comment, updated in place, headed `sampled` for a sampled run, with what a timed run took and saved and what pruning left out under the verdict, the survivors on changed lines under their owner group where the project has a CODEOWNERS, up to 20 ignored mutants with why, and what it cost folded at the end, within the 65,536 characters GitHub takes: each list shows fewer entries where it must, and each diff and hint at most 1,500 characters; `with: {identity: …}` names the account it is found by when the token is not `GITHUB_TOKEN` |
+| `github-comment` | On a pull request, with `GITHUB_TOKEN` | One sticky comment, updated in place, headed `sampled` for a sampled run, with what a timed run took and saved and what pruning left out under the verdict, the survivors on changed lines under their owner group where the project has a CODEOWNERS, each user and team mentioned the first time under `owners.mention: first`, up to 20 ignored mutants with why, and what it cost folded at the end, within the 65,536 characters GitHub takes: each list shows fewer entries where it must, and each diff and hint at most 1,500 characters; `with: {identity: …}` names the account it is found by when the token is not `GITHUB_TOKEN` |
 | `badge` | In CI, on the default branch | `badge.json`, `trend.json`, `trend.svg`, `savings.json` and `summary.json`, described by [`resources/summary.schema.json`](../../resources/summary.schema.json), in its `path`, or in `--publish-dir` where it names none; a run its budget cut short, or a sampled run, writes none of them. The badge's colours are `badge.colors`, and the commit each trend point records is `with: {commit: …}`, or else the CI's own: `GITHUB_SHA`, `CI_COMMIT_SHA`, `BUILDKITE_COMMIT` or `CIRCLE_SHA1` |
 
 ## SonarQube
@@ -103,10 +103,21 @@ refuses (`!`, `[ ]`, an escaped `#`, an owner that is not `@user`,
 The console, the comment and the step summary say what the code of each
 owner group the change touched scores, and list the survivors under their
 group, each group headed by its owners and how many survivors it has. The
-comment names owners as text and mentions no one. The JSON report's
+JSON report's
 `owners` gives each group its `owners`, `score`, `judgement`, `said`,
 `counts` and `mutants`, the unowned group with no owners; each mutant is in
 exactly one group, so the groups add up to the project.
+
+Under `owners.mention: first`, the default, the comment mentions each user
+and team in the update that first heads a group of survivors on changed
+lines naming it, and names it without a mention in every update after that
+([ADR-0049](../decisions/0049-an-owner-is-mentioned-once-and-a-merge-group-trusts-its-pull-request-as-a-merged-one.md)).
+The comment ends with a hidden record of who it has mentioned, which each
+update reads and carries on. A comment `github-actions[bot]` writes mentions
+no team, since `GITHUB_TOKEN` cannot read an organisation's teams; the team
+is named without a mention, and `doctor` says so. An email address is never
+mentioned, and the console, the step summary and every other report mention
+no one. `owners.mention: never` names every owner without a mention.
 
 `owners.floors` holds an owner to a floor of its own, over the code of every
 file whose rule names it, in whatever group, matching the owner in any case.

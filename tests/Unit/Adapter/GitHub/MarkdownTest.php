@@ -593,6 +593,20 @@ it('comments on the survivors on changed lines under their owner group, each wit
         ->and($comment)->not->toContain('#### unowned');
 });
 
+it('heads each owner group of the comment with a placeholder for each owner, under owners.mention first, and the summary with text', function () use ($run): void {
+    $comment = Markdown::comment(Owners::mentioned());
+    $summary = Markdown::summary(Owners::mentioned(), $run, Verdicts::monthAgo());
+
+    expect($comment)->toContain(sprintf(
+        "### Survivors on changed lines (1)\n\n#### %s %s (1)\n",
+        '<!-- mutation-gate: mention @acme/payments -->',
+        '<!-- mutation-gate: mention @jo -->',
+    ))
+        ->and($comment)->toContain('- Code owned by &#64;acme/payments &#64;jo scores 33.33%.')
+        ->and($summary)->toContain('#### &#64;acme/payments &#64;jo (2)')
+        ->and($summary)->not->toContain('mutation-gate: mention');
+});
+
 it('writes every mutant not killed in the step summary under its owner group, in a table each', function () use ($run): void {
     $summary = Markdown::summary(Owners::verdict(), $run, Verdicts::monthAgo());
 

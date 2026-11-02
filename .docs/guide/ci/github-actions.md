@@ -342,6 +342,12 @@ These reporters run on their own under GitHub Actions
   opens the page. It is found as the comment is written, with
   `actions: read`, so a comment updated in place links the run that wrote
   it. Where the run holds no such artifact, the comment says why instead.
+  Where the project has a CODEOWNERS, it mentions each user and team in the
+  update that first gives their code a survivor on a changed line, and
+  never again on that pull request. Written with `GITHUB_TOKEN`, it names
+  teams without a mention, since that token cannot read an organisation's
+  teams; `owners.mention: never` mentions no one
+  ([survivors and their owners](../../reference/reports.md#survivors-and-their-owners)).
 - **`badge`**: on the default branch, `badge.json`, `trend.json`, `trend.svg`,
   `savings.json` and `summary.json`, what an organisation's dashboard reads,
   in `--publish-dir` (`.mutation-gate/publish` by default). Publishing that directory is up to your workflow. Published to a

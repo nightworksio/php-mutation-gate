@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Owner\CodeOwners;
 use NightWorksIO\MutationGate\Core\Owner\Owner;
 use NightWorksIO\MutationGate\Core\Owner\OwnerFloor;
 use NightWorksIO\MutationGate\Core\Owner\OwnerFloors;
+use NightWorksIO\MutationGate\Core\Owner\OwnerMention;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
@@ -71,6 +72,14 @@ final class Owners
     public static function verdict(): Verdict
     {
         return Verdict::of(self::trees())->withSets(HeldSets::none()->owned(self::verdicts()));
+    }
+
+    /** The verdict over both trees, its mutants grouped by owner, whose comment mentions each owner the first time. */
+    public static function mentioned(): Verdict
+    {
+        return Verdict::of(self::trees())->withSets(
+            HeldSets::none()->owned(self::verdicts()->mentioning(OwnerMention::First)),
+        );
     }
 
     /**
