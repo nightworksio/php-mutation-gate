@@ -70,7 +70,7 @@ There is no separate requirements document, and there are no requirement IDs.
 | [0039](0039-the-jobs-that-hold-a-credential-run-on-a-runner-of-their-own.md) | The jobs that hold a credential run on a runner of their own | Accepted |
 | [0040](0040-a-verdict-stands-only-on-what-it-can-stand-behind.md) | A verdict stands only on what it can stand behind: proofs of its own kind, its own plan and shards, floors never lower than written, and could-not-judge for whatever it could not finish | Accepted; its lowered-floor base amended by [0050](0050-a-pull-request-is-read-against-the-branch-it-merges-into.md) |
 | [0041](0041-a-runner-release-the-gate-does-not-drive-is-named-before-the-run.md) | A runner release the gate does not drive is named before the run, and pest-plugin-mutate follows its major | Accepted |
-| [0042](0042-the-gate-runs-on-php-8-4-on-linux-and-macos.md) | The gate runs on PHP 8.4 and later, on Linux and macOS, and CI runs it on each | Accepted |
+| [0042](0042-the-gate-runs-on-php-8-4-on-linux-and-macos.md) | The gate runs on PHP 8.4 and later, on Linux and macOS, and CI runs it on each | Accepted; its `macos` job amended by [0053](0053-ci-runs-the-suite-on-linux-alone.md) for where CI runs the suite |
 | [0043](0043-what-semver-covers-is-marked-in-the-code-and-the-port-contracts-ship-as-kits.md) | What semver covers is marked in the code, and the runner and proof store contracts ship as kits | Accepted |
 | [0044](0044-the-artwork-is-one-named-set-and-the-site-shows-it-as-php-mutation-gate.md) | The artwork is one named set in `.docs/brand/`, and the site shows it as php-mutation-gate | Accepted |
 | [0045](0045-questions-go-to-a-q-and-a-category-of-discussions.md) | Questions go to a Q&A category of Discussions | Accepted |
@@ -80,5 +80,6 @@ There is no separate requirements document, and there are no requirement IDs.
 | [0049](0049-an-owner-is-mentioned-once-and-a-merge-group-trusts-its-pull-request-as-a-merged-one.md) | An owner is mentioned once, and a merge group trusts its pull request only as a merged one is trusted | Accepted |
 | [0050](0050-a-pull-request-is-read-against-the-branch-it-merges-into.md) | A pull request is read against the branch it merges into | Accepted |
 | [0051](0051-the-action-runs-the-release-s-signed-phar-where-the-project-has-no-copy.md) | The action runs the release's signed PHAR where the project has no copy of the gate | Accepted |
+| [0053](0053-ci-runs-the-suite-on-linux-alone.md) | CI runs the suite on Linux alone | Accepted |
 
 <!-- index:end -->
