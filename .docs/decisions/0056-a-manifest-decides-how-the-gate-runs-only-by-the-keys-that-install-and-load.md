@@ -14,9 +14,9 @@ Of the 45 pull requests this repository merged from #471 to #517, #500
 changed only the manifest's `support` links and two `scripts-descriptions`.
 Its verdict says "`composer.json` decides how the gate runs, so every unit
 is reached", and it ran all 2,163 units on 20 shards, 383 shard-minutes.
-#491 changed the `description` and the `keywords`, and the conflict on
-`pestphp/pest-plugin-mutate`. Only the conflict moves what a mutant runs
-against.
+Pull request #491 changed the `description` and the `keywords`, and the
+conflict on `pestphp/pest-plugin-mutate`. Only the conflict moves what a
+mutant runs against.
 
 ## Decision
 
