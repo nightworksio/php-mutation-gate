@@ -74,7 +74,7 @@ jobs:
 | `runner` | the config's, or the one installed |
 | `shard` | none: the whole gate runs |
 | `mode` | `auto`: change-scoped on pull requests, merge groups and pushes, full on schedules, manual runs, releases and tags; or `full`, or `changed`, or `sampled`: what `auto` considers, with the units no run knows exactly sampled, as `--sample` asks |
-| `changed-since` | the pull request's base on `pull_request`, the group's `merge_group.base_sha` on `merge_group`, the default branch on any other branch, `last-passed` on the default branch; used when the mode is change-scoped |
+| `changed-since` | on `pull_request`, the commit its merge checkout merges it onto, the merge's first parent, which is where its base branch stands now (its base's sha where the checkout is no merge); the group's `merge_group.base_sha` on `merge_group`, the default branch on any other branch, `last-passed` on the default branch; used when the mode is change-scoped |
 | `budget` | none |
 | `reports` | none; `<name>:<path>` lines, such as `sarif:build/mutation.sarif` |
 | `cache` | `true`: keep the ledger in the Actions cache |

@@ -176,26 +176,33 @@ def from_fork(payload: dict) -> bool:
 
 
 def mode_arguments(
-    mode: str, changed_since: str, event: str, ref: str, payload: dict, default_branch: str
+    mode: str, changed_since: str, event: str, ref: str, payload: dict, default_branch: str, merged_onto: str = ""
 ) -> list[str]:
     """The options that choose what the gate considers: every unit, or what changed since a ref.
 
-    With no base given, a pull request runs from its base, a merge group from
-    the commit its queue built it on (ADR-0022), another branch from the
-    default branch, and the default branch from the last commit whose verdict
-    passed (ADR-0005). `sampled` considers what `auto` does, and samples the
-    units no proof covers (ADR-0020).
+    With no base given, a pull request runs from the commit its checkout
+    merges it onto, `merged_onto`, the first parent of the merge GitHub makes
+    for it, and from its base where the checkout is no merge. Its base's sha
+    is the base branch where the pull request was last updated, so once that
+    branch moves on, a diff from it would count all it gained since as the pull
+    request's change. A merge group runs from the commit its queue built it on
+    (ADR-0022), which holds every pull request the group merges. Another branch
+    runs from the default branch, and the default branch from the last commit
+    whose verdict passed (ADR-0005). `sampled` considers what `auto` does, and
+    samples the units no proof covers (ADR-0020).
     """
     if mode not in MODES:
         raise Refused(f"mode is {mode!r}; it is auto, full, changed or sampled.")
     if mode == "sampled":
-        return [*mode_arguments("auto", changed_since, event, ref, payload, default_branch), "--sample"]
+        return [*mode_arguments("auto", changed_since, event, ref, payload, default_branch, merged_onto), "--sample"]
     tag = ref.startswith("refs/tags/")
     if mode == "full" or (mode == "auto" and (event in FULL or tag)):
         return ["--full"]
     if changed_since:
         return [f"--changed-since={changed_since}"]
     base = ((payload.get("pull_request") or {}).get("base") or {}).get("sha")
+    if event == "pull_request" and merged_onto:
+        return [f"--changed-since={merged_onto}"]
     if event == "pull_request" and isinstance(base, str) and base:
         return [f"--changed-since={base}"]
     group = (payload.get("merge_group") or {}).get("base_sha")
@@ -205,6 +212,11 @@ def mode_arguments(
     if branch and default_branch and branch != default_branch:
         return [f"--changed-since=origin/{default_branch}"]
     return ["--changed-since=last-passed"]
+
+
+def merged_onto(parents: list[str]) -> str:
+    """The commit a merge checkout merges onto, its first parent, from `git rev-list --parents`: none where it is no merge."""
+    return parents[1] if len(parents) > 2 else ""
 
 
 def cache_prefix(ledger_scope: str) -> str:
@@ -535,7 +547,13 @@ def _resolve() -> dict[str, str]:
         raise Refused(why)
     default_branch = os.environ.get("DEFAULT_BRANCH", "")
     arguments = mode_arguments(
-        os.environ.get("MODE", "auto"), os.environ.get("CHANGED_SINCE", ""), event, ref, payload, default_branch
+        os.environ.get("MODE", "auto"),
+        os.environ.get("CHANGED_SINCE", ""),
+        event,
+        ref,
+        payload,
+        default_branch,
+        merged_onto(_parents()) if event == "pull_request" else "",
     )
     options = _options()
     kept = ledgers(event, ref, payload, default_branch, os.environ.get("CACHE") == "true")
@@ -641,6 +659,14 @@ def _ran(command: list[str], failed: str) -> str:
 def _payload() -> dict:
     path = os.environ.get("GITHUB_EVENT_PATH", "")
     return _json_file(path) if path and os.path.isfile(path) else {}
+
+
+def _parents() -> list[str]:
+    """The checkout's commit and its parents, as git lists them: none where git cannot say, as in a shallow clone."""
+    listed = subprocess.run(
+        ["git", "rev-list", "--parents", "-n", "1", "HEAD"], capture_output=True, text=True, check=False, timeout=60
+    )
+    return listed.stdout.split() if listed.returncode == 0 else []
 
 
 def _installed() -> dict:

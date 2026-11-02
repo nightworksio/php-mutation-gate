@@ -66,11 +66,62 @@ class Mode(unittest.TestCase):
             [f"--changed-since={'b' * 40}"],
         )
 
+    def test_auto_on_a_pull_request_runs_from_the_commit_its_merge_checkout_merges_onto_not_a_stale_base(self):
+        onto = "e" * 40
+        self.assertEqual(
+            action.mode_arguments("auto", "", "pull_request", "refs/pull/12/merge", PULL, "main", onto),
+            [f"--changed-since={onto}"],
+        )
+        self.assertEqual(
+            action.mode_arguments("sampled", "", "pull_request", "refs/pull/12/merge", PULL, "main", onto),
+            [f"--changed-since={onto}", "--sample"],
+        )
+        self.assertEqual(
+            action.mode_arguments("changed", "v1.2.0", "pull_request", "refs/pull/12/merge", PULL, "main", onto),
+            ["--changed-since=v1.2.0"],
+        )
+
+    def test_a_merge_checkout_merges_onto_its_first_parent_and_a_commit_of_one_parent_onto_nothing(self):
+        merge, onto, head = "a" * 40, "e" * 40, "f" * 40
+        self.assertEqual(action.merged_onto([merge, onto, head]), onto)
+        self.assertEqual(action.merged_onto([merge, onto]), "")
+        self.assertEqual(action.merged_onto([merge]), "")
+        self.assertEqual(action.merged_onto([]), "")
+
+    def test_reads_a_merge_checkout_s_parents_from_git(self):
+        with tempfile.TemporaryDirectory() as directory:
+            def git(*arguments: str) -> str:
+                environment = {**os.environ, "GIT_AUTHOR_NAME": "a", "GIT_AUTHOR_EMAIL": "a@a", "GIT_COMMITTER_NAME": "a",
+                               "GIT_COMMITTER_EMAIL": "a@a", "GIT_CONFIG_GLOBAL": os.devnull}
+                ran = subprocess.run(["git", *arguments], cwd=directory, env=environment, capture_output=True, text=True, check=True)
+                return ran.stdout.strip()
+
+            git("init", "--quiet", "--initial-branch=main")
+            git("commit", "--quiet", "--allow-empty", "--message=base")
+            git("checkout", "--quiet", "-b", "change")
+            git("commit", "--quiet", "--allow-empty", "--message=change")
+            git("checkout", "--quiet", "main")
+            git("commit", "--quiet", "--allow-empty", "--message=main moved on")
+            onto = git("rev-parse", "HEAD")
+            git("merge", "--quiet", "--no-ff", "--no-edit", "change")
+            before = os.getcwd()
+            os.chdir(directory)
+            try:
+                found = action.merged_onto(action._parents())
+            finally:
+                os.chdir(before)
+
+        self.assertEqual(found, onto)
+
     def test_auto_on_a_merge_group_is_what_changed_since_the_commit_its_queue_built_it_on(self):
         ref = f"refs/heads/gh-readonly-queue/main/pr-12-{'c' * 40}"
         group = {"merge_group": {"base_sha": "c" * 40, "head_sha": "d" * 40}}
         self.assertEqual(
             action.mode_arguments("auto", "", "merge_group", ref, group, "main"), [f"--changed-since={'c' * 40}"]
+        )
+        self.assertEqual(
+            action.mode_arguments("auto", "", "merge_group", ref, group, "main", "e" * 40),
+            [f"--changed-since={'c' * 40}"],
         )
         self.assertEqual(
             action.mode_arguments("changed", "v1.2.0", "merge_group", ref, group, "main"), ["--changed-since=v1.2.0"]

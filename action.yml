@@ -30,7 +30,7 @@ inputs:
     required: false
     default: auto
   changed-since:
-    description: A git ref, or last-passed; where empty, the pull request's base on pull_request, the group's base on merge_group, the default branch on another branch, and last-passed on the default branch.
+    description: A git ref, or last-passed; where empty, on pull_request the commit its merge checkout merges it onto (its base where the checkout is no merge), the group's base on merge_group, the default branch on another branch, and last-passed on the default branch.
     required: false
     default: ''
   budget:
