@@ -47,4 +47,4 @@ it('gives each child forked from one parent a sequence of its own, where unseede
     expect($copied[0])->toBe($copied[1])
         ->and($reseeded[0])->not->toBe($reseeded[1])
         ->and($reseeded[0])->not->toBe($copied[0]);
-})->skip(fn(): bool => ! function_exists('pcntl_fork'), 'pcntl is not loaded')->group('holds:src/Adapter/Runtime/ForkedChild.php');
+})->skip(fn(): bool => ! function_exists('pcntl_fork'), 'pcntl is not loaded');
