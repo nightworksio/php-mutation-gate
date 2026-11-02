@@ -16,6 +16,11 @@ everything outside it is internal
 
 Internal code may change in any release.
 
+No version is tagged, so the promise covers no install. A project that
+requires `dev-main` installs a commit of `main`, and any commit may change the
+covered surface; `composer.lock` holds the commit, so the surface moves only
+when `composer update` moves it.
+
 ## What is covered
 
 | Surface | Where it is described |

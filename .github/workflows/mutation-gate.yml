@@ -39,7 +39,7 @@ on:
         type: string
         default: '8.5'
       runner:
-        description: pest, infection or a registered runner's name; the config's, or zero-config's, where empty.
+        description: pest, infection, phpunit, phpspec, codeception, testo or a registered runner's name; the config's, or zero-config's, where empty.
         type: string
         default: ''
       mode:

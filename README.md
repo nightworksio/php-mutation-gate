@@ -19,7 +19,7 @@
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/nightworksio/php-mutation-gate/badge)](https://scorecard.dev/viewer/?uri=github.com/nightworksio/php-mutation-gate)
 
 [![PHP](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fnightworksio%2Fphp-mutation-gate%2Fmain%2Fcomposer.json&query=%24.require.php&label=PHP&color=777BB4&logo=php&logoColor=white)](#requirements)
-[![runners](https://img.shields.io/badge/runs-Pest%20%C2%B7%20Infection%20%C2%B7%20PHPUnit%20%C2%B7%20PhpSpec%20%C2%B7%20Codeception-4b5563)](#requirements)
+[![runners](https://img.shields.io/badge/runs-Pest%20%C2%B7%20Infection%20%C2%B7%20PHPUnit%20%C2%B7%20PhpSpec%20%C2%B7%20Codeception%20%C2%B7%20Testo-4b5563)](#requirements)
 [![docs](https://img.shields.io/badge/docs-nightworksio.github.io-0f766e)](https://nightworksio.github.io/php-mutation-gate/guide/)
 [![discussions](https://img.shields.io/github/discussions/nightworksio/php-mutation-gate?label=Q%26A)](https://github.com/nightworksio/php-mutation-gate/discussions/categories/q-a)
 [![licence](https://img.shields.io/github/license/nightworksio/php-mutation-gate?label=licence)](https://github.com/nightworksio/php-mutation-gate/blob/main/LICENSE)
@@ -35,13 +35,13 @@
 </div>
 
 php-mutation-gate turns mutation testing into a check your pull requests must pass.
-It is for PHP projects tested with Pest, Infection or PHPUnit that want a
-mutation score they can hold in CI without mutating the whole codebase on
-every push.
+It is for PHP projects tested with Pest, Infection, PHPUnit, PhpSpec,
+Codeception or Testo that want a mutation score they can hold in CI without
+mutating the whole codebase on every push.
 
-The mutating itself is done by the tool you already use: Pest's `--mutate`,
-Infection, or, for PHPUnit on its own, the gate's own mutators. The gate
-decides:
+The mutating itself is done by the tool you already use, Pest's `--mutate` or
+Infection, or, for PHPUnit on its own, PhpSpec, Codeception and Testo, by the
+gate's own mutators. The gate decides:
 
 - **what to mutate:** on a pull request, only the code the change reaches;
 - **where to run it:** cut into shards that fill as many CI jobs as the work
@@ -54,8 +54,9 @@ decides:
 Every surviving mutant arrives with the one command that reproduces it and a
 sentence saying what the tests miss.
 
-> **No version is tagged.** The gate is published to no package registry:
-> install it from this repository's `main` branch, as the quick start shows.
+> **No version is tagged.** The gate is published to no package registry, and
+> no release PHAR or container image exists: install it with Composer from
+> this repository's `main` branch, as the quick start shows.
 
 Each release's PHAR is signed with the release key, whose fingerprint is
 `5EAA 6082 E57F F4C5 42A2  EA66 B757 A4B1 1361 16D2`, and attested by
@@ -124,7 +125,8 @@ vendor/bin/mutation-gate
 
 `init` detects your runner, preset (Laravel, Symfony or a plain library) and
 CI, asks what detection leaves open, writes a config, and adds
-`.mutation-gate/` to `.gitignore`. The config is
+`.mutation-gate/` to `.gitignore`. It also offers to set up a pre-push hook
+that runs the gate on each push; `init --no-hook` declines it. The config is
 optional: with none, the gate takes its trees from the `<source>` of
 `phpunit.xml` (or `phpunit.dist.xml`, or `phpunit.xml.dist`), one per
 directory it names.
@@ -135,23 +137,30 @@ what they miss, and the commands that reproduce and explain it. On a pull
 request, one looks like this:
 
 ```text
-src/Money.php:7  LessToLessOrEqual  survived, on a changed line  3f9a1c2b7d04
-    --- Original
-    +++ New
+src/Money.php:11  default/SmallerToSmallerOrEqual  survived, on a changed line  4e12c9d0139b
     @@ @@
     -        if ($amount < $limit) {
     +        if ($amount <= $limit) {
-    Judged by: MoneyTest::fits, MoneyTest::refuses, PriceTest::adds, CartTest::totals
-    Add a test that uses a value at the boundary of `$amount < $limit`. It is judged by `MoneyTest::fits`, `MoneyTest::refuses`, `PriceTest::adds` and 1 more.
-    Reproduce: vendor/bin/mutation-gate reproduce 3f9a1c2b7d04
-    Explain: vendor/bin/mutation-gate explain 3f9a1c2b7d04
+    Judged by: tests/MoneyTest.php::testFits
+    Add a test that uses a value at the boundary of `$amount < $limit`. It is judged by `Acme\Tests\MoneyTest::testFits`.
+    Reproduce: vendor/bin/mutation-gate reproduce 4e12c9d0139b
+    Explain: vendor/bin/mutation-gate explain 4e12c9d0139b
 ```
 
-The first local run writes `mutation-gate.baseline.json`, holding each tree's
-floor at the score it measured. Commit it. From then on a score may not fall
-below its floor, and `vendor/bin/mutation-gate baseline --write` raises the
-floors when scores improve. `vendor/bin/mutation-gate doctor` says what would
-fail or run slowly before a run finds out.
+The config `init` writes gives no tree a floor, so the first run passes and
+warns. Write each tree's floor at the score it measured, and commit it with
+the config:
+
+```sh
+vendor/bin/mutation-gate baseline --write
+git add .gitignore mutation-gate.php mutation-gate.baseline.json
+```
+
+From then on a score may not fall below its floor, and
+`vendor/bin/mutation-gate baseline --write` raises the floors when scores
+improve. `vendor/bin/mutation-gate doctor` says what would fail or run slowly
+before a run finds out. [The guide](https://nightworksio.github.io/php-mutation-gate/guide/)
+walks the same steps, and CI after them.
 
 New to mutation testing? [Reading the report](https://nightworksio.github.io/php-mutation-gate/guide/reading-the-report/)
 says what the report shows, what is good and what is not, and what to do
@@ -164,11 +173,12 @@ A CI run plans the work, mutates each shard in parallel, and judges the
 result in a verdict job, which is the check to require.
 `vendor/bin/mutation-gate init --ci` writes the definition for GitHub
 Actions, GitLab CI, Buildkite, CircleCI, Azure DevOps, Bitbucket Pipelines or
-Jenkins; on GitHub it uses this repository as an action, or calls its
-reusable workflow. The action runs the project's own copy where its
-`composer.json` requires the gate, and otherwise the signed PHAR of the
-release the action is pinned to, once the PHAR's signature and attestation
-hold. [Running the gate in CI](https://nightworksio.github.io/php-mutation-gate/guide/ci/)
+Jenkins; on GitHub it uses this repository as an action, pinned to the commit
+the project installed, or calls its reusable workflow. The action runs the
+project's own copy where its `composer.json` requires the gate. Pinned to a
+release, it runs that release's signed PHAR for a project that requires no
+copy, once the PHAR's signature and attestation hold; no release is tagged.
+[Running the gate in CI](https://nightworksio.github.io/php-mutation-gate/guide/ci/)
 has a page for each, and the commands for any other CI.
 
 ## Documentation
@@ -208,7 +218,7 @@ has a page for each, and the commands for any other CI.
 | | Pull-request mode: changed lines and what the change reaches, with a stricter floor for new code | yes | [0003](https://nightworksio.github.io/php-mutation-gate/decisions/0003-a-floor-only-rises/), [0005](https://nightworksio.github.io/php-mutation-gate/decisions/0005-what-a-change-reaches-is-what-is-mutated/) |
 | | Monorepos: a floor per package and module, with reach that follows the dependencies | yes | [0005](https://nightworksio.github.io/php-mutation-gate/decisions/0005-what-a-change-reaches-is-what-is-mutated/) |
 | | `migrate`: a config and a baseline moved to the current format, in any of the four formats | yes | [0026](https://nightworksio.github.io/php-mutation-gate/decisions/0026-configs-and-baselines-move-forward-with-one-command/) |
-| | A signed PHAR and a multi-arch container image beside the Composer package | yes | [0022](https://nightworksio.github.io/php-mutation-gate/decisions/0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs/) |
+| | A signed PHAR and a multi-arch container image beside the Composer package | yes, built by `release.yml`; no release is tagged, so none is published | [0022](https://nightworksio.github.io/php-mutation-gate/decisions/0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs/) |
 | | `init --hook`: the gate in CaptainHook, GrumPHP and the pre-commit framework | yes | [0024](https://nightworksio.github.io/php-mutation-gate/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation/) |
 | | `composer mutate`: a root script `init` adds to `composer.json` | yes | [0024](https://nightworksio.github.io/php-mutation-gate/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation/) |
 | **CI and speed** | A cost model that learns how long each file takes from earlier shards | yes | [0006](https://nightworksio.github.io/php-mutation-gate/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once/) |
@@ -219,7 +229,7 @@ has a page for each, and the commands for any other CI.
 | | A fork's pull request reads the default branch's proofs, read-only | yes | [0013](https://nightworksio.github.io/php-mutation-gate/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut/) |
 | | `affected`: the tests a change can reach, for plain test runs | yes | [0020](https://nightworksio.github.io/php-mutation-gate/decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled/) |
 | | A static analyser (Mago, PHPStan or Psalm) kills the mutants it rejects, before their tests where that saves time | yes | [0020](https://nightworksio.github.io/php-mutation-gate/decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled/) |
-| | A new push re-checks the previous survivors first, for a signal within minutes | yes | [0020](https://nightworksio.github.io/php-mutation-gate/decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled/) |
+| | A new push re-checks the previous survivors first, before its shards run | yes | [0020](https://nightworksio.github.io/php-mutation-gate/decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled/) |
 | | A sampled mode for huge repositories: each tree estimated with a confidence interval, judged on its bounds | yes | [0020](https://nightworksio.github.io/php-mutation-gate/decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled/) |
 | | Coverage re-measured only for the tests whose inputs moved | yes | [0023](https://nightworksio.github.io/php-mutation-gate/decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured/) |
 | | Every core of a shard's runner busy, and one warm worker per core for native runners | yes | [0023](https://nightworksio.github.io/php-mutation-gate/decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured/) |

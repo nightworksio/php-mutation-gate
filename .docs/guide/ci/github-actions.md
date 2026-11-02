@@ -1,9 +1,11 @@
 # GitHub Actions
 
-The repository is also a GitHub Action. Pin it to a full commit SHA, with its
-tag in a comment. Each release has its own tag, such as `v0.1.0`, and a
-release workflow moves the tag of its line, `v0.1`, to each new release of
-0.1.
+The repository is also a GitHub Action. Pin it to a full commit SHA. No
+version is tagged, so pin it to the commit of `main` your `composer.lock`
+holds, as `init --ci=github` does, and the action runs the copy of the gate
+your `composer.json` requires. A release has its own tag, such as `v0.1.0`,
+written in a comment after the SHA, and the release workflow moves the tag of
+its line, `v0.1`, to each new release of 0.1.
 
 ## One action in two jobs, for most projects
 
@@ -42,7 +44,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: nightworksio/php-mutation-gate@<sha> # v0.1.0
+      - uses: nightworksio/php-mutation-gate@<sha> # the commit of main composer.lock holds
         with:
           php-version: '8.5'
 
@@ -59,7 +61,7 @@ jobs:
       pull-requests: write
       id-token: write # only for a store that signs in through OIDC
     steps:
-      - uses: nightworksio/php-mutation-gate@<sha> # v0.1.0
+      - uses: nightworksio/php-mutation-gate@<sha> # the commit of main composer.lock holds
         with:
           deliver: 'true'
           php-version: '8.5'
@@ -81,9 +83,10 @@ jobs:
 | `composer-auth` | none; the credentials Composer installs the project's dependencies with, as `COMPOSER_AUTH` holds them, for a private repository. Pass a secret: only the install step reads it, and that step runs the project's Composer scripts and plugins, which can read it |
 
 A project that does not require the gate with Composer, such as one whose
-constraints conflict with the gate's, runs the release's PHAR. The action
+constraints conflict with the gate's, runs the release's PHAR, which needs the
+action pinned to a release; no release is tagged. The action
 reads which release from the ref it is pinned to: a release's tag, its line's
-tag, or the commit a release's tag points at, as in the examples above. It
+tag, or the commit a release's tag points at. It
 downloads that release's `mutation-gate.phar` and `mutation-gate.phar.asc`,
 checks that the release key whose fingerprint
 [SECURITY.md](../../../SECURITY.md#verifying-a-release) names signed it, and
@@ -149,7 +152,7 @@ permissions:
 
 jobs:
   mutation:
-    uses: nightworksio/php-mutation-gate/.github/workflows/mutation-gate.yml@<sha> # v0.1.0
+    uses: nightworksio/php-mutation-gate/.github/workflows/mutation-gate.yml@<sha> # the commit of main composer.lock holds
     permissions:
       contents: write        # used only by publish, on the default branch, which writes the badge and the trend
       actions: read          # used only by verdict and deliver, to find the run's HTML report the comment links

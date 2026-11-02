@@ -25,7 +25,7 @@ body:
     id: version
     attributes:
       label: The gate's version
-      description: What `composer show nightworksio/mutation-gate` prints on its `versions` line.
+      description: What `vendor/bin/mutation-gate --version` prints, or the PHAR's `--version`.
     validations:
       required: true
   - type: textarea

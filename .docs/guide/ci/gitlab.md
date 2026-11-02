@@ -95,7 +95,10 @@ the note in `.mutation-gate/delivery`. Two jobs send it with `deliver`: the
 `mutation-comment` job above, after the plan, and `mutation-gate-comment` in
 the child pipeline, after the verdict. Both extend `.mutation-gate-comment`,
 the hidden job the template defines with the gate's own image, pinned to the
-release `init` names, so they load none of the project's code. The trigger job
+release `init` names, so they load none of the project's code. Only a release
+publishes that image, and no release is tagged, so `init` from `main` writes
+`<its version>` in the image's place and the comment jobs cannot run. The
+trigger job
 hands the child pipeline the merge request's IID in
 `MUTATION_GATE_MERGE_REQUEST_IID`, since GitLab gives a child pipeline none of
 the merge request's variables. Every job that extends `.mutation-gate` drops
