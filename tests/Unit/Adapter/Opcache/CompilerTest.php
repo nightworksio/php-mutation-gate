@@ -32,7 +32,7 @@ it('says each program failed where its child cannot start or is given no time', 
 })->with([
     'no PHP there' => [fn(): string => sprintf('%s/no-such-php', __DIR__), 30.0],
     'no time at all' => [PHP_BINARY, -1.0],
-]);
+])->group('holds:src/Adapter/Opcache/Compiler.php');
 
 it('stops a child that runs past its time, and says each of its programs failed', function (): void {
     $compiler = new Compiler(sleepingChild(), sprintf('%s/equivalence', Scratch::directory()), 0.2, 1);
@@ -41,7 +41,7 @@ it('stops a child that runs past its time, and says each of its programs failed'
     expect($compiler->compiled(['one' => Contents::of(CompilerChildren::PROGRAM), 'two' => Contents::of(CompilerChildren::PROGRAM)]))
         ->toBe(['one' => Uncompiled::Failed, 'two' => Uncompiled::Failed])
         ->and((hrtime(as_number: true) - $started) / 1e9)->toBeLessThan(SLEEPING_CHILD_SECONDS / 2);
-});
+})->group('holds:src/Adapter/Opcache/Compiler.php');
 
 /** A child that is still running long after any time a test gives it. */
 function sleepingChild(): string
@@ -79,7 +79,7 @@ it('reads the answers of a child apart from the space around them', function ():
         'one' => Contents::of(CompilerChildren::PROGRAM),
         'two' => Contents::of(CompilerChildren::PROGRAM),
     ])))->toBe(['one' => "\n\$_main:\n0000 RETURN int(1)\n", 'two' => "\n\$_main:\n0000 RETURN int(2)\n"]);
-});
+})->group('holds:src/Adapter/Opcache/Compiler.php');
 
 it('says opcache dumped nothing of a program whose section of the dump is only space', function (): void {
     $compiler = new Compiler(CompilerChildren::child(CompilerChildren::dump("\n", " \n"), 0), sprintf('%s/equivalence', Scratch::directory()), 30.0, 1);
