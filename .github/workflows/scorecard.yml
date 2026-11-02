@@ -36,6 +36,12 @@ jobs:
           results_file: results.sarif
           results_format: sarif
           publish_results: true
+          # The export-ignored archive holds no workflow, so Scorecard reads
+          # the repository through git.
+          file_mode: git
+          # A token that reads the classic branch protection, where the
+          # repository holds one; the job's own token where it does not.
+          repo_token: ${{ secrets.SCORECARD_TOKEN || github.token }}
       - uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
         with:
           sarif_file: results.sarif

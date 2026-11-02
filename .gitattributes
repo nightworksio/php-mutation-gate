@@ -5,9 +5,9 @@
 
 # The archive Composer installs is what a user needs to run the gate, and
 # nothing that develops it. It keeps SECURITY.md, the policy a user of the
-# package reports a vulnerability by. GitHub serves the action and OpenSSF
-# Scorecard reads the repository as this same archive, so the workflows under
-# .github are out of what Scorecard reads.
+# package reports a vulnerability by. GitHub serves the action as this same
+# archive. OpenSSF Scorecard reads the repository through git instead, so it
+# reads the workflows under .github too.
 /.docs export-ignore
 /.site export-ignore
 /bench export-ignore
