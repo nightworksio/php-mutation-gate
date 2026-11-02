@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "42dbeecf378513deb6aa286ccb3694df",
+    "content-hash": "8c09afb2f740d81b68380be0a1ede2cb",
     "packages": [
         {
             "name": "fidry/cpu-core-counter",
@@ -3792,25 +3792,28 @@
         },
         {
             "name": "nette/neon",
-            "version": "v3.4.9",
+            "version": "v4.0.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/nette/neon.git",
-                "reference": "62a868999838ba3392ccd11deb40ab2eb1478c37"
+                "reference": "187c00a5c45d786a00ba08b3297f2ebb43d53c96"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/nette/neon/zipball/62a868999838ba3392ccd11deb40ab2eb1478c37",
-                "reference": "62a868999838ba3392ccd11deb40ab2eb1478c37",
+                "url": "https://api.github.com/repos/nette/neon/zipball/187c00a5c45d786a00ba08b3297f2ebb43d53c96",
+                "reference": "187c00a5c45d786a00ba08b3297f2ebb43d53c96",
                 "shasum": ""
             },
             "require": {
                 "ext-json": "*",
-                "php": "8.0 - 8.6"
+                "ext-mbstring": "*",
+                "php": "8.4 - 8.6"
             },
             "require-dev": {
+                "nette/phpstan-rules": "^1.0",
                 "nette/tester": "^2.4",
-                "phpstan/phpstan-nette": "^2.0@stable",
+                "phpstan/extension-installer": "^1.4@stable",
+                "phpstan/phpstan": "^2.3@stable",
                 "tracy/tracy": "^2.7"
             },
             "bin": [
@@ -3819,7 +3822,7 @@
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-master": "3.4-dev"
+                    "dev-master": "4.0-dev"
                 }
             },
             "autoload": {
@@ -3855,9 +3858,9 @@
             ],
             "support": {
                 "issues": "https://github.com/nette/neon/issues",
-                "source": "https://github.com/nette/neon/tree/v3.4.9"
+                "source": "https://github.com/nette/neon/tree/v4.0.0"
             },
-            "time": "2026-10-21T05:05:29+00:00"
+            "time": "2026-10-26T00:16:48+00:00"
         },
         {
             "name": "nunomaduro/collision",
