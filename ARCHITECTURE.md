@@ -85,7 +85,7 @@ without a repository, a runner or a CI.
 | Rule | Says | Enforced by |
 |---|---|---|
 | **B1** | Time is read through `Psr\Clock\ClockInterface`; only an adapter or the CLI reads the system clock | phpstan `disallowed-calls`, scoped by path |
-| **B2** | Nothing in `src` draws a random number | phpstan `disallowed-calls` |
+| **B2** | Nothing in `src` draws a random number, but the seed a forked child gives PHP's generator, so it runs as a fresh process would | phpstan `disallowed-calls` |
 | **B3** | The filesystem and the standard streams belong to adapters and the CLI | phpstan `disallowed-calls`, scoped by path |
 | **B4** | Running a program belongs to adapters | phpstan `disallowed-calls`, scoped by path |
 | **B5** | The network belongs to adapters | phpstan `disallowed-calls`, scoped by path |

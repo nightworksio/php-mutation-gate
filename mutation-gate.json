@@ -25,6 +25,7 @@
                 "src/Adapter/Pest/Recording/TimedTests.php",
                 "src/Adapter/Pest/ServedClasses.php",
                 "src/Adapter/Native/MutantFile.php",
+                "src/Adapter/Runtime/ForkedChild.php",
                 "src/Cli/PestPlugin.php",
                 "src/Core/Mutant/OrderDigest.php"
             ]
@@ -57,6 +58,7 @@
             "src/Adapter/Pest/Patching.php",
             "src/Cli/PestPlugin.php",
             "src/Adapter/Native/MutantFile.php",
+            "src/Adapter/Runtime/ForkedChild.php",
             "bin/mutation-gate-pest-client",
             "bin/mutation-gate-pest-worker",
             "src/Core/Runner/MutantLimit.php"
