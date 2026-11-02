@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Config\StoreOption;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Proof\Copies;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 
 /** Where proofs are kept, and what they leave out (ADR-0007): `proofs`. */
@@ -100,6 +101,24 @@ final readonly class Proofs implements Setting
     public static function readOnly(): self
     {
         return new self(Json::at('proofs.write', Writing::Never->value));
+    }
+
+    /** Of the store's copy of a ledger and the run's own, the run reads the one with the later record. */
+    public static function newestCopy(): self
+    {
+        return new self(Json::at('proofs.copies', Copies::Newest->value));
+    }
+
+    /** The run reads the store's copy of a ledger, and the CI keeps its own only once the store holds the same. */
+    public static function copiesTogether(): self
+    {
+        return new self(Json::at('proofs.copies', Copies::Together->value));
+    }
+
+    /** The run reads the store's copy of a ledger and its own as one. */
+    public static function mergedCopies(): self
+    {
+        return new self(Json::at('proofs.copies', Copies::Merged->value));
     }
 
     public function written(): Json

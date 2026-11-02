@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Definition;
+use NightWorksIO\MutationGate\Core\Config\Proofs;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Plan\DoomedRecord;
@@ -70,6 +71,10 @@ function sortedCopy(array $values): array
 
 it('keeps the ledger where the directory store keeps it by default', function (): void {
     expect(scriptText('LEDGERS'))->toBe(Workspace::ledger()->value());
+});
+
+it('reads the copy of a ledger the gate reads where a config names none', function (): void {
+    expect(scriptText('NEWEST'))->toBe(Proofs::none()->copies()->value);
 });
 
 it('reads the installed gate\'s version where the gate reads what Composer installed', function (): void {
@@ -159,5 +164,5 @@ it('reads this package\'s effective config as the gate prints it: the ledger in 
     $variables = ['GITHUB_OUTPUT' => $output, 'CACHE' => 'true'];
     new Process(['python3', 'resources/action/gate_action.py', 'config'], Tree::root(), $variables, $shown->getOutput())->mustRun();
 
-    expect((string) file_get_contents($output))->toBe("default_store=true\npest_patch=true\ninfection_patch=false\n");
+    expect((string) file_get_contents($output))->toBe("default_store=true\ncopies=newest\npest_patch=true\ninfection_patch=false\n");
 });

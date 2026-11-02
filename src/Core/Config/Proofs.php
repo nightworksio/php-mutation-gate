@@ -13,13 +13,15 @@ use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Proof\Copies;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 
 use function sprintf;
 
 /**
- * Where proofs are kept, what they leave out, and whether the verdict writes
- * them (ADR-0007): `proofs`; and whether a run keeps the coverage map it
+ * Where proofs are kept, what they leave out, whether the verdict writes
+ * them (ADR-0007), and which copy of a ledger a run reads where the store's
+ * and its own differ: `proofs`; and whether a run keeps the coverage map it
  * measures beside them to measure again only what moved (ADR-0023):
  * `coverage`.
  */
@@ -34,6 +36,7 @@ final readonly class Proofs implements Part
         private Listed|Absent $ignore,
         private Writing|Absent $write,
         private bool|Absent $incremental,
+        private Copies|Absent $copies,
     ) {
     }
 
@@ -43,8 +46,9 @@ final readonly class Proofs implements Part
         Listed|Absent $ignore = new Absent(),
         Writing|Absent $write = new Absent(),
         bool|Absent $incremental = new Absent(),
+        Copies|Absent $copies = new Absent(),
     ): self {
-        return new self($store, $ignore, $write, $incremental);
+        return new self($store, $ignore, $write, $incremental, $copies);
     }
 
     public static function none(): self
@@ -56,7 +60,7 @@ final readonly class Proofs implements Part
     {
         $none = self::none();
 
-        return self::of($none->store(), $none->ignore(), $none->write(), $none->incrementalCoverage());
+        return self::of($none->store(), $none->ignore(), $none->write(), $none->incrementalCoverage(), $none->copies());
     }
 
     /** A store is chosen whole; the globs a later layer ignores add to an earlier one's. */
@@ -72,6 +76,7 @@ final readonly class Proofs implements Part
                 },
                 Absent::laid($this->write, $later->write),
                 Absent::laid($this->incremental, $later->incremental),
+                Absent::laid($this->copies, $later->copies),
             )
             : $this;
     }
@@ -101,6 +106,15 @@ final readonly class Proofs implements Part
     }
 
     /**
+     * Which copy of a ledger a run reads where the store's and its own
+     * differ: `proofs.copies`, the newest where nothing says.
+     */
+    public function copies(): Copies
+    {
+        return $this->copies instanceof Copies ? $this->copies : Copies::Newest;
+    }
+
+    /**
      * Whether a run measures again only the test files whose coverage could
      * have moved, keeping the rest from the map kept beside the ledger
      * (ADR-0023): `coverage.incremental`, yes where nothing says.
@@ -127,6 +141,7 @@ final readonly class Proofs implements Part
                             : $this->ignore,
                     ),
                     Member::of('write', $this->write instanceof Writing ? $this->write->value : $this->write),
+                    Member::of('copies', $this->copies instanceof Copies ? $this->copies->value : $this->copies),
                 ),
             ),
             Member::unlessEmpty('coverage', Json::object(Member::of('incremental', $this->incremental))),
@@ -144,10 +159,22 @@ final readonly class Proofs implements Part
                 Writing::Auto => 'Proofs::writing()',
                 Writing::Never => 'Proofs::readOnly()',
             }] : [],
+            ...$this->copiesCalls(),
             ...$this->incremental instanceof Absent
                 ? []
                 : [$this->incremental ? 'Coverage::incremental()' : 'Coverage::full()'],
         ]);
+    }
+
+    /** @return list<string> the call that chooses the copy of a ledger a run reads, where the config chooses one */
+    private function copiesCalls(): array
+    {
+        return match ($this->copies) {
+            Copies::Newest => ['Proofs::newestCopy()'],
+            Copies::Together => ['Proofs::copiesTogether()'],
+            Copies::Merged => ['Proofs::mergedCopies()'],
+            default => [],
+        };
     }
 
     /** The store chosen, with the directory store's path named from the origin. */

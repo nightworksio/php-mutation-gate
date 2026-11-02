@@ -11,9 +11,9 @@ Usage:
   gate_action.py resolve   the run's scope, ledger cache, gate binary and options:
                            `plan_options` adds the mode's to `options`
   gate_action.py config    from the effective config on stdin: whether it keeps
-                           its ledger in the default directory, whether it runs
-                           Pest with the optional patches, and whether it runs
-                           Infection
+                           its ledger in the default directory, which copy of a
+                           ledger it reads, whether it runs Pest with the
+                           optional patches, and whether it runs Infection
   gate_action.py infection what `infection:patch` exited with, CODE, and said,
                            in the file SAID: a warning where the release runs
                            unpatched, a refusal where it could not be patched
@@ -68,6 +68,9 @@ MODES = frozenset({"auto", "full", "changed", "sampled"})
 LEDGERS = ".mutation-gate/ledger"
 
 KEY = "mutation-gate-ledger-"
+
+# The copy of a ledger proofs.copies chooses where a config names none (ADR-0061).
+NEWEST = "newest"
 
 GATE = "nightworksio/mutation-gate"
 
@@ -356,6 +359,11 @@ def keeps_default_store(config: dict) -> bool:
     return store.get("use", "directory") == "directory" and path.rstrip("/") == LEDGERS
 
 
+def copies(config: dict) -> str:
+    """Which copy of a ledger the effective config reads where the store's and the cache's differ: `proofs.copies`."""
+    return (config.get("proofs") or {}).get("copies") or NEWEST
+
+
 def patches_pest(config: dict) -> bool:
     """Whether the effective config runs Pest with the optional patches on (ADR-0004).
 
@@ -570,6 +578,7 @@ def _config() -> dict[str, str]:
         print(f"::notice::The config keeps its ledger outside {LEDGERS}, so the Actions cache is not used.")
     return {
         "default_store": "true" if kept else "false",
+        "copies": copies(config),
         "pest_patch": "true" if patches_pest(config) else "false",
         "infection_patch": "true" if patches_infection(config) else "false",
     }

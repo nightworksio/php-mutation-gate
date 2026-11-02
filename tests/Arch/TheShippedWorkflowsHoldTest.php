@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
+use NightWorksIO\MutationGate\Core\File\Workspace as FileWorkspace;
 use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -210,6 +211,10 @@ it('hands each shard the plan\'s whole map beside its own, removing only the oth
 
 it('checks the workflow out under .mutation-gate, which the gate leaves out of every change and key', function (): void {
     expect(Lenient::text(WorkflowFile::at(REUSABLE)->field('env')->field('GATE_ACTION')))->toStartWith('.mutation-gate/');
+});
+
+it('has fetch write the store\'s copy of a ledger where the gate reads it beside its own', function (): void {
+    expect(Lenient::text(WorkflowFile::at(REUSABLE)->field('env')->field('FETCHED')))->toBe(FileWorkspace::fetched()->value());
 });
 
 it('restores no ledger for one shard, which reads none', function (): void {

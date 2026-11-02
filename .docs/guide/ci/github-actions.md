@@ -246,10 +246,12 @@ installation, at the workflow's commit:
 
 - `fetch` reads the default branch's ledger from the proof store, and hands it
   to the plan and the verdict as the artifact
-  `mutation-gate-fetched-<attempt>`, which they read where the `directory`
-  store keeps it, so the project's config keeps `proofs.store` at
-  `directory`. It runs where the repository variable `MUTATION_GATE_STORE`
-  names a store, in the environment `mutation-gate-read`.
+  `mutation-gate-fetched-<attempt>`, which they read from
+  `.mutation-gate/fetched`, beside the copy the Actions cache keeps, so the
+  project's config keeps `proofs.store` at `directory`. Where both copies are
+  there, `proofs.copies` says which the run reads. It runs where the
+  repository variable `MUTATION_GATE_STORE` names a store, in the environment
+  `mutation-gate-read`.
 - `deliver-plan` posts the pull request comment's planned state, which the plan
   leaves as the artifact `mutation-gate-delivery-plan-<attempt>`.
 - On a pull request, `survivors` runs the last run's survivors again beside
@@ -494,3 +496,15 @@ On GitHub, cache scoping keeps a pull request from writing what the default
 branch reads, so the Actions cache can keep the ledger. A store in S3, Cloud
 Storage or Azure Blob Storage needs credentials only the default branch's
 runs hold: see [proofs and trust](../concepts/proofs-and-trust.md).
+
+With a store, the reusable workflow holds two copies of the default branch's
+ledger: the store's, which `fetch` reads, and the Actions cache's. The
+verdict saves the cache's copy, and `deliver` writes the store's after it, so
+a run cancelled in between leaves the cache's copy the newer.
+`proofs.copies` says which the plan and the verdict read:
+
+| `proofs.copies` | The run reads |
+|-----------------|---------------|
+| `newest` | the copy with the later record, and the store's where neither is later |
+| `together` | the store's copy; the verdict saves no copy of the default branch's ledger in the cache, and `deliver` saves the one it wrote to the store, so the two copies move together |
+| `merged` | both copies as one: every proof either holds, and the later copy's runs |

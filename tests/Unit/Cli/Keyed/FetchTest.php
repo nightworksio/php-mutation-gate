@@ -70,17 +70,18 @@ it('is asked for by its name alone', function (): void {
         ->and(Fetch::isAsked(new ArgvInput(['mutation-gate', 'deliver'])))->toBeFalse();
 });
 
-it('reads the default branch\'s ledger alone, writes it where the directory store reads it, and writes nothing to the store', function (): void {
+it('reads the default branch\'s ledger alone, writes it where a run reads it beside its own copy, and writes nothing to the store', function (): void {
     $project = Scratch::directory();
     $store = new ProofStoreFake()->keeping(Scope::branch('main'), fetchedLedger())->keeping(Scope::pullRequest(7), Ledger::empty()->atBase(Digest::sha256Of('pr')));
     chdir($project);
     [$output, $errors, $code] = fetchRun($project, ['mutation-gate', 'fetch'], FETCH_STORE, $store);
 
     expect([$errors, $code])->toBe(['', 0])
-        ->and($output)->toStartWith('Wrote ./.mutation-gate/ledger/refs/heads/main/ledger.json.gz.')
+        ->and($output)->toStartWith('Wrote ./.mutation-gate/fetched/refs/heads/main/ledger.json.gz.')
         ->and($store->asked())->toBe(['read refs/heads/main'])
-        ->and(fetchedIn(sprintf('%s/.mutation-gate/ledger', $project), 'refs/heads/main'))->toEqual(fetchedLedger())
-        ->and(fetchedIn(sprintf('%s/.mutation-gate/ledger', $project), 'refs/pull/7'))->toBe('nothing');
+        ->and(fetchedIn(sprintf('%s/.mutation-gate/fetched', $project), 'refs/heads/main'))->toEqual(fetchedLedger())
+        ->and(fetchedIn(sprintf('%s/.mutation-gate/fetched', $project), 'refs/pull/7'))->toBe('nothing')
+        ->and(fetchedIn(sprintf('%s/.mutation-gate/ledger', $project), 'refs/heads/main'))->toBe('nothing');
 });
 
 it('writes the ledger into the directory --to names', function (): void {

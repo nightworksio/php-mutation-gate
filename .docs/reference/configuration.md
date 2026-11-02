@@ -203,6 +203,7 @@ than written: `79.999` holds a score to `80`.
 | `proofs.store.with.publicUrl` (`azure`) | `https://<account>.blob.core.windows.net/<publicContainer>` | none | [0028](../decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) |
 | `proofs.ignore` | list of globs | `[]` | [0007](../decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.write` | `auto` or `never` | `auto` | [0007](../decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
+| `proofs.copies` | where the store's copy of a ledger, which `fetch` writes into `.mutation-gate/fetched`, and the copy the run keeps both hold a scope's ledger, the one the run reads: `newest`, the copy with the later record, the store's where neither is later; `together`, the store's copy, with the reusable workflow keeping its own copy only once the store holds the same; or `merged`, both read as one | `newest` | [0061](../decisions/0061-a-run-reads-the-copy-of-a-ledger-proofs-copies-chooses.md) |
 | `coverage.incremental` | boolean: whether a run measures again only the test files whose coverage could have moved, keeping the rest from the map its own scope keeps, or else the default branch's | `true` | [0023](../decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) |
 | `budget` | duration | none | [0008](../decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `timeouts.mode` | `confirm` or `unjudged` | `confirm` | [0008](../decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |

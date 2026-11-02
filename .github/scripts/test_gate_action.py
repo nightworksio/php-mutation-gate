@@ -248,6 +248,13 @@ class Installed(unittest.TestCase):
         )
 
 
+    def test_reads_the_copy_of_a_ledger_the_config_names_and_the_newest_where_it_names_none(self):
+        self.assertEqual(action.copies({}), "newest")
+        self.assertEqual(action.copies({"proofs": {"store": {"use": "directory"}}}), "newest")
+        self.assertEqual(action.copies({"proofs": {"copies": "together"}}), "together")
+        self.assertEqual(action.copies({"proofs": {"copies": "merged"}}), "merged")
+
+
 class PestPatch(unittest.TestCase):
     def test_patches_where_the_config_runs_pest_with_the_patches_on(self):
         self.assertTrue(

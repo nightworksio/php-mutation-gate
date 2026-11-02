@@ -506,9 +506,17 @@ class ProjectCode(unittest.TestCase):
             with self.subTest(job=name):
                 self.assertEqual([], late)
 
-    def test_fetch_writes_the_ledger_where_the_directory_store_reads_it(self):
-        self.assertEqual(action.LEDGERS, env_of(lines_of(WORKFLOW))["LEDGERS"])
-        self.assertIn('fetch --to="${LEDGERS}"', "\n".join(job(WORKFLOW, "fetch")))
+    def test_fetch_writes_the_store_copy_where_the_plan_and_the_verdict_read_it_beside_the_cache(self):
+        env = env_of(lines_of(WORKFLOW))
+
+        self.assertEqual(action.LEDGERS, env["LEDGERS"])
+        self.assertNotEqual(env["LEDGERS"], env["FETCHED"])
+        self.assertIn('fetch --to="${FETCHED}"', "\n".join(job(WORKFLOW, "fetch")))
+        for name in ("plan", "verdict"):
+            fetched = [one for one in steps(job(WORKFLOW, name)) if any("mutation-gate-fetched-" in line for line in one)]
+            with self.subTest(job=name):
+                self.assertEqual(1, len(fetched))
+                self.assertIn("path: ${{ env.FETCHED }}", "\n".join(fetched[0]))
 
     def test_only_a_deliver_job_may_comment(self):
         commenting = sorted(name for name, lines in jobs(WORKFLOW).items() if "      pull-requests: write" in lines)

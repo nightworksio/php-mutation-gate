@@ -19,6 +19,8 @@ final readonly class Workspace
 
     private const string LEDGER = 'ledger';
 
+    private const string FETCHED = 'fetched';
+
     private const string DELIVERY = 'delivery';
 
     private const string PHPUNIT = 'phpunit-cache';
@@ -36,6 +38,12 @@ final readonly class Workspace
     public static function ledger(): Path
     {
         return Path::of(sprintf('%s/%s', self::ROOT, self::LEDGER));
+    }
+
+    /** Where `fetch` writes the store's copy of the default branch's ledger: `.mutation-gate/fetched`. */
+    public static function fetched(): Path
+    {
+        return Path::of(sprintf('%s/%s', self::ROOT, self::FETCHED));
     }
 
     /** Where a run leaves what `deliver` sends: `.mutation-gate/delivery`. */
