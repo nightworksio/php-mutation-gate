@@ -4,11 +4,16 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
+use function class_exists;
+
 use Composer\Autoload\ClassLoader;
 
-use function constant;
 use function is_scalar;
 use function realpath;
+
+use ReflectionClassConstant;
+use ReflectionException;
+
 use function sprintf;
 
 /**
@@ -60,7 +65,17 @@ final readonly class ServedBox
     /** A constant of the box's class, loading the class where it is not loaded yet, as text. */
     public function read(string $constant): string
     {
-        $value = constant(sprintf('%s::%s', $this->class, $constant));
+        return self::constantOf($this->class, $constant);
+    }
+
+    /** A constant of a class, loading the class where it is not loaded yet, as text; empty where it has none. */
+    public static function constantOf(string $class, string $constant): string
+    {
+        try {
+            $value = class_exists($class) ? new ReflectionClassConstant($class, $constant)->getValue() : '';
+        } catch (ReflectionException) {
+            return '';
+        }
 
         return is_scalar($value) ? (string) $value : '';
     }

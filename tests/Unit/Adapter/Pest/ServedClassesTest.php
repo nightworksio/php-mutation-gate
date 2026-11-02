@@ -161,7 +161,7 @@ it('serves a class file in the global namespace, a block of it, and a namespace 
 
     try {
         expect(ServedClasses::serve(sprintf('%s/src/Global.php', $root), sprintf('%s/mutations/global.php', $root)))->toBeTrue()
-            ->and(constant(sprintf('%s::SIZE', $class)))->toBe(2);
+            ->and(ServedBox::constantOf($class, 'SIZE'))->toBe('2');
     } finally {
         ServedClasses::forget(sprintf('%s/src/Global.php', $root));
         $loader->unregister();
