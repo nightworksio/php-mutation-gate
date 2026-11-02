@@ -84,7 +84,7 @@ final readonly class MergeRequestNote implements Commenting, Deferring, Reporter
         return self::inEnvironment(
             $environment,
             $exchange,
-            CommentOption::tokenEnv($options, GateSecret::GitLabToken->value),
+            CommentOption::tokenEnv($options, GateSecret::GitLabComment->value),
         );
     }
 

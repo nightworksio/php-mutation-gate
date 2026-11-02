@@ -76,7 +76,7 @@ final readonly class PullRequestComment implements Commenting, Deferring, Report
         return self::inEnvironment(
             $environment,
             $exchange,
-            CommentOption::tokenEnv($options, GateSecret::BitbucketToken->value),
+            CommentOption::tokenEnv($options, GateSecret::BitbucketComment->value),
         );
     }
 

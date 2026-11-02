@@ -185,8 +185,8 @@ final readonly class Builtins
                 Json::object(),
                 Field::optional('only', Enumerated::of(ProblemsShown::cases()), $judges),
             ),
-            BuiltinReporter::GitLabComment->value => $comment(GateSecret::GitLabToken->value),
-            BuiltinReporter::BitbucketComment->value => $comment(GateSecret::BitbucketToken->value),
+            BuiltinReporter::GitLabComment->value => $comment(GateSecret::GitLabComment->value),
+            BuiltinReporter::BitbucketComment->value => $comment(GateSecret::BitbucketComment->value),
             BuiltinReporter::GitHubComment->value => Section::options(
                 Json::object(),
                 Field::optional('identity', Text::of('an account name'), $judges),
