@@ -22,10 +22,10 @@ security fixes for six months.
 
 | Version | Security fixes |
 |---------|----------------|
-| 0.1.x | yes |
+| `main` (`dev-main`) | yes |
 
-No version is tagged. A fix lands on `main`, which a project requiring
-`dev-main` installs.
+No version is tagged. A fix lands on `main`, and a project requiring
+`dev-main` takes it with `composer update nightworksio/mutation-gate`.
 
 ## Verifying a release
 
@@ -41,10 +41,12 @@ its detached signature by the release key:
 The key signs nothing else, and only the release workflow, in the `release`
 environment that deploys from `v*` tags alone, can use it. The job that holds
 it runs no Composer: it signs the PHAR another job built, holding no secret,
-once the PHAR's SHA-256 is the one that job named. With the key imported,
-check that `gpg` names this fingerprint:
+once the PHAR's SHA-256 is the one that job named. The public key is
+[`resources/action/release-key.asc`](resources/action/release-key.asc). Import
+it, then check that `gpg` names this fingerprint:
 
 ```sh
+curl -fsSL https://raw.githubusercontent.com/nightworksio/php-mutation-gate/main/resources/action/release-key.asc | gpg --import
 gpg --verify mutation-gate.phar.asc mutation-gate.phar
 ```
 

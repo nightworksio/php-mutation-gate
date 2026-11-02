@@ -48,11 +48,13 @@ from the tests. On a pull request the plan and the verdict run with
 `mutation: comment` steps send it with `deliver`, from the gate's own image,
 pinned to the release `init` names, so they load none of the project's code:
 one after the plan, and the pipeline's `final` step, which runs whatever the
-shards did. Bitbucket allows one `final` step, so the verdict is an ordinary
-step before it; after a failed shard Bitbucket skips the verdict, the pipeline
-is red, and the comment keeps its planned state. A branch can edit the
-pipeline, so anyone who may push one can read the token, as with every
-repository variable.
+shards did. Only a release publishes that image, and no release is tagged, so
+`init` from `main` writes `<its version>` in the image's place and the
+comment steps cannot run. Bitbucket allows one `final` step, so the verdict is
+an ordinary step before it; after a failed shard Bitbucket skips the verdict,
+the pipeline is red, and the comment keeps its planned state. A branch can
+edit the pipeline, so anyone who may push one can read the token, as with
+every repository variable.
 
 A repository access token cannot ask Bitbucket who it is, so the comment is the
 first that holds the marker and that the token may edit, oldest first, at most

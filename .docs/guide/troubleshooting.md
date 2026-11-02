@@ -19,7 +19,7 @@ PHP loads. `php --ini` names it.
 Xdebug is loaded in a mode other than `coverage` or `off`, or it collects
 coverage where pcov is installed beside it. Every other mode slows each test,
 and the runner runs tests again for every mutant. pcov collects line coverage
-several times faster than Xdebug.
+alone, and nothing else that would slow a test.
 
 Set `XDEBUG_MODE=coverage` where the gate runs, or `xdebug.mode=coverage` in
 php.ini. Where pcov is installed, add `extension=pcov`: php-code-coverage

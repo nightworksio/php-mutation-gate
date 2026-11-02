@@ -11,7 +11,7 @@ There is no separate requirements document, and there are no requirement IDs.
 
 1. **An ADR is immutable once Accepted.** To change a decision, write a new
    ADR that supersedes the old one, and link the two both ways.
-2. **Numbers are permanent and never reused.**
+2. **Numbers are permanent and never reused.** No ADR holds 0012.
 3. **A commit that implements a decision names it** in a `Spec:` trailer, for
    example `Spec: 0006` ([ADR-0011](0011-the-package-holds-itself-to-the-gate-it-ships.md)).
 4. **What an ADR changes in an earlier one is said in its own header**, one
