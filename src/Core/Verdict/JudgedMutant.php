@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Removal\Removable;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 
 /**
  * One mutant, what the gate made of it, the tests that judged it, what they
@@ -206,7 +207,7 @@ final readonly class JudgedMutant
     {
         return $this->hint instanceof Hint
             ? $this->hint
-            : Hint::for($this->mutant, $this->judgement, $this->tests, $this->hint, $this->finding);
+            : Hint::for($this->mutant, $this->judgement, $this->tests, $this->hint, $this->finding, TestNames::none());
     }
 
     /** The cluster it is in; none for a mutant that shares its cause with no other survivor. */

@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Removal\Removable;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestName;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\NoFinding;
@@ -35,7 +36,7 @@ $missing = static fn(): Missing => Missing::at(Path::of('src/Money.php'));
 it('says what the tests miss about a survivor of each family', function (MutatorFamily $family, string $removed, string $added, string $hint) use ($source): void {
     $mutant = Verdicts::mutant('src/Money.php:9', 'Mutator', $family, Verdicts::diff($removed, $added));
 
-    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), NoFinding::survivor())->text())->toBe($hint);
+    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), NoFinding::survivor(), TestNames::none())->text())->toBe($hint);
 })->with([
     'boundary' => [MutatorFamily::Boundary, 'if ($amount < $limit) {', 'if ($amount <= $limit) {', 'Add a test that uses a value at the boundary of `$amount < $limit`.'],
     'condition' => [MutatorFamily::Condition, 'if ($amount < $limit) {', 'if (! ($amount < $limit)) {', 'Assert on something this condition decides: these tests run it, but none checks what it decides.'],
@@ -65,7 +66,7 @@ it('says a registered mutator\'s own sentence about its survivor, in place of it
         Unmeasured::duration(),
     );
 
-    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), NoFinding::survivor())->text())
+    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), NoFinding::survivor(), TestNames::none())->text())
         ->toBe('No test checks that the action is refused.');
 });
 
@@ -73,15 +74,15 @@ it('has a sentence for every family', function () use ($source): void {
     foreach (MutatorFamily::cases() as $family) {
         $mutant = Verdicts::mutant('src/Money.php:9', 'Mutator', $family, Verdicts::diff('return true;', 'return false;'));
 
-        expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), NoFinding::survivor())->text())->not->toBe('');
+        expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), NoFinding::survivor(), TestNames::none())->text())->not->toBe('');
     }
 });
 
 it('says so where there is no function around the mutant, or no file to read', function (MutatorFamily $family, string $hint) use ($missing): void {
     $mutant = Verdicts::mutant('src/Money.php:9', 'Mutator', $family, Verdicts::diff('return true;', 'return false;'));
 
-    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $missing(), NoFinding::survivor())->text())->toBe($hint)
-        ->and(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), Contents::of("<?php\nreturn true;\n"), NoFinding::survivor())->text())->toBe($hint);
+    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $missing(), NoFinding::survivor(), TestNames::none())->text())->toBe($hint)
+        ->and(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), Contents::of("<?php\nreturn true;\n"), NoFinding::survivor(), TestNames::none())->text())->toBe($hint);
 })->with([
     'return value' => [MutatorFamily::ReturnValue, 'Assert on what this returns: tests run it, but none checks its result.'],
     'visibility' => [MutatorFamily::Visibility, 'Make this narrower: nothing outside the class calls it.'],
@@ -96,15 +97,15 @@ it('names up to three judging tests of a mutant counted as not killed, then how 
 
     $mutant = Verdicts::mutant('src/Money.php:9', 'Mutator', MutatorFamily::Exception, Verdicts::diff('throw new Refused();', ''));
 
-    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::of(...$ids), $source(), NoFinding::survivor())->text())
+    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::of(...$ids), $source(), NoFinding::survivor(), TestNames::none())->text())
         ->toBe(sprintf('Add a test that expects this exception. It is judged by %s.', $named))
-        ->and(Hint::for($mutant, MutantJudgement::Flaky, TestIds::of(...$ids), $source(), NoFinding::survivor())->text())
+        ->and(Hint::for($mutant, MutantJudgement::Flaky, TestIds::of(...$ids), $source(), NoFinding::survivor(), TestNames::none())->text())
         ->toBe(sprintf('Its tests killed it on one run and let it survive on another, so they are the suspects. It is judged by %s.', $named))
-        ->and(Hint::for($mutant, MutantJudgement::Unjudged, TestIds::of(...$ids), $source(), NoFinding::survivor())->text())
+        ->and(Hint::for($mutant, MutantJudgement::Unjudged, TestIds::of(...$ids), $source(), NoFinding::survivor(), TestNames::none())->text())
         ->toBe(sprintf('Nothing judged it, so it counts as not killed. It is judged by %s.', $named))
-        ->and(Hint::for($mutant, MutantJudgement::TooSlowToJudge, TestIds::of(...$ids), $source(), NoFinding::survivor())->text())
+        ->and(Hint::for($mutant, MutantJudgement::TooSlowToJudge, TestIds::of(...$ids), $source(), NoFinding::survivor(), TestNames::none())->text())
         ->toEndWith(sprintf('or raise `timeouts.most`. It is judged by %s.', $named))
-        ->and(Hint::for($mutant, MutantJudgement::TooHeavyToJudge, TestIds::of(...$ids), $source(), NoFinding::survivor())->text())
+        ->and(Hint::for($mutant, MutantJudgement::TooHeavyToJudge, TestIds::of(...$ids), $source(), NoFinding::survivor(), TestNames::none())->text())
         ->toEndWith(sprintf('says what the suite needs. It is judged by %s.', $named));
 })->with([
     'one' => [1, '`T1`'],
@@ -114,10 +115,20 @@ it('names up to three judging tests of a mutant counted as not killed, then how 
     'six' => [6, '`T1`, `T2`, `T3` and 3 more'],
 ]);
 
+it('names each judging test by the name its runner gave it, and by its id where it gave none', function () use ($source): void {
+    $mutant = Verdicts::mutant('src/Money.php:9', 'Mutator', MutatorFamily::Exception, Verdicts::diff('throw new Refused();', ''));
+    $fits = TestId::of('P\\Tests\\MoneyTest::__pest_evaluable_it_fits');
+    $names = TestNames::none()->with($fits, TestName::in(Path::of('tests/MoneyTest.php'), 'it fits'));
+    $tests = TestIds::of($fits, TestId::of('Tests\\PriceTest::testAdds'));
+
+    expect(Hint::for($mutant, MutantJudgement::Survived, $tests, $source(), NoFinding::survivor(), $names)->text())
+        ->toBe('Add a test that expects this exception. It is judged by `tests/MoneyTest.php::it fits` and `Tests\\PriceTest::testAdds`.');
+});
+
 it('says what each other judgement means', function (MutantJudgement $judgement, string $hint) use ($source): void {
     $mutant = Verdicts::mutant('src/Order.php:8', 'Plus', MutatorFamily::Arithmetic, Verdicts::diff('return $a + $b;', 'return $a - $b;'));
 
-    expect(Hint::for($mutant, $judgement, TestIds::none(), $source(), NoFinding::survivor())->text())->toBe($hint);
+    expect(Hint::for($mutant, $judgement, TestIds::none(), $source(), NoFinding::survivor(), TestNames::none())->text())->toBe($hint);
 })->with([
     'uncovered' => [MutantJudgement::Uncovered, 'Add a test that runs line 8: no test runs it yet.'],
     'killed' => [MutantJudgement::Killed, 'A test fails with it in place.'],
@@ -140,7 +151,7 @@ it('keeps a hint as it was written', function (): void {
 it('names no test of a mutant that was killed, left out or never run', function (MutantJudgement $judgement) use ($source): void {
     $mutant = Verdicts::mutant('src/Order.php:8', 'Plus', MutatorFamily::Arithmetic, Verdicts::diff('return $a + $b;', 'return $a - $b;'));
 
-    expect(Hint::for($mutant, $judgement, TestIds::of(TestId::of('OrderTest::adds')), $source(), NoFinding::survivor())->text())->not->toContain('OrderTest');
+    expect(Hint::for($mutant, $judgement, TestIds::of(TestId::of('OrderTest::adds')), $source(), NoFinding::survivor(), TestNames::none())->text())->not->toContain('OrderTest');
 })->with([
     MutantJudgement::Uncovered,
     MutantJudgement::Killed,
@@ -165,7 +176,7 @@ it('names the first weak test that lets a survivor through, each assertion it ma
     $others = array_map(static fn(int $other): WeakTest => $weak(sprintf('testOther%d', $other), 'assertIsInt'), $more === 0 ? [] : range(1, $more));
     $finding = WeaklyAsserted::by('fits', $weak('testFits', $first, ...$written), ...$others);
 
-    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), $finding)->text())
+    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), $finding, TestNames::none())->text())
         ->toBe(sprintf('Add an assertion that fails unless this value is `3`. %s', $second));
 })->with([
     'one test, one assertion made twice' => [0, '`tests/MoneyTest.php::testFits` asserts only `assertNotNull`, which no change of value fails.', 'assertNotNull', 'assertNotNull'],
@@ -182,14 +193,14 @@ it('names a weak test on one plain line, whatever its description holds', functi
         Assertion::of('->toBeInt()', AssertionKind::Shape, AssertionStyle::Pest),
     ));
 
-    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), $finding)->text())->not->toContain("\n");
+    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), $finding, TestNames::none())->text())->not->toContain("\n");
 });
 
 it('suggests deleting the callee of a surviving removal by its name, after the family\'s own sentence', function () use ($source): void {
     $mutant = Verdicts::mutant('src/Money.php:9', 'RemoveMethodCall', MutatorFamily::RemovedCall, Verdicts::diff('$this->save($order);', ''));
     $finding = Removable::callee(Declared::in(Path::of('src/Money.php'), 'save', Line::of(12), Line::of(14)));
 
-    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), $finding)->text())->toBe(
+    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), $finding, TestNames::none())->text())->toBe(
         'Assert on what `save()` does: every test passes without the call. '
         . 'No test depends on this call, and nothing `save()` does is checked either: '
         . 'if nothing outside the tests needs `save()`, it can be deleted.',

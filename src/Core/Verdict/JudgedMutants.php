@@ -19,11 +19,14 @@ use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\Cluster\Clustering;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Hint\Hint;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use Traversable;
 
 /**
@@ -147,6 +150,28 @@ final readonly class JudgedMutants implements Countable, IteratorAggregate
         }
 
         return new self($marked, $this->kills);
+    }
+
+    /**
+     * Every mutant, its hint naming its judging tests by the names their
+     * runner gave them (ADR-0014), as the line that lists them does.
+     */
+    public function named(TestNames $names): self
+    {
+        $named = [];
+
+        foreach ($this->mutants as $mutant) {
+            $named[] = $mutant->hinted(Hint::for(
+                $mutant->mutant(),
+                $mutant->judgement(),
+                $mutant->tests(),
+                Missing::at($mutant->mutant()->location()->file()),
+                $mutant->finding(),
+                $names,
+            ));
+        }
+
+        return new self($named, $this->kills);
     }
 
     /** The mutants and kills on lines the change added or modified, in order. */

@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
@@ -26,7 +27,7 @@ it('is a kill a ledger proved, killed, with nothing its tests miss, on no change
         ->and($judged->isOnChangedLine())->toBeFalse()
         ->and($judged->tests())->toEqual(TestIds::none())
         ->and($judged->hint())->toEqual(Hint::killed())
-        ->and($judged->hint())->toEqual(Hint::for(Verdicts::killed(), MutantJudgement::Killed, TestIds::none(), Missing::at(Path::of('src/Money.php')), NoFinding::survivor()))
+        ->and($judged->hint())->toEqual(Hint::for(Verdicts::killed(), MutantJudgement::Killed, TestIds::none(), Missing::at(Path::of('src/Money.php')), NoFinding::survivor(), TestNames::none()))
         ->and($judged->reproduce(GateCommand::installed()))->toBe(sprintf('vendor/bin/mutation-gate reproduce %s', $id))
         ->and($judged->explain(GateCommand::installed()))->toBe(sprintf('vendor/bin/mutation-gate explain %s', $id));
 });
@@ -46,5 +47,5 @@ it('is unjudged, with nothing judging it, where its kill no longer stands', func
 
     expect($judged->judgement())->toBe(MutantJudgement::Unjudged)
         ->and($judged->hint())->toEqual(Hint::unjudged())
-        ->and($judged->hint())->toEqual(Hint::for(Verdicts::killed(), MutantJudgement::Unjudged, TestIds::none(), Missing::at(Path::of('src/Money.php')), NoFinding::survivor()));
+        ->and($judged->hint())->toEqual(Hint::for(Verdicts::killed(), MutantJudgement::Unjudged, TestIds::none(), Missing::at(Path::of('src/Money.php')), NoFinding::survivor(), TestNames::none()));
 });

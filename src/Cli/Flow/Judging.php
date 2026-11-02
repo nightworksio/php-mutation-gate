@@ -157,7 +157,8 @@ final readonly class Judging
     ): Judged|CannotJudge {
         $now = $this->setup->clock->now();
         $run = RunName::of($this->adapters->environment, Instant::at($now), $plan->base())->id();
-        $timings = VerdictTimings::of($run, $results, $began, $now, $this->settings->shards()->setup());
+        $setup = VerdictTimings::setupOn($this->adapters->environment, $this->settings->shards()->setup());
+        $timings = VerdictTimings::of($run, $results, $began, $now, $setup);
         $judged = $this->adapters->changes->judged($plan->commit());
         $verdict = $assessed->verdict->withAccount(
             $assessed->verdict->account()
@@ -341,7 +342,8 @@ final readonly class Judging
         );
         $weak = Weakness::findings($clustered, $matrix, $sources, $tests);
 
-        return $clustered->found($weak->and(Removals::findings($clustered, $matrix, $sources, $tests)));
+        return $clustered->found($weak->and(Removals::findings($clustered, $matrix, $sources, $tests)))
+            ->named($matrix->names());
     }
 
     /**

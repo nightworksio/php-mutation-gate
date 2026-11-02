@@ -313,7 +313,7 @@ def release_tag(ref: str, tags: dict[str, str]) -> str:
         raise Refused(
             f"The action runs the gate's PHAR from the release it is pinned to, and {ref or 'its ref'} is no release's "
             f"tag or commit. Pin it to a release, as {RELEASES}@<commit> # v{LINE}.<patch>, "
-            f"or require {GATE} ^{LINE} with Composer."
+            f"or require {GATE} with Composer, and the action runs that copy."
         )
     return max(releases, key=lambda tag: tuple(int(part) for part in RELEASE_TAG.match(tag).groups()))
 

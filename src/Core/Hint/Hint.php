@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Removal\Removable;
 use NightWorksIO\MutationGate\Core\Runner\Exhaustion;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\NoFinding;
 
@@ -164,13 +165,18 @@ final readonly class Hint
         return new self(self::UNJUDGED);
     }
 
-    /** The hint for a mutant as the gate judged it, the tests that judge it and its file, where there is one. */
+    /**
+     * The hint for a mutant as the gate judged it, the tests that judge it,
+     * by the names their runner gave them where it named them, and its file,
+     * where there is one.
+     */
     public static function for(
         Mutant $mutant,
         MutantJudgement $judgement,
         TestIds $tests,
         Contents|Missing $source,
         WeaklyAsserted|Removable|NoFinding $finding,
+        TestNames $names,
     ): self {
         $sentence = match ($judgement) {
             MutantJudgement::Survived => self::missed($mutant, $source),
@@ -204,7 +210,7 @@ final readonly class Hint
         };
         $naming = in_array($judgement, self::NAMING, strict: true) && count($tests) > 0;
 
-        return new self($naming ? sprintf(self::JUDGED_BY, $sentence, self::named($tests)) : $sentence);
+        return new self($naming ? sprintf(self::JUDGED_BY, $sentence, self::named($tests, $names)) : $sentence);
     }
 
     public function text(): string
@@ -292,12 +298,12 @@ final readonly class Hint
         return $name instanceof Nameless ? $here : sprintf($named, $name);
     }
 
-    /** Up to three tests, in backticks, then how many more. */
-    private static function named(TestIds $tests): string
+    /** Up to three tests, each in backticks by the name its runner gave it, then how many more. */
+    private static function named(TestIds $tests, TestNames $names): string
     {
         $all = [...$tests];
         $named = array_map(
-            static fn(TestId $test): string => sprintf('`%s`', $test->value()),
+            static fn(TestId $test): string => sprintf('`%s`', Fit::plain($names->nameOf($test)->value())),
             array_slice($all, 0, self::NAMED),
         );
         $more = count($all) - count($named);

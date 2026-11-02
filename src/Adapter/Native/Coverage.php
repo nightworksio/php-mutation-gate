@@ -92,9 +92,29 @@ final readonly class Coverage
 
         $ran = $this->shell->run($this->invocation->coverage($request, $map));
 
-        return $ran->succeeded()
-            ? $this->read($map)
-            : CoverageFailure::said($this->framework->runner()->program(), $ran->output());
+        $program = $this->framework->runner()->program();
+
+        return match (true) {
+            $ran->succeeded() => $this->read($map),
+            ! $this->hasDefinition() => CoverageFailure::unconfigured(
+                $program,
+                $this->framework->definitions(),
+                $ran->output(),
+            ),
+            default => CoverageFailure::said($program, $ran->output()),
+        };
+    }
+
+    /** Whether any of the files that define how the framework runs is in the project. */
+    private function hasDefinition(): bool
+    {
+        foreach ($this->framework->definitions() as $definition) {
+            if (is_file($this->project->absolute($definition))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** Where the framework's map is in a directory of the project, on disk. */

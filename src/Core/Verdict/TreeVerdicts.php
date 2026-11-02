@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Sample\Estimate;
 use NightWorksIO\MutationGate\Core\Sample\Sample;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use Traversable;
 
 /**
@@ -61,10 +62,22 @@ final readonly class TreeVerdicts implements Countable, IteratorAggregate
         $clustered = [];
 
         foreach ($this->verdicts as $tree) {
-            $clustered[] = $tree->clustered($sources);
+            $clustered[] = $tree->withMutants($tree->mutants()->clustered($tree->uncovered(), $sources));
         }
 
         return new self($clustered);
+    }
+
+    /** These trees, each mutant's hint naming its judging tests by the names their runner gave them. */
+    public function named(TestNames $names): self
+    {
+        $named = [];
+
+        foreach ($this->verdicts as $tree) {
+            $named[] = $tree->withMutants($tree->mutants()->named($names));
+        }
+
+        return new self($named);
     }
 
     /** These trees, with what was found of each survivor (ADR-0025). */
@@ -73,7 +86,7 @@ final readonly class TreeVerdicts implements Countable, IteratorAggregate
         $found = [];
 
         foreach ($this->verdicts as $tree) {
-            $found[] = $tree->found($findings);
+            $found[] = $tree->withMutants($tree->mutants()->found($findings));
         }
 
         return new self($found);
