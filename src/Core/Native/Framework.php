@@ -14,8 +14,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\OwnScript;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\ErrorDisplay;
+use NightWorksIO\MutationGate\Core\Runner\HoldsReading;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
-use NightWorksIO\MutationGate\Core\Runner\Program;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Suites;
@@ -30,10 +30,7 @@ use NightWorksIO\MutationGate\Core\Test\TestListing;
  */
 interface Framework
 {
-    /** The program it is, which names it wherever the gate speaks of it. */
-    public function program(): Program;
-
-    /** The runner a config names to run it natively. */
+    /** The runner a config names to run it natively, and the program it is (see BuiltinRunner). */
     public function runner(): BuiltinRunner;
 
     /** The exact version of every package the runner drives, as Composer installed it; or why it cannot drive them. */
@@ -88,8 +85,14 @@ interface Framework
      */
     public function coverage(CoverageRun $request, string $map): array;
 
+    /** The coverage map its coverage run writes, which the native runner reads back. */
+    public function report(): CoverageReport;
+
     /** These suites' tests and the groups each is in, listed by the framework into this file and none run. */
     public function listing(Shell $shell, Withheld $withheld, Suites $suites, string $file): TestListing|CannotJudge;
+
+    /** How its tests come to hold the paths each `#[Holds]` names: in the holding groups it lists, or by its files. */
+    public function holds(): HoldsReading;
 
     /**
      * Whether this output of a run says its process ended mid-test where

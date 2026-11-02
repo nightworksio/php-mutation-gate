@@ -35,7 +35,7 @@ import sys
 from functools import cache
 from pathlib import Path
 
-RUNNERS = ("pest", "infection-13", "infection-12", "phpunit", "phpspec", "codeception", "analysers")
+RUNNERS = ("pest", "infection-13", "infection-12", "phpunit", "phpspec", "codeception", "testo", "analysers")
 
 # Paths that are code although they read as documentation: ARCHITECTURE.md
 # holds the rule tables the Guards suite reads, .docs/reference/ the config
@@ -90,7 +90,7 @@ SHARED = (
     ".github/workflows/ci.yml",
 )
 
-INFECTION = ("src/Adapter/Infection/", "tests/Contract/Runner/infection-fixture/")
+INFECTION = ("src/Adapter/Infection/", "src/Core/Coverage/PhpUnitXml.php", "tests/Contract/Runner/infection-fixture/")
 
 # What the docs site is built from, how it is built, and what prints a link
 # into it (ADR-0038).
@@ -142,6 +142,17 @@ NATIVE_CODECEPTION = (
     "tests/Contract/Runner/codeception-fixture/",
 )
 
+# The Testo framework the native runner drives, its launcher, the
+# XML coverage it measures with, and the attribute its tests read.
+NATIVE_TESTO = (
+    *NATIVE,
+    "src/Adapter/Testo/",
+    "src/Attribute/",
+    "src/Core/Coverage/PhpUnitXml.php",
+    "bin/mutation-gate-testo",
+    "tests/Contract/Runner/testo-fixture/",
+)
+
 # Each leg's own subjects, beside SHARED.
 LEGS = {
     "pest": (
@@ -160,6 +171,7 @@ LEGS = {
     "phpunit": NATIVE_PHPUNIT,
     "phpspec": NATIVE_PHPSPEC,
     "codeception": NATIVE_CODECEPTION,
+    "testo": NATIVE_TESTO,
     "analysers": (
         "src/Adapter/PhpStan/",
         "src/Adapter/Psalm/",
@@ -178,6 +190,7 @@ OWN_FIXTURES = (
     "tests/Contract/Runner/phpunit-fixture/",
     "tests/Contract/Runner/phpspec-fixture/",
     "tests/Contract/Runner/codeception-fixture/",
+    "tests/Contract/Runner/testo-fixture/",
 )
 
 # What `warm workers` measures, beside SHARED.

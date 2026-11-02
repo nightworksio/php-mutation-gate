@@ -314,14 +314,33 @@ it('holds the library to the pest-plugin-mutate the package allows', function ()
         return is_array($decoded) && array_key_exists('conflict', $decoded) ? $decoded['conflict'] : [];
     };
 
-    expect($conflict(sprintf('%s/composer.json', Library::DIRECTORY)))->toBe($conflict('composer.json'))
-        ->and($conflict('composer.json'))
+    $package = $conflict('composer.json');
+
+    expect($conflict(sprintf('%s/composer.json', Library::DIRECTORY)))
+        ->toBe(is_array($package) ? array_diff_key($package, [Package::Testo->value => true]) : $package)
+        ->and($package)
         ->toBe([
             'pestphp/pest' => '<5.1',
             'pestphp/pest-plugin-mutate' => '<5.0.2 || >=6.0',
             'phpunit/phpunit' => '<12.5.8 || >=12.5.21 <12.5.22 || >=13.1.5 <13.1.6',
             'symfony/yaml' => '<7.4.12 || >=8.0 <8.0.12',
+            'testo/testo' => '<0.10.56 || >=0.11',
         ]);
+})->skip(fn(): bool => getenv('RUNNER_CANARY') === '1', 'the runner canary frees the library from the pin')->group(...$holds);
+
+// The Testo library requires the minor range the package's own development
+// requires, which the package's conflict holds a user's project to (ADR-0047).
+it('holds the Testo library to the Testo range the package allows', function (): void {
+    $field = static function (string $manifest, string $key): mixed {
+        $decoded = json_decode((string) file_get_contents(Tree::at($manifest)), associative: true);
+        $packages = is_array($decoded) && is_array($decoded[$key] ?? null) ? $decoded[$key] : [];
+
+        return $packages[Package::Testo->value] ?? null;
+    };
+
+    expect($field(sprintf('%s/../composer.json', Library::TESTO_DIRECTORY), 'require'))->toBe($field('composer.json', 'require-dev'))
+        ->and($field('composer.json', 'require-dev'))->toBe('~0.10.56')
+        ->and($field('composer.json', 'conflict'))->toBe('<0.10.56 || >=0.11');
 })->skip(fn(): bool => getenv('RUNNER_CANARY') === '1', 'the runner canary frees the library from the pin')->group(...$holds);
 
 // The lowest resolution of the Infection library installs the lowest PHPUnit the

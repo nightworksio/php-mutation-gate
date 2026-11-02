@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Config;
 
 use NightWorksIO\MutationGate\Core\Composer\Package;
+use NightWorksIO\MutationGate\Core\Runner\Program;
 
 /** The runners this package builds in, by the name a config chooses each by. */
 enum BuiltinRunner: string
@@ -22,6 +23,9 @@ enum BuiltinRunner: string
     /** The gate's own Codeception runner, on the gate's own mutants (ADR-0027). */
     case Codeception = 'codeception';
 
+    /** The gate's own Testo runner, on the gate's own mutants (ADR-0027). */
+    case Testo = 'testo';
+
     public function named(): Name
     {
         return Name::of($this->value);
@@ -36,6 +40,20 @@ enum BuiltinRunner: string
             self::PhpUnit => Package::PhpUnit,
             self::PhpSpec => Package::PhpSpec,
             self::Codeception => Package::Codeception,
+            self::Testo => Package::Testo,
+        };
+    }
+
+    /** The program it runs, which names it wherever the gate speaks of it. */
+    public function program(): Program
+    {
+        return match ($this) {
+            self::Pest => Program::Pest,
+            self::Infection => Program::Infection,
+            self::PhpUnit => Program::PhpUnit,
+            self::PhpSpec => Program::PhpSpec,
+            self::Codeception => Program::Codeception,
+            self::Testo => Program::Testo,
         };
     }
 

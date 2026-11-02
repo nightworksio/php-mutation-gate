@@ -10,8 +10,10 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Native\CoverageReport;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
+use NightWorksIO\MutationGate\Core\Runner\HoldsReading;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Program;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
@@ -57,7 +59,7 @@ function phpSpecFramework(string $version = ''): PhpSpecFramework
 it('is PhpSpec, run as the phpspec runner, defined by the PhpSpec config in the root, whichever name it has', function (): void {
     $framework = phpSpecFramework();
 
-    expect($framework->program())->toBe(Program::PhpSpec)
+    expect($framework->runner()->program())->toBe(Program::PhpSpec)
         ->and($framework->runner())->toBe(BuiltinRunner::PhpSpec)
         ->and($framework->definitions())->toEqual(Paths::of(...array_map(Path::of(...), ['phpspec.yml', '.phpspec.yml', 'phpspec.yml.dist', 'phpspec.yaml', '.phpspec.yaml', 'phpspec.yaml.dist'])))
         ->and($framework->tests())->toBeInstanceOf(TestFiles::class);
@@ -80,7 +82,9 @@ it('runs the gate\'s launcher, which reads no config of PHP\'s settings and boot
         ->and($framework->config())->toEqual(NotGiven::value())
         ->and($framework->workerScript())->toEqual(NotGiven::value())
         ->and($framework->endedHidden('PHP Fatal error: Allowed memory size exhausted', configuredToHide: true))->toBeFalse()
-        ->and($framework->testStyle())->toBe(AssertionStyle::PhpSpec);
+        ->and($framework->testStyle())->toBe(AssertionStyle::PhpSpec)
+        ->and($framework->holds())->toBe(HoldsReading::Listed)
+        ->and($framework->report())->toBe(CoverageReport::Php);
 });
 
 it('is PhpSpec where Composer installed its script, and in a package where Composer installed it there', function (): void {

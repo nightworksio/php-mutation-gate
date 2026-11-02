@@ -4,17 +4,14 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\PhpSpec;
 
-use function array_fill_keys;
-use function array_last;
 use function array_map;
 use function file;
 use function is_array;
 use function is_file;
 
+use NightWorksIO\MutationGate\Core\Native\Launched;
 use NightWorksIO\MutationGate\Core\Native\Selected;
 use NightWorksIO\MutationGate\Core\NotGiven;
-use NightWorksIO\MutationGate\Core\Test\Filter;
-use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
@@ -27,52 +24,30 @@ use function realpath;
  */
 final readonly class Told
 {
-    /**
-     * @param array<string, list<string>> $told      each option's values, by the option
-     * @param list<string>                $arguments PhpSpec's own
-     */
-    private function __construct(private array $told, private array $arguments)
+    private function __construct(private Launched $launched)
     {
     }
 
     /** @param list<string> $arguments the launcher's, after the autoloader */
     public static function from(array $arguments): self
     {
-        $told = array_fill_keys(
-            array_map(static fn(LaunchOption $option): string => $option->value, LaunchOption::cases()),
-            [],
-        );
-        $own = [];
-
-        foreach ($arguments as $argument) {
-            $option = LaunchOption::setBy($argument);
-            $own = $option instanceof LaunchOption ? $own : [...$own, $argument];
-
-            if ($option instanceof LaunchOption) {
-                $told[$option->value][] = $option->valueIn($argument);
-            }
-        }
-
-        return new self($told, $own);
+        return new self(Launched::split(LaunchOption::names(), $arguments));
     }
 
     /** @return list<string> PhpSpec's own arguments */
     public function arguments(): array
     {
-        return $this->arguments;
+        return $this->launched->own();
     }
 
     public function selected(): Selected
     {
-        $group = $this->last(LaunchOption::Group);
-        $filter = $this->last(LaunchOption::Filter);
-        $specs = $this->told[LaunchOption::Spec->value];
-
-        return $this->listing() instanceof NotGiven ? Selected::narrowedTo(
+        return $this->listing() instanceof NotGiven ? $this->launched->selecting(
             $this->examples(),
-            $group instanceof NotGiven ? $group : Group::named($group),
-            $filter instanceof NotGiven ? $filter : Filter::matching($filter),
-            $specs === [] ? NotGiven::value() : array_map($this->real(...), $specs),
+            LaunchOption::Group->value,
+            LaunchOption::Filter->value,
+            LaunchOption::Spec->value,
+            $this->real(...),
         ) : Selected::listing();
     }
 
@@ -119,8 +94,6 @@ final readonly class Told
     /** The last value the launcher was told for an option, or none. */
     private function last(LaunchOption $option): string|NotGiven
     {
-        $values = $this->told[$option->value];
-
-        return $values === [] ? NotGiven::value() : array_last($values);
+        return $this->launched->last($option->value);
     }
 }

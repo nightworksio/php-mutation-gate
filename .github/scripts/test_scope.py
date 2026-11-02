@@ -64,12 +64,13 @@ class Outputs(unittest.TestCase):
             "src/Cli/PestPlugin.php": ["pest"],
             "src/Adapter/PhpUnit/IssueKillers.php": ["pest", "phpunit"],
             "src/Core/Test/RunIssues.php": ["pest", "phpunit"],
-            "src/Attribute/Holds.php": ["codeception", "pest", "phpspec"],
+            "src/Attribute/Holds.php": ["codeception", "pest", "phpspec", "testo"],
             "tests/Contract/Runner/fixture/src/Money.php": ["pest"],
             "src/Adapter/Infection/Infection.php": ["infection-12", "infection-13"],
             "tests/Contract/Runner/infection-fixture/composer.lock": ["infection-12", "infection-13"],
-            "src/Adapter/Native/NativeRunner.php": ["codeception", "phpspec", "phpunit"],
-            "src/Core/Native/Framework.php": ["codeception", "phpspec", "phpunit"],
+            "src/Adapter/Native/NativeRunner.php": ["codeception", "phpspec", "phpunit", "testo"],
+            "src/Core/Native/Framework.php": ["codeception", "phpspec", "phpunit", "testo"],
+            "src/Core/Coverage/PhpUnitXml.php": ["infection-12", "infection-13", "testo"],
             "src/Adapter/PhpUnit/PhpUnitFramework.php": ["phpunit"],
             "bin/mutation-gate-worker": ["phpunit"],
             "bin/mutation-gate-pest-worker": ["pest"],
@@ -79,6 +80,9 @@ class Outputs(unittest.TestCase):
             "tests/Contract/Runner/phpspec-fixture/composer.lock": ["phpspec"],
             "src/Adapter/Codeception/CodeceptionFramework.php": ["codeception"],
             "tests/Contract/Runner/codeception-fixture/composer.lock": ["codeception"],
+            "src/Adapter/Testo/TestoFramework.php": ["testo"],
+            "bin/mutation-gate-testo": ["testo"],
+            "tests/Contract/Runner/testo-fixture/composer.lock": ["testo"],
             "src/Adapter/PhpStan/PhpStan.php": ["analysers"],
             "src/Core/Analysis/MutantCheck.php": ["analysers"],
             "tests/Contract/StaticChecker/StaticCheckerTest.php": ["analysers"],
@@ -87,7 +91,7 @@ class Outputs(unittest.TestCase):
             self.assertEqual(legs(scope.outputs("pull_request", [path])), expected, path)
 
     def test_runs_every_runner_leg_for_the_runner_contract_itself_and_its_other_fixtures(self):
-        runners = ["codeception", "infection-12", "infection-13", "pest", "phpspec", "phpunit"]
+        runners = ["codeception", "infection-12", "infection-13", "pest", "phpspec", "phpunit", "testo"]
         for path in ("tests/Contract/Runner/KillsTest.php", "tests/Contract/Runner/stall/a.php"):
             self.assertEqual(legs(scope.outputs("pull_request", [path])), runners, path)
 

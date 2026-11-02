@@ -81,7 +81,8 @@ Composer.
     `phpunit/php-code-coverage` 14;
   - **Codeception**: `codeception/codeception` 5.3.6 or later, with
     `phpunit/php-code-coverage` 14, for the suites that run in the test's
-    own process.
+    own process;
+  - **Testo**: `testo/testo` ~0.10.56, which measures coverage itself.
 
   Infection and the PHPUnit runner do not run Pest suites, so a Pest project
   uses Pest's own mutation testing. Beside the gate, Composer installs no
@@ -222,7 +223,7 @@ has a page for each, and the commands for any other CI.
 | | Coverage re-measured only for the tests whose inputs moved | yes | [0023](https://nightworksio.github.io/php-mutation-gate/decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured/) |
 | | Every core of a shard's runner busy, and one warm worker per core for native runners | yes | [0023](https://nightworksio.github.io/php-mutation-gate/decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured/) |
 | | Mutators that never let a mutant through are pruned on unchanged code, and audited weekly | yes | [0025](https://nightworksio.github.io/php-mutation-gate/decisions/0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions/) |
-| | Mutants that leave their file alike run once and share one verdict, under Pest and the PHPUnit, PhpSpec and Codeception runners | yes | [0025](https://nightworksio.github.io/php-mutation-gate/decisions/0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions/) |
+| | Mutants that leave their file alike run once and share one verdict, under Pest and the PHPUnit, PhpSpec, Codeception and Testo runners | yes | [0025](https://nightworksio.github.io/php-mutation-gate/decisions/0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions/) |
 | | Merge queues: a `merge_group` run judges what will land, trusting no pull request's own proofs | no | [0022](https://nightworksio.github.io/php-mutation-gate/decisions/0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs/) |
 | **Reporting** | JSON, JUnit and SARIF, and line annotations on GitHub | yes | [0009](https://nightworksio.github.io/php-mutation-gate/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer/) |
 | | A useless-test report: tests that cover code and kill none of it | yes | [0014](https://nightworksio.github.io/php-mutation-gate/decisions/0014-every-test-is-judged-by-what-it-kills/) |
@@ -232,7 +233,7 @@ has a page for each, and the commands for any other CI.
 | | Infection as well as Pest | yes | [0004](https://nightworksio.github.io/php-mutation-gate/decisions/0004-pest-and-infection-behind-one-runner-port/) |
 | | A native runner for PHPUnit, on the gate's own mutants | yes | [0023](https://nightworksio.github.io/php-mutation-gate/decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured/) |
 | | Native runners for PhpSpec and Codeception, on the gate's own mutants | yes | [0027](https://nightworksio.github.io/php-mutation-gate/decisions/0027-codeception-phpspec-and-testo-get-native-runners/) |
-| | A native runner for Testo | no | [0027](https://nightworksio.github.io/php-mutation-gate/decisions/0027-codeception-phpspec-and-testo-get-native-runners/) |
+| | A native runner for Testo, on the gate's own mutants | yes | [0027](https://nightworksio.github.io/php-mutation-gate/decisions/0027-codeception-phpspec-and-testo-get-native-runners/), [0047](https://nightworksio.github.io/php-mutation-gate/decisions/0047-testos-runner-holds-a-minor-range-and-its-plugin-selects-stops-and-times/) |
 | | Weak assertions, found and paired with the survivors they let through | yes | [0025](https://nightworksio.github.io/php-mutation-gate/decisions/0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions/) |
 | | A score per test suite | yes | [0025](https://nightworksio.github.io/php-mutation-gate/decisions/0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions/) |
 | | Survivors grouped by code owner, from the CODEOWNERS at the base, with each group's score in the JSON report | yes | [0022](https://nightworksio.github.io/php-mutation-gate/decisions/0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs/) |

@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Adapter\Infection\Installed as InfectionReleases;
 use NightWorksIO\MutationGate\Adapter\Pest\Installed as PestReleases;
 use NightWorksIO\MutationGate\Adapter\PhpSpec\Installed as PhpSpecReleases;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Installed as PhpUnitReleases;
+use NightWorksIO\MutationGate\Adapter\Testo\Installed as TestoReleases;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
@@ -28,6 +29,7 @@ final readonly class RunnerReleases
             BuiltinRunner::PhpUnit => PhpUnitReleases::versionsIn($manifest),
             BuiltinRunner::PhpSpec => PhpSpecReleases::versionsIn($manifest),
             BuiltinRunner::Codeception => CodeceptionReleases::versionsIn($manifest),
+            BuiltinRunner::Testo => TestoReleases::versionsIn($manifest),
         };
     }
 }

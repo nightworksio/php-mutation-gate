@@ -28,6 +28,7 @@ parameters:
         - bin/mutation-gate-pest-worker
         - bin/mutation-gate-pest-client
         - bin/mutation-gate-phpspec
+        - bin/mutation-gate-testo
 
     # The runner contract suite's fixture is a project of its own, with its own
     # dependencies, written as a user's library is rather than to these rules.
@@ -49,6 +50,7 @@ parameters:
             - tests/Contract/Runner/phpunit-fixture
             - tests/Contract/Runner/phpspec-fixture
             - tests/Contract/Runner/codeception-fixture
+            - tests/Contract/Runner/testo-fixture
             - tests/Contract/StaticChecker/fixture
             - tests/Fixtures/Archive
 
@@ -207,6 +209,7 @@ services:
                 - src/Adapter/PhpSpec/Extension.php # PhpSpec's Extension takes its config's parameters untyped
                 - src/Adapter/Codeception/Extension.php # Codeception hands an extension its settings and options untyped
                 - src/Adapter/Codeception/Told.php # Codeception hands an extension its settings untyped
+                - src/Adapter/Testo/GateConfig.php # a project's testo.php returns whatever its code returns
                 - src/Adapter/Pest/Warm/Database/Laravel.php # Laravel's container hands its services untyped
                 - src/Adapter/Pest/Warm/Database/LaravelConfig.php # Laravel holds a connection's config untyped
                 - src/Adapter/Pest/Warm/Database/PdoStatements.php # PDO hands a row's values untyped
@@ -252,6 +255,8 @@ services:
             coincidences:
                 'NightWorksIO\MutationGate\Cli\Init\InitQuestions':
                     - NONE # init's answer of no CI, not a hook setup's or a status
+                'NightWorksIO\MutationGate\Core\Native\Launched':
+                    - SET # a launcher's long option given its value, not one of PHP's ini settings
                 'NightWorksIO\MutationGate\Core\Hook\HookRecipe':
                     - ACTION # a key of CaptainHook's config, not hook's argument
                 'NightWorksIO\MutationGate\Core\GateCommand':
@@ -307,6 +312,8 @@ services:
                     - STOP # PhpSpec's option, spelt as PHPUnit's is
                 'NightWorksIO\MutationGate\Adapter\Codeception\CommandLine':
                     - RUN # Codeception's own command and options, not a record's field or a verdict's origin
+                'NightWorksIO\MutationGate\Adapter\Testo\Launch':
+                    - RUN # Testo's own command, not a record's field or a verdict's origin
                 'NightWorksIO\MutationGate\Adapter\PhpSpec\Selecting':
                     - FIRST # a maintainer's priority above PhpSpec's own, not a poll's microseconds
                 'NightWorksIO\MutationGate\Core\ThisPackage':

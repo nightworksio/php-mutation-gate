@@ -55,7 +55,7 @@ There is no separate requirements document, and there are no requirement IDs.
 | [0024](0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) | The gate runs on Bitbucket, Azure DevOps and Jenkins, comments on GitLab and Bitbucket without exposing a token to merge request code, plugs into Composer and hook managers, and aggregates an organisation | Accepted |
 | [0025](0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions.md) | Mutators that never let a mutant through are pruned on unchanged code, tests are judged by their assertions and by suite, and a surviving removal may suggest deletion | Accepted |
 | [0026](0026-configs-and-baselines-move-forward-with-one-command.md) | Configs and baselines move forward between versions with one command | Accepted |
-| [0027](0027-codeception-phpspec-and-testo-get-native-runners.md) | Codeception, PhpSpec and Testo get native runners on the gate's own mutants | Accepted |
+| [0027](0027-codeception-phpspec-and-testo-get-native-runners.md) | Codeception, PhpSpec and Testo get native runners on the gate's own mutants | Accepted; its Testo pin, selection, first failure and timings amended by [0047](0047-testos-runner-holds-a-minor-range-and-its-plugin-selects-stops-and-times.md) |
 | [0028](0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) | Proofs can live in Google Cloud Storage or Azure Blob under OIDC bound to an environment or a workflow, and survivors reach SonarQube | Accepted |
 | [0029](0029-a-caller-passes-the-store-secrets-by-name.md) | A caller passes the reusable workflow its store's secrets by name, and their values stay in the environments | Accepted |
 | [0030](0030-a-lock-file-decides-by-the-packages-it-moved.md) | A lock file decides how the gate runs only where it moved a package the config names | Accepted |
@@ -74,6 +74,7 @@ There is no separate requirements document, and there are no requirement IDs.
 | [0044](0044-the-artwork-is-one-named-set-and-the-site-shows-it-as-php-mutation-gate.md) | The artwork is one named set in `.docs/brand/`, and the site shows it as php-mutation-gate | Accepted |
 | [0045](0045-questions-go-to-a-q-and-a-category-of-discussions.md) | Questions go to a Q&A category of Discussions | Accepted |
 | [0046](0046-the-stryker-report-is-a-reporter-of-its-own.md) | The Stryker report is a reporter of its own | Accepted |
+| [0047](0047-testos-runner-holds-a-minor-range-and-its-plugin-selects-stops-and-times.md) | Testo's runner holds a minor range, and its plugin selects, stops and times its tests | Accepted |
 | [0050](0050-a-pull-request-is-read-against-the-branch-it-merges-into.md) | A pull request is read against the branch it merges into | Accepted |
 | [0051](0051-the-action-runs-the-release-s-signed-phar-where-the-project-has-no-copy.md) | The action runs the release's signed PHAR where the project has no copy of the gate | Accepted |
 

@@ -20,6 +20,7 @@ use function max;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethods;
+use NightWorksIO\MutationGate\Core\Coverage\PhpUnitXml;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -57,7 +58,7 @@ final readonly class CoverageLayout
         }
 
         $documents = [
-            Path::of(Invocation::XML)->child(Path::of(CoverageXml::INDEX))->value() => self::index($project, $map),
+            Path::of(Invocation::XML)->child(Path::of(PhpUnitXml::INDEX))->value() => self::index($project, $map),
             Invocation::JUNIT => self::junit($project, $map, $files),
         ];
 

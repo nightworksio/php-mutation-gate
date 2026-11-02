@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Hold\Additions;
 use NightWorksIO\MutationGate\Core\Hold\Holdings;
 use NightWorksIO\MutationGate\Core\Hold\PestHolds;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\HoldsReading;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
@@ -104,9 +105,11 @@ final readonly class Inventory
     private static function holdingsOf(Adapters $adapters, Suite $suite, Groups $groups): Holdings|CannotJudge
     {
         $among = $adapters->narrowing->mappedSuitesFor(WholeSuite::tests());
-        $holds = $adapters->runner->behaviour()->holdsAsLoaded()
-            ? $suite->pestHolds($adapters->runner->definitions(), $among)
-            : Holdings::inGroups($groups)->merge($suite->holdings($among));
+        $holds = match ($adapters->runner->behaviour()->holds()) {
+            HoldsReading::AsLoaded => $suite->pestHolds($adapters->runner->definitions(), $among),
+            HoldsReading::Listed => Holdings::inGroups($groups),
+            HoldsReading::Written => Holdings::inGroups($groups)->merge($suite->holdings($among)),
+        };
 
         return $holds instanceof PestHolds ? $holds->listedIn($groups) : $holds;
     }

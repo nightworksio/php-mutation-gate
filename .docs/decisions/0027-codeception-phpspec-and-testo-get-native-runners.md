@@ -137,6 +137,10 @@ the test process never reaches that process.
    - **Selection** is `--filter Class::method` and `--path`, **groups** are
      Testo's own, **coverage** is `--coverage-xml` and **timings** come from
      `--log-junit`.
+   - ADR-0047 amends this: Testo is held to the minor range `~0.10.56`, and
+     the gate's launcher adds a plugin that selects the tests from a file of
+     ids, answers the tests after the first failure as cancelled, and times
+     each test.
 
 6. **Each native runner is chosen by name, or by zero-config when it alone
    fits.** `runner: codeception`, `runner: phpspec` and `runner: testo` name
@@ -166,7 +170,7 @@ the test process never reaches that process.
    php-code-coverage ^14, and Testo at the exact releases its `conflict`
    allows join ADR-0011's table,
    each tested at its lowest and highest supported release. This amends
-   ADR-0011.
+   ADR-0011. ADR-0047 amends this: Testo joins at `~0.10.56`.
 
 ## Alternatives considered
 

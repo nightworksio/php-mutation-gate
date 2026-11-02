@@ -46,6 +46,12 @@ final readonly class Runner
         return self::uses(BuiltinRunner::Codeception->value);
     }
 
+    /** The gate's own Testo runner, on the gate's own mutants (ADR-0027). */
+    public static function testo(): self
+    {
+        return self::uses(BuiltinRunner::Testo->value);
+    }
+
     /** A runner another extension registers by name, or a class, with its options. */
     public static function uses(string $runner, Option ...$options): self
     {

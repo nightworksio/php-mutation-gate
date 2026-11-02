@@ -5,13 +5,14 @@ Usage: runner_pins.py <installed.json> [<installed.json> ...] [--findings <file>
 
 Run by the runner canary once the Runner contract suite has passed against
 the newest releases (ADR-0017, ADR-0041). Each pinned runner package is held
-by one line of composer.json: pest-plugin-mutate by its `conflict`, Infection
-by its `require-dev`. For each one a fixture installed, it fails where that
-line refuses the release that passed, naming the line to write. It also fails
-where the release that passed is newer than the newest pest-plugin-mutate
-release doctor counts as tested, naming the constant to raise. So each release
-is taken by a pull request within a day. With --findings, what it found is
-also written there as the job's evidence (ADR-0019).
+by lines of composer.json: pest-plugin-mutate by its `conflict`, Infection
+by its `require-dev`, and Testo by both, its minor range (ADR-0047). For each
+one a fixture installed, it fails where a line refuses the release that
+passed, naming the line to write. It also fails where the release that passed
+is newer than the newest pest-plugin-mutate release doctor counts as tested,
+naming the constant to raise. So each release is taken by a pull request
+within a day. With --findings, what it found is also written there as the
+job's evidence (ADR-0019).
 
 Two halves: `satisfies`, `refused`, `line_to_write`, `behind` and `untested`
 decide from text, and `main` reads the files.
@@ -21,23 +22,30 @@ import re
 import sys
 from pathlib import Path
 
-# Each pinned runner package, by the composer.json key whose line holds it,
-# and the fixture manifests that copy that line.
+# Each pinned runner package, by the composer.json keys whose lines hold it,
+# each with the fixture manifests that copy that line.
 PINS = {
-    "pestphp/pest-plugin-mutate": ("conflict", ["tests/Contract/Runner/fixture/composer.json"]),
-    "infection/infection": (
-        "require-dev",
-        [
-            "tests/Contract/Runner/infection-fixture/composer.json",
-            "tests/Contract/Runner/infection-fixture/phpunit-12/composer.json",
-        ],
-    ),
+    "pestphp/pest-plugin-mutate": [("conflict", ["tests/Contract/Runner/fixture/composer.json"])],
+    "infection/infection": [
+        (
+            "require-dev",
+            [
+                "tests/Contract/Runner/infection-fixture/composer.json",
+                "tests/Contract/Runner/infection-fixture/phpunit-12/composer.json",
+            ],
+        ),
+    ],
+    "testo/testo": [
+        ("require-dev", ["tests/Contract/Runner/testo-fixture/composer.json"]),
+        ("conflict", []),
+    ],
 }
 
 # One comparison of a constraint: an operator, then a version.
 TERM = re.compile(r"\A(<=|>=|<|>|!=|==|=|~|\^)?v?(\d+(?:\.\d+)*)(\.\*)?\Z")
 
-# The major a conflict refuses from, which it ends with: "<5.0.2 || >=6.0".
+# The series a conflict refuses from, which it ends with: "<5.0.2 || >=6.0", or
+# "<0.10.56 || >=0.11" before 1.0.
 UPPER = re.compile(r"\A(?P<rest>.*\|\|\s*)>=v?\d+(?:\.\d+)*\Z")
 
 # Each runner package whose newest tested release doctor reads, by the file
@@ -101,10 +109,14 @@ def refused(key: str, release: str, constraint: str) -> bool:
 
 
 def line_to_write(key: str, release: str, constraint: str) -> str:
-    """The constraint that takes the release too: a conflict's major raised past it, or a requirement widened by its minor."""
+    """The constraint that takes the release too: a conflict's bound raised past the release's series, as a caret
+    reads it, its major or before 1.0 its minor, or a requirement widened by its minor."""
     if key == "conflict":
         bound = UPPER.match(constraint)
-        return f"{bound.group('rest')}>={version(release)[0] + 1}.0" if bound else ""
+        numbers = version(release)
+        place = caret_place(numbers)
+        raised = next_of(numbers, place)[: max(place + 1, 2)]
+        return f"{bound.group('rest')}>={'.'.join(str(number) for number in raised)}" if bound else ""
     major, minor = version(release)[:2]
     return f"{constraint} || ~{major}.{minor}.0"
 
@@ -112,7 +124,8 @@ def line_to_write(key: str, release: str, constraint: str) -> str:
 def behind(installed: dict[str, str], manifest: dict) -> list[dict]:
     """Each pinned package whose installed release composer.json refuses, as evidence."""
     found = []
-    for package, (key, fixtures) in PINS.items():
+    lines = [(package, key, fixtures) for package, held in PINS.items() for key, fixtures in held]
+    for package, key, fixtures in lines:
         constraint = manifest.get(key, {}).get(package)
         release = installed.get(package)
         if constraint is None or release is None or not refused(key, release, constraint):

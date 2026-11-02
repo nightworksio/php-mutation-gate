@@ -4,13 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\PhpSpec;
 
-use function mb_strlen;
-use function mb_substr;
+use function array_map;
 
-use NightWorksIO\MutationGate\Core\NotGiven;
-
-use function sprintf;
-use function str_starts_with;
+use NightWorksIO\MutationGate\Core\Native\Launched;
 
 /**
  * What the gate tells its PhpSpec launcher on the command line, ahead of
@@ -31,24 +27,12 @@ enum LaunchOption: string
     /** What sets the option: its name, `=` and its value. */
     public function with(string $value): string
     {
-        return sprintf('%s=%s', $this->value, $value);
+        return Launched::setting($this->value, $value);
     }
 
-    /** The option an argument sets; none where it sets none of these, and is PhpSpec's own. */
-    public static function setBy(string $argument): self|NotGiven
+    /** @return list<string> every option's name */
+    public static function names(): array
     {
-        foreach (self::cases() as $option) {
-            if (str_starts_with($argument, $option->with(''))) {
-                return $option;
-            }
-        }
-
-        return NotGiven::value();
-    }
-
-    /** The value an argument that sets this option gives it. */
-    public function valueIn(string $argument): string
-    {
-        return mb_substr($argument, mb_strlen($this->with('')));
+        return array_map(static fn(self $option): string => $option->value, self::cases());
     }
 }

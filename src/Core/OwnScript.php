@@ -16,6 +16,9 @@ enum OwnScript: string
     /** The PhpSpec runner's launcher. */
     case PhpSpec = 'mutation-gate-phpspec';
 
+    /** The Testo runner's launcher. */
+    case Testo = 'mutation-gate-testo';
+
     /** The Pest runner's warm worker. */
     case PestWorker = 'mutation-gate-pest-worker';
 

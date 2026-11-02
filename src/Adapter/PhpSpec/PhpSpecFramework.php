@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Native\Command;
+use NightWorksIO\MutationGate\Core\Native\CoverageReport;
 use NightWorksIO\MutationGate\Core\Native\Framework;
 use NightWorksIO\MutationGate\Core\Native\ListedTests;
 use NightWorksIO\MutationGate\Core\Native\Selection;
@@ -22,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Native\TestLayout;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\OwnScript;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
+use NightWorksIO\MutationGate\Core\Runner\HoldsReading;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\PhpSpecConfig;
 use NightWorksIO\MutationGate\Core\Runner\Program;
@@ -52,10 +54,6 @@ final readonly class PhpSpecFramework implements Framework
         $this->commandLine = new CommandLine(OwnScript::PhpSpec, $installation->autoloader());
     }
 
-    public function program(): Program
-    {
-        return Program::PhpSpec;
-    }
 
     public function runner(): BuiltinRunner
     {
@@ -126,6 +124,12 @@ final readonly class PhpSpecFramework implements Framework
         return $this->commandLine->startUp($selection);
     }
 
+    /** php-code-coverage's PHP report, which times each test. */
+    public function report(): CoverageReport
+    {
+        return CoverageReport::Php;
+    }
+
     public function coverage(CoverageRun $request, string $map): array
     {
         return $this->commandLine->coverage($request, $map);
@@ -137,6 +141,12 @@ final readonly class PhpSpecFramework implements Framework
         $ran = $shell->run(Command::php(...$this->commandLine->listing($file))->withholding($withheld));
 
         return ListedTests::read($ran, is_file($file) ? file_get_contents($file) : false, $file, Program::PhpSpec);
+    }
+
+    /** The extension lists each example a `#[Holds]` marks in its holding group. */
+    public function holds(): HoldsReading
+    {
+        return HoldsReading::Listed;
     }
 
     /** PhpSpec says nothing of its process ending mid-example beyond what PHP says. */

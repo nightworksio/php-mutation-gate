@@ -59,6 +59,7 @@
             <exclude>tests/Contract/Runner/phpunit-fixture</exclude>
             <exclude>tests/Contract/Runner/phpspec-fixture</exclude>
             <exclude>tests/Contract/Runner/codeception-fixture</exclude>
+            <exclude>tests/Contract/Runner/testo-fixture</exclude>
             <exclude>tests/Contract/StaticChecker/fixture</exclude>
         </testsuite>
 
