@@ -17,14 +17,17 @@ use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\Undigested;
 use NightWorksIO\MutationGate\Core\Recheck\NoRecheck;
 use NightWorksIO\MutationGate\Core\Recheck\Recheck;
 use NightWorksIO\MutationGate\Core\Recheck\Rechecked;
@@ -60,10 +63,15 @@ final readonly class Rechecks
         return JudgedMutant::of(Verdicts::mutant($at, 'Plus', MutatorFamily::None, ''), $judgement);
     }
 
-    /** A store with the default branch's ledger, and the feature branch's where it has these files. */
+    /**
+     * A store with the default branch's ledger, and the feature branch's where
+     * it has these files, each proof of its file's source as it is.
+     */
     public static function store(string ...$files): ProofStoreFake
     {
-        $ledger = static function (string ...$proved): Ledger {
+        $planned = self::plan(self::ports('feature', new ProofStoreFake()), Flows::settings(), Mode::full());
+        $now = $planned instanceof Plan ? $planned->digests() : Undigested::proof();
+        $ledger = static function (string ...$proved) use ($now): Ledger {
             $ledger = Ledger::empty();
 
             foreach ($proved as $file) {
@@ -72,7 +80,7 @@ final readonly class Rechecks
                     Path::of($file),
                     Flows::mutantsOf($file),
                     Run::of('github:earlier', Moment::at('2026-09-29T10:00:00Z'), Digest::sha256Of('base')),
-                ));
+                )->withInputs($now instanceof Digests ? $now->inputsOf(Path::of($file), Paths::none()) : $now));
             }
 
             return $ledger;

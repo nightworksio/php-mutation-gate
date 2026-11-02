@@ -184,13 +184,16 @@ final readonly class Planning
             )
             : Reached::everything($inventory->trees, $base);
         $ownOnly = $reached->ownOnly();
+        $now = $keying->digestsOf($inventory->units);
         $considering = $ledgers->considering(
             $inventory->units,
             $reached->reach(),
             $kind,
-            OwnOnly::of($ownOnly, $keying->digestsOf($inventory->units->within($ownOnly))),
+            OwnOnly::of($ownOnly, $now),
+            $now,
         );
-        $carriedOwn = $this->unitsOf($considering->carried())->within($ownOnly);
+        $carried = $this->unitsOf($considering->carried());
+        $carriedOwn = $carried->within($ownOnly);
         $keys = $keying->keysOf($considering->considered());
         $proving = $ledgers->proving($considering->considered(), $keys, $keying->base(), $kind);
         $changed = $this->newCode($inventory->standing, $reached);
@@ -211,10 +214,7 @@ final readonly class Planning
             $this->riskOrder($reached, $inventory->trees, $ledgers->newest($kind), $toRun),
         );
         $shards = $shards instanceof Shards ? $this->opening($shards, $opening) : $shards;
-        $digests = $this->committed(
-            $keying->digestsOf(Units::of(...$toRun, ...$carriedOwn)),
-            $inventory->standing->head(),
-        );
+        $digests = $this->committed($now, $inventory->standing->head());
 
         return match (true) {
             $shards instanceof CannotJudge => $shards,
@@ -230,7 +230,7 @@ final readonly class Planning
                             ->reaching($changed, $reached->reach()->reasons())
                             ->untesting(Untested::of($changed, $map))
                             ->proving($this->unitsOf($proving->proved()))
-                            ->carrying($this->unitsOf($considering->carried()))
+                            ->carrying($carried)
                             ->carryingOwn($carriedOwn)
                             ->pruning($pruned)
                             ->sampling($sample),

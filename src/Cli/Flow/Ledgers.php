@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Plan\Considering;
 use NightWorksIO\MutationGate\Core\Plan\OwnOnly;
 use NightWorksIO\MutationGate\Core\Plan\Proving;
 use NightWorksIO\MutationGate\Core\Proof\Access;
+use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\LastRun;
@@ -26,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Proof\Records;
 use NightWorksIO\MutationGate\Core\Proof\RunProfile;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
+use NightWorksIO\MutationGate\Core\Proof\Undigested;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
@@ -187,16 +189,22 @@ final readonly class Ledgers
 
     /**
      * Of these units, those the run considers, and those that carry the
-     * newest proof of their path that stands for a run of this kind, the
-     * units of these files carrying only their own scope's.
+     * newest proof of their path that stands for a run of this kind and is
+     * of the source these digests are of, the units of these files carrying
+     * only their own scope's.
      */
-    public function considering(Units $units, Reach $reach, RunProfile $kind, OwnOnly $ownOnly): Considering
-    {
+    public function considering(
+        Units $units,
+        Reach $reach,
+        RunProfile $kind,
+        OwnOnly $ownOnly,
+        Digests|Undigested $now,
+    ): Considering {
         return Considering::of(
             $units,
             $reach,
-            $this->defaultBranch->proofs()->standingFor($kind),
-            $this->own->proofs()->standingFor($kind),
+            $this->defaultBranch->proofs()->standingFor($kind)->ofSourcesIn($now),
+            $this->own->proofs()->standingFor($kind)->ofSourcesIn($now),
             $ownOnly,
         );
     }

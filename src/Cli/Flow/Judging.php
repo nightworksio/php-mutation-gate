@@ -236,6 +236,7 @@ final readonly class Judging
             Reach::nothing(Packages::of($trees)),
             $kind,
             OwnOnly::of($plan->considered()->carriedOwn()->paths(), $plan->digests()),
+            $plan->digests(),
         );
         $uncovered = $this->uncovered();
         $ignoring = Ignoring::of($this->settings->ignores()->entries(), $this->setup->clock->now());

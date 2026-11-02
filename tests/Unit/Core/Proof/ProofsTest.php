@@ -6,11 +6,14 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Proof\Digests;
+use NightWorksIO\MutationGate\Core\Proof\Inputs;
 use NightWorksIO\MutationGate\Core\Proof\NeverProved;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\RunProfile;
+use NightWorksIO\MutationGate\Core\Proof\Undigested;
 use NightWorksIO\MutationGate\Core\Proof\Unproved;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Time\Instant;
@@ -178,4 +181,21 @@ it('says whether any proof it holds was established at a base', function () use 
     expect($proofs->provesAt(Digest::of(str_repeat('b', 64))))->toBeTrue()
         ->and($proofs->provesAt(Digest::of(str_repeat('c', 64))))->toBeFalse()
         ->and(Proofs::none()->provesAt(Digest::of(str_repeat('b', 64))))->toBeFalse();
+});
+
+it('keeps of these proofs those of the source the digests read now, and none where no digests were taken', function () use ($proof, $units): void {
+    $of = static fn(Proof $proved, string $source): Proof => $proved->withInputs(Inputs::of(Digest::sha256Of($source), Digest::sha256Of('mutation')));
+    $proofs = Proofs::of(
+        $of($proof('a', 'src/A.php'), 'a now'),
+        $of($proof('b', 'src/B.php'), 'b before'),
+        $proof('c', 'src/C.php'),
+        $of($proof('d', 'src/D.php'), 'd now'),
+    );
+    $now = Digests::of(Digest::sha256Of('another mutation'))
+        ->withSource(Path::of('src/A.php'), Digest::sha256Of('a now'))
+        ->withSource(Path::of('src/B.php'), Digest::sha256Of('b now'))
+        ->withSource(Path::of('src/C.php'), Digest::sha256Of('c now'));
+
+    expect($units($proofs->ofSourcesIn($now)))->toBe(['src/A.php'])
+        ->and($proofs->ofSourcesIn(Undigested::proof()))->toHaveCount(0);
 });
