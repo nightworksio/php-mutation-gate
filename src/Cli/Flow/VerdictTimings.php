@@ -8,10 +8,13 @@ use DateTimeImmutable;
 
 use function min;
 
+use NightWorksIO\MutationGate\Core\Ci\CiRun;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Cost\Phase;
 use NightWorksIO\MutationGate\Core\Cost\RunTime;
 use NightWorksIO\MutationGate\Core\Cost\RunTimings;
 use NightWorksIO\MutationGate\Core\Cost\ShardTiming;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -23,10 +26,11 @@ use function sprintf;
  * A run's timings, as the verdict reads them from the shards' result files
  * and its own clock (ADR-0016): each shard whole, from its
  * start to the instant its result was written, with the steps its time went
- * to, and the verdict from when it began to now. What the run took is
+ * to, and the verdict from when it began to now. On a CI, what the run took is
  * estimated, each job's setup taken from `shards.setup`: the wall time from
  * the first job's setup to now, and the runner time of every shard and the
- * verdict together, each with its setup.
+ * verdict together, each with its setup. A run on no CI has no job to set up,
+ * so its clock measures what it took.
  *
  * @internal
  */
@@ -37,18 +41,19 @@ final readonly class VerdictTimings
         Results $results,
         DateTimeImmutable $began,
         DateTimeImmutable $now,
-        Seconds $setup,
+        Seconds|NotGiven $setup,
     ): RunTimings {
+        $each = $setup instanceof Seconds ? $setup->seconds() : 0.0;
         $verdict = Seconds::between($began, $now);
         $first = $began;
-        $runner = $verdict->seconds() + $setup->seconds();
+        $runner = $verdict->seconds() + $each;
         $shards = [];
 
         foreach ($results->shards() as [, $result]) {
             $spent = $result->measured()->spent();
             $start = self::start($result, $spent, $began);
             $first = min($first, $start);
-            $runner += $spent->seconds() + $setup->seconds();
+            $runner += $spent->seconds() + $each;
             $shards[] = ShardTiming::of(
                 $result->shard()->number(),
                 Phase::of(Instant::at($start), $spent),
@@ -56,14 +61,23 @@ final readonly class VerdictTimings
             );
         }
 
-        $wall = Seconds::of(Seconds::between($first, $now)->seconds() + $setup->seconds());
-        $timings = RunTimings::of($run, RunTime::estimated($wall, Seconds::of($runner)));
+        $wall = Seconds::of(Seconds::between($first, $now)->seconds() + $each);
+        $spent = $setup instanceof Seconds
+            ? RunTime::estimated($wall, Seconds::of($runner))
+            : RunTime::measured($wall, Seconds::of($runner));
+        $timings = RunTimings::of($run, $spent);
 
         foreach ($shards as $shard) {
             $timings = $timings->withShard($shard);
         }
 
         return $timings->withVerdict(Phase::of(Instant::at($began), $verdict));
+    }
+
+    /** Each job's setup on a CI, `shards.setup`; none on a run no CI started. */
+    public static function setupOn(Variables $environment, Seconds $setup): Seconds|NotGiven
+    {
+        return CiRun::read($environment) instanceof CiRun ? $setup : NotGiven::value();
     }
 
     /**

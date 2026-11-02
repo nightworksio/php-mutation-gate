@@ -31,6 +31,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
+use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Tests\Support\Clustered;
 use NightWorksIO\MutationGate\Tests\Support\Judged;
 
@@ -168,8 +169,8 @@ it('clusters its survivors as it counts uncovered ones, and keeps the rest', fun
         $mutants[] = JudgedMutant::of($call->mutant(), MutantJudgement::Uncovered)->judgedBy($call->tests());
     }
 
-    $verdict = TreeVerdict::judged($tree(Floor::of(80)), Floor::of(70), JudgedUnits::none(), JudgedMutants::of(...$mutants), $uncovered)
-        ->clustered(Clustered::sources());
+    $judged = TreeVerdict::judged($tree(Floor::of(80)), Floor::of(70), JudgedUnits::none(), JudgedMutants::of(...$mutants), $uncovered);
+    $verdict = [...TreeVerdicts::of($judged)->clustered(Clustered::sources())][0];
     $first = Clustered::listed($verdict->mutants())[0];
 
     expect($first->cluster() instanceof Membership)->toBe($clustered)

@@ -121,20 +121,26 @@ it('removes an earlier run\'s map before it runs, so a failed run never reads on
     expect($read)->toEqual(CannotJudge::because(sprintf('There is no coverage map at %s, so no test runs any line.', $map)));
 });
 
-it('cannot judge a run that failed, or an earlier map it cannot remove', function (): void {
+it('cannot judge a run that failed, saying where the project has none of its framework\'s configs, or an earlier map it cannot remove', function (): void {
     $project = coverageProject();
     $shell = mapping($project, succeeded: false);
     $coverage = new Coverage($project, $shell, new Invocation($project, '/gate/override.php', NativePhpUnit::in($project)), NativePhpUnit::in($project));
+    $unconfigured = $coverage->of(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage')));
+    Scratch::write($project->root(), 'phpunit.dist.xml', '<phpunit/>');
     $failed = $coverage->of(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage')));
     Scratch::write($project->root(), '.mutation-gate/stuck/coverage.php/inside', 'a directory where the map goes');
 
-    expect($failed)->toEqual(CannotJudge::because("PHPUnit's coverage run failed. PHPUnit said:\nPHPUnit said this"))
+    expect($unconfigured)->toEqual(CannotJudge::because(
+        "PHPUnit's coverage run failed, and the project has none of its configs: no `phpunit.xml`, "
+        . "`phpunit.dist.xml` or `phpunit.xml.dist` in its root. PHPUnit said:\nPHPUnit said this",
+    ))
+        ->and($failed)->toEqual(CannotJudge::because("PHPUnit's coverage run failed. PHPUnit said:\nPHPUnit said this"))
         ->and($coverage->of(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/stuck'))))
         ->toEqual(CannotJudge::because(sprintf(
             'An earlier run left %s/.mutation-gate/stuck/coverage.php, and the gate cannot remove it.',
             $project->root(),
         )))
-        ->and($shell->commands())->toHaveCount(1);
+        ->and($shell->commands())->toHaveCount(2);
 });
 
 it('reads the map another job handed over, or says there is none', function (): void {

@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\VerdictTimings;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Cost\Phase;
 use NightWorksIO\MutationGate\Core\Cost\ShardTiming;
@@ -95,6 +96,28 @@ it('times each shard from its start to its result, with its steps, and the verdi
         ->and($timings->spent()->wall())->toEqual(Seconds::of(3630.0 + 60.0))
         ->and($timings->spent()->runner())->toEqual(Seconds::of(30.0 + 60.0 + $spent[0] + 60.0 + $spent[1] + 60.0))
         ->and($timings->spent()->isMeasured())->toBeFalse();
+});
+
+it('adds no setup to a run on no CI, whose clock measures what it took', function (): void {
+    $began = new DateTimeImmutable('2026-09-30T13:00:00+00:00');
+    $timings = VerdictTimings::of(
+        'local:2026-09-30T13:00:30Z',
+        verdictTimingsWritten('2026-09-30T12:59:50Z', 10.0, '2026-09-30T12:59:55Z', 5.0),
+        $began,
+        new DateTimeImmutable('2026-09-30T13:00:30+00:00'),
+        NotGiven::value(),
+    );
+
+    expect($timings->spent()->wall())->toEqual(Seconds::of(50.0))
+        ->and($timings->spent()->runner())->toEqual(Seconds::of(45.0))
+        ->and($timings->spent()->isMeasured())->toBeTrue();
+});
+
+it('takes each job\'s setup on a CI, and none on a run no CI started', function (): void {
+    $github = Variables::of(['GITHUB_ACTIONS' => 'true', 'GITHUB_REPOSITORY' => 'octo/gate', 'GITHUB_RUN_ID' => '7']);
+
+    expect(VerdictTimings::setupOn($github, Seconds::of(60.0)))->toEqual(Seconds::of(60.0))
+        ->and(VerdictTimings::setupOn(Variables::of([]), Seconds::of(60.0)))->toEqual(NotGiven::value());
 });
 
 it('starts a shard the seconds it spent, rounded, before its result was written, and at the verdict\'s start where that instant is no moment', function (): void {

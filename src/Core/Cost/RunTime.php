@@ -9,8 +9,8 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 /**
  * What a run takes: the wall time from its first job's start to its last
  * job's end, and the runner time every job spent together, measured where
- * the CI tells and estimated from `shards.setup` where it does not
- * (ADR-0016, and ADR-0017).
+ * the CI tells or no CI job was set up, and estimated from `shards.setup`
+ * where a CI does not tell (ADR-0016, and ADR-0017).
  */
 final readonly class RunTime
 {
@@ -18,7 +18,7 @@ final readonly class RunTime
     {
     }
 
-    /** A run time the CI's own job times gave. */
+    /** A run time the CI's own job times gave, or the gate's clock on a run with no CI job to set up. */
     public static function measured(Seconds $wall, Seconds $runner): self
     {
         return new self($wall, $runner, measured: true);
@@ -40,7 +40,7 @@ final readonly class RunTime
         return $this->runner;
     }
 
-    /** Whether the CI measured it, rather than the gate estimating its setup. */
+    /** Whether it was measured, rather than the gate estimating each job's setup. */
     public function isMeasured(): bool
     {
         return $this->measured;

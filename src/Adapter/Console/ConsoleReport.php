@@ -53,6 +53,9 @@ final readonly class ConsoleReport implements Configurable, Reporter
     /** A floor that can rise: what it is of, and what to. */
     private const string RISES = '%s to %s';
 
+    /** How many units the run judged, and where each one's results came from. */
+    private const string UNITS = '%d %s: %d run, %d proved, %d carried.';
+
     private function __construct(private OutputInterface $output)
     {
     }
@@ -171,8 +174,9 @@ final readonly class ConsoleReport implements Configurable, Reporter
         }
 
         return count($units) === 0 ? [] : [sprintf(
-            '%d: %d run, %d proved, %d carried.',
+            self::UNITS,
             count($units),
+            count($units) === 1 ? 'unit' : 'units',
             $from[Origin::Run->value],
             $from[Origin::Proved->value],
             $from[Origin::Carried->value],

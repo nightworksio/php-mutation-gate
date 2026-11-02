@@ -384,7 +384,7 @@ class ReleaseTag(unittest.TestCase):
             with self.subTest(ref=ref), self.assertRaises(action.Refused) as refused:
                 action.release_tag(ref, tags)
             self.assertIn("is no release's tag or commit", str(refused.exception))
-            self.assertIn(f"or require {action.GATE} ^{action.LINE} with Composer.", str(refused.exception))
+            self.assertIn(f"or require {action.GATE} with Composer, and the action runs that copy.", str(refused.exception))
 
 
 class Signature(unittest.TestCase):

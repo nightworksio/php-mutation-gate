@@ -519,7 +519,7 @@ it('names the tests that judged each survivor by their names, and marks each res
     $proved = FlowCommands::run(RunCommand::command($composition), '--output=problems');
 
     expect($ran->output)->toContain(sprintf(
-        "\n      Judged by: tests/MoneyTest.php::it adds\n      %s It is judged by `MoneyTest::adds`.\n",
+        "\n      Judged by: tests/MoneyTest.php::it adds\n      %s It is judged by `tests/MoneyTest.php::it adds`.\n",
         'Add a test that checks the result of `$amount + $tax` with a non-zero operand.',
     ))
         ->and($proved->output)->toContain(' (proved in run local:2026-09-30T12:00:00Z) [survived] ');
@@ -534,7 +534,7 @@ it('names the holding tests that judged a held unit\'s survivor, in the run that
 
     expect($ran->output)->toContain($judged)
         ->and($proved->output)->toContain($judged)
-        ->and($proved->output)->toContain('2: 0 run, 2 proved, 0 carried.');
+        ->and($proved->output)->toContain('2 units: 0 run, 2 proved, 0 carried.');
 });
 
 it('writes the sticky comment in its planned state before it runs a pull request\'s plan, and not for one shard', function () use (

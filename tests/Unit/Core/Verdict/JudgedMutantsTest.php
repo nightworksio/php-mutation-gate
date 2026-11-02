@@ -17,7 +17,10 @@ use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestName;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
@@ -136,6 +139,14 @@ it('holds the kills a ledger proved after the mutants reported in full, marks an
         ->and($mutants->counts()->number(MutantJudgement::Killed))->toBe(4)
         ->and(Judged::natives($mutants->survivors(Uncovered::Count)))->toBe(['0'])
         ->and($mutants->provenEquivalent(MutantIds::of($kill(3)->mutant()->id())))->toEqual($mutants);
+});
+
+it('names the judging tests in each mutant\'s hint by the names their runner gave them', function (): void {
+    $names = TestNames::none()->with(TestId::of('MoneyTest::fits'), TestName::in(Path::of('tests/MoneyTest.php'), 'fits'));
+    $named = [...JudgedMutants::of(Verdicts::survivor())->named($names)][0];
+
+    expect($named->hint()->text())->toContain('It is judged by `tests/MoneyTest.php::fits`, `MoneyTest::refuses`')
+        ->and(Verdicts::survivor()->hint()->text())->toContain('It is judged by `MoneyTest::fits`, `MoneyTest::refuses`');
 });
 
 it('marks the survivors of one cause with their cluster, keeping every mutant and its order', function (): void {
