@@ -8,6 +8,7 @@ use function count;
 use function is_array;
 use function is_string;
 
+use NightWorksIO\MutationGate\Adapter\Console\Indented;
 use NightWorksIO\MutationGate\Adapter\Filesystem\PublicationFile;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
@@ -123,6 +124,7 @@ final readonly class PlanCommand
         }
 
         self::saidHowMeasured($made, $aside);
+        self::saidReach($plan, $aside);
         $aside->writeln(sprintf('Wrote %s, with %d shards.', Workspace::plan()->value(), count($plan)));
         self::estimated($composed, $plan, $aside);
         self::saidIfUnpatched($composed, count($plan), $aside);
@@ -136,6 +138,26 @@ final readonly class PlanCommand
         }
 
         return ExitCode::Passed->value;
+    }
+
+    /** Why the plan reaches what it does, what reaches every unit of a package first, before its shards. */
+    private static function saidReach(Plan $plan, OutputInterface $aside): void
+    {
+        $said = [];
+
+        foreach ($plan->considered()->reach()->wideningFirst() as $reason) {
+            $said[] = $reason->text();
+        }
+
+        if ($said === []) {
+            return;
+        }
+
+        $aside->writeln('Reach');
+
+        foreach (Indented::lines($said) as $line) {
+            $aside->writeln($line, OutputInterface::OUTPUT_RAW);
+        }
     }
 
     /**

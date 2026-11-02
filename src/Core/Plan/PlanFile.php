@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Plan;
 
+use function array_filter;
+use function array_keys;
 use function array_map;
 use function count;
+use function in_array;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Change;
@@ -76,6 +79,7 @@ use stdClass;
  *     changed?: array<string, list<int>>,
  *     untested?: array<string, list<int>>,
  *     reach?: list<string>,
+ *     widening?: list<int>,
  * }
  * @phpstan-type Body array{
  *     format: int,
@@ -95,6 +99,7 @@ use stdClass;
  *     changed?: array<string, list<int>>,
  *     untested?: array<string, list<int>>,
  *     reach?: list<string>,
+ *     widening?: list<int>,
  *     digests?: RunDigests,
  * } & BriefingWritten
  */
@@ -117,6 +122,9 @@ final readonly class PlanFile
     private const string UNTESTED = 'untested';
 
     private const string REACH = 'reach';
+
+    /** The places in `reach` of the reasons that reach every unit of a package. */
+    private const string WIDENING = 'widening';
 
     private const string NAMES = 'names';
 
@@ -210,6 +218,7 @@ final readonly class PlanFile
             self::CHANGED => $changed,
             ...$untested === [] ? [] : [self::UNTESTED => $untested],
             self::REACH => array_map(static fn(Reason $reason): string => $reason->text(), [...$considered->reach()]),
+            ...self::widening($considered->reach()),
         ];
     }
 
@@ -328,14 +337,29 @@ final readonly class PlanFile
         return $changes;
     }
 
+    /**
+     * The places in a plan's reasons of those that reach every unit of a package, none where there are none.
+     *
+     * @return array{widening?: list<int>}
+     */
+    private static function widening(Reasons $reasons): array
+    {
+        $places = array_keys(array_filter([...$reasons], static fn(Reason $reason): bool => $reason->widens()));
+
+        return $places === [] ? [] : [self::WIDENING => $places];
+    }
+
     /** @throws NotInShape */
     private static function reachIn(Node $file): Reasons
     {
         $reasons = Reasons::of();
         $reach = $file->field(self::REACH);
+        $widening = $file->field(self::WIDENING);
+        $places = $widening->isPresent() ? $widening->integers() : [];
 
-        foreach ($reach->isPresent() ? $reach->items() : [] as $reason) {
-            $reasons = $reasons->with(Reason::that($reason->text()));
+        foreach ($reach->isPresent() ? $reach->items() : [] as $at => $reason) {
+            $read = Reason::that($reason->text());
+            $reasons = $reasons->with(in_array($at, $places, strict: true) ? $read->widening() : $read);
         }
 
         return $reasons;

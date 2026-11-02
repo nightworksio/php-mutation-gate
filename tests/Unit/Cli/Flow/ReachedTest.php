@@ -126,7 +126,7 @@ it('reaches every unit of a full run, for its reason', function () use ($makeMon
 
     expect($reached->reach()->reaches($money))->toBeTrue()
         ->and($reached->reach()->reaches($held))->toBeTrue()
-        ->and($reached->reach()->reasons())->toEqual(Reasons::of(Reason::that('A full run considers every unit.')))
+        ->and($reached->reach()->reasons())->toEqual(Reasons::of(Reason::that('A full run considers every unit.')->widening()))
         ->and($reached->changed())->toEqual(CannotTell::because('A full run considers every unit.'));
 });
 
@@ -243,12 +243,14 @@ it('reaches nothing where the lock moved only packages the config leaves out, an
         ['composer.lock' => Locks::of(['symfony/console' => '8.1.7'], ['pestphp/pest' => '5.2.1'])->text()],
     );
 
+    $reason = Reason::that(sprintf(
+        $everywhere ? '`%s` decides how the gate runs, so every unit is reached.' : '`%s` changed nothing that decides how the gate runs, so it reaches nothing.',
+        'composer.lock',
+    ));
+
     expect($reached->reach()->isEverywhere())->toBe($everywhere)
         ->and($reached->reach()->reaches($money))->toBe($everywhere)
-        ->and($reached->reach()->reasons())->toEqual(Reasons::of(Reason::that(sprintf(
-            $everywhere ? '`%s` decides how the gate runs, so every unit is reached.' : '`%s` changed nothing that decides how the gate runs, so it reaches nothing.',
-            'composer.lock',
-        ))));
+        ->and($reached->reach()->reasons())->toEqual(Reasons::of($everywhere ? $reason->widening() : $reason));
 })->with([
     'only the console' => ['8.1.9', '5.2.1', false],
     'pest' => ['8.1.7', '5.2.2', true],

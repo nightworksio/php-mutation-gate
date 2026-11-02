@@ -189,3 +189,14 @@ it('says whether the change added or modified a line of a unit, or of a file a h
         ->and($reach->changesLinesOf(Unit::file(Path::of('src/Removed.php'))))->toBeFalse()
         ->and($reach->changesLinesOf(Unit::file(Path::of('src/Other.php'))))->toBeFalse();
 });
+
+it('marks the decisions that reach every unit, of every package or of some, as widening, and no other', function () use ($nothing): void {
+    $reach = $nothing()
+        ->because(Reason::that('nothing'))
+        ->files(Paths::of(Path::of('src/Money.php')), Reason::that('a file'))
+        ->wholly(Paths::of(Path::root()), Reason::that('a package'))
+        ->everywhere(Reason::that('everything'));
+
+    expect(array_map(static fn(Reason $reason): array => [$reason->text(), $reason->widens()], [...$reach->reasons()]))
+        ->toBe([['nothing', false], ['a file', false], ['a package', true], ['everything', true]]);
+});
