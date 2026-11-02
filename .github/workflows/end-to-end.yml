@@ -1,8 +1,8 @@
 # The gate installed into another project and driven as its user drives it:
 # warm workers on a pinned PHPUnit library, and composer mutate and the hook
-# recipes through the real hook managers. Called by ci.yml, on a change to the
-# code; each job leaves its evidence as the jobs of ci.yml do
-# (ADR-0019).
+# recipes through the real hook managers. Called by ci.yml, which says by
+# `warm` and `hooks` which of the two a change reaches; each job leaves its
+# evidence as the jobs of ci.yml do (ADR-0019).
 name: end-to-end
 
 on:
@@ -10,6 +10,10 @@ on:
     inputs:
       warm:
         description: Whether the change reaches what warm workers measures.
+        type: boolean
+        required: true
+      hooks:
+        description: Whether the change reaches what the hook managers install.
         type: boolean
         required: true
 
@@ -161,6 +165,7 @@ jobs:
   # pushing through each.
   hook-managers:
     name: hook managers
+    if: inputs.hooks
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:

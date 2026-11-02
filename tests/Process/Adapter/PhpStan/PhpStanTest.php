@@ -49,7 +49,17 @@ it('reads the config the gate hands it before the one it finds', function (): vo
     expect($phpstan->identity(Withheld::standard()))
         ->toEqual(AnalyserIdentity::of('phpstan', '2.2.16', Digest::sha256Of('parameters: {}')))
         ->and(file_get_contents(sprintf('%s/.mutation-gate/phpstan/check.neon', $project)))
-        ->toBe(sprintf("includes:\n    - %s/build/phpstan.neon\nparameters:\n    parallel:\n        maximumNumberOfProcesses: 1\n    reportUnmatchedIgnoredErrors: false\n", $project));
+        ->toBe(sprintf(
+            "includes:\n    - %1\$s/build/phpstan.neon\nparameters:\n    resultCachePath: %1\$s/.mutation-gate/phpstan/resultCache.php\n"
+            . "    parallel:\n        maximumNumberOfProcesses: 1\n    reportUnmatchedIgnoredErrors: false\n",
+            $project,
+        ))
+        ->and(file_get_contents(sprintf('%s/.mutation-gate/phpstan/warm.neon', $project)))
+        ->toBe(sprintf(
+            "includes:\n    - %1\$s/build/phpstan.neon\nparameters:\n    resultCachePath: %1\$s/.mutation-gate/phpstan/resultCache.php\n"
+            . "    reportUnmatchedIgnoredErrors: false\n",
+            $project,
+        ));
 })->group(...$holds);
 
 /** What PHPStan in this project says it runs with, where its parameters name its own root and this machine's. */
@@ -145,6 +155,7 @@ it('analyses every file the config names for the originals, and a mutant in its 
             'withheld',
         ])
         ->and($warm)->toBeInstanceOf(Findings::class)
+        ->and($warmedWith)->toStartWith(sprintf("analyse\n--configuration=%s/.mutation-gate/phpstan/warm.neon\n", $project))
         ->and($warmedWith)->toEndWith("--no-progress\nleaked")
         ->and(file_get_contents(sprintf('%s/.mutation-gate/phpstan/scope.json', $project)))
         ->toBe(sprintf('{"paths": ["%s/src"]}', $project));

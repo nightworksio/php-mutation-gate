@@ -30,7 +30,7 @@ inputs:
     required: false
     default: auto
   changed-since:
-    description: A git ref, or last-passed; where empty, the pull request's base on pull_request, the group's base on merge_group, the default branch on another branch, and last-passed on the default branch.
+    description: A git ref, or last-passed; where empty, on pull_request the commit its merge checkout merges it onto (its base where the checkout is no merge), the group's base on merge_group, the default branch on another branch, and last-passed on the default branch.
     required: false
     default: ''
   budget:
@@ -224,6 +224,19 @@ runs:
         key: ${{ steps.resolve.outputs.default_prefix }}${{ github.run_id }}
         restore-keys: ${{ steps.resolve.outputs.default_prefix }}
 
+    # ADR-0052: PHPStan's result cache under the gate's workspace, as the last
+    # run on this machine's kind of runner and PHP left it, so the warm-up
+    # analyses only what changed since. PHPStan checks the cache against the
+    # code and its own config, and analyses afresh what it no longer holds.
+    - name: Restore the static analyser's result cache
+      id: analysed
+      if: inputs.deliver != 'true'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: .mutation-gate/phpstan/resultCache.php
+        key: mutation-gate-phpstan-${{ runner.os }}-${{ runner.arch }}-${{ inputs.php-version }}-${{ github.run_id }}
+        restore-keys: mutation-gate-phpstan-${{ runner.os }}-${{ runner.arch }}-${{ inputs.php-version }}-
+
     # One shard of a plan the reusable workflow made: its result, beside the
     # attempt that wrote it, is the verdict's to judge.
     - name: Run shard ${{ inputs.shard }}
@@ -315,6 +328,20 @@ runs:
           --report=digest:.mutation-gate/action/mutation-gate-digest.txt \
           --deliver-later "${arguments[@]}" || code=$?
         echo "code=${code}" >> "${GITHUB_OUTPUT}"
+
+    # The result cache the run's warm-up left, kept where it differs from the
+    # one restored. A cache is kept for the ref that ran, so a pull request's
+    # is read by that pull request alone, and the default branch's by every
+    # ref.
+    - name: Save the static analyser's result cache
+      if: >-
+        ${{ !cancelled() && inputs.deliver != 'true'
+        && hashFiles('.mutation-gate/phpstan/resultCache.php') != ''
+        && format('mutation-gate-phpstan-{0}-{1}-{2}-{3}', runner.os, runner.arch, inputs.php-version, hashFiles('.mutation-gate/phpstan/resultCache.php')) != steps.analysed.outputs.cache-matched-key }}
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: .mutation-gate/phpstan/resultCache.php
+        key: mutation-gate-phpstan-${{ runner.os }}-${{ runner.arch }}-${{ inputs.php-version }}-${{ hashFiles('.mutation-gate/phpstan/resultCache.php') }}
 
     # Only the verdict writes a ledger, and only for the run's own scope where
     # it may write it (ADR-0007): it leaves the ledger and its kept coverage map

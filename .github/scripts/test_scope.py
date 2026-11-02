@@ -10,21 +10,30 @@ def legs(found: dict[str, str]) -> list[str]:
     return sorted(json.loads(found["runners"]))
 
 
+def ran(found: dict[str, str]) -> list[str]:
+    return json.loads(found["jobs"])
+
+
+def pull(*paths: str) -> dict[str, str]:
+    return scope.outputs("pull_request", list(paths))
+
+
+# The jobs that judge the program, in ci.yml's order.
+PROGRAM = ["alone", "guards", "checks", "tests", "lowest", "phar", "mutation"]
+NOTHING = {"jobs": "[]", "runners": "[]", "warm": "false", "hooks": "false"}
+EVERYTHING = {"jobs": json.dumps(list(scope.GATED)), "runners": json.dumps(list(scope.RUNNERS)), "warm": "true", "hooks": "true"}
+
+
 class Outputs(unittest.TestCase):
-    def test_runs_every_gate_on_a_push_a_schedule_or_without_a_base(self):
+    def test_runs_every_job_on_a_push_a_schedule_or_without_a_base(self):
         for event, paths in (("push", ["README.md"]), ("schedule", []), ("pull_request", None)):
-            found = scope.outputs(event, paths)
-            self.assertEqual((found["code"], found["warm"], found["site"]), ("true", "true", "true"))
-            self.assertEqual(json.loads(found["runners"]), list(scope.RUNNERS))
+            self.assertEqual(scope.outputs(event, paths), EVERYTHING)
 
-    def test_runs_no_gate_for_documentation(self):
+    def test_runs_only_the_site_for_documentation(self):
         documentation = [".docs/guide/concepts/holding-tests.md", "README.md", "LICENSE", ".github/workflows/pr.yml"]
-        found = scope.outputs("pull_request", documentation)
-        self.assertEqual(found, {"code": "false", "warm": "false", "runners": "[]", "site": "true"})
-
-    def test_runs_no_php_gate_for_the_docs_site(self):
-        found = scope.outputs("pull_request", [".site/astro.config.mjs", ".site/package-lock.json"])
-        self.assertEqual(found, {"code": "false", "warm": "false", "runners": "[]", "site": "true"})
+        self.assertEqual(pull(*documentation), {**NOTHING, "jobs": '["site"]'})
+        self.assertEqual(pull(".site/astro.config.mjs", ".site/package-lock.json"), {**NOTHING, "jobs": '["site"]'})
+        self.assertEqual(pull("CONTRIBUTING.md"), NOTHING)
 
     def test_builds_the_site_where_the_docs_the_site_its_workflows_or_a_printed_link_changed(self):
         built = (
@@ -39,24 +48,33 @@ class Outputs(unittest.TestCase):
             ".github/workflows/pages.yml",
         )
         for path in built:
-            self.assertEqual(scope.outputs("pull_request", [path])["site"], "true", path)
+            self.assertIn("site", ran(pull(path)), path)
         for path in ("src/Core/Report/Overview.php", "CONTRIBUTING.md", ".github/workflows/pr.yml", "tests/Docs/TroubleshootingTest.php"):
-            self.assertEqual(scope.outputs("pull_request", [path])["site"], "false", path)
+            self.assertNotIn("site", ran(pull(path)), path)
 
-    def test_reads_the_documentation_the_suites_read_as_code(self):
-        read = (
-            "ARCHITECTURE.md",
-            ".docs/reference/config.md",
-            ".docs/guide/ci/github.md",
-            ".docs/guide/troubleshooting.md",
-            ".github/scripts/evidence.py",
-        )
-        for path in read:
-            self.assertEqual(scope.outputs("pull_request", [path])["code"], "true", path)
+    def test_runs_the_suites_alone_for_the_documents_they_read(self):
+        for path in (".docs/reference/config.md", ".docs/guide/ci/github.md", ".docs/guide/troubleshooting.md"):
+            self.assertEqual([job for job in ran(pull(path)) if job != "site"], ["alone", "tests"], path)
+        self.assertEqual(ran(pull("ARCHITECTURE.md")), ["alone", "guards", "tests"])
 
-    def test_runs_neither_warm_workers_nor_a_leg_for_code_no_runner_runs_through(self):
-        found = scope.outputs("pull_request", ["src/Core/Report/Overview.php", "tests/Unit/Core/Report/X.php"])
-        self.assertEqual(found, {"code": "true", "warm": "false", "runners": "[]", "site": "false"})
+    def test_runs_the_suites_and_the_self_gate_for_the_action_and_the_reusable_workflow(self):
+        for path in ("action.yml", ".github/workflows/mutation-gate.yml"):
+            self.assertEqual(pull(path), {**NOTHING, "jobs": '["alone", "tests", "mutation"]'}, path)
+
+    def test_runs_no_php_gate_for_another_gate_s_own_file(self):
+        for path in ("typos.toml", "lychee.toml", ".markdownlint.jsonc", "cliff.toml", "Dockerfile", ".dockerignore", "bench/jwt.sh"):
+            self.assertEqual(pull(path), NOTHING, path)
+        self.assertEqual(pull("sonar-project.properties"), {**NOTHING, "jobs": '["tests"]'})
+
+    def test_runs_every_program_job_for_the_program_and_the_hook_managers_outside_the_suites(self):
+        found = pull("src/Core/Report/Overview.php")
+        self.assertEqual(ran(found), [*PROGRAM[:6], "end-to-end", "mutation"])
+        self.assertEqual((found["runners"], found["warm"], found["hooks"]), ("[]", "false", "true"))
+        for path in ("tests/Unit/Core/Report/OverviewTest.php", "phpstan.neon", "mutation-gate.json"):
+            found = pull(path)
+            self.assertEqual(ran(found)[:6], PROGRAM[:6], path)
+            self.assertIn("mutation", ran(found), path)
+        self.assertEqual(pull("tests/Unit/Core/Report/OverviewTest.php")["hooks"], "false")
 
     def test_runs_only_the_legs_whose_adapter_or_fixture_changed(self):
         cases = {
@@ -88,26 +106,46 @@ class Outputs(unittest.TestCase):
             "tests/Contract/StaticChecker/StaticCheckerTest.php": ["analysers"],
         }
         for path, expected in cases.items():
-            self.assertEqual(legs(scope.outputs("pull_request", [path])), expected, path)
+            self.assertEqual(legs(pull(path)), expected, path)
 
     def test_runs_every_runner_leg_for_the_runner_contract_itself_and_its_other_fixtures(self):
         runners = ["codeception", "infection-12", "infection-13", "pest", "phpspec", "phpunit", "testo"]
         for path in ("tests/Contract/Runner/KillsTest.php", "tests/Contract/Runner/stall/a.php"):
-            self.assertEqual(legs(scope.outputs("pull_request", [path])), runners, path)
+            self.assertEqual(legs(pull(path)), runners, path)
+            self.assertIn("runner-contracts", ran(pull(path)), path)
 
-    def test_runs_every_leg_and_warm_workers_for_what_every_runner_shares(self):
+    def test_runs_every_leg_and_warm_workers_for_what_every_runner_runs_through(self):
         shared = (
             "src/Core/Runner/Request.php",
             "src/Port/Runner.php",
             "src/Adapter/Process/Running.php",
             "src/Mutator/Engine/Source.php",
             "composer.lock",
-            ".github/workflows/ci.yml",
         )
         for path in shared:
-            found = scope.outputs("pull_request", [path])
+            found = pull(path)
             self.assertEqual(legs(found), sorted(scope.RUNNERS), path)
             self.assertEqual(found["warm"], "true", path)
+
+    def test_runs_every_leg_but_no_warm_workers_for_how_the_legs_run_the_contract_suite(self):
+        for path in ("phpunit.xml", ".github/scripts/legs.json"):
+            found = pull(path)
+            self.assertEqual(legs(found), sorted(scope.RUNNERS), path)
+            self.assertEqual(found["warm"], "false", path)
+
+    def test_runs_a_leg_for_the_test_support_its_tests_use_and_no_leg_for_any_other(self):
+        listed = {path for leg in scope.LEG_TABLE.values() for path in leg["support"]}
+        for runner, leg in scope.LEG_TABLE.items():
+            for path in leg["support"]:
+                found = pull(path)
+                self.assertIn(runner, legs(found), path)
+                self.assertEqual(legs(found), sorted(other for other, held in scope.LEG_TABLE.items() if path in held["support"]), path)
+                self.assertEqual(found["warm"], "false", path)
+        unused = sorted(path.relative_to(scope.ROOT).as_posix() for path in (scope.ROOT / "tests/Support").rglob("*.php"))
+        unused = [path for path in unused if path not in listed]
+        self.assertNotEqual(unused, [])
+        for path in unused:
+            self.assertEqual(legs(pull(path)), [], path)
 
     def test_runs_warm_workers_for_the_phpunit_runner_the_worker_or_its_measure(self):
         measured = (
@@ -116,20 +154,41 @@ class Outputs(unittest.TestCase):
             "bin/mutation-gate-worker",
             "tests/Contract/Runner/phpunit-fixture/composer.lock",
             ".github/scripts/warm_measure.py",
-            ".github/workflows/end-to-end.yml",
         )
         for path in measured:
-            self.assertEqual(scope.outputs("pull_request", [path])["warm"], "true", path)
-        self.assertEqual(scope.outputs("pull_request", ["src/Adapter/Pest/Pest.php"])["warm"], "false")
-        self.assertEqual(scope.outputs("pull_request", ["src/Adapter/PhpSpec/Launch.php"])["warm"], "false")
+            found = pull(path)
+            self.assertEqual(found["warm"], "true", path)
+            self.assertIn("end-to-end", ran(found), path)
+        self.assertEqual(pull("src/Adapter/Pest/Pest.php")["warm"], "false")
+        self.assertEqual(pull("src/Adapter/PhpSpec/Launch.php")["warm"], "false")
 
     def test_takes_a_file_for_a_directory_only_where_it_is_one(self):
-        self.assertEqual(legs(scope.outputs("pull_request", ["src/Adapter/PestLike.php"])), [])
-        self.assertEqual(legs(scope.outputs("pull_request", ["composer.json.bak"])), [])
+        self.assertEqual(legs(pull("src/Adapter/PestLike.php")), [])
+        self.assertEqual(legs(pull("composer.json.bak")), [])
 
 
-# The jobs of ci.yml that run whatever the paths, or by an output that is no PHP gate's.
-UNGATED = ("scope", "scripts", "hygiene", "security", "site", "rules", "sonar", "gate", "evidence")
+class TheWorkflowAgrees(unittest.TestCase):
+    def setUp(self):
+        self.ci = (scope.ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+    def test_gates_each_job_it_lists_by_the_jobs_output_and_no_other(self):
+        reading = {scope.job_id(job) for job in scope.jobs(self.ci) if "needs.scope.outputs.jobs" in job.split("\n    steps:", 1)[0]}
+        self.assertEqual(reading, set(scope.GATED))
+        for job in scope.jobs(self.ci):
+            if scope.job_id(job) in scope.GATED:
+                self.assertIn(f"'{scope.job_id(job)}')", job, scope.job_id(job))
+        self.assertEqual(set(scope.INPUTS) | {"runner-contracts", scope.END_TO_END_CALLER}, set(scope.GATED))
+
+    def test_falls_back_to_every_leg_it_knows(self):
+        fallback = re.search(r"needs\.scope\.outputs\.runners \|\| '(\[[^']*\])'", self.ci)
+        self.assertIsNotNone(fallback)
+        self.assertEqual(json.loads(fallback.group(1)), list(scope.RUNNERS))
+
+    def test_gives_each_end_to_end_job_its_own_input(self):
+        end_to_end = (scope.ROOT / ".github/workflows/end-to-end.yml").read_text(encoding="utf-8")
+        reads = sorted(read for job in scope.jobs(end_to_end) for read in scope.INPUT_READ.findall(job))
+        self.assertEqual(reads, sorted(scope.END_TO_END_JOBS))
+
 
 GATED_CI = """jobs:
   scope:
@@ -138,28 +197,25 @@ GATED_CI = """jobs:
       - run: python3 .github/scripts/scope.py pull_request
   tests:
     needs: scope
-    if: ${{ needs.scope.outputs.code == 'true' }}
+    if: ${{ contains(fromJSON(needs.scope.outputs.jobs), 'tests') }}
     steps:
       - run: python3 .github/scripts/evidence.py tests
-  contract:
+  runner-contract:
     if: ${{ needs.scope.outputs.runners != '[]' }}
     steps:
       - run: python3 .github/scripts/legs.py
   end-to-end:
-    if: ${{ needs.scope.outputs.code == 'true' }}
+    if: ${{ contains(fromJSON(needs.scope.outputs.jobs), 'end-to-end') }}
     uses: ./.github/workflows/end-to-end.yml
-  site:
-    if: ${{ needs.scope.outputs.site == 'true' }}
-    steps:
-      - if: ${{ needs.scope.outputs.code == 'true' }}
-        run: python3 .github/scripts/site_only.py
 """
 
 END_TO_END = """jobs:
   warm:
+    if: inputs.warm
     steps:
       - run: python3 .github/scripts/warm_measure.py
   hooks:
+    if: inputs.hooks
     uses: ./.github/workflows/hooks.yml
 """
 
@@ -176,42 +232,41 @@ SCRIPTS = {
     "deeper.py": "import os\n",
     "legs.py": "",
     "warm_measure.py": "",
-    "site_only.py": "",
     "hook_managers.py": "",
     "decisions_index.py": "import re\n",
 }
 
 
 class Scripts(unittest.TestCase):
-    def test_takes_as_code_each_script_a_php_gate_job_runs_and_every_script_those_import(self):
-        found = scope.gate_scripts({"ci.yml": GATED_CI, "end-to-end.yml": END_TO_END, "hooks.yml": HOOKS}, SCRIPTS)
-        self.assertEqual(sorted(found),
-                         ["deeper.py", "evidence.py", "hook_managers.py", "legs.py", "shared.py", "warm_measure.py"])
+    def test_gives_each_job_the_scripts_it_runs_and_every_script_those_import(self):
+        found = scope.job_scripts({"ci.yml": GATED_CI, "end-to-end.yml": END_TO_END, "hooks.yml": HOOKS}, SCRIPTS)
+        self.assertEqual(sorted(found["tests"]), ["deeper.py", "evidence.py", "shared.py"])
+        self.assertEqual(sorted(found["runner-contract"]), ["legs.py"])
+        self.assertEqual(sorted(found["end-to-end"]), ["hook_managers.py", "warm_measure.py"])
 
-    def test_takes_no_script_a_job_runs_whatever_the_paths_or_by_the_site_s_output_or_a_step_s_own_if(self):
-        found = scope.gate_scripts({"ci.yml": GATED_CI, "end-to-end.yml": END_TO_END}, SCRIPTS)
-        self.assertFalse({"scope.py", "site_only.py", "decisions_index.py"} & found)
+    def test_gives_each_end_to_end_job_s_scripts_to_the_input_that_runs_it(self):
+        found = scope.job_scripts({"ci.yml": GATED_CI, "end-to-end.yml": END_TO_END, "hooks.yml": HOOKS}, SCRIPTS)
+        self.assertEqual((sorted(found["warm"]), sorted(found["hooks"])), (["warm_measure.py"], ["hook_managers.py"]))
+        self.assertEqual(sorted(found["scope"]), ["scope.py"])
 
-    def test_runs_no_php_gate_for_a_script_only_the_scripts_job_runs_or_a_script_s_test(self):
+    def test_runs_no_gated_job_for_a_script_only_the_scripts_job_runs_or_a_script_s_test(self):
         for path in (".github/scripts/decisions_index.py", ".github/scripts/test_decisions_index.py",
                      ".github/scripts/bench_publish.py", ".github/scripts/scope.py", ".github/scripts/unit.py",
                      ".github/scripts/test_evidence.py"):
-            self.assertEqual(scope.outputs("pull_request", [path]),
-                             {"code": "false", "warm": "false", "runners": "[]", "site": "false"}, path)
+            self.assertEqual(pull(path), NOTHING, path)
 
-    def test_runs_the_php_gates_for_every_script_a_php_gate_job_of_this_repository_runs(self):
-        run = re.compile(r"\.github/scripts/[a-z0-9_]+\.py")
-        ci = (scope.ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-        gated = [job for job in scope.jobs(ci) if job.split(":", 1)[0].strip() not in UNGATED]
-        end_to_end = (scope.ROOT / ".github/workflows/end-to-end.yml").read_text(encoding="utf-8")
-        named = {path for text in [*gated, end_to_end] for path in run.findall(text)}
-        self.assertGreaterEqual(named, {".github/scripts/evidence.py", ".github/scripts/alone.py",
-                                        ".github/scripts/warm_measure.py", ".github/scripts/hook_managers.py"})
-        for path in sorted(named):
-            self.assertEqual(scope.outputs("pull_request", [path])["code"], "true", path)
+    def test_runs_each_job_of_this_repository_for_the_scripts_it_runs_and_no_other(self):
+        self.assertEqual(ran(pull(".github/scripts/alone.py")), ["alone"])
+        hooks = pull(".github/scripts/hook_managers.py")
+        self.assertEqual((ran(hooks), hooks["hooks"], hooks["warm"]), (["end-to-end"], "true", "false"))
+        legs_only = pull(".github/scripts/leg_support.py")
+        self.assertEqual((ran(legs_only), legs(legs_only)), (["runner-contracts"], sorted(scope.RUNNERS)))
+        evidence = pull(".github/scripts/evidence.py")
+        self.assertEqual(ran(evidence), [job for job in scope.GATED if job != "mutation"])
+        self.assertEqual((evidence["warm"], evidence["hooks"]), ("true", "true"))
 
 
-# A workflow of three jobs: the scope job, one gated by `code` and one by `runners`, and one no output gates.
+# A workflow of four jobs: the scope job, one gated by `jobs`, the legs, and one that runs on every pull request.
 WORKFLOW = """name: ci
 
 on:
@@ -229,12 +284,12 @@ jobs:
 
   checks:
     needs: scope
-    if: ${{ needs.scope.outputs.code == 'true' }}
+    if: ${{ contains(fromJSON(needs.scope.outputs.jobs), 'checks') }}
     runs-on: ubuntu-latest
     steps:
       - run: composer analyse
 
-  legs:
+  runner-contract:
     needs: scope
     if: ${{ needs.scope.outputs.runners != '[]' }}
     runs-on: ubuntu-latest
@@ -242,7 +297,7 @@ jobs:
       - run: composer contract
 
   evidence:
-    needs: [scope, checks, legs]
+    needs: [scope, checks, runner-contract]
     runs-on: ubuntu-latest
     steps:
       - run: python3 .github/scripts/evidence.py
@@ -250,8 +305,6 @@ jobs:
 
 CI_PATH = ".github/workflows/ci.yml"
 E2E_PATH = ".github/workflows/end-to-end.yml"
-NOTHING = {"code": "false", "warm": "false", "runners": "[]", "site": "false"}
-EVERYTHING = {"code": "true", "warm": "true", "runners": json.dumps(list(scope.RUNNERS)), "site": "true"}
 
 
 def ci_changed(after: str) -> dict[str, str]:
@@ -260,43 +313,49 @@ def ci_changed(after: str) -> dict[str, str]:
 
 class Workflows(unittest.TestCase):
     def test_runs_nothing_for_a_removed_job_or_another_job_s_needs(self):
-        removed = WORKFLOW.replace("  legs:\n", "  gone:\n", 1).split("  gone:\n")[0] + WORKFLOW.split("  evidence:\n")[1].join(["  evidence:\n", ""])
-        self.assertEqual(ci_changed(removed.replace("needs: [scope, checks, legs]", "needs: [scope, checks]")), NOTHING)
-        self.assertEqual(ci_changed(WORKFLOW.replace("needs: [scope, checks, legs]", "needs: [scope, checks]")), NOTHING)
+        removed = WORKFLOW.split("  runner-contract:\n")[0] + "  evidence:\n" + WORKFLOW.split("  evidence:\n")[1]
+        self.assertEqual(ci_changed(removed.replace("needs: [scope, checks, runner-contract]", "needs: [scope, checks]")), NOTHING)
+        self.assertEqual(ci_changed(WORKFLOW.replace("needs: [scope, checks, runner-contract]", "needs: [scope, checks]")), NOTHING)
 
     def test_runs_nothing_for_a_comment_or_a_blank_line(self):
         self.assertEqual(ci_changed(WORKFLOW.replace("  checks:\n", "  # The static checks.\n\n  checks:\n")), NOTHING)
 
-    def test_runs_the_gates_a_changed_or_added_job_reads(self):
+    def test_runs_the_job_a_change_adds_or_changes_and_no_other(self):
         self.assertEqual(ci_changed(WORKFLOW.replace("composer analyse", "composer analyse --memory-limit=2G")),
-                         {"code": "true", "warm": "false", "runners": "[]", "site": "false"})
-        self.assertEqual(legs(ci_changed(WORKFLOW.replace("composer contract", "composer contract -v"))), sorted(scope.RUNNERS))
-        added = WORKFLOW + "\n  docs:\n    if: ${{ needs.scope.outputs.site == 'true' }}\n    steps:\n      - run: npm run build\n"
-        self.assertEqual(ci_changed(added), {"code": "false", "warm": "false", "runners": "[]", "site": "true"})
+                         {**NOTHING, "jobs": '["checks"]'})
+        legs_changed = ci_changed(WORKFLOW.replace("composer contract", "composer contract -v"))
+        self.assertEqual((legs(legs_changed), ran(legs_changed)), (sorted(scope.RUNNERS), ["runner-contracts"]))
+        added = WORKFLOW + "\n  site:\n    if: ${{ contains(fromJSON(needs.scope.outputs.jobs), 'site') }}\n    steps:\n      - run: npm run build\n"
+        self.assertEqual(ci_changed(added), {**NOTHING, "jobs": '["site"]'})
 
-    def test_runs_every_gate_for_what_every_job_shares_or_the_scope_job(self):
+    def test_runs_every_job_for_what_every_job_shares_or_the_scope_job(self):
         self.assertEqual(ci_changed(WORKFLOW.replace("PHP_VERSION: '8.5'", "PHP_VERSION: '8.6'")), EVERYTHING)
         self.assertEqual(ci_changed(WORKFLOW.replace("on:\n  pull_request:", "on:\n  pull_request:\n  push:")), EVERYTHING)
         self.assertEqual(ci_changed(WORKFLOW.replace("scope.py", "scope.py --verbose")), EVERYTHING)
 
-    def test_runs_every_gate_for_a_workflow_it_could_not_read_at_the_base(self):
+    def test_runs_every_job_for_a_workflow_it_could_not_read_at_the_base(self):
         self.assertEqual(scope.outputs("pull_request", [CI_PATH]), EVERYTHING)
         self.assertEqual(scope.outputs("pull_request", [CI_PATH], {}), EVERYTHING)
 
-    def test_runs_the_warm_workers_for_the_end_to_end_job_that_reads_warm_and_the_php_gates_for_any_other(self):
-        before = "on:\n  workflow_call:\n\njobs:\n  warm-workers:\n    if: inputs.warm\n    steps:\n      - run: a\n\n  hooks:\n    steps:\n      - run: b\n"
-        warm = scope.outputs("pull_request", [E2E_PATH], {E2E_PATH: (before, before.replace("run: a", "run: c"))})
-        hooks = scope.outputs("pull_request", [E2E_PATH], {E2E_PATH: (before, before.replace("run: b", "run: c"))})
-        self.assertEqual((warm["code"], warm["warm"]), ("true", "true"))
-        self.assertEqual((hooks["code"], hooks["warm"]), ("true", "false"))
+    def test_runs_the_end_to_end_job_a_change_moves_and_both_for_what_they_share(self):
+        before = ("on:\n  workflow_call:\n\njobs:\n  warm-workers:\n    if: inputs.warm\n    steps:\n      - run: a\n\n"
+                  "  hook-managers:\n    if: inputs.hooks\n    steps:\n      - run: b\n")
 
-    def test_runs_no_php_gate_for_the_removal_of_the_macos_job(self):
+        def changed(after: str) -> dict[str, str]:
+            return scope.outputs("pull_request", [E2E_PATH], {E2E_PATH: (before, after)})
+
+        self.assertEqual(changed(before.replace("run: a", "run: c")), {**NOTHING, "jobs": '["end-to-end"]', "warm": "true"})
+        self.assertEqual(changed(before.replace("run: b", "run: c")), {**NOTHING, "jobs": '["end-to-end"]', "hooks": "true"})
+        self.assertEqual(changed(before.replace("workflow_call:", "workflow_call:\n    inputs: {}")),
+                         {**NOTHING, "jobs": '["end-to-end"]', "warm": "true", "hooks": "true"})
+
+    def test_runs_only_the_site_for_the_removal_of_the_macos_job(self):
         head = (scope.ROOT / CI_PATH).read_text(encoding="utf-8")
         base = head.replace("  # The gate's PHAR", f"{MACOS_JOB}\n  # The gate's PHAR", 1).replace("lowest, phar,", "lowest, macos, phar,", 1)
         paths = [CI_PATH, ".github/gates.json", ".docs/decisions/0053-ci-runs-the-suite-on-linux-alone-and-macos-is-best-effort.md", "README.md"]
         found = scope.outputs("pull_request", paths, {CI_PATH: (base, head)})
         self.assertNotEqual(base, head)
-        self.assertEqual((found["code"], found["runners"], found["warm"]), ("false", "[]", "false"))
+        self.assertEqual(found, {**NOTHING, "jobs": '["site"]'})
 
 
 # The job that ran the suite on macOS, which ADR-0053 removes.

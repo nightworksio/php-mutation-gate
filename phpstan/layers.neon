@@ -37,12 +37,10 @@ parameters:
         # --- B2: randomness is an input too ------------------------------------
         -
             function:
-                - 'random_int()'
                 - 'random_bytes()'
                 - 'rand()'
                 - 'mt_rand()'
                 - 'srand()'
-                - 'mt_srand()'
                 - 'shuffle()'
                 - 'str_shuffle()'
                 - 'array_rand()'
@@ -51,6 +49,14 @@ parameters:
                 - 'mt_getrandmax()'
             message: "B2 — randomness is a hidden input, and a plan cut from it differs between two runners that must cut the same shards. Nothing in src draws a random number (B2)."
             allowIn:
+                - tests/*
+        -
+            function:
+                - 'random_int()'
+                - 'mt_srand()'
+            message: "B2 — randomness is a hidden input, and a plan cut from it differs between two runners that must cut the same shards. Nothing in src draws a random number, but the seed a forked child gives PHP's generator so it runs as a fresh process would (B2)."
+            allowIn:
+                - src/Adapter/Runtime/ForkedChild.php
                 - tests/*
 
         # --- B3: the filesystem belongs to an adapter ---------------------------
