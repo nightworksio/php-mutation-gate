@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\GitHub\OwnerMentions;
+use NightWorksIO\MutationGate\Core\Report\OwnerMentions;
 use NightWorksIO\MutationGate\Core\Owner\OwnerGroup;
 use NightWorksIO\MutationGate\Core\Owner\OwnerMention;
 use NightWorksIO\MutationGate\Tests\Support\Owners;

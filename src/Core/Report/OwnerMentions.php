@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace NightWorksIO\MutationGate\Adapter\GitHub;
+namespace NightWorksIO\MutationGate\Core\Report;
 
 use function array_any;
 use function array_map;
@@ -17,7 +17,6 @@ use function is_array;
 
 use NightWorksIO\MutationGate\Core\Owner\Owner;
 use NightWorksIO\MutationGate\Core\Owner\OwnerGroup;
-use NightWorksIO\MutationGate\Core\Report\Escape;
 use NightWorksIO\MutationGate\Core\Verdict\OwnerVerdicts;
 
 use function preg_match_all;

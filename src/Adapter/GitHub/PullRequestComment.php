@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\PlannedWork;
 use NightWorksIO\MutationGate\Core\Recheck\Rechecked;
+use NightWorksIO\MutationGate\Core\Report\OwnerMentions;
 use NightWorksIO\MutationGate\Core\Report\PlannedMarkdown;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
