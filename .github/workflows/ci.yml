@@ -30,18 +30,18 @@ env:
 # rules, coverage and the lowest dependencies) each have their own.
 
 jobs:
-  # Which of the gates are worth running at all, and which runner legs and
-  # whether the warm workers (scope.py). A documentation change starts none of
-  # them, and asking costs one checkout.
+  # Which of the gated jobs are worth running at all, which runner legs, and
+  # which end-to-end jobs (scope.py). A documentation change starts none of
+  # the PHP gates, and asking costs one checkout.
   scope:
     name: what changed
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
-      code: ${{ steps.diff.outputs.code }}
-      warm: ${{ steps.diff.outputs.warm }}
+      jobs: ${{ steps.diff.outputs.jobs }}
       runners: ${{ steps.diff.outputs.runners }}
-      site: ${{ steps.diff.outputs.site }}
+      warm: ${{ steps.diff.outputs.warm }}
+      hooks: ${{ steps.diff.outputs.hooks }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -105,11 +105,11 @@ jobs:
   security:
     uses: ./.github/workflows/security.yml # zizmor: ignore[self-repository]
 
-  # The docs site, built and its links checked, where `scope` says the docs,
-  # the site or what prints a link changed (ADR-0038).
+  # The docs site, built and its links checked, where `scope` lists it: where
+  # the docs, the site or what prints a link changed (ADR-0038).
   site:
     needs: scope
-    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.site == 'true') }}
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'site')) }}
     uses: ./.github/workflows/site.yml # zizmor: ignore[self-repository]
 
   # Every test file a mutant's narrowed run can load passes alone on the
@@ -118,7 +118,7 @@ jobs:
   alone:
     name: test files alone
     needs: scope
-    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'alone')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -190,13 +190,14 @@ jobs:
   # Every rule refuses a violation of itself, planted in a copy of the checkout
   # under the runner's temporary directory, never in the checkout itself.
   #
-  # Each PHP gate below runs where `scope` says code changed, and also where
-  # `scope` itself did not succeed: a checkout that broke leaves no output, and
-  # no output is not a "no".
+  # Each gated job below runs where `scope` lists it, and also where `scope`
+  # itself did not succeed: a checkout that broke leaves no output, and no
+  # output is not a "no". A job skipped by its `if:` reports success, so a
+  # required check it holds passes.
   guards:
     name: the rules refuse violations
     needs: scope
-    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'guards')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -241,7 +242,7 @@ jobs:
   checks:
     name: checks
     needs: scope
-    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'checks')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -345,7 +346,7 @@ jobs:
   tests:
     name: tests and coverage
     needs: scope
-    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'tests')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -433,7 +434,7 @@ jobs:
   lowest:
     name: lowest dependencies
     needs: scope
-    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'lowest')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -497,7 +498,7 @@ jobs:
   phar:
     name: phar
     needs: scope
-    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'phar')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -571,7 +572,7 @@ jobs:
           coverage: pcov
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
       # Each runner's fixture, the packages its install shows, the contracts it
-      # runs, and how it reaches its lowest releases.
+      # runs, and how it reaches its lowest releases, as legs.json holds them.
       # - pest: the library holds the Pest plugin of this package, and runs the
       #   whole Contract suite, so every contract that needs it runs against
       #   each resolution. Its lock holds the php-code-coverage this package is
@@ -618,45 +619,7 @@ jobs:
         name: the runner's fixture
         env:
           RUNNER: ${{ matrix.runner }}
-        run: |
-          coverage='phpunit/phpunit|phpunit/php-code-coverage'
-          case "${RUNNER}" in
-          pest)
-            dir=tests/Contract/Runner/fixture filter='' contracts=pest analysers='' lowest=coverage
-            packages="pestphp/pest|pestphp/pest-plugin-mutate|${coverage}" ;;
-          infection-13)
-            dir=tests/Contract/Runner/infection-fixture filter='infection|Infection' contracts=infection analysers='' lowest=own
-            packages="infection/infection|${coverage}" ;;
-          infection-12)
-            dir=tests/Contract/Runner/infection-fixture/phpunit-12 filter='infection|Infection' contracts=infection analysers='' lowest=own
-            packages="infection/infection|${coverage}" ;;
-          phpunit)
-            dir=tests/Contract/Runner/phpunit-fixture filter=PhpUnit contracts=phpunit analysers='' lowest=coverage
-            packages="${coverage}" ;;
-          phpspec)
-            dir=tests/Contract/Runner/phpspec-fixture filter=PhpSpec contracts=phpspec analysers='' lowest=coverage
-            packages='phpspec/phpspec|phpunit/php-code-coverage' ;;
-          codeception)
-            dir=tests/Contract/Runner/codeception-fixture filter=Codeception contracts=codeception analysers='' lowest=coverage
-            packages='codeception/codeception|phpunit/php-code-coverage' ;;
-          testo)
-            dir=tests/Contract/Runner/testo-fixture filter=Testo contracts=testo analysers='' lowest=own
-            packages='testo/testo|testo/codecov' ;;
-          analysers)
-            dir=tests/Contract/StaticChecker/fixture filter=StaticChecker contracts='' analysers=1 lowest=analysers
-            packages='carthage-software/mago|phpstan/phpstan|vimeo/psalm' ;;
-          *)
-            echo "No fixture is named for the runner ${RUNNER}."
-            exit 1 ;;
-          esac
-          {
-            echo "dir=${dir}"
-            echo "filter=${filter}"
-            echo "contracts=${contracts}"
-            echo "analysers=${analysers}"
-            echo "lowest=${lowest}"
-            echo "packages=${packages}"
-          } >> "$GITHUB_OUTPUT"
+        run: python3 .github/scripts/leg_support.py fixture "${RUNNER}" >> "$GITHUB_OUTPUT"
       # What a leg downloads is cached by the fixtures' manifests and locks,
       # and the root lock, whose php-code-coverage the lowest Pest and PHPUnit
       # resolutions pin.
@@ -723,6 +686,13 @@ jobs:
             suite+=("--filter=${FILTER}")
           fi
           vendor/bin/pest "${suite[@]}"
+      # The test support this leg's tests use is the support legs.json lists,
+      # which `what changed` runs the leg for.
+      - name: the leg's test support is listed
+        if: ${{ !cancelled() }}
+        env:
+          RUNNER: ${{ matrix.runner }}
+        run: python3 .github/scripts/leg_support.py check "${RUNNER}"
       # The leg's log, and its suite's outcome by the leg's name, which
       # `runner contracts` reads as its evidence.
       - name: the leg's outcome
@@ -750,7 +720,7 @@ jobs:
   runner-contracts:
     name: runner contracts
     needs: [scope, runner-contract]
-    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'runner-contracts')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -807,10 +777,11 @@ jobs:
   # managers.
   end-to-end:
     needs: scope
-    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'end-to-end')) }}
     uses: ./.github/workflows/end-to-end.yml # zizmor: ignore[self-repository]
     with:
       warm: ${{ needs.scope.result != 'success' || needs.scope.outputs.warm == 'true' }}
+      hooks: ${{ needs.scope.result != 'success' || needs.scope.outputs.hooks == 'true' }}
 
   # G8 — every mutant of src is killed, or its tree holds the floor
   # mutation-gate.baseline.json records, which only rises (G11). The package
@@ -828,7 +799,7 @@ jobs:
   # of its shards gave the same verdicts in 29% less time (ADR-0035).
   mutation:
     needs: [scope, tests]
-    if: ${{ !cancelled() && needs.tests.result == 'success' && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
+    if: ${{ !cancelled() && needs.tests.result == 'success' && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'mutation')) }}
     permissions:
       contents: write # used only by publish, on the default branch, which writes the badge and the trend
       actions: read # used only by verdict and deliver, to find the run's HTML report the comment links

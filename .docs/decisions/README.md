@@ -82,6 +82,7 @@ There is no separate requirements document, and there are no requirement IDs.
 | [0051](0051-the-action-runs-the-release-s-signed-phar-where-the-project-has-no-copy.md) | The action runs the release's signed PHAR where the project has no copy of the gate | Accepted |
 | [0052](0052-phpstans-warm-up-uses-every-core-and-its-result-cache-is-kept-between-runs.md) | PHPStan's warm-up uses every core, and its result cache is kept between runs | Accepted |
 | [0053](0053-ci-runs-the-suite-on-linux-alone-and-macos-is-best-effort.md) | CI runs the suite on Linux alone, and macOS is best-effort | Accepted |
-| [0054](0054-a-pull-request-runs-the-gates-its-change-can-move.md) | A pull request runs the gates its change can move, and reads its workflows job by job | Accepted |
+| [0054](0054-a-pull-request-runs-the-gates-its-change-can-move.md) | A pull request runs the gates its change can move, and reads its workflows job by job | Accepted; its outputs, and the jobs a workflow change runs amended by [0055](0055-each-gated-job-runs-for-its-own-inputs-and-each-runner-leg-for-its-own-test-support.md) |
+| [0055](0055-each-gated-job-runs-for-its-own-inputs-and-each-runner-leg-for-its-own-test-support.md) | Each gated job runs for its own inputs, and each runner leg for its own test support | Accepted |
 
 <!-- index:end -->
