@@ -84,6 +84,7 @@ use stdClass;
  *     ref?: string,
  *     defaultBranch?: string,
  *     target?: string,
+ *     mergeGroup?: string,
  *     keys: KeysWritten|stdClass,
  *     shards: list<ShardWritten>,
  *     proved?: list<UnitWritten>,

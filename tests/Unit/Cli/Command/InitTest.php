@@ -91,6 +91,13 @@ it('pins no commit in the CI definition where Composer installed no copy of the 
         ->toContain("nightworksio/php-mutation-gate@<the commit of a release>\n");
 });
 
+it('writes the merge_group trigger into either GitHub definition, which fires only where a merge queue is on', function (string $shape): void {
+    [$project, $ran] = InitRuns::inLaravel(['--ci' => 'github', $shape => true]);
+
+    expect($ran->code)->toBe(0)
+        ->and(InitRuns::file($project, '.github/workflows/mutation.yml'))->toContain("on:\n  pull_request:\n  merge_group:\n  push:\n");
+})->with(['--single', '--sharded']);
+
 it('writes nothing for an editor it does not set up', function (): void {
     expect(initCiRefused(['--editor' => 'phpstorm']))
         ->toBe([2, '', "phpstorm is no editor init --editor sets up. Name vscode.\n", '']);

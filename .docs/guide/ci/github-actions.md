@@ -21,6 +21,7 @@ name: mutation
 
 on:
   pull_request:
+  merge_group: # runs only where the default branch has a merge queue
   push:
     branches: [main] # your default branch
   schedule:
@@ -70,8 +71,8 @@ jobs:
 | `php-version` | `8.5` |
 | `runner` | the config's, or the one installed |
 | `shard` | none: the whole gate runs |
-| `mode` | `auto`: change-scoped on pull requests and pushes, full on schedules, manual runs, releases and tags; or `full`, or `changed`, or `sampled`: what `auto` considers, with the units no run knows exactly sampled, as `--sample` asks |
-| `changed-since` | the pull request's base on `pull_request`, the default branch on any other branch, `last-passed` on the default branch; used when the mode is change-scoped |
+| `mode` | `auto`: change-scoped on pull requests, merge groups and pushes, full on schedules, manual runs, releases and tags; or `full`, or `changed`, or `sampled`: what `auto` considers, with the units no run knows exactly sampled, as `--sample` asks |
+| `changed-since` | the pull request's base on `pull_request`, the group's `merge_group.base_sha` on `merge_group`, the default branch on any other branch, `last-passed` on the default branch; used when the mode is change-scoped |
 | `budget` | none |
 | `reports` | none; `<name>:<path>` lines, such as `sarif:build/mutation.sarif` |
 | `cache` | `true`: keep the ledger in the Actions cache |
@@ -137,6 +138,7 @@ name: mutation
 
 on:
   pull_request:
+  merge_group: # runs only where the default branch has a merge queue
   push:
     branches: [main] # your default branch
   schedule:
@@ -370,6 +372,39 @@ pull request's verdict proves its commit, so a job named otherwise needs
 `ci.check` set to its name. The verdict says *cannot judge* (exit code 2)
 when the plan could not judge, or when any planned shard left no result.
 Run it on a schedule as well: the full run, twice a week in the examples.
+
+## Merge queues
+
+With a merge queue on the default branch, GitHub reports a required check
+only for a workflow that runs on `merge_group`, which every example here and
+`init --ci=github` lists; the trigger fires only where a queue is on
+([ADR-0022](../../decisions/0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md)).
+The required check stays the one `ci.check` names.
+
+A group's run judges the commit the queue built, which holds the default
+branch, the pull requests ahead of it and its own:
+
+- `mode: auto` mutates what changed since `merge_group.base_sha`, the commit
+  the queue built the group on, and holds the group's changed lines to the
+  floor for new code, as a pull request's are.
+- The group has no proof scope. It reads the default branch's ledger alone,
+  writes none, saves no ledger to the Actions cache, and posts no comment.
+- A raise is reported, not required, since nothing can be committed to a
+  group. A floor lowered without its reason fails it, as it fails a pull
+  request.
+
+With `ci.trustMergedPullRequests: true`, and only where pull request runs
+write their own scope's ledger, two runs are spared
+([ADR-0049](../../decisions/0049-an-owner-is-mentioned-once-and-a-merge-group-trusts-its-pull-request-as-a-merged-one.md)):
+
+- a group whose commit holds exactly the tree of its pull request's head,
+  where that pull request's verdict passed on that head, as its `passed`
+  record says with none of its own proofs used, reaches nothing; and
+- the push to the default branch after the queue merges reaches nothing for
+  a commit on which a group's verdict passed.
+
+Off, as by default, every group is judged from its base, and nothing a pull
+request wrote for itself is read.
 
 ## An organisation's dashboard
 

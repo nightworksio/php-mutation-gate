@@ -56,9 +56,9 @@ use function sprintf;
 final readonly class Planning
 {
     private const string NO_NEW_CODE = <<<'SAID'
-        A pull request's new code is judged against %s, and git cannot tell what changed since it,
+        A pull request's or merge group's new code is judged against %s, and git cannot tell what changed since it,
         so no floor for new code can be held. %s
-        Fetch the default branch into the checkout before the plan.
+        Fetch it into the checkout before the plan.
         SAID;
 
     private const string PACKAGED = <<<'SAID'
@@ -329,21 +329,22 @@ final readonly class Planning
 
     /**
      * The lines the verdict holds to the floor for new code: those the change
-     * added or modified. A pull request's new code is judged whatever the run
-     * considers, so where the run does not know its lines, as a full run
-     * does not, they are those since the branch it merges into.
+     * added or modified. A pull request's or merge group's new code is judged
+     * whatever the run considers, so where the run does not know its lines,
+     * as a full run does not, they are those since its base: the branch a
+     * pull request merges into, or the commit a merge group was built on.
      */
     private function newCode(Standing $standing, Reached $reached): Changes|CannotJudge
     {
         $changed = $reached->changed();
-        $fetched = $standing->fetchedBase();
-        $changed = $changed instanceof CannotTell && $standing->runOn()->isPullRequest()
+        $fetched = $standing->proposedBase();
+        $changed = $changed instanceof CannotTell && $standing->runOn()->isProposed()
             ? Reached::linesSince($fetched, $this->adapters)
             : $changed;
 
         return match (true) {
             $changed instanceof Changes => $changed,
-            $standing->runOn()->isPullRequest() => CannotJudge::because(
+            $standing->runOn()->isProposed() => CannotJudge::because(
                 sprintf(self::NO_NEW_CODE, $fetched->name(), $changed->why()),
             ),
             default => Changes::none(),

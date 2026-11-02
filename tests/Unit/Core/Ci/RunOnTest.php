@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Ci\Detached;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Unnamed;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 
 it('is a branch, scoped by its ref, with the default branch the CI names', function (): void {
@@ -121,4 +122,26 @@ it('keeps a scope where the default branch is not known', function (): void {
     $run = RunOn::at(Scope::branch('main'), CannotTell::because('Unknown.'))->withCommit(Revision::ref('206b4e0'));
 
     expect($run->atCheckout(Revision::ref('5eeca8f'))->scope())->toEqual(Scope::branch('main'));
+});
+
+it('is a merge group, with no scope, judged like a pull request from the commit it was built on', function (): void {
+    $group = RunOn::mergeGroup(Revision::ref('85c3298'), Scope::branch('main'));
+
+    expect($group->scope())->toEqual(Detached::head())
+        ->and([$group->groupBase() instanceof Revision, $group->isProposed(), $group->isPullRequest()])->toBe([true, true, false])
+        ->and($group->groupBase())->toEqual(Revision::ref('85c3298'))
+        ->and($group->withDefaultBranch(Scope::branch('trunk'))->groupBase())->toEqual(Revision::ref('85c3298'))
+        ->and($group->withCommit(Revision::ref('33b1f4a'))->atCheckout(Revision::ref('33b1f4a'))->groupBase())
+        ->toEqual(Revision::ref('85c3298'))
+        ->and($group->withCommit(Revision::ref('33b1f4a'))->commit())->toEqual(Revision::ref('33b1f4a'));
+});
+
+it('is proposed on a pull request or a merge group, and on nothing else', function (): void {
+    expect([
+        RunOn::at(Scope::pullRequest(7), Scope::branch('main'))->isProposed(),
+        RunOn::at(Scope::branch('main'), Scope::branch('main'))->isProposed(),
+        RunOn::detached(Scope::branch('main'))->isProposed(),
+        RunOn::detached(Scope::branch('main'))->groupBase() instanceof Revision,
+    ])->toBe([true, false, false, false])
+        ->and(RunOn::detached(Scope::branch('main'))->groupBase())->toEqual(NotGiven::value());
 });

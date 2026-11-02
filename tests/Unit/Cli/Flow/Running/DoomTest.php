@@ -9,12 +9,15 @@ use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\Finding;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
@@ -76,6 +79,30 @@ it('stops a pull request\'s shard after the chunk whose survivor makes its run c
     expect($asked($runner))->toBe([['src/Money.php']])
         ->and($unjudged($result))->toBe(['src/Held.php'])
         ->and($doomOf($result))->toBe(['src/Money.php', $moneySurvivor(), 'src', 10_000, 'tree']);
+});
+
+it('stops a merge group\'s shard, as a pull request\'s, after the chunk whose survivor makes its run certain to fail', function () use (
+    $makeDoomable,
+    $makeResultIn,
+    $makeUnjudged,
+    $makeFloored,
+    $makeAsked,
+): void {
+    $doomable = $makeDoomable();
+    $resultIn = $makeResultIn();
+    $unjudged = $makeUnjudged();
+    $floored = $makeFloored();
+    $asked = $makeAsked();
+
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture();
+    $group = Planned::oneShard()->on(RunOn::mergeGroup(Revision::ref('base'), Scope::branch('main')));
+
+    new Running(Flows::adapters($project, [], $runner, $floored(Floor::whole())), $doomable(), Flows::setup())
+        ->run(Planned::handedIn($project, $group), ShardId::of(1), Workspace::results());
+
+    expect($asked($runner))->toBe([['src/Money.php']])
+        ->and($unjudged($resultIn($project, 1)))->toBe(['src/Held.php']);
 });
 
 it('runs a pull request\'s shard to its end past a survivor that makes its run certain to fail, where the config asks no stop', function () use (

@@ -48,10 +48,13 @@ final readonly class Dooming
         );
     }
 
-    /** Whether the config asks a pull request's run to stop, this plan is one, and its verdict holds the trees. */
+    /**
+     * Whether the config asks a pull request's run to stop, this plan is one or a merge group's, and its verdict
+     * holds the trees.
+     */
     private function stops(Plan $plan): bool
     {
-        return $this->settings->reach()->stopsWhenDoomed() && $plan->runOn()->isPullRequest() && $this->holdsTrees();
+        return $this->settings->reach()->stopsWhenDoomed() && $plan->runOn()->isProposed() && $this->holdsTrees();
     }
 
     /** Whether the verdict holds the trees to their floors: no run of the security mutators or one suite alone. */

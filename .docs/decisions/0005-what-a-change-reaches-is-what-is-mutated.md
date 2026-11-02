@@ -260,6 +260,9 @@ The same repository has two more needs.
      pull request whose run writes its scope can make the default branch skip
      re-checking its tree once it is merged. Off, every merged range is
      mutated in full.
+   - ADR-0022 and ADR-0049 extend this rule to merge groups: a commit on which
+     a merge group's verdict passed is spared too, and so is a group whose
+     commit holds its pull request's head tree, under the same setting.
 
 6. **A scheduled full run is part of the design, not an extra.** Reach cannot
    see everything:

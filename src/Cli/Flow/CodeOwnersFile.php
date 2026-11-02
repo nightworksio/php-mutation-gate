@@ -22,9 +22,10 @@ use function sprintf;
 /**
  * The CODEOWNERS a verdict groups survivors by, as it is at the base, so a
  * pull request cannot reroute its own survivors by editing it (ADR-0022): on
- * a pull request, the default branch as the checkout fetched it; otherwise
- * the commit the plan was made on; and, for `doctor`, as it stands on disk.
- * The file is the first of GitHub's three places that holds one.
+ * a pull request, the branch it is read against as the checkout fetched it;
+ * on a merge group, the commit its queue built it on; otherwise the commit the
+ * plan was made on; and, for `doctor`, as it stands on disk. The file is the
+ * first of GitHub's three places that holds one.
  */
 final readonly class CodeOwnersFile
 {
@@ -32,7 +33,7 @@ final readonly class CodeOwnersFile
 
     public static function of(ChangeSource $changes, Plan $plan): CodeOwners
     {
-        $base = $plan->runOn()->isPullRequest() ? Standing::planned($plan)->fetchedBase() : $plan->commit();
+        $base = $plan->runOn()->isProposed() ? Standing::planned($plan)->proposedBase() : $plan->commit();
         $files = $changes->filesAt(Paths::of(...array_map(Path::of(...), CodeOwners::LOCATIONS)), $base);
 
         if ($files instanceof CannotTell) {

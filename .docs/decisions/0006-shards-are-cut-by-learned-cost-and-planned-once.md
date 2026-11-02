@@ -275,7 +275,10 @@ Two parts of that do not carry over to a public package.
    reads the default branch's ledger and writes none (ADR-0007).
    `ci.defaultBranch` is a branch name. By default it is the branch git's
    `refs/remotes/origin/HEAD` points at, and `main` when there is none. Set in
-   the config, it replaces the CI's own answer too.
+   the config, it replaces the CI's own answer too. ADR-0022 amends this
+   table with merge groups: on GitHub Actions, a `GITHUB_EVENT_NAME` of
+   `merge_group` is a merge group, which has no scope and is judged like a
+   pull request from the payload's `merge_group.base_sha`.
 
 6. **GitHub is wired by the package itself** (ADR-0011). The composite action
    runs the whole gate in one job, or one shard when given `shard`. The

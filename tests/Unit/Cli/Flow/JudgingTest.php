@@ -573,6 +573,35 @@ it('judges a pull request\'s new code against its own floor, and fails a raise n
         ->and($verdict->judgement())->toBe(Judgement::Failed);
 });
 
+it('judges a merge group\'s new code against its own floor, and reports a raise nothing can commit to it', function () use (
+    $makeTree,
+    $makeReporting,
+    $makeJudged,
+): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
+    $plan = Planned::twoShards()
+        ->on(RunOn::mergeGroup(Revision::ref('base'), Scope::branch('main')))
+        ->considering(Considered::everything()->reaching(
+            Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(16)))),
+            Reasons::of(Reason::that('src/Money.php changed.')),
+        ));
+
+    $verdict = JudgingRuns::verdictOf($judged(
+        $plan,
+        Flows::adapters(Flows::project(), [], $tree(Floor::of(30))),
+        JudgingRuns::settings(NewCodeFloor::of(80)),
+        $reporting(new ReporterFake()),
+    ));
+    $newCode = [...$verdict->sets()->newCode()];
+
+    expect(count($newCode))->toBe(1)
+        ->and($newCode[0]->floor())->toEqual(Floor::of(80))
+        ->and(JudgingRuns::texts($verdict->failures()))->toBe([]);
+});
+
 it('only reports a raise in a pull request where baseline.improvement is report', function () use (
     $makeTree,
     $makeReporting,
@@ -595,7 +624,7 @@ it('only reports a raise in a pull request where baseline.improvement is report'
         ->and($verdict->judgement())->toBe(Judgement::Passed);
 });
 
-it('fails a pull request that lowers a floor the default branch holds without a reason', function () use (
+it('fails a pull request or a merge group that lowers a floor the default branch holds without a reason', function (RunOn $runOn) use (
     $makeTree,
     $makeReporting,
     $makeJudged,
@@ -613,7 +642,7 @@ it('fails a pull request that lowers a floor the default branch holds without a 
         Revision::workingTree()->name() => Flows::FILES,
         'refs/remotes/origin/main' => ['mutation-gate.baseline.json' => $onMain],
     ]);
-    $plan = Planned::twoShards()->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')));
+    $plan = Planned::twoShards()->on($runOn);
 
     $verdict = JudgingRuns::verdictOf($judged(
         $plan,
@@ -626,7 +655,10 @@ it('fails a pull request that lowers a floor the default branch holds without a 
         The floor of src went down from 45 to 40 with no reason. A floor goes down only on purpose:
         add "lowered": { "from": 45, "reason": "…" } to its entry in the baseline.
         SAID]);
-});
+})->with([
+    'a pull request' => [fn(): RunOn => RunOn::at(Scope::pullRequest(7), Scope::branch('main'))],
+    'a merge group' => [fn(): RunOn => RunOn::mergeGroup(Revision::ref('base'), Scope::branch('main'))],
+]);
 
 it('cannot judge a pull request where git cannot read the default branch\'s baseline', function () use (
     $makeTree,

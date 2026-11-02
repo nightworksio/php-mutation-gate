@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Port\ChangeSource;
@@ -30,9 +31,13 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * of a merged pull request's head, and that pull request's verdict passed on
  * that head, the branch was up to date and its run judged exactly the tree
  * that landed, so those commits reach nothing and only what is uncommitted
- * counts. A range of more commits than the proving range holds, or one commit
- * it cannot prove, is read from the other source whole. Where the checkout
- * stands, and what changed from a commit itself, the other source says.
+ * counts; and so where a commit is a merge group's whose verdict passed on
+ * it. On a merge group, `GITHUB_REF` names the pull request it was built
+ * for, and the group reaches nothing where its tree is that pull request's
+ * head, whose verdict passed there (ADR-0022, ADR-0049). A range of more
+ * commits than the proving range holds, or one commit it cannot prove, is
+ * read from the other source whole. Where the checkout stands, and what
+ * changed from a commit itself, the other source says.
  */
 final readonly class PassedPullRequests implements ChangeSource, Repository
 {
@@ -68,8 +73,11 @@ final readonly class PassedPullRequests implements ChangeSource, Repository
             $head,
             $check,
         );
+        $queued = $read('GITHUB_EVENT_NAME') === GitHubPlan::MERGE_GROUP
+            ? QueueBranch::parse($read('GITHUB_REF'))
+            : NotGiven::value();
 
-        return new self($source, $heads);
+        return new self($source, $queued instanceof QueueBranch ? $heads->inGroupFor($queued->pullRequest()) : $heads);
     }
 
     /** This source, reading each pull request's own ledger from this store. */

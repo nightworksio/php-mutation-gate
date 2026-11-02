@@ -11,10 +11,11 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 /**
  * Which floors a verdict holds a run to (ADR-0003, ADR-0010, ADR-0021): the
  * trees' and the security sets', as a run off a pull request is held; those
- * and the new code's, as a pull request and `pre-push` are; the new code's
- * alone, as a `watch` round is, which shows each tree against its floor
- * without holding it; the security sets' alone, as `--security` is; or
- * none, as `--suite` holds a run of one suite's tests alone.
+ * and the new code's, as a pull request, a merge group (ADR-0022) and
+ * `pre-push` are; the new code's alone, as a `watch` round is, which shows
+ * each tree against its floor without holding it; the security sets' alone,
+ * as `--security` is; or none, as `--suite` holds a run of one suite's tests
+ * alone.
  */
 enum HeldTo
 {
@@ -30,13 +31,14 @@ enum HeldTo
 
     /**
      * The floors a command names, or, where it names none, those its run
-     * decides: a pull request's trees and new code, and any other run's trees.
+     * decides: a pull request's or merge group's trees and new code, and any
+     * other run's trees.
      */
-    public static function named(self|NotGiven $named, bool $pullRequest): self
+    public static function named(self|NotGiven $named, bool $proposed): self
     {
         return match (true) {
             $named instanceof self => $named,
-            $pullRequest => self::TreesAndNewCode,
+            $proposed => self::TreesAndNewCode,
             default => self::Trees,
         };
     }

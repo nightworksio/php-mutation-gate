@@ -70,6 +70,16 @@ it('reads the file on a pull request at the branch it merges into, where its CI 
     expect(ownerOf($owners, 'src/Money.php'))->toBe('@on-the-release');
 });
 
+it('reads the file on a merge group at the commit its queue built it on, which its pull requests cannot edit', function (): void {
+    $owners = CodeOwnersFile::of(codeOwnersSource([
+        'base' => ['CODEOWNERS' => '* @on-the-base'],
+        'refs/remotes/origin/main' => ['CODEOWNERS' => '* @on-the-default-branch'],
+        Flows::HEAD => ['CODEOWNERS' => '* @the-group'],
+    ]), Planned::twoShards()->on(RunOn::mergeGroup(Revision::ref('base'), Scope::branch('main'))));
+
+    expect(ownerOf($owners, 'src/Money.php'))->toBe('@on-the-base');
+});
+
 it('reads the first file of GitHub\'s three places that holds one, an empty one among them', function (ChangeSourceFake $source, string $owner, bool $read): void {
     $owners = CodeOwnersFile::of($source, Planned::twoShards());
 

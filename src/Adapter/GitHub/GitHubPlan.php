@@ -12,6 +12,7 @@ use function json_encode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Change\Commit;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\CiJob;
 use NightWorksIO\MutationGate\Core\Ci\CiMarker;
@@ -28,6 +29,7 @@ use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -53,6 +55,9 @@ final readonly class GitHubPlan implements CiPlan, Configurable
 
     /** How `GITHUB_WORKFLOW_REF` spells the workflow: owner, repository, then its path before the ref. */
     public const string WORKFLOW = '~^[^/]+/[^/]+/(?<path>[^@]+)@~';
+
+    /** The event a merge queue runs a group's checks on (ADR-0022). */
+    public const string MERGE_GROUP = 'merge_group';
 
     private const string OUTPUT = 'GITHUB_OUTPUT';
 
@@ -113,10 +118,12 @@ final readonly class GitHubPlan implements CiPlan, Configurable
 
     /**
      * A pull request's scope wherever the event payload or a `pull_request`
-     * ref names one; a branch only on `push`, `schedule` and
-     * `workflow_dispatch`; and, for a tag or any other event, such as
-     * `workflow_run` or `issue_comment`, which act on code from elsewhere, no
-     * scope at all, so the run writes nothing. The run is for `GITHUB_SHA`.
+     * ref names one; a merge group, with no scope, on `merge_group`, built on
+     * the payload's `merge_group.base_sha` (ADR-0022); a branch only on
+     * `push`, `schedule` and `workflow_dispatch`; and, for a tag or any other
+     * event, such as `workflow_run` or `issue_comment`, which act on code from
+     * elsewhere, no scope at all, so the run writes nothing. The run is for
+     * `GITHUB_SHA`.
      */
     public function runOn(): RunOn|CannotTell
     {
@@ -144,6 +151,7 @@ final readonly class GitHubPlan implements CiPlan, Configurable
         $number = $this->pullRequestIn($payload);
         $branch = $this->branch();
         $trusted = TrustedEvent::names($this->job->variables()->valueOf(self::EVENT));
+        $group = $this->groupBaseIn($payload);
 
         return match (true) {
             $number instanceof PullRequestNumber => RunOn::pullRequest(
@@ -151,6 +159,7 @@ final readonly class GitHubPlan implements CiPlan, Configurable
                 $defaultBranch,
                 RunOn::branchNamed($this->baseIn($payload)),
             ),
+            $group instanceof Revision => RunOn::mergeGroup($group, $defaultBranch),
             $trusted && $branch !== '' => RunOn::branch($branch, $defaultBranch),
             default => RunOn::detached($defaultBranch),
         };
@@ -186,6 +195,23 @@ final readonly class GitHubPlan implements CiPlan, Configurable
             ->field('ref'));
 
         return $named !== '' ? $named : $this->job->variables()->valueOf(self::BASE);
+    }
+
+    /** The commit a `merge_group` event's group was built on; none for any other event, or a payload naming none. */
+    private function groupBaseIn(Node|CannotTell $payload): Revision|NotGiven
+    {
+        $base = ($payload instanceof Node ? $payload : Node::decode(Node::NO_KEYS))
+            ->field('merge_group')
+            ->field('base_sha');
+        $named = $this->job->variables()->valueOf(self::EVENT) === self::MERGE_GROUP;
+
+        try {
+            $commit = $named ? Commit::parse($base->text()) : NotGiven::value();
+        } catch (NotInShape) {
+            $commit = NotGiven::value();
+        }
+
+        return $commit instanceof Commit ? $commit->revision() : NotGiven::value();
     }
 
     /** The branch `GITHUB_REF` names; empty for a tag or a pull request's ref. */

@@ -131,3 +131,12 @@ it('takes main as the default branch of a plan that names none', function (): vo
 
     expect(Standing::planned($plan)->defaultBranch())->toEqual(Scope::branch('main'));
 });
+
+it('reads a pull request against the default branch as fetched, and a merge group against the commit it was built on', function (): void {
+    $plan = Plan::of(Revision::ref('made'), Digest::sha256Of('base'), Keys::none(), Shards::none());
+
+    expect(Standing::planned($plan->on(RunOn::at(Scope::pullRequest(7), Scope::branch('trunk'))))->proposedBase())
+        ->toEqual(Revision::ref('refs/remotes/origin/trunk'))
+        ->and(Standing::planned($plan->on(RunOn::mergeGroup(Revision::ref('85c3298'), Scope::branch('trunk'))))->proposedBase())
+        ->toEqual(Revision::ref('85c3298'));
+});

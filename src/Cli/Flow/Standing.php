@@ -95,6 +95,17 @@ final readonly class Standing
         return self::fetched($this->base());
     }
 
+    /**
+     * What a proposed change is read against: the commit a merge group was built on, and for a pull request the
+     * branch it is read against as the checkout fetched it.
+     */
+    public function proposedBase(): Revision
+    {
+        $base = $this->runOn->groupBase();
+
+        return $base instanceof Revision ? $base : $this->fetchedBase();
+    }
+
     /** A branch as a checkout that fetched it from `origin` holds it. */
     public static function fetched(Scope $branch): Revision
     {

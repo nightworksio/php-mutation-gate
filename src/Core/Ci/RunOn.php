@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Ci;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 
 use function sprintf;
@@ -16,7 +17,9 @@ use function str_starts_with;
  * What a CI, or git outside one, says of a run: its ref, which is its proof
  * scope, whether that is a pull request, the branch a pull request merges
  * into, and the default branch, each where it is named. On a pull request the scope is `refs/pull/<n>`, and otherwise
- * `refs/heads/<branch>`. A detached `HEAD` has no scope.
+ * `refs/heads/<branch>`. A detached `HEAD` has no scope, and neither has a
+ * merge group, which is judged like a pull request from the commit its
+ * queue built it on (ADR-0022).
  */
 final readonly class RunOn
 {
@@ -29,6 +32,7 @@ final readonly class RunOn
         private Scope|CannotTell $defaultBranch,
         private Revision|Unnamed $commit,
         private Scope|CannotTell $target,
+        private Revision|NotGiven $groupBase,
     ) {
     }
 
@@ -56,7 +60,13 @@ final readonly class RunOn
     /** A run on a ref already read as a scope, as a plan records it. */
     public static function at(Scope $scope, Scope|CannotTell $defaultBranch): self
     {
-        return new self($scope, $defaultBranch, Unnamed::commit(), CannotTell::because(self::NO_TARGET));
+        return new self(
+            $scope,
+            $defaultBranch,
+            Unnamed::commit(),
+            CannotTell::because(self::NO_TARGET),
+            NotGiven::value(),
+        );
     }
 
     /**
@@ -73,7 +83,28 @@ final readonly class RunOn
     /** A run on a detached `HEAD`, which is never a pull request. */
     public static function detached(Scope|CannotTell $defaultBranch): self
     {
-        return new self(Detached::head(), $defaultBranch, Unnamed::commit(), CannotTell::because(self::NO_TARGET));
+        return new self(
+            Detached::head(),
+            $defaultBranch,
+            Unnamed::commit(),
+            CannotTell::because(self::NO_TARGET),
+            NotGiven::value(),
+        );
+    }
+
+    /**
+     * A run on a merge group, built on this commit: it has no scope, so it writes nothing, and it is judged like a
+     * pull request from that commit (ADR-0022).
+     */
+    public static function mergeGroup(Revision $base, Scope|CannotTell $defaultBranch): self
+    {
+        return new self(
+            Detached::head(),
+            $defaultBranch,
+            Unnamed::commit(),
+            CannotTell::because(self::NO_TARGET),
+            $base,
+        );
     }
 
     /** A default branch as a CI names it, which it may not. */
@@ -94,6 +125,18 @@ final readonly class RunOn
         return $this->scope instanceof Scope && str_starts_with($this->scope->ref(), self::PULL_REQUEST);
     }
 
+    /** Whether the run is of a change proposed for the default branch, a pull request's or a merge group's. */
+    public function isProposed(): bool
+    {
+        return $this->isPullRequest() || $this->groupBase instanceof Revision;
+    }
+
+    /** The commit a merge group was built on; not given for any other run. */
+    public function groupBase(): Revision|NotGiven
+    {
+        return $this->groupBase;
+    }
+
     public function defaultBranch(): Scope|CannotTell
     {
         return $this->defaultBranch;
@@ -108,19 +151,19 @@ final readonly class RunOn
     /** This run, on a pull request that merges into this branch. */
     public function withTarget(Scope $target): self
     {
-        return new self($this->scope, $this->defaultBranch, $this->commit, $target);
+        return new self($this->scope, $this->defaultBranch, $this->commit, $target, $this->groupBase);
     }
 
     /** This run, with the default branch `ci.defaultBranch` or git names, which replaces the CI's own answer. */
     public function withDefaultBranch(Scope $defaultBranch): self
     {
-        return new self($this->scope, $defaultBranch, $this->commit, $this->target);
+        return new self($this->scope, $defaultBranch, $this->commit, $this->target, $this->groupBase);
     }
 
     /** This run, for the commit the CI says it builds. */
     public function withCommit(Revision $commit): self
     {
-        return new self($this->scope, $this->defaultBranch, $commit, $this->target);
+        return new self($this->scope, $this->defaultBranch, $commit, $this->target, $this->groupBase);
     }
 
     /** The commit the CI says the run builds, where it names one. */
@@ -143,7 +186,7 @@ final readonly class RunOn
 
         $scope = $named && $onDefault ? Detached::head() : $this->scope;
 
-        return new self($scope, $this->defaultBranch, Unnamed::commit(), $this->target);
+        return new self($scope, $this->defaultBranch, Unnamed::commit(), $this->target, $this->groupBase);
     }
 
     private static function scoped(string $ref, Scope|CannotTell $defaultBranch): self|CannotTell
@@ -152,6 +195,12 @@ final readonly class RunOn
 
         return $scope instanceof CannotJudge
             ? CannotTell::because($scope->why())
-            : new self($scope, $defaultBranch, Unnamed::commit(), CannotTell::because(self::NO_TARGET));
+            : new self(
+                $scope,
+                $defaultBranch,
+                Unnamed::commit(),
+                CannotTell::because(self::NO_TARGET),
+                NotGiven::value(),
+            );
     }
 }
