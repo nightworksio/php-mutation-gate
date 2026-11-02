@@ -394,9 +394,6 @@ it('says where the checkout stands as the source underneath says', function (): 
         ->and($proved->defaultBranch())->toEqual($underneath->defaultBranch());
 });
 
-/** The adapter the contract suites hold, which the merge queue's tests that follow hold with them. */
-$queueHolds = ['holds:src/Adapter/GitHub'];
-
 /** A merge group's run, built for the first pull request on the commit `base`, at its head commit `head`. */
 const PULL_REQUESTS_GROUP = [
     ...PULL_REQUESTS_RUN,
@@ -428,7 +425,7 @@ it('reads only what is uncommitted on a merge group whose head is the tree of it
     $proved = trusting($source(), answering(provedGroup()), passedLedgers(['one']), PULL_REQUESTS_GROUP);
 
     expect($proved->changesSince(Revision::ref('base')))->toEqual($uncommitted());
-})->group(...$queueHolds);
+});
 
 it('asks GitHub for a merge group\'s head by a name it has to have encoded', function () use ($uncommitted): void {
     $source = Checkout::of(
@@ -444,7 +441,7 @@ it('asks GitHub for a merge group\'s head by a name it has to have encoded', fun
     $proved = trusting($source, answering($answers), passedLedgers(['one']), [...PULL_REQUESTS_GROUP, 'GITHUB_SHA' => 'head#2']);
 
     expect($proved->changesSince(Revision::ref('base')))->toEqual($uncommitted());
-})->group(...$queueHolds);
+});
 
 it('judges a merge group from its base when its pull request does not vouch for its head', function (string $how) use ($source): void {
     $answers = provedGroup();
@@ -475,7 +472,7 @@ it('judges a merge group from its base when its pull request does not vouch for 
     'the check failed',
     'neither head names a tree',
     'it is into another branch',
-])->group(...$queueHolds);
+]);
 
 it('judges a merge group from its base, asking GitHub nothing, without its pull request\'s ledger to read', function () use ($source): void {
     $github = answering(provedGroup());
@@ -484,7 +481,7 @@ it('judges a merge group from its base, asking GitHub nothing, without its pull 
     expect($untrusted->changesSince(Revision::ref('base')))
         ->toEqual(CannotTell::because('base is not a revision this repository has.'))
         ->and($github->getRequestsCount())->toBe(0);
-})->group(...$queueHolds);
+});
 
 it('judges a merge group from its base where its pull request\'s ledger records another head, or its own proofs', function (Ledger $ledger) use ($source): void {
     $ledgers = new ProofStoreFake();
@@ -495,14 +492,14 @@ it('judges a merge group from its base where its pull request\'s ledger records 
 })->with([
     'another head passed' => [fn(): Ledger => Ledger::empty()->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('pr-other'), PULL_REQUESTS_CHECK, 0)))],
     'its own proofs were used' => [fn(): Ledger => Ledger::empty()->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('pr-one'), PULL_REQUESTS_CHECK, 2)))],
-])->group(...$queueHolds);
+]);
 
 it('reads a merge queue\'s branch as a merge group only on a merge_group event', function () use ($source): void {
     $github = answering(provedGroup());
     $pushed = trusting($source(), $github, passedLedgers(['one']), [...PULL_REQUESTS_GROUP, 'GITHUB_EVENT_NAME' => 'push']);
 
     expect($pushed->changesSince(Revision::ref('base')))->toEqual(CannotTell::because('base is not a revision this repository has.'));
-})->group(...$queueHolds);
+});
 
 /**
  * What GitHub says of a pushed range of one commit, `group`, on which a check suite of GitHub Actions ran on this
@@ -533,7 +530,18 @@ it('reads only what is uncommitted after a push of a commit a merge group\'s run
     $proved = trusting($source(), answering(queuedCommit('gh-readonly-queue/main/pr-1-85c329847be78b0a7192b7c949beca23d38ca32f', 'success')), passedLedgers([]));
 
     expect($proved->changesSince(Revision::ref('base')))->toEqual($uncommitted());
-})->group(...$queueHolds);
+});
+
+it('reads only what is uncommitted after a push of a commit a merge group\'s run passed on, whichever of its queue\'s suites ran it', function () use ($source, $uncommitted): void {
+    $queue = 'gh-readonly-queue/main/pr-1-85c329847be78b0a7192b7c949beca23d38ca32f';
+    $answers = queuedCommit($queue, 'success');
+    $answers[sprintf('%s/commits/group/check-suites?per_page=100', PULL_REQUESTS_API)] = ['check_suites' => [
+        ['id' => 9, 'app' => ['slug' => 'github-actions'], 'head_branch' => $queue],
+        ['id' => 6, 'app' => ['slug' => 'github-actions'], 'head_branch' => 'gh-readonly-queue/main/pr-2-85c329847be78b0a7192b7c949beca23d38ca32f'],
+    ]];
+
+    expect(trusting($source(), answering($answers), passedLedgers([]))->changesSince(Revision::ref('base')))->toEqual($uncommitted());
+});
 
 it('reads everything since the base after a push of a commit no passing merge group\'s run vouches for', function (string $how) use ($source): void {
     $queue = 'gh-readonly-queue/main/pr-1-85c329847be78b0a7192b7c949beca23d38ca32f';
@@ -554,4 +562,4 @@ it('reads everything since the base after a push of a commit no passing merge gr
     'the suite is on another branch',
     'another app ran the suite',
     'no suite is known',
-])->group(...$queueHolds);
+]);
