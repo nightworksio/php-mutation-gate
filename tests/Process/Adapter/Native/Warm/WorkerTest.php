@@ -73,7 +73,7 @@ it('stops a child at its limit with every process under it, reaps it, and says a
 it('stops a child that has made no progress for its silence limit since it last did, and holds one that never has only to its limit', function (): void {
     $directory = Scratch::directory();
     $progress = static fn(string $name): string => sprintf('%s/%s.jsonl', $directory, $name);
-    $silence = static fn(string $name): SilenceLimit => SilenceLimit::of(Seconds::of(0.5), $progress($name));
+    $silence = static fn(string $name): SilenceLimit => SilenceLimit::of(Seconds::of(1.5), $progress($name));
     $workplace = WarmWorkers::place([
         WarmWorkers::run(['PROGRESS' => $progress('stalls'), 'ACT' => 'stall'], silence: $silence('stalls')),
         WarmWorkers::run(['PROGRESS' => $progress('silent'), 'ACT' => 'wait'], 1.0, $silence('silent')),
