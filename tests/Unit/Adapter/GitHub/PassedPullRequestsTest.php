@@ -394,8 +394,8 @@ it('says where the checkout stands as the source underneath says', function (): 
         ->and($proved->defaultBranch())->toEqual($underneath->defaultBranch());
 });
 
-/** The merge queue's files, which the tests that follow hold beside the contract suites' holding of the adapter. */
-$queueHolds = ['holds:src/Adapter/GitHub/MergedHeads.php', 'holds:src/Adapter/GitHub/VerdictChecks.php'];
+/** The adapter the contract suites hold, which the merge queue's tests that follow hold with them. */
+$queueHolds = ['holds:src/Adapter/GitHub'];
 
 /** A merge group's run, built for the first pull request on the commit `base`, at its head commit `head`. */
 const PULL_REQUESTS_GROUP = [
