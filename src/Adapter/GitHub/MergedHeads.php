@@ -141,9 +141,14 @@ final readonly class MergedHeads
     {
         $pull = $this->api->get(sprintf('/repos/%s/pulls/%d', $this->repository, $pullRequest->value()));
         $group = $this->api->get(sprintf('/repos/%s/git/commits/%s', $this->repository, rawurlencode($this->head)));
-        $tree = $group instanceof Answer ? $group->text('tree', 'sha') : '';
 
-        return $pull instanceof Answer && $tree !== ''
+        if (! $pull instanceof Answer || ! $group instanceof Answer) {
+            return false;
+        }
+
+        $tree = $group->text('tree', 'sha');
+
+        return $tree !== ''
             && $this->isIntoDefaultBranch($pull)
             && $this->hasTree($pull->text('head', 'sha'), $tree)
             && $this->passed($pullRequest->value(), $pull->text('head', 'sha'), $ledgers);
