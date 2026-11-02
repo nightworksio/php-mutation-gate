@@ -60,9 +60,11 @@ use function unlink;
  * (ADR-0020): `--tmp-file` stands the mutant in for its
  * original. It reads a config of the gate's own, which includes the
  * project's, analyses in one process, and does not report an ignore that
- * matched nothing. The warm-up analyses every file the config names and
- * saves PHPStan's result cache, so each check analyses the mutant and the
- * files that depend on it alone, and saves nothing. The warm-up also keeps
+ * matched nothing. The warm-up analyses every file the config names, on
+ * every core, and saves PHPStan's result cache under the gate's workspace,
+ * so each check analyses the mutant and the files that depend on it alone,
+ * and saves nothing. A cache kept from an earlier run leaves the warm-up only
+ * the files that changed since. The warm-up also keeps
  * which files PHPStan analyses, and a mutant of any other is out of its
  * scope.
  *
@@ -74,18 +76,36 @@ final readonly class PhpStan implements StaticChecker
 
     private const string VERSION = '~PHPStan - PHP Static Analysis Tool (\S+)~';
 
-    /** The config each run reads, beside the gate's other files. */
+    /** The config each check reads, beside the gate's other files. */
     private const string CHECK = '%s/phpstan/check.neon';
 
+    /** A check analyses one mutant in one process, since the checks run side by side. */
     private const string CHECK_CONFIG = <<<'NEON'
         includes:
             - %s
         parameters:
+            resultCachePath: %s
             parallel:
                 maximumNumberOfProcesses: 1
             reportUnmatchedIgnoredErrors: false
 
         NEON;
+
+    /** The config the warm-up reads, beside the check's. */
+    private const string WARM = '%s/phpstan/warm.neon';
+
+    /** The warm-up analyses every file on every core PHPStan's own config allows, into the cache each check reads. */
+    private const string WARM_CONFIG = <<<'NEON'
+        includes:
+            - %s
+        parameters:
+            resultCachePath: %s
+            reportUnmatchedIgnoredErrors: false
+
+        NEON;
+
+    /** The result cache the warm-up saves and every check starts from, which a CI keeps between runs. */
+    private const string RESULT_CACHE = '%s/phpstan/resultCache.php';
 
     private const string UNVERSIONED = 'PHPStan did not say its version (%s).';
 
@@ -166,12 +186,15 @@ final readonly class PhpStan implements StaticChecker
      */
     public function findings(Paths $files, Withheld $withheld): Findings|CannotJudge
     {
-        $check = $this->checkConfig();
+        $check = $this->ownConfig(self::CHECK, self::CHECK_CONFIG);
+        $warm = $this->ownConfig(self::WARM, self::WARM_CONFIG);
         $scope = $check instanceof CannotJudge ? $check : $this->keptScope($withheld, $check);
 
-        return $scope instanceof CannotJudge
-            ? $scope
-            : $this->analysed($withheld, FindingFiles::under($this->root), $check);
+        return match (true) {
+            $scope instanceof CannotJudge => $scope,
+            $warm instanceof CannotJudge => $warm,
+            default => $this->analysed($withheld, FindingFiles::under($this->root), $warm),
+        };
     }
 
     /** None: PHPStan analyses again the files whose view of the mutant changed, which it finds itself. */
@@ -195,7 +218,7 @@ final readonly class PhpStan implements StaticChecker
     public function checks(MutantChecks $checks, ProcessCount $side): CheckAnswers
     {
         $scope = Scope::kept($this->scopeFile());
-        $config = $this->checkConfig();
+        $config = $this->ownConfig(self::CHECK, self::CHECK_CONFIG);
         $prepared = [];
 
         foreach ($checks as $check) {
@@ -331,15 +354,21 @@ final readonly class PhpStan implements StaticChecker
         return ChildProcess::of($this->processes->run($this->command($withheld, $arguments)));
     }
 
-    /** The gate's own config, written where it is not there as it should be, including the project's. */
-    private function checkConfig(): string|CannotJudge
+    /**
+     * A config of the gate's own, at this path of its workspace from this
+     * template, written where it is not there as it should be: the
+     * project's, with the gate's result cache.
+     */
+    private function ownConfig(string $at, string $template): string|CannotJudge
     {
         $config = $this->config();
-        $file = $this->absolute(Path::of(sprintf(self::CHECK, Workspace::root()->value())));
+        $workspace = Workspace::root()->value();
+        $file = $this->absolute(Path::of(sprintf($at, $workspace)));
+        $cache = $this->absolute(Path::of(sprintf(self::RESULT_CACHE, $workspace)));
         $directory = dirname($file);
         $written = $config instanceof Path
             && (is_dir($directory) || (! file_exists($directory) && mkdir($directory, recursive: true)))
-            && file_put_contents($file, sprintf(self::CHECK_CONFIG, $this->absolute($config))) !== false;
+            && file_put_contents($file, sprintf($template, $this->absolute($config), $cache)) !== false;
 
         return match (true) {
             $config instanceof CannotJudge => $config,

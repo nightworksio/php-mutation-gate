@@ -22,6 +22,9 @@ const REUSABLE = '.github/workflows/mutation-gate.yml';
 /** The release workflow's path. */
 const RELEASE = '.github/workflows/release.yml';
 
+/** The step of the action that restores PHPStan's result cache (ADR-0052). */
+const ANALYSER_RESTORE = 'Restore the static analyser\'s result cache';
+
 /** How a step's `run` starts the gate from its own installation, which loads none of the project's code. */
 const OWN_GATE = 'php "${GATE_ACTION}/bin/mutation-gate" ';
 
@@ -211,7 +214,10 @@ it('checks the workflow out under .mutation-gate, which the gate leaves out of e
 
 it('restores no ledger for one shard, which reads none', function (): void {
     $steps = WorkflowFile::at('action.yml')->field('runs')->field('steps');
-    $restores = WorkflowFile::stepsWhere($steps, 'uses', static fn(string $uses): bool => str_starts_with($uses, 'actions/cache/restore@'));
+    $restores = array_values(array_diff(
+        WorkflowFile::stepsWhere($steps, 'uses', static fn(string $uses): bool => str_starts_with($uses, 'actions/cache/restore@')),
+        WorkflowFile::stepsWhere($steps, 'name', static fn(string $name): bool => $name === ANALYSER_RESTORE),
+    ));
 
     expect($restores)->toHaveCount(2);
 
@@ -281,12 +287,30 @@ it('installs the gate the action delivers with from its own lock alone, running 
         ->and($script)->toContain('COMPOSER="${manifest}" composer install --working-dir="${gate}" --no-dev --no-scripts --no-plugins');
 });
 
-it('caches the ledger and the kept coverage map the verdict left, keyed by both, in the action and the reusable workflow', function (): void {
-    $saving = static fn(Node $steps): Node => Lenient::items($steps)[WorkflowFile::stepsWhere(
+it('restores PHPStan\'s result cache in every run but a delivery\'s, and keeps the one the run left under its own digest', function (): void {
+    $steps = WorkflowFile::at('action.yml')->field('runs')->field('steps');
+    $named = static fn(string $wanted): Node => Lenient::items($steps)[WorkflowFile::stepsWhere(
         $steps,
-        'uses',
-        static fn(string $uses): bool => str_starts_with($uses, 'actions/cache/save@'),
+        'name',
+        static fn(string $name): bool => $name === $wanted,
     )[0]];
+    $restore = $named(ANALYSER_RESTORE);
+    $save = $named('Save the static analyser\'s result cache');
+    $digest = "hashFiles('.mutation-gate/phpstan/resultCache.php')";
+
+    expect(Lenient::text($restore->field('if')))->toBe("inputs.deliver != 'true'")
+        ->and(Lenient::text($restore->field('with')->field('path')))->toBe('.mutation-gate/phpstan/resultCache.php')
+        ->and(Lenient::text($restore->field('with')->field('key')))->toEndWith('-${{ github.run_id }}')
+        ->and(Lenient::text($save->field('with')->field('key')))->toEndWith(sprintf('-${{ %s }}', $digest))
+        ->and(Lenient::text($save->field('if')))->toContain(sprintf("%s != ''", $digest))
+        ->and(Lenient::text($save->field('if')))->toContain('steps.analysed.outputs.cache-matched-key');
+});
+
+it('caches the ledger and the kept coverage map the verdict left, keyed by both, in the action and the reusable workflow', function (): void {
+    $saving = static fn(Node $steps): Node => Lenient::items($steps)[array_values(array_diff(
+        WorkflowFile::stepsWhere($steps, 'uses', static fn(string $uses): bool => str_starts_with($uses, 'actions/cache/save@')),
+        WorkflowFile::stepsWhere($steps, 'name', static fn(string $name): bool => $name === 'Save the static analyser\'s result cache'),
+    ))[0]];
     $keeping = static fn(Node $steps): string => Lenient::text(Lenient::items($steps)[WorkflowFile::stepsWhere(
         $steps,
         'name',
