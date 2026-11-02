@@ -25,8 +25,9 @@ use function preg_match;
  * the gate. Every other job is left out, so a change to it runs the gate as
  * before. A job runs the gate where it uses the gate's action or reusable
  * workflow, or a step runs the gate's `run`, `plan`, `verdict` or
- * `survivors`, or `composer mutate`, the script `init` adds. A definition with no top-level `jobs`, a job its reader cannot
- * bound, or none that runs the gate, is read whole.
+ * `survivors`, or `composer mutate`, the script `init` adds. A definition
+ * with no top-level `jobs`, a job its reader cannot bound, or none that runs
+ * the gate, is read whole.
  *
  * @internal
  */
@@ -56,7 +57,10 @@ final readonly class WorkflowJobs
     /** A step or a job that uses the gate's action, or a job that calls its reusable workflow. */
     private const string USES = '/^ *(- )?uses: *[\'"]?[^\'"\s]*(php-mutation-gate|\/mutation-gate\.ya?ml)/u';
 
-    /** A command line that runs the gate to judge: run, plan, verdict or survivors, its default run, or the script `init` adds. */
+    /**
+     * A command line that runs the gate to judge: run, plan, verdict or
+     * survivors, its default run, or the script `init` adds.
+     */
     private const string RUNS
         = '/(^|[\s\'"\/=])mutation-gate[\'"]?( +(run|plan|verdict|survivors)\b| *$| +-)|\bcomposer +mutate\b/u';
 
