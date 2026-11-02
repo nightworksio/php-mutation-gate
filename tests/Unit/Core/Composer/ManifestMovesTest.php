@@ -49,6 +49,21 @@ it('moves nothing where only the keys that describe the package or name its comm
     expect($moves instanceof ManifestMoves ? [$moves->packages(), $moves->beyondPackages()] : $moves)->toBe([[], false]);
 });
 
+it('names a package whose name is all digits by its name, as text', function (): void {
+    $moves = ManifestMoves::between(manifestOf(['require' => []]), manifestOf(['require' => ['2048' => '^1.0']]));
+
+    expect($moves instanceof ManifestMoves ? $moves->packages() : $moves)->toBe(['2048']);
+});
+
+it('moves nothing where the keys that decide only changed places', function (): void {
+    $moves = ManifestMoves::between(
+        manifestOf(['autoload' => ['psr-4' => ['App\\' => 'src/']], 'config' => ['sort-packages' => true]]),
+        manifestOf(['config' => ['sort-packages' => true], 'autoload' => ['psr-4' => ['App\\' => 'src/']]]),
+    );
+
+    expect($moves instanceof ManifestMoves ? [$moves->packages(), $moves->beyondPackages()] : $moves)->toBe([[], false]);
+});
+
 it('says a key that decides how the project installs or loads moved', function (string $key, mixed $value): void {
     $moves = ManifestMoves::between(manifestOf(['require' => []]), manifestOf(['require' => [], $key => $value]));
 

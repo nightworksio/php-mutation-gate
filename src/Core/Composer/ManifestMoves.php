@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Composer;
 
 use function array_diff_assoc;
-use function array_fill_keys;
-use function array_filter;
 use function array_key_exists;
 use function array_keys;
 use function array_map;
@@ -55,13 +53,10 @@ final readonly class ManifestMoves
 
         $moved = [];
 
-        $lists = array_filter(ManifestKey::cases(), static fn(ManifestKey $key): bool => $key->listsPackages());
-
-        foreach ($lists as $list) {
-            $was = self::listOf($then, $list->value);
-            $is = self::listOf($after, $list->value);
-            $changed = array_diff_assoc($was, $is) + array_diff_assoc($is, $was);
-            $moved += array_fill_keys(array_keys($changed), value: true);
+        foreach (array_keys($then + $after) as $list) {
+            $was = self::listOf($then, $list);
+            $is = self::listOf($after, $list);
+            $moved += array_diff_assoc($was, $is) + array_diff_assoc($is, $was);
         }
 
         $packages = array_map(strval(...), array_keys($moved));

@@ -17,6 +17,13 @@ it('decides on any move where the config names no package', function (): void {
     expect(DecidingPackages::every()->decide(Locks::of(['psr/log' => '3.0.0']), Locks::of(['psr/log' => '3.0.1'])))->toBeTrue();
 });
 
+it('decides on a change that moves only the keys a lock writes from the rest, where the config names no package', function (): void {
+    expect(DecidingPackages::every()->decide(
+        Locks::of(['psr/log' => '3.0.0'], [], ['content-hash' => 'a1']),
+        Locks::of(['psr/log' => '3.0.0'], [], ['content-hash' => 'b2']),
+    ))->toBeTrue();
+});
+
 it('decides only where a moved package matches a name or a pattern of names', function (Contents $now, bool $decides): void {
     $deciding = DecidingPackages::named(Glob::of('pestphp/*'), Glob::of('nikic/php-parser'));
     $before = Locks::of(['pestphp/pest' => '5.2.1', 'nikic/php-parser' => '5.6.0', 'symfony/console' => '8.1.7']);
