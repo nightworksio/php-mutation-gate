@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Adapter\Alert\Channel;
 use NightWorksIO\MutationGate\Adapter\Azure\AzurePlan;
 use NightWorksIO\MutationGate\Adapter\Azure\ContainerLedger;
 use NightWorksIO\MutationGate\Adapter\Bitbucket\BitbucketPlan;
+use NightWorksIO\MutationGate\Adapter\Bitbucket\CodeInsights;
+use NightWorksIO\MutationGate\Adapter\Bitbucket\PullRequestComment as BitbucketComment;
 use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
 use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
 use NightWorksIO\MutationGate\Adapter\Codeception\CodeceptionFramework;
@@ -44,6 +46,7 @@ use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
 use NightWorksIO\MutationGate\Adapter\GitHub\StepSummary;
 use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
+use NightWorksIO\MutationGate\Adapter\GitLab\MergeRequestNote;
 use NightWorksIO\MutationGate\Adapter\Http\HttpExchange;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Jenkins\JenkinsPlan;
@@ -212,6 +215,29 @@ final readonly class FirstParty implements Extension
                 static fn(Options $options): Reporter => StepSummary::configured($options, new SystemClock()),
             )
             ->withReporter(BuiltinReporter::GitHubComment->named(), PullRequestComment::fromOptions(...))
+            ->withReporter(
+                BuiltinReporter::GitLabComment->named(),
+                static fn(Options $options): Reporter => MergeRequestNote::configured(
+                    $options,
+                    $environment,
+                    HttpExchange::over(HttpClient::create()),
+                ),
+            )
+            ->withReporter(
+                BuiltinReporter::BitbucketComment->named(),
+                static fn(Options $options): Reporter => BitbucketComment::configured(
+                    $options,
+                    $environment,
+                    HttpExchange::over(HttpClient::create()),
+                ),
+            )
+            ->withReporter(
+                BuiltinReporter::BitbucketInsights->named(),
+                static fn(): Reporter => CodeInsights::inEnvironment(
+                    $environment,
+                    HttpExchange::over(HttpClient::create(CodeInsights::CLIENT)),
+                ),
+            )
             ->withReporter(
                 BuiltinReporter::Badge->named(),
                 static fn(Options $options): Reporter|Invalid => BadgeDirectory::configured(

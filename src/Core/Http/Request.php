@@ -38,6 +38,11 @@ final readonly class Request
         return new self(Method::Post, $url, [], $body);
     }
 
+    public static function delete(string $url): self
+    {
+        return new self(Method::Delete, $url, [], '');
+    }
+
     /** This request, with a header set to this value. */
     public function with(string $header, string $value): self
     {

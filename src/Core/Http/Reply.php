@@ -19,7 +19,12 @@ final readonly class Reply
 {
     /** The most characters of an answer, or of a failure, a refusal repeats. */
     public const int ANSWER = 200;
+
+    /** The answer for what is not there, such as a ledger not written yet. */
+    public const int NOT_FOUND = 404;
     private const int TOO_MANY = 429;
+
+    private const int FORBIDDEN = 403;
 
     private const int SERVER = 500;
 
@@ -68,6 +73,18 @@ final readonly class Reply
     public function isAccepted(): bool
     {
         return self::accepts($this->status);
+    }
+
+    /** Whether it refuses what was asked of what it holds: forbidden, or not found, as a service may answer either. */
+    public function isRefusedOrMissing(): bool
+    {
+        return $this->status === self::FORBIDDEN || $this->isMissing();
+    }
+
+    /** Whether what was asked of is not there. */
+    public function isMissing(): bool
+    {
+        return $this->status === self::NOT_FOUND;
     }
 
     /** Whether a status accepts what was asked: one of the 2xx. */

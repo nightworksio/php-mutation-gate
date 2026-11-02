@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\GitHub\Api;
 use NightWorksIO\MutationGate\Adapter\GitHub\HtmlReport;
+use NightWorksIO\MutationGate\Core\Report\Markdown;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\JsonMockResponse;
 use Symfony\Component\HttpClient\Response\MockResponse;
@@ -17,7 +18,7 @@ function htmlReport(MockHttpClient $client): HtmlReport
 it('links the artifact the run uploaded its HTML report as, found among the run\'s own', function (array $artifact): void {
     $asked = new JsonMockResponse(['total_count' => 1, 'artifacts' => [$artifact]]);
 
-    expect(htmlReport(new MockHttpClient([$asked]))->into(sprintf("before\n\n%s\n", HtmlReport::SLOT)))
+    expect(htmlReport(new MockHttpClient([$asked]))->into(sprintf("before\n\n%s\n", Markdown::REPORT_SLOT)))
         ->toBe("before\n\n[The HTML report](https://github.example/octo/gate/actions/runs/7/artifacts/42) of [this run](https://github.example/octo/gate/actions/runs/7).\n")
         ->and($asked->getRequestUrl())->toBe('https://api.github.example/repos/octo/gate/actions/runs/7/artifacts?name=mutation-gate-report.html');
 })->with([

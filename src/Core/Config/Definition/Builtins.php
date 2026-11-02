@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\BuiltinStore;
 use NightWorksIO\MutationGate\Core\Config\BuiltinTreeSource;
 use NightWorksIO\MutationGate\Core\Config\Choice;
+use NightWorksIO\MutationGate\Core\Config\CommentOption;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
@@ -47,6 +48,9 @@ final readonly class Builtins
     /** Why a chat reporter's options never hold its URL, and where it comes from instead (ADR-0016). */
     private const string CREDENTIAL
         = 'expected no url: a webhook URL is a credential; set %s, or name another variable in urlEnv';
+
+    private const string TOKEN
+        = 'expected no token: a token is a credential; set %s, or name another variable in tokenEnv';
 
     /**
      * @param array<string, Section<Options>> $options the options of each built-in adapter, by its name
@@ -143,6 +147,12 @@ final readonly class Builtins
             ...$more,
         );
 
+        $comment = static fn(string $token): Section => Section::options(
+            Json::object(Member::of(CommentOption::TokenEnv->value, $token)),
+            Field::optional(CommentOption::TokenEnv->value, $variable, $judges),
+            Field::optional('token', Refused::because(sprintf(self::TOKEN, $token)), $judges),
+        );
+
         return self::of([
             ...self::bare(
                 BuiltinReporter::Console,
@@ -158,6 +168,7 @@ final readonly class Builtins
                 BuiltinReporter::KillMatrix,
                 BuiltinReporter::GitLab,
                 BuiltinReporter::Sonar,
+                BuiltinReporter::BitbucketInsights,
             ),
             BuiltinReporter::Slack->value => $chat(GateSecret::SlackUrl->value, Json::object()),
             BuiltinReporter::Discord->value => $chat(GateSecret::DiscordUrl->value, Json::object()),
@@ -174,6 +185,8 @@ final readonly class Builtins
                 Json::object(),
                 Field::optional('only', Enumerated::of(ProblemsShown::cases()), $judges),
             ),
+            BuiltinReporter::GitLabComment->value => $comment(GateSecret::GitLabComment->value),
+            BuiltinReporter::BitbucketComment->value => $comment(GateSecret::BitbucketComment->value),
             BuiltinReporter::GitHubComment->value => Section::options(
                 Json::object(),
                 Field::optional('identity', Text::of('an account name'), $judges),

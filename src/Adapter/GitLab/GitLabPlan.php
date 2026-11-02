@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Delivery\Stage;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
@@ -57,10 +58,26 @@ final readonly class GitLabPlan implements CiPlan, Configurable
      */
     public const string SOURCE = 'MUTATION_GATE_SOURCE';
 
+    /**
+     * The variable the trigger job hands the child pipeline the merge request's IID in, since GitLab gives a child
+     * pipeline none of the merge request's variables.
+     */
+    public const string MERGE_REQUEST = 'MUTATION_GATE_MERGE_REQUEST_IID';
+
     /** The verdict job that holds the store's keys, the one job the template's `before_script` leaves them to. */
     public const string STORE_VERDICT = 'mutation-gate-verdict-store';
 
+    /** The variable the comment job names the delivery it sends in, which the template's hidden job reads. */
+    public const string DELIVERY = 'MUTATION_GATE_DELIVERY';
+
     private const string SHARD_JOB = 'mutation-gate-shard';
+
+    private const string VERDICT_JOB = 'mutation-gate-verdict';
+
+    private const string COMMENT_JOB = 'mutation-gate-comment';
+
+    /** The hidden job the comment job extends: the gate's own image running `deliver`, and none of the project. */
+    private const string HIDDEN_COMMENT_JOB = '.mutation-gate-comment';
 
     private const string HIDDEN_JOB = '.mutation-gate';
 
@@ -189,15 +206,33 @@ final readonly class GitLabPlan implements CiPlan, Configurable
             self::NEEDS => count($shards) === 0 ? [$fromThePlan] : [$fromThePlan, ['job' => self::SHARD_JOB]],
             self::SCRIPT => [$jobs->verdict()],
         ];
+        $untrusted = ['rules' => [['if' => $trusted, 'when' => 'never'], ['when' => 'always']]];
 
         return [
             'include' => [['local' => $this->template]],
             ...count($shards) === 0 ? [] : [self::SHARD_JOB => $shardJob],
             self::STORE_VERDICT => [...$verdict, 'rules' => [['if' => $trusted, 'when' => 'always']]],
-            'mutation-gate-verdict' => [
-                ...$verdict,
-                'rules' => [['if' => $trusted, 'when' => 'never'], ['when' => 'always']],
-            ],
+            self::VERDICT_JOB => [...$verdict, ...$untrusted, ...$this->deliveringLater($jobs)],
+            ...$jobs->deliversLater() ? [self::COMMENT_JOB => [
+                self::EXTENDS => self::HIDDEN_COMMENT_JOB,
+                self::NEEDS => [['job' => self::VERDICT_JOB]],
+                'variables' => [self::DELIVERY => Stage::Verdict->directory()->value()],
+                ...$untrusted,
+            ]] : [],
         ];
+    }
+
+    /**
+     * Where the plan left what needs a credential for `deliver`, what the verdict that holds no keys adds: it leaves
+     * its own, kept as an artifact for the comment job, which sends it with the gate's own image (ADR-0024).
+     *
+     * @return array<string, mixed>
+     */
+    private function deliveringLater(JobCommands $jobs): array
+    {
+        return $jobs->deliversLater() ? [
+            self::SCRIPT => [$jobs->verdictDeliveredLater()],
+            'artifacts' => ['when' => 'always', 'paths' => [sprintf('%s/', Stage::Verdict->directory()->value())]],
+        ] : [];
     }
 }

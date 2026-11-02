@@ -19,10 +19,13 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
 use NightWorksIO\MutationGate\Core\Config\BuiltinStore;
 use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Listed;
+use NightWorksIO\MutationGate\Core\Delivery\Stage;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\GateSecret;
+use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Schema;
 use NightWorksIO\MutationGate\Tests\Support\ShardedPlan;
@@ -421,36 +424,46 @@ it('names every variable the bucket store reads on Azure DevOps\' page, where a 
 
 it('refuses by Bitbucket\'s schema a deployment on a final step, so a verdict that holds the keys is a step', function (): void {
     $pipelines = ciTemplateRendered(CiTemplate::BitbucketPipelines);
-    $final = static fn(string $deployment): string => str_replace(
-        "      - final: *mutation-verdict\n",
-        sprintf("      - final:\n          <<: *mutation-verdict\n%s", $deployment),
-        $pipelines,
-    );
-    $merged = $final('');
-    $deploying = $final(sprintf("          deployment: '%s'\n", CiTemplate::keyHolder()));
+    $final = "      - final:\n          <<: *mutation-comment\n";
+    $deploying = str_replace($final, sprintf("%s          deployment: '%s'\n", $final, CiTemplate::keyHolder()), $pipelines);
 
-    expect($merged)->not->toBe($pipelines)
-        ->and(Schema::errors(ciTemplateJson($merged), ciSchema('bitbucket')))->toBe([])
+    expect($deploying)->not->toBe($pipelines)
+        ->and(Schema::errors(ciTemplateJson($pipelines), ciSchema('bitbucket')))->toBe([])
         ->and(Schema::errors(ciTemplateJson($deploying), ciSchema('bitbucket')))->not->toBe([]);
 })->group('network');
 
-it('deploys only the default branch\'s and the full run\'s verdicts, each the last step, and makes a pull request\'s verdict final', function (): void {
+it('deploys only the default branch\'s and the full run\'s verdicts, each the last step, and sends a pull request\'s comment in its final step', function (): void {
     $json = ciTemplateJson(ciTemplateRendered(CiTemplate::BitbucketPipelines));
     $verdict = ['name' => 'mutation: verdict', 'clone' => ['depth' => 'full'], 'script' => [
+        sprintf('unset %s', GateSecret::BitbucketComment->value),
         'composer install --no-interaction --no-progress',
         'vendor/bin/mutation-gate verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results',
     ]];
     $deployed = ['step' => [...$verdict, 'deployment' => CiTemplate::keyHolder()]];
+    $comment = static fn(Stage $stage): array => [
+        'name' => 'mutation: comment',
+        'image' => sprintf('%s:%s', ThisPackage::IMAGE, GatePin::UNKNOWN_VERSION),
+        'clone' => ['enabled' => false],
+        'script' => [sprintf('mutation-gate deliver --from=%s', $stage->directory()->value())],
+    ];
+    $pullRequest = Decoded::at($json, 'pipelines', 'pull-requests', '**');
+    $steps = is_array($pullRequest) ? $pullRequest : [];
 
     expect(bitbucketLastStep($json, 'branches', 'trunk'))->toBe($deployed)
         ->and(bitbucketLastStep($json, 'custom', 'mutation-full'))->toBe($deployed)
-        ->and(bitbucketLastStep($json, 'pull-requests', '**'))->toBe(['final' => $verdict]);
+        ->and(bitbucketLastStep($json, 'pull-requests', '**'))->toBe(['final' => $comment(Stage::Verdict)])
+        ->and($steps[1] ?? [])->toBe(['step' => $comment(Stage::Planned)])
+        ->and(Decoded::at($json, 'pipelines', 'pull-requests', '**', 3, 'step', 'script', 2))
+        ->toBe('vendor/bin/mutation-gate verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results --deliver-later')
+        ->and(Decoded::at($json, 'pipelines', 'pull-requests', '**', 0, 'step', 'script', 3))->toEndWith(' --deliver-later');
 });
 
 it('cuts as many shards as each Bitbucket pipeline runs parallel steps', function (string ...$pipeline): void {
     $json = ciTemplateJson(ciTemplateRendered(CiTemplate::BitbucketPipelines));
     $script = Decoded::at($json, 'pipelines', ...$pipeline, ...[0, 'step', 'script']);
-    $parallel = Decoded::at($json, 'pipelines', ...$pipeline, ...[1, 'parallel']);
+    $items = Decoded::at($json, 'pipelines', ...$pipeline);
+    $groups = array_values(array_filter(is_array($items) ? $items : [], static fn(mixed $item): bool => is_array($item) && array_key_exists('parallel', $item)));
+    $parallel = is_array($groups[0] ?? null) ? $groups[0]['parallel'] : [];
 
     $shards = preg_match('/--shards=(\d+)/', (string) json_encode($script), $cut) === 1 ? (int) $cut[1] : 0;
 
@@ -484,11 +497,31 @@ it('hands CircleCI\'s context to the verdict alone, in the workflow that runs on
 
 it('leaves the store\'s keys in GitLab\'s jobs to the verdict that keeps them alone, and hands the child the parent\'s source', function (): void {
     expect(ciTemplateRendered(CiTemplate::GitLabTemplate))->toContain(sprintf(
-        "  before_script:\n    - '[ \"\$CI_JOB_NAME\" = \"%s\" ] || unset %s'\n    - composer install",
+        "  before_script:\n    - '[ \"\$CI_JOB_NAME\" = \"%s\" ] || unset %s'\n    - unset %s\n    - composer install",
         GitLabPlan::STORE_VERDICT,
         implode(' ', [...BuiltinStore::S3->variables()]),
+        GateSecret::GitLabComment->value,
     ))
-        ->and(ciTemplateRendered(CiTemplate::GitLabJobs))->toContain(sprintf("    %s: \$CI_PIPELINE_SOURCE\n", GitLabPlan::SOURCE));
+        ->and(ciTemplateRendered(CiTemplate::GitLabJobs))->toContain(sprintf("    %s: \$CI_PIPELINE_SOURCE\n", GitLabPlan::SOURCE))
+        ->and(ciTemplateRendered(CiTemplate::GitLabJobs))->toContain(sprintf("    %s: \$CI_MERGE_REQUEST_IID\n", GitLabPlan::MERGE_REQUEST));
+});
+
+it('sends GitLab\'s note from the gate\'s own image, the planned state after the plan of a merge request', function (): void {
+    $template = Decoded::at(ciTemplateJson(ciTemplateRendered(CiTemplate::GitLabTemplate)), '.mutation-gate-comment');
+    $comment = Decoded::at(ciTemplateJson(ciTemplateRendered(CiTemplate::GitLabJobs)), 'mutation-comment');
+
+    expect($template)->toBe([
+        'image' => ['name' => sprintf('%s:%s', ThisPackage::IMAGE, GatePin::UNKNOWN_VERSION), 'entrypoint' => ['']],
+        'script' => [sprintf('mutation-gate deliver "--from=$%s"', GitLabPlan::DELIVERY)],
+    ])
+        ->and($comment)->toBe([
+            'stage' => 'test',
+            'extends' => '.mutation-gate-comment',
+            'needs' => ['mutation-plan'],
+            'rules' => [['if' => '$CI_PIPELINE_SOURCE == "merge_request_event"']],
+            'variables' => [GitLabPlan::DELIVERY => Stage::Planned->directory()->value()],
+        ])
+        ->and(ciTemplateRendered(CiTemplate::GitLabJobs))->toContain('later="--deliver-later"');
 });
 
 it('names in Buildkite\'s pipeline and its page the cluster secrets the verdict fetches, and drops the keys before the plan installs', function (): void {

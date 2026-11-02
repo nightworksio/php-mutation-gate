@@ -8,6 +8,7 @@ use function count;
 
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Report\Markdown;
 
 use function sprintf;
 use function str_contains;

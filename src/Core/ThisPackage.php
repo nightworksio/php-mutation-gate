@@ -19,6 +19,9 @@ final readonly class ThisPackage
     /** Its repository, which the pre-commit framework clones its hooks from. */
     public const string REPOSITORY = 'https://github.com/nightworksio/php-mutation-gate';
 
+    /** Its container image, which each release tags with its version (ADR-0022). */
+    public const string IMAGE = 'ghcr.io/nightworksio/mutation-gate';
+
     /** Its documentation site, whose root holds `main`'s pages while no version is tagged (ADR-0038). */
     public const string SITE = 'https://nightworksio.github.io/php-mutation-gate';
 

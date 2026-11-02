@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Cli\Command;
 use NightWorksIO\MutationGate\Adapter\Filesystem\DeliveryDirectory;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Ci\JobCommands;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Delivery\Stage;
 use Symfony\Component\Console\Command\Command;
@@ -21,7 +22,7 @@ use Symfony\Component\Console\Input\InputOption;
  */
 final readonly class DeliverLater
 {
-    public const string OPTION = 'deliver-later';
+    public const string OPTION = JobCommands::DELIVER_LATER;
 
     private const string SAID = 'Leave what needs a credential in .mutation-gate/delivery, for mutation-gate deliver';
 

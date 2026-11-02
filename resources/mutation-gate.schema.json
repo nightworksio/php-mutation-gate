@@ -1488,6 +1488,22 @@
                         "type": "object",
                         "properties": {
                             "use": {
+                                "const": "bitbucket-insights"
+                            },
+                            "with": {
+                                "type": "object",
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
                                 "const": "slack"
                             },
                             "with": {
@@ -1620,6 +1636,60 @@
                         "type": "object",
                         "properties": {
                             "use": {
+                                "const": "gitlab-comment"
+                            },
+                            "with": {
+                                "type": "object",
+                                "properties": {
+                                    "tokenEnv": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "default": "MUTATION_GATE_GITLAB_TOKEN"
+                                    },
+                                    "token": {
+                                        "not": {},
+                                        "description": "expected no token: a token is a credential; set MUTATION_GATE_GITLAB_TOKEN, or name another variable in tokenEnv"
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
+                                "const": "bitbucket-comment"
+                            },
+                            "with": {
+                                "type": "object",
+                                "properties": {
+                                    "tokenEnv": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "default": "MUTATION_GATE_BITBUCKET_TOKEN"
+                                    },
+                                    "token": {
+                                        "not": {},
+                                        "description": "expected no token: a token is a credential; set MUTATION_GATE_BITBUCKET_TOKEN, or name another variable in tokenEnv"
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
                                 "const": "github-comment"
                             },
                             "with": {
@@ -1693,11 +1763,14 @@
                                         "kill-matrix",
                                         "gitlab",
                                         "sonar",
+                                        "bitbucket-insights",
                                         "slack",
                                         "discord",
                                         "webhook",
                                         "otlp",
                                         "problems",
+                                        "gitlab-comment",
+                                        "bitbucket-comment",
                                         "github-comment",
                                         "badge"
                                     ]

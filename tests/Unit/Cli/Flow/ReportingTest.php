@@ -8,9 +8,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\DeliveryDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\JsonReportFile;
 use NightWorksIO\MutationGate\Adapter\GitHub\Annotations;
-use NightWorksIO\MutationGate\Adapter\GitHub\PlannedMarkdown;
 use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
-use NightWorksIO\MutationGate\Adapter\GitHub\RecheckedMarkdown;
 use NightWorksIO\MutationGate\Adapter\GitHub\StepSummary;
 use NightWorksIO\MutationGate\Adapter\Otlp\OtlpReporter;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
@@ -35,6 +33,8 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\PlanEstimates;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\Report\PlannedMarkdown;
+use NightWorksIO\MutationGate\Core\Report\RecheckedMarkdown;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
@@ -43,6 +43,7 @@ use NightWorksIO\MutationGate\Port\Reporter;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\ConfigurableReporter;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
+use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
 use NightWorksIO\MutationGate\Tests\Support\Rechecks;
@@ -275,6 +276,28 @@ it('leaves the planned state in the delivery under --deliver-later, on a pull re
         ->and($left)->toEqual(Delivery::none()->withComment(PlannedMarkdown::comment(
             PlanEstimates::of($plan, $settings->shards()->setup())->work(),
             'https://github.example/octo/gate/actions/runs/7',
+        )));
+});
+
+it('leaves the planned state of a GitLab note in the delivery under --deliver-later, where reports lists it', function (): void {
+    $project = Scratch::directory();
+    $delivery = DeliveryDirectory::of(Directory::at($project), Stage::Planned);
+    $pipeline = 'https://gitlab.example/acme/shop/-/pipelines/9';
+    $mergeRequest = ['GITLAB_CI' => 'true', 'CI_MERGE_REQUEST_IID' => '7', 'CI_PIPELINE_URL' => $pipeline];
+    $chosen = Environment::during(
+        [...$mergeRequest, 'GITHUB_ACTIONS' => null, 'MUTATION_GATE_GITLAB_TOKEN' => null],
+        static fn(): Chosen => new Chosen(new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER)))),
+    );
+    $plan = Planned::twoShards()->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')));
+    $settings = Flows::settings(Report::uses('gitlab-comment'));
+
+    $said = new Reporting($chosen, Variables::of($mergeRequest))->deliveringLater($delivery)->planned($settings, $plan);
+    $left = DeliveryFile::decode((string) file_get_contents(sprintf('%s/.mutation-gate/delivery/planned/delivery.json', $project)));
+
+    expect($said)->toBe([sprintf('Wrote %s/.mutation-gate/delivery/planned/delivery.json.', $project)])
+        ->and($left)->toEqual(Delivery::none()->withComment(PlannedMarkdown::comment(
+            PlanEstimates::of($plan, $settings->shards()->setup())->work(),
+            $pipeline,
         )));
 });
 

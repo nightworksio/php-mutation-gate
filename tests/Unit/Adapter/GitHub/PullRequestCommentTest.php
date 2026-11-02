@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\GitHub\HtmlReport;
-use NightWorksIO\MutationGate\Adapter\GitHub\Markdown;
-use NightWorksIO\MutationGate\Adapter\GitHub\PlannedMarkdown;
 use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
-use NightWorksIO\MutationGate\Adapter\GitHub\RecheckedMarkdown;
+use NightWorksIO\MutationGate\Core\Delivery\CommentStates;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Report\Markdown;
+use NightWorksIO\MutationGate\Core\Report\PlannedMarkdown;
+use NightWorksIO\MutationGate\Core\Report\RecheckedMarkdown;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
@@ -62,7 +62,7 @@ it('posts a new comment where the token\'s identity has none, linking the run\'s
         ->and($post->getRequestUrl())->toBe('https://api.github.example/repos/octo/gate/issues/12/comments')
         ->and($artifacts->getRequestUrl())->toBe('https://api.github.example/repos/octo/gate/actions/runs/7/artifacts?name=mutation-gate-report.html')
         ->and($body)->toBe(str_replace(
-            HtmlReport::SLOT,
+            Markdown::REPORT_SLOT,
             '[The HTML report](https://github.example/octo/gate/actions/runs/7/artifacts/42) of [this run](https://github.example/octo/gate/actions/runs/7).',
             Markdown::comment(Verdicts::failing()),
         ))
@@ -139,7 +139,7 @@ it('writes the re-checked survivors over its planned state alone, so a verdict a
     expect($answer)->toEqual($written
         ? Written::to('https://github.example/octo/gate/pull/12#issuecomment-5')
         : NotWritten::because(
-            'The pull request comment is no longer in its planned state, so the re-checked survivors leave it as it is.',
+            CommentStates::NOT_PLANNED,
         ));
 
     if ($written) {
@@ -160,7 +160,7 @@ it('writes no re-checked survivors where the pull request has no comment of its 
         ->rechecked(Rechecks::mixed());
 
     expect($answer)->toEqual(NotWritten::because(
-        'The pull request comment is no longer in its planned state, so the re-checked survivors leave it as it is.',
+        CommentStates::NOT_PLANNED,
     ));
 });
 

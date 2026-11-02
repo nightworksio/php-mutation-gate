@@ -53,3 +53,14 @@ it('says an answer on one plain line, and never a URL a failure names', function
         ->and(Reply::named('gs://ledgers/main', "Failed for https://ledgers.example/main?sig=s and HTTP://other.example\nthen"))
         ->toBe('Failed for gs://ledgers/main and gs://ledgers/main then');
 });
+
+it('is missing with a 404, and refused or missing with a 403 too', function (int $status, bool $missing, bool $refused): void {
+    expect(Reply::of($status, '', '')->isMissing())->toBe($missing)
+        ->and(Reply::of($status, '', '')->isRefusedOrMissing())->toBe($refused);
+})->with([
+    [200, false, false],
+    [401, false, false],
+    [403, false, true],
+    [404, true, true],
+    [405, false, false],
+]);

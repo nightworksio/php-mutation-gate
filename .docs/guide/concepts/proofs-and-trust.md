@@ -167,7 +167,10 @@ working directory's `vendor`
   not take, such as a URL, a host or a variable's name, refuses the whole delivery. Every destination and every
   credential comes from `deliver`'s own environment:
   - the comment goes to the pull request its own event names, with
-    `GITHUB_TOKEN`;
+    `GITHUB_TOKEN`; under GitLab CI to the merge request its own variables
+    name, as a note, with `MUTATION_GATE_GITLAB_TOKEN`; and under Bitbucket
+    Pipelines to the pull request `BITBUCKET_PR_ID` names, with
+    `MUTATION_GATE_BITBUCKET_TOKEN`. A `with: {tokenEnv: …}` is not read;
   - each alert goes to `MUTATION_GATE_SLACK_URL`, `MUTATION_GATE_DISCORD_URL`
     or `MUTATION_GATE_WEBHOOK_URL`, signed with `MUTATION_GATE_WEBHOOK_SECRET`.
     A `with: {urlEnv: …}` or `with: {secretEnv: …}` in the config is not

@@ -15,6 +15,9 @@ use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\Delivery\Commenting;
+use NightWorksIO\MutationGate\Core\Delivery\CommentStates;
+use NightWorksIO\MutationGate\Core\Delivery\CommentThread;
 use NightWorksIO\MutationGate\Core\Delivery\Deferring;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\Format\Node;
@@ -23,6 +26,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\PlannedWork;
 use NightWorksIO\MutationGate\Core\Recheck\Rechecked;
+use NightWorksIO\MutationGate\Core\Report\PlannedMarkdown;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
@@ -43,11 +47,9 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * it first in its planned state, and the verdict's links the run's HTML
  * report, found as the comment is written (ADR-0009).
  */
-final readonly class PullRequestComment implements Configurable, Deferring, Reporter
+final readonly class PullRequestComment implements Commenting, CommentThread, Configurable, Deferring, Reporter
 {
     private const string COMMENTS = '/repos/%s/issues/%d/comments';
-
-    private const string NOT_A_PULL_REQUEST = 'This run is not for a pull request, so there is no comment to write.';
 
     private const string NO_TOKEN = 'GITHUB_TOKEN is not set, so no comment is written; the step summary carries it.';
 
@@ -56,17 +58,14 @@ final readonly class PullRequestComment implements Configurable, Deferring, Repo
 
     private const string UNWRITTEN = 'The pull request comment could not be written (%s); the step summary carries it.';
 
-    private const string NOT_PLANNED
-        = 'The pull request comment is no longer in its planned state, so the re-checked survivors leave it as it is.';
-
     private function __construct(
         private Api $api,
         private string $repository,
         private PullRequestNumber|NotWritten $pullRequest,
-        private PullRequestNumber|NotGiven $commentedOn,
-        private string $run,
         private string $identity,
         private HtmlReport $report,
+        private string $run,
+        private bool $commentsHere,
     ) {
     }
 
@@ -91,7 +90,7 @@ final readonly class PullRequestComment implements Configurable, Deferring, Repo
             ? $number
             : NotGiven::value();
         $target = match (true) {
-            $commentedOn instanceof NotGiven => NotWritten::because(self::NOT_A_PULL_REQUEST),
+            $commentedOn instanceof NotGiven => NotWritten::because(CommentStates::NOT_A_PULL_REQUEST),
             $read('GITHUB_TOKEN') === '' => NotWritten::because(self::NO_TOKEN),
             self::isFork($payload) => NotWritten::because(self::FORK),
             default => $commentedOn,
@@ -109,10 +108,10 @@ final readonly class PullRequestComment implements Configurable, Deferring, Repo
             $api,
             $read('GITHUB_REPOSITORY'),
             $target,
-            $commentedOn,
-            $run,
             $identity,
             HtmlReport::of($api, $read('GITHUB_REPOSITORY'), $read('GITHUB_RUN_ID'), $run),
+            $run,
+            commentsHere: $commentedOn instanceof PullRequestNumber,
         );
     }
 
@@ -141,16 +140,7 @@ final readonly class PullRequestComment implements Configurable, Deferring, Repo
 
     public function report(Verdict $verdict): Written|NotWritten
     {
-        return $this->write(Markdown::comment($verdict));
-    }
-
-    /**
-     * The comment in its planned state, which the plan job writes before the
-     * verdict replaces it (ADR-0019).
-     */
-    public function planned(PlannedWork $work): Written|NotWritten
-    {
-        return $this->write(PlannedMarkdown::comment($work, $this->run));
+        return $this->states()->judged($verdict);
     }
 
     /**
@@ -159,57 +149,46 @@ final readonly class PullRequestComment implements Configurable, Deferring, Repo
      */
     public function deferred(Verdict $verdict, Delivery $delivery): Delivery
     {
-        return $this->commentedOn instanceof NotGiven
-            ? $delivery
-            : $delivery->withComment(Markdown::comment($verdict));
+        return $this->states()->judgedLater($verdict, $delivery);
     }
 
-    /** A delivery, with the comment in its planned state, where the run is a pull request's, for `deliver` to write. */
+    /** The comment in its planned state, which the plan job writes before the verdict replaces it (ADR-0019). */
+    public function planned(PlannedWork $work): Written|NotWritten
+    {
+        return $this->states()->planned($work);
+    }
+
     public function plannedLater(PlannedWork $work, Delivery $delivery): Delivery
     {
-        return $this->commentedOn instanceof NotGiven
-            ? $delivery
-            : $delivery->withComment(PlannedMarkdown::comment($work, $this->run));
+        return $this->states()->plannedLater($work, $delivery);
     }
 
     /**
-     * The comment while the last run's survivors are re-checked, written only
-     * over its planned state, so a verdict already written is never replaced
-     * (ADR-0020).
+     * The comment while the last run's survivors are re-checked, written only over its planned state, so a verdict
+     * already written is never replaced (ADR-0020).
      */
     public function rechecked(Rechecked $rechecked): Written|NotWritten
     {
-        return $this->writeOverPlanned(RecheckedMarkdown::comment($rechecked, $this->run));
+        return $this->states()->rechecked($rechecked);
     }
 
-    /** A delivery, with the comment while the survivors are re-checked, where the run is a pull request's. */
     public function recheckedLater(Rechecked $rechecked, Delivery $delivery): Delivery
     {
-        return $this->commentedOn instanceof NotGiven
-            ? $delivery
-            : $delivery->withCommentOverPlanned(RecheckedMarkdown::comment($rechecked, $this->run));
+        return $this->states()->recheckedLater($rechecked, $delivery);
     }
 
-    /**
-     * The sticky comment, holding this, written only over its planned state: what `deliver` writes of the comment
-     * a re-check left for it.
-     */
     public function writeOverPlanned(string $markdown): Written|NotWritten
     {
-        return $this->written($markdown, overPlanned: true);
+        return $this->states()->writeOverPlanned($markdown);
     }
 
-    /**
-     * The sticky comment, holding this, written or updated in place: what `deliver` writes of a comment a run left
-     * for it (ADR-0007).
-     */
     public function write(string $markdown): Written|NotWritten
     {
-        return $this->written($markdown, overPlanned: false);
+        return $this->states()->write($markdown);
     }
 
     /** The sticky comment, holding this, written or updated in place; over its planned state alone, where asked. */
-    private function written(string $markdown, bool $overPlanned): Written|NotWritten
+    public function written(string $markdown, bool $overPlanned): Written|NotWritten
     {
         $number = $this->pullRequest;
 
@@ -219,10 +198,10 @@ final readonly class PullRequestComment implements Configurable, Deferring, Repo
 
         $existing = StickyComment::in($this->api, $this->repository)->on($number, $this->identity);
         $id = $existing instanceof Answer ? $existing->number('id') : 0;
-        $planned = $existing instanceof Answer && str_contains($existing->text('body'), $this->plannedHeading());
+        $planned = $existing instanceof Answer && PlannedMarkdown::isPlanned($existing->text('body'));
 
         if ($overPlanned && ! $planned) {
-            return NotWritten::because(self::NOT_PLANNED);
+            return NotWritten::because(CommentStates::NOT_PLANNED);
         }
 
         $body = ['body' => $this->report->into($markdown)];
@@ -236,10 +215,10 @@ final readonly class PullRequestComment implements Configurable, Deferring, Repo
             : Written::to($answer->text('html_url'));
     }
 
-    /** The heading of the planned state, on a line of its own, as the comment holds it. */
-    private function plannedHeading(): string
+    /** The states of this comment, written through this thread. */
+    private function states(): CommentStates
     {
-        return sprintf("\n%s\n", PlannedMarkdown::HEADING);
+        return CommentStates::in($this, $this->run, $this->commentsHere);
     }
 
     private static function numberIn(Node $payload): PullRequestNumber|CannotTell

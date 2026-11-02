@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
-use function array_filter;
-
-use Closure;
-
+use function array_slice;
 use function count;
 use function file_put_contents;
 use function implode;
@@ -17,11 +14,8 @@ use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\NotWritten;
-use NightWorksIO\MutationGate\Core\Report\ClusterText;
-use NightWorksIO\MutationGate\Core\Report\Folded;
-use NightWorksIO\MutationGate\Core\Report\Label;
-use NightWorksIO\MutationGate\Core\Report\MutantText;
-use NightWorksIO\MutationGate\Core\Report\Mutator;
+use NightWorksIO\MutationGate\Core\Report\AnnotationOrder;
+use NightWorksIO\MutationGate\Core\Report\AnnotationText;
 use NightWorksIO\MutationGate\Core\Report\Overview;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
@@ -45,10 +39,6 @@ final readonly class Annotations implements Configurable, Reporter
 {
     /** The most annotations of one level GitHub keeps from a step. */
     private const int PER_LEVEL = 10;
-
-    private const string MESSAGE = '%s Reproduce: %s';
-
-    private const string CLUSTER_MESSAGE = '%s Stub: %s';
 
     private function __construct(private string $to)
     {
@@ -84,27 +74,30 @@ final readonly class Annotations implements Configurable, Reporter
      */
     private function mutantCommands(Verdict $verdict): array
     {
-        $overview = Overview::of($verdict);
-        $secured = $this->forward(
-            Folded::of($overview->survivors(), $verdict->trees()->clusters()),
-            static fn(JudgedMutant|Cluster $item): bool => self::isAny($item, $overview->isSecurity(...)),
-        );
-        $ranked = $this->forward($secured, static fn(JudgedMutant|Cluster $item): bool => $item->isOnChangedLine());
-        $errors = [];
-        $warnings = [];
+        $order = AnnotationOrder::of($verdict);
+        $gate = Overview::of($verdict)->gate();
 
-        foreach ($ranked as $item) {
-            $failing = $this->isFailing($item, $overview);
-            $level = $failing ? 'error' : 'warning';
-            $line = $item instanceof Cluster
-                ? $this->clusterCommand($level, $item, $overview->gate())
-                : $this->command($level, $item, $overview->gate());
-            [$errors, $warnings] = $failing
-                ? [$this->kept($errors, $line), $warnings]
-                : [$errors, $this->kept($warnings, $line)];
+        return [
+            ...$this->commands('error', $order->failing(), $gate),
+            ...$this->commands('warning', $order->other(), $gate),
+        ];
+    }
+
+    /**
+     * A command at this level for each of the first of these, as many as GitHub keeps of a level.
+     *
+     * @param  list<JudgedMutant|Cluster> $items
+     * @return list<string>
+     */
+    private function commands(string $level, array $items, GateCommand $gate): array
+    {
+        $commands = [];
+
+        foreach (array_slice($items, 0, self::PER_LEVEL) as $item) {
+            $commands[] = $this->command($level, $item, $gate);
         }
 
-        return [...$errors, ...$warnings];
+        return $commands;
     }
 
     /**
@@ -125,43 +118,6 @@ final readonly class Annotations implements Configurable, Reporter
     }
 
     /**
-     * These mutants and clusters, those that are so first, each part in the
-     * order it had.
-     *
-     * @param  list<JudgedMutant|Cluster>          $items
-     * @param  Closure(JudgedMutant|Cluster): bool $is
-     * @return list<JudgedMutant|Cluster>
-     */
-    private function forward(array $items, Closure $is): array
-    {
-        return [
-            ...array_filter($items, $is),
-            ...array_filter($items, static fn(JudgedMutant|Cluster $item): bool => ! $is($item)),
-        ];
-    }
-
-    private function isFailing(JudgedMutant|Cluster $item, Overview $overview): bool
-    {
-        return self::isAny($item, $overview->isFailing(...));
-    }
-
-    /**
-     * Whether a mutant, or any member of a cluster, is so.
-     *
-     * @param Closure(JudgedMutant): bool $is
-     */
-    private static function isAny(JudgedMutant|Cluster $item, Closure $is): bool
-    {
-        foreach ($item instanceof Cluster ? $item->members() : [$item] as $mutant) {
-            if ($is($mutant)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
      * These lines, and one more while there is room for its level.
      *
      * @param  list<string> $lines
@@ -172,34 +128,17 @@ final readonly class Annotations implements Configurable, Reporter
         return count($lines) < self::PER_LEVEL ? [...$lines, $line] : $lines;
     }
 
-    /** One annotation for a whole cluster, at its first member. */
-    private function clusterCommand(string $level, Cluster $cluster, GateCommand $gate): string
+    /** One annotation for a mutant, or for a whole cluster at its first member. */
+    private function command(string $level, JudgedMutant|Cluster $item, GateCommand $gate): string
     {
-        $mutant = $cluster->representative()->mutant();
+        $mutant = ($item instanceof Cluster ? $item->representative() : $item)->mutant();
         $end = $mutant->location()->end();
 
         return WorkflowCommand::of($level, [
             'file' => $mutant->location()->file()->value(),
             'line' => $mutant->location()->start()->number(),
             ...$end instanceof Line ? ['endLine' => $end->number()] : [],
-            'title' => sprintf('Mutant cluster: %s', ClusterText::size($cluster)),
-        ], sprintf(self::CLUSTER_MESSAGE, ClusterText::hint($cluster), $cluster->stub($gate)));
-    }
-
-    private function command(string $level, JudgedMutant $judged, GateCommand $gate): string
-    {
-        $mutant = $judged->mutant();
-        $end = $mutant->location()->end();
-
-        return WorkflowCommand::of($level, [
-            'file' => $mutant->location()->file()->value(),
-            'line' => $mutant->location()->start()->number(),
-            ...$end instanceof Line ? ['endLine' => $end->number()] : [],
-            'title' => sprintf(
-                'Mutant %s: %s',
-                Label::of($judged->judgement()),
-                Mutator::short($mutant->mutator()),
-            ),
-        ], sprintf(self::MESSAGE, MutantText::hinted($judged), $judged->reproduce($gate)));
+            'title' => AnnotationText::title($item),
+        ], AnnotationText::message($item, $gate));
     }
 }

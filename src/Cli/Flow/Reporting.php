@@ -13,7 +13,6 @@ use function is_array;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\DeliveredReport;
 use NightWorksIO\MutationGate\Adapter\Filesystem\DeliveryDirectory;
-use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
 use NightWorksIO\MutationGate\Adapter\GitHub\StepSummary;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -25,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Delivery\Commenting;
 use NightWorksIO\MutationGate\Core\Delivery\Deferring;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -79,6 +79,12 @@ final readonly class Reporting
         return new self($this->chosen, $this->environment, $this->later, [Member::of('path', $directory->value())]);
     }
 
+    /** Whether the run leaves what needs a credential for `deliver`, as `--deliver-later` asks. */
+    public function deliversLater(): bool
+    {
+        return $this->later instanceof DeliveryDirectory;
+    }
+
     /** @return list<Reporter>|Invalid|CannotJudge */
     public function reporters(Settings $settings, RunOn $runOn): array|Invalid|CannotJudge
     {
@@ -114,7 +120,7 @@ final readonly class Reporting
         $said = [];
 
         foreach ($reporters as $reporter) {
-            if ($reporter instanceof PullRequestComment) {
+            if ($reporter instanceof Commenting) {
                 $written = $this->commented(
                     static fn(): Written|NotWritten => $reporter->planned($work),
                     static fn(Delivery $delivery): Delivery => $reporter->plannedLater($work, $delivery),
@@ -148,7 +154,7 @@ final readonly class Reporting
 
         foreach ($reporters as $reporter) {
             $written = match (true) {
-                $reporter instanceof PullRequestComment => $this->commented(
+                $reporter instanceof Commenting => $this->commented(
                     static fn(): Written|NotWritten => $reporter->rechecked($rechecked),
                     static fn(Delivery $delivery): Delivery => $reporter->recheckedLater($rechecked, $delivery),
                 ),

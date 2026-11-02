@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Ci;
 
+use function ltrim;
+
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -29,6 +31,9 @@ final readonly class GatePin
 
     /** What stands for the version where none is known. */
     public const string UNKNOWN_VERSION = '<its version>';
+
+    /** What a release's git tag starts with, which its image's tag leaves out. */
+    private const string TAG_PREFIX = 'v';
 
     /** A full git commit, which a definition can pin. */
     private const string COMMIT = '/^[0-9a-f]{40}$/D';
@@ -103,6 +108,19 @@ final readonly class GatePin
     public function pin(): string
     {
         return $this->release ? sprintf('%s # %s', $this->commit, $this->version) : $this->commit;
+    }
+
+    /**
+     * The gate's container image at this release, which tags it without the `v` its git tag has; the stand-in for
+     * a version where the gate is no release, such as a branch Composer installed, whose image is never tagged.
+     */
+    public function image(): string
+    {
+        return sprintf(
+            '%s:%s',
+            ThisPackage::IMAGE,
+            $this->release ? ltrim($this->version, self::TAG_PREFIX) : self::UNKNOWN_VERSION,
+        );
     }
 
     /** Whether the commit is known, so a definition that names it runs as written. */
