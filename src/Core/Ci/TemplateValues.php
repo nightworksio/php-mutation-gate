@@ -80,8 +80,8 @@ final readonly class TemplateValues
             '%%check%%' => $check,
             '%%s3%%' => implode(' ', [...BuiltinStore::S3->variables()]),
             '%%keys%%' => CiTemplate::keyHolder(),
-            '%%gitlabToken%%' => GateSecret::GitLabToken->value,
-            '%%bitbucketToken%%' => GateSecret::BitbucketToken->value,
+            '%%gitlabToken%%' => GateSecret::GitLabComment->value,
+            '%%bitbucketToken%%' => GateSecret::BitbucketComment->value,
             ...$included instanceof Path ? ['%%included%%' => $included->value()] : [],
         ]);
     }

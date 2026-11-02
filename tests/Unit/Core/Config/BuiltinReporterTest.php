@@ -55,5 +55,5 @@ it('names the variable each comment that needs a token reads it from, and none f
         $tokens = $token instanceof GateSecret ? [...$tokens, $reporter->value => $token] : $tokens;
     }
 
-    expect($tokens)->toBe(['gitlab-comment' => GateSecret::GitLabToken, 'bitbucket-comment' => GateSecret::BitbucketToken]);
+    expect($tokens)->toBe(['gitlab-comment' => GateSecret::GitLabComment, 'bitbucket-comment' => GateSecret::BitbucketComment]);
 });

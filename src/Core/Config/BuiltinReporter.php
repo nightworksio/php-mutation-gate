@@ -93,8 +93,8 @@ enum BuiltinReporter: string
     public function tokenEnv(): GateSecret|NotGiven
     {
         return match ($this) {
-            self::GitLabComment => GateSecret::GitLabToken,
-            self::BitbucketComment => GateSecret::BitbucketToken,
+            self::GitLabComment => GateSecret::GitLabComment,
+            self::BitbucketComment => GateSecret::BitbucketComment,
             self::Json, self::JUnit, self::Sarif, self::Html, self::Stryker, self::Digest, self::Tests,
             self::KillMatrix, self::GitLab, self::Sonar, self::Badge, self::Console, self::Problems, self::Slack,
             self::Discord, self::Webhook, self::Otlp, self::GitHubAnnotations, self::GitHubSummary,

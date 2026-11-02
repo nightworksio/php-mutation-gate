@@ -435,7 +435,7 @@ it('refuses by Bitbucket\'s schema a deployment on a final step, so a verdict th
 it('deploys only the default branch\'s and the full run\'s verdicts, each the last step, and sends a pull request\'s comment in its final step', function (): void {
     $json = ciTemplateJson(ciTemplateRendered(CiTemplate::BitbucketPipelines));
     $verdict = ['name' => 'mutation: verdict', 'clone' => ['depth' => 'full'], 'script' => [
-        sprintf('unset %s', GateSecret::BitbucketToken->value),
+        sprintf('unset %s', GateSecret::BitbucketComment->value),
         'composer install --no-interaction --no-progress',
         'vendor/bin/mutation-gate verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results',
     ]];
@@ -500,7 +500,7 @@ it('leaves the store\'s keys in GitLab\'s jobs to the verdict that keeps them al
         "  before_script:\n    - '[ \"\$CI_JOB_NAME\" = \"%s\" ] || unset %s'\n    - unset %s\n    - composer install",
         GitLabPlan::STORE_VERDICT,
         implode(' ', [...BuiltinStore::S3->variables()]),
-        GateSecret::GitLabToken->value,
+        GateSecret::GitLabComment->value,
     ))
         ->and(ciTemplateRendered(CiTemplate::GitLabJobs))->toContain(sprintf("    %s: \$CI_PIPELINE_SOURCE\n", GitLabPlan::SOURCE))
         ->and(ciTemplateRendered(CiTemplate::GitLabJobs))->toContain(sprintf("    %s: \$CI_MERGE_REQUEST_IID\n", GitLabPlan::MERGE_REQUEST));

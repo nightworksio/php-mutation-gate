@@ -17,8 +17,8 @@ enum GateSecret: string
     case DiscordUrl = 'MUTATION_GATE_DISCORD_URL';
     case WebhookUrl = 'MUTATION_GATE_WEBHOOK_URL';
     case WebhookSecret = 'MUTATION_GATE_WEBHOOK_SECRET';
-    case GitLabToken = 'MUTATION_GATE_GITLAB_TOKEN';
-    case BitbucketToken = 'MUTATION_GATE_BITBUCKET_TOKEN';
+    case GitLabComment = 'MUTATION_GATE_GITLAB_TOKEN';
+    case BitbucketComment = 'MUTATION_GATE_BITBUCKET_TOKEN';
 
     /** GitHub's CLI token, which `doctor --online` asks GitHub with where `GITHUB_TOKEN` is not set. */
     case GitHubCliToken = 'GH_TOKEN';

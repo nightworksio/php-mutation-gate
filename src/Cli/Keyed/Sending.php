@@ -285,12 +285,12 @@ final readonly class Sending
             $environment->says(Variables::GITLAB_CI) => MergeRequestNote::inEnvironment(
                 $environment,
                 $exchange,
-                GateSecret::GitLabToken->value,
+                GateSecret::GitLabComment->value,
             ),
             $environment->has(Variables::BITBUCKET_BUILD_NUMBER) => BitbucketComment::inEnvironment(
                 $environment,
                 $exchange,
-                GateSecret::BitbucketToken->value,
+                GateSecret::BitbucketComment->value,
             ),
             default => PullRequestComment::fromEnvironment($this->environment, $this->client, ''),
         };
