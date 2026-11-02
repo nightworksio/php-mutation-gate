@@ -50,7 +50,7 @@ final readonly class Reaching
     private const string DECIDES_IN = '`%s` decides how the gate runs in %s, so every unit of %s is reached.';
 
     private const string RUNS_ALIKE
-        = '`%s` changed only its comment lines, so it reaches nothing.';
+        = '`%s` changed only comment lines or jobs that do not run the gate, so it reaches nothing.';
 
     private const string DECIDES_ALIKE
         = '`%s` changed nothing that decides how the gate runs, so it reaches nothing.';

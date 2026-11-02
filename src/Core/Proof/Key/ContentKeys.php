@@ -58,7 +58,8 @@ use function sprintf;
  *    no map shows run, the config, autoload and Composer files among them,
  *    resets every key, as do items 2 to 5, the PHP the runner runs on and
  *    its extensions among them.
- * 7. Every CI definition that runs the gate, as it runs.
+ * 7. Every CI definition that runs the gate, as it runs: a GitHub Actions
+ *    workflow by its shared keys and the jobs that run the gate (ADR-0058).
  * 8. Of the test directories, what every key reads: what runs when it is
  *    loaded, every test file the coverage map does not know, the canary
  *    group, the files that declare a registered mutator the config turns
@@ -80,7 +81,7 @@ use function sprintf;
  */
 final readonly class ContentKeys
 {
-    public const string FORMAT = 'mutation-gate proof 7';
+    public const string FORMAT = 'mutation-gate proof 8';
 
     private function __construct(
         private HashContext $everyKey,

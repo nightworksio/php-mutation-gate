@@ -41,7 +41,7 @@ final readonly class Affecting
     private const string DECIDES = '`%s` decides how the gate runs, so every test is listed.';
 
     private const string RUNS_ALIKE
-        = '`%s` changed only its comment lines, so it lists no test.';
+        = '`%s` changed only comment lines or jobs that do not run the gate, so it lists no test.';
 
     private const string DECIDES_ALIKE = '`%s` changed nothing that decides how the gate runs, so it lists no test.';
 

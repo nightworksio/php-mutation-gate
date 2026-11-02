@@ -1,0 +1,915 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  # Every gate, every night, whatever merged: a pull request runs only the
+  # runner legs and the warm workers its paths reach.
+  schedule:
+    - cron: "0 3 * * *"
+
+permissions:
+  contents: read
+
+# A pull request pushed again cancels the run on its old head, which nobody will
+# read, and a push to main cancels the run of the push before it: the newer run
+# judges everything the older one would have, from the last commit that passed.
+# A scheduled run is grouped by its own run, so it is never cancelled and never
+# cancels.
+concurrency:
+  group: ${{ github.workflow }}-${{ contains(fromJSON('["pull_request","push"]'), github.event_name) && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  PHP_VERSION: '8.5'
+  # The lowest PHP composer.json admits, which the lowest dependencies run on.
+  LOWEST_PHP: '8.4'
+
+# The fast PHP gates share one job and one install. The slow ones (the planted
+# rules, coverage and the lowest dependencies) each have their own.
+
+jobs:
+  # Which of the gated jobs are worth running at all, which runner legs, and
+  # which end-to-end jobs (scope.py). A documentation change starts none of
+  # the PHP gates, and asking costs one checkout.
+  scope:
+    name: what changed
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      jobs: ${{ steps.diff.outputs.jobs }}
+      runners: ${{ steps.diff.outputs.runners }}
+      warm: ${{ steps.diff.outputs.warm }}
+      hooks: ${{ steps.diff.outputs.hooks }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          # A pull request is measured against its base, and a push to main
+          # against the commit before it.
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BASE}" ] || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            python3 .github/scripts/scope.py "${EVENT}" --no-base | tee -a "$GITHUB_OUTPUT"
+          else
+            git diff --name-only "${BASE}" HEAD | python3 .github/scripts/scope.py "${EVENT}" | tee -a "$GITHUB_OUTPUT"
+          fi
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py scope
+
+  # The deciding half of every script under .github/scripts and of the
+  # action's script, tested without a runner (ADR-0019).
+  scripts:
+    name: scripts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: unittest
+        run: python3 .github/scripts/unit.py evidence/raw/scripts.json
+      # The job's evidence, whatever the steps above did (ADR-0019).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py scripts
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-scripts
+          path: evidence/scripts*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py scripts
+
+  # Workflow lint and audit, spelling, links and Markdown, over every change.
+  # Every call to a workflow of this repository keeps the `./` form, which
+  # zizmor's self-repository audit would change to `$/`: actionlint 1.7.12
+  # refuses `$/`.
+  hygiene:
+    uses: ./.github/workflows/hygiene.yml # zizmor: ignore[self-repository]
+
+  # Secrets in the history, and known vulnerabilities in what the lock file
+  # installs.
+  security:
+    uses: ./.github/workflows/security.yml # zizmor: ignore[self-repository]
+
+  # The docs site, built and its links checked, where `scope` lists it: where
+  # the docs, the site or what prints a link changed (ADR-0038).
+  site:
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'site')) }}
+    uses: ./.github/workflows/site.yml # zizmor: ignore[self-repository]
+
+  # Every test file a mutant's narrowed run can load passes alone on the
+  # unmutated code, so that its run can vouch for its kills, and a file that
+  # leans on another is named the day it starts to.
+  alone:
+    name: test files alone
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'alone')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+          extensions: pcntl, sodium
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      - id: alone
+        run: python3 .github/scripts/alone.py . --findings evidence/raw/alone.json
+      # The job's evidence, whatever the steps above did (ADR-0019).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py alone
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-alone
+          path: evidence/alone*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py alone
+
+  # R1 — the rules, before anything slower gets a chance to hide a broken
+  # boundary. The Arch suite reads ARCHITECTURE.md against the code, so it runs
+  # on every change, documentation included.
+  rules:
+    name: rules
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      - id: arch
+        run: |
+          mkdir -p evidence/raw
+          vendor/bin/pest --testsuite=Arch --log-junit=evidence/raw/rules.xml
+      # The job's evidence, whatever the steps above did (ADR-0019).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py rules
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-rules
+          path: evidence/rules*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py rules
+
+  # Every rule refuses a violation of itself, planted in a copy of the checkout
+  # under the runner's temporary directory, never in the checkout itself.
+  #
+  # Each gated job below runs where `scope` lists it, and also where `scope`
+  # itself did not succeed: a checkout that broke leaves no output, and no
+  # output is not a "no". A job skipped by its `if:` reports success, so a
+  # required check it holds passes.
+  guards:
+    name: the rules refuse violations
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'guards')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # pcov for G7's guard, which runs the covered suite in a copy of its own.
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: pcov
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      - id: guards
+        run: |
+          mkdir -p evidence/raw
+          composer test:guards -- --log-junit=evidence/raw/guards.xml
+      # The guards phpunit.xml leaves out by default: S2's, which asks
+      # Packagist for advisories, and G7's, which runs the covered suite.
+      # Neither skips: without the network or a driver, it fails.
+      - id: guards-ci
+        if: ${{ !cancelled() }}
+        run: composer test:guards:ci -- --log-junit=evidence/raw/guards-ci.xml
+      # The job's evidence, whatever the steps above did (ADR-0019).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py guards
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-guards
+          path: evidence/guards*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py guards
+
+  # The package's metadata, formatting, static analysis, dead idioms and
+  # dependency hygiene. One install, one PHP, no coverage driver.
+  checks:
+    name: checks
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'checks')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      # PHPStan's cache tracks what each file depends on. Pint's needs nothing
+      # more: each fixer reads one file, and the cache keeps each passing
+      # file's hash under the config and Pint release it passed with. Rector's
+      # does not: a file it cached stays clean when a class declared elsewhere
+      # changes what a rule does to it, so Rector runs uncached.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .phpstan-cache
+          key: analysis-${{ runner.os }}-${{ github.sha }}
+          restore-keys: analysis-${{ runner.os }}-
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .pint-cache
+          key: lint-${{ runner.os }}-${{ github.sha }}
+          restore-keys: lint-${{ runner.os }}-
+      # Cheapest first, so a misplaced brace fails in seconds rather than after
+      # the analyser has walked the tree. Each tool reports in its structured
+      # form, into evidence/raw, and the evidence step shows every finding as an
+      # annotation (ADR-0019).
+      # Each plugin's composer.json is checked on its own too, as it will be
+      # once the plugin leaves (A8), and so is the manifest the keyed jobs
+      # install the gate's own copy from, with its lock.
+      - id: validate
+        run: |
+          mkdir -p evidence/raw
+          composer validate --strict
+          for manifest in plugins/*/composer.json; do composer validate --strict --no-check-lock "$manifest"; done
+          COMPOSER=resources/action/keyed/composer.json composer validate --strict
+      - id: normalize
+        run: |
+          set -o pipefail
+          composer normalize --dry-run 2>&1 | tee evidence/raw/normalize.txt
+          for manifest in plugins/*/composer.json resources/action/keyed/composer.json; do composer normalize --dry-run "$manifest" 2>&1 | tee -a evidence/raw/normalize.txt; done
+      # The gate's own copy, as the action's deliver job installs it from the
+      # archive GitHub serves the action as, which leaves out every
+      # export-ignore path: it installs from its lock alone, and starts.
+      - id: own-copy
+        run: |
+          set -euo pipefail
+          copy="${RUNNER_TEMP}/action"
+          mkdir -p "${copy}"
+          git archive --format=tar HEAD | tar -x -C "${copy}"
+          bash "${copy}/resources/action/install.sh" "${copy}"
+          said="$(php "${copy}/bin/mutation-gate" deliver --from="${RUNNER_TEMP}/no-delivery" 2>&1 || true)"
+          if [[ "${said}" != *"so deliver sends nothing."* ]]; then
+            echo "::error::The gate's own copy did not start deliver: ${said}"
+            exit 1
+          fi
+      - id: audit
+        run: composer audit --locked --format=json > evidence/raw/audit.json
+      - id: lint
+        run: composer lint -- --format=json > evidence/raw/pint.json
+      - id: analyse
+        run: composer analyse -- --error-format=json --no-progress > evidence/raw/phpstan.json
+      - id: refactor
+        run: composer refactor -- --output-format=json > evidence/raw/rector.json
+      - id: deps
+        run: composer deps -- --format=junit > evidence/raw/deps.xml
+      # The fixes that are mechanical, computed here and offered to the pull
+      # request as a patch, never pushed (ADR-0019).
+      - name: compute the mechanical fixes
+        if: failure() && (steps.normalize.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.refactor.outcome == 'failure')
+        run: |
+          composer refactor:fix
+          composer lint:fix
+          composer normalize
+          git diff > evidence/checks.fix.patch
+      # The job's evidence, whatever the steps above did (ADR-0019).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py checks
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-checks
+          path: evidence/checks*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py checks
+
+  # G7 — every line of src covered, by scripts/coverage.sh. The clover and
+  # JUnit reports it writes are what `sonar` hands SonarCloud, and the PHP
+  # report is what the mutation plan's map is read from, so the suite runs once
+  # for all three. It runs on pushes to main as well, because `sonar` analyses
+  # main from its report.
+  tests:
+    name: tests and coverage
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'tests')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: pcov
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      # Pest's --coverage writes its PHP report to its own path and deletes it
+      # once it has printed the summary, so that path is linked to the one
+      # the gate's map is read from, which keeps the report.
+      - id: suite
+        run: |
+          set -euo pipefail
+          report=$(php -r 'require "vendor/autoload.php"; echo \Pest\Support\Coverage::getPath();')
+          mkdir -p .mutation-gate/ran "$(dirname "${report}")"
+          : > .mutation-gate/ran/coverage.php
+          ln -f .mutation-gate/ran/coverage.php "${report}"
+          composer test:report
+      # The gate's own map, read from the PHP report in the job that wrote it,
+      # since reading a runner's report can run code (ADR-0006).
+      - id: map
+        run: php bin/mutation-gate coverage --from=.mutation-gate/ran --into=.mutation-gate/map
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mutation-gate-map
+          path: .mutation-gate/map/map.json.gz
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+      # The schemas the network group validates against, kept by their
+      # pinned digests, so a publisher's outage fails no run whose cache holds
+      # them. A changed pin starts from the newest set.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/mutation-gate-schema-*.json
+          key: schemas-${{ hashFiles('tests/Unit/Core/Ci/CiTemplateTest.php', 'tests/Unit/Core/Report/SarifTest.php') }}-${{ github.run_id }}-${{ github.job }}
+          restore-keys: |
+            schemas-${{ hashFiles('tests/Unit/Core/Ci/CiTemplateTest.php', 'tests/Unit/Core/Report/SarifTest.php') }}-
+            schemas-
+      - id: network
+        if: ${{ !cancelled() }}
+        run: |
+          mkdir -p evidence/raw
+          composer test:network -- --log-junit=evidence/raw/tests-network.xml
+      # The whole set, saved only where every schema was there to validate
+      # against: a set a host's failure left short would be the newest, and
+      # each run after it would fetch what it lacks again.
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: ${{ steps.network.outcome == 'success' }}
+        with:
+          path: /tmp/mutation-gate-schema-*.json
+          key: schemas-${{ hashFiles('tests/Unit/Core/Ci/CiTemplateTest.php', 'tests/Unit/Core/Report/SarifTest.php') }}-${{ github.run_id }}-${{ github.job }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-report
+          path: |
+            coverage/clover.xml
+            coverage/junit.xml
+          if-no-files-found: error
+          retention-days: 1
+      # The job's evidence, whatever the steps above did (ADR-0019).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py tests
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-tests
+          path: evidence/tests*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py tests
+
+  # The suite against the oldest release of every dependency the constraints in
+  # composer.json admit, so a lower bound that no longer works is found here
+  # rather than by whoever installs it.
+  lowest:
+    name: lowest dependencies
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'lowest')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.LOWEST_PHP }}
+          coverage: none
+      # `lowest` is `composer update --prefer-lowest --prefer-stable`.
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+        with:
+          dependency-versions: lowest
+      - id: suite
+        run: |
+          mkdir -p evidence/raw
+          composer test -- --log-junit=evidence/raw/lowest.xml
+      # The schemas the network group validates against, kept by their
+      # pinned digests, so a publisher's outage fails no run whose cache holds
+      # them. A changed pin starts from the newest set.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/mutation-gate-schema-*.json
+          key: schemas-${{ hashFiles('tests/Unit/Core/Ci/CiTemplateTest.php', 'tests/Unit/Core/Report/SarifTest.php') }}-${{ github.run_id }}-${{ github.job }}
+          restore-keys: |
+            schemas-${{ hashFiles('tests/Unit/Core/Ci/CiTemplateTest.php', 'tests/Unit/Core/Report/SarifTest.php') }}-
+            schemas-
+      - id: network
+        if: ${{ !cancelled() }}
+        run: composer test:network -- --log-junit=evidence/raw/lowest-network.xml
+      # The whole set, saved only where every schema was there to validate
+      # against: a set a host's failure left short would be the newest, and
+      # each run after it would fetch what it lacks again.
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: ${{ steps.network.outcome == 'success' }}
+        with:
+          path: /tmp/mutation-gate-schema-*.json
+          key: schemas-${{ hashFiles('tests/Unit/Core/Ci/CiTemplateTest.php', 'tests/Unit/Core/Report/SarifTest.php') }}-${{ github.run_id }}-${{ github.job }}
+      # The job's evidence, whatever the steps above did (ADR-0019).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py lowest
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-lowest
+          path: evidence/lowest*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py lowest
+
+  # The gate's PHAR (ADR-0022), built as a release builds it, and its smoke
+  # suite run against it: its version, its config schema, an Infection
+  # project's verdict and its refusal of the Pest runner. It publishes
+  # nothing.
+  phar:
+    name: phar
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'phar')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: pcov
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+        with:
+          working-directory: tests/Fixtures/Archive
+      - id: build
+        run: composer phar
+      - id: smoke
+        run: |
+          mkdir -p evidence/raw
+          vendor/bin/pest --group=phar --log-junit=evidence/raw/phar.xml
+      # The job's evidence, whatever the steps above did (ADR-0019).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py phar
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-phar
+          path: evidence/phar*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py phar
+
+  # ADR-0004's Runner contract suite against the real runners, and ADR-0020's
+  # StaticChecker contract suite against the real analysers, at both ends of
+  # the range the package supports: one leg per runner and resolution, each
+  # with its own install and suite, so the legs run side by side. Each fixture
+  # is a project of its own, installed at the highest releases its committed
+  # lock holds, which Dependabot moves, and at the lowest its manifest allows,
+  # which no new release changes. So a leg reds only for a change in this
+  # repository; the runner canary runs the newest releases (ADR-0017). The
+  # suite runs serially: a Pest started under paratest would take itself for
+  # one of its workers. `runner contracts`, the check main requires, reads
+  # every leg's log.
+  runner-contract:
+    name: runner contract
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.runners != '[]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # The runners whose legs this run reaches, every one where `what
+        # changed` could not say.
+        runner: ${{ fromJSON(needs.scope.outputs.runners || '["pest", "infection-13", "infection-12", "phpunit", "phpspec", "codeception", "testo", "analysers"]') }}
+        resolution: [highest, lowest]
+    env:
+      LEG: ${{ matrix.runner }}-${{ matrix.resolution }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: pcov
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      # Each runner's fixture, the packages its install shows, the contracts it
+      # runs, and how it reaches its lowest releases, as legs.json holds them.
+      # - pest: the library holds the Pest plugin of this package, and runs the
+      #   whole Contract suite, so every contract that needs it runs against
+      #   each resolution. Its lock holds the php-code-coverage this package is
+      #   locked at, or one that writes the same serialization format, which
+      #   the Contract suite checks, and its lowest resolution is pinned to it:
+      #   the adapter reads the maps the library's Pest writes, which in a
+      #   user's project is one vendor directory and here is two.
+      # - infection-13 and infection-12: Infection's library, installed with
+      #   Infection 0.35 and PHPUnit 13 by its own manifest, and with PHPUnit 12
+      #   by the manifest in phpunit-12/, which installs into the same vendor
+      #   directory. Each carries the package's PHPUnit conflict, so the lowest
+      #   PHPUnit 12 is the lowest the package allows. Its runs read only the
+      #   PHPUnit XML coverage and JUnit log its own PHPUnit writes, so it keeps
+      #   its own php-code-coverage.
+      # - phpunit: the PHPUnit runner's fixture, at the highest PHPUnit its lock
+      #   holds and the lowest the runner supports, the one
+      #   `PhpUnitOption::IDS_SINCE` names (ADR-0023). It holds the quirks of a
+      #   project's tests and, in library/, the code every runner's contract
+      #   mutates. Its lowest is pinned to the package's php-code-coverage, as
+      #   the Pest library's is:
+      #   in a user's project the gate and PHPUnit share one vendor directory,
+      #   so one php-code-coverage writes and reads each map; here there are
+      #   two, and a map one release writes can be one another refuses.
+      # - phpspec: the PhpSpec runner's fixture, whose library/ specifies the
+      #   code every runner's contract mutates with PhpSpec, at the highest
+      #   PhpSpec its lock holds and the lowest the runner supports (ADR-0027).
+      #   Its lowest is pinned to the package's php-code-coverage, as the
+      #   PHPUnit fixture's is, for the same reason.
+      # - codeception: the Codeception runner's fixture, whose library/ tests
+      #   the code every runner's contract mutates with Codeception's unit
+      #   tests and a Cest, at the highest Codeception its lock holds and the
+      #   lowest the runner supports (ADR-0027), its lowest pinned as the
+      #   PhpSpec fixture's is.
+      # - testo: the Testo runner's fixture, whose library/ tests the code
+      #   every runner's contract mutates with Testo, at the highest Testo its
+      #   lock holds and the lowest of the minor range the runner drives
+      #   (ADR-0047). Testo measures with its own XML coverage, so the leg
+      #   needs no php-code-coverage of the package's.
+      # - analysers: Mago, PHPStan and Psalm, each at its lowest with every
+      #   other package raised again to the highest that allows them, as a
+      #   project requiring that analyser installs it: Psalm 6.14.0's lowest
+      #   dependencies predate PHP 8.5.
+      - id: fixture
+        name: the runner's fixture
+        env:
+          RUNNER: ${{ matrix.runner }}
+        run: python3 .github/scripts/leg_support.py fixture "${RUNNER}" >> "$GITHUB_OUTPUT"
+      # What a leg downloads is cached by the fixtures' manifests and locks,
+      # and the root lock, whose php-code-coverage the lowest Pest and PHPUnit
+      # resolutions pin.
+      - name: find Composer's download cache
+        id: composer-files
+        run: echo "dir=$(composer config --global cache-files-dir)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.composer-files.outputs.dir }}
+          key: runner-fixture-${{ runner.os }}-${{ matrix.runner }}-${{ matrix.resolution }}-${{ hashFiles('tests/Contract/**/composer.json', 'tests/Contract/**/composer.lock', 'composer.lock') }}
+          restore-keys: runner-fixture-${{ runner.os }}-${{ matrix.runner }}-${{ matrix.resolution }}-
+      - name: install the locked highest releases into the fixture
+        if: matrix.resolution == 'highest'
+        working-directory: ${{ steps.fixture.outputs.dir }}
+        env:
+          PACKAGES: ${{ steps.fixture.outputs.packages }}
+        run: |
+          composer install --no-interaction --no-progress
+          composer show | grep -E "^(${PACKAGES}) "
+      - name: install the lowest supported releases, at the package's php-code-coverage, into the fixture
+        if: matrix.resolution == 'lowest' && steps.fixture.outputs.lowest == 'coverage'
+        working-directory: ${{ steps.fixture.outputs.dir }}
+        env:
+          PACKAGES: ${{ steps.fixture.outputs.packages }}
+        run: |
+          coverage=$(composer --working-dir="${GITHUB_WORKSPACE}" show --locked --format=json phpunit/php-code-coverage | jq -r '.versions[0]')
+          composer update --prefer-lowest --prefer-stable --no-interaction --no-progress --with "phpunit/php-code-coverage:${coverage}"
+          composer show | grep -E "^(${PACKAGES}) "
+      - name: install the lowest supported releases into the fixture
+        if: matrix.resolution == 'lowest' && steps.fixture.outputs.lowest == 'own'
+        working-directory: ${{ steps.fixture.outputs.dir }}
+        env:
+          PACKAGES: ${{ steps.fixture.outputs.packages }}
+        run: |
+          composer update --prefer-lowest --prefer-stable --no-interaction --no-progress
+          composer show | grep -E "^(${PACKAGES}) "
+      - name: install the lowest analysers, and every other package as high as they allow, into the fixture
+        if: matrix.resolution == 'lowest' && steps.fixture.outputs.lowest == 'analysers'
+        working-directory: ${{ steps.fixture.outputs.dir }}
+        env:
+          PACKAGES: ${{ steps.fixture.outputs.packages }}
+        run: |
+          composer update --prefer-lowest --prefer-stable --no-interaction --no-progress
+          locked=$(composer show --locked --name-only)
+          mapfile -t others < <(grep -v -x -E "${PACKAGES}" <<< "${locked}")
+          test "${#others[@]}" -gt 0
+          composer update --no-interaction --no-progress "${others[@]}"
+          composer show | grep -E "^(${PACKAGES}) "
+      # Mago's package downloads its binary the first time it runs, which the
+      # gate itself never does (ADR-0020).
+      - name: download Mago's binary
+        if: matrix.runner == 'analysers'
+        working-directory: ${{ steps.fixture.outputs.dir }}
+        run: vendor/bin/mago --version
+      - id: contract
+        env:
+          FILTER: ${{ steps.fixture.outputs.filter }}
+          RUNNER_CONTRACTS: ${{ steps.fixture.outputs.contracts }}
+          ANALYSER_CONTRACTS: ${{ steps.fixture.outputs.analysers }}
+        run: |
+          mkdir -p evidence/raw
+          suite=(--testsuite=Contract "--log-junit=evidence/raw/${LEG}.xml")
+          if [ -n "${FILTER}" ]; then
+            suite+=("--filter=${FILTER}")
+          fi
+          vendor/bin/pest "${suite[@]}"
+      # The test support this leg's tests use is the support legs.json lists,
+      # which `what changed` runs the leg for.
+      - name: the leg's test support is listed
+        if: ${{ !cancelled() }}
+        env:
+          RUNNER: ${{ matrix.runner }}
+        run: python3 .github/scripts/leg_support.py check "${RUNNER}"
+      # The leg's log, and its suite's outcome by the leg's name, which
+      # `runner contracts` reads as its evidence.
+      - name: the leg's outcome
+        if: ${{ !cancelled() }}
+        env:
+          OUTCOME: ${{ steps.contract.outcome }}
+        run: |
+          mkdir -p evidence/raw
+          jq -n --arg leg "${LEG}" --arg outcome "${OUTCOME}" '{($leg): {outcome: $outcome}}' > "evidence/raw/${LEG}.outcome.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: runner-contract-${{ matrix.runner }}-${{ matrix.resolution }}
+          path: evidence/raw/${{ matrix.runner }}-${{ matrix.resolution }}.*
+          if-no-files-found: error
+          retention-days: 1
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py runner-contract
+
+  # The check main requires of the runner contracts: it passes only where
+  # every leg of `runner contract` passed, and its evidence is what each leg's
+  # suite reported. A leg that left no log, for an install that failed, is
+  # read as one whose suite never ran.
+  runner-contracts:
+    name: runner contracts
+    needs: [scope, runner-contract]
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'runner-contracts')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: runner-contract-*
+          path: evidence/raw
+          merge-multiple: true
+      # Each leg's outcome by its name, as the evidence step reads the
+      # outcome of a job's steps by their ids.
+      - id: legs
+        name: what each leg's suite did
+        run: |
+          shopt -s nullglob
+          outcomes=(evidence/raw/*.outcome.json)
+          if [ "${#outcomes[@]}" -eq 0 ]; then
+            echo 'steps={}' >> "$GITHUB_OUTPUT"
+          else
+            echo "steps=$(jq -cs add "${outcomes[@]}")" >> "$GITHUB_OUTPUT"
+          fi
+      - name: every leg passed
+        env:
+          LEGS: ${{ needs.runner-contract.result }}
+          RUNNERS: ${{ needs.scope.outputs.runners }}
+        run: |
+          if [ "${LEGS}" = skipped ] && [ "${RUNNERS}" = '[]' ]; then
+            echo "This run reaches no runner's adapter or fixture, so no leg ran."
+          elif [ "${LEGS}" != success ]; then
+            echo "::error title=runner contracts::A leg of runner contract ended ${LEGS}. Its own log says why."
+            exit 1
+          fi
+      # The job's evidence, whatever the steps above did (ADR-0019).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ steps.legs.outputs.steps }}
+        run: python3 .github/scripts/evidence.py runner-contracts
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-runner-contracts
+          path: evidence/runner-contracts*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py runner-contracts
+
+  # The gate installed into another project: warm workers and the hook
+  # managers.
+  end-to-end:
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'end-to-end')) }}
+    uses: ./.github/workflows/end-to-end.yml # zizmor: ignore[self-repository]
+    with:
+      warm: ${{ needs.scope.result != 'success' || needs.scope.outputs.warm == 'true' }}
+      hooks: ${{ needs.scope.result != 'success' || needs.scope.outputs.hooks == 'true' }}
+
+  # G8 — every mutant of src is killed, or its tree holds the floor
+  # mutation-gate.baseline.json records, which only rises (G11). The package
+  # holds its own code there through its own gate: the reusable workflow and
+  # the action in this repository, run from the same commit, with
+  # mutation-gate.json. Its
+  # jobs are the shipped workflow's, which leaves the gate's own reports as its
+  # evidence (.github/gates.json). The permissions are what its jobs ask for,
+  # and a called job gets only what it asks for itself: `contents: write` goes
+  # only to the default-branch publish job, and `id-token: write` only to
+  # fetch and deliver. The store's keys are passed by name, and their values
+  # come from the environments fetch and deliver enter (ADR-0029). The plan
+  # reads the map `tests` wrote, so the suite runs under coverage once, and a
+  # run whose suite fails spends no mutation. Its jobs run on Arm, where three
+  # of its shards gave the same verdicts in 29% less time (ADR-0035).
+  mutation:
+    needs: [scope, tests]
+    if: ${{ !cancelled() && needs.tests.result == 'success' && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'mutation')) }}
+    permissions:
+      contents: write # used only by publish, on the default branch, which writes the badge and the trend
+      actions: read # used only by verdict and deliver, to find the run's HTML report the comment links
+      pull-requests: write # used only by the deliver jobs, which post the comment and run none of the project's code
+      id-token: write # used only by fetch and deliver, for a store that signs in through OIDC
+    uses: ./.github/workflows/mutation-gate.yml # zizmor: ignore[self-repository]
+    with:
+      coverage: mutation-gate-map
+      runs-on: ubuntu-24.04-arm
+    secrets:
+      MUTATION_GATE_READ_AWS_ACCESS_KEY_ID: ${{ secrets.MUTATION_GATE_READ_AWS_ACCESS_KEY_ID }}
+      MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY: ${{ secrets.MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+  # SonarCloud, fed the reports `tests` wrote rather than running the suite a
+  # second time. A pull request from a fork or from Dependabot is given no
+  # SONAR_TOKEN, so there is nothing to scan with and the job is skipped.
+  sonar:
+    name: sonarcloud
+    needs: tests
+    if: ${{ !cancelled() && needs.tests.result == 'success' && (github.event_name == 'push' || github.event_name == 'schedule' || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # SonarCloud reads history to attribute an issue to the change that
+          # introduced it, which is what makes "new code" a usable gate.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: coverage-report
+          path: coverage
+      # `sonar.qualitygate.wait` holds the step until SonarCloud has processed
+      # the analysis, so the counts `gate` reads are this commit's.
+      - uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9 # v8.3.0
+        with:
+          args: -Dsonar.qualitygate.wait=true
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py sonar
+
+  # Zero issues, which SonarCloud's free quality gate cannot express: a green
+  # quality gate is not a clean project. This asks for both numbers — the issues
+  # this pull request brings, and the issues open against main — and refuses
+  # either above zero.
+  #
+  # `!cancelled()` rather than `needs` alone, which would make this job vanish
+  # when the scan fails. It runs, says why there is nothing to read, and fails.
+  gate:
+    name: gate
+    needs: [tests, sonar]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SCAN: ${{ needs.sonar.result }}
+          TESTS: ${{ needs.tests.result }}
+          EVENT: ${{ github.event_name }}
+          PR: ${{ github.event.pull_request.number }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+        id: count
+        run: bash .github/scripts/sonar_gate.sh
+      # The job's evidence, whatever the steps above did (ADR-0019).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py gate
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-gate
+          path: evidence/gate*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py gate
+
+  # Every job's evidence, gathered into the one artifact `evidence` the bot
+  # reads when the run is over (ADR-0019). A job that did not run
+  # left none.
+  evidence:
+    name: evidence
+    needs: [scope, scripts, alone, hygiene, security, site, rules, guards, checks, tests, lowest, phar, runner-contract, runner-contracts, end-to-end, mutation, sonar, gate]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - uses: actions/upload-artifact/merge@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: evidence
+          pattern: evidence-*
+          delete-merged: true
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py evidence

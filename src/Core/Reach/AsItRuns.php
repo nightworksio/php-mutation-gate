@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Reach;
 
 use function explode;
 use function implode;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -14,9 +15,11 @@ use function preg_match;
 use function trim;
 
 /**
- * A CI definition that runs the gate, read as it runs the gate: without its
- * comment lines, the lines that hold nothing but a comment between its nodes,
- * which no runner reads. Every other byte stays, blank lines and the commit
+ * A CI definition that runs the gate, read as it runs the gate: a GitHub
+ * Actions workflow by its shared keys and the jobs that run the gate
+ * (WorkflowJobs, ADR-0058), and either without its comment lines, the
+ * lines that hold nothing but a comment between its nodes, which no runner
+ * reads. Every other byte stays, blank lines and the commit
  * each action is pinned at among them, and so does a comment line inside a
  * value, or where a value written on the line before could carry on, or a
  * block scalar's lines, which are kept as they are written. Where the
@@ -33,7 +36,7 @@ use function trim;
 final readonly class AsItRuns
 {
     /** A line that holds nothing but a comment. */
-    private const string COMMENT = '/^ *#/u';
+    public const string COMMENT = '/^ *#/u';
 
     /** A byte a runner may read as a line break, an indentation or nothing, or one that is not UTF-8. */
     private const string UNREAD = '/[\x00-\x09\x0B-\x1F\x7F\x{85}\x{2028}\x{2029}\x{FEFF}]/u';
@@ -42,7 +45,9 @@ final readonly class AsItRuns
     public static function text(Contents $definition): string
     {
         $written = $definition->text();
-        $spoken = preg_match(self::UNREAD, $written) === 0 ? self::spoken(explode("\n", $written)) : Unread::line();
+        $narrowed = WorkflowJobs::running($written);
+        $read = is_string($narrowed) ? $narrowed : $written;
+        $spoken = preg_match(self::UNREAD, $written) === 0 ? self::spoken(explode("\n", $read)) : Unread::line();
 
         return $spoken instanceof Unread ? $written : implode("\n", $spoken);
     }
