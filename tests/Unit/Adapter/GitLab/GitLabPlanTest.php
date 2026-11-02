@@ -103,6 +103,33 @@ it('leaves the matrix job out of a plan with no shards, and the verdict still ru
     ]);
 });
 
+it('leaves the verdict that holds no keys a delivery, and sends it from the comment job, where the plan left one', function () use (
+    $fromThePlan,
+    $pipelineIn,
+    $planJob,
+): void {
+    $published = GitLabPlan::writing('pipeline.yml', 'ci/gate.yml', $planJob('mutation-plan'))
+        ->publish(ShardedPlan::of(0), GateCommand::installed()->jobs()->deliveringLater());
+    $verdicts = gitlabVerdicts([$fromThePlan]);
+    $untrusted = $verdicts['mutation-gate-verdict']['rules'];
+
+    expect($pipelineIn($published))->toBe([
+        'include' => [['local' => 'ci/gate.yml']],
+        'mutation-gate-verdict-store' => $verdicts['mutation-gate-verdict-store'],
+        'mutation-gate-verdict' => [
+            ...$verdicts['mutation-gate-verdict'],
+            'script' => [sprintf('%s --deliver-later', GITLAB_VERDICT)],
+            'artifacts' => ['when' => 'always', 'paths' => ['.mutation-gate/delivery/verdict/']],
+        ],
+        'mutation-gate-comment' => [
+            'extends' => '.mutation-gate-comment',
+            'needs' => [['job' => 'mutation-gate-verdict']],
+            'variables' => [GitLabPlan::DELIVERY => '.mutation-gate/delivery/verdict'],
+            'rules' => $untrusted,
+        ],
+    ]);
+});
+
 it('cannot name the job that made the plan outside a GitLab job', function (): void {
     expect(GitLabPlan::writing('pipeline.yml', 'ci/gate.yml', Variables::of([]))->publish(ShardedPlan::of(1), GateCommand::installed()->jobs()))
         ->toEqual(CannotJudge::because(

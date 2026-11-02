@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Report\Markdown;
 
 use function sprintf;
 use function str_contains;
@@ -21,9 +22,6 @@ final readonly class HtmlReport
 {
     /** The artifact the HTML report is uploaded as, unarchived, which is also its file's name. */
     public const string ARTIFACT = 'mutation-gate-report.html';
-
-    /** Where a comment holds the line, until it is written. */
-    public const string SLOT = '<!-- mutation-gate: html report -->';
 
     private const string ARTIFACTS = '/repos/%s/actions/runs/%s/artifacts?name=%s';
 
@@ -50,7 +48,9 @@ final readonly class HtmlReport
     /** A comment with its slot, where it holds one, replaced by the line. */
     public function into(string $markdown): string
     {
-        return str_contains($markdown, self::SLOT) ? str_replace(self::SLOT, $this->line(), $markdown) : $markdown;
+        return str_contains($markdown, Markdown::REPORT_SLOT)
+            ? str_replace(Markdown::REPORT_SLOT, $this->line(), $markdown)
+            : $markdown;
     }
 
     /** The line: the link to the report, or why there is none. */

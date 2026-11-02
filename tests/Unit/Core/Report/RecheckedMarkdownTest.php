@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\GitHub\Markdown;
-use NightWorksIO\MutationGate\Adapter\GitHub\MarkdownItems;
-use NightWorksIO\MutationGate\Adapter\GitHub\RecheckedMarkdown;
 use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Recheck\Recheck;
 use NightWorksIO\MutationGate\Core\Recheck\Rechecked;
+use NightWorksIO\MutationGate\Core\Report\Markdown;
+use NightWorksIO\MutationGate\Core\Report\MarkdownItems;
+use NightWorksIO\MutationGate\Core\Report\RecheckedMarkdown;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Tests\Support\Rechecks;

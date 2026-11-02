@@ -40,6 +40,11 @@ it('writes each command it prints for itself after the gate as it was started', 
         ->and($gate->jobs()->run())->toBe('php tools/mutation-gate run --plan=.mutation-gate/plan.json')
         ->and($gate->jobs()->shard(ShardId::of(2)))->toBe('php tools/mutation-gate run --plan=.mutation-gate/plan.json --shard=2')
         ->and($gate->jobs()->verdict())->toBe('php tools/mutation-gate verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results')
+        ->and($gate->jobs()->deliversLater())->toBeFalse()
+        ->and($gate->jobs()->deliveringLater()->deliversLater())->toBeTrue()
+        ->and($gate->jobs()->deliveringLater()->verdict())->toBe($gate->jobs()->verdict())
+        ->and($gate->jobs()->verdictDeliveredLater())
+        ->toBe('php tools/mutation-gate verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results --deliver-later')
         ->and($gate->command(Hook::PrePush))->toBe('php tools/mutation-gate pre-push');
 });
 

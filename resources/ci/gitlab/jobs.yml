@@ -6,14 +6,17 @@ mutation-plan:
   extends: .mutation-gate
   script:
     - |
+      later=""
       case "$CI_PIPELINE_SOURCE" in
-        merge_request_event) base="--changed-since=$CI_MERGE_REQUEST_DIFF_BASE_SHA" ;;
+        merge_request_event)
+          base="--changed-since=$CI_MERGE_REQUEST_DIFF_BASE_SHA"
+          later="--deliver-later" ;;
         schedule) base="" ;;
         *)
           if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then base="--changed-since=last-passed"
           else base="--changed-since=origin/$CI_DEFAULT_BRANCH"; fi ;;
       esac
-      vendor/bin/mutation-gate plan --ci=gitlab $base
+      vendor/bin/mutation-gate plan --ci=gitlab $base $later
   artifacts:
     paths:
       - .mutation-gate/
@@ -25,8 +28,19 @@ mutation:
   variables:
     PARENT_PIPELINE_ID: $CI_PIPELINE_ID
     MUTATION_GATE_SOURCE: $CI_PIPELINE_SOURCE
+    MUTATION_GATE_MERGE_REQUEST_IID: $CI_MERGE_REQUEST_IID
   trigger:
     include:
       - artifact: .mutation-gate/pipeline.yml
         job: mutation-plan
     strategy: mirror
+
+mutation-comment:
+  stage: test
+  extends: .mutation-gate-comment
+  needs:
+    - mutation-plan
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  variables:
+    MUTATION_GATE_DELIVERY: .mutation-gate/delivery/planned

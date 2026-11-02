@@ -29,12 +29,12 @@ use NightWorksIO\MutationGate\Tests\Support\ShardedPlan;
 
 $holds = [
     'holds:src/Adapter/Azure',
-    'holds:src/Adapter/Bitbucket',
+    'holds:src/Adapter/Bitbucket/BitbucketPlan.php',
     'holds:src/Adapter/Buildkite',
     'holds:src/Adapter/CircleCi',
     'holds:src/Adapter/Filesystem/PublicationFile.php',
     'holds:src/Adapter/GitHub',
-    'holds:src/Adapter/GitLab',
+    'holds:src/Adapter/GitLab/GitLabPlan.php',
     'holds:src/Adapter/Jenkins',
     'holds:src/Adapter/Json',
     'holds:src/Core/Ci/RunOn.php',

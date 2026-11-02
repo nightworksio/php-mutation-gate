@@ -118,7 +118,9 @@ documentation, are these.
      pipeline is red with no *cannot judge* report, and while one such
      verdict deploys, Bitbucket pauses any other at its own. A pull request's
      verdict is the `final` step. The README also shows the
-     dynamic-pipelines form for Premium workspaces.
+     dynamic-pipelines form for Premium workspaces. ADR-0048 amends this: a
+     pull request's `final` step sends the comment, and its verdict is an
+     ordinary step before it.
 
    This amends ADR-0006, whose two tables gain a row for each, and
    ADR-0007, whose list of the run a proof names gains three
@@ -230,6 +232,9 @@ documentation, are these.
      job never has it, and the runners withhold it everywhere else.
    - This is ADR-0019's relay pattern, serving users' CIs too.
      This amends ADR-0019.
+   - ADR-0048 amends this: the job runs `deliver`, which posts the markdown
+     the verdict job left in its delivery under `--deliver-later`, rather than
+     rendering the comment again from the JSON report.
    - The token for GitLab is a project access token with the scope `api` and
      the lowest role that can post merge request notes. The build's first
      step proves which role that is, starting with Reporter. For Bitbucket it
@@ -248,7 +253,8 @@ documentation, are these.
 9. **The comment has its planned state here too.** The pipeline runs the
    `mutation-comment` job after `plan`, where it reads the plan's JSON and
    posts the planned state (ADR-0019). It runs again after the
-   verdict, where it posts the judged state.
+   verdict, where it posts the judged state. ADR-0048 amends this: it posts
+   the planned state the plan left in its delivery.
 
 10. **Mentions, forks and config.**
     - An `@` in anything the project wrote is escaped: GitLab's `@` and
@@ -420,3 +426,4 @@ private site.
 - [ADR-0019](0019-contributor-automation-runs-no-pull-request-content-where-it-can-write.md): the relay pattern, and the planned state
 - [ADR-0021](0021-mutators-are-written-once-and-first-party-sets-can-leave.md): the boundary rules for first-party plugins
 - [ADR-0022](0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md): code owners' mentions, and the PHAR and image the comment job runs
+- [ADR-0048](0048-the-gitlab-and-bitbucket-comments-relay-the-delivery-and-bitbucket-finds-its-own-by-editing.md): the comment jobs relay the delivery, Bitbucket's comment is found by editing, and a Bitbucket pull request's `final` step sends it

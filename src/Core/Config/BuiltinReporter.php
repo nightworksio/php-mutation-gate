@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\GateSecret;
+
 /** The reporters this package builds in, by the name a config or the gate chooses each by. */
 enum BuiltinReporter: string
 {
@@ -45,6 +48,12 @@ enum BuiltinReporter: string
 
     case GitHubComment = 'github-comment';
 
+    case GitLabComment = 'gitlab-comment';
+
+    case BitbucketComment = 'bitbucket-comment';
+
+    case BitbucketInsights = 'bitbucket-insights';
+
     case Badge = 'badge';
 
     public function named(): Name
@@ -60,7 +69,8 @@ enum BuiltinReporter: string
             self::KillMatrix, self::GitLab, self::Sonar => EntryPath::Required,
             self::Badge => EntryPath::Optional,
             self::Console, self::Problems, self::Slack, self::Discord, self::Webhook, self::Otlp,
-            self::GitHubAnnotations, self::GitHubSummary, self::GitHubComment => EntryPath::Refused,
+            self::GitHubAnnotations, self::GitHubSummary, self::GitHubComment, self::GitLabComment,
+            self::BitbucketComment, self::BitbucketInsights => EntryPath::Refused,
         };
     }
 
@@ -71,7 +81,24 @@ enum BuiltinReporter: string
             self::Slack, self::Discord, self::Webhook => true,
             self::Json, self::JUnit, self::Sarif, self::Html, self::Stryker, self::Digest, self::Tests,
             self::KillMatrix, self::GitLab, self::Sonar, self::Badge, self::Console, self::Problems, self::Otlp,
-            self::GitHubAnnotations, self::GitHubSummary, self::GitHubComment => false,
+            self::GitHubAnnotations, self::GitHubSummary, self::GitHubComment, self::GitLabComment,
+            self::BitbucketComment, self::BitbucketInsights => false,
+        };
+    }
+
+    /**
+     * The variable this reporter reads the token it writes with from, where `tokenEnv` names none (ADR-0024);
+     * none for a reporter that reads no token.
+     */
+    public function tokenEnv(): GateSecret|NotGiven
+    {
+        return match ($this) {
+            self::GitLabComment => GateSecret::GitLabComment,
+            self::BitbucketComment => GateSecret::BitbucketComment,
+            self::Json, self::JUnit, self::Sarif, self::Html, self::Stryker, self::Digest, self::Tests,
+            self::KillMatrix, self::GitLab, self::Sonar, self::Badge, self::Console, self::Problems, self::Slack,
+            self::Discord, self::Webhook, self::Otlp, self::GitHubAnnotations, self::GitHubSummary,
+            self::GitHubComment, self::BitbucketInsights => NotGiven::value(),
         };
     }
 }

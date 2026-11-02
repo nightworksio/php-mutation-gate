@@ -15,7 +15,10 @@ use function getenv;
 use NightWorksIO\MutationGate\Adapter\Alert\AlertReporter;
 use NightWorksIO\MutationGate\Adapter\Alert\Channel;
 use NightWorksIO\MutationGate\Adapter\Alert\Delivery as AlertDelivery;
+use NightWorksIO\MutationGate\Adapter\Bitbucket\PullRequestComment as BitbucketComment;
 use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
+use NightWorksIO\MutationGate\Adapter\GitLab\MergeRequestNote;
+use NightWorksIO\MutationGate\Adapter\Http\HttpExchange;
 use NightWorksIO\MutationGate\Adapter\Otlp\OtelEnvironment;
 use NightWorksIO\MutationGate\Adapter\Otlp\OtlpReporter;
 use NightWorksIO\MutationGate\Cli\ExitCode;
@@ -51,8 +54,8 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * `MUTATION_GATE_STORE` variables, where they name one, and sends the comment, each alert and the
  * OTLP export where its own environment says, with the credentials its own
  * environment holds. Nothing in the delivery names a destination, a store or
- * a variable: the comment goes to `GITHUB_REPOSITORY`'s pull request the
- * event names, each alert to its channel's `MUTATION_GATE_*_URL`, signed with
+ * a variable: the comment goes to the pull request or merge request its own
+ * CI's variables name, each alert to its channel's `MUTATION_GATE_*_URL`, signed with
  * `MUTATION_GATE_WEBHOOK_SECRET`, and the export to
  * `OTEL_EXPORTER_OTLP_ENDPOINT` with its headers.
  */
@@ -269,10 +272,28 @@ final readonly class Sending
         };
     }
 
-    /** The comment written, or only over its planned state where the delivery says so. */
+    /**
+     * The comment written, or only over its planned state where the delivery says so, on the forge its own CI
+     * keeps: a merge request's note under GitLab CI, a pull request's comment under Bitbucket Pipelines, and a
+     * pull request's comment on GitHub otherwise, each with the token in its default variable.
+     */
     private function commented(string $markdown, bool $overPlanned): Written|NotWritten
     {
-        $comment = PullRequestComment::fromEnvironment($this->environment, $this->client, '');
+        $environment = Variables::of($this->environment);
+        $exchange = HttpExchange::over($this->client);
+        $comment = match (true) {
+            $environment->says(Variables::GITLAB_CI) => MergeRequestNote::inEnvironment(
+                $environment,
+                $exchange,
+                GateSecret::GitLabComment->value,
+            ),
+            $environment->has(Variables::BITBUCKET_BUILD_NUMBER) => BitbucketComment::inEnvironment(
+                $environment,
+                $exchange,
+                GateSecret::BitbucketComment->value,
+            ),
+            default => PullRequestComment::fromEnvironment($this->environment, $this->client, ''),
+        };
 
         return $overPlanned ? $comment->writeOverPlanned($markdown) : $comment->write($markdown);
     }

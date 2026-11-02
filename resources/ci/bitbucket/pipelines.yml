@@ -16,9 +16,19 @@
 # Bitbucket pauses any other at its verdict, to be resumed or rerun once the
 # first ends. Every other step runs with no keys and reads %%branch%%'s ledger
 # through proofs.store.with.publicUrl, so set it, and give the bucket a public
-# GetObject on that branch's prefix alone. A pull request's verdict is a final
-# step, which runs whatever the shards did, and writes nothing. A pull request
-# from a fork starts no pipeline.
+# GetObject on that branch's prefix alone. A pull request from a fork starts no
+# pipeline.
+# A pull request's verdict writes nothing, and leaves the comment for the
+# final step, which runs whatever the shards did; after a failed shard,
+# Bitbucket skips that verdict too, and the comment keeps its planned state.
+# List bitbucket-comment, and bitbucket-insights for the Code Insights
+# report, in the config's reports.
+# Hold a repository access token with pullrequest:write alone in the secured
+# repository variable %%bitbucketToken%%. Repository variables reach every
+# step, so every step that runs the project's code drops it first, and the two
+# comment steps run the gate's own image, which loads none of the project's
+# code. A branch can edit this file, so anyone who may push one can read the
+# token, as with every repository variable.
 image: <an image with PHP %%php%% and pcov>
 
 definitions:
@@ -28,6 +38,7 @@ definitions:
         clone:
           depth: full
         script:
+          - unset %%bitbucketToken%%
           - composer install --no-interaction --no-progress
           - vendor/bin/mutation-gate run --plan=.mutation-gate/plan.json
         artifacts:
@@ -37,8 +48,16 @@ definitions:
         clone:
           depth: full
         script:
+          - unset %%bitbucketToken%%
           - composer install --no-interaction --no-progress
           - vendor/bin/mutation-gate verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results
+    - step: &mutation-comment
+        name: 'mutation: comment'
+        image: %%image%%
+        clone:
+          enabled: false
+        script:
+          - mutation-gate deliver --from=.mutation-gate/delivery/planned
 
 pipelines:
   branches:
@@ -48,6 +67,7 @@ pipelines:
           clone:
             depth: full
           script:
+            - unset %%bitbucketToken%%
             - composer install --no-interaction --no-progress
             - vendor/bin/mutation-gate plan --shards=4 --changed-since=last-passed
           artifacts:
@@ -67,17 +87,30 @@ pipelines:
           clone:
             depth: full
           script:
+            - unset %%bitbucketToken%%
             - git fetch origin "+refs/heads/$BITBUCKET_PR_DESTINATION_BRANCH:refs/remotes/origin/$BITBUCKET_PR_DESTINATION_BRANCH"
             - composer install --no-interaction --no-progress
-            - vendor/bin/mutation-gate plan --shards=4 "--changed-since=origin/$BITBUCKET_PR_DESTINATION_BRANCH"
+            - vendor/bin/mutation-gate plan --shards=4 "--changed-since=origin/$BITBUCKET_PR_DESTINATION_BRANCH" --deliver-later
           artifacts:
             - .mutation-gate/**
+      - step: *mutation-comment
       - parallel:
           - step: *mutation-shard
           - step: *mutation-shard
           - step: *mutation-shard
           - step: *mutation-shard
-      - final: *mutation-verdict
+      - step:
+          <<: *mutation-verdict
+          script:
+            - unset %%bitbucketToken%%
+            - composer install --no-interaction --no-progress
+            - vendor/bin/mutation-gate verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results --deliver-later
+          artifacts:
+            - .mutation-gate/delivery/**
+      - final:
+          <<: *mutation-comment
+          script:
+            - mutation-gate deliver --from=.mutation-gate/delivery/verdict
   custom:
     mutation-full:
       - step:
@@ -85,6 +118,7 @@ pipelines:
           clone:
             depth: full
           script:
+            - unset %%bitbucketToken%%
             - composer install --no-interaction --no-progress
             - vendor/bin/mutation-gate plan --shards=4
           artifacts:

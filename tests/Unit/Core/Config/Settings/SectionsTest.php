@@ -140,6 +140,9 @@ describe('Settings sections', function (): void {
             ['use' => 'discord', 'with' => ['urlEnv' => 'TEAM_DISCORD']],
             ['use' => 'webhook'],
             ['use' => 'otlp', 'with' => ['endpoint' => 'https://otel.example.com']],
+            ['use' => 'gitlab-comment'],
+            ['use' => 'bitbucket-comment', 'with' => ['tokenEnv' => 'TEAM_BITBUCKET']],
+            ['use' => 'bitbucket-insights'],
         ]]);
 
         expect(Configs::shown($settings, 'reports'))->toBe([
@@ -153,6 +156,9 @@ describe('Settings sections', function (): void {
                 'with' => ['urlEnv' => 'MUTATION_GATE_WEBHOOK_URL', 'secretEnv' => 'MUTATION_GATE_WEBHOOK_SECRET'],
             ],
             ['use' => 'otlp', 'with' => ['endpoint' => 'https://otel.example.com']],
+            ['use' => 'gitlab-comment', 'with' => ['tokenEnv' => 'MUTATION_GATE_GITLAB_TOKEN']],
+            ['use' => 'bitbucket-comment', 'with' => ['tokenEnv' => 'TEAM_BITBUCKET']],
+            ['use' => 'bitbucket-insights'],
         ])->and(array_map(static fn(Report $report): string => $report->reporter()->options()->written()->line(), [...$settings->reports()]))
             ->toBe([
                 '{}',
@@ -162,6 +168,9 @@ describe('Settings sections', function (): void {
                 '{"urlEnv":"TEAM_DISCORD"}',
                 '{"urlEnv":"MUTATION_GATE_WEBHOOK_URL","secretEnv":"MUTATION_GATE_WEBHOOK_SECRET"}',
                 '{"endpoint":"https://otel.example.com"}',
+                '{"tokenEnv":"MUTATION_GATE_GITLAB_TOKEN"}',
+                '{"tokenEnv":"TEAM_BITBUCKET"}',
+                '{}',
             ]);
     });
 
@@ -175,6 +184,11 @@ describe('Settings sections', function (): void {
             ['use' => 'slack', 'with' => ['url' => 'https://hooks.slack.com/x']],
             'reports[0].with.url: expected no url: a webhook URL is a credential; set MUTATION_GATE_SLACK_URL, '
             . 'or name another variable in urlEnv',
+        ],
+        'a token in the config' => [
+            ['use' => 'gitlab-comment', 'with' => ['token' => 'glpat-secret']],
+            'reports[0].with.token: expected no token: a token is a credential; set MUTATION_GATE_GITLAB_TOKEN, '
+            . 'or name another variable in tokenEnv',
         ],
         'a path for a reporter that writes no file' => [
             ['use' => 'otlp', 'path' => 'build/otlp.json'],

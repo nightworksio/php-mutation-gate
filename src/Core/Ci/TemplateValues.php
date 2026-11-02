@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinStore;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\GateSecret;
 
 use function preg_match;
 use function sprintf;
@@ -18,10 +19,11 @@ use function strtr;
 /**
  * What `init --ci` fills into a CI definition's template (ADR-0015), each
  * where the template writes `%%<name>%%`: the PHP version, the default
- * branch, the gate's pin and version, the runner, the check to require, the
- * file of the gate's jobs the CI's own definition pulls in, where it has
- * one, the variables the S3 store reads, and what holds the proof store's
- * keys on Bitbucket and Jenkins. A template lands in YAML, Groovy and shell
+ * branch, the gate's pin, version and container image, the runner, the
+ * check to require, the file of the gate's jobs the CI's own definition
+ * pulls in, where it has one, the variables the S3 store reads, what holds
+ * the proof store's keys on Bitbucket and Jenkins, and the variables the
+ * GitLab and Bitbucket comments read their tokens from. A template lands in YAML, Groovy and shell
  * lines, so each value that comes from the project holds no character any
  * of them would read as more than text.
  */
@@ -73,10 +75,13 @@ final readonly class TemplateValues
             '%%branch%%' => $branch,
             '%%pin%%' => $gate->pin(),
             '%%version%%' => $gate->version(),
+            '%%image%%' => $gate->image(),
             '%%runner%%' => $runner,
             '%%check%%' => $check,
             '%%s3%%' => implode(' ', [...BuiltinStore::S3->variables()]),
             '%%keys%%' => CiTemplate::keyHolder(),
+            '%%gitlabToken%%' => GateSecret::GitLabComment->value,
+            '%%bitbucketToken%%' => GateSecret::BitbucketComment->value,
             ...$included instanceof Path ? ['%%included%%' => $included->value()] : [],
         ]);
     }

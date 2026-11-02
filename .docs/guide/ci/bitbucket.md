@@ -25,13 +25,47 @@ that runs after a failed one. On the default branch, a failed shard therefore
 skips the verdict: the pipeline is red, with no *cannot judge* report. While
 one pipeline deploys to `mutation-gate-store`, Bitbucket pauses any other at
 its verdict; once the first ends, resume the paused pipeline or rerun it. A
-pull request's verdict is a `final` step with no keys, which runs whatever the
-shards did. Every step but the deploying verdict, the plan on the default
-branch included, reads the default branch's ledger through
+pull request's verdict holds no keys. Every step but the deploying verdict, the
+plan on the default branch included, reads the default branch's ledger through
 `proofs.store.with.publicUrl`, so set it as [proofs and trust](../concepts/proofs-and-trust.md#pull-requests-from-forks)
 describes. A pull request
 from a fork starts no pipeline. The gate withholds `BITBUCKET_STEP_OIDC_TOKEN`
 from the tests.
+
+## The pull request comment and Code Insights
+
+List `bitbucket-comment` in the config's `reports`, and the gate keeps one
+comment on each pull request, updated in place on every run: its planned state
+once the plan is made, and the verdict once the shards are judged
+([ADR-0024](../../decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md)).
+Hold a repository access token with `pullrequest:write` alone in the secured
+repository variable `MUTATION_GATE_BITBUCKET_TOKEN`.
+
+Repository variables reach every step, so every step that runs the project's
+code drops the token before `composer install`, and the runners withhold it
+from the tests. On a pull request the plan and the verdict run with
+`--deliver-later` and leave the comment in `.mutation-gate/delivery`. Two
+`mutation: comment` steps send it with `deliver`, from the gate's own image,
+pinned to the release `init` names, so they load none of the project's code:
+one after the plan, and the pipeline's `final` step, which runs whatever the
+shards did. Bitbucket allows one `final` step, so the verdict is an ordinary
+step before it; after a failed shard Bitbucket skips the verdict, the pipeline
+is red, and the comment keeps its planned state. A branch can edit the
+pipeline, so anyone who may push one can read the token, as with every
+repository variable.
+
+A repository access token cannot ask Bitbucket who it is, so the comment is the
+first that holds the marker and that the token may edit, oldest first, at most
+ten tried; where none is, a new one is posted. Bitbucket shows raw HTML as
+text, so the marker is a link reference definition, which shows nothing, a
+folded block is shown as its summary in bold, and inline code as a code span
+([ADR-0048](../../decisions/0048-the-gitlab-and-bitbucket-comments-relay-the-delivery-and-bitbucket-finds-its-own-by-editing.md)).
+
+List `bitbucket-insights` too, and the verdict writes a Code Insights report on
+the commit, with each mutant counted as not killed as an annotation on its line,
+at most 1,000. The verdict writes it through the pipeline's own proxy, which
+holds no token, so it needs no credential, and a pull request's report shows on
+the pull request.
 
 With Premium, a dynamic pipeline sizes the parallel group to the plan instead.
 The plan step runs `plan` without `--shards`, so the cost model picks the
