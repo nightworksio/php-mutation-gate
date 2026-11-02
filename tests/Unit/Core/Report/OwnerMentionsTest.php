@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Core\Report\OwnerMentions;
 use NightWorksIO\MutationGate\Core\Owner\OwnerGroup;
 use NightWorksIO\MutationGate\Core\Owner\OwnerMention;
+use NightWorksIO\MutationGate\Core\Report\OwnerMentions;
 use NightWorksIO\MutationGate\Tests\Support\Owners;
 
 $heading = static fn(string ...$owners): string => sprintf(
