@@ -57,6 +57,19 @@
         "error": "A test threw before it could finish."
       }
     },
+    "replay": {
+      "check": "replay",
+      "checks": "The newest merged pull requests, each planned again by this checkout's gate on main's ledger and the map `tests` wrote: every reason a plan gives for reaching every unit quotes a path the pull request changed, and a pull request of documentation alone reaches no unit (ADR-0005, ADR-0067).",
+      "reproduce": "python3 .github/scripts/replay.py 10 --map <the directory of the map coverage wrote> --findings <file> --table <file>, after composer install, with main's ledger in .mutation-gate/ledger/refs/heads/main",
+      "evidence": [
+        {"step": "replay", "tool": "replay", "raw": "evidence/raw/replay.json"}
+      ],
+      "rules": {
+        "replay": "The replays did not finish, so no plan was judged. The step's log says why.",
+        "unjustified-widening": "A replayed plan reaches every unit of a package for a reason that quotes no path the pull request changed. Find which rule gave the reason, and make it reach only what the change can move.",
+        "documentation-reaches": "A pull request that changed only documentation reached units when it was planned again. Find the rule that reached them: documentation reaches nothing (ADR-0005, rule 5)."
+      }
+    },
     "alone": {
       "check": "test files alone",
       "checks": "Every test file of the Unit, Process and Plugins suites passes when it runs alone, in a Pest of its own, on the unmutated code, so that a mutant's run narrowed to the test files its covering tests need can vouch for its kills (ADR-0004).",

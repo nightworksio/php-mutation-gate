@@ -816,6 +816,62 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
+  # The newest merged pull requests, each planned again by this checkout's
+  # gate with the map `tests` wrote and main's ledger from the cache, read
+  # only (replay.py). It fails where a plan widens for no path the pull
+  # request changed, or documentation reaches a unit. A push to main runs
+  # none: the night runs it, and so does a pull request that changes how the
+  # gate reaches or plans.
+  replay:
+    name: replay
+    needs: [scope, tests]
+    if: ${{ !cancelled() && github.event_name != 'push' && needs.tests.result == 'success' && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'replay')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      # The cache prefix main's verdict keeps its ledger under (gate_action.py).
+      - id: ledger
+        run: echo "prefix=mutation-gate-ledger-$(printf %s refs/heads/main | sha256sum | cut -d' ' -f1)-" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .mutation-gate/ledger/refs/heads/main
+          key: ${{ steps.ledger.outputs.prefix }}${{ github.run_id }}
+          restore-keys: ${{ steps.ledger.outputs.prefix }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: mutation-gate-map
+          path: .mutation-gate/map
+      - id: replay
+        run: python3 .github/scripts/replay.py 10 --map .mutation-gate/map --findings evidence/raw/replay.json --table evidence/replay.md
+      - name: the replays
+        if: ${{ !cancelled() && hashFiles('evidence/replay.md') != '' }}
+        run: cat evidence/replay.md >> "$GITHUB_STEP_SUMMARY"
+      # The job's evidence, whatever the steps above did (ADR-0019).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py replay
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-replay
+          path: evidence/replay*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py replay
+
   # SonarCloud, fed the reports `tests` wrote rather than running the suite a
   # second time. A pull request from a fork or from Dependabot is given no
   # SONAR_TOKEN, so there is nothing to scan with and the job is skipped.
@@ -896,7 +952,7 @@ jobs:
   # left none.
   evidence:
     name: evidence
-    needs: [scope, scripts, alone, hygiene, security, site, rules, guards, checks, tests, lowest, phar, runner-contract, runner-contracts, end-to-end, mutation, sonar, gate]
+    needs: [scope, scripts, alone, hygiene, security, site, rules, guards, checks, tests, lowest, phar, runner-contract, runner-contracts, end-to-end, mutation, replay, sonar, gate]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10

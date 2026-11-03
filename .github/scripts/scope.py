@@ -33,6 +33,9 @@ What each job reads (INPUTS):
   self-gate runs. The gate's own plan then decides what the change reaches
   (ADR-0005), so a test-only change is judged as the gate judges one.
 - `site`: the docs, the site and what prints a link into it (ADR-0038).
+- `replay`: what decides what a change reaches and how a plan carries and
+  cuts (REPLAY), which it plans the newest pull requests again with. A push
+  to main runs none: ci.yml's own condition leaves it to the night.
 
 A script under .github/scripts reaches each job that runs it, through the
 jobs of a workflow that job calls too, and any script those import. Every
@@ -73,7 +76,7 @@ LEG_TABLE = json.loads(Path(__file__).resolve().with_name("legs.json").read_text
 RUNNERS = tuple(LEG_TABLE)
 
 # The jobs of ci.yml this script gates, in the workflow's order.
-GATED = ("site", "alone", "guards", "checks", "tests", "lowest", "phar", "runner-contracts", "end-to-end", "mutation")
+GATED = ("site", "alone", "guards", "checks", "tests", "lowest", "phar", "runner-contracts", "end-to-end", "mutation", "replay")
 
 # The job that runs the legs, the end-to-end workflow's jobs by the input that
 # runs each, and the job that decides every output.
@@ -169,6 +172,20 @@ SITE = (
     "tests/Docs/PrintedLinksTest.php",
     ".github/workflows/site.yml",
     ".github/workflows/pages.yml",
+)
+
+# What decides what a change reaches and how a plan carries and cuts, which
+# `replay` plans the newest pull requests again with.
+REPLAY = (
+    "src/Core/Reach/",
+    "src/Core/Plan/",
+    "src/Core/Change/",
+    "src/Core/Proof/",
+    "src/Cli/Flow/",
+    "src/Cli/Command/PlanCommand.php",
+    "src/Adapter/Git/",
+    "src/Core/Config/Definition/ReachKeys.php",
+    "mutation-gate.json",
 )
 
 # The native runner, which drives each framework that has no runner of its own.
@@ -295,6 +312,7 @@ INPUTS: dict[str, Callable[[str], bool]] = {
     "lowest": is_program,
     "phar": is_program,
     "mutation": lambda path: is_program(path) or under(path, SHIPPED_CI),
+    "replay": lambda path: under(path, REPLAY),
 }
 
 
