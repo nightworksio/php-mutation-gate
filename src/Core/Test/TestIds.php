@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Test;
 use function array_diff_key;
 use function array_intersect_key;
 use function array_key_exists;
+use function array_key_first;
 use function array_values;
 
 use ArrayIterator;
@@ -15,6 +16,7 @@ use function count;
 
 use Countable;
 use IteratorAggregate;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use Traversable;
 
 /**
@@ -43,6 +45,22 @@ final readonly class TestIds implements Countable, IteratorAggregate
         }
 
         return new self($collected);
+    }
+
+    /**
+     * Every test of these sets, each once, in the order the sets first name them.
+     *
+     * @param iterable<self> $sets
+     */
+    public static function union(iterable $sets): self
+    {
+        $tests = [];
+
+        foreach ($sets as $set) {
+            $tests += $set->tests;
+        }
+
+        return new self($tests);
     }
 
     public function with(TestId $test): self
@@ -74,6 +92,14 @@ final readonly class TestIds implements Countable, IteratorAggregate
     public function has(TestId $test): bool
     {
         return array_key_exists($test->value(), $this->tests);
+    }
+
+    /** The first of these tests; none where there are none. */
+    public function first(): TestId|NotGiven
+    {
+        $first = array_key_first($this->tests);
+
+        return $first === null ? NotGiven::value() : $this->tests[$first];
     }
 
     public function count(): int

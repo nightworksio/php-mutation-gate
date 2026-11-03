@@ -7,8 +7,9 @@ namespace NightWorksIO\MutationGate\Adapter\Filesystem;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\NotWritten;
-use NightWorksIO\MutationGate\Core\Report\JsonReport;
+use NightWorksIO\MutationGate\Core\Report\EncodedReport;
 use NightWorksIO\MutationGate\Core\Report\Page\ReportPage;
+use NightWorksIO\MutationGate\Core\Report\ReportsTheEncoded;
 use NightWorksIO\MutationGate\Core\Report\Stryker;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
@@ -26,7 +27,7 @@ use function sprintf;
  *
  * @internal
  */
-final readonly class HtmlReportDirectory implements Configurable, Reporter
+final readonly class HtmlReportDirectory implements Configurable, Reporter, ReportsTheEncoded
 {
     public const string PAGE = 'index.html';
 
@@ -64,6 +65,11 @@ final readonly class HtmlReportDirectory implements Configurable, Reporter
 
     public function report(Verdict $verdict): Written|NotWritten
     {
+        return $this->reportFrom($verdict, EncodedReport::of($verdict));
+    }
+
+    public function reportFrom(Verdict $verdict, EncodedReport $report): Written|NotWritten
+    {
         $style = $this->page->file(self::STYLE)->read();
         $script = $this->page->file(self::SCRIPT)->read();
 
@@ -76,6 +82,6 @@ final readonly class HtmlReportDirectory implements Configurable, Reporter
 
         return $written instanceof NotWritten
             ? $written
-            : $this->path->file(self::PAGE)->write(ReportPage::html(JsonReport::of($verdict), $style, $script));
+            : $this->path->file(self::PAGE)->write(ReportPage::html($report->data(), $style, $script));
     }
 }

@@ -35,7 +35,9 @@ use NightWorksIO\MutationGate\Core\Verdict\Scoring;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
+use NightWorksIO\MutationGate\Tests\Support\Growth;
 use NightWorksIO\MutationGate\Tests\Support\Killings;
+use NightWorksIO\MutationGate\Tests\Support\ManyMutants;
 
 $makeSuites = static fn(): Closure => Killings::suites(...);
 
@@ -221,3 +223,14 @@ it('scores each suite as a pass over that suite alone would, for every fixture r
         DeclaredSuite::named('spec', Paths::none(), Paths::none(), SuiteDirectory::of(Path::of('spec'), '')),
     )],
 ]);
+
+it('scores the suites in time linear in the mutants and the tests that cover them', function () use ($summary): void {
+    $scores = static function (int $size): Closure {
+        $verdict = ManyMutants::verdict($size);
+
+        return static fn(): int => count(SuiteScores::of($verdict));
+    };
+
+    expect($summary(SuiteScores::of(ManyMutants::verdict(8))))->toBe([['unit', 8, 6, 7_500, true], ['feature', 8, 0, 0, true]])
+        ->and(Growth::of(250, $scores))->toBeLessThan(Growth::LINEAR);
+});

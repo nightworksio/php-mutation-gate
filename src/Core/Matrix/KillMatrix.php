@@ -198,6 +198,27 @@ final readonly class KillMatrix
         };
     }
 
+    /**
+     * How many of these tests that judged the mutant had each outcome with it
+     * in place, as {@see outcome()} gives each; a test that did not judge it
+     * is left out. Every judging test besides its killers has the outcome the
+     * first of them has, so each mutant's outcomes are read once.
+     */
+    public function tally(JudgedMutant|JudgedKill $judged, TestIds $tests): OutcomeTally
+    {
+        $judging = count($judged->tests()) === 0 ? $tests : $tests->among($judged->tests());
+        $killers = $judging->among($judged->mutant()->killers());
+        $others = $judging->without($killers);
+        $other = $others->first();
+        $tally = OutcomeTally::none();
+
+        foreach ($killers as $killer) {
+            $tally = $tally->with($this->outcome($judged, $killer), TestIds::of($killer));
+        }
+
+        return $other instanceof TestId ? $tally->with($this->outcome($judged, $other), $others) : $tally;
+    }
+
     /** The outcome the mutant's own record gives the test. */
     private function reported(JudgedMutant|JudgedKill $judged, TestId $test): Outcome
     {

@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Matrix;
 
 use function array_fill;
-use function array_filter;
-use function array_key_exists;
-use function array_keys;
 use function array_map;
 
 use ArrayIterator;
@@ -18,6 +15,7 @@ use Countable;
 use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Test\DeclaredSuite;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestName;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
@@ -91,12 +89,12 @@ final readonly class SuiteScores implements Countable, IteratorAggregate
     private static function tally(Verdict $verdict, array $suites): array
     {
         $matrix = $verdict->matrix();
-        $placed = self::placed($matrix, $suites);
+        $members = self::members($matrix, $suites);
         $covered = array_fill(0, count($suites), 0);
         $killed = $covered;
 
         foreach ($verdict->trees()->mutants() as $judged) {
-            foreach (self::outcomesFor($matrix, $judged, $placed) as $at => $outcome) {
+            foreach (self::outcomesFor($matrix, $judged, $members) as $at => $outcome) {
                 $covered[$at] += (int) $outcome->ran();
                 $killed[$at] += (int) ($outcome === Outcome::Killed);
             }
@@ -113,85 +111,64 @@ final readonly class SuiteScores implements Countable, IteratorAggregate
      * counts as not killed; and no entry where no test of the suite ran with
      * it, as for a mutant a static analyser killed, or the score leaves it out.
      *
-     * @param  array<string, list<int>> $placed the places of the suites each named test is in, by its id
+     * @param  list<TestIds>      $members the named tests in each suite, by its place
      * @return array<int, Outcome>
      */
-    private static function outcomesFor(KillMatrix $matrix, JudgedMutant|JudgedKill $judged, array $placed): array
+    private static function outcomesFor(KillMatrix $matrix, JudgedMutant|JudgedKill $judged, array $members): array
     {
         if ($judged->judgement()->scoring(Uncovered::Count) === Scoring::LeftOut) {
             return [];
         }
 
+        $covering = $matrix->coveredBy($judged);
         $stopped = count($judged->mutant()->killers()) > 0;
+        $outcomes = [];
 
-        return array_map(
-            static fn(array $seen): Outcome => self::together($seen, $stopped),
-            self::seenBy($matrix, $judged, $placed),
-        );
-    }
+        foreach ($members as $at => $suite) {
+            $seen = $matrix->tally($judged, $covering->among($suite));
 
-    /**
-     * The outcomes the mutant's judging tests had, by each suite's place,
-     * keyed by the outcome.
-     *
-     * @param  array<string, list<int>>                $placed
-     * @return array<int, array<string, Outcome>>
-     */
-    private static function seenBy(KillMatrix $matrix, JudgedMutant|JudgedKill $judged, array $placed): array
-    {
-        $seen = [];
-
-        foreach ($matrix->coveredBy($judged) as $test) {
-            if (! $matrix->judges($judged, $test) || ! array_key_exists($test->value(), $placed)) {
-                continue;
-            }
-
-            $outcome = $matrix->outcome($judged, $test);
-
-            foreach ($placed[$test->value()] as $at) {
-                $seen[$at][$outcome->value] = $outcome;
+            if (count($seen) > 0) {
+                $outcomes[$at] = self::together($seen, $stopped);
             }
         }
 
-        return $seen;
+        return $outcomes;
     }
 
-    /**
-     * One suite's tests' outcomes with the mutant, taken together.
-     *
-     * @param array<string, Outcome> $seen
-     */
-    private static function together(array $seen, bool $stopped): Outcome
+    /** One suite's tests' outcomes with the mutant, taken together. */
+    private static function together(OutcomeTally $seen, bool $stopped): Outcome
     {
         return match (true) {
-            array_key_exists(Outcome::Killed->value, $seen) => Outcome::Killed,
-            array_key_exists(Outcome::Unknown->value, $seen) => Outcome::Unknown,
-            array_key_exists(Outcome::Passed->value, $seen), $stopped => Outcome::Passed,
+            $seen->has(Outcome::Killed) => Outcome::Killed,
+            $seen->has(Outcome::Unknown) => Outcome::Unknown,
+            $seen->has(Outcome::Passed), $stopped => Outcome::Passed,
             default => Outcome::NotRun,
         };
     }
 
     /**
-     * The places of the suites each named test is in, by the file the runner
-     * named it in, by the test's id; none for a test the runner named no file
-     * for, and no entry for a test it named not at all.
+     * The named tests in each suite, by the file the runner named each in, by
+     * the suite's place; a test the runner named no file for is in none, and
+     * one it named not at all in none either.
      *
-     * @param  list<DeclaredSuite>      $suites
-     * @return array<string, list<int>>
+     * @param  list<DeclaredSuite> $suites
+     * @return list<TestIds>
      */
-    private static function placed(KillMatrix $matrix, array $suites): array
+    private static function members(KillMatrix $matrix, array $suites): array
     {
-        $placed = [];
-
+        $members = array_fill(0, count($suites), []);
         $names = $matrix->names();
 
         foreach ($names as $test => $row) {
             $named = $names->testOf($test);
-            $holding = static fn(DeclaredSuite $suite): bool => $named instanceof TestName
-                && $suite->holds($named->file());
-            $placed[$test->value()] = array_keys(array_filter($suites, $holding));
+
+            foreach ($suites as $at => $suite) {
+                if ($named instanceof TestName && $suite->holds($named->file())) {
+                    $members[$at][] = $test;
+                }
+            }
         }
 
-        return $placed;
+        return array_map(static fn(array $tests): TestIds => TestIds::of(...$tests), $members);
     }
 }

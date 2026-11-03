@@ -41,6 +41,7 @@ use NightWorksIO\MutationGate\Core\Pruning\PruningAccount;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Removal\Removals;
+use NightWorksIO\MutationGate\Core\Report\EncodedReport;
 use NightWorksIO\MutationGate\Core\Report\SetText;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
@@ -171,13 +172,14 @@ final readonly class Judging
             return $recorded;
         }
 
+        $report = EncodedReport::of($verdict);
         $reported = new Judged(
             $verdict,
             [
                 $recorded,
                 ...$this->kept($assessed->ledgers),
-                ...KeptReport::keep($this->adapters->project, $verdict),
-                ...Reported::by($verdict, $reporters),
+                ...KeptReport::keep($this->adapters->project, $report),
+                ...Reported::by($verdict, $report, $reporters),
             ],
             $assessed->baseline,
         );

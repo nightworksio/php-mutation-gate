@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report;
 
-use function array_key_exists;
 use function count;
 
+use Generator;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
-use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
@@ -37,21 +36,14 @@ final readonly class TestTable
     /** Every test that covers or killed these mutants, by the matrix, each once in the order they first name them. */
     public static function over(KillMatrix $matrix, JudgedMutant|JudgedKill ...$mutants): self
     {
-        $tests = [];
+        $tests = TestIds::union(self::covering($matrix, $mutants));
         $places = [];
 
-        foreach ($mutants as $judged) {
-            foreach ($matrix->coveredBy($judged) as $test) {
-                if (array_key_exists($test->value(), $places)) {
-                    continue;
-                }
-
-                $places[$test->value()] = count($places);
-                $tests[] = $test;
-            }
+        foreach ($tests as $place => $test) {
+            $places[$test->value()] = $place;
         }
 
-        return new self(TestIds::of(...$tests), $places);
+        return new self($tests, $places);
     }
 
     /** The tests, in their places. */
@@ -70,7 +62,7 @@ final readonly class TestTable
         $places = [];
 
         foreach ($tests as $test) {
-            $places[] = $this->placeOf($test);
+            $places[] = $this->places[$test->value()];
         }
 
         return $places;
@@ -86,13 +78,21 @@ final readonly class TestTable
      */
     public function placesJudging(TestIds $judging, TestIds $covering): array
     {
-        $same = $judging->without($covering)->count() === 0 && $covering->without($judging)->count() === 0;
+        $same = count($judging) === count($covering) && count($judging->without($covering)) === 0;
 
         return $same ? [] : $this->placesOf($judging->among($this->tests));
     }
 
-    private function placeOf(TestId $test): int
+    /**
+     * The tests that cover or killed each of these mutants, mutant by mutant.
+     *
+     * @param  array<JudgedMutant|JudgedKill> $mutants
+     * @return Generator<int, TestIds>
+     */
+    private static function covering(KillMatrix $matrix, array $mutants): Generator
     {
-        return $this->places[$test->value()];
+        foreach ($mutants as $judged) {
+            yield $matrix->coveredBy($judged);
+        }
     }
 }

@@ -30,5 +30,7 @@ it('places the tests that judged a mutant where they are fewer than those that c
         ->and($table->placesJudging($covering, $covering))->toBe([])
         ->and($table->placesJudging(TestIds::of(TestId::of('PriceTest::adds'), TestId::of('MoneyTest::fits')), $covering))->toBe([2, 0])
         ->and($table->placesJudging(TestIds::none(), $covering))->toBe([])
-        ->and($table->placesJudging(TestIds::of(TestId::of('ElsewhereTest::runs')), $covering))->toBe([]);
+        ->and($table->placesJudging(TestIds::of(TestId::of('ElsewhereTest::runs')), $covering))->toBe([])
+        ->and($table->placesJudging(TestIds::of(TestId::of('PriceTest::adds'), TestId::of('MoneyTest::refuses'), TestId::of('MoneyTest::fits')), $covering))->toBe([])
+        ->and($table->placesJudging(TestIds::of(TestId::of('MoneyTest::refuses'), TestId::of('ElsewhereTest::runs'), TestId::of('MoneyTest::fits')), $covering))->toBe([1, 0]);
 });
