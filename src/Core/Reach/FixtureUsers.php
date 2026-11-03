@@ -15,6 +15,7 @@ use function ltrim;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Php\Names;
 use NightWorksIO\MutationGate\Core\Php\PhpFile;
 use NightWorksIO\MutationGate\Core\Test\Role;
 
@@ -24,9 +25,10 @@ use function str_contains;
 /**
  * The tests that use a fixture project `reach.fixtures` names: every file of
  * test cases outside it with a string that names its path or a path inside
- * it, spelt from the file's own directory, a directory above it or the root;
- * the tests that use support with such a string, as {@see SupportUsers} tells
- * them; and the tests that use each other fixture one of whose files has one.
+ * it, spelt from the file's own directory, a directory above it or the root,
+ * or that names a class or function one of the project's PHP files declares;
+ * the tests that use support that does either, as {@see SupportUsers} tells
+ * them; and the tests that use each other fixture one of whose files does.
  * Support that runs code when it is loaded, or a file that is not a test,
  * naming it reaches every unit of the package, and so does a fixture project
  * no test is found to name, since a path built as a test runs is not found.
@@ -125,16 +127,32 @@ final readonly class FixtureUsers
     }
 
     /**
-     * The files outside a fixture project with a string that names it.
+     * The files outside a fixture project with a string that names it, or
+     * that name a class or function one of its PHP files declares.
      *
      * @return list<array{Path, PhpFile, Role}>
      */
     private function namers(Path $fixture): array
     {
+        $declared = $this->declaredIn($fixture);
+
         return array_values(array_filter(
             $this->files,
-            static fn(array $file): bool => ! $file[0]->within($fixture) && self::names($file[1], $file[0], $fixture),
+            static fn(array $file): bool => ! $file[0]->within($fixture)
+                && (self::names($file[1], $file[0], $fixture) || $file[1]->mentioned()->meet($declared)),
         ));
+    }
+
+    /** Every class and function the PHP files of a fixture project declare. */
+    private function declaredIn(Path $fixture): Names
+    {
+        $declared = Names::of();
+
+        foreach ($this->files as [$path, $file]) {
+            $declared = $path->within($fixture) ? $declared->merge($file->declares()) : $declared;
+        }
+
+        return $declared;
     }
 
     /** The tests a file outside every fixture project uses one through, by what it is to them. */

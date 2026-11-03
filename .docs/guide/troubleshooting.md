@@ -322,7 +322,9 @@ everything, and a kill proved at an older commit does not carry for a unit
 a time budget never started, which leaves that unit unjudged.
 
 Clone the whole history. On GitHub Actions, give `actions/checkout`
-`fetch-depth: 0`; on GitLab, set `GIT_DEPTH: 0`.
+`fetch-depth: 0`; on GitLab, set `GIT_DEPTH: 0`; on Bitbucket, set
+`clone: depth: full`; on Azure Pipelines, give the checkout `fetchDepth: 0`.
+A plan on a shallow clone names the commit it could not read in its reasons.
 
 ## warm-boot-refused
 

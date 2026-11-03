@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Doctor\Check;
 
+use NightWorksIO\MutationGate\Core\Change\WholeHistory;
 use NightWorksIO\MutationGate\Core\Doctor\Finding;
 use NightWorksIO\MutationGate\Core\Doctor\Findings;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
 use NightWorksIO\MutationGate\Core\Doctor\Severity;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
+
+use function sprintf;
 
 /**
  * A shallow clone, which holds only the newest commits: git cannot say what
@@ -25,12 +28,18 @@ final readonly class ShallowClone
         mutates everything, and no kill carries from an older commit for a unit a time budget never started.
         WHY;
 
-    private const string FIX = 'Clone the whole history, as `fetch-depth: 0` asks of `actions/checkout`.';
+    private const string FIX = 'Clone the whole history: %s.';
 
     public static function in(Observations $observed): Findings
     {
         return $observed->files()->isShallow()
-            ? Findings::of(Finding::of(Slug::ShallowClone, Severity::Slow, self::FOUND, self::WHY, self::FIX))
+            ? Findings::of(Finding::of(
+                Slug::ShallowClone,
+                Severity::Slow,
+                self::FOUND,
+                self::WHY,
+                sprintf(self::FIX, WholeHistory::settings()),
+            ))
             : Findings::none();
     }
 }

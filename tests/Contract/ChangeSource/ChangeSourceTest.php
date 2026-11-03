@@ -181,7 +181,8 @@ it('says a commit a shallow clone does not hold is past its history, and how to 
         ->and(Git::at(Scratch::directory())->isShallow())->toBeInstanceOf(CannotTell::class)
         ->and($changes instanceof CannotTell ? $changes->why() : $changes)->toBe(sprintf(
             "%s is not a revision this repository has: the clone is shallow, so it holds only the newest commits.\n"
-            . 'A clone of the whole history reads it, as `fetch-depth: 0` asks of `actions/checkout`.',
+            . 'A clone of the whole history reads it: `fetch-depth: 0` on GitHub\'s `actions/checkout`, `GIT_DEPTH: 0` on GitLab, '
+            . '`clone: depth: full` on Bitbucket, or `fetchDepth: 0` on Azure Pipelines\' checkout.',
             $first,
         ));
 })->group(...$holds);

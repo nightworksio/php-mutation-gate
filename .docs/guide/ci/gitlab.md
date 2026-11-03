@@ -55,7 +55,11 @@ mutation-comment:
 The child pipeline holds one job with `parallel: matrix` over the shards and
 a verdict that runs even after a failed shard, and the `mutation` trigger job
 takes its result. Keep `.mutation-gate/ledger` in a `cache:` keyed by branch,
-such as `key: mutation-gate-ledger-$CI_COMMIT_REF_SLUG`.
+such as `key: mutation-gate-ledger-$CI_COMMIT_REF_SLUG`, and set `GIT_DEPTH: 0`
+in the hidden job's `variables`. GitLab clones only the newest commits, and
+the plan reads what changed since the commit the default branch's ledger last
+passed at, which a shallow clone may not hold; the plan then reaches every
+unit and names that commit.
 
 That cache is safe only while the project's CI/CD setting *Use separate
 caches for protected branches* stays on, as it is by default. With it on, a
