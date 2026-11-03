@@ -48,7 +48,7 @@ final readonly class UnchangedVerdict
     /** The verdict that stands: it judges no tree, passes, and says why. */
     public static function verdictOf(Unchanged $unchanged): Verdict
     {
-        return Verdict::of(TreeVerdicts::none())->withReach(Reasons::of($unchanged->reason()));
+        return Verdict::of(TreeVerdicts::standingOn($unchanged))->withReach(Reasons::of($unchanged->reason()));
     }
 
     /** The verdict that stands for a plan, reported and recorded; or why it no longer stands, or cannot be told. */

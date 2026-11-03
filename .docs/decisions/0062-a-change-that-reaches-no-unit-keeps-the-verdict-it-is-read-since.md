@@ -58,8 +58,9 @@ give.
 2. **The plan says so, and the verdict takes the standing path.** The plan
    file records the commit under `reachedNothingSince`, beside rule 12's
    `unchangedSince`, and the reach reasons as ever. The verdict passes, says
-   that the commit's verdict stands and why, and records the commit the plan
-   was made on as passed, with the earlier commit's `ownScopeProofs` and
+   `The default branch's earlier verdict at <commit> stands.` in place of the
+   project's score and why it stands, and records the commit the plan was
+   made on as passed, with the earlier commit's `ownScopeProofs` and
    `ownScopeCoverage`. It writes no proof and no lesson, and reads no shard's
    result and no coverage map. Anything else, and the verdict judges the
    carried results as ever.
@@ -93,7 +94,8 @@ give.
   passed, spends a fetch, a plan, a short verdict and the deliveries: no
   shard, no survivors and no delivery of them.
 - Its verdict names no tree, scores nothing and leaves the `scores` output
-  empty, as rule 12's does.
+  empty, as rule 12's does: every report names the commit whose verdict
+  stands where it would say the project's score.
 - A default branch whose newest verdict failed, or whose newest run left
   results after its last passed commit, keeps every pull request on the full
   verdict until a run passes again.

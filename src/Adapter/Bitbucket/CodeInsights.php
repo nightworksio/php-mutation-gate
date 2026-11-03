@@ -154,7 +154,7 @@ final readonly class CodeInsights implements Reporter
         ];
         return Json::object(
             Member::of('title', ThisPackage::NAME),
-            Member::of('details', SetText::project($score)),
+            Member::of('details', SetText::project($score, $verdict->trees()->standing())),
             Member::of('report_type', 'BUG'),
             Member::of('reporter', ThisPackage::NAME),
             Member::of('link', $run->url()),

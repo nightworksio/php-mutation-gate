@@ -9,6 +9,7 @@ use function array_map;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Plan\Unchanged;
 use NightWorksIO\MutationGate\Core\Sample\Estimate;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
@@ -129,12 +130,14 @@ final readonly class SetText
             : '';
     }
 
-    /** What the whole project scored, or that it has nothing to mutate. */
-    public static function project(Score|NothingToMutate $score): string
+    /** What the whole project scored, that it has nothing to mutate, or whose earlier verdict stands in its place. */
+    public static function project(Score|NothingToMutate $score, Unchanged|NotGiven $standing): string
     {
-        return $score instanceof Score
-            ? sprintf('The project scores %s.', Percent::of($score))
-            : 'The project has nothing to mutate.';
+        return match (true) {
+            $standing instanceof Unchanged => Fit::plain($standing->headline()),
+            $score instanceof Score => sprintf('The project scores %s.', Percent::of($score)),
+            default => 'The project has nothing to mutate.',
+        };
     }
 
     public static function newCode(NewCodeVerdict $set): string

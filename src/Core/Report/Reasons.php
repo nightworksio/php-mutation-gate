@@ -42,7 +42,7 @@ final readonly class Reasons
 
         $why = $verdict->wasCutShort() ? [...$why, SetText::CUT_SHORT] : $why;
 
-        return [...$why, SetText::project(Overview::of($verdict)->score())];
+        return [...$why, SetText::project(Overview::of($verdict)->score(), $verdict->trees()->standing())];
     }
 
     /**

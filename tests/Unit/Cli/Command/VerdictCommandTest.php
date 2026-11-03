@@ -354,6 +354,8 @@ it('plans nothing and passes, recording the commit, where only files that do not
         ->and($verdict->code)->toBe(0)
         ->and($verdict->output)->toStartWith("Wrote memory:refs/heads/main.\nmutation-gate: passed\n")
         ->and($verdict->output)->toContain($reason)
+        ->and($verdict->output)->toContain(sprintf("The earlier verdict at %s stands.\n", $base))
+        ->and($verdict->output)->not->toContain('The project has nothing to mutate.')
         ->and($again instanceof Verdict ? [$again->judgement(), count($again->trees())] : $again)->toBe([Judgement::Passed, 0])
         ->and(LedgerRead::ledger($proofs->read(Scope::branch('main')))->runs()->passed())
         ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW))));
@@ -392,6 +394,8 @@ it('stands on the verdict the default branch passed where a pull request reaches
         ->and($stands instanceof Unchanged ? [$stands->because(), $stands->base()->commit()->name()] : $stands)->toBe([StandsBecause::NothingReached, $base])
         ->and($verdict->code)->toBe(0)
         ->and($verdict->output)->toContain(sprintf('The change since %s, whose verdict passed at %s, reaches no unit, so its verdict stands.', $base, Instant::at(new DateTimeImmutable(Configs::NOW))->value()))
+        ->and($verdict->output)->toContain(sprintf("The default branch's earlier verdict at %s stands.\n", $base))
+        ->and($verdict->output)->not->toContain('The project has nothing to mutate.')
         ->and(LedgerRead::ledger($proofs->read(Scope::pullRequest(516)))->runs()->passed())
         ->toEqual(Passed::of(Revision::ref($merge), 'mutation / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW))));
 });
