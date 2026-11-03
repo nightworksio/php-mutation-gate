@@ -91,11 +91,12 @@ final readonly class WorkflowJobs
      */
     private static function gateJobs(array $lines, int $start): array|NotGiven
     {
-        $end = self::endOf($lines, $start + 1);
-        $jobs = self::jobsIn(array_slice($lines, $start + 1, $end - $start - 1));
+        $after = array_slice($lines, $start + 1);
+        $length = self::lengthOf($after);
+        $jobs = self::jobsIn(array_slice($after, 0, $length));
         $gate = $jobs instanceof NotGiven ? [] : array_values(array_filter($jobs, self::runsTheGate(...)));
 
-        return $gate === [] ? NotGiven::value() : [$start, $end, $gate];
+        return $gate === [] ? NotGiven::value() : [$start, $start + 1 + $length, $gate];
     }
 
     /**
@@ -135,21 +136,20 @@ final readonly class WorkflowJobs
     }
 
     /**
-     * Where the jobs end: the next top-level key, or the end of the workflow.
+     * How many of the lines after `jobs` are the jobs': those up to the next
+     * top-level key, or to the end of the workflow.
      *
-     * @param list<string> $lines
+     * @param list<string> $after
      */
-    private static function endOf(array $lines, int $from): int
+    private static function lengthOf(array $after): int
     {
-        $count = count($lines);
-
-        for ($at = $from; $at < $count; ++$at) {
-            if (preg_match(self::TOP, $lines[$at]) === 1) {
+        foreach ($after as $at => $line) {
+            if (preg_match(self::TOP, $line) === 1) {
                 return $at;
             }
         }
 
-        return count($lines);
+        return count($after);
     }
 
     /**

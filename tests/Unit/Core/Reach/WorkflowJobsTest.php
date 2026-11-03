@@ -82,6 +82,11 @@ it('keeps a gate job\'s keys besides its own name, if and needs, and a step\'s o
         ->toBe("on: push\njobs:\n  gate:\n    timeout-minutes: 30\n    steps:\n      - name: the gate\n        if: always()\n        run: vendor/bin/mutation-gate\n");
 });
 
+it('keeps a blank line a workflow opens with', function (): void {
+    expect(WorkflowJobs::running("\non: push\njobs:\n  gate:\n    steps:\n      - run: vendor/bin/mutation-gate\n"))
+        ->toBe("\non: push\njobs:\n  gate:\n    steps:\n      - run: vendor/bin/mutation-gate\n");
+});
+
 it('reads each GitHub workflow init writes by the job that runs the gate', function (string $template): void {
     expect(WorkflowJobs::running((string) file_get_contents(Tree::at(sprintf('resources/ci/github/%s.yml', $template)))))->toBeString();
 })->with(['single', 'sharded']);
