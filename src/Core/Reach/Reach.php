@@ -11,6 +11,8 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 
+use function sprintf;
+
 /**
  * What a change reaches, with a sentence for every decision: every unit, the
  * whole of some packages, some files, some trees, or nothing. It also holds
@@ -112,6 +114,29 @@ final readonly class Reach
             $this->trees,
             $this->lines,
             $this->reasons->with($reason),
+        );
+    }
+
+    /**
+     * This reach, and what another reaches, with each of its reasons after
+     * this one's, said as this format says it; the changed lines this one's.
+     */
+    public function and(self $other, string $saying): self
+    {
+        $reasons = $this->reasons;
+
+        foreach ($other->reasons as $reason) {
+            $reasons = $reasons->with(Reason::that(sprintf($saying, $reason->text())));
+        }
+
+        return new self(
+            $this->packages,
+            $this->everywhere || $other->everywhere,
+            Paths::of(...$this->wholly, ...$other->wholly),
+            $this->files->and($other->files->paths()),
+            $this->trees->and($other->trees->paths()),
+            $this->lines,
+            $reasons,
         );
     }
 

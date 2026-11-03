@@ -103,9 +103,20 @@ final readonly class Mode
 
         return match (true) {
             ! $base instanceof Revision => $base,
-            $exact => ChangeBase::lastRun($lastRun->judged(), $base),
-            default => ChangeBase::since($base),
+            $exact => $this->sinceLedger(ChangeBase::lastRun($lastRun->judged(), $base), $ledgers),
+            default => $this->sinceLedger(ChangeBase::since($base), $ledgers),
         };
+    }
+
+    /**
+     * Off the default branch, this base with the commit the default branch's
+     * ledger last passed at, whose results the run carries (ADR-0060).
+     */
+    private function sinceLedger(ChangeBase $base, Ledgers $ledgers): ChangeBase
+    {
+        $passed = $ledgers->defaultBranch()->runs()->passed();
+
+        return $ledgers->readsOwnScope() && $passed instanceof Passed ? $base->withLedgerAt($passed->commit()) : $base;
     }
 
     /**
