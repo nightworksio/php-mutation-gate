@@ -294,6 +294,7 @@ READERS = {
     "warm": own("warm"),
     "hooks": own("hooks"),
     "alone": own("alone"),
+    "replay": own("replay"),
 }
 
 
