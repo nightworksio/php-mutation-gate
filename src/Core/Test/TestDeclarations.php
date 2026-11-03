@@ -41,7 +41,7 @@ final readonly class TestDeclarations
     private const string ANNOTATED = '@depends';
 
     /**
-     * @param array<string, Declared> $declared each test declared once, by its method, in the order they stand
+     * @param array<string, Declared> $declared each test declared once, by its method
      * @param list<Declared>          $imports  each import the file declares at its top, by its spelling
      */
     private function __construct(
@@ -56,7 +56,6 @@ final readonly class TestDeclarations
     {
         $tokens = Tokens::in($file);
         $all = [...MethodDeclarations::in($tokens), ...PestDeclarations::in($tokens)];
-        usort($all, static fn(Declared $one, Declared $other): int => $one->from() <=> $other->from());
         $declared = [];
         $twice = [];
 
