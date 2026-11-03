@@ -35,8 +35,8 @@ give.
 1. **A plan that runs no unit stands on the verdict of the commit its change
    is read since, where all of these hold:**
    - the run is a standard one (no `--security`, no `--suite`, first
-     killers), reading its change since a ref, and takes no result of its
-     own scope;
+     killers), reading its change since a ref, takes no result of its own
+     scope, and has a config that reads no file it cannot name;
    - the default branch's ledger records that commit as passed, under the
      run's own `ci.check`, with when it passed, and holds no result a run
      left after then, so every result it holds is one that verdict judged;
@@ -44,7 +44,12 @@ give.
      base with HEAD, so the change is read since that commit, not since a
      commit it does not descend from;
    - no path that change touched, as it is and, for a rename, as it was, is in
-     a tree, so no unit came or went, and none is the baseline;
+     a tree, so no unit came or went, is the baseline, or holds the config:
+     a file by any name the gate finds its config by, the file the run names,
+     or a file the config reads beside itself. A change to the config that
+     moves only what judges, such as a tree's floor, an ignore or the floor
+     for new code, reaches no unit (ADR-0005, rule 1), and still moves the
+     verdict;
    - no ignore that applied when that commit passed has expired since, judged
      on the days of the clock that reads now; the verdict checks this again;
    - for a pull request or a merge group, the baseline does not require each
@@ -77,6 +82,7 @@ give.
 |---|---|
 | **Judge the carried results without the coverage map** | Reporting, not judging, takes the verdict's time, and a verdict without the map loses its suite scores and weak-test findings. |
 | **Stand wherever the change reaches nothing** | A result a later failing run left, a removed unit, a changed baseline or an expired ignore each moves the verdict without reaching a unit. Each is checked. |
+| **Compare the settings that only judge, at the commit that passed and now** | Reading and comparing every floor, ignore and baseline setting at two commits adds a second reading of the config to every plan that cuts no shard, for a change that is rare in one that reaches no unit. Refusing any change to the config is never wrong. |
 | **Stand on any passed commit the change descends from** | The default branch's commits between it and the commit the change is read since were never reached by this change, so a config or lock they moved would go unread. |
 | **Copy the default branch's results into the pull request's ledger** | The pull request's runs read the default branch's ledger already, and the copy would grow every pull request's ledger by the whole project's results. |
 | **Report the default branch's scores** | The ledger holds results, not scores, and judging them to report the scores is the cost this removes. |

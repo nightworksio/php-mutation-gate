@@ -4,12 +4,18 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function array_map;
 use function count;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\Config\Improvement;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\File\Glob;
+use NightWorksIO\MutationGate\Core\File\Globs;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Plan\ReachingNothing;
@@ -26,8 +32,8 @@ use function sprintf;
  * The verdict that stands for a plan that runs no unit, where the commit its
  * change is read since passed on the default branch ({@see ReachingNothing}):
  * only for a standard run that reads its change since a ref, takes no result
- * of its own scope, and, in a pull request or merge group, is not held to
- * commit each raise with it.
+ * of its own scope, has a config that reads no file it cannot name, and, in a
+ * pull request or merge group, is not held to commit each raise with it.
  *
  * @internal
  */
@@ -77,11 +83,13 @@ final readonly class NothingReached
         int $ownScopeProofs,
     ): Unchanged|Reason {
         $proposed = $inventory->standing->runOn()->isProposed();
+        $unnamed = $this->adapters->configReads->unnamedBecause();
 
         return match (true) {
             ! $base instanceof ChangeBase => Reason::that($base->why()),
             ! $kind->equals(RunProfile::standard()) => Reason::that(self::NOT_STANDARD),
             $ownScopeProofs > 0 => Reason::that(sprintf(self::OWN_SCOPE, $ownScopeProofs)),
+            is_string($unnamed) => Reason::that($unnamed),
             $proposed && $this->settings->floors()->improvement() === Improvement::Require
                 => Reason::that(self::RAISES),
             default => $this->standing($inventory->trees, $ledgers, $base),
@@ -93,7 +101,12 @@ final readonly class NothingReached
         $default = $ledgers->defaultBranch();
         $passed = $default->runs()->passed();
 
-        return ReachingNothing::within($trees, $this->settings->floors()->baseline(), $this->settings->ci()->check())
+        return ReachingNothing::within(
+            $trees,
+            $this->settings->floors()->baseline(),
+            $this->configFiles(),
+            $this->settings->ci()->check(),
+        )
             ->stands(
                 $passed,
                 $default->proofs(),
@@ -103,5 +116,19 @@ final readonly class NothingReached
                 $this->settings->ignores()->entries(),
                 $this->setup->clock->now(),
             );
+    }
+
+    /** The files the config is in: each name the gate finds one by, the file the run names, and each it reads. */
+    private function configFiles(): Globs
+    {
+        $files = Globs::of(...array_map(Glob::of(...), Format::fileNames()));
+
+        foreach ($this->adapters->configReads->files() as $read) {
+            $files = $files->with(Glob::of($read->value()));
+        }
+
+        $named = $this->setup->configFile;
+
+        return $named instanceof Path ? $files->with(Glob::of($named->value())) : $files;
     }
 }

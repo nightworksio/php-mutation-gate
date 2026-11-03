@@ -2,8 +2,15 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Cli\CommandLine;
+use NightWorksIO\MutationGate\Cli\Config\Detected;
+use NightWorksIO\MutationGate\Cli\Config\Effective;
+use NightWorksIO\MutationGate\Cli\Config\Registered;
+use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
 use NightWorksIO\MutationGate\Cli\Flow\Mode;
 use NightWorksIO\MutationGate\Cli\Flow\Planning;
+use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Baseline;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -12,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
+use NightWorksIO\MutationGate\Core\Config\ConfigReads;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -37,15 +45,18 @@ use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\ScopeRuns;
 use NightWorksIO\MutationGate\Core\Proof\Undigested;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
+use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
+use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\JudgedCommits;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
@@ -77,7 +88,8 @@ $pullRequest516 = static fn(): Changes => Changes::of(
  * code from this instant, of a run of this kind, keyed as the plan keys it
  * where asked, and records the base as passed, and the pull request's own
  * ledger holds a newer result of the money file, or a last run, where asked;
- * with this port in place of its fake.
+ * with this port in place of its fake, and the config file changed from the
+ * one it held before to the one it holds now, where given, at its path.
  */
 $plan = static function (
     Changes $changes,
@@ -87,10 +99,21 @@ $plan = static function (
     bool $keyed = false,
     string $own = '',
     RunProfile|NotGiven $profile = new NotGiven(),
-    Narrowing|CiPlanFake|NotGiven $port = new NotGiven(),
+    Narrowing|CiPlanFake|ConfigReads|NotGiven $port = new NotGiven(),
+    string $configBefore = '',
+    string $configNow = '',
+    string $configFile = 'mutation-gate.json',
 ): Plan|CannotJudge {
     $project = Flows::project();
-    $planOf = static fn(Mode $mode, object ...$with): Plan|CannotJudge => Planned::from(new Planning(Flows::adapters($project, [], ...$with), $settings, Flows::setup())
+    $now = [...Flows::FILES, ...($configNow === '' ? [] : [$configFile => $configNow])];
+    $before = [...Flows::FILES, ...($configBefore === '' ? [] : [$configFile => $configBefore])];
+    $setup = $configNow === '' ? Flows::setup() : reachedNothingReading($project, $configFile);
+
+    foreach ($now as $path => $contents) {
+        Scratch::write($project, $path, $contents);
+    }
+
+    $planOf = static fn(Mode $mode, object ...$with): Plan|CannotJudge => Planned::from(new Planning(Flows::adapters($project, [], ...$with), $settings, $setup)
         ->plan($mode, CoverageRun::of(WholeSuite::tests(), Workspace::coverage()), Cut::bySize(600, Seconds::minutes(1), 20), MatrixKind::FirstKiller));
     $full = $planOf(Mode::full());
     $digests = $full instanceof Plan ? $full->digests() : Undigested::proof();
@@ -121,13 +144,39 @@ $plan = static function (
     $checkout = new ChangeSourceFake(
         Revision::ref(REACHED_NOTHING_BASE),
         $changes,
-        [Revision::workingTree()->name() => Flows::FILES, REACHED_NOTHING_BASE => Flows::FILES, Flows::MAIN => Flows::FILES, 'last-run' => Flows::FILES],
+        [Revision::workingTree()->name() => $now, REACHED_NOTHING_BASE => $before, Flows::MAIN => $before, 'last-run' => $before],
     )->changedFrom(Revision::ref('last-run'), Changes::none())->alsoFrom(Revision::ref(Flows::MAIN));
     $ci = new CiPlanFake(RunOn::pullRequest(PullRequestNumber::of(516), Scope::branch('main'), Scope::branch('main')))
         ->runBy(Paths::of(Path::of('.github/workflows/ci.yml'), Path::of('.github/workflows/mutation-gate.yml')));
 
     return $planOf($mode instanceof Mode ? $mode : Mode::since(REACHED_NOTHING_BASE), ...[...$port instanceof NotGiven ? [] : [$port], $store, $checkout, $ci]);
 };
+
+/** The flows' setup, where the run reads the config file at this path in the project, as the command line reads it. */
+function reachedNothingReading(string $project, string $file): Setup
+{
+    $setup = Flows::setup();
+
+    return new Setup(
+        Path::of($file),
+        $setup->gate,
+        $setup->installed,
+        $setup->clock,
+        $setup->memory,
+        DecidingConfig::read(
+            new Effective(
+                $project,
+                Registered::config(Extensions::of(Origin::of('nightworksio/mutation-gate')), static fn(): bool => true),
+                new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project))),
+                new DateTimeImmutable(Configs::NOW),
+            ),
+            CommandLine::nothing(),
+            $project,
+            Path::of($file),
+        ),
+        $setup->command,
+    );
+}
 
 $reporting = static fn(): Settings => Flows::settings(Baseline::reportingImprovement());
 
@@ -196,3 +245,46 @@ it('stands on a push to the default branch that reaches no unit, which commits n
 
     expect($made instanceof Plan ? [count($made), $made->briefing()->unchanged() instanceof Unchanged] : $made)->toBe([0, true]);
 });
+
+it('judges what it carries where the config moved only what judges, which reaches no unit but moves the verdict', function (string $before, string $now, string $file) use ($plan, $reporting): void {
+    $made = $plan(
+        Changes::of(Change::modified(Path::of($file), Lines::of(Line::of(1)))),
+        $reporting(),
+        configBefore: $before,
+        configNow: $now,
+        configFile: $file,
+    );
+
+    expect($made instanceof Plan ? [count($made), $made->briefing()->unchanged()] : $made)->toEqual([0, NotGiven::value()]);
+})->with([
+    'a raised tree floor' => ['{"runner": "fake", "trees": [{"path": "src", "floor": 80}]}', '{"runner": "fake", "trees": [{"path": "src", "floor": 90}]}', 'mutation-gate.json'],
+    'a removed ignore' => [
+        '{"runner": "fake", "ignores": {"entries": [{"mutant": "3f9a1c2b7d04", "reason": "Both branches build the same list", "expires": "2027-03-31"}]}}',
+        '{"runner": "fake"}',
+        'mutation-gate.json',
+    ],
+    'a tightened new-code floor' => ['{"runner": "fake", "newCode": {"floor": 80}}', '{"runner": "fake", "newCode": {"floor": 100}}', 'mutation-gate.json'],
+    'a raised floor in a config the run names elsewhere' => ['{"runner": "fake", "trees": [{"path": "src", "floor": 80}]}', '{"runner": "fake", "trees": [{"path": "src", "floor": 90}]}', 'ci/gate.json'],
+]);
+
+it('judges what it proves where the config reads a file it cannot name, which every change reaches', function () use ($plan, $pullRequest516, $reporting): void {
+    $made = $plan($pullRequest516(), $reporting(), keyed: true, port: ConfigReads::unnamed('The config reads a path it builds at run time.'));
+
+    expect($made instanceof Plan ? [count($made), count($made->considered()->proved()), $made->briefing()->unchanged()] : $made)
+        ->toEqual([0, 2, NotGiven::value()]);
+});
+
+it('judges what it proves where the config, found by its name or read beside it, changed', function (string $changed, ConfigReads $reads) use ($plan, $reporting): void {
+    $made = $plan(
+        Changes::of(Change::modified(Path::of($changed), Lines::of(Line::of(1)))),
+        $reporting(),
+        keyed: true,
+        port: $reads,
+    );
+
+    expect($made instanceof Plan ? [count($made), count($made->considered()->proved()), $made->briefing()->unchanged()] : $made)
+        ->toEqual([0, 2, NotGiven::value()]);
+})->with([
+    'the config the gate finds by its name' => ['mutation-gate.json', fn(): ConfigReads => ConfigReads::none()],
+    'a file the config reads beside itself' => ['mutation-gate/floors.json', fn(): ConfigReads => ConfigReads::named(Path::of('mutation-gate/floors.json'))],
+]);

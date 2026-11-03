@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Config\IgnoredPattern;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Glob;
+use NightWorksIO\MutationGate\Core\File\Globs;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
@@ -39,6 +40,7 @@ const REACHING_NOTHING_PASSED_AT = '2026-11-02T12:43:14Z';
 $reaching = static fn(): ReachingNothing => ReachingNothing::within(
     Trees::of(Tree::at(Path::of('src'), Undeclared::floor(), Package::at(Path::root()))),
     Path::of('mutation-gate.baseline.json'),
+    Globs::of(Glob::of('mutation-gate.json'), Glob::of('mutation-gate/extra.json')),
     REACHING_NOTHING_CHECK,
 );
 
@@ -124,6 +126,8 @@ it('judges what it carries where the change touches a tree, as a path is or as i
     'a unit renamed away' => [fn(): Change => Change::renamed(Path::of('src/Money.php'), Path::of('lib/Money.php'), Lines::none()), 'src/Money.php is in the tree src.'],
     'a file renamed in' => [fn(): Change => Change::renamed(Path::of('lib/Money.php'), Path::of('src/Money.php'), Lines::none()), 'src/Money.php is in the tree src.'],
     'the baseline' => [fn(): Change => Change::modified(Path::of('mutation-gate.baseline.json'), Lines::none()), 'mutation-gate.baseline.json is the baseline.'],
+    'the config' => [fn(): Change => Change::modified(Path::of('mutation-gate.json'), Lines::none()), 'mutation-gate.json decides how the gate runs.'],
+    'a file the config reads' => [fn(): Change => Change::deleted(Path::of('mutation-gate/extra.json')), 'mutation-gate/extra.json decides how the gate runs.'],
 ]);
 
 it('judges what it carries where an ignore that applied when the commit passed has expired since, and stands under one that lasts', function (string $until, string $said) use ($reaching, $passed, $proofsAt, $modified, $now, $why): void {

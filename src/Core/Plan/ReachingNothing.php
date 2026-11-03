@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Ignored;
 use NightWorksIO\MutationGate\Core\Config\Listed;
+use NightWorksIO\MutationGate\Core\File\Globs;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
@@ -34,8 +35,9 @@ use function sprintf;
  * as passed, under the run's own check and at an instant, and holds no result
  * a later run left; what changed from it is what changed since its merge base
  * with HEAD; no path that change touched, as it is and as it was, is in a
- * tree or is the baseline; and no ignore that applied when it passed has
- * expired since. Anything else, and the verdict judges the carried results.
+ * tree, is the baseline or holds the config, whose floors and ignores no
+ * reach rule counts; and no ignore that applied when it passed has expired
+ * since. Anything else, and the verdict judges the carried results.
  *
  * @internal
  */
@@ -52,14 +54,21 @@ final readonly class ReachingNothing
 
     private const string IN_A_TREE = '%s is in the tree %s.';
 
-    private function __construct(private Trees $trees, private Path $baseline, private string $check)
-    {
+    private function __construct(
+        private Trees $trees,
+        private Path $baseline,
+        private Globs $config,
+        private string $check,
+    ) {
     }
 
-    /** Judged against these trees, with the baseline at this path, for a run reporting under this check. */
-    public static function within(Trees $trees, Path $baseline, string $check): self
+    /**
+     * Judged against these trees, with the baseline at this path and the
+     * config in these files, for a run reporting under this check.
+     */
+    public static function within(Trees $trees, Path $baseline, Globs $config, string $check): self
     {
-        return new self($trees, $baseline, $check);
+        return new self($trees, $baseline, $config, $check);
     }
 
     /**
@@ -165,7 +174,7 @@ final readonly class ReachingNothing
         return NotGiven::value();
     }
 
-    /** Why a path counts in the verdict: it is in a tree, or is the baseline; none where it does neither. */
+    /** Why a path counts in the verdict: it is in a tree, the baseline or the config; none where it is none. */
     private function counted(Path $path): Reason|NotGiven
     {
         $tree = $this->trees->holding($path);
@@ -173,6 +182,7 @@ final readonly class ReachingNothing
         return match (true) {
             $tree instanceof Tree => Reason::that(sprintf(self::IN_A_TREE, $path->value(), $tree->path()->value())),
             $path->equals($this->baseline) => Reason::that(sprintf(Unchanging::BASELINE, $path->value())),
+            $this->config->matches($path) => Reason::that(sprintf(Unchanging::DECIDES, $path->value())),
             default => NotGiven::value(),
         };
     }
