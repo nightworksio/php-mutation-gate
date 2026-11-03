@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\Delivery\DeliveryFile;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanFile;
+use NightWorksIO\MutationGate\Core\Proof\Unreadable;
+use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Port\CiPlan;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
@@ -85,6 +87,25 @@ it('leaves standard output to the plan a CI reads from it, and says what it wrot
     'circleci' => [fn(): CircleCiPlan => CircleCiPlan::in(Variables::of([]))],
     'buildkite' => [fn(): BuildkitePlan => BuildkitePlan::of(BuildkiteStep::none(), Variables::of([]))],
 ]);
+
+it('says which ledger the store could not read before the lines of the plan made without it', function (): void {
+    $unread = Unreadable::because(UnreadReason::Malformed, 's3://ledgers/refs/heads/main/ledger.json.gz', 'The ledger is of a format this gate does not read.');
+    $planned = FlowCommands::run(
+        PlanCommand::command(FlowCommands::composition(
+            FlowCommands::project(),
+            ScriptedRunner::fixture(),
+            ProofStoreFake::unreadable($unread),
+            Flows::ci(),
+        )),
+        '--shards=2',
+    );
+
+    expect($planned->code)->toBe(0)
+        ->and($planned->errors)->toStartWith(sprintf(
+            "%s\nCoverage: there is no kept map, so every test was measured.\nWrote .mutation-gate/plan.json, with 2 shards.\n",
+            $unread->why(),
+        ));
+});
 
 it('cuts shards by the config\'s size where no count is asked for', function () use ($plan): void {
     $planned = $plan(FlowCommands::project(), '', ScriptedRunner::fixture(), Flows::ci());

@@ -155,6 +155,7 @@ final readonly class Planning
 
         return $planned instanceof Plan
             ? PlanMade::of($planned->briefed($this->adapters->briefing($briefing)), $measured->said())
+                ->without($ledgers->unread())
             : $planned;
     }
 

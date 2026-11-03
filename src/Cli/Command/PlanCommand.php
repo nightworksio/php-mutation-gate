@@ -117,6 +117,11 @@ final readonly class PlanCommand
         }
 
         $aside = Aside::of($output);
+
+        foreach ($made->unread() as $warning) {
+            $aside->writeln($warning->text(), OutputInterface::OUTPUT_RAW);
+        }
+
         self::saidHowMeasured($made, $aside);
         $aside->writeln(sprintf('Wrote %s, with %d shards.', Workspace::plan()->value(), count($plan)));
         self::estimated($composed, $plan, $aside);
