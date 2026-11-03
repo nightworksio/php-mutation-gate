@@ -290,6 +290,34 @@ it('reaches everything where a lock was added, whatever it pins', function (): v
     expect($reached->reach()->isEverywhere())->toBeTrue();
 });
 
+it('reaches nothing where the workflow that runs the gate changed only jobs that do not run it, and everything where its gate job changed how it runs', function (string $change, string $edit, bool $everywhere) use ($makeMoney): void {
+    $money = $makeMoney();
+    $read = static fn(string $end): string => (string) file_get_contents(Tree::at(sprintf('tests/Fixtures/Workflows/%s.%s.yml', $change, $end)));
+    $after = $edit === '' ? $read('after') : str_replace('coverage: mutation-gate-map', $edit, $read('after'));
+
+    $reached = reachedSince(
+        Changes::of(Change::modified(Path::of('.github/workflows/gate.yml'), Lines::of(Line::of(40)))),
+        ['.github/workflows/gate.yml' => $after],
+        ['.github/workflows/gate.yml' => $read('before')],
+    );
+
+    $reason = Reason::that(sprintf(
+        $everywhere
+            ? '`%s` decides how the gate runs, so every unit is reached.'
+            : '`%s` changed only comment lines or jobs that do not run the gate, so it reaches nothing.',
+        '.github/workflows/gate.yml',
+    ));
+
+    expect($reached->reach()->isEverywhere())->toBe($everywhere)
+        ->and($reached->reach()->reaches($money))->toBe($everywhere)
+        ->and($reached->reach()->reasons())->toEqual(Reasons::of($everywhere ? $reason->widening() : $reason));
+})->with([
+    'every gated job\'s if:, the gate job\'s among them (#524)' => ['gated-jobs-by-output', '', false],
+    'a site job added, and the needs of another (#490)' => ['a-site-job', '', false],
+    'a check of the action\'s own copy (#489)' => ['an-own-copy-check', '', false],
+    'the map the gate job hands the gate' => ['gated-jobs-by-output', 'coverage: another-map', true],
+]);
+
 it('reaches everything where the commit a workflow pins an action at moved', function () use ($makeMoney): void {
     $money = $makeMoney();
 

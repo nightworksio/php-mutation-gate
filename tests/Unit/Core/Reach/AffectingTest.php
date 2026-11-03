@@ -101,7 +101,7 @@ it('lists no test for the gate\'s config where its change moved no setting that 
     ]);
 });
 
-it('lists every test for a CI definition that runs the gate, its pins among it, and none where it changed only its comment lines', function (): void {
+it('lists every test for a CI definition that runs the gate, its pins among it, and none where it changed only comment lines', function (): void {
     $before = "steps:\n  - uses: nightworksio/php-mutation-gate@0123456789abcdef0123456789abcdef01234567 # v1\n";
     $pinned = "steps:\n  - uses: nightworksio/php-mutation-gate@89abcdef0123456789abcdef0123456789abcdef # v1\n";
     $moved = "steps:\n  - uses: nightworksio/php-mutation-gate@0123456789abcdef0123456789abcdef01234567 # v1\n    with:\n      shards: 2\n";
@@ -116,7 +116,7 @@ it('lists every test for a CI definition that runs the gate, its pins among it, 
 
     expect([$explained->listsNone(), Affected::texts($explained->nothingBecause())])->toBe([
         true,
-        ['`.github/workflows/gate.yml` changed only its comment lines, so it lists no test.'],
+        ['`.github/workflows/gate.yml` changed only comment lines or jobs that do not run the gate, so it lists no test.'],
     ])->and($repinned->isEvery())->toBeTrue()
         ->and($edited->isEvery())->toBeTrue();
 });

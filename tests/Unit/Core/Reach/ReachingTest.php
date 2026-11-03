@@ -141,7 +141,7 @@ it('reaches nothing where a CI definition changed only what does not decide how 
 
     expect($reach->isEverywhere())->toBeFalse()
         ->and($reach->reaches(Unit::file(Path::of('src/Money.php'))))->toBeFalse()
-        ->and($said($reach))->toBe(['`.github/workflows/gate.yml` changed only its comment lines, so it reaches nothing.']);
+        ->and($said($reach))->toBe(['`.github/workflows/gate.yml` changed only comment lines or jobs that do not run the gate, so it reaches nothing.']);
 })->with([
     'its comment lines' => [
         "# Runs the gate.\nsteps:\n  - run: composer test\n",
