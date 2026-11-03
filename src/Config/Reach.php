@@ -9,7 +9,7 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 
 /**
  * What decides what a change reaches (ADR-0005): `packages`, `reach.everything`, `reach.lockPackages`,
- * `reach.changedTests`, `holds.hotPath`, `run.full`.
+ * `reach.changedTests`, `reach.fixtures`, `holds.hotPath`, `run.full`.
  */
 final readonly class Reach implements Setting
 {
@@ -51,6 +51,15 @@ final readonly class Reach implements Setting
     public static function wholeChangedTestFiles(): self
     {
         return new self(Json::at('reach.changedTests', ChangedTests::File->value));
+    }
+
+    /**
+     * `reach.fixtures`: the globs of the fixture projects, the directories whose files reach only the tests that name
+     * their path (ADR-0064).
+     */
+    public static function fixtures(string ...$globs): self
+    {
+        return new self(Json::at('reach.fixtures', Json::items(...$globs)));
     }
 
     /** `holds.hotPath`: the share of the suite past which code nothing holds is warned about. */

@@ -35,7 +35,10 @@ use function sprintf;
  * 2. a changed source file in a tree reaches its unit;
  * 3. a changed test file reaches every unit its changed tests run, by the
  *    coverage map, or every unit its tests run (TestReach);
- * 4. changed test support reaches what the tests that use it run;
+ * 4. changed test support reaches what the tests that use it run, and a
+ *    changed file of a fixture project what the tests that name its path
+ *    run; a file moved into or out of a fixture reaches that as well as
+ *    what the other rules say of it where it is outside one;
  * 5. anything else reaches nothing by itself.
  *
  * Where version control cannot tell what changed, everything is reached.
@@ -106,7 +109,7 @@ final readonly class Reaching
             ),
             $deciding instanceof Path => $this->decided($reach, $deciding, $packages->holding($deciding), $packages),
             $definition instanceof Path => $this->definitionChanged($reach, $change, $definition, $sources),
-            $this->isSource($path) => $this->sourceChanged($reach, $change),
+            $this->isSource($path) => $this->sourceChanged($tests->inFixtures($reach, $change), $change),
             default => $tests->reach($reach, $change),
         };
     }

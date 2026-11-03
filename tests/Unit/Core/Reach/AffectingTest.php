@@ -322,3 +322,59 @@ it('reaches the tests that run the body a method\'s parameter default is read fo
         ['`src/Money.php` declares constant App\\Money::RATE, read on line 8 of `src/Price.php`, which these tests run.'],
     ])->and($affected->isEvery())->toBeFalse();
 });
+
+it('lists for a changed file of a fixture project the tests that name its path, whatever the file is', function (Change $change): void {
+    $affected = Affected::withFixtures(Changes::of($change), [
+        'tests/fixtures/rates/rates.php' => "<?php\n\nreturn ['EUR' => 2];\n",
+        'tests/RatesFileTest.php' => "<?php\n\nit('reads', fn () => require 'tests/fixtures/rates/rates.php');\n",
+    ]);
+
+    expect(Affected::listed($affected))->toBe([[
+        'tests/RatesFileTest.php',
+        [],
+        [sprintf('`%s` is in the fixture `tests/fixtures/rates`, which these tests use.', $change->path()->value())],
+    ]])->and($affected->isEvery())->toBeFalse();
+})->with([
+    'PHP that runs when it is loaded' => [fn(): Change => Change::modified(Path::of('tests/fixtures/rates/rates.php'), Lines::none())],
+    'a file no other rule places' => [fn(): Change => Change::added(Path::of('tests/fixtures/rates/rates.json'), Lines::none())],
+    'a file of test cases' => [fn(): Change => Change::deleted(Path::of('tests/fixtures/rates/vendor/RateTest.php'))],
+]);
+
+it('lists every test for a changed file of a fixture project no test is found to name', function (): void {
+    $affected = Affected::withFixtures(Changes::of(Change::added(Path::of('tests/fixtures/bank/vault.json'), Lines::none())), []);
+
+    expect($affected->isEvery())->toBeTrue()
+        ->and(Affected::texts($affected->everyBecause()))
+        ->toBe(['The tests that use `tests/fixtures/bank/vault.json` cannot be told, so every test is listed.']);
+});
+
+it('lists every test where the tests that use a changed fixture project cannot be told', function (): void {
+    $affected = Affected::withFixtures(Changes::of(Change::modified(Path::of('tests/fixtures/rates/rates.json'), Lines::none())), [
+        'tests/Datasets/Rates.php' => "<?php\n\ndataset('rates', ['tests/fixtures/rates']);\n",
+    ]);
+
+    expect($affected->isEvery())->toBeTrue()
+        ->and(Affected::texts($affected->everyBecause()))
+        ->toBe(['The tests that use `tests/fixtures/rates/rates.json` cannot be told, so every test is listed.']);
+});
+
+it('lists for a file moved out of a fixture project the tests that name it, and the file where it went', function (): void {
+    $affected = Affected::withFixtures(
+        Changes::of(Change::renamed(Path::of('tests/fixtures/rates/vendor/RateTest.php'), Path::of('tests/RateTest.php'), Lines::none())),
+        ['tests/RatesFileTest.php' => "<?php\n\nit('reads', fn () => 'tests/fixtures/rates');\n"],
+    );
+
+    expect(Affected::listed($affected))->toBe([
+        ['tests/RatesFileTest.php', [], ['`tests/fixtures/rates/vendor/RateTest.php` is in the fixture `tests/fixtures/rates`, which these tests use.']],
+        ['tests/RateTest.php', ['RateTest::rates'], ['`tests/RateTest.php` changed.']],
+    ]);
+});
+
+it('lists for a source file moved out of a fixture project the tests that name it, and those of the source file', function (): void {
+    $affected = Affected::withFixtures(
+        Changes::of(Change::renamed(Path::of('tests/fixtures/rates/Money.php'), Path::of('src/Money.php'), Lines::none())),
+        ['tests/RatesFileTest.php' => "<?php\n\nit('reads', fn () => 'tests/fixtures/rates');\n"],
+    );
+
+    expect(array_column(Affected::listed($affected), 0))->toContain('tests/RatesFileTest.php', 'tests/MoneyTest.php');
+});

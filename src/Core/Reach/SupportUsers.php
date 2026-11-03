@@ -30,7 +30,8 @@ use function sprintf;
  * names a class or function it declares, directly or through other support
  * that names it in turn. Support that runs code when it is loaded acts on
  * tests that never name it, and so does whatever else names it, so either
- * reaches every unit of the package.
+ * reaches every unit of the package. {@see FixtureUsers} reads the same
+ * files for who uses a fixture project.
  *
  * Every PHP file on disk is read once, and each name any of them mentions
  * leads straight to the files that mention it.
@@ -64,14 +65,18 @@ final readonly class SupportUsers
 
     /**
      * The users of the support among these changes. Every PHP file on disk is
-     * read for who uses support only where some of the changes are to support.
+     * read for who uses support only where some of the changes are to support
+     * or to a fixture project.
      */
     public static function ofChanges(Layout $layout, Packages $packages, Sources $sources, Changes $changes): self
     {
         foreach ($changes as $change) {
             $path = $change->path();
 
-            if ($layout->isSupport($path->relativeTo($packages->holding($path)->path()))) {
+            if (
+                $layout->isSupport($path->relativeTo($packages->holding($path)->path()))
+                || $layout->fixturesOf($change)->count() > 0
+            ) {
                 return self::in($layout, $packages, $sources);
             }
         }
@@ -133,6 +138,12 @@ final readonly class SupportUsers
         return $read
             ? $this->of($change->path(), $declared, $package)
             : Reason::that(sprintf(self::UNREAD, $change->path()->value(), $package));
+    }
+
+    /** Who uses each fixture project of a layout, read from the same files. */
+    public function fixtures(Layout $layout): FixtureUsers
+    {
+        return FixtureUsers::over($layout, $this, $this->files);
     }
 
     /**

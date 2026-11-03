@@ -18,7 +18,8 @@ use function sprintf;
  * What a change reaches (ADR-0005): `packages`, `reach.everything`, the
  * packages whose move in a lock decides how the gate runs,
  * `reach.lockPackages` (ADR-0030), what a changed test file reaches,
- * `reach.changedTests` (ADR-0065), the
+ * `reach.changedTests` (ADR-0065), the fixture projects whose files reach
+ * only the tests that name them, `reach.fixtures` (ADR-0064), the
  * share of the suite past which code nothing holds is warned about,
  * `holds.hotPath`, whether a run given no mode considers every unit,
  * `run.full`, rather than what changed since its last passing commit,
@@ -32,6 +33,7 @@ final readonly class Reach implements Part
      * @param Listed<Glob>|Absent   $packages
      * @param Listed<Glob>|Absent   $everything
      * @param Listed<string>|Absent $lockPackages
+     * @param Listed<Glob>|Absent   $fixtures
      */
     private function __construct(
         private Listed|Absent $packages,
@@ -43,6 +45,7 @@ final readonly class Reach implements Part
         private Sampling $sampling,
         private bool|Absent $stopWhenDoomed,
         private ChangedTests|Absent $changedTests,
+        private Listed|Absent $fixtures,
     ) {
     }
 
@@ -50,6 +53,7 @@ final readonly class Reach implements Part
      * @param Listed<Glob>|Absent   $packages
      * @param Listed<Glob>|Absent   $everything
      * @param Listed<string>|Absent $lockPackages
+     * @param Listed<Glob>|Absent   $fixtures
      */
     public static function of(
         Listed|Absent $packages = new Absent(),
@@ -61,6 +65,7 @@ final readonly class Reach implements Part
         Sampling|Absent $sampling = new Absent(),
         bool|Absent $stopWhenDoomed = new Absent(),
         ChangedTests|Absent $changedTests = new Absent(),
+        Listed|Absent $fixtures = new Absent(),
     ): self {
         $set = $pruning instanceof Pruning ? $pruning : Pruning::of();
         $drawn = $sampling instanceof Sampling ? $sampling : Sampling::of();
@@ -75,6 +80,7 @@ final readonly class Reach implements Part
             $drawn,
             $stopWhenDoomed,
             $changedTests,
+            $fixtures,
         );
     }
 
@@ -99,6 +105,7 @@ final readonly class Reach implements Part
             sampling: Sampling::of($sampling->confidence(), $sampling->margin(), $sampling->minUnits()),
             stopWhenDoomed: $none->stopsWhenDoomed(),
             changedTests: $none->changedTests(),
+            fixtures: $none->fixtures(),
         );
     }
 
@@ -115,6 +122,7 @@ final readonly class Reach implements Part
                 $this->sampling->over($later->sampling),
                 Absent::laid($this->stopWhenDoomed, $later->stopWhenDoomed),
                 Absent::laid($this->changedTests, $later->changedTests),
+                $this->joined($this->fixtures, $later->fixtures),
             )
             : $this;
     }
@@ -129,6 +137,12 @@ final readonly class Reach implements Part
     public function everything(): Listed
     {
         return $this->everything instanceof Listed ? $this->everything : Listed::of();
+    }
+
+    /** @return Listed<Glob> the globs of the fixture projects, whose files reach only the tests that name them */
+    public function fixtures(): Listed
+    {
+        return $this->fixtures instanceof Listed ? $this->fixtures : Listed::of();
     }
 
     /**
@@ -216,6 +230,12 @@ final readonly class Reach implements Part
                         'changedTests',
                         $this->changedTests instanceof ChangedTests ? $this->changedTests->value : $this->changedTests,
                     ),
+                    Member::of(
+                        'fixtures',
+                        $this->fixtures instanceof Listed
+                            ? Json::items(...WrittenPaths::globs($origin, $this->fixtures))
+                            : $this->fixtures,
+                    ),
                 ),
             ),
             Member::unlessEmpty('holds', Json::object(Member::of('hotPath', $this->hotPath))),
@@ -243,6 +263,9 @@ final readonly class Reach implements Part
             ? [sprintf('Reach::lockPackages(%s)', PhpCalls::literals(...$this->lockPackages))]
             : [];
         $changedTests = $this->changedTests instanceof ChangedTests ? [$this->changedTests->php()] : [];
+        $fixtures = $this->fixtures instanceof Listed
+            ? [sprintf('Reach::fixtures(%s)', PhpCalls::literals(...WrittenPaths::globs($origin, $this->fixtures)))]
+            : [];
         $hotPath = $this->hotPath instanceof Absent
             ? []
             : [sprintf('Reach::hotPath(%s)', PhpCalls::literal($this->hotPath))];
@@ -264,6 +287,7 @@ final readonly class Reach implements Part
             ...$everything,
             ...$lockPackages,
             ...$changedTests,
+            ...$fixtures,
             ...$hotPath,
             ...$full,
             ...$stopping,

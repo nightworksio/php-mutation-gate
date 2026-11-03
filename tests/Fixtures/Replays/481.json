@@ -1,0 +1,39 @@
+{
+    "pullRequest": 481,
+    "merge": "83d9899ef68698477af88aab67d7cb99e2a00e56",
+    "changes": [
+        ["M", ".docs/decisions/0004-pest-and-infection-behind-one-runner-port.md"],
+        ["M", "src/Adapter/Pest/Unexecutable/Helpers.php"],
+        ["M", "src/Adapter/Pest/Unexecutable/Selector.php"],
+        ["M", "src/Adapter/Pest/WholeMap.php"],
+        ["M", "src/Adapter/Project/TestSuite.php"],
+        ["M", "src/Cli/Flow/RunRequest.php"],
+        ["M", "src/Core/Runner/Narrowing.php"],
+        ["A", "src/Core/Test/TestCases.php"],
+        ["M", "tests/Contract/Runner/MissedTest.php"],
+        ["A", "tests/Contract/Runner/reach/src/Flagged.php"],
+        ["A", "tests/Contract/Runner/reach/tests/FlaggedSpec.php"],
+        ["M", "tests/Unit/Adapter/Pest/Unexecutable/JudgingTest.php"],
+        ["M", "tests/Unit/Adapter/Pest/Unexecutable/SelectorTest.php"],
+        ["M", "tests/Unit/Adapter/Project/TestSuiteTest.php"],
+        ["A", "tests/Unit/Cli/Flow/RunRequestTest.php"],
+        ["M", "tests/Unit/Core/Runner/NarrowingTest.php"],
+        ["A", "tests/Unit/Core/Test/TestCasesTest.php"]
+    ],
+    "fixture": "tests/Contract/Runner/reach",
+    "usedBy": [
+        "tests/Contract/Runner/MissedTest.php",
+        "tests/Contract/Runner/PatchedTest.php"
+    ],
+    "planned": {
+        "units": 659,
+        "learnedSeconds": 9486.1,
+        "openingSeconds": 201.338,
+        "shards": 16
+    },
+    "before": {
+        "units": 2220,
+        "learnedSeconds": 21190.0,
+        "shards": 20
+    }
+}

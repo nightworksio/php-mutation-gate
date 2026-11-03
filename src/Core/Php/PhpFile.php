@@ -12,6 +12,7 @@ use function explode;
 use function implode;
 use function ltrim;
 use function mb_strtolower;
+use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Hold\Holdings;
@@ -23,9 +24,9 @@ use function str_replace;
 use function trim;
 
 /**
- * What a PHP file declares, the names it mentions, the words its strings
- * spell, whether loading it runs anything, and the paths its `#[Holds]`
- * declare held, read from its tokens. Reading it runs none of it.
+ * What a PHP file declares, the names it mentions, the text its strings
+ * hold and the words they spell, whether loading it runs anything, and the
+ * paths its `#[Holds]` declare held, read from its tokens. Reading it runs none of it.
  *
  * @internal
  */
@@ -34,13 +35,17 @@ final readonly class PhpFile
     /** A fully qualified name as a string spells it, once its doubled backslashes are single. */
     private const string QUALIFIED = '/\\\\?[A-Za-z_][A-Za-z0-9_]*(?:\\\\[A-Za-z_][A-Za-z0-9_]*)+/';
 
-    /** @param list<non-empty-list<PhpToken>> $running */
+    /**
+     * @param list<string>                   $strings
+     * @param list<non-empty-list<PhpToken>> $running
+     */
     private function __construct(
         private Names $declares,
         private Names $mentions,
         private Names $quoted,
         private Names $constants,
         private Words $words,
+        private array $strings,
         private array $running,
         private HoldsAttributes $holds,
     ) {
@@ -65,6 +70,7 @@ final readonly class PhpFile
             self::quotedIn($tokens),
             self::constantsIn($tokens),
             self::wordsIn($tokens),
+            self::stringsIn($tokens),
             $top->running(),
             HoldsReader::mayHold($contents) ? HoldsReader::in(Tokens::of($tokens), $scope) : HoldsAttributes::none(),
         );
@@ -118,6 +124,18 @@ final readonly class PhpFile
         return $this->words;
     }
 
+    /**
+     * The text each of the file's strings holds, without its quotes, and each
+     * run of text between what a double-quoted string or a heredoc
+     * interpolates: `sprintf('fixtures/%s', $name)` holds `fixtures/%s`.
+     *
+     * @return list<string>
+     */
+    public function strings(): array
+    {
+        return $this->strings;
+    }
+
     /** Whether loading the file only declares, so that it acts on nothing that does not name it. */
     public function onlyDeclares(): bool
     {
@@ -167,6 +185,23 @@ final readonly class PhpFile
         }
 
         return Names::of(...$names);
+    }
+
+    /**
+     * @param  list<PhpToken> $tokens
+     * @return list<string>
+     */
+    private static function stringsIn(array $tokens): array
+    {
+        $strings = [];
+
+        foreach ($tokens as $token) {
+            if ($token->is([T_CONSTANT_ENCAPSED_STRING, T_ENCAPSED_AND_WHITESPACE])) {
+                $strings[] = $token->is(T_CONSTANT_ENCAPSED_STRING) ? mb_substr($token->text, 1, -1) : $token->text;
+            }
+        }
+
+        return $strings;
     }
 
     /** @param list<PhpToken> $tokens */

@@ -83,7 +83,7 @@ it('finds the preset and the runner of a project with no config', function () us
         'preset' => 'laravel',
         'runner' => ['use' => 'pest', 'memory' => '1G'],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app']]],
-        'reach' => ['everything' => ['bootstrap/**', 'config/**', 'routes/**', '.env.testing'], 'changedTests' => 'narrow'],
+        'reach' => ['everything' => ['bootstrap/**', 'config/**', 'routes/**', '.env.testing'], 'changedTests' => 'narrow', 'fixtures' => []],
         'timeouts' => ['mode' => 'confirm', 'seconds' => 30, 'most' => 300, 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR]],
     ]);
 });
@@ -100,7 +100,7 @@ it('lays the config file over its presets, and the command line over both', func
         'runner' => ['use' => 'pest', 'memory' => '1G'],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['src']]],
         'trees' => [['path' => 'src/Domain', 'floor' => 100]],
-        'reach' => ['everything' => ['config/**', '.env.test', 'tests/bootstrap.php', 'migrations/**'], 'changedTests' => 'narrow'],
+        'reach' => ['everything' => ['config/**', '.env.test', 'tests/bootstrap.php', 'migrations/**'], 'changedTests' => 'narrow', 'fixtures' => []],
         'budget' => '5m',
         'timeouts' => ['mode' => 'confirm', 'seconds' => 30, 'most' => 300, 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR]],
         'reports' => [
@@ -152,14 +152,11 @@ it('applies a list of presets in order, the later winning', function () use (
     expect($shown($effective($project)->settings($nothing())))->toMatchArray([
         'preset' => ['symfony', 'laravel'],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app']]],
-        'reach' => ['everything' => [
-            'config/**',
-            '.env.test',
-            'tests/bootstrap.php',
-            'bootstrap/**',
-            'routes/**',
-            '.env.testing',
-        ], 'changedTests' => 'narrow'],
+        'reach' => [
+            'everything' => ['config/**', '.env.test', 'tests/bootstrap.php', 'bootstrap/**', 'routes/**', '.env.testing'],
+            'changedTests' => 'narrow',
+            'fixtures' => [],
+        ],
     ]);
 });
 

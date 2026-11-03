@@ -28,7 +28,10 @@ use function sprintf;
  *    a change in its place moved only lines no runner reads;
  * 2. a source file in a tree reaches what {@see SourceTests} says;
  * 3. a changed test reaches itself;
- * 4. changed test support reaches the tests that use it;
+ * 4. changed test support reaches the tests that use it, and a changed file
+ *    of a fixture project the tests that name its path, as {@see FixtureUsers}
+ *    tells them; a file moved into or out of a fixture reaches that as well
+ *    as what the other rules say of it where it is outside one;
  * 5. a file `proofs.ignore` matches reaches no test;
  * 6. any other file reaches every test, since no rule can say which read it.
  *
@@ -51,6 +54,8 @@ final readonly class Affecting
 
     private const string SUPPORT = '`%s` is test support these tests use.';
 
+    private const string FIXTURE = '`%s` is in the fixture `%s`, which these tests use.';
+
     private const string IGNORED = '`%s` matches proofs.ignore, so it lists no test.';
 
     private const string OTHER = 'No rule says which tests read `%s`, so every test is listed.';
@@ -69,19 +74,27 @@ final readonly class Affecting
     {
         $packages = Packages::of($this->trees);
         $affected = AffectedTests::none($places);
+        $fixtures = $this->users->fixtures($this->layout)->ofChanges($changes, $packages);
 
         foreach ($changes as $change) {
-            $affected = $affected->and($this->ofChange($change, $packages, $files, AffectedTests::none($places)));
+            $affected = $affected->and(
+                $this->ofChange($change, $packages, $files, AffectedTests::none($places), $fixtures),
+            );
         }
 
         return $affected;
     }
 
-    private function ofChange(Change $change, Packages $packages, Sources $files, AffectedTests $none): AffectedTests
-    {
+    /** @param array<string, Paths|Reason> $fixtures the users of each fixture project a change is in, by its path */
+    private function ofChange(
+        Change $change,
+        Packages $packages,
+        Sources $files,
+        AffectedTests $none,
+        array $fixtures,
+    ): AffectedTests {
         $path = $change->path();
         $package = $packages->holding($path);
-        $inPackage = $path->relativeTo($package->path());
         $deciding = $this->decidingIn($change, $packages);
         $definition = $this->layout->definitionIn($change);
         $unnamed = $this->layout->unnamed();
@@ -93,7 +106,26 @@ final readonly class Affecting
             ),
             $deciding instanceof Path => $none->all($this->why(self::DECIDES, $deciding)),
             $definition instanceof Path => $this->definitionChanged($none, $change, $definition, $files),
-            $this->isSource($path) => $this->sources->of($change, TestReach::named($package)),
+            $this->isSource($path) => $this->fixturesChanged($none, $change, $fixtures)
+                ->and($this->sources->of($change, TestReach::named($package))),
+            default => $this->fixturesChanged($none, $change, $fixtures)->and(
+                $this->layout->isInFixtures($change)
+                    ? $none
+                    : $this->outsideFixtures($none, $change, $files, $package),
+            ),
+        };
+    }
+
+    private function outsideFixtures(
+        AffectedTests $none,
+        Change $change,
+        Sources $files,
+        Package $package,
+    ): AffectedTests {
+        $path = $change->path();
+        $inPackage = $path->relativeTo($package->path());
+
+        return match (true) {
             $this->layout->isTest($inPackage) => $change->kind() === ChangeKind::Deleted
                 ? $none->because($this->why(self::GONE, $path))
                 : $none->wholly($path, $this->why(self::TEST, $path)),
@@ -101,6 +133,40 @@ final readonly class Affecting
             $this->ignored->matches($path) => $none->because($this->why(self::IGNORED, $path)),
             default => $none->all($this->why(self::OTHER, $path)),
         };
+    }
+
+    /**
+     * The tests that use each fixture project the change's path is in, as it is and as it was.
+     *
+     * @param array<string, Paths|Reason> $fixtures the users of each fixture project a change is in, by its path
+     */
+    private function fixturesChanged(AffectedTests $none, Change $change, array $fixtures): AffectedTests
+    {
+        $affected = $none;
+
+        foreach ($this->layout->fixturesOf($change) as $fixture) {
+            $path = $change->pathWithin($fixture);
+            $users = $fixtures[$fixture->value()];
+            $affected = match (true) {
+                $users instanceof Reason => $affected->all($this->why(self::UNTOLD, $path)),
+                default => $this->listing(
+                    $affected,
+                    $users,
+                    Reason::that(sprintf(self::FIXTURE, $path->value(), $fixture->value())),
+                ),
+            };
+        }
+
+        return $affected;
+    }
+
+    private function listing(AffectedTests $affected, Paths $tests, Reason $why): AffectedTests
+    {
+        foreach ($tests as $test) {
+            $affected = $affected->wholly($test, $why);
+        }
+
+        return $affected;
     }
 
     /** The path of this change, as it is or was, that decides how the gate runs in its package, where one does. */
@@ -150,13 +216,7 @@ final readonly class Affecting
             return $none->all($this->why(self::UNTOLD, $path));
         }
 
-        $affected = $none;
-
-        foreach ($users as $test) {
-            $affected = $affected->wholly($test, $this->why(self::SUPPORT, $path));
-        }
-
-        return $affected;
+        return $this->listing($none, $users, $this->why(self::SUPPORT, $path));
     }
 
     private function why(string $reason, Path $path): Reason

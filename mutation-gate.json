@@ -63,6 +63,24 @@
             "bin/mutation-gate-pest-worker",
             "src/Core/Runner/MutantLimit.php"
         ],
+        "fixtures": [
+            "tests/Contract/Runner/codeception-fixture",
+            "tests/Contract/Runner/constants",
+            "tests/Contract/Runner/crash",
+            "tests/Contract/Runner/fixture",
+            "tests/Contract/Runner/hang",
+            "tests/Contract/Runner/heavy",
+            "tests/Contract/Runner/infection-fixture",
+            "tests/Contract/Runner/interceptor",
+            "tests/Contract/Runner/override",
+            "tests/Contract/Runner/phpspec-fixture",
+            "tests/Contract/Runner/phpunit-fixture",
+            "tests/Contract/Runner/reach",
+            "tests/Contract/Runner/stall",
+            "tests/Contract/Runner/testo-fixture",
+            "tests/Contract/Runner/twins",
+            "tests/Contract/StaticChecker/fixture"
+        ],
         "lockPackages": [
             "brianium/paratest",
             "ergebnis/phpstan-rules",

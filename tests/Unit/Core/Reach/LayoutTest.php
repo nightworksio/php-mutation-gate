@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Config\ConfigReads;
 use NightWorksIO\MutationGate\Core\File\Glob;
+use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -139,9 +141,12 @@ it('keeps what it was given when given more', function (): void {
         ->decidedAlsoBy(Glob::of('config/**'))
         ->withModule(Path::of('app-modules/shop'))
         ->testedIn(SuiteDirectory::of(Path::of('specs'), ''))
-        ->runBy(Glob::of('.gitlab-ci.yml'));
+        ->runBy(Glob::of('.gitlab-ci.yml'))
+        ->withFixtures(Glob::of('specs/fixture'))
+        ->readByTheConfig(ConfigReads::none());
 
     expect($layout->modulesHolding(Path::of('app-modules/billing/specs/InvoiceTest.php')))->toEqual(Paths::of(Path::of('app-modules/billing')))
+        ->and($layout->fixtureHolding(Path::of('specs/fixture/composer.json')))->toEqual(Path::of('specs/fixture'))
         ->and($layout->isTest(Path::of('specs/MoneyTest.php')))->toBeTrue()
         ->and($layout->runsTheGate(Path::of('.github/workflows/gate.yml')))->toBeTrue()
         ->and($layout->runsTheGate(Path::of('.gitlab-ci.yml')))->toBeTrue()
@@ -164,3 +169,47 @@ it('decides with each file the config reads beside itself, spelt from the reposi
         ->and($unnamed->decidedAlsoBy(Glob::of('config/**'))->runBy(Glob::of('ci.yml'))->testedIn()->withModule($money)->unnamed())
         ->toBe('It reads a file by glob().');
 });
+
+it('finds the fixture project a file is in: the outermost directory above it a glob of reach.fixtures matches', function (string $file, string $fixture): void {
+    $layout = layoutDefinedBy()
+        ->withFixtures(Glob::of('tests/Runner/*-fixture'))
+        ->withFixtures(Glob::of('tests/Runner/heavy'))
+        ->withFixtures(Glob::of('tests/Runner/heavy/tests'));
+
+    expect($layout->fixtureHolding(Path::of($file)))->toEqual($fixture === '' ? NotGiven::value() : Path::of($fixture))
+        ->and(layoutDefinedBy()->fixtureHolding(Path::of($file)))->toEqual(NotGiven::value());
+})->with([
+    'a file at its top' => ['tests/Runner/heavy/composer.json', 'tests/Runner/heavy'],
+    'a file deep inside it, under a directory another glob matches' => ['tests/Runner/heavy/tests/SplitSpec.php', 'tests/Runner/heavy'],
+    'a file of a directory a wildcard matches' => ['tests/Runner/pest-fixture/vendor/autoload.php', 'tests/Runner/pest-fixture'],
+    'the directory a glob matches, as a file' => ['tests/Runner/heavy', ''],
+    'a file beside the fixtures' => ['tests/Runner/HeavyTest.php', ''],
+    'a file whose directory only begins as a fixture does' => ['tests/Runner/heavy-load/Load.php', ''],
+    'a file at the root' => ['composer.json', ''],
+]);
+
+it('finds the fixture projects a change is in, as it is and as it was, and whether it is in one on both sides', function (Change $change, array $fixtures, bool $inFixtures): void {
+    $layout = layoutDefinedBy()->withFixtures(Glob::of('tests/fixtures/*'));
+
+    expect(array_map(static fn(Path $fixture): string => $fixture->value(), [...$layout->fixturesOf($change)]))->toBe($fixtures)
+        ->and($layout->isInFixtures($change))->toBe($inFixtures);
+})->with([
+    'changed in one' => [fn(): Change => Change::modified(Path::of('tests/fixtures/shop/src/Cart.php'), Lines::none()), ['tests/fixtures/shop'], true],
+    'deleted from one' => [fn(): Change => Change::deleted(Path::of('tests/fixtures/shop/composer.json')), ['tests/fixtures/shop'], true],
+    'moved between two' => [
+        fn(): Change => Change::renamed(Path::of('tests/fixtures/shop/a.php'), Path::of('tests/fixtures/bank/a.php'), Lines::none()),
+        ['tests/fixtures/bank', 'tests/fixtures/shop'],
+        true,
+    ],
+    'moved out of one' => [
+        fn(): Change => Change::renamed(Path::of('tests/fixtures/shop/CartTest.php'), Path::of('tests/Unit/CartTest.php'), Lines::none()),
+        ['tests/fixtures/shop'],
+        false,
+    ],
+    'moved into one' => [
+        fn(): Change => Change::renamed(Path::of('tests/Unit/CartTest.php'), Path::of('tests/fixtures/shop/CartTest.php'), Lines::none()),
+        ['tests/fixtures/shop'],
+        false,
+    ],
+    'outside every one' => [fn(): Change => Change::modified(Path::of('tests/Unit/CartTest.php'), Lines::none()), [], false],
+]);

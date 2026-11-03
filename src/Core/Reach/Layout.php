@@ -25,7 +25,7 @@ use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
 /**
  * Where a repository keeps what the reach rules ask about: the files that
  * decide how the gate runs, the CI definitions that run it, the directories
- * of tests, and the modules.
+ * of tests, the fixture projects the tests read, and the modules.
  *
  * @internal
  */
@@ -43,6 +43,7 @@ final readonly class Layout
         private array $tests,
         private Paths $modules,
         private string|NotGiven $unnamed,
+        private Globs $fixtures,
     ) {
     }
 
@@ -73,6 +74,7 @@ final readonly class Layout
             [SuiteDirectory::conventional()],
             Paths::none(),
             NotGiven::value(),
+            Globs::of(),
         );
     }
 
@@ -90,6 +92,7 @@ final readonly class Layout
             $this->tests,
             $this->modules,
             $this->unnamed,
+            $this->fixtures,
         );
     }
 
@@ -114,6 +117,7 @@ final readonly class Layout
             $layout->tests,
             $layout->modules,
             $reads->unnamedBecause(),
+            $layout->fixtures,
         );
     }
 
@@ -133,6 +137,7 @@ final readonly class Layout
             $this->tests,
             $this->modules,
             $this->unnamed,
+            $this->fixtures,
         );
     }
 
@@ -146,6 +151,7 @@ final readonly class Layout
             array_values($directories),
             $this->modules,
             $this->unnamed,
+            $this->fixtures,
         );
     }
 
@@ -159,7 +165,60 @@ final readonly class Layout
             $this->tests,
             $this->modules->with($module),
             $this->unnamed,
+            $this->fixtures,
         );
+    }
+
+    /**
+     * This layout, where the directories the globs of `reach.fixtures` match,
+     * spelt from the repository's directory, are each a fixture project: the
+     * tests read its files by its path, and run none of it as code of their own.
+     */
+    public function withFixtures(Glob ...$roots): self
+    {
+        return new self(
+            $this->decisive,
+            $this->repository,
+            $this->definitions,
+            $this->tests,
+            $this->modules,
+            $this->unnamed,
+            $this->fixtures->with(...$roots),
+        );
+    }
+
+    /** The fixture project a file is in: the outermost directory above it a fixture's glob matches, where one does. */
+    public function fixtureHolding(Path $file): Path|NotGiven
+    {
+        $found = NotGiven::value();
+        $directory = $file->directory();
+
+        while (! $directory->equals(Path::root())) {
+            $found = $this->fixtures->matches($directory) ? $directory : $found;
+            $directory = $directory->directory();
+        }
+
+        return $found;
+    }
+
+    /** The fixture projects a change's path is in, as it is and as it was. */
+    public function fixturesOf(Change $change): Paths
+    {
+        $roots = Paths::none();
+
+        foreach (Paths::of($change->path(), $change->previousPath()) as $path) {
+            $root = $this->fixtureHolding($path);
+            $roots = $root instanceof Path ? $roots->with($root) : $roots;
+        }
+
+        return $roots;
+    }
+
+    /** Whether a change's path is in a fixture project both as it is and as it was. */
+    public function isInFixtures(Change $change): bool
+    {
+        return $this->fixtureHolding($change->path()) instanceof Path
+            && $this->fixtureHolding($change->previousPath()) instanceof Path;
     }
 
     /** Whether a file decides how the gate runs in the package at a directory. */
