@@ -185,6 +185,31 @@ it('hands the verdict every coverage map the plan made, its own and each shard\'
         ->and($handed[0])->toBeLessThan($judged[0]);
 });
 
+it('spends nothing on a plan that runs no unit: no shard, no survivors, and a verdict that reads no result and, where one stands, no map', function (): void {
+    $jobs = WorkflowFile::at(REUSABLE)->field('jobs');
+    $runsAShard = "needs.plan.outputs.shards != '[]'";
+    $verdict = $jobs->field('verdict')->field('steps');
+    $download = static fn(string $pattern): Node => array_values(array_filter(
+        Lenient::items($verdict),
+        static fn(Node $step): bool => Lenient::text($step->field('with')->field('pattern')) === $pattern,
+    ))[0];
+    $stale = Lenient::items($verdict)[WorkflowFile::stepsWhere($verdict, 'run', static fn(string $run): bool => str_ends_with(trim($run), 'gate_action.py" stale'))[0]];
+    $action = WorkflowFile::at('action.yml')->field('runs')->field('steps');
+    $survivors = Lenient::items($action)[WorkflowFile::stepsWhere(
+        $action,
+        'name',
+        static fn(string $name): bool => $name === 'Re-check the last run\'s survivors',
+    )[0]];
+
+    expect(Lenient::text($jobs->field('plan')->field('outputs')->field('stands')))->toBe('${{ steps.plan.outputs.stands }}')
+        ->and(Lenient::text($jobs->field('shard')->field('if')))->toContain($runsAShard)
+        ->and(Lenient::text($jobs->field('survivors')->field('if')))->toEndWith(sprintf('&& %s }}', $runsAShard))
+        ->and(Lenient::text($download('mutation-gate-result-${{ needs.plan.outputs.attempt }}-*')->field('if')))->toBe($runsAShard)
+        ->and(Lenient::text($stale->field('if')))->toBe($runsAShard)
+        ->and(Lenient::text($download('mutation-gate-coverage-${{ needs.plan.outputs.attempt }}')->field('if')))->toBe("needs.plan.outputs.stands != 'true'")
+        ->and(Lenient::text($survivors->field('if')))->toEndWith("&& steps.plan.outputs.shards != '[]'");
+});
+
 it('hands each shard the plan\'s whole map beside its own, removing only the other shards\' directories', function (): void {
     $jobs = WorkflowFile::at(REUSABLE)->field('jobs');
     $coverage = Workspace::coverage()->value();

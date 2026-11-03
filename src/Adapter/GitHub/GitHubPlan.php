@@ -31,6 +31,7 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\Unchanged;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Extension\Configurable;
@@ -44,8 +45,10 @@ use function sprintf;
  * file `$GITHUB_OUTPUT` names, which a matrix reads with
  * `fromJson(needs.plan.outputs.shards)`, and `plan=<the plan listing>`, on
  * one line and without the units the plan file carries, which a workflow or
- * action exposes as its output. An empty array
- * skips the matrix job, and the verdict still runs. A matrix holds at most
+ * action exposes as its output, and `stands=true` where the verdict of a
+ * commit that passed stands for the plan, so the verdict reads no shard's
+ * result and no coverage map, `false` elsewhere. An empty array skips the
+ * matrix job, and the verdict still runs. A matrix holds at most
  * {@see MOST_JOBS} jobs.
  *
  * @internal
@@ -90,7 +93,7 @@ final readonly class GitHubPlan implements CiPlan, Configurable
         return self::in(Variables::of(getenv()));
     }
 
-    /** The matrix and the plan, appended to `$GITHUB_OUTPUT` as the step's outputs `shards` and `plan`. */
+    /** The matrix, the plan and whether a verdict stands, appended to `$GITHUB_OUTPUT` as their step outputs. */
     public function publish(Plan $plan, JobCommands $jobs): Publication|CannotJudge
     {
         $output = $this->job->variables()->valueOf(self::OUTPUT);
@@ -107,7 +110,12 @@ final readonly class GitHubPlan implements CiPlan, Configurable
             ),
             default => Publication::appended(
                 $output,
-                sprintf("shards=%s\nplan=%s\n", $this->matrixOf($plan), PlanListing::inline($plan)),
+                sprintf(
+                    "shards=%s\nplan=%s\nstands=%s\n",
+                    $this->matrixOf($plan),
+                    PlanListing::inline($plan),
+                    $plan->briefing()->unchanged() instanceof Unchanged ? 'true' : 'false',
+                ),
             ),
         };
     }

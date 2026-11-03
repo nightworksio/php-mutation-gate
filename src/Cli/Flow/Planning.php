@@ -154,8 +154,10 @@ final readonly class Planning
         $briefing = $measured->briefing(Briefing::standard()->weighing($peak)->recording($matrix));
 
         return $planned instanceof Plan
-            ? PlanMade::of($planned->briefed($this->adapters->briefing($briefing)), $measured->said())
-                ->without($ledgers->unread())
+            ? PlanMade::of(
+                $planned->briefed($this->adapters->briefing($briefing->standingAs($planned->briefing()))),
+                $measured->said(),
+            )->without($ledgers->unread())
             : $planned;
     }
 
@@ -215,6 +217,14 @@ final readonly class Planning
         );
         $shards = $shards instanceof Shards ? $this->opening($shards, $opening) : $shards;
         $digests = $this->committed($now, $inventory->standing->head());
+        $standing = new NothingReached($this->adapters, $this->settings, $this->setup)->briefing(
+            $shards,
+            $inventory,
+            $ledgers,
+            $base,
+            $kind,
+            $proving->ownScopeProofs() + $considering->ownScopeProofs(),
+        );
 
         return match (true) {
             $shards instanceof CannotJudge => $shards,
@@ -224,6 +234,7 @@ final readonly class Planning
                 $entryKeys,
                 Plan::of($inventory->standing->head(), $keying->base(), $keys, $shards)
                     ->on($inventory->standing->runOn())
+                    ->briefed($standing)
                     ->digesting($digests)
                     ->considering(
                         Considered::everything()

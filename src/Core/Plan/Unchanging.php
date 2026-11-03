@@ -34,20 +34,20 @@ use function sprintf;
  */
 final readonly class Unchanging
 {
+    public const string OTHER_CHECK = '%s passed under the check %s, not %s.';
+
+    public const string BASELINE = '%s is the baseline.';
+
+    public const string EXPIRED = 'The ignore of %s has expired since %s passed.';
+
+    public const string DECIDES = '%s decides how the gate runs.';
+
     private const string NO_TIME
         = 'The ledger does not say when %s passed, so whether an ignore expired since cannot be told.';
-
-    private const string OTHER_CHECK = '%s passed under the check %s, not %s.';
 
     private const string PHP = '%s is PHP.';
 
     private const string TESTS = '%s is in a directory of tests.';
-
-    private const string DECIDES = '%s decides how the gate runs.';
-
-    private const string BASELINE = '%s is the baseline.';
-
-    private const string EXPIRED = 'The ignore of %s has expired since %s passed.';
 
     private function __construct(private Layout $layout, private Packages $packages, private Path $baseline)
     {

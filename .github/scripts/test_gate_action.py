@@ -337,6 +337,25 @@ class Stale(unittest.TestCase):
 
         self.assertEqual(action.shard_attempts(jobs), {"3": 2, "12": 1})
 
+    def test_counts_no_job_a_re_run_kept_from_an_earlier_attempt_which_started_before_it_was_created(self):
+        jobs = [
+            {
+                "name": "mutation / shard 1 (src, part 1 of 20)",
+                "run_attempt": 2,
+                "created_at": "2026-11-03T05:15:02Z",
+                "started_at": "2026-11-03T04:17:08Z",
+            },
+            {
+                "name": "mutation / shard 4 (src, part 4 of 20)",
+                "run_attempt": 2,
+                "created_at": "2026-11-03T05:15:03Z",
+                "started_at": "2026-11-03T05:15:07Z",
+            },
+        ]
+
+        self.assertEqual(action.shard_attempts(jobs), {"4": 2})
+        self.assertEqual(action.stale({"1": 1, "4": 2}, action.shard_attempts(jobs)), [])
+
     def test_names_each_shard_whose_result_an_attempt_before_its_job_s_latest_run_wrote(self):
         written = {"10": 1, "2": 1, "3": 2, "4": 0, "7": 1}
         latest = {"10": 2, "2": 1, "3": 2, "4": 1}

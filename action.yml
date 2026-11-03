@@ -276,11 +276,12 @@ runs:
         "${GATE}" plan --ci=github --deliver-later "${arguments[@]}" || code=$?
         echo "code=${code}" >> "${GITHUB_OUTPUT}"
 
-    # On a pull request, the last run's survivors run again first, for a
-    # signal before every shard has run (ADR-0020). It leaves the
-    # comment over its planned state alone, and nothing it finds is judged.
+    # On a pull request whose plan runs a shard, the last run's survivors run
+    # again first, for a signal before every shard has run (ADR-0020;
+    # ADR-0062). It leaves the comment over its planned state alone, and
+    # nothing it finds is judged.
     - name: Re-check the last run's survivors
-      if: inputs.deliver != 'true' && inputs.shard == '' && steps.plan.outputs.code == '0'
+      if: inputs.deliver != 'true' && inputs.shard == '' && steps.plan.outputs.code == '0' && steps.plan.outputs.shards != '[]'
       shell: bash
       env:
         GATE: ${{ steps.resolve.outputs.gate }}

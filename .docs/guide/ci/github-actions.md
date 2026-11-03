@@ -254,11 +254,11 @@ installation, at the workflow's commit:
   `mutation-gate-read`.
 - `deliver-plan` posts the pull request comment's planned state, which the plan
   leaves as the artifact `mutation-gate-delivery-plan-<attempt>`.
-- On a pull request, `survivors` runs the last run's survivors again beside
-  the shards, and `deliver-survivors` writes the comment's *survivors
-  re-checked* state over its planned one, from the artifact
-  `mutation-gate-delivery-survivors-<attempt>`. The verdict judges nothing it
-  found.
+- On a pull request whose plan cuts a shard, `survivors` runs the last run's
+  survivors again beside the shards, and `deliver-survivors` writes the
+  comment's *survivors re-checked* state over its planned one, from the
+  artifact `mutation-gate-delivery-survivors-<attempt>`. The verdict judges
+  nothing it found.
 - `deliver` sends what the verdict leaves as the artifact
   `mutation-gate-delivery-<attempt>`. On every run it posts the comment. A
   trusted run, a push, schedule or dispatch on the default branch, enters the
@@ -326,12 +326,16 @@ default branch may deploy to, or the job's `job_workflow_ref`.
 
 ## Sharding with a matrix of your own
 
-In a workflow of your own, `plan --ci=github` appends two step outputs to the file `GITHUB_OUTPUT`
+In a workflow of your own, `plan --ci=github` appends three step outputs to the file `GITHUB_OUTPUT`
 names:
 
 - `shards`, a JSON array of `{id, label}`, one per shard, which a matrix
   reads with `fromJson(needs.plan.outputs.shards)`;
-- `plan`, the plan on one line.
+- `plan`, the plan on one line;
+- `stands`, `true` where the verdict of a commit that passed stands for the
+  plan, which runs nothing, and `false` elsewhere
+  ([ADR-0062](../../decisions/0062-a-change-that-reaches-no-unit-keeps-the-verdict-it-is-read-since.md)).
+  The verdict then reads no shard's result and no coverage map.
 
 An empty array skips the matrix job, and the verdict still runs. A matrix
 runs at most 256 jobs, so a plan with more shards cannot be judged; set

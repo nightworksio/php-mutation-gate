@@ -16,12 +16,17 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\GateCommand;
+use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
+use NightWorksIO\MutationGate\Core\Plan\StandsBecause;
+use NightWorksIO\MutationGate\Core\Plan\Unchanged;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
+use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
@@ -42,7 +47,7 @@ it('appends the shards, by id and label, to the file GitHub reads a step\'s outp
     expect(GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => GITHUB_OUTPUT]))->publish($plan, GateCommand::installed()->jobs()))->toEqual(Publication::appended(
         GITHUB_OUTPUT,
         sprintf(
-            "shards=%s\nplan=%s\n",
+            "shards=%s\nplan=%s\nstands=false\n",
             '[{"id":1,"label":"src, part 1 of 2"},{"id":2,"label":"src, part 2 of 2"}]',
             PlanListing::inline($plan),
         ),
@@ -57,7 +62,7 @@ it('writes a label as it is, slashes and all', function (): void {
     $published = GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => GITHUB_OUTPUT]))->publish($plan, GateCommand::installed()->jobs());
 
     expect($published instanceof Publication ? $published->text() : $published)->toBe(sprintf(
-        "shards=[{\"id\":1,\"label\":\"src/Http, part 1 of 2 — naïve\"}]\nplan=%s\n",
+        "shards=[{\"id\":1,\"label\":\"src/Http, part 1 of 2 — naïve\"}]\nplan=%s\nstands=false\n",
         PlanListing::inline($plan),
     ));
 });
@@ -78,8 +83,19 @@ it('hands a matrix nothing to run for a plan with no shards', function (): void 
     $plan = ShardedPlan::of(0);
 
     expect(GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => GITHUB_OUTPUT]))->publish($plan, GateCommand::installed()->jobs()))
-        ->toEqual(Publication::appended(GITHUB_OUTPUT, sprintf("shards=[]\nplan=%s\n", PlanListing::inline($plan))));
+        ->toEqual(Publication::appended(GITHUB_OUTPUT, sprintf("shards=[]\nplan=%s\nstands=false\n", PlanListing::inline($plan))));
 });
+
+it('says the verdict stands for a plan that runs nothing because a commit that passed stands, so the verdict reads no shard and no map', function (StandsBecause $because): void {
+    $passed = Passed::of(Revision::ref('passed'), 'mutation / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable('2026-11-02T12:43:14Z')));
+    $plan = ShardedPlan::of(0)->briefed(Briefing::standard()->unchangedSince(Unchanged::standing($because, $passed, Instant::at(new DateTimeImmutable('2026-11-02T12:43:14Z')))));
+
+    expect(GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => GITHUB_OUTPUT]))->publish($plan, GateCommand::installed()->jobs()))
+        ->toEqual(Publication::appended(GITHUB_OUTPUT, sprintf("shards=[]\nplan=%s\nstands=true\n", PlanListing::inline($plan))));
+})->with([
+    'nothing judged changed' => [StandsBecause::NothingJudgedChanged],
+    'nothing reached' => [StandsBecause::NothingReached],
+]);
 
 it('fills a matrix up to its 256 jobs and refuses one more', function (): void {
     $github = GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => GITHUB_OUTPUT]));
@@ -241,7 +257,7 @@ it('reads the output file from the environment', function (): void {
     $published = GitHubPlan::fromOptions(Options::none())->publish($plan, GateCommand::installed()->jobs());
     putenv($before === false ? 'GITHUB_OUTPUT' : sprintf('GITHUB_OUTPUT=%s', $before));
 
-    expect($published)->toEqual(Publication::appended(GITHUB_OUTPUT, sprintf("shards=[]\nplan=%s\n", PlanListing::inline($plan))));
+    expect($published)->toEqual(Publication::appended(GITHUB_OUTPUT, sprintf("shards=[]\nplan=%s\nstands=false\n", PlanListing::inline($plan))));
 });
 
 it('withholds the Actions runtime\'s credentials and the workflow\'s token', function (): void {

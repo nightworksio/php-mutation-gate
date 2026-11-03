@@ -19,27 +19,36 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
 use function sprintf;
 
 /**
- * What a plan that runs nothing stands on: nothing the gate judges changed
- * since the newest commit of the run's scope whose verdict passed, at the
- * instant it passed. Its verdict stands for the commit the plan was made on,
- * while no ignore that applied when it passed has expired since.
+ * What a plan that runs nothing stands on: a commit whose verdict passed, at
+ * the instant it passed, and why that verdict stands ({@see StandsBecause}).
+ * Its verdict stands for the commit the plan was made on, while no ignore
+ * that applied when it passed has expired since.
  */
 final readonly class Unchanged
 {
-    private const string REASON
-        = 'Nothing the gate judges changed since %s, whose verdict passed at %s, so its verdict stands.';
-
-    private function __construct(private Passed $base, private Instant $at)
+    private function __construct(private Passed $base, private Instant $at, private StandsBecause $because)
     {
     }
 
-    /** The verdict of a commit that passed at this instant, standing. */
+    /** The verdict of a commit that passed at this instant, standing because nothing the gate judges changed. */
     public static function since(Passed $base, Instant $at): self
     {
-        return new self($base, $at);
+        return new self($base, $at, StandsBecause::NothingJudgedChanged);
     }
 
-    /** The newest commit of the scope whose verdict passed. */
+    /** The verdict of a commit that passed at this instant, standing for this reason. */
+    public static function standing(StandsBecause $because, Passed $base, Instant $at): self
+    {
+        return new self($base, $at, $because);
+    }
+
+    /** Why the verdict stands. */
+    public function because(): StandsBecause
+    {
+        return $this->because;
+    }
+
+    /** The commit whose verdict passed and stands. */
     public function base(): Passed
     {
         return $this->base;
@@ -48,7 +57,7 @@ final readonly class Unchanged
     /** Why the plan runs nothing. */
     public function reason(): Reason
     {
-        return Reason::that(sprintf(self::REASON, $this->base->commit()->name(), $this->at->value()));
+        return Reason::that(sprintf($this->because->template(), $this->base->commit()->name(), $this->at->value()));
     }
 
     /**

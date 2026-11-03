@@ -431,14 +431,24 @@ def doomed(result: dict) -> str | None:
 
 
 def shard_attempts(jobs: list) -> dict[str, int]:
-    """The attempt of each shard job's latest run, by the shard's number, from the run's jobs as GitHub lists them."""
+    """The attempt of each shard job's latest run, by the shard's number, from the run's jobs as GitHub lists them.
+
+    A re-run lists the jobs it kept under its own attempt, each created anew and started when its earlier
+    attempt started, so a job that started before it was created ran in an earlier attempt and counts for none.
+    """
     latest: dict[str, int] = {}
     for job in jobs:
-        named = SHARD_JOB.search(str(job.get("name", ""))) if isinstance(job, dict) else None
+        named = SHARD_JOB.search(str(job.get("name", ""))) if isinstance(job, dict) and not kept(job) else None
         attempt = job.get("run_attempt") if named else None
         if named and isinstance(attempt, int):
             latest[named.group(1)] = max(attempt, latest.get(named.group(1), 0))
     return latest
+
+
+def kept(job: dict) -> bool:
+    """Whether a re-run listed this job as kept from an earlier attempt: it started before it was created."""
+    started, created = job.get("started_at"), job.get("created_at")
+    return isinstance(started, str) and isinstance(created, str) and started < created
 
 
 def stale(written: dict[str, int], latest: dict[str, int]) -> list[str]:

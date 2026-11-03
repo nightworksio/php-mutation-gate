@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Config\IgnoredPattern;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Plan\StandsBecause;
 use NightWorksIO\MutationGate\Core\Plan\Unchanged;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Time\Day;
@@ -31,11 +32,19 @@ $ignoreUntil = static fn(string $day): IgnoredPattern => IgnoredPattern::of(
     Day::of($day) instanceof Day ? Day::of($day) : Absent::setting(),
 );
 
-it('says the verdict of the commit that passed stands, and when it passed', function () use ($unchanged): void {
-    expect($unchanged()->reason()->text())->toBe(sprintf(
-        'Nothing the gate judges changed since %s, whose verdict passed at 2026-10-01T12:00:00Z, so its verdict stands.',
-        UNCHANGED_COMMIT,
-    ));
+it('says the verdict of the commit that passed stands, why, and when it passed', function (StandsBecause $because, string $said) use ($instant): void {
+    $at = $instant('2026-10-01T12:00:00Z');
+    $standing = Unchanged::standing($because, Passed::of(Revision::ref(UNCHANGED_COMMIT), 'mutation / verdict', 2)->passedAt($at), $at);
+
+    expect($standing->reason()->text())->toBe(sprintf($said, UNCHANGED_COMMIT))
+        ->and($standing->because())->toBe($because);
+})->with([
+    'nothing judged changed' => [StandsBecause::NothingJudgedChanged, 'Nothing the gate judges changed since %s, whose verdict passed at 2026-10-01T12:00:00Z, so its verdict stands.'],
+    'nothing reached' => [StandsBecause::NothingReached, 'The change since %s, whose verdict passed at 2026-10-01T12:00:00Z, reaches no unit, so its verdict stands.'],
+]);
+
+it('stands because nothing the gate judges changed, where it is made since a commit alone', function () use ($unchanged): void {
+    expect($unchanged()->because())->toBe(StandsBecause::NothingJudgedChanged);
 });
 
 it('records the commit the plan was made on as passed, under the check it stands on passed under, using what of its scope that commit used', function () use ($unchanged, $instant): void {
