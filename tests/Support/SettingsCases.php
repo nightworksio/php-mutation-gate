@@ -96,7 +96,8 @@ final readonly class SettingsCases
                 }
             },
             "ignore": [],
-            "write": "auto"
+            "write": "auto",
+            "copies": "newest"
         },
         "coverage": {
             "incremental": true
@@ -206,6 +207,7 @@ final readonly class SettingsCases
             'store' => ['use' => 's3', 'with' => ['bucket' => 'proofs', 'endpoint' => 'https://r2.example.com']],
             'ignore' => ['docs/**'],
             'write' => 'never',
+            'copies' => 'merged',
         ],
         'coverage' => ['incremental' => false],
         'budget' => '1h30m',

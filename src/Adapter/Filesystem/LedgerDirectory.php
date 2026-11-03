@@ -90,16 +90,27 @@ final readonly class LedgerDirectory implements Configurable, ProofStore
      */
     public function read(Scope $scope): Ledger|Unreadable
     {
+        $held = $this->held($scope);
+
+        return $held instanceof Missing ? Ledger::empty() : $held;
+    }
+
+    /**
+     * The scope's ledger, where its file is there; or why the file could not
+     * be read, or holds no ledger this gate reads.
+     */
+    public function held(Scope $scope): Ledger|Unreadable|Missing
+    {
         $file = $this->fileOf($scope);
 
         if (! $file instanceof ProjectPath) {
-            return Ledger::empty();
+            return Missing::at(Path::of(LedgerFile::NAME));
         }
 
         $contents = $this->path->directory()->readAtMost($file->inside(), $this->limits->packed());
 
         return match (true) {
-            $contents instanceof Missing => Ledger::empty(),
+            $contents instanceof Missing => $contents,
             $contents instanceof TooLarge
                 => Unreadable::because(UnreadReason::TooLarge, $file->value(), $this->limits->pastPacked()),
             $contents instanceof CannotJudge

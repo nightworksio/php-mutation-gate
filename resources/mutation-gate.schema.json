@@ -1076,6 +1076,14 @@
                         "never"
                     ],
                     "default": "auto"
+                },
+                "copies": {
+                    "enum": [
+                        "newest",
+                        "together",
+                        "merged"
+                    ],
+                    "default": "newest"
                 }
             },
             "additionalProperties": false

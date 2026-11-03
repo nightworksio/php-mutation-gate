@@ -248,6 +248,20 @@ class Installed(unittest.TestCase):
         )
 
 
+    def test_reads_the_copy_of_a_ledger_the_config_names_and_the_newest_where_it_names_none(self):
+        self.assertEqual(action.copies({}), "newest")
+        self.assertEqual(action.copies({"proofs": {"store": {"use": "directory"}}}), "newest")
+        self.assertEqual(action.copies({"proofs": {"copies": "together"}}), "together")
+        self.assertEqual(action.copies({"proofs": {"copies": "merged"}}), "merged")
+
+    def test_has_deliver_keep_the_ledger_after_the_store_only_for_together_with_a_store_on_the_default_branch(self):
+        self.assertTrue(action.keeps_after_store("together", "s3", True))
+        self.assertFalse(action.keeps_after_store("together", "", True))
+        self.assertFalse(action.keeps_after_store("together", "s3", False))
+        self.assertFalse(action.keeps_after_store("newest", "s3", True))
+        self.assertFalse(action.keeps_after_store("merged", "s3", True))
+
+
 class PestPatch(unittest.TestCase):
     def test_patches_where_the_config_runs_pest_with_the_patches_on(self):
         self.assertTrue(
@@ -334,6 +348,32 @@ class Stale(unittest.TestCase):
 
         self.assertIn("Shard 4 ran again in attempt 2 and wrote no result", why)
         self.assertIn("the result attempt 1 wrote is not judged", why)
+
+
+class Keep(unittest.TestCase):
+    def test_keys_the_kept_files_by_the_scope_s_prefix_and_their_digest_and_names_none_where_none_is_kept(self):
+        kept = {"ledger.json.gz": b"ledger", "coverage.json.gz": b"map"}
+
+        self.assertEqual("", action.kept_key("p-", {}))
+        self.assertTrue(action.kept_key("p-", kept).startswith("p-"))
+        self.assertEqual(action.kept_key("p-", kept), action.kept_key("p-", dict(reversed(list(kept.items())))))
+        self.assertNotEqual(action.kept_key("p-", kept), action.kept_key("p-", {**kept, "coverage.json.gz": b"other"}))
+        self.assertNotEqual(action.kept_key("p-", kept), action.kept_key("p-", {"ledger.json.gz": b"ledger"}))
+
+    def test_copies_what_the_verdict_left_into_the_scope_s_directory_and_names_its_key(self):
+        with tempfile.TemporaryDirectory() as root:
+            source, own, output = os.path.join(root, "verdict"), os.path.join(root, "ledger", "refs", "heads", "main"), os.path.join(root, "output")
+            os.makedirs(source)
+            for name, body in (("ledger.json.gz", b"ledger"), ("delivery.json", b"{}")):
+                with open(os.path.join(source, name), "wb") as file:
+                    file.write(body)
+            environment = {**os.environ, "FROM": source, "OWN": own, "PREFIX": "p-", "GITHUB_OUTPUT": output}
+            subprocess.run([sys.executable, action.__file__, "keep"], env=environment, check=True)
+            with open(output, encoding="utf-8") as file:
+                said = file.read()
+
+            self.assertEqual(["ledger.json.gz"], sorted(os.listdir(own)))
+            self.assertEqual(f"key={action.kept_key('p-', {'ledger.json.gz': b'ledger'})}\n", said)
 
 
 class WorkflowCommand(unittest.TestCase):

@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Azure\ContainerLedger;
 use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
 use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\FetchedCopies;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LocalLedgers;
 use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
@@ -72,6 +73,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Proof\Copies;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Inputs;
 use NightWorksIO\MutationGate\Core\Proof\Key\CiDefinitions;
@@ -107,6 +109,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Uncounted;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
+use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
@@ -182,6 +185,14 @@ function wiredOf(Settings $settings, Variables $environment): Adapters
     return $adapters instanceof Adapters ? $adapters : throw new RuntimeException('The adapters could not be wired.');
 }
 
+/** The store a wired run keeps its ledgers in, under the copies fetch writes beside it. */
+function keptUnder(ProofStore $wired): ProofStore
+{
+    $kept = $wired instanceof FetchedCopies ? new ReflectionProperty(FetchedCopies::class, 'kept')->getValue($wired) : $wired;
+
+    return $kept instanceof ProofStore ? $kept : throw new RuntimeException('The copies keep no store.');
+}
+
 it('wires the runner, the store, the learned cost model, the JSON plan and git where no CI runs', function (): void {
     $adapters = wiredOf(Flows::settings(), Variables::of([]));
 
@@ -211,11 +222,21 @@ it('keeps a local run\'s proofs on the machine, and a CI run\'s in the store the
     $local = Environment::during($keys, static fn(): Adapters => wiredOf($settings, Variables::of([])));
     $ci = Environment::during($keys, static fn(): Adapters => wiredOf($settings, Variables::of(['CI' => 'true'])));
 
-    expect($local->proofs)->toEqual(LocalLedgers::over($ci->proofs))
-        ->and($ci->proofs)->toBeInstanceOf(BucketLedger::class)
+    expect($local->proofs)->toEqual(FetchedCopies::over(LocalLedgers::over(keptUnder($ci->proofs)), Copies::Newest))
+        ->and($ci->proofs)->toEqual(FetchedCopies::over(keptUnder($ci->proofs), Copies::Newest))
+        ->and(keptUnder($ci->proofs))->toBeInstanceOf(BucketLedger::class)
         ->and(wiredOf(Flows::settings(Proofs::directory('cache/ledger')), Variables::of([]))->proofs)
-        ->toEqual(LedgerDirectory::at('cache/ledger'));
+        ->toEqual(FetchedCopies::over(LedgerDirectory::at('cache/ledger'), Copies::Newest));
 })->group(...$holds);
+
+it('reads the copy of a ledger fetch wrote beside the one the run keeps, as proofs.copies chooses', function (Proofs $copies, Copies $chosen): void {
+    expect(wiredOf(Flows::settings($copies), Variables::of(['CI' => 'true']))->proofs)
+        ->toEqual(FetchedCopies::over(LedgerDirectory::at('.mutation-gate/ledger'), $chosen));
+})->with([
+    'the newest' => [fn(): Proofs => Proofs::newestCopy(), Copies::Newest],
+    'the store\'s, where they move together' => [fn(): Proofs => Proofs::copiesTogether(), Copies::Together],
+    'both, merged' => [fn(): Proofs => Proofs::mergedCopies(), Copies::Merged],
+])->group(...$holds);
 
 /**
  * What runs in a new git repository whose origin names this default branch, or none where it is empty.
@@ -260,7 +281,7 @@ it('opens the store read-only for a CI job without its credentials, reading the 
         static fn(): Adapters => wiredOf($settings, Variables::of(['CI' => 'true', ...$environment])),
     ));
 
-    expect($ci->proofs)->toEqual(
+    expect(keptUnder($ci->proofs))->toEqual(
         PublicLedger::at(HttpClient::create(), 'https://ledgers.example.com', 'mutation-gate')
             ->onlyReading(Scope::branch($branch)),
     );
@@ -664,7 +685,7 @@ it('tells an Azure store which scope is the default branch\'s, which its public 
         HttpExchange::over(HttpClient::create()),
     ));
 
-    expect($wired->proofs)->toEqual($expected instanceof ContainerLedger ? $expected->forDefaultBranch(Scope::branch('trunk')) : $expected);
+    expect(keptUnder($wired->proofs))->toEqual($expected instanceof ContainerLedger ? $expected->forDefaultBranch(Scope::branch('trunk')) : $expected);
 })->group(...$holds);
 
 it('tells the PHPUnit runner the bounds of each mutant\'s limit, timeouts.seconds and timeouts.most, and the mutators of the default set', function (): void {

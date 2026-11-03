@@ -190,9 +190,9 @@ working directory's `vendor`
     on the same runs, for the same scope.
 - **`fetch`** reads the default branch's ledger, and no other scope's, from
   the store that [the store variables](../../reference/environment.md#the-store-for-deliver-and-fetch) locate, with a key that only needs to read.
-  It writes the ledger into `.mutation-gate/ledger`, where the `directory`
-  store, the default, reads it, so the plan, the shards and the verdict hold
-  no credential. It writes nothing to the store. A ledger it cannot read,
+  It writes the ledger into `.mutation-gate/fetched`, where a run reads it
+  beside the copy its own store keeps, as `proofs.copies` says, so the plan,
+  the shards and the verdict hold no credential. It writes nothing to the store. A ledger it cannot read,
   or a job without the key, costs a run, never a verdict: `fetch` says why
   and exits 0, as it does where `MUTATION_GATE_STORE` names no store. A public
   repository can read the default branch's ledger from `publicUrl` instead,

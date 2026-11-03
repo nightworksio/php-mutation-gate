@@ -9,6 +9,7 @@ use function ini_get;
 
 use NightWorksIO\MutationGate\Adapter\Azure\ContainerLedger;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\FetchedCopies;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LocalLedgers;
 use NightWorksIO\MutationGate\Adapter\Filesystem\ReferencedFiles;
 use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
@@ -312,15 +313,23 @@ final readonly class Wiring
     /**
      * Where a run keeps its proofs (ADR-0010): in CI, and in a
      * directory store the config names, there; elsewhere, in the local
-     * ledgers over the store the config names.
+     * ledgers over the store the config names; read beside the copy `fetch`
+     * wrote, as `proofs.copies` says.
      */
     private function kept(
         Settings $settings,
         ProofStore|Invalid|CannotJudge $configured,
     ): ProofStore|Invalid|CannotJudge {
+        if (! $configured instanceof ProofStore) {
+            return $configured;
+        }
+
         $local = ! $this->environment->inCi() && ! $settings->proofs()->keptOnDisk();
 
-        return $configured instanceof ProofStore && $local ? LocalLedgers::over($configured) : $configured;
+        return FetchedCopies::over(
+            $local ? LocalLedgers::over($configured) : $configured,
+            $settings->proofs()->copies(),
+        );
     }
 
     /**

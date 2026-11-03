@@ -340,9 +340,13 @@ def jobs(path: str) -> dict[str, list[str]]:
     return {name: job(path, name) for name in ids}
 
 
+# A step that runs the action itself, from the workflow's own checkout.
+RUNS_THE_ACTION = re.compile(r"uses: \./\.mutation-gate/workflow(\s|$)")
+
+
 def runs_project_code(lines: list[str]) -> bool:
     """Whether a job installs the project's dependencies, or runs the action, which does."""
-    return any("ramsey/composer-install@" in line or "uses: ./.mutation-gate/workflow" in line for line in lines)
+    return any("ramsey/composer-install@" in line or RUNS_THE_ACTION.search(line) for line in lines)
 
 
 # A variable that holds a credential, or a location a credential is sent to.
@@ -506,9 +510,17 @@ class ProjectCode(unittest.TestCase):
             with self.subTest(job=name):
                 self.assertEqual([], late)
 
-    def test_fetch_writes_the_ledger_where_the_directory_store_reads_it(self):
-        self.assertEqual(action.LEDGERS, env_of(lines_of(WORKFLOW))["LEDGERS"])
-        self.assertIn('fetch --to="${LEDGERS}"', "\n".join(job(WORKFLOW, "fetch")))
+    def test_fetch_writes_the_store_copy_where_the_plan_and_the_verdict_read_it_beside_the_cache(self):
+        env = env_of(lines_of(WORKFLOW))
+
+        self.assertEqual(action.LEDGERS, env["LEDGERS"])
+        self.assertNotEqual(env["LEDGERS"], env["FETCHED"])
+        self.assertIn('fetch --to="${FETCHED}"', "\n".join(job(WORKFLOW, "fetch")))
+        for name in ("plan", "verdict"):
+            fetched = [one for one in steps(job(WORKFLOW, name)) if any("mutation-gate-fetched-" in line for line in one)]
+            with self.subTest(job=name):
+                self.assertEqual(1, len(fetched))
+                self.assertIn("path: ${{ env.FETCHED }}", "\n".join(fetched[0]))
 
     def test_only_a_deliver_job_may_comment(self):
         commenting = sorted(name for name, lines in jobs(WORKFLOW).items() if "      pull-requests: write" in lines)

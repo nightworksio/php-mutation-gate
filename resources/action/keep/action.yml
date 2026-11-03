@@ -1,0 +1,33 @@
+name: Keep a scope's ledger in the Actions cache
+description: >-
+  Copies the ledger and the coverage map the verdict left into the scope's directory, which the Actions cache keeps,
+  and saves it under the scope's prefix and their digest, unless the cache already holds that key (ADR-0007).
+inputs:
+  from:
+    description: The directory the verdict left the ledger and the coverage map in.
+    required: true
+  directory:
+    description: The scope's directory under the directory store's path.
+    required: true
+  prefix:
+    description: The prefix of the scope's cache entries.
+    required: true
+  matched:
+    description: The key the restore matched, which is not saved again.
+    required: false
+    default: ''
+runs:
+  using: composite
+  steps:
+    - id: keep
+      shell: bash
+      env:
+        FROM: ${{ inputs.from }}
+        OWN: ${{ inputs.directory }}
+        PREFIX: ${{ inputs.prefix }}
+      run: python3 "${GITHUB_ACTION_PATH}/../gate_action.py" keep
+    - if: steps.keep.outputs.key != '' && steps.keep.outputs.key != inputs.matched
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ inputs.directory }}
+        key: ${{ steps.keep.outputs.key }}

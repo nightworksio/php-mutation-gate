@@ -6,12 +6,14 @@ use NightWorksIO\MutationGate\Adapter\Azure\ContainerLedger;
 use NightWorksIO\MutationGate\Adapter\Filesystem\DeliveredLedger;
 use NightWorksIO\MutationGate\Adapter\Filesystem\DeliveryDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\FetchedCopies;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LocalLedgers;
 use NightWorksIO\MutationGate\Adapter\Gcs\BucketLedger as GcsBucket;
 use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Core\Delivery\Stage;
+use NightWorksIO\MutationGate\Core\Proof\Copies;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
@@ -76,6 +78,7 @@ $stores = [
     'the directory' => fn(): ProofStore => LedgerDirectory::at(Scratch::directory()),
     'the bucket' => fn(): ProofStore => BucketLedger::of(new Bucket()->client(), 'ledgers', 'mutation-gate'),
     'the local ledgers' => fn(): ProofStore => LocalLedgers::of(LedgerDirectory::at(Scratch::directory()), new ProofStoreFake()),
+    'the copies fetch writes, beside the directory' => fn(): ProofStore => FetchedCopies::of(LedgerDirectory::at(Scratch::directory()), LedgerDirectory::at(Scratch::directory()), Copies::Newest),
     'the Cloud Storage bucket' => fn(): ProofStore => GcsBucket::of(new Cloud()->exchange(), 'ledgers', 'mutation-gate', FixedTokens::of('t')),
     'the Azure container' => fn(): ProofStore => ContainerLedger::of(new Cloud()->exchange(), 'gate', 'ledgers', 'mutation-gate', FixedTokens::of('t')),
     'the Azure container, with a public one' => fn(): ProofStore => ContainerLedger::of(new Cloud()->exchange(), 'gate', 'ledgers', 'mutation-gate', FixedTokens::of('t'))

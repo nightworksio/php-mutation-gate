@@ -11,9 +11,11 @@ Usage:
   gate_action.py resolve   the run's scope, ledger cache, gate binary and options:
                            `plan_options` adds the mode's to `options`
   gate_action.py config    from the effective config on stdin: whether it keeps
-                           its ledger in the default directory, whether it runs
-                           Pest with the optional patches, and whether it runs
-                           Infection
+                           its ledger in the default directory, which copy of a
+                           ledger it reads, whether deliver keeps the ledger in
+                           the cache after the store, from STORE and ON_DEFAULT,
+                           whether it runs Pest with the optional patches, and
+                           whether it runs Infection
   gate_action.py infection what `infection:patch` exited with, CODE, and said,
                            in the file SAID: a warning where the release runs
                            unpatched, a refusal where it could not be patched
@@ -25,6 +27,11 @@ Usage:
                            removes each shard's result an earlier attempt wrote
                            than its job's latest run, saying so, and every
                            attempt file beside the results
+  gate_action.py keep      copies the ledger and the coverage map the verdict
+                           left in FROM into OWN, the scope's directory the
+                           Actions cache keeps, and names the `key` they are
+                           saved under, PREFIX and their digest; none where
+                           FROM holds neither
 
 Every subcommand reads GitHub's environment and writes `key=value` lines to
 $GITHUB_OUTPUT, or refuses with exit code 2 and says why; `doomed` exits 1
@@ -38,6 +45,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -68,6 +76,15 @@ MODES = frozenset({"auto", "full", "changed", "sampled"})
 LEDGERS = ".mutation-gate/ledger"
 
 KEY = "mutation-gate-ledger-"
+
+# The copy of a ledger proofs.copies chooses where a config names none, and the
+# one whose cache copy the deliver job keeps after the store (ADR-0061).
+NEWEST = "newest"
+TOGETHER = "together"
+
+# What the verdict leaves of a scope for the Actions cache to keep: its ledger
+# and its kept coverage map, by the names the directory store reads.
+KEPT = frozenset({"ledger.json.gz", "coverage.json.gz"})
 
 GATE = "nightworksio/mutation-gate"
 
@@ -250,6 +267,16 @@ def ledgers(event: str, ref: str, payload: dict, default_branch: str, cache: boo
     }
 
 
+def kept_key(prefix: str, kept: dict[str, bytes]) -> str:
+    """The cache key a scope's kept files are saved under: its prefix and their digest; none where none is kept."""
+    if not kept:
+        return ""
+    digest = hashlib.sha256()
+    for name in sorted(kept):
+        digest.update(name.encode() + b"\0" + hashlib.sha256(kept[name]).digest())
+    return prefix + digest.hexdigest()
+
+
 def binary(root_manifest: dict) -> str:
     """The gate the project runs: its own `bin/` for the package itself, its vendor's otherwise."""
     return "bin/mutation-gate" if root_manifest.get("name") == GATE else "vendor/bin/mutation-gate"
@@ -354,6 +381,17 @@ def keeps_default_store(config: dict) -> bool:
     store = (config.get("proofs") or {}).get("store") or {}
     path = (store.get("with") or {}).get("path", LEDGERS)
     return store.get("use", "directory") == "directory" and path.rstrip("/") == LEDGERS
+
+
+def copies(config: dict) -> str:
+    """Which copy of a ledger the effective config reads where the store's and the cache's differ: `proofs.copies`."""
+    return (config.get("proofs") or {}).get("copies") or NEWEST
+
+
+def keeps_after_store(chosen: str, store: str, on_default_branch: bool) -> bool:
+    """Whether the deliver job, not the verdict, keeps the scope's ledger in the cache, once it wrote the store's:
+    for `together`, where a store is named, on the default branch, the one scope deliver writes the store of."""
+    return chosen == TOGETHER and store != "" and on_default_branch
 
 
 def patches_pest(config: dict) -> bool:
@@ -476,6 +514,7 @@ def main(argv: list[str]) -> int:
         "config": _config,
         "infection": _infection,
         "outputs": _outputs,
+        "keep": _keep,
     }
     if len(argv) == 2 and argv[1] == "doomed":
         return _doomed()
@@ -570,6 +609,10 @@ def _config() -> dict[str, str]:
         print(f"::notice::The config keeps its ledger outside {LEDGERS}, so the Actions cache is not used.")
     return {
         "default_store": "true" if kept else "false",
+        "copies": copies(config),
+        "after_store": "true"
+        if keeps_after_store(copies(config), os.environ.get("STORE", ""), os.environ.get("ON_DEFAULT") == "true")
+        else "false",
         "pest_patch": "true" if patches_pest(config) else "false",
         "infection_patch": "true" if patches_infection(config) else "false",
     }
@@ -613,6 +656,18 @@ def _stale() -> int:
         if name.endswith(ATTEMPT):
             os.remove(os.path.join(results, name))
     return 0
+
+
+def _keep() -> dict[str, str]:
+    source, own = os.environ["FROM"], os.environ["OWN"]
+    os.makedirs(own, exist_ok=True)
+    kept = {}
+    for name in KEPT:
+        if os.path.isfile(os.path.join(source, name)):
+            shutil.copyfile(os.path.join(source, name), os.path.join(own, name))
+            with open(os.path.join(own, name), "rb") as file:
+                kept[name] = file.read()
+    return {"key": kept_key(os.environ["PREFIX"], kept)}
 
 
 def _attempt(path: str) -> int:
