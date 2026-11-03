@@ -161,6 +161,7 @@ INFECTION = ("src/Adapter/Infection/", "src/Core/Coverage/PhpUnitXml.php", "test
 SITE = (
     ".docs/",
     ".site/",
+    ".github/scripts/decisions_index.py",
     "README.md",
     "src/Core/ThisPackage.php",
     "src/Core/Troubleshooting/",

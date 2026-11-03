@@ -11,6 +11,7 @@ on:
     paths:
       - '.docs/**'
       - '.site/**'
+      - '.github/scripts/decisions_index.py'
       - '.github/workflows/pages.yml'
       - '.github/workflows/site.yml'
   workflow_dispatch:

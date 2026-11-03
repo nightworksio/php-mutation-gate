@@ -1,5 +1,6 @@
 import contextlib
 import io
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -53,13 +54,14 @@ class Rows(unittest.TestCase):
         self.assertEqual(decisions_index.changes(decisions_index.adrs(files), "0001"),
                          "its lock file narrowed by [0002](0002-x.md), [0003](0003-x.md) and [0004](0004-x.md)")
 
-    def test_renders_each_row_between_the_markers_with_its_status_and_what_changed_it(self):
-        section = decisions_index.table(decisions_index.adrs(FILES))
-        self.assertTrue(section.startswith(f"{decisions_index.START}\n\n| # | Decision | Status |\n|---|"))
-        self.assertTrue(section.endswith(f"| [0005](0005-verdicts.md) | A verdict stands | Accepted |\n\n"
-                                         f"{decisions_index.END}"))
-        self.assertIn("| [0002](0002-floors.md) | Floors only rise | Accepted; \"a tree is judged whole\" superseded",
-                      section)
+    def test_gives_each_row_its_number_file_title_and_status_with_what_changed_it(self):
+        found = decisions_index.rows(decisions_index.adrs(FILES))
+        self.assertEqual([row["number"] for row in found], ["0001", "0002", "0003", "0004", "0005"])
+        self.assertEqual(found[4], {"number": "0005", "file": "0005-verdicts.md", "title": "A verdict stands",
+                                    "status": "Accepted"})
+        self.assertEqual(found[1]["status"], "Accepted; \"a tree is judged whole\" superseded by "
+                                             "[0003](0003-sampling.md) for sampled runs, "
+                                             "and its lowering amended by [0005](0005-verdicts.md)")
 
     def test_refuses_a_verb_it_does_not_know_a_link_to_another_file_and_a_file_without_its_heading(self):
         refused = {
@@ -73,44 +75,69 @@ class Rows(unittest.TestCase):
                 decisions_index.adrs(files)
 
 
-class Files(unittest.TestCase):
-    def test_writes_only_the_table_and_checks_it_says_what_to_run_where_it_is_stale(self):
-        with tempfile.TemporaryDirectory() as work:
-            directory = Path(work)
-            for name, text in FILES.items():
-                (directory / name).write_text(text)
-            readme = f"# ADRs\n\n{decisions_index.START}\nold\n{decisions_index.END}\n\n## After\n"
-            (directory / "README.md").write_text(readme)
-            said = io.StringIO()
-            with contextlib.redirect_stderr(said):
-                self.assertEqual(decisions_index.main(["check", work]), 1)
-            self.assertIn(decisions_index.WRITE, said.getvalue())
-            self.assertEqual(decisions_index.main(["write", work]), 0)
-            written = (directory / "README.md").read_text()
-            self.assertTrue(written.startswith("# ADRs\n\n<!-- index:start -->\n\n| # |"))
-            self.assertTrue(written.endswith("<!-- index:end -->\n\n## After\n"))
-            self.assertEqual(decisions_index.main(["check", work]), 0)
+EMPTY = f"# ADRs\n\n{decisions_index.START}\n{decisions_index.END}\n\n## After\n"
 
-    def test_fails_saying_why_where_an_adr_file_cannot_be_read_as_one(self):
-        with tempfile.TemporaryDirectory() as work:
-            (Path(work) / "0001-x.md").write_text("# ADR-0001: X\n")
-            (Path(work) / "README.md").write_text(f"{decisions_index.START}\n{decisions_index.END}\n")
-            said = io.StringIO()
-            with contextlib.redirect_stderr(said):
-                self.assertEqual(decisions_index.main(["check", work]), 1)
-            self.assertIn("0001-x.md has no `**Status:**` line.", said.getvalue())
+
+@contextlib.contextmanager
+def directory(files: dict[str, str]):
+    with tempfile.TemporaryDirectory() as work:
+        for name, text in files.items():
+            (Path(work) / name).write_text(text)
+        yield work
+
+
+class Problems(unittest.TestCase):
+    def test_finds_nothing_in_decisions_whose_readme_holds_only_its_markers(self):
+        self.assertEqual(decisions_index.problems({**FILES, "README.md": EMPTY}), [])
+
+    def test_says_which_files_take_one_number(self):
+        files = {**FILES, "README.md": EMPTY, "0005-a-later-one.md": adr("0005", "A later one")}
+        self.assertEqual(decisions_index.problems(files),
+                         ["ADR-0005 is taken by 0005-a-later-one.md and 0005-verdicts.md; "
+                          "give the newer one the next free number."])
+
+    def test_refuses_an_index_committed_between_the_markers_and_a_readme_without_them(self):
+        committed = f"{decisions_index.START}\n| # | Decision |\n{decisions_index.END}\n"
+        self.assertEqual(decisions_index.problems({**FILES, "README.md": committed}),
+                         ["README.md holds an index between its markers; the site builds it, so leave nothing there."])
+        self.assertEqual(decisions_index.problems({**FILES, "README.md": "# ADRs\n"}),
+                         [f"README.md has no {decisions_index.START} and {decisions_index.END} markers "
+                          "for the site to build the index between."])
+
+    def test_says_why_an_adr_file_cannot_be_read_as_one(self):
+        self.assertEqual(decisions_index.problems({"0001-x.md": "# ADR-0001: X\n", "README.md": EMPTY}),
+                         ["0001-x.md has no `**Status:**` line."])
+
+
+class Files(unittest.TestCase):
+    def test_validates_a_directory_and_prints_its_rows_as_json(self):
+        with directory({**FILES, "README.md": EMPTY}) as work:
+            self.assertEqual(decisions_index.main(["validate", work]), 0)
+            printed = io.StringIO()
+            with contextlib.redirect_stdout(printed):
+                self.assertEqual(decisions_index.main(["rows", work]), 0)
+        self.assertEqual(json.loads(printed.getvalue()), decisions_index.rows(decisions_index.adrs(FILES)))
+
+    def test_fails_saying_why_and_prints_no_rows_where_a_problem_stands(self):
+        with directory({**FILES, "README.md": "# ADRs\n"}) as work:
+            for command in ("validate", "rows"):
+                said, printed = io.StringIO(), io.StringIO()
+                with contextlib.redirect_stderr(said), contextlib.redirect_stdout(printed):
+                    self.assertEqual(decisions_index.main([command, work]), 1, command)
+                self.assertIn("README.md has no", said.getvalue(), command)
+                self.assertEqual(printed.getvalue(), "", command)
 
     def test_says_how_it_is_used_where_it_is_given_no_command(self):
         with contextlib.redirect_stderr(io.StringIO()):
             self.assertEqual(decisions_index.main([]), 2)
-            self.assertEqual(decisions_index.main(["render"]), 2)
+            self.assertEqual(decisions_index.main(["write"]), 2)
+            self.assertEqual(decisions_index.main(["validate", "a", "b"]), 2)
 
 
-class Committed(unittest.TestCase):
-    def test_the_committed_index_is_the_one_the_adr_files_give(self):
-        readme, section = decisions_index.read(ROOT / decisions_index.DECISIONS)
-        self.assertEqual(decisions_index.section_of(readme), section,
-                         f".docs/decisions/README.md's index is stale. Run: {decisions_index.WRITE}")
+class TheRepository(unittest.TestCase):
+    def test_s_decisions_validate(self):
+        files = decisions_index.read(ROOT / decisions_index.DECISIONS)
+        self.assertEqual(decisions_index.problems(files), [], f"Run: {decisions_index.VALIDATE}")
 
 
 if __name__ == "__main__":
