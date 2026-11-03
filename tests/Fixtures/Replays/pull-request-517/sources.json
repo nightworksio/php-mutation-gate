@@ -1,0 +1,12 @@
+[
+["tests/Unit/Adapter/Console/ConsoleReportTest.php",true],
+["tests/Unit/Adapter/Native/CoverageTest.php",true],
+["tests/Unit/Cli/Command/RunCommandTest.php",true],
+["tests/Unit/Cli/Flow/VerdictTimingsTest.php",true],
+["tests/Unit/Core/Hint/HintTest.php",true],
+["tests/Unit/Core/Runner/CoverageFailureTest.php",true],
+["tests/Unit/Core/Verdict/JudgedKillTest.php",true],
+["tests/Unit/Core/Verdict/JudgedMutantTest.php",true],
+["tests/Unit/Core/Verdict/JudgedMutantsTest.php",true],
+["tests/Unit/Core/Verdict/TreeVerdictTest.php",true]
+]

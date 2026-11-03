@@ -213,3 +213,18 @@ it('finds the fixture projects a change is in, as it is and as it was, and wheth
     ],
     'outside every one' => [fn(): Change => Change::modified(Path::of('tests/Unit/CartTest.php'), Lines::none()), [], false],
 ]);
+
+it('finds test support where the tests load it from besides their directories, and no file of test cases or other file there', function (): void {
+    $layout = layoutDefinedBy()
+        ->testedIn(SuiteDirectory::of(Path::of('tests/Unit'), 'Test.php'))
+        ->supportedFrom(Path::of('tests'), Path::of('helpers.php'));
+
+    expect($layout->isSupport(Path::of('tests/Fakes/ClockFake.php')))->toBeTrue()
+        ->and($layout->isSupport(Path::of('helpers.php')))->toBeTrue()
+        ->and($layout->isSupport(Path::of('tests/Unit/MoneyTest.php')))->toBeFalse()
+        ->and($layout->isSupport(Path::of('tests/fixtures/money.json')))->toBeFalse()
+        ->and($layout->isSupport(Path::of('src/Clock.php')))->toBeFalse()
+        ->and($layout->isInTests(Path::of('tests/Fakes/ClockFake.php')))->toBeFalse()
+        ->and(layoutDefinedBy()->testedIn(SuiteDirectory::of(Path::of('tests/Unit'), 'Test.php'))->isSupport(Path::of('tests/Fakes/ClockFake.php')))
+        ->toBeFalse();
+});

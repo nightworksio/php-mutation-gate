@@ -1,0 +1,19 @@
+<?php
+declare(strict_types=1);
+use NightWorksIO\MutationGate\Adapter\Composer\Disk;
+use NightWorksIO\MutationGate\Cli\Flow\CodeOwnersFile;
+use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
+use NightWorksIO\MutationGate\Core\Ci\RunOn;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\Owner\CodeOwners;
+use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Verdict\Warning;
+use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
+use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\Planned;
+use NightWorksIO\MutationGate\Tests\Support\Project;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;

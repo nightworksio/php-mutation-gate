@@ -1,0 +1,10 @@
+<?php
+declare(strict_types=1);
+use NightWorksIO\MutationGate\Cli\Registry\Lookup;
+use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Extension\Extensions;
+use NightWorksIO\MutationGate\Tests\Fakes\ReporterFake;
+use NightWorksIO\MutationGate\Tests\Support\Registering;

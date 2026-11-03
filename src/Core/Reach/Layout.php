@@ -35,6 +35,8 @@ final readonly class Layout
      * @param Globs                $decisive   the files that decide how the gate runs, spelt from a package's directory
      * @param Globs                $repository the files that decide how the gate runs, spelt from the repository's
      * @param list<SuiteDirectory> $tests      where each package keeps its tests, spelt from its directory
+     * @param Paths                $support    where each package's tests load support from besides, spelt from its
+     *                                         directory
      */
     private function __construct(
         private Globs $decisive,
@@ -44,6 +46,7 @@ final readonly class Layout
         private Paths $modules,
         private string|NotGiven $unnamed,
         private Globs $fixtures,
+        private Paths $support,
     ) {
     }
 
@@ -75,6 +78,7 @@ final readonly class Layout
             Paths::none(),
             NotGiven::value(),
             Globs::of(),
+            Paths::none(),
         );
     }
 
@@ -93,6 +97,7 @@ final readonly class Layout
             $this->modules,
             $this->unnamed,
             $this->fixtures,
+            $this->support,
         );
     }
 
@@ -118,6 +123,7 @@ final readonly class Layout
             $layout->modules,
             $reads->unnamedBecause(),
             $layout->fixtures,
+            $layout->support,
         );
     }
 
@@ -138,6 +144,7 @@ final readonly class Layout
             $this->modules,
             $this->unnamed,
             $this->fixtures,
+            $this->support,
         );
     }
 
@@ -152,6 +159,7 @@ final readonly class Layout
             $this->modules,
             $this->unnamed,
             $this->fixtures,
+            $this->support,
         );
     }
 
@@ -166,6 +174,7 @@ final readonly class Layout
             $this->modules->with($module),
             $this->unnamed,
             $this->fixtures,
+            $this->support,
         );
     }
 
@@ -184,6 +193,32 @@ final readonly class Layout
             $this->modules,
             $this->unnamed,
             $this->fixtures->with(...$roots),
+            $this->support,
+        );
+    }
+
+    /**
+     * This layout, where each package's tests also load support from these
+     * directories or files, each spelt from its package's directory, as its
+     * `autoload-dev` names them outside its directories of tests.
+     */
+    public function supportedFrom(Path ...$places): self
+    {
+        $support = $this->support;
+
+        foreach ($places as $place) {
+            $support = $support->with($place);
+        }
+
+        return new self(
+            $this->decisive,
+            $this->repository,
+            $this->definitions,
+            $this->tests,
+            $this->modules,
+            $this->unnamed,
+            $this->fixtures,
+            $support,
         );
     }
 
@@ -256,10 +291,16 @@ final readonly class Layout
         return array_any($this->tests, static fn(SuiteDirectory $tests): bool => $tests->holdsTestCase($inPackage));
     }
 
-    /** Whether a file, spelt from its package's directory, is test support: PHP under the tests, not of test cases. */
+    /**
+     * Whether a file, spelt from its package's directory, is test support:
+     * PHP under the tests, or where the tests load support from, and not of
+     * test cases.
+     */
     public function isSupport(Path $inPackage): bool
     {
-        return $this->isInTests($inPackage) && $inPackage->isPhp() && ! $this->isTest($inPackage);
+        $loaded = array_any([...$this->support], static fn(Path $support): bool => $inPackage->within($support));
+
+        return ($this->isInTests($inPackage) || $loaded) && $inPackage->isPhp() && ! $this->isTest($inPackage);
     }
 
     /** Whether a file, spelt from its package's directory, is inside a directory of tests, whatever it holds. */

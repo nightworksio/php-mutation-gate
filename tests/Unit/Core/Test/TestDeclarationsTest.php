@@ -279,3 +279,29 @@ it('finds a method of a class the file opens with, and leaves out each test in t
     expect($first->of('testFirst'))->toBe(' public function testFirst(): void {}')
         ->and($mixed->shared([TestMethod::pest('it adds'), 'testHelps']))->toBe("\n\nfinal class Helper\n{\n}");
 });
+
+it('reads each import at the top of a file, spelt as one statement, and none of a trait, a closure or a namespace in braces', function (): void {
+    $declared = TestDeclarations::in(Contents::of(<<<'PHP'
+        <?php use App\Money;
+        use   function App\rate;
+        use App\{Fee, Tax};
+
+        final class MoneyTest
+        {
+            use Helps;
+
+            public function testAdds(): void
+            {
+                $add = function () use ($x): void {
+                };
+            }
+        }
+
+        $round = fn () => 1;
+        use App\Unended
+        PHP));
+
+    expect($declared->imports())->toBe(['use App\Money;', 'use function App\rate;', 'use App\{Fee, Tax};'])
+        ->and($declared->sharedButImports(['testAdds']))->toBe("\n\nfinal class MoneyTest\n{\n    use Helps;\n}\n\n\$round = fn () => 1;\nuse App\\Unended")
+        ->and(TestDeclarations::in(Contents::of("<?php\nnamespace App {\n    use App\\Money;\n}\n"))->imports())->toBe([]);
+});

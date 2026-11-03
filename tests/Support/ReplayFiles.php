@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
-use function array_key_exists;
 use function array_keys;
 use function array_map;
 use function file_get_contents;
@@ -35,24 +34,25 @@ use function str_replace;
  * `tests/Fixtures/Replays/<name>` holds it:
  *
  * - `changes.json`, each path the pull request changed, by its kind;
- * - `sources`, each changed test file the map places tests in, as it is at
- *   the merge (`.now`), and the patch from it back to the pull request's
- *   parent (`.patch`);
+ * - `sources`, each changed test file the map places tests in and each
+ *   changed piece of test support, as it is at the merge (`.now`), with the
+ *   patch from it back to the pull request's parent (`.patch`), and each
+ *   test file and piece of support that uses changed support, as it is,
+ *   a test file cut to its imports, which name the support; `sources.json`
+ *   lists them, and which have a patch;
  * - `tests.json`, those files' tests the map holds, by their methods, each
  *   with the files it covers, and `files.json`, those files;
  * - `judges.json`, the files the runner judges by each changed test file;
  * - `units.json`, each unit the run planned with its learned cost, a new
  *   unit's estimate shared among those it was cut with, and the opening
  *   run's seconds;
- * - `layout.json`, what the gate's config said reaches everything.
+ * - `layout.json`, what the gate's config said reaches everything, and where
+ *   its `autoload-dev` said the tests load support from.
  */
 final readonly class ReplayFiles
 {
     /** Where the replays are. */
     private const string DIRECTORY = 'tests/Fixtures/Replays/%s/%s';
-
-    /** What a change of a file in its place is called. */
-    private const string MODIFIED = 'Modified';
 
     private function __construct(private string $name)
     {
@@ -81,16 +81,18 @@ final readonly class ReplayFiles
         return $changes;
     }
 
-    /** Each changed test file the pull request modified in its place, as it is and as it was. */
+    /** Each file the replay holds, as it is, and as it was where it changed. */
     public function sources(): Sources
     {
         $sources = Sources::none();
 
-        foreach ($this->modified() as $file) {
-            $now = $this->now($file);
-            $sources = $sources
-                ->withNow(Path::of($file), Contents::of($now))
-                ->withBefore(Path::of($file), Contents::of(ReversedPatch::applied($now, $this->read($this->source($file, 'patch')))));
+        foreach (Node::decode($this->read('sources.json'))->items() as $row) {
+            [$file, $patched] = $row->items();
+            $now = $this->now($file->text());
+            $sources = $sources->withNow(Path::of($file->text()), Contents::of($now));
+            $sources = $patched->boolean()
+                ? $sources->withBefore(Path::of($file->text()), Contents::of(ReversedPatch::applied($now, $this->read($this->source($file->text(), 'patch')))))
+                : $sources;
         }
 
         return $sources;
@@ -172,6 +174,12 @@ final readonly class ReplayFiles
         return Node::decode($this->read('units.json'))->field('opening')->number();
     }
 
+    /** @return list<Path> where the gate's `autoload-dev` said the tests load support from */
+    public function support(): array
+    {
+        return array_map(static fn(Node $place): Path => Path::of($place->text()), Node::decode($this->read('layout.json'))->field('support')->items());
+    }
+
     /** @return list<Glob> what the gate's config said reaches everything */
     public function everything(): array
     {
@@ -190,21 +198,6 @@ final readonly class ReplayFiles
         }
 
         return $covers;
-    }
-
-    /** @return list<string> each changed test file the map places tests in that the pull request modified in its place */
-    private function modified(): array
-    {
-        $placed = Node::decode($this->read('tests.json'))->entries();
-        $modified = [];
-
-        foreach (Node::decode($this->read('changes.json'))->items() as $row) {
-            $parts = $row->items();
-            $file = $parts[1]->text();
-            $modified = $parts[0]->text() === self::MODIFIED && array_key_exists($file, $placed) ? [...$modified, $file] : $modified;
-        }
-
-        return $modified;
     }
 
     /** @return list<string> */

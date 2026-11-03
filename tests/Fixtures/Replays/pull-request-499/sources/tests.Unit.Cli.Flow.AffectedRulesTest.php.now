@@ -1,0 +1,19 @@
+<?php
+declare(strict_types=1);
+use NightWorksIO\MutationGate\Cli\Flow\AffectedRules;
+use NightWorksIO\MutationGate\Cli\Flow\AskedChanges;
+use NightWorksIO\MutationGate\Cli\Flow\Inventory;
+use NightWorksIO\MutationGate\Cli\Flow\TestsOfTheSuite;
+use NightWorksIO\MutationGate\Core\Change\Change;
+use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\File\Lines;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
+use NightWorksIO\MutationGate\Tests\Support\Affected;
+use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;

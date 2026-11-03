@@ -160,20 +160,24 @@ final readonly class TestReach
                 $judged,
                 Reason::that(sprintf(self::UNPLACED, $path->value(), count($judged))),
             ),
-            default => $this->narrowed($reach, $change, $placed),
+            default => $this->narrowed($reach, $change, $placed, $judged),
         };
 
         return $this->withModules($reached, $path);
     }
 
-    /** This reach, with what the tests a change to a test file touched run, of those the map places in it. */
-    private function narrowed(Reach $reach, Change $change, TestIds $placed): Reach
+    /**
+     * This reach, with what the tests a change to a test file touched run, of
+     * those the map places in it; or, where it touched them all, what the
+     * runner judges by the file and what any of them runs.
+     */
+    private function narrowed(Reach $reach, Change $change, TestIds $placed, Paths $judged): Reach
     {
         $path = $change->path()->value();
         $touched = TestsChanged::of($change, $this->sources, $placed);
 
         if ($touched instanceof Widening) {
-            $files = $this->runs->filesRunBy($placed);
+            $files = $judged->and($this->runs->filesRunBy($placed));
 
             return $reach->files($files, $touched->reason($path, count($files)));
         }

@@ -1,0 +1,12 @@
+<?php
+declare(strict_types=1);
+use NightWorksIO\MutationGate\Cli\Flow\Inventory;
+use NightWorksIO\MutationGate\Cli\Flow\TestsOfTheSuite;
+use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Reach\TestPlaces;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
+use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;

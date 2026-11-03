@@ -68,11 +68,28 @@ it('touches every test where the change moved what they share', function (string
     expect(changedBetween(changedPest('1', CHANGED_ADDS, CHANGED_ROUNDS), $now, changedIds('it adds', 'it rounds')))->toBe(Widening::Shared);
 })->with([
     'a helper' => [fn(): string => changedPest('2', CHANGED_ADDS, CHANGED_ROUNDS)],
-    'an import' => [fn(): string => str_replace('use App\\Money;', "use App\\Money;\nuse App\\Rate;", changedPest('1', CHANGED_ADDS, CHANGED_ROUNDS))],
+    'an import changed' => [fn(): string => str_replace('use App\\Money;', 'use App\\Rate;', changedPest('1', CHANGED_ADDS, CHANGED_ROUNDS))],
+    'an import removed' => [fn(): string => str_replace("use App\\Money;\n", '', changedPest('1', CHANGED_ADDS, CHANGED_ROUNDS))],
+    'an import added twice over one' => [fn(): string => str_replace('use App\\Money;', "use App\\Rate;\nuse App\\Rate;", changedPest('1', CHANGED_ADDS, CHANGED_ROUNDS))],
+    'an import added with a helper changed' => [fn(): string => str_replace('use App\\Money;', "use App\\Money;\nuse App\\Rate;", changedPest('2', CHANGED_ADDS, CHANGED_ROUNDS))],
     'a hook' => [fn(): string => changedPest('1', 'beforeEach(fn () => 1);', CHANGED_ADDS, CHANGED_ROUNDS)],
     'a test the map does not place' => [fn(): string => changedPest('1', CHANGED_ADDS, CHANGED_ROUNDS, "it('pays', fn () => 1);")],
     'a test renamed' => [fn(): string => changedPest('1', CHANGED_ADDS, str_replace('rounds', 'rounds down', CHANGED_ROUNDS))],
 ]);
+
+it('touches no test for imports a change only added, wherever it put them and however it laid them out, and only the test that changed besides', function (string $now): void {
+    expect(changedBetween(changedPest('1', CHANGED_ADDS, CHANGED_ROUNDS), $now, changedIds('it adds', 'it rounds')))->toEqual(TestIds::none());
+})->with([
+    'after the import' => [fn(): string => str_replace('use App\\Money;', "use App\\Money;\nuse App\\Rate;", changedPest('1', CHANGED_ADDS, CHANGED_ROUNDS))],
+    'before it, the file laid out anew' => [fn(): string => str_replace("\n\nuse App\\Money;", "\n\nuse function App\\rate;\n\nuse   App\\Money;", changedPest('1', CHANGED_ADDS, CHANGED_ROUNDS))],
+    'grouped' => [fn(): string => str_replace('use App\\Money;', "use App\\Money;\nuse App\\{Rate, Fee};", changedPest('1', CHANGED_ADDS, CHANGED_ROUNDS))],
+]);
+
+it('touches only the test that changed where a change also added an import', function (): void {
+    $now = str_replace('use App\\Money;', "use App\\Money;\nuse App\\Rate;", changedPest('1', str_replace('+ 1', '+ 2', CHANGED_ADDS), CHANGED_ROUNDS));
+
+    expect(changedBetween(changedPest('1', CHANGED_ADDS, CHANGED_ROUNDS), $now, changedIds('it adds', 'it rounds')))->toEqual(changedIds('it adds'));
+});
 
 it('touches every test of a PHPUnit class whose setUp moved, and only the test whose body did', function (): void {
     $class = static fn(string $setUp, string $body): string => sprintf(
@@ -115,4 +132,11 @@ it('keys a test whose id names no method by the id, and touches none it cannot f
     $placed = changedIds('it adds')->with(TestId::of('tests/money.phpt'));
 
     expect(changedBetween(changedPest('1', $adds), changedPest('1', str_replace('+ 1', '+ 3', $adds)), $placed))->toEqual(changedIds('it adds'));
+});
+
+it('touches every test where an import the file declared twice is declared once', function (): void {
+    $twice = str_replace('use App\Money;', "use App\\Money;\nuse App\\Money;", changedPest('1', CHANGED_ADDS, CHANGED_ROUNDS));
+
+    expect(changedBetween($twice, changedPest('1', CHANGED_ADDS, CHANGED_ROUNDS), changedIds('it adds', 'it rounds')))->toBe(Widening::Shared)
+        ->and(changedBetween(changedPest('1', CHANGED_ADDS, CHANGED_ROUNDS), $twice, changedIds('it adds', 'it rounds')))->toEqual(TestIds::none());
 });

@@ -13,5 +13,13 @@
         "bin/mutation-gate-pest-client",
         "bin/mutation-gate-pest-worker",
         "src/Core/Runner/MutantLimit.php"
+    ],
+    "support": [
+        "plugins/default/tests",
+        "plugins/laravel/tests",
+        "plugins/security/tests",
+        "plugins/symfony/tests",
+        "phpstan",
+        "tests"
     ]
 }

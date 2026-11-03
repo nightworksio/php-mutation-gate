@@ -53,6 +53,7 @@ final readonly class Suite
         private Sources $sources,
         private Fingerprints $outside,
         private array $contents,
+        private SupportPlaces $support,
     ) {
     }
 
@@ -64,6 +65,7 @@ final readonly class Suite
         TestSuite $configured,
     ): self|CannotJudge {
         $packages = self::packageTestsOf($trees, $configured->conventionalDirectory());
+        $support = SupportPlaces::read($project, $trees);
         $read = [];
         $contentsOf = [];
         $sources = Sources::none();
@@ -92,9 +94,10 @@ final readonly class Suite
         return new self(
             $configured,
             TestFiles::of(...$read),
-            $sources,
+            $support->readInto($sources, $outside, $project),
             $outside,
             $contentsOf,
+            $support,
         );
     }
 
@@ -116,7 +119,19 @@ final readonly class Suite
         return $this->files;
     }
 
-    /** Every file of the test directories with what it holds, as reach reads them. */
+    /**
+     * Where each package's tests load support from besides their directories
+     * of tests, each spelt from its package's directory.
+     */
+    public function supportPlaces(): Paths
+    {
+        return $this->support->inPackages();
+    }
+
+    /**
+     * Every file of the test directories, and of the places their tests load
+     * support from besides, with what it holds, as reach reads them.
+     */
     public function sources(): Sources
     {
         return $this->sources;

@@ -1,0 +1,11 @@
+<?php
+declare(strict_types=1);
+use NightWorksIO\MutationGate\Config\Equivalence;
+use NightWorksIO\MutationGate\Config\Setting;
+use NightWorksIO\MutationGate\Core\Analysis\Checkable;
+use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\ProvenMoney;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
