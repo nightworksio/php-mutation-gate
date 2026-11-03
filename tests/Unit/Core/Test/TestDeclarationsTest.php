@@ -303,5 +303,7 @@ it('reads each import at the top of a file, spelt as one statement, and none of 
 
     expect($declared->imports())->toBe(['use App\Money;', 'use function App\rate;', 'use App\{Fee, Tax};'])
         ->and($declared->sharedButImports(['testAdds']))->toBe("\n\nfinal class MoneyTest\n{\n    use Helps;\n}\n\n\$round = fn () => 1;\nuse App\\Unended")
-        ->and(TestDeclarations::in(Contents::of("<?php\nnamespace App {\n    use App\\Money;\n}\n"))->imports())->toBe([]);
+        ->and(TestDeclarations::in(Contents::of("<?php\nnamespace App {\n    use App\\Money;\n}\n"))->imports())->toBe([])
+        ->and(TestDeclarations::in(Contents::of("<?php\nit('adds', fn () => 1);\nuse App\\Money;\nit('helps', fn () => 2);\n"))->sharedButImports([TestMethod::pest('it adds')]))
+        ->toBe("\nit('helps', fn () => 2);\n");
 });
