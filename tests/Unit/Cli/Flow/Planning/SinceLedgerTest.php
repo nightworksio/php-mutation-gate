@@ -123,7 +123,7 @@ it('reaches what a killing test the default branch changed since its ledger runs
     [$planned, $reasons] = plannedSinceLedger($files, LEDGER_PASSED, Change::modified(Path::of('tests/MoneySpec.php'), Lines::of(Line::of(3))));
 
     expect(runSinceLedger($planned))->toBe(['src/Held.php', 'src/Money.php'])
-        ->and($reasons)->toContain(sprintf('On the default branch since its ledger last passed, at %s: `tests/MoneySpec.php` changed, so the 2 files its tests run are reached.', LEDGER_PASSED));
+        ->and($reasons)->toContain(sprintf('On the default branch since its ledger last passed, at %s: The coverage map places no test in `tests/MoneySpec.php` by its id, so the 2 files the runner judges by it are reached.', LEDGER_PASSED));
 });
 
 it('reaches nothing more where the default branch\'s ledger last passed at the commit the pull request is read against', function (): void {
