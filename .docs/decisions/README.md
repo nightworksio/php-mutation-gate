@@ -85,5 +85,6 @@ There is no separate requirements document, and there are no requirement IDs.
 | [0054](0054-a-pull-request-runs-the-gates-its-change-can-move.md) | A pull request runs the gates its change can move, and reads its workflows job by job | Accepted; its outputs, and the jobs a workflow change runs amended by [0055](0055-each-gated-job-runs-for-its-own-inputs-and-each-runner-leg-for-its-own-test-support.md) |
 | [0055](0055-each-gated-job-runs-for-its-own-inputs-and-each-runner-leg-for-its-own-test-support.md) | Each gated job runs for its own inputs, and each runner leg for its own test support | Accepted |
 | [0057](0057-nette-neon-is-supported-at-3-4-and-4.md) | nette/neon is supported at 3.4 and at 4 | Accepted |
+| [0059](0059-every-run-on-the-default-branch-finishes-and-writes-its-ledger.md) | Every run on the default branch finishes, and writes its ledger | Accepted |
 
 <!-- index:end -->

@@ -32,6 +32,10 @@ on:
 permissions:
   contents: read
 
+concurrency: # cancels only a pull request's older runs: see Concurrency below
+  group: mutation-${{ contains(fromJSON('["pull_request","push"]'), github.event_name) && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   mutation:
     name: mutation / verdict # the check ci.check names by default
@@ -149,6 +153,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency: # cancels only a pull request's older runs: see Concurrency below
+  group: mutation-${{ contains(fromJSON('["pull_request","push"]'), github.event_name) && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   mutation:
@@ -469,6 +477,16 @@ A private or internal repository is left out unless `--include-private` is
 given, and then the dashboard refuses to build unless GitHub says the Pages
 site of the repository it runs in is private, which needs GitHub Enterprise
 Cloud.
+
+## Concurrency
+
+Only a verdict writes the ledger, so a run on the default branch that is
+cancelled leaves the next run to judge its units again. The examples above
+cancel only a pull request's runs on its older heads, which nobody reads. A
+push to the default branch waits for the run before it, and of several
+pushes waiting, GitHub keeps the newest. A scheduled run, a merge group and
+a manual run are each a group of their own. `init --ci=github` writes the
+same group.
 
 ## Proofs
 
