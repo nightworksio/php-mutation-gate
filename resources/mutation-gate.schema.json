@@ -522,6 +522,14 @@
                         "file"
                     ],
                     "default": "narrow"
+                },
+                "fixtures": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "default": []
                 }
             },
             "additionalProperties": false

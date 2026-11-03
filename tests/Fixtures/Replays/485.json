@@ -1,0 +1,31 @@
+{
+    "pullRequest": 485,
+    "merge": "de88fa9cc354ae7ab53ea18f553af10ae6bf6a62",
+    "changes": [
+        ["M", ".docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md"],
+        ["M", "src/Core/Control/HeavyMutants.php"],
+        ["A", "src/Core/Control/PartControls.php"],
+        ["M", "src/Core/Control/PartedMutant.php"],
+        ["M", "tests/Contract/Runner/HeavyTest.php"],
+        ["A", "tests/Contract/Runner/heavy/src/Split.php"],
+        ["A", "tests/Contract/Runner/heavy/tests/SplitASpec.php"],
+        ["A", "tests/Contract/Runner/heavy/tests/SplitBSpec.php"],
+        ["A", "tests/Contract/Runner/heavy/tests/SplitCSpec.php"],
+        ["M", "tests/Unit/Core/Control/PartedMutantTest.php"]
+    ],
+    "fixture": "tests/Contract/Runner/heavy",
+    "usedBy": [
+        "tests/Contract/Runner/HeavyTest.php"
+    ],
+    "planned": {
+        "units": 121,
+        "learnedSeconds": 1694.3,
+        "openingSeconds": 201.338,
+        "shards": 3
+    },
+    "before": {
+        "units": 2220,
+        "learnedSeconds": 21190.0,
+        "shards": 20
+    }
+}

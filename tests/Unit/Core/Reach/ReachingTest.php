@@ -410,3 +410,136 @@ it('reaches what changed support reaches in time linear in the files and tests',
     ])
         ->and(Growth::of(250, $reach))->toBeLessThan(Growth::LINEAR);
 });
+
+$fixtured = static fn(): Reaching => new Reaching(
+    Layout::standard(Paths::of(Path::of('tests/Pest.php')))->withFixtures(Glob::of('tests/fixtures/*')),
+    Trees::of(Tree::at(Path::of('src'), Undeclared::floor(), Package::at(Path::root()))),
+);
+
+$shop = static fn(): Sources => Sources::none()
+    ->withNow(Path::of('tests/fixtures/shop/tests/CartSpec.php'), Contents::of("<?php\n\nit('adds', fn () => true);\n"))
+    ->withNow(Path::of('tests/Unit/ClockTest.php'), Contents::of("<?php\n\nit('ticks', fn () => copy('tests/fixtures/shop/composer.json', \$to));\n"))
+    ->withNow(Path::of('tests/Unit/MoneyTest.php'), Contents::of("<?php\n\nit('adds', fn () => 'tests/fixtures/shopping');\n"));
+
+it('reaches what the tests that name a changed fixture project run, whatever its files are and run when they are loaded', function () use ($fixtured, $judges, $said, $shop): void {
+    $reach = $fixtured()->of(Changes::of(
+        Change::added(Path::of('tests/fixtures/shop/tests/CartSpec.php'), Lines::of(Line::of(3))),
+        Change::modified(Path::of('tests/fixtures/shop/composer.json'), Lines::of(Line::of(2))),
+        Change::deleted(Path::of('tests/fixtures/shop/vendor/LibraryTest.php')),
+    ), $judges(), $shop(), TestRuns::wholeFiles());
+
+    expect($reach->reaches(Unit::file(Path::of('src/Money.php'))))->toBeTrue()
+        ->and($reach->reaches(Unit::file(Path::of('src/Clock.php'))))->toBeTrue()
+        ->and($reach->reaches(Unit::file(Path::of('src/Ledger.php'))))->toBeFalse()
+        ->and($said($reach))->toBe([
+            '`tests/fixtures/shop/tests/CartSpec.php` is in the fixture `tests/fixtures/shop`, which 1 tests use, so the 2 files they run are reached.',
+            '`tests/fixtures/shop/composer.json` is in the fixture `tests/fixtures/shop`, which 1 tests use, so the 2 files they run are reached.',
+            '`tests/fixtures/shop/vendor/LibraryTest.php` is in the fixture `tests/fixtures/shop`, which 1 tests use, so the 2 files they run are reached.',
+        ]);
+});
+
+it('reaches every tree of the module a test that names a changed fixture project is in', function () use ($makeRoot, $said): void {
+    $reaching = new Reaching(
+        Layout::standard(Paths::of(Path::of('tests/Pest.php')))
+            ->testedIn(SuiteDirectory::of(Path::of('app-modules/billing/tests'), ''))
+            ->withModule(Path::of('app-modules/billing'))
+            ->withFixtures(Glob::of('app-modules/billing/tests/fixtures/*')),
+        Trees::of(
+            Tree::at(Path::of('src'), Undeclared::floor(), $makeRoot()),
+            Tree::at(Path::of('app-modules/billing/src'), Undeclared::floor(), $makeRoot()),
+        ),
+    );
+    $sources = Sources::none()->withNow(
+        Path::of('app-modules/billing/tests/InvoiceTest.php'),
+        Contents::of("<?php\n\nit('bills', fn () => 'app-modules/billing/tests/fixtures/shop');\n"),
+    );
+
+    $reach = $reaching->of(
+        Changes::of(Change::modified(Path::of('app-modules/billing/tests/fixtures/shop/composer.json'), Lines::of(Line::of(2)))),
+        Judges::none(),
+        $sources,
+        TestRuns::wholeFiles(),
+    );
+
+    expect($reach->reaches(Unit::file(Path::of('app-modules/billing/src/Invoice.php'))))->toBeTrue()
+        ->and($reach->reaches(Unit::file(Path::of('src/Money.php'))))->toBeFalse()
+        ->and($said($reach))->toBe([
+            '`app-modules/billing/tests/InvoiceTest.php` is a test of the module app-modules/billing, so every tree of it is reached.',
+            '`app-modules/billing/tests/fixtures/shop/composer.json` is in the fixture `app-modules/billing/tests/fixtures/shop`, which 1 tests use, so the 0 files they run are reached.',
+        ]);
+});
+
+it('reaches every unit of the package where no test is found to name a changed fixture project, and says why', function () use ($fixtured, $judges, $said, $shop): void {
+    $reach = $fixtured()->of(Changes::of(Change::added(Path::of('tests/fixtures/bank/src/Vault.php'), Lines::of(Line::of(1)))), $judges(), $shop(), TestRuns::wholeFiles());
+
+    expect($reach->reaches(Unit::file(Path::of('src/Ledger.php'))))->toBeTrue()
+        ->and($reach->isEverywhere())->toBeFalse()
+        ->and($said($reach))->toBe(['No test is found to name the fixture `tests/fixtures/bank`, so what reads it cannot be told: every unit of the project is reached.']);
+});
+
+it('reaches what the users of the fixture a file moved out of run, and what it reaches where it went', function () use ($fixtured, $said, $shop): void {
+    $reach = $fixtured()->of(
+        Changes::of(Change::renamed(Path::of('tests/fixtures/shop/LedgerCase.php'), Path::of('tests/Unit/LedgerTest.php'), Lines::none())),
+        Judges::none()->judging(Path::of('src/Ledger.php'), Paths::of(Path::of('tests/Unit/LedgerTest.php')))->judging(Path::of('src/Clock.php'), Paths::of(Path::of('tests/Unit/ClockTest.php'))),
+        $shop(),
+        TestRuns::wholeFiles(),
+    );
+
+    expect($reach->reaches(Unit::file(Path::of('src/Ledger.php'))))->toBeTrue()
+        ->and($reach->reaches(Unit::file(Path::of('src/Clock.php'))))->toBeTrue()
+        ->and($said($reach))->toBe([
+            '`tests/fixtures/shop/LedgerCase.php` is in the fixture `tests/fixtures/shop`, which 1 tests use, so the 1 files they run are reached.',
+            '`tests/Unit/LedgerTest.php` changed, so the 1 files its tests run are reached.',
+        ]);
+});
+
+it('reaches what the users of the fixture a source file moved out of run, and the source file\'s unit', function () use ($fixtured, $judges, $said, $shop): void {
+    $reach = $fixtured()->of(Changes::of(Change::renamed(Path::of('tests/fixtures/shop/src/Cart.php'), Path::of('src/Cart.php'), Lines::none())), $judges(), $shop(), TestRuns::wholeFiles());
+
+    expect($reach->reaches(Unit::file(Path::of('src/Cart.php'))))->toBeTrue()
+        ->and($reach->reaches(Unit::file(Path::of('src/Clock.php'))))->toBeTrue()
+        ->and($reach->reaches(Unit::file(Path::of('src/Ledger.php'))))->toBeFalse()
+        ->and($said($reach))->toBe([
+            '`tests/fixtures/shop/src/Cart.php` is in the fixture `tests/fixtures/shop`, which 1 tests use, so the 2 files they run are reached.',
+            '`src/Cart.php` changed, so its unit is reached.',
+        ]);
+});
+
+it('reaches every unit of the package where the users of a changed fixture cannot be told, or no map says what they run', function (Sources $sources, Judges|NoMap $coverage, string $why) use ($fixtured, $said): void {
+    $reach = $fixtured()->of(Changes::of(Change::modified(Path::of('tests/fixtures/shop/composer.json'), Lines::none())), $coverage, $sources, TestRuns::wholeFiles());
+
+    expect($reach->reaches(Unit::file(Path::of('src/Ledger.php'))))->toBeTrue()
+        ->and($said($reach))->toBe([$why]);
+})->with([
+    'support that runs when loaded names it' => [
+        fn(): Sources => Sources::none()->withNow(Path::of('tests/Datasets/Shops.php'), Contents::of("<?php\n\ndataset('shops', ['tests/fixtures/shop']);\n")),
+        fn(): Judges => Judges::none(),
+        '`tests/Datasets/Shops.php` runs code when it is loaded, so every unit of the project is reached.',
+    ],
+    'no map' => [
+        fn(): Sources => Sources::none()->withNow(Path::of('tests/Unit/ShopTest.php'), Contents::of("<?php\n\nit('sells', fn () => 'tests/fixtures/shop');\n")),
+        fn(): NoMap => NoMap::toRead(),
+        'No coverage map says what `tests/fixtures/shop/composer.json` runs, so every unit of the project is reached.',
+    ],
+]);
+
+it('reads who uses a fixture project once, however many of its files changed', function () use ($fixtured): void {
+    $reach = static function (int $size) use ($fixtured): Closure {
+        $sources = Sources::none();
+        $changes = Changes::none();
+
+        foreach (range(0, $size * 20 - 1) as $at) {
+            $sources = $sources->withNow(
+                Path::of(sprintf('tests/Unit/T%dTest.php', $at)),
+                Contents::of(sprintf("<?php\nit('works', fn() => '%s');\n", $at % 10 === 0 ? 'tests/fixtures/shop' : 'tests/fixtures/other')),
+            );
+            $changes = $at % 20 === 0
+                ? $changes->with(Change::modified(Path::of(sprintf('tests/fixtures/shop/src/F%d.php', $at)), Lines::none()))
+                : $changes;
+        }
+
+        return static fn(): Reach => $fixtured()->of($changes, Judges::none(), $sources, TestRuns::wholeFiles());
+    };
+
+    expect(Growth::of(15, $reach))->toBeLessThan(Growth::LINEAR);
+});

@@ -40,6 +40,17 @@ it('lets a config file leave the runner for zero-config to find', function (): v
         ->toContain('runner');
 });
 
+it('declares reach.fixtures in the schema as a list of globs, empty where it is left out', function (): void {
+    $schema = json_decode(Definition::schema(), associative: true);
+    $reach = is_array($schema) && is_array($schema['properties']) && is_array($schema['properties']['reach']) ? $schema['properties']['reach'] : [];
+
+    expect(is_array($reach['properties']) ? $reach['properties']['fixtures'] : [])->toBe([
+        'type' => 'array',
+        'items' => ['type' => 'string', 'minLength' => 1],
+        'default' => [],
+    ])->and($reach['additionalProperties'])->toBeFalse();
+});
+
 it('declares every setting as affecting results, as deciding how the gate runs, or as judging or reporting only', function (): void {
     $results = Effect::AffectsResults;
     $decides = Effect::DecidesHowTheGateRuns;
@@ -74,6 +85,7 @@ it('declares every setting as affecting results, as deciding how the gate runs, 
         'reach.everything' => $decides,
         'reach.lockPackages' => $decides,
         'reach.changedTests' => $decides,
+        'reach.fixtures' => $decides,
         'holds.hotPath' => $judges,
         'run.full' => $decides,
         'run.stopWhenDoomed' => $judges,

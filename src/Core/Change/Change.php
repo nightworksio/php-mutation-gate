@@ -58,6 +58,14 @@ final readonly class Change
         return $this->previousPath;
     }
 
+    /** The path, as it is or as it was, inside a directory: the new side's where both or neither are. */
+    public function pathWithin(Path $directory): Path
+    {
+        return $this->path->within($directory) || ! $this->previousPath->within($directory)
+            ? $this->path
+            : $this->previousPath;
+    }
+
     public function lines(): Lines
     {
         return $this->lines;

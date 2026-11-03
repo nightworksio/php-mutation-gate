@@ -407,6 +407,18 @@ describe('Settings sections', function (): void {
             ->and(Configs::problems(Configs::validated(['runner' => 'pest', 'reach' => ['changedTests' => 'test']])))->toHaveCount(1);
     });
 
+    it('reads reach.fixtures, none where it is left out, writes it into a config written as PHP, and refuses what is no glob inside the project', function (): void {
+        $fixtures = Configs::settings(['runner' => 'pest', 'reach' => ['fixtures' => ['tests/Runner/*-fixture', 'tests/Contract/heavy']]])->reach()->fixtures();
+        $php = Configs::valid(['runner' => 'pest', 'reach' => ['fixtures' => ['tests/Runner/*-fixture']]])->php(ProjectRoot::origin())->code();
+
+        expect(array_map(static fn(Glob $glob): string => $glob->value(), [...$fixtures]))->toBe(['tests/Runner/*-fixture', 'tests/Contract/heavy'])
+            ->and([...Configs::settings(['runner' => 'pest'])->reach()->fixtures()])->toBe([])
+            ->and($php)->toContain("Reach::fixtures('tests/Runner/*-fixture')")
+            ->and(ReachSetting::fixtures('tests/Runner/*-fixture')->written())->toEqual(Json::at('reach.fixtures', Json::items('tests/Runner/*-fixture')))
+            ->and(Configs::problems(Configs::validated(['runner' => 'pest', 'reach' => ['fixtures' => ['', 3, '../outside']]])))->toHaveCount(3)
+            ->and(Configs::problems(Configs::validated(['runner' => 'pest', 'reach' => ['fixtures' => 'tests/fixtures']])))->toHaveCount(1);
+    });
+
     it('writes run.full from the PHP config\'s builders as the JSON a file writes', function (): void {
         expect(ReachSetting::fullByDefault()->written())->toEqual(Json::at('run.full', value: true))
             ->and(ReachSetting::changedByDefault()->written())->toEqual(Json::at('run.full', value: false));

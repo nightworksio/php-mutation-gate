@@ -19,9 +19,9 @@ final readonly class Globs
         return new self($globs);
     }
 
-    public function with(Glob $glob): self
+    public function with(Glob ...$globs): self
     {
-        return new self([...$this->globs, $glob]);
+        return new self([...$this->globs, ...$globs]);
     }
 
     public function matches(Path $path): bool

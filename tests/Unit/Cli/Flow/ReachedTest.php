@@ -120,6 +120,19 @@ function reachedSuite(ChangeSourceFake $checkout, Adapters $adapters): Suite
     return $suite instanceof Suite ? $suite : throw new RuntimeException($suite->why());
 }
 
+it('lays out as a fixture project each directory reach.fixtures names, and none where it names none', function (): void {
+    $checkout = new ChangeSourceFake(Revision::ref('base'), Changes::none(), [
+        Revision::workingTree()->name() => Flows::FILES,
+        'base' => Flows::FILES,
+    ]);
+    $adapters = Flows::adapters(Flows::project(), [], $checkout);
+    $suite = reachedSuite($checkout, $adapters);
+    $change = Change::modified(Path::of('tests/Fixtures/app/src/Money.php'), Lines::of(Line::of(1)));
+
+    expect(Reached::layout($adapters, Flows::settings(Reach::fixtures('tests/Fixtures/*')), $suite)->isInFixtures($change))->toBeTrue()
+        ->and(Reached::layout($adapters, Flows::settings(), $suite)->isInFixtures($change))->toBeFalse();
+});
+
 it('reaches every unit of a full run, for its reason', function () use ($makeMoney, $makeHeld): void {
     $money = $makeMoney();
     $held = $makeHeld();

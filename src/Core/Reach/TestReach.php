@@ -21,11 +21,13 @@ use NightWorksIO\MutationGate\Core\Tree\Trees;
 use function sprintf;
 
 /**
- * What a change to a test, to test support or to anything else reaches: a
- * test file reaches what its changed tests run by the coverage map, or what
- * all its tests run where the change moved more or `reach.changedTests` is
- * `file` (ADR-0065), support reaches what the tests that use it run, and
- * anything else reaches nothing by itself.
+ * What a change to a test, to test support, to a fixture project or to
+ * anything else reaches: a test file reaches what its changed tests run by
+ * the coverage map, or what all its tests run where the change moved more or
+ * `reach.changedTests` is `file` (ADR-0065), support and a fixture reach what
+ * the tests that use them run, and anything else reaches nothing by itself.
+ * A file moved into or out of a fixture also reaches what it reaches where it
+ * is outside one.
  *
  * @internal
  */
@@ -34,9 +36,10 @@ final readonly class TestReach
     /** What the project at the root is called in a sentence. */
     public const string PROJECT = 'the project';
 
-    private const string GONE = '`%s` was deleted, so every unit of %s is reached.';
+    /** Why a change reaches every unit of its package where no coverage map says what its tests run. */
+    public const string NO_MAP = 'No coverage map says what `%s` runs, so every unit of %s is reached.';
 
-    private const string NO_MAP = 'No coverage map says what `%s` runs, so every unit of %s is reached.';
+    private const string GONE = '`%s` was deleted, so every unit of %s is reached.';
 
     private const string TEST = '`%s` changed, so the %d files its tests run are reached.';
 
@@ -62,6 +65,7 @@ final readonly class TestReach
         private Sources $sources,
         private SupportUsers $users,
         private TestRuns $runs,
+        private FixtureReach $fixtures,
     ) {
     }
 
@@ -75,16 +79,10 @@ final readonly class TestReach
         TestRuns $runs,
     ): self {
         $packages = Packages::of($trees);
+        $users = SupportUsers::ofChanges($layout, $packages, $sources, $changes);
+        $fixtures = FixtureReach::of($layout, $trees, $coverage, $users, $changes);
 
-        return new self(
-            $layout,
-            $packages,
-            $trees,
-            $coverage,
-            $sources,
-            SupportUsers::ofChanges($layout, $packages, $sources, $changes),
-            $runs,
-        );
+        return new self($layout, $packages, $trees, $coverage, $sources, $users, $runs, $fixtures);
     }
 
     public function reach(Reach $reach, Change $change): Reach
@@ -92,18 +90,50 @@ final readonly class TestReach
         $path = $change->path();
         $package = $this->packages->holding($path);
         $inPackage = $path->relativeTo($package->path());
+        $reach = $this->inFixtures($reach, $change);
 
         return match (true) {
+            $this->layout->isInFixtures($change) => $reach,
             $this->layout->isTest($inPackage) => $this->testChanged($reach, $change, $package),
             $this->layout->isSupport($inPackage) => $this->supportChanged($reach, $change, $package),
             default => $reach->because(Reason::that(sprintf(self::NOTHING, $path->value()))),
         };
     }
 
+    /** This reach, and what the tests that use each fixture project a change is in, as it is and as it was, run. */
+    public function inFixtures(Reach $reach, Change $change): Reach
+    {
+        return $this->fixtures->reach($reach, $change);
+    }
+
     /** A package as a reason names it: the project at the root, and any other by its path. */
     public static function named(Package $package): string
     {
         return $package->path()->equals(Path::root()) ? self::PROJECT : $package->path()->value();
+    }
+
+    /**
+     * The trees of each module a test is inside, with why they are reached.
+     *
+     * @return list<array{Paths, Reason}>
+     */
+    public static function modulesOf(Layout $layout, Trees $trees, Path $test): array
+    {
+        $modules = [];
+
+        foreach ($layout->modulesHolding($test) as $module) {
+            $within = [];
+
+            foreach ($trees as $tree) {
+                if ($tree->path()->within($module)) {
+                    $within[] = $tree->path();
+                }
+            }
+
+            $modules[] = [Paths::of(...$within), Reason::that(sprintf(self::MODULE, $test->value(), $module->value()))];
+        }
+
+        return $modules;
     }
 
     private function testChanged(Reach $reach, Change $change, Package $package): Reach
@@ -169,14 +199,7 @@ final readonly class TestReach
             return $reach->wholly(Paths::of($package->path()), $why);
         }
 
-        $run = [];
-
-        foreach ($users as $test) {
-            $run[] = [...$this->coverage->filesRunBy($test)];
-            $reach = $this->withModules($reach, $test);
-        }
-
-        $files = Paths::of(...array_merge(...$run));
+        [$reach, $files] = $this->runBy($reach, $users, $this->coverage);
 
         return $reach->files(
             $files,
@@ -184,22 +207,29 @@ final readonly class TestReach
         );
     }
 
+    /**
+     * This reach, with every tree of each module one of these tests is
+     * inside, and the files the tests run, by the coverage map.
+     *
+     * @return array{Reach, Paths}
+     */
+    private function runBy(Reach $reach, Paths $tests, Judges $coverage): array
+    {
+        $run = [];
+
+        foreach ($tests as $test) {
+            $run[] = [...$coverage->filesRunBy($test)];
+            $reach = $this->withModules($reach, $test);
+        }
+
+        return [$reach, Paths::of(...array_merge(...$run))];
+    }
+
     /** This reach, and every tree of each module a changed test is inside. */
     private function withModules(Reach $reach, Path $test): Reach
     {
-        foreach ($this->layout->modulesHolding($test) as $module) {
-            $trees = [];
-
-            foreach ($this->trees as $tree) {
-                if ($tree->path()->within($module)) {
-                    $trees[] = $tree->path();
-                }
-            }
-
-            $reach = $reach->trees(
-                Paths::of(...$trees),
-                Reason::that(sprintf(self::MODULE, $test->value(), $module->value())),
-            );
+        foreach (self::modulesOf($this->layout, $this->trees, $test) as [$trees, $why]) {
+            $reach = $reach->trees($trees, $why);
         }
 
         return $reach;

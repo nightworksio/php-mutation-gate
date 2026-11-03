@@ -179,4 +179,21 @@ describe('PhpFile', function (): void {
 
         expect($file->words()->all())->toBe(['h1', 'exchangerates', 'exchange', 'rates', 'fixtures', 'json', 'money', 'tax']);
     });
+
+    it('holds the text of each of its strings without its quotes, and each run of text between what a string interpolates', function (): void {
+        $file = PhpFile::read(Contents::of(<<<'PHP_WRAP'
+        <h1>Not PHP</h1>
+        <?php
+        $copied = sprintf('tests/fixture/%s', $file);
+        $named = "tests/{$kind}/x";
+        $empty = '';
+        $here = <<<TEXT
+            heavy/{$name}.php
+            TEXT;
+        // 'a comment'
+        PHP_WRAP));
+
+        expect($file->strings())->toBe(['tests/fixture/%s', 'tests/', '/x', '', "    heavy/", ".php\n"])
+            ->and(PhpFile::read(Contents::of("<?php\n\nfinal class Money {}\n"))->strings())->toBe([]);
+    });
 })->group('holds:src/Core/Php/PhpFile.php');

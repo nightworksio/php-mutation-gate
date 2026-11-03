@@ -40,7 +40,8 @@ final readonly class SettingsCases
         "packages": [],
         "reach": {
             "everything": [],
-            "changedTests": "narrow"
+            "changedTests": "narrow",
+            "fixtures": []
         },
         "holds": {
             "hotPath": 0.8
@@ -193,6 +194,7 @@ final readonly class SettingsCases
             'everything' => ['config/**', 'routes/**'],
             'lockPackages' => ['pestphp/*', 'phpunit/phpunit'],
             'changedTests' => 'file',
+            'fixtures' => ['tests/fixtures/*'],
         ],
         'holds' => ['hotPath' => 1],
         'shards' => ['seconds' => 900, 'max' => 8],

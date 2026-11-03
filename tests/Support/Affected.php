@@ -106,6 +106,19 @@ final class Affected
         return self::over(self::layout()->readByTheConfig($reads), $changes, self::sources(self::FILES, self::FILES), self::FILES);
     }
 
+    /**
+     * The tests these changes reach in the fixture's project, where each directory under `tests/fixtures` is a
+     * fixture project, with these files besides the project's.
+     *
+     * @param array<string, string> $files
+     */
+    public static function withFixtures(Changes $changes, array $files): AffectedTests
+    {
+        $all = [...self::FILES, ...$files];
+
+        return self::over(self::layout()->withFixtures(Glob::of('tests/fixtures/*')), $changes, self::sources($all, $all), $all);
+    }
+
     /** The one tree, `src`. */
     public static function trees(): Trees
     {

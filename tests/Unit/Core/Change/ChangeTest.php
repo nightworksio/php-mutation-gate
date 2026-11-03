@@ -43,3 +43,13 @@ it('is a renamed file, with the path it had and the lines it changed', function 
         ->and($change->previousPath()->value())->toBe('src/Old.php')
         ->and($change->lines())->toEqual(Lines::none());
 });
+
+it('gives the path, as it is or as it was, inside a directory, and the new side\'s where both or neither are', function (Change $change, string $within): void {
+    expect($change->pathWithin(Path::of('tests/fixture'))->value())->toBe($within);
+})->with([
+    'moved out of it' => [fn(): Change => Change::renamed(Path::of('tests/fixture/a.php'), Path::of('tests/a.php'), Lines::none()), 'tests/fixture/a.php'],
+    'moved into it' => [fn(): Change => Change::renamed(Path::of('tests/a.php'), Path::of('tests/fixture/a.php'), Lines::none()), 'tests/fixture/a.php'],
+    'moved inside it' => [fn(): Change => Change::renamed(Path::of('tests/fixture/a.php'), Path::of('tests/fixture/b.php'), Lines::none()), 'tests/fixture/b.php'],
+    'moved outside it' => [fn(): Change => Change::renamed(Path::of('tests/a.php'), Path::of('tests/b.php'), Lines::none()), 'tests/b.php'],
+    'changed in place' => [fn(): Change => Change::modified(Path::of('tests/fixture/a.php'), Lines::none()), 'tests/fixture/a.php'],
+]);

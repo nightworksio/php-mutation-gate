@@ -42,6 +42,7 @@ final readonly class ReachKeys
             Enumerated::of(ChangedTests::cases()),
             Effect::DecidesHowTheGateRuns,
         );
+        $fixtures = Field::optional('fixtures', Items::of(Pattern::glob($origin)), Effect::DecidesHowTheGateRuns);
         $hotPath = Field::optional('hotPath', Number::between(0, 1), $judges);
         $full = Field::optional('full', Flag::boolean(), Effect::DecidesHowTheGateRuns);
         $stopWhenDoomed = Field::optional('stopWhenDoomed', Flag::boolean(), $judges);
@@ -58,25 +59,34 @@ final readonly class ReachKeys
             Field::section(
                 'reach',
                 Section::of(
-                    static function (Node $reach) use ($everything, $lockPackages, $changedTests): Layer|Invalid {
+                    static function (Node $reach) use (
+                        $everything,
+                        $lockPackages,
+                        $changedTests,
+                        $fixtures,
+                    ): Layer|Invalid {
                         $files = $everything->read($reach);
                         $packages = $lockPackages->read($reach);
                         $tests = $changedTests->read($reach);
+                        $projects = $fixtures->read($reach);
 
                         return Reading::built(
                             static fn(): Layer => Layer::of(Reach::of(
                                 everything: $files->value(),
                                 lockPackages: $packages->value(),
                                 changedTests: $tests->value(),
+                                fixtures: $projects->value(),
                             )),
                             $files,
                             $packages,
                             $tests,
+                            $projects,
                         );
                     },
                     $everything,
                     $lockPackages,
                     $changedTests,
+                    $fixtures,
                 ),
             ),
             Field::section(
