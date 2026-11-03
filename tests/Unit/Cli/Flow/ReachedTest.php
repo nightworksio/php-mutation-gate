@@ -267,12 +267,14 @@ it('reaches nothing where the manifest moved only what describes the package, an
         ['composer.json' => $read('before')],
     );
 
+    $reason = Reason::that(sprintf(
+        $everywhere ? '`%s` decides how the gate runs, so every unit is reached.' : '`%s` changed nothing that decides how the gate runs, so it reaches nothing.',
+        'composer.json',
+    ));
+
     expect($reached->reach()->isEverywhere())->toBe($everywhere)
         ->and($reached->reach()->reaches($money))->toBe($everywhere)
-        ->and($reached->reach()->reasons())->toEqual(Reasons::of(Reason::that(sprintf(
-            $everywhere ? '`%s` decides how the gate runs, so every unit is reached.' : '`%s` changed nothing that decides how the gate runs, so it reaches nothing.',
-            'composer.json',
-        ))));
+        ->and($reached->reach()->reasons())->toEqual(Reasons::of($everywhere ? $reason->widening() : $reason));
 })->with([
     'a support link and script descriptions' => ['support-and-scripts', false],
     'the description, keywords, and a conflict on a Pest package' => ['a-pinned-conflict', true],
