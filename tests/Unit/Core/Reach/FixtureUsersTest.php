@@ -134,6 +134,32 @@ it('finds a test that spells the fixture\'s path from a directory above its own,
     expect(fixtureUsersOf($users, 'tests/Runner/heavy-fixture'))->toBe(['tests/Unit/Runner/Deep/SplitTest.php']);
 });
 
+it('finds the tests that use a class a fixture declares, by its name, and those that use support that does, as HeldCest is used', function (): void {
+    $users = fixtureUsersAmong([
+        'tests/Runner/cest-fixture/HeldCest.php' => "<?php\n\nnamespace App\\Fixtures;\n\nfinal class HeldCest {}\n",
+        'tests/Runner/CestTest.php' => "<?php\n\nuse App\\Fixtures\\HeldCest;\n\nit('reads', fn () => new HeldCest());\n",
+        'tests/Support/Cests.php' => "<?php\n\nnamespace App\\Support;\n\nfinal class Cests { public static function held(): string { return \\App\\Fixtures\\HeldCest::class; } }\n",
+        'tests/Runner/SupportedTest.php' => "<?php\n\nuse App\\Support\\Cests;\n\nit('holds', fn () => Cests::held());\n",
+        'tests/Runner/OtherTest.php' => "<?php\n\nit('runs', fn () => true);\n",
+    ]);
+
+    expect(fixtureUsersOf($users, 'tests/Runner/cest-fixture'))->toEqualCanonicalizing(['tests/Runner/CestTest.php', 'tests/Runner/SupportedTest.php']);
+});
+
+it('finds the tests that name a fixture of data files alone by its path, and reaches the whole package where none does', function () use ($spec): void {
+    $named = fixtureUsersAmong([
+        'tests/Runner/workflows-fixture/a-site-job.before.yml' => "on: push\n",
+        'tests/Runner/ReachedTest.php' => "<?php\n\nit('reads', fn () => file_get_contents(sprintf('tests/Runner/workflows-fixture/%s.yml', \$name)));\n",
+        'tests/Runner/OtherTest.php' => $spec,
+    ]);
+    $unnamed = fixtureUsersAmong(['tests/Runner/OtherTest.php' => $spec]);
+
+    expect(fixtureUsersOf($named, 'tests/Runner/workflows-fixture'))->toBe(['tests/Runner/ReachedTest.php'])
+        ->and(fixtureUsersOf($unnamed, 'tests/Runner/workflows-fixture'))->toEqual(Reason::that(
+            'No test is found to name the fixture `tests/Runner/workflows-fixture`, so what reads it cannot be told: every unit of the project is reached.',
+        ));
+});
+
 it('reaches the whole package where support that runs code when it is loaded names the fixture', function () use ($spec): void {
     $users = fixtureUsersAmong([
         'tests/Runner/heavy-fixture/tests/SplitSpec.php' => $spec,
@@ -155,7 +181,7 @@ it('reaches the whole package where a file that is no test names the fixture', f
         ->toEqual(Reason::that('`src/Wiring.php` names the fixture `tests/Runner/heavy-fixture` and is no test, so every unit of the project is reached.'));
 });
 
-it('lists in the gate\'s own config every fixture project the PHPUnit config leaves out of its suites, each a directory', function (): void {
+it('lists in the gate\'s own config every fixture project the PHPUnit config leaves out of its suites, each a directory, and the directories of tests/Fixtures', function (): void {
     $phpunit = simplexml_load_string((string) file_get_contents(Tree::at('phpunit.xml')));
     $excluded = $phpunit instanceof SimpleXMLElement
         ? array_map(static fn(SimpleXMLElement $exclude): string => (string) $exclude, is_array($phpunit->xpath('//testsuite/exclude')) ? $phpunit->xpath('//testsuite/exclude') : [])
@@ -165,6 +191,11 @@ it('lists in the gate\'s own config every fixture project the PHPUnit config lea
         Node::decode((string) file_get_contents(Tree::at('mutation-gate.json')))->field('reach')->field('fixtures')->items(),
     );
 
-    expect($listed)->toEqualCanonicalizing($excluded)
-        ->and(array_filter($listed, static fn(string $fixture): bool => ! is_dir(Tree::at($fixture))))->toBe([]);
+    $data = 'tests/Fixtures/*';
+    $projects = array_values(array_filter($listed, static fn(string $fixture): bool => $fixture !== $data));
+
+    expect($projects)->toEqualCanonicalizing($excluded)
+        ->and(array_filter($projects, static fn(string $fixture): bool => ! is_dir(Tree::at($fixture))))->toBe([])
+        ->and($listed)->toContain($data)
+        ->and(glob(Tree::at($data), GLOB_ONLYDIR))->not->toBe([]);
 });

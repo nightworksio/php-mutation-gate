@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Change\WholeHistory;
 use NightWorksIO\MutationGate\Core\Doctor\Check\ShallowClone;
 use NightWorksIO\MutationGate\Core\Doctor\Finding;
 use NightWorksIO\MutationGate\Core\Doctor\Findings;
@@ -17,7 +18,7 @@ it('says a shallow clone slows change-scoped runs and carries no kill from an ol
         'The clone is shallow: it holds only the newest commits.',
         "Git cannot say what changed since a commit the clone does not hold, so a change-scoped run from an older base\n"
         . 'mutates everything, and no kill carries from an older commit for a unit a time budget never started.',
-        'Clone the whole history, as `fetch-depth: 0` asks of `actions/checkout`.',
+        sprintf('Clone the whole history: %s.', WholeHistory::settings()),
     )));
 });
 

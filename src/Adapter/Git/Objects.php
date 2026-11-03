@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Change\Commit;
 use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Change\Tree;
+use NightWorksIO\MutationGate\Core\Change\WholeHistory;
 
 use function sprintf;
 use function str_starts_with;
@@ -34,7 +35,7 @@ final class Objects
     /** Why a revision cannot be read from a shallow clone, and what reads it. */
     private const string SHALLOW = <<<'SAID'
         %s is not a revision this repository has: the clone is shallow, so it holds only the newest commits.
-        A clone of the whole history reads it, as `fetch-depth: 0` asks of `actions/checkout`.
+        A clone of the whole history reads it: %s.
         SAID;
 
     /** How a commit is asked for by name. */
@@ -113,7 +114,9 @@ final class Objects
 
         return $parsed instanceof Commit
             ? $parsed->id()
-            : CannotTell::because(sprintf($this->isShallow() === true ? self::SHALLOW : self::UNKNOWN, $name));
+            : CannotTell::because($this->isShallow() === true
+                ? sprintf(self::SHALLOW, $name, WholeHistory::settings())
+                : sprintf(self::UNKNOWN, $name));
     }
 
     /**
