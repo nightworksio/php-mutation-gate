@@ -21,6 +21,8 @@ use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\Kills;
 use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Plan\OwnOnly;
+use NightWorksIO\MutationGate\Core\Proof\Digests;
+use NightWorksIO\MutationGate\Core\Proof\Inputs;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
@@ -35,6 +37,7 @@ use NightWorksIO\MutationGate\Core\Proof\ScopeRuns;
 use NightWorksIO\MutationGate\Core\Proof\Scopes;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
+use NightWorksIO\MutationGate\Core\Proof\Undigested;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
@@ -47,6 +50,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Port\ProofStore;
@@ -64,13 +68,31 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
+/** A proof of its unit's source as {@see sourcesNow()} reads it. */
+function ofItsSource(Proof $proof): Proof
+{
+    return $proof->withInputs(Inputs::of(Digest::sha256Of($proof->unit()->value()), Digest::sha256Of('mutation')));
+}
+
+/** The digests of a run that reads each of these units' source as {@see ofItsSource()} records it. */
+function sourcesNow(string ...$units): Digests
+{
+    $digests = Digests::of(Digest::sha256Of('mutation'));
+
+    foreach ($units as $unit) {
+        $digests = $digests->withSource(Path::of($unit), Digest::sha256Of($unit));
+    }
+
+    return $digests;
+}
+
 /** A ledger with a proof of a unit under a key, at a base, a timing of it, and a passed commit. */
 $ledger = static function (string $unit, string $key, string $base, string $passed): Ledger {
     $at = Moment::at('2026-09-30T10:00:00Z');
     $run = Run::of('local', $at, Digest::sha256Of($base));
 
     return Ledger::empty()
-        ->withProof(Proof::of(Digest::of($key), Path::of($unit), Mutants::none(), $run))
+        ->withProof(ofItsSource(Proof::of(Digest::of($key), Path::of($unit), Mutants::none(), $run)))
         ->withTimings(Timings::of(Timing::of(Path::of($unit), Seconds::of(2.0), 'fake', $at)))
         ->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref($passed), 'check', 0)));
 };
@@ -200,7 +222,7 @@ it('takes a proof whose key still matches from either ledger, and runs the rest'
 it('proves and carries a run that records every killer only from proofs whose runs recorded every killer', function () use ($ledger): void {
     $store = new ProofStoreFake();
     $full = Run::of('local', Moment::at('2026-09-30T10:00:00Z'), Digest::sha256Of('now'))->recording(MatrixKind::Full);
-    $store->write(Scope::branch('main'), Ledger::empty()->withProof(Proof::of(Digest::of('a'), Path::of('src/A.php'), Mutants::none(), $full)));
+    $store->write(Scope::branch('main'), Ledger::empty()->withProof(ofItsSource(Proof::of(Digest::of('a'), Path::of('src/A.php'), Mutants::none(), $full))));
     $store->write(Scope::pullRequest(7), $ledger('src/B.php', 'b', 'now', 'pr-passed'));
     $ledgers = ledgersOn(RunOn::at(Scope::pullRequest(7), Scope::branch('main')), Writing::Auto, $store);
     $units = Units::of(Unit::file(Path::of('src/A.php')), Unit::file(Path::of('src/B.php')));
@@ -210,16 +232,16 @@ it('proves and carries a run that records every killer only from proofs whose ru
     expect($ledgers->proving($units, $keys, Digest::sha256Of('now'), RunProfile::standard()->recording(MatrixKind::Full))->toRun())
         ->toEqual(Units::of(Unit::file(Path::of('src/B.php'))))
         ->and($ledgers->proving($units, $keys, Digest::sha256Of('now'), RunProfile::standard())->toRun())->toEqual(Units::none())
-        ->and($ledgers->considering($units, $unreached, RunProfile::standard()->recording(MatrixKind::Full), OwnOnly::none())->considered())
+        ->and($ledgers->considering($units, $unreached, RunProfile::standard()->recording(MatrixKind::Full), OwnOnly::none(), sourcesNow('src/A.php', 'src/B.php'))->considered())
         ->toEqual(Units::of(Unit::file(Path::of('src/B.php'))))
-        ->and($ledgers->considering($units, $unreached, RunProfile::standard()->recording(MatrixKind::Full), OwnOnly::none())->carried())->toHaveCount(1)
-        ->and($ledgers->considering($units, $unreached, RunProfile::standard(), OwnOnly::none())->carried())->toHaveCount(2);
+        ->and($ledgers->considering($units, $unreached, RunProfile::standard()->recording(MatrixKind::Full), OwnOnly::none(), sourcesNow('src/A.php', 'src/B.php'))->carried())->toHaveCount(1)
+        ->and($ledgers->considering($units, $unreached, RunProfile::standard(), OwnOnly::none(), sourcesNow('src/A.php', 'src/B.php'))->carried())->toHaveCount(2);
 });
 
 it('carries no proof of a narrowed run into a run of every mutator and every test, and carries it into a run of its kind', function (array $narrowed, RunProfile $kind): void {
     $run = Run::of('github:1/1', Moment::at('2026-09-30T10:00:00Z'), Digest::sha256Of('now'));
     $key = Digest::sha256Of('narrowed');
-    $proof = Proof::of($key, Path::of('src/A.php'), Mutants::none(), $run);
+    $proof = ofItsSource(Proof::of($key, Path::of('src/A.php'), Mutants::none(), $run));
     $file = json_decode(Gunzipped::of(LedgerFile::encode(Ledger::empty()->atBase(Digest::sha256Of('now'))->withProof($proof))), associative: true);
     $file = is_array($file) ? $file : [];
     $entry = Decoded::at(JsonText::compact($file), 'proofs', $key->value());
@@ -229,17 +251,38 @@ it('carries no proof of a narrowed run into a run of every mutator and every tes
     $ledgers = ledgersOn(RunOn::at(Scope::pullRequest(7), Scope::branch('main')), Writing::Auto, $store);
     $units = Units::of(Unit::file(Path::of('src/A.php')));
     $unreached = Reach::nothing(Packages::of(Trees::none()));
-    $considering = $ledgers->considering($units, $unreached, RunProfile::standard(), OwnOnly::none());
+    $considering = $ledgers->considering($units, $unreached, RunProfile::standard(), OwnOnly::none(), sourcesNow('src/A.php'));
 
     expect($considering->carried())->toHaveCount(0)
         ->and($considering->considered())->toEqual($units)
         ->and($ledgers->newest(RunProfile::standard())->of(Path::of('src/A.php')))->toBeInstanceOf(NeverProved::class)
-        ->and($ledgers->considering($units, $unreached, $kind, OwnOnly::none())->carried())->toHaveCount(1)
+        ->and($ledgers->considering($units, $unreached, $kind, OwnOnly::none(), sourcesNow('src/A.php'))->carried())->toHaveCount(1)
         ->and($ledgers->newest($kind)->of(Path::of('src/A.php')))->toBeInstanceOf(Proof::class);
 })->with([
     'to the security mutators' => [['security' => true], fn(): RunProfile => RunProfile::standard()->securityOnly()],
     'to one suite' => [['suite' => 'unit'], fn(): RunProfile => RunProfile::standard()->inSuite(SuiteName::of('unit'))],
 ]);
+
+it('carries a proof only of the source the unit has now, from whichever ledger holds one, and runs the unit where none is', function () use ($ledger): void {
+    $store = new ProofStoreFake();
+    $store->write(Scope::branch('main'), $ledger('src/A.php', 'a', 'then', 'main-passed')->withProof(
+        Proof::of(Digest::of('b'), Path::of('src/B.php'), Mutants::none(), Run::of('local', Moment::at('2026-09-30T10:00:00Z'), Digest::sha256Of('then')))
+            ->withInputs(Inputs::of(Digest::sha256Of('src/B.php as main had it'), Digest::sha256Of('mutation'))),
+    ));
+    $store->write(Scope::pullRequest(7), $ledger('src/C.php', 'c', 'then', 'pr-passed'));
+    $ledgers = ledgersOn(RunOn::at(Scope::pullRequest(7), Scope::branch('main')), Writing::Auto, $store);
+    $units = Units::of(Unit::file(Path::of('src/A.php')), Unit::file(Path::of('src/B.php')), Unit::file(Path::of('src/C.php')));
+    $unreached = Reach::nothing(Packages::of(Trees::none()));
+    $considering = $ledgers->considering($units, $unreached, RunProfile::standard(), OwnOnly::none(), sourcesNow('src/A.php', 'src/B.php', 'src/C.php'));
+    $undigested = $ledgers->considering($units, $unreached, RunProfile::standard(), OwnOnly::none(), Undigested::proof());
+
+    expect($considering->considered())->toEqual(Units::of(Unit::file(Path::of('src/B.php'))))
+        ->and(array_map(static fn(UnitResult $result): string => $result->unit()->path()->value(), [...$considering->carried()]))
+        ->toBe(['src/A.php', 'src/C.php'])
+        ->and($considering->ownScopeProofs())->toBe(1)
+        ->and($undigested->considered())->toEqual($units)
+        ->and($undigested->carried())->toHaveCount(0);
+});
 
 it('looks for no proof in a ledger that holds none at the base the keys are built on', function () use (
     $store,

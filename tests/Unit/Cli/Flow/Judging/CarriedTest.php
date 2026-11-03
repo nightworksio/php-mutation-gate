@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -38,12 +39,14 @@ use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\ScopeRuns;
+use NightWorksIO\MutationGate\Core\Proof\Undigested;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
 use NightWorksIO\MutationGate\Core\Removal\Removable;
@@ -416,6 +419,13 @@ it('keeps the last commit that passed where a budget left a kill unjudged, so th
         $adapters,
         JudgingRuns::settings(Budget::of('1s')),
         $reporting(new ReporterFake()),
+    ));
+    $full = Planned::from(new Planning($adapters, Flows::settings(), Flows::setup())
+        ->plan(Mode::full(), CoverageRun::of(WholeSuite::tests(), Workspace::coverage()), Cut::exactly(1), MatrixKind::FirstKiller));
+    $digests = $full instanceof Plan ? $full->digests() : Undigested::proof();
+    $store->write(Scope::branch('main'), LedgerRead::ledger($store->read(Scope::branch('main')))->withProof(
+        Proof::of(Digest::sha256Of('held as it is now'), Path::of('src/Held.php'), Mutants::none(), Run::of('main', Moment::at('2026-09-29T11:00:00Z'), Digest::sha256Of(Planned::BASE)))
+            ->withInputs($digests instanceof Digests ? $digests->inputsOf(Path::of('src/Held.php'), Paths::none()) : $digests),
     ));
     $next = Planned::from(new Planning($adapters, Flows::settings(), Flows::setup())
         ->plan(

@@ -33,7 +33,8 @@ use NightWorksIO\MutationGate\Core\Tree\Trees;
  * those lines are not known, for a full run or where git cannot tell what
  * changed. Where the base is a last run whose commit git can read, or whose
  * merge git makes again into the tree it held, the change is read from it, and the files changed since the ref carry
- * only the run's own scope's results (ADR-0005).
+ * only the run's own scope's results (ADR-0005). Off the default branch, what the default branch changed since its
+ * ledger last passed reaches too, each reason saying so (ADR-0060).
  *
  * @internal
  */
@@ -65,21 +66,29 @@ final readonly class Reached
         $sinceRef = $adapters->changes->changesSince($base->ref());
         $fromRun = $sinceRef instanceof Changes ? self::fromLastRun($base, $adapters) : $sinceRef;
         [$changes, $from] = is_array($fromRun) ? $fromRun : [$sinceRef, $base->ref()];
-        $reach = new Reaching(self::layout($adapters, $settings, $suite), $trees)->of(
+        $reaching = new Reaching(self::layout($adapters, $settings, $suite), $trees);
+        $judges = self::judges($adapters, $map);
+        $manifests = DecidingManifests::in(Packages::of($trees), $settings->reach()->lockPackages());
+        $reach = $reaching->of(
             $changes,
-            self::judges($adapters, $map),
-            self::sources(
-                $changes,
-                $from,
-                $adapters,
-                $suite->sources(),
-                $config,
-                DecidingManifests::in(Packages::of($trees), $settings->reach()->lockPackages()),
-            ),
+            $judges,
+            self::sources($changes, $from, $adapters, $suite->sources(), $config, $manifests),
         );
+        $ledger = $base->ledgerAt();
+        $ledger = $ledger instanceof Revision ? $ledger : $from;
+        $sinceLedger = $base->ledgerAt() instanceof Revision
+            ? self::sinceLedger($ledger, $sinceRef, $adapters)
+            : Changes::none();
 
         return new self(
-            $reach,
+            $reach->andSinceLedger(
+                $reaching->of(
+                    $sinceLedger,
+                    $judges,
+                    self::sources($sinceLedger, $ledger, $adapters, $suite->sources(), $config, $manifests),
+                ),
+                $ledger,
+            ),
             $sinceRef instanceof Changes ? self::withLines($sinceRef) : $sinceRef,
             is_array($fromRun) ? self::pathsOf($sinceRef) : Paths::none(),
         );
@@ -152,6 +161,32 @@ final readonly class Reached
         }
 
         return $sources;
+    }
+
+    /**
+     * What changed since the commit the default branch's ledger last passed
+     * at that the change since the ref does not hold: what changed on the
+     * default branch since that ledger; or why git cannot tell.
+     */
+    private static function sinceLedger(
+        Revision $ledger,
+        Changes|CannotTell $sinceRef,
+        Adapters $adapters,
+    ): Changes|CannotTell {
+        $changes = $adapters->changes->changesFrom($ledger);
+        $own = $sinceRef instanceof Changes ? self::pathsOf($sinceRef) : Paths::none();
+
+        if (! $changes instanceof Changes) {
+            return $changes;
+        }
+
+        $gap = Changes::none();
+
+        foreach ($changes as $change) {
+            $gap = $own->has($change->path()) ? $gap : $gap->with($change);
+        }
+
+        return $gap;
     }
 
     /** The sources with a changed file as it is on disk and as it was at the base, the config marked by it. */

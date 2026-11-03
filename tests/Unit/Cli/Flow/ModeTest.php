@@ -128,3 +128,36 @@ it('samples neither a full run nor a change-scoped one until asked, keeping what
         ->and(Mode::full()->sampled()->isFull())->toBeTrue()
         ->and(Mode::since(Mode::LAST_PASSED)->sampled()->isSinceLastPassed())->toBeTrue();
 });
+
+it('reads, off the default branch, its change also since the commit the default branch\'s ledger last passed at, and on it not', function () use ($lastRun): void {
+    [$pullRequest, $standing] = modeStanding(Scope::pullRequest(7), $lastRun());
+    [$onMain, $mainStanding] = modeStanding(Scope::branch('main'), ScopeRuns::none()->passing(Passed::of(Revision::ref('main-passed'), 'check', 0)));
+    $since = Mode::since('base')->changeBase($pullRequest, $standing, RunProfile::standard(), 'check');
+    $lastRunBase = Mode::since(Mode::LAST_RUN)->changeBase($pullRequest, $standing, RunProfile::standard(), 'check');
+    $main = Mode::since(Mode::LAST_PASSED)->changeBase($onMain, $mainStanding, RunProfile::standard(), 'check');
+
+    expect($since instanceof ChangeBase ? $since->ledgerAt() : $since)->toEqual(Revision::ref('main-passed'))
+        ->and($lastRunBase instanceof ChangeBase ? $lastRunBase->ledgerAt() : $lastRunBase)->toEqual(Revision::ref('main-passed'))
+        ->and($main instanceof ChangeBase ? [$main->ref(), $main->ledgerAt()] : $main)->toEqual([Revision::ref('main-passed'), NotGiven::value()]);
+});
+
+/**
+ * The ledgers and the standing of a pull request's run, where no ledger records anything.
+ *
+ * @return array{Ledgers, Standing}
+ */
+function modeStandingUnrun(): array
+{
+    $standing = Standing::of(new CiPlanFake(RunOn::at(Scope::pullRequest(7), Scope::branch('main'))), RepositoryFake::onMain(Revision::ref('head')), Absent::setting());
+
+    return $standing instanceof Standing
+        ? [Ledgers::read(new ProofStoreFake(), $standing, Writing::Auto), $standing]
+        : throw new RuntimeException($standing->why());
+}
+
+it('reads no change since the default branch\'s ledger where that ledger records no commit that passed', function (): void {
+    [$ledgers, $standing] = modeStandingUnrun();
+    $base = Mode::since('base')->changeBase($ledgers, $standing, RunProfile::standard(), 'check');
+
+    expect($base instanceof ChangeBase ? $base->ledgerAt() : $base)->toEqual(NotGiven::value());
+});

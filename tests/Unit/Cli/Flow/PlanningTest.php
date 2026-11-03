@@ -53,6 +53,7 @@ use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\GateRelease;
+use NightWorksIO\MutationGate\Core\Proof\Inputs;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
@@ -60,6 +61,7 @@ use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Proof\Uncommitted;
+use NightWorksIO\MutationGate\Core\Proof\Undigested;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
@@ -111,6 +113,14 @@ $coverage = static fn(): CoverageRun => CoverageRun::of(WholeSuite::tests(), Wor
 
 $makeMoney = static fn(): Unit => Unit::file(Path::of('src/Money.php'));
 $makeHeld = static fn(): Unit => Unit::held(Path::of('src/Held.php'), Group::named('holds:src/Held.php'));
+
+/** What a proof of the held unit records of its source as a plan found it. */
+function heldAsNow(Plan|CannotJudge $plan): Inputs|Undigested
+{
+    $digests = $plan instanceof Plan ? $plan->digests() : Undigested::proof();
+
+    return $digests instanceof Digests ? $digests->inputsOf(Path::of('src/Held.php'), Paths::none()) : $digests;
+}
 
 /** The units each shard of a plan runs, by the shard's number. */
 $shards = static function (Plan|CannotJudge $plan): array {
@@ -555,7 +565,7 @@ it('drops every unit a proof with a matching key covers, and carries what the ch
             Mutants::none(),
             $run,
         ))
-        ->withProof(Proof::of(Digest::of('old'), Path::of('src/Held.php'), Mutants::none(), $run)));
+        ->withProof(Proof::of(Digest::of('old'), Path::of('src/Held.php'), Mutants::none(), $run)->withInputs(heldAsNow($full))));
     $checkout = new ChangeSourceFake(
         Revision::ref('base'),
         Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(2)))),
@@ -587,12 +597,12 @@ it('proves and carries a run that records every killer only from proofs whose ru
     $full = $plan($project, Mode::full(), Cut::exactly(1));
     $key = $full instanceof Plan ? $full->keys()->keyOf(Path::of('src/Money.php')) : $full;
     $base = $full instanceof Plan ? $full->base() : Digest::of('none');
-    $store = static function (MatrixKind $recorded) use ($key, $base): ProofStoreFake {
+    $store = static function (MatrixKind $recorded) use ($key, $base, $full): ProofStoreFake {
         $run = Run::of('local', Moment::at('2026-09-30T10:00:00Z'), $base)->recording($recorded);
         $store = new ProofStoreFake();
         $store->write(Scope::branch('main'), Ledger::empty()
             ->withProof(Proof::of($key instanceof Digest ? $key : Digest::of('none'), Path::of('src/Money.php'), Mutants::none(), $run))
-            ->withProof(Proof::of(Digest::of('old'), Path::of('src/Held.php'), Mutants::none(), $run)));
+            ->withProof(Proof::of(Digest::of('old'), Path::of('src/Held.php'), Mutants::none(), $run)->withInputs(heldAsNow($full))));
 
         return $store;
     };

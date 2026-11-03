@@ -73,6 +73,26 @@ final readonly class Proofs implements Countable, IteratorAggregate
         ));
     }
 
+    /**
+     * Of these proofs, those of the source these digests are of: each
+     * records its unit's source digest, and it is the one taken now. None
+     * stands where no digests were taken.
+     */
+    public function ofSourcesIn(Digests|Undigested $now): self
+    {
+        return new self($now instanceof Digests ? array_filter(
+            $this->proofs,
+            static function (Proof $proof) use ($now): bool {
+                $inputs = $proof->inputs();
+                $source = $now->sourceOf($proof->unit());
+
+                return $inputs instanceof Inputs
+                    && $source instanceof Digest
+                    && $source->value() === $inputs->source()->value();
+            },
+        ) : []);
+    }
+
     /** These proofs without the one under a key, such as one a fresh result disagrees with. */
     public function without(Digest $key): self
     {

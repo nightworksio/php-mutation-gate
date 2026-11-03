@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Reach;
 
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
+
+use function sprintf;
 
 /**
  * What a change reaches, with a sentence for every decision: every unit, the
@@ -19,6 +22,8 @@ use NightWorksIO\MutationGate\Core\Unit\Unit;
  */
 final readonly class Reach
 {
+    private const string SINCE_LEDGER = 'On the default branch since its ledger last passed, at %s: %s';
+
     /** @param ByPath<Lines> $lines the changed lines of each source file */
     private function __construct(
         private Packages $packages,
@@ -112,6 +117,31 @@ final readonly class Reach
             $this->trees,
             $this->lines,
             $this->reasons->with($reason),
+        );
+    }
+
+    /**
+     * This reach, and what the default branch changed since the commit its
+     * ledger last passed at reaches, each of those reasons after this one's,
+     * saying so; the changed lines this one's alone (ADR-0060).
+     */
+    public function andSinceLedger(self $sinceLedger, Revision $ledger): self
+    {
+        $reasons = $this->reasons;
+
+        foreach ($sinceLedger->reasons as $reason) {
+            $said = Reason::that(sprintf(self::SINCE_LEDGER, $ledger->name(), $reason->text()));
+            $reasons = $reasons->with($reason->widens() ? $said->widening() : $said);
+        }
+
+        return new self(
+            $this->packages,
+            $this->everywhere || $sinceLedger->everywhere,
+            Paths::of(...$this->wholly, ...$sinceLedger->wholly),
+            $this->files->and($sinceLedger->files->paths()),
+            $this->trees->and($sinceLedger->trees->paths()),
+            $this->lines,
+            $reasons,
         );
     }
 

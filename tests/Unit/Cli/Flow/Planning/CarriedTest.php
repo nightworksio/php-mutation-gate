@@ -61,6 +61,37 @@ $plan = (static fn(string $project, Mode $mode, Cut $cut, object ...$ports): Pla
     Flows::setup(),
 )->plan($mode, CoverageRun::of(WholeSuite::tests(), Workspace::coverage()), $cut, MatrixKind::FirstKiller)));
 
+it('carries a result of the default branch only for code it still is: a unit the default branch changed since its ledger runs, and an unchanged one carries', function () use ($plan): void {
+    $money = Unit::file(Path::of('src/Money.php'));
+    $held = Unit::held(Path::of('src/Held.php'), Group::named('holds:src/Held.php'));
+    $project = Flows::project();
+    $full = $plan($project, Mode::full(), Cut::exactly(1));
+    $digests = $full instanceof Plan ? $full->digests() : Undigested::proof();
+    $mutation = $digests instanceof Digests ? $digests->mutation() : Digest::sha256Of('none');
+    $source = $digests instanceof Digests ? $digests->sourceOf($money->path()) : Digest::sha256Of('none');
+    $proof = static fn(Unit $unit, Digest $of): Proof => Proof::of(
+        Digest::sha256Of($unit->path()->value()),
+        $unit->path(),
+        Mutants::none(),
+        Run::of('main', Moment::at('2026-10-03T10:00:00Z'), Digest::sha256Of('an older base')),
+    )->withInputs(Inputs::of($of, $mutation));
+    $store = new ProofStoreFake();
+    $store->write(Scope::branch('main'), Ledger::empty()
+        ->withProof($proof($money, $source instanceof Digest ? $source : Digest::sha256Of('none')))
+        ->withProof($proof($held, Digest::sha256Of('src/Held.php before the default branch changed it'))));
+    $checkout = new ChangeSourceFake(
+        Revision::ref(Flows::MAIN),
+        Changes::of(Change::modified(Path::of('README.md'), Lines::of(Line::of(1)))),
+        [Revision::workingTree()->name() => Flows::FILES, Flows::MAIN => Flows::FILES],
+    );
+    $pullRequest = new CiPlanFake(RunOn::at(Scope::pullRequest(7), Scope::branch('main')));
+
+    $planned = $plan($project, Mode::since(Flows::MAIN), Cut::exactly(1), $store, $checkout, $pullRequest);
+
+    expect($planned instanceof Plan ? [...[...$planned][0]->units()] : $planned)->toEqual([$held])
+        ->and($planned instanceof Plan ? [...$planned->considered()->carried()] : $planned)->toEqual([$money]);
+});
+
 it('carries a pull request\'s own results for what it changed before its last run, however newer the default branch\'s, and reaches what no longer reads as they record', function (bool $heldAsItWas, bool $heldChanged, array $run, array $carriedOwn) use ($plan): void {
     $money = Unit::file(Path::of('src/Money.php'));
     $held = Unit::held(Path::of('src/Held.php'), Group::named('holds:src/Held.php'));
@@ -83,7 +114,7 @@ it('carries a pull request\'s own results for what it changed before its last ru
     $store = new ProofStoreFake();
     $store->write(Scope::branch('main'), Ledger::empty()
         ->withProof($proof($money, Digest::sha256Of('main'), 'main', '2026-10-03T10:00:00Z'))
-        ->withProof($proof($held, Digest::sha256Of('main'), 'main', '2026-10-03T10:00:00Z')));
+        ->withProof($proof($held, $sourceOf($held), 'main', '2026-10-03T10:00:00Z')));
     $store->write(Scope::pullRequest(7), Ledger::empty()
         ->withProof($proof($money, $sourceOf($money), 'pr', '2026-10-01T10:00:00Z'))
         ->withProof($proof($held, $heldAsItWas ? $sourceOf($held) : Digest::sha256Of('before'), 'pr', '2026-10-01T10:00:00Z'))

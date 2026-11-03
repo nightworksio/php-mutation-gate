@@ -39,6 +39,8 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\Considered;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Proof\Digests;
+use NightWorksIO\MutationGate\Core\Proof\Inputs;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
@@ -705,14 +707,15 @@ it('counts the proofs and the results of its own scope it took, and records how 
         ->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')))
         ->considering(
             Considered::everything()->proving(Units::of(Planned::money()))->carrying(Units::of(Planned::held())),
-        );
+        )
+        ->digesting(Digests::of(Digest::sha256Of('mutation'))->withSource(Path::of('src/Held.php'), Digest::sha256Of('src/Held.php')));
     $run = Run::of('github:1/1', Moment::at('2026-09-29T12:00:00Z'), $plan->base());
     $proofOf = static fn(string $key, string $file): Proof => Proof::of(
         Digest::sha256Of($key),
         Path::of($file),
         Flows::mutantsOf($file),
         $run,
-    );
+    )->withInputs(Inputs::of(Digest::sha256Of($file), Digest::sha256Of('mutation')));
     $store->write(
         Scope::pullRequest(7),
         Ledger::empty()
