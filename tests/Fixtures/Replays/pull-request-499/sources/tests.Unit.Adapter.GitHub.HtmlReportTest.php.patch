@@ -1,0 +1,9 @@
+diff --git a/tests/Unit/Adapter/GitHub/HtmlReportTest.php b/tests/Unit/Adapter/GitHub/HtmlReportTest.php
+index 41c45c6c2..3eb5bd6cc 100644
+--- a/tests/Unit/Adapter/GitHub/HtmlReportTest.php
++++ b/tests/Unit/Adapter/GitHub/HtmlReportTest.php
+@@ -7 +6,0 @@
+-use NightWorksIO\MutationGate\Core\Report\Markdown;
+@@ -21 +20 @@ function htmlReport(MockHttpClient $client): HtmlReport
+-    expect(htmlReport(new MockHttpClient([$asked]))->into(sprintf("before\n\n%s\n", Markdown::REPORT_SLOT)))
++    expect(htmlReport(new MockHttpClient([$asked]))->into(sprintf("before\n\n%s\n", HtmlReport::SLOT)))

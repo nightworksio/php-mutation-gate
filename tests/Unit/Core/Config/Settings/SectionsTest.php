@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Config\Reach as ReachSetting;
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\ChangedTests;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Price;
@@ -389,6 +390,21 @@ describe('Settings sections', function (): void {
             ->and(ReachSetting::lockPackages('pestphp/*')->written())->toEqual(Json::at('reach.lockPackages', Json::items('pestphp/*')))
             ->and(Configs::problems(Configs::validated(['runner' => 'pest', 'reach' => ['lockPackages' => ['pest', 'a/b/c', 'a /b']]])))
             ->toHaveCount(3);
+    });
+
+    it('reads reach.changedTests, narrowing a changed test file to its changed tests where it is left out, writes it into a config written as PHP, and refuses any other word', function (): void {
+        $php = Configs::valid(['runner' => 'pest', 'reach' => ['changedTests' => 'file']])->php(ProjectRoot::origin())->code();
+
+        expect(Configs::settings(['runner' => 'pest'])->reach()->changedTests())->toBe(ChangedTests::Narrow)
+            ->and(Configs::settings(['runner' => 'pest', 'reach' => ['changedTests' => 'file']])->reach()->changedTests())->toBe(ChangedTests::File)
+            ->and(Configs::settings(['runner' => 'pest', 'reach' => ['changedTests' => 'narrow']])->reach()->changedTests())->toBe(ChangedTests::Narrow)
+            ->and($php)->toContain('Reach::wholeChangedTestFiles()')
+            ->and(Configs::valid(['runner' => 'pest', 'reach' => ['changedTests' => 'narrow']])->php(ProjectRoot::origin())->code())
+            ->toContain('Reach::narrowChangedTests()')
+            ->and(Configs::valid(['runner' => 'pest'])->php(ProjectRoot::origin())->code())->not->toContain('ChangedTest')
+            ->and(ReachSetting::narrowChangedTests()->written())->toEqual(Json::at('reach.changedTests', 'narrow'))
+            ->and(ReachSetting::wholeChangedTestFiles()->written())->toEqual(Json::at('reach.changedTests', 'file'))
+            ->and(Configs::problems(Configs::validated(['runner' => 'pest', 'reach' => ['changedTests' => 'test']])))->toHaveCount(1);
     });
 
     it('writes run.full from the PHP config\'s builders as the JSON a file writes', function (): void {

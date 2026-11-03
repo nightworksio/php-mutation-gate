@@ -9,10 +9,8 @@ use DOMElement;
 use NightWorksIO\MutationGate\Core\Format\Xml;
 
 use function preg_match;
-use function preg_replace;
 use function sprintf;
 use function str_contains;
-use function str_replace;
 
 /**
  * The tests a JUnit log PHPUnit or Pest wrote says failed or errored, each as
@@ -35,9 +33,6 @@ final readonly class JUnitFailures
 
     /** The class Pest makes of a test file, by the class the log names. */
     private const string PEST_CLASS = 'P\%s';
-
-    /** A byte Pest replaces in the method it makes of a description, as it cannot be in a name. */
-    private const string UNNAMEABLE = '/[^a-zA-Z0-9_\x80-\xff]/';
 
     /** The tests a log's text says failed or errored, in its order; none where it could not be read. */
     public static function of(string|false $log): TestIds
@@ -79,7 +74,7 @@ final readonly class JUnitFailures
         $test = $inSet ? $parts['test'] : $name;
         $id = TestMethod::id(
             $pest ? sprintf(self::PEST_CLASS, $class) : $class,
-            $pest ? self::evaluable($test) : $test,
+            $pest ? TestMethod::pest($test) : $test,
         );
 
         return $inSet ? TestMethod::row($id, self::setOf($parts)) : $id;
@@ -96,13 +91,5 @@ final readonly class JUnitFailures
         $number = $parts['number'];
 
         return $number ?? (string) $parts['name'];
-    }
-
-    /** The method Pest makes of a test's description. */
-    private static function evaluable(string $description): string
-    {
-        $method = sprintf('%s%s', TestMethod::EVALUABLE, str_replace('_', '__', $description));
-
-        return preg_replace(self::UNNAMEABLE, '_', $method) ?? $method;
     }
 }

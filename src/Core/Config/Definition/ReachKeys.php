@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\ChangedTests;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
@@ -36,6 +37,11 @@ final readonly class ReachKeys
             Items::of(Text::matching(self::PACKAGE, self::PACKAGE_PATTERN)),
             Effect::DecidesHowTheGateRuns,
         );
+        $changedTests = Field::optional(
+            'changedTests',
+            Enumerated::of(ChangedTests::cases()),
+            Effect::DecidesHowTheGateRuns,
+        );
         $hotPath = Field::optional('hotPath', Number::between(0, 1), $judges);
         $full = Field::optional('full', Flag::boolean(), Effect::DecidesHowTheGateRuns);
         $stopWhenDoomed = Field::optional('stopWhenDoomed', Flag::boolean(), $judges);
@@ -52,20 +58,25 @@ final readonly class ReachKeys
             Field::section(
                 'reach',
                 Section::of(
-                    static function (Node $reach) use ($everything, $lockPackages): Layer|Invalid {
+                    static function (Node $reach) use ($everything, $lockPackages, $changedTests): Layer|Invalid {
                         $files = $everything->read($reach);
                         $packages = $lockPackages->read($reach);
+                        $tests = $changedTests->read($reach);
 
                         return Reading::built(
-                            static fn(): Layer => Layer::of(
-                                Reach::of(everything: $files->value(), lockPackages: $packages->value()),
-                            ),
+                            static fn(): Layer => Layer::of(Reach::of(
+                                everything: $files->value(),
+                                lockPackages: $packages->value(),
+                                changedTests: $tests->value(),
+                            )),
                             $files,
                             $packages,
+                            $tests,
                         );
                     },
                     $everything,
                     $lockPackages,
+                    $changedTests,
                 ),
             ),
             Field::section(

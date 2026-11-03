@@ -1,0 +1,479 @@
+<?php
+
+declare(strict_types=1);
+
+use NightWorksIO\MutationGate\Adapter\Alert\Delivery as AlertDelivery;
+use NightWorksIO\MutationGate\Adapter\Alert\Pause;
+use NightWorksIO\MutationGate\Cli\ExitCode;
+use NightWorksIO\MutationGate\Cli\Keyed\LocatedStore;
+use NightWorksIO\MutationGate\Cli\Keyed\Sending;
+use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
+use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\Delivery\AlertPost;
+use NightWorksIO\MutationGate\Core\Delivery\CommentStates;
+use NightWorksIO\MutationGate\Core\Delivery\Delivery;
+use NightWorksIO\MutationGate\Core\Delivery\KeptPost;
+use NightWorksIO\MutationGate\Core\Delivery\LedgerPost;
+use NightWorksIO\MutationGate\Core\Delivery\OtlpPost;
+use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Missing;
+use NightWorksIO\MutationGate\Core\Format\TooLarge;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Proof\Companion;
+use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\Passed;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\ScopeRuns;
+use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\Report\Markdown;
+use NightWorksIO\MutationGate\Core\Report\PlannedMarkdown;
+use NightWorksIO\MutationGate\Extension\Extensions;
+use NightWorksIO\MutationGate\Port\ProofStore;
+use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\ShardedPlan;
+use NightWorksIO\MutationGate\Tests\Support\StoppedClock;
+use NightWorksIO\MutationGate\Tests\Support\Verdicts;
+use Symfony\Component\HttpClient\MockHttpClient;
+use Symfony\Component\HttpClient\Response\MockResponse;
+
+/**
+ * `deliver` in this environment, with one store registered as `s3`, counting each time it is built, and posting to
+ * these answers, each kept as it was asked.
+ *
+ * @param array<string, string>   $environment
+ * @param ArrayObject<int, string> $built
+ * @param list<MockResponse>      $answers
+ */
+function sendingOf(array $environment, ArrayObject $built, ProofStoreFake $store, array $answers = []): Sending
+{
+    $build = static function (Options $options) use ($built, $store): ProofStore {
+        $built->append($options->written()->line());
+
+        return $store;
+    };
+    $extensions = Extensions::of(Origin::of('acme/gate'))
+        ->withProofStore(Name::of('s3'), $build)
+        ->withProofStore(Name::of('gcs'), $build);
+    $client = new MockHttpClient($answers);
+    $clock = new StoppedClock('2026-10-05T12:00:00Z');
+
+    return new Sending($environment, new LocatedStore(Variables::of($environment), $extensions), $client, AlertDelivery::over($client, $clock, Pause::for(...)), $clock);
+}
+
+/**
+ * The variables of a merge request's job under GitLab CI, or of a pull request's step under Bitbucket Pipelines,
+ * each holding its forge's token.
+ *
+ * @return array<string, string>
+ */
+function sendingOnForge(string $forge): array
+{
+    return $forge === 'gitlab' ? [
+        'GITLAB_CI' => 'true',
+        'CI_API_V4_URL' => 'https://gitlab.example/api/v4',
+        'CI_PROJECT_ID' => '42',
+        'CI_PROJECT_URL' => 'https://gitlab.example/acme/shop',
+        'CI_MERGE_REQUEST_IID' => '7',
+        'MUTATION_GATE_GITLAB_TOKEN' => 'forge-token',
+    ] : [
+        'BITBUCKET_BUILD_NUMBER' => '9',
+        'BITBUCKET_WORKSPACE' => 'acme',
+        'BITBUCKET_REPO_SLUG' => 'shop',
+        'BITBUCKET_PR_ID' => '7',
+        'MUTATION_GATE_BITBUCKET_TOKEN' => 'forge-token',
+    ];
+}
+
+/** A delivery that holds a ledger for this scope. */
+function sendingLedger(Scope $scope): Delivery
+{
+    return Delivery::none()->withLedger(LedgerPost::to($scope));
+}
+
+/** Where deliver's own environment says the store is, an S3 bucket, and the keys it holds for it. */
+const SENDING_STORE = [
+    'MUTATION_GATE_STORE' => 's3',
+    'MUTATION_GATE_STORE_BUCKET' => 'proofs',
+    'AWS_ACCESS_KEY_ID' => 'id',
+    'AWS_SECRET_ACCESS_KEY' => 'secret',
+];
+
+/**
+ * The headers a mock answer was asked with, one to a line.
+ */
+function sendingHeaders(MockResponse $answer): string
+{
+    $headers = $answer->getRequestOptions()['headers'];
+
+    return is_array($headers) ? implode("\n", array_filter($headers, is_string(...))) : '';
+}
+
+it('builds no store, reads no ledger and fails nothing on a run that is no trusted run of the default branch', function (): void {
+    $built = new ArrayObject();
+    $read = new ArrayObject();
+    $store = new ProofStoreFake();
+    $sent = sendingOf(SENDING_STORE, $built, $store)->sent(
+        sendingLedger(Scope::branch('main')),
+        NotWritten::because('This run is no push, schedule or manual run of the default branch, so deliver writes no ledger.'),
+        static function () use ($read): Ledger {
+            $read->append('read');
+
+            return Ledger::empty();
+        },
+    );
+
+    expect([...$built])->toBe([])
+        ->and([...$read])->toBe([])
+        ->and($store->read(Scope::branch('main')))->toEqual(Ledger::empty())
+        ->and($sent->said())->toBe(['This run is no push, schedule or manual run of the default branch, so deliver writes no ledger.'])
+        ->and($sent->exit())->toBe(ExitCode::Passed);
+});
+
+it('writes no ledger for a scope other than the one its own run may write', function (): void {
+    $built = new ArrayObject();
+    $read = new ArrayObject();
+    $sent = sendingOf(SENDING_STORE, $built, new ProofStoreFake())->sent(
+        sendingLedger(Scope::pullRequest(7)),
+        Scope::branch('main'),
+        static function () use ($read): Ledger {
+            $read->append('read');
+
+            return Ledger::empty();
+        },
+    );
+
+    expect([...$built])->toBe([])
+        ->and([...$read])->toBe([])
+        ->and($sent->said())->toBe(['The ledger is not written: the delivery holds refs/pull/7\'s, and this run writes refs/heads/main\'s alone.'])
+        ->and($sent->exit())->toBe(ExitCode::CannotJudge);
+});
+
+it('writes the ledger to the store its own environment locates, under its own run\'s scope, on a trusted run', function (): void {
+    $built = new ArrayObject();
+    $store = new ProofStoreFake();
+    $ledger = Ledger::empty()->withRuns(ScopeRuns::none()->passing(Passed::of(
+        Revision::ref('abc'),
+        'mutation / verdict',
+        0,
+    )));
+    $sent = sendingOf(SENDING_STORE, $built, $store)->sent(sendingLedger(Scope::branch('main')), Scope::branch('main'), static fn(): Ledger => $ledger);
+
+    expect([...$built])->toBe(['{"prefix":"mutation-gate","region":"us-east-1","insecureEndpoint":false,"bucket":"proofs"}'])
+        ->and($store->read(Scope::branch('main')))->toEqual($ledger)
+        ->and($sent->exit())->toBe(ExitCode::Passed);
+});
+
+it('takes every part of the store\'s location from its own environment', function (): void {
+    $built = new ArrayObject();
+    $environment = [
+        ...SENDING_STORE,
+        'MUTATION_GATE_STORE_PREFIX' => 'ci/proofs',
+        'MUTATION_GATE_STORE_REGION' => 'auto',
+        'MUTATION_GATE_STORE_ENDPOINT' => 'https://r2.example.com',
+    ];
+    sendingOf($environment, $built, new ProofStoreFake())
+        ->sent(sendingLedger(Scope::branch('main')), Scope::branch('main'), static fn(): Ledger => Ledger::empty());
+
+    expect([...$built])
+        ->toBe(['{"prefix":"ci/proofs","region":"auto","insecureEndpoint":false,"bucket":"proofs","endpoint":"https://r2.example.com"}']);
+});
+
+it('writes no ledger, and fails, where its own environment names a store that needs no credentials, or one its options refuse', function (string $store, string $bucket, string $key, string $why): void {
+    $built = new ArrayObject();
+    $environment = array_filter(
+        ['MUTATION_GATE_STORE' => $store, 'MUTATION_GATE_STORE_BUCKET' => $bucket, 'AWS_ACCESS_KEY_ID' => $key, 'AWS_SECRET_ACCESS_KEY' => $key],
+        static fn(string $value): bool => $value !== '',
+    );
+    $sent = sendingOf($environment, $built, new ProofStoreFake())
+        ->sent(sendingLedger(Scope::branch('main')), Scope::branch('main'), static fn(): Ledger => Ledger::empty());
+
+    expect([...$built])->toBe([])
+        ->and($sent->said())->toBe([$why])
+        ->and($sent->exit())->toBe(ExitCode::CannotJudge);
+})->with([
+    'the directory' => ['directory', '', 'id', 'The ledger is not written: MUTATION_GATE_STORE names no built-in store that needs credentials: s3, gcs or azure.'],
+    'a class' => ['Acme\\Store', 'proofs', 'id', 'The ledger is not written: MUTATION_GATE_STORE names no built-in store that needs credentials: s3, gcs or azure.'],
+    'no keys' => ['s3', 'proofs', '', 'The ledger is not written: MUTATION_GATE_STORE names s3, whose credentials this job does not hold.'],
+    'no bucket' => ['s3', '', 'id', 'The ledger is not written: MUTATION_GATE_STORE_BUCKET: expected a bucket name, got nothing'],
+]);
+
+it('sends no store credential to an endpoint its own environment names over plain HTTP', function (): void {
+    $built = new ArrayObject();
+    $store = new ProofStoreFake();
+    $sent = sendingOf([...SENDING_STORE, 'MUTATION_GATE_STORE_ENDPOINT' => 'http://minio.internal'], $built, $store)
+        ->sent(sendingLedger(Scope::branch('main')), Scope::branch('main'), static fn(): Ledger => Ledger::empty()->atBase(Digest::sha256Of('base')));
+
+    expect([...$built])->toBe([])
+        ->and($store->read(Scope::branch('main')))->toEqual(Ledger::empty())
+        ->and($sent->said())->toBe(['The ledger is not written: MUTATION_GATE_STORE_ENDPOINT is not an https:// URL, so no store is located there.'])
+        ->and($sent->exit())->toBe(ExitCode::CannotJudge);
+});
+
+it('fails, and writes nothing, where the ledger beside the delivery cannot be read', function (Ledger|CannotJudge|TooLarge $unread): void {
+    $store = new ProofStoreFake();
+    $sent = sendingOf(SENDING_STORE, new ArrayObject(), $store)->sent(sendingLedger(Scope::branch('main')), Scope::branch('main'), static fn(): Ledger|CannotJudge|TooLarge => $unread);
+
+    expect($store->read(Scope::branch('main')))->toEqual(Ledger::empty())
+        ->and($sent->said())->toBe(['The ledger is not written, since it cannot be read: past the limit'])
+        ->and($sent->exit())->toBe(ExitCode::CannotJudge);
+})->with([
+    'unreadable' => [fn(): CannotJudge => CannotJudge::because('past the limit')],
+    'too large' => [fn(): TooLarge => TooLarge::because('past the limit')],
+]);
+
+it('reads no ledger beside the delivery where its own environment locates no store', function (): void {
+    $read = new ArrayObject();
+    sendingOf([], new ArrayObject(), new ProofStoreFake())->sent(
+        sendingLedger(Scope::branch('main')),
+        Scope::branch('main'),
+        static function () use ($read): Ledger {
+            $read->append('read');
+
+            return Ledger::empty();
+        },
+    );
+
+    expect([...$read])->toBe([]);
+});
+
+it('writes no ledger whose scope leads anywhere but its own run\'s, however it is spelled', function (string $ref): void {
+    $built = new ArrayObject();
+    $store = new ProofStoreFake();
+    $sent = sendingOf(SENDING_STORE, $built, $store)
+        ->sent(sendingLedger(Scope::of($ref)), Scope::branch('main'), static fn(): Ledger => Ledger::empty()->atBase(Digest::sha256Of('base')));
+
+    expect([...$built])->toBe([])
+        ->and($store->read(Scope::branch('main')))->toEqual(Ledger::empty())
+        ->and($sent->said())->toBe([sprintf('The ledger is not written: the delivery holds %s\'s, and this run writes refs/heads/main\'s alone.', $ref)])
+        ->and($sent->exit())->toBe(ExitCode::CannotJudge);
+})->with([
+    'up and out' => ['refs/heads/main/../../other'],
+    'absolute' => ['/refs/heads/main'],
+    'encoded' => ['refs/heads/%2e%2e/main'],
+    'an encoded separator' => ['refs%2Fheads%2Fmain'],
+    'beneath it' => ['refs/heads/main/x'],
+    'a trailing separator' => ['refs/heads/main/'],
+]);
+
+it('sends each alert to its channel\'s own variable, signs the webhook with its own secret, and exports to OpenTelemetry\'s endpoint', function (): void {
+    $slack = new MockResponse('ok');
+    $webhook = new MockResponse('ok');
+    $metrics = new MockResponse('{}');
+    $environment = [
+        'MUTATION_GATE_SLACK_URL' => 'https://hooks.example/slack',
+        'MUTATION_GATE_WEBHOOK_URL' => 'https://hooks.example/webhook',
+        'MUTATION_GATE_WEBHOOK_SECRET' => 'shh',
+        'OTEL_EXPORTER_OTLP_ENDPOINT' => 'https://otel.example',
+        'OTEL_EXPORTER_OTLP_HEADERS' => 'api-key=secret',
+    ];
+    $delivery = Delivery::none()
+        ->withAlert(AlertPost::of(BuiltinReporter::Slack, '{"text": "fell"}'))
+        ->withAlert(AlertPost::of(BuiltinReporter::Webhook, '{"event": "fell"}'))
+        ->withOtlp(OtlpPost::of(NotGiven::value(), '{"resourceMetrics": []}'));
+    $sent = sendingOf($environment, new ArrayObject(), new ProofStoreFake(), [$slack, $webhook, $metrics])
+        ->sent($delivery, NotWritten::because('untrusted'), static fn(): Ledger => Ledger::empty());
+
+    expect([$slack->getRequestUrl(), $webhook->getRequestUrl(), $metrics->getRequestUrl()])
+        ->toBe(['https://hooks.example/slack', 'https://hooks.example/webhook', 'https://otel.example/v1/metrics'])
+        ->and(sendingHeaders($webhook))->toContain('X-Mutation-Gate-Signature')
+        ->and($slack->getRequestOptions()['body'])->toBe('{"text": "fell"}')
+        ->and(sendingHeaders($metrics))->toContain('api-key: secret')
+        ->and($sent->exit())->toBe(ExitCode::Passed);
+});
+
+it('says an alert goes nowhere where its channel\'s own variable is not set', function (): void {
+    $sent = sendingOf([], new ArrayObject(), new ProofStoreFake())
+        ->sent(Delivery::none()->withAlert(AlertPost::of(BuiltinReporter::Discord, '{}')), NotWritten::because('untrusted'), static fn(): Ledger => Ledger::empty());
+
+    expect($sent->said())->toBe(['MUTATION_GATE_DISCORD_URL is not set, so no alert goes to Discord.']);
+});
+
+it('comments on the pull request its own event names, in its own repository', function (): void {
+    $event = Scratch::directory();
+    Scratch::write($event, 'event.json', '{"pull_request": {"number": 7, "head": {"repo": {"fork": false}}}}');
+    $user = new MockResponse('{"login": "github-actions[bot]"}');
+    $listed = new MockResponse('[]');
+    $posted = new MockResponse('{"html_url": "https://github.com/octo/gate/pull/7#issuecomment-1"}');
+    $environment = [
+        'GITHUB_EVENT_NAME' => 'pull_request',
+        'GITHUB_EVENT_PATH' => sprintf('%s/event.json', $event),
+        'GITHUB_REPOSITORY' => 'octo/gate',
+        'GITHUB_TOKEN' => 'token',
+        'GITHUB_API_URL' => 'https://api.github.com',
+    ];
+    $sent = sendingOf($environment, new ArrayObject(), new ProofStoreFake(), [$user, $listed, $posted])
+        ->sent(Delivery::none()->withComment('## mutation-gate'), NotWritten::because('untrusted'), static fn(): Ledger => Ledger::empty());
+
+    expect($posted->getRequestMethod())->toBe('POST')
+        ->and($posted->getRequestUrl())->toBe('https://api.github.com/repos/octo/gate/issues/7/comments')
+        ->and($sent->said())->toBe(['Wrote https://github.com/octo/gate/pull/7#issuecomment-1.']);
+});
+
+it('writes a comment left over the planned state only over it, so a verdict already written stays', function (
+    string $body,
+    Delivery $delivery,
+    string $said,
+): void {
+    $event = Scratch::directory();
+    Scratch::write($event, 'event.json', '{"pull_request": {"number": 7}}');
+    $listed = new MockResponse((string) json_encode([['id' => 5, 'user' => ['login' => 'github-actions[bot]'], 'body' => $body]]));
+    $patched = new MockResponse('{"html_url": "https://github.com/octo/gate/pull/7#issuecomment-5"}');
+    $environment = [
+        'GITHUB_EVENT_NAME' => 'pull_request',
+        'GITHUB_EVENT_PATH' => sprintf('%s/event.json', $event),
+        'GITHUB_REPOSITORY' => 'octo/gate',
+        'GITHUB_TOKEN' => 'token',
+        'GITHUB_API_URL' => 'https://api.github.com',
+    ];
+    $answers = [new MockResponse('{"login": "github-actions[bot]"}'), $listed, $patched];
+    $sent = sendingOf($environment, new ArrayObject(), new ProofStoreFake(), $answers)
+        ->sent($delivery, NotWritten::because('untrusted'), static fn(): Ledger => Ledger::empty());
+
+    expect($sent->said())->toBe([$said]);
+})->with([
+    'over the planned state' => [
+        fn(): string => PlannedMarkdown::comment(ShardedPlan::planned(2), ''),
+        fn(): Delivery => Delivery::none()->withCommentOverPlanned('## Re-checked'),
+        'Wrote https://github.com/octo/gate/pull/7#issuecomment-5.',
+    ],
+    'over a verdict' => [
+        fn(): string => Markdown::comment(Verdicts::failing()),
+        fn(): Delivery => Delivery::none()->withCommentOverPlanned('## Re-checked'),
+        CommentStates::NOT_PLANNED,
+    ],
+    'a verdict over a verdict' => [
+        fn(): string => Markdown::comment(Verdicts::failing()),
+        fn(): Delivery => Delivery::none()->withComment('## Passed'),
+        'Wrote https://github.com/octo/gate/pull/7#issuecomment-5.',
+    ],
+]);
+
+it('writes the comment on the forge its own CI keeps, with the token in that forge\'s variable', function (
+    string $forge,
+    string $url,
+    string $said,
+): void {
+    $user = new MockResponse('{"username": "project_42_bot"}');
+    $listed = new MockResponse('[]');
+    $comments = new MockResponse('{"values": []}');
+    $posted = new MockResponse('{"id": 3, "links": {"html": {"href": "https://bitbucket.org/acme/shop/pull-requests/7#comment-3"}}}', ['http_code' => 201]);
+    $answers = $forge === 'gitlab' ? [$user, $listed, $posted] : [$comments, $posted];
+    $sent = sendingOf(sendingOnForge($forge), new ArrayObject(), new ProofStoreFake(), $answers)
+        ->sent(Delivery::none()->withComment(sprintf("%s\n\n## Passed", Markdown::MARKER)), NotWritten::because('untrusted'), static fn(): Ledger => Ledger::empty());
+
+    expect($posted->getRequestMethod())->toBe('POST')
+        ->and($posted->getRequestUrl())->toBe($url)
+        ->and(sendingHeaders($posted))->toContain('Authorization: Bearer forge-token')
+        ->and($sent->said())->toBe([$said]);
+})->with([
+    'a merge request\'s note under GitLab CI' => [
+        'gitlab',
+        'https://gitlab.example/api/v4/projects/42/merge_requests/7/notes',
+        'Wrote https://gitlab.example/acme/shop/-/merge_requests/7#note_3.',
+    ],
+    'a pull request\'s comment under Bitbucket Pipelines' => [
+        'bitbucket',
+        'https://api.bitbucket.org/2.0/repositories/acme/shop/pullrequests/7/comments',
+        'Wrote https://bitbucket.org/acme/shop/pull-requests/7#comment-3.',
+    ],
+]);
+
+it('sends no alert for a reporter that sends none', function (): void {
+    $sent = sendingOf([], new ArrayObject(), new ProofStoreFake())
+        ->sent(Delivery::none()->withAlert(AlertPost::of(BuiltinReporter::Json, '{}')), NotWritten::because('untrusted'), static fn(): Ledger => Ledger::empty());
+
+    expect($sent->said())->toBe(['json sends no alert.']);
+});
+
+/** A delivery that holds a ledger for the default branch, and the coverage map to keep beside it for this scope. */
+function sendingKept(Scope $scope): Delivery
+{
+    return sendingLedger(Scope::branch('main'))->withKept(KeptPost::of(Companion::Coverage, $scope));
+}
+
+it('keeps the coverage map beside the ledger in the store, under its own run\'s scope, on a trusted run', function (): void {
+    $built = new ArrayObject();
+    $store = new ProofStoreFake();
+    $sent = sendingOf(SENDING_STORE, $built, $store)->sent(
+        sendingKept(Scope::branch('main')),
+        Scope::branch('main'),
+        static fn(): Ledger => Ledger::empty(),
+        static fn(Companion $companion): Contents => Contents::of(sprintf('the run\'s %s', $companion->named())),
+    );
+
+    expect($built)->toHaveCount(1)
+        ->and($store->companion(Scope::branch('main'), Companion::Coverage))->toEqual(Contents::of('the run\'s coverage map'))
+        ->and($sent->said())->toBe(['Wrote memory:refs/heads/main.', 'Wrote memory:refs/heads/main/coverage.json.gz.'])
+        ->and($sent->exit())->toBe(ExitCode::Passed);
+});
+
+it('keeps nothing, and reads nothing beside the delivery, on a run that is no trusted run of the default branch', function (): void {
+    $read = new ArrayObject();
+    $store = new ProofStoreFake();
+    $sent = sendingOf(SENDING_STORE, new ArrayObject(), $store)->sent(
+        sendingKept(Scope::branch('main')),
+        NotWritten::because('This run is no push, schedule or manual run of the default branch, so deliver writes no ledger.'),
+        static fn(): Ledger => Ledger::empty(),
+        static function (Companion $companion) use ($read): Contents {
+            $read->append($companion->value);
+
+            return Contents::of('');
+        },
+    );
+
+    expect([...$read])->toBe([])
+        ->and($store->companion(Scope::branch('main'), Companion::Coverage))->toBeInstanceOf(Missing::class)
+        ->and($sent->exit())->toBe(ExitCode::Passed);
+});
+
+it('fails, and keeps nothing, for another scope than its own run\'s, or an object it cannot read', function (Scope $scope, Contents|CannotJudge|TooLarge $read, string $why): void {
+    $store = new ProofStoreFake();
+    $sent = sendingOf(SENDING_STORE, new ArrayObject(), $store)->sent(
+        sendingKept($scope),
+        Scope::branch('main'),
+        static fn(): Ledger => Ledger::empty(),
+        static fn(): Contents|CannotJudge|TooLarge => $read,
+    );
+
+    expect($store->companion(Scope::branch('main'), Companion::Coverage))->toBeInstanceOf(Missing::class)
+        ->and($sent->said())->toBe(['Wrote memory:refs/heads/main.', $why])
+        ->and($sent->exit())->toBe(ExitCode::CannotJudge);
+})->with([
+    'another scope' => [fn(): Scope => Scope::pullRequest(7), fn(): Contents => Contents::of('map'), 'The coverage map is not kept: the delivery holds refs/pull/7\'s, and this run writes refs/heads/main\'s alone.'],
+    'unreadable' => [fn(): Scope => Scope::branch('main'), fn(): CannotJudge => CannotJudge::because('coverage.json.gz is missing.'), 'The coverage map is not kept, since it cannot be read: coverage.json.gz is missing.'],
+    'too large' => [fn(): Scope => Scope::branch('main'), fn(): TooLarge => TooLarge::because('past the limit'), 'The coverage map is not kept, since it cannot be read: past the limit'],
+]);
+
+it('writes no ledger, keeps nothing and fails nothing on a trusted run where its own environment names no store, as the Actions cache keeps both', function (): void {
+    $built = new ArrayObject();
+    $read = new ArrayObject();
+    $sent = sendingOf(['AWS_ACCESS_KEY_ID' => 'id', 'AWS_SECRET_ACCESS_KEY' => 'secret'], $built, new ProofStoreFake())->sent(
+        sendingLedger(Scope::branch('main'))->withKept(KeptPost::of(Companion::Coverage, Scope::branch('main'))),
+        Scope::branch('main'),
+        static function () use ($read): Ledger {
+            $read->append('ledger');
+
+            return Ledger::empty();
+        },
+        static function () use ($read): Contents {
+            $read->append('map');
+
+            return Contents::of('map');
+        },
+    );
+
+    expect([...$built])->toBe([])
+        ->and([...$read])->toBe([])
+        ->and($sent->said())->toBe([
+            'The ledger is not written: MUTATION_GATE_STORE names no store, so it stays in the Actions cache.',
+            'The coverage map is not kept: MUTATION_GATE_STORE names no store, so it stays in the Actions cache.',
+        ])
+        ->and($sent->exit())->toBe(ExitCode::Passed);
+});

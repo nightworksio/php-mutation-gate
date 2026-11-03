@@ -1,0 +1,18 @@
+diff --git a/tests/Unit/Core/Verdict/JudgedMutantsTest.php b/tests/Unit/Core/Verdict/JudgedMutantsTest.php
+index fbcb8f8e9..bc49de117 100644
+--- a/tests/Unit/Core/Verdict/JudgedMutantsTest.php
++++ b/tests/Unit/Core/Verdict/JudgedMutantsTest.php
+@@ -20 +19,0 @@
+-use NightWorksIO\MutationGate\Core\Test\TestId;
+@@ -22,2 +20,0 @@
+-use NightWorksIO\MutationGate\Core\Test\TestName;
+-use NightWorksIO\MutationGate\Core\Test\TestNames;
+@@ -144,8 +140,0 @@
+-it('names the judging tests in each mutant\'s hint by the names their runner gave them', function (): void {
+-    $names = TestNames::none()->with(TestId::of('MoneyTest::fits'), TestName::in(Path::of('tests/MoneyTest.php'), 'fits'));
+-    $named = [...JudgedMutants::of(Verdicts::survivor())->named($names)][0];
+-
+-    expect($named->hint()->text())->toContain('It is judged by `tests/MoneyTest.php::fits`, `MoneyTest::refuses`')
+-        ->and(Verdicts::survivor()->hint()->text())->toContain('It is judged by `MoneyTest::fits`, `MoneyTest::refuses`');
+-});
+-

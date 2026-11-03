@@ -1,0 +1,22 @@
+diff --git a/tests/Unit/Core/Config/Settings/SectionsTest.php b/tests/Unit/Core/Config/Settings/SectionsTest.php
+index 6156a0178..8491a7d67 100644
+--- a/tests/Unit/Core/Config/Settings/SectionsTest.php
++++ b/tests/Unit/Core/Config/Settings/SectionsTest.php
+@@ -143,3 +142,0 @@
+-            ['use' => 'gitlab-comment'],
+-            ['use' => 'bitbucket-comment', 'with' => ['tokenEnv' => 'TEAM_BITBUCKET']],
+-            ['use' => 'bitbucket-insights'],
+@@ -159,3 +155,0 @@
+-            ['use' => 'gitlab-comment', 'with' => ['tokenEnv' => 'MUTATION_GATE_GITLAB_TOKEN']],
+-            ['use' => 'bitbucket-comment', 'with' => ['tokenEnv' => 'TEAM_BITBUCKET']],
+-            ['use' => 'bitbucket-insights'],
+@@ -171,3 +164,0 @@
+-                '{"tokenEnv":"MUTATION_GATE_GITLAB_TOKEN"}',
+-                '{"tokenEnv":"TEAM_BITBUCKET"}',
+-                '{}',
+@@ -188,5 +178,0 @@
+-        'a token in the config' => [
+-            ['use' => 'gitlab-comment', 'with' => ['token' => 'glpat-secret']],
+-            'reports[0].with.token: expected no token: a token is a credential; set MUTATION_GATE_GITLAB_TOKEN, '
+-            . 'or name another variable in tokenEnv',
+-        ],

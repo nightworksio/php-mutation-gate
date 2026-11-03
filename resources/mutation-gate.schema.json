@@ -515,6 +515,13 @@
                         "minLength": 1,
                         "pattern": "^[^/\\s]+/[^/\\s]+$"
                     }
+                },
+                "changedTests": {
+                    "enum": [
+                        "narrow",
+                        "file"
+                    ],
+                    "default": "narrow"
                 }
             },
             "additionalProperties": false

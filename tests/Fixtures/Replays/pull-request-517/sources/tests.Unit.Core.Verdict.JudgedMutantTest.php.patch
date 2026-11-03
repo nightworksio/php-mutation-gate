@@ -1,0 +1,9 @@
+diff --git a/tests/Unit/Core/Verdict/JudgedMutantTest.php b/tests/Unit/Core/Verdict/JudgedMutantTest.php
+index 8049f441a..cdfd8fc5e 100644
+--- a/tests/Unit/Core/Verdict/JudgedMutantTest.php
++++ b/tests/Unit/Core/Verdict/JudgedMutantTest.php
+@@ -20 +19,0 @@
+-use NightWorksIO\MutationGate\Core\Test\TestNames;
+@@ -68 +67 @@
+-    expect($judged->hint())->toEqual(Hint::for($judged->mutant(), MutantJudgement::Survived, $tests, Missing::at(Path::of('src/Money.php')), NoFinding::survivor(), TestNames::none()))
++    expect($judged->hint())->toEqual(Hint::for($judged->mutant(), MutantJudgement::Survived, $tests, Missing::at(Path::of('src/Money.php')), NoFinding::survivor()))

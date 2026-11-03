@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Reach\Reaching;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Sources;
+use NightWorksIO\MutationGate\Core\Reach\TestRuns;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
 use NightWorksIO\MutationGate\Core\Tree\Package;
@@ -59,21 +60,21 @@ $fake = "<?php\n\nnamespace Tests\\Fakes;\n\nfinal class ClockFake {}\n";
 $clockTest = "<?php\n\nuse Tests\\Fakes\\ClockFake;\n\nit('ticks', fn () => new ClockFake());\n";
 
 it('reaches everything where git cannot tell what changed', function () use ($reaching, $judges, $said): void {
-    $reach = $reaching()->of(CannotTell::because('git gave no answer.'), $judges(), Sources::none());
+    $reach = $reaching()->of(CannotTell::because('git gave no answer.'), $judges(), Sources::none(), TestRuns::wholeFiles());
 
     expect($reach->isEverywhere())->toBeTrue()
         ->and($said($reach))->toBe(['git gave no answer. So every unit is reached.']);
 });
 
 it('reaches nothing where nothing changed', function () use ($reaching, $judges, $said): void {
-    $reach = $reaching()->of(Changes::none(), $judges(), Sources::none());
+    $reach = $reaching()->of(Changes::none(), $judges(), Sources::none(), TestRuns::wholeFiles());
 
     expect($reach->reaches(Unit::file(Path::of('src/Money.php'))))->toBeFalse()
         ->and($said($reach))->toBe([]);
 });
 
 it('reaches everything where a root file decides how the gate runs, even where it moved or went', function (Change $change, string $deciding) use ($reaching, $judges, $said): void {
-    $reach = $reaching()->of(Changes::of($change), $judges(), Sources::none());
+    $reach = $reaching()->of(Changes::of($change), $judges(), Sources::none(), TestRuns::wholeFiles());
 
     expect($reach->isEverywhere())->toBeTrue()
         ->and($said($reach))->toBe([sprintf('`%s` decides how the gate runs, so every unit is reached.', $deciding)]);
@@ -94,7 +95,7 @@ it('reaches a package whole, and every package that depends on it, where a file 
     $money = $makeMoney();
     $root = $makeRoot();
 
-    $reach = $reaching()->of(Changes::of(Change::modified(Path::of('packages/core/composer.json'), Lines::of(Line::of(2)))), $judges(), Sources::none());
+    $reach = $reaching()->of(Changes::of(Change::modified(Path::of('packages/core/composer.json'), Lines::of(Line::of(2)))), $judges(), Sources::none(), TestRuns::wholeFiles());
 
     expect($reach->isEverywhere())->toBeFalse()
         ->and($reach->reachesPackage($core))->toBeTrue()
@@ -122,7 +123,7 @@ it('matches reach.everything against the path from the repository, not from the 
     $reach = $reaching->of(Changes::of(
         Change::modified(Path::of('packages/money/config/app.php'), Lines::of(Line::of(1))),
         Change::modified(Path::of('packages/core/routes/web.php'), Lines::of(Line::of(1))),
-    ), $judges(), Sources::none());
+    ), $judges(), Sources::none(), TestRuns::wholeFiles());
 
     expect($reach->reachesPackage($core))->toBeTrue()
         ->and($reach->reachesPackage($root))->toBeFalse()
@@ -137,7 +138,7 @@ it('reaches nothing where a CI definition changed only what does not decide how 
         ->withBefore(Path::of('.github/workflows/gate.yml'), Contents::of($before))
         ->withNow(Path::of('.github/workflows/gate.yml'), Contents::of($now));
 
-    $reach = $reaching()->of(Changes::of(Change::modified(Path::of('.github/workflows/gate.yml'), Lines::of(Line::of(2)))), $judges(), $sources);
+    $reach = $reaching()->of(Changes::of(Change::modified(Path::of('.github/workflows/gate.yml'), Lines::of(Line::of(2)))), $judges(), $sources, TestRuns::wholeFiles());
 
     expect($reach->isEverywhere())->toBeFalse()
         ->and($reach->reaches(Unit::file(Path::of('src/Money.php'))))->toBeFalse()
@@ -152,7 +153,7 @@ it('reaches nothing where a CI definition changed only what does not decide how 
 it('reaches nothing where the gate\'s config changed nothing that decides how the gate runs', function () use ($reaching, $judges, $said): void {
     $sources = Sources::none()->decidingAlike(Path::of('mutation-gate.json'));
 
-    $reach = $reaching()->of(Changes::of(Change::modified(Path::of('mutation-gate.json'), Lines::of(Line::of(4)))), $judges(), $sources);
+    $reach = $reaching()->of(Changes::of(Change::modified(Path::of('mutation-gate.json'), Lines::of(Line::of(4)))), $judges(), $sources, TestRuns::wholeFiles());
 
     expect($reach->isEverywhere())->toBeFalse()
         ->and($reach->reaches(Unit::file(Path::of('src/Money.php'))))->toBeFalse()
@@ -164,7 +165,7 @@ it('reaches everything where a file that decides how the gate runs was renamed, 
         ->decidingAlike($change->path())
         ->decidingAlike($change->previousPath());
 
-    $reach = $reaching()->of(Changes::of($change), $judges(), $sources);
+    $reach = $reaching()->of(Changes::of($change), $judges(), $sources, TestRuns::wholeFiles());
 
     expect($reach->isEverywhere())->toBeTrue()
         ->and(array_map(static fn(Reason $reason): string => $reason->text(), iterator_to_array($reach->reasons(), preserve_keys: false)))
@@ -186,7 +187,7 @@ it('reaches everything where a CI definition that runs the gate was renamed, mov
         ->withBefore($change->previousPath(), $definition)
         ->withNow($change->path(), $definition);
 
-    $reach = $reaching()->of(Changes::of($change), $judges(), $sources);
+    $reach = $reaching()->of(Changes::of($change), $judges(), $sources, TestRuns::wholeFiles());
 
     expect($reach->isEverywhere())->toBeTrue()
         ->and(array_map(static fn(Reason $reason): string => $reason->text(), iterator_to_array($reach->reasons(), preserve_keys: false)))
@@ -201,14 +202,14 @@ it('reaches everything where a CI definition that runs the gate was renamed, mov
 it('reaches everything where the gate\'s config changed what decides how the gate runs', function () use ($reaching, $judges, $said): void {
     $sources = Sources::none()->decidingAlike(Path::of('phpunit.xml'));
 
-    $reach = $reaching()->of(Changes::of(Change::modified(Path::of('mutation-gate.json'), Lines::of(Line::of(4)))), $judges(), $sources);
+    $reach = $reaching()->of(Changes::of(Change::modified(Path::of('mutation-gate.json'), Lines::of(Line::of(4)))), $judges(), $sources, TestRuns::wholeFiles());
 
     expect($reach->isEverywhere())->toBeTrue()
         ->and($said($reach))->toBe(['`mutation-gate.json` decides how the gate runs, so every unit is reached.']);
 });
 
 it('reaches everything where a CI definition changed how it runs the gate, or cannot be compared', function (Sources $sources) use ($reaching, $judges, $said): void {
-    $reach = $reaching()->of(Changes::of(Change::modified(Path::of('.github/workflows/gate.yml'), Lines::of(Line::of(2)))), $judges(), $sources);
+    $reach = $reaching()->of(Changes::of(Change::modified(Path::of('.github/workflows/gate.yml'), Lines::of(Line::of(2)))), $judges(), $sources, TestRuns::wholeFiles());
 
     expect($reach->isEverywhere())->toBeTrue()
         ->and($said($reach))->toBe(['`.github/workflows/gate.yml` decides how the gate runs, so every unit is reached.']);
@@ -227,7 +228,7 @@ it('reaches the unit of a changed source file, and knows the lines it changed', 
         Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(3), Line::of(4))),
         Change::added(Path::of('packages/money/src/Rate.php'), Lines::of(Line::of(1))),
         Change::renamed(Path::of('src/Old.php'), Path::of('src/Clock.php'), Lines::none()),
-    ), $judges(), Sources::none());
+    ), $judges(), Sources::none(), TestRuns::wholeFiles());
 
     expect($reach->reaches(Unit::file(Path::of('src/Money.php'))))->toBeTrue()
         ->and($reach->reaches(Unit::file(Path::of('packages/money/src/Rate.php'))))->toBeTrue()
@@ -243,14 +244,14 @@ it('reaches the unit of a changed source file, and knows the lines it changed', 
 });
 
 it('reaches no unit of a deleted source file, which leaves its tree', function () use ($reaching, $judges, $said): void {
-    $reach = $reaching()->of(Changes::of(Change::deleted(Path::of('src/Money.php'))), $judges(), Sources::none());
+    $reach = $reaching()->of(Changes::of(Change::deleted(Path::of('src/Money.php'))), $judges(), Sources::none(), TestRuns::wholeFiles());
 
     expect($reach->reaches(Unit::file(Path::of('src/Money.php'))))->toBeFalse()
         ->and($said($reach))->toBe(['`src/Money.php` was deleted, so it leaves its tree with nothing to mutate.']);
 });
 
 it('reaches every file a changed test runs, by the coverage map', function () use ($reaching, $judges, $said): void {
-    $reach = $reaching()->of(Changes::of(Change::modified(Path::of('tests/Unit/MoneyTest.php'), Lines::of(Line::of(9)))), $judges(), Sources::none());
+    $reach = $reaching()->of(Changes::of(Change::modified(Path::of('tests/Unit/MoneyTest.php'), Lines::of(Line::of(9)))), $judges(), Sources::none(), TestRuns::wholeFiles());
 
     expect($reach->reaches(Unit::file(Path::of('src/Money.php'))))->toBeTrue()
         ->and($reach->reaches(Unit::file(Path::of('src/Ledger.php'))))->toBeTrue()
@@ -260,7 +261,7 @@ it('reaches every file a changed test runs, by the coverage map', function () us
 });
 
 it('reaches every tree of the module a changed test is in', function () use ($reaching, $judges, $said): void {
-    $reach = $reaching()->of(Changes::of(Change::added(Path::of('app-modules/billing/tests/InvoiceTest.php'), Lines::of(Line::of(1)))), $judges(), Sources::none());
+    $reach = $reaching()->of(Changes::of(Change::added(Path::of('app-modules/billing/tests/InvoiceTest.php'), Lines::of(Line::of(1)))), $judges(), Sources::none(), TestRuns::wholeFiles());
 
     expect($reach->reaches(Unit::file(Path::of('app-modules/billing/src/Invoice.php'))))->toBeTrue()
         ->and($reach->reaches(Unit::file(Path::of('app-modules/billing/lib/Tax.php'))))->toBeTrue()
@@ -275,7 +276,7 @@ it('reaches every unit of its package where a test was deleted, or no map says w
     $root = $makeRoot();
     $money = $makeMoney();
 
-    $reach = $reaching()->of(Changes::of($change), $coverage, Sources::none());
+    $reach = $reaching()->of(Changes::of($change), $coverage, Sources::none(), TestRuns::wholeFiles());
 
     expect($reach->isEverywhere())->toBeFalse()
         ->and(array_map(static fn(Reason $reason): string => $reason->text(), iterator_to_array($reach->reasons(), preserve_keys: true)))->toBe([$said])
@@ -304,7 +305,7 @@ it('reaches what the tests that use changed test support run', function () use (
         ->withNow(Path::of('tests/Unit/ClockTest.php'), Contents::of($clockTest))
         ->withNow(Path::of('tests/Unit/MoneyTest.php'), Contents::of("<?php\n\nit('adds', fn () => 1);\n"));
 
-    $reach = $reaching()->of(Changes::of(Change::modified(Path::of('tests/Fakes/ClockFake.php'), Lines::of(Line::of(5)))), $judges(), $sources);
+    $reach = $reaching()->of(Changes::of(Change::modified(Path::of('tests/Fakes/ClockFake.php'), Lines::of(Line::of(5)))), $judges(), $sources, TestRuns::wholeFiles());
 
     expect($reach->reaches(Unit::file(Path::of('src/Money.php'))))->toBeTrue()
         ->and($reach->reaches(Unit::file(Path::of('src/Clock.php'))))->toBeTrue()
@@ -317,7 +318,7 @@ it('finds the users of support that is gone by what it declared at the base', fu
         ->withBefore(Path::of('tests/Fakes/ClockFake.php'), Contents::of($fake))
         ->withNow(Path::of('tests/Unit/ClockTest.php'), Contents::of($clockTest));
 
-    $reach = $reaching()->of(Changes::of(Change::deleted(Path::of('tests/Fakes/ClockFake.php'))), $judges(), $sources);
+    $reach = $reaching()->of(Changes::of(Change::deleted(Path::of('tests/Fakes/ClockFake.php'))), $judges(), $sources, TestRuns::wholeFiles());
 
     expect($reach->reaches(Unit::file(Path::of('src/Clock.php'))))->toBeTrue()
         ->and($said($reach))->toBe(['`tests/Fakes/ClockFake.php` is test support 1 tests use, so the 2 files they run are reached.']);
@@ -333,13 +334,14 @@ it('finds the users of support by what it declared at the base under its old nam
         Changes::of(Change::renamed(Path::of('tests/Fakes/OldClock.php'), Path::of('tests/Fakes/ClockFake.php'), Lines::of(Line::of(5)))),
         $judges(),
         $sources,
+        TestRuns::wholeFiles(),
     );
 
     expect($reach->reaches(Unit::file(Path::of('src/Clock.php'))))->toBeTrue();
 });
 
 it('reaches every unit of its package where changed support cannot be followed', function (Sources $sources, Judges|NoMap $coverage, string $said) use ($reaching): void {
-    $reach = $reaching()->of(Changes::of(Change::modified(Path::of('tests/Fakes/ClockFake.php'), Lines::of(Line::of(5)))), $coverage, $sources);
+    $reach = $reaching()->of(Changes::of(Change::modified(Path::of('tests/Fakes/ClockFake.php'), Lines::of(Line::of(5)))), $coverage, $sources, TestRuns::wholeFiles());
 
     expect($reach->isEverywhere())->toBeFalse()
         ->and($reach->reachesPackage(Package::at(Path::root())))->toBeTrue()
@@ -366,7 +368,7 @@ it('reaches nothing with anything else', function () use ($reaching, $judges, $s
     $reach = $reaching()->of(Changes::of(
         Change::modified(Path::of('README.md'), Lines::of(Line::of(1))),
         Change::modified(Path::of('src/views/money.json'), Lines::of(Line::of(1))),
-    ), $judges(), Sources::none());
+    ), $judges(), Sources::none(), TestRuns::wholeFiles());
 
     expect($reach->reaches(Unit::file(Path::of('src/Money.php'))))->toBeFalse()
         ->and($said($reach))->toBe(['`README.md` reaches nothing by itself.', '`src/views/money.json` reaches nothing by itself.']);
@@ -399,7 +401,7 @@ it('reaches what changed support reaches in time linear in the files and tests',
             );
         }
 
-        return static fn(): Reach => $reaching()->of($changes, $judges, $sources);
+        return static fn(): Reach => $reaching()->of($changes, $judges, $sources, TestRuns::wholeFiles());
     };
 
     expect(array_map(static fn(Reason $reason): string => $reason->text(), [...$reach(100)()->reasons()]))->toBe([

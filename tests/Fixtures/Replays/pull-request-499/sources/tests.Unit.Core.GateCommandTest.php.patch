@@ -1,0 +1,10 @@
+diff --git a/tests/Unit/Core/GateCommandTest.php b/tests/Unit/Core/GateCommandTest.php
+index 33b4277ce..35fead484 100644
+--- a/tests/Unit/Core/GateCommandTest.php
++++ b/tests/Unit/Core/GateCommandTest.php
+@@ -43,5 +42,0 @@
+-        ->and($gate->jobs()->deliversLater())->toBeFalse()
+-        ->and($gate->jobs()->deliveringLater()->deliversLater())->toBeTrue()
+-        ->and($gate->jobs()->deliveringLater()->verdict())->toBe($gate->jobs()->verdict())
+-        ->and($gate->jobs()->verdictDeliveredLater())
+-        ->toBe('php tools/mutation-gate verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results --deliver-later')

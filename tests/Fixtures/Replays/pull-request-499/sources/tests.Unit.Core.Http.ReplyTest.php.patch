@@ -1,0 +1,16 @@
+diff --git a/tests/Unit/Core/Http/ReplyTest.php b/tests/Unit/Core/Http/ReplyTest.php
+index de18ddb68..03e5f0c8f 100644
+--- a/tests/Unit/Core/Http/ReplyTest.php
++++ b/tests/Unit/Core/Http/ReplyTest.php
+@@ -56,11 +55,0 @@
+-
+-it('is missing with a 404, and refused or missing with a 403 too', function (int $status, bool $missing, bool $refused): void {
+-    expect(Reply::of($status, '', '')->isMissing())->toBe($missing)
+-        ->and(Reply::of($status, '', '')->isRefusedOrMissing())->toBe($refused);
+-})->with([
+-    [200, false, false],
+-    [401, false, false],
+-    [403, false, true],
+-    [404, true, true],
+-    [405, false, false],
+-]);

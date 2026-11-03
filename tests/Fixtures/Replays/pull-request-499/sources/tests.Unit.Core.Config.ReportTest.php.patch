@@ -1,0 +1,16 @@
+diff --git a/tests/Unit/Core/Config/ReportTest.php b/tests/Unit/Core/Config/ReportTest.php
+index c9bf07c9a..3854c1dcd 100644
+--- a/tests/Unit/Core/Config/ReportTest.php
++++ b/tests/Unit/Core/Config/ReportTest.php
+@@ -23,8 +22,0 @@ function reportOf(string $reporter, string $options): Report
+-it('names the variable a comment reads its token from, its own where its options name none', function (string $reporter, string $options, string $token): void {
+-    expect(reportOf($reporter, $options)->secrets())->toEqual(Withheld::of($token));
+-})->with([
+-    'named' => ['gitlab-comment', '{"tokenEnv": "GATE_NOTES"}', 'GATE_NOTES'],
+-    'GitLab\'s own' => ['gitlab-comment', '{}', 'MUTATION_GATE_GITLAB_TOKEN'],
+-    'Bitbucket\'s own' => ['bitbucket-comment', '{"tokenEnv": 3}', 'MUTATION_GATE_BITBUCKET_TOKEN'],
+-]);
+-
+@@ -33 +25 @@ function reportOf(string $reporter, string $options): Report
+-})->with(['json', 'otlp', 'bitbucket-insights', 'Acme\\Reporter']);
++})->with(['json', 'otlp', 'Acme\\Reporter']);

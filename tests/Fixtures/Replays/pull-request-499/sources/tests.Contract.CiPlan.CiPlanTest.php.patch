@@ -1,0 +1,10 @@
+diff --git a/tests/Contract/CiPlan/CiPlanTest.php b/tests/Contract/CiPlan/CiPlanTest.php
+index 8b502fbc8..77d2ded88 100644
+--- a/tests/Contract/CiPlan/CiPlanTest.php
++++ b/tests/Contract/CiPlan/CiPlanTest.php
+@@ -32 +32 @@
+-    'holds:src/Adapter/Bitbucket/BitbucketPlan.php',
++    'holds:src/Adapter/Bitbucket',
+@@ -37 +37 @@
+-    'holds:src/Adapter/GitLab/GitLabPlan.php',
++    'holds:src/Adapter/GitLab',

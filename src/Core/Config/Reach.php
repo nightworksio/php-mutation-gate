@@ -17,7 +17,8 @@ use function sprintf;
 /**
  * What a change reaches (ADR-0005): `packages`, `reach.everything`, the
  * packages whose move in a lock decides how the gate runs,
- * `reach.lockPackages` (ADR-0030), the
+ * `reach.lockPackages` (ADR-0030), what a changed test file reaches,
+ * `reach.changedTests` (ADR-0065), the
  * share of the suite past which code nothing holds is warned about,
  * `holds.hotPath`, whether a run given no mode considers every unit,
  * `run.full`, rather than what changed since its last passing commit,
@@ -41,6 +42,7 @@ final readonly class Reach implements Part
         private Listed|Absent $lockPackages,
         private Sampling $sampling,
         private bool|Absent $stopWhenDoomed,
+        private ChangedTests|Absent $changedTests,
     ) {
     }
 
@@ -58,11 +60,22 @@ final readonly class Reach implements Part
         Listed|Absent $lockPackages = new Absent(),
         Sampling|Absent $sampling = new Absent(),
         bool|Absent $stopWhenDoomed = new Absent(),
+        ChangedTests|Absent $changedTests = new Absent(),
     ): self {
         $set = $pruning instanceof Pruning ? $pruning : Pruning::of();
         $drawn = $sampling instanceof Sampling ? $sampling : Sampling::of();
 
-        return new self($packages, $everything, $hotPath, $full, $set, $lockPackages, $drawn, $stopWhenDoomed);
+        return new self(
+            $packages,
+            $everything,
+            $hotPath,
+            $full,
+            $set,
+            $lockPackages,
+            $drawn,
+            $stopWhenDoomed,
+            $changedTests,
+        );
     }
 
     public static function none(): self
@@ -85,6 +98,7 @@ final readonly class Reach implements Part
             Pruning::of($pruning->enabled(), $pruning->window()->mutants(), $pruning->audit()),
             sampling: Sampling::of($sampling->confidence(), $sampling->margin(), $sampling->minUnits()),
             stopWhenDoomed: $none->stopsWhenDoomed(),
+            changedTests: $none->changedTests(),
         );
     }
 
@@ -100,6 +114,7 @@ final readonly class Reach implements Part
                 $this->joinedNames($this->lockPackages, $later->lockPackages),
                 $this->sampling->over($later->sampling),
                 Absent::laid($this->stopWhenDoomed, $later->stopWhenDoomed),
+                Absent::laid($this->changedTests, $later->changedTests),
             )
             : $this;
     }
@@ -125,6 +140,16 @@ final readonly class Reach implements Part
         return $this->lockPackages instanceof Listed
             ? DecidingPackages::named(...array_map(Glob::of(...), [...$this->lockPackages]))
             : DecidingPackages::every();
+    }
+
+    /**
+     * What a changed test file reaches: the units its changed tests run, read
+     * by their ids, unless `reach.changedTests` asks for every unit its
+     * tests run (ADR-0065).
+     */
+    public function changedTests(): ChangedTests
+    {
+        return $this->changedTests instanceof ChangedTests ? $this->changedTests : ChangedTests::Narrow;
     }
 
     /** The files most of the suite runs through that nothing holds, past `holds.hotPath` of it. */
@@ -187,6 +212,10 @@ final readonly class Reach implements Part
                             ? Json::items(...$this->lockPackages)
                             : $this->lockPackages,
                     ),
+                    Member::of(
+                        'changedTests',
+                        $this->changedTests instanceof ChangedTests ? $this->changedTests->value : $this->changedTests,
+                    ),
                 ),
             ),
             Member::unlessEmpty('holds', Json::object(Member::of('hotPath', $this->hotPath))),
@@ -213,6 +242,7 @@ final readonly class Reach implements Part
         $lockPackages = $this->lockPackages instanceof Listed
             ? [sprintf('Reach::lockPackages(%s)', PhpCalls::literals(...$this->lockPackages))]
             : [];
+        $changedTests = $this->changedTests instanceof ChangedTests ? [$this->changedTests->php()] : [];
         $hotPath = $this->hotPath instanceof Absent
             ? []
             : [sprintf('Reach::hotPath(%s)', PhpCalls::literal($this->hotPath))];
@@ -229,7 +259,15 @@ final readonly class Reach implements Part
             default => [],
         };
 
-        $calls = PhpCalls::inWith(...$packages, ...$everything, ...$lockPackages, ...$hotPath, ...$full, ...$stopping);
+        $calls = PhpCalls::inWith(
+            ...$packages,
+            ...$everything,
+            ...$lockPackages,
+            ...$changedTests,
+            ...$hotPath,
+            ...$full,
+            ...$stopping,
+        );
 
         return $calls->and($this->pruning->php())->and($this->sampling->php());
     }

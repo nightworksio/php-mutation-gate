@@ -66,13 +66,17 @@ final readonly class Reached
         $sinceRef = $adapters->changes->changesSince($base->ref());
         $fromRun = $sinceRef instanceof Changes ? self::fromLastRun($base, $adapters) : $sinceRef;
         [$changes, $from] = is_array($fromRun) ? $fromRun : [$sinceRef, $base->ref()];
-        $reaching = new Reaching(self::layout($adapters, $settings, $suite), $trees);
+        $layout = self::layout($adapters, $settings, $suite);
+        $reaching = new Reaching($layout, $trees);
         $judges = self::judges($adapters, $map);
-        $manifests = DecidingManifests::in(Packages::of($trees), $settings->reach()->lockPackages());
+        $packages = Packages::of($trees);
+        $manifests = DecidingManifests::in($packages, $settings->reach()->lockPackages());
+        $mode = $settings->reach()->changedTests();
         $reach = $reaching->of(
             $changes,
             $judges,
             self::sources($changes, $from, $adapters, $suite->sources(), $config, $manifests),
+            ChangedTestRuns::of($mode, $changes, $layout, $packages, $adapters, $map),
         );
         $ledger = $base->ledgerAt();
         $ledger = $ledger instanceof Revision ? $ledger : $from;
@@ -86,6 +90,7 @@ final readonly class Reached
                     $sinceLedger,
                     $judges,
                     self::sources($sinceLedger, $ledger, $adapters, $suite->sources(), $config, $manifests),
+                    ChangedTestRuns::of($mode, $sinceLedger, $layout, $packages, $adapters, $map),
                 ),
                 $ledger,
             ),

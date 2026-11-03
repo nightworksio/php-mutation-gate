@@ -83,7 +83,7 @@ it('finds the preset and the runner of a project with no config', function () us
         'preset' => 'laravel',
         'runner' => ['use' => 'pest', 'memory' => '1G'],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app']]],
-        'reach' => ['everything' => ['bootstrap/**', 'config/**', 'routes/**', '.env.testing']],
+        'reach' => ['everything' => ['bootstrap/**', 'config/**', 'routes/**', '.env.testing'], 'changedTests' => 'narrow'],
         'timeouts' => ['mode' => 'confirm', 'seconds' => 30, 'most' => 300, 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR]],
     ]);
 });
@@ -100,7 +100,7 @@ it('lays the config file over its presets, and the command line over both', func
         'runner' => ['use' => 'pest', 'memory' => '1G'],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['src']]],
         'trees' => [['path' => 'src/Domain', 'floor' => 100]],
-        'reach' => ['everything' => ['config/**', '.env.test', 'tests/bootstrap.php', 'migrations/**']],
+        'reach' => ['everything' => ['config/**', '.env.test', 'tests/bootstrap.php', 'migrations/**'], 'changedTests' => 'narrow'],
         'budget' => '5m',
         'timeouts' => ['mode' => 'confirm', 'seconds' => 30, 'most' => 300, 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR]],
         'reports' => [
@@ -159,7 +159,7 @@ it('applies a list of presets in order, the later winning', function () use (
             'bootstrap/**',
             'routes/**',
             '.env.testing',
-        ]],
+        ], 'changedTests' => 'narrow'],
     ]);
 });
 

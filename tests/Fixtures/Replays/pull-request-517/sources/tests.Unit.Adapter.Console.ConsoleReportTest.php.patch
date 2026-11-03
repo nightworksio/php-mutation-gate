@@ -1,0 +1,10 @@
+diff --git a/tests/Unit/Adapter/Console/ConsoleReportTest.php b/tests/Unit/Adapter/Console/ConsoleReportTest.php
+index c559a71c3..f37b9d3f7 100644
+--- a/tests/Unit/Adapter/Console/ConsoleReportTest.php
++++ b/tests/Unit/Adapter/Console/ConsoleReportTest.php
+@@ -84 +84 @@
+-        '  3 units: 1 run, 1 proved, 1 carried.',
++        '  3: 1 run, 1 proved, 1 carried.',
+@@ -118 +118 @@
+-        '  1 unit: 1 run, 0 proved, 0 carried.',
++        '  1: 1 run, 0 proved, 0 carried.',

@@ -1,0 +1,17 @@
+diff --git a/tests/Unit/Core/Runner/CoverageFailureTest.php b/tests/Unit/Core/Runner/CoverageFailureTest.php
+index a014b33b5..658d98e22 100644
+--- a/tests/Unit/Core/Runner/CoverageFailureTest.php
++++ b/tests/Unit/Core/Runner/CoverageFailureTest.php
+@@ -6,2 +5,0 @@
+-use NightWorksIO\MutationGate\Core\File\Path;
+-use NightWorksIO\MutationGate\Core\File\Paths;
+@@ -15,9 +12,0 @@
+-
+-it('says that the project has none of the configs a program reads, where its coverage run failed without one', function (): void {
+-    $looked = Paths::of(Path::of('phpunit.xml'), Path::of('phpunit.dist.xml'), Path::of('phpunit.xml.dist'));
+-
+-    expect(CoverageFailure::unconfigured(Program::PhpUnit, $looked, "Usage:\n"))->toEqual(CannotJudge::because(
+-        "PHPUnit's coverage run failed, and the project has none of its configs: no `phpunit.xml`, "
+-        . "`phpunit.dist.xml` or `phpunit.xml.dist` in its root. PHPUnit said:\nUsage:\n",
+-    ));
+-});

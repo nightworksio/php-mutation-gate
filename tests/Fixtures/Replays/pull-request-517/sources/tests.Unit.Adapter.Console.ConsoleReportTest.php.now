@@ -1,0 +1,323 @@
+<?php
+
+declare(strict_types=1);
+
+use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
+use NightWorksIO\MutationGate\Adapter\Console\InertOutput;
+use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\Cost\NoHistory;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\GateCommand;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
+use NightWorksIO\MutationGate\Core\Mutant\Ended;
+use NightWorksIO\MutationGate\Core\Mutant\Evidence;
+use NightWorksIO\MutationGate\Core\Mutant\Evidences;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\Unevidenced;
+use NightWorksIO\MutationGate\Core\Owner\CodeOwners;
+use NightWorksIO\MutationGate\Core\Report\ClusterText;
+use NightWorksIO\MutationGate\Core\Report\MutantText;
+use NightWorksIO\MutationGate\Core\Report\SavingsText;
+use NightWorksIO\MutationGate\Core\Report\SetText;
+use NightWorksIO\MutationGate\Core\Runner\Uncovered;
+use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Verdict\HeldSets;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
+use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
+use NightWorksIO\MutationGate\Core\Verdict\OwnerVerdicts;
+use NightWorksIO\MutationGate\Core\Verdict\Verdict;
+use NightWorksIO\MutationGate\Core\Written;
+use NightWorksIO\MutationGate\Tests\Support\Clustered;
+use NightWorksIO\MutationGate\Tests\Support\Killings;
+use NightWorksIO\MutationGate\Tests\Support\Owners;
+use NightWorksIO\MutationGate\Tests\Support\Sampled;
+use NightWorksIO\MutationGate\Tests\Support\Verdicts;
+use Symfony\Component\Console\Output\BufferedOutput;
+use Symfony\Component\Console\Output\StreamOutput;
+
+$printed = static function (Verdict $verdict): string {
+    $output = new BufferedOutput();
+    $answer = ConsoleReport::to($output)->report($verdict);
+
+    expect($answer)->toEqual(Written::to('the console'));
+
+    return $output->fetch();
+};
+
+$indented = static fn(string $block): string => implode("\n", array_map(
+    static fn(string $line): string => $line === '' ? '' : sprintf('  %s', $line),
+    explode("\n", $block),
+));
+
+it('prints the verdict, the trees, new code, units, reach, what was not killed, ignores, equivalents, failures and warnings', function () use ($printed, $indented): void {
+    $blocks = [];
+
+    foreach (Verdicts::failing()->trees() as $tree) {
+        foreach ($tree->survivors() as $mutant) {
+            $blocks[] = $indented(MutantText::block($mutant, TestNames::none(), GateCommand::installed()));
+        }
+    }
+
+    $ignored = iterator_to_array(Verdicts::everyJudgement(), preserve_keys: false);
+
+    expect($printed(Verdicts::failing()))->toBe(implode("\n", [
+        'mutation-gate: failed',
+        'The project scores 44.44%.',
+        '',
+        'Trees',
+        '  src scores 44.44%, below its floor of 80.00%. That is -2.50 against the base.',
+        '  app/Legacy is exempt: Replaced by the new billing module',
+        '  src/Empty has nothing to mutate.',
+        '',
+        'New code',
+        '  New code scores 0.00%, below its floor of 100.00%.',
+        '',
+        'Units',
+        '  3 units: 1 run, 1 proved, 1 carried.',
+        '',
+        'Reach',
+        '  src/Money.php changed, so it is reached.',
+        '',
+        'Not killed (5)',
+        implode("\n\n", $blocks),
+        '',
+        'Ignored',
+        sprintf('  %s: Logging is asserted in the integration suite', MutantText::heading($ignored[7])),
+        sprintf('  %s', MutantText::heading($ignored[8])),
+        '',
+        'Equivalent, proven',
+        sprintf('  %s', MutantText::heading($ignored[10])),
+        '',
+        'Failures',
+        '  The ignore of 3f9a1c2b7d04 matched no mutant. Remove it.',
+        '',
+        'Warnings',
+        '  src/Kernel.php is run by 412 of 430 tests and nothing holds it.',
+        '',
+    ]));
+});
+
+it('says a run was cut short, and which floors can rise', function () use ($printed): void {
+    expect($printed(Verdicts::passing()->cutShort()))->toBe(implode("\n", [
+        'mutation-gate: passed',
+        'The run stopped before it judged every mutant.',
+        'The project scores 100.00%.',
+        '',
+        'Trees',
+        '  src scores 100.00% against its floor of 80.00%.',
+        '',
+        'Units',
+        '  1 unit: 1 run, 0 proved, 0 carried.',
+        '',
+        'Floors that can rise',
+        '  src to 100.00%',
+        '  Raise them with vendor/bin/mutation-gate baseline --write, and commit the baseline.',
+        '',
+    ]));
+});
+
+it('says the run cannot judge, and why, before its trees', function () use ($printed): void {
+    expect($printed(Verdicts::named('cannot judge')))->toStartWith(implode("\n", [
+        'mutation-gate: cannot-judge',
+        'The project scores 44.44%.',
+        '',
+        'Cannot judge',
+        sprintf('  %s', Verdicts::UNJUDGED),
+        '',
+        'Trees',
+    ]));
+});
+
+it('never prints nothing to mutate as a percentage', function () use ($printed): void {
+    $empty = $printed(Verdicts::empty());
+
+    expect($empty)->toBe(implode("\n", [
+        'mutation-gate: passed',
+        'The project has nothing to mutate.',
+        '',
+        'Trees',
+        '  src has nothing to mutate.',
+        '',
+    ]))
+        ->and($empty)->not->toContain('100');
+});
+
+it('prints what the project wrote as it is, reading no markup in it', function () use ($printed): void {
+    expect($printed(Verdicts::failing()))->toContain('if ($amount <= $limit) {');
+});
+
+it('writes to the console', function (): void {
+    expect(ConsoleReport::fromOptions(Options::none()))->toBeInstanceOf(ConsoleReport::class);
+});
+
+it('ends with what the run took and saved, for a timed run', function () use ($printed): void {
+    expect($printed(Verdicts::named('accounted')))->toEndWith(sprintf(
+        "  src/Kernel.php is run by 412 of 430 tests and nothing holds it.\n\n%s\n",
+        SavingsText::of(Verdicts::named('accounted'), NoHistory::yet()),
+    ));
+});
+
+it('names the judging tests as the runner named them', function () use ($printed): void {
+    expect($printed(Verdicts::named('with a matrix')))->toContain('Judged by: tests/Unit/MoneyTest.php::it fits, ');
+});
+
+it('prints each cluster once, in the place of its first member, among what was not killed', function () use ($printed, $indented): void {
+    $verdict = Clustered::verdict();
+    [$expression, $gap] = iterator_to_array($verdict->trees()->clusters(), preserve_keys: false);
+
+    expect($printed($verdict))->toContain(implode("\n", [
+        'Not killed (7)',
+        $indented(implode("\n\n", [
+            ClusterText::block($expression, GateCommand::installed()),
+            ClusterText::block($gap, GateCommand::installed()),
+            MutantText::block(Clustered::listed($verdict->trees()->mutants())[3], TestNames::none(), GateCommand::installed()),
+        ])),
+    ]));
+});
+
+it('prints each package\'s security set after new code, and the security floors that can rise', function () use ($printed): void {
+    $said = $printed(Verdicts::secured());
+
+    expect($said)->toContain(implode("\n", [
+        'New code',
+        '  New code scores 0.00%, below its floor of 100.00%.',
+        '',
+        'Security',
+        '  Security scores 0.00%, below its floor of 100.00%.',
+        '  Security in packages/billing scores 100.00% against its floor of 50.00%.',
+        '',
+        'Units',
+    ]))
+        ->and($said)->toContain(implode("\n", [
+            'Floors that can rise',
+            '  security set of packages/billing to 100.00%',
+            '  Raise them with vendor/bin/mutation-gate baseline --write, and commit the baseline.',
+        ]));
+});
+
+it('prints what each suite alone kills after security, and why each is a lower bound', function () use ($printed): void {
+    expect($printed(Killings::suited(MatrixKind::FirstKiller)))->toContain(implode("\n", [
+        '',
+        'Suites',
+        '  unit alone kills at least 66.66% of the 3 mutants its tests cover.',
+        '  feature alone kills at least 50.00% of the 2 mutants its tests cover.',
+        '  Each is a lower bound, from first killers: `vendor/bin/mutation-gate run --kill-matrix=full` makes it exact.',
+        '',
+        'Units',
+    ]))
+        ->and($printed(Verdicts::failing()))->not->toContain('Suites');
+});
+
+it('prints the output of a kill left unjudged for want of evidence so it starts no command in a CI\'s log', function (): void {
+    $base = Verdicts::mutant('src/Log.php:3', 'Plus', MutatorFamily::None, '');
+    $killed = Mutant::of($base->id(), $base->nativeId(), $base->location(), $base->mutation(), MutantStatus::Killed, Seconds::of(0.1));
+    $ended = Ended::of(1, signalled: false, printed: "fails\n::error::forged\n##vso[task.setvariable variable=x]1\n\x1b[2Jcleared");
+    $unjudged = [...Unevidenced::judged(Mutants::of($killed), Evidences::none()->with($killed->id(), Evidence::none()->withEnded($ended)))][0];
+    $output = new InertOutput();
+    $stream = fopen('php://memory', 'w+');
+    new ReflectionProperty(StreamOutput::class, 'stream')->setValue($output, $stream);
+
+    ConsoleReport::to($output)->report(Verdicts::of(Floor::of(80), JudgedMutant::of($unjudged, MutantJudgement::Unjudged)));
+    $said = is_resource($stream) ? (string) stream_get_contents($stream, offset: 0) : '';
+
+    expect($said)->toContain('it exited with code 1. Its output ended:')
+        ->and($said)->not->toMatch('/^\s*::error::/m')
+        ->and($said)->not->toContain('##vso[')
+        ->and($said)->not->toContain("\x1b[2J");
+});
+
+it('prints a hostile suite\'s name as one plain line, with no control character', function () use ($printed): void {
+    $said = $printed(Killings::hostile());
+
+    expect($said)->toContain("\n  <script>alert(1)</script>|x [31mred alone kills 66.66% of the 3 mutants its tests cover.\n")
+        ->and($said)->not->toContain("\e");
+});
+
+it('reaches a coloured console with a hostile test name and diff, but none of their control characters', function (): void {
+    $hostile = "\e[2K\e]1338;url='https://attacker.example/p.png'\x07";
+    $diff = Verdicts::diff('return $total;', sprintf('return 0; // %s', $hostile));
+    $survivor = JudgedMutant::of(Verdicts::mutant('src/Money.php:7', Verdicts::LESS, MutatorFamily::Boundary, $diff), MutantJudgement::Survived)
+        ->judgedBy(TestIds::of(TestId::of(sprintf('MoneyTest::fits%s', $hostile))));
+    $console = new InertOutput();
+    $memory = fopen('php://memory', 'w+');
+    new ReflectionProperty(StreamOutput::class, 'stream')->setValue($console, $memory);
+    $console->setDecorated(decorated: true);
+    ConsoleReport::to($console)->report(Verdicts::of(Floor::of(80), $survivor));
+    $said = is_resource($memory) ? (string) stream_get_contents($memory, offset: 0) : '';
+    $shown = "[2K]1338;url='https://attacker.example/p.png'";
+
+    expect($said)->toContain(sprintf('MoneyTest::fits%s', $shown))
+        ->and($said)->toContain(sprintf('return 0; // %s', $shown))
+        ->and($said)->not->toContain("\e")
+        ->and($said)->not->toContain("\x07");
+});
+
+it('says a run was sampled, and prints each sampled tree\'s estimate', function () use ($printed): void {
+    $said = $printed(Sampled::verdict(Floor::of(60)));
+
+    expect($said)->toContain(implode("\n", ['The project scores 50.00%.', SetText::SAMPLED]))
+        ->and($said)->toContain('  src scores about 75.55% (95%: 60.70%–85.26%; 3 of 15 units sampled, 5 exact) against its floor of 60.00%.')
+        ->and($printed(Verdicts::passing()))->not->toContain(SetText::SAMPLED);
+});
+
+it('prints the score of each owner group the change touched, and every mutant not killed under its owner group', function () use ($printed): void {
+    $console = $printed(Owners::verdict());
+    $ids = [];
+
+    foreach (Owners::trees()->mutants() as $mutant) {
+        $ids[$mutant->mutant()->location()->start()->number()] = $mutant->mutant()->id()->value();
+    }
+
+    expect($console)->toContain(implode("\n", [
+        'Owners',
+        '  Code owned by @acme/payments @jo scores 33.33%.',
+        '',
+        'Not killed (3)',
+        '  @acme/payments @jo (2)',
+        sprintf('    src/Billing/Pay.php:2  LessThan  survived, on a changed line  %s', $ids[2]),
+    ]))
+        ->and($console)->toContain(implode("\n", [
+            sprintf('        Explain: vendor/bin/mutation-gate explain %s', $ids[3]),
+            '',
+            '  unowned (1)',
+            sprintf('    lib/Clock.php:5  LessThan  survived  %s', $ids[5]),
+        ]))
+        ->and($console)->not->toContain('@acme/web');
+});
+
+it('prints an owner group the project named with no character that could colour a terminal', function () use ($printed): void {
+    $owners = CodeOwners::read(Path::of('CODEOWNERS'), "/lib/ me\e[31m@example.com\n");
+    $verdict = Verdict::of(Owners::trees())->withSets(HeldSets::none()->owned(OwnerVerdicts::of(Owners::trees(), $owners, Uncovered::Count)));
+
+    expect($printed($verdict))->toContain('  me[31m@example.com (1)');
+});
+
+it('prints each owner with a floor against it before the groups the change touched', function () use ($printed): void {
+    expect($printed(Owners::floored()))->toContain(implode("\n", [
+        'Owners',
+        '  Code owned by @acme/payments scores 33.33%, below its floor of 50.00%.',
+        '  Code owned by @acme/web scores 100.00% against its floor of 50.00%.',
+        '  Code owned by @acme/payments @jo scores 33.33%.',
+    ]));
+});
+
+it('says which tests fail without any mutant on a line of its own, the mutants they leave out under it', function () use ($printed): void {
+    $failing = Verdicts::failingUnmutated();
+    $verdict = Verdicts::of(Floor::of(50), $failing)->withCannotJudge(CannotJudge::because('The map is gone.'));
+
+    expect($printed($verdict))->toStartWith('mutation-gate: cannot-judge')
+        ->and($printed($verdict))->toContain(implode("\n", [
+            'Cannot judge',
+            '  The map is gone.',
+            sprintf('  %s', 'The tests fail without any mutant: MoneyTest::adds'),
+            sprintf('      %s', MutantText::heading($failing)),
+        ]));
+});

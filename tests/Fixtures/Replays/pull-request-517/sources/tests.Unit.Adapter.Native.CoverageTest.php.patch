@@ -1,0 +1,20 @@
+diff --git a/tests/Unit/Adapter/Native/CoverageTest.php b/tests/Unit/Adapter/Native/CoverageTest.php
+index 49c9216d1..098018491 100644
+--- a/tests/Unit/Adapter/Native/CoverageTest.php
++++ b/tests/Unit/Adapter/Native/CoverageTest.php
+@@ -124 +124 @@ function mapping(Project $project, bool $succeeded): PhpUnitShellFake
+-it('cannot judge a run that failed, saying where the project has none of its framework\'s configs, or an earlier map it cannot remove', function (): void {
++it('cannot judge a run that failed, or an earlier map it cannot remove', function (): void {
+@@ -128,2 +127,0 @@ function mapping(Project $project, bool $succeeded): PhpUnitShellFake
+-    $unconfigured = $coverage->of(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage')));
+-    Scratch::write($project->root(), 'phpunit.dist.xml', '<phpunit/>');
+@@ -133,5 +131 @@ function mapping(Project $project, bool $succeeded): PhpUnitShellFake
+-    expect($unconfigured)->toEqual(CannotJudge::because(
+-        "PHPUnit's coverage run failed, and the project has none of its configs: no `phpunit.xml`, "
+-        . "`phpunit.dist.xml` or `phpunit.xml.dist` in its root. PHPUnit said:\nPHPUnit said this",
+-    ))
+-        ->and($failed)->toEqual(CannotJudge::because("PHPUnit's coverage run failed. PHPUnit said:\nPHPUnit said this"))
++    expect($failed)->toEqual(CannotJudge::because("PHPUnit's coverage run failed. PHPUnit said:\nPHPUnit said this"))
+@@ -143 +137 @@ function mapping(Project $project, bool $succeeded): PhpUnitShellFake
+-        ->and($shell->commands())->toHaveCount(2);
++        ->and($shell->commands())->toHaveCount(1);

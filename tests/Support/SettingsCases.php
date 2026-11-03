@@ -39,7 +39,8 @@ final readonly class SettingsCases
         },
         "packages": [],
         "reach": {
-            "everything": []
+            "everything": [],
+            "changedTests": "narrow"
         },
         "holds": {
             "hotPath": 0.8
@@ -188,7 +189,11 @@ final readonly class SettingsCases
         'baseline' => ['path' => 'build/baseline.json', 'improvement' => 'report'],
         'owners' => ['floors' => ['@acme/payments' => 90, 'jo@acme.example' => 75.5], 'mention' => 'never'],
         'packages' => ['packages/*'],
-        'reach' => ['everything' => ['config/**', 'routes/**'], 'lockPackages' => ['pestphp/*', 'phpunit/phpunit']],
+        'reach' => [
+            'everything' => ['config/**', 'routes/**'],
+            'lockPackages' => ['pestphp/*', 'phpunit/phpunit'],
+            'changedTests' => 'file',
+        ],
         'holds' => ['hotPath' => 1],
         'shards' => ['seconds' => 900, 'max' => 8],
         'costs' => ['secondsPerLine' => ['' => 0.25, 'src/Legacy' => 2]],

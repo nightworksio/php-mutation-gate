@@ -37,7 +37,7 @@ final readonly class TestAssertions
     /** Pest's function that groups tests under a description of its own. */
     public const string DESCRIBE = 'describe';
     /** Pest's functions that declare a test, and what each puts before its description. */
-    private const array DECLARING = ['it' => 'it ', 'test' => ''];
+    public const array DECLARING = ['it' => 'it ', 'test' => ''];
 
     /**
      * @param array<string, Assertions> $methods each method's assertions, by its name in lower case

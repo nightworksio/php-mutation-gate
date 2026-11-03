@@ -1,0 +1,16 @@
+diff --git a/tests/Unit/Core/Ci/GatePinTest.php b/tests/Unit/Core/Ci/GatePinTest.php
+index 1bffebbda..27c8fc9ce 100644
+--- a/tests/Unit/Core/Ci/GatePinTest.php
++++ b/tests/Unit/Core/Ci/GatePinTest.php
+@@ -92,11 +91,0 @@ function gatePinOf(array $packages): GatePin
+-
+-it('names the container image a release is tagged as, without its tag\'s v, and stands in for any other\'s version', function (): void {
+-    $tagged = GatePin::of(Version::of('nightworksio/mutation-gate', 'v1.4.0', GATE_COMMIT));
+-    $built = GatePin::of(Version::of('nightworksio/mutation-gate', '1.4.0', GATE_COMMIT));
+-    $branch = GatePin::of(Version::of('nightworksio/mutation-gate', 'dev-main', GATE_COMMIT));
+-
+-    expect($tagged->image())->toBe('ghcr.io/nightworksio/mutation-gate:1.4.0')
+-        ->and($built->image())->toBe('ghcr.io/nightworksio/mutation-gate:1.4.0')
+-        ->and($branch->image())->toBe('ghcr.io/nightworksio/mutation-gate:<its version>')
+-        ->and(GatePin::unknown()->image())->toBe('ghcr.io/nightworksio/mutation-gate:<its version>');
+-});

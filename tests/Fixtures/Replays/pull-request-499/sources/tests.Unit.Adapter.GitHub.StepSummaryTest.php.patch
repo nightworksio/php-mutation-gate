@@ -1,0 +1,10 @@
+diff --git a/tests/Unit/Adapter/GitHub/StepSummaryTest.php b/tests/Unit/Adapter/GitHub/StepSummaryTest.php
+index b52941307..566000d87 100644
+--- a/tests/Unit/Adapter/GitHub/StepSummaryTest.php
++++ b/tests/Unit/Adapter/GitHub/StepSummaryTest.php
+@@ -4,0 +5,2 @@
++use NightWorksIO\MutationGate\Adapter\GitHub\Markdown;
++use NightWorksIO\MutationGate\Adapter\GitHub\RecheckedMarkdown;
+@@ -8,2 +9,0 @@
+-use NightWorksIO\MutationGate\Core\Report\Markdown;
+-use NightWorksIO\MutationGate\Core\Report\RecheckedMarkdown;
