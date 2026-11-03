@@ -250,13 +250,14 @@ class Scripts(unittest.TestCase):
         self.assertEqual(sorted(found["scope"]), ["scope.py"])
 
     def test_runs_no_gated_job_for_a_script_only_the_scripts_job_runs_or_a_script_s_test(self):
-        for path in (".github/scripts/decisions_index.py", ".github/scripts/test_decisions_index.py",
+        for path in (".github/scripts/test_decisions_index.py",
                      ".github/scripts/bench_publish.py", ".github/scripts/scope.py", ".github/scripts/unit.py",
                      ".github/scripts/test_evidence.py"):
             self.assertEqual(pull(path), NOTHING, path)
 
     def test_runs_each_job_of_this_repository_for_the_scripts_it_runs_and_no_other(self):
         self.assertEqual(ran(pull(".github/scripts/alone.py")), ["alone"])
+        self.assertEqual(ran(pull(".github/scripts/decisions_index.py")), ["site"])
         hooks = pull(".github/scripts/hook_managers.py")
         self.assertEqual((ran(hooks), hooks["hooks"], hooks["warm"]), (["end-to-end"], "true", "false"))
         legs_only = pull(".github/scripts/leg_support.py")

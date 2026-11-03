@@ -177,5 +177,7 @@ config names an adapter, and how an adapter reads its options.
   supersedes it, linked both ways, as
   [the decisions' rules](.docs/decisions/README.md) say.
 - **A proposal becomes an ADR by pull request.** It adds a decision record
-  under the next unused number, written as the others are, with its row in
-  the index. The maintainer accepts it by merging it.
+  under the next unused number, written as the others are. The docs site
+  builds the index from it, and
+  `python3 .github/scripts/decisions_index.py validate` says whether it reads
+  as one. The maintainer accepts it by merging it.

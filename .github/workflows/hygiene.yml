@@ -239,6 +239,11 @@ jobs:
       - id: braces
         if: ${{ !cancelled() }}
         run: node --test .github/bot/markdownlint/braces.test.mjs
+      # Every ADR reads as one, no two take one number, and the README holds
+      # no index between its markers, which the site builds (ADR-0063).
+      - id: decisions
+        if: ${{ !cancelled() }}
+        run: python3 .github/scripts/decisions_index.py validate
       # The fix is mechanical, so it is computed here and offered to the pull
       # request as a patch, never pushed (ADR-0019).
       - name: compute the mechanical fixes

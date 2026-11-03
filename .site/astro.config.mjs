@@ -2,6 +2,7 @@ import { unified } from '@astrojs/markdown-remark';
 import starlight from '@astrojs/starlight';
 import mermaid from 'astro-mermaid';
 import { defineConfig } from 'astro/config';
+import { decisionsIndex } from './src/decisions.mjs';
 import { links } from './src/links.mjs';
 import { dropTitle, rewriteLinks } from './src/remark.mjs';
 import { group } from './src/sidebar.mjs';
@@ -12,7 +13,7 @@ export default defineConfig({
     base: BASE,
     trailingSlash: 'always',
     markdown: {
-        processor: unified({ remarkPlugins: [dropTitle, rewriteLinks] }),
+        processor: unified({ remarkPlugins: [dropTitle, decisionsIndex, rewriteLinks] }),
     },
     vite: {
         server: { fs: { allow: ['..'] } },

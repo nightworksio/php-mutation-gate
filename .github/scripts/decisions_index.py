@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""The index of .docs/decisions/README.md, rendered from the ADR files.
+"""The index of the decisions, built from the ADR files when the docs site is built (ADR-0063).
 
 Usage:
-  decisions_index.py write [<decisions directory>]
-  decisions_index.py check [<decisions directory>]
+  decisions_index.py rows [<decisions directory>]
+  decisions_index.py validate [<decisions directory>]
 
 Each row comes from one ADR's own file: its number and file name, its
 `# ADR-NNNN: <title>` heading and its `**Status:**` line. What a later ADR
@@ -19,26 +19,30 @@ one thing the same way joined by "and", the clauses in the order of the
 first ADR that makes each, and a clause's verb left out where the one
 before it has the same.
 
-`write` writes the table between the README's two markers; `check` exits 1,
-saying what to run, where the committed table is not the one the files give.
-`test_decisions_index.py` runs the check against the repository.
+`rows` prints each ADR's row as JSON, its number, file, title and status
+cell, which the site's build puts between the README's two markers.
+`validate` exits 1, saying why, where an ADR file cannot be read as one, where
+two files take one number, or where the README holds anything between its
+markers, since the index is never committed. `test_decisions_index.py` runs
+it against the repository.
 
-Two halves: `adrs`, `changes` and `table` decide, and `main` reads and
-writes the files.
+Two halves: `adrs`, `changes`, `rows` and `problems` decide, and `main` reads
+the files.
 """
+import json
 import re
 import sys
 from pathlib import Path
 
-# The README's table stands between these lines.
+# The site builds the index between these lines of the README.
 START = "<!-- index:start -->"
 END = "<!-- index:end -->"
 
 # Where the decisions are, from the repository's root.
 DECISIONS = Path(".docs/decisions")
 
-# The command that rewrites the table, as `check` says it.
-WRITE = "python3 .github/scripts/decisions_index.py write"
+# The command that says what keeps the index from building, as CI runs it.
+VALIDATE = "python3 .github/scripts/decisions_index.py validate"
 
 # Each verb a change line may begin with, and how the old ADR's cell says it.
 VERBS = {"Supersedes": "superseded", "Amends": "amended", "Narrows": "narrowed", "Grows": "grown"}
@@ -101,50 +105,55 @@ def changes(found: list[dict], number: str) -> str:
     return ", and ".join(clauses)
 
 
-def table(found: list[dict]) -> str:
-    """The index, its markers included."""
-    lines = [START, "", "| # | Decision | Status |", "|---|----------|--------|"]
+def rows(found: list[dict]) -> list[dict]:
+    """Each ADR's row of the index: its number, file and title, and its status with what later ADRs change in it."""
+    found_rows = []
     for adr in found:
         changed = changes(found, adr["number"])
         status = f"{adr['status']}; {changed}" if changed else adr["status"]
-        lines.append(f"| [{adr['number']}]({adr['file']}) | {adr['title']} | {status} |")
-    return "\n".join([*lines, "", END])
+        found_rows.append({"number": adr["number"], "file": adr["file"], "title": adr["title"], "status": status})
+    return found_rows
 
 
-def rendered(readme: str, section: str) -> str:
-    """The README with its table replaced."""
-    before, rest = readme.split(START, 1)
-    _, after = rest.split(END, 1)
-    return before + section + after
+def problems(files: dict[str, str]) -> list[str]:
+    """What keeps the decisions from building their index: an ADR that cannot be read, a number two files take, or a committed index."""
+    try:
+        adrs(files)
+    except ValueError as refused:
+        return [str(refused)]
+    numbers: dict[str, list[str]] = {}
+    for name in sorted(files):
+        matched = FILE.match(name)
+        if matched:
+            numbers.setdefault(matched.group(1), []).append(name)
+    found = [f"ADR-{number} is taken by {' and '.join(names)}; give the newer one the next free number."
+             for number, names in numbers.items() if len(names) > 1]
+    readme = files.get("README.md", "")
+    if START not in readme or END not in readme:
+        found.append(f"README.md has no {START} and {END} markers for the site to build the index between.")
+    elif readme.split(START, 1)[1].split(END, 1)[0].strip() != "":
+        found.append("README.md holds an index between its markers; the site builds it, so leave nothing there.")
+    return found
 
 
-def section_of(readme: str) -> str:
-    """The README's table as it stands, its markers included."""
-    return START + readme.split(START, 1)[1].split(END, 1)[0] + END
-
-
-def read(directory: Path) -> tuple[str, str]:
-    """The README as it stands, and the table its directory's ADR files give."""
-    files = {path.name: path.read_text(encoding="utf-8") for path in directory.glob("*.md")}
-    return (directory / "README.md").read_text(encoding="utf-8"), table(adrs(files))
+def read(directory: Path) -> dict[str, str]:
+    """Each Markdown file of the decisions, by its name."""
+    return {path.name: path.read_text(encoding="utf-8") for path in directory.glob("*.md")}
 
 
 def main(argv: list[str]) -> int:
-    if argv[:1] not in (["write"], ["check"]) or len(argv) > 2:
+    if argv[:1] not in (["rows"], ["validate"]) or len(argv) > 2:
         print(__doc__, file=sys.stderr)
         return 2
     directory = Path(argv[1]) if len(argv) == 2 else DECISIONS
-    try:
-        readme, section = read(directory)
-    except ValueError as refused:
-        print(refused, file=sys.stderr)
+    files = read(directory)
+    found = problems(files)
+    for problem in found:
+        print(problem, file=sys.stderr)
+    if found:
         return 1
-    if argv[0] == "write":
-        (directory / "README.md").write_text(rendered(readme, section), encoding="utf-8")
-        return 0
-    if section_of(readme) != section:
-        print(f"{directory / 'README.md'}'s index is not the one its ADRs give. Run: {WRITE}", file=sys.stderr)
-        return 1
+    if argv[0] == "rows":
+        print(json.dumps(rows(adrs(files)), indent=1))
     return 0
 
 
