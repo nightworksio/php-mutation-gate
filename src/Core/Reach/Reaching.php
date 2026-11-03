@@ -33,7 +33,8 @@ use function sprintf;
  *    it was, reaches everything too, unless a change in its place moved
  *    only lines no runner reads (AsItRuns);
  * 2. a changed source file in a tree reaches its unit;
- * 3. a changed test reaches every unit its tests run, by the coverage map;
+ * 3. a changed test file reaches every unit its changed tests run, by the
+ *    coverage map, or every unit its tests run (TestReach);
  * 4. changed test support reaches what the tests that use it run;
  * 5. anything else reaches nothing by itself.
  *
@@ -64,10 +65,11 @@ final readonly class Reaching
     }
 
     /**
-     * What these changes reach, given what the coverage map says the tests
-     * run and the files the rules read.
+     * What these changes reach, given what the coverage map says the test
+     * files run, and each test of the changed ones, and the files the rules
+     * read.
      */
-    public function of(Changes|CannotTell $changes, Judges|NoMap $coverage, Sources $sources): Reach
+    public function of(Changes|CannotTell $changes, Judges|NoMap $coverage, Sources $sources, TestRuns $runs): Reach
     {
         $packages = Packages::of($this->trees);
         $reach = Reach::nothing($packages);
@@ -76,7 +78,7 @@ final readonly class Reaching
             return $reach->everywhere(Reason::that(sprintf(self::CANNOT_TELL, $changes->why())));
         }
 
-        $tests = TestReach::of($this->layout, $this->trees, $coverage, $sources, $changes);
+        $tests = TestReach::of($this->layout, $this->trees, $coverage, $sources, $changes, $runs);
 
         foreach ($changes as $change) {
             $reach = $this->withChange($reach, $change, $packages, $tests, $sources);

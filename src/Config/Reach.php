@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Config;
 
+use NightWorksIO\MutationGate\Core\Config\ChangedTests;
 use NightWorksIO\MutationGate\Core\Format\Json;
 
 /**
  * What decides what a change reaches (ADR-0005): `packages`, `reach.everything`, `reach.lockPackages`,
- * `holds.hotPath`, `run.full`.
+ * `reach.changedTests`, `holds.hotPath`, `run.full`.
  */
 final readonly class Reach implements Setting
 {
@@ -35,6 +36,21 @@ final readonly class Reach implements Setting
     public static function lockPackages(string ...$patterns): self
     {
         return new self(Json::at('reach.lockPackages', Json::items(...$patterns)));
+    }
+
+    /**
+     * `reach.changedTests`, `narrow`: a changed test file reaches the units its changed tests run, or all its tests
+     * where a change moved code they share (ADR-0065).
+     */
+    public static function narrowChangedTests(): self
+    {
+        return new self(Json::at('reach.changedTests', ChangedTests::Narrow->value));
+    }
+
+    /** `reach.changedTests`, `file`: a changed test file reaches the units all its tests run, whatever changed. */
+    public static function wholeChangedTestFiles(): self
+    {
+        return new self(Json::at('reach.changedTests', ChangedTests::File->value));
     }
 
     /** `holds.hotPath`: the share of the suite past which code nothing holds is warned about. */

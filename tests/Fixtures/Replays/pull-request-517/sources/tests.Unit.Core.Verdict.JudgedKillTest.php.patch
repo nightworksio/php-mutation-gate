@@ -1,0 +1,12 @@
+diff --git a/tests/Unit/Core/Verdict/JudgedKillTest.php b/tests/Unit/Core/Verdict/JudgedKillTest.php
+index 7e328efcd..d9885ad0a 100644
+--- a/tests/Unit/Core/Verdict/JudgedKillTest.php
++++ b/tests/Unit/Core/Verdict/JudgedKillTest.php
+@@ -15 +14,0 @@
+-use NightWorksIO\MutationGate\Core\Test\TestNames;
+@@ -30 +29 @@
+-        ->and($judged->hint())->toEqual(Hint::for(Verdicts::killed(), MutantJudgement::Killed, TestIds::none(), Missing::at(Path::of('src/Money.php')), NoFinding::survivor(), TestNames::none()))
++        ->and($judged->hint())->toEqual(Hint::for(Verdicts::killed(), MutantJudgement::Killed, TestIds::none(), Missing::at(Path::of('src/Money.php')), NoFinding::survivor()))
+@@ -50 +49 @@
+-        ->and($judged->hint())->toEqual(Hint::for(Verdicts::killed(), MutantJudgement::Unjudged, TestIds::none(), Missing::at(Path::of('src/Money.php')), NoFinding::survivor(), TestNames::none()));
++        ->and($judged->hint())->toEqual(Hint::for(Verdicts::killed(), MutantJudgement::Unjudged, TestIds::none(), Missing::at(Path::of('src/Money.php')), NoFinding::survivor()));

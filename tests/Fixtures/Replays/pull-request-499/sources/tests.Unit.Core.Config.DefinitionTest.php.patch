@@ -1,0 +1,7 @@
+diff --git a/tests/Unit/Core/Config/DefinitionTest.php b/tests/Unit/Core/Config/DefinitionTest.php
+index 625265f62..4f99202ba 100644
+--- a/tests/Unit/Core/Config/DefinitionTest.php
++++ b/tests/Unit/Core/Config/DefinitionTest.php
+@@ -136,2 +135,0 @@
+-        'reports[].with.tokenEnv' => $judges,
+-        'reports[].with.token' => $judges,

@@ -1,0 +1,29 @@
+diff --git a/tests/Unit/Cli/Flow/VerdictTimingsTest.php b/tests/Unit/Cli/Flow/VerdictTimingsTest.php
+index ce8c23d2a..9b36b9bf9 100644
+--- a/tests/Unit/Cli/Flow/VerdictTimingsTest.php
++++ b/tests/Unit/Cli/Flow/VerdictTimingsTest.php
+@@ -12 +11,0 @@
+-use NightWorksIO\MutationGate\Core\Ci\Variables;
+@@ -101,22 +99,0 @@ function verdictTimingsWritten(string $first, float $firstSpent, string $second,
+-it('adds no setup to a run on no CI, whose clock measures what it took', function (): void {
+-    $began = new DateTimeImmutable('2026-09-30T13:00:00+00:00');
+-    $timings = VerdictTimings::of(
+-        'local:2026-09-30T13:00:30Z',
+-        verdictTimingsWritten('2026-09-30T12:59:50Z', 10.0, '2026-09-30T12:59:55Z', 5.0),
+-        $began,
+-        new DateTimeImmutable('2026-09-30T13:00:30+00:00'),
+-        NotGiven::value(),
+-    );
+-
+-    expect($timings->spent()->wall())->toEqual(Seconds::of(50.0))
+-        ->and($timings->spent()->runner())->toEqual(Seconds::of(45.0))
+-        ->and($timings->spent()->isMeasured())->toBeTrue();
+-});
+-
+-it('takes each job\'s setup on a CI, and none on a run no CI started', function (): void {
+-    $github = Variables::of(['GITHUB_ACTIONS' => 'true', 'GITHUB_REPOSITORY' => 'octo/gate', 'GITHUB_RUN_ID' => '7']);
+-
+-    expect(VerdictTimings::setupOn($github, Seconds::of(60.0)))->toEqual(Seconds::of(60.0))
+-        ->and(VerdictTimings::setupOn(Variables::of([]), Seconds::of(60.0)))->toEqual(NotGiven::value());
+-});
+-

@@ -1,0 +1,63 @@
+diff --git a/tests/Contract/Reporter/ReporterTest.php b/tests/Contract/Reporter/ReporterTest.php
+index 076876c54..a903a1f5a 100644
+--- a/tests/Contract/Reporter/ReporterTest.php
++++ b/tests/Contract/Reporter/ReporterTest.php
+@@ -9,2 +8,0 @@
+-use NightWorksIO\MutationGate\Adapter\Bitbucket\CodeInsights;
+-use NightWorksIO\MutationGate\Adapter\Bitbucket\PullRequestComment as BitbucketComment;
+@@ -30 +27,0 @@
+-use NightWorksIO\MutationGate\Adapter\GitLab\MergeRequestNote;
+@@ -42 +38,0 @@
+-use NightWorksIO\MutationGate\Tests\Support\Cloud;
+@@ -55,5 +50,0 @@
+-    'holds:src/Adapter/Bitbucket/CodeInsights.php',
+-    'holds:src/Adapter/Bitbucket/CommentMarkdown.php',
+-    'holds:src/Adapter/Bitbucket/InsightAnnotation.php',
+-    'holds:src/Adapter/Bitbucket/PullRequestComment.php',
+-    'holds:src/Adapter/Bitbucket/PullRequestThread.php',
+@@ -73,3 +63,0 @@
+-    'holds:src/Adapter/GitLab/MergeRequestNote.php',
+-    'holds:src/Adapter/GitLab/MergeRequestThread.php',
+-    'holds:src/Adapter/GitLab/NoteMarkdown.php',
+@@ -85 +72,0 @@
+-    'holds:src/Core/Delivery/CommentStates.php',
+@@ -88 +74,0 @@
+-    'holds:src/Core/Http/RestApi.php',
+@@ -93,2 +78,0 @@
+-    'holds:src/Core/Report/AnnotationOrder.php',
+-    'holds:src/Core/Report/AnnotationText.php',
+@@ -101,2 +84,0 @@
+-    'holds:src/Core/Report/Markdown.php',
+-    'holds:src/Core/Report/MarkdownItems.php',
+@@ -186,31 +167,0 @@
+-    'the merge request note' => fn(): Reporter => MergeRequestNote::inEnvironment(
+-        Variables::of([
+-            'GITLAB_CI' => 'true',
+-            'CI_API_V4_URL' => 'https://gitlab.example/api/v4',
+-            'CI_PROJECT_ID' => '42',
+-            'CI_PROJECT_URL' => 'https://gitlab.example/acme/shop',
+-            'CI_MERGE_REQUEST_IID' => '7',
+-            'MUTATION_GATE_GITLAB_TOKEN' => 'secret',
+-        ]),
+-        new Cloud()
+-            ->answering('https://gitlab.example/api/v4/user', 200, '{"username": "bot"}')
+-            ->answering('https://gitlab.example/api/v4/projects/42/merge_requests/7/notes?sort=asc&order_by=created_at&per_page=100&page=1', 200, '[]')
+-            ->answering('https://gitlab.example/api/v4/projects/42/merge_requests/7/notes', 201, '{"id": 3}')
+-            ->exchange(),
+-        'MUTATION_GATE_GITLAB_TOKEN',
+-    ),
+-    'the Bitbucket pull request comment' => fn(): Reporter => BitbucketComment::inEnvironment(
+-        Variables::of(['BITBUCKET_BUILD_NUMBER' => '9', 'BITBUCKET_WORKSPACE' => 'acme', 'BITBUCKET_REPO_SLUG' => 'shop', 'BITBUCKET_PR_ID' => '7', 'MUTATION_GATE_BITBUCKET_TOKEN' => 'secret']),
+-        new Cloud()
+-            ->answering('https://api.bitbucket.org/2.0/repositories/acme/shop/pullrequests/7/comments?pagelen=50&page=1', 200, '{"values": []}')
+-            ->answering('https://api.bitbucket.org/2.0/repositories/acme/shop/pullrequests/7/comments', 201, '{"links": {"html": {"href": "https://bitbucket.org/acme/shop/pull-requests/7#comment-3"}}}')
+-            ->exchange(),
+-        'MUTATION_GATE_BITBUCKET_TOKEN',
+-    ),
+-    'Code Insights' => fn(): Reporter => CodeInsights::inEnvironment(
+-        Variables::of(['BITBUCKET_BUILD_NUMBER' => '9', 'BITBUCKET_WORKSPACE' => 'acme', 'BITBUCKET_REPO_SLUG' => 'shop', 'BITBUCKET_COMMIT' => '5eeca8f']),
+-        new Cloud()
+-            ->answering('http://api.bitbucket.org/2.0/repositories/acme/shop/commit/5eeca8f/reports/mutation-gate', 200, '{}')
+-            ->answering('http://api.bitbucket.org/2.0/repositories/acme/shop/commit/5eeca8f/reports/mutation-gate/annotations', 200, '[]')
+-            ->exchange(),
+-    ),

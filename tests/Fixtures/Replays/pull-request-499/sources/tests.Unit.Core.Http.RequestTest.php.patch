@@ -1,0 +1,12 @@
+diff --git a/tests/Unit/Core/Http/RequestTest.php b/tests/Unit/Core/Http/RequestTest.php
+index 37849989e..56e13482c 100644
+--- a/tests/Unit/Core/Http/RequestTest.php
++++ b/tests/Unit/Core/Http/RequestTest.php
+@@ -33,7 +32,0 @@
+-
+-it('deletes with no body', function (): void {
+-    $delete = Request::delete('https://api.example/report');
+-
+-    expect([$delete->method(), $delete->url(), $delete->body(), $delete->headers()])
+-        ->toBe([Method::Delete, 'https://api.example/report', '', []]);
+-});

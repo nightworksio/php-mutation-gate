@@ -1,0 +1,22 @@
+diff --git a/tests/Unit/Core/Config/BuiltinReporterTest.php b/tests/Unit/Core/Config/BuiltinReporterTest.php
+index fa8173e4b..588045fd5 100644
+--- a/tests/Unit/Core/Config/BuiltinReporterTest.php
++++ b/tests/Unit/Core/Config/BuiltinReporterTest.php
+@@ -8 +7,0 @@
+-use NightWorksIO\MutationGate\Core\Runner\GateSecret;
+@@ -38,3 +36,0 @@
+-    [BuiltinReporter::GitLabComment, EntryPath::Refused],
+-    [BuiltinReporter::BitbucketComment, EntryPath::Refused],
+-    [BuiltinReporter::BitbucketInsights, EntryPath::Refused],
+@@ -49,11 +44,0 @@
+-
+-it('names the variable each comment that needs a token reads it from, and none for any other reporter', function (): void {
+-    $tokens = [];
+-
+-    foreach (BuiltinReporter::cases() as $reporter) {
+-        $token = $reporter->tokenEnv();
+-        $tokens = $token instanceof GateSecret ? [...$tokens, $reporter->value => $token] : $tokens;
+-    }
+-
+-    expect($tokens)->toBe(['gitlab-comment' => GateSecret::GitLabComment, 'bitbucket-comment' => GateSecret::BitbucketComment]);
+-});

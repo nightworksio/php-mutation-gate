@@ -33,6 +33,7 @@ use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestName;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Extension\Extensions;
@@ -184,6 +185,34 @@ it('reaches the files a changed test runs, as the runner says which tests judge 
     'a test that judges it' => ['tests/MoneyTest.php', true],
     'a test that judges nothing' => ['tests/OtherTest.php', false],
 ]);
+
+it('reaches only what the changed tests of a test file run, by the map\'s ids of the tests the runner places in it', function () use ($makeMoney): void {
+    $runner = RunnerFake::of(
+        Identity::of('fake', Versions::none(), Digest::of('php')),
+        Groups::of(),
+        CoverageMap::empty(),
+        Mutants::none(),
+        Paths::none(),
+        Paths::of(Path::of('phpunit.xml')),
+        TestNames::none()->with(TestId::of('MoneyTest::adds'), TestName::in(Path::of('tests/MoneyTest.php'), 'adds')),
+        Paths::none(),
+    );
+    $test = static fn(string $adds): string => sprintf(
+        "<?php\n\nfinal class MoneyTest\n{\n    public function adds(): void\n    {\n        %s\n    }\n}\n",
+        $adds,
+    );
+    $reached = reachedSince(
+        Changes::of(Change::modified(Path::of('tests/MoneyTest.php'), Lines::of(Line::of(7)))),
+        ['tests/MoneyTest.php' => $test('expect(2)->toBe(2);')],
+        ['tests/MoneyTest.php' => $test('expect(1)->toBe(1);')],
+        $runner,
+    );
+
+    expect($reached->reach()->reaches($makeMoney()))->toBeTrue()
+        ->and($reached->reach()->reasons())->toEqual(Reasons::of(Reason::that(
+            '`tests/MoneyTest.php` changed 1 of its 1 tests, so the 1 files they run are reached.',
+        )));
+});
 
 it('tells a changed test by the suffix the PHPUnit config gives the directory it is in', function () use (
     $makeMoney,

@@ -83,3 +83,9 @@ it('spells a row\'s id from its test method\'s and the row\'s number or name, wh
         ->and($read instanceof TestMethod ? $read->method() : $read)->toBe('testAdds')
         ->and(TestMethod::row(TestId::of('A::b'), '0'))->toEqual(TestId::of('A::b#0'));
 });
+
+it('makes the method Pest makes of a description, every underscore doubled and every byte no name holds an underscore', function (): void {
+    expect(TestMethod::pest('it adds_up, twice'))->toBe('__pest_evaluable_it_adds__up__twice')
+        ->and(TestMethod::pest('`Money` → it rounds'))->toBe('__pest_evaluable__Money__→_it_rounds')
+        ->and(TestMethod::pest(''))->toBe('__pest_evaluable_');
+});

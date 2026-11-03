@@ -1,0 +1,10 @@
+diff --git a/tests/Unit/Cli/Command/RunCommandTest.php b/tests/Unit/Cli/Command/RunCommandTest.php
+index 948ed2d71..fbc16aeb9 100644
+--- a/tests/Unit/Cli/Command/RunCommandTest.php
++++ b/tests/Unit/Cli/Command/RunCommandTest.php
+@@ -522 +522 @@
+-        "\n      Judged by: tests/MoneyTest.php::it adds\n      %s It is judged by `tests/MoneyTest.php::it adds`.\n",
++        "\n      Judged by: tests/MoneyTest.php::it adds\n      %s It is judged by `MoneyTest::adds`.\n",
+@@ -537 +537 @@
+-        ->and($proved->output)->toContain('2 units: 0 run, 2 proved, 0 carried.');
++        ->and($proved->output)->toContain('2: 0 run, 2 proved, 0 carried.');

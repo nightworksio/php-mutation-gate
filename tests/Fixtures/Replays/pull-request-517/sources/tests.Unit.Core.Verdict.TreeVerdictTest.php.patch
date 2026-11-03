@@ -1,0 +1,11 @@
+diff --git a/tests/Unit/Core/Verdict/TreeVerdictTest.php b/tests/Unit/Core/Verdict/TreeVerdictTest.php
+index 9985fac2a..486bd9e00 100644
+--- a/tests/Unit/Core/Verdict/TreeVerdictTest.php
++++ b/tests/Unit/Core/Verdict/TreeVerdictTest.php
+@@ -34 +33,0 @@
+-use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
+@@ -172,2 +171,2 @@
+-    $judged = TreeVerdict::judged($tree(Floor::of(80)), Floor::of(70), JudgedUnits::none(), JudgedMutants::of(...$mutants), $uncovered);
+-    $verdict = [...TreeVerdicts::of($judged)->clustered(Clustered::sources())][0];
++    $verdict = TreeVerdict::judged($tree(Floor::of(80)), Floor::of(70), JudgedUnits::none(), JudgedMutants::of(...$mutants), $uncovered)
++        ->clustered(Clustered::sources());

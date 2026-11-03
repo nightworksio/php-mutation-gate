@@ -1,0 +1,24 @@
+diff --git a/tests/Unit/Adapter/GitHub/PullRequestCommentTest.php b/tests/Unit/Adapter/GitHub/PullRequestCommentTest.php
+index c003f96d3..1b0c36baa 100644
+--- a/tests/Unit/Adapter/GitHub/PullRequestCommentTest.php
++++ b/tests/Unit/Adapter/GitHub/PullRequestCommentTest.php
+@@ -4,0 +5,3 @@
++use NightWorksIO\MutationGate\Adapter\GitHub\HtmlReport;
++use NightWorksIO\MutationGate\Adapter\GitHub\Markdown;
++use NightWorksIO\MutationGate\Adapter\GitHub\PlannedMarkdown;
+@@ -6 +9 @@
+-use NightWorksIO\MutationGate\Core\Delivery\CommentStates;
++use NightWorksIO\MutationGate\Adapter\GitHub\RecheckedMarkdown;
+@@ -9,3 +11,0 @@
+-use NightWorksIO\MutationGate\Core\Report\Markdown;
+-use NightWorksIO\MutationGate\Core\Report\PlannedMarkdown;
+-use NightWorksIO\MutationGate\Core\Report\RecheckedMarkdown;
+@@ -66 +66 @@
+-            Markdown::REPORT_SLOT,
++            HtmlReport::SLOT,
+@@ -143 +143 @@
+-            CommentStates::NOT_PLANNED,
++            'The pull request comment is no longer in its planned state, so the re-checked survivors leave it as it is.',
+@@ -164 +164 @@
+-        CommentStates::NOT_PLANNED,
++        'The pull request comment is no longer in its planned state, so the re-checked survivors leave it as it is.',

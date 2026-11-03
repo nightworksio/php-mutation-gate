@@ -1,0 +1,13 @@
+diff --git a/tests/Unit/Cli/FirstPartyTest.php b/tests/Unit/Cli/FirstPartyTest.php
+index 5d9a62fcf..3f7675f09 100644
+--- a/tests/Unit/Cli/FirstPartyTest.php
++++ b/tests/Unit/Cli/FirstPartyTest.php
+@@ -9,2 +8,0 @@
+-use NightWorksIO\MutationGate\Adapter\Bitbucket\CodeInsights;
+-use NightWorksIO\MutationGate\Adapter\Bitbucket\PullRequestComment as BitbucketComment;
+@@ -36 +33,0 @@
+-use NightWorksIO\MutationGate\Adapter\GitLab\MergeRequestNote;
+@@ -274,3 +270,0 @@
+-        ->and($reporter('gitlab-comment'))->toBeInstanceOf(MergeRequestNote::class)
+-        ->and($reporter('bitbucket-comment'))->toBeInstanceOf(BitbucketComment::class)
+-        ->and($reporter('bitbucket-insights'))->toBeInstanceOf(CodeInsights::class)

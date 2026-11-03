@@ -1,0 +1,7 @@
+diff --git a/tests/Process/Cli/Command/InitTest.php b/tests/Process/Cli/Command/InitTest.php
+index f5d1958fe..494aa8933 100644
+--- a/tests/Process/Cli/Command/InitTest.php
++++ b/tests/Process/Cli/Command/InitTest.php
+@@ -534 +534 @@ public function add(int $cents): int
+-        ->and($ran->output)->toContain("      - final:\n          <<: *mutation-comment\n")
++        ->and($ran->output)->toContain("      - final: *mutation-verdict\n")

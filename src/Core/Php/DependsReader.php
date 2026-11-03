@@ -31,6 +31,8 @@ use PhpToken;
  */
 final readonly class DependsReader
 {
+    /** What each of the attributes' names spells, in some case. */
+    public const string SPELT = 'depends';
     /** PHPUnit's attributes that name a method of the same class. */
     private const array SAME_CLASS = [
         'PHPUnit\Framework\Attributes\Depends',
@@ -44,9 +46,6 @@ final readonly class DependsReader
         'PHPUnit\Framework\Attributes\DependsExternalUsingDeepClone',
         'PHPUnit\Framework\Attributes\DependsExternalUsingShallowClone',
     ];
-
-    /** What each of the attributes' names spells, in some case. */
-    private const string SPELT = 'depends';
 
     private function __construct(private Tokens $tokens, private Scope $scope)
     {

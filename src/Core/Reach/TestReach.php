@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Coverage\Judges;
 use NightWorksIO\MutationGate\Core\Coverage\NoMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 
@@ -21,8 +22,10 @@ use function sprintf;
 
 /**
  * What a change to a test, to test support or to anything else reaches: a
- * test reaches what it runs by the coverage map, support reaches what the
- * tests that use it run, and anything else reaches nothing by itself.
+ * test file reaches what its changed tests run by the coverage map, or what
+ * all its tests run where the change moved more or `reach.changedTests` is
+ * `file` (ADR-0065), support reaches what the tests that use it run, and
+ * anything else reaches nothing by itself.
  *
  * @internal
  */
@@ -37,6 +40,14 @@ final readonly class TestReach
 
     private const string TEST = '`%s` changed, so the %d files its tests run are reached.';
 
+    private const string TESTS = '`%s` changed %d of its %d tests, so the %d files they run are reached.';
+
+    private const string UNTOUCHED
+        = '`%s` changed none of the %d tests the coverage map places in it, so it reaches nothing by itself.';
+
+    private const string UNPLACED
+        = 'The coverage map places no test in `%s` by its id, so the %d files the runner judges by it are reached.';
+
     private const string SUPPORT = '`%s` is test support %d tests use, so the %d files they run are reached.';
 
     private const string MODULE = '`%s` is a test of the module %s, so every tree of it is reached.';
@@ -50,6 +61,7 @@ final readonly class TestReach
         private Judges|NoMap $coverage,
         private Sources $sources,
         private SupportUsers $users,
+        private TestRuns $runs,
     ) {
     }
 
@@ -60,6 +72,7 @@ final readonly class TestReach
         Judges|NoMap $coverage,
         Sources $sources,
         Changes $changes,
+        TestRuns $runs,
     ): self {
         $packages = Packages::of($trees);
 
@@ -70,6 +83,7 @@ final readonly class TestReach
             $coverage,
             $sources,
             SupportUsers::ofChanges($layout, $packages, $sources, $changes),
+            $runs,
         );
     }
 
@@ -104,10 +118,42 @@ final readonly class TestReach
             );
         }
 
-        $files = $this->coverage->filesRunBy($path);
-        $reason = Reason::that(sprintf(self::TEST, $path->value(), count($files)));
+        $placed = $this->runs->in($path);
+        $judged = $this->coverage->filesRunBy($path);
 
-        return $this->withModules($reach->files($files, $reason), $path);
+        $reached = match (true) {
+            ! $this->runs->narrows() => $reach->files(
+                $judged,
+                Reason::that(sprintf(self::TEST, $path->value(), count($judged))),
+            ),
+            count($placed) === 0 => $reach->files(
+                $judged,
+                Reason::that(sprintf(self::UNPLACED, $path->value(), count($judged))),
+            ),
+            default => $this->narrowed($reach, $change, $placed),
+        };
+
+        return $this->withModules($reached, $path);
+    }
+
+    /** This reach, with what the tests a change to a test file touched run, of those the map places in it. */
+    private function narrowed(Reach $reach, Change $change, TestIds $placed): Reach
+    {
+        $path = $change->path()->value();
+        $touched = TestsChanged::of($change, $this->sources, $placed);
+
+        if ($touched instanceof Widening) {
+            $files = $this->runs->filesRunBy($placed);
+
+            return $reach->files($files, $touched->reason($path, count($files)));
+        }
+
+        $files = $this->runs->filesRunBy($touched);
+        $why = count($touched) === 0
+            ? sprintf(self::UNTOUCHED, $path, count($placed))
+            : sprintf(self::TESTS, $path, count($touched), count($placed), count($files));
+
+        return $reach->files($files, Reason::that($why));
     }
 
     private function supportChanged(Reach $reach, Change $change, Package $package): Reach

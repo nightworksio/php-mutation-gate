@@ -12,10 +12,12 @@ use function mb_substr;
 use NightWorksIO\MutationGate\Core\File\Path;
 
 use function preg_match;
+use function preg_replace;
 
 use const PREG_UNMATCHED_AS_NULL;
 
 use function sprintf;
+use function str_replace;
 
 /**
  * A coverage id as PHPUnit spells a test method's, and Pest's with it:
@@ -33,6 +35,9 @@ final readonly class TestMethod
 
     /** A row of a data set: the test method's id and the row's number or name. */
     public const string ROW = '%s#%s';
+    /** A byte Pest replaces in the method it makes of a description, as it cannot be in a name. */
+    private const string UNNAMEABLE = '/[^a-zA-Z0-9_\x80-\xff]/';
+
     /** The class, the method and, where there is one, the data set's number or name. */
     private const string ID = '/^(?<class>.*?)::(?<method>[^#]+)(?:#(?:(?<number>\d+)|(?<name>.*)))?$/sD';
 
@@ -48,6 +53,17 @@ final readonly class TestMethod
     public static function id(string $class, string $method): TestId
     {
         return TestId::of(sprintf('%s%s%s', $class, self::SEPARATOR, $method));
+    }
+
+    /**
+     * The method Pest makes of a test's description: every `_` doubled, and
+     * every byte that cannot be in a name, a space among them, an `_`.
+     */
+    public static function pest(string $description): string
+    {
+        $method = sprintf('%s%s', self::EVALUABLE, str_replace('_', '__', $description));
+
+        return preg_replace(self::UNNAMEABLE, '_', $method) ?? $method;
     }
 
     /** A row of a test method's data set, by its number or its name: `<class>::<method>#<row>`. */

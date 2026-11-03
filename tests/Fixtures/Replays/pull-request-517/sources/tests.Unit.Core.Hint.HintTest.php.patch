@@ -1,0 +1,61 @@
+diff --git a/tests/Unit/Core/Hint/HintTest.php b/tests/Unit/Core/Hint/HintTest.php
+index 709a41c2f..97b224fdd 100644
+--- a/tests/Unit/Core/Hint/HintTest.php
++++ b/tests/Unit/Core/Hint/HintTest.php
+@@ -27 +26,0 @@
+-use NightWorksIO\MutationGate\Core\Test\TestNames;
+@@ -39 +38 @@
+-    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), NoFinding::survivor(), TestNames::none())->text())->toBe($hint);
++    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), NoFinding::survivor())->text())->toBe($hint);
+@@ -69 +68 @@
+-    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), NoFinding::survivor(), TestNames::none())->text())
++    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), NoFinding::survivor())->text())
+@@ -77 +76 @@
+-        expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), NoFinding::survivor(), TestNames::none())->text())->not->toBe('');
++        expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), NoFinding::survivor())->text())->not->toBe('');
+@@ -84,2 +83,2 @@
+-    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $missing(), NoFinding::survivor(), TestNames::none())->text())->toBe($hint)
+-        ->and(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), Contents::of("<?php\nreturn true;\n"), NoFinding::survivor(), TestNames::none())->text())->toBe($hint);
++    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $missing(), NoFinding::survivor())->text())->toBe($hint)
++        ->and(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), Contents::of("<?php\nreturn true;\n"), NoFinding::survivor())->text())->toBe($hint);
+@@ -100 +99 @@
+-    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::of(...$ids), $source(), NoFinding::survivor(), TestNames::none())->text())
++    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::of(...$ids), $source(), NoFinding::survivor())->text())
+@@ -102 +101 @@
+-        ->and(Hint::for($mutant, MutantJudgement::Flaky, TestIds::of(...$ids), $source(), NoFinding::survivor(), TestNames::none())->text())
++        ->and(Hint::for($mutant, MutantJudgement::Flaky, TestIds::of(...$ids), $source(), NoFinding::survivor())->text())
+@@ -104 +103 @@
+-        ->and(Hint::for($mutant, MutantJudgement::Unjudged, TestIds::of(...$ids), $source(), NoFinding::survivor(), TestNames::none())->text())
++        ->and(Hint::for($mutant, MutantJudgement::Unjudged, TestIds::of(...$ids), $source(), NoFinding::survivor())->text())
+@@ -106 +105 @@
+-        ->and(Hint::for($mutant, MutantJudgement::TooSlowToJudge, TestIds::of(...$ids), $source(), NoFinding::survivor(), TestNames::none())->text())
++        ->and(Hint::for($mutant, MutantJudgement::TooSlowToJudge, TestIds::of(...$ids), $source(), NoFinding::survivor())->text())
+@@ -108 +107 @@
+-        ->and(Hint::for($mutant, MutantJudgement::TooHeavyToJudge, TestIds::of(...$ids), $source(), NoFinding::survivor(), TestNames::none())->text())
++        ->and(Hint::for($mutant, MutantJudgement::TooHeavyToJudge, TestIds::of(...$ids), $source(), NoFinding::survivor())->text())
+@@ -118,10 +116,0 @@
+-it('names each judging test by the name its runner gave it, and by its id where it gave none', function () use ($source): void {
+-    $mutant = Verdicts::mutant('src/Money.php:9', 'Mutator', MutatorFamily::Exception, Verdicts::diff('throw new Refused();', ''));
+-    $fits = TestId::of('P\\Tests\\MoneyTest::__pest_evaluable_it_fits');
+-    $names = TestNames::none()->with($fits, TestName::in(Path::of('tests/MoneyTest.php'), 'it fits'));
+-    $tests = TestIds::of($fits, TestId::of('Tests\\PriceTest::testAdds'));
+-
+-    expect(Hint::for($mutant, MutantJudgement::Survived, $tests, $source(), NoFinding::survivor(), $names)->text())
+-        ->toBe('Add a test that expects this exception. It is judged by `tests/MoneyTest.php::it fits` and `Tests\\PriceTest::testAdds`.');
+-});
+-
+@@ -131 +120 @@
+-    expect(Hint::for($mutant, $judgement, TestIds::none(), $source(), NoFinding::survivor(), TestNames::none())->text())->toBe($hint);
++    expect(Hint::for($mutant, $judgement, TestIds::none(), $source(), NoFinding::survivor())->text())->toBe($hint);
+@@ -154 +143 @@
+-    expect(Hint::for($mutant, $judgement, TestIds::of(TestId::of('OrderTest::adds')), $source(), NoFinding::survivor(), TestNames::none())->text())->not->toContain('OrderTest');
++    expect(Hint::for($mutant, $judgement, TestIds::of(TestId::of('OrderTest::adds')), $source(), NoFinding::survivor())->text())->not->toContain('OrderTest');
+@@ -179 +168 @@
+-    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), $finding, TestNames::none())->text())
++    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), $finding)->text())
+@@ -196 +185 @@
+-    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), $finding, TestNames::none())->text())->not->toContain("\n");
++    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), $finding)->text())->not->toContain("\n");
+@@ -203 +192 @@
+-    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), $finding, TestNames::none())->text())->toBe(
++    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), $finding)->text())->toBe(

@@ -1,0 +1,15 @@
+diff --git a/tests/Unit/Cli/Command/PlanCommandTest.php b/tests/Unit/Cli/Command/PlanCommandTest.php
+index 626680995..ebde21215 100644
+--- a/tests/Unit/Cli/Command/PlanCommandTest.php
++++ b/tests/Unit/Cli/Command/PlanCommandTest.php
+@@ -10 +9,0 @@
+-use NightWorksIO\MutationGate\Core\Ci\JobCommands;
+@@ -236,4 +235 @@
+-    $later = Flows::ci();
+-    $now = Flows::ci();
+-    $planned = $plan($project, '--shards=1 --deliver-later', ScriptedRunner::fixture(), $later);
+-    $plan(FlowCommands::project(), '--shards=1', ScriptedRunner::fixture(), $now);
++    $planned = $plan($project, '--shards=1 --deliver-later', ScriptedRunner::fixture(), Flows::ci());
+@@ -242,2 +237,0 @@
+-        ->and(array_map(static fn(JobCommands $jobs): bool => $jobs->deliversLater(), [...$later->jobs, ...$now->jobs]))
+-        ->toBe([true, false])
