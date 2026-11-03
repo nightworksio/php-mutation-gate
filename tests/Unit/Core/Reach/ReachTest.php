@@ -225,6 +225,7 @@ it('reaches what it reaches and what the default branch changed since its ledger
         ->and($both->isEverywhere())->toBeFalse()
         ->and($both->changedLines(Path::of('src/Money.php')))->toEqual(Lines::of(Line::of(3)))
         ->and($both->changedLines(Path::of('src/Held.php')))->toEqual(Lines::none())
+        ->and(array_map(static fn(Reason $reason): bool => $reason->widens(), [...$both->reasons()]))->toBe([false, false, false, true])
         ->and($first->andSinceLedger($nothing()->everywhere(Reason::that('Everything.')), Revision::ref('1edcafe'))->isEverywhere())->toBeTrue()
         ->and($nothing()->everywhere(Reason::that('Everything.'))->andSinceLedger($first, Revision::ref('1edcafe'))->isEverywhere())->toBeTrue();
 });

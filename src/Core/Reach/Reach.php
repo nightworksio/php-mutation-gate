@@ -130,7 +130,8 @@ final readonly class Reach
         $reasons = $this->reasons;
 
         foreach ($sinceLedger->reasons as $reason) {
-            $reasons = $reasons->with(Reason::that(sprintf(self::SINCE_LEDGER, $ledger->name(), $reason->text())));
+            $said = Reason::that(sprintf(self::SINCE_LEDGER, $ledger->name(), $reason->text()));
+            $reasons = $reasons->with($reason->widens() ? $said->widening() : $said);
         }
 
         return new self(
