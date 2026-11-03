@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
@@ -30,6 +31,8 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanFile;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
+use NightWorksIO\MutationGate\Core\Plan\StandsBecause;
+use NightWorksIO\MutationGate\Core\Plan\Unchanged;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
@@ -45,6 +48,7 @@ use NightWorksIO\MutationGate\Core\Verdict\HeldTo;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
+use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
@@ -353,4 +357,41 @@ it('plans nothing and passes, recording the commit, where only files that do not
         ->and($again instanceof Verdict ? [$again->judgement(), count($again->trees())] : $again)->toBe([Judgement::Passed, 0])
         ->and(LedgerRead::ledger($proofs->read(Scope::branch('main')))->runs()->passed())
         ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW))));
+});
+
+it('stands on the verdict the default branch passed where a pull request reaches no unit, reading no result and no map, and records the commit on its results', function (): void {
+    $project = FlowCommands::project('"baseline": {"improvement": "report"}');
+    $proofs = new ProofStoreFake();
+    $trees = Trees::of(Tree::at(Path::of('src'), Floor::of(30.0), Package::at(Path::root())));
+    $base = '5eeca8f0a1b2c3d4e5f60718293a4b5c6d7e8f90';
+    $merge = 'a1b2c3d4e5f60718293a4b5c6d7e8f905eeca8f0';
+    $files = [Revision::workingTree()->name() => Flows::FILES, $base => Flows::FILES, Flows::MAIN => Flows::FILES];
+    $main = FlowCommands::reading($trees, $project, ScriptedRunner::fixture(), $proofs, Flows::ci(), Variables::of([]), RepositoryFake::onMain(Revision::ref($base)), new ChangeSourceFake(Revision::ref($base), Changes::none(), $files));
+    $pullRequest = FlowCommands::reading(
+        $trees,
+        $project,
+        ScriptedRunner::fixture(),
+        $proofs,
+        new CiPlanFake(RunOn::at(Scope::pullRequest(516), Scope::branch('main'))),
+        Variables::of([]),
+        RepositoryFake::onMain(Revision::ref($merge)),
+        new ChangeSourceFake(Revision::ref($base), Changes::of(Change::modified(Path::of('.github/workflows/scorecard.yml'), Lines::none())), $files),
+    );
+    FlowCommands::run(PlanCommand::command($main), '--shards=1 --full');
+    FlowCommands::run(RunCommand::command($main), '--plan=.mutation-gate/plan.json --shard=1 --results=.mutation-gate/results');
+    $judgedOnMain = FlowCommands::run(VerdictCommand::command($main));
+
+    $plan = FlowCommands::run(PlanCommand::command($pullRequest), sprintf('--changed-since=%s', $base));
+    rename(sprintf('%s/.mutation-gate/coverage', $project), sprintf('%s/.mutation-gate/unread', $project));
+    $verdict = FlowCommands::run(VerdictCommand::command($pullRequest), '--results=.mutation-gate/none');
+    $read = PlanFile::decode((string) file_get_contents(sprintf('%s/.mutation-gate/plan.json', $project)));
+    $stands = $read instanceof Plan ? $read->briefing()->unchanged() : $read;
+
+    expect($judgedOnMain->code)->toBe(0)
+        ->and($plan->errors)->toContain('Wrote .mutation-gate/plan.json, with 0 shards.')
+        ->and($stands instanceof Unchanged ? [$stands->because(), $stands->base()->commit()->name()] : $stands)->toBe([StandsBecause::NothingReached, $base])
+        ->and($verdict->code)->toBe(0)
+        ->and($verdict->output)->toContain(sprintf('The change since %s, whose verdict passed at %s, reaches no unit, so its verdict stands.', $base, Instant::at(new DateTimeImmutable(Configs::NOW))->value()))
+        ->and(LedgerRead::ledger($proofs->read(Scope::pullRequest(516)))->runs()->passed())
+        ->toEqual(Passed::of(Revision::ref($merge), 'mutation / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW))));
 });

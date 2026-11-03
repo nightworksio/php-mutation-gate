@@ -90,6 +90,12 @@ final readonly class Briefing
         return new self($this->peak, $this->kind, $this->ownScopeCoverage, $unchanged);
     }
 
+    /** This briefing, with the commit whose verdict stands for the plan that one names, where it names one. */
+    public function standingAs(self $planned): self
+    {
+        return $planned->unchanged instanceof Unchanged ? $this->unchangedSince($planned->unchanged) : $this;
+    }
+
     /** The commit whose verdict stands for a plan that runs nothing; none where the plan runs what it plans. */
     public function unchanged(): Unchanged|NotGiven
     {

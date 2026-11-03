@@ -24,11 +24,11 @@ use NightWorksIO\MutationGate\Port\Reporter;
 use function sprintf;
 
 /**
- * The verdict of a plan that ran nothing because the verdict of the newest
- * commit of its scope that passed stands ({@see Unchanged}): it passes, says
- * why, and records the commit the plan was made on as passed; unless an
- * ignore that applied when that commit passed has expired since the plan
- * was made, when it cannot judge.
+ * The verdict of a plan that ran nothing because the verdict of a commit
+ * that passed stands ({@see Unchanged}): it reads no shard's result and no
+ * coverage map, passes, says why, and records the commit the plan was made
+ * on as passed; unless an ignore that applied when that commit passed has
+ * expired since the plan was made, when it cannot judge.
  *
  * @internal
  */

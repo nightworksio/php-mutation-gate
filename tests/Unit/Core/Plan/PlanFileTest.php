@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Plan\PlanFile;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
+use NightWorksIO\MutationGate\Core\Plan\StandsBecause;
 use NightWorksIO\MutationGate\Core\Plan\Unchanged;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
@@ -597,19 +598,23 @@ it('refuses a plan whose own-scope coverage field is anything but true', functio
     ));
 });
 
-it('writes a plan that runs nothing because a verdict stands within its digest, with when it passed, and reads it back', function (): void {
+it('writes a plan that runs nothing because a verdict stands within its digest, under why it stands, with when it passed, and reads it back', function (StandsBecause $because): void {
     $at = Instant::at(new DateTimeImmutable('2026-10-09T08:00:00Z'));
     $passed = Passed::of(Revision::ref('5eeca8f0a1b2c3d4e5f60718293a4b5c6d7e8f90'), 'mutation / verdict', 1)->passedAt($at);
     $plan = planFileEmpty()->on(RunOn::at(Scope::branch('main'), Scope::branch('main')))
-        ->briefed(Briefing::standard()->unchangedSince(Unchanged::since($passed, $at)));
+        ->briefed(Briefing::standard()->unchangedSince(Unchanged::standing($because, $passed, $at)));
     $written = PlanFile::encode($plan);
     $plain = PlanFile::decode(PlanFile::encode(planFileEmpty()));
 
     expect(PlanFile::decode($written))->toEqual($plan)
+        ->and($written)->toContain(sprintf('"%s": {', $because->value))
         ->and($written)->toContain('"at": "2026-10-09T08:00:00Z"')
         ->and($plan->digest())->not->toEqual(planFileEmpty()->digest())
         ->and($plain instanceof Plan ? $plain->briefing()->unchanged() : $plain)->toEqual(NotGiven::value());
-});
+})->with([
+    'nothing judged changed' => [StandsBecause::NothingJudgedChanged],
+    'nothing reached' => [StandsBecause::NothingReached],
+]);
 
 it('refuses a plan whose standing verdict does not say when it passed', function (): void {
     $at = Instant::at(new DateTimeImmutable('2026-10-09T08:00:00Z'));
