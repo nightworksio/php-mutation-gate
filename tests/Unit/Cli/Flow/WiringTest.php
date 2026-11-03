@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Flow\Adapters;
 use NightWorksIO\MutationGate\Cli\Flow\Wiring;
 use NightWorksIO\MutationGate\Config\Mutators;
+use NightWorksIO\MutationGate\Config\Proofs;
 use NightWorksIO\MutationGate\Config\Runner;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
@@ -29,6 +30,16 @@ it('cannot wire a mutator set nobody registered, naming the one most likely mean
         Flows::settings(Runner::pest(), Mutators::sets('acmee')),
         Directory::at(Flows::project()),
     ))->toEqual(CannotJudge::because('No mutator set is registered as "acmee". Did you mean "acme"?'));
+});
+
+it('cannot wire a proof store nobody registered, whatever its copies say', function (): void {
+    $adapters = new Wiring(Wirings::registry(), Variables::of([]), Wirings::detected())->adapters(
+        Flows::settings(Runner::pest(), Proofs::uses('acme-store'), Proofs::newestCopy()),
+        Directory::at(Flows::project()),
+    );
+
+    expect($adapters)->toBeInstanceOf(CannotJudge::class)
+        ->and($adapters instanceof CannotJudge ? $adapters->why() : '')->toStartWith('No proof store is registered as "acme-store".');
 });
 
 it('counts a plan\'s mutants with an engine of even one mutator, and with none of no mutator', function (bool $acme): void {
