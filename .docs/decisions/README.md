@@ -58,7 +58,7 @@ There is no separate requirements document, and there are no requirement IDs.
 | [0027](0027-codeception-phpspec-and-testo-get-native-runners.md) | Codeception, PhpSpec and Testo get native runners on the gate's own mutants | Accepted; its Testo pin, selection, first failure and timings amended by [0047](0047-testos-runner-holds-a-minor-range-and-its-plugin-selects-stops-and-times.md) |
 | [0028](0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) | Proofs can live in Google Cloud Storage or Azure Blob under OIDC bound to an environment or a workflow, and survivors reach SonarQube | Accepted |
 | [0029](0029-a-caller-passes-the-store-secrets-by-name.md) | A caller passes the reusable workflow its store's secrets by name, and their values stay in the environments | Accepted |
-| [0030](0030-a-lock-file-decides-by-the-packages-it-moved.md) | A lock file decides how the gate runs only where it moved a package the config names | Accepted |
+| [0030](0030-a-lock-file-decides-by-the-packages-it-moved.md) | A lock file decides how the gate runs only where it moved a package the config names | Accepted; its rule, extended from the lock to the manifest amended by [0056](0056-a-manifest-decides-how-the-gate-runs-only-by-the-keys-that-install-and-load.md) |
 | [0031](0031-builds-of-a-branch-learn-from-each-others-timings.md) | Builds of a branch learn from each other's timings | Accepted |
 | [0032](0032-a-pull-requests-shard-stops-in-chunks-of-fifteen-minutes.md) | A pull request's shard stops in chunks of about fifteen minutes | Accepted |
 | [0033](0033-a-files-kills-are-controlled-together-first.md) | A file's kills are controlled together first | Accepted |
@@ -84,6 +84,7 @@ There is no separate requirements document, and there are no requirement IDs.
 | [0053](0053-ci-runs-the-suite-on-linux-alone-and-macos-is-best-effort.md) | CI runs the suite on Linux alone, and macOS is best-effort | Accepted |
 | [0054](0054-a-pull-request-runs-the-gates-its-change-can-move.md) | A pull request runs the gates its change can move, and reads its workflows job by job | Accepted; its outputs, and the jobs a workflow change runs amended by [0055](0055-each-gated-job-runs-for-its-own-inputs-and-each-runner-leg-for-its-own-test-support.md) |
 | [0055](0055-each-gated-job-runs-for-its-own-inputs-and-each-runner-leg-for-its-own-test-support.md) | Each gated job runs for its own inputs, and each runner leg for its own test support | Accepted |
+| [0056](0056-a-manifest-decides-how-the-gate-runs-only-by-the-keys-that-install-and-load.md) | A manifest decides how the gate runs only by the keys that install and load | Accepted |
 | [0057](0057-nette-neon-is-supported-at-3-4-and-4.md) | nette/neon is supported at 3.4 and at 4 | Accepted |
 | [0059](0059-every-run-on-the-default-branch-finishes-and-writes-its-ledger.md) | Every run on the default branch finishes, and writes its ledger | Accepted |
 

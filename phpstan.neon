@@ -326,6 +326,11 @@ services:
                     - TRUSTED_SOURCES # Buildkite's build.source values, not another CI's event names
                 'NightWorksIO\MutationGate\Core\Cost\StartUpSamples':
                     - STANDARD # runs of no test the plan times
+                'NightWorksIO\MutationGate\Core\Composer\ManifestKey':
+                    - Require # composer.json's list of packages to run, not an include or an improvement's kind
+                    - Description # composer.json's description of the package, not a test's
+                    - Support # composer.json's links for help, not a test file's role
+                    - Time # composer.json's release date, not a test's seconds
                 'NightWorksIO\MutationGate\Core\Cost\Step':
                     - Coverage # the step that readies coverage, not the directory a coverage run writes in
                 'NightWorksIO\MutationGate\Core\Plan\StepsRecord':
@@ -603,7 +608,6 @@ services:
                     - KEY # a key of a report's entry
                 'NightWorksIO\MutationGate\Core\Composer\Manifest':
                     - PATH # a kind of Composer repository
-                    - REQUIRE # a key of a manifest
                 'NightWorksIO\MutationGate\Core\Baseline\BaselineFile':
                     - FLOOR # a field of the baseline
                 'NightWorksIO\MutationGate\Core\Test\TestNamesRecord':

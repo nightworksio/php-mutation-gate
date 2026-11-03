@@ -17,6 +17,13 @@ it('decides on any move where the config names no package', function (): void {
     expect(DecidingPackages::every()->decide(Locks::of(['psr/log' => '3.0.0']), Locks::of(['psr/log' => '3.0.1'])))->toBeTrue();
 });
 
+it('decides on a change that moves only the keys a lock writes from the rest, where the config names no package', function (): void {
+    expect(DecidingPackages::every()->decide(
+        Locks::of(['psr/log' => '3.0.0'], [], ['content-hash' => 'a1']),
+        Locks::of(['psr/log' => '3.0.0'], [], ['content-hash' => 'b2']),
+    ))->toBeTrue();
+});
+
 it('decides only where a moved package matches a name or a pattern of names', function (Contents $now, bool $decides): void {
     $deciding = DecidingPackages::named(Glob::of('pestphp/*'), Glob::of('nikic/php-parser'));
     $before = Locks::of(['pestphp/pest' => '5.2.1', 'nikic/php-parser' => '5.6.0', 'symfony/console' => '8.1.7']);
@@ -108,4 +115,21 @@ it('leaves the gate\'s own verdict standing where the lock moves only a package 
 
     expect($moved)->not->toBe($lock->text())
         ->and($deciding->decide($lock, Contents::of($moved)))->toBeFalse();
+});
+
+it('decides on a manifest only where it moved a package line it decides by or a key besides those that describe', function (array $before, array $now, bool $every, bool $named): void {
+    $read = static fn(array $keys): Contents => Contents::of((string) json_encode($keys));
+
+    expect(DecidingPackages::every()->decideManifest($read($before), $read($now)))->toBe($every)
+        ->and(DecidingPackages::named(Glob::of('pestphp/*'))->decideManifest($read($before), $read($now)))->toBe($named);
+})->with([
+    'a description' => [['description' => 'a'], ['description' => 'b'], false, false],
+    'a package no pattern names' => [['require' => ['psr/log' => '^3.0']], ['require' => ['psr/log' => '^3.1']], true, false],
+    'a conflict on a package a pattern names' => [['conflict' => ['pestphp/pest-plugin-mutate' => '<5.0.2 || >5.0.2']], ['conflict' => ['pestphp/pest-plugin-mutate' => '<5.0.2 || >=6.0']], true, true],
+    'the gate itself' => [['require-dev' => []], fn(): array => ['require-dev' => [FirstPartyPackage::Gate->value => '^0.1']], true, true],
+    'autoload' => [['autoload' => []], ['autoload' => ['files' => ['src/helpers.php']]], true, true],
+]);
+
+it('decides on a manifest it cannot read', function (): void {
+    expect(DecidingPackages::named(Glob::of('pestphp/*'))->decideManifest(Contents::of('{}'), Contents::of('[')))->toBeTrue();
 });

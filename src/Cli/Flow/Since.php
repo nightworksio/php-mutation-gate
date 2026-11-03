@@ -169,14 +169,17 @@ final readonly class Since
         };
     }
 
-    /** Each PHP file and each package's lock these changes touch, as it is and as it was: the files read both ways. */
+    /**
+     * Each PHP file and each package's manifest and lock these changes touch,
+     * as it is and as it was: the files read both ways.
+     */
     private function readOf(Changes $changes, FileRoles $roles): Paths
     {
         $read = [];
 
         foreach ($changes as $change) {
             foreach ([$change->previousPath(), $change->path()] as $path) {
-                if ($path->isPhp() || $roles->isLock($path)) {
+                if ($path->isPhp() || $roles->isLock($path) || $roles->isManifest($path)) {
                     $read[] = $path;
                 }
             }

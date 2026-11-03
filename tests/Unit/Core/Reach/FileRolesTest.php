@@ -48,12 +48,28 @@ it('says a package\'s lock decides where its change moved a package the config n
     'a package\'s, moving only the console' => ['packages/billing/composer.lock', '5.2.1', false],
 ]);
 
+it('says a package\'s manifest decides where its change moved a package the config names, and not where it moved only what describes', function (string $file, string $description, string $pest, bool $decides) use ($makeRoles): void {
+    $roles = $makeRoles();
+    $manifest = static fn(string $said, string $constraint): Contents => Contents::of((string) json_encode([
+        'description' => $said,
+        'require' => ['pestphp/pest' => $constraint],
+    ]));
+
+    expect($roles->isManifest(Path::of($file)))->toBeTrue()
+        ->and($roles->decides(Path::of($file), $manifest('a', '^5.2'), $manifest($description, $pest)))->toBe($decides);
+})->with([
+    'the root\'s, moving pest' => ['composer.json', 'a', '^5.3', true],
+    'the root\'s, moving only its description' => ['composer.json', 'b', '^5.2', false],
+    'a package\'s, moving only its description' => ['packages/billing/composer.json', 'b', '^5.2', false],
+]);
+
 it('says no other file decides how the gate runs', function (string $file) use ($makeRoles): void {
     $roles = $makeRoles();
 
     expect($roles->decides(Path::of($file), Missing::at(Path::of($file)), Missing::at(Path::of($file))))->toBeFalse()
-        ->and($roles->isLock(Path::of($file)))->toBeFalse();
-})->with(['src/Money.php', 'README.md', 'config/services.yaml', 'packages/composer.lock', 'src/composer.lock']);
+        ->and($roles->isLock(Path::of($file)))->toBeFalse()
+        ->and($roles->isManifest(Path::of($file)))->toBeFalse();
+})->with(['src/Money.php', 'README.md', 'config/services.yaml', 'packages/composer.lock', 'src/composer.lock', 'src/composer.json']);
 
 it('says which files Composer\'s autoloader loads in every process', function (string $file, bool $loaded) use ($makeRoles): void {
     $roles = $makeRoles();

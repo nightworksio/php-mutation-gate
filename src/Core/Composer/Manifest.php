@@ -44,12 +44,6 @@ final readonly class Manifest
     /** The file that pins what Composer installs for a project, module or package. */
     private const string LOCK = 'composer.lock';
 
-    /** The keys whose values are the packages a manifest requires to run. */
-    private const string REQUIRE = 'require';
-
-    /** The key whose value is the packages it requires only to be developed. */
-    private const string REQUIRE_DEV = 'require-dev';
-
     /** The repository type whose `url` is a directory, or a shell glob of directories. */
     private const string PATH = 'path';
 
@@ -146,13 +140,16 @@ final readonly class Manifest
     /** Every package it requires, to run or to be developed, by name, in its order. */
     public function requires(): Names
     {
-        return Names::of(...$this->requiredUnder(self::REQUIRE), ...$this->requiredUnder(self::REQUIRE_DEV));
+        return Names::of(
+            ...$this->requiredUnder(ManifestKey::Require->value),
+            ...$this->requiredUnder(ManifestKey::RequireDev->value),
+        );
     }
 
     /** Every package it requires to run, by name, in its order. */
     public function requiresToRun(): Names
     {
-        return Names::of(...$this->requiredUnder(self::REQUIRE));
+        return Names::of(...$this->requiredUnder(ManifestKey::Require->value));
     }
 
     /** The `url` of every repository of type `path`: each a directory, or a shell glob of directories. */
