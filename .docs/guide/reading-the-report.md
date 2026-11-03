@@ -72,6 +72,12 @@ better. Left-out mutants are not counted.
 Each part of the code, a tree, has its own score, and so do the code your
 change added and the code the security mutators reach.
 
+Where your change reaches nothing the gate mutates, the run tests nothing and
+an earlier verdict stands for it. The report then says, in place of the
+project's score, `The default branch's earlier verdict at <commit> stands.`,
+or `The earlier verdict at <commit> stands.` where the verdict is the
+branch's own last that passed, and has no score of its own.
+
 ## Floor
 
 The lowest score a part of the code may have. A run fails when a score drops

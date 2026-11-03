@@ -455,8 +455,8 @@ The same repository has two more needs.
 12. **A change nothing the gate judges touches plans nothing.** A standard
     run (no `--security`, no `--suite`, first killers) that reads its change
     since `last-passed` runs no coverage, keys nothing and cuts no shard,
-    and its verdict passes saying the earlier verdict stands, when all of
-    these hold:
+    and its verdict passes, saying `The earlier verdict at <commit> stands.`
+    in place of the project's score, when all of these hold:
     - the newest commit of the scope whose verdict passed was judged under
       the run's own `ci.check`, and its record says when it passed
       (ADR-0007, `passed.at`);

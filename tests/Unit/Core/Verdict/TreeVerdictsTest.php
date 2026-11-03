@@ -2,10 +2,15 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\Cluster\ClusterKind;
 use NightWorksIO\MutationGate\Core\Cluster\Membership;
+use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Plan\Unchanged;
+use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Sample\Confidence;
 use NightWorksIO\MutationGate\Core\Sample\Estimate;
@@ -15,9 +20,12 @@ use NightWorksIO\MutationGate\Core\Sample\Tally;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Score\Unrecorded;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
+use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
+use NightWorksIO\MutationGate\Core\Verdict\Findings;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnit;
@@ -40,6 +48,19 @@ $paths = static fn(TreeVerdicts $verdicts): array => array_map(static fn(TreeVer
 
 it('holds nothing to begin with', function (): void {
     expect(TreeVerdicts::none())->toHaveCount(0);
+});
+
+it('stands on the verdict of a commit that passed in place of any tree, and keeps it as it is clustered, named, found and added to', function () use ($verdict): void {
+    $at = Instant::at(new DateTimeImmutable('2026-10-01T12:00:00Z'));
+    $unchanged = Unchanged::since(Passed::of(Revision::ref('5eeca8f0'), 'mutation / verdict', 0)->passedAt($at), $at);
+    $standing = TreeVerdicts::standingOn($unchanged);
+
+    expect($standing)->toHaveCount(0)
+        ->and($standing->standing())->toBe($unchanged)
+        ->and($standing->clustered(ByPath::none())->named(TestNames::none())->found(Findings::none())->standing())->toBe($unchanged)
+        ->and($standing->with($verdict('a'))->standing())->toBe($unchanged)
+        ->and(TreeVerdicts::none()->standing())->toEqual(NotGiven::value())
+        ->and(TreeVerdicts::of($verdict('a'))->with($verdict('b'))->standing())->toEqual(NotGiven::value());
 });
 
 it('keeps verdicts in the order they were judged, numbered from nought', function () use ($verdict, $paths): void {

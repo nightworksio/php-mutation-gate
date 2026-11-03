@@ -15,6 +15,8 @@ use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\Cluster\Clusters;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Plan\Unchanged;
 use NightWorksIO\MutationGate\Core\Sample\Estimate;
 use NightWorksIO\MutationGate\Core\Sample\Sample;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
@@ -22,7 +24,8 @@ use Traversable;
 
 /**
  * Every judged tree, in the order it was judged, and the clusters its
- * survivors are in.
+ * survivors are in; or none, where the verdict of a commit that passed
+ * stands in their place ({@see Unchanged}).
  *
  * @implements IteratorAggregate<int, TreeVerdict>
  */
@@ -31,24 +34,36 @@ final readonly class TreeVerdicts implements Countable, IteratorAggregate
     private Clusters $clusters;
 
     /** @param list<TreeVerdict> $verdicts */
-    private function __construct(private array $verdicts)
+    private function __construct(private array $verdicts, private Unchanged|NotGiven $standing)
     {
         $this->clusters = Clusters::of($this->mutants());
     }
 
     public static function none(): self
     {
-        return new self([]);
+        return new self([], NotGiven::value());
     }
 
     public static function of(TreeVerdict ...$verdicts): self
     {
-        return new self(array_values($verdicts));
+        return new self(array_values($verdicts), NotGiven::value());
+    }
+
+    /** No judged tree: the verdict of the commit that passed stands in their place. */
+    public static function standingOn(Unchanged $unchanged): self
+    {
+        return new self([], $unchanged);
     }
 
     public function with(TreeVerdict $verdict): self
     {
-        return new self([...$this->verdicts, $verdict]);
+        return new self([...$this->verdicts, $verdict], $this->standing);
+    }
+
+    /** The verdict of the commit that passed that stands in place of these trees; none where they were judged. */
+    public function standing(): Unchanged|NotGiven
+    {
+        return $this->standing;
     }
 
     /**
@@ -65,7 +80,7 @@ final readonly class TreeVerdicts implements Countable, IteratorAggregate
             $clustered[] = $tree->withMutants($tree->mutants()->clustered($tree->uncovered(), $sources));
         }
 
-        return new self($clustered);
+        return new self($clustered, $this->standing);
     }
 
     /** These trees, each mutant's hint naming its judging tests by the names their runner gave them. */
@@ -77,7 +92,7 @@ final readonly class TreeVerdicts implements Countable, IteratorAggregate
             $named[] = $tree->withMutants($tree->mutants()->named($names));
         }
 
-        return new self($named);
+        return new self($named, $this->standing);
     }
 
     /** These trees, with what was found of each survivor (ADR-0025). */
@@ -89,7 +104,7 @@ final readonly class TreeVerdicts implements Countable, IteratorAggregate
             $found[] = $tree->withMutants($tree->mutants()->found($findings));
         }
 
-        return new self($found);
+        return new self($found, $this->standing);
     }
 
     /** The clusters the survivors of these trees are in; none before they are clustered. */

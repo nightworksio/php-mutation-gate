@@ -76,7 +76,7 @@ final readonly class ConsoleReport implements Configurable, Reporter
         $lines = [
             sprintf('mutation-gate: %s', $verdict->judgement()->value),
             ...$verdict->wasCutShort() ? [SetText::CUT_SHORT] : [],
-            SetText::project($overview->score()),
+            SetText::project($overview->score(), $verdict->trees()->standing()),
             ...$verdict->trees()->sample()->isDrawn() ? [SetText::SAMPLED] : [],
             ...$this->section('Cannot judge', $this->obstacles($verdict)),
             ...$this->section('Trees', $this->trees($verdict)),

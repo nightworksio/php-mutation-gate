@@ -2,9 +2,14 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Owner\CodeOwners;
 use NightWorksIO\MutationGate\Core\Owner\OwnerGroup;
+use NightWorksIO\MutationGate\Core\Plan\StandsBecause;
+use NightWorksIO\MutationGate\Core\Plan\Unchanged;
+use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Report\SetText;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Sample\Estimate;
@@ -17,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
 use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Score\Unrecorded;
+use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
@@ -70,9 +76,21 @@ it('says what new code scored, named by its package where it is not the root', f
 });
 
 it('says what the project scored, or that it has nothing to mutate', function (): void {
-    expect(SetText::project(Score::ofHundredths(8_741)))->toBe('The project scores 87.41%.')
-        ->and(SetText::project(NothingToMutate::found()))->toBe('The project has nothing to mutate.');
+    expect(SetText::project(Score::ofHundredths(8_741), NotGiven::value()))->toBe('The project scores 87.41%.')
+        ->and(SetText::project(NothingToMutate::found(), NotGiven::value()))->toBe('The project has nothing to mutate.');
 });
+
+it('says whose earlier verdict stands in place of the project\'s score, as one plain line', function (StandsBecause $because, string $said): void {
+    $at = Instant::at(new DateTimeImmutable('2026-10-01T12:00:00Z'));
+    $standing = static fn(string $commit): Unchanged => Unchanged::standing($because, Passed::of(Revision::ref($commit), 'mutation / verdict', 0)->passedAt($at), $at);
+
+    expect(SetText::project(NothingToMutate::found(), $standing('5eeca8f0')))->toBe(sprintf($said, '5eeca8f0'))
+        ->and(SetText::project(Score::ofHundredths(8_741), $standing('5eeca8f0')))->toBe(sprintf($said, '5eeca8f0'))
+        ->and(SetText::project(NothingToMutate::found(), $standing("5eeca8f0\e[31m\nred")))->toBe(sprintf($said, '5eeca8f0[31m red'));
+})->with([
+    'nothing judged changed' => [StandsBecause::NothingJudgedChanged, 'The earlier verdict at %s stands.'],
+    'nothing reached' => [StandsBecause::NothingReached, 'The default branch\'s earlier verdict at %s stands.'],
+]);
 
 it('prints a floor, an exemption, or none', function (): void {
     expect(SetText::floor(Floor::of(80)))->toBe('80.00%')

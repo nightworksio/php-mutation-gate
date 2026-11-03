@@ -25,4 +25,13 @@ enum StandsBecause: string
                 => 'The change since %s, whose verdict passed at %s, reaches no unit, so its verdict stands.',
         };
     }
+
+    /** What every report says in place of the project's score, given the commit whose verdict stands. */
+    public function headline(): string
+    {
+        return match ($this) {
+            self::NothingJudgedChanged => 'The earlier verdict at %s stands.',
+            self::NothingReached => 'The default branch\'s earlier verdict at %s stands.',
+        };
+    }
 }

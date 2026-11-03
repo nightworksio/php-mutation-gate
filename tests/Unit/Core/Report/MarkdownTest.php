@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -18,6 +19,9 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unevidenced;
+use NightWorksIO\MutationGate\Core\Plan\StandsBecause;
+use NightWorksIO\MutationGate\Core\Plan\Unchanged;
+use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Report\ClusterText;
@@ -38,6 +42,7 @@ use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
@@ -116,6 +121,15 @@ it('says the run cannot judge, and why, before its failures', function (): void 
             "### Cannot judge\n\n- %s\n\n### Failures\n\n- The ignore of 3f9a1c2b7d04 matched no mutant. Remove it.",
             Verdicts::UNJUDGED,
         ));
+});
+
+it('says whose earlier verdict stands in place of the project\'s score, in the comment and the step summary alike', function () use ($run): void {
+    $at = Instant::at(new DateTimeImmutable('2026-10-01T12:00:00Z'));
+    $standing = Verdict::of(TreeVerdicts::standingOn(Unchanged::standing(StandsBecause::NothingReached, Passed::of(Revision::ref('5eeca8f0'), 'mutation / verdict', 0)->passedAt($at), $at)));
+
+    expect(Markdown::comment($standing))->toContain("## mutation-gate: passed\n\nThe default branch's earlier verdict at 5eeca8f0 stands.\n")
+        ->and(Markdown::summary($standing, $run, $at))->toContain("\n\nThe default branch's earlier verdict at 5eeca8f0 stands.\n")
+        ->and(Markdown::comment($standing))->not->toContain('The project has nothing to mutate.');
 });
 
 it('writes the comment of a passing run, with the floors that can rise and a run cut short', function (): void {

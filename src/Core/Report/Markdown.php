@@ -211,7 +211,7 @@ final readonly class Markdown
                 : sprintf('## mutation-gate: %s', $verdict->judgement()->value),
             SavingsText::of($verdict, $lately),
             implode(' ', [
-                SetText::project($overview->score()),
+                SetText::project($overview->score(), $verdict->trees()->standing()),
                 ...$verdict->wasCutShort() ? [SetText::CUT_SHORT] : [],
                 ...$verdict->trees()->sample()->isDrawn() ? [SetText::SAMPLED] : [],
             ]),

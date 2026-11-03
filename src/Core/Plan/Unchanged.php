@@ -60,6 +60,12 @@ final readonly class Unchanged
         return Reason::that(sprintf($this->because->template(), $this->base->commit()->name(), $this->at->value()));
     }
 
+    /** What every report says in place of the project's score: whose verdict stands. */
+    public function headline(): string
+    {
+        return sprintf($this->because->headline(), $this->base->commit()->name());
+    }
+
     /**
      * The commit the plan was made on, recorded as passed at this instant
      * under the check the commit it stands on passed under, which is the

@@ -43,6 +43,16 @@ it('says the verdict of the commit that passed stands, why, and when it passed',
     'nothing reached' => [StandsBecause::NothingReached, 'The change since %s, whose verdict passed at 2026-10-01T12:00:00Z, reaches no unit, so its verdict stands.'],
 ]);
 
+it('says whose earlier verdict stands, naming its commit', function (StandsBecause $because, string $said) use ($instant): void {
+    $at = $instant('2026-10-01T12:00:00Z');
+
+    expect(Unchanged::standing($because, Passed::of(Revision::ref(UNCHANGED_COMMIT), 'mutation / verdict', 2)->passedAt($at), $at)->headline())
+        ->toBe(sprintf($said, UNCHANGED_COMMIT));
+})->with([
+    'nothing judged changed' => [StandsBecause::NothingJudgedChanged, 'The earlier verdict at %s stands.'],
+    'nothing reached' => [StandsBecause::NothingReached, 'The default branch\'s earlier verdict at %s stands.'],
+]);
+
 it('stands because nothing the gate judges changed, where it is made since a commit alone', function () use ($unchanged): void {
     expect($unchanged()->because())->toBe(StandsBecause::NothingJudgedChanged);
 });
