@@ -301,14 +301,16 @@ it('reaches nothing where the workflow that runs the gate changed only jobs that
         ['.github/workflows/gate.yml' => $read('before')],
     );
 
+    $reason = Reason::that(sprintf(
+        $everywhere
+            ? '`%s` decides how the gate runs, so every unit is reached.'
+            : '`%s` changed only comment lines or jobs that do not run the gate, so it reaches nothing.',
+        '.github/workflows/gate.yml',
+    ));
+
     expect($reached->reach()->isEverywhere())->toBe($everywhere)
         ->and($reached->reach()->reaches($money))->toBe($everywhere)
-        ->and($reached->reach()->reasons())->toEqual(Reasons::of(Reason::that(sprintf(
-            $everywhere
-                ? '`%s` decides how the gate runs, so every unit is reached.'
-                : '`%s` changed only comment lines or jobs that do not run the gate, so it reaches nothing.',
-            '.github/workflows/gate.yml',
-        ))));
+        ->and($reached->reach()->reasons())->toEqual(Reasons::of($everywhere ? $reason->widening() : $reason));
 })->with([
     'every gated job\'s if:, the gate job\'s among them (#524)' => ['gated-jobs-by-output', '', false],
     'a site job added, and the needs of another (#490)' => ['a-site-job', '', false],
