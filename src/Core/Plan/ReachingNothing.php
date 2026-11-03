@@ -30,7 +30,7 @@ use function sprintf;
 
 /**
  * Whether the verdict of the commit a plan that runs no unit is read since
- * stands for it (ADR-0060): the default branch's ledger records that commit
+ * stands for it (ADR-0062): the default branch's ledger records that commit
  * as passed, under the run's own check and at an instant, and holds no result
  * a later run left; what changed from it is what changed since its merge base
  * with HEAD; no path that change touched, as it is and as it was, is in a

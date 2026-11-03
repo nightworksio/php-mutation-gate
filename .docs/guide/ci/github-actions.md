@@ -334,7 +334,7 @@ names:
 - `plan`, the plan on one line;
 - `stands`, `true` where the verdict of a commit that passed stands for the
   plan, which runs nothing, and `false` elsewhere
-  ([ADR-0060](../../decisions/0060-a-change-that-reaches-no-unit-keeps-the-verdict-it-is-read-since.md)).
+  ([ADR-0062](../../decisions/0062-a-change-that-reaches-no-unit-keeps-the-verdict-it-is-read-since.md)).
   The verdict then reads no shard's result and no coverage map.
 
 An empty array skips the matrix job, and the verdict still runs. A matrix

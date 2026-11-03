@@ -1,4 +1,4 @@
-# ADR-0060: A change that reaches no unit keeps the verdict of the commit it is read since, and runs no survivors
+# ADR-0062: A change that reaches no unit keeps the verdict of the commit it is read since, and runs no survivors
 
 **Status:** Accepted
 **Date:** 2026-11-03

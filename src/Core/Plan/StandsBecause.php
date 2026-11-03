@@ -8,7 +8,7 @@ namespace NightWorksIO\MutationGate\Core\Plan;
  * Why the verdict of a commit that passed stands for a plan that runs
  * nothing, each by the key the plan file records the commit under: nothing
  * the gate judges changed since it (ADR-0005), or the change since it reaches
- * no unit and every unit carries its result from it (ADR-0060).
+ * no unit and every unit carries its result from it (ADR-0062).
  */
 enum StandsBecause: string
 {
