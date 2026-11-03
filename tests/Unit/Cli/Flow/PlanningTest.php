@@ -158,7 +158,7 @@ it('plans every unit of a full run into shards, on the commit HEAD is at', funct
         ->toBeInstanceOf(Digest::class)
         ->and($planned instanceof Plan ? $planned->considered()->changed() : $planned)->toEqual(Changes::none())
         ->and($planned instanceof Plan ? $planned->considered()->reach() : $planned)
-        ->toEqual(Reasons::of(Reason::that('A full run considers every unit.')))
+        ->toEqual(Reasons::of(Reason::that('A full run considers every unit.')->widening()))
         ->and($planned instanceof Plan ? $planned->considered()->proved() : $planned)->toEqual(Units::none())
         ->and($planned instanceof Plan ? $planned->considered()->carried() : $planned)->toEqual(Units::none());
 });

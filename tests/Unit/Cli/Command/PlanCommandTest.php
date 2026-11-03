@@ -6,11 +6,17 @@ use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
 use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Cli\Command\PlanCommand;
+use NightWorksIO\MutationGate\Core\Change\Change;
+use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
 use NightWorksIO\MutationGate\Core\Ci\JobCommands;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\Delivery\DeliveryFile;
+use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\File\Lines;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanFile;
@@ -18,7 +24,9 @@ use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Port\CiPlan;
+use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
+use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
@@ -59,6 +67,8 @@ it('writes the plan, hands it to the CI, and hands each shard its map', function
         ->and($planned->output)->toBe('')
         ->and($planned->errors)->toBe(<<<'SAID'
             Coverage: there is no kept map, so every test was measured.
+            Reach
+              No commit of this scope has passed yet, so the run considers every unit.
             Wrote .mutation-gate/plan.json, with 2 shards.
             Shard 1 (src, part 1 of 2): about 1m, guessed.
             Shard 2 (src, part 2 of 2): about 1m, guessed.
@@ -81,7 +91,7 @@ it('leaves standard output to the plan a CI reads from it, and says what it wrot
     expect($planned->code)->toBe(0)
         ->and($stdout)->not->toBe('')
         ->and(json_validate($stdout))->toBeTrue()
-        ->and($planned->errors)->toStartWith("Coverage: there is no kept map, so every test was measured.\nWrote .mutation-gate/plan.json, with 2 shards.\n");
+        ->and($planned->errors)->toStartWith("Coverage: there is no kept map, so every test was measured.\nReach\n  No commit of this scope has passed yet, so the run considers every unit.\nWrote .mutation-gate/plan.json, with 2 shards.\n");
 })->with([
     'json' => [fn(): JsonPlan => JsonPlan::in(Variables::of([]))],
     'circleci' => [fn(): CircleCiPlan => CircleCiPlan::in(Variables::of([]))],
@@ -102,7 +112,7 @@ it('says which ledger the store could not read before the lines of the plan made
 
     expect($planned->code)->toBe(0)
         ->and($planned->errors)->toStartWith(sprintf(
-            "%s\nCoverage: there is no kept map, so every test was measured.\nWrote .mutation-gate/plan.json, with 2 shards.\n",
+            "%s\nCoverage: there is no kept map, so every test was measured.\nReach\n  No commit of this scope has passed yet, so the run considers every unit.\nWrote .mutation-gate/plan.json, with 2 shards.\n",
             $unread->why(),
         ));
 });
@@ -111,7 +121,7 @@ it('cuts shards by the config\'s size where no count is asked for', function () 
     $planned = $plan(FlowCommands::project(), '', ScriptedRunner::fixture(), Flows::ci());
 
     expect($planned->code)->toBe(0)
-        ->and($planned->errors)->toStartWith("Coverage: there is no kept map, so every test was measured.\nWrote .mutation-gate/plan.json, with 1 shards.\nShard 1 (src): about");
+        ->and($planned->errors)->toStartWith("Coverage: there is no kept map, so every test was measured.\nReach\n  No commit of this scope has passed yet, so the run considers every unit.\nWrote .mutation-gate/plan.json, with 1 shards.\nShard 1 (src): about");
 });
 
 it('warns where shards.max stops the plan meeting shards.target', function () use ($plan): void {
@@ -198,7 +208,7 @@ it('says each shard pays a full opening run where Pest runs sharded without the 
     $planned = $plan(FlowCommands::project(), '--shards=2', ScriptedRunner::fixture()->likePest(), Flows::ci());
 
     expect($planned->code)->toBe(0)
-        ->and($planned->errors)->toStartWith("Coverage: there is no kept map, so every test was measured.\nWrote .mutation-gate/plan.json, with 2 shards.\n")
+        ->and($planned->errors)->toStartWith("Coverage: there is no kept map, so every test was measured.\nReach\n  No commit of this scope has passed yet, so the run considers every unit.\nWrote .mutation-gate/plan.json, with 2 shards.\n")
         ->and($planned->errors)->toEndWith($unpatched(2));
 });
 
@@ -208,7 +218,7 @@ it('says nothing of the patch where the plan has one shard, or no shard pays its
 ) use ($plan): void {
     $planned = $plan(FlowCommands::project(), sprintf('--shards=%s', $shards), $runner, Flows::ci());
 
-    expect($planned->errors)->toStartWith(sprintf("Coverage: there is no kept map, so every test was measured.\nWrote .mutation-gate/plan.json, with %s shards.\n", $shards))
+    expect($planned->errors)->toStartWith(sprintf("Coverage: there is no kept map, so every test was measured.\nReach\n  No commit of this scope has passed yet, so the run considers every unit.\nWrote .mutation-gate/plan.json, with %s shards.\n", $shards))
         ->and($planned->errors)->not->toContain('opening run under coverage');
 })->with([
     'Pest with the patch' => ['2', fn(): ScriptedRunner => ScriptedRunner::fixture()->likePatchedPest(Group::named('mutation-canary'))],
@@ -283,3 +293,39 @@ it('says what its sample drew where --sample asks, and nothing of a sample other
         ->and($sampled->errors)->toContain('--sample has nothing to sample: every tree is held to 100, or each unit it runs is known exactly.')
         ->and($whole->errors)->not->toContain('--sample');
 });
+
+it('says up front why the plan reaches what it does, what reaches every unit first, and nothing where nothing changed', function (string $changed, string $said): void {
+    $project = FlowCommands::project();
+    $now = ['src/Money.php' => "<?php\n\nfinal class Money\n{\n    public const int CENTS = 100;\n}\n", 'composer.json' => "{\"require\": {\"acme/money\": \"^1.0\"}}\n"];
+    $paths = $changed === '' ? [] : explode(' ', $changed);
+    $changes = Changes::of(...array_map(static fn(string $path): Change => Change::modified(Path::of($path), Lines::of(Line::of(4))), $paths));
+    $checkout = new ChangeSourceFake(Revision::ref('base'), $changes, [
+        Revision::workingTree()->name() => [...Flows::FILES, ...array_intersect_key($now, array_flip($paths))],
+        'base' => Flows::FILES,
+        Flows::HEAD => Flows::FILES,
+    ]);
+    $composition = FlowCommands::reading(
+        Flows::trees(),
+        $project,
+        ScriptedRunner::fixture(),
+        new ProofStoreFake(),
+        Flows::ci(),
+        Variables::of([]),
+        RepositoryFake::onMain(Revision::ref(Flows::HEAD)),
+        $checkout,
+    );
+
+    $planned = FlowCommands::run(PlanCommand::command($composition), '--changed-since=base');
+    $before = (string) strstr($planned->errors, 'Wrote .mutation-gate/plan.json', before_needle: true);
+
+    expect($planned->code)->toBe(0)
+        ->and(str_contains($before, "Reach\n"))->toBe($said !== '')
+        ->and(str_ends_with($before, $said))->toBeTrue();
+})->with([
+    'a source change' => ['src/Money.php', "Reach\n  `src/Money.php` changed, so its unit is reached.\n"],
+    'the manifest after a source change' => [
+        'src/Money.php composer.json',
+        "Reach\n  `composer.json` decides how the gate runs, so every unit is reached.\n  `src/Money.php` changed, so its unit is reached.\n",
+    ],
+    'nothing' => ['', ''],
+]);

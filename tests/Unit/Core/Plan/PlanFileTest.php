@@ -297,6 +297,22 @@ it('writes and reads back the lines a change added or modified, from the first, 
         ->and(PlanFile::decode($written))->toEqual($plan);
 });
 
+it('writes and reads back which of its reasons reach every unit of a package, and no list where none does', function (): void {
+    $plan = static fn(Reason ...$reasons): Plan => planFileEmpty()->on(RunOn::detached(Scope::branch('main')))->considering(
+        Considered::everything()->reaching(Changes::none(), Reasons::of(...$reasons)),
+    );
+    $widened = $plan(
+        Reason::that('`src/Money.php` changed, so its unit is reached.'),
+        Reason::that('`composer.json` decides how the gate runs, so every unit is reached.')->widening(),
+    );
+    $narrow = $plan(Reason::that('`src/Money.php` changed, so its unit is reached.'));
+
+    expect(PlanFile::encode($widened))->toContain("\"widening\": [\n        1\n    ]")
+        ->and(PlanFile::decode(PlanFile::encode($widened)))->toEqual($widened)
+        ->and(PlanFile::encode($narrow))->not->toContain('"widening"')
+        ->and(PlanFile::decode(PlanFile::encode($narrow)))->toEqual($narrow);
+});
+
 it('writes and reads back the changed lines no test runs within its digest, and nothing where there are none', function (): void {
     $considered = Considered::everything()->reaching(
         Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(3), Line::of(4)))),

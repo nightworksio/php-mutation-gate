@@ -26,3 +26,10 @@ it('leaves the decisions it came from as they were', function (): void {
 
     expect($reasons)->toHaveCount(0);
 });
+
+it('puts the decisions that reach every unit of a package first, each part in the order it was made', function (): void {
+    $reasons = Reasons::of(Reason::that('a'), Reason::that('b')->widening(), Reason::that('c'), Reason::that('d')->widening());
+
+    expect(array_map(static fn(Reason $reason): string => $reason->text(), [...$reasons->wideningFirst()]))->toBe(['b', 'd', 'a', 'c'])
+        ->and(array_map(static fn(Reason $reason): string => $reason->text(), [...$reasons]))->toBe(['a', 'b', 'c', 'd']);
+});

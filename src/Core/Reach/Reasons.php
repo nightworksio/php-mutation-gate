@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Reach;
 
+use function array_filter;
 use function array_values;
 
 use ArrayIterator;
@@ -34,6 +35,15 @@ final readonly class Reasons implements Countable, IteratorAggregate
     public function with(Reason $reason): self
     {
         return new self([...$this->reasons, $reason]);
+    }
+
+    /** These, the ones that reach every unit of a package first, each part in the order it was made. */
+    public function wideningFirst(): self
+    {
+        return new self([
+            ...array_filter($this->reasons, static fn(Reason $reason): bool => $reason->widens()),
+            ...array_filter($this->reasons, static fn(Reason $reason): bool => ! $reason->widens()),
+        ]);
     }
 
     public function count(): int

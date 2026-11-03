@@ -55,7 +55,7 @@ final readonly class Reach
             files: $this->files,
             trees: $this->trees,
             lines: $this->lines,
-            reasons: $this->reasons->with($reason),
+            reasons: $this->reasons->with($reason->widening()),
         );
     }
 
@@ -69,7 +69,7 @@ final readonly class Reach
             $this->files,
             $this->trees,
             $this->lines,
-            $this->reasons->with($reason),
+            $this->reasons->with($reason->widening()),
         );
     }
 
