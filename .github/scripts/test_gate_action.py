@@ -343,6 +343,32 @@ class Stale(unittest.TestCase):
         self.assertIn("the result attempt 1 wrote is not judged", why)
 
 
+class Keep(unittest.TestCase):
+    def test_keys_the_kept_files_by_the_scope_s_prefix_and_their_digest_and_names_none_where_none_is_kept(self):
+        kept = {"ledger.json.gz": b"ledger", "coverage.json.gz": b"map"}
+
+        self.assertEqual("", action.kept_key("p-", {}))
+        self.assertTrue(action.kept_key("p-", kept).startswith("p-"))
+        self.assertEqual(action.kept_key("p-", kept), action.kept_key("p-", dict(reversed(list(kept.items())))))
+        self.assertNotEqual(action.kept_key("p-", kept), action.kept_key("p-", {**kept, "coverage.json.gz": b"other"}))
+        self.assertNotEqual(action.kept_key("p-", kept), action.kept_key("p-", {"ledger.json.gz": b"ledger"}))
+
+    def test_copies_what_the_verdict_left_into_the_scope_s_directory_and_names_its_key(self):
+        with tempfile.TemporaryDirectory() as root:
+            source, own, output = os.path.join(root, "verdict"), os.path.join(root, "ledger", "refs", "heads", "main"), os.path.join(root, "output")
+            os.makedirs(source)
+            for name, body in (("ledger.json.gz", b"ledger"), ("delivery.json", b"{}")):
+                with open(os.path.join(source, name), "wb") as file:
+                    file.write(body)
+            environment = {**os.environ, "FROM": source, "OWN": own, "PREFIX": "p-", "GITHUB_OUTPUT": output}
+            subprocess.run([sys.executable, action.__file__, "keep"], env=environment, check=True)
+            with open(output, encoding="utf-8") as file:
+                said = file.read()
+
+            self.assertEqual(["ledger.json.gz"], sorted(os.listdir(own)))
+            self.assertEqual(f"key={action.kept_key('p-', {'ledger.json.gz': b'ledger'})}\n", said)
+
+
 class WorkflowCommand(unittest.TestCase):
     def test_escapes_what_a_workflow_command_reads_as_its_end(self):
         self.assertEqual(action.command_text("50% done\r\nnext"), "50%25 done%0D%0Anext")

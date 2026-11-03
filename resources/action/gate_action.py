@@ -25,6 +25,11 @@ Usage:
                            removes each shard's result an earlier attempt wrote
                            than its job's latest run, saying so, and every
                            attempt file beside the results
+  gate_action.py keep      copies the ledger and the coverage map the verdict
+                           left in FROM into OWN, the scope's directory the
+                           Actions cache keeps, and names the `key` they are
+                           saved under, PREFIX and their digest; none where
+                           FROM holds neither
 
 Every subcommand reads GitHub's environment and writes `key=value` lines to
 $GITHUB_OUTPUT, or refuses with exit code 2 and says why; `doomed` exits 1
@@ -38,6 +43,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -71,6 +77,10 @@ KEY = "mutation-gate-ledger-"
 
 # The copy of a ledger proofs.copies chooses where a config names none (ADR-0061).
 NEWEST = "newest"
+
+# What the verdict leaves of a scope for the Actions cache to keep: its ledger
+# and its kept coverage map, by the names the directory store reads.
+KEPT = frozenset({"ledger.json.gz", "coverage.json.gz"})
 
 GATE = "nightworksio/mutation-gate"
 
@@ -251,6 +261,16 @@ def ledgers(event: str, ref: str, payload: dict, default_branch: str, cache: boo
         "default_prefix": cache_prefix(default) if restores_default else "",
         "save": "true" if kept and event in TRUSTED | {"pull_request"} else "false",
     }
+
+
+def kept_key(prefix: str, kept: dict[str, bytes]) -> str:
+    """The cache key a scope's kept files are saved under: its prefix and their digest; none where none is kept."""
+    if not kept:
+        return ""
+    digest = hashlib.sha256()
+    for name in sorted(kept):
+        digest.update(name.encode() + b"\0" + hashlib.sha256(kept[name]).digest())
+    return prefix + digest.hexdigest()
 
 
 def binary(root_manifest: dict) -> str:
@@ -484,6 +504,7 @@ def main(argv: list[str]) -> int:
         "config": _config,
         "infection": _infection,
         "outputs": _outputs,
+        "keep": _keep,
     }
     if len(argv) == 2 and argv[1] == "doomed":
         return _doomed()
@@ -622,6 +643,18 @@ def _stale() -> int:
         if name.endswith(ATTEMPT):
             os.remove(os.path.join(results, name))
     return 0
+
+
+def _keep() -> dict[str, str]:
+    source, own = os.environ["FROM"], os.environ["OWN"]
+    os.makedirs(own, exist_ok=True)
+    kept = {}
+    for name in KEPT:
+        if os.path.isfile(os.path.join(source, name)):
+            shutil.copyfile(os.path.join(source, name), os.path.join(own, name))
+            with open(os.path.join(own, name), "rb") as file:
+                kept[name] = file.read()
+    return {"key": kept_key(os.environ["PREFIX"], kept)}
 
 
 def _attempt(path: str) -> int:

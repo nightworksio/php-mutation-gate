@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Plan\DoomedRecord;
 use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
+use NightWorksIO\MutationGate\Core\Proof\Companion;
+use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
@@ -71,6 +73,10 @@ function sortedCopy(array $values): array
 
 it('keeps the ledger where the directory store keeps it by default', function (): void {
     expect(scriptText('LEDGERS'))->toBe(Workspace::ledger()->value());
+});
+
+it('keeps the files of a scope the directory store reads, by the names it reads them by', function (): void {
+    expect(scriptSet('KEPT'))->toBe(sortedCopy([LedgerFile::NAME, Companion::Coverage->value]));
 });
 
 it('reads the copy of a ledger the gate reads where a config names none', function (): void {

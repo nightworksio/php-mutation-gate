@@ -139,12 +139,10 @@ env:
   # The branch the publish job writes the badge and the trend to, and the
   # verdict reads the last trend from.
   PUBLISHED: mutation-gate
-  # Where the directory store keeps every scope's ledger, which the Actions
-  # cache holds, and the plan and the verdict read it from there.
+  # Where the directory store keeps every scope's ledger: the Actions cache.
   LEDGERS: .mutation-gate/ledger
-  # Where fetch writes the store's copy of the default branch's ledger. The
-  # plan and the verdict read it beside the cache's copy, and proofs.copies
-  # chooses between the two (ADR-0061).
+  # Where fetch writes the store's copy of the default branch's ledger, which
+  # the gate reads beside the cache's, as proofs.copies says (ADR-0061).
   FETCHED: .mutation-gate/fetched
   # Where a run of the project's code leaves what deliver sends, a directory
   # for each command that leaves some: planned, survivors and verdict.
@@ -313,9 +311,7 @@ jobs:
           path: ${{ steps.resolve.outputs.default_dir }}
           key: ${{ steps.resolve.outputs.default_prefix }}${{ github.run_id }}
           restore-keys: ${{ steps.resolve.outputs.default_prefix }}
-      # The store's copy of the ledger fetch read, at refs/heads/<default
-      # branch>/ under its own directory, where it wrote one. The gate reads it
-      # beside the cache's copy, as proofs.copies says.
+      # The store's copy of the ledger fetch read, where it wrote one.
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: mutation-gate-fetched-${{ needs.fetch.outputs.attempt }}
@@ -661,8 +657,6 @@ jobs:
       scores: ${{ steps.outputs.outputs.scores }}
       delivery: ${{ steps.delivery.outputs.left }}
       attempt: ${{ github.run_attempt }}
-      # With proofs.copies `together`, the default branch's own run leaves its
-      # ledger for deliver to keep in the cache once the store holds it.
       kept-after-store: ${{ steps.resolve.outputs.save == 'true' && steps.config.outputs.default_store == 'true' && steps.config.outputs.copies == 'together' && vars.MUTATION_GATE_STORE != '' && steps.resolve.outputs.default_dir == '' && steps.verdict.outputs.code != '' }}
       ledger-dir: ${{ steps.resolve.outputs.own_dir }}
       ledger-prefix: ${{ steps.resolve.outputs.own_prefix }}
@@ -810,35 +804,19 @@ jobs:
       # The verdict leaves this scope's ledger and kept coverage map in its
       # delivery; the directory store is this cache, which needs no key, so
       # they are kept here for this scope's ref alone (ADR-0007). This job is
-      # their one saver, and saves no key the restore already matched, unless
-      # proofs.copies is `together` and deliver keeps them once the store holds
-      # them (ADR-0061).
-      - name: Keep what the verdict left for this scope
+      # their one saver, but for `together` (ADR-0061), and saves no key the
+      # restore already matched.
+      - name: Keep this scope's ledger
         if: >-
           steps.resolve.outputs.save == 'true' && steps.config.outputs.default_store == 'true'
           && steps.verdict.outputs.code != ''
           && !(steps.config.outputs.copies == 'together' && vars.MUTATION_GATE_STORE != '' && steps.resolve.outputs.default_dir == '')
-        env:
-          OWN: ${{ steps.resolve.outputs.own_dir }}
-        run: |
-          set -euo pipefail
-          mkdir -p "${OWN}"
-          for file in ledger.json.gz coverage.json.gz; do
-            if [ -f "${DELIVERY}/verdict/${file}" ]; then
-              cp "${DELIVERY}/verdict/${file}" "${OWN}/${file}"
-            fi
-          done
-      - name: Save this scope's ledger
-        if: >-
-          steps.resolve.outputs.save == 'true' && steps.config.outputs.default_store == 'true'
-          && steps.verdict.outputs.code != ''
-          && !(steps.config.outputs.copies == 'together' && vars.MUTATION_GATE_STORE != '' && steps.resolve.outputs.default_dir == '')
-          && hashFiles(format('{0}/ledger.json.gz', steps.resolve.outputs.own_dir), format('{0}/coverage.json.gz', steps.resolve.outputs.own_dir)) != ''
-          && format('{0}{1}', steps.resolve.outputs.own_prefix, hashFiles(format('{0}/ledger.json.gz', steps.resolve.outputs.own_dir), format('{0}/coverage.json.gz', steps.resolve.outputs.own_dir))) != steps.own.outputs.cache-matched-key
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: ./.mutation-gate/workflow/resources/action/keep # zizmor: ignore[self-repository]
         with:
-          path: ${{ steps.resolve.outputs.own_dir }}
-          key: ${{ steps.resolve.outputs.own_prefix }}${{ hashFiles(format('{0}/ledger.json.gz', steps.resolve.outputs.own_dir), format('{0}/coverage.json.gz', steps.resolve.outputs.own_dir)) }}
+          from: ${{ env.DELIVERY }}/verdict
+          directory: ${{ steps.resolve.outputs.own_dir }}
+          prefix: ${{ steps.resolve.outputs.own_prefix }}
+          matched: ${{ steps.own.outputs.cache-matched-key }}
       - name: Say what the gate decided
         id: outputs
         env:
@@ -981,28 +959,14 @@ jobs:
           MUTATION_GATE_GCS_SERVICE_ACCOUNT: ${{ vars.MUTATION_GATE_GCS_SERVICE_ACCOUNT }}
         run: php "${GATE_ACTION}/bin/mutation-gate" deliver --from="${DELIVERY}/verdict"
       # With proofs.copies `together`, the cache keeps the default branch's
-      # ledger only once the store holds it, so the two move together
-      # (ADR-0061). This step runs none of the project's code.
+      # ledger once the store holds it, so the two move together (ADR-0061).
       - name: Keep the ledger the store now holds
         if: needs.verdict.outputs.kept-after-store == 'true' && steps.deliver.outcome == 'success'
-        env:
-          OWN: ${{ needs.verdict.outputs.ledger-dir }}
-        run: |
-          set -euo pipefail
-          mkdir -p "${OWN}"
-          for file in ledger.json.gz coverage.json.gz; do
-            if [ -f "${DELIVERY}/verdict/${file}" ]; then
-              cp "${DELIVERY}/verdict/${file}" "${OWN}/${file}"
-            fi
-          done
-      - name: Save the ledger the store now holds
-        if: >-
-          needs.verdict.outputs.kept-after-store == 'true' && steps.deliver.outcome == 'success'
-          && hashFiles(format('{0}/ledger.json.gz', needs.verdict.outputs.ledger-dir), format('{0}/coverage.json.gz', needs.verdict.outputs.ledger-dir)) != ''
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: ./.mutation-gate/workflow/resources/action/keep # zizmor: ignore[self-repository]
         with:
-          path: ${{ needs.verdict.outputs.ledger-dir }}
-          key: ${{ needs.verdict.outputs.ledger-prefix }}${{ hashFiles(format('{0}/ledger.json.gz', needs.verdict.outputs.ledger-dir), format('{0}/coverage.json.gz', needs.verdict.outputs.ledger-dir)) }}
+          from: ${{ env.DELIVERY }}/verdict
+          directory: ${{ needs.verdict.outputs.ledger-dir }}
+          prefix: ${{ needs.verdict.outputs.ledger-prefix }}
 
   # The badge and the trend, pushed through the contents API to the branch
   # `mutation-gate` with this job's own token, so GitHub signs each commit. It

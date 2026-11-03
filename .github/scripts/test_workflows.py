@@ -340,9 +340,13 @@ def jobs(path: str) -> dict[str, list[str]]:
     return {name: job(path, name) for name in ids}
 
 
+# A step that runs the action itself, from the workflow's own checkout.
+RUNS_THE_ACTION = re.compile(r"uses: \./\.mutation-gate/workflow(\s|$)")
+
+
 def runs_project_code(lines: list[str]) -> bool:
     """Whether a job installs the project's dependencies, or runs the action, which does."""
-    return any("ramsey/composer-install@" in line or "uses: ./.mutation-gate/workflow" in line for line in lines)
+    return any("ramsey/composer-install@" in line or RUNS_THE_ACTION.search(line) for line in lines)
 
 
 # A variable that holds a credential, or a location a credential is sent to.

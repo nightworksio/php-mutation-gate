@@ -312,11 +312,12 @@ it('restores PHPStan\'s result cache in every run but a delivery\'s, and keeps t
 });
 
 it('caches the ledger and the kept coverage map the verdict left, keyed by both, in the action and the reusable workflow', function (): void {
-    $saving = static fn(Node $steps): Node => Lenient::items($steps)[array_values(array_diff(
+    $steps = WorkflowFile::at('action.yml')->field('runs')->field('steps');
+    $saving = Lenient::items($steps)[array_values(array_diff(
         WorkflowFile::stepsWhere($steps, 'uses', static fn(string $uses): bool => str_starts_with($uses, 'actions/cache/save@')),
         WorkflowFile::stepsWhere($steps, 'name', static fn(string $name): bool => $name === 'Save the static analyser\'s result cache'),
     ))[0]];
-    $keeping = static fn(Node $steps): string => Lenient::text(Lenient::items($steps)[WorkflowFile::stepsWhere(
+    $keeping = Lenient::text(Lenient::items($steps)[WorkflowFile::stepsWhere(
         $steps,
         'name',
         static fn(string $name): bool => $name === 'Keep what the verdict left for this scope',
@@ -326,13 +327,26 @@ it('caches the ledger and the kept coverage map the verdict left, keyed by both,
         LedgerFile::NAME,
         Companion::Coverage->value,
     );
-    $files = sprintf('for file in %s %s; do', LedgerFile::NAME, Companion::Coverage->value);
+    $reusable = WorkflowFile::at(REUSABLE)->field('jobs');
+    $kept = [];
 
-    foreach ([WorkflowFile::at('action.yml')->field('runs')->field('steps'), WorkflowFile::at(REUSABLE)->field('jobs')->field('verdict')->field('steps')] as $steps) {
-        expect(Lenient::text($saving($steps)->field('with')->field('key')))->toContain($both)
-            ->and(Lenient::text($saving($steps)->field('if')))->toContain(sprintf('%s != \'\'', $both))
-            ->and($keeping($steps))->toContain($files);
+    foreach (['verdict', 'deliver'] as $job) {
+        $jobSteps = $reusable->field($job)->field('steps');
+
+        foreach (WorkflowFile::stepsWhere($jobSteps, 'uses', static fn(string $uses): bool => str_starts_with($uses, './.mutation-gate/workflow/resources/action/keep')) as $at) {
+            $kept[] = [$job, Lenient::text(Lenient::items($jobSteps)[$at]->field('with')->field('from'))];
+        }
     }
+
+    $composite = Lenient::items(WorkflowFile::at('resources/action/keep/action.yml')->field('runs')->field('steps'));
+
+    expect(Lenient::text($saving->field('with')->field('key')))->toContain($both)
+        ->and(Lenient::text($saving->field('if')))->toContain(sprintf('%s != \'\'', $both))
+        ->and($keeping)->toContain(sprintf('for file in %s %s; do', LedgerFile::NAME, Companion::Coverage->value))
+        ->and($kept)->toBe([['verdict', '${{ env.DELIVERY }}/verdict'], ['deliver', '${{ env.DELIVERY }}/verdict']])
+        ->and(Lenient::text($composite[0]->field('run')))->toBe('python3 "${GITHUB_ACTION_PATH}/../gate_action.py" keep')
+        ->and(Lenient::text($composite[1]->field('uses')))->toStartWith('actions/cache/save@')
+        ->and(Lenient::text($composite[1]->field('with')->field('key')))->toBe('${{ steps.keep.outputs.key }}');
 });
 
 it('lets only fetch and deliver ask for an OIDC token, with Azure\'s and GCS\'s federation from the repository\'s variables', function (): void {
