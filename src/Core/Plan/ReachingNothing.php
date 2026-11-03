@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Core\Plan;
 
 use function array_any;
 use function array_unique;
-use function array_values;
 
 use DateTimeImmutable;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
@@ -196,7 +195,7 @@ final readonly class ReachingNothing
             $paths = [...$paths, ...$this->bothOf($change)];
         }
 
-        $paths = array_values(array_unique($paths));
+        $paths = array_unique($paths);
         sort($paths);
 
         return $paths;
