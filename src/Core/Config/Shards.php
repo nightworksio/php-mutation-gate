@@ -21,11 +21,14 @@ use function sprintf;
  */
 final readonly class Shards implements Part
 {
-    /** The seconds of work one shard is cut to, and the most shards a plan cuts. */
+    /** The seconds of work one shard is cut to, where the config does not say. */
     private const int SECONDS = 600;
 
+    /** The most shards a plan cuts, where the config does not say. */
     private const int MOST = 20;
 
+    /** The minutes each shard's CI setup takes before the gate starts, where the config does not say. */
+    private const int SETUP_MINUTES = 1;
 
     private function __construct(
         private Seconds|Absent $seconds,
@@ -40,7 +43,7 @@ final readonly class Shards implements Part
     /** `shards.setup`: each shard's CI setup before the gate starts, which the gate cannot time (ADR-0013). */
     public function setup(): Seconds
     {
-        return $this->setup instanceof Seconds ? $this->setup : Seconds::minutes(1);
+        return $this->setup instanceof Seconds ? $this->setup : Seconds::minutes(self::SETUP_MINUTES);
     }
 
     public static function of(
