@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -201,16 +202,21 @@ it('marks the decisions that reach every unit, of every package or of some, as w
         ->toBe([['nothing', false], ['a file', false], ['a package', true], ['everything', true]]);
 });
 
-it('reaches what either reach reaches, saying the other\'s reasons as it is told, with the changed lines of the first alone', function () use ($nothing, $said, $makeMoney): void {
+it('reaches what it reaches and what the default branch changed since its ledger reaches, saying which is which, with its own changed lines alone', function () use ($nothing, $said, $makeMoney): void {
     $first = $nothing()->files(Paths::of(Path::of('src/Money.php')), Reason::that('Money changed.'))->withLines(Path::of('src/Money.php'), Lines::of(Line::of(3)));
     $second = $nothing()
         ->files(Paths::of(Path::of('src/Held.php')), Reason::that('Held changed.'))
         ->withLines(Path::of('src/Held.php'), Lines::of(Line::of(4)))
         ->trees(Paths::of(Path::of('src/Tax')), Reason::that('Tax changed.'))
         ->wholly(Paths::of($makeMoney()->path()), Reason::that('The money package changed.'));
-    $both = $first->and($second, 'Since then: %s');
+    $both = $first->andSinceLedger($second, Revision::ref('1edcafe'));
 
-    expect($said($both))->toBe(['Money changed.', 'Since then: Held changed.', 'Since then: Tax changed.', 'Since then: The money package changed.'])
+    expect($said($both))->toBe([
+        'Money changed.',
+        'On the default branch since its ledger last passed, at 1edcafe: Held changed.',
+        'On the default branch since its ledger last passed, at 1edcafe: Tax changed.',
+        'On the default branch since its ledger last passed, at 1edcafe: The money package changed.',
+    ])
         ->and($both->reaches(Unit::file(Path::of('src/Money.php'))))->toBeTrue()
         ->and($both->reaches(Unit::file(Path::of('src/Held.php'))))->toBeTrue()
         ->and($both->reaches(Unit::file(Path::of('src/Tax/Rate.php'))))->toBeTrue()
@@ -219,6 +225,6 @@ it('reaches what either reach reaches, saying the other\'s reasons as it is told
         ->and($both->isEverywhere())->toBeFalse()
         ->and($both->changedLines(Path::of('src/Money.php')))->toEqual(Lines::of(Line::of(3)))
         ->and($both->changedLines(Path::of('src/Held.php')))->toEqual(Lines::none())
-        ->and($first->and($nothing()->everywhere(Reason::that('Everything.')), '%s')->isEverywhere())->toBeTrue()
-        ->and($nothing()->everywhere(Reason::that('Everything.'))->and($first, '%s')->isEverywhere())->toBeTrue();
+        ->and($first->andSinceLedger($nothing()->everywhere(Reason::that('Everything.')), Revision::ref('1edcafe'))->isEverywhere())->toBeTrue()
+        ->and($nothing()->everywhere(Reason::that('Everything.'))->andSinceLedger($first, Revision::ref('1edcafe'))->isEverywhere())->toBeTrue();
 });

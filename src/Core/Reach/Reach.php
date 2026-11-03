@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Reach;
 
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -21,6 +22,8 @@ use function sprintf;
  */
 final readonly class Reach
 {
+    private const string SINCE_LEDGER = 'On the default branch since its ledger last passed, at %s: %s';
+
     /** @param ByPath<Lines> $lines the changed lines of each source file */
     private function __construct(
         private Packages $packages,
@@ -118,23 +121,24 @@ final readonly class Reach
     }
 
     /**
-     * This reach, and what another reaches, with each of its reasons after
-     * this one's, said as this format says it; the changed lines this one's.
+     * This reach, and what the default branch changed since the commit its
+     * ledger last passed at reaches, each of those reasons after this one's,
+     * saying so; the changed lines this one's alone (ADR-0060).
      */
-    public function and(self $other, string $saying): self
+    public function andSinceLedger(self $sinceLedger, Revision $ledger): self
     {
         $reasons = $this->reasons;
 
-        foreach ($other->reasons as $reason) {
-            $reasons = $reasons->with(Reason::that(sprintf($saying, $reason->text())));
+        foreach ($sinceLedger->reasons as $reason) {
+            $reasons = $reasons->with(Reason::that(sprintf(self::SINCE_LEDGER, $ledger->name(), $reason->text())));
         }
 
         return new self(
             $this->packages,
-            $this->everywhere || $other->everywhere,
-            Paths::of(...$this->wholly, ...$other->wholly),
-            $this->files->and($other->files->paths()),
-            $this->trees->and($other->trees->paths()),
+            $this->everywhere || $sinceLedger->everywhere,
+            Paths::of(...$this->wholly, ...$sinceLedger->wholly),
+            $this->files->and($sinceLedger->files->paths()),
+            $this->trees->and($sinceLedger->trees->paths()),
             $this->lines,
             $reasons,
         );

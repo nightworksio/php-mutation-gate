@@ -26,8 +26,6 @@ use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Sources;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 
-use function sprintf;
-
 /**
  * What a run reaches: every unit for a full run, and otherwise what the
  * change since its base reaches, by the rules of ADR-0005, with the lines
@@ -42,8 +40,6 @@ use function sprintf;
  */
 final readonly class Reached
 {
-    private const string SINCE_LEDGER = 'On the default branch since its ledger last passed, at %s: %%s';
-
     private function __construct(private Reach $reach, private Changes|CannotTell $changed, private Paths $ownOnly)
     {
     }
@@ -85,13 +81,13 @@ final readonly class Reached
             : Changes::none();
 
         return new self(
-            $reach->and(
+            $reach->andSinceLedger(
                 $reaching->of(
                     $sinceLedger,
                     $judges,
                     self::sources($sinceLedger, $ledger, $adapters, $suite->sources(), $config, $manifests),
                 ),
-                sprintf(self::SINCE_LEDGER, $ledger->name()),
+                $ledger,
             ),
             $sinceRef instanceof Changes ? self::withLines($sinceRef) : $sinceRef,
             is_array($fromRun) ? self::pathsOf($sinceRef) : Paths::none(),
