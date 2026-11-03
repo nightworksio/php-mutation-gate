@@ -27,9 +27,10 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * `mutation-gate fetch [--to=<dir>]`: reads the default branch's ledger from the proof store its own environment
- * locates, with a key that only needs to read, and writes it into `.mutation-gate/fetched`, or the directory
- * `--to` names, where a run reads it beside the copy it keeps, as `proofs.copies` says, so the jobs that run the
- * project's code hold no credential (ADR-0007). It runs from the gate's own installation with no config read, as
+ * locates, with a key that only needs to read, and writes it into `.mutation-gate/fetched`, where a run reads it
+ * beside the copy it keeps, as `proofs.copies` says, so the jobs that run the project's code hold no credential
+ * (ADR-0007). Into the directory `--to` names, a run reads it only where that is the directory store's path, and
+ * then as the copy it keeps. It runs from the gate's own installation with no config read, as
  * `deliver` does, reads no scope but the default branch's, and writes nothing to the store. A ledger it cannot
  * read costs a run, never a verdict, so it says why and passes, as it does where no store is named; a store it
  * cannot locate, a default branch nothing names, or a ledger it cannot write where it was asked to, cannot be

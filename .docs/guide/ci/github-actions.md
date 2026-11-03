@@ -505,6 +505,6 @@ a run cancelled in between leaves the cache's copy the newer.
 
 | `proofs.copies` | The run reads |
 |-----------------|---------------|
-| `newest` | the copy with the later record, and the store's where neither is later |
-| `together` | the store's copy; the verdict saves no copy of the default branch's ledger in the cache, and `deliver` saves the one it wrote to the store, so the two copies move together |
-| `merged` | both copies as one: every proof either holds, and the later copy's runs |
+| `newest` | the copy with the later record, and the store's where neither is later; for most projects |
+| `together` | the store's copy; the verdict saves no copy of the default branch's ledger in the cache, and `deliver` saves the one it wrote to the store, so the two copies move together; where the cache must never get ahead of the store, as where a fork's run reads it through `publicUrl`, or another system reads it |
+| `merged` | both copies as one: every proof either holds, and the later copy's runs; where each copy can hold proofs the other lacks, as where another pipeline also writes the store |

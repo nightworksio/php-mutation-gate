@@ -12,8 +12,10 @@ Usage:
                            `plan_options` adds the mode's to `options`
   gate_action.py config    from the effective config on stdin: whether it keeps
                            its ledger in the default directory, which copy of a
-                           ledger it reads, whether it runs Pest with the
-                           optional patches, and whether it runs Infection
+                           ledger it reads, whether deliver keeps the ledger in
+                           the cache after the store, from STORE and ON_DEFAULT,
+                           whether it runs Pest with the optional patches, and
+                           whether it runs Infection
   gate_action.py infection what `infection:patch` exited with, CODE, and said,
                            in the file SAID: a warning where the release runs
                            unpatched, a refusal where it could not be patched
@@ -75,8 +77,10 @@ LEDGERS = ".mutation-gate/ledger"
 
 KEY = "mutation-gate-ledger-"
 
-# The copy of a ledger proofs.copies chooses where a config names none (ADR-0061).
+# The copy of a ledger proofs.copies chooses where a config names none, and the
+# one whose cache copy the deliver job keeps after the store (ADR-0061).
 NEWEST = "newest"
+TOGETHER = "together"
 
 # What the verdict leaves of a scope for the Actions cache to keep: its ledger
 # and its kept coverage map, by the names the directory store reads.
@@ -384,6 +388,12 @@ def copies(config: dict) -> str:
     return (config.get("proofs") or {}).get("copies") or NEWEST
 
 
+def keeps_after_store(chosen: str, store: str, on_default_branch: bool) -> bool:
+    """Whether the deliver job, not the verdict, keeps the scope's ledger in the cache, once it wrote the store's:
+    for `together`, where a store is named, on the default branch, the one scope deliver writes the store of."""
+    return chosen == TOGETHER and store != "" and on_default_branch
+
+
 def patches_pest(config: dict) -> bool:
     """Whether the effective config runs Pest with the optional patches on (ADR-0004).
 
@@ -600,6 +610,9 @@ def _config() -> dict[str, str]:
     return {
         "default_store": "true" if kept else "false",
         "copies": copies(config),
+        "after_store": "true"
+        if keeps_after_store(copies(config), os.environ.get("STORE", ""), os.environ.get("ON_DEFAULT") == "true")
+        else "false",
         "pest_patch": "true" if patches_pest(config) else "false",
         "infection_patch": "true" if patches_infection(config) else "false",
     }

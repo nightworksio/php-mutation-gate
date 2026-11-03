@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Plan\DoomedRecord;
 use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
+use NightWorksIO\MutationGate\Core\Proof\Copies;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
@@ -80,7 +81,8 @@ it('keeps the files of a scope the directory store reads, by the names it reads 
 });
 
 it('reads the copy of a ledger the gate reads where a config names none', function (): void {
-    expect(scriptText('NEWEST'))->toBe(Proofs::none()->copies()->value);
+    expect(scriptText('NEWEST'))->toBe(Proofs::none()->copies()->value)
+        ->and(scriptText('TOGETHER'))->toBe(Copies::Together->value);
 });
 
 it('reads the installed gate\'s version where the gate reads what Composer installed', function (): void {
@@ -170,5 +172,5 @@ it('reads this package\'s effective config as the gate prints it: the ledger in 
     $variables = ['GITHUB_OUTPUT' => $output, 'CACHE' => 'true'];
     new Process(['python3', 'resources/action/gate_action.py', 'config'], Tree::root(), $variables, $shown->getOutput())->mustRun();
 
-    expect((string) file_get_contents($output))->toBe("default_store=true\ncopies=newest\npest_patch=true\ninfection_patch=false\n");
+    expect((string) file_get_contents($output))->toBe("default_store=true\ncopies=newest\nafter_store=false\npest_patch=true\ninfection_patch=false\n");
 });

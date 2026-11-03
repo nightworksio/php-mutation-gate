@@ -254,6 +254,13 @@ class Installed(unittest.TestCase):
         self.assertEqual(action.copies({"proofs": {"copies": "together"}}), "together")
         self.assertEqual(action.copies({"proofs": {"copies": "merged"}}), "merged")
 
+    def test_has_deliver_keep_the_ledger_after_the_store_only_for_together_with_a_store_on_the_default_branch(self):
+        self.assertTrue(action.keeps_after_store("together", "s3", True))
+        self.assertFalse(action.keeps_after_store("together", "", True))
+        self.assertFalse(action.keeps_after_store("together", "s3", False))
+        self.assertFalse(action.keeps_after_store("newest", "s3", True))
+        self.assertFalse(action.keeps_after_store("merged", "s3", True))
+
 
 class PestPatch(unittest.TestCase):
     def test_patches_where_the_config_runs_pest_with_the_patches_on(self):
