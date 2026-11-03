@@ -112,7 +112,7 @@ it('says which ledger the store could not read before the lines of the plan made
 
     expect($planned->code)->toBe(0)
         ->and($planned->errors)->toStartWith(sprintf(
-            "%s\nCoverage: there is no kept map, so every test was measured.\nWrote .mutation-gate/plan.json, with 2 shards.\n",
+            "%s\nCoverage: there is no kept map, so every test was measured.\nReach\n  No commit of this scope has passed yet, so the run considers every unit.\nWrote .mutation-gate/plan.json, with 2 shards.\n",
             $unread->why(),
         ));
 });
