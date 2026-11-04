@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Verdict;
 
+use function in_array;
+
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 
@@ -88,6 +90,12 @@ enum MutantJudgement: string
             self::Equivalent,
             self::FailsUnmutated => false,
         };
+    }
+
+    /** Whether an ignore left it out: an entry in the ignore list, the runner's marker, or proof it is equivalent. */
+    public function isIgnored(): bool
+    {
+        return in_array($this, [self::Ignored, self::IgnoredByMarker, self::Equivalent], strict: true);
     }
 
     /** How a mutant judged so enters the score, with uncovered mutants counted or excluded. */

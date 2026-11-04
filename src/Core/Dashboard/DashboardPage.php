@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Http\Origin;
 use NightWorksIO\MutationGate\Core\Report\Page\Html;
 use NightWorksIO\MutationGate\Core\Report\Percent;
 use NightWorksIO\MutationGate\Core\Report\TrendSvg;
+use NightWorksIO\MutationGate\Core\Score\Percentage;
 use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -60,9 +61,7 @@ final readonly class DashboardPage
         <th scope="col" data-sort="text">Latest verdict</th>
         </tr>
         </thead>
-        <tbody>
         %4$s
-        </tbody>
         </table>
         </main>
         <script>%5$s</script>
@@ -74,6 +73,7 @@ final readonly class DashboardPage
     private const string LEAD = '%d %s, as of %s.';
 
     private const string ROW = <<<'HTML'
+        <tbody>
         <tr>
         <th scope="row" data-value="%1$s">%2$s</th>
         <td data-value="%3$s" class="verdict %3$s">%3$s</td>
@@ -83,14 +83,42 @@ final readonly class DashboardPage
         <td data-value="%9$s">%10$s</td>
         <td data-value="%11$s">%11$s</td>
         </tr>
+        %12$s</tbody>
         HTML;
 
     private const string UNPUBLISHED = <<<'HTML'
+        <tbody>
         <tr class="unpublished">
         <th scope="row" data-value="%1$s">%2$s</th>
         <td colspan="6" data-value="">%3$s</td>
         </tr>
+        </tbody>
         HTML;
+
+    /** The costliest mutators a repository named, collapsed under its row (ADR-0076). */
+    private const string MUTATORS = <<<'HTML'
+        <tr class="mutators">
+        <td colspan="7"><details><summary>Costliest mutators</summary>
+        <table>
+        <thead>
+        <tr>
+        <th scope="col">Runner</th>
+        <th scope="col">Mutator</th>
+        <th scope="col">Time</th>
+        <th scope="col">Kill rate</th>
+        <th scope="col">Survivors</th>
+        </tr>
+        </thead>
+        <tbody>
+        %s
+        </tbody>
+        </table>
+        </details></td>
+        </tr>
+
+        HTML;
+
+    private const string MUTATOR = '<tr><td>%s</td><td><code>%s</code></td><td>%s</td><td>%s</td><td>%d</td></tr>';
 
     /** What the page may load and run: its own style and script, by their hashes, and nothing else. */
     private const string POLICY = "default-src 'none'; style-src '%s'; script-src '%s'";
@@ -164,7 +192,28 @@ final readonly class DashboardPage
             $saved instanceof Seconds ? sprintf('%.0f', $saved->seconds()) : '',
             $saved instanceof Seconds ? $saved->text() : 'no history yet',
             $published->time()->value(),
+            self::mutators($published),
         );
+    }
+
+    /** The costliest mutators a repository named, collapsed; nothing where it named none. */
+    private static function mutators(Published $published): string
+    {
+        $rows = [];
+
+        foreach ($published->mutators() as $mutator) {
+            $killRate = $mutator->killRate();
+            $rows[] = sprintf(
+                self::MUTATOR,
+                Html::text($mutator->runner()),
+                Html::text($mutator->mutator()),
+                $mutator->seconds()->text(),
+                $killRate instanceof Percentage ? sprintf('%s%%', $killRate->written()) : '-',
+                $mutator->survived(),
+            );
+        }
+
+        return $rows === [] ? '' : sprintf(self::MUTATORS, implode("\n", $rows));
     }
 
     /** A repository's name, linked where GitHub gave an address over HTTPS, and marked where it is private. */

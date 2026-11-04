@@ -53,6 +53,7 @@ final readonly class BuilderClasses
         'Sampling' => self::BUILDER,
         'Shards' => self::BUILDER,
         'Source' => self::BUILDER,
+        'Suggest' => self::BUILDER,
         'Survivors' => self::BUILDER,
         'StaticCheck' => self::BUILDER,
         'Tests' => self::BUILDER,

@@ -87,13 +87,14 @@ final readonly class ReportSchema
     /** An instant in UTC, as every report writes one. */
     public const array INSTANT = ['type' => 'string', 'pattern' => '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$'];
 
+    /** A count, as a schema allows one. */
+    public const array WHOLE = ['type' => 'integer', 'minimum' => 0];
+
     private const string TESTS
         = 'The tests mutation says catch nothing, and those that can go without losing a kill (ADR-0014).';
 
     private const string EXPLAIN
         = 'One mutant, or a cluster of survivors and each of them, explained from what the gate keeps (ADR-0014).';
-
-    private const array WHOLE = ['type' => 'integer', 'minimum' => 0];
 
     private const array LINE = ['type' => 'integer', 'minimum' => 1];
 

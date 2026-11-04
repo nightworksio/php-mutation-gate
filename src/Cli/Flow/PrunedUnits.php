@@ -48,7 +48,7 @@ final readonly class PrunedUnits
         $never = MutatorNames::of(...$this->adapters->security);
 
         return Pruner::of($pruning, $this->settings->runner()->name(), $never, $since)->pruned(
-            $ledgers->own()->and($ledgers->defaultBranch())->survival(),
+            $ledgers->own()->and($ledgers->defaultBranch())->learned()->survival(),
             $toRun,
             $newest,
             $keying->digestsOf($toRun),

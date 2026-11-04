@@ -102,7 +102,7 @@ final readonly class LedgerRetention
             $held[] = [...$proof->ids()];
         }
 
-        return $ledger->killers()->keeping(
+        return $ledger->learned()->killers()->keeping(
             MutantIds::of(...array_merge(...$held)),
             Bound::atMost($this->killed),
             Bound::atMost($this->functions),

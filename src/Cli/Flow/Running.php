@@ -397,7 +397,8 @@ final readonly class Running
     {
         $ledgers = Ledgers::read($this->adapters->proofs, Standing::planned($plan), Writing::Never);
 
-        return $ledgers->own()->analysers()->of($identity)->and($ledgers->defaultBranch()->analysers()->of($identity));
+        return $ledgers->own()->learned()->analysers()->of($identity)
+            ->and($ledgers->defaultBranch()->learned()->analysers()->of($identity));
     }
 
     /**
