@@ -22,7 +22,7 @@ final readonly class SetupKeys
     private const string SCHEMA_KEY = 'The JSON Schema an editor checks this file by.';
 
     /** @return list<Field<Layer>> */
-    public static function fields(PathOrigin $origin): array
+    public static function fields(PathOrigin $origin, Placement $placement): array
     {
         $judges = Effect::JudgesOrReportsOnly;
         $results = Effect::AffectsResults;
@@ -32,26 +32,26 @@ final readonly class SetupKeys
                 '$schema',
                 Into::of(
                     Unchecked::describedAs(self::SCHEMA_KEY),
-                    static fn(): Layer => Layer::none(),
+                    static fn(): Layer => Layer::of(),
                 ),
                 $judges,
             ),
-            Field::optional(
+            $placement->admitting(Field::optional(
                 'extensions',
                 Into::of(
                     Items::of(Text::of('a class name')),
                     static fn(Listed $classes): Layer => Layer::of(Setup::of(extensions: $classes)),
                 ),
                 $results,
-            ),
-            Field::optional(
+            )),
+            $placement->admitting(Field::optional(
                 'preset',
                 Into::of(
                     Presets::named(),
                     static fn(Listed $names): Layer => Layer::of(Setup::of(presets: $names)),
                 ),
                 Effect::DecidesHowTheGateRuns,
-            ),
+            )),
             Field::optional(
                 'runner',
                 Into::of(

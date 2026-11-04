@@ -29,7 +29,7 @@ final readonly class PreCommitCommand
         return new Command(Hook::PreCommit->value)
             ->setDescription('Show the score change of what is about to be committed; it runs nothing and never blocks')
             ->setCode(static function (InputInterface $input, OutputInterface $output) use ($composition): int {
-                $composed = $composition->compose($input);
+                $composed = $composition->composeLocally($input);
                 $text = $composed instanceof Composed
                     ? new ScoreChanging($composed->adapters, $composed->settings, $composed->setup)->text()
                     : $composed;

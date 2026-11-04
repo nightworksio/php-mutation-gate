@@ -81,12 +81,13 @@ it('accepts --no-extensions before any command, as a flag', function () use ($co
         ->and(array_key_exists('no-extensions', $options) && $options['no-extensions']->acceptValue())->toBeFalse();
 });
 
-it('takes the config file, the runner, the reports, the budget and the CI on any command', function () use (
+it('takes the config file, the context, the runner, the reports, the budget and the CI on any command', function () use (
     $console,
 ): void {
     $definition = $console()->getDefinition();
 
     expect($definition->getOption('config')->isValueRequired())->toBeTrue()
+        ->and($definition->getOption('context')->isValueRequired())->toBeTrue()
         ->and($definition->getOption('runner')->isValueRequired())->toBeTrue()
         ->and($definition->getOption('report')->isArray())->toBeTrue()
         ->and($definition->getOption('report')->isValueRequired())->toBeTrue()

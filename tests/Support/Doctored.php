@@ -11,8 +11,10 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Runtime\PhpProbe;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
+use NightWorksIO\MutationGate\Cli\Config\RunContext;
 use NightWorksIO\MutationGate\Cli\Doctor\Observed;
 use NightWorksIO\MutationGate\Cli\FirstParty;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\ThisPackage;
@@ -40,7 +42,7 @@ final class Doctored
         return new Observed(
             $project,
             $extensions,
-            new Effective($project, $extensions, $detected, $now),
+            new Effective($project, $extensions, $detected, $now, new RunContext(Variables::of([]))),
             $detected,
             PhpProbe::of($php, $environment),
             DoctorRun::of($now, -1),

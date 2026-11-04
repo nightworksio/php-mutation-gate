@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\Context;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -72,16 +73,24 @@ final readonly class Composition
 
     public function compose(InputInterface $input): Composed|Invalid|CannotJudge
     {
-        $given = CommandLine::from($input);
+        return $this->given(CommandLine::from($input));
+    }
+
+    /** What a command a developer runs while working composes: a run in `local` where `--context` names none. */
+    public function composeLocally(InputInterface $input): Composed|Invalid|CannotJudge
+    {
+        return $this->given(CommandLine::from($input)->defaultingTo(Context::Local));
+    }
+
+    private function given(CommandLine $given): Composed|Invalid|CannotJudge
+    {
         $settings = $this->effective->settings($given);
 
         if ($settings instanceof Invalid || $settings instanceof CannotJudge) {
             return $settings;
         }
 
-        $registry = $given->firstPartyOnly
-            ? $this->extensions
-            : new Chosen($this->extensions)->withExtensions($settings->extensions());
+        $registry = new Chosen($this->extensions)->given($given, $settings->extensions());
         $configFile = ConfigLocation::in($this->project, $given->config);
 
         return match (true) {

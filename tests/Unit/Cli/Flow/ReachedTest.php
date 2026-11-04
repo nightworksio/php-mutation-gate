@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\Registered;
+use NightWorksIO\MutationGate\Cli\Config\RunContext;
 use NightWorksIO\MutationGate\Cli\Flow\Adapters;
 use NightWorksIO\MutationGate\Cli\Flow\ChangeBase;
 use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
@@ -17,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\ConfigReads;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -395,6 +397,7 @@ it('reaches nothing where the config file the run reads changed no setting that 
             Registered::config(Extensions::of(Origin::of('nightworksio/mutation-gate')), static fn(): bool => true),
             new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project))),
             new DateTimeImmutable(Configs::NOW),
+            new RunContext(Variables::of([])),
         ),
         CommandLine::nothing(),
         $project,

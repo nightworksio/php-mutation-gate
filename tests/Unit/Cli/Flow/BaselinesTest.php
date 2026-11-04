@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\Registered;
+use NightWorksIO\MutationGate\Cli\Config\RunContext;
 use NightWorksIO\MutationGate\Cli\Flow\Baselines;
 use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
@@ -16,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Baseline\Entry;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
@@ -99,6 +101,7 @@ it('reads the baseline the default branch holds in the file its own config file 
         Registered::config(Extensions::of(Origin::of('nightworksio/mutation-gate')), static fn(): bool => true),
         new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project))),
         new DateTimeImmutable(Configs::NOW),
+        new RunContext(Variables::of([])),
     );
     $deciding = DecidingConfig::read($effective, CommandLine::nothing(), $project, Path::of('mutation-gate.json'));
     $base = Flows::setup();

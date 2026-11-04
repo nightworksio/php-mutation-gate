@@ -173,6 +173,7 @@ it('declares every setting as affecting results, as deciding how the gate runs, 
         'local.watchBudget' => $judges,
         'local.prePushBudget' => $judges,
         'coverage.incremental' => $decides,
+        'contexts' => $results,
     ]);
 });
 

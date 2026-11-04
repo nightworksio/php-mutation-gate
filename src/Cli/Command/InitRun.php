@@ -170,8 +170,8 @@ final readonly class InitRun
     /** What the config takes beside the settings: the CI definition's part, then the native markers it ignores. */
     private function layered(PreparedCi|NotGiven $prepared, NativeMarkers|NotGiven $native): Layer
     {
-        return ($prepared instanceof PreparedCi ? $prepared->config() : Layer::none())
-            ->over($native instanceof NativeMarkers ? Layer::of(Ignores::of(native: $native)) : Layer::none());
+        return ($prepared instanceof PreparedCi ? $prepared->config() : Layer::of())
+            ->over($native instanceof NativeMarkers ? Layer::of(Ignores::of(native: $native)) : Layer::of());
     }
 
     /**

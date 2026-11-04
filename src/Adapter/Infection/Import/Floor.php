@@ -75,7 +75,7 @@ final readonly class Floor
             default => Carried::dropped($key, sprintf(self::NOT_A_PERCENTAGE, $value->json())),
         };
 
-        return Import::of(Layer::none(), $carried);
+        return Import::of(Layer::of(), $carried);
     }
 
     private static function floorOf(Node $value): TreeFloor|Undeclared

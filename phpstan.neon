@@ -663,6 +663,7 @@ services:
                 'NightWorksIO\MutationGate\Extension\ProofStoreContract':
                     - LEDGER # what a failure calls the ledger, not the workspace's directory
                     - LEDGER_REQUEST # the pull request a contract writes to, not a mutant id's length
+                    - MAIN # the branch no check writes to, not the default branch's context
                 'NightWorksIO\MutationGate\Extension\Checks\RunnerCoverage':
                     - AT_ONCE # test files measured again at once, not an argument's place or an exit code
             # Constants still to refer to their value's one home, by the builder whose area holds them.

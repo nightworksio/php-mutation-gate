@@ -42,9 +42,9 @@ it('lays each import over the ones before it, and says every key, the notes, and
 });
 
 it('says no keys to delete where every key stays, and sets nothing where nothing was imported', function (): void {
-    $import = Import::none()->and(Import::of(Layer::none(), Carried::stays('threads', 'the gate overrides it')));
+    $import = Import::none()->and(Import::of(Layer::of(), Carried::stays('threads', 'the gate overrides it')));
 
-    expect($import->layer())->toEqual(Layer::none())
+    expect($import->layer())->toEqual(Layer::of())
         ->and($import->report('infection.json', GateCommand::installed()))->toBe(implode("\n", [
             'What became of each key of infection.json:',
             '  threads: stays in infection.json, because the gate overrides it',

@@ -122,8 +122,8 @@ it('lays a later layer over an earlier one, section by section', function (
 ]);
 
 it('writes nothing and calls nothing where it sets nothing', function (): void {
-    expect(Layer::none()->written(ProjectRoot::origin())->line())->toBe('{}')
-        ->and(Layer::none()->php(ProjectRoot::origin()))->toEqual(PhpCalls::none());
+    expect(Layer::of()->written(ProjectRoot::origin())->line())->toBe('{}')
+        ->and(Layer::of()->php(ProjectRoot::origin()))->toEqual(PhpCalls::none());
 });
 
 it('holds only the parts it is given, each over the none of its kind', function (): void {

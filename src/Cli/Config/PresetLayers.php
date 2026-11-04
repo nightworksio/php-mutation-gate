@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Config;
 
 use function array_map;
+
+use Closure;
+
 use function count;
 
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
@@ -46,13 +49,17 @@ final readonly class PresetLayers
         return new self($layers, $problems);
     }
 
-    /** Every preset's layer, each laid over the one before it. */
-    public function laid(): Layer
+    /**
+     * Every preset's layer, each resolved for the run's contexts and laid over the one before it.
+     *
+     * @param Closure(Layer): Layer $resolve
+     */
+    public function laid(Closure $resolve): Layer
     {
-        $laid = Layer::none();
+        $laid = Layer::of();
 
         foreach ($this->layers as $layer) {
-            $laid = $laid->over($layer);
+            $laid = $laid->over($resolve($layer));
         }
 
         return $laid;

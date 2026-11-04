@@ -13,6 +13,7 @@ use Error;
 use function is_a;
 
 use LogicException;
+use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Choice;
@@ -133,6 +134,17 @@ final readonly class Chosen
     public function reporterChosenBy(string $chooser, Choice $choice): Reporter|Invalid|CannotJudge
     {
         return $this->built($chooser, Reporter::class, $choice, Lookup::in($this->extensions)->reporter(...));
+    }
+
+    /**
+     * The registry a run uses: the extension classes a config names added, or none where `--no-extensions` asks
+     * for no third party's code.
+     *
+     * @param iterable<string> $classes
+     */
+    public function given(CommandLine $given, iterable $classes): Extensions|CannotJudge
+    {
+        return $given->firstPartyOnly ? $this->extensions : $this->withExtensions($classes);
     }
 
     /**

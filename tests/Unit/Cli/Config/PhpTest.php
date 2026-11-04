@@ -136,6 +136,15 @@ it('writes a config that reads back into the same effective config', function (a
         'proofs' => ['store' => ['use' => 'directory', 'with' => ['path' => 'build/proofs']]],
         'reports' => [['use' => 'json', 'path' => 'build/mutation.json']],
     ]],
+    'a block for each context' => [[
+        'runner' => 'pest',
+        'contexts' => [
+            'local' => ['budget' => '2m', 'trees' => [['path' => 'src/Domain', 'floor' => 90]]],
+            'ci' => ['runner' => 'infection', 'shards' => ['max' => 4]],
+            'pr' => ['reports' => [['use' => 'json', 'path' => 'build/pr.json']]],
+            'main' => ['ci' => ['check' => 'gate'], 'timeouts' => ['seconds' => 60]],
+        ],
+    ]],
 ]);
 
 it('writes each built-in CI plan by the builder method of its name, which reads back as that plan', function () use ($php, $roundTrip): void {

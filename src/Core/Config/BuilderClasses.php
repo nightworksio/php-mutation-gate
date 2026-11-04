@@ -27,6 +27,7 @@ final readonly class BuilderClasses
         'Baseline' => self::BUILDER,
         'Budget' => self::BUILDER,
         'Ci' => self::BUILDER,
+        'Context' => self::BUILDER,
         'Coverage' => self::BUILDER,
         'Dashboard' => self::BUILDER,
         'Equivalence' => self::BUILDER,

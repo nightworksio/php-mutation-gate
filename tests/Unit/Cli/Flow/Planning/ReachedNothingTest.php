@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\Registered;
+use NightWorksIO\MutationGate\Cli\Config\RunContext;
 use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
 use NightWorksIO\MutationGate\Cli\Flow\Mode;
 use NightWorksIO\MutationGate\Cli\Flow\Planning;
@@ -19,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\ConfigReads;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -169,6 +171,7 @@ function reachedNothingReading(string $project, string $file): Setup
                 Registered::config(Extensions::of(Origin::of('nightworksio/mutation-gate')), static fn(): bool => true),
                 new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project))),
                 new DateTimeImmutable(Configs::NOW),
+                new RunContext(Variables::of([])),
             ),
             CommandLine::nothing(),
             $project,

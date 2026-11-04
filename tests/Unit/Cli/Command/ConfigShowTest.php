@@ -145,3 +145,34 @@ it('says why it cannot show a config, and exits 2', /** @param array<string, mix
         . 'Keep one, or name one with --config.',
     ],
 ]);
+
+it('prints each context block as written, and with --resolved the config of the run\'s contexts, naming them aside', function () use ($decoded): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'mutation-gate.json', Configs::json([
+        'runner' => 'pest',
+        'budget' => '30m',
+        'contexts' => ['pr' => ['budget' => '10m'], 'local' => ['budget' => '2m']],
+    ]));
+    $written = Commands::run($project, 'config:show');
+    $local = Commands::run($project, 'config:show', ['--resolved' => true]);
+    $pullRequest = Commands::run($project, 'config:show', ['--resolved' => true, '--context' => 'pr']);
+
+    expect([$written->code, $local->code, $pullRequest->code])->toBe([0, 0, 0])
+        ->and([$decoded($written->output)['budget'], $decoded($written->output)['contexts']])
+        ->toBe(['30m', ['local' => ['budget' => '2m'], 'pr' => ['budget' => '10m']]])
+        ->and($written->errors)->toBe('')
+        ->and([$decoded($local->output)['budget'], array_key_exists('contexts', $decoded($local->output))])
+        ->toBe(['2m', false])
+        ->and($local->errors)->toBe("Resolved for the contexts local.\n")
+        ->and($decoded($pullRequest->output)['budget'])->toBe('10m')
+        ->and($pullRequest->errors)->toBe("Resolved for the contexts ci, pr.\n");
+});
+
+it('says why it cannot resolve the config for a context --context does not name, and exits 2', function (): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'mutation-gate.json', Configs::json(['runner' => 'pest']));
+    $shown = Commands::run($project, 'config:show', ['--resolved' => true, '--context' => 'staging']);
+
+    expect($shown->code)->toBe(2)
+        ->and(sprintf('%s%s', $shown->output, $shown->errors))->toContain('--context: expected local, ci, pr or main, got "staging"');
+});

@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\PestOptions;
 use NightWorksIO\MutationGate\Adapter\Project\SuiteConfig;
 use NightWorksIO\MutationGate\Adapter\Project\TestSuite;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
+use NightWorksIO\MutationGate\Cli\Config\ChosenPlan;
 use NightWorksIO\MutationGate\Cli\Config\DeclaredTrees;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Registry\EnabledMutators;
@@ -30,12 +31,10 @@ use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserSettings;
 use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Ci\CiEnvironment;
 use NightWorksIO\MutationGate\Core\Ci\DefaultBranch;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\BoundsOptions;
-use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCostModel;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\BuiltinVersionControl;
@@ -114,7 +113,7 @@ final readonly class Wiring
         $found = $chosen->treeSource($settings->treeSource());
         $trees = $found instanceof TreeSource ? new DeclaredTrees($found, $settings->floors()->trees()) : $found;
         $costs = $lookup->costModel(BuiltinCostModel::Learned->named(), $settings->shards()->costOptions());
-        $ci = $chosen->ciPlan($this->ciOf($settings));
+        $ci = $chosen->ciPlan(ChosenPlan::of($settings, $this->extensions, $this->environment));
         $withheld = $chosen->withheld($settings->ci(), $settings->runner()->withhold(), $settings->reports());
         $changes = $lookup->changeSource($source, $this->sourceOptions($settings, $withheld));
         $repository = $lookup->repository($source, $this->sourceOptions($settings, $withheld));
@@ -330,21 +329,6 @@ final readonly class Wiring
             $local ? LocalLedgers::over($configured) : $configured,
             $settings->proofs()->copies(),
         );
-    }
-
-    /**
-     * The CI plan the config names, with the options its `ci.*` settings give laid under its own, or the one a
-     * registered plan detects the job runs in, with those options; the JSON plan where none does.
-     */
-    private function ciOf(Settings $settings): Choice
-    {
-        $named = $settings->ci()->plan();
-        $found = $this->extensions->detectedCiPlan(CiEnvironment::of($this->environment)->shows(...));
-        $detected = $found instanceof Name ? $found : BuiltinCiPlan::Json->named();
-
-        return $named instanceof Choice
-            ? $named
-            : Choice::of($detected->value(), $settings->ci()->planOptions($detected));
     }
 
     /**

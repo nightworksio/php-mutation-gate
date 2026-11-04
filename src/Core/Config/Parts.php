@@ -45,6 +45,12 @@ final readonly class Parts
         return new self($parts);
     }
 
+    /** These parts, with this one in place of the one of its class. */
+    public function with(Part $part): self
+    {
+        return new self([...$this->parts, $part::class => $part]);
+    }
+
     /** What these parts set, as a config file at this origin writes it. */
     public function written(PathOrigin $origin): Json
     {
