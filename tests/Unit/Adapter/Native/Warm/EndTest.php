@@ -74,7 +74,7 @@ it('reads back the most memory a child that ended held, and none of one that hel
     [$workplace, $printed] = endsWorkplace();
     End::exited(0, 1.0, $printed)->peaking(20480)->writtenTo($workplace->end(0));
     End::signalled(9, 1.0, $printed)->peaking(0)->writtenTo($workplace->end(1));
-    file_put_contents($workplace->end(2), '{"peak": "much"');
+    file_put_contents($workplace->end(2), '{"peak": "much"}');
 
     expect(End::peakIn($workplace, 0))->toEqual(MaxRss::peak(20480, PHP_OS_FAMILY))
         ->and(End::ranIn($workplace, 0))->toEqual(Ran::exited(0, 'said!')->took(Seconds::of(1.0)))
