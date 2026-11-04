@@ -83,9 +83,9 @@ final readonly class Runner
     }
 
     /**
-     * This runner, starting each mutant's run as this says (ADR-0023):
-     * `runner.workers`, `Workers::Fork` or `Workers::Fresh`. Forking where no
-     * layer says.
+     * This runner, starting each mutant's run and each run of the tail as
+     * this says (ADR-0023, ADR-0070): `runner.workers`, `Workers::Fork`,
+     * `Workers::Mutants` or `Workers::Fresh`. Forking both where no layer says.
      */
     public function inWorkers(Workers $workers): self
     {

@@ -347,7 +347,7 @@ describe('Settings sections', function (): void {
             ->and(Configs::settings(['runner' => 'phpunit'])->runner()->workers())->toBe(Workers::Fork)
             ->and(Configs::shown($fresh, 'runner'))->toBe(['use' => 'phpunit', 'memory' => '1G', 'workers' => 'fresh'])
             ->and(Configs::problems(Configs::validated(['runner' => ['use' => 'phpunit', 'workers' => 'warm']])))
-            ->toBe(['runner.workers: expected "fork" or "fresh", got "warm"']);
+            ->toBe(['runner.workers: expected "fork", "mutants" or "fresh", got "warm"']);
     });
 
     it('reads whether a run given no mode considers every unit, changed since last-passed by default, and writes it into a config written as PHP', function (array $config, bool $full, string $call): void {

@@ -14,6 +14,12 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  */
 final readonly class MaxRss
 {
+    /** The field of `getrusage` and `wait4`'s usage that holds it. */
+    public const string FIELD = 'ru_maxrss';
+
+    /** The field a warm worker's record of how its child ended holds the child's `ru_maxrss` under. */
+    public const string RECORDED = 'peak';
+
     /** The operating system family, as `PHP_OS_FAMILY` names it, that counts `ru_maxrss` in bytes. */
     private const string IN_BYTES = 'Darwin';
 

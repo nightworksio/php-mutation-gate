@@ -70,12 +70,13 @@ final class Pool
     }
 
     /**
-     * Whether the place's worker started: its script leaves the process it
-     * was started as for one of its own that the system takes on, once that
-     * one has written its process id where its clients read it, so no worker
-     * that ends is left for Pest's process to reap.
+     * Whether the place's worker started, for this process as its parent:
+     * its script leaves the process it was started as for one of its own
+     * that the system takes on, once that one has written its process id
+     * where its clients read it, so no worker that ends is left for this
+     * process to reap.
      */
-    private static function started(Seat $seat): bool
+    public static function started(Seat $seat): bool
     {
         $command = [
             self::SHELL,

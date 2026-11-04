@@ -19,13 +19,21 @@ it('is one fresh process where nothing asks for more', function (): void {
     expect([Pool::single()->processes()->count(), Pool::single()->workers()])->toBe([1, Workers::Fresh]);
 });
 
-it('lays bounds on the start-up it measured, keeping it when it starts each mutant fresh, and on none where it measured none', function (): void {
+it('lays bounds on the start-up it measured, keeping it for the tail, and on none where it measured none', function (): void {
     $bounds = LimitBounds::between(Seconds::of(10.0), Seconds::of(300.0));
-    $measured = Pool::of(ProcessCount::of(4), Workers::Fork)->startingIn(Seconds::of(2.5));
-    $fresh = $measured->fresh();
+    $measured = Pool::of(ProcessCount::of(4), Workers::Mutants)->startingIn(Seconds::of(2.5));
+    $tail = $measured->tail();
 
     expect($measured->bounding($bounds)->startUp())->toEqual(Seconds::of(2.5))
-        ->and([$fresh->processes()->count(), $fresh->workers()])->toBe([4, Workers::Fresh])
-        ->and($fresh->bounding($bounds)->startUp())->toEqual(Seconds::of(2.5))
+        ->and([$tail->processes()->count(), $tail->workers()])->toBe([4, Workers::Fresh])
+        ->and($tail->bounding($bounds)->startUp())->toEqual(Seconds::of(2.5))
         ->and(Pool::single()->bounding($bounds)->startUp())->toBeInstanceOf(Unmeasured::class);
 });
+
+it('runs the tail as runner.workers says: forked under fork, and fresh under mutants and fresh', function (Workers $workers, Workers $tail): void {
+    expect(Pool::of(ProcessCount::of(2), $workers)->tail()->workers())->toBe($tail);
+})->with([
+    'fork' => [Workers::Fork, Workers::Fork],
+    'mutants' => [Workers::Mutants, Workers::Fresh],
+    'fresh' => [Workers::Fresh, Workers::Fresh],
+]);

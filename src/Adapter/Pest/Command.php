@@ -7,11 +7,16 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 use function array_fill_keys;
 use function array_filter;
 use function array_map;
+use function array_slice;
 use function array_values;
+use function count;
 use function getenv;
+use function is_int;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\Client;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\OwnScript;
 use NightWorksIO\MutationGate\Core\Runner\SearchPath;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -30,6 +35,9 @@ use function sprintf;
  */
 final readonly class Command
 {
+    /** Where Pest's script stands in a command `pest()` makes: after the PHP that runs it. */
+    private const int SCRIPT = 1;
+
     /**
      * @param list<string>                $arguments
      * @param array<string, string|false> $environment
@@ -39,6 +47,7 @@ final readonly class Command
         private array $environment,
         private Seconds|Unlimited $deadline,
         private SilenceLimit|NotGiven $silence = new NotGiven(),
+        private int|NotGiven $script = new NotGiven(),
     ) {
     }
 
@@ -55,7 +64,9 @@ final readonly class Command
      */
     public static function pest(string $script, Withheld $withheld, string ...$arguments): self
     {
-        return self::php($withheld, $script, ...$arguments);
+        $php = self::php($withheld, $script, ...$arguments);
+
+        return new self($php->arguments, $php->environment, $php->deadline, $php->silence, self::SCRIPT);
     }
 
     /** The PHP that runs the gate, started as it starts Pest's script. */
@@ -74,12 +85,18 @@ final readonly class Command
     /** @param array<string, string|false> $environment */
     public function with(array $environment): self
     {
-        return new self($this->arguments, [...$this->environment, ...$environment], $this->deadline, $this->silence);
+        return new self(
+            $this->arguments,
+            [...$this->environment, ...$environment],
+            $this->deadline,
+            $this->silence,
+            $this->script,
+        );
     }
 
     public function within(Seconds|Unlimited $deadline): self
     {
-        return new self($this->arguments, $this->environment, $deadline, $this->silence);
+        return new self($this->arguments, $this->environment, $deadline, $this->silence, $this->script);
     }
 
     /**
@@ -88,12 +105,37 @@ final readonly class Command
      */
     public function launchedBy(string $launcher, string $peak): self
     {
+        $launching = [PHP_BINARY, $launcher, $peak];
+
         return new self(
-            [PHP_BINARY, $launcher, $peak, ...$this->arguments],
+            [...$launching, ...$this->arguments],
             $this->environment,
             $this->deadline,
             $this->silence,
+            is_int($this->script) ? $this->script + count($launching) : $this->script,
         );
+    }
+
+    /**
+     * This command, where it runs Pest's script, run by a warm worker of the
+     * place its slot tells it, among those sharing this directory, through
+     * the client that asks it (see Warm\Client); as it is otherwise, or
+     * where it runs through one already.
+     */
+    public function forkedIn(string $directory): self
+    {
+        return is_int($this->script) ? new self(
+            [
+                ...array_slice($this->arguments, 0, $this->script),
+                ...OwnScript::PestClient->started(),
+                $directory,
+                Client::SLOT,
+                ...array_slice($this->arguments, $this->script),
+            ],
+            $this->environment,
+            $this->deadline,
+            $this->silence,
+        ) : $this;
     }
 
     /** @return list<string> */
@@ -116,7 +158,7 @@ final readonly class Command
     /** This command, also stopped once it has made no progress for this silence limit. */
     public function silencedAfter(SilenceLimit $silence): self
     {
-        return new self($this->arguments, $this->environment, $this->deadline, $silence);
+        return new self($this->arguments, $this->environment, $this->deadline, $silence, $this->script);
     }
 
     /** How long it may go without progress, and what shows its progress; none where only its deadline stops it. */

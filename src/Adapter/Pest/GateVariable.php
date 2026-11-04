@@ -82,6 +82,13 @@ enum GateVariable: string
     /** The directory a patched run's warm workers share, where its mutants' runs fork from them (see Warm\Pool). */
     case Warm = 'MUTATION_GATE_WARM';
 
+    /**
+     * The file a warm worker's client writes the most memory its forked run
+     * held to, where an unmutated control of the tail runs through one (see
+     * Warm\Client); a control's launcher cannot count a process it did not wait for.
+     */
+    case Peak = 'MUTATION_GATE_PEAK';
+
     /** The file of bridges the plugin loads, through which Pest makes registered mutators' mutants (see Bridges). */
     case Mutators = 'MUTATION_GATE_MUTATORS';
 

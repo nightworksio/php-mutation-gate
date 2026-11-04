@@ -26,14 +26,12 @@ final readonly class ChildMemory implements PeakMemory
     /** `RUSAGE_CHILDREN`: the processes this one waited for, rather than itself. */
     private const int CHILDREN = 1;
 
-    private const string MAXIMUM = 'ru_maxrss';
-
     public function peak(): MemoryCap|NotGiven
     {
         $usage = getrusage(self::CHILDREN);
 
-        return is_array($usage) && is_int($usage[self::MAXIMUM])
-            ? MaxRss::peak($usage[self::MAXIMUM], PHP_OS_FAMILY)
+        return is_array($usage) && is_int($usage[MaxRss::FIELD])
+            ? MaxRss::peak($usage[MaxRss::FIELD], PHP_OS_FAMILY)
             : NotGiven::value();
     }
 }

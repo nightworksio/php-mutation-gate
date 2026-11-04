@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
+use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\MemoryScan;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
@@ -377,3 +378,26 @@ it('runs a part of a heavy mutant\'s run with the mutant served in its file\'s p
         ->and(implode(' ', $unmutated->arguments()))->not->toContain('--log-events-text')
         ->and($unmutated->silence())->toEqual(NotGiven::value());
 });
+
+it('tells each control where a forked child writes its peak, and gives it the larger of that one and the launcher\'s', function (string $launched, string $forked, string $peak): void {
+    $at = unmutatedProject();
+    $shell = new ShellFake(static function (Command $command) use ($launched, $forked): Ran {
+        file_put_contents($command->arguments()[2], $launched);
+        $file = $command->environment()[GateVariable::Peak->value];
+
+        if ($forked !== '' && is_string($file)) {
+            file_put_contents($file, $forked);
+        }
+
+        return Ran::finished(succeeded: true, output: '')->took(Seconds::of(1.0));
+    });
+
+    $runs = unmutatedRuns($at, $shell, Controls::of(pestControl('src/Money.php')), unmutatedRequest());
+
+    expect($shell->commands()[0]->environment()[GateVariable::Peak->value])->toBe(sprintf('%s/pest/controls/forked-peak-0', $at->workspace()))
+        ->and($runs->of(pestControl('src/Money.php'))->peak())->toEqual(PeakLauncher::peakIn($peak, PHP_OS_FAMILY));
+})->with([
+    'the forked child held more' => ['2048', '40960', '40960'],
+    'the launcher counted more' => ['40960', '2048', '40960'],
+    'nothing forked' => ['20480', '', '20480'],
+]);

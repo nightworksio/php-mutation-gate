@@ -4,9 +4,10 @@
 declare(strict_types=1);
 
 // A mutant's own run where its place has a warm worker (ADR-0023), which
-// Pest's parent process starts in place of Pest's script, with the directory
-// the run's workers share and the place before Pest's command line. It loads
-// the gate's own classes alone.
+// Pest's parent process starts in place of Pest's script, or a run of the
+// verification tail, which the gate starts so (ADR-0070), with the directory
+// the run's workers share and the place before Pest's command line: a number,
+// or `slot` for the one its slot tells it. It loads the gate's own classes alone.
 
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Client;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\GateClasses;
@@ -30,4 +31,4 @@ $errors = static function (string $bytes): void {
     fwrite(STDERR, $bytes);
 };
 
-exit(Client::at($directory, (int) $place, usleep(...), $out, $errors)->ran($script, array_slice($arguments, 4)));
+exit(Client::at($directory, Client::placeOf($place), usleep(...), $out, $errors)->ran($script, array_slice($arguments, 4)));

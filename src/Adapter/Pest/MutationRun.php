@@ -255,7 +255,7 @@ final readonly class MutationRun
              * @param  non-empty-list<PrefixReplay> $replays
              * @return list<ReplayVerdict>
              */
-            fn(array $replays): array => new PrefixReplays($this->project, $this->shell, $this->remembered)
+            fn(array $replays): array => new PrefixReplays($this->project, $this->tail($request), $this->remembered)
                 ->verdicts($replays, $request, $this->left($request, $started), $results),
         );
     }
@@ -276,7 +276,7 @@ final readonly class MutationRun
              */
             fn(array $controls): array => array_map(
                 static fn(ControlRun $run): bool => $run->end() === ControlEnd::Passed,
-                new AloneRuns($this->project, $this->shell, $this->remembered)
+                new AloneRuns($this->project, $this->tail($request), $this->remembered)
                     ->ended($controls, $request, $this->left($request, $started), $results),
             ),
             $replayed,
@@ -338,7 +338,7 @@ final readonly class MutationRun
 
         return $result instanceof CannotJudge || $coverage instanceof CannotJudge
             ? $result
-            : new Trials($this->project, $this->shell, $this->files, $bounds, $this->remembered)->of(
+            : new Trials($this->project, $this->tail($request), $this->files, $bounds, $this->remembered)->of(
                 $result
                     ->withSteps(StepTimes::of(StepTime::counted($mutation, count($result->mutants())), $reading))
                     ->withWarnings($warm),
@@ -397,8 +397,8 @@ final readonly class MutationRun
         $unconfirmed = Reason::that(self::NO_TIME_TO_CONFIRM);
         $again = $left instanceof Seconds && $left->seconds() <= 0.0
             ? MutationResult::skippingNone(FoundAgain::among($doubtful, Mutants::none(), $unconfirmed))
-            : $this->whole()->again($doubtful, $left instanceof Seconds ? $request->within($left) : $request);
-        $runs = new AloneRuns($this->project, $this->shell, $this->remembered);
+            : $this->whole()->again($doubtful, $this->confirming($request, $left));
+        $runs = new AloneRuns($this->project, $this->tail($request), $this->remembered);
         $again = $again instanceof CannotJudge
             ? $again
             : $again->withMutants(
@@ -474,6 +474,18 @@ final readonly class MutationRun
                 ),
             ),
         };
+    }
+
+    /** The request the doubtful kills run again by: within the time left, in the pool the tail runs in. */
+    private function confirming(MutationRequest $request, Seconds|Unlimited $left): MutationRequest
+    {
+        return ($left instanceof Seconds ? $request->within($left) : $request)->across($request->pool()->tail());
+    }
+
+    /** The shell the request's verification tail runs Pest in (see TailShell). */
+    private function tail(MutationRequest $request): Shell
+    {
+        return TailShell::of($this->shell, $this->project, $this->patching, $request);
     }
 
     private function shardMap(): ShardMap

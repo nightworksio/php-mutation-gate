@@ -51,3 +51,13 @@ it('reads no finish from a file that holds other JSON', function (): void {
 
     expect(Finish::readFrom($file))->toEqual(NotGiven::value());
 });
+
+it('reads back the most memory its child held, and says none where the worker reported none', function (): void {
+    $file = sprintf('%s/1.42-1.ended', Scratch::directory());
+    Finish::exited(0, Offsets::of(1, 2))->peaking(20480)->writtenTo($file);
+    $read = Finish::readFrom($file);
+
+    expect($read instanceof Finish ? [$read->maxRss(), $read->exitCode(), $read->to()] : [])->toEqual([20480, 0, Offsets::of(1, 2)])
+        ->and(Finish::signalled(9, Offsets::of(1, 2))->peaking(0)->maxRss())->toBe(0)
+        ->and(Finish::refused('none')->maxRss())->toBe(0);
+});

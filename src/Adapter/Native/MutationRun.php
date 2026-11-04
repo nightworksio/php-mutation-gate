@@ -34,11 +34,9 @@ use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
-use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
-use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 use NightWorksIO\MutationGate\Mutator\Engine\MadeMutant;
@@ -99,7 +97,7 @@ final readonly class MutationRun
         LimitBounds $bounds,
         PreChecker $preChecker = new NoPreCheck(),
     ): MutationResult|CannotJudge {
-        $end = $this->endOf($request->deadline());
+        $end = Workforce::endingIn($request->deadline());
         $from = $this->laps->now();
         $made = $this->made($request);
 
@@ -170,7 +168,7 @@ final readonly class MutationRun
     private function judgedAll(array $queue, MutationRequest $request, int|float $end): Judged
     {
         $runs = array_filter($queue, static fn(PreparedRun|Mutant $prepared): bool => $prepared instanceof PreparedRun);
-        $forked = $request->pool()->workers() === Workers::Fork
+        $forked = $request->pool()->workers()->forksMutants()
             ? $this->workforce->judged($request, $end, $runs)
             : Forked::nothing();
 
@@ -303,11 +301,5 @@ final readonly class MutationRun
     private function silenceOf(Seconds|Unmeasured $slowest, LimitBounds $bounds): Seconds|NotGiven
     {
         return $slowest instanceof Seconds ? MutantLimit::standard()->of($slowest, $bounds) : NotGiven::value();
-    }
-
-    /** When the run stops making mutants, on `hrtime`'s clock: never, where it has no deadline. */
-    private function endOf(Seconds|Unlimited $deadline): int|float
-    {
-        return $deadline instanceof Seconds ? hrtime(as_number: true) + $deadline->nanoseconds() : PHP_INT_MAX;
     }
 }

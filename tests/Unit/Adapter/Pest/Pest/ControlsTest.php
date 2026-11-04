@@ -17,9 +17,13 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\OwnScript;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Pool;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -111,4 +115,29 @@ it('vouches for a narrowed kill whose order is known by replaying its run unmuta
 })->with([
     'the same order' => [true, MutantStatus::Killed],
     'another order' => [false, MutantStatus::Unjudged],
+]);
+
+it('runs each run of the tail through the client of a warm worker where runner.workers forks the tail, and fresh otherwise', function (string $runs, Workers $workers, bool $forked): void {
+    $at = PestCases::project();
+    $shell = match ($runs) {
+        'baselines' => PestCases::narrowedKills($at, PestCases::spec($at)),
+        'confirmation' => PestCases::overrideSensitive($at, sensitive: false),
+        default => PestCases::replayed($at, sameOrder: true),
+    };
+
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), Triage::standard()->bounds())
+        ->mutate(PestCases::money()->across(Pool::of(ProcessCount::single(), $workers)));
+    $client = OwnScript::PestClient->started()[0];
+    $tail = array_filter($shell->commands(), static fn(Command $command): bool => ! in_array('--mutate', $command->arguments(), strict: true));
+
+    expect($tail)->not->toBe([])
+        ->and(array_values(array_unique(array_map(
+            static fn(Command $command): bool => in_array($client, $command->arguments(), strict: true),
+            $tail,
+        ))))->toBe([$forked]);
+})->with([
+    'baselines, forked' => ['baselines', Workers::Fork, true],
+    'baselines, fresh' => ['baselines', Workers::Mutants, false],
+    'confirmation\'s controls, forked' => ['confirmation', Workers::Fork, true],
+    'replays, forked' => ['replays', Workers::Fork, true],
 ]);

@@ -11,6 +11,7 @@ use function file_put_contents;
 use function getmypid;
 use function is_file;
 use function is_string;
+use function max;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Control\Control;
@@ -32,6 +33,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
 use function strval;
+use function trim;
 
 /**
  * Unmutated controls as Pest runs them (ADR-0008): exactly each
@@ -40,9 +42,10 @@ use function strval;
  * with its file served unmutated through Pest's override (see
  * ServedOriginal), under the request's memory cap and allowed its limit;
  * side by side in the places of the request's pool, none started once the
- * request's deadline has passed. Its tests' time is the time its process
- * took, and its peak what the launcher it starts through measured (see
- * PeakLauncher).
+ * request's deadline has passed, each forked from a warm worker where the
+ * shell forks the tail (see TailShell). Its tests' time is the time its
+ * process took, and its peak the larger of what the launcher it starts
+ * through measured (see PeakLauncher) and what its forked child held.
  *
  * @internal
  */
@@ -53,6 +56,9 @@ final readonly class UnmutatedRuns
 
     /** Where the launcher of a control at a position writes its peak, among the adapter's own files. */
     private const string PEAK = 'pest/controls/peak-%d';
+
+    /** Where the client of a control at a position that forked writes its child's peak (see TailShell). */
+    private const string FORKED_PEAK = 'pest/controls/forked-peak-%d';
 
     /** Where a control at a position writes its JUnit log, which names the tests that failed in it. */
     private const string LOG = 'pest/controls/junit-%d.xml';
@@ -104,7 +110,7 @@ final readonly class UnmutatedRuns
      * peak and its JUnit log are written to, by the control's key; and what
      * each control found that cannot run.
      *
-     * @return array{ControlRuns, array<string, Command>, array<string, array{Control, string, string}>}
+     * @return array{ControlRuns, array<string, Command>, array<string, array{Control, string, string, string}>}
      */
     private function prepared(
         Controls $controls,
@@ -126,11 +132,12 @@ final readonly class UnmutatedRuns
                 continue;
             }
 
-            [$served, $peak, $log, $events] = $files;
+            [$served, $peak, $log, $events, $forked] = $files;
             $command = $served->onto($scan->onto($this->judging($control, $request, $log, $events)))
+                ->with([GateVariable::Peak->value => $forked])
                 ->launchedBy($launcher, $peak);
             $commands[$control->key()] = $this->silenced($command, $control, $events);
-            $peaks[$control->key()] = [$control, $peak, $log];
+            $peaks[$control->key()] = [$control, $peak, $log, $forked];
         }
 
         return [$runs, $commands, $peaks];
@@ -139,10 +146,10 @@ final readonly class UnmutatedRuns
     /**
      * The files a control at a position is run with: its file served
      * unmutated, or as the mutant a part of a heavy mutant's run serves,
-     * its peak, its JUnit log, and where it writes the events of its tests
-     * as they happen; or why one cannot be.
+     * its peak, its JUnit log, where it writes the events of its tests as
+     * they happen, and its forked child's peak; or why one cannot be.
      *
-     * @return array{ServedOriginal, string, string, string}|CannotJudge
+     * @return array{ServedOriginal, string, string, string, string}|CannotJudge
      */
     private function filesOf(int $at, Control $control, string $directory): array|CannotJudge
     {
@@ -153,13 +160,15 @@ final readonly class UnmutatedRuns
         $peak = $served instanceof CannotJudge ? $served : $this->project->fresh(sprintf(self::PEAK, $at));
         $log = $peak instanceof CannotJudge ? $peak : $this->project->fresh(sprintf(self::LOG, $at));
         $events = $log instanceof CannotJudge ? $log : $this->project->fresh(sprintf(self::EVENTS, $at));
+        $forked = $events instanceof CannotJudge ? $events : $this->project->fresh(sprintf(self::FORKED_PEAK, $at));
 
         return match (true) {
             $served instanceof CannotJudge => $served,
             $peak instanceof CannotJudge => $peak,
             $log instanceof CannotJudge => $log,
             $events instanceof CannotJudge => $events,
-            default => [$served, $peak, $log, $events],
+            $forked instanceof CannotJudge => $forked,
+            default => [$served, $peak, $log, $events, $forked],
         };
     }
 
@@ -207,6 +216,12 @@ final readonly class UnmutatedRuns
         return $silence instanceof Seconds ? $command->silencedAfter(SilenceLimit::of($silence, $events)) : $command;
     }
 
+    /** The `ru_maxrss` written to this file; 0 where none is. */
+    private function written(string $file): int
+    {
+        return is_file($file) ? (int) trim((string) file_get_contents($file)) : 0;
+    }
+
     /** The launcher each control starts through, written among the adapter's own files; or why it cannot be. */
     private function launcher(): string|CannotJudge
     {
@@ -221,8 +236,9 @@ final readonly class UnmutatedRuns
      * What each control found, run side by side, with the peak its launcher
      * wrote and the tests its log names failing.
      *
-     * @param non-empty-array<string, Command>               $commands by each control's key
-     * @param array<string, array{Control, string, string}> $peaks    each control, its peak and its log, by its key
+     * @param non-empty-array<string, Command>                       $commands by each control's key
+     * @param array<string, array{Control, string, string, string}> $peaks    each control, its peak, its log and
+     *                                                                        its forked child's peak, by its key
      */
     private function ended(ControlRuns $runs, MutationRequest $request, array $commands, array $peaks): ControlRuns
     {
@@ -230,13 +246,11 @@ final readonly class UnmutatedRuns
         $keys = array_keys($commands);
 
         foreach ($this->shell->sideBySide($slots, $request->deadline(), ...$commands) as $at => $ran) {
-            [$control, $peak, $log] = $peaks[$keys[$at]];
+            [$control, $peak, $log, $forked] = $peaks[$keys[$at]];
             $failing = JUnitFailures::of(is_file($log) ? file_get_contents($log) : false);
             $run = ControlRun::ofProcess($ran, $failing);
-            $measured = is_file($peak)
-                ? PeakLauncher::measured($run, sprintf('%s', file_get_contents($peak)), PHP_OS_FAMILY)
-                : $run;
-            $runs = $runs->with($control, $measured);
+            $held = max($this->written($peak), $this->written($forked));
+            $runs = $runs->with($control, PeakLauncher::measured($run, strval($held), PHP_OS_FAMILY));
         }
 
         return $runs;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Warm;
 
+use function array_key_exists;
 use function class_exists;
 
 use Closure;
@@ -15,6 +16,7 @@ use function get_included_files;
 use function getmypid;
 use function in_array;
 use function interface_exists;
+use function is_array;
 use function is_dir;
 use function is_file;
 use function is_int;
@@ -25,6 +27,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\WarmDatabase;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Php\PhpFile;
+use NightWorksIO\MutationGate\Core\Runner\MaxRss;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 
 use function pcntl_waitpid;
@@ -192,11 +195,11 @@ final readonly class Worker
      */
     private function waited(int $child, int $asker): Finish|NotGiven
     {
-        $waited = pcntl_waitpid($child, $status, WNOHANG);
+        [$waited, $status, $held] = $this->looked($child);
 
         while ($waited === 0 && $this->isAlive($asker)) {
             ($this->pause)(Polling::interval()->microseconds());
-            $waited = pcntl_waitpid($child, $status, WNOHANG);
+            [$waited, $status, $held] = $this->looked($child);
         }
 
         if ($waited === 0) {
@@ -209,10 +212,26 @@ final readonly class Worker
         }
 
         $to = Offsets::now($this->seat);
-
-        return pcntl_wifsignaled($status)
+        $finish = pcntl_wifsignaled($status)
             ? Finish::signalled((int) pcntl_wtermsig($status), $to)
             : Finish::exited((int) pcntl_wexitstatus($status), $to);
+
+        return $finish->peaking($held);
+    }
+
+    /**
+     * One look at the child, which reaps it where it has ended: what
+     * `waitpid` answered, the child's status where it gave one, and the
+     * `ru_maxrss` it reported of the child, 0 where it reported none.
+     *
+     * @return array{int, int|NotGiven, int}
+     */
+    private function looked(int $child): array
+    {
+        $waited = pcntl_waitpid($child, $status, WNOHANG, $usage);
+        $held = is_array($usage) && array_key_exists(MaxRss::FIELD, $usage) ? $usage[MaxRss::FIELD] : 0;
+
+        return [$waited, is_int($status) ? $status : NotGiven::value(), is_int($held) ? $held : 0];
     }
 
     /** Whether the run still wants the worker: its directory is there, it is not done, and the parent lives. */

@@ -284,6 +284,10 @@ services:
                     - Ninety # a confidence in percent, not days an imported ignore lasts
                 'NightWorksIO\MutationGate\Core\Plan\SampleRecord':
                     - MUTANTS # an unsampled unit's estimated mutants, not a proof's killed mutants
+                'NightWorksIO\MutationGate\Core\Runner\Workers':
+                    - Mutants # runner.workers forking only the mutants, not a record's mutants
+                'NightWorksIO\MutationGate\Core\Runner\MaxRss':
+                    - RECORDED # a warm child's end's field for its memory, not a briefing's peak
                 'NightWorksIO\MutationGate\Core\Config\Pruning':
                     - WINDOW # judged mutants a mutator's window holds, not trend entries kept
                     - AUDIT_DAYS # days a pruned result may be carried, not a run status

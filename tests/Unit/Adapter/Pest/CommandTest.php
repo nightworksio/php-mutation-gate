@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\Client;
+use NightWorksIO\MutationGate\Core\OwnScript;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -151,4 +153,17 @@ it('hands Pest none of the variables it is told to withhold, and every other', f
 
     expect($environment)->toMatchArray(['DEPLOY_KEY' => false, 'DEPLOY_HOST' => false])
         ->and($environment)->not->toHaveKey('AWS_SECRET_ACCESS_KEY');
+});
+
+it('runs Pest through the client of the warm worker its slot tells it, inside the launcher where it has one, and runs anything else as it is', function (): void {
+    $pest = Command::pest('vendor/bin/pest', Withheld::standard(), '--bail')->within(Seconds::of(5.0))->with(['A' => 'b']);
+    $client = [...OwnScript::PestClient->started(), '/warm', Client::SLOT];
+    $forked = $pest->forkedIn('/warm');
+    $launched = $pest->launchedBy('/launcher.php', '/peak')->forkedIn('/warm');
+
+    expect($forked->arguments())->toBe([PHP_BINARY, ...$client, 'vendor/bin/pest', '--bail'])
+        ->and([$forked->deadline(), $forked->environment()['A']])->toEqual([Seconds::of(5.0), 'b'])
+        ->and($launched->arguments())->toBe([PHP_BINARY, '/launcher.php', '/peak', PHP_BINARY, ...$client, 'vendor/bin/pest', '--bail'])
+        ->and($forked->forkedIn('/other')->arguments())->toBe($forked->arguments())
+        ->and(Command::of('git', 'status')->forkedIn('/warm')->arguments())->toBe(['git', 'status']);
 });

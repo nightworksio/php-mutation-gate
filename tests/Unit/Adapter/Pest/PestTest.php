@@ -46,6 +46,7 @@ use NightWorksIO\MutationGate\Core\Order\Kills;
 use NightWorksIO\MutationGate\Core\Order\KillSearch;
 use NightWorksIO\MutationGate\Core\Order\Ordering;
 use NightWorksIO\MutationGate\Core\Order\Ranking;
+use NightWorksIO\MutationGate\Core\OwnScript;
 use NightWorksIO\MutationGate\Core\Pruning\MutatorNames;
 use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
@@ -760,3 +761,16 @@ it('runs each control with its file served unmutated through Pest\'s override', 
 
     expect($runs instanceof ControlRuns ? $runs->of($control) : $runs)->toEqual(ControlRun::passed(Seconds::of(0.4)));
 });
+
+it('runs each control through the client of a warm worker where runner.workers forks the tail under pest.patch', function (Workers $workers, bool $forked): void {
+    $at = PestCases::project();
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: '')->took(Seconds::of(0.4)));
+    $control = Control::of(Path::of('src/Money.php'), TestIds::of(TestId::of('P\Tests\MoneySpec::__pest_evaluable_it_adds')), Seconds::of(5.0));
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), Triage::standard()->bounds())
+        ->controls(PestCases::money()->across(Pool::of(ProcessCount::single(), $workers)), Controls::of($control));
+
+    expect(in_array(OwnScript::PestClient->started()[0], $shell->commands()[0]->arguments(), strict: true))->toBe($forked);
+})->with([
+    'fork' => [Workers::Fork, true],
+    'mutants' => [Workers::Mutants, false],
+]);

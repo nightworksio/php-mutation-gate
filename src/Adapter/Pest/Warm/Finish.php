@@ -12,13 +12,15 @@ use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\MaxRss;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 
 /**
  * How a warm worker's child ran a mutant's run, as the worker writes it once
  * the child is gone (ADR-0023): the code it exited with, or the signal that
- * ended it, with where the worker's output files stood then; or that the
- * worker forked it no child, and why, so its run starts fresh.
+ * ended it, with where the worker's output files stood then and the most
+ * memory the child held; or that the worker forked it no child, and why, so
+ * its run starts fresh.
  *
  * @internal
  */
@@ -36,6 +38,7 @@ final readonly class Finish
         private string|NotGiven $refused,
         private Offsets $to,
         private Json $written,
+        private int $maxRss = 0,
     ) {
     }
 
@@ -59,6 +62,27 @@ final readonly class Finish
         $written = Json::object(Member::of(self::REFUSED, $reason));
 
         return new self(Ran::UNSTARTED, NotGiven::value(), $reason, Offsets::none(), $written);
+    }
+
+    /** The same finish, its child having held at most this `ru_maxrss`; as it was where 0 says nothing. */
+    public function peaking(int $maxRss): self
+    {
+        return $maxRss > 0
+            ? new self(
+                $this->code,
+                $this->signal,
+                $this->refused,
+                $this->to,
+                $this->written->with(Member::of(MaxRss::RECORDED, $maxRss)),
+                $maxRss,
+            )
+            : $this;
+    }
+
+    /** The `ru_maxrss` of the child, as `wait4` reported it; 0 where it reported none or no child ran. */
+    public function maxRss(): int
+    {
+        return $this->maxRss;
     }
 
     /** The finish a worker wrote to this file; none where it has written none whole. */
@@ -112,11 +136,13 @@ final readonly class Finish
         $code = $at->field(self::CODE);
         $signal = $at->field(self::SIGNAL);
         $refused = $at->field(self::REFUSED);
-
-        return match (true) {
+        $peak = $at->field(MaxRss::RECORDED);
+        $finish = match (true) {
             $refused->isPresent() => self::refused($refused->text()),
             $signal->isPresent() => self::signalled($signal->integer(), Offsets::read($at)),
             default => self::exited($code->integer(), Offsets::read($at)),
         };
+
+        return $peak->isPresent() ? $finish->peaking($peak->integer()) : $finish;
     }
 }

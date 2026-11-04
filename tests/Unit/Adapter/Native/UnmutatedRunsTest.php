@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Native\Project;
 use NightWorksIO\MutationGate\Adapter\Native\UnmutatedRuns;
+use NightWorksIO\MutationGate\Adapter\Native\Warm\WarmRun;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
@@ -22,14 +23,18 @@ use NightWorksIO\MutationGate\Core\Native\Variable;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\Pool;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
+use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\NativePhpUnit;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitShellFake;
+use NightWorksIO\MutationGate\Tests\Support\PhpUnitWorkersFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -242,4 +247,70 @@ it('runs a part of a heavy mutant\'s run with the mutant served through the over
     expect(file_get_contents($command->environment()[Variable::Mutated->value]))->toBe($mutated)
         ->and($silence instanceof SilenceLimit ? $silence->limit() : $silence)->toEqual(Seconds::of(3.0))
         ->and($runs->of($part)->end())->toBe(ControlEnd::Failed);
+});
+
+/** A shell whose workers' children and fresh runs each pass Money's test, its children holding 20480 at most. */
+function passingWorkers(): PhpUnitWorkersFake
+{
+    $passed = static function (string $results, string $guard): Ran {
+        $test = 'Tests\MoneyTest::testAdds';
+        file_put_contents($results, sprintf('%s%s', Outcome::Started->line($test), Outcome::Passed->line($test)));
+        file_put_contents($guard, "served\n");
+
+        return Ran::exited(0, '');
+    };
+
+    return new PhpUnitWorkersFake(
+        static fn(WarmRun $run): Ran => $passed($run->environment()[Variable::Results->value], $run->guard()),
+        static fn(Command $command): Ran => $passed($command->environment()[Variable::Results->value], $command->environment()[Variable::Guard->value]),
+    )->peakingAt(20480);
+}
+
+/** The controls of a project, run through a shell with warm workers. */
+function warmUnmutated(Project $project, PhpUnitWorkersFake $shell): UnmutatedRuns
+{
+    return new UnmutatedRuns($project, $shell, NativePhpUnit::in($project), new CapDirectory());
+}
+
+$makeForked = static fn(Workers $workers): MutationRequest => MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests())
+    ->across(Pool::of(ProcessCount::of(2), $workers));
+
+it('forks each control from a warm worker where runner.workers forks the tail, with the peak its child\'s end gave', function () use ($makeForked): void {
+    $project = unmutatedPhpUnitProject();
+    $shell = passingWorkers();
+
+    $runs = controlled(warmUnmutated($project, $shell), Controls::of(phpUnitControl('src/Money.php')), $makeForked(Workers::Fork));
+    $found = $runs->of(phpUnitControl('src/Money.php'));
+
+    expect($found->end())->toBe(ControlEnd::Passed)
+        ->and($found->peak())->toEqual(PeakLauncher::peakIn('20480', PHP_OS_FAMILY))
+        ->and($shell->children())->toHaveCount(1)
+        ->and($shell->fresh())->toBe([]);
+});
+
+it('runs each control fresh, starting no worker, where runner.workers forks only the mutants or nothing', function (Workers $workers) use ($makeForked): void {
+    $shell = passingWorkers();
+
+    $runs = controlled(warmUnmutated(unmutatedPhpUnitProject(), $shell), Controls::of(phpUnitControl('src/Money.php')), $makeForked($workers));
+
+    expect($runs->of(phpUnitControl('src/Money.php'))->end())->toBe(ControlEnd::Passed)
+        ->and($shell->workers())->toBe([])
+        ->and($shell->fresh())->toHaveCount(1);
+})->with([Workers::Mutants, Workers::Fresh]);
+
+it('runs fresh, through the launcher, each control no worker\'s child ran', function (): void {
+    $project = unmutatedPhpUnitProject();
+    $shell = passingWorkers()->claimingAtMost(1);
+    $controls = Controls::of(phpUnitControl('src/Money.php'), phpUnitControl('src/Money.php', 7.0));
+    $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests())
+        ->across(Pool::of(ProcessCount::single(), Workers::Fork));
+
+    $runs = controlled(warmUnmutated($project, $shell), $controls, $request);
+
+    expect($runs->of(phpUnitControl('src/Money.php'))->peak())->toEqual(PeakLauncher::peakIn('20480', PHP_OS_FAMILY))
+        ->and($runs->of(phpUnitControl('src/Money.php'))->end())->toBe(ControlEnd::Passed)
+        ->and($runs->of(phpUnitControl('src/Money.php', 7.0))->end())->toBe(ControlEnd::Passed)
+        ->and($shell->children())->toHaveCount(1)
+        ->and(array_map(static fn(Command $command): string => $command->arguments()[1], $shell->fresh()))
+        ->toBe([PeakLauncher::in($project->own(Control::DIRECTORY))]);
 });

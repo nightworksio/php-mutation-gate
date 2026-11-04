@@ -97,7 +97,7 @@ Optional packages, each needed only for what it enables:
 - `async-aws/s3` for proofs kept in S3 or R2;
 - `colinodell/json5` to import an `infection.json5`;
 - `ext-pcntl`, and for Pest `ext-posix` too, for the warm workers each
-  mutant's run forks from.
+  mutant's run and each run that verifies it forks from.
 
 ## Quick start
 

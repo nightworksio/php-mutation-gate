@@ -331,3 +331,31 @@ it('prints nothing twice, and fails at nothing, where it printed past its child\
 
     expect($answered)->toBe(['code' => 0, 'out' => 'child!!', 'errors' => '', 'warned' => []]);
 });
+
+it('writes the most memory its worker\'s child held where the run is told to, and nothing where it is told nowhere', function () use ($ran, $serving, $script): void {
+    $directory = $serving();
+    $peak = sprintf('%s/peak', Scratch::directory());
+    putenv(sprintf('%s=%s', GateVariable::Peak->value, $peak));
+    $told = $ran($directory, $script("echo 'held';"));
+    putenv(GateVariable::Peak->value);
+    $written = (int) file_get_contents($peak);
+    unlink($peak);
+    $untold = $ran($directory, $script("echo 'held';"));
+
+    expect([$told['code'], $told['out'], $untold['out']])->toBe([0, 'held', 'held'])
+        ->and($written)->toBeGreaterThan(0)
+        ->and(is_file($peak))->toBeFalse();
+});
+
+it('runs in the place it is named, or in the one its slot tells it, the first where it tells none', function (): void {
+    $token = getenv('TEST_TOKEN');
+    putenv('TEST_TOKEN=3');
+    $told = [Client::placeOf('2'), Client::placeOf(Client::SLOT)];
+    putenv('TEST_TOKEN=0');
+    $zero = Client::placeOf(Client::SLOT);
+    putenv('TEST_TOKEN');
+    $none = Client::placeOf(Client::SLOT);
+    putenv(is_string($token) ? sprintf('TEST_TOKEN=%s', $token) : 'TEST_TOKEN');
+
+    expect([...$told, $zero, $none])->toBe([2, 3, 1, 1]);
+});

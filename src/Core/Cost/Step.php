@@ -51,7 +51,7 @@ enum Step: string
     /** Proving an invocation's survivors equivalent to their originals, before they run again (ADR-0013). */
     case Equivalence = 'equivalence';
 
-    /** The run again of each survivor, alone, in a fresh process (ADR-0008). */
+    /** The run again of each survivor, alone, in a process of its own (ADR-0008, ADR-0070). */
     case Survivors = 'survivors';
 
     /** The unmutated control of each timed-out mutant's tests, under its limit (ADR-0008). */

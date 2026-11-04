@@ -284,7 +284,7 @@ it('caps each mutant\'s process at runner.memory, and at 1G where the config set
         ->and($capped())->toEqual([MemoryCap::standard(), MemoryCap::standard()]);
 });
 
-it('starts each mutant as runner.workers says, and confirms each survivor in a fresh process', function (): void {
+it('starts each mutant as runner.workers says, and confirms each survivor forked only where it forks the tail', function (): void {
     $started = static function (ConfiguredRunner ...$runner): array {
         $project = Flows::project();
         $scripted = ScriptedRunner::fixture()->killingAgain(MutantStatus::Killed);
@@ -300,7 +300,9 @@ it('starts each mutant as runner.workers says, and confirms each survivor in a f
 
     expect($started(ConfiguredRunner::uses('fake')->inWorkers(Workers::Fresh)))
         ->toBe([[Workers::Fresh, Workers::Fresh], [Workers::Fresh, Workers::Fresh]])
-        ->and($started())->toBe([[Workers::Fork, Workers::Fork], [Workers::Fresh, Workers::Fresh]]);
+        ->and($started(ConfiguredRunner::uses('fake')->inWorkers(Workers::Mutants)))
+        ->toBe([[Workers::Mutants, Workers::Mutants], [Workers::Fresh, Workers::Fresh]])
+        ->and($started())->toBe([[Workers::Fork, Workers::Fork], [Workers::Fork, Workers::Fork]]);
 });
 
 it('leaves every invocation\'s mutants in one result, with what each skipped added up', function () use (

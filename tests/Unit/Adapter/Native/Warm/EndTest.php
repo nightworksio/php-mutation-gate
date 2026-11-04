@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Adapter\Native\Warm\Job;
 use NightWorksIO\MutationGate\Adapter\Native\Warm\Printed;
 use NightWorksIO\MutationGate\Adapter\Native\Warm\Workplace;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\MaxRss;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -67,4 +68,18 @@ it('writes a child stopped at its limit, or for its silence, marked so beside ho
         '{"stopped":true,"seconds":4.0,"place":1,"out":[7,11],"err":[0,1]}',
         '{"silenced":true,"seconds":2.5,"place":1,"out":[7,11],"err":[0,1]}',
     ]);
+});
+
+it('reads back the most memory a child that ended held, and none of one that held none or never ended', function (): void {
+    [$workplace, $printed] = endsWorkplace();
+    End::exited(0, 1.0, $printed)->peaking(20480)->writtenTo($workplace->end(0));
+    End::signalled(9, 1.0, $printed)->peaking(0)->writtenTo($workplace->end(1));
+    file_put_contents($workplace->end(2), '{"peak": "much"');
+
+    expect(End::peakIn($workplace, 0))->toEqual(MaxRss::peak(20480, PHP_OS_FAMILY))
+        ->and(End::ranIn($workplace, 0))->toEqual(Ran::exited(0, 'said!')->took(Seconds::of(1.0)))
+        ->and(file_get_contents($workplace->end(1)))->not->toContain('peak')
+        ->and(End::peakIn($workplace, 1))->toEqual(NotGiven::value())
+        ->and(End::peakIn($workplace, 2))->toEqual(NotGiven::value())
+        ->and(End::peakIn($workplace, 3))->toEqual(NotGiven::value());
 });
