@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use function array_any;
 use function array_flip;
 use function array_key_exists;
+use function array_map;
 use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -154,6 +155,7 @@ final readonly class SuiteCoverage
         $lines = [];
         $onLines = [];
         $holding = [];
+        $leavingIds = array_flip(array_map(static fn(TestId $test): string => $test->value(), [...$leaving]));
 
         foreach ($map->lines() as $line) {
             $file = $line->file()->value();
@@ -162,7 +164,7 @@ final readonly class SuiteCoverage
                 $holding[$file] = $this->additions->on($line->file());
             }
 
-            $staying = $this->staying($line, $leaving, $holding[$file]);
+            $staying = $this->staying($line, $leavingIds, $holding[$file]);
             $lines[] = CoveredLine::of($line->file(), $line->line(), ...$staying);
             $onLines += array_flip($staying);
         }
@@ -176,15 +178,16 @@ final readonly class SuiteCoverage
         return $kept;
     }
 
-    /** @return list<string> the tests of a line that stay: those not leaving, and those that hold what they run */
-    private function staying(CoveredLine $line, TestIds $leaving, Additions $holding): array
+    /**
+     * @param  array<string, int> $leaving the tests leaving, by id
+     * @return list<string>       the tests of a line that stay: those not leaving, and those that hold what they run
+     */
+    private function staying(CoveredLine $line, array $leaving, Additions $holding): array
     {
         $staying = [];
 
         foreach ($line as $test) {
-            $id = TestId::of($test);
-
-            if ($leaving->has($id) && ! $holding->adds($id, $line->file())) {
+            if (array_key_exists($test, $leaving) && ! $holding->adds(TestId::of($test), $line->file())) {
                 continue;
             }
 
