@@ -85,14 +85,19 @@ it in its fourth decision.
   `@php vendor/bin/mutation-gate infection:patch` in `post-install-cmd`
   and `post-update-cmd`. The GitHub action runs `infection:patch` itself
   after it installs the project, wherever the effective config runs
-  Infection, so the Composer hook serves every other run. It rewrites four
+  Infection, so the Composer hook serves every other run. It rewrites six
   places in Infection and one in its include-interceptor, each marked with a
   `// mutation-gate infection:patch:` comment:
   - `MutantProcessContainerFactory` allows each mutant the gate's standard
     limit (ADR-0008) of Infection's own time for its covering
     tests, between `MUTATION_GATE_MUTANT_FLOOR` and Infection's `timeout`,
     in place of Infection's 5 s plus five times that time under `timeout`.
-  - `MutationTestingRunner` skips no mutant for the time its tests take.
+  - `MutationTestingRunner` skips no mutant for the time its tests take,
+    and makes no mutant of a mutator the gate prunes in a file it prunes it
+    in.
+  - `TestFrameworkMutantExecutionResultFactory` judges a run that ran out
+    of its limit timed out, where Infection 0.35.9 judges it
+    skipped once its covering tests' time reaches that limit.
   - `MutantProcessContainerFactory` also watches each mutant's run for its
     silence limit (ADR-0008): the same rule, of its slowest
     covering test class's time, as Infection times each test by its whole
@@ -120,8 +125,9 @@ it in its fourth decision.
     whose lines have moved fails the command, and every patch is checked
     before any file is written.
 
-  The first three read the gate's floor, so Infection run outside the gate keeps its
-  own limit and skip, and stops no run for silence; the interceptor stats
+  The places in Infection read the gate's floor and pruned list, so Infection run
+  outside the gate keeps its own limit, skip and timeout judgement, prunes no
+  mutant, and stops no run for silence; the interceptor stats
   as PHP does either way. The command patches only the Infection releases the
   runner contracts run, listed in `Adapter\Infection\Release`,
   reading the release from Composer's list of what it installed. Any

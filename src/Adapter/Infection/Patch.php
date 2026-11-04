@@ -28,7 +28,7 @@ use function sprintf;
  *   own time, within the bounds the gate names (see MutantTime), not
  *   Infection's own five times their time under its `timeout`.
  * - Where the gate names its bounds, no mutant is skipped for the time its
- *   covering tests take.
+ *   covering tests take, before its run or once it has run out of its limit.
  * - No mutant is made of a mutator the gate prunes, in a file it prunes it
  *   in (see PrunedList).
  * - A mutant's run is also stopped once it has printed nothing for its
@@ -66,6 +66,8 @@ final readonly class Patch
     private const string RUNNER = 'Process/Runner/MutationTestingRunner.php';
 
     private const string PARALLEL = 'Process/Runner/ParallelProcessRunner.php';
+
+    private const string RESULT = 'Mutant/TestFrameworkMutantExecutionResultFactory.php';
 
     /** The file the interceptor's hunk changes, under infection/include-interceptor's source directory. */
     private const string INTERCEPTOR = 'IncludeInterceptor.php';
@@ -113,9 +115,7 @@ final readonly class Patch
         PHP;
 
     private const string SKIP_SHIPS = <<<'PHP'
-                if ($mutant->getMutation()->getNominalTestExecutionTime() < $this->timeout) {
-                    return true;
-                }
+                if ($mutant->getMutation()->get
         PHP;
 
     private const string SKIP_BECOMES = <<<'PHP'
@@ -124,9 +124,20 @@ final readonly class Patch
                     return true;
                 }
 
-                if ($mutant->getMutation()->getNominalTestExecutionTime() < $this->timeout) {
-                    return true;
+                if ($mutant->getMutation()->get
+        PHP;
+
+    private const string TIMED_OUT_SHIPS = <<<'PHP'
+                if ($mutantProcess->isTimedOut()) {
+        PHP;
+
+    private const string TIMED_OUT_BECOMES = <<<'PHP'
+                {MARK} within the gate's bounds, a run that ran out of its limit timed out, whatever its tests take.
+                if ($mutantProcess->isTimedOut() && class_exists(\%1$s::class) && \%1$s::bounded()) {
+                    return DetectionStatus::TIMED_OUT;
                 }
+
+                if ($mutantProcess->isTimedOut()) {
         PHP;
 
     private const string PRUNED_SHIPS = <<<'PHP'
@@ -174,21 +185,15 @@ final readonly class Patch
                 }
         PHP;
 
-    private const string SILENCE_SHIPS = <<<'PHP'
-                    try {
-                        $process->checkTimeout();
-                    } catch (ProcessTimedOutException) {
-        PHP;
+    private const string SILENCE_SHIPS = '$process->checkTimeout();';
 
     private const string SILENCE_BECOMES = <<<'PHP'
-                    try {
-                        $process->checkTimeout();
+        $process->checkTimeout();
 
                         {MARK} stopped where it printed nothing for its silence limit (see Silence).
                         if (class_exists(\%1$s::class)) {
                             \%1$s::check($process, microtime(true));
                         }
-                    } catch (ProcessTimedOutException) {
         PHP;
 
     /**
@@ -263,6 +268,7 @@ final readonly class Patch
                 sprintf(self::LIMIT_BECOMES, self::NOMINAL, MutantTime::class, self::BOOTSTRAP),
             ),
             Hunk::in(self::RUNNER, self::SKIP_SHIPS, sprintf(self::SKIP_BECOMES, MutantTime::class)),
+            Hunk::in(self::RESULT, self::TIMED_OUT_SHIPS, sprintf(self::TIMED_OUT_BECOMES, MutantTime::class)),
             Hunk::in(
                 self::RUNNER,
                 self::PRUNED_SHIPS,

@@ -27,7 +27,7 @@ it('patches Infection in the vendor directory and says so', function (): void {
 
     expect($tester->execute([]))->toBe(0)
         ->and(Printed::by($tester->getOutput()))
-        ->toBe("infection:patch patched 3 of the 3 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.\n");
+        ->toBe("infection:patch patched 4 of the 4 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.\n");
 });
 
 it('exits 1, with the reason on its error output, for a release it does not patch, which runs unpatched', function (): void {
@@ -49,7 +49,7 @@ it('exits 1, with the reason on its error output, for a release it does not patc
 it('exits 2, with the reason on its error output, where it cannot patch a release it supports', function (): void {
     $vendor = InfectionSource::pristine()->vendor();
     $file = sprintf('%s/infection/infection/src/Process/Runner/MutationTestingRunner.php', $vendor);
-    file_put_contents($file, str_replace('< $this->timeout) {', '<= $this->timeout) {', (string) file_get_contents($file)));
+    file_put_contents($file, str_replace('$mutant->getMutation()->get', '$mutant->getMutation()?->get', (string) file_get_contents($file)));
     $tester = new CommandTester(InfectionPatch::command($vendor));
     $status = $tester->execute([], ['capture_stderr_separately' => true]);
     $output = $tester->getOutput();
