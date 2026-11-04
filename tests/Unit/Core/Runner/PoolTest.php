@@ -31,7 +31,9 @@ it('lays bounds on the start-up it measured, keeping it for the tail, and on non
 });
 
 it('runs the tail as runner.workers says: forked under fork, and fresh under mutants and fresh', function (Workers $workers, Workers $tail): void {
-    expect(Pool::of(ProcessCount::of(2), $workers)->tail()->workers())->toBe($tail);
+    $pool = Pool::of(ProcessCount::of(2), $workers);
+
+    expect([$pool->tail()->workers(), $pool->tail()->isTail(), $pool->isTail()])->toBe([$tail, true, false]);
 })->with([
     'fork' => [Workers::Fork, Workers::Fork],
     'mutants' => [Workers::Mutants, Workers::Fresh],

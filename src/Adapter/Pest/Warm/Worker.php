@@ -62,9 +62,16 @@ final readonly class Worker
 
     private const string LOST = 'The warm worker lost track of a child, so its mutant ran fresh.';
 
-    /** @param Closure(int): void $pause pauses this many microseconds between looks, as usleep does */
-    private function __construct(private Seat $seat, private int $parent, private Closure $pause)
-    {
+    /**
+     * @param Closure(int): void           $pause pauses this many microseconds between looks, as usleep does
+     * @param (Closure(): string)|NotGiven $boot  boots the worker, and says why no child may fork from it
+     */
+    private function __construct(
+        private Seat $seat,
+        private int $parent,
+        private Closure $pause,
+        private Closure|NotGiven $boot = new NotGiven(),
+    ) {
     }
 
     /**
@@ -78,27 +85,48 @@ final readonly class Worker
         return new self(Seat::at($directory, $place), $parent, $pause);
     }
 
-    /** Serves each run asked for until the run is done, its process id written for its clients: its exit code. */
+    /**
+     * The same worker, booted by this once it has written its process id
+     * (ADR-0075), before it serves any run.
+     *
+     * @param Closure(): string $boot boots the worker, and says why no child may fork from it; nothing where one may
+     */
+    public function booting(Closure $boot): self
+    {
+        return new self($this->seat, $this->parent, $this->pause, $boot);
+    }
+
+    /**
+     * Serves each run asked for until the run is done, its process id
+     * written for its clients, booted first where it boots: its exit code. A
+     * boot that says why it cannot be forked from refuses every run, which
+     * starts fresh.
+     */
     public function served(Forking $forking): int
     {
         WholeFile::written($this->seat->pid(), strval(getmypid()));
+        $refused = $this->boot instanceof Closure ? ($this->boot)() : '';
         $baseline = NotGiven::value();
 
         while ($this->isWanted()) {
             $request = Request::takenFrom($this->seat->request());
             $baseline = $request instanceof Request
-                ? $this->ran($request, $baseline, $forking)
+                ? $this->ran($request, $baseline, $forking, $refused)
                 : $this->idled($baseline);
         }
 
         return 0;
     }
 
-    /** The run in a child, unless its asker is gone, and the baseline the worker keeps after it. */
-    private function ran(Request $request, Baseline|NotGiven $baseline, Forking $forking): Baseline|NotGiven
-    {
+    /** The run in a child, unless its asker is gone or its boot refused it, and the baseline kept after it. */
+    private function ran(
+        Request $request,
+        Baseline|NotGiven $baseline,
+        Forking $forking,
+        string $refused,
+    ): Baseline|NotGiven {
         $alive = $this->isAlive($request->asker());
-        $loaded = $alive ? $this->readied($request) : '';
+        $loaded = $alive ? $this->readied($request, $refused) : '';
 
         if (! $alive || $loaded !== '') {
             $this->refused($request, $loaded);
@@ -136,14 +164,14 @@ final readonly class Worker
 
     /**
      * The run readied to fork, where its output starts noted; and why it
-     * cannot fork, where the worker has by then loaded the file its mutant
-     * changes; nothing where it can.
+     * cannot fork, where the worker's boot refused every run or the worker
+     * has by then loaded the file its mutant changes; nothing where it can.
      */
-    private function readied(Request $request): string
+    private function readied(Request $request, string $refused): string
     {
         Offsets::now($this->seat)->writtenTo($this->seat->started($request->id()));
 
-        return $this->loaded($request->mutated());
+        return $refused !== '' ? $refused : $this->loaded($request->mutated());
     }
 
     /**

@@ -311,14 +311,15 @@ final readonly class MutationRun
         $handOff = $this->handOff($request, $results, $shared);
         $told = new Told($this->project, $this->patching, $this->only, $this->narrows())
             ->of($request, $results, $handOff instanceof HandOff, $bounds);
-        WarmDirectory::made($results);
+        $warm = WarmDirectory::made($results);
+        TailBoot::of($this->project, $this->patching)->leftFor($request, $command, $this->narrows(), $warm);
         $ran = $this->shell->run(
             $command->with($told),
             new MutantsProgress($results, $handOff instanceof HandOff ? $handOff : new Unwatched()),
         );
         $mutation = $laps->lap(Step::Mutation, $from);
         $scan->remove();
-        $warm = WarmDirectory::cleared($results);
+        $warned = WarmDirectory::cleared($results);
         $coverage = $this->coveringOf($shared, $results);
         $opensOn = $this->patching->opensOn($request->judgedBy(), $shared instanceof CoverageMap);
         $left = fn(): Seconds|Unlimited => $this->left($request, $started);
@@ -341,7 +342,7 @@ final readonly class MutationRun
             : new Trials($this->project, $this->tail($request), $this->files, $bounds, $this->remembered)->of(
                 $result
                     ->withSteps(StepTimes::of(StepTime::counted($mutation, count($result->mutants())), $reading))
-                    ->withWarnings($warm),
+                    ->withWarnings($warned),
                 $request,
                 $results,
                 $coverage,

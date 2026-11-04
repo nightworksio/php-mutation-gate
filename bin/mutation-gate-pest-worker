@@ -14,10 +14,14 @@ declare(strict_types=1);
 // `$_ENV` filled as PHP fills it at start-up, is handed the worker's baseline
 // of its test databases, and runs Pest's script as a fresh process runs it.
 
+use NightWorksIO\MutationGate\Adapter\Native\Warm\BootCheck;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\BootSpec;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\Booted;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\Baseline;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\WarmDatabase;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Forking;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\GateClasses;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\PestBoot;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Request;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Seat;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Worker;
@@ -25,6 +29,18 @@ use NightWorksIO\MutationGate\Adapter\Runtime\ForkedChild;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use Pest\Kernel;
+use Pest\TestSuite;
+use PHPUnit\Event\Facade;
+use PHPUnit\TextUI\Configuration\PhpHandler;
+use PHPUnit\TextUI\RuntimeException as TextUiRuntimeException;
+use PHPUnit\TextUI\TestDirectoryNotFoundException;
+use PHPUnit\TextUI\TestFileNotFoundException;
+use PHPUnit\TextUI\XmlConfiguration\Exception as XmlConfigurationException;
+use PHPUnit\TextUI\XmlConfiguration\Loader;
+use PHPUnit\TextUI\XmlConfiguration\TestSuiteMapper;
+use Symfony\Component\Console\Input\ArgvInput;
+use Symfony\Component\Console\Output\ConsoleOutput;
 
 require sprintf('%s/src/Adapter/Pest/Warm/GateClasses.php', dirname(__DIR__));
 
@@ -66,7 +82,67 @@ pcntl_signal(SIGALRM, static function () use ($directory, $parent): void {
 });
 pcntl_alarm(1);
 
-exit(Worker::at($directory, (int) $place, (int) $parent, usleep(...))->served(new class implements Forking {
+// A worker of the verification tail whose directory says what to boot boots the project once it has written its
+// process id (ADR-0075), as Pest's script and PHPUnit boot a fresh run of every test file up to its first test:
+// Collision's printer set and Composer's autoloader loaded as Pest's script does, Pest's kernel booted, then the
+// PHPUnit config's PHP settings and bootstraps, and every test file of the runs' suites loaded through Pest's
+// loader as PHPUnit's mapper selects them, which keeps each for the worker's children (see Booted). It refuses every
+// run where it found no config, where the config caches PHPUnit's test index, or where the boot left a socket open,
+// which every child would share.
+$boot = static function () use ($directory): string {
+    $spec = BootSpec::readIn($directory);
+
+    if (! $spec instanceof BootSpec) {
+        return '';
+    }
+
+    $reading = PestBoot::of($spec);
+    $config = $reading->config();
+
+    if ($config instanceof NotGiven) {
+        return $reading->unconfigured();
+    }
+
+    $held = BootCheck::open();
+    $_SERVER['COLLISION_PRINTER'] = 'DefaultPrinter';
+    $_SERVER['argv'] = [$spec->script()];
+    $_SERVER['argc'] = 1;
+    chdir($spec->root());
+
+    require_once $spec->autoloader();
+
+    Booted::booting();
+    Kernel::boot(
+        TestSuite::getInstance($spec->root(), 'tests'),
+        new ArgvInput([$spec->script()]),
+        new ConsoleOutput(),
+    );
+    try {
+        $xml = new Loader(Facade::emitter())->load($config);
+        $refused = $reading->refusal($xml);
+
+        if ($refused === '') {
+            $suites = $reading->suites($xml);
+            new PhpHandler(Facade::emitter())->handle($xml->php());
+
+            foreach ($reading->bootstraps($xml, $suites) as $bootstrap) {
+                require_once $bootstrap;
+            }
+
+            new TestSuiteMapper(Facade::emitter())->map($config, $xml->testSuite(), $suites, []);
+        }
+    } catch (XmlConfigurationException|TextUiRuntimeException|TestDirectoryNotFoundException|TestFileNotFoundException $unread) {
+        $refused = sprintf('The tail\'s warm worker could not read the tests %s names, so its runs ran fresh: %s', $config, $unread->getMessage());
+    }
+
+    $opened = BootCheck::open() - $held;
+
+    return $refused === '' && $opened > 0
+        ? sprintf('The tail\'s warm worker left %d socket open once it booted, which every child would share, so its runs ran fresh.', $opened)
+        : $refused;
+};
+
+exit(Worker::at($directory, (int) $place, (int) $parent, usleep(...))->booting($boot)->served(new class implements Forking {
     public function forked(Request $request, Baseline|NotGiven $baseline, string $report): int|NotGiven
     {
         $child = pcntl_fork();
@@ -80,6 +156,7 @@ exit(Worker::at($directory, (int) $place, (int) $parent, usleep(...))->served(ne
         }
 
         ForkedChild::reseeded();
+        Booted::forked();
 
         pcntl_alarm(0);
         pcntl_signal(SIGALRM, SIG_DFL);

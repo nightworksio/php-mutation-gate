@@ -19,6 +19,7 @@ final readonly class Pool
         private ProcessCount $processes,
         private Workers $workers,
         private Seconds|Unmeasured $startUp,
+        private bool $tail = false,
     ) {
     }
 
@@ -36,7 +37,7 @@ final readonly class Pool
     /** This pool, a run of no test having taken this long to start in it. */
     public function startingIn(Seconds|Unmeasured $startUp): self
     {
-        return new self($this->processes, $this->workers, $startUp);
+        return new self($this->processes, $this->workers, $startUp, $this->tail);
     }
 
     /**
@@ -46,7 +47,18 @@ final readonly class Pool
      */
     public function tail(): self
     {
-        return $this->workers->forksTheTail() ? $this : new self($this->processes, Workers::Fresh, $this->startUp);
+        return new self(
+            $this->processes,
+            $this->workers->forksTheTail() ? $this->workers : Workers::Fresh,
+            $this->startUp,
+            tail: true,
+        );
+    }
+
+    /** Whether the verification tail runs in it, rather than mutants' own runs (see tail). */
+    public function isTail(): bool
+    {
+        return $this->tail;
     }
 
     /** How many mutants run at once. */

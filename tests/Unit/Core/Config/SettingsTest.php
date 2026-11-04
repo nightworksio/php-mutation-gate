@@ -66,7 +66,7 @@ describe('Settings', function (): void {
         expect([...$settings->extensions()])->toBe([])
             ->and([...$settings->presets()])->toBe([])
             ->and($settings->runner()->choice())
-            ->toEqual(Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary"}')))
+            ->toEqual(Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary", "bootTail": false}')))
             ->and($settings->treeSource())->toEqual(Choice::of('phpunit', Configs::options('{"fallback":[]}')))
             ->and($floors->trees())->toEqual(Absent::setting())
             ->and($floors->newCode())->toEqual(Floor::of(100))
@@ -261,7 +261,7 @@ describe('Settings', function (): void {
             . '"buildkite":{"definition":".buildkite/pipeline.yml","step":{}},'
             . '"gitlab":{"template":".gitlab/mutation-gate.yml"},"jenkins":{"definition":"Jenkinsfile"}},'
             . '"extensions":[],"flaky":{"confirmSurvivors":true},"mutators":{"except":[],"sets":[]},"packages":[],'
-            . '"pest":{"canary":"mutation-canary","patch":false},"pruning":{"enabled":true,"window":500},'
+            . '"pest":{"bootTail":false,"canary":"mutation-canary","patch":false},"pruning":{"enabled":true,"window":500},'
             . '"runner":{"memory":"1G","use":"pest"},"staticCheck":{"seconds":60,"tool":"auto"},"tests":{"order":"killers-first"},'
             . '"timeouts":{"most":300,"seconds":10,"tighter":{"floor":7,"mutators":["RemoveArrayItem","DecrementInteger","IncrementInteger","ForeachEmptyIterable","UnwrapArrayValues","InstanceOfToTrue","InstanceOfToFalse","TernaryNegated","ArrayItemRemoval","Foreach_","InstanceOf_","Ternary"]}},"treeSource":{"use":"phpunit","with":{"fallback":[]}}}',
         )->and(Configs::settings(SettingsCases::EVERYTHING)->canonical())->toBe(
@@ -270,7 +270,7 @@ describe('Settings', function (): void {
             . '"gitlab":{"template":".gitlab/gate.yml"},"jenkins":{"definition":"ci/Jenkinsfile"}},'
             . '"extensions":["Acme\\\\GateSlack\\\\SlackExtension"],"flaky":{"confirmSurvivors":false},'
             . '"mutators":{"except":["acme/RemoveAudit"],"sets":["acme","acme-auth"]},"packages":["packages/*"],'
-            . '"pest":{"canary":"canary","patch":true},"pruning":{"enabled":false,"window":200},'
+            . '"pest":{"bootTail":true,"canary":"canary","patch":true},"pruning":{"enabled":false,"window":200},'
             . '"runner":{"memory":"512M","use":"infection","withhold":["DEPLOY_*","COMPOSER_AUTH"],"workers":"fresh"},'
             . '"staticCheck":{"config":"phpstan.dist.neon","seconds":45,"tool":"phpstan"},'
             . '"tests":{"holding":["Process"],"order":"killers-first","suites":["Unit","Plugins"]},"timeouts":{"most":120,"seconds":30,"tighter":{"floor":7,"mutators":["RemoveArrayItem","DecrementInteger","IncrementInteger","ForeachEmptyIterable","UnwrapArrayValues","InstanceOfToTrue","InstanceOfToFalse","TernaryNegated","ArrayItemRemoval","Foreach_","InstanceOf_","Ternary"]}},'

@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
+use function explode;
+use function mb_strlen;
+use function mb_substr;
+
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 
@@ -110,6 +114,33 @@ enum PhpUnitOption: string
     public static function inSuites(Suites $suites): array
     {
         return $suites->isAll() ? [] : [sprintf('%s=%s', self::TestSuite->value, $suites->joined())];
+    }
+
+    /**
+     * The suites a command line's `--testsuite=` names, as PHPUnit splits
+     * them; none where it names none.
+     *
+     * @param  list<string> $arguments
+     * @return list<string>
+     */
+    public static function suitesIn(array $arguments): array
+    {
+        $prefix = sprintf('%s=', self::TestSuite->value);
+        $named = [];
+
+        foreach ($arguments as $argument) {
+            $named = str_starts_with($argument, $prefix)
+                ? explode(',', mb_substr($argument, mb_strlen($prefix)))
+                : $named;
+        }
+
+        $suites = [];
+
+        foreach ($named as $suite) {
+            $suites = $suite === '' ? $suites : [...$suites, $suite];
+        }
+
+        return $suites;
     }
 
     /** The option that keeps PHPUnit's caches in a directory: `--cache-directory=<directory>`. */

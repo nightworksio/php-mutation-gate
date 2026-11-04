@@ -17,13 +17,14 @@ use function sprintf;
 
 /**
  * Whether the project applies `pest:patch`, the canary group a shard's
- * opening run is when it does, and which tests a mutant's own run selects.
+ * opening run is when it does, which tests a mutant's own run selects, and
+ * whether the verification tail's workers boot the project (ADR-0075).
  *
  * @internal
  */
 final readonly class Patching
 {
-    private function __construct(private Group|Unpatched $canary)
+    private function __construct(private Group|Unpatched $canary, private bool $bootsTail = false)
     {
     }
 
@@ -40,6 +41,18 @@ final readonly class Patching
     public function isOn(): bool
     {
         return $this->canary instanceof Group;
+    }
+
+    /** The same, the tail's workers booting the project where it applies the patch, as `pest.bootTail` says. */
+    public function bootingTail(bool $boots): self
+    {
+        return new self($this->canary, $boots);
+    }
+
+    /** Whether the verification tail's workers boot the project before they fork its runs of every test file. */
+    public function bootsTail(): bool
+    {
+        return $this->isOn() && $this->bootsTail;
     }
 
     /**

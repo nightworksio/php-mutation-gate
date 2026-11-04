@@ -30,7 +30,7 @@ it('finds the patch in place and changes nothing when patching again', function 
     Patch::applyIn($at);
     $patched = array_map(static fn(string $file): string => $source($at, $file), MutatePlugin::FILES);
 
-    expect(Patch::applyIn($at))->toBe('pest:patch found its patch already in place in the 4 files it changes in pest-plugin-mutate.')
+    expect(Patch::applyIn($at))->toBe('pest:patch found its patch already in place in the 4 files it changes in pest-plugin-mutate. pest:patch found its patch already in place in the 3 files it changes in pest.')
         ->and(array_map(static fn(string $file): string => $source($at, $file), MutatePlugin::FILES))->toBe($patched);
 });
 
@@ -41,7 +41,7 @@ it('patches only the files that are not patched yet', function () use ($vendor, 
     file_put_contents(sprintf('%s/pestphp/pest-plugin-mutate/src/Tester/MutationTestRunner.php', $at), $pristine);
 
     expect(Patch::isAppliedIn($at))->toBeFalse()
-        ->and(Patch::applyIn($at))->toBe('pest:patch patched 1 of the 4 files it changes in pest-plugin-mutate.')
+        ->and(Patch::applyIn($at))->toBe('pest:patch patched 1 of the 4 files it changes in pest-plugin-mutate. pest:patch found its patch already in place in the 3 files it changes in pest.')
         ->and(substr_count($source($at, 'Tester/MutationTestRunner.php'), 'MUTATION_GATE_SUITE_SECONDS'))->toBe(1);
 });
 
@@ -97,7 +97,7 @@ it('counts a vendor it already patched as patched, though none of its files can 
         array_map(static fn(string $file): bool => chmod($file, 0o644), $files);
     }
 
-    expect($again)->toBe('pest:patch found its patch already in place in the 4 files it changes in pest-plugin-mutate.')
+    expect($again)->toBe('pest:patch found its patch already in place in the 4 files it changes in pest-plugin-mutate. pest:patch found its patch already in place in the 3 files it changes in pest.')
         ->and($applied)->toBeTrue();
 });
 

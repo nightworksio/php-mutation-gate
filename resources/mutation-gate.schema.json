@@ -1957,6 +1957,10 @@
                     "minLength": 1,
                     "pattern": "^\\S+$",
                     "default": "mutation-canary"
+                },
+                "bootTail": {
+                    "type": "boolean",
+                    "default": false
                 }
             },
             "additionalProperties": false
@@ -4096,6 +4100,9 @@
                             "type": "string",
                             "minLength": 1,
                             "pattern": "^\\S+$"
+                        },
+                        "bootTail": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false

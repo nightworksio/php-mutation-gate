@@ -48,6 +48,17 @@ it('opens a patched shard on mutation-canary unless the config names another gro
         ->toEqual(Patching::on(Group::named('mutation-canary')));
 });
 
+it('boots the tail\'s workers where the options say so under the patch, and never unpatched', function (): void {
+    $booting = PestOptions::read(Configs::options('{"patch": true, "bootTail": true}'));
+    $unpatched = PestOptions::read(Configs::options('{"patch": false, "bootTail": true}'));
+    $unsaid = PestOptions::read(Configs::options('{"patch": true}'));
+
+    expect(array_map(static fn(PestOptions|Invalid $read): bool => $read instanceof PestOptions && $read->patching()->bootsTail(), [$booting, $unpatched, $unsaid]))
+        ->toBe([true, false, false])
+        ->and(PestOptions::read(Configs::options('{"bootTail": "yes"}')))
+        ->toEqual(Invalid::because(Problem::at('bootTail', 'expected true or false, got "yes"')));
+});
+
 it('stays unpatched when the config says so', function (): void {
     $read = PestOptions::read(Configs::options('{"patch": false, "canary": "smoke"}'));
 

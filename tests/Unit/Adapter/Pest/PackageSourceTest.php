@@ -30,7 +30,7 @@ $patch = static fn(): VendorPatch => VendorPatch::of(
 it('writes every file it changes, and says how many', function () use ($vendor, $patch): void {
     $at = $vendor();
 
-    expect(PackageSource::applyIn($patch(), $at))->toBe($patch()->done(2))
+    expect(PackageSource::applyIn($at, $patch()))->toBe($patch()->done(2))
         ->and(file_get_contents(sprintf('%s/acme/lib/src/Two.php', $at)))->toContain('return 20;');
 });
 
@@ -43,6 +43,6 @@ it('says the files could not be written where one write fails, though the others
         return count($written) === 1 ? false : strlen($source);
     };
 
-    expect(PackageSource::applyWith($patch(), $at, $write))->toEqual($patch()->unwritten($at))
+    expect(PackageSource::applyWith($write, $at, $patch()))->toEqual($patch()->unwritten($at))
         ->and($written)->toBe(['One.php', 'Two.php']);
 });

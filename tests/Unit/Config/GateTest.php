@@ -150,6 +150,7 @@ it('writes every setting of the configuration reference', function (): void {
                 Dashboard::repositories('api', 'web'),
                 Pest::patched(),
                 Pest::canary('canary'),
+                Pest::bootingTail(),
                 StaticCheck::phpstan(),
                 StaticCheck::config('phpstan.dist.neon'),
                 StaticCheck::seconds(45),
@@ -230,7 +231,7 @@ it('writes every setting of the configuration reference', function (): void {
         'badge' => ['colors' => ['green' => 85]],
         'owners' => ['floors' => ['@acme/payments' => 90, 'jo@acme.example' => 75.5], 'mention' => 'never'],
         'dashboard' => ['topic' => 'mutation-tested', 'repositories' => ['api', 'web']],
-        'pest' => ['patch' => true, 'canary' => 'canary'],
+        'pest' => ['patch' => true, 'canary' => 'canary', 'bootTail' => true],
         'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45],
         'mutators' => ['sets' => ['acme', 'acme-auth'], 'except' => ['acme/RemoveAudit']],
         'pruning' => ['enabled' => false, 'window' => 200, 'audit' => '3d'],
@@ -274,6 +275,7 @@ it('writes each other way to choose an adapter or a word', function (): void {
                 Flaky::confirmingSurvivors(),
                 Ignores::refusingNativeMarkers(),
                 Pest::unpatched(),
+                Pest::tailUnbooted(),
             ),
     ))->toBe([
         'preset' => ['symfony', 'laravel', 'acme'],
@@ -286,7 +288,7 @@ it('writes each other way to choose an adapter or a word', function (): void {
         'timeouts' => ['mode' => 'confirm'],
         'flaky' => ['confirmSurvivors' => true],
         'ignores' => ['native' => 'refuse'],
-        'pest' => ['patch' => false],
+        'pest' => ['patch' => false, 'bootTail' => false],
     ]);
 });
 

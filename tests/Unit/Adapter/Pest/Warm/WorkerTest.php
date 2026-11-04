@@ -176,3 +176,20 @@ it('starts fresh, and warns of it, a run whose child the system no longer tells 
         ->and($finish instanceof Finish && $finish->isRefused())->toBeTrue()
         ->and($warned($at))->toEqual(Warnings::of(Warning::that('The warm worker lost track of a child, so its mutant ran fresh.')));
 });
+
+it('boots once it has written its process id, and starts fresh, warning why, every run its boot refused', function () use ($seat, $request, $warned): void {
+    $at = $seat();
+    $request((int) getmypid())->leftIn($at->request());
+    $pid = '';
+    $boot = static function () use ($at, &$pid): string {
+        $pid = (string) file_get_contents($at->pid());
+
+        return 'The boot left a socket open.';
+    };
+    Worker::at($at->directory(), 1, Passing::for('0.3'), new Pauses()->pausing())->booting($boot)->served(ShellForking::none($at));
+    $finish = Finish::readFrom($at->ended('42-1'));
+
+    expect($pid)->toBe((string) getmypid())
+        ->and($finish instanceof Finish && $finish->isRefused())->toBeTrue()
+        ->and($warned($at))->toEqual(Warnings::of(Warning::that('The boot left a socket open.')));
+});

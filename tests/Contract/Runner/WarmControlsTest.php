@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Native\ProcessShell;
 use NightWorksIO\MutationGate\Adapter\Native\Project;
 use NightWorksIO\MutationGate\Adapter\Native\UnmutatedRuns;
+use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
@@ -33,7 +34,10 @@ use NightWorksIO\MutationGate\Tests\Support\Tree;
 // finds (ADR-0070), with a real PHPUnit and a real patched Pest: the same
 // end and the same failing tests, run by run. Under PHPUnit the controls run
 // a test that fails where an earlier run in its process left anything behind,
-// and the worker boots once where each fresh control boots for itself.
+// and the worker boots once where each fresh control boots for itself. Under
+// pest.bootTail, Pest's worker boots the library once, every test file loaded,
+// where each fresh control loads tests/Pest.php itself, and a control of a
+// file the boot loaded starts fresh (ADR-0075).
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -131,4 +135,34 @@ it('finds of patched Pest controls forked from a warm worker what it finds of th
     expect($found['fork'])->toBe($found['mutants'])
         ->and($found['fork'])->toBe([['passed', []], ['ran-out', []]])
         ->and($peaks)->toBe(['fork' => true, 'mutants' => false]);
+})->skip(fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork'), 'the runner contracts job installs the fixture library');
+
+it('finds of patched Pest controls of every test file forked from a booted worker what it finds of them fresh, booting once', function (): void {
+    Patch::applyIn(Library::vendor());
+    $held = 'P\Tests\HeldSpec::__pest_evaluable_it_doubles_nothing_to_nothing';
+    $controls = [
+        Control::of(Path::of('src/Held.php'), TestIds::of(TestId::of($held)), Seconds::of(60.0)),
+        Control::of(Path::of('src/Held.php'), TestIds::of(TestId::of($held)), Seconds::of(61.0)),
+        Control::of(Path::of('src/Held.php'), TestIds::of(TestId::of($held)), Seconds::of(0.01)),
+        Control::of(Path::of('src/Money.php'), TestIds::of(TestId::of('P\Tests\MoneySpec::__pest_evaluable_it_adds_two_amounts')), Seconds::of(60.0)),
+    ];
+    $library = Library::pest(Patching::on(Library::canary())->bootingTail(boots: true));
+    $loads = sprintf('%s/loads.txt', Scratch::directory());
+    $memory = getenv('LIBRARY_MEMORY');
+    putenv(sprintf('LIBRARY_MEMORY=%s', $loads));
+    $found = [];
+    $loaded = [];
+
+    foreach ([Workers::Fork, Workers::Mutants] as $workers) {
+        file_put_contents($loads, '');
+        $runs = $library->runner()->controls(warmControlsRequest('src/Held.php', $workers), Controls::of(...$controls));
+        $found[$workers->value] = warmControlsFound($runs, ...$controls);
+        $loaded[$workers->value] = substr_count((string) file_get_contents($loads), "\n");
+    }
+
+    putenv(is_string($memory) ? sprintf('LIBRARY_MEMORY=%s', $memory) : 'LIBRARY_MEMORY');
+
+    expect($found['fork'])->toBe($found['mutants'])
+        ->and($found['fork'])->toBe([['passed', []], ['passed', []], ['ran-out', []], ['passed', []]])
+        ->and($loaded)->toBe(['fork' => 2, 'mutants' => 3]);
 })->skip(fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork'), 'the runner contracts job installs the fixture library');
