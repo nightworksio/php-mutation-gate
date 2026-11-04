@@ -7,7 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 
 /**
- * Where a layer's keys are written: at its top, or in one of its context blocks (ADR-0070), which refuses what
+ * Where a layer's keys are written: at its top, or in one of its context blocks (ADR-0071), which refuses what
  * the context is told from and what is read before it.
  *
  * @internal

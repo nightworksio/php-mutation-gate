@@ -13,7 +13,7 @@ use function sprintf;
 use function str_replace;
 
 /**
- * The blocks a layer writes under `contexts` (ADR-0070): for each context, the settings a run in it lays over
+ * The blocks a layer writes under `contexts` (ADR-0071): for each context, the settings a run in it lays over
  * the rest of the layer. A later layer's block is laid over an earlier one's of the same context.
  */
 final readonly class Contexts implements Part

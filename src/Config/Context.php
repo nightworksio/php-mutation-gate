@@ -8,7 +8,7 @@ use NightWorksIO\MutationGate\Core\Config\Context as Contexts;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 
-/** A context block (ADR-0070): `contexts.<context>`, the settings a run in that context lays over the rest. */
+/** A context block (ADR-0071): `contexts.<context>`, the settings a run in that context lays over the rest. */
 final readonly class Context implements Setting
 {
     private function __construct(private Json $json)

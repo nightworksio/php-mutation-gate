@@ -1,4 +1,4 @@
-# ADR-0070: A config holds a block for each context a run is in
+# ADR-0071: A config holds a block for each context a run is in
 
 **Status:** Accepted
 **Date:** 2026-11-04

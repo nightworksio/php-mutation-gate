@@ -243,13 +243,13 @@ than written: `79.999` holds a score to `80`.
 | `mutators.except` | list of mutator names, `<set>/<Name>`, each held by a set in `mutators.sets` or by the default set; under Pest or Infection, by a set in `mutators.sets` | `[]` | [0021](../decisions/0021-mutators-are-written-once-and-first-party-sets-can-leave.md) |
 | `local.watchBudget` | duration | `1m` | [0010](../decisions/0010-the-gate-runs-while-you-work-and-before-you-push.md) |
 | `local.prePushBudget` | duration | `5m` | [0010](../decisions/0010-the-gate-runs-while-you-work-and-before-you-push.md) |
-| `contexts` | object of blocks, `local`, `ci`, `pr` and `main`, each holding any key of this table but `preset`, `extensions`, `ci.plan` and `ci.defaultBranch`: what a run in that context lays over the rest of its layer | `{}` | [0070](../decisions/0070-a-config-holds-a-block-for-each-context-a-run-is-in.md) |
+| `contexts` | object of blocks, `local`, `ci`, `pr` and `main`, each holding any key of this table but `preset`, `extensions`, `ci.plan` and `ci.defaultBranch`: what a run in that context lays over the rest of its layer | `{}` | [0071](../decisions/0071-a-config-holds-a-block-for-each-context-a-run-is-in.md) |
 
 ## Context blocks
 
 `contexts` holds what a run lays over the rest of the config in each context
 it is in
-([ADR-0070](../decisions/0070-a-config-holds-a-block-for-each-context-a-run-is-in.md)):
+([ADR-0071](../decisions/0071-a-config-holds-a-block-for-each-context-a-run-is-in.md)):
 
 ```json
 {

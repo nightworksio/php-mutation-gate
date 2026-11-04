@@ -10,7 +10,7 @@ use function implode;
 use function sprintf;
 
 /**
- * A context a run is in, by the key of its block under `contexts` (ADR-0070): a developer's machine, any CI
+ * A context a run is in, by the key of its block under `contexts` (ADR-0071): a developer's machine, any CI
  * run, a proposed change and the default branch.
  */
 enum Context: string

@@ -33,7 +33,7 @@ use NightWorksIO\MutationGate\Extension\Extensions;
  * The effective config of a project (ADR-0002): zero-config defaults, then
  * the presets, then the config file, then the command line, each with its
  * blocks for the contexts the run is in laid over the rest of it
- * (ADR-0070). Each layer is read on its own, and what only every layer
+ * (ADR-0071). Each layer is read on its own, and what only every layer
  * together can say, such as that no runner is chosen, once all of them are
  * laid. When no layer sets the preset or the runner, zero-config finds them.
  *
@@ -56,7 +56,7 @@ final readonly class Effective
         return $this->resolved($this->file($given->config), $given);
     }
 
-    /** The settings with each layer's context blocks kept as it writes them, laid by context (ADR-0070). */
+    /** The settings with each layer's context blocks kept as it writes them, laid by context (ADR-0071). */
     public function asWritten(CommandLine $given): Settings|Invalid|CannotJudge
     {
         return $this->over($this->file($given->config), $given, static fn(Layer $layer): Layer => $layer);
@@ -131,7 +131,7 @@ final readonly class Effective
             : $chain;
     }
 
-    /** The contexts the run is in, told from the settings every layer makes without its blocks (ADR-0070). */
+    /** The contexts the run is in, told from the settings every layer makes without its blocks (ADR-0071). */
     private function chain(Layer|Invalid|CannotJudge $file, CommandLine $given): ContextChain|Invalid|CannotJudge
     {
         return $this->context->chain(

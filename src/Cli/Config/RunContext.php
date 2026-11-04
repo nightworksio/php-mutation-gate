@@ -20,7 +20,7 @@ use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Port\CiPlan;
 
 /**
- * The contexts a run is in (ADR-0070), told from the environment and from what the CI plan the settings choose
+ * The contexts a run is in (ADR-0071), told from the environment and from what the CI plan the settings choose
  * says of the run: `local` outside CI; in CI, `ci`, with `pr` over it on a pull request or a merge group, and
  * `main` over it on the default branch. A run in CI the plan says nothing of is `ci` alone.
  *

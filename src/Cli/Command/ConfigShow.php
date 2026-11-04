@@ -30,7 +30,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  * presets, the config file and the command line (ADR-0002), in any of the
  * four formats, with each context block as the layers write it; or, with
  * `--resolved`, the config of a run in the contexts it is in, whose blocks
- * are laid and dropped, naming those contexts on standard error (ADR-0070).
+ * are laid and dropped, naming those contexts on standard error (ADR-0071).
  *
  * @internal
  */

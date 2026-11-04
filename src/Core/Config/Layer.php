@@ -152,7 +152,7 @@ final readonly class Layer
     }
 
     /**
-     * What this layer sets in a run in these contexts (ADR-0070): the rest of the layer, with the block of each
+     * What this layer sets in a run in these contexts (ADR-0071): the rest of the layer, with the block of each
      * context laid over it in order, and no block left.
      */
     public function in(ContextChain $chain): self

@@ -29,7 +29,7 @@ use Symfony\Component\Console\Input\InputInterface;
  * What the command line says about the config: the file `--config` names,
  * the settings `--runner`, `--report`, `--budget` and `--ci` lay over
  * everything else (ADR-0002), and the context `--context` puts the run in
- * (ADR-0070).
+ * (ADR-0071).
  *
  * @internal
  */
@@ -183,7 +183,7 @@ final readonly class CommandLine
             : $this;
     }
 
-    /** The context `--context` puts the run in (ADR-0070), nothing where it is left off, or why it names none. */
+    /** The context `--context` puts the run in (ADR-0071), nothing where it is left off, or why it names none. */
     public function context(): Context|NotGiven|Invalid
     {
         $context = $this->context;

@@ -15,7 +15,7 @@ use IteratorAggregate;
 use Traversable;
 
 /**
- * The contexts whose blocks a run lays over the rest of each layer, in order, later winning (ADR-0070).
+ * The contexts whose blocks a run lays over the rest of each layer, in order, later winning (ADR-0071).
  *
  * @implements IteratorAggregate<int, Context>
  */

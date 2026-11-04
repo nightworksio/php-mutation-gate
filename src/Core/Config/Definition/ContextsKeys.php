@@ -19,7 +19,7 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 use function sprintf;
 
 /**
- * How `contexts` is read into a layer's `Contexts` part (ADR-0070): a block per context, each holding the keys
+ * How `contexts` is read into a layer's `Contexts` part (ADR-0071): a block per context, each holding the keys
  * of a layer but those `Placement::ContextBlock` refuses. A block's settings are judged once a run lays it, so
  * the key itself is the one setting it declares, and the schema names a block's keys once, under `$defs`.
  *

@@ -67,7 +67,7 @@ final readonly class Definition
     }
 
     /**
-     * The keys a context block may write, read into the layer a run in its context lays (ADR-0070).
+     * The keys a context block may write, read into the layer a run in its context lays (ADR-0071).
      *
      * @return Section<Layer>
      */
