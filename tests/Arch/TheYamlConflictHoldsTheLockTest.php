@@ -25,11 +25,14 @@ function lockedRelease(string $lock, string $package): string
     return is_string($version) ? ltrim($version, 'v') : '';
 }
 
-/** The upper end of the clause of a conflict that names a major, as `>=8.0 <8.1.11` gives `8.1.11` for 8. */
+/**
+ * The upper end of the clause of a conflict that ends in a major, as
+ * `>=8.0 <8.1.11` gives `8.1.11` for 8, and `<7.4.23` gives `7.4.23` for 7.
+ */
 function conflictFloorFor(string $conflict, int $major): string
 {
     foreach (explode('||', $conflict) as $clause) {
-        if (preg_match(sprintf('/^\s*>=%d\.\d+\s+<(\S+)\s*$/', $major), $clause, $parts) === 1) {
+        if (preg_match(sprintf('/^\s*(?:>=\S+\s+)?<(%d\.\S+)\s*$/', $major), $clause, $parts) === 1) {
             return $parts[1];
         }
     }
