@@ -45,6 +45,16 @@ it('reads learned limits into bounds that learn them, and writes them back as th
         ->toContain('Timeouts::learnedSeconds()', 'Timeouts::learnedMultiple()', 'Shards::learnedMax()');
 });
 
+it('writes back the statistic a learned most is read by as the builder calls it', function (LearnedStatistic $statistic, string $call): void {
+    $settings = Configs::settings(['runner' => 'pest', 'shards' => ['max' => 'learned', 'learnedFrom' => $statistic->value]]);
+
+    expect($settings->shards()->learnedFrom())->toBe($statistic)
+        ->and($settings->effective()->php(ProjectRoot::origin())->code())->toContain($call);
+})->with([
+    'the most' => [LearnedStatistic::Max, 'Shards::learnedFromMax()'],
+    'the median' => [LearnedStatistic::Median, 'Shards::learnedFromMedian()'],
+]);
+
 it('learns no limit a config writes a number for, and takes no statistic for a written most', function (): void {
     $settings = Configs::settings(['runner' => 'pest', 'timeouts' => ['seconds' => 7, 'multiple' => 4], 'shards' => ['max' => 8]]);
     $bounds = $settings->triage()->bounds();

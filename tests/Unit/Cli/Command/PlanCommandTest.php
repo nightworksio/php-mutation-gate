@@ -117,6 +117,23 @@ it('says which ledger the store could not read before the lines of the plan made
         ));
 });
 
+it('says each limit it learns, after how its map was measured', function () use ($plan): void {
+    $planned = $plan(
+        FlowCommands::project('"shards": {"max": "learned"}, "timeouts": {"multiple": "learned"}'),
+        '',
+        ScriptedRunner::fixture(),
+        Flows::ci(),
+    );
+
+    expect($planned->code)->toBe(0)
+        ->and($planned->errors)->toStartWith(<<<'SAID'
+            Coverage: there is no kept map, so every test was measured.
+            timeouts.multiple learned: 3, the fixed one: the ledger holds no kill yet.
+            shards.max learned: 20, the fixed one: the ledger holds no sharded run yet.
+
+            SAID);
+});
+
 it('cuts shards by the config\'s size where no count is asked for', function () use ($plan): void {
     $planned = $plan(FlowCommands::project(), '', ScriptedRunner::fixture(), Flows::ci());
 
