@@ -70,13 +70,14 @@ it('widens a replayed test file to every unit its tests run where the change als
     'a setup added' => ["afterEach(function (): void {", "beforeEach(function (): void {\n    Scratch::sweep();\n});\n\nafterEach(function (): void {"],
     'an import changed' => ["use NightWorksIO\\MutationGate\\Tests\\Support\\Verdicts;\n", "use NightWorksIO\\MutationGate\\Tests\\Support\\Verdicts as Verdict;\n"],
     'an import removed' => ["use NightWorksIO\\MutationGate\\Tests\\Support\\Verdicts;\n", ''],
+    'an import added of a function its tests call' => ["use NightWorksIO\\MutationGate\\Tests\\Support\\Verdicts;\n", "use NightWorksIO\\MutationGate\\Tests\\Support\\Verdicts;\nuse function NightWorksIO\\MutationGate\\Tests\\Support\\sprintf;\n"],
 ]);
 
-it('reaches nothing more for an import a replayed test file only added', function (): void {
+it('reaches nothing more for an import a replayed test file only added, of a name it did not spell', function (): void {
     $replay = Replay::of('pull-request-517');
     $now = $replay->now(REPLAYED_COMMAND);
     $import = "use NightWorksIO\\MutationGate\\Tests\\Support\\Verdicts;\n";
-    $reach = $replay->reachWith(ChangedTests::Narrow, REPLAYED_COMMAND, str_replace($import, sprintf("%suse NightWorksIO\\MutationGate\\Tests\\Support\\Tree;\n", $import), $now));
+    $reach = $replay->reachWith(ChangedTests::Narrow, REPLAYED_COMMAND, str_replace($import, sprintf("%suse NightWorksIO\\MutationGate\\Tests\\Support\\Ledgers;\n", $import), $now));
 
     expect($now)->toContain($import)
         ->and(replayedReasons($reach))->toContain('`tests/Unit/Cli/Command/RunCommandTest.php` changed 2 of its 43 tests, so the 671 files they run are reached.')

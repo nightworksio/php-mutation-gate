@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 
+/** The group of the tests that judge `Withheld` alone, as each of them covers all of it. */
+const WITHHELD_HOLD = 'holds:src/Core/Runner/Withheld.php';
+
 $withholds = static fn(Withheld $withheld, string $name): bool => preg_match($withheld->pattern(), $name) === 1;
 
 it('withholds the CI\'s credentials every run withholds, by the whole name', function (string $name, bool $withheld) use ($withholds): void {
@@ -26,7 +29,7 @@ it('withholds the CI\'s credentials every run withholds, by the whole name', fun
     ['GITHUB_TOKENS', false],
     ['GITHUB_SHA', false],
     ['PATH', false],
-]);
+])->group(WITHHELD_HOLD);
 
 it('withholds names and globs as they are written, however they look to a pattern', function () use ($withholds): void {
     $withheld = Withheld::of('DEPLOY_*', 'A.B', 'x~y');
@@ -36,12 +39,12 @@ it('withholds names and globs as they are written, however they look to a patter
         ->and($withholds($withheld, 'AxB'))->toBeFalse()
         ->and($withholds($withheld, 'x~y'))->toBeTrue()
         ->and($withheld->pattern())->toBe('~^(?:DEPLOY_.*|A\.B|x\~y)$~');
-});
+})->group(WITHHELD_HOLD);
 
 it('withholds nothing where nothing is withheld', function () use ($withholds): void {
     expect($withholds(Withheld::nothing(), ''))->toBeFalse()
         ->and($withholds(Withheld::nothing(), 'AWS_SECRET_ACCESS_KEY'))->toBeFalse();
-});
+})->group(WITHHELD_HOLD);
 
 it('withholds Composer\'s credentials and every secret the gate itself reads from every run', function (string $name) use ($withholds): void {
     expect($withholds(Withheld::standard(), $name))->toBeTrue();
@@ -56,11 +59,11 @@ it('withholds Composer\'s credentials and every secret the gate itself reads fro
     'MUTATION_GATE_DISCORD_URL',
     'MUTATION_GATE_WEBHOOK_URL',
     'GH_TOKEN',
-]);
+])->group(WITHHELD_HOLD);
 
 it('leaves a variable that holds no credential to the tests, though it shares a secret\'s prefix', function (string $name) use ($withholds): void {
     expect($withholds(Withheld::standard(), $name))->toBeFalse();
-})->with(['MUTATION_GATE_RESULTS', 'MUTATION_GATE_TEAMS_URL', 'OTEL_EXPORTER_OTLP_ENDPOINT', 'COMPOSER_HOME']);
+})->with(['MUTATION_GATE_RESULTS', 'MUTATION_GATE_TEAMS_URL', 'OTEL_EXPORTER_OTLP_ENDPOINT', 'COMPOSER_HOME'])->group(WITHHELD_HOLD);
 
 it('withholds what both withhold, each once, and only grows', function () use ($withholds): void {
     $both = Withheld::standard()->and(Withheld::of('CI_JOB_TOKEN', 'GITHUB_TOKEN'));
@@ -70,7 +73,7 @@ it('withholds what both withhold, each once, and only grows', function () use ($
         ->and($withholds(Withheld::standard(), 'MUTATION_GATE_GITLAB_TOKEN'))->toBeTrue()
         ->and($withholds(Withheld::standard(), 'MUTATION_GATE_BITBUCKET_TOKEN'))->toBeTrue()
         ->and($withholds(Withheld::standard(), 'CI_JOB_TOKEN'))->toBeFalse();
-});
+})->group(WITHHELD_HOLD);
 
 it('composes what every run withholds, each CI plan\'s credentials and the runner\'s, each once', function (): void {
     expect([...Withheld::composed(
@@ -79,7 +82,7 @@ it('composes what every run withholds, each CI plan\'s credentials and the runne
         Withheld::of('BUILDKITE_AGENT_TOKEN'),
     )])->toBe([...Withheld::standard(), 'CI_JOB_TOKEN', 'BUILDKITE_AGENT_TOKEN', 'DEPLOY_*'])
         ->and([...Withheld::composed(Withheld::nothing())])->toBe([...Withheld::standard()]);
-});
+})->group(WITHHELD_HOLD);
 
 it('withholds what makes a process another run\'s worker or mutant, or print for an AI agent', function (string $name, bool $withheld) use ($withholds): void {
     expect($withholds(Withheld::otherRuns(), $name))->toBe($withheld);
@@ -95,7 +98,7 @@ it('withholds what makes a process another run\'s worker or mutant, or print for
     'the path' => ['PATH', false],
     'pao turned off' => ['PAO_DISABLE', false],
     'a name that only begins like an agent\'s' => ['OPENCODE_HOME', false],
-]);
+])->group(WITHHELD_HOLD);
 
 it('withholds each variable by which laravel/agent-detector finds an AI agent, and pao\'s that forces it', function (string $name) use ($withholds): void {
     expect($withholds(Withheld::otherRuns(), $name))->toBeTrue();
@@ -122,4 +125,4 @@ it('withholds each variable by which laravel/agent-detector finds an AI agent, a
     'PI_CODING_AGENT',
     'KIRO_AGENT_PATH',
     'PAO_FORCE',
-]);
+])->group(WITHHELD_HOLD);

@@ -302,8 +302,20 @@ it('reads each import at the top of a file, spelt as one statement, and none of 
         PHP));
 
     expect($declared->imports())->toBe(['use App\Money;', 'use function App\rate;', 'use App\{Fee, Tax};'])
+        ->and($declared->imported())->toBe(['use App\Money;' => ['Money'], 'use function App\rate;' => ['rate'], 'use App\{Fee, Tax};' => ['Fee', 'Tax']])
         ->and($declared->sharedButImports(['testAdds']))->toBe("\n\nfinal class MoneyTest\n{\n    use Helps;\n}\n\n\$round = fn () => 1;\nuse App\\Unended")
         ->and(TestDeclarations::in(Contents::of("<?php\nnamespace App {\n    use App\\Money;\n}\n"))->imports())->toBe([])
         ->and(TestDeclarations::in(Contents::of("<?php\nit('adds', fn () => 1);\nuse App\\Money;\nit('helps', fn () => 2);\n"))->sharedButImports([TestMethod::pest('it adds')]))
         ->toBe("\nit('helps', fn () => 2);\n");
+});
+
+it('reads the name each clause of an import gives, its alias where it has one, and whether the file spells a name in any case, outside comments and strings', function (): void {
+    $declared = TestDeclarations::in(Contents::of("<?php\nuse App\\{Sub\\Fee as Charge, Tax};\nuse const App\\RATE as R;\nuse \\Lead\\Money;\n\n// Pay\nit('adds', fn () => new Charge('Pay'));\n"));
+
+    expect($declared->imported())->toBe(['use App\\{Sub\\Fee as Charge, Tax};' => ['Charge', 'Tax'], 'use const App\\RATE as R;' => ['R'], 'use \\Lead\\Money;' => ['Money']])
+        ->and($declared->names('charge'))->toBeTrue()
+        ->and($declared->names('CHARGE'))->toBeTrue()
+        ->and($declared->names('Fee'))->toBeTrue()
+        ->and($declared->names('Rate'))->toBeTrue()
+        ->and($declared->names('Pay'))->toBeFalse();
 });

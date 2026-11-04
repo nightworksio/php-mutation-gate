@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Reach;
 
 use function array_all;
+use function array_any;
 use function array_count_values;
 use function array_key_exists;
 use function array_keys;
@@ -65,7 +66,7 @@ final readonly class TestsChanged
 
     /**
      * Whether the tests share what they shared, but for imports the change
-     * only added.
+     * only added, each giving a name the file did not spell before.
      *
      * @param list<string> $methods
      */
@@ -73,6 +74,7 @@ final readonly class TestsChanged
     {
         return $before->shared($methods) === $now->shared($methods)
             || (self::keepsImports($before, $now)
+                && self::importsNewNames($before, $now)
                 && $before->sharedButImports($methods) === $now->sharedButImports($methods));
     }
 
@@ -84,6 +86,26 @@ final readonly class TestsChanged
             array_count_values($before->imports()),
             static fn(int $count, string $import): bool => array_key_exists($import, $kept) && $kept[$import] >= $count,
         );
+    }
+
+    /**
+     * Whether no import the change added gives a name the file spelt before,
+     * whose meaning it would change in tests the change did not touch.
+     */
+    private static function importsNewNames(TestDeclarations $before, TestDeclarations $now): bool
+    {
+        $had = array_count_values($before->imports());
+        $has = array_count_values($now->imports());
+
+        foreach ($now->imported() as $import => $names) {
+            $kept = array_key_exists($import, $had) && $had[$import] === $has[$import];
+
+            if (! $kept && array_any($names, static fn(string $name): bool => $before->names($name))) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /** Whether a test's declaration reads the same in both versions, or stands in neither. */

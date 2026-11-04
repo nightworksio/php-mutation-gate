@@ -30,7 +30,7 @@ use function str_starts_with;
 final readonly class Scope
 {
     /** What ends one clause of a `use` statement. */
-    private const array CLAUSE_ENDS = [',', '}', ';'];
+    public const array CLAUSE_ENDS = [',', '}', ';'];
 
     /** How a name relative to the current namespace begins. */
     private const string RELATIVE = 'namespace\\';
