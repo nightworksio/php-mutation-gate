@@ -58,8 +58,10 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Tests\Support\Clustered;
+use NightWorksIO\MutationGate\Tests\Support\Growth;
 use NightWorksIO\MutationGate\Tests\Support\Judged;
 use NightWorksIO\MutationGate\Tests\Support\Killings;
+use NightWorksIO\MutationGate\Tests\Support\ManyMutants;
 use NightWorksIO\MutationGate\Tests\Support\Owners;
 use NightWorksIO\MutationGate\Tests\Support\PruningCases;
 use NightWorksIO\MutationGate\Tests\Support\Sampled;
@@ -654,4 +656,15 @@ it('lists which tests fail without any mutant under Cannot judge, the mutants th
         'The tests fail without any mutant: MoneyTest::adds',
         Escape::code(MutantText::heading($failing)),
     ));
+});
+
+it('writes the comment and the step summary in time linear in the mutants', function () use ($run): void {
+    $written = static function (int $size) use ($run): Closure {
+        $verdict = ManyMutants::verdict($size);
+
+        return static fn(): int => strlen(Markdown::comment($verdict)) + strlen(Markdown::summary($verdict, $run, Instant::at(new DateTimeImmutable('2026-10-01T12:00:00Z'))));
+    };
+
+    expect(Markdown::summary(ManyMutants::verdict(8), $run, Instant::at(new DateTimeImmutable('2026-10-01T12:00:00Z'))))->toContain('## Not killed (2)')
+        ->and(Growth::of(250, $written))->toBeLessThan(Growth::LINEAR);
 });

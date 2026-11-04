@@ -96,14 +96,17 @@ final readonly class Markdown
         $folded = Folded::of($changed, $clusters);
         $security = $overview->securitySurvivors();
         $secured = Folded::of($security, $clusters);
+        $head = self::head($verdict, $overview, NoHistory::yet());
+        $sets = self::sets($verdict);
+        $tail = [...self::tail($verdict, self::REPORT_SLOT), CostText::of($verdict)];
         $document = static fn(int $shown): string => self::document([
             self::MARKER,
-            ...self::head($verdict, $overview, NoHistory::yet()),
+            ...$head,
             ...self::section(
                 sprintf('Security survivors (%d)', count($security)),
                 MarkdownItems::details(array_slice($secured, 0, $shown), count($secured), $overview->gate()),
             ),
-            ...self::sets($verdict),
+            ...$sets,
             ...self::section(
                 sprintf('Survivors on changed lines (%d)', count($changed)),
                 MarkdownItems::owned(
@@ -120,8 +123,7 @@ final readonly class Markdown
                 MarkdownItems::table(array_slice($other, 0, $shown), count($other), $overview->gate()),
             ),
             ...self::ignored($overview, $shown),
-            ...self::tail($verdict, self::REPORT_SLOT),
-            CostText::of($verdict),
+            ...$tail,
         ]);
 
         return self::fitted(
@@ -147,10 +149,10 @@ final readonly class Markdown
         $items = Folded::of($overview->survivors(), $verdict->trees()->clusters());
         $head = self::head($verdict, $overview, $verdict->account()->savedSince($since));
         $tail = self::tail($verdict, $run === '' ? '' : self::runLine($run));
+        $sets = [...self::sets($verdict), ...self::section('Suites', self::suites($verdict))];
         $document = static fn(int $shown): string => self::document([
             ...$head,
-            ...self::sets($verdict),
-            ...self::section('Suites', self::suites($verdict)),
+            ...$sets,
             ...self::section(
                 sprintf('Not killed (%d)', count($overview->survivors())),
                 MarkdownItems::owned(

@@ -10,8 +10,9 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\Digest\Digest;
 use NightWorksIO\MutationGate\Core\Report\Digest\SurvivorsShown;
-use NightWorksIO\MutationGate\Core\Report\JsonReport;
+use NightWorksIO\MutationGate\Core\Report\EncodedReport;
 use NightWorksIO\MutationGate\Core\Report\Overview;
+use NightWorksIO\MutationGate\Core\Report\ReportsTheEncoded;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
@@ -24,7 +25,7 @@ use NightWorksIO\MutationGate\Port\Reporter;
  *
  * @internal
  */
-final readonly class DigestReportFile implements Configurable, Reporter
+final readonly class DigestReportFile implements Configurable, Reporter, ReportsTheEncoded
 {
     private function __construct(private ReportPath $path)
     {
@@ -44,8 +45,13 @@ final readonly class DigestReportFile implements Configurable, Reporter
 
     public function report(Verdict $verdict): Written|NotWritten
     {
-        $report = Node::decode(JsonReport::encode($verdict));
+        return $this->reportFrom($verdict, EncodedReport::of($verdict));
+    }
 
-        return $this->path->write(Digest::overview($report, SurvivorsShown::first(), Overview::of($verdict)->gate()));
+    public function reportFrom(Verdict $verdict, EncodedReport $report): Written|NotWritten
+    {
+        return $this->path->write(
+            Digest::overview(Node::decode($report->text()), SurvivorsShown::first(), Overview::of($verdict)->gate()),
+        );
     }
 }

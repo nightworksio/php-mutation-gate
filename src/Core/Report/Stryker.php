@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report;
 
-use function array_key_exists;
 use function explode;
 use function implode;
 
@@ -71,17 +70,14 @@ final readonly class Stryker
         foreach ($verdict->trees()->mutants() as $judged) {
             $at = $judged->mutant()->location()->file();
             $path = $at->value();
-            $file = array_key_exists($path, $files)
-                ? $files[$path]
-                : ['language' => self::LANGUAGE, 'source' => $sources->of($at)->text()];
-            $file['mutants'][] = self::mutant(
+            $files[$path] ??= ['language' => self::LANGUAGE, 'source' => $sources->of($at)->text()];
+            $files[$path]['mutants'][] = self::mutant(
                 $judged,
                 $columns->in($at),
                 $uncovered,
                 $verdict->matrix(),
                 $overview->gate(),
             );
-            $files[$path] = $file;
         }
 
         return JsonText::encode([
@@ -125,11 +121,6 @@ final readonly class Stryker
         GateCommand $gate,
     ): array {
         $covering = $matrix->coveredBy($judged);
-        $completed = 0;
-
-        foreach ($covering as $test) {
-            $completed += $matrix->outcome($judged, $test)->ran() ? 1 : 0;
-        }
 
         $mutant = $judged->mutant();
         $reason = $mutant->reason();
@@ -146,7 +137,7 @@ final readonly class Stryker
             'description' => self::description($judged, $matrix->names(), $gate),
             'coveredBy' => self::ids($covering),
             'killedBy' => self::ids($judged->mutant()->killers()),
-            'testsCompleted' => $completed,
+            'testsCompleted' => $matrix->tally($judged, $covering)->ran(),
         ];
     }
 

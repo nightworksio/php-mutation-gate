@@ -17,7 +17,9 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
+use NightWorksIO\MutationGate\Tests\Support\Growth;
 use NightWorksIO\MutationGate\Tests\Support\Judged;
+use NightWorksIO\MutationGate\Tests\Support\ManyMutants;
 use NightWorksIO\MutationGate\Tests\Support\Schema;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
@@ -162,4 +164,15 @@ it('writes a kill a ledger proved across its whole line, with no replacement, wh
         'killedBy' => ['MoneyTest::fits'],
     ])
         ->and($mutant)->not->toHaveKey('replacement');
+});
+
+it('writes the Stryker report in time linear in its mutants, however many one file holds', function (): void {
+    $report = static function (int $size): Closure {
+        $verdict = ManyMutants::verdict($size);
+
+        return static fn(): int => strlen(Stryker::json($verdict, Sources::none()));
+    };
+
+    expect(Decoded::at(Stryker::json(ManyMutants::verdict(8), Sources::none()), 'files', 'src/Money.php', 'mutants', 7, 'testsCompleted'))->toBe(4)
+        ->and(Growth::of(250, $report))->toBeLessThan(Growth::LINEAR);
 });

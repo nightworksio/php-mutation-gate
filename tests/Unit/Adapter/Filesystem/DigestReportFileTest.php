@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Report\Digest\Digest;
 use NightWorksIO\MutationGate\Core\Report\Digest\SurvivorsShown;
+use NightWorksIO\MutationGate\Core\Report\EncodedReport;
 use NightWorksIO\MutationGate\Core\Report\JsonReport;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
@@ -33,4 +34,11 @@ it('needs a path', function (): void {
         'path',
         'The digest is written to a file, whose `path` the entry names.',
     )));
+});
+
+it('renders the digest from the JSON report it is handed, building none of its own', function (): void {
+    $file = sprintf('%s/build/mutation-gate-digest.txt', Scratch::directory());
+
+    expect(DigestReportFile::at($file)->reportFrom(Verdicts::failing(), EncodedReport::of(Verdicts::passing())))->toEqual(Written::to($file))
+        ->and(file_get_contents($file))->toBe(Digest::overview(Node::decode(JsonReport::encode(Verdicts::passing())), SurvivorsShown::first(), GateCommand::installed()));
 });

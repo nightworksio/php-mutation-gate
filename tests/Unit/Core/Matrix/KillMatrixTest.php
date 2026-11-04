@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Matrix\Outcome;
+use NightWorksIO\MutationGate\Core\Matrix\OutcomeTally;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -155,3 +156,36 @@ it('says a test outside the ones that judge a held mutant never ran with it', fu
         ->and($matrix->outcome($held, $first))->toBe(Outcome::Killed)
         ->and($matrix->coverage())->toEqual($coverage());
 });
+
+it('tallies the outcomes of the tests that judged a mutant, leaving out those that did not', function () use ($judged, $coverage, $makeFirst, $makeSecond, $makeThird): void {
+    $first = $makeFirst();
+    $second = $makeSecond();
+    $third = $makeThird();
+    $tests = TestIds::of($first, $second, $third);
+    $killed = $judged(MutantStatus::Killed, TestIds::of($first, $third), 8);
+    $held = $judged(MutantStatus::Killed, TestIds::of($first), 8)->judgedBy(TestIds::of($third, $first));
+    $counts = static fn(OutcomeTally $tally): array => array_map($tally->of(...), Outcome::cases());
+
+    expect($counts(KillMatrix::of(MatrixKind::FirstKiller, $coverage())->tally($killed, $tests)))->toBe([2, 0, 1, 0])
+        ->and($counts(KillMatrix::of(MatrixKind::Full, $coverage())->tally($killed, $tests)))->toBe([2, 1, 0, 0])
+        ->and($counts(KillMatrix::of(MatrixKind::FirstKiller, $coverage())->tally($held, $tests)))->toBe([1, 0, 1, 0])
+        ->and($counts(KillMatrix::of(MatrixKind::Full, $coverage())->tally($judged(MutantStatus::Survived, TestIds::none(), 8), $tests)))->toBe([0, 3, 0, 0])
+        ->and($counts(KillMatrix::of(MatrixKind::Full, $coverage())->tally($judged(MutantStatus::TimedOut, TestIds::of($second), 8), $tests)))->toBe([0, 0, 0, 3])
+        ->and(KillMatrix::of(MatrixKind::Full, $coverage())->tally($held, TestIds::of($second)))->toHaveCount(0)
+        ->and(KillMatrix::of(MatrixKind::Full, $coverage())->tally($killed, TestIds::none()))->toHaveCount(0);
+});
+
+it('tallies each outcome as the outcome of each judging test gives it, whatever the mutant\'s status', function (MutantStatus $status, MatrixKind $kind) use ($judged, $coverage, $makeFirst, $makeSecond, $makeThird): void {
+    $tests = TestIds::of($makeFirst(), $makeSecond(), $makeThird());
+    $matrix = KillMatrix::of($kind, $coverage());
+    $mutant = $judged($status, TestIds::of($makeSecond()), 8)->judgedBy(TestIds::of($makeSecond(), $makeThird()));
+    $counted = OutcomeTally::none();
+
+    foreach ($tests as $test) {
+        $counted = $matrix->judges($mutant, $test) ? $counted->with($matrix->outcome($mutant, $test), TestIds::of($test)) : $counted;
+    }
+
+    expect(array_map($matrix->tally($mutant, $tests)->of(...), Outcome::cases()))->toBe(array_map($counted->of(...), Outcome::cases()))
+        ->and($matrix->tally($mutant, $tests))->toHaveCount(2);
+})->with([MutantStatus::Killed, MutantStatus::Errored, MutantStatus::Survived, MutantStatus::TimedOut, MutantStatus::FailsUnmutated, MutantStatus::Skipped])
+    ->with([MatrixKind::FirstKiller, MatrixKind::Full]);

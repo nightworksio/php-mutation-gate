@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Unchanged;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
+use NightWorksIO\MutationGate\Core\Report\EncodedReport;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
@@ -92,7 +93,7 @@ final readonly class UnchangedVerdict
             $unchanged->passing($plan->commit(), $at),
         );
         $verdict = self::verdictOf($unchanged);
-        $said = Reported::by($verdict, $reporters);
+        $said = Reported::by($verdict, EncodedReport::of($verdict), $reporters);
 
         return new Judged(
             $verdict,

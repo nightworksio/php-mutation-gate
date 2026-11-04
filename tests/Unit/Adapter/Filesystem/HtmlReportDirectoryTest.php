@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Report\EncodedReport;
 use NightWorksIO\MutationGate\Core\Report\JsonReport;
 use NightWorksIO\MutationGate\Core\Report\Page\ReportPage;
 use NightWorksIO\MutationGate\Core\Report\Sources;
@@ -79,4 +80,17 @@ it('says why it could not write the report', function (): void {
 
     expect(HtmlReportDirectory::at(sprintf('%s/html', $root), $root, Schema::at('resources/report-page'))->report(Verdicts::passing()))
         ->toEqual(NotWritten::because(sprintf('%s/html/mutation-report.json could not be written.', $root)));
+});
+
+it('renders the page from the JSON report it is handed, building none of its own', function (): void {
+    $project = Scratch::directory();
+    $html = sprintf('%s/build/html', $project);
+    $page = Schema::at('resources/report-page');
+    HtmlReportDirectory::at($html, $project, $page)->reportFrom(Verdicts::failing(), EncodedReport::of(Verdicts::passing()));
+
+    expect(file_get_contents(sprintf('%s/index.html', $html)))->toBe(ReportPage::html(
+        JsonReport::of(Verdicts::passing()),
+        (string) file_get_contents(sprintf('%s/page.css', $page)),
+        (string) file_get_contents(sprintf('%s/page.js', $page)),
+    ));
 });

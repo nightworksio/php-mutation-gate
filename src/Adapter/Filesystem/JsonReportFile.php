@@ -7,7 +7,8 @@ namespace NightWorksIO\MutationGate\Adapter\Filesystem;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\NotWritten;
-use NightWorksIO\MutationGate\Core\Report\JsonReport;
+use NightWorksIO\MutationGate\Core\Report\EncodedReport;
+use NightWorksIO\MutationGate\Core\Report\ReportsTheEncoded;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
@@ -19,7 +20,7 @@ use NightWorksIO\MutationGate\Port\Reporter;
  *
  * @internal
  */
-final readonly class JsonReportFile implements Configurable, Reporter
+final readonly class JsonReportFile implements Configurable, Reporter, ReportsTheEncoded
 {
     private function __construct(private ReportPath $path)
     {
@@ -39,6 +40,11 @@ final readonly class JsonReportFile implements Configurable, Reporter
 
     public function report(Verdict $verdict): Written|NotWritten
     {
-        return $this->path->write(JsonReport::encode($verdict));
+        return $this->reportFrom($verdict, EncodedReport::of($verdict));
+    }
+
+    public function reportFrom(Verdict $verdict, EncodedReport $report): Written|NotWritten
+    {
+        return $this->path->write($report->text());
     }
 }

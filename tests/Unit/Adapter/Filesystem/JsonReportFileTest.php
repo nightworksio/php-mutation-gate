@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\SarifReportFile;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Report\EncodedReport;
 use NightWorksIO\MutationGate\Core\Report\JsonReport;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
 use NightWorksIO\MutationGate\Core\Written;
@@ -35,4 +36,11 @@ it('needs a path', function (): void {
     )))
         ->and(JUnitReportFile::fromOptions(Options::none()))->toBeInstanceOf(Invalid::class)
         ->and(SarifReportFile::configured(Options::none(), Guide::unreleased()))->toBeInstanceOf(Invalid::class);
+});
+
+it('writes the text of the JSON report it is handed, building none of its own', function (): void {
+    $file = sprintf('%s/build/mutation.json', Scratch::directory());
+
+    expect(JsonReportFile::at($file)->reportFrom(Verdicts::failing(), EncodedReport::of(Verdicts::passing())))->toEqual(Written::to($file))
+        ->and(file_get_contents($file))->toBe(JsonReport::encode(Verdicts::passing()));
 });

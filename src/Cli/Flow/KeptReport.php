@@ -11,8 +11,8 @@ use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\GateCommand;
+use NightWorksIO\MutationGate\Core\Report\EncodedReport;
 use NightWorksIO\MutationGate\Core\Report\JsonReport;
-use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 
 use function sprintf;
 
@@ -33,9 +33,9 @@ final readonly class KeptReport
         = 'The report at %s is in another format than this gate reads: run %s again.';
 
     /** @return list<string> why the report was not kept; nothing where it was */
-    public static function keep(Directory $project, Verdict $verdict): array
+    public static function keep(Directory $project, EncodedReport $report): array
     {
-        $kept = $project->write(Workspace::report(), Contents::of(JsonReport::encode($verdict)));
+        $kept = $project->write(Workspace::report(), Contents::of($report->text()));
 
         return $kept instanceof CannotJudge ? [sprintf(self::NOT_KEPT, $kept->why())] : [];
     }

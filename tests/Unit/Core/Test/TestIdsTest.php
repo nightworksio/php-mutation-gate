@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Tests\Support\Growth;
@@ -64,4 +65,27 @@ it('collects tests in time linear in their number', function (): void {
 
     expect($tests(10)())->toHaveCount(10)
         ->and(Growth::of(2500, $tests))->toBeLessThan(Growth::LINEAR);
+});
+
+it('names its first test, and none where it holds none', function (): void {
+    expect(TestIds::of(TestId::of('1'), TestId::of('A::a'))->first())->toEqual(TestId::of('1'))
+        ->and(TestIds::none()->first())->toEqual(NotGiven::value());
+});
+
+it('joins any number of sets, each test once, in the order the sets first name them', function () use ($ids): void {
+    $sets = [TestIds::of(TestId::of('B::b'), TestId::of('A::a')), TestIds::none(), TestIds::of(TestId::of('A::a'), TestId::of('C::c'))];
+
+    expect($ids(TestIds::union($sets)))->toBe(['B::b', 'A::a', 'C::c'])
+        ->and(TestIds::union([]))->toHaveCount(0);
+});
+
+it('joins sets in time linear in all they hold', function (): void {
+    $sets = static function (int $size): Closure {
+        $each = array_map(static fn(int $at): TestIds => TestIds::of(TestId::of(sprintf('T%d::t', $at)), TestId::of(sprintf('T%d::t', $at + 1))), range(1, $size));
+
+        return static fn(): int => count(TestIds::union($each));
+    };
+
+    expect($sets(10)())->toBe(11)
+        ->and(Growth::of(2500, $sets))->toBeLessThan(Growth::LINEAR);
 });
