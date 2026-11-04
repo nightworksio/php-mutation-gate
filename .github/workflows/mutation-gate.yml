@@ -311,6 +311,17 @@ jobs:
           restore-keys: ${{ steps.resolve.outputs.default_prefix }}
       # The store's copy of the ledger fetch read, where it wrote one.
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        id: download-fetched
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          pattern: mutation-gate-fetched-${{ needs.fetch.outputs.attempt }}
+          path: ${{ env.FETCHED }}
+          merge-multiple: true
+      - name: Retry downloading the store's copy of the ledger
+        if: steps.download-fetched.outcome == 'failure'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        timeout-minutes: 2
         with:
           pattern: mutation-gate-fetched-${{ needs.fetch.outputs.attempt }}
           path: ${{ env.FETCHED }}
@@ -318,7 +329,17 @@ jobs:
       # The map the job that ran the suite under coverage wrote, so the plan
       # runs no suite of its own (ADR-0006).
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        id: download-map
         if: inputs.coverage != ''
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: ${{ inputs.coverage }}
+          path: ${{ env.HANDED }}
+      - name: Retry downloading the coverage map
+        if: steps.download-map.outcome == 'failure'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        timeout-minutes: 2
         with:
           name: ${{ inputs.coverage }}
           path: ${{ env.HANDED }}
@@ -398,6 +419,16 @@ jobs:
       - name: Install the gate
         run: bash "${GATE_ACTION}/resources/action/install.sh" "${GATE_ACTION}"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        id: download-delivery
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: mutation-gate-delivery-plan-${{ needs.plan.outputs.attempt }}
+          path: ${{ env.DELIVERY }}/planned
+      - name: Retry downloading the plan's delivery
+        if: steps.download-delivery.outcome == 'failure'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        timeout-minutes: 2
         with:
           name: mutation-gate-delivery-plan-${{ needs.plan.outputs.attempt }}
           path: ${{ env.DELIVERY }}/planned
@@ -433,10 +464,30 @@ jobs:
           path: ${{ env.GATE_ACTION }}
           persist-credentials: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        id: download-plan
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: mutation-gate-plan-${{ needs.plan.outputs.attempt }}
+          path: .mutation-gate
+      - name: Retry downloading the plan
+        if: steps.download-plan.outcome == 'failure'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        timeout-minutes: 2
         with:
           name: mutation-gate-plan-${{ needs.plan.outputs.attempt }}
           path: .mutation-gate
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        id: download-coverage
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: mutation-gate-coverage-${{ needs.plan.outputs.attempt }}
+          path: .mutation-gate/coverage
+      - name: Retry downloading the plan's coverage maps
+        if: steps.download-coverage.outcome == 'failure'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        timeout-minutes: 2
         with:
           name: mutation-gate-coverage-${{ needs.plan.outputs.attempt }}
           path: .mutation-gate/coverage
@@ -568,6 +619,16 @@ jobs:
           key: ${{ steps.resolve.outputs.own_prefix }}${{ github.run_id }}
           restore-keys: ${{ steps.resolve.outputs.own_prefix }}
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        id: download-plan
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: mutation-gate-plan-${{ needs.plan.outputs.attempt }}
+          path: .mutation-gate
+      - name: Retry downloading the plan
+        if: steps.download-plan.outcome == 'failure'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        timeout-minutes: 2
         with:
           name: mutation-gate-plan-${{ needs.plan.outputs.attempt }}
           path: .mutation-gate
@@ -575,6 +636,16 @@ jobs:
       # unmutated control, timed from the map the plan made (ADR-0008), as a
       # shard does.
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        id: download-coverage
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: mutation-gate-coverage-${{ needs.plan.outputs.attempt }}
+          path: .mutation-gate/coverage
+      - name: Retry downloading the plan's coverage maps
+        if: steps.download-coverage.outcome == 'failure'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        timeout-minutes: 2
         with:
           name: mutation-gate-coverage-${{ needs.plan.outputs.attempt }}
           path: .mutation-gate/coverage
@@ -628,6 +699,16 @@ jobs:
       - name: Install the gate
         run: bash "${GATE_ACTION}/resources/action/install.sh" "${GATE_ACTION}"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        id: download-delivery
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: mutation-gate-delivery-survivors-${{ needs.survivors.outputs.attempt }}
+          path: ${{ env.DELIVERY }}/survivors
+      - name: Retry downloading the survivors' delivery
+        if: steps.download-delivery.outcome == 'failure'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        timeout-minutes: 2
         with:
           name: mutation-gate-delivery-survivors-${{ needs.survivors.outputs.attempt }}
           path: ${{ env.DELIVERY }}/survivors
@@ -756,11 +837,32 @@ jobs:
           key: ${{ steps.resolve.outputs.default_prefix }}${{ github.run_id }}
           restore-keys: ${{ steps.resolve.outputs.default_prefix }}
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        id: download-plan
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: mutation-gate-plan-${{ needs.plan.outputs.attempt }}
+          path: .mutation-gate
+      - name: Retry downloading the plan
+        if: steps.download-plan.outcome == 'failure'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        timeout-minutes: 2
         with:
           name: mutation-gate-plan-${{ needs.plan.outputs.attempt }}
           path: .mutation-gate
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        id: download-results
         if: needs.plan.outputs.shards != '[]'
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          pattern: mutation-gate-result-${{ needs.plan.outputs.attempt }}-*
+          path: .mutation-gate/results
+          merge-multiple: true
+      - name: Retry downloading the shards' results
+        if: steps.download-results.outcome == 'failure'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        timeout-minutes: 2
         continue-on-error: true
         with:
           pattern: mutation-gate-result-${{ needs.plan.outputs.attempt }}-*
@@ -776,13 +878,35 @@ jobs:
       # own and learns each shard's timings by the map that shard was handed,
       # unless a verdict that passed stands for the plan (ADR-0062).
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        id: download-coverage
         if: needs.plan.outputs.stands != 'true'
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          pattern: mutation-gate-coverage-${{ needs.plan.outputs.attempt }}
+          path: .mutation-gate/coverage
+          merge-multiple: true
+      - name: Retry downloading the plan's coverage maps
+        if: steps.download-coverage.outcome == 'failure'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        timeout-minutes: 2
         with:
           pattern: mutation-gate-coverage-${{ needs.plan.outputs.attempt }}
           path: .mutation-gate/coverage
           merge-multiple: true
       # The store's copy of the ledger fetch read, as the plan reads it.
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        id: download-fetched
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          pattern: mutation-gate-fetched-${{ needs.fetch.outputs.attempt }}
+          path: ${{ env.FETCHED }}
+          merge-multiple: true
+      - name: Retry downloading the store's copy of the ledger
+        if: steps.download-fetched.outcome == 'failure'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        timeout-minutes: 2
         with:
           pattern: mutation-gate-fetched-${{ needs.fetch.outputs.attempt }}
           path: ${{ env.FETCHED }}
@@ -929,6 +1053,16 @@ jobs:
       - name: Install the gate
         run: bash "${GATE_ACTION}/resources/action/install.sh" "${GATE_ACTION}"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        id: download-delivery
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: mutation-gate-delivery-${{ needs.verdict.outputs.attempt }}
+          path: ${{ env.DELIVERY }}/verdict
+      - name: Retry downloading the verdict's delivery
+        if: steps.download-delivery.outcome == 'failure'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        timeout-minutes: 2
         with:
           name: mutation-gate-delivery-${{ needs.verdict.outputs.attempt }}
           path: ${{ env.DELIVERY }}/verdict
@@ -984,6 +1118,16 @@ jobs:
       contents: write
     steps:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        id: download-publish
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: mutation-gate-publish-${{ needs.verdict.outputs.attempt }}
+          path: publish
+      - name: Retry downloading what the verdict publishes
+        if: steps.download-publish.outcome == 'failure'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        timeout-minutes: 2
         with:
           name: mutation-gate-publish-${{ needs.verdict.outputs.attempt }}
           path: publish

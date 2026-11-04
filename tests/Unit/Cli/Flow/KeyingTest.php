@@ -3,8 +3,10 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Cli\Flow\Adapters;
 use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
 use NightWorksIO\MutationGate\Cli\Flow\Keying;
+use NightWorksIO\MutationGate\Cli\Flow\MapJudges;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\Suite;
 use NightWorksIO\MutationGate\Config\Baseline;
@@ -97,7 +99,7 @@ function keyingSuite(string $canary): Suite
 /** The keying of a run. */
 function keyingOf(object $port, Settings $settings, Suite $suite, Setup $setup): Keying
 {
-    $keying = Keying::of(Flows::adapters(Flows::project(), [], $port), $settings, $setup, $suite, keyingMap());
+    $keying = keyingAgainst(Flows::adapters(Flows::project(), [], $port), $settings, $setup, $suite, keyingMap());
 
     return $keying instanceof Keying ? $keying : throw new RuntimeException($keying->why());
 }
@@ -108,7 +110,7 @@ function keyedBase(string $definition): Digest
     $project = Flows::project();
     Scratch::write($project, '.github/workflows/gate.yml', $definition);
     $ci = Flows::ci()->runBy(Paths::of(Path::of('.github/workflows/gate.yml'), Path::of('.github/workflows/gone.yml')));
-    $keying = Keying::of(
+    $keying = keyingAgainst(
         Flows::adapters($project, [], keyingRunner('fake'), $ci),
         Flows::settings(),
         Flows::setup(),
@@ -128,7 +130,7 @@ function keyedNarrowedTo(Mutators $narrowedTo): Digest
 /** The base of a run narrowed so, under the flows' config or this one. */
 function keyedNarrowing(Narrowing $narrowing, Settings|NotGiven $settings = new NotGiven()): Digest
 {
-    $keying = Keying::of(
+    $keying = keyingAgainst(
         Flows::adapters(Flows::project(), [], keyingRunner('fake'), $narrowing),
         $settings instanceof Settings ? $settings : Flows::settings(),
         Flows::setup(),
@@ -223,7 +225,7 @@ it('cannot key a run whose runner cannot say what it is, or whose CI definition 
     );
     $ci = Flows::ci()->runBy(Paths::of(Path::of('.github/workflows/gate.yml')));
 
-    $keyed = static fn(object $port): Keying|CannotJudge => Keying::of(
+    $keyed = static fn(object $port): Keying|CannotJudge => keyingAgainst(
         Flows::adapters($project, [], $port),
         Flows::settings(),
         Flows::setup(),
@@ -315,7 +317,7 @@ function keyingColocated(string $clock): Digest|Unkeyed
     );
     $map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(2), TestId::of('MoneyTest::adds'));
     $keying = $suite instanceof Suite
-        ? Keying::of(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup(), $suite, $map)
+        ? keyingAgainst(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup(), $suite, $map)
         : $suite;
 
     return $keying instanceof Keying
@@ -332,7 +334,7 @@ it('asks the runner who it is withholding what the project\'s code may not see',
     $runner = ScriptedRunner::fixture();
     $adapters = Flows::adapters(Flows::project(), [], $runner);
 
-    Keying::of($adapters, Flows::settings(), Flows::setup(), keyingSuite('1'), keyingMap());
+    keyingAgainst($adapters, Flows::settings(), Flows::setup(), keyingSuite('1'), keyingMap());
 
     expect($runner->identified())->toEqual([$adapters->withheld]);
 });
@@ -340,7 +342,7 @@ it('asks the runner who it is withholding what the project\'s code may not see',
 /** The key of src/Money.php, with these ports wired beside the fake runner. */
 function keyedWith(object ...$ports): Digest|Unkeyed
 {
-    $keying = Keying::of(
+    $keying = keyingAgainst(
         Flows::adapters(Flows::project(), [], keyingRunner('fake'), ...$ports),
         Flows::settings(),
         Flows::setup(),
@@ -371,7 +373,7 @@ function keyedMutatorBase(string $body, Enabled $mutators): Digest
     $files = Fingerprints::of(Fingerprint::of(Path::of('tests/Mutators/PlusToMinus.php'), Digest::sha256Of($text)));
     $suite = ReadSuite::of(Flows::trees(), $files, Directory::at($project));
     $keying = $suite instanceof Suite
-        ? Keying::of(Flows::adapters(Flows::project(), [], keyingRunner('fake'), $mutators), Flows::settings(), Flows::setup(), $suite, keyingMap())
+        ? keyingAgainst(Flows::adapters(Flows::project(), [], keyingRunner('fake'), $mutators), Flows::settings(), Flows::setup(), $suite, keyingMap())
         : $suite;
 
     return $keying instanceof Keying ? $keying->base() : throw new RuntimeException($keying->why());
@@ -416,7 +418,7 @@ function keyingReached(string $money, string $ledger, bool $unreadable = false):
         ->covered(Path::of('src/Money.php'), Line::of(2), TestId::of('MoneyTest::adds'))
         ->covered(Path::of('src/Ledger.php'), Line::of(2), TestId::of('LedgerTest::books'));
     $keying = $suite instanceof Suite
-        ? Keying::of(Flows::adapters($project, [], keyingRunner('fake')), Flows::settings(), Flows::setup(), $suite, $map)
+        ? keyingAgainst(Flows::adapters($project, [], keyingRunner('fake')), Flows::settings(), Flows::setup(), $suite, $map)
         : $suite;
 
     return $keying instanceof Keying
@@ -439,3 +441,9 @@ it('reads every source outside the tests into every key, failing closed, where o
     expect(keyingReached($money, $ledger, unreadable: true))
         ->not->toEqual(keyingReached($money, str_replace('1', '2', $ledger), unreadable: true));
 });
+
+/** The keying of a run against this map, its judges asked of the adapters' runner. */
+function keyingAgainst(Adapters $adapters, Settings $settings, Setup $setup, Suite $suite, CoverageMap $map): Keying|CannotJudge
+{
+    return Keying::of($adapters, $settings, $setup, $suite, MapJudges::of($adapters->runner, $map));
+}

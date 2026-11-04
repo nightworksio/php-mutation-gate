@@ -64,12 +64,13 @@ final readonly class ScoreChanging
 
     private function keyed(Inventory $inventory, Baseline $baseline, CoverageMap $map): string|CannotJudge
     {
-        $keying = Keying::of($this->adapters, $this->settings, $this->setup, $inventory->suite, $map);
+        $judges = MapJudges::of($this->adapters->runner, $map);
+        $keying = Keying::of($this->adapters, $this->settings, $this->setup, $inventory->suite, $judges);
 
-        return $keying instanceof Keying ? $this->changed($inventory, $baseline, $map, $keying) : $keying;
+        return $keying instanceof Keying ? $this->changed($inventory, $baseline, $judges, $keying) : $keying;
     }
 
-    private function changed(Inventory $inventory, Baseline $baseline, CoverageMap $map, Keying $keying): string
+    private function changed(Inventory $inventory, Baseline $baseline, MapJudges $judges, Keying $keying): string
     {
         $trees = $inventory->trees;
         $ledgers = Ledgers::read($this->adapters->proofs, $inventory->standing, Writing::Never);
@@ -80,7 +81,7 @@ final readonly class ScoreChanging
             $this->adapters,
             $this->settings,
             $inventory->suite,
-            $map,
+            $judges,
             $this->setup->config,
         )->reach();
         $considering = Considering::of(

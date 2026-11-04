@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Cli\Flow\Adapters;
 use NightWorksIO\MutationGate\Cli\Flow\Inventory;
 use NightWorksIO\MutationGate\Cli\Flow\Keying;
+use NightWorksIO\MutationGate\Cli\Flow\MapJudges;
 use NightWorksIO\MutationGate\Cli\Flow\ScoreChanging;
 use NightWorksIO\MutationGate\Config\Ignore;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -70,7 +71,13 @@ $onMain = static function (string ...$files): Ledger {
 $provedHere = static function (Adapters $adapters, Mutants $mutants): Ledger {
     $inventory = Inventory::of($adapters, Flows::settings());
     $keying = $inventory instanceof Inventory
-        ? Keying::of($adapters, Flows::settings(), Flows::setup(), $inventory->suite, Flows::map())
+        ? Keying::of(
+            $adapters,
+            Flows::settings(),
+            Flows::setup(),
+            $inventory->suite,
+            MapJudges::of($adapters->runner, Flows::map()),
+        )
         : $inventory;
     $key = $keying instanceof Keying ? $keying->keysOf(Units::of(Unit::file(Path::of('src/Money.php'))))->keyOf(Path::of('src/Money.php')) : $keying;
     $base = $keying instanceof Keying ? $keying->base() : Digest::sha256Of('none');

@@ -10,7 +10,6 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Settings;
-use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -41,7 +40,7 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  */
 final readonly class Keying
 {
-    private function __construct(private ContentKeys $keys, private Adapters $adapters, private CoverageMap $map)
+    private function __construct(private ContentKeys $keys, private MapJudges $judges)
     {
     }
 
@@ -50,8 +49,9 @@ final readonly class Keying
         Settings $settings,
         Setup $setup,
         Suite $suite,
-        CoverageMap $map,
+        MapJudges $judges,
     ): self|CannotJudge {
+        $map = $judges->map();
         $identity = $adapters->runner->identity($adapters->withheld);
         $definitions = self::definitions($adapters);
 
@@ -72,13 +72,12 @@ final readonly class Keying
                     Source::of($suite->outside(), $definitions, self::exceptions($adapters, $settings, $setup)),
                     Tests::of(
                         $suite->files(),
-                        self::known($adapters, $map),
+                        $judges->known(),
                         Paths::of(...self::canaries($adapters, $suite), ...self::declaring($adapters, $suite)),
                     ),
                     new NameGraph($adapters)->reach($suite, $map),
                 ),
-                $adapters,
-                $map,
+                $judges,
             )
             : CannotJudge::because('The content key could not be built.');
     }
@@ -128,11 +127,10 @@ final readonly class Keying
         $judging = [];
 
         foreach ($units as $unit) {
-            $judges = $unit->isHeld() ? Paths::none() : $this->adapters->runner->judges($unit->path(), $this->map);
-            $judging[] = UnitJudging::of($unit, $judges);
+            $judging[] = UnitJudging::of($unit, $unit->isHeld() ? Paths::none() : $this->judges->for($unit->path()));
         }
 
-        return $this->keys->keysOf($this->map, ...$judging);
+        return $this->keys->keysOf($this->judges->map(), ...$judging);
     }
 
     /** What no key holds: the config file, the baseline, `proofs.ignore`, and every file the gate writes. */
@@ -232,21 +230,5 @@ final readonly class Keying
     private static function declaring(Adapters $adapters, Suite $suite): Paths
     {
         return $suite->files()->declaring(...$adapters->mutators->classes());
-    }
-
-    /** Every test file the coverage map knows, as the runner names the files that judge each covered file. */
-    private static function known(Adapters $adapters, CoverageMap $map): Paths
-    {
-        $known = Paths::none();
-
-        foreach ($map->files() as $file) {
-            $judges = $adapters->runner->judges($file, $map);
-
-            foreach ($judges instanceof Paths ? $judges : Paths::none() as $test) {
-                $known = $known->with($test);
-            }
-        }
-
-        return $known;
     }
 }

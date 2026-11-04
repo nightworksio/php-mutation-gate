@@ -26,6 +26,9 @@ const RELEASE = '.github/workflows/release.yml';
 /** The step of the action that restores PHPStan's result cache (ADR-0052). */
 const ANALYSER_RESTORE = 'Restore the static analyser\'s result cache';
 
+/** How the step that downloads an artifact again, after the first ran out of time or failed, is named. */
+const RETRY = 'Retry downloading ';
+
 /** How a step's `run` starts the gate from its own installation, which loads none of the project's code. */
 const OWN_GATE = 'php "${GATE_ACTION}/bin/mutation-gate" ';
 
@@ -37,6 +40,23 @@ const OWN_GATE = 'php "${GATE_ACTION}/bin/mutation-gate" ';
 function jobSteps(Node $job): array
 {
     return Lenient::items($job->field('steps'));
+}
+
+/** Whether a step downloads an artifact the first time, not again. */
+function downloadsFirst(Node $step): bool
+{
+    return str_starts_with(Lenient::text($step->field('uses')), 'actions/download-artifact@')
+        && ! str_starts_with(Lenient::text($step->field('name')), RETRY);
+}
+
+/**
+ * A mapping's values, as text, by their keys.
+ *
+ * @return array<array-key, string>
+ */
+function texts(Node $mapping): array
+{
+    return array_map(Lenient::text(...), Lenient::entries($mapping));
 }
 
 /** Whether a mapping names a secret in any of its values. */
@@ -168,11 +188,10 @@ it('alerts and traces from the deliver step alone', function (): void {
 it('hands the verdict every coverage map the plan made, its own and each shard\'s, before it judges', function (): void {
     $steps = WorkflowFile::at(REUSABLE)->field('jobs')->field('verdict')->field('steps');
     $coverage = Workspace::coverage()->value();
-    $downloads = WorkflowFile::stepsWhere($steps, 'uses', static fn(string $uses): bool => str_starts_with($uses, 'actions/download-artifact@'));
     $named = 'mutation-gate-coverage-${{ needs.plan.outputs.attempt }}';
-    $handed = array_values(array_filter(
-        $downloads,
-        static fn(int $at): bool => Lenient::text(Lenient::items($steps)[$at]->field('with')->field('pattern')) === $named,
+    $handed = array_keys(array_filter(
+        Lenient::items($steps),
+        static fn(Node $step): bool => downloadsFirst($step) && Lenient::text($step->field('with')->field('pattern')) === $named,
     ));
     $touching = WorkflowFile::stepsWhere($steps, 'run', static fn(string $run): bool => str_contains($run, $coverage));
     $judged = WorkflowFile::stepsWhere($steps, 'id', static fn(string $id): bool => $id === 'verdict');
@@ -183,6 +202,37 @@ it('hands the verdict every coverage map the plan made, its own and each shard\'
         ->and(dirname(Workspace::shardCoverage(ShardId::of(1))->value()))->toBe($coverage)
         ->and($touching)->toBe([])
         ->and($handed[0])->toBeLessThan($judged[0]);
+});
+
+it('downloads each artifact within two minutes, and once more with the same artifact and path where that ran out or failed', function (): void {
+    $retried = [];
+
+    foreach (Lenient::entries(WorkflowFile::at(REUSABLE)->field('jobs')) as $id => $job) {
+        $steps = jobSteps($job);
+
+        foreach ($steps as $at => $download) {
+            if (! downloadsFirst($download)) {
+                continue;
+            }
+
+            $retry = $steps[$at + 1];
+            $results = str_starts_with(Lenient::text($download->field('with')->field('pattern')), 'mutation-gate-result-');
+            $retried[] = sprintf('%s/%s', $id, Lenient::text($download->field('id')));
+
+            expect(Lenient::integer($download->field('timeout-minutes')))->toBe(2)
+                ->and(Lenient::boolean($download->field('continue-on-error'), otherwise: false))->toBeTrue()
+                ->and(Lenient::text($retry->field('name')))->toStartWith(RETRY)
+                ->and(Lenient::text($retry->field('if')))
+                ->toBe(sprintf("steps.%s.outcome == 'failure'", Lenient::text($download->field('id'))))
+                ->and(Lenient::text($retry->field('uses')))->toBe(Lenient::text($download->field('uses')))
+                ->and(Lenient::integer($retry->field('timeout-minutes')))->toBe(2)
+                ->and(Lenient::boolean($retry->field('continue-on-error'), otherwise: false))->toBe($results)
+                ->and(texts($retry->field('with')))->toBe(texts($download->field('with')));
+        }
+    }
+
+    expect($retried)->toContain('plan/download-map')
+        ->and(array_unique($retried))->toBe($retried);
 });
 
 it('spends nothing on a plan that runs no unit: no shard, no survivors, and a verdict that reads no result and, where one stands, no map', function (): void {
