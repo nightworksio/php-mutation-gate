@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use PHPUnit\Event\Facade;
 use PHPUnit\TextUI\XmlConfiguration\LoadedFromFileConfiguration;
 use PHPUnit\TextUI\XmlConfiguration\Loader;
+use PHPUnit\TextUI\XmlConfiguration\PHPUnit;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -80,12 +81,16 @@ it('runs the config\'s bootstrap, and each included suite\'s, as PHPUnit does be
         ->and(booting(bootedProject())->bootstraps(bootedConfig(bootedProject()), ['Feature']))->toBe([]);
 });
 
-it('refuses a boot of a config that caches PHPUnit\'s test index, and none of one that does not', function (): void {
+it('refuses a boot of a config that caches PHPUnit\'s test index, where PHPUnit has one, and none of one that does not', function (): void {
     $indexed = bootedProject('cacheDirectory=".cache" cacheTestIndex="true"');
     $plain = bootedProject();
-
-    expect(booting($indexed)->refusal(bootedConfig($indexed)))->toBe(sprintf(
+    $refused = sprintf(
         'PHPUnit caches its test index for %s/phpunit.xml, which may leave test files unloaded, so nothing was booted.',
         $indexed,
-    ))->and(booting($plain)->refusal(bootedConfig($plain)))->toBe('');
+    );
+
+    $cached = in_array('cacheTestIndex', get_class_methods(PHPUnit::class), strict: true);
+
+    expect(booting($indexed)->refusal(bootedConfig($indexed)))->toBe($cached ? $refused : '')
+        ->and(booting($plain)->refusal(bootedConfig($plain)))->toBe('');
 });
