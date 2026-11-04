@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\PassedRecord;
 use NightWorksIO\MutationGate\Core\Proof\RunProfileRecord;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\Multiple;
 use NightWorksIO\MutationGate\Core\Runner\WrittenBytes;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 
@@ -24,7 +25,9 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
  * without `matrix` records first killers, one without `security` makes
  * mutants with every mutator the run turns on, one without `suite` has every
  * test judge them, and one without `ownScopeCoverage` measured against no
- * map of its own scope. `unchangedSince` or `reachedNothingSince` holds the
+ * map of its own scope. `learnedMultiple` holds the `timeouts.multiple` the plan
+ * learned from the ledger's kills, which every shard allows; a file
+ * without it learned none (ADR-0073). `unchangedSince` or `reachedNothingSince` holds the
  * commit whose verdict stands for a plan that runs nothing, by why it stands
  * ({@see StandsBecause}, {@see PassedRecord}), `at` among its fields; a plan
  * without either runs what it plans.
@@ -39,6 +42,7 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
  *     security?: true,
  *     suite?: string,
  *     ownScopeCoverage?: true,
+ *     learnedMultiple?: float,
  *     unchangedSince?: PassedWritten,
  *     reachedNothingSince?: PassedWritten,
  * }
@@ -47,16 +51,20 @@ final readonly class BriefingRecord
 {
     private const string PEAK = 'peak';
 
+    private const string MULTIPLE = 'learnedMultiple';
+
     /** @return Written */
     public static function of(Briefing $briefing): array
     {
         $peak = $briefing->peak();
         $unchanged = $briefing->unchanged();
+        $multiple = $briefing->multiple();
 
         return [
             ...$peak instanceof MemoryCap ? [self::PEAK => $peak->bytes()] : [],
             ...RunProfileRecord::of($briefing->profile()),
             ...$briefing->isOnOwnScopeCoverage() ? [PassedRecord::OWN_SCOPE_COVERAGE => true] : [],
+            ...$multiple instanceof NotGiven ? [] : [self::MULTIPLE => $multiple->times()],
             ...$unchanged instanceof Unchanged
                 ? [$unchanged->because()->value => PassedRecord::of($unchanged->base())]
                 : [],
@@ -78,6 +86,8 @@ final readonly class BriefingRecord
         $briefing = RunProfileRecord::isTrue($file->field(PassedRecord::OWN_SCOPE_COVERAGE))
             ? $briefing->onOwnScopeCoverage()
             : $briefing;
+        $multiple = $file->field(self::MULTIPLE);
+        $briefing = $multiple->isPresent() ? $briefing->learning(Multiple::of($multiple->number())) : $briefing;
 
         foreach (StandsBecause::cases() as $because) {
             $unchanged = $file->field($because->value);

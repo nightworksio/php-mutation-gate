@@ -27,6 +27,13 @@ use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Cost\CostBasis;
 use NightWorksIO\MutationGate\Core\Cost\Estimated;
 use NightWorksIO\MutationGate\Core\Cost\FirstRun;
+use NightWorksIO\MutationGate\Core\Cost\Phase;
+use NightWorksIO\MutationGate\Core\Cost\RunTime;
+use NightWorksIO\MutationGate\Core\Cost\RunTimings;
+use NightWorksIO\MutationGate\Core\Cost\ShardsAtOnce;
+use NightWorksIO\MutationGate\Core\Cost\ShardTiming;
+use NightWorksIO\MutationGate\Core\Cost\StepTimes;
+use NightWorksIO\MutationGate\Core\Cost\Untimed;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -58,6 +65,7 @@ use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Inputs;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
+use NightWorksIO\MutationGate\Core\Proof\KillPace;
 use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
@@ -745,4 +753,67 @@ it('leaves no proof of a unit the run pruned mutators in, nor its time, yet coun
         ->and(count($ledger->timings()))->toBe(1)
         ->and($ledger->runs()->lastRun())->toEqual(recordedLastRun())
         ->and($learned)->toBe(['fake' => ['Decrement' => '0', 'GreaterThan' => '1', 'Minus' => '1', 'Plus' => '1']]);
+});
+
+it('learns each kill\'s pace by the map its shard was handed, and how many shards ran at once where the run was cut into shards', function () use (
+    $map,
+    $run,
+    $ledgers,
+): void {
+    $project = Flows::project();
+    $store = new ProofStoreFake();
+    $plan = Planned::twoShards();
+    $results = recordedRan($project, ScriptedRunner::fixture(), $map());
+    $paces = [];
+
+    foreach ($results->shards() as [, , $mutated]) {
+        $paces = [...$paces, ...KillPace::ofAll($mutated->mutants(), $map())];
+    }
+
+    $shard = static fn(int $id, string $start): ShardTiming => ShardTiming::of(
+        $id,
+        Phase::of(Moment::at($start), Seconds::of(300.0)),
+        StepTimes::none(),
+    );
+    $timings = RunTimings::of('run', RunTime::measured(Seconds::of(1.0), Seconds::of(1.0)))
+        ->withShard($shard(1, '2026-09-30T12:00:00Z'))
+        ->withShard($shard(2, '2026-09-30T12:02:00Z'));
+
+    new Recorded(adapters: Flows::adapters($project, [], $store), settings: Flows::settings())->write(
+        $plan,
+        $results,
+        $ledgers($store, $plan),
+        $run($plan),
+        CannotTell::because('It failed.'),
+        recordedLastRun(),
+        $timings,
+    );
+    $limits = LedgerRead::ledger($store->read(Scope::branch('main')))->limits();
+
+    expect($paces)->not->toBe([])
+        ->and([...$limits->kills()])->toEqual($paces)
+        ->and([...$limits->concurrency()])->toEqual([ShardsAtOnce::of(2)]);
+});
+
+it('learns no concurrency from a run it was given no timings of, or one not cut into shards', function () use ($map, $run, $ledgers): void {
+    $project = Flows::project();
+    $store = new ProofStoreFake();
+    $plan = Planned::twoShards();
+    $results = recordedRan($project, ScriptedRunner::fixture(), $map());
+    $single = RunTimings::of('run', RunTime::measured(Seconds::of(1.0), Seconds::of(1.0)))
+        ->withShard(ShardTiming::of(1, Phase::of(Moment::at('2026-09-30T12:00:00Z'), Seconds::of(60.0)), StepTimes::none()));
+
+    foreach ([Untimed::run(), $single] as $timings) {
+        new Recorded(adapters: Flows::adapters($project, [], $store), settings: Flows::settings())->write(
+            $plan,
+            $results,
+            $ledgers($store, $plan),
+            $run($plan),
+            CannotTell::because('It failed.'),
+            recordedLastRun(),
+            $timings,
+        );
+    }
+
+    expect(LedgerRead::ledger($store->read(Scope::branch('main')))->limits()->runCount())->toBe(0);
 });

@@ -159,7 +159,7 @@ it('says what is wrong with a config it cannot compose', function (
     'an invalid config' => [
         '{"runner": "fake", "shards": {"max": 0}}',
         'fake',
-        fn(): Invalid => Invalid::because(Problem::at('shards.max', 'expected an integer of at least 1, got 0')),
+        fn(): Invalid => Invalid::because(Problem::at('shards.max', 'expected an integer of at least 1, or "learned", got 0')),
     ],
     'a runner no extension offers' => [
         '{"runner": "fake"}',

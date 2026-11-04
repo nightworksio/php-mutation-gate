@@ -6,11 +6,13 @@ namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
 use function array_intersect;
 use function array_values;
+use function is_int;
 
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\Learned;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\SuiteLists;
@@ -43,8 +45,9 @@ final readonly class TriageKeys
         $judges = Effect::JudgesOrReportsOnly;
         $results = Effect::AffectsResults;
         $mode = Field::optional('mode', Enumerated::of(TimeoutMode::cases()), $judges);
-        $seconds = Field::optional('seconds', Integer::atLeast(1), $results);
+        $seconds = Field::optional('seconds', OrLearned::of(Integer::atLeast(1)), $results);
         $atMost = Field::optional('most', Integer::atLeast(1), $results);
+        $multiple = Field::optional('multiple', OrLearned::of(Number::atLeast(1)), $results);
         $tighter = Field::section('tighter', self::tighter($results));
 
         return [
@@ -59,10 +62,13 @@ final readonly class TriageKeys
             Field::section(
                 'timeouts',
                 Section::of(
-                    static function (Node $timeouts) use ($mode, $seconds, $atMost, $tighter): Layer|Invalid {
+                    static function (
+                        Node $timeouts,
+                    ) use ($mode, $seconds, $atMost, $multiple, $tighter): Layer|Invalid {
                         $timedOut = $mode->read($timeouts);
                         $limit = $seconds->read($timeouts);
                         $upper = $atMost->read($timeouts);
+                        $times = $multiple->read($timeouts);
                         $lower = $tighter->read($timeouts);
 
                         return Reading::built(
@@ -71,16 +77,19 @@ final readonly class TriageKeys
                                 limit: self::seconds($limit->value()),
                                 most: self::seconds($upper->value()),
                                 tighter: $lower->value(),
+                                multiple: $times->value(),
                             )),
                             $timedOut,
                             $limit,
                             $upper,
+                            $times,
                             $lower,
                         );
                     },
                     $mode,
                     $seconds,
                     $atMost,
+                    $multiple,
                     $tighter,
                 ),
             ),
@@ -204,8 +213,14 @@ final readonly class TriageKeys
         );
     }
 
-    private static function seconds(int|Absent $seconds): Seconds|Absent
+    /**
+     * @template L of Learned|Absent
+     *
+     * @param  int|L         $seconds
+     * @return Seconds|L
+     */
+    private static function seconds(int|Learned|Absent $seconds): Seconds|Learned|Absent
     {
-        return $seconds instanceof Absent ? $seconds : Seconds::of($seconds);
+        return is_int($seconds) ? Seconds::of($seconds) : $seconds;
     }
 }

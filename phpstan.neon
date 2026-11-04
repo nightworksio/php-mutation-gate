@@ -253,6 +253,10 @@ services:
         arguments:
             # Constants whose value only coincides with another's, meaning something else.
             coincidences:
+                'NightWorksIO\MutationGate\Core\Proof\LimitHistory':
+                    - KILLS # the newest kills a learned multiple is read from, not a message's length
+                    - RUNS # the newest runs a learned most shards is read from, not a count of presets
+                    - LEAST_MULTIPLE # the least a learned timeouts.multiple is, not work per shard overhead
                 'NightWorksIO\MutationGate\Cli\Init\InitQuestions':
                     - NONE # init's answer of no CI, not a hook setup's or a status
                 'NightWorksIO\MutationGate\Core\Native\Launched':

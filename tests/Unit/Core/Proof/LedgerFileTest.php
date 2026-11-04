@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Cost\ShardsAtOnce;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -40,6 +41,7 @@ use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
+use NightWorksIO\MutationGate\Core\Proof\LimitHistory;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
@@ -51,6 +53,7 @@ use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Proof\Uncommitted;
 use NightWorksIO\MutationGate\Core\Proof\Unproved;
 use NightWorksIO\MutationGate\Core\Pruning\Survival;
+use NightWorksIO\MutationGate\Core\Runner\Multiple;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -804,4 +807,44 @@ it('reads a last run that is well formed', function () use ($data, $written): vo
         $read->judged()->tree()->id(),
         array_map(static fn(Revision $parent): string => $parent->name(), [...$read->judged()->parents()]),
     ] : $read)->toBe(['206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', str_repeat('e', 40), [str_repeat('a', 40), str_repeat('b', 40)]]);
+});
+
+it('writes what the learned limits are read from in their own sections, oldest first, and reads them back', function () use ($makeLedger, $makeReadBack): void {
+    $limits = LimitHistory::none()
+        ->afterKills(Multiple::of(1.5), Multiple::of(2.25))
+        ->afterRuns(ShardsAtOnce::of(4), ShardsAtOnce::of(6));
+    $data = json_decode(Gunzipped::of(LedgerFile::encode($makeLedger()->withLearned($limits))), associative: true);
+
+    expect(is_array($data) ? [$data['format'], $data['kills'], $data['concurrency']] : [])->toBe([4, [1.5, 2.25], [4, 6]])
+        ->and(json_decode(Gunzipped::of(LedgerFile::encode($makeLedger())), associative: true))
+        ->not->toHaveKeys(['kills', 'concurrency'])
+        ->and(LedgerFile::decode(LedgerFile::encode($makeLedger()->withLearned($limits))))
+        ->toEqual($makeReadBack()->withLearned($limits));
+});
+
+it('reads a format 4 ledger written before the learned limits as having learned none of them, its proofs intact', function () use ($data, $written, $makeReadBack): void {
+    $file = $data();
+    unset($file['kills'], $file['concurrency']);
+    $read = LedgerFile::decode($written($file));
+
+    expect($file['format'])->toBe(4)
+        ->and($read->proofs())->toEqual($makeReadBack()->proofs())
+        ->and($read->proofs())->not->toHaveCount(0)
+        ->and($read->limits())->toEqual(LimitHistory::none())
+        ->and($read->limits()->multiple())->toBeInstanceOf(NotGiven::class);
+});
+
+it('keeps each positive number of the learned limits\' sections, and drops anything else', function () use ($data, $written, $makeReadBack): void {
+    $file = $data();
+    $file['kills'] = [2, 'fast', -1, 3.5, null, 0];
+    $file['concurrency'] = [3, 2.5, 'four', 0, 5];
+
+    expect(LedgerFile::decode($written($file))->limits())->toEqual(
+        LimitHistory::none()
+            ->afterKills(Multiple::of(2.0), Multiple::of(3.5))
+            ->afterRuns(ShardsAtOnce::of(3), ShardsAtOnce::of(5)),
+    )
+        ->and(LedgerFile::decode($written([...$data(), 'kills' => 'many', 'concurrency' => ['runs' => 3]]))->limits())
+        ->toEqual(LimitHistory::none())
+        ->and(LedgerFile::decode($written([...$data(), 'kills' => 'many']))->proofs())->toEqual($makeReadBack()->proofs());
 });

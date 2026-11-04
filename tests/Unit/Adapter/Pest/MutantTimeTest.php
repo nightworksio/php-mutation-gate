@@ -150,6 +150,19 @@ it('lays a mutant\'s limit, and its silence limit, on three times the start-up t
         ->and(MutantTime::silence(['T::a', 'T::b'], PlusToMinus::class))->toEqual(Seconds::of(13.5));
 });
 
+it('allows a mutant the multiple of its covering tests\' own time the gate\'s run tells it, written or learned', function (): void {
+    mutantTimeResults();
+    mutantTimeBounds('2', '300');
+    putenv(sprintf('%s=6', GateVariable::MutantMultiple->value));
+    LoadedMap::remember(['testResults' => mutantTimeTests(['T::a' => 0.25, 'T::b' => 0.5])]);
+
+    try {
+        expect(MutantTime::of(['T::a', 'T::b'], '/tmp/mutations/abc', 99, MUTANT_TIME_FILTER))->toBe(9.5);
+    } finally {
+        putenv(GateVariable::MutantMultiple->value);
+    }
+});
+
 it('records a mutant\'s limit after what the results file holds already, and keeps bounds of under a second', function (): void {
     $results = mutantTimeResults();
     file_put_contents($results, "{\"event\":\"made\"}\n");

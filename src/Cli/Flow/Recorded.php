@@ -10,12 +10,15 @@ use function count;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Cost\RunTimings;
+use NightWorksIO\MutationGate\Core\Cost\Untimed;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Order\Lesson;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Proof\Agreement;
+use NightWorksIO\MutationGate\Core\Proof\KillPace;
 use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\NotRecorded;
@@ -58,6 +61,7 @@ final readonly class Recorded
         Run $run,
         Passed|CannotTell $passed,
         LastRun|CannotTell $lastRun,
+        RunTimings|Untimed $timings = new Untimed(),
     ): Written|NotWritten|ReadsOnly|CannotJudge {
         $scope = $ledgers->access()->writes();
 
@@ -74,6 +78,7 @@ final readonly class Recorded
             ? $this->learned($this->survived($proved, $fresh), $results, $ledgers->timings(), $plan)
             : $proved;
         $ledger = $this->taught($learned, $fresh);
+        $ledger = $ledger instanceof Ledger ? $this->paced($ledger, $timings) : $ledger;
 
         if ($ledger instanceof CannotJudge) {
             return $ledger;
@@ -218,7 +223,9 @@ final readonly class Recorded
      * The ledger, with what each shard taught the cost model of the units it
      * ran, timed by the map it was handed, each smoothed over the timing every
      * ledger read held of it: a unit its budget ran out before took none of
-     * its time.
+     * its time; and each mutant a test killed, its time over its covering
+     * tests' own time by that map, which a learned `timeouts.multiple` is
+     * read from (ADR-0073).
      */
     private function learned(Ledger $ledger, Results $results, Timings $held, Plan $plan): Ledger|CannotJudge
     {
@@ -239,8 +246,18 @@ final readonly class Recorded
                 $map,
                 $result->measured(),
             )->smoothedOver($held));
+            $paces = KillPace::ofAll($mutated->mutants(), $map);
+            $ledger = $ledger->withLearned($ledger->limits()->afterKills(...$paces));
         }
 
         return $ledger;
+    }
+
+    /** The ledger, having learned, for a run cut into shards, how many of them ran at once (ADR-0073). */
+    private function paced(Ledger $ledger, RunTimings|Untimed $timings): Ledger
+    {
+        return $timings instanceof RunTimings && $timings->isSharded()
+            ? $ledger->withLearned($ledger->limits()->afterRuns($timings->mostAtOnce()))
+            : $ledger;
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Config;
 
+use NightWorksIO\MutationGate\Core\Config\Learned;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
@@ -31,6 +32,24 @@ final readonly class Timeouts implements Setting
     public static function seconds(int $seconds): self
     {
         return new self(Json::at('timeouts.seconds', $seconds));
+    }
+
+    /** `timeouts.seconds: "learned"`: three times each shard's measured start-up, at least a second (ADR-0073). */
+    public static function learnedSeconds(): self
+    {
+        return new self(Json::at('timeouts.seconds', Learned::Learned->value));
+    }
+
+    /** `timeouts.multiple`: how many times its covering tests' own time each mutant is allowed. */
+    public static function multiple(int|float $multiple): self
+    {
+        return new self(Json::at('timeouts.multiple', $multiple));
+    }
+
+    /** `timeouts.multiple: "learned"`: what 99 in 100 of the ledger's kills took, between 2 and 10 (ADR-0073). */
+    public static function learnedMultiple(): self
+    {
+        return new self(Json::at('timeouts.multiple', Learned::Learned->value));
     }
 
     /** `timeouts.most` */

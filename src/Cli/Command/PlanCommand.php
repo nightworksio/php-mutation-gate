@@ -87,13 +87,17 @@ final readonly class PlanCommand
         };
     }
 
-    /** How the plan's coverage map was measured, where a line says so. */
+    /** How the plan's coverage map was measured, where a line says so, and each limit it learned. */
     public static function saidHowMeasured(PlanMade $made, OutputInterface $aside): void
     {
         $said = $made->coverage();
 
         if (is_string($said)) {
             $aside->writeln($said, OutputInterface::OUTPUT_RAW);
+        }
+
+        foreach ($made->learned() as $learned) {
+            $aside->writeln($learned, OutputInterface::OUTPUT_RAW);
         }
     }
 

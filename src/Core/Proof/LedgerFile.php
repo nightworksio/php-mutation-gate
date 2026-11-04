@@ -153,7 +153,11 @@ final readonly class LedgerFile
             ->withTimings(Timings::of(...array_merge(...$timings)))
             ->withLearned(KillersRecord::read($file->field(KillersRecord::SECTION), self::namesIn($file, self::TESTS)))
             ->withLearned(AnalysersRecord::read($file->field(AnalysersRecord::SECTION)))
-            ->withLearned(SurvivalRecord::read($file->field(SurvivalRecord::SECTION)));
+            ->withLearned(SurvivalRecord::read($file->field(SurvivalRecord::SECTION)))
+            ->withLearned(LimitsRecord::read(
+                $file->field(LimitsRecord::KILLS),
+                $file->field(LimitsRecord::CONCURRENCY),
+            ));
     }
 
     private static function isReadable(Node $file): bool

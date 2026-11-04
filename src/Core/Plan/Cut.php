@@ -73,6 +73,12 @@ final readonly class Cut
         return new self(Absent::setting(), $count, exact: true, target: Absent::setting(), overhead: Seconds::none());
     }
 
+    /** This cut, at most this many shards, as a learned `shards.max` gives; a count asked for is cut as asked. */
+    public function atMost(int $most): self
+    {
+        return $this->exact ? $this : new self($this->size, $most, $this->exact, $this->target, $this->overhead);
+    }
+
     /** This cut, where each shard's runner first spends this long on its opening run. */
     public function opening(Seconds $run): self
     {

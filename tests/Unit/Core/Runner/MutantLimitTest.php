@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Config\Learned;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\Multiple;
 use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -52,4 +54,15 @@ it('keeps Infection\'s own 5 s, whatever start-up the run measured', function ()
     $bounds = LimitBounds::upTo(Seconds::of(300.0))->startingIn(Seconds::of(4.0));
 
     expect(MutantLimit::infections()->of(Seconds::of(1.0), $bounds))->toEqual(Seconds::of(10.0));
+});
+
+it('allows a mutant the bounds\' multiple of its tests\' own time, a learned one once the pool learned it, and Infection its own five', function (): void {
+    $bounds = standardBounds()->startingIn(Seconds::of(1.0));
+
+    expect(MutantLimit::standard()->of(Seconds::of(10.0), $bounds->multipliedBy(Multiple::of(4.5))))->toEqual(Seconds::of(48.0))
+        ->and(MutantLimit::standard()->of(Seconds::of(10.0), $bounds->multipliedBy(Learned::Learned)))->toEqual(Seconds::of(33.0))
+        ->and(MutantLimit::standard()->of(Seconds::of(10.0), $bounds->multipliedBy(Learned::Learned)->learning(Multiple::of(6.0))))
+        ->toEqual(Seconds::of(63.0))
+        ->and(MutantLimit::infections()->of(Seconds::of(10.0), LimitBounds::upTo(Seconds::of(300.0))->multipliedBy(Multiple::of(4.5))))
+        ->toEqual(Seconds::of(55.0));
 });

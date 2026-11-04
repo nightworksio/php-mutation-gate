@@ -9,6 +9,7 @@ use function intval;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\Multiple;
 use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
 use NightWorksIO\MutationGate\Core\Test\JudgingSuites;
 use NightWorksIO\MutationGate\Core\Time\Budgets;
@@ -34,8 +35,9 @@ final readonly class Triage implements Part
     private function __construct(
         private Seconds|Absent $budget,
         private TimeoutMode|Absent $mode,
-        private Seconds|Absent $limit,
+        private Seconds|Learned|Absent $limit,
         private Seconds|Absent $most,
+        private int|float|Learned|Absent $multiple,
         private TighterSilence|Absent $tighter,
         private bool|Absent $confirmSurvivors,
         private TestOrder|Absent $order,
@@ -47,19 +49,21 @@ final readonly class Triage implements Part
     public static function of(
         Seconds|Absent $budget = new Absent(),
         TimeoutMode|Absent $mode = new Absent(),
-        Seconds|Absent $limit = new Absent(),
+        Seconds|Learned|Absent $limit = new Absent(),
         Seconds|Absent $most = new Absent(),
         bool|Absent $confirmSurvivors = new Absent(),
         TestOrder|Absent $order = new Absent(),
         SurvivorsFirst|Absent $survivorsFirst = new Absent(),
         TighterSilence|Absent $tighter = new Absent(),
         SuiteLists|Absent $lists = new Absent(),
+        int|float|Learned|Absent $multiple = new Absent(),
     ): self {
         return new self(
             $budget,
             $mode,
             $limit,
             $most,
+            $multiple,
             $tighter,
             $confirmSurvivors,
             $order,
@@ -96,6 +100,7 @@ final readonly class Triage implements Part
                 Absent::laid($this->mode, $later->mode),
                 Absent::laid($this->limit, $later->limit),
                 Absent::laid($this->most, $later->most),
+                Absent::laid($this->multiple, $later->multiple),
                 Absent::laid($this->tighter, $later->tighter),
                 Absent::laid($this->confirmSurvivors, $later->confirmSurvivors),
                 Absent::laid($this->order, $later->order),
@@ -117,11 +122,17 @@ final readonly class Triage implements Part
         return $this->mode instanceof TimeoutMode ? $this->mode : TimeoutMode::Confirm;
     }
 
-    /** `timeouts.seconds`: the least one mutant's run is allowed, and what one whose tests are not timed is. */
+    /**
+     * `timeouts.seconds`: the least one mutant's run is allowed, and what one
+     * whose tests are not timed is; where it is learned, what it is before a
+     * start-up is measured.
+     */
     public function limit(): Seconds
     {
         return $this->limit instanceof Seconds ? $this->limit : Seconds::of(self::TIMEOUT);
     }
+
+
 
     /** `timeouts.most`: the most one mutant's run is allowed, and Infection's skip for tests that take as long. */
     public function most(): Seconds
@@ -145,7 +156,15 @@ final readonly class Triage implements Part
      */
     public function bounds(): LimitBounds
     {
-        return LimitBounds::between($this->limit(), $this->most())->tighterFor($this->tighter());
+        $bounds = LimitBounds::between($this->limit(), $this->most())
+            ->tighterFor($this->tighter())
+            ->multipliedBy(match (true) {
+                $this->multiple instanceof Absent => Multiple::standard(),
+                $this->multiple instanceof Learned => Learned::Learned,
+                default => Multiple::of($this->multiple),
+            });
+
+        return $this->limit instanceof Learned ? $bounds->learningFloor() : $bounds;
     }
 
     /** Why the timeouts cannot be laid, a most under the floor; or nothing. */
@@ -195,8 +214,9 @@ final readonly class Triage implements Part
                 'timeouts',
                 Json::object(
                     Member::of('mode', $this->mode instanceof TimeoutMode ? $this->mode->value : $this->mode),
-                    Member::of('seconds', WholeSeconds::written($this->limit)),
+                    Member::of('seconds', LimitCalls::secondsWritten($this->limit)),
                     Member::of('most', WholeSeconds::written($this->most)),
+                    Member::of('multiple', LimitCalls::multipleWritten($this->multiple)),
                     Member::of('tighter', $this->tighterWritten()),
                 ),
             ),
@@ -228,9 +248,8 @@ final readonly class Triage implements Part
                 ? [sprintf('Budget::of(%s)', PhpCalls::literal($this->budget->written()))]
                 : [],
             ...$this->mode instanceof TimeoutMode ? [$this->mode->php()] : [],
-            ...$this->limit instanceof Seconds
-                ? [sprintf('Timeouts::seconds(%d)', intval($this->limit->seconds()))]
-                : [],
+            ...LimitCalls::seconds($this->limit),
+            ...LimitCalls::multiple($this->multiple),
             ...$this->most instanceof Seconds ? [sprintf('Timeouts::most(%d)', intval($this->most->seconds()))] : [],
             ...$this->tighter instanceof TighterSilence ? [sprintf(
                 'Timeouts::tighter(%s)',

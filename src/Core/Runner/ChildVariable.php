@@ -28,6 +28,9 @@ enum ChildVariable: string
      */
     case MutantStartUp = 'MUTATION_GATE_MUTANT_START_UP';
 
+    /** How many times its covering tests' own time a patched runner allows a mutant: `timeouts.multiple` (ADR-0008). */
+    case MutantMultiple = 'MUTATION_GATE_MUTANT_MULTIPLE';
+
     /** The file listing the mutators a patched runner leaves out of the files it prunes them in (ADR-0025). */
     case Pruned = 'MUTATION_GATE_PRUNED';
 
