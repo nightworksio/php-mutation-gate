@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Library;
 
-use function is_link;
-
 /** Whether a path is a link, looked at as often as asked: looking more than once finds the same. */
 function looksLinked(
     string $path,
