@@ -70,7 +70,7 @@ final readonly class Stryker
         foreach ($verdict->trees()->mutants() as $judged) {
             $at = $judged->mutant()->location()->file();
             $path = $at->value();
-            $files[$path] ??= ['language' => self::LANGUAGE, 'source' => $sources->of($at)->text(), 'mutants' => []];
+            $files[$path] ??= ['language' => self::LANGUAGE, 'source' => $sources->of($at)->text()];
             $files[$path]['mutants'][] = self::mutant(
                 $judged,
                 $columns->in($at),
