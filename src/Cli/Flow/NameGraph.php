@@ -45,9 +45,7 @@ final readonly class NameGraph
     /** The graph of a suite's sources and every PHP file outside its test directories, or why one cannot be read. */
     public function of(Suite $suite): NamedFiles|CannotJudge
     {
-        $named = $this->named($suite);
-
-        return $named instanceof SuiteNames ? $named->graph() : $named;
+        return SuiteNames::graphOf($this->named($suite));
     }
 
     /**
