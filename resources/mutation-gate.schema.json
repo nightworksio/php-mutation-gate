@@ -1905,6 +1905,56 @@
             },
             "default": []
         },
+        "suggest": {
+            "type": "object",
+            "properties": {
+                "idle": {
+                    "type": "object",
+                    "properties": {
+                        "judged": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "survivors": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "share": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 100
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "ignored": {
+                    "type": "object",
+                    "properties": {
+                        "share": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 100
+                        },
+                        "mutants": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "timeouts": {
+                    "type": "object",
+                    "properties": {
+                        "cluster": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false
+        },
         "badge": {
             "type": "object",
             "properties": {
@@ -4052,6 +4102,56 @@
                             }
                         ]
                     }
+                },
+                "suggest": {
+                    "type": "object",
+                    "properties": {
+                        "idle": {
+                            "type": "object",
+                            "properties": {
+                                "judged": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "survivors": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                },
+                                "share": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100
+                                }
+                            },
+                            "additionalProperties": false
+                        },
+                        "ignored": {
+                            "type": "object",
+                            "properties": {
+                                "share": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100
+                                },
+                                "mutants": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                }
+                            },
+                            "additionalProperties": false
+                        },
+                        "timeouts": {
+                            "type": "object",
+                            "properties": {
+                                "cluster": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                }
+                            },
+                            "additionalProperties": false
+                        }
+                    },
+                    "additionalProperties": false
                 },
                 "badge": {
                     "type": "object",

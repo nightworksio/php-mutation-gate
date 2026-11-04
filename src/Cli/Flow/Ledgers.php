@@ -114,7 +114,7 @@ final readonly class Ledgers
      */
     public function killers(): KillHistory
     {
-        return $this->own->killers()->and($this->defaultBranch->killers());
+        return $this->own->learned()->killers()->and($this->defaultBranch->learned()->killers());
     }
 
     /** Each unit's newest result that stands for a run of this kind, in any ledger read. */

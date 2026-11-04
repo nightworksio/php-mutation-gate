@@ -60,8 +60,9 @@ final readonly class LedgerJson
         $testIndex = array_flip($tests);
         $inputs = InputsTable::of(...$kept);
         $timings = self::timings($ledger->timings());
-        $analysers = AnalysersRecord::of($ledger->analysers());
-        $survival = SurvivalRecord::of($ledger->survival());
+        $analysers = AnalysersRecord::of($ledger->learned()->analysers());
+        $survival = SurvivalRecord::of($ledger->learned()->survival());
+        $tally = TallyRecord::of($ledger->learned()->tallies());
         $passed = $ledger->runs()->passed();
         $lastRun = $ledger->runs()->lastRun();
         $proofs = self::proofsWritten($kept, array_flip($mutators), $testIndex, $inputs);
@@ -84,6 +85,10 @@ final readonly class LedgerJson
 
         if ($survival !== []) {
             yield SurvivalRecord::SECTION => JsonText::compact($survival);
+        }
+
+        if ($tally !== []) {
+            yield TallyRecord::SECTION => JsonText::compact($tally);
         }
 
         if ($passed instanceof Passed) {

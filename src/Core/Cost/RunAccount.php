@@ -17,7 +17,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Provenance;
  * The account of a run beside its verdict: when each part began and how
  * long it took, what it cost, what it saved, the runs `trend.json` held
  * from before it (ADR-0016, and ADR-0017),
- * what pruning did (ADR-0025), and where the verdict comes from (ADR-0009).
+ * what pruning did (ADR-0025), where the verdict comes from (ADR-0009),
+ * and what each mutator costs and finds (ADR-0076).
  * A run the flows gave no timings says nothing of its cost.
  */
 final readonly class RunAccount
@@ -29,6 +30,7 @@ final readonly class RunAccount
         private Trend|NoTrend $previous,
         private PruningAccount $pruning,
         private Provenance $provenance,
+        private MutatorTallies $tallies,
     ) {
     }
 
@@ -42,13 +44,22 @@ final readonly class RunAccount
             NoTrend::offTheDefaultBranch(),
             PruningAccount::none(),
             Provenance::unknown(),
+            MutatorTallies::none(),
         );
     }
 
     /** This account, with where the verdict comes from. */
     public function withProvenance(Provenance $provenance): self
     {
-        return new self($this->timings, $this->cost, $this->savings, $this->previous, $this->pruning, $provenance);
+        return new self(
+            $this->timings,
+            $this->cost,
+            $this->savings,
+            $this->previous,
+            $this->pruning,
+            $provenance,
+            $this->tallies,
+        );
     }
 
     /** Where the verdict comes from: the gate, the commit, the runner and the baseline file. */
@@ -59,26 +70,78 @@ final readonly class RunAccount
 
     public function withTimings(RunTimings $timings): self
     {
-        return new self($timings, $this->cost, $this->savings, $this->previous, $this->pruning, $this->provenance);
+        return new self(
+            $timings,
+            $this->cost,
+            $this->savings,
+            $this->previous,
+            $this->pruning,
+            $this->provenance,
+            $this->tallies,
+        );
     }
 
     public function withCost(Cost $cost): self
     {
-        return new self($this->timings, $cost, $this->savings, $this->previous, $this->pruning, $this->provenance);
+        return new self(
+            $this->timings,
+            $cost,
+            $this->savings,
+            $this->previous,
+            $this->pruning,
+            $this->provenance,
+            $this->tallies,
+        );
     }
 
     public function withSavings(Savings $savings): self
     {
-        return new self($this->timings, $this->cost, $savings, $this->previous, $this->pruning, $this->provenance);
+        return new self(
+            $this->timings,
+            $this->cost,
+            $savings,
+            $this->previous,
+            $this->pruning,
+            $this->provenance,
+            $this->tallies,
+        );
     }
 
     /** This account, with what pruning did in the run (ADR-0025). */
     public function withPruning(PruningAccount $pruning): self
     {
-        return new self($this->timings, $this->cost, $this->savings, $this->previous, $pruning, $this->provenance);
+        return new self(
+            $this->timings,
+            $this->cost,
+            $this->savings,
+            $this->previous,
+            $pruning,
+            $this->provenance,
+            $this->tallies,
+        );
     }
 
     /** What pruning did in the run; nothing where it pruned nothing. */
+    /** This account, with what each mutator's mutants cost and found, as the default branch's ledger tallies it. */
+    public function withTallies(MutatorTallies $tallies): self
+    {
+        return new self(
+            $this->timings,
+            $this->cost,
+            $this->savings,
+            $this->previous,
+            $this->pruning,
+            $this->provenance,
+            $tallies,
+        );
+    }
+
+    /** What each mutator's mutants cost and found, by the default branch's ledger; nothing off a run that read it. */
+    public function tallies(): MutatorTallies
+    {
+        return $this->tallies;
+    }
+
     public function pruning(): PruningAccount
     {
         return $this->pruning;
@@ -87,7 +150,15 @@ final readonly class RunAccount
     /** This account, after the runs `trend.json` held before it, which the flows read once on the default branch. */
     public function after(Trend $previous): self
     {
-        return new self($this->timings, $this->cost, $this->savings, $previous, $this->pruning, $this->provenance);
+        return new self(
+            $this->timings,
+            $this->cost,
+            $this->savings,
+            $previous,
+            $this->pruning,
+            $this->provenance,
+            $this->tallies,
+        );
     }
 
     public function timings(): RunTimings|Untimed

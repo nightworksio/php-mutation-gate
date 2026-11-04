@@ -6,14 +6,19 @@ namespace NightWorksIO\MutationGate\Core\Proof;
 
 use function array_key_exists;
 
+use ArrayIterator;
+use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\File\Path;
+use Traversable;
 
 /**
  * The newest proof of each unit's path, by when its run ended, whatever its
  * key, the first of two as new: read once from a ledger's proofs, and then
  * answered for any path at once.
+ *
+ * @implements IteratorAggregate<string, Proof>
  */
-final readonly class NewestProofs
+final readonly class NewestProofs implements IteratorAggregate
 {
     /** @param array<string, Proof> $newest by the unit's path */
     private function __construct(private array $newest)
@@ -39,5 +44,11 @@ final readonly class NewestProofs
         return array_key_exists($unit->value(), $this->newest)
             ? $this->newest[$unit->value()]
             : NeverProved::unit($unit);
+    }
+
+    /** @return Traversable<string, Proof> the newest proof of each unit, by its path */
+    public function getIterator(): Traversable
+    {
+        return new ArrayIterator($this->newest);
     }
 }
