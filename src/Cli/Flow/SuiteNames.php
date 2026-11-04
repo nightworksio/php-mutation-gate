@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_map;
 
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Php\DeclarationHeaders;
@@ -38,6 +39,12 @@ final readonly class SuiteNames
     public static function of(NamedFiles $graph, array $outside, array $read): self
     {
         return new self($graph, $outside, $read);
+    }
+
+    /** The graph of these names, or why they could not be read. */
+    public static function graphOf(self|CannotJudge $names): NamedFiles|CannotJudge
+    {
+        return $names instanceof self ? $names->graph() : $names;
     }
 
     public function graph(): NamedFiles
