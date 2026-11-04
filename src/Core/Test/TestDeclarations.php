@@ -42,10 +42,11 @@ final readonly class TestDeclarations
 
     /**
      * @param array<string, Declared> $declared each test declared once, by its method
-     * @param list<Declared>          $imports  each import the file declares at its top, by its spelling
+     * @param list<Import>            $imports  each import the file declares at its top
      */
     private function __construct(
         private string $text,
+        private Tokens $tokens,
         private array $declared,
         private array $imports,
         private bool $dependent,
@@ -70,6 +71,7 @@ final readonly class TestDeclarations
 
         return new self(
             $file->text(),
+            $tokens,
             $declared,
             ImportDeclarations::in($tokens),
             self::declaresDependence($tokens, $file),
@@ -117,7 +119,7 @@ final readonly class TestDeclarations
      */
     public function sharedButImports(array $methods): string
     {
-        $left = [...$this->imports];
+        $left = array_map(static fn(Import $import): Declared => $import->declared(), $this->imports);
 
         foreach ($this->declared as $test) {
             $left = in_array($test->method(), $methods, strict: true) ? [...$left, $test] : $left;
@@ -129,7 +131,25 @@ final readonly class TestDeclarations
     /** @return list<string> each import the file declares at its top, spelt as a statement, in the order they stand */
     public function imports(): array
     {
-        return array_map(static fn(Declared $import): string => $import->method(), $this->imports);
+        return array_map(static fn(Import $import): string => $import->declared()->method(), $this->imports);
+    }
+
+    /** @return array<string, list<string>> the names each import the file declares at its top gives, by its spelling */
+    public function imported(): array
+    {
+        $imported = [];
+
+        foreach ($this->imports as $import) {
+            $imported[$import->declared()->method()] = $import->names();
+        }
+
+        return $imported;
+    }
+
+    /** Whether a name the file spells ends in this word, in any case, as PHP reads a class's or a function's. */
+    public function names(string $word): bool
+    {
+        return $this->tokens->namesWord(mb_strtolower($word));
     }
 
     /**

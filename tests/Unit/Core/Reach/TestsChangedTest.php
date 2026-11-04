@@ -134,9 +134,30 @@ it('keys a test whose id names no method by the id, and touches none it cannot f
     expect(changedBetween(changedPest('1', $adds), changedPest('1', str_replace('+ 1', '+ 3', $adds)), $placed))->toEqual(changedIds('it adds'));
 });
 
-it('touches every test where an import the file declared twice is declared once', function (): void {
+it('touches every test where an import is declared a different number of times', function (): void {
     $twice = str_replace('use App\Money;', "use App\\Money;\nuse App\\Money;", changedPest('1', CHANGED_ADDS, CHANGED_ROUNDS));
 
     expect(changedBetween($twice, changedPest('1', CHANGED_ADDS, CHANGED_ROUNDS), changedIds('it adds', 'it rounds')))->toBe(Widening::Shared)
-        ->and(changedBetween(changedPest('1', CHANGED_ADDS, CHANGED_ROUNDS), $twice, changedIds('it adds', 'it rounds')))->toEqual(TestIds::none());
+        ->and(changedBetween(changedPest('1', CHANGED_ADDS, CHANGED_ROUNDS), $twice, changedIds('it adds', 'it rounds')))->toBe(Widening::Shared);
+});
+
+it('touches every test where an added import gives a name the file spelt before, and none where the name is new', function (string $import): void {
+    $uses = "it('adds', fn () => expect(new Foo())->toBeObject());";
+    $imported = static fn(string $file): string => str_replace('use App\Money;', sprintf("use App\\Money;\n%s", $import), $file);
+
+    expect(changedBetween(changedPest('1', $uses, CHANGED_ROUNDS), $imported(changedPest('1', $uses, CHANGED_ROUNDS)), changedIds('it adds', 'it rounds')))
+        ->toBe(Widening::Shared)
+        ->and(changedBetween(changedPest('1', CHANGED_ADDS, CHANGED_ROUNDS), $imported(changedPest('1', CHANGED_ADDS, CHANGED_ROUNDS)), changedIds('it adds', 'it rounds')))
+        ->toEqual(TestIds::none());
+})->with([
+    'by its last segment' => ['use Other\\Foo;'],
+    'by its alias' => ['use Other\\Bar as Foo;'],
+    'in a group' => ['use Other\\{Bar, Foo};'],
+    'in another case' => ['use Other\\FOO;'],
+]);
+
+it('touches every test where an added function import names a function a helper the tests share calls', function (): void {
+    $now = str_replace('use App\Money;', "use App\\Money;\nuse function Other\\money;", changedPest('1', CHANGED_ADDS, CHANGED_ROUNDS));
+
+    expect(changedBetween(changedPest('1', CHANGED_ADDS, CHANGED_ROUNDS), $now, changedIds('it adds', 'it rounds')))->toBe(Widening::Shared);
 });
