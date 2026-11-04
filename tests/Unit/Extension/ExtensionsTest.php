@@ -115,7 +115,7 @@ it('holds presets, layers of config with a name', function (): void {
 });
 
 it('takes in the presets another package registered, and refuses one registered twice', function (): void {
-    $fragment = Layer::none();
+    $fragment = Layer::of();
     $preset = static fn(string $package): Extensions => Extensions::of(Origin::of($package))->withPreset(Name::of('laravel'), $fragment);
     $merged = Extensions::of(Origin::of('acme/a'))->merge($preset('acme/b'));
 

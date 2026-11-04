@@ -33,7 +33,7 @@ final readonly class Remaining
             $carried = $kept instanceof Kept ? $kept->carried() : Carried::stays($key, self::UNREAD);
             $import = Mapped::tryFrom($key) instanceof Mapped
                 ? $import
-                : $import->and(Import::of(Layer::none(), $carried));
+                : $import->and(Import::of(Layer::of(), $carried));
         }
 
         return $import;

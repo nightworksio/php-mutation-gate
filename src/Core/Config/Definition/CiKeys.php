@@ -25,11 +25,11 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 final readonly class CiKeys
 {
     /** @return list<Field<Layer>> */
-    public static function fields(PathOrigin $origin): array
+    public static function fields(PathOrigin $origin, Placement $placement): array
     {
         $decides = Effect::DecidesHowTheGateRuns;
-        $plan = Field::optional('plan', Adapter::choosing(Builtins::ciPlans($origin)), $decides);
-        $branch = Field::optional('defaultBranch', Text::of('a branch name'), $decides);
+        $plan = $placement->admitting(Field::optional('plan', Adapter::choosing(Builtins::ciPlans($origin)), $decides));
+        $branch = $placement->admitting(Field::optional('defaultBranch', Text::of('a branch name'), $decides));
         $check = Field::optional('check', Text::of('a check-run name'), $decides);
         $trust = Field::optional('trustMergedPullRequests', Flag::boolean(), $decides);
         $results = Effect::AffectsResults;

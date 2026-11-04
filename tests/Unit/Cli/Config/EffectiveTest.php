@@ -7,7 +7,9 @@ use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\Registered;
+use NightWorksIO\MutationGate\Cli\Config\RunContext;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Canonical;
 use NightWorksIO\MutationGate\Core\Config\Choice;
@@ -53,6 +55,7 @@ $effective = static fn(string $project, bool $installed = true): Effective => ne
     Registered::config(Extensions::of(Origin::of('nightworksio/mutation-gate')), static fn(): bool => $installed),
     new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project))),
     new DateTimeImmutable(Configs::NOW),
+    new RunContext(Variables::of([])),
 );
 
 /** Nothing said on the command line. */
@@ -378,6 +381,7 @@ it('judges a layer a loader or a preset built by hand, as the definition judges 
         Registered::config($extensions, static fn(): bool => false),
         new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project))),
         new DateTimeImmutable(Configs::NOW),
+        new RunContext(Variables::of([])),
     );
     $settings = $effective->settings(CommandLine::nothing()->withConfig($config)->firstPartyOnly());
     $paths = array_map(static fn(string $problem): string => explode(': expected ', $problem)[0], Configs::problems($settings));

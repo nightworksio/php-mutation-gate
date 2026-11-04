@@ -76,7 +76,7 @@ final readonly class WatchCommand
                 $waited,
             ): int {
                 $printing = FlowOptions::printing($input);
-                $composed = $composition->compose($input);
+                $composed = $composition->composeLocally($input);
                 $composed = $composed instanceof Composed ? self::budgeted($composed, $input) : $composed;
 
                 return match (true) {

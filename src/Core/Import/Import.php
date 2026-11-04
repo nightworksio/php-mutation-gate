@@ -43,7 +43,7 @@ final readonly class Import
 
     public static function none(): self
     {
-        return new self(Layer::none(), [], []);
+        return new self(Layer::of(), [], []);
     }
 
     /** A layer of the gate's config, and what became of the keys it holds. */

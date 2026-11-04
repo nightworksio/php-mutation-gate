@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Tests;
 
+use function bin2hex;
+
 use Library\Linked;
+
+use function mkdir;
+
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
-use function bin2hex;
-use function mkdir;
 use function random_bytes;
 use function rmdir;
 use function sprintf;

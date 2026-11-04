@@ -49,7 +49,7 @@ final readonly class Timeouts
                 Carried::imported(Mapped::Timeout->value, sprintf(self::SECONDS, $timeout->integer())),
             )
             : Import::of(
-                Layer::none(),
+                Layer::of(),
                 Carried::dropped(Mapped::Timeout->value, sprintf(self::NOT_SECONDS, $timeout->json())),
             );
     }
@@ -65,6 +65,6 @@ final readonly class Timeouts
                 Layer::of(Triage::of(mode: TimeoutMode::Unjudged)),
                 Carried::imported(Mapped::TimeoutsAsEscaped->value, self::UNJUDGED),
             )
-            : Import::of(Layer::none(), Carried::dropped(Mapped::TimeoutsAsEscaped->value, self::TRIAGED));
+            : Import::of(Layer::of(), Carried::dropped(Mapped::TimeoutsAsEscaped->value, self::TRIAGED));
     }
 }

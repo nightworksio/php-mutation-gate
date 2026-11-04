@@ -9,6 +9,7 @@ use function explode;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
+use NightWorksIO\MutationGate\Cli\Config\RunContext;
 use NightWorksIO\MutationGate\Cli\FirstParty;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Core\Change\Revision;
@@ -185,7 +186,7 @@ final readonly class FlowCommands
             ->withRepository(Name::of('github'), static fn(): Repository => $repository);
         $vendor = sprintf('%s/vendor', $project);
         $detected = new Detected(Directory::at($project), Directory::at($vendor));
-        $effective = new Effective($project, $registry, $detected, new StoppedClock(Configs::NOW)->now());
+        $effective = new Effective($project, $registry, $detected, new StoppedClock(Configs::NOW)->now(), new RunContext(Variables::of([])));
 
         return new Composition(
             $effective,

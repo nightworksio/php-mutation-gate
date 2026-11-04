@@ -22,7 +22,7 @@ it('notes each directory one side names and the other does not', function () use
 });
 
 it('notes nothing where both name the same directories, or either names none', function () use ($paths): void {
-    $none = Import::of(Layer::none());
+    $none = Import::of(Layer::of());
 
     expect(SourceDifference::noted($none, 'source.directories', $paths('src'), $paths('src')))->toEqual($none)
         ->and(SourceDifference::noted($none, 'source.directories', $paths(), $paths('src')))->toEqual($none)

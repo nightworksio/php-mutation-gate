@@ -5,13 +5,16 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Config;
 
 use NightWorksIO\MutationGate\Core\Config\Definition\CiKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\ContextsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\CoverageKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\Field;
 use NightWorksIO\MutationGate\Core\Config\Definition\FloorsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\IgnoresKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\LocalKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\MutatorsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\OwnersKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\PestKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\Placement;
 use NightWorksIO\MutationGate\Core\Config\Definition\ProofsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\PruningKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\PublishingKeys;
@@ -57,42 +60,20 @@ final readonly class Definition
      */
     public static function config(PathOrigin $origin): Section
     {
-        $fields = [
-            ...SetupKeys::fields($origin),
-            ...FloorsKeys::fields($origin),
-            ...OwnersKeys::fields(),
-            ...ReachKeys::fields($origin),
-            ...ShardsKeys::fields($origin),
-            ...CiKeys::fields($origin),
-            ...ProofsKeys::fields($origin),
-            ...TriageKeys::fields(),
-            ...IgnoresKeys::fields($origin),
-            ...ReportsKeys::fields($origin),
-            ...PublishingKeys::fields(),
-            ...PestKeys::fields(),
-            ...StaticCheckKeys::fields($origin),
-            ...PruningKeys::fields(),
-            ...SamplingKeys::fields(),
-            ...MutatorsKeys::fields(),
-            ...LocalKeys::fields(),
-            ...CoverageKeys::fields(),
-        ];
+        return self::section([
+            ...self::fields($origin, Placement::TopLevel),
+            ...ContextsKeys::fields(self::block($origin)),
+        ]);
+    }
 
-        return Section::of(static function (Node $config) use ($fields): Layer|Invalid {
-            $layer = Layer::none();
-            $readings = [];
-
-            foreach ($fields as $field) {
-                $reading = $field->read($config);
-                $part = $reading->value();
-                $layer = $part instanceof Layer ? $layer->over($part) : $layer;
-                $readings[] = $reading;
-            }
-
-            $problems = Reading::problemsIn(...$readings);
-
-            return $problems instanceof Invalid ? $problems : $layer;
-        }, ...$fields);
+    /**
+     * The keys a context block may write, read into the layer a run in its context lays (ADR-0070).
+     *
+     * @return Section<Layer>
+     */
+    public static function block(PathOrigin $origin): Section
+    {
+        return self::section(self::fields($origin, Placement::ContextBlock));
     }
 
     /** A layer of config, read from its top, or every problem in it at once, each at its path. */
@@ -126,16 +107,18 @@ final readonly class Definition
         return self::layer(Node::config($layer->written($origin)->line()), $origin);
     }
 
-    /** The JSON Schema (draft 2020-12) of a config, as `config:schema` prints it and the package ships it. */
     /** Where the config's JSON Schema is published, under the gate's own name, at the tag of its release line. */
     public static function published(): string
     {
         return sprintf(ThisPackage::SCHEMA, ThisPackage::NAME);
     }
 
+    /** The JSON Schema (draft 2020-12) of a config, as `config:schema` prints it and the package ships it. */
     public static function schema(): string
     {
         $origin = ProjectRoot::origin();
+
+        $block = Member::of(ContextsKeys::BLOCK, self::block($origin)->schemaUnder(Absent::setting()));
 
         return Json::object()
             ->with(Member::of('$schema', self::SCHEMA))
@@ -143,6 +126,7 @@ final readonly class Definition
             ->with(Member::of('title', ThisPackage::NAME))
             ->with(Member::of('description', self::DESCRIPTION))
             ->merged(self::config($origin)->schemaUnder(Layer::standard()->written($origin)))
+            ->with(Member::of('$defs', Json::object($block)))
             ->pretty();
     }
 
@@ -150,5 +134,53 @@ final readonly class Definition
     public static function effects(): array
     {
         return self::config(ProjectRoot::origin())->settings();
+    }
+
+    /** @return list<Field<Layer>> */
+    private static function fields(PathOrigin $origin, Placement $placement): array
+    {
+        return [
+            ...SetupKeys::fields($origin, $placement),
+            ...FloorsKeys::fields($origin),
+            ...OwnersKeys::fields(),
+            ...ReachKeys::fields($origin),
+            ...ShardsKeys::fields($origin),
+            ...CiKeys::fields($origin, $placement),
+            ...ProofsKeys::fields($origin),
+            ...TriageKeys::fields(),
+            ...IgnoresKeys::fields($origin),
+            ...ReportsKeys::fields($origin),
+            ...PublishingKeys::fields(),
+            ...PestKeys::fields(),
+            ...StaticCheckKeys::fields($origin),
+            ...PruningKeys::fields(),
+            ...SamplingKeys::fields(),
+            ...MutatorsKeys::fields(),
+            ...LocalKeys::fields(),
+            ...CoverageKeys::fields(),
+        ];
+    }
+
+    /**
+     * @param  list<Field<Layer>> $fields
+     * @return Section<Layer>
+     */
+    private static function section(array $fields): Section
+    {
+        return Section::of(static function (Node $config) use ($fields): Layer|Invalid {
+            $layer = Layer::of();
+            $readings = [];
+
+            foreach ($fields as $field) {
+                $reading = $field->read($config);
+                $part = $reading->value();
+                $layer = $part instanceof Layer ? $layer->over($part) : $layer;
+                $readings[] = $reading;
+            }
+
+            $problems = Reading::problemsIn(...$readings);
+
+            return $problems instanceof Invalid ? $problems : $layer;
+        }, ...$fields);
     }
 }

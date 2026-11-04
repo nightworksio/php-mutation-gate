@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Cli\Command\DashboardCommand;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\Registered;
+use NightWorksIO\MutationGate\Cli\Config\RunContext;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Extension\Extensions;
@@ -46,6 +47,7 @@ function dashboarded(string $config, array $answers, array $options): array
             Registered::config(Extensions::of(Origin::of('nightworksio/mutation-gate')), static fn(): bool => true),
             new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project))),
             new DateTimeImmutable(Configs::NOW),
+            new RunContext(Variables::of([])),
         ),
         Variables::of(['GITHUB_TOKEN' => 'secret', 'GITHUB_REPOSITORY' => 'acme/dashboard']),
         GitHubAnswering::client($answers),

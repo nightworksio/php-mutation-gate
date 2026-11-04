@@ -151,7 +151,7 @@ $configThat = static fn(string $statement): string => sprintf(
 );
 
 it('reads no other file where it only builds the gate, as the gate writes a config', function () use ($readsOf): void {
-    $code = Php::render(Layer::none()->php(ConfigFile::at(Path::of('/p/mutation-gate.php'), Path::of('/p'))));
+    $code = Php::render(Layer::of()->php(ConfigFile::at(Path::of('/p/mutation-gate.php'), Path::of('/p'))));
     $built = <<<'PHP'
         <?php
 

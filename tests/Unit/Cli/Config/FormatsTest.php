@@ -104,7 +104,7 @@ it('writes a config in each format', function (): void {
 });
 
 it('says what to install to write YAML or NEON', function (Format $format, string $package): void {
-    expect(new Formats(static fn(): bool => false)->render(Layer::none(), $format, ProjectRoot::origin()))->toEqual(
+    expect(new Formats(static fn(): bool => false)->render(Layer::of(), $format, ProjectRoot::origin()))->toEqual(
         CannotJudge::because(
             sprintf('--format=%s needs %s. Install it: composer require --dev %s', $format->value, $package, $package),
         ),
@@ -118,8 +118,8 @@ it('asks the installed check about the library each format needs', function (): 
 
         return false;
     });
-    $formats->render(Layer::none(), Format::Yaml, ProjectRoot::origin());
-    $formats->render(Layer::none(), Format::Neon, ProjectRoot::origin());
+    $formats->render(Layer::of(), Format::Yaml, ProjectRoot::origin());
+    $formats->render(Layer::of(), Format::Neon, ProjectRoot::origin());
 
     expect($asked->getArrayCopy())->toBe([Yaml::class, Neon::class]);
 });

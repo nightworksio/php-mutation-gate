@@ -28,8 +28,8 @@ it('lays each sampling key a later layer sets over an earlier one\'s, key by key
 
     expect([$sampling->confidence(), $sampling->margin(), $sampling->minUnits(), $sampling->seed()])
         ->toEqual([Confidence::NinetyNine, 1.5, 50, 'release'])
-        ->and($earlier->over(Layer::none())->reach()->sampling()->margin())->toBe(1.0)
-        ->and(Layer::none()->over($later)->reach()->sampling()->seed())->toBe('release');
+        ->and($earlier->over(Layer::of())->reach()->sampling()->margin())->toBe(1.0)
+        ->and(Layer::of()->over($later)->reach()->sampling()->seed())->toBe('release');
 });
 
 it('writes only the sampling keys a layer sets, and the builder calls for them', function (): void {

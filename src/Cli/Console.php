@@ -40,6 +40,7 @@ use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\Formats;
 use NightWorksIO\MutationGate\Cli\Config\MigrationFiles;
+use NightWorksIO\MutationGate\Cli\Config\RunContext;
 use NightWorksIO\MutationGate\Cli\Doctor\Measure;
 use NightWorksIO\MutationGate\Cli\Doctor\Observed;
 use NightWorksIO\MutationGate\Cli\Doctor\Online;
@@ -47,6 +48,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Core\Ci\GatePin;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
+use NightWorksIO\MutationGate\Core\Config\Context;
 use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
 use NightWorksIO\MutationGate\Core\Migration\Migrations;
 use NightWorksIO\MutationGate\Core\OwnArchive;
@@ -54,6 +56,9 @@ use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
 use NightWorksIO\MutationGate\Core\Watch\Poll;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use Psr\Clock\ClockInterface;
+
+use function sprintf;
+
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\HttpClient\HttpClient;
 
@@ -92,6 +97,11 @@ final readonly class Console
             mode: InputOption::VALUE_REQUIRED,
             description: 'Read this config file instead of looking for one',
         ));
+        $definition->addOption(new InputOption(
+            'context',
+            mode: InputOption::VALUE_REQUIRED,
+            description: sprintf('Put the run in this context, whose config blocks it lays: %s', Context::words()),
+        ));
         $definition->addOption(new InputOption('runner', mode: InputOption::VALUE_REQUIRED, description: 'Set runner'));
         $definition->addOption(new InputOption(
             'report',
@@ -117,7 +127,7 @@ final readonly class Console
         $detected = new Detected(Directory::at($project), Directory::at($vendor));
         $now = $clock->now();
         $started = StartedGate::in($project);
-        $effective = new Effective($project, $extensions, $detected, $now);
+        $effective = new Effective($project, $extensions, $detected, $now, new RunContext($environment));
         $composition = new Composition(
             $effective,
             $extensions,

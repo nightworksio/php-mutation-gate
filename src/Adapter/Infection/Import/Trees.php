@@ -61,13 +61,13 @@ final readonly class Trees
             ? array_map(Tree::found(...), $found instanceof Listed ? [...$found] : [])
             : array_map(static fn(string $path): Tree => Tree::named(Path::of($path)), $named);
         $import = $named === [] ? Import::none() : Import::of(
-            Layer::none(),
+            Layer::of(),
             Carried::imported(self::DIRECTORIES, sprintf(self::TREES, implode(', ', $named))),
         );
 
         foreach (self::texts($source->field('excludes')) as $exclude) {
             [$trees, $carried] = self::excluding($project, $trees, $exclude);
-            $import = $import->and(Import::of(Layer::none(), $carried));
+            $import = $import->and(Import::of(Layer::of(), $carried));
         }
 
         $floor = Floor::of($settings);

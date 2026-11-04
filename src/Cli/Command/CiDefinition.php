@@ -206,7 +206,7 @@ final readonly class CiDefinition
             BuiltinCiPlan::Buildkite => Layer::of(Ci::of(buildkiteDefinition: CiTemplate::buildkitePipeline())),
             BuiltinCiPlan::Azure => Layer::of(Ci::of(defaultBranch: $branch, azureDefinition: CiTemplate::azureJobs())),
             BuiltinCiPlan::Bitbucket, BuiltinCiPlan::Jenkins => Layer::of(Ci::of(defaultBranch: $branch)),
-            BuiltinCiPlan::GitHub, BuiltinCiPlan::GitLab, BuiltinCiPlan::CircleCi, BuiltinCiPlan::Json => Layer::none(),
+            BuiltinCiPlan::GitHub, BuiltinCiPlan::GitLab, BuiltinCiPlan::CircleCi, BuiltinCiPlan::Json => Layer::of(),
         };
     }
 

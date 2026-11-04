@@ -11,9 +11,11 @@ use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\Formats;
+use NightWorksIO\MutationGate\Cli\Config\RunContext;
 use NightWorksIO\MutationGate\Cli\FirstParty;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\GatePin;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -32,14 +34,14 @@ it('writes nothing, and says what to install, where the format needs a library t
     $extensions = new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER)));
     $now = new DateTimeImmutable(Configs::NOW);
     $detected = new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project)));
-    $effective = new Effective($project, $extensions, $detected, $now);
+    $effective = new Effective($project, $extensions, $detected, $now, new RunContext(Variables::of([])));
     $formats = new Formats(static fn(): bool => false);
     $setting = new Setting($project, $extensions, $effective, $formats, $now, GatePin::unknown());
     $destination = Destination::of($project, NotGiven::value(), 'yaml');
     $settings = $effective->settings(CommandLine::nothing());
 
     expect($destination instanceof Destination && $settings instanceof Settings
-        ? ConfigWriting::written($setting, $settings, $destination, NotGiven::value(), Layer::none(), Output::Written)
+        ? ConfigWriting::written($setting, $settings, $destination, NotGiven::value(), Layer::of(), Output::Written)
         : $destination)
         ->toEqual(CannotJudge::because('--format=yaml needs symfony/yaml. Install it: composer require --dev symfony/yaml'))
         ->and(is_file(sprintf('%s/mutation-gate.yaml', $project)))->toBeFalse();

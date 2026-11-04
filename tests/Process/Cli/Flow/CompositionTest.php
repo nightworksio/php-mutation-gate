@@ -6,6 +6,7 @@ use Composer\InstalledVersions;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
+use NightWorksIO\MutationGate\Cli\Config\RunContext;
 use NightWorksIO\MutationGate\Cli\FirstParty;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
@@ -77,6 +78,7 @@ function compositionOf(array $files, Variables $environment, bool $fake): Compos
         $extensions,
         new Detected(Directory::at($project), Directory::at($vendor)),
         $clock->now(),
+        new RunContext($environment),
     );
 
     return new Composition($effective, $extensions, $project, $vendor, $clock, new PeakMemoryFake(NotGiven::value()), $environment);
@@ -96,6 +98,7 @@ function compositionInput(array $options): ArrayInput
         new InputOption('budget', mode: InputOption::VALUE_REQUIRED),
         new InputOption('ci', mode: InputOption::VALUE_REQUIRED),
         new InputOption('no-extensions', mode: InputOption::VALUE_NONE),
+        new InputOption('context', mode: InputOption::VALUE_REQUIRED),
     ]));
 }
 
@@ -202,4 +205,19 @@ it('hands the adapters the files the config file reads beside itself, and none f
     expect($php instanceof Composed ? $php->adapters->configReads : $php)
         ->toEqual(ConfigReads::named(Path::of('settings/shared.php')))
         ->and($json instanceof Composed ? $json->adapters->configReads : $json)->toEqual(ConfigReads::none());
+})->group(...$holds);
+
+it('composes a command a developer runs while working in local, wherever it runs, unless --context names another', function (): void {
+    $composition = compositionOf(
+        ['mutation-gate.json' => '{"runner": "fake", "contexts": {"local": {"budget": "2m"}, "ci": {"budget": "20m"}}}'],
+        Variables::of(['CI' => 'true']),
+        fake: true,
+    );
+    $budget = static fn(Composed|Invalid|CannotJudge $composed): mixed => $composed instanceof Composed
+        ? Configs::shown($composed->settings, 'budget')
+        : Configs::problems($composed);
+
+    expect($budget($composition->compose(compositionInput([]))))->toBe('20m')
+        ->and($budget($composition->composeLocally(compositionInput([]))))->toBe('2m')
+        ->and($budget($composition->composeLocally(compositionInput(['--context' => 'ci']))))->toBe('20m');
 })->group(...$holds);

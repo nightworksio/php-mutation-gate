@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Config;
 
+use Closure;
 use DateTimeImmutable;
 use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Cli\StartedGate;
@@ -14,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
 use NightWorksIO\MutationGate\Core\Config\ConfigReads;
+use NightWorksIO\MutationGate\Core\Config\ContextChain;
 use NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
@@ -29,10 +31,11 @@ use NightWorksIO\MutationGate\Extension\Extensions;
 
 /**
  * The effective config of a project (ADR-0002): zero-config defaults, then
- * the presets, then the config file, then the command line. Each layer is
- * read on its own, and what only every layer together can say, such as that
- * no runner is chosen, once all of them are laid. When no layer sets the
- * preset or the runner, zero-config finds them.
+ * the presets, then the config file, then the command line, each with its
+ * blocks for the contexts the run is in laid over the rest of it
+ * (ADR-0070). Each layer is read on its own, and what only every layer
+ * together can say, such as that no runner is chosen, once all of them are
+ * laid. When no layer sets the preset or the runner, zero-config finds them.
  *
  * @internal
  */
@@ -43,12 +46,26 @@ final readonly class Effective
         private Extensions $extensions,
         private Detected $detected,
         private DateTimeImmutable $now,
+        private RunContext $context,
     ) {
     }
 
+    /** The settings of a run in the contexts it is in, each layer's blocks for them laid over the rest of it. */
     public function settings(CommandLine $given): Settings|Invalid|CannotJudge
     {
-        return $this->over($this->file($given->config), $given);
+        return $this->resolved($this->file($given->config), $given);
+    }
+
+    /** The settings with each layer's context blocks kept as it writes them, laid by context (ADR-0070). */
+    public function asWritten(CommandLine $given): Settings|Invalid|CannotJudge
+    {
+        return $this->over($this->file($given->config), $given, static fn(Layer $layer): Layer => $layer);
+    }
+
+    /** The contexts a run is in: those `--context` names, else those the environment and the CI plan tell. */
+    public function contexts(CommandLine $given): ContextChain|Invalid|CannotJudge
+    {
+        return $this->chain($this->file($given->config), $given);
     }
 
     /**
@@ -57,7 +74,7 @@ final readonly class Effective
      */
     public function settingsOf(CommandLine $given, ConfigFile $copy): Settings|Invalid|CannotJudge
     {
-        return $this->over($this->loaded($copy), $given);
+        return $this->resolved($this->loaded($copy), $given);
     }
 
     /**
@@ -104,20 +121,52 @@ final readonly class Effective
             && $file->over($line)->setup()->runner() instanceof Choice;
     }
 
-    /** The settings a config file's layer and the command line set, with every layer beneath them. */
-    private function over(Layer|Invalid|CannotJudge $file, CommandLine $given): Settings|Invalid|CannotJudge
+    /** The settings a config file's layer and the command line set, each in the contexts the run is in. */
+    private function resolved(Layer|Invalid|CannotJudge $file, CommandLine $given): Settings|Invalid|CannotJudge
     {
+        $chain = $this->chain($file, $given);
+
+        return $chain instanceof ContextChain
+            ? $this->over($file, $given, static fn(Layer $layer): Layer => $layer->in($chain))
+            : $chain;
+    }
+
+    /** The contexts the run is in, told from the settings every layer makes without its blocks (ADR-0070). */
+    private function chain(Layer|Invalid|CannotJudge $file, CommandLine $given): ContextChain|Invalid|CannotJudge
+    {
+        return $this->context->chain(
+            $given,
+            fn(): Settings|Invalid|CannotJudge => $this->over(
+                $file,
+                $given,
+                static fn(Layer $layer): Layer => $layer->in(ContextChain::none()),
+            ),
+            $this->extensions,
+        );
+    }
+
+    /**
+     * The settings a config file's layer and the command line set, with every layer beneath them, each layer
+     * resolved for the run's contexts before they are laid.
+     *
+     * @param Closure(Layer): Layer $resolve
+     */
+    private function over(
+        Layer|Invalid|CannotJudge $file,
+        CommandLine $given,
+        Closure $resolve,
+    ): Settings|Invalid|CannotJudge {
         $line = $given->layer();
 
         if (! $file instanceof Layer || ! $line instanceof Layer) {
             return $file instanceof Layer ? $line : $file;
         }
 
-        $registry = $given->firstPartyOnly
-            ? $this->extensions
-            : new Chosen($this->extensions)->withExtensions($file->setup()->extensions());
+        $registry = new Chosen($this->extensions)->given($given, $file->setup()->extensions());
 
-        return $registry instanceof CannotJudge ? $registry : $this->layered($file->over($line), $registry);
+        return $registry instanceof CannotJudge
+            ? $registry
+            : $this->layered($resolve($file)->over($line), $registry, $resolve);
     }
 
     /** The config file read, or a layer that sets nothing for zero-config. */
@@ -126,7 +175,7 @@ final readonly class Effective
         $path = ConfigLocation::in($this->project, $given);
 
         if (! $path instanceof Path) {
-            return $path instanceof NoConfigFile ? Layer::none() : $path;
+            return $path instanceof NoConfigFile ? Layer::of() : $path;
         }
 
         return $this->loaded($this->configFile($path));
@@ -142,7 +191,8 @@ final readonly class Effective
     }
 
     /** The presets beneath the config file and the command line, and zero-config's findings beneath those. */
-    private function layered(Layer $written, Extensions $registry): Settings|Invalid|CannotJudge
+    /** @param Closure(Layer): Layer $resolve */
+    private function layered(Layer $written, Extensions $registry, Closure $resolve): Settings|Invalid|CannotJudge
     {
         $named = $written->setup()->presets();
         $detected = $named instanceof Absent ? $this->detected->preset() : Absent::setting();
@@ -155,7 +205,7 @@ final readonly class Effective
         $presets = $found instanceof Listed ? $found : $named;
         $layers = PresetLayers::named($presets, $registry);
         $problems = $layers->problems();
-        $merged = $layers->laid()->over($written);
+        $merged = $layers->laid($resolve)->over($written);
         $base = $this->base($merged, $found);
         $settings = $base instanceof Layer ? Settings::settled($base->over($merged), $this->now) : $base;
 

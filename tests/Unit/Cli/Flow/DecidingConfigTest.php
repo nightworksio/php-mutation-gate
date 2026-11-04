@@ -7,8 +7,10 @@ use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\Registered;
+use NightWorksIO\MutationGate\Cli\Config\RunContext;
 use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
 use NightWorksIO\MutationGate\Core\Change\Change;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -34,6 +36,7 @@ $deciding = static function (string $config): array {
         Registered::config(Extensions::of(Origin::of('nightworksio/mutation-gate')), static fn(): bool => true),
         new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project))),
         new DateTimeImmutable(Configs::NOW),
+        new RunContext(Variables::of([])),
     );
 
     return [$project, DecidingConfig::read($effective, CommandLine::nothing(), $project, Path::of('mutation-gate.json'))];

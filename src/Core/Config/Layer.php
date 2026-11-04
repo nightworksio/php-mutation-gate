@@ -25,26 +25,6 @@ final readonly class Layer
         return $this->parts->part(Setup::class);
     }
 
-    /** A layer that sets nothing. */
-    public static function none(): self
-    {
-        return new self(Parts::of(
-            Setup::none(),
-            Floors::none(),
-            Reach::none(),
-            Shards::none(),
-            Ci::none(),
-            Proofs::none(),
-            Triage::none(),
-            Ignores::none(),
-            Reports::none(),
-            Publishing::none(),
-            Pest::none(),
-            StaticCheck::none(),
-            Local::none(),
-        ));
-    }
-
     /** Every setting at the value it takes when every layer leaves it out. */
     public static function standard(): self
     {
@@ -62,13 +42,29 @@ final readonly class Layer
             Pest::standard(),
             StaticCheck::standard(),
             Local::standard(),
+            Contexts::standard(),
         ));
     }
 
-    /** A layer that sets only what these parts set. */
+    /** A layer that sets only what these parts set, and nothing where it is given none. */
     public static function of(Part ...$parts): self
     {
-        $layer = self::none();
+        $layer = new self(Parts::of(
+            Setup::none(),
+            Floors::none(),
+            Reach::none(),
+            Shards::none(),
+            Ci::none(),
+            Proofs::none(),
+            Triage::none(),
+            Ignores::none(),
+            Reports::none(),
+            Publishing::none(),
+            Pest::none(),
+            StaticCheck::none(),
+            Local::none(),
+            Contexts::none(),
+        ));
 
         foreach ($parts as $part) {
             $layer = $layer->over(new self(Parts::of($part)));
@@ -155,4 +151,18 @@ final readonly class Layer
         return $this->parts->part(Local::class);
     }
 
+    /**
+     * What this layer sets in a run in these contexts (ADR-0070): the rest of the layer, with the block of each
+     * context laid over it in order, and no block left.
+     */
+    public function in(ContextChain $chain): self
+    {
+        $resolved = new self($this->parts->with(Contexts::none()));
+
+        foreach ($chain as $context) {
+            $resolved = $resolved->over($this->parts->part(Contexts::class)->block($context));
+        }
+
+        return $resolved;
+    }
 }

@@ -21,8 +21,8 @@ it('lays each pruning key a later layer sets over an earlier one\'s, key by key'
     $pruning = $earlier->over($later)->reach()->pruning();
 
     expect([$pruning->enabled(), $pruning->window()->mutants(), $pruning->audit()])->toEqual([false, 300, Seconds::days(3)])
-        ->and($earlier->over(Layer::none())->reach()->pruning()->window()->mutants())->toBe(200)
-        ->and(Layer::none()->over($later)->reach()->pruning()->window()->mutants())->toBe(300);
+        ->and($earlier->over(Layer::of())->reach()->pruning()->window()->mutants())->toBe(200)
+        ->and(Layer::of()->over($later)->reach()->pruning()->window()->mutants())->toBe(300);
 });
 
 it('writes only the pruning keys a layer sets, and the builder calls for them', function (): void {

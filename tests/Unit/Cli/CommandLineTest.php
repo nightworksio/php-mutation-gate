@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\CommandLine;
+use NightWorksIO\MutationGate\Core\Config\Context;
+use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
@@ -19,6 +21,7 @@ $definition = static fn(): InputDefinition => new InputDefinition([
     new InputOption('budget', mode: InputOption::VALUE_REQUIRED),
     new InputOption('ci', mode: InputOption::VALUE_REQUIRED),
     new InputOption('no-extensions', mode: InputOption::VALUE_NONE),
+    new InputOption('context', mode: InputOption::VALUE_REQUIRED),
 ]);
 
 it('reads what the command line says about the config', function () use ($definition): void {
@@ -47,7 +50,7 @@ it('sets nothing a command line does not say', function () use ($definition): vo
     expect($given->config)->toEqual(NotGiven::value())
         ->and($given)->toEqual(CommandLine::nothing())
         ->and($given->written()->line())->toBe('{}')
-        ->and($given->layer())->toEqual(Layer::none());
+        ->and($given->layer())->toEqual(Layer::of());
 });
 
 it('reads --no-extensions before the end of the options, not as an argument after it', function (): void {
@@ -133,4 +136,22 @@ it('chooses a runner only where the command line chooses none', function (): voi
 
     expect($none->choosing('infection'))->toEqual(CommandLine::nothing()->withConfig('gate.json')->withRunner('infection'))
         ->and($pest->choosing('infection'))->toBe($pest);
+});
+
+it('reads the context --context names, nothing where it is left off, and a problem where it names none', function () use ($definition): void {
+    $given = static fn(array $options): CommandLine => CommandLine::from(new ArrayInput($options, $definition()));
+
+    expect($given(['--context' => 'pr'])->context())->toBe(Context::PullRequest)
+        ->and($given([])->context())->toEqual(NotGiven::value())
+        ->and(($named = $given(['--context' => 'staging'])->context()) instanceof Invalid ? Configs::problems($named) : $named)
+        ->toBe(['--context: expected local, ci, pr or main, got "staging"']);
+});
+
+it('puts a run in a context only where --context names none', function () use ($definition): void {
+    $named = CommandLine::from(new ArrayInput(['--context' => 'main'], $definition()));
+
+    expect(CommandLine::nothing()->defaultingTo(Context::Local)->context())->toBe(Context::Local)
+        ->and($named->defaultingTo(Context::Local)->context())->toBe(Context::Main)
+        ->and($named->withConfig('gate.json')->withoutConfig()->withRunner('pest')->withCi('github')->withBudget('5m')->withReport('json')->firstPartyOnly()->context())
+        ->toBe(Context::Main);
 });

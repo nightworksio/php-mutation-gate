@@ -10,20 +10,26 @@ use function explode;
 use function is_array;
 use function is_string;
 
+use NightWorksIO\MutationGate\Core\Config\Context;
 use NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\NotGiven;
+
+use function sprintf;
+
 use Symfony\Component\Console\Input\InputInterface;
 
 /**
  * What the command line says about the config: the file `--config` names,
- * and the settings `--runner`, `--report`, `--budget` and `--ci` lay over
- * everything else (ADR-0002).
+ * the settings `--runner`, `--report`, `--budget` and `--ci` lay over
+ * everything else (ADR-0002), and the context `--context` puts the run in
+ * (ADR-0070).
  *
  * @internal
  */
@@ -37,6 +43,7 @@ final readonly class CommandLine
         public string|NotGiven $budget,
         public string|NotGiven $ci,
         public bool $firstPartyOnly,
+        public string|NotGiven $context,
     ) {
     }
 
@@ -50,6 +57,7 @@ final readonly class CommandLine
             self::text(self::option($input, 'budget')),
             self::text(self::option($input, 'ci')),
             $input->hasParameterOption('--no-extensions', onlyParams: true),
+            self::text(self::option($input, 'context')),
         );
     }
 
@@ -58,19 +66,35 @@ final readonly class CommandLine
     {
         $none = NotGiven::value();
 
-        return new self($none, $none, [], $none, $none, firstPartyOnly: false);
+        return new self($none, $none, [], $none, $none, firstPartyOnly: false, context: $none);
     }
 
     /** What the command line says, and `--config` naming a file. */
     public function withConfig(string $file): self
     {
-        return new self($file, $this->runner, $this->reports, $this->budget, $this->ci, $this->firstPartyOnly);
+        return new self(
+            $file,
+            $this->runner,
+            $this->reports,
+            $this->budget,
+            $this->ci,
+            $this->firstPartyOnly,
+            $this->context,
+        );
     }
 
     /** What the command line says, and `--runner`. */
     public function withRunner(string $runner): self
     {
-        return new self($this->config, $runner, $this->reports, $this->budget, $this->ci, $this->firstPartyOnly);
+        return new self(
+            $this->config,
+            $runner,
+            $this->reports,
+            $this->budget,
+            $this->ci,
+            $this->firstPartyOnly,
+            $this->context,
+        );
     }
 
     /** What the command line says, and one `--report` more, `<name>:<path>`. */
@@ -83,25 +107,50 @@ final readonly class CommandLine
             $this->budget,
             $this->ci,
             $this->firstPartyOnly,
+            $this->context,
         );
     }
 
     /** What the command line says, and `--budget`. */
     public function withBudget(string $budget): self
     {
-        return new self($this->config, $this->runner, $this->reports, $budget, $this->ci, $this->firstPartyOnly);
+        return new self(
+            $this->config,
+            $this->runner,
+            $this->reports,
+            $budget,
+            $this->ci,
+            $this->firstPartyOnly,
+            $this->context,
+        );
     }
 
     /** What the command line says, and `--ci`. */
     public function withCi(string $plan): self
     {
-        return new self($this->config, $this->runner, $this->reports, $this->budget, $plan, $this->firstPartyOnly);
+        return new self(
+            $this->config,
+            $this->runner,
+            $this->reports,
+            $this->budget,
+            $plan,
+            $this->firstPartyOnly,
+            $this->context,
+        );
     }
 
     /** What the command line says, and `--no-extensions`: the first-party extensions, and no third party's. */
     public function firstPartyOnly(): self
     {
-        return new self($this->config, $this->runner, $this->reports, $this->budget, $this->ci, firstPartyOnly: true);
+        return new self(
+            $this->config,
+            $this->runner,
+            $this->reports,
+            $this->budget,
+            $this->ci,
+            firstPartyOnly: true,
+            context: $this->context,
+        );
     }
 
     /** What the command line says, but for a config file to read. */
@@ -114,7 +163,38 @@ final readonly class CommandLine
             $this->budget,
             $this->ci,
             $this->firstPartyOnly,
+            $this->context,
         );
+    }
+
+    /** This command line, putting the run in this context where `--context` puts it in none. */
+    public function defaultingTo(Context $context): self
+    {
+        return $this->context instanceof NotGiven
+            ? new self(
+                $this->config,
+                $this->runner,
+                $this->reports,
+                $this->budget,
+                $this->ci,
+                $this->firstPartyOnly,
+                $context->value,
+            )
+            : $this;
+    }
+
+    /** The context `--context` puts the run in (ADR-0070), nothing where it is left off, or why it names none. */
+    public function context(): Context|NotGiven|Invalid
+    {
+        $context = $this->context;
+
+        return match (true) {
+            $context instanceof NotGiven => $context,
+            Context::tryFrom($context) instanceof Context => Context::from($context),
+            default => Invalid::because(
+                Problem::at('--context', sprintf('expected %s, got "%s"', Context::words(), $context)),
+            ),
+        };
     }
 
     /** This command line, choosing this runner where it chooses none. */

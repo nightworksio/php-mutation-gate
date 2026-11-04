@@ -103,6 +103,6 @@ final readonly class Logs
 
     private static function dropped(string $key, string $because): Import
     {
-        return Import::of(Layer::none(), Carried::dropped(sprintf(self::KEY, $key), $because));
+        return Import::of(Layer::of(), Carried::dropped(sprintf(self::KEY, $key), $because));
     }
 }
