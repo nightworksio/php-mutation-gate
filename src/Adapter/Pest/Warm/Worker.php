@@ -193,12 +193,14 @@ final readonly class Worker
      */
     private function waited(int $child, int $asker): Finish|NotGiven
     {
-        [$waited, $status, $held] = $this->looked($child);
+        $looked = $this->looked($child);
 
-        while ($waited === 0 && $this->isAlive($asker)) {
+        while ($looked[0] === 0 && $this->isAlive($asker)) {
             ($this->pause)(Polling::interval()->microseconds());
-            [$waited, $status, $held] = $this->looked($child);
+            $looked = $this->looked($child);
         }
+
+        [$waited, $status, $held] = $looked;
 
         if ($waited === 0) {
             WholeTree::stopped($child);
