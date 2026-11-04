@@ -34,6 +34,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\JUnitReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\KillMatrixFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
+use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\SarifReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\SonarReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\StrykerReportFile;
@@ -196,6 +197,7 @@ final readonly class FirstParty implements Extension
                     $options,
                     ComposerVendor::of(self::HERE),
                     new CapDirectory(),
+                    new PackageDirectory(),
                     $processes,
                     OwnArchive::running(),
                 ),
@@ -288,6 +290,7 @@ final readonly class FirstParty implements Extension
                 static fn(Options $options): Infection|Invalid => Infection::fromOptions(
                     $options,
                     new CapDirectory(),
+                    new PackageDirectory(),
                     $processes,
                     OwnArchive::running(),
                 ),

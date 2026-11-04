@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
 use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
 use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Composer\PackageFiles;
 use NightWorksIO\MutationGate\Core\Control\ControlEnd;
 use NightWorksIO\MutationGate\Core\Control\ControlRun;
 use NightWorksIO\MutationGate\Core\Cost\Laps;
@@ -76,6 +77,7 @@ final readonly class MutationRun
         private Project $project,
         private Shell $shell,
         private CapFiles $files,
+        private PackageFiles $packages,
         private Patching $patching,
         private Remembered $remembered,
         private Closure $listing,
@@ -98,6 +100,7 @@ final readonly class MutationRun
             $this->project,
             $this->shell,
             $this->files,
+            $this->packages,
             $this->patching,
             $this->remembered,
             $this->listing,
@@ -121,6 +124,7 @@ final readonly class MutationRun
             $this->project,
             $this->shell,
             $this->files,
+            $this->packages,
             $this->patching,
             $this->remembered,
             $this->listing,
@@ -140,6 +144,7 @@ final readonly class MutationRun
             $this->project,
             $this->shell,
             $this->files,
+            $this->packages,
             $this->patching,
             $this->remembered,
             $this->listing,
@@ -162,6 +167,7 @@ final readonly class MutationRun
             $this->project,
             $this->shell,
             $this->files,
+            $this->packages,
             $this->patching,
             $this->remembered,
             $this->listing,
@@ -491,6 +497,6 @@ final readonly class MutationRun
 
     private function shardMap(): ShardMap
     {
-        return new ShardMap($this->project, $this->patching, $this->remembered, $this->listing);
+        return new ShardMap($this->project, $this->packages, $this->patching, $this->remembered, $this->listing);
     }
 }

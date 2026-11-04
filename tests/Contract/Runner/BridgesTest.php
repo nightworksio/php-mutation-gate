@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Infection\Bridges as InfectionBridges;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Infection\ProcessShell as InfectionShell;
@@ -63,7 +64,7 @@ function bridgedPest(): Runner
     $root = Tree::at(Library::DIRECTORY);
     $project = PestProject::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of('vendor'));
 
-    return new Pest($project, new PestShell(new LocalProcesses(new SystemClock()), $root), Patching::off(), new CapDirectory(), Triage::standard()->bounds(), bridges: PestBridges::to(contractMutators()));
+    return new Pest($project, new PestShell(new LocalProcesses(new SystemClock()), $root), Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds(), bridges: PestBridges::to(contractMutators()));
 }
 
 /** The Infection adapter over its installed library, with the bridge to PlusToTimes. */
@@ -78,6 +79,7 @@ function bridgedInfection(): Runner
         Triage::standard()->bounds(),
         nativeMarkersAllowed: false,
         files: new CapDirectory(),
+        packages: new PackageDirectory(),
         bridges: InfectionBridges::to(contractMutators()),
     );
 }

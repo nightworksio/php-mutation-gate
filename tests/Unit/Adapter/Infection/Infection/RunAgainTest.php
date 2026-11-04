@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Infection\Clock;
 use NightWorksIO\MutationGate\Adapter\Infection\Command;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
@@ -53,14 +54,14 @@ it('runs each mutant again by its unit\'s tests at the higher cap and with no de
         ],
         'escaped' => [InfectionRun::entry('Minus', $money, 12, '$a - $b', '$a + $b')],
     ]);
-    $result = new Infection($at, $first, LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0)), nativeMarkersAllowed: false, files: new CapDirectory())
+    $result = new Infection($at, $first, LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0)), nativeMarkersAllowed: false, files: new CapDirectory(), packages: new PackageDirectory())
         ->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()));
     $mutants = $result instanceof MutationResult ? $result->mutants() : Mutants::none();
     $again = InfectionCases::shell($at, [
         'killed' => [InfectionRun::entry('Plus', $money, 11, '$a + $b', '$a - $b')],
         'escaped' => [InfectionRun::entry('Minus', $money, 12, '$a - $b', '$a + $b')],
     ]);
-    $retried = new Infection($at, $again, LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0)), nativeMarkersAllowed: false, files: new CapDirectory())
+    $retried = new Infection($at, $again, LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0)), nativeMarkersAllowed: false, files: new CapDirectory(), packages: new PackageDirectory())
         ->retry(
             MutationRequest::of(Paths::of(Path::of('src')), Group::named('holds:src/Money.php'))->withholding(Withheld::of('DEPLOY_*')),
             $mutants,
@@ -84,12 +85,12 @@ it('runs mutants again on the map the planning job handed the invocation, and ru
     $money = sprintf('%s/src/Money.php', $at->root());
     $first = new Infection($at, InfectionCases::shell($at, [
         'timeouted' => [InfectionRun::entry('Plus', $money, 11, '$a + $b', '$a - $b')],
-    ]), LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0)), nativeMarkersAllowed: false, files: new CapDirectory())->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()));
+    ]), LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0)), nativeMarkersAllowed: false, files: new CapDirectory(), packages: new PackageDirectory())->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()));
     InfectionCases::handedOn($at, 'planned');
     $again = InfectionCases::shell($at, InfectionCases::killed($at));
     $invocation = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
 
-    $retried = new Infection($at, $again, LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0)), nativeMarkersAllowed: false, files: new CapDirectory())
+    $retried = new Infection($at, $again, LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0)), nativeMarkersAllowed: false, files: new CapDirectory(), packages: new PackageDirectory())
         ->retry($invocation, $first instanceof MutationResult ? $first->mutants() : Mutants::none(), Seconds::of(12.0));
 
     expect(InfectionCases::statuses($retried))->toBe([MutantStatus::Killed])
@@ -101,7 +102,7 @@ it('runs a retry on the coverage its mutation run left, and collects it again fo
     $at = InfectionCases::project();
     $money = sprintf('%s/src/Money.php', $at->root());
     $shell = InfectionCases::shell($at, ['timeouted' => [InfectionRun::entry('Plus', $money, 11, '$a + $b', '$a - $b')]]);
-    $infection = new Infection($at, $shell, LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0)), nativeMarkersAllowed: false, files: new CapDirectory());
+    $infection = new Infection($at, $shell, LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0)), nativeMarkersAllowed: false, files: new CapDirectory(), packages: new PackageDirectory());
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('holds:src/Money.php'));
     $coverageRuns = static fn(): int => count(array_filter(
         InfectionCases::ran($shell),
@@ -129,7 +130,7 @@ it('ends the runs of a retry, one after another, by the deadline its request set
     $result = new Infection($at, InfectionCases::shell($at, [
         'timeouted' => [InfectionRun::entry('Plus', $money, 11, '$a + $b', '$a - $b')],
         'escaped' => [InfectionRun::entry('Minus', $money, 12, '$a - $b', '$a + $b')],
-    ]), LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0)), nativeMarkersAllowed: false, files: new CapDirectory())->mutate($request);
+    ]), LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0)), nativeMarkersAllowed: false, files: new CapDirectory(), packages: new PackageDirectory())->mutate($request);
     $again = InfectionCases::shell($at, InfectionCases::killed($at));
     $clock = new class ($step) implements Clock {
         private int $read = 1;
@@ -144,7 +145,7 @@ it('ends the runs of a retry, one after another, by the deadline its request set
         }
     };
 
-    new Infection($at, $again, LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0)), nativeMarkersAllowed: false, files: new CapDirectory(), clock: $clock)
+    new Infection($at, $again, LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0)), nativeMarkersAllowed: false, files: new CapDirectory(), packages: new PackageDirectory(), clock: $clock)
         ->retry($request, $result instanceof MutationResult ? $result->mutants() : Mutants::none(), Seconds::of(12.0));
     $runs = array_values(array_filter($again->commands(), static fn(Command $command): bool => $command->deadline() instanceof Seconds));
 
@@ -159,7 +160,7 @@ it('runs nothing again for no mutant, and cannot judge a retry whose runs fail',
     $at = InfectionCases::project();
     $result = new Infection($at, InfectionCases::shell($at, [
         'timeouted' => [InfectionRun::entry('Plus', sprintf('%s/src/Money.php', $at->root()), 11, '$a + $b', '$a - $b')],
-    ]), LimitBounds::between(Seconds::of(4.0), Seconds::of(4.0)), nativeMarkersAllowed: false, files: new CapDirectory())->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()));
+    ]), LimitBounds::between(Seconds::of(4.0), Seconds::of(4.0)), nativeMarkersAllowed: false, files: new CapDirectory(), packages: new PackageDirectory())->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()));
     $mutants = $result instanceof MutationResult ? $result->mutants() : Mutants::none();
     $idle = InfectionCases::shell($at, []);
     $refused = InfectionCases::project('{"testFramework": "phpspec"}');
@@ -170,6 +171,7 @@ it('runs nothing again for no mutant, and cannot judge a retry whose runs fail',
         LimitBounds::between(Seconds::of(4.0), Seconds::of(4.0)),
         nativeMarkersAllowed: false,
         files: new CapDirectory(),
+        packages: new PackageDirectory(),
     )->retry(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()), $asked, Seconds::of(8.0));
 
     expect($retried($at, $idle, Mutants::none()))->toEqual(Mutants::none())
@@ -185,7 +187,7 @@ it('runs nothing again for no mutant, and cannot judge a retry whose runs fail',
 it('reproduces a mutant alone with only its mutator, by its unit\'s tests at the limit, whatever its first limit was', function (): void {
     $at = InfectionCases::project();
     $money = sprintf('%s/src/Money.php', $at->root());
-    $result = new Infection($at, InfectionCases::shell($at, ['timeouted' => [InfectionRun::entry('Plus', $money, 11, '$a + $b', '$a - $b')]]), LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0)), nativeMarkersAllowed: false, files: new CapDirectory())
+    $result = new Infection($at, InfectionCases::shell($at, ['timeouted' => [InfectionRun::entry('Plus', $money, 11, '$a + $b', '$a - $b')]]), LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0)), nativeMarkersAllowed: false, files: new CapDirectory(), packages: new PackageDirectory())
         ->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()));
     $timedOut = null;
 
@@ -194,7 +196,7 @@ it('reproduces a mutant alone with only its mutator, by its unit\'s tests at the
     }
 
     $again = InfectionCases::shell($at, InfectionCases::killed($at));
-    $reproduced = $timedOut instanceof Mutant ? new Infection($at, $again, LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0)), nativeMarkersAllowed: false, files: new CapDirectory())
+    $reproduced = $timedOut instanceof Mutant ? new Infection($at, $again, LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0)), nativeMarkersAllowed: false, files: new CapDirectory(), packages: new PackageDirectory())
         ->reproduce(Reproducible::of($timedOut), MutationRequest::of(Paths::none(), Group::named('holds:src/Money.php'))->withholding(Withheld::of('DEPLOY_*')), Seconds::of(12.0)) : null;
     $generated = json_decode((string) file_get_contents($at->own('infection.json5')), associative: true);
 
@@ -226,6 +228,7 @@ it('says Infection made no mutant with the id where it no longer makes it, and c
         LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0)),
         nativeMarkersAllowed: false,
         files: new CapDirectory(),
+        packages: new PackageDirectory(),
     )->reproduce(Reproducible::of($gone), MutationRequest::of(Paths::none(), WholeSuite::tests())->withholding(Withheld::standard()), Seconds::of(6.0));
     $unjudged = $reproduced($at, InfectionCases::shell($at, InfectionCases::killed($at)));
 

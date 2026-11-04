@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -86,7 +87,7 @@ it('serves the control\'s file as a mutant\'s own run is, through Pest\'s overri
 
     expect(RunnerContracts::marks(static function () use ($test): void {
         controlsOf(Library::pest(Patching::off()), Controls::of(moneyControl($test, 60.0)));
-    }))->toBe(['loaded' => true, 'wrapped' => ! Patch::isAppliedIn(Library::vendor()), 'ran' => true]);
+    }))->toBe(['loaded' => true, 'wrapped' => ! Patch::isAppliedIn(Library::vendor(), new PackageDirectory()), 'ran' => true]);
 })->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 it('runs a control of one named row of a data set, by the id the coverage map gives it, and that row alone', function (): void {

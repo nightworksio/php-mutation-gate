@@ -9,6 +9,7 @@ use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Composer\Disk;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Git\Git;
 use NightWorksIO\MutationGate\Adapter\Infection\Importable;
 use NightWorksIO\MutationGate\Adapter\Infection\OwnConfig;
@@ -176,7 +177,7 @@ final readonly class Files
 
         return match (true) {
             ! is_dir(sprintf('%s/%s', $vendor, Package::Infection->value)) => Patched::NotInstalled,
-            InfectionPatch::isAppliedIn($vendor) => Patched::Applied,
+            InfectionPatch::isAppliedIn($vendor, new PackageDirectory()) => Patched::Applied,
             default => Patched::Missing,
         };
     }
@@ -188,7 +189,7 @@ final readonly class Files
 
         return match (true) {
             ! is_dir(sprintf('%s/%s', $vendor, Package::PestMutate->value)) => Patched::NotInstalled,
-            PestPatch::isAppliedIn($vendor) => Patched::Applied,
+            PestPatch::isAppliedIn($vendor, new PackageDirectory()) => Patched::Applied,
             default => Patched::Missing,
         };
     }

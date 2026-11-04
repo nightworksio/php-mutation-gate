@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Pest\Bridges as PestBridges;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
@@ -83,7 +84,7 @@ function overrideJudgedBy(Runner $runner, string $spec, string $file, Mutators $
     $test = Tree::at(sprintf('%s/tests/%s', Library::DIRECTORY, $spec));
     copy(Tree::at(sprintf('tests/Contract/Runner/override/%s', $mutated)), $source);
     copy(Tree::at(sprintf('tests/Contract/Runner/override/tests/%s', $spec)), $test);
-    Patch::applyIn(Library::vendor());
+    Patch::applyIn(Library::vendor(), new PackageDirectory());
 
     try {
         $result = $runner->mutate(
@@ -162,6 +163,7 @@ it('kills a mutant pinned by source by the test that reads its file, which the w
         new PestShell(new LocalProcesses(new SystemClock()), $root),
         Patching::on(Library::canary()),
         new CapDirectory(),
+        new PackageDirectory(),
         Triage::standard()->bounds(),
         bridges: PestBridges::to(Enabled::of(MutatorSet::of(PinnedIdentical::class))),
     );

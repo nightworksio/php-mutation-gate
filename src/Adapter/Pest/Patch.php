@@ -11,6 +11,8 @@ use NightWorksIO\MutationGate\Adapter\Pest\Warm\Pool;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Hunk;
 use NightWorksIO\MutationGate\Core\Composer\Package;
+use NightWorksIO\MutationGate\Core\Composer\PackageFiles;
+use NightWorksIO\MutationGate\Core\Composer\PackageSource;
 use NightWorksIO\MutationGate\Core\Composer\VendorPatch;
 use NightWorksIO\MutationGate\Core\Verb;
 
@@ -463,15 +465,15 @@ final readonly class Patch
         PHP;
 
     /** Patch pest-plugin-mutate and Pest in a vendor directory, and say what was done. */
-    public static function applyIn(string $vendor): string|CannotJudge
+    public static function applyIn(string $vendor, PackageFiles $files): string|CannotJudge
     {
-        return PackageSource::applyIn($vendor, self::patch(), self::pestPatch());
+        return PackageSource::of($files)->applyIn($vendor, self::patch(), self::pestPatch());
     }
 
     /** Whether pest-plugin-mutate and Pest in a vendor directory carry every hunk, and none another version wrote. */
-    public static function isAppliedIn(string $vendor): bool
+    public static function isAppliedIn(string $vendor, PackageFiles $files): bool
     {
-        return PackageSource::isAppliedIn($vendor, self::patch(), self::pestPatch());
+        return PackageSource::of($files)->isAppliedIn($vendor, self::patch(), self::pestPatch());
     }
 
     private static function patch(): VendorPatch

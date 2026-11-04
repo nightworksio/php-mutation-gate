@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed as ComposerInstalled;
+use NightWorksIO\MutationGate\Core\Composer\PackageFiles;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
@@ -96,6 +97,7 @@ final readonly class Pest implements Runner
         private Shell $shell,
         private Patching $patching,
         private CapFiles $files,
+        private PackageFiles $packages,
         private LimitBounds $bounds,
         private Clock $clock = new WallClock(),
         private Bridges $bridges = new Bridges(),
@@ -108,7 +110,8 @@ final readonly class Pest implements Runner
     /**
      * Pest in the project the gate runs in, installed in this vendor
      * directory, as the `pest` runner's options configure it, writing its
-     * memory cap with these files and running through these processes. The
+     * memory cap with these files, reading whether pest:patch is applied
+     * through these package files and running through these processes. The
      * gate's PHAR refuses it: Pest finds the gate's plugin only among the
      * project's installed packages (ADR-0022).
      */
@@ -116,6 +119,7 @@ final readonly class Pest implements Runner
         Options $options,
         Path $vendor,
         CapFiles $files,
+        PackageFiles $packages,
         Processes $processes,
         OwnArchive|NotGiven $archive,
     ): self|Invalid {
@@ -136,6 +140,7 @@ final readonly class Pest implements Runner
             new ProcessShell($processes, $project->root()),
             $read->patching(),
             $files,
+            $packages,
             $read->bounds(),
             bridges: $read->bridges(),
         );
@@ -361,6 +366,7 @@ final readonly class Pest implements Runner
                 $this->shell->in($project->root()),
                 $this->patching,
                 $this->files,
+                $this->packages,
                 $this->bounds,
                 $this->clock,
                 $this->bridges,
@@ -392,6 +398,7 @@ final readonly class Pest implements Runner
             $this->project,
             $shell,
             $this->files,
+            $this->packages,
             $this->patching,
             $this->remembered,
             $this->listing(...),

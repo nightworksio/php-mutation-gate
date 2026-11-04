@@ -15,6 +15,7 @@ use function is_dir;
 use function iterator_to_array;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Infection\ProcessShell as InfectionShell;
 use NightWorksIO\MutationGate\Adapter\Infection\Project as InfectionProject;
@@ -295,7 +296,7 @@ final class Library
         $infection = static function (string $root) use ($bounds): Infection {
             $project = InfectionProject::at(Root::of($root), self::testsIn($root), Path::of('.mutation-gate'));
 
-            return new Infection($project, new InfectionShell(new LocalProcesses(new SystemClock()), $root, getenv()), $bounds, nativeMarkersAllowed: false, files: new CapDirectory());
+            return new Infection($project, new InfectionShell(new LocalProcesses(new SystemClock()), $root, getenv()), $bounds, nativeMarkersAllowed: false, files: new CapDirectory(), packages: new PackageDirectory());
         };
 
         return new self(
@@ -749,7 +750,7 @@ final class Library
         $pest = static function (string $root) use ($patching, $kept): Pest {
             $project = Project::at($root, self::testsIn($root), Path::of('.mutation-gate'), Path::of('vendor'));
 
-            return new Pest($project, new ProcessShell(new LocalProcesses(new SystemClock()), $root), $patching, new CapDirectory(), $kept);
+            return new Pest($project, new ProcessShell(new LocalProcesses(new SystemClock()), $root), $patching, new CapDirectory(), new PackageDirectory(), $kept);
         };
 
         return new self(

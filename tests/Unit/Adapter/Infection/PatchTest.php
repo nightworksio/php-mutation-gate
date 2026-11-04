@@ -2,14 +2,16 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Infection\PackageSource;
+use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Infection\Patch;
 use NightWorksIO\MutationGate\Adapter\Infection\PatchState;
 use NightWorksIO\MutationGate\Adapter\Infection\Release;
 use NightWorksIO\MutationGate\Adapter\Infection\UnsupportedRelease;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Composer\PackageSource;
 use NightWorksIO\MutationGate\Tests\Support\InfectionPatches;
 use NightWorksIO\MutationGate\Tests\Support\InfectionSource;
+use NightWorksIO\MutationGate\Tests\Support\RefusingPackageFiles;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -23,29 +25,29 @@ $source = static fn(string $vendor, string $file): string => (string) file_get_c
 
 it('finds the patch in place and changes nothing when patching again', function () use ($source): void {
     $at = InfectionSource::pristine()->vendor();
-    Patch::applyIn($at);
+    Patch::applyIn($at, new PackageDirectory());
     $patched = array_map(static fn(string $file): string => $source($at, $file), InfectionSource::FILES);
 
-    expect(Patch::applyIn($at))->toBe('infection:patch found its patch already in place in the 4 files it changes in infection. infection:patch found its patch already in place in the 1 files it changes in include-interceptor.')
+    expect(Patch::applyIn($at, new PackageDirectory()))->toBe('infection:patch found its patch already in place in the 4 files it changes in infection. infection:patch found its patch already in place in the 1 files it changes in include-interceptor.')
         ->and(array_map(static fn(string $file): string => $source($at, $file), InfectionSource::FILES))->toBe($patched);
 });
 
 it('patches no release it does not support, and says which it supports', function (): void {
     $at = InfectionSource::pristine()->vendor('0.34.0');
 
-    expect(Patch::applyIn($at))->toEqual(UnsupportedRelease::because(sprintf(
+    expect(Patch::applyIn($at, new PackageDirectory()))->toEqual(UnsupportedRelease::because(sprintf(
         'infection:patch patched nothing: it patches Infection %s, and %s holds Infection 0.34.0, which keeps its own mutant limit.',
         Release::listed(),
         $at,
     )))
-        ->and(Patch::stateIn($at))->toBe(PatchState::Missing);
+        ->and(Patch::stateIn($at, new PackageDirectory()))->toBe(PatchState::Missing);
 });
 
 it('patches nothing where Composer lists no Infection', function (): void {
     $at = InfectionSource::pristine()->vendor();
     file_put_contents(sprintf('%s/composer/installed.json', $at), '{"packages": []}');
 
-    expect(Patch::applyIn($at))->toEqual(CannotJudge::because(sprintf(
+    expect(Patch::applyIn($at, new PackageDirectory()))->toEqual(CannotJudge::because(sprintf(
         'infection:patch patched nothing: %s/composer/installed.json lists no Infection. Is Infection installed?',
         $at,
     )));
@@ -56,7 +58,7 @@ it('patches nothing where Composer\'s list of what it installed cannot be read, 
     $listed = sprintf('%s/composer/installed.json', $at);
     file_put_contents($listed, '{"packages": ');
 
-    $patched = Patch::applyIn($at);
+    $patched = Patch::applyIn($at, new PackageDirectory());
 
     expect($patched)->toBeInstanceOf(CannotJudge::class)
         ->and($patched instanceof CannotJudge ? $patched->why() : '')->toContain($listed)
@@ -68,11 +70,11 @@ it('patches nothing where a line it rewrites has moved', function (): void {
     $file = sprintf('%s/infection/infection/src/Process/Runner/MutationTestingRunner.php', $at);
     file_put_contents($file, str_replace('$mutant->getMutation()->get', '$mutant->getMutation()?->get', (string) file_get_contents($file)));
 
-    expect(Patch::applyIn($at))->toEqual(CannotJudge::because(sprintf(
+    expect(Patch::applyIn($at, new PackageDirectory()))->toEqual(CannotJudge::because(sprintf(
         'infection:patch patched nothing: the lines it rewrites have moved in %s. Install a supported version.',
         $file,
     )))
-        ->and(Patch::stateIn($at))->toBe(PatchState::Missing);
+        ->and(Patch::stateIn($at, new PackageDirectory()))->toBe(PatchState::Missing);
 });
 
 it('patches nothing where Composer lists nothing it installed, or a file it changes is not there', function (): void {
@@ -81,15 +83,15 @@ it('patches nothing where Composer lists nothing it installed, or a file it chan
     $gone = InfectionSource::pristine()->vendor();
     unlink(sprintf('%s/infection/infection/src/Process/Runner/MutationTestingRunner.php', $gone));
 
-    expect(Patch::applyIn($unlisted))->toEqual(CannotJudge::because(sprintf(
+    expect(Patch::applyIn($unlisted, new PackageDirectory()))->toEqual(CannotJudge::because(sprintf(
         'infection:patch patched nothing: %s/composer/installed.json lists no Infection. Is Infection installed?',
         $unlisted,
     )))
-        ->and(Patch::applyIn($gone))->toEqual(CannotJudge::because(sprintf(
+        ->and(Patch::applyIn($gone, new PackageDirectory()))->toEqual(CannotJudge::because(sprintf(
             'infection:patch cannot read %s/infection/infection/src/Process/Runner/MutationTestingRunner.php. Is infection installed?',
             $gone,
         )))
-        ->and(Patch::stateIn($gone))->toBe(PatchState::Missing);
+        ->and(Patch::stateIn($gone, new PackageDirectory()))->toBe(PatchState::Missing);
 });
 
 it('patches nothing, in Infection either, where a line it rewrites in the interceptor has moved, and counts it unpatched', function (): void {
@@ -99,32 +101,32 @@ it('patches nothing, in Infection either, where a line it rewrites in the interc
     $runner = sprintf('%s/infection/infection/src/Process/Runner/MutationTestingRunner.php', $at);
     $before = (string) file_get_contents($runner);
 
-    expect(Patch::applyIn($at))->toEqual(CannotJudge::because(sprintf(
+    expect(Patch::applyIn($at, new PackageDirectory()))->toEqual(CannotJudge::because(sprintf(
         'infection:patch patched nothing: the lines it rewrites have moved in %s. Install a supported version.',
         $file,
     )))
         ->and(file_get_contents($runner))->toBe($before)
-        ->and(Patch::stateIn($at))->toBe(PatchState::Missing);
+        ->and(Patch::stateIn($at, new PackageDirectory()))->toBe(PatchState::Missing);
 });
 
 it('cannot patch, and counts unpatched, an Infection whose include-interceptor is not there or not patched', function (): void {
     $gone = InfectionSource::pristine()->vendor();
     unlink(sprintf('%s/infection/include-interceptor/src/IncludeInterceptor.php', $gone));
     $half = InfectionSource::pristine()->vendor();
-    Patch::applyIn($half);
+    Patch::applyIn($half, new PackageDirectory());
     $pristine = InfectionSource::pristine()->vendor();
     file_put_contents(sprintf('%s/infection/include-interceptor/src/IncludeInterceptor.php', $half), InfectionPatches::interceptor($pristine));
 
-    expect(Patch::applyIn($gone))->toEqual(CannotJudge::because(sprintf(
+    expect(Patch::applyIn($gone, new PackageDirectory()))->toEqual(CannotJudge::because(sprintf(
         'infection:patch cannot read %s/infection/include-interceptor/src/IncludeInterceptor.php. Is include-interceptor installed?',
         $gone,
     )))
-        ->and(Patch::stateIn($gone))->toBe(PatchState::Missing)
-        ->and(Patch::stateIn($half))->toBe(PatchState::Missing)
-        ->and(Patch::applyIn($half))->toBe(
+        ->and(Patch::stateIn($gone, new PackageDirectory()))->toBe(PatchState::Missing)
+        ->and(Patch::stateIn($half, new PackageDirectory()))->toBe(PatchState::Missing)
+        ->and(Patch::applyIn($half, new PackageDirectory()))->toBe(
             'infection:patch found its patch already in place in the 4 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.',
         )
-        ->and(Patch::stateIn($half))->toBe(PatchState::Applied);
+        ->and(Patch::stateIn($half, new PackageDirectory()))->toBe(PatchState::Applied);
 });
 
 it('says it could not write a package whose changed file would not be written, though Infection\'s were', function (): void {
@@ -132,14 +134,11 @@ it('says it could not write a package whose changed file would not be written, t
     $interceptor = sprintf('%s/infection/include-interceptor/src/IncludeInterceptor.php', $at);
     $runner = sprintf('%s/infection/infection/src/Process/Runner/MutationTestingRunner.php', $at);
     $infection = InfectionSource::pristine()->vendor();
-    Patch::applyIn($infection);
+    Patch::applyIn($infection, new PackageDirectory());
     $patched = (string) file_get_contents(sprintf('%s/infection/infection/src/Process/Runner/MutationTestingRunner.php', $infection));
 
-    $said = PackageSource::applyWith(
-        static fn(string $file, string $source): int|false => $file === $interceptor ? false : file_put_contents($file, $source),
-        $at,
-        ...Patch::patches(),
-    );
+    $said = PackageSource::of(new RefusingPackageFiles(static fn(string $file): bool => $file === $interceptor))
+        ->applyIn($at, ...Patch::patches());
 
     expect($said)->toEqual(CannotJudge::because(sprintf(
         'infection:patch cannot write %s/infection/include-interceptor/src. Make the vendor directory writable.',
@@ -150,14 +149,14 @@ it('says it could not write a package whose changed file would not be written, t
 
 it('writes nothing where another version of the gate patched a file it leaves alone, and says to reinstall first', function () use ($source): void {
     $at = InfectionSource::pristine()->vendor();
-    Patch::applyIn($at);
+    Patch::applyIn($at, new PackageDirectory());
     $marked = sprintf('%s/infection/infection/src/Other.php', $at);
     file_put_contents($marked, "<?php\n// mutation-gate infection:patch: a hunk of another version.\n");
     $before = array_map(static fn(string $file): string => $source($at, $file), InfectionSource::FILES);
 
-    expect(Patch::applyIn($at))->toEqual(CannotJudge::because(sprintf(
+    expect(Patch::applyIn($at, new PackageDirectory()))->toEqual(CannotJudge::because(sprintf(
         "infection:patch patched nothing: %s holds another gate's patch. Run composer reinstall infection/infection.",
         $marked,
-    )))->and(Patch::isAppliedIn($at))->toBeFalse()
+    )))->and(Patch::isAppliedIn($at, new PackageDirectory()))->toBeFalse()
         ->and(array_map(static fn(string $file): string => $source($at, $file), InfectionSource::FILES))->toBe($before);
 });

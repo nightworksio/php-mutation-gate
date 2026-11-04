@@ -10,6 +10,7 @@ use function ini_get;
 use function ini_parse_quantity;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Waiting;
 use NightWorksIO\MutationGate\Adapter\Runtime\ChildMemory;
 use NightWorksIO\MutationGate\Adapter\Runtime\PhpProbe;
@@ -120,8 +121,8 @@ final readonly class Console
             default: false,
         ));
 
-        $application->addCommand(PestPatch::command(ComposerVendor::on($project)));
-        $application->addCommand(InfectionPatch::command(ComposerVendor::on($project)));
+        $application->addCommand(PestPatch::command(ComposerVendor::on($project), new PackageDirectory()));
+        $application->addCommand(InfectionPatch::command(ComposerVendor::on($project), new PackageDirectory()));
         $application->addCommand(HookCommand::command($project));
 
         $detected = new Detected(Directory::at($project), Directory::at($vendor));

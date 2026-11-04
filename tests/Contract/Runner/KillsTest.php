@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -70,7 +71,7 @@ it('times a run of no test that loads every test file, served as the mutant\'s r
         Library::pest(Patching::off())->runner()->startUp(Path::of('src/Money.php'), Withheld::standard());
     });
 
-    expect($marks)->toBe(['loaded' => true, 'wrapped' => ! Patch::isAppliedIn(Library::vendor()), 'ran' => false]);
+    expect($marks)->toBe(['loaded' => true, 'wrapped' => ! Patch::isAppliedIn(Library::vendor(), new PackageDirectory()), 'ran' => false]);
 })->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the library')->group(...$holds);
 
 it('times a run of no test that loads no test file, through the mutant\'s wrapper, where a filtered run loads them all, with Infection', function (): void {
@@ -156,7 +157,7 @@ it('names the test that killed a mutant, as the coverage map names it, with Pest
 })->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 it('gives a kill how far its run went, keyed by the test files it loaded, with patched Pest', function (): void {
-    Patch::applyIn(Library::vendor());
+    Patch::applyIn(Library::vendor(), new PackageDirectory());
     $library = Library::pest(Patching::on(Library::canary()));
     $result = $library->runner()->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
         ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('adds'))));
@@ -174,7 +175,7 @@ it('gives a kill how far its run went, keyed by the test files it loaded, with p
 // whether a signal ended it, whether PHP recorded a fatal error in it, which
 // `exit` is not, and the end of what it printed.
 it('names the test a mutant ended the process in as its killer, though it ended with 0, with patched Pest', function (): void {
-    Patch::applyIn(Library::vendor());
+    Patch::applyIn(Library::vendor(), new PackageDirectory());
     $library = Library::pest(Patching::on(Library::canary()));
     [$mutants, $evidence] = RunnerContracts::crashed(Library::DIRECTORY, ['src/Crash.php' => 'src/QuietCrash.php', 'tests/CrashSpec.php' => 'tests/CrashSpec.php'], static fn(): MutationResult|CannotJudge => $library->runner()->mutate(RunnerContracts::crashRequest($library)));
     $killers = $mutants === [] ? [] : array_map(static fn(TestId $test): string => $test->value(), [...$mutants[0]->killers()]);

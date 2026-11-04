@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Pest\Ending;
 use NightWorksIO\MutationGate\Adapter\Pest\LoadedMap;
 use NightWorksIO\MutationGate\Adapter\Pest\MutantTime;
@@ -31,9 +32,9 @@ $source = static fn(string $vendor, string $file): string => (string) file_get_c
 it('patches the four files, leaving each one PHP', function () use ($vendor, $source): void {
     $at = $vendor();
 
-    expect(Patch::isAppliedIn($at))->toBeFalse()
-        ->and(Patch::applyIn($at))->toBe('pest:patch patched 4 of the 4 files it changes in pest-plugin-mutate. pest:patch patched 3 of the 3 files it changes in pest.')
-        ->and(Patch::isAppliedIn($at))->toBeTrue()
+    expect(Patch::isAppliedIn($at, new PackageDirectory()))->toBeFalse()
+        ->and(Patch::applyIn($at, new PackageDirectory()))->toBe('pest:patch patched 4 of the 4 files it changes in pest-plugin-mutate. pest:patch patched 3 of the 3 files it changes in pest.')
+        ->and(Patch::isAppliedIn($at, new PackageDirectory()))->toBeTrue()
         ->and($source($at, 'MutationTest.php'))->toContain(sprintf(
             '$passed = class_exists(\\%1$s::class) ? \\%1$s::passable($filter) : strlen($filter) < 100000;',
             Selection::class,
@@ -148,7 +149,7 @@ function overrideStats(string $vendor = ''): array
 
 it('stats a dangling link as a link, and a file it cannot read as there, while the patched override serves a file, as PHP does without it', function (): void {
     $vendor = MutatePlugin::pristine()->vendor();
-    Patch::applyIn($vendor);
+    Patch::applyIn($vendor, new PackageDirectory());
 
     expect(overrideStats($vendor))->toBe(overrideStats())
         ->and(overrideStats())->toMatchArray([

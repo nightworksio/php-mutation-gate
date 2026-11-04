@@ -9,6 +9,7 @@ use Closure;
 use function dirname;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Composer\PackageFiles;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -54,6 +55,7 @@ final readonly class ShardMap
      */
     public function __construct(
         private Project $project,
+        private PackageFiles $packages,
         private Patching $patching,
         private Remembered $remembered,
         private Closure $listing,
@@ -143,7 +145,7 @@ final readonly class ShardMap
     {
         $vendor = $this->project->absolute($this->project->vendor());
 
-        if (! $this->remembered->patched(static fn(): bool => Patch::isAppliedIn($vendor))) {
+        if (! $this->remembered->patched(fn(): bool => Patch::isAppliedIn($vendor, $this->packages))) {
             return CannotJudge::because(sprintf(self::NOT_PATCHED, $this->project->vendor()->value()));
         }
 

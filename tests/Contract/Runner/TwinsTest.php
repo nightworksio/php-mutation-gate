@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -34,7 +35,7 @@ it('runs one of each pair of mutants that leave a file alike, and judges the oth
     $test = Tree::at(sprintf('%s/tests/LoopedSpec.php', Library::DIRECTORY));
     copy(Tree::at('tests/Contract/Runner/twins/src/Looped.php'), $source);
     copy(Tree::at('tests/Contract/Runner/twins/tests/LoopedSpec.php'), $test);
-    Patch::applyIn(Library::vendor());
+    Patch::applyIn(Library::vendor(), new PackageDirectory());
 
     try {
         $result = Library::pest(Patching::on(Library::canary()))->runner()->mutate(
