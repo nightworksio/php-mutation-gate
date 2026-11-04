@@ -165,7 +165,7 @@ final readonly class SettingsCases
         "staticCheck": {
             "tool": "auto",
             "seconds": 60,
-            "before": false
+            "before": true
         },
         "local": {
             "watchBudget": "1m",
