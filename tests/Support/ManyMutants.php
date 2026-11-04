@@ -42,7 +42,9 @@ use function sprintf;
  * one to a line, for the tests that keep reporting linear in a verdict's
  * size: each line is covered by `A` and `B` of the unit suite and `C` and
  * `D` of the feature suite ({@see Killings::suites()}) under a full matrix,
- * and every fourth mutant survives while `A` kills the rest.
+ * and every fourth mutant survives while `A` kills the rest. A widely
+ * covered verdict has every line covered by as many more tests as a test
+ * asks for besides.
  */
 final class ManyMutants
 {
@@ -50,11 +52,26 @@ final class ManyMutants
 
     public static function verdict(int $count): Verdict
     {
+        return self::covered($count, self::TESTS);
+    }
+
+    /** A verdict of this many mutants, each line covered by this many tests besides `A` to `D`, each named. */
+    public static function widely(int $count, int $tests): Verdict
+    {
+        return self::covered(
+            $count,
+            [...self::TESTS, ...array_map(static fn(int $test): string => sprintf('Widely%d', $test), range(1, $tests))],
+        );
+    }
+
+    /** @param list<string> $tests */
+    private static function covered(int $count, array $tests): Verdict
+    {
         $money = Path::of('src/Money.php');
-        $ids = array_map(static fn(string $test): string => Killings::id($test)->value(), self::TESTS);
+        $ids = array_map(static fn(string $test): string => Killings::id($test)->value(), $tests);
         $names = TestNames::none();
 
-        foreach (self::TESTS as $test) {
+        foreach ($tests as $test) {
             $names = $names->with(Killings::id($test), Killings::name($test));
         }
 

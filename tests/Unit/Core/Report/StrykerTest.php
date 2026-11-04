@@ -29,23 +29,46 @@ it('writes a report the mutation-testing-report-schema accepts', function (strin
     expect(Schema::errors(Stryker::json(Verdicts::named($verdict), $sources()), Schema::at('tests/Fixtures/mutation-testing-report-schema.json')))->toBe([]);
 })->with(['failing', 'passing', 'empty', 'with a matrix', 'proved']);
 
-it('fills the viewer\'s test view: the tests by file, and those that cover, killed and ran for each mutant', function () use ($sources): void {
+it('fills the viewer\'s test view: the tests by file, each by its place in the table and its name, and those that cover, killed and ran for each mutant', function () use ($sources): void {
     $report = Stryker::json(Verdicts::named('with a matrix'), $sources());
     $mutant = static fn(int $at): mixed => Decoded::at($report, 'files', 'src/Money.php', 'mutants', $at);
 
     expect(Decoded::at($report, 'testFiles'))->toBe([
         'tests/Unit/MoneyTest.php' => ['tests' => [
-            ['id' => 'MoneyTest::fits', 'name' => 'it fits'],
-            ['id' => 'MoneyTest::refuses', 'name' => 'it fits with data set "over"'],
+            ['id' => '0', 'name' => 'it fits'],
+            ['id' => '1', 'name' => 'it fits with data set "over"'],
         ]],
-        'PriceTest' => ['tests' => [['id' => 'PriceTest::adds', 'name' => 'PriceTest::adds']]],
+        'PriceTest' => ['tests' => [['id' => '2', 'name' => 'PriceTest::adds']]],
     ])
         ->and($mutant(0))->toMatchArray([
-            'coveredBy' => ['MoneyTest::fits', 'MoneyTest::refuses', 'PriceTest::adds'],
+            'coveredBy' => ['0', '1', '2'],
             'killedBy' => [],
             'testsCompleted' => 3,
         ])
-        ->and($mutant(1))->toMatchArray(['coveredBy' => ['MoneyTest::fits', 'PriceTest::adds'], 'killedBy' => ['MoneyTest::fits'], 'testsCompleted' => 1]);
+        ->and($mutant(1))->toMatchArray(['coveredBy' => ['0', '2'], 'killedBy' => ['0'], 'testsCompleted' => 1]);
+});
+
+it('names every test a mutant points at, as the viewer finds it by its id among the test files', function () use ($sources): void {
+    $json = Stryker::json(Verdicts::named('with a matrix'), $sources());
+    $listed = static fn(string $key): array => [
+        ...Decoded::column($json, $key, 'testFiles', 'tests/Unit/MoneyTest.php', 'tests'),
+        ...Decoded::column($json, $key, 'testFiles', 'PriceTest', 'tests'),
+    ];
+    $ids = $listed('id');
+    $names = $listed('name');
+    $named = static function (mixed $pointed) use ($ids, $names): array {
+        $named = [];
+
+        foreach (is_array($pointed) ? $pointed : [] as $id) {
+            $at = array_search($id, $ids, strict: true);
+            $named[] = is_int($at) ? $names[$at] : null;
+        }
+
+        return $named;
+    };
+
+    expect($named(Decoded::at($json, 'files', 'src/Money.php', 'mutants', 0, 'coveredBy')))->toBe(['it fits', 'it fits with data set "over"', 'PriceTest::adds'])
+        ->and($named(Decoded::at($json, 'files', 'src/Money.php', 'mutants', 1, 'killedBy')))->toBe(['it fits']);
 });
 
 it('writes no test file where no mutant names a test', function () use ($sources): void {
@@ -161,7 +184,7 @@ it('writes a kill a ledger proved across its whole line, with no replacement, wh
         'mutatorName' => 'TrueValue',
         'location' => ['start' => ['line' => 9, 'column' => 1], 'end' => ['line' => 9, 'column' => mb_strlen($line) + 1]],
         'status' => 'Killed',
-        'killedBy' => ['MoneyTest::fits'],
+        'killedBy' => ['0'],
     ])
         ->and($mutant)->not->toHaveKey('replacement');
 });
@@ -175,4 +198,17 @@ it('writes the Stryker report in time linear in its mutants, however many one fi
 
     expect(Decoded::at(Stryker::json(ManyMutants::verdict(8), Sources::none()), 'files', 'src/Money.php', 'mutants', 7, 'testsCompleted'))->toBe(4)
         ->and(Growth::of(250, $report))->toBeLessThan(Growth::LINEAR);
+});
+
+it('writes the Stryker report in time linear in the tests that cover its mutants, each named once and pointed at by its place', function (): void {
+    $report = static function (int $size): Closure {
+        $verdict = ManyMutants::widely(20, $size);
+
+        return static fn(): int => strlen(Stryker::json($verdict, Sources::none()));
+    };
+    $widely = Stryker::json(ManyMutants::widely(2, 3), Sources::none());
+
+    expect(Decoded::at($widely, 'files', 'src/Money.php', 'mutants', 1, 'coveredBy'))->toBe(['0', '1', '2', '3', '4', '5', '6'])
+        ->and(Decoded::at($widely, 'testFiles', 'tests/Widely3Test.php', 'tests'))->toBe([['id' => '6', 'name' => 'it does Widely3']])
+        ->and(Growth::of(60, $report))->toBeLessThan(Growth::LINEAR);
 });
