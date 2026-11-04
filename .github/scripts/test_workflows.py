@@ -517,7 +517,10 @@ class ProjectCode(unittest.TestCase):
         self.assertNotEqual(env["LEDGERS"], env["FETCHED"])
         self.assertIn('fetch --to="${FETCHED}"', "\n".join(job(WORKFLOW, "fetch")))
         for name in ("plan", "verdict"):
-            fetched = [one for one in steps(job(WORKFLOW, name)) if any("mutation-gate-fetched-" in line for line in one)]
+            fetched = [
+                one for one in steps(job(WORKFLOW, name))
+                if "actions/download-artifact@" in one[0] and any("mutation-gate-fetched-" in line for line in one)
+            ]
             with self.subTest(job=name):
                 self.assertEqual(1, len(fetched))
                 self.assertIn("path: ${{ env.FETCHED }}", "\n".join(fetched[0]))

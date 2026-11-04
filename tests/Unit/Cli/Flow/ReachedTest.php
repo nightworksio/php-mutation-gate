@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Cli\Config\RunContext;
 use NightWorksIO\MutationGate\Cli\Flow\Adapters;
 use NightWorksIO\MutationGate\Cli\Flow\ChangeBase;
 use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
+use NightWorksIO\MutationGate\Cli\Flow\MapJudges;
 use NightWorksIO\MutationGate\Cli\Flow\Reached;
 use NightWorksIO\MutationGate\Cli\Flow\Suite;
 use NightWorksIO\MutationGate\Config\Reach;
@@ -109,7 +110,7 @@ function reachedReading(
         $adapters,
         Flows::settings(Reach::everything('config/**'), Reach::lockPackages('pestphp/*')),
         reachedSuite($checkout, $adapters),
-        $map,
+        MapJudges::of($adapters->runner, $map),
         $config($project),
     );
 }
@@ -490,7 +491,7 @@ it('reaches everything where git cannot tell what changed, and says why it keeps
         $adapters,
         Flows::settings(),
         reachedSuite($checkout, $adapters),
-        CoverageMap::empty(),
+        MapJudges::of($adapters->runner, CoverageMap::empty()),
         DecidingConfig::unread(),
     );
 
@@ -509,7 +510,7 @@ function reachedFrom(ChangeSourceFake $checkout, ChangeBase $base): Reached
         $adapters,
         Flows::settings(),
         reachedSuite($checkout, $adapters),
-        CoverageMap::empty(),
+        MapJudges::of($adapters->runner, CoverageMap::empty()),
         DecidingConfig::unread(),
     );
 }

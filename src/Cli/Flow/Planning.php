@@ -135,14 +135,15 @@ final readonly class Planning
             return $map;
         }
 
-        $keying = Keying::of($this->adapters, $this->settings, $this->setup, $inventory->suite, $map);
+        $judges = MapJudges::of($this->adapters->runner, $map);
+        $keying = Keying::of($this->adapters, $this->settings, $this->setup, $inventory->suite, $judges);
         $at = Measuring::of($this->adapters, $request);
         $planned = $keying instanceof Keying
             ? $this->planned(
                 $inventory,
                 $ledgers,
                 KeptCoverage::keysOf($entries, $map),
-                $map,
+                $judges,
                 $at,
                 $keying,
                 $mode,
@@ -165,13 +166,14 @@ final readonly class Planning
         Inventory $inventory,
         Ledgers $ledgers,
         EntryKeys|NotGiven $entryKeys,
-        CoverageMap $map,
+        MapJudges $judges,
         MeasuredAt|Unplaced $at,
         Keying $keying,
         Mode $mode,
         Cut $cut,
         MatrixKind $matrix,
     ): Plan|CannotJudge {
+        $map = $judges->map();
         $kind = $this->adapters->briefing(Briefing::standard()->recording($matrix))->profile();
         $base = $mode->changeBase($ledgers, $inventory->standing, $kind, $this->settings->ci()->check());
         $reached = $base instanceof ChangeBase
@@ -181,7 +183,7 @@ final readonly class Planning
                 $this->adapters,
                 $this->settings,
                 $inventory->suite,
-                $map,
+                $judges,
                 $this->setup->config,
             )
             : Reached::everything($inventory->trees, $base);

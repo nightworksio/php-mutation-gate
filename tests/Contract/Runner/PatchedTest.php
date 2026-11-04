@@ -323,7 +323,7 @@ it('holds the library to the pest-plugin-mutate the package allows', function ()
             'pestphp/pest' => '<5.1',
             'pestphp/pest-plugin-mutate' => '<5.0.2 || >=6.0',
             'phpunit/phpunit' => '<12.5.8 || >=12.5.21 <12.5.22 || >=13.1.5 <13.1.6',
-            'symfony/yaml' => '<7.4.12 || >=8.0 <8.0.12',
+            'symfony/yaml' => '<7.4.23 || >=8.0 <8.1.11',
             'testo/testo' => '<0.10.56 || >=0.11',
         ]);
 })->skip(fn(): bool => getenv('RUNNER_CANARY') === '1', 'the runner canary frees the library from the pin')->group(...$holds);
