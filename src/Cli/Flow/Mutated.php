@@ -33,4 +33,34 @@ final readonly class Mutated
         public Doomed|Undoomed $doomed,
     ) {
     }
+
+    /**
+     * What the shard came to, with another group of its units' runs after these (ADR-0074): their mutants, the
+     * survivors a second run killed, the units left unjudged, the checks and the warnings join these, and a doom
+     * either reached stands. The held units' checks are the shard's, which every group shares.
+     */
+    public function and(self $later): self
+    {
+        return new self(
+            $this->result->and($later->result),
+            $this->flaky->and($later->flaky),
+            $this->held,
+            $this->unjudged->and($later->unjudged),
+            $this->checks->plus($later->checks),
+            $this->doomed instanceof Doomed ? $this->doomed : $later->doomed,
+        );
+    }
+
+    /** The same, with these units left unjudged, as the groups after a doom are. */
+    public function leaving(Units $units): self
+    {
+        return new self(
+            $this->result,
+            $this->flaky,
+            $this->held,
+            $this->unjudged->and($units),
+            $this->checks,
+            $this->doomed,
+        );
+    }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Tests\Support;
 
 use function array_key_exists;
+use function array_keys;
 use function is_array;
 use function json_decode;
 
@@ -21,6 +22,18 @@ final class Decoded
         }
 
         return $value;
+    }
+
+    /**
+     * The keys of the object at a path of keys; none where it holds no object there.
+     *
+     * @return list<int|string>
+     */
+    public static function keys(string $json, string|int ...$keys): array
+    {
+        $object = self::at($json, ...$keys);
+
+        return is_array($object) ? array_keys($object) : [];
     }
 
     /**

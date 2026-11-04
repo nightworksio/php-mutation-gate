@@ -218,7 +218,7 @@ final readonly class PrePushCommand
 
     private function running(): Running
     {
-        return new Running($this->composed->adapters, $this->composed->settings, $this->composed->setup);
+        return Running::composed($this->composed);
     }
 
     /** Each reached tree's score change, as `pre-commit` prints it (ADR-0015). */

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -228,4 +229,29 @@ it('reaches what it reaches and what the default branch changed since its ledger
         ->and(array_map(static fn(Reason $reason): bool => $reason->widens(), [...$both->reasons()]))->toBe([false, false, false, true])
         ->and($first->andSinceLedger($nothing()->everywhere(Reason::that('Everything.')), Revision::ref('1edcafe'))->isEverywhere())->toBeTrue()
         ->and($nothing()->everywhere(Reason::that('Everything.'))->andSinceLedger($first, Revision::ref('1edcafe'))->isEverywhere())->toBeTrue();
+});
+
+it('reaches the units whose files a glob matches, and the packages the glob can match a file of', function (): void {
+    $root = Package::at(Path::root());
+    $core = Package::at(Path::of('packages/core'));
+    $money = Package::at(Path::of('packages/money'));
+    $reach = Reach::nothing(Packages::of(Trees::of(
+        Tree::at(Path::of('src'), Undeclared::floor(), $root),
+        Tree::at(Path::of('packages/core/src'), Undeclared::floor(), $core),
+        Tree::at(Path::of('packages/money/src'), Undeclared::floor(), $money),
+    )))->matching(Glob::of('packages/core/src/Legacy/**'));
+    $everywhere = Reach::nothing(Packages::of(Trees::of(Tree::at(Path::of('packages/money/src'), Undeclared::floor(), $money))))
+        ->matching(Glob::of('**/Legacy/*.php'));
+
+    expect($reach->reaches(Unit::file(Path::of('packages/core/src/Legacy/Old.php'))))->toBeTrue()
+        ->and($reach->reaches(Unit::file(Path::of('packages/core/src/New.php'))))->toBeFalse()
+        ->and($reach->reachesPackage($core))->toBeTrue()
+        ->and($reach->reachesPackage($money))->toBeFalse()
+        ->and($reach->reasons()->count())->toBe(0)
+        ->and($everywhere->reachesPackage($money))->toBeTrue()
+        ->and($everywhere->reaches(Unit::file(Path::of('packages/money/src/Legacy/Old.php'))))->toBeTrue()
+        ->and($everywhere->andSinceLedger(Reach::nothing(Packages::of(Trees::of())), Revision::ref('abc'))->reaches(Unit::file(Path::of('a/Legacy/B.php'))))
+        ->toBeTrue()
+        ->and(Reach::nothing(Packages::of(Trees::of()))->andSinceLedger($everywhere, Revision::ref('abc'))->reaches(Unit::file(Path::of('a/Legacy/B.php'))))
+        ->toBeTrue();
 });

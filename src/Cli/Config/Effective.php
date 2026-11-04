@@ -236,7 +236,8 @@ final readonly class Effective
      */
     private function base(Layer $merged, Listed|Absent $presets): Layer|CannotJudge
     {
-        $runner = $merged->setup()->runner() instanceof Choice ? Absent::setting() : $this->detected->runner();
+        $chosen = $merged->setup()->runner() instanceof Choice;
+        $runner = $chosen ? Absent::setting() : $this->detected->runner();
 
         if ($runner instanceof CannotJudge) {
             return $runner;

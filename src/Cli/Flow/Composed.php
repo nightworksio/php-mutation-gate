@@ -28,6 +28,7 @@ final readonly class Composed
         public Adapters $adapters,
         public Setup $setup,
         public Reporting $reporting,
+        public Ruling $ruling = new Ruling(),
     ) {
     }
 
@@ -40,7 +41,7 @@ final readonly class Composed
         );
 
         return $settings instanceof Settings
-            ? new self($settings, $this->adapters, $this->setup, $this->reporting)
+            ? new self($settings, $this->adapters, $this->setup, $this->reporting, $this->ruling)
             : $settings;
     }
 
@@ -54,7 +55,7 @@ final readonly class Composed
         $adapters = $this->adapters->securityOnly();
 
         return $adapters instanceof Adapters
-            ? new self($this->settings, $adapters, $this->setup, $this->reporting)
+            ? new self($this->settings, $adapters, $this->setup, $this->reporting, $this->ruling)
             : $adapters;
     }
 
@@ -68,14 +69,20 @@ final readonly class Composed
         $adapters = $this->adapters->inSuite($suite);
 
         return $adapters instanceof Adapters
-            ? new self($this->settings, $adapters, $this->setup, $this->reporting)
+            ? new self($this->settings, $adapters, $this->setup, $this->reporting, $this->ruling)
             : $adapters;
     }
 
     /** The same, writing the badge and trend into this directory, as `--publish-dir` asks (ADR-0009). */
     public function publishingInto(Path $directory): self
     {
-        return new self($this->settings, $this->adapters, $this->setup, $this->reporting->publishingInto($directory));
+        return new self(
+            $this->settings,
+            $this->adapters,
+            $this->setup,
+            $this->reporting->publishingInto($directory),
+            $this->ruling,
+        );
     }
 
     /**
@@ -90,6 +97,7 @@ final readonly class Composed
             $this->adapters->withProofs(DeliveredLedger::over($this->adapters->proofs, $delivery)),
             $this->setup,
             $this->reporting->deliveringLater($delivery),
+            $this->ruling,
         );
     }
 

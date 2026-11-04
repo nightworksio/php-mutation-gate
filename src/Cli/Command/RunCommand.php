@@ -106,7 +106,7 @@ final readonly class RunCommand
         Path $results,
     ): Written|CannotJudge {
         return $following instanceof Composed
-            ? new Running($following->adapters, $following->settings, $following->setup)->run($plan, $shard, $results)
+            ? Running::composed($following)->run($plan, $shard, $results)
             : $following;
     }
 
@@ -163,7 +163,7 @@ final readonly class RunCommand
             $printing->note($said, $output);
         }
 
-        $ran = new Running($composed->adapters, $composed->settings, $composed->setup)->runAll($plan, $results);
+        $ran = Running::composed($composed)->runAll($plan, $results);
 
         return $ran instanceof CannotJudge ? $ran : VerdictCommand::judgedOf($composed, $plan, $results);
     }

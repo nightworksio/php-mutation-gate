@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Change\ChangeKind;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Coverage\Judges;
 use NightWorksIO\MutationGate\Core\Coverage\NoMap;
+use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Tree\Package;
@@ -29,7 +30,8 @@ use function sprintf;
  *    and in the packages that depend on it, and a root file reaches every
  *    package, unless a change in its place leaves it deciding as it did at
  *    the base, as a config whose change moved no setting that decides how
- *    the gate runs does; a CI definition that runs the gate, as it is or as
+ *    the gate runs does, which reaches only the units the `paths` entries
+ *    it moved match; a CI definition that runs the gate, as it is or as
  *    it was, reaches everything too, unless a change in its place moved
  *    only lines no runner reads (AsItRuns);
  * 2. a changed source file in a tree reaches its unit;
@@ -58,6 +60,8 @@ final readonly class Reaching
 
     private const string DECIDES_ALIKE
         = '`%s` changed nothing that decides how the gate runs, so it reaches nothing.';
+
+    private const string MOVED = '`%s` changed what paths sets for %s, so the units they match are reached.';
 
     private const string SOURCE = '`%s` changed, so its unit is reached.';
 
@@ -104,14 +108,26 @@ final readonly class Reaching
 
         return match (true) {
             is_string($unnamed) => $reach->everywhere(Reason::that($unnamed)),
-            $deciding instanceof Path && $sources->decidesAlike($change) => $reach->because(
-                Reason::that(sprintf(self::DECIDES_ALIKE, $deciding->value())),
-            ),
+            $deciding instanceof Path && $sources->decidesAlike($change) => $this->alike($reach, $deciding, $sources),
             $deciding instanceof Path => $this->decided($reach, $deciding, $packages->holding($deciding), $packages),
             $definition instanceof Path => $this->definitionChanged($reach, $change, $definition, $sources),
             $this->isSource($path) => $this->sourceChanged($tests->inFixtures($reach, $change), $change),
             default => $tests->reach($reach, $change),
         };
+    }
+
+    /**
+     * A config that decides as it did at the base: it reaches nothing, but for the files each `paths` entry it
+     * moved matches (ADR-0074).
+     */
+    private function alike(Reach $reach, Path $config, Sources $sources): Reach
+    {
+        $moved = $sources->movedRules($config);
+        $globs = implode(', ', array_map(static fn(Glob $glob): string => sprintf('`%s`', $glob->value()), $moved));
+
+        return $moved === []
+            ? $reach->because(Reason::that(sprintf(self::DECIDES_ALIKE, $config->value())))
+            : $reach->matching(...$moved)->because(Reason::that(sprintf(self::MOVED, $config->value(), $globs)));
     }
 
     /** The path of this change that decides how the gate runs in its package, where one does. */

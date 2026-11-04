@@ -151,6 +151,7 @@ than written: `79.999` holds a score to `80`.
 | `runner.withhold` | list of environment-variable names or globs the runner never hands the project's tests, added to those every run withholds; a guard against accidents, not a sandbox | `[]` | [0004](../decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 | `runner.memory` | the `memory_limit` of every PHP process a mutation run starts, as PHP writes it (`512M`, `1G`), or `-1` for none; a `memory_limit` the project sets in `phpunit.xml` or a bootstrap file wins over it. The Codeception runner passes it as Codeception's `settings.memory_limit`, which Codeception otherwise sets to `1024M` or what `codeception.yml` says. Under Infection and the PHPUnit, PhpSpec, Codeception and Testo runners it also sets `display_errors=stdout`, so a warning raised outside a test, such as in a bootstrap file, also prints on standard output | `1G` | [0004](../decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 | `runner.workers` | how the PHPUnit runner, and Pest under `pest.patch`, start each mutant's run: `fork`, from a worker per process, or `fresh`, a new PHP process per mutant. The PHPUnit runner's worker boots the autoloader and the bootstrap once; a boot that leaves a socket or database connection open, starts PHPUnit's events or loads a file the run mutates is refused: its mutants run fresh, and the run warns of why, as `doctor` does. Pest's worker loads nothing of the project, and a Laravel suite that uses `RefreshDatabase` migrates its test database once a worker: each later mutant starts on the database the first migration left, checked and its counters set back first, and migrates again where a test left it otherwise. `fork` needs `pcntl` in the PHP the runner starts, and `posix` too under Pest, and mutants run fresh without them. Survivors are always confirmed in a fresh process. Infection starts its own processes, and the PhpSpec, Codeception and Testo runners start each mutant's run fresh, so it changes nothing for them | `fork` | [0023](../decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) |
+| `runner.pathRules` | how a shard applies `paths`: `partitioned`, each group of its units the same entries match run after the units none matches, with a runner its settings build | `partitioned` | [0074](../decisions/0074-paths-set-mutators-timeouts-and-the-static-check-by-glob.md) |
 | `treeSource` | adapter: `phpunit`, `composer` | `phpunit` | [0005](../decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `treeSource.with.fallback` | list of paths, the trees when `phpunit.xml` has no `<source>` | `[]`, or the preset's; `[]` takes the `autoload` paths of `composer.json` | [0002](../decisions/0002-one-typed-config-from-several-formats.md) |
 | `trees` | list of `{path, floor, reason, exclude}`, laid over the tree source's trees: a listed path takes its floor, reason and exclude from here | the tree source's trees | [0003](../decisions/0003-a-floor-only-rises.md) |
@@ -244,6 +245,14 @@ than written: `79.999` holds a score to `80`.
 | `local.watchBudget` | duration | `1m` | [0010](../decisions/0010-the-gate-runs-while-you-work-and-before-you-push.md) |
 | `local.prePushBudget` | duration | `5m` | [0010](../decisions/0010-the-gate-runs-while-you-work-and-before-you-push.md) |
 | `contexts` | object of blocks, `local`, `ci`, `pr` and `main`, each holding any key of this table but `preset`, `extensions`, `ci.plan` and `ci.defaultBranch`: what a run in that context lays over the rest of its layer | `{}` | [0071](../decisions/0071-a-config-holds-a-block-for-each-context-a-run-is-in.md) |
+| `paths` | list of `{glob, mutators, timeouts, staticCheck}`: what each entry sets for the files its glob matches, every match laid over the settings least specific first, by the length of the glob's literal prefix, then as written | `[]` | [0074](../decisions/0074-paths-set-mutators-timeouts-and-the-static-check-by-glob.md) |
+| `paths[].glob` | glob, matched as `trees[].exclude` is | none; required | [0074](../decisions/0074-paths-set-mutators-timeouts-and-the-static-check-by-glob.md) |
+| `paths[].mutators.sets` | as `mutators.sets`, added to it for the files the entry matches | `[]` | [0074](../decisions/0074-paths-set-mutators-timeouts-and-the-static-check-by-glob.md) |
+| `paths[].mutators.except` | as `mutators.except`, added to it; under Pest or Infection, only of a set `mutators.sets` turns on, as their own mutants stand in for the default set's | `[]` | [0074](../decisions/0074-paths-set-mutators-timeouts-and-the-static-check-by-glob.md) |
+| `paths[].timeouts.seconds` | as `timeouts.seconds`, for the files the entry matches | `timeouts.seconds` | [0074](../decisions/0074-paths-set-mutators-timeouts-and-the-static-check-by-glob.md) |
+| `paths[].timeouts.most` | as `timeouts.most`, at least the entry's `timeouts.seconds` | `timeouts.most` | [0074](../decisions/0074-paths-set-mutators-timeouts-and-the-static-check-by-glob.md) |
+| `paths[].staticCheck.tool` | as `staticCheck.tool`, `none` included | `staticCheck.tool` | [0074](../decisions/0074-paths-set-mutators-timeouts-and-the-static-check-by-glob.md) |
+| `paths[].staticCheck.before` | as `staticCheck.before` | `staticCheck.before` | [0074](../decisions/0074-paths-set-mutators-timeouts-and-the-static-check-by-glob.md) |
 
 ## Context blocks
 
@@ -276,6 +285,31 @@ are laid, so the config file's own setting beats a preset's block.
 `config:show` prints the blocks as written, and `config:show --resolved`
 prints the config of a run in its contexts, which it names on standard
 error.
+
+## Path rules
+
+`paths` sets mutators, timeouts and the static check for the files a glob
+matches
+([ADR-0074](../decisions/0074-paths-set-mutators-timeouts-and-the-static-check-by-glob.md)):
+
+```json
+{
+    "paths": [
+        { "glob": "src/Legacy/**", "timeouts": { "seconds": 60, "most": 600 } },
+        { "glob": "src/Generated/**", "mutators": { "except": ["default/Plus"] }, "staticCheck": { "tool": "none" } }
+    ]
+}
+```
+
+Every entry that matches a file is laid over the settings, least specific
+first, so the innermost entry wins for what it sets and a broader one keeps
+the rest. A unit's proof key holds what its entries set that affects
+results, so an edit to one entry re-runs only the units it matches. Under
+`runner.pathRules: partitioned`, a shard runs the units no entry matches as
+it always does, then each other group with a runner its settings build:
+one runner boot more per group, and only where `paths` is used. Mutators
+an entry turns off are the gate's own: under Pest or Infection, which make
+their own mutants, an entry cannot turn off one only the default set holds.
 
 ## In a package's `composer.json`
 

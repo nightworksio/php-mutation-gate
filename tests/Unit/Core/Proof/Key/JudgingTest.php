@@ -16,3 +16,12 @@ it('holds a unit and the test files that can judge it, or why none can be named'
         ->and($judging->judges())->toEqual(Paths::of(Path::of('tests/ATest.php')))
         ->and($unnamed->judges())->toEqual(CannotJudge::because('No map.'));
 });
+
+it('reads what the paths entries matching a unit set into its key, and nothing where they set nothing', function (): void {
+    $judging = Judging::of(Unit::file(Path::of('src/A.php')), Paths::of(Path::of('tests/ATest.php')));
+
+    expect($judging->ruling())->toBe([])
+        ->and($judging->ruledBy('')->ruling())->toBe([])
+        ->and($judging->ruledBy('{"timeouts":{"seconds":60}}')->ruling())->toBe(['paths', '{"timeouts":{"seconds":60}}'])
+        ->and($judging->ruledBy('{"timeouts":{"seconds":60}}')->judges())->toEqual($judging->judges());
+});

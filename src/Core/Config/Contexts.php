@@ -10,7 +10,6 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 
 use function sprintf;
-use function str_replace;
 
 /**
  * The blocks a layer writes under `contexts` (ADR-0071): for each context, the settings a run in it lays over
@@ -20,9 +19,6 @@ use function str_replace;
  */
 final readonly class Contexts implements Part
 {
-    /** How much deeper a block's builder calls are written than the calls around them. */
-    private const string NESTED = "\n        ";
-
     /** @param array<string, Layer> $blocks by the context's key */
     private function __construct(private array $blocks)
     {
@@ -87,7 +83,7 @@ final readonly class Contexts implements Part
                 ? [...$calls, sprintf(
                     'Context::%s(Gate::configure()%s)',
                     $context->builder(),
-                    str_replace("\n", self::NESTED, $this->blocks[$context->value]->php($origin)->code()),
+                    $this->blocks[$context->value]->php($origin)->nested(),
                 )]
                 : $calls;
         }

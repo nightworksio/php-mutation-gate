@@ -46,6 +46,7 @@ $holds = [
     'holds:src/Cli/Config/Formats.php',
     'holds:src/Cli/Flow/Adapters.php',
     'holds:src/Cli/Flow/Composition.php',
+    'holds:src/Cli/Registry/RuledMutators.php',
     'holds:src/Cli/Flow/Wiring.php',
     'holds:src/Core/Config/Definition/ReportEntry.php',
 ];
@@ -181,6 +182,11 @@ it('says what is wrong with a config it cannot compose', function (
             'reports[0].with.colors',
             'expected an object of numbers, got "x"',
         )),
+    ],
+    'a paths entry turning off a mutator no set holds' => [
+        '{"runner": "fake", "paths": [{"glob": "src/**", "mutators": {"except": ["acme/Nowhere"]}}]}',
+        'fake',
+        fn(): CannotJudge => CannotJudge::because('paths[0]: mutators.except names "acme/Nowhere", which neither a mutator set in mutators.sets nor the default set holds.'),
     ],
 ])->group(...$holds);
 

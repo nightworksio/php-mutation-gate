@@ -31,12 +31,14 @@ final readonly class Settings
         $late = $layer->ignores()->late($now);
         $settled = Layer::standard()->over($layer);
         $unbounded = $settled->triage()->refusal();
+        $paths = $settled->setup()->paths()->unbounded($settled);
         $problems = [
             ...$runner instanceof Choice
                 ? []
                 : [Problem::at('runner', sprintf('expected %s, got nothing', Adapter::EXPECTED))],
             ...$late instanceof Invalid ? [...$late] : [],
             ...$unbounded instanceof Invalid ? [...$unbounded] : [],
+            ...$paths instanceof Invalid ? [...$paths] : [],
         ];
 
         return $runner instanceof Choice && $problems === []

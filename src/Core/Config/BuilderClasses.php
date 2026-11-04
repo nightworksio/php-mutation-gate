@@ -41,6 +41,7 @@ final readonly class BuilderClasses
         'Mutators' => self::BUILDER,
         'Option' => self::BUILDER,
         'Owner' => self::BUILDER,
+        'PathRule' => self::BUILDER,
         'Pest' => self::BUILDER,
         'Pipeline' => self::BUILDER,
         'Preset' => self::BUILDER,
@@ -61,6 +62,7 @@ final readonly class BuilderClasses
         'Glob' => 'NightWorksIO\\MutationGate\\Core\\File',
         'MemoryCap' => 'NightWorksIO\\MutationGate\\Core\\Runner',
         'MemoryUnit' => 'NightWorksIO\\MutationGate\\Core\\Runner',
+        'PathRuleMode' => 'NightWorksIO\\MutationGate\\Core\\Runner',
         'Withheld' => 'NightWorksIO\\MutationGate\\Core\\Runner',
         'Workers' => 'NightWorksIO\\MutationGate\\Core\\Runner',
     ];

@@ -10,9 +10,12 @@ use NightWorksIO\MutationGate\Cli\Flow\MapJudges;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\Suite;
 use NightWorksIO\MutationGate\Config\Baseline;
+use NightWorksIO\MutationGate\Config\Gate;
 use NightWorksIO\MutationGate\Config\Option;
+use NightWorksIO\MutationGate\Config\PathRule;
 use NightWorksIO\MutationGate\Config\Proofs;
 use NightWorksIO\MutationGate\Config\Report;
+use NightWorksIO\MutationGate\Config\StaticCheck;
 use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
@@ -440,6 +443,28 @@ it('reads every source outside the tests into every key, failing closed, where o
 
     expect(keyingReached($money, $ledger, unreadable: true))
         ->not->toEqual(keyingReached($money, str_replace('1', '2', $ledger), unreadable: true));
+});
+
+it('keys a unit apart by what the paths entries matching it set, leaving the base and every other unit as they were', function (): void {
+    $units = Units::of(Unit::file(Path::of('src/Money.php')), Unit::file(Path::of('src/Other.php')));
+    $plain = keyingOf(keyingRunner('fake'), Flows::settings(), keyingSuite('1'), Flows::setup());
+    $ruled = keyingOf(
+        keyingRunner('fake'),
+        Flows::settings(PathRule::matching('src/Money.php', Gate::configure()->with(Timeouts::seconds(60)))),
+        keyingSuite('1'),
+        Flows::setup(),
+    );
+    $judged = keyingOf(
+        keyingRunner('fake'),
+        Flows::settings(PathRule::matching('src/Money.php', Gate::configure()->with(StaticCheck::afterTests()))),
+        keyingSuite('1'),
+        Flows::setup(),
+    );
+
+    expect($ruled->base())->toEqual($plain->base())
+        ->and($ruled->keysOf($units)->keyOf(Path::of('src/Money.php')))->not->toEqual($plain->keysOf($units)->keyOf(Path::of('src/Money.php')))
+        ->and($ruled->keysOf($units)->keyOf(Path::of('src/Other.php')))->toEqual($plain->keysOf($units)->keyOf(Path::of('src/Other.php')))
+        ->and($judged->keysOf($units)->keyOf(Path::of('src/Money.php')))->toEqual($plain->keysOf($units)->keyOf(Path::of('src/Money.php')));
 });
 
 /** The keying of a run against this map, its judges asked of the adapters' runner. */

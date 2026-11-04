@@ -11,6 +11,8 @@ final readonly class Problem
 {
     private const string MISMATCH = 'expected %s, got %s';
 
+    private const string SAID = '%s: %s';
+
     private function __construct(private string $path, private string $message)
     {
     }
@@ -34,5 +36,11 @@ final readonly class Problem
     public function message(): string
     {
         return $this->message;
+    }
+
+    /** The problem as one line says it: `trees[1].floor: expected a number from 0 to 100, got "80"`. */
+    public function said(): string
+    {
+        return sprintf(self::SAID, $this->path, $this->message);
     }
 }

@@ -30,7 +30,16 @@ final readonly class MutatorsKeys
     /** @return list<Field<Layer>> */
     public static function fields(): array
     {
-        $results = Effect::AffectsResults;
+        return [Field::section('mutators', self::section(Effect::AffectsResults))];
+    }
+
+    /**
+     * The `mutators` object, each of its settings with this effect, read into the part of a layer it sets.
+     *
+     * @return Section<Layer>
+     */
+    public static function section(Effect $results): Section
+    {
         $named = static fn(string $name): string => $name;
         $mutator = Text::matching(
             self::MUTATOR,
@@ -39,24 +48,21 @@ final readonly class MutatorsKeys
         $sets = Field::optional('sets', Items::distinct(MutatorSetName::turnedOn(), $named), $results);
         $except = Field::optional('except', Items::distinct($mutator, $named), $results);
 
-        return [Field::section(
-            'mutators',
-            Section::of(
-                static function (Node $mutators) use ($sets, $except): Layer|Invalid {
-                    $on = $sets->read($mutators);
-                    $off = $except->read($mutators);
+        return Section::of(
+            static function (Node $mutators) use ($sets, $except): Layer|Invalid {
+                $on = $sets->read($mutators);
+                $off = $except->read($mutators);
 
-                    return Reading::built(
-                        static fn(): Layer => Layer::of(
-                            Setup::of(mutators: Mutators::of($on->value(), $off->value())),
-                        ),
-                        $on,
-                        $off,
-                    );
-                },
-                $sets,
-                $except,
-            ),
-        )];
+                return Reading::built(
+                    static fn(): Layer => Layer::of(
+                        Setup::of(mutators: Mutators::of($on->value(), $off->value())),
+                    ),
+                    $on,
+                    $off,
+                );
+            },
+            $sets,
+            $except,
+        );
     }
 }

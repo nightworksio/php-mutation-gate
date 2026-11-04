@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Secrets;
+use NightWorksIO\MutationGate\Core\Hold\HeldChecks;
 use NightWorksIO\MutationGate\Core\Mutant\Unevidenced;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\KillSearch;
@@ -88,13 +89,20 @@ final readonly class Running
         private Settings $settings,
         private Setup $setup,
         private Interruption $interruption = new Interruption(),
+        private Ruling $ruling = new Ruling(),
     ) {
+    }
+
+    /** The shards a composed flow runs, each group of units `paths` entries match with a runner of its own. */
+    public static function composed(Composed $composed): self
+    {
+        return new self($composed->adapters, $composed->settings, $composed->setup, ruling: $composed->ruling);
     }
 
     /** The same, stopping before its next batch once this says so, as at its deadline. */
     public function interrupted(Interruption $interruption): self
     {
-        return new self($this->adapters, $this->settings, $this->setup, $interruption);
+        return new self($this->adapters, $this->settings, $this->setup, $interruption, $this->ruling);
     }
 
     /** The plan, where the checkout is the commit it was made on, as every shard and the verdict need. */
@@ -235,7 +243,8 @@ final readonly class Running
      * before its doom is judged. Each kill with no evidence is unjudged
      * (ADR-0014). Static analysis then checks the survivors no
      * chunk's check took up, in the time left, the analyser warmed up once
-     * for the shard.
+     * for the shard. Where `paths` entries match some of the shard's units,
+     * each group of them runs on its own, as PartitionedRuns says (ADR-0074).
      */
     private function mutated(
         Plan $plan,
@@ -254,6 +263,32 @@ final readonly class Running
         }
 
         $kept = HeldCoverage::kept($shard, $held->misses());
+        $groups = PathGroups::of($kept, $this->settings->effective()->setup()->paths());
+
+        return $groups->isWhole()
+            ? $this->mutatedKept($plan, $kept, $map, $held, $search, $deadline, $stopwatch)
+            : new PartitionedRuns($this->adapters, $this->settings, $this->ruling, $this->setup->clock->now())->mutated(
+                $groups,
+                fn(Adapters $adapters, Settings $settings, Shard $part): Mutated|CannotJudge => new self(
+                    $adapters,
+                    $settings,
+                    $this->setup,
+                    $this->interruption,
+                    $this->ruling,
+                )->mutatedKept($plan, $part, $map, $held, $search, $deadline, $stopwatch),
+            );
+    }
+
+    /** The runs of a shard's units whose held coverage was checked, each with this run's adapters and settings. */
+    private function mutatedKept(
+        Plan $plan,
+        Shard $kept,
+        CoverageMap $map,
+        HeldChecks $held,
+        KillSearch $search,
+        Deadline|Unlimited $deadline,
+        Stopwatch $stopwatch,
+    ): Mutated|CannotJudge {
         $startUp = new StartUpTiming($this->adapters, StartUpSamples::standard())->of($map, $kept->units());
         $warmUp = new AnalyserWarmUp();
         $analyser = $this->adapters->analyser;

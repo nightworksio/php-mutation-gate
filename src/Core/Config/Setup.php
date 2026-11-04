@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\PathRuleMode;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
 
@@ -24,8 +25,9 @@ use function sprintf;
  * What a config builds on (ADR-0002, ADR-0008): the extensions it loads, the
  * presets it applies, the runner, what the runner withholds from the
  * project's tests and the memory each mutant's process may use, the
- * registered mutators it turns on beside the runner's own (ADR-0021), and
- * where the trees come from.
+ * registered mutators it turns on beside the runner's own (ADR-0021),
+ * where the trees come from, and what `paths` sets for the files each glob
+ * matches (ADR-0074).
  */
 final readonly class Setup implements Part
 {
@@ -49,6 +51,7 @@ final readonly class Setup implements Part
         private RunnerLayer $runner,
         private Choice|Absent $treeSource,
         private Mutators $mutators,
+        private PathRules $paths,
     ) {
     }
 
@@ -65,13 +68,16 @@ final readonly class Setup implements Part
         MemoryCap|Absent $memory = new Absent(),
         Mutators|Absent $mutators = new Absent(),
         Workers|Absent $workers = new Absent(),
+        PathRuleMode|Absent $pathRules = new Absent(),
+        PathRules|Absent $paths = new Absent(),
     ): self {
         return new self(
             $extensions,
             $presets,
-            RunnerLayer::of($runner, $withhold, $memory, $workers),
+            RunnerLayer::of($runner, $withhold, $memory, $workers, $pathRules),
             $treeSource,
             $mutators instanceof Mutators ? $mutators : Mutators::none(),
+            $paths instanceof PathRules ? $paths : PathRules::none(),
         );
     }
 
@@ -89,12 +95,13 @@ final readonly class Setup implements Part
             treeSource: $none->treeSource(),
             memory: $none->runnerLayer()->memory(),
             mutators: Mutators::standard(),
+            paths: PathRules::standard(),
         );
     }
 
     /**
-     * Presets, extensions and mutators add to an earlier layer's; a runner, a
-     * memory cap or a tree source is chosen whole.
+     * Presets, extensions, mutators and `paths` entries add to an earlier
+     * layer's; a runner, a memory cap or a tree source is chosen whole.
      */
     public function over(Part $later): self
     {
@@ -105,6 +112,7 @@ final readonly class Setup implements Part
                 $this->runner->over($later->runner),
                 Absent::laid($this->treeSource, $later->treeSource),
                 $this->mutators->over($later->mutators),
+                $this->paths->over($later->paths),
             )
             : $this;
     }
@@ -143,6 +151,12 @@ final readonly class Setup implements Part
         return $this->mutators;
     }
 
+    /** What `paths` sets for the files each glob matches (ADR-0074). */
+    public function paths(): PathRules
+    {
+        return $this->paths;
+    }
+
     public function treeSource(): Choice
     {
         return $this->treeSource instanceof Choice
@@ -169,9 +183,11 @@ final readonly class Setup implements Part
             : $written;
         $written = $this->runner->written($written)->merged($this->mutators->written());
 
-        return $this->treeSource instanceof Choice
+        $written = $this->treeSource instanceof Choice
             ? $written->with(Member::of('treeSource', $this->sourceFrom($origin)->written()))
             : $written;
+
+        return $written->merged($this->paths->written($origin));
     }
 
     public function php(PathOrigin $origin): PhpCalls
@@ -190,9 +206,11 @@ final readonly class Setup implements Part
             : $calls;
         $calls = $calls->and($this->runner->php())->and($this->mutators->php());
 
-        return $this->treeSource instanceof Choice
+        $calls = $this->treeSource instanceof Choice
             ? $calls->and(PhpCalls::onGate(GateMethod::TreeSource, $this->source($this->sourceFrom($origin))))
             : $calls;
+
+        return $calls->and($this->paths->php($origin));
     }
 
     /** @param Listed<string> $presets */

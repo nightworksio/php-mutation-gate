@@ -52,6 +52,27 @@ final readonly class MutationResult
         return new self($mutants, $this->skipped, $this->warnings, $this->steps, $evidence);
     }
 
+    /**
+     * This result, with a later run's after it, as a shard's groups of units each run apart join (ADR-0074):
+     * its mutants, what it skipped, warned of, timed and kept as evidence, each after this one's.
+     */
+    public function and(self $later): self
+    {
+        $mutants = $this->mutants;
+
+        foreach ($later->mutants as $mutant) {
+            $mutants = $mutants->with($mutant);
+        }
+
+        return new self(
+            $mutants,
+            $this->skipped + $later->skipped,
+            $this->warnings->and($later->warnings),
+            $this->steps->and($later->steps),
+            $this->evidence->and($later->evidence),
+        );
+    }
+
     /** This result, warning of these as well, after what it warned of already. */
     public function withWarnings(Warnings $warnings): self
     {

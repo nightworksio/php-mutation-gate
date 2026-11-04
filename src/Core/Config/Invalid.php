@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
+use function array_map;
 use function array_values;
 
 use ArrayIterator;
@@ -11,6 +12,9 @@ use ArrayIterator;
 use function count;
 
 use Countable;
+
+use function implode;
+
 use IteratorAggregate;
 use Traversable;
 
@@ -29,6 +33,12 @@ final readonly class Invalid implements Countable, IteratorAggregate
     public static function because(Problem $problem, Problem ...$more): self
     {
         return new self([$problem, ...array_values($more)]);
+    }
+
+    /** Every problem as one line says it, each `path: message`, one after another. */
+    public function said(): string
+    {
+        return implode(' ', array_map(static fn(Problem $problem): string => $problem->said(), $this->problems));
     }
 
     public function count(): int

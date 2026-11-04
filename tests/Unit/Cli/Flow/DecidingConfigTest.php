@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Missing;
@@ -63,6 +64,30 @@ it('marks it deciding alike where its change moved only a setting that judges or
     'a report' => ['{"runner": "pest", "trees": [{"path": "src", "floor": 90}], "reports": [{"use": "json", "path": "b.json"}]}'],
     'the budget' => ['{"runner": "pest", "trees": [{"path": "src", "floor": 90}], "reports": [{"use": "json", "path": "a.json"}], "budget": "5m"}'],
 ]);
+
+it('marks it deciding alike where its change moved only paths entries, naming the globs whose files they reach', function () use ($deciding, $changed): void {
+    [, $config] = $deciding('{"runner": "pest", "paths": [{"glob": "src/Kept/**", "timeouts": {"seconds": 5}}, {"glob": "src/Legacy/**", "timeouts": {"seconds": 60}}]}');
+    $marked = $config->marking(
+        Sources::none(),
+        $changed(),
+        Contents::of('{"runner": "pest", "paths": [{"glob": "src/Kept/**", "timeouts": {"seconds": 5}}, {"glob": "src/Gen/**", "timeouts": {"seconds": 9}}]}'),
+    );
+    $alike = $config->marking(Sources::none(), $changed(), Contents::of('{"runner": "pest", "paths": [{"glob": "src/Kept/**", "timeouts": {"seconds": 5}}, {"glob": "src/Legacy/**", "timeouts": {"seconds": 60}}], "budget": "5m"}'));
+
+    expect($marked->decidesAlike($changed()))->toBeTrue()
+        ->and(array_map(static fn(Glob $glob): string => $glob->value(), $marked->movedRules(Path::of('mutation-gate.json'))))
+        ->toBe(['src/Legacy/**', 'src/Gen/**'])
+        ->and($alike->decidesAlike($changed()))->toBeTrue()
+        ->and($alike->movedRules(Path::of('mutation-gate.json')))->toBe([]);
+});
+
+it('marks nothing where a change moved paths entries beside a setting that decides how the gate runs', function () use ($deciding, $changed): void {
+    [, $config] = $deciding('{"runner": "pest", "paths": [{"glob": "src/Legacy/**", "timeouts": {"seconds": 60}}]}');
+    $marked = $config->marking(Sources::none(), $changed(), Contents::of('{"runner": "infection", "paths": []}'));
+
+    expect($marked->decidesAlike($changed()))->toBeFalse()
+        ->and($marked->movedRules(Path::of('mutation-gate.json')))->toBe([]);
+});
 
 it('marks nothing where the change moved a setting that affects results or decides how the gate runs, or the base cannot be read', function (string $before) use ($deciding, $changed): void {
     [, $config] = $deciding('{"runner": "pest", "trees": [{"path": "src"}]}');

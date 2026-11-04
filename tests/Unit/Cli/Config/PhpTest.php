@@ -136,6 +136,17 @@ it('writes a config that reads back into the same effective config', function (a
         'proofs' => ['store' => ['use' => 'directory', 'with' => ['path' => 'build/proofs']]],
         'reports' => [['use' => 'json', 'path' => 'build/mutation.json']],
     ]],
+    'paths entries, and how a shard applies them' => [[
+        'runner' => ['use' => 'pest', 'pathRules' => 'partitioned'],
+        'paths' => [
+            ['glob' => 'src/Legacy/**', 'timeouts' => ['seconds' => 60, 'most' => 600], 'mutators' => ['except' => ['default/Plus']]],
+            ['glob' => 'src/Gen/**', 'staticCheck' => ['tool' => 'none', 'before' => false], 'mutators' => ['sets' => ['laravel']]],
+        ],
+    ]],
+    'how a shard applies paths, where another layer chooses the runner' => [[
+        'runner' => 'pest',
+        'contexts' => ['pr' => ['runner' => ['pathRules' => 'partitioned'], 'paths' => [['glob' => 'src/**', 'timeouts' => ['seconds' => 5]]]]],
+    ]],
     'a block for each context' => [[
         'runner' => 'pest',
         'contexts' => [

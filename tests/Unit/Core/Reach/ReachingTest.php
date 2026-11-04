@@ -160,6 +160,20 @@ it('reaches nothing where the gate\'s config changed nothing that decides how th
         ->and($said($reach))->toBe(['`mutation-gate.json` changed nothing that decides how the gate runs, so it reaches nothing.']);
 });
 
+it('reaches only the units whose files the paths entries a config moved match, where it changed nothing else that decides', function () use ($reaching, $judges, $said): void {
+    $sources = Sources::none()
+        ->decidingAlike(Path::of('mutation-gate.json'))
+        ->movingRules(Path::of('mutation-gate.json'), Glob::of('src/Legacy/**'), Glob::of('packages/core/src/*.php'));
+
+    $reach = $reaching()->of(Changes::of(Change::modified(Path::of('mutation-gate.json'), Lines::of(Line::of(4)))), $judges(), $sources, TestRuns::wholeFiles());
+
+    expect($reach->isEverywhere())->toBeFalse()
+        ->and($reach->reaches(Unit::file(Path::of('src/Legacy/Old.php'))))->toBeTrue()
+        ->and($reach->reaches(Unit::file(Path::of('packages/core/src/Clock.php'))))->toBeTrue()
+        ->and($reach->reaches(Unit::file(Path::of('src/Money.php'))))->toBeFalse()
+        ->and($said($reach))->toBe(['`mutation-gate.json` changed what paths sets for `src/Legacy/**`, `packages/core/src/*.php`, so the units they match are reached.']);
+});
+
 it('reaches everything where a file that decides how the gate runs was renamed, moved, added or deleted, however alike it reads', function (Change $change, string $said) use ($reaching, $judges): void {
     $sources = Sources::none()
         ->decidingAlike($change->path())
