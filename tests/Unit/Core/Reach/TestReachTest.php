@@ -109,13 +109,13 @@ it('reaches only what the tests a change touched run, read from the map by their
         ->and(testReasons($reach))->toBe(['`tests/Unit/MoneyTest.php` changed 1 of its 2 tests, so the 1 files they run are reached.']);
 });
 
-it('reaches what all its tests run, by the map and not by the runner\'s files, where the change moved what they share', function () use ($adds, $rounds, $makeChange): void {
+it('reaches what the runner judges by the file and what all its tests run, by the map, where the change moved what they share', function () use ($adds, $rounds, $makeChange): void {
     $reach = testReached($makeChange(), moneyTests('1', $adds, $rounds), moneyTests('2', $adds, $rounds), moneyRuns());
 
     expect($reach->reaches(Unit::file(Path::of('src/Money.php'))))->toBeTrue()
         ->and($reach->reaches(Unit::file(Path::of('src/Rate.php'))))->toBeTrue()
-        ->and($reach->reaches(Unit::file(Path::of('src/Clock.php'))))->toBeFalse()
-        ->and(testReasons($reach))->toBe(['`tests/Unit/MoneyTest.php` changed code its tests share, so the 2 files all its tests run are reached.']);
+        ->and($reach->reaches(Unit::file(Path::of('src/Clock.php'))))->toBeTrue()
+        ->and(testReasons($reach))->toBe(['`tests/Unit/MoneyTest.php` changed code its tests share, so the 3 files all its tests run are reached.']);
 });
 
 it('reaches nothing where a change touched none of the tests the map places', function () use ($adds, $rounds, $makeChange): void {

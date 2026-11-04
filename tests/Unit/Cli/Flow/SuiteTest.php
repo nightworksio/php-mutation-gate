@@ -284,3 +284,35 @@ it('reads the tests of a package from its own PHPUnit config, wildcards expanded
         ->and(Suite::testsIn(Directory::at($project), Path::of('packages/broken'), SuiteConfig::PhpUnit))
         ->toEqual(CannotJudge::because('phpunit.xml is not XML, so the test suite it declares cannot be read.'));
 });
+
+it('reads the support the tests load from outside their directories, as each manifest\'s autoload-dev names it, and keeps it apart from the test files', function () use ($listed): void {
+    $read = suiteOf(
+        [
+            'composer.json' => '{"autoload-dev": {"psr-4": {"Tests\\\\": "support/"}, "files": ["helpers.php"]}}',
+            'packages/a/composer.json' => '{"autoload-dev": {"psr-4": {"A\\\\Tests\\\\": "fakes/"}}}',
+            'support/ClockFake.php' => "<?php\n\nfinal class ClockFake {}\n",
+            'support/clock.json' => "{}\n",
+            'helpers.php' => "<?php\n",
+            'packages/a/fakes/LimitFake.php' => "<?php\n",
+            'tests/MoneyTest.php' => "<?php\n",
+            'docs/example.php' => "<?php\n",
+        ],
+        $listed('composer.json', 'support/ClockFake.php', 'support/clock.json', 'helpers.php', 'packages/a/fakes/LimitFake.php', 'tests/MoneyTest.php', 'docs/example.php'),
+    );
+
+    expect($read->supportPlaces())->toEqual(Paths::of(Path::of('support'), Path::of('helpers.php'), Path::of('fakes')))
+        ->and($read->sources()->now(Path::of('support/ClockFake.php')))->toEqual(Contents::of("<?php\n\nfinal class ClockFake {}\n"))
+        ->and($read->sources()->now(Path::of('helpers.php')))->toEqual(Contents::of("<?php\n"))
+        ->and($read->sources()->now(Path::of('packages/a/fakes/LimitFake.php')))->toEqual(Contents::of("<?php\n"))
+        ->and($read->sources()->now(Path::of('support/clock.json')))->toEqual(Missing::at(Path::of('support/clock.json')))
+        ->and($read->sources()->now(Path::of('docs/example.php')))->toEqual(Missing::at(Path::of('docs/example.php')))
+        ->and(array_map(static fn(TestFile $file): string => $file->fingerprint()->path()->value(), [...$read->files()]))->toBe(['tests/MoneyTest.php'])
+        ->and($read->outside()->digestOf(Path::of('support/ClockFake.php')))->not->toBeInstanceOf(Missing::class);
+});
+
+it('names no support place where a manifest cannot be read', function () use ($listed): void {
+    $read = suiteOf(['composer.json' => '[1]', 'support/ClockFake.php' => "<?php\n"], $listed('composer.json', 'support/ClockFake.php'));
+
+    expect($read->supportPlaces())->toEqual(Paths::none())
+        ->and($read->sources()->now(Path::of('support/ClockFake.php')))->toEqual(Missing::at(Path::of('support/ClockFake.php')));
+});

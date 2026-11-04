@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Composer\AutoloadSection;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\Composer\Names;
 use NightWorksIO\MutationGate\Core\Composer\Unnamed;
@@ -74,7 +75,9 @@ it('names every path its autoload names, spelt from the repository root, in its 
         Path::of('modules/billing/generated'),
         Path::of('modules/billing/helpers.php'),
     ))
-        ->and(aManifest('{"autoload": {"psr-4": {"App\\\\": "app/"}}}')->autoloaded())->toEqual(Paths::of(Path::of('app')));
+        ->and(aManifest('{"autoload": {"psr-4": {"App\\\\": "app/"}}}')->autoloaded())->toEqual(Paths::of(Path::of('app')))
+        ->and($manifest->autoloaded(AutoloadSection::Development))->toEqual(Paths::of(Path::of('modules/billing/tests')))
+        ->and($manifest->autoloaded(AutoloadSection::Own))->toEqual($manifest->autoloaded());
 });
 
 it('autoloads nothing where its autoload holds no paths', function (string $json): void {

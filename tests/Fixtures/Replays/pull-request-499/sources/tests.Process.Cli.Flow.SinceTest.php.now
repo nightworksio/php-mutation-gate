@@ -1,0 +1,16 @@
+<?php
+declare(strict_types=1);
+use NightWorksIO\MutationGate\Adapter\Git\Git;
+use NightWorksIO\MutationGate\Cli\Flow\Since;
+use NightWorksIO\MutationGate\Config\Reach;
+use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Verdict\ChangeReach;
+use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
+use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\Locks;
+use NightWorksIO\MutationGate\Tests\Support\Repository;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;

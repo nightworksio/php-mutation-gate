@@ -1,0 +1,14 @@
+<?php
+declare(strict_types=1);
+use NightWorksIO\MutationGate\Cli\Flow\Dependents;
+use NightWorksIO\MutationGate\Cli\Flow\NameGraph;
+use NightWorksIO\MutationGate\Core\Analysis\DependentCap;
+use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
+use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
+use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;

@@ -1,0 +1,14 @@
+<?php
+declare(strict_types=1);
+use NightWorksIO\MutationGate\Cli\Command\RunCommand;
+use NightWorksIO\MutationGate\Cli\Command\StubCommand;
+use NightWorksIO\MutationGate\Cli\Flow\Composition;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
+use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
+use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
+use NightWorksIO\MutationGate\Tests\Support\Verdicts;

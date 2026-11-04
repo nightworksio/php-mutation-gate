@@ -1,0 +1,13 @@
+diff --git a/tests/Fakes/CiPlanFake.php b/tests/Fakes/CiPlanFake.php
+index ee28c8669..76b6a2c4c 100644
+--- a/tests/Fakes/CiPlanFake.php
++++ b/tests/Fakes/CiPlanFake.php
+@@ -17 +17 @@
+-/** A CI that describes the run it was started in, and keeps the plans handed to it, with their jobs' commands. */
++/** A CI that describes the run it was started in, and keeps the plans handed to it. */
+@@ -23,3 +22,0 @@ final class CiPlanFake implements CiPlan
+-    /** @var list<JobCommands> */
+-    public private(set) array $jobs = [];
+-
+@@ -45 +41,0 @@ public function publish(Plan $plan, JobCommands $jobs): Publication
+-        $this->jobs[] = $jobs;

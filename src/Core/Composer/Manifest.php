@@ -120,16 +120,16 @@ final readonly class Manifest
     }
 
     /**
-     * Every path a `composer.json`'s `autoload` names, not `autoload-dev`,
-     * spelt from the repository's root, in its order.
+     * Every path a section of a `composer.json` names, `autoload` where none
+     * is given, spelt from the repository's root, in its order.
      */
-    public function autoloaded(): Paths
+    public function autoloaded(AutoloadSection $section = AutoloadSection::Own): Paths
     {
         $directory = Path::of(dirname($this->file->value()));
         $paths = [];
 
         foreach (AutoloadKind::cases() as $kind) {
-            foreach (Lenient::entries($this->manifest->field('autoload')->field($kind->value)) as $entry) {
+            foreach (Lenient::entries($this->manifest->field($section->value)->field($kind->value)) as $entry) {
                 $paths = [...$paths, ...self::pathsIn($entry, $directory)];
             }
         }
@@ -177,8 +177,8 @@ final readonly class Manifest
     {
         return ClassLocations::of(
             Path::of(dirname($this->file->value())),
-            $this->manifest->field('autoload'),
-            $this->manifest->field('autoload-dev'),
+            $this->manifest->field(AutoloadSection::Own->value),
+            $this->manifest->field(AutoloadSection::Development->value),
         );
     }
 

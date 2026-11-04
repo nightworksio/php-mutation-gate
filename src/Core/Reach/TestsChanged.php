@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Reach;
 
+use function array_all;
+use function array_count_values;
 use function array_key_exists;
 use function array_keys;
 use function count;
@@ -22,7 +24,8 @@ use NightWorksIO\MutationGate\Core\Test\TestMethod;
  * the runner places in it (ADR-0065): each whose declaration differs between
  * the file as it was and as it is, or stands in only one of them, found by
  * the method its id names. Where the change also moved what those tests
- * share, or a test may depend on another, it touched them all.
+ * share, but for imports it only added, or a test may depend on another, it
+ * touched them all.
  *
  * @internal
  */
@@ -47,7 +50,7 @@ final readonly class TestsChanged
         $byMethod = self::byMethod($placed);
         $methods = array_keys($byMethod);
 
-        if ($before->shared($methods) !== $now->shared($methods)) {
+        if (! self::sharesAlike($before, $now, $methods)) {
             return Widening::Shared;
         }
 
@@ -58,6 +61,29 @@ final readonly class TestsChanged
         }
 
         return count($changed) > 0 && ($before->dependent() || $now->dependent()) ? Widening::Dependent : $changed;
+    }
+
+    /**
+     * Whether the tests share what they shared, but for imports the change
+     * only added.
+     *
+     * @param list<string> $methods
+     */
+    private static function sharesAlike(TestDeclarations $before, TestDeclarations $now, array $methods): bool
+    {
+        return $before->shared($methods) === $now->shared($methods)
+            || (self::keepsImports($before, $now)
+                && $before->sharedButImports($methods) === $now->sharedButImports($methods));
+    }
+
+    /** Whether every import of the file as it was is an import of it as it is, as often: none removed or changed. */
+    private static function keepsImports(TestDeclarations $before, TestDeclarations $now): bool
+    {
+        $kept = array_count_values($now->imports());
+        return array_all(
+            array_count_values($before->imports()),
+            static fn(int $count, string $import): bool => array_key_exists($import, $kept) && $kept[$import] >= $count,
+        );
     }
 
     /** Whether a test's declaration reads the same in both versions, or stands in neither. */

@@ -1,0 +1,22 @@
+<?php
+declare(strict_types=1);
+use NightWorksIO\MutationGate\Core\Change\Change;
+use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\Composer\DecidingPackages;
+use NightWorksIO\MutationGate\Core\File\ByPath;
+use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Glob;
+use NightWorksIO\MutationGate\Core\File\Lines;
+use NightWorksIO\MutationGate\Core\File\Missing;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Php\NamedFiles;
+use NightWorksIO\MutationGate\Core\Php\PhpFile;
+use NightWorksIO\MutationGate\Core\Reach\FileRoles;
+use NightWorksIO\MutationGate\Core\Reach\Layout;
+use NightWorksIO\MutationGate\Core\Reach\Packages;
+use NightWorksIO\MutationGate\Core\Reach\Reason;
+use NightWorksIO\MutationGate\Core\Reach\Reasons;
+use NightWorksIO\MutationGate\Core\Verdict\ChangeReach;
+use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\Locks;

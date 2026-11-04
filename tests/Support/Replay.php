@@ -129,6 +129,7 @@ final readonly class Replay
         $suites = [...self::SUITES, ...array_map(static fn(string $plugin): string => sprintf('plugins/%s/tests', $plugin), self::PLUGINS)];
         $layout = Layout::standard(Paths::of(...array_map(Path::of(...), self::DEFINITIONS)))
             ->testedIn(...array_map(static fn(string $suite): SuiteDirectory => SuiteDirectory::of(Path::of($suite), self::SUFFIX), $suites))
+            ->supportedFrom(...$this->files->support())
             ->runBy(Glob::of(self::WORKFLOW));
 
         foreach ($this->files->everything() as $glob) {

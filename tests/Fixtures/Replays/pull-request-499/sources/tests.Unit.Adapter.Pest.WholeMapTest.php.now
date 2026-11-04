@@ -1,0 +1,20 @@
+<?php
+declare(strict_types=1);
+use NightWorksIO\MutationGate\Adapter\Pest\HandedOver;
+use NightWorksIO\MutationGate\Adapter\Pest\Project;
+use NightWorksIO\MutationGate\Adapter\Pest\Remembered;
+use NightWorksIO\MutationGate\Adapter\Pest\Unshared;
+use NightWorksIO\MutationGate\Adapter\Pest\WholeMap;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
+use NightWorksIO\MutationGate\Core\Coverage\Handed;
+use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
+use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\WholeSuite;
+use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\Unexecutables;

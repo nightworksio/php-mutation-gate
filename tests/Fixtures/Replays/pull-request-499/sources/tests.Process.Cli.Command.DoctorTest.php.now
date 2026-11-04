@@ -1,0 +1,22 @@
+<?php
+declare(strict_types=1);
+use NightWorksIO\MutationGate\Cli\Command\Doctor;
+use NightWorksIO\MutationGate\Cli\Doctor\Measure;
+use NightWorksIO\MutationGate\Cli\Doctor\Online;
+use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
+use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
+use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
+use NightWorksIO\MutationGate\Tests\Support\Decoded;
+use NightWorksIO\MutationGate\Tests\Support\Described;
+use NightWorksIO\MutationGate\Tests\Support\Doctored;
+use NightWorksIO\MutationGate\Tests\Support\DoctorRuns;
+use NightWorksIO\MutationGate\Tests\Support\FakePhp;
+use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
+use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\GitHubAnswering;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
+use Symfony\Component\Console\Tester\CommandTester;
+use Symfony\Component\HttpClient\Response\JsonMockResponse;

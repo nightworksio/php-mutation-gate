@@ -1,0 +1,26 @@
+<?php
+declare(strict_types=1);
+use NightWorksIO\MutationGate\Cli\Command\Output;
+use NightWorksIO\MutationGate\Cli\FirstParty;
+use NightWorksIO\MutationGate\Cli\Init\FullRunEstimate;
+use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\ThisPackage;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Extension\Extensions;
+use NightWorksIO\MutationGate\Port\Runner;
+use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
+use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
+use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
+use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Console\Input\InputInterface;

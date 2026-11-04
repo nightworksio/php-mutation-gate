@@ -135,6 +135,7 @@ final readonly class Reached
     {
         $layout = Layout::standard($adapters->runner->definitions())
             ->testedIn(...$suite->directories())
+            ->supportedFrom(...$suite->supportPlaces())
             ->readByTheConfig($adapters->configReads)
             ->withFixtures(...$settings->reach()->fixtures());
 
