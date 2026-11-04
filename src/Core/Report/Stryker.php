@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report;
 
+use function array_map;
 use function explode;
 use function implode;
 
@@ -15,7 +16,6 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Test\TestId;
-use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestName;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
@@ -65,6 +65,7 @@ final readonly class Stryker
         $overview = Overview::of($verdict);
         $uncovered = $overview->uncovered();
         $columns = FileColumns::of($verdict->trees()->mutants(), $sources);
+        $table = TestTable::of($verdict);
         $files = [];
 
         foreach ($verdict->trees()->mutants() as $judged) {
@@ -76,6 +77,7 @@ final readonly class Stryker
                 $columns->in($at),
                 $uncovered,
                 $verdict->matrix(),
+                $table,
                 $overview->gate(),
             );
         }
@@ -86,25 +88,26 @@ final readonly class Stryker
             'projectRoot' => '.',
             'framework' => ['name' => 'mutation-gate'],
             'files' => $files === [] ? new stdClass() : $files,
-            'testFiles' => self::testFiles($verdict),
+            'testFiles' => self::testFiles($verdict, $table),
         ]);
     }
 
     /**
-     * Every test a mutant names, under the file it is in, or the class its id names where the runner named it nothing.
+     * Every test a mutant names, under the file it is in, or the class its id names where the runner named it nothing:
+     * its id is its place in the table, which the mutants point at, and its name is the one the viewer shows.
      *
      * @return array<string, TestFile>|stdClass
      */
-    private static function testFiles(Verdict $verdict): array|stdClass
+    private static function testFiles(Verdict $verdict, TestTable $table): array|stdClass
     {
         $files = [];
 
-        foreach (TestTable::of($verdict)->tests() as $test) {
+        foreach ($table->tests() as $place => $test) {
             $name = $verdict->matrix()->names()->nameOf($test);
             $whole = $verdict->matrix()->names()->testOf($test);
             $file = $whole instanceof TestName ? $whole->file()->value() : explode('::', $test->value())[0];
             $files[$file]['tests'][] = [
-                'id' => $test->value(),
+                'id' => sprintf('%d', $place),
                 'name' => $name instanceof TestId ? $test->value() : $name->description(),
             ];
         }
@@ -118,6 +121,7 @@ final readonly class Stryker
         Columns $columns,
         Uncovered $uncovered,
         KillMatrix $matrix,
+        TestTable $table,
         GateCommand $gate,
     ): array {
         $covering = $matrix->coveredBy($judged);
@@ -135,8 +139,8 @@ final readonly class Stryker
                 ? sprintf('%s: %s', Label::of($judged->judgement()), $reason->text())
                 : Label::of($judged->judgement()),
             'description' => self::description($judged, $matrix->names(), $gate),
-            'coveredBy' => self::ids($covering),
-            'killedBy' => self::ids($judged->mutant()->killers()),
+            'coveredBy' => self::ids($table->placesOf($covering)),
+            'killedBy' => self::ids($table->placesOf($judged->mutant()->killers())),
             'testsCompleted' => $matrix->tally($judged, $covering)->ran(),
         ];
     }
@@ -152,16 +156,15 @@ final readonly class Stryker
         ]);
     }
 
-    /** @return list<string> */
-    private static function ids(TestIds $tests): array
+    /**
+     * Tests' ids by their places in the table, as the viewer reads an id: a string.
+     *
+     * @param  list<int>    $places
+     * @return list<string>
+     */
+    private static function ids(array $places): array
     {
-        $ids = [];
-
-        foreach ($tests as $test) {
-            $ids[] = $test->value();
-        }
-
-        return $ids;
+        return array_map(static fn(int $place): string => sprintf('%d', $place), $places);
     }
 
     /** The viewer status the gate's score treats the same way. */

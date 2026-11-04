@@ -220,9 +220,12 @@ running it: why is this mutant here, and has it always been?
    - **HTML.** The `html` report fills Stryker's `coveredBy`, `killedBy`,
      `testsCompleted` and `testFiles` of `mutation-report.json`, so a reader of
      that schema sees which tests kill, which only cover, and which cover
-     nothing. A test's id there is its coverage id. `testFiles` groups the
-     tests by file, or by the class the id names where the runner names the
-     test nothing.
+     nothing. A test's id there is its place in the JSON report's table of
+     tests, written as a string, and its `name` is the one the viewer shows:
+     the name the runner gave it, or its coverage id where it gave none. The
+     ids point a mutant at its tests, so a short one keeps a report of many
+     covering tests small. `testFiles` groups the tests by file, or by the
+     class the coverage id names where the runner names the test nothing.
      `testsCompleted` counts the covering tests whose outcome is `killed` or
      `passed`.
 
