@@ -35,14 +35,6 @@ use NightWorksIO\MutationGate\Tests\Support\Tree;
 // a test that fails where an earlier run in its process left anything behind,
 // and the worker boots once where each fresh control boots for itself.
 
-$holds = [
-    'holds:src/Adapter/Native/UnmutatedRuns.php',
-    'holds:src/Adapter/Native/Warm/Workforce.php',
-    'holds:src/Adapter/Pest/TailShell.php',
-    'holds:src/Adapter/Pest/UnmutatedRuns.php',
-    'holds:src/Core/Runner/Pool.php',
-];
-
 afterEach(function (): void {
     Scratch::sweep();
 });
@@ -117,8 +109,7 @@ it('finds of PHPUnit controls forked from a warm worker what it finds of them in
     expect($found['fork'])->toBe($found['mutants'])
         ->and($found['fork'])->toBe([['passed', []], ['passed', []]])
         ->and($boots)->toBe(['fork' => 1, 'mutants' => 2]);
-})->skip(fn(): bool => ! is_dir(Tree::at(sprintf('%s/vendor', WARM_CONTROLS_LIBRARY))) || ! function_exists('pcntl_fork'), 'the PHPUnit runner contracts job installs the PHPUnit library')
-    ->group(...$holds);
+})->skip(fn(): bool => ! is_dir(Tree::at(sprintf('%s/vendor', WARM_CONTROLS_LIBRARY))) || ! function_exists('pcntl_fork'), 'the PHPUnit runner contracts job installs the PHPUnit library');
 
 it('finds of patched Pest controls forked from a warm worker what it finds of them in fresh processes, its child\'s peak written', function (): void {
     $test = 'P\Tests\MoneySpec::__pest_evaluable_it_adds_two_amounts';
@@ -140,5 +131,4 @@ it('finds of patched Pest controls forked from a warm worker what it finds of th
     expect($found['fork'])->toBe($found['mutants'])
         ->and($found['fork'])->toBe([['passed', []], ['ran-out', []]])
         ->and($peaks)->toBe(['fork' => true, 'mutants' => false]);
-})->skip(fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork'), 'the runner contracts job installs the fixture library')
-    ->group(...$holds);
+})->skip(fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork'), 'the runner contracts job installs the fixture library');
