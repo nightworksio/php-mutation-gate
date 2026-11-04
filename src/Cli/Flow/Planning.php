@@ -122,7 +122,8 @@ final readonly class Planning
     ): PlanMade|CannotJudge {
         $suites = SuiteCoverage::of($this->adapters, $inventory);
         $kept = new KeptCoverage($this->adapters, $this->settings, $this->setup);
-        $entries = $kept->entries($inventory);
+        $names = new NameGraph($this->adapters)->named($inventory->suite);
+        $entries = $kept->entries($inventory, $names);
         $measured = $kept->forRun($inventory, $entries, $coverage, $ownMap, $suites);
         $request = $measured->request();
         $map = $kept->mapOf($measured, $suites);
@@ -137,7 +138,7 @@ final readonly class Planning
 
         $judges = MapJudges::of($this->adapters->runner, $map);
         $learned = LearnedLimits::of($this->settings, $ledgers);
-        $keying = Keying::of($this->adapters, $this->settings, $this->setup, $inventory->suite, $judges);
+        $keying = Keying::of($this->adapters, $this->settings, $this->setup, $inventory->suite, $judges, $names);
         $at = Measuring::of($this->adapters, $request);
         $planned = $keying instanceof Keying
             ? $this->planned(

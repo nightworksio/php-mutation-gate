@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Coverage;
 
 use function array_filter;
+use function array_flip;
 use function array_intersect_key;
 use function array_key_exists;
 use function array_keys;
@@ -250,15 +251,13 @@ final readonly class LineTests
     /** The tests that ran any of these lines, each once, in the order the lines name them. */
     private function testsOf(PlacedLine ...$lines): TestIds
     {
-        $tests = [];
+        $places = [];
 
         foreach ($lines as $line) {
-            foreach ($line as $place) {
-                $tests[] = $this->tests[$place];
-            }
+            $places += array_flip([...$line]);
         }
 
-        return TestIds::of(...$tests);
+        return TestIds::of(...array_map(fn(int $place): TestId => $this->tests[$place], array_keys($places)));
     }
 
     /** @return array<int, PlacedLine> */

@@ -42,9 +42,14 @@ final readonly class CoverageEntries
         Settings $settings,
         Setup $setup,
         Inventory $inventory,
+        SuiteNames|CannotJudge $named,
     ): self|CannotJudge {
         $base = Keying::coverageBaseOf($adapters, $settings, $setup, $inventory->suite);
-        $names = $base instanceof Digest ? new NameGraph($adapters)->of($inventory->suite) : $base;
+        $names = match (true) {
+            ! $base instanceof Digest => $base,
+            $named instanceof SuiteNames => $named->graph(),
+            default => $named,
+        };
 
         if ($names instanceof CannotJudge) {
             return $names;
