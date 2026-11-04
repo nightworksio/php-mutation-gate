@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Pruning\PrunedList;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\MultipleVariable;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\StartUpVariable;
@@ -126,6 +127,7 @@ final readonly class MutationRun
             ChildVariable::Results->value => $this->project->own(Invocation::SILENCED),
             ...TighterVariables::of($bounds->tighter()),
             ...StartUpVariable::of($bounds),
+            ...MultipleVariable::of($bounds),
             ...$this->pruning($request->narrowing()->pruned()),
         ]);
         $scan = MemoryScan::in($this->project, $request->memory(), $this->files);

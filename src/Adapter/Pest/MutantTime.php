@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Core\Mutant\RunnerMutatorName;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\MultipleVariable;
 use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
 use NightWorksIO\MutationGate\Core\Runner\StartUpVariable;
 use NightWorksIO\MutationGate\Core\Runner\TighterVariables;
@@ -96,8 +97,8 @@ final class MutantTime
 
     /**
      * The bounds the gate names, the floor and the most, each a positive
-     * number of seconds, with the mutators `timeouts.tighter` lists and the
-     * start-up the run measured; or none.
+     * number of seconds, with the mutators `timeouts.tighter` lists, the
+     * start-up the run measured and the multiple it allows; or none.
      */
     private static function bounds(): LimitBounds|NotGiven
     {
@@ -111,6 +112,7 @@ final class MutantTime
                     getenv(GateVariable::TighterMutators->value),
                 ),
             )->startingIn(StartUpVariable::read(getenv(GateVariable::MutantStartUp->value)))
+                ->multipliedBy(MultipleVariable::read(getenv(GateVariable::MutantMultiple->value)))
             : NotGiven::value();
     }
 

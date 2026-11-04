@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Unpatched;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\Multiple;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -51,7 +52,8 @@ it('tells a patched run its bounds and the start-up its run measured, and an unp
         GateVariable::MutantStartUp->value => '2.500000',
     ])
         ->and($patching->bounding($bounds))->not->toHaveKey(GateVariable::MutantStartUp->value)
-        ->and(Patching::off()->bounding($bounds->startingIn(Seconds::of(2.5))))->toBe([]);
+        ->and(Patching::off()->bounding($bounds->startingIn(Seconds::of(2.5))))->toBe([])
+        ->and($patching->bounding($bounds->multipliedBy(Multiple::of(4.5))))->toMatchArray([GateVariable::MutantMultiple->value => '4.500000']);
 });
 
 it('selects exactly a mutant\'s covering rows where the patch is on, and every row of their data sets where it is off', function (): void {

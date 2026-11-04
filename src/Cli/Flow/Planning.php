@@ -136,6 +136,7 @@ final readonly class Planning
         }
 
         $judges = MapJudges::of($this->adapters->runner, $map);
+        $learned = LearnedLimits::of($this->settings, $ledgers);
         $keying = Keying::of($this->adapters, $this->settings, $this->setup, $inventory->suite, $judges);
         $at = Measuring::of($this->adapters, $request);
         $planned = $keying instanceof Keying
@@ -147,7 +148,7 @@ final readonly class Planning
                 $at,
                 $keying,
                 $mode,
-                $cut,
+                $learned->cut($cut),
                 $matrix,
             )
             : $keying;
@@ -156,9 +157,11 @@ final readonly class Planning
 
         return $planned instanceof Plan
             ? PlanMade::of(
-                $planned->briefed($this->adapters->briefing($briefing->standingAs($planned->briefing()))),
+                $planned->briefed($learned->briefing(
+                    $this->adapters->briefing($briefing->standingAs($planned->briefing())),
+                )),
                 $measured->said(),
-            )->without($ledgers->unread())
+            )->without($ledgers->unread())->learning(...$learned->lines())
             : $planned;
     }
 

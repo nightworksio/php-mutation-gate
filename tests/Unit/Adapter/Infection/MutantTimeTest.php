@@ -11,6 +11,17 @@ use NightWorksIO\MutationGate\Tests\Support\InfectionMutant;
 afterEach(function (): void {
     putenv(ChildVariable::MutantFloor->value);
     putenv(ChildVariable::MutantStartUp->value);
+    putenv(ChildVariable::MutantMultiple->value);
+});
+
+it('allows a mutant the multiple of its tests\' time the gate tells it, and keeps Infection\'s own five outside the gate', function (): void {
+    putenv(sprintf('%s=4.5', ChildVariable::MutantMultiple->value));
+
+    expect(MutantTime::of(10.0, 300.0))->toBe(55.0);
+
+    putenv(sprintf('%s=10', ChildVariable::MutantFloor->value));
+
+    expect(MutantTime::of(10.0, 300.0))->toBe(50.0);
 });
 
 it('allows a mutant the gate\'s 5 s and three times its tests\' time, between the floor it names and Infection\'s timeout', function (float $tests, float $limit): void {

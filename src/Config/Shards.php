@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Config;
 
+use NightWorksIO\MutationGate\Core\Config\Learned;
+use NightWorksIO\MutationGate\Core\Config\LearnedStatistic;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 
@@ -30,6 +32,24 @@ final readonly class Shards implements Setting
     public static function max(int $shards): self
     {
         return new self(Json::at('shards.max', $shards));
+    }
+
+    /** `shards.max: "learned"`: the most shards the default branch's recent runs ran at once, 1 to 20 (ADR-0073). */
+    public static function learnedMax(): self
+    {
+        return new self(Json::at('shards.max', Learned::Learned->value));
+    }
+
+    /** `shards.learnedFrom: "max"`: a learned `shards.max` is the most any recent run ran at once. */
+    public static function learnedFromMax(): self
+    {
+        return new self(Json::at('shards.learnedFrom', LearnedStatistic::Max->value));
+    }
+
+    /** `shards.learnedFrom: "median"`: a learned `shards.max` is the median of what recent runs ran at once. */
+    public static function learnedFromMedian(): self
+    {
+        return new self(Json::at('shards.learnedFrom', LearnedStatistic::Median->value));
     }
 
     /** `costs.secondsPerLine`: what a line under a path prefix costs before anything was measured. */

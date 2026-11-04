@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\MultipleVariable;
 use NightWorksIO\MutationGate\Core\Runner\RunSelection;
 use NightWorksIO\MutationGate\Core\Runner\StartUpVariable;
 use NightWorksIO\MutationGate\Core\Runner\TighterVariables;
@@ -58,6 +59,7 @@ final readonly class Patching
                 GateVariable::MutantCap->value => sprintf('%F', $bounds->most()->seconds()),
                 ...TighterVariables::of($bounds->tighter()),
                 ...StartUpVariable::of($bounds),
+                ...MultipleVariable::of($bounds),
             ]
             : [];
     }

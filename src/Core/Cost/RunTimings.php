@@ -6,8 +6,10 @@ namespace NightWorksIO\MutationGate\Core\Cost;
 
 use function count;
 use function hash;
+use function max;
 use function mb_substr;
 
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\Unidentified;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -15,6 +17,8 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use function sprintf;
 
 use Traversable;
+
+use function usort;
 
 /**
  * When each part of a run began and how long it took, from the flows' clock
@@ -121,5 +125,36 @@ final readonly class RunTimings
     public function isSharded(): bool
     {
         return count($this->shards) > 1;
+    }
+
+    /**
+     * How many of its shards ran at once at most, each from when it began to
+     * when it ended; none where no shard's start can be read.
+     */
+    public function mostAtOnce(): ShardsAtOnce
+    {
+        $edges = [];
+
+        foreach ($this->shards as $shard) {
+            $whole = $shard->whole();
+            $moment = $whole->start()->moment();
+
+            if (! $moment instanceof CannotJudge) {
+                $start = (float) $moment->getTimestamp() + $whole->after()->seconds();
+                $edges[] = [$start, 1];
+                $edges[] = [$start + $whole->duration()->seconds(), -1];
+            }
+        }
+
+        usort($edges, static fn(array $one, array $other): int => [$one[0], $one[1]] <=> [$other[0], $other[1]]);
+        $running = 0;
+        $most = 0;
+
+        foreach ($edges as [, $step]) {
+            $running += $step;
+            $most = max($most, $running);
+        }
+
+        return ShardsAtOnce::of($most);
     }
 }

@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Config;
 
 use function intval;
+use function is_int;
 
 use NightWorksIO\MutationGate\Core\Cost\LineRate;
 use NightWorksIO\MutationGate\Core\Cost\SecondsPerLine;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
@@ -32,11 +34,12 @@ final readonly class Shards implements Part
 
     private function __construct(
         private Seconds|Absent $seconds,
-        private int|Absent $max,
+        private int|Learned|Absent $max,
         private Seconds|Absent $target,
         private Seconds|Absent $setup,
         private Table|Absent $secondsPerLine,
         private Price|Absent $perRunnerMinute,
+        private LearnedStatistic|Absent $learnedFrom,
     ) {
     }
 
@@ -48,13 +51,14 @@ final readonly class Shards implements Part
 
     public static function of(
         Seconds|Absent $seconds = new Absent(),
-        int|Absent $max = new Absent(),
+        int|Learned|Absent $max = new Absent(),
         Seconds|Absent $target = new Absent(),
         Seconds|Absent $setup = new Absent(),
         Table|Absent $secondsPerLine = new Absent(),
         Price|Absent $perRunnerMinute = new Absent(),
+        LearnedStatistic|Absent $learnedFrom = new Absent(),
     ): self {
-        return new self($seconds, $max, $target, $setup, $secondsPerLine, $perRunnerMinute);
+        return new self($seconds, $max, $target, $setup, $secondsPerLine, $perRunnerMinute, $learnedFrom);
     }
 
     public static function none(): self
@@ -98,6 +102,7 @@ final readonly class Shards implements Part
                 default => $this->secondsPerLine->merged($later->secondsPerLine),
             },
             Absent::laid($this->perRunnerMinute, $later->perRunnerMinute),
+            Absent::laid($this->learnedFrom, $later->learnedFrom),
         );
     }
 
@@ -107,10 +112,23 @@ final readonly class Shards implements Part
         return $this->seconds instanceof Seconds ? $this->seconds : Seconds::of(self::SECONDS);
     }
 
-    /** The most shards a plan cuts. */
+    /** The most shards a plan cuts; where it is learned, what it is before any run was learned. */
     public function max(): int
     {
-        return $this->max instanceof Absent ? self::MOST : $this->max;
+        return is_int($this->max) ? $this->max : self::MOST;
+    }
+
+    /**
+     * Where `shards.max` is learned, which of the shard counts recent runs
+     * ran at once it takes, `shards.learnedFrom`; none where it is written.
+     */
+    public function learnedFrom(): LearnedStatistic|NotGiven
+    {
+        return match (true) {
+            ! $this->max instanceof Learned => NotGiven::value(),
+            $this->learnedFrom instanceof LearnedStatistic => $this->learnedFrom,
+            default => LearnedStatistic::Max,
+        };
     }
 
     /** What a line costs before anything was measured, by path prefix. */
@@ -160,7 +178,8 @@ final readonly class Shards implements Part
                 'shards',
                 Json::object(
                     Member::of('seconds', WholeSeconds::written($this->seconds)),
-                    Member::of('max', $this->max),
+                    Member::of('max', LimitCalls::maxWritten($this->max)),
+                    Member::of('learnedFrom', LimitCalls::statisticWritten($this->learnedFrom)),
                     Member::of('target', $this->target instanceof Seconds ? $this->target->written() : $this->target),
                     Member::of('setup', $this->setup instanceof Seconds ? $this->setup->written() : $this->setup),
                 ),
@@ -191,7 +210,7 @@ final readonly class Shards implements Part
             ...$this->seconds instanceof Seconds
                 ? [sprintf('Shards::seconds(%d)', intval($this->seconds->seconds()))]
                 : [],
-            ...$this->max instanceof Absent ? [] : [sprintf('Shards::max(%d)', $this->max)],
+            ...LimitCalls::max($this->max, $this->learnedFrom),
             ...$this->target instanceof Seconds
                 ? [sprintf('Shards::target(%s)', PhpCalls::literal($this->target->written()))]
                 : [],

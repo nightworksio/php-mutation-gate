@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Config\BoundsOptions;
+use NightWorksIO\MutationGate\Core\Config\Learned;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\Format\Json;
@@ -28,4 +29,23 @@ it('says why where a bound is no number or the tighter mutators no list of text'
     'a timeout that is text' => ['{"timeout": "seven"}'],
     'a most that is text' => ['{"most": "ninety"}'],
     'tighter mutators that are text' => ['{"tighterMutators": "Foreach_"}'],
+]);
+
+it('reads back a written multiple, and a learned floor and multiple, as the flows write them', function (Triage $triage): void {
+    $written = Json::object(...BoundsOptions::of($triage));
+
+    expect(BoundsOptions::read(Configs::options($written->line())))->toEqual($triage->bounds());
+})->with([
+    'a written multiple' => [fn(): Triage => Triage::of(multiple: 4.5)],
+    'a learned floor' => [fn(): Triage => Triage::of(limit: Learned::Learned)],
+    'a learned multiple' => [fn(): Triage => Triage::of(multiple: Learned::Learned)],
+    'both learned' => [fn(): Triage => Triage::of(limit: Learned::Learned, multiple: Learned::Learned)],
+]);
+
+it('says why where the multiple is no number, or a learned one no flag', function (string $options): void {
+    expect(BoundsOptions::read(Configs::options($options)))->toBeInstanceOf(Problem::class);
+})->with([
+    'a multiple that is text' => ['{"multiple": "four"}'],
+    'a learned floor that is text' => ['{"learnsFloor": "yes"}'],
+    'a learned multiple that is text' => ['{"learnsMultiple": "yes"}'],
 ]);

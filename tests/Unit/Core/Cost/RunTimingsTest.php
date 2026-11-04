@@ -73,3 +73,20 @@ it('says whether the CI measured a run time or the gate estimated it', function 
         ->and($estimated->isMeasured())->toBeFalse()
         ->and(Verdicts::account()->timings())->toBeInstanceOf(RunTimings::class);
 });
+
+it('counts the most of its shards that ran at once, each from its start to its end', function (): void {
+    $shard = static fn(int $id, string $start, float $took): ShardTiming => ShardTiming::of(
+        $id,
+        Phase::of(Moment::at($start), Seconds::of($took)),
+        StepTimes::none(),
+    );
+    $timings = RunTimings::of('run', RunTime::measured(Seconds::of(1.0), Seconds::of(1.0)))
+        ->withShard($shard(1, '2026-09-30T12:00:00Z', 600.0))
+        ->withShard($shard(2, '2026-09-30T12:01:00Z', 60.0))
+        ->withShard($shard(3, '2026-09-30T12:05:00Z', 120.0))
+        ->withShard($shard(4, '2026-09-30T12:06:00Z', 30.0))
+        ->withShard($shard(5, '2026-09-30T12:10:00Z', 30.0));
+
+    expect($timings->mostAtOnce()->count())->toBe(3)
+        ->and(RunTimings::of('run', RunTime::measured(Seconds::of(1.0), Seconds::of(1.0)))->mostAtOnce()->count())->toBe(0);
+});

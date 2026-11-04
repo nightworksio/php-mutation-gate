@@ -27,6 +27,7 @@ final readonly class Ledger
         private KillHistory $killers,
         private AnalyserHistories $analysers,
         private Survival $survival,
+        private LimitHistory $limits,
     ) {
     }
 
@@ -40,6 +41,7 @@ final readonly class Ledger
             KillHistory::none(),
             AnalyserHistories::none(),
             Survival::none(),
+            LimitHistory::none(),
         );
     }
 
@@ -53,6 +55,7 @@ final readonly class Ledger
             $this->killers,
             $this->analysers,
             $this->survival,
+            $this->limits,
         );
     }
 
@@ -70,6 +73,7 @@ final readonly class Ledger
             $this->killers,
             $this->analysers,
             $this->survival,
+            $this->limits,
         );
     }
 
@@ -84,6 +88,7 @@ final readonly class Ledger
             $this->killers,
             $this->analysers,
             $this->survival,
+            $this->limits,
         );
     }
 
@@ -98,6 +103,7 @@ final readonly class Ledger
             $this->killers,
             $this->analysers,
             $this->survival,
+            $this->limits,
         );
     }
 
@@ -112,6 +118,7 @@ final readonly class Ledger
             $this->killers,
             $this->analysers,
             $this->survival,
+            $this->limits,
         );
     }
 
@@ -126,6 +133,7 @@ final readonly class Ledger
             $this->killers,
             $this->analysers,
             $this->survival,
+            $this->limits,
         );
     }
 
@@ -140,17 +148,28 @@ final readonly class Ledger
             $this->killers,
             $this->analysers,
             $this->survival,
+            $this->limits,
         );
     }
 
     /**
      * This ledger, with what a run learned, replacing what it held of that
-     * kind: the kill history, what the static analysers came to, or what each
-     * mutator's newest mutants came to.
+     * kind: the kill history, what the static analysers came to, what each
+     * mutator's newest mutants came to, or what the learned limits are read from.
      */
-    public function withLearned(KillHistory|AnalyserHistories|Survival $learned): self
+    public function withLearned(KillHistory|AnalyserHistories|Survival|LimitHistory $learned): self
     {
         return match (true) {
+            $learned instanceof LimitHistory => new self(
+                $this->proofs,
+                $this->timings,
+                $this->bases,
+                $this->runs,
+                $this->killers,
+                $this->analysers,
+                $this->survival,
+                $learned,
+            ),
             $learned instanceof KillHistory => new self(
                 $this->proofs,
                 $this->timings,
@@ -159,6 +178,7 @@ final readonly class Ledger
                 $learned,
                 $this->analysers,
                 $this->survival,
+                $this->limits,
             ),
             $learned instanceof AnalyserHistories => new self(
                 $this->proofs,
@@ -168,6 +188,7 @@ final readonly class Ledger
                 $this->killers,
                 $learned,
                 $this->survival,
+                $this->limits,
             ),
             default => new self(
                 $this->proofs,
@@ -177,6 +198,7 @@ final readonly class Ledger
                 $this->killers,
                 $this->analysers,
                 $learned,
+                $this->limits,
             ),
         };
     }
@@ -199,20 +221,7 @@ final readonly class Ledger
             $this->killers->and($other->killers),
             $this->analysers->and($other->analysers),
             $this->survival->and($other->survival),
-        );
-    }
-
-    /** This ledger with timings only for these units, which are the ones that still exist. */
-    public function keepingTimingsOf(Paths $units): self
-    {
-        return new self(
-            $this->proofs,
-            $this->timings->onlyFor($units),
-            $this->bases,
-            $this->runs,
-            $this->killers,
-            $this->analysers,
-            $this->survival,
+            $this->limits->and($other->limits),
         );
     }
 
@@ -227,6 +236,7 @@ final readonly class Ledger
             $this->killers->onlyIn($files),
             $this->analysers,
             $this->survival,
+            $this->limits,
         );
     }
 
@@ -268,5 +278,11 @@ final readonly class Ledger
     public function survival(): Survival
     {
         return $this->survival;
+    }
+
+    /** What the limits a config has the gate learn are read from (ADR-0073). */
+    public function limits(): LimitHistory
+    {
+        return $this->limits;
     }
 }

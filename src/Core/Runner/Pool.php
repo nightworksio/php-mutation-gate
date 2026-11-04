@@ -19,24 +19,31 @@ final readonly class Pool
         private ProcessCount $processes,
         private Workers $workers,
         private Seconds|Unmeasured $startUp,
+        private Multiple $multiple,
     ) {
     }
 
     public static function of(ProcessCount $processes, Workers $workers): self
     {
-        return new self($processes, $workers, Unmeasured::duration());
+        return new self($processes, $workers, Unmeasured::duration(), Multiple::standard());
     }
 
     /** One mutant at a time, each in a fresh process. */
     public static function single(): self
     {
-        return new self(ProcessCount::single(), Workers::Fresh, Unmeasured::duration());
+        return new self(ProcessCount::single(), Workers::Fresh, Unmeasured::duration(), Multiple::standard());
     }
 
     /** This pool, a run of no test having taken this long to start in it. */
     public function startingIn(Seconds|Unmeasured $startUp): self
     {
-        return new self($this->processes, $this->workers, $startUp);
+        return new self($this->processes, $this->workers, $startUp, $this->multiple);
+    }
+
+    /** This pool, a learned `timeouts.multiple` being this one, as the plan learned it from the ledger's kills. */
+    public function learning(Multiple $multiple): self
+    {
+        return new self($this->processes, $this->workers, $this->startUp, $multiple);
     }
 
     /**
@@ -46,7 +53,9 @@ final readonly class Pool
      */
     public function tail(): self
     {
-        return $this->workers->forksTheTail() ? $this : new self($this->processes, Workers::Fresh, $this->startUp);
+        return $this->workers->forksTheTail()
+            ? $this
+            : new self($this->processes, Workers::Fresh, $this->startUp, $this->multiple);
     }
 
     /** How many mutants run at once. */
@@ -61,9 +70,9 @@ final readonly class Pool
         return $this->workers;
     }
 
-    /** These bounds, laid on the start-up this pool measured. */
+    /** These bounds, laid on the start-up this pool measured, a learned multiple being the one it was given. */
     public function bounding(LimitBounds $bounds): LimitBounds
     {
-        return $bounds->startingIn($this->startUp);
+        return $bounds->startingIn($this->startUp)->learning($this->multiple);
     }
 }
