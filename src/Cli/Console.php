@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Cli\Command\AffectedCommand;
 use NightWorksIO\MutationGate\Cli\Command\BaselineCommand;
 use NightWorksIO\MutationGate\Cli\Command\ConfigSchema;
 use NightWorksIO\MutationGate\Cli\Command\ConfigShow;
+use NightWorksIO\MutationGate\Cli\Command\ConfigSuggest;
 use NightWorksIO\MutationGate\Cli\Command\CoverageCommand;
 use NightWorksIO\MutationGate\Cli\Command\DashboardCommand;
 use NightWorksIO\MutationGate\Cli\Command\DigestCommand;
@@ -29,6 +30,7 @@ use NightWorksIO\MutationGate\Cli\Command\ExplainCommand;
 use NightWorksIO\MutationGate\Cli\Command\HookCommand;
 use NightWorksIO\MutationGate\Cli\Command\Init;
 use NightWorksIO\MutationGate\Cli\Command\MigrateCommand;
+use NightWorksIO\MutationGate\Cli\Command\MutatorsCommand;
 use NightWorksIO\MutationGate\Cli\Command\PlanCommand;
 use NightWorksIO\MutationGate\Cli\Command\PreCommitCommand;
 use NightWorksIO\MutationGate\Cli\Command\PrePushCommand;
@@ -160,6 +162,7 @@ final readonly class Console
         $application->addCommand(ExplainCommand::command($composition));
         $application->addCommand(DigestCommand::command($composition));
         $application->addCommand(TestsCommand::command($composition));
+        $application->addCommand(MutatorsCommand::command($composition));
         $application->addCommand(StubCommand::command($composition));
         $application->addCommand(TriageCommand::command($composition));
         $application->addCommand(AffectedCommand::command($composition));
@@ -181,6 +184,7 @@ final readonly class Console
         );
         $application->addCommand(Init::import($project, $extensions, $effective, $formats, $now, $gate, $composition));
         $application->addCommand(ConfigShow::command($effective, $formats));
+        $application->addCommand(ConfigSuggest::command($composition, $effective, $formats, $project));
         $application->addCommand(DashboardCommand::command($effective, $environment, HttpClient::create(), $clock));
         $application->addCommand(ConfigSchema::command());
         $application->addCommand(MigrateCommand::command(

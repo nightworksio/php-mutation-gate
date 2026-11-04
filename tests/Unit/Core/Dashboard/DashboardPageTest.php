@@ -45,6 +45,7 @@ it('heads the page with the organisation, says how many repositories as of when,
 
 it('writes a row of each repository: its verdict, score, trend, trees below their floors, savings and latest verdict', function () use ($page, $published): void {
     expect($page($published('api')))->toContain(implode("\n", [
+        '<tbody>',
         '<tr>',
         '<th scope="row" data-value="api"><a href="https://github.com/acme/api">api</a></th>',
         '<td data-value="failed" class="verdict failed">failed</td>',
@@ -54,7 +55,28 @@ it('writes a row of each repository: its verdict, score, trend, trees below thei
         '<td data-value="147600">41h</td>',
         '<td data-value="2026-09-30T10:00:00Z">2026-09-30T10:00:00Z</td>',
         '</tr>',
+        '</tbody>',
     ]));
+});
+
+it('renders a summary that names no mutators as it did before there were any to name', function () use ($page, $published): void {
+    expect($page($published('api')))->not->toContain('class="mutators"')
+        ->and($page($published('api')))->not->toContain('<details>');
+});
+
+it('collapses the costliest mutators a repository named under its row, in its own body so sorting keeps them together', function () use ($page): void {
+    $named = Listing::of('api', 'https://github.com/acme/api', private: false, published: Published::read('{"format": 1, "commit": "a", "time": "2026-09-30T10:00:00Z", "verdict": "passed", "trees": [], "newCode": {"floor": 100}, '
+        . '"mutators": [{"runner": "pest", "mutator": "Plus", "seconds": 90, "survived": 2, "killRate": 75}, {"runner": "pest", "mutator": "<i>Minus</i>", "seconds": 3, "survived": 0}]}'), trend: Trend::none());
+    $html = $page($named);
+
+    expect($html)->toContain(implode("\n", [
+        '</tr>',
+        '<tr class="mutators">',
+        '<td colspan="7"><details><summary>Costliest mutators</summary>',
+    ]))
+        ->and($html)->toContain('<tr><td>pest</td><td><code>Plus</code></td><td>2m</td><td>75%</td><td>2</td></tr>')
+        ->and($html)->toContain('<tr><td>pest</td><td><code>&lt;i&gt;Minus&lt;/i&gt;</code></td><td>3s</td><td>-</td><td>0</td></tr>')
+        ->and($html)->toContain(implode("\n", ['</details></td>', '</tr>', '</tbody>']));
 });
 
 it('says a repository that has no tree below its floor, no score and no history says so', function () use ($page): void {
@@ -83,6 +105,7 @@ it('marks a private repository, links none GitHub gave no address over HTTPS for
             '<th scope="row" data-value="docs"><a href="https://github.com/acme/docs">docs</a></th>',
             '<td colspan="6" data-value="">It has published no summary.json.</td>',
             '</tr>',
+            '</tbody>',
         ]));
 });
 

@@ -76,3 +76,12 @@ td ul {
   border-radius: 0.5rem;
   padding: 0 0.4rem;
 }
+
+.mutators summary {
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.mutators table {
+  margin: 0.5rem 0;
+}

@@ -59,7 +59,7 @@ final readonly class Shares
         $weight = 0.0;
 
         foreach ($mutants as $mutant) {
-            $weight += self::isOf($mutant, $unit) ? self::durationOf($mutant, $coverage) : 0.0;
+            $weight += self::isOf($mutant, $unit) ? MutantTimes::weightOf($mutant, $coverage) : 0.0;
         }
 
         return $weight;
@@ -69,25 +69,5 @@ final readonly class Shares
     private static function isOf(Mutant $mutant, Path $unit): bool
     {
         return $mutant->location()->file()->within($unit);
-    }
-
-    private static function durationOf(Mutant $mutant, CoverageMap $coverage): float
-    {
-        $duration = $mutant->duration();
-
-        if ($duration instanceof Seconds) {
-            return $duration->seconds();
-        }
-
-        $standIn = 0.0;
-
-        $location = $mutant->location();
-
-        foreach ($coverage->testsCovering($location->file(), $location->start(), $location->last()) as $test) {
-            $took = $coverage->durationOf($test);
-            $standIn += $took instanceof Seconds ? $took->seconds() : 0.0;
-        }
-
-        return $standIn;
     }
 }

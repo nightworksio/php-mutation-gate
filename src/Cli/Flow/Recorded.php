@@ -10,6 +10,7 @@ use function count;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Cost\MutantTimes;
 use NightWorksIO\MutationGate\Core\Cost\RunTimings;
 use NightWorksIO\MutationGate\Core\Cost\Untimed;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -29,6 +30,7 @@ use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Pruning\Outcomes;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
 use NightWorksIO\MutationGate\Core\Written;
@@ -39,7 +41,8 @@ use NightWorksIO\MutationGate\Core\Written;
  * shard taught the cost model, where it made mutants with every mutator and
  * judged them by every test, so that a narrowed run never stands in for a
  * unit's time (ADR-0021, ADR-0025), the time each
- * analyser's checks of the shards' survivors took, where the verdict
+ * analyser's checks of the shards' survivors took, what each mutator's
+ * mutants cost and came to (ADR-0076), where the verdict
  * passed, the commit it judged, the check-run it reported under and how many
  * proofs of the scope's own ledger it used, and, where the run judged every
  * unit it considered and git can say what the commit it judged was made of,
@@ -57,6 +60,7 @@ final readonly class Recorded
     public function write(
         Plan $plan,
         Results $results,
+        JudgedMutants $judged,
         Ledgers $ledgers,
         Run $run,
         Passed|CannotTell $passed,
@@ -71,11 +75,11 @@ final readonly class Recorded
 
         $fresh = $this->checked($plan, $results, $ledgers);
         $written = $ledgers->written()->atBase($plan->base());
-        $written = $written->withLearned($written->analysers()->plus($results->checks()->histories()));
+        $written = $written->withLearned($written->learned()->analysers()->plus($results->checks()->histories()));
         $recordings = Recordings::of($plan, $fresh, $run);
         $proved = $this->proved($written, $plan, $recordings);
         $learned = $this->adapters->narrowing->isNone()
-            ? $this->learned($this->survived($proved, $fresh), $results, $ledgers->timings(), $plan)
+            ? $this->learned($this->survived($proved, $fresh), $results, $judged, $ledgers->timings(), $plan)
             : $proved;
         $ledger = $this->taught($learned, $fresh);
         $ledger = $ledger instanceof Ledger ? $this->paced($ledger, $timings) : $ledger;
@@ -141,7 +145,7 @@ final readonly class Recorded
         $window = $this->settings->reach()->pruning()->window();
         $runner = $this->settings->runner()->name();
 
-        return $ledger->withLearned($ledger->survival()->after($runner, $window, ...Outcomes::of($fresh)));
+        return $ledger->withLearned($ledger->learned()->survival()->after($runner, $window, ...Outcomes::of($fresh)));
     }
 
     /** Each unit the shards ran, with the mutants a proof under its key in either ledger disagrees on flaky. */
@@ -189,7 +193,7 @@ final readonly class Recorded
 
         $files = Paths::none();
 
-        foreach ($ledger->killers()->functions() as $ranked) {
+        foreach ($ledger->learned()->killers()->functions() as $ranked) {
             $files = $files->with($ranked->function()->file());
         }
 
@@ -215,7 +219,7 @@ final readonly class Recorded
         }
 
         return $ledger
-            ->withLearned($ledger->killers()->learnedFrom(...$lessons))
+            ->withLearned($ledger->learned()->killers()->learnedFrom(...$lessons))
             ->keepingKillersIn($functions->files());
     }
 
@@ -223,14 +227,21 @@ final readonly class Recorded
      * The ledger, with what each shard taught the cost model of the units it
      * ran, timed by the map it was handed, each smoothed over the timing every
      * ledger read held of it: a unit its budget ran out before took none of
-     * its time; and each mutant a test killed, its time over its covering
+     * its time; each mutant a test killed, its time over its covering
      * tests' own time by that map, which a learned `timeouts.multiple` is
-     * read from (ADR-0073).
+     * read from (ADR-0073); and what each mutator's mutants the shard ran
+     * cost and came to, as the verdict judged them (ADR-0076).
      */
-    private function learned(Ledger $ledger, Results $results, Timings $held, Plan $plan): Ledger|CannotJudge
-    {
+    private function learned(
+        Ledger $ledger,
+        Results $results,
+        JudgedMutants $judged,
+        Timings $held,
+        Plan $plan,
+    ): Ledger|CannotJudge {
         $pruned = $plan->considered()->pruned()->files();
         $handoff = new Handoff($this->adapters->project, Handoff::limits());
+        $times = MutantTimes::none();
 
         foreach ($results->shards() as [$shard, $result, $mutated]) {
             $map = $handoff->read($shard->id());
@@ -240,6 +251,7 @@ final readonly class Recorded
             }
 
             $ran = $shard->units()->except($result->unjudged());
+            $times = $times->and(MutantTimes::of($mutated->mutants(), $map, $result->measured()->spent()));
             $ledger = $ledger->withTimings($this->adapters->costs->learn(
                 $ran->except($ran->within($pruned)),
                 $mutated->mutants(),
@@ -247,17 +259,19 @@ final readonly class Recorded
                 $result->measured(),
             )->smoothedOver($held));
             $paces = KillPace::ofAll($mutated->mutants(), $map);
-            $ledger = $ledger->withLearned($ledger->limits()->afterKills(...$paces));
+            $ledger = $ledger->withLearned($ledger->learned()->limits()->afterKills(...$paces));
         }
 
-        return $ledger;
+        $runner = $this->settings->runner()->name();
+
+        return $ledger->withLearned($ledger->learned()->tallies()->after($runner, $judged, $times));
     }
 
     /** The ledger, having learned, for a run cut into shards, how many of them ran at once (ADR-0073). */
     private function paced(Ledger $ledger, RunTimings|Untimed $timings): Ledger
     {
         return $timings instanceof RunTimings && $timings->isSharded()
-            ? $ledger->withLearned($ledger->limits()->afterRuns($timings->mostAtOnce()))
+            ? $ledger->withLearned($ledger->learned()->limits()->afterRuns($timings->mostAtOnce()))
             : $ledger;
     }
 }

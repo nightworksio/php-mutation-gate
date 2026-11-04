@@ -263,6 +263,27 @@ services:
                     - MOST_MULTIPLE # the most a learned timeouts.multiple is, not how long a daemon is waited on to listen
                 'NightWorksIO\MutationGate\Cli\Command\ServeCommand':
                     - STOP # serve's --stop option, not run.failFast's stop
+                'NightWorksIO\MutationGate\Core\Proof\TallyRecord':
+                    - MUTANTS # a ledger tally's count of mutants, not the kill history's section
+                    - KILLED # a ledger tally's count of kills, not a judgement
+                    - SURVIVED # a ledger tally's count of survivors, not a judgement
+                    - IGNORED # a ledger tally's count of ignored mutants, not a judgement
+                'NightWorksIO\MutationGate\Core\Report\MutatorReport':
+                    - NAMES # the name columns of the mutator table, not a timeout's multiple
+                    - COSTLIEST # mutators a summary names, not shipped presets
+                    - GAP # the space between two columns of a table, not an indent
+                    - HEADINGS # the headings of the mutator table, not adapter kinds
+                'NightWorksIO\MutationGate\Core\Config\Suggest':
+                    - IDLE_JUDGED # mutants judged before a mutator can be idle, not trend points kept
+                    - IDLE_SHARE # a percent of every mutator's time, not a ranking's length
+                    - IGNORED_MUTANTS # mutants made before a mutator can be noisy, not a pre-check's size
+                    - TIMEOUT_CLUSTER # timeouts that make a directory slow, not letters per edit
+                'NightWorksIO\MutationGate\Core\Suggest\SlowDirectories':
+                    - RAISED # how many times its timeout a slow directory gets, not an exit code
+                'NightWorksIO\MutationGate\Cli\Command\LedgerOption':
+                    - LEDGER # the option that names a ledger file, not the workspace directory
+                'NightWorksIO\MutationGate\Core\Verb':
+                    - Mutators # the mutators command, not the ledger's list of mutator names
                 'NightWorksIO\MutationGate\Cli\Init\InitQuestions':
                     - NONE # init's answer of no CI, not a hook setup's or a status
                 'NightWorksIO\MutationGate\Core\Native\Launched':

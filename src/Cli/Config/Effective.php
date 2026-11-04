@@ -62,6 +62,12 @@ final readonly class Effective
         return $this->over($this->file($given->config), $given, static fn(Layer $layer): Layer => $layer);
     }
 
+    /** What the config file itself sets, its context blocks as it writes them; nothing where there is no file. */
+    public function written(CommandLine $given): Layer|Invalid|CannotJudge
+    {
+        return $this->file($given->config);
+    }
+
     /** The contexts a run is in: those `--context` names, else those the environment and the CI plan tell. */
     public function contexts(CommandLine $given): ContextChain|Invalid|CannotJudge
     {
