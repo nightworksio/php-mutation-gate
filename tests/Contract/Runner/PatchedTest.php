@@ -83,8 +83,8 @@ it('patches the Infection library\'s release and its include-interceptor, whiche
 
     expect(Release::tryFrom($release))->toBeInstanceOf(Release::class)
         ->and(array_key_exists($interceptor, InfectionSource::INTERCEPTOR_SHIPS_AS))->toBeTrue()
-        ->and(InfectionPatch::applyIn($installed))->toBe('infection:patch patched 3 of the 3 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.')
-        ->and(InfectionPatch::applyIn($pristine))->toBe('infection:patch patched 3 of the 3 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.')
+        ->and(InfectionPatch::applyIn($installed))->toBe('infection:patch patched 4 of the 4 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.')
+        ->and(InfectionPatch::applyIn($pristine))->toBe('infection:patch patched 4 of the 4 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.')
         ->and($read($installed))->toBe($read($pristine));
 })->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library')->group(...$holds);
 

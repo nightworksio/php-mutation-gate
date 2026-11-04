@@ -25,6 +25,7 @@ enum Release: string
     case V0_35_6 = '0.35.6';
     case V0_35_7 = '0.35.7';
     case V0_35_8 = '0.35.8';
+    case V0_35_9 = '0.35.9';
 
     /** Every release the patch supports, as a person reads the list. */
     public static function listed(): string

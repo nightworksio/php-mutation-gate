@@ -28,7 +28,7 @@ it('patches the limit, the skip, the pruned mutators and the silence limit of ev
         $at = InfectionSource::pristine($release->value)->vendor();
 
         expect(Patch::stateIn($at))->toBe(PatchState::Missing)
-            ->and(Patch::applyIn($at))->toBe('infection:patch patched 3 of the 3 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.')
+            ->and(Patch::applyIn($at))->toBe('infection:patch patched 4 of the 4 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.')
             ->and(Patch::stateIn($at))->toBe(PatchState::Applied)
             ->and($source($at, 'Process/Factory/MutantProcessContainerFactory.php'))
             ->toContain(sprintf(
@@ -62,7 +62,7 @@ it('patches the interceptor\'s stat of every include-interceptor release Infecti
         $at = InfectionSource::pristine('0.35.6', $interceptor)->vendor();
 
         expect(Patch::applyIn($at))->toBe(
-            'infection:patch patched 3 of the 3 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.',
+            'infection:patch patched 4 of the 4 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.',
         )
             ->and(InfectionPatches::interceptor($at))->toContain("if (! file_exists(\$path) && ! (\$link && is_link(\$path))) {\n")
             ->and(InfectionPatches::interceptor($at))->toContain('// mutation-gate infection:patch: a path stats as without the wrapper')

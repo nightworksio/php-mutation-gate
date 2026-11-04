@@ -26,7 +26,7 @@ it('finds the patch in place and changes nothing when patching again', function 
     Patch::applyIn($at);
     $patched = array_map(static fn(string $file): string => $source($at, $file), InfectionSource::FILES);
 
-    expect(Patch::applyIn($at))->toBe('infection:patch found its patch already in place in the 3 files it changes in infection. infection:patch found its patch already in place in the 1 files it changes in include-interceptor.')
+    expect(Patch::applyIn($at))->toBe('infection:patch found its patch already in place in the 4 files it changes in infection. infection:patch found its patch already in place in the 1 files it changes in include-interceptor.')
         ->and(array_map(static fn(string $file): string => $source($at, $file), InfectionSource::FILES))->toBe($patched);
 });
 
@@ -66,7 +66,7 @@ it('patches nothing where Composer\'s list of what it installed cannot be read, 
 it('patches nothing where a line it rewrites has moved', function (): void {
     $at = InfectionSource::pristine()->vendor();
     $file = sprintf('%s/infection/infection/src/Process/Runner/MutationTestingRunner.php', $at);
-    file_put_contents($file, str_replace('< $this->timeout) {', '<= $this->timeout) {', (string) file_get_contents($file)));
+    file_put_contents($file, str_replace('$mutant->getMutation()->get', '$mutant->getMutation()?->get', (string) file_get_contents($file)));
 
     expect(Patch::applyIn($at))->toEqual(CannotJudge::because(sprintf(
         'infection:patch patched nothing: the lines it rewrites have moved in %s. Install a supported version.',
@@ -122,7 +122,7 @@ it('cannot patch, and counts unpatched, an Infection whose include-interceptor i
         ->and(Patch::stateIn($gone))->toBe(PatchState::Missing)
         ->and(Patch::stateIn($half))->toBe(PatchState::Missing)
         ->and(Patch::applyIn($half))->toBe(
-            'infection:patch found its patch already in place in the 3 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.',
+            'infection:patch found its patch already in place in the 4 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.',
         )
         ->and(Patch::stateIn($half))->toBe(PatchState::Applied);
 });
