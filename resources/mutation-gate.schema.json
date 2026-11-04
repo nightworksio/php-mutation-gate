@@ -2436,6 +2436,7 @@
                                 "workers": {
                                     "enum": [
                                         "fork",
+                                        "mutants",
                                         "fresh"
                                     ]
                                 },
@@ -2474,6 +2475,7 @@
                                 "workers": {
                                     "enum": [
                                         "fork",
+                                        "mutants",
                                         "fresh"
                                     ]
                                 },
@@ -2512,6 +2514,7 @@
                                 "workers": {
                                     "enum": [
                                         "fork",
+                                        "mutants",
                                         "fresh"
                                     ]
                                 },
@@ -2550,6 +2553,7 @@
                                 "workers": {
                                     "enum": [
                                         "fork",
+                                        "mutants",
                                         "fresh"
                                     ]
                                 },
@@ -2588,6 +2592,7 @@
                                 "workers": {
                                     "enum": [
                                         "fork",
+                                        "mutants",
                                         "fresh"
                                     ]
                                 },
@@ -2626,6 +2631,7 @@
                                 "workers": {
                                     "enum": [
                                         "fork",
+                                        "mutants",
                                         "fresh"
                                     ]
                                 },
@@ -2675,6 +2681,7 @@
                                 "workers": {
                                     "enum": [
                                         "fork",
+                                        "mutants",
                                         "fresh"
                                     ]
                                 },
@@ -2709,6 +2716,7 @@
                                 "workers": {
                                     "enum": [
                                         "fork",
+                                        "mutants",
                                         "fresh"
                                     ]
                                 },
