@@ -58,6 +58,12 @@ GENERATED = (
         paths=("resources/mutation-gate.schema.json",),
         sources=("src/Cli/Command/ConfigSchema.php", "src/Core/Config/Definition.php"),
     ),
+    Generated(
+        generator="scripts/workflows/generate.py",
+        recipe="python3 scripts/workflows/generate.py",
+        paths=(".github/workflows/mutation-gate.yml",),
+        sources=("scripts/workflows/generate.py", "scripts/workflows/mutation-gate.yml"),
+    ),
 )
 
 

@@ -1,3 +1,5 @@
+# Generated from scripts/workflows/mutation-gate.yml by `python3 scripts/workflows/generate.py`: edit the template and run it again.
+
 name: mutation-gate
 
 # The sharded gate, called with workflow_call: a plan job, one job per shard, a

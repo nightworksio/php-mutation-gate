@@ -22,7 +22,14 @@ repository the step took 0 to 2 s every other time.
    more, where the first ran out of time or failed.** It is named
    `Retry downloading …`, so a run's log shows each retry, runs only where the
    first step's outcome is `failure`, and has two minutes as well.
-3. **A retry that fails fails its job**, as the one download did before. The
+3. **The steps are generated.** The reusable workflow is written from a
+   template, `scripts/workflows/mutation-gate.yml`, by
+   `scripts/workflows/generate.py`, where each download is one step. The
+   generator names each retry by the artifact it downloads and refuses a
+   download it has no name for. The line cap holds the template and the
+   generator, not the file they write, and the `scripts` job fails where the
+   file is not what they give.
+4. **A retry that fails fails its job**, as the one download did before. The
    shards' results, which a verdict may find none of, keep
    `continue-on-error: true` on the retry as on the first step.
 
@@ -32,6 +39,8 @@ repository the step took 0 to 2 s every other time.
 |---|---|
 | **Retry only the plan's coverage map** | Every download runs the same action, and each one holds up its job where it hangs. |
 | **One minute** | A coverage map of a large project is 100 MB or more, and a slow runner can take more than a minute over one that is downloading. The hang comes after the download is done, so two minutes still ends it sooner than it ended. |
+| **Write the retries into the workflow by hand** | The workflow was at the line cap of 1,000 lines, and fifteen retries take it to 1,144. |
+| **Split the reusable workflow into nested ones** | A caller's permissions and secrets would have to be passed one level further down. |
 | **Download through the API with a timeout in the shell** | A caller's workflow would have to grant `actions: read` to every job that downloads. |
 
 ## Consequences
