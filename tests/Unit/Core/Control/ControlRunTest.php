@@ -116,3 +116,15 @@ it('names the tests a failed control recorded failing, and every test it ran as 
         ->and(ControlRun::asMutant($killed))->toEqual(ControlRun::failed($failing))
         ->and(ControlRun::passed(Seconds::of(1.0))->failing())->toEqual(TestIds::none());
 });
+
+it('peaks at the larger of its peak and another, and keeps its own where the other is none or no larger', function (MemoryCap|NotGiven $had, MemoryCap|NotGiven $other, MemoryCap|NotGiven $peak): void {
+    $run = $had instanceof MemoryCap ? ControlRun::passed(Seconds::of(1.0))->withPeak($had) : ControlRun::passed(Seconds::of(1.0));
+
+    expect($run->peakingAtLeast($other)->peak())->toEqual($peak);
+})->with([
+    'none, then one' => [NotGiven::value(), MemoryCap::of(20, MemoryUnit::Megabytes), MemoryCap::of(20, MemoryUnit::Megabytes)],
+    'a smaller one, then a larger' => [MemoryCap::of(20, MemoryUnit::Megabytes), MemoryCap::of(40, MemoryUnit::Megabytes), MemoryCap::of(40, MemoryUnit::Megabytes)],
+    'a larger one, then a smaller' => [MemoryCap::of(40, MemoryUnit::Megabytes), MemoryCap::of(20, MemoryUnit::Megabytes), MemoryCap::of(40, MemoryUnit::Megabytes)],
+    'one, then none' => [MemoryCap::of(40, MemoryUnit::Megabytes), NotGiven::value(), MemoryCap::of(40, MemoryUnit::Megabytes)],
+    'none, then none' => [NotGiven::value(), NotGiven::value(), NotGiven::value()],
+]);

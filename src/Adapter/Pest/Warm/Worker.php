@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Warm;
 
-use function array_key_exists;
 use function class_exists;
 
 use Closure;
@@ -16,7 +15,6 @@ use function get_included_files;
 use function getmypid;
 use function in_array;
 use function interface_exists;
-use function is_array;
 use function is_dir;
 use function is_file;
 use function is_int;
@@ -229,9 +227,7 @@ final readonly class Worker
     private function looked(int $child): array
     {
         $waited = pcntl_waitpid($child, $status, WNOHANG, $usage);
-        $held = is_array($usage) && array_key_exists(MaxRss::FIELD, $usage) ? $usage[MaxRss::FIELD] : 0;
-
-        return [$waited, is_int($status) ? $status : NotGiven::value(), is_int($held) ? $held : 0];
+        return [$waited, is_int($status) ? $status : NotGiven::value(), MaxRss::held($usage)];
     }
 
     /** Whether the run still wants the worker: its directory is there, it is not done, and the parent lives. */

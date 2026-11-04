@@ -64,19 +64,17 @@ final readonly class Finish
         return new self(Ran::UNSTARTED, NotGiven::value(), $reason, Offsets::none(), $written);
     }
 
-    /** The same finish, its child having held at most this `ru_maxrss`; as it was where 0 says nothing. */
+    /** The same finish, its child having held at most this `ru_maxrss`, where 0 says nothing. */
     public function peaking(int $maxRss): self
     {
-        return $maxRss > 0
-            ? new self(
-                $this->code,
-                $this->signal,
-                $this->refused,
-                $this->to,
-                $this->written->with(Member::of(MaxRss::RECORDED, $maxRss)),
-                $maxRss,
-            )
-            : $this;
+        return new self(
+            $this->code,
+            $this->signal,
+            $this->refused,
+            $this->to,
+            $this->written->with(Member::of(MaxRss::RECORDED, $maxRss)),
+            $maxRss,
+        );
     }
 
     /** The `ru_maxrss` of the child, as `wait4` reported it; 0 where it reported none or no child ran. */

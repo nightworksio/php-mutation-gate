@@ -64,10 +64,10 @@ final readonly class End
         ]);
     }
 
-    /** The same end, the child having held at most this `ru_maxrss`; as it was where that is 0, which says nothing. */
+    /** The same end, the child having held at most this `ru_maxrss`, where 0 says nothing. */
     public function peaking(int $maxRss): self
     {
-        return $maxRss > 0 ? new self([...$this->record, Member::of(MaxRss::RECORDED, $maxRss)]) : $this;
+        return new self([...$this->record, Member::of(MaxRss::RECORDED, $maxRss)]);
     }
 
     /** Written whole, under its name only once it is all there. */

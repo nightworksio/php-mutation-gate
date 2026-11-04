@@ -58,6 +58,6 @@ it('reads back the most memory its child held, and says none where the worker re
     $read = Finish::readFrom($file);
 
     expect($read instanceof Finish ? [$read->maxRss(), $read->exitCode(), $read->to()] : [])->toEqual([20480, 0, Offsets::of(1, 2)])
-        ->and(Finish::signalled(9, Offsets::of(1, 2))->peaking(0)->maxRss())->toBe(0)
+        ->and(Finish::signalled(9, Offsets::of(1, 2))->peaking(1)->maxRss())->toBe(1)
         ->and(Finish::refused('none')->maxRss())->toBe(0);
 });

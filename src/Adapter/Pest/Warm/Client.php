@@ -107,25 +107,20 @@ final readonly class Client
      */
     public static function placeOf(string $named): int
     {
-        $told = getenv(WorkerVariable::TestToken->value);
-
-        return match (true) {
-            $named !== self::SLOT => (int) $named,
-            is_string($told) && (int) $told > 0 => (int) $told,
-            default => self::FIRST,
-        };
+        return $named === self::SLOT
+            ? max(self::FIRST, (int) getenv(WorkerVariable::TestToken->value))
+            : (int) $named;
     }
 
     /**
      * The finish, with the most memory its child held written where the run
-     * is told to write it (see GateVariable::Peak), where it is told and the
-     * worker reported one.
+     * is told to write it (see GateVariable::Peak), where it is told.
      */
     private function peakWritten(Finish $finish): Finish
     {
         $file = getenv(GateVariable::Peak->value);
 
-        if (is_string($file) && $file !== '' && $finish->maxRss() > 0) {
+        if (is_string($file)) {
             file_put_contents($file, strval($finish->maxRss()));
         }
 

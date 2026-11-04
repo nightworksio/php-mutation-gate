@@ -11,7 +11,6 @@ use function file_put_contents;
 use function getmypid;
 use function is_file;
 use function is_string;
-use function max;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Control\Control;
@@ -23,6 +22,7 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
@@ -33,7 +33,6 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
 use function strval;
-use function trim;
 
 /**
  * Unmutated controls as Pest runs them (ADR-0008): exactly each
@@ -216,10 +215,12 @@ final readonly class UnmutatedRuns
         return $silence instanceof Seconds ? $command->silencedAfter(SilenceLimit::of($silence, $events)) : $command;
     }
 
-    /** The `ru_maxrss` written to this file; 0 where none is. */
-    private function written(string $file): int
+    /** The peak a file holds, as a launcher or a forked child's client writes it; none where it holds none. */
+    private function peakIn(string $file): MemoryCap|NotGiven
     {
-        return is_file($file) ? (int) trim((string) file_get_contents($file)) : 0;
+        return is_file($file)
+            ? PeakLauncher::peakIn((string) file_get_contents($file), PHP_OS_FAMILY)
+            : NotGiven::value();
     }
 
     /** The launcher each control starts through, written among the adapter's own files; or why it cannot be. */
@@ -249,8 +250,8 @@ final readonly class UnmutatedRuns
             [$control, $peak, $log, $forked] = $peaks[$keys[$at]];
             $failing = JUnitFailures::of(is_file($log) ? file_get_contents($log) : false);
             $run = ControlRun::ofProcess($ran, $failing);
-            $held = max($this->written($peak), $this->written($forked));
-            $runs = $runs->with($control, PeakLauncher::measured($run, strval($held), PHP_OS_FAMILY));
+            $measured = $run->peakingAtLeast($this->peakIn($peak))->peakingAtLeast($this->peakIn($forked));
+            $runs = $runs->with($control, $measured);
         }
 
         return $runs;

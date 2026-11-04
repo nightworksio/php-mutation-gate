@@ -115,6 +115,17 @@ final readonly class ControlRun
         return new self($this->end, $this->took, $this->why, $this->failing, $peak);
     }
 
+    /**
+     * This run, whose processes held at most the larger of its peak and this
+     * one; as it is where this one is none.
+     */
+    public function peakingAtLeast(MemoryCap|NotGiven $peak): self
+    {
+        return $peak instanceof MemoryCap && (! $this->peak instanceof MemoryCap || $this->peak->isExceededBy($peak))
+            ? $this->withPeak($peak)
+            : $this;
+    }
+
     /** The most memory its processes held, where the launcher measured it (see PeakLauncher). */
     public function peak(): MemoryCap|NotGiven
     {

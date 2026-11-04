@@ -382,7 +382,10 @@ it('runs a part of a heavy mutant\'s run with the mutant served in its file\'s p
 it('tells each control where a forked child writes its peak, and gives it the larger of that one and the launcher\'s', function (string $launched, string $forked, string $peak): void {
     $at = unmutatedProject();
     $shell = new ShellFake(static function (Command $command) use ($launched, $forked): Ran {
-        file_put_contents($command->arguments()[2], $launched);
+        if ($launched !== '') {
+            file_put_contents($command->arguments()[2], $launched);
+        }
+
         $file = $command->environment()[GateVariable::Peak->value];
 
         if ($forked !== '' && is_string($file)) {
@@ -400,4 +403,5 @@ it('tells each control where a forked child writes its peak, and gives it the la
     'the forked child held more' => ['2048', '40960', '40960'],
     'the launcher counted more' => ['40960', '2048', '40960'],
     'nothing forked' => ['20480', '', '20480'],
+    'nothing launched' => ['', '20480', '20480'],
 ]);

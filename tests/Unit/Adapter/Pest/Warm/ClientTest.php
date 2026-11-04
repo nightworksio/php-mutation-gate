@@ -353,9 +353,11 @@ it('runs in the place it is named, or in the one its slot tells it, the first wh
     $told = [Client::placeOf('2'), Client::placeOf(Client::SLOT)];
     putenv('TEST_TOKEN=0');
     $zero = Client::placeOf(Client::SLOT);
+    putenv('TEST_TOKEN=1');
+    $one = Client::placeOf(Client::SLOT);
     putenv('TEST_TOKEN');
     $none = Client::placeOf(Client::SLOT);
     putenv(is_string($token) ? sprintf('TEST_TOKEN=%s', $token) : 'TEST_TOKEN');
 
-    expect([...$told, $zero, $none])->toBe([2, 3, 1, 1]);
+    expect([...$told, $zero, $one, $none])->toBe([2, 3, 1, 1, 1]);
 });
