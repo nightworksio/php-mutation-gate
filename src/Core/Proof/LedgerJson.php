@@ -63,6 +63,7 @@ final readonly class LedgerJson
         $analysers = AnalysersRecord::of($ledger->learned()->analysers());
         $survival = SurvivalRecord::of($ledger->learned()->survival());
         $tally = TallyRecord::of($ledger->learned()->tallies());
+        $subsumption = SubsumptionRecord::of($ledger->learned()->subsumption());
         $passed = $ledger->runs()->passed();
         $lastRun = $ledger->runs()->lastRun();
         $proofs = self::proofsWritten($kept, array_flip($mutators), $testIndex, $inputs);
@@ -93,6 +94,10 @@ final readonly class LedgerJson
 
         foreach (LimitsRecord::of($ledger->learned()->limits()) as $section => $items) {
             yield $section => JsonText::compact($items);
+        }
+
+        if ($subsumption !== []) {
+            yield SubsumptionRecord::SECTION => JsonText::compact($subsumption);
         }
 
         if ($passed instanceof Passed) {

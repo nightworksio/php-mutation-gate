@@ -158,7 +158,8 @@ final readonly class LedgerFile
             ->withLearned(LimitsRecord::read(
                 $file->field(LimitsRecord::KILLS),
                 $file->field(LimitsRecord::CONCURRENCY),
-            ));
+            ))
+            ->withLearned(SubsumptionRecord::read($file->field(SubsumptionRecord::SECTION)));
     }
 
     private static function isReadable(Node $file): bool

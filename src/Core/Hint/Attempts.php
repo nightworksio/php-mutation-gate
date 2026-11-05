@@ -14,8 +14,10 @@ use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Php\ComparisonOperator;
 use NightWorksIO\MutationGate\Core\Php\Enclosing;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
+use NightWorksIO\MutationGate\Core\Php\OperandStop;
 
 use function preg_replace;
 use function sprintf;
@@ -33,11 +35,16 @@ use function sprintf;
  */
 final readonly class Attempts
 {
-    private const array EQUALITIES = ['===', '!==', '==', '!='];
+    private const array EQUALITIES = [
+        ComparisonOperator::Identical->value,
+        ComparisonOperator::NotIdentical->value,
+        ComparisonOperator::Equal->value,
+        ComparisonOperator::NotEqual->value,
+    ];
 
     private const array ARITHMETIC = ['+', '-', '*', '/', '%', '**'];
 
-    private const array LOGICAL = ['&&', '||', 'and', 'or'];
+    private const array LOGICAL = ['&&', '||', OperandStop::And->value, OperandStop::Or->value];
 
     /** A statement's keyword and its condition's brackets, which a logical operator's sides are inside. */
     private const string AROUND = '/^(?:return\s+|(?:else)?if\s*\(|while\s*\()?(.*?)(?:\)\s*\{|\)|;)?$/su';

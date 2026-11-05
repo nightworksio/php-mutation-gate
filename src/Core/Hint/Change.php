@@ -132,19 +132,6 @@ final readonly class Change
         return $this->added;
     }
 
-    /**
-     * The original's tokens that differ, as they are spelt.
-     *
-     * @return list<string>
-     */
-    public function changed(): array
-    {
-        return array_map(
-            static fn(PhpToken $token): string => $token->text,
-            array_slice($this->before, $this->from, $this->to - $this->from),
-        );
-    }
-
     /** The original's code that differs, such as `<` or `3`; the whole removed line where nothing does. */
     public function original(): string
     {
@@ -171,6 +158,14 @@ final readonly class Change
     /** The original expression around what differs, such as `$amount < $limit`. */
     public function expression(): string
     {
+        [$start, $end] = $this->tokens()->around();
+
+        return $this->slice($this->code, $this->before, $start, $end);
+    }
+
+    /** The change as tokens: both sides spelt, what differs and the expression around it. */
+    public function tokens(): ChangeTokens
+    {
         $start = $this->from;
         $end = $this->to;
 
@@ -182,7 +177,14 @@ final readonly class Change
             ++$end;
         }
 
-        return $this->slice($this->code, $this->before, $start, $end);
+        $spelling = static fn(PhpToken $token): string => $token->text;
+
+        return new ChangeTokens(
+            array_map($spelling, $this->before),
+            array_map($spelling, $this->after),
+            [$this->from, $this->to],
+            [$start, $end],
+        );
     }
 
     /** The function or method the original calls where it differs, such as `save`; nameless where it calls none. */

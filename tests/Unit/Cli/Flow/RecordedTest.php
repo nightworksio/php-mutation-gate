@@ -48,6 +48,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Heat\FunctionSpan;
 use NightWorksIO\MutationGate\Core\Heat\FunctionSpans;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -92,6 +93,7 @@ use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Pruning\Survival;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\Version;
+use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -121,6 +123,7 @@ use NightWorksIO\MutationGate\Tests\Support\Planned;
 use NightWorksIO\MutationGate\Tests\Support\RecordingChecker;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
+use NightWorksIO\MutationGate\Tests\Support\Subsumed;
 use NightWorksIO\MutationGate\Tests\Support\Tallies;
 use NightWorksIO\MutationGate\Tests\Support\TickingClock;
 
@@ -936,3 +939,33 @@ it('learns no concurrency from a run it was given no timings of, or one not cut 
 
     expect(LedgerRead::ledger($store->read(Scope::branch('main')))->learned()->limits()->runCount())->toBe(0);
 });
+
+it('learns which mutant subsumes which from a run that records every killer, and nothing from one that records the first', function (MatrixKind $matrix, bool $learns) use (
+    $map,
+    $run,
+    $ledgers,
+): void {
+    $project = Flows::project();
+    $store = new ProofStoreFake();
+    $plan = Planned::oneShard();
+    $plan = $plan->briefed($plan->briefing()->recording($matrix));
+    $by = Subsumed::mutant('src/Money.php', 7, Subsumed::diff('a', 'b'), MutantStatus::Killed, 'MoneyTest::adds');
+    $of = Subsumed::mutant('src/Money.php', 7, Subsumed::diff('a', 'c'), MutantStatus::Killed, 'MoneyTest::adds', 'MoneyTest::subtracts');
+    $runner = ScriptedRunner::fixture()->answering(Mutants::of($by, $of), 0);
+
+    new Recorded(adapters: Flows::adapters($project, [], $store), settings: Flows::settings())->write(
+        $plan,
+        recordedRanOf($plan, $project, $runner, $map()),
+        JudgedMutants::none(),
+        $ledgers($store, $plan),
+        $run($plan),
+        CannotTell::because('It failed.'),
+        recordedLastRun(),
+    );
+
+    expect(LedgerRead::ledger($store->read(Scope::branch('main')))->learned()->subsumption())
+        ->toEqual($learns ? Subsumption::learned($by, $of) : Subsumption::none());
+})->with([
+    'every killer' => [MatrixKind::Full, true],
+    'the first killer' => [MatrixKind::FirstKiller, false],
+]);

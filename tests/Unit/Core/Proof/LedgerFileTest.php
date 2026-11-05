@@ -57,6 +57,7 @@ use NightWorksIO\MutationGate\Core\Proof\Uncommitted;
 use NightWorksIO\MutationGate\Core\Proof\Unproved;
 use NightWorksIO\MutationGate\Core\Pruning\Survival;
 use NightWorksIO\MutationGate\Core\Runner\Multiple;
+use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -68,6 +69,7 @@ use NightWorksIO\MutationGate\Tests\Support\Gunzipped;
 use NightWorksIO\MutationGate\Tests\Support\JudgedCommits;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\PruningCases;
+use NightWorksIO\MutationGate\Tests\Support\Subsumed;
 use NightWorksIO\MutationGate\Tests\Support\Tallies;
 
 $keyA = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
@@ -878,4 +880,29 @@ it('keeps each positive number of the learned limits\' sections, and drops anyth
         ->and(LedgerFile::decode($written([...$data(), 'kills' => 'many', 'concurrency' => ['runs' => 3]]))->learned()->limits())
         ->toEqual(LimitHistory::none())
         ->and(LedgerFile::decode($written([...$data(), 'kills' => 'many']))->proofs())->toEqual($makeReadBack()->proofs());
+});
+
+it('writes which mutant of each file subsumes which in its own section, only where it learned any, and reads it back', function () use ($makeLedger, $makeReadBack): void {
+    $by = Subsumed::killed(Subsumed::diff('a', 'b'), 'T1');
+    $of = Subsumed::killed(Subsumed::diff('a', 'c'), 'T1', 'T2');
+    $learned = Subsumption::learned($by, $of);
+    $data = json_decode(Gunzipped::of(LedgerFile::encode($makeLedger()->withLearned($learned))), associative: true);
+
+    expect(is_array($data) ? $data['subsumption'] : [])->toBe(['src/Money.php' => [$of->id()->value() => $by->id()->value()]])
+        ->and(json_decode(Gunzipped::of(LedgerFile::encode($makeLedger())), associative: true))->not->toHaveKey('subsumption')
+        ->and(LedgerFile::decode(LedgerFile::encode($makeLedger()->withLearned($learned))))
+        ->toEqual($makeReadBack()->withLearned($learned));
+});
+
+it('keeps each well-formed pair of the subsumption section, and drops anything else', function () use ($data, $written): void {
+    $by = Subsumed::killed(Subsumed::diff('a', 'b'), 'T1');
+    $of = Subsumed::killed(Subsumed::diff('a', 'c'), 'T1', 'T2');
+    $file = [...$data(), 'subsumption' => [
+        'src/Money.php' => [$of->id()->value() => $by->id()->value(), 'short' => $by->id()->value(), $by->id()->value() => 'x', 'n' => 3],
+        'src/Tax.php' => 'none',
+    ]];
+
+    expect(LedgerFile::decode($written($file))->learned()->subsumption())->toEqual(Subsumption::learned($by, $of))
+        ->and(LedgerFile::decode($written([...$data(), 'subsumption' => 'none']))->learned()->subsumption())
+        ->toEqual(Subsumption::none());
 });
