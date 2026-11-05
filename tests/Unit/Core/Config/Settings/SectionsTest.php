@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Test\JudgingSuites;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Locks;
 use NightWorksIO\MutationGate\Tests\Support\SettingsCases;
@@ -385,6 +386,21 @@ describe('Settings sections', function (): void {
     it('marks and stops a doomed shard as each mode says', function (): void {
         expect(array_map(static fn(FailFast $mode): array => [$mode->marks(), $mode->stops()], FailFast::cases()))
             ->toBe([[false, false], [true, false], [true, true], [true, true]]);
+    });
+
+    it('warns that cancel only stops a doomed shard on a pull request\'s run off GitHub Actions, and nothing otherwise', function (): void {
+        $warned = static fn(FailFast $mode, bool $proposed, bool $onGitHub): array => array_map(
+            static fn(Warning $warning): string => $warning->text(),
+            [...$mode->warnings($proposed, $onGitHub)],
+        );
+
+        expect($warned(FailFast::Cancel, proposed: true, onGitHub: false))->toBe([implode("\n", [
+            'run.failFast is cancel, but only GitHub Actions\' matrix in the reusable workflow cancels the other shards.',
+            'On this CI a doomed shard stops, as under stop, and the others run on.',
+        ])])
+            ->and($warned(FailFast::Cancel, proposed: true, onGitHub: true))->toBe([])
+            ->and($warned(FailFast::Cancel, proposed: false, onGitHub: false))->toBe([])
+            ->and($warned(FailFast::Stop, proposed: true, onGitHub: false))->toBe([]);
     });
 
     it('refuses a run.failFast it does not know', function (): void {

@@ -38,7 +38,7 @@ the end.
    pull request's or a merge group's. The doomed shard's job fails after its
    result is uploaded, and GitHub cancels the others. The verdict then reads
    the cancelled shards' units as stopped, as it does for `stop`. Elsewhere
-   `cancel` acts as `stop`.
+   `cancel` acts as `stop`, and a pull request's verdict warns that it did.
 
 4. **The action reads the config as the run resolves it.** Each step that
    reads the effective config reads it with `--resolved`, so a context
