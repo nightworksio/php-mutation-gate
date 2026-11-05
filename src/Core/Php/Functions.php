@@ -29,10 +29,10 @@ final readonly class Functions
     private const array OPENS = ['{', T_DOLLAR_OPEN_CURLY_BRACES];
 
     /**
-     * @param list<array{string, int, int}> $spans     each function's name, first line and last line
-     * @param list<array{string, int, int}> $qualified the same, each method's name after its class's short name
+     * @param list<array{string, int, int, string}> $spans each function's name, first line and last line, and its
+     *                                                     name after its class's short name
      */
-    private function __construct(private array $spans, private array $qualified)
+    private function __construct(private array $spans)
     {
     }
 
@@ -64,10 +64,7 @@ final readonly class Functions
             }
         }
 
-        return new self(
-            array_map(static fn(array $span): array => [$span[0], $span[1], $span[2]], $spans),
-            array_map(static fn(array $span): array => [$span[3], $span[1], $span[2]], $spans),
-        );
+        return new self($spans);
     }
 
     /**
@@ -78,7 +75,7 @@ final readonly class Functions
      */
     public function qualified(): array
     {
-        return $this->qualified;
+        return array_map(static fn(array $span): array => [$span[3], $span[1], $span[2]], $this->spans);
     }
 
     /** The innermost named function a line is in, or nothing where it is in none. */
@@ -110,20 +107,20 @@ final readonly class Functions
         return $opened !== [] && $opened[0] !== '' ? [[$opened[0], $opened[1], $closes, $opened[2]]] : [];
     }
 
-    /** The name after a `function` keyword, a method's after its class's short name; nothing for a closure. */
+    /** The name after a `function` keyword, a method's after its class's short name; a closure's is no function's. */
     private static function qualifiedAt(Tokens $tokens, int $at): string
     {
         $name = self::nameAfter($tokens, $at);
         $class = Enclosing::classOf($tokens, $at);
 
-        return $name === '' || $class instanceof Nameless ? $name : sprintf(Declarations::METHOD, $class, $name);
+        return $class instanceof Nameless ? $name : sprintf(Declarations::METHOD, $class, $name);
     }
 
     /**
      * The span of the innermost function a line is in: the first around it, as a block inside another closes
      * first; nothing where it is in none.
      *
-     * @return array{string, int, int}|Nameless
+     * @return array{string, int, int, string}|Nameless
      */
     private function innermost(Line $line): array|Nameless
     {
