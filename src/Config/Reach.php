@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Config;
 
 use NightWorksIO\MutationGate\Core\Config\ChangedTests;
+use NightWorksIO\MutationGate\Core\Config\FailFast;
 use NightWorksIO\MutationGate\Core\Format\Json;
 
 /**
  * What decides what a change reaches (ADR-0005): `packages`, `reach.everything`, `reach.lockPackages`,
- * `reach.changedTests`, `reach.fixtures`, `holds.hotPath`, `run.full`.
+ * `reach.changedTests`, `reach.fixtures`, `holds.hotPath`, `run.full`, `run.failFast`.
  */
 final readonly class Reach implements Setting
 {
@@ -80,20 +81,37 @@ final readonly class Reach implements Setting
         return new self(Json::at('run.full', value: false));
     }
 
-    /** `run.stopWhenDoomed`, `true`: a pull request's run stops once it cannot pass, its other units unjudged. */
-    public static function stoppingWhenDoomed(): self
+    /** `run.failFast`, `off`: a pull request's shard passes once it cannot pass, and the verdict alone fails. */
+    public static function failFastOff(): self
     {
-        return new self(Json::at('run.stopWhenDoomed', value: true));
+        return self::failingFast(FailFast::Off);
     }
 
-    /** `run.stopWhenDoomed`, `false`: a pull request's run runs to its end and names every survivor. */
-    public static function runningToTheEnd(): self
+    /** `run.failFast`, `mark`: a pull request's shard judges every unit once it cannot pass, and then fails. */
+    public static function failFastMarking(): self
     {
-        return new self(Json::at('run.stopWhenDoomed', value: false));
+        return self::failingFast(FailFast::Mark);
+    }
+
+    /** `run.failFast`, `stop`: a pull request's shard stops once it cannot pass, its other units unjudged. */
+    public static function failFastStopping(): self
+    {
+        return self::failingFast(FailFast::Stop);
+    }
+
+    /** `run.failFast`, `cancel`: a pull request's shard stops once it cannot pass, and the CI cancels the others. */
+    public static function failFastCancelling(): self
+    {
+        return self::failingFast(FailFast::Cancel);
     }
 
     public function written(): Json
     {
         return $this->json;
+    }
+
+    private static function failingFast(FailFast $failFast): self
+    {
+        return new self(Json::at('run.failFast', $failFast->value));
     }
 }

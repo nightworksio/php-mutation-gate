@@ -45,7 +45,7 @@ final readonly class Stopped
 
         foreach ($read as [$shard, $result]) {
             $survivor = $result->doomed();
-            $doomed = $survivor instanceof Doomed
+            $doomed = $survivor instanceof Doomed && $survivor->stopped()
                 ? [...$doomed, [$shard->id()->number(), $survivor, $result->unjudged()]]
                 : $doomed;
         }

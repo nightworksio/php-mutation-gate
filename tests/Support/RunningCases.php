@@ -120,7 +120,7 @@ final readonly class RunningCases
     /** Settings under which no static analysis can clear a survivor after its tests, so a pull request's shard can stop. */
     public static function doomable(): Settings
     {
-        return Flows::settings(Equivalence::notProvenStatically(), Reach::stoppingWhenDoomed());
+        return Flows::settings(Equivalence::notProvenStatically(), Reach::failFastStopping());
     }
 
     public static function onPullRequest(Plan $plan): Plan
@@ -155,6 +155,7 @@ final readonly class RunningCases
             $result->doomed()->tree()->value(),
             $result->doomed()->floor()->hundredths(),
             $result->doomed()->by()->value,
+            $result->doomed()->stopped() ? 'stopped' : 'judged on',
         ]
         : 'undoomed';
     }

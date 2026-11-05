@@ -601,9 +601,14 @@
                     "type": "boolean",
                     "default": false
                 },
-                "stopWhenDoomed": {
-                    "type": "boolean",
-                    "default": false
+                "failFast": {
+                    "enum": [
+                        "off",
+                        "mark",
+                        "stop",
+                        "cancel"
+                    ],
+                    "default": "mark"
                 }
             },
             "additionalProperties": false
@@ -2995,8 +3000,13 @@
                         "full": {
                             "type": "boolean"
                         },
-                        "stopWhenDoomed": {
-                            "type": "boolean"
+                        "failFast": {
+                            "enum": [
+                                "off",
+                                "mark",
+                                "stop",
+                                "cancel"
+                            ]
                         }
                     },
                     "additionalProperties": false

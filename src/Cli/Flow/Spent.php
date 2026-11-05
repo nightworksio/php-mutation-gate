@@ -8,7 +8,9 @@ use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
 use NightWorksIO\MutationGate\Core\Mutant\Evidences;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Core\Verdict\Doom;
 use NightWorksIO\MutationGate\Core\Verdict\Doomed;
 use NightWorksIO\MutationGate\Core\Verdict\Undoomed;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
@@ -90,6 +92,20 @@ final readonly class Spent
             $this->checks,
             $this->checked,
         );
+    }
+
+    /**
+     * What was spent, with the first survivor of this batch that makes the run certain to fail, where none did
+     * before, found this far into the shard's mutating, the shard stopping there or judging on (ADR-0008,
+     * ADR-0103). Those flaky or proven equivalent never do.
+     */
+    public function watched(Doom|Undoomed $doom, Units $batch, Invoked $invoked, Seconds $after, bool $stops): self
+    {
+        $doomed = $doom instanceof Doom && ! $this->doomed instanceof Doomed
+            ? $doom->first($batch, $invoked->result->mutants(), $invoked->flaky, $invoked->equivalent)
+            : Undoomed::run();
+
+        return $doomed instanceof Doomed ? $this->doomedBy($doomed->found($after, $stops)) : $this;
     }
 
     /** What was spent, stopped on the survivor that made the run certain to fail (ADR-0008). */

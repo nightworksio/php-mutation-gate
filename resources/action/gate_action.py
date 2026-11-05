@@ -146,6 +146,8 @@ DOOMED_UNIT = "unit"
 DOOMED_MUTANT = "mutant"
 DOOMED_TREE = "tree"
 DOOMED_FLOOR = "floor"
+DOOMED_STOPPED = "stopped"
+MARK = "mark"
 # What a doomed shard's job exits with: the gate's exit code for a failed
 # verdict.
 FAILED = 1
@@ -403,6 +405,11 @@ def patches_pest(config: dict) -> bool:
     return runner == PEST and (config.get(PEST) or {}).get("patch") is True
 
 
+def fail_fast(config: dict) -> str:
+    """What a pull request's shard does once it cannot pass: `run.failFast`, `mark` where the config names none."""
+    return (config.get("run") or {}).get("failFast") or MARK
+
+
 def patches_infection(config: dict) -> bool:
     """Whether the effective config runs Infection, whose mutants get the gate's limit only once patched (ADR-0004)."""
     return (config.get("runner") or {}).get("use") == INFECTION
@@ -423,10 +430,11 @@ def doomed(result: dict) -> str | None:
     found = result.get(DOOMED)
     if not isinstance(found, dict):
         return None
+    what = "Shard stopped" if found.get(DOOMED_STOPPED) is True else "Shard judged every unit, and fails"
     return (
-        f"Shard stopped: survivor {found.get(DOOMED_MUTANT, '?')} in {found.get(DOOMED_UNIT, '?')} "
+        f"{what}: survivor {found.get(DOOMED_MUTANT, '?')} in {found.get(DOOMED_UNIT, '?')} "
         f"leaves {found.get(DOOMED_TREE, '?')} below its floor of {found.get(DOOMED_FLOOR, '?')}, "
-        "so the run cannot pass (ADR-0008)."
+        "so the run cannot pass (ADR-0008, ADR-0103)."
     )
 
 
@@ -625,6 +633,7 @@ def _config() -> dict[str, str]:
         else "false",
         "pest_patch": "true" if patches_pest(config) else "false",
         "infection_patch": "true" if patches_infection(config) else "false",
+        "fail_fast": fail_fast(config),
     }
 
 

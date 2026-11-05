@@ -116,5 +116,12 @@
     "tests": {
         "suites": ["Unit", "Plugins"],
         "holding": ["Process", "Contract"]
+    },
+    "contexts": {
+        "pr": {
+            "run": {
+                "failFast": "cancel"
+            }
+        }
     }
 }

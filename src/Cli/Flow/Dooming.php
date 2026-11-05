@@ -13,9 +13,10 @@ use NightWorksIO\MutationGate\Core\Verdict\Ignoring;
 use NightWorksIO\MutationGate\Core\Verdict\Undoomed;
 
 /**
- * Whether a shard of a plan stops once its run cannot pass (ADR-0008), and
- * by what it judges that: a pull request's run, where `run.stopWhenDoomed`
- * asks for it, which the verdict holds to
+ * Whether a shard of a plan watches for the survivor that leaves its run no
+ * way to pass (ADR-0008, ADR-0103), and by what it judges that: a pull
+ * request's run, where `run.failFast` is anything but `off`, which the verdict
+ * holds to
  * its trees' floors and the new code's, judged over the trees, the
  * committed baseline, the lines the plan's change reached, the new-code
  * floor and the config's ignores, as the verdict judges them. A survivor
@@ -51,12 +52,12 @@ final readonly class Dooming
     }
 
     /**
-     * Whether the config asks a pull request's run to stop, this plan is one or a merge group's, and its verdict
-     * holds the trees.
+     * Whether the config asks a pull request's shard to fail once it cannot pass, this plan is one or a merge
+     * group's, and its verdict holds the trees.
      */
     private function stops(Plan $plan): bool
     {
-        return $this->settings->reach()->stopsWhenDoomed() && $plan->runOn()->isProposed() && $this->holdsTrees();
+        return $this->settings->reach()->failFast()->marks() && $plan->runOn()->isProposed() && $this->holdsTrees();
     }
 
     /** Whether the verdict holds the trees to their floors: no run of the security mutators or one suite alone. */

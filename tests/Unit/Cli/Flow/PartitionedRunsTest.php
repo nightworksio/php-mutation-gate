@@ -50,14 +50,14 @@ $groups = static fn(array $paths, string ...$files): PathGroups => PathGroups::o
 );
 
 /** What a group's run came to: one flaky mutant named after its first unit, and doomed where asked. */
-$mutated = static fn(Shard $shard, bool $dooms = false): Mutated => new Mutated(
+$mutated = static fn(Shard $shard, bool $dooms = false, bool $stops = true): Mutated => new Mutated(
     MutationResult::of(Mutants::none(), 1),
     MutantIds::of(MutantId::firstOf([...$shard->units()][0]->path(), 'Plus', '-a +b')),
     HeldChecks::none(),
     Units::none(),
     SurvivorChecks::none(),
     $dooms
-        ? Doomed::of([...$shard->units()][0]->path(), MutantId::firstOf(Path::of('src/A.php'), 'Plus', '-a +b'), Path::of('src'), Floor::whole(), DoomedBy::Tree)
+        ? Doomed::of([...$shard->units()][0]->path(), MutantId::firstOf(Path::of('src/A.php'), 'Plus', '-a +b'), Path::of('src'), Floor::whole(), DoomedBy::Tree)->found(Seconds::of(1.0), $stops)
         : Undoomed::run(),
 );
 
@@ -106,6 +106,22 @@ it('leaves the groups after a doom unjudged, and stops at the first that cannot 
         ->toBe(['src/Gen/B.php'])
         ->and($doomed instanceof Mutated ? $doomed->doomed : $doomed)->toBeInstanceOf(Doomed::class)
         ->and($refused)->toEqual(CannotJudge::because('The runner broke.'));
+});
+
+it('runs every group past a doom its group judged on, keeping that doom', function () use ($groups, $mutated, $runs, $paths): void {
+    $seen = [];
+    $outcome = $runs(static fn(Settings $settings, Directory $project): Adapters => Flows::adapters($project->root()->value()))->mutated(
+        $groups($paths, 'src/Money.php', 'src/Legacy/A.php', 'src/Gen/B.php'),
+        static function (Adapters $adapters, Settings $settings, Shard $shard) use (&$seen, $mutated): Mutated {
+            $seen[] = [...$shard->units()][0]->path()->value();
+
+            return $mutated($shard, dooms: $seen === ['src/Money.php'], stops: false);
+        },
+    );
+
+    expect($seen)->toBe(['src/Money.php', 'src/Legacy/A.php', 'src/Gen/B.php'])
+        ->and($outcome instanceof Mutated ? [...$outcome->unjudged] : $outcome)->toBe([])
+        ->and($outcome instanceof Mutated && $outcome->doomed instanceof Doomed ? $outcome->doomed->unit()->value() : $outcome)->toBe('src/Money.php');
 });
 
 it('cannot judge a group whose adapters cannot be built, saying why', function () use ($groups, $mutated, $runs, $paths): void {

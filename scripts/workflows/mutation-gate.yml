@@ -237,6 +237,7 @@ jobs:
       shards: ${{ steps.plan.outputs.shards }}
       plan: ${{ steps.plan.outputs.plan }}
       stands: ${{ steps.plan.outputs.stands }}
+      fail-fast: ${{ steps.config.outputs.fail_fast }}
       delivery: ${{ steps.delivery.outputs.left }}
       attempt: ${{ github.run_attempt }}
     steps:
@@ -293,7 +294,7 @@ jobs:
         run: |
           set -euo pipefail
           mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
-          "${GATE}" config:show --format=json "${arguments[@]}" \
+          "${GATE}" config:show --format=json --resolved "${arguments[@]}" \
             | python3 "${GATE_ACTION}/resources/action/gate_action.py" config
       - name: Restore this scope's ledger
         if: steps.config.outputs.default_store == 'true' && steps.resolve.outputs.own_dir != ''
@@ -415,11 +416,13 @@ jobs:
     timeout-minutes: 360
     permissions:
       contents: read
-    # ADR-0008: every shard runs to its end, so the verdict names every
-    # survivor. Where `run.stopWhenDoomed` stops a shard once it cannot pass,
-    # its result names the survivor and its job fails; the others carry on.
+    # ADR-0103: once a confirmed survivor leaves a pull request's run no way to
+    # pass, its shard fails: under `run.failFast: mark` after judging every
+    # unit, so the verdict names every survivor; under `stop` there. Under
+    # `cancel` it stops there and GitHub cancels the other shards of the
+    # matrix, which needs no token in a job that runs the project's code.
     strategy:
-      fail-fast: false
+      fail-fast: ${{ needs.plan.outputs.fail-fast == 'cancel' && contains(fromJSON('["pull_request", "merge_group"]'), github.event_name) }}
       matrix:
         shard: ${{ fromJSON(needs.plan.outputs.shards) }}
     steps:
@@ -533,7 +536,7 @@ jobs:
         run: |
           set -euo pipefail
           mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
-          "${GATE}" config:show --format=json "${arguments[@]}" \
+          "${GATE}" config:show --format=json --resolved "${arguments[@]}" \
             | python3 "${GATE_ACTION}/resources/action/gate_action.py" config
       # ADR-0004: with pest.patch on, a mutation run refuses an unpatched
       # pest-plugin-mutate, so this job patches the vendor directory it
@@ -738,7 +741,7 @@ jobs:
         run: |
           set -euo pipefail
           mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
-          "${GATE}" config:show --format=json "${arguments[@]}" \
+          "${GATE}" config:show --format=json --resolved "${arguments[@]}" \
             | python3 "${GATE_ACTION}/resources/action/gate_action.py" config
       - name: Restore this scope's ledger
         id: own

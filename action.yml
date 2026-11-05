@@ -171,7 +171,7 @@ runs:
       run: |
         set -euo pipefail
         mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
-        "${GATE}" config:show --format=json "${arguments[@]}" \
+        "${GATE}" config:show --format=json --resolved "${arguments[@]}" \
           | python3 "${GITHUB_ACTION_PATH}/resources/action/gate_action.py" config
 
     # ADR-0004: with pest.patch on, a mutation run refuses an unpatched

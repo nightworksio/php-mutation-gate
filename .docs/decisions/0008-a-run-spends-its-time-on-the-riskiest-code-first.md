@@ -523,8 +523,8 @@ presets for Laravel, Symfony and plain libraries.
      verdict names every survivor, so one run tells an author everything to
      fix. A run that stopped at its first sure survivor would leave the rest
      for a run after the fix, one round trip each.
-   - **When.** With `run.stopWhenDoomed: true`, a run on a pull request
-     whose verdict holds its trees' floors and the new code's stops early. A run of the security mutators alone
+   - **When.** With `run.failFast: stop` or `cancel` (ADR-0103), a run on a
+     pull request whose verdict holds its trees' floors and the new code's stops early. A run of the security mutators alone
      (`--security`) or of one suite's tests alone (`--suite`) holds no tree to
      a floor, so it runs to its end. So does a run whose trees or committed
      baseline cannot be read. A run on a branch, a tag or a schedule also
@@ -598,7 +598,7 @@ presets for Laravel, Symfony and plain libraries.
 | **Native ignore markers, as the runners ship them** | No reason, no expiry, no staleness check, and different per runner. The config holds one list for every runner. |
 | **Ignores by file and line** | Line numbers move with every edit above them. The gate's id does not use the line (ADR-0004). |
 | **Stop a doomed run inside each runner's own mutant loop** | Three runner-specific stops in the patches the gate applies, each resuming when a survivor proves flaky. The chunked stop is one code path, proved by every runner's contract. |
-| **Stop every pull request's run once it cannot pass, by default** | Each run then names about one survivor, and a project with several needs a round trip through CI for each. Stopping saves runner minutes on a run that fails anyway; the round trips cost the author far more. It stays a setting, `run.stopWhenDoomed`. |
+| **Stop every pull request's run once it cannot pass, by default** | Each run then names about one survivor, and a project with several needs a round trip through CI for each. Stopping saves runner minutes on a run that fails anyway; the round trips cost the author far more. It stays a setting, `run.failFast: stop` (ADR-0103). |
 | **Cancel a doomed run's other shards from the shard job** | The shard job runs the pull request's code, which could then cancel or re-run workflows. A separate step that reads the result alone holds that permission. |
 | **Stop at any floor once a tree's survivors outnumber what the floor allows** | Needs each tree's planned mutant total in the plan. A floor of 100, the default for new code, needs none. |
 | **Presets that exclude framework glue** (providers, kernels) | Excluding code from mutation hides it from the gate. Holding it with the tests that assert on it keeps it judged and cheap. |
@@ -616,7 +616,7 @@ entries.
 
 **A pull request that cannot pass names every survivor.** By default its
 shards run to their end, so one run lists all there is to fix. A project that
-would rather save runner minutes sets `run.stopWhenDoomed`: each shard then
+would rather save runner minutes sets `run.failFast: stop` (ADR-0103): each shard then
 stops within about two minutes of finding a survivor of a floor of 100, and a
 pull request that can pass pays one runner opening per chunk.
 

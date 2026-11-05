@@ -46,11 +46,11 @@ it('runs a pull request\'s shard on past a survivor proven equivalent, to the ch
     $project = Flows::project();
     $runner = ScriptedRunner::fixture()->checking(Checkable::inPlace(Contents::of("<?php\n\nfinal  class Money\n{\n}\n")));
 
-    new Running(Flows::adapters($project, [], $runner, $floored(Floor::whole())), Flows::settings(Reach::stoppingWhenDoomed()), Flows::setup())
+    new Running(Flows::adapters($project, [], $runner, $floored(Floor::whole())), Flows::settings(Reach::failFastStopping()), Flows::setup())
         ->run(Planned::handedIn($project, $onPullRequest(Planned::oneShard())), ShardId::of(1), Workspace::results());
     $result = $resultIn($project, 1);
 
     expect($asked($runner))->toBe([['src/Money.php'], ['src/Held.php']])
         ->and($unjudged($result))->toBe([])
-        ->and($doomOf($result))->toBe(['src/Held.php', Dooms::survivor('src/Held.php')->id()->value(), 'src', 10_000, 'tree']);
+        ->and($doomOf($result))->toBe(['src/Held.php', Dooms::survivor('src/Held.php')->id()->value(), 'src', 10_000, 'tree', 'stopped']);
 });

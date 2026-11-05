@@ -18,7 +18,6 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Doom;
-use NightWorksIO\MutationGate\Core\Verdict\Doomed;
 use NightWorksIO\MutationGate\Core\Verdict\Undoomed;
 use Psr\Clock\ClockInterface;
 
@@ -27,9 +26,11 @@ use Psr\Clock\ClockInterface;
  * order the plan lists them, riskiest first: each batch fits the time left,
  * where the run has a deadline, and its chunk, where the run stops once it
  * cannot pass. The batches run until the next does not fit, the time is up,
- * the run is interrupted, or a batch's survivor makes the run certain to
- * fail: one static analysis does not clear, neither killing it nor proving
- * it equivalent (see SurvivorChecking and Invoking). A batch the runner
+ * the run is interrupted, or, where `run.failFast` stops it, a batch's
+ * survivor makes the run certain to fail: one static analysis does not clear,
+ * neither killing it nor proving it equivalent (see SurvivorChecking and
+ * Invoking); under `mark` the first such survivor is noted and the batches run
+ * on (ADR-0103). A batch the runner
  * cannot judge once the time is up is unjudged, as is every unit no batch
  * took.
  *
@@ -43,6 +44,7 @@ final readonly class Batched
         private Deadline|Unlimited $deadline,
         private Interruption $interruption,
         private Doom|Undoomed $doom,
+        private bool $stops,
     ) {
     }
 
@@ -57,13 +59,14 @@ final readonly class Batched
         $spent = Spent::none();
         $left = $this->left();
         $batch = $this->batchOf($batching, $queue, $left);
+        $watch = DoomWatch::from($this->doom, $this->clock, $this->stops);
 
         while ($batch->count() > 0) {
             $request = $requestFor($batch);
             $invoked = $this->invoking->invoked($this->within($request, $left));
             $queue = array_slice($queue, $batch->count());
             $spent = match (true) {
-                ! $invoked instanceof CannotJudge => $this->doomed($spent, $batch, $invoked),
+                ! $invoked instanceof CannotJudge => $watch->after($spent, $batch, $invoked),
                 $this->isOver() => $spent->leaving($batch),
                 default => $invoked,
             };
@@ -73,26 +76,10 @@ final readonly class Batched
             }
 
             $left = $this->left();
-            $batch = $spent->doomed instanceof Doomed ? Units::none() : $this->batchOf($batching, $queue, $left);
+            $batch = $watch->stopsAfter($spent) ? Units::none() : $this->batchOf($batching, $queue, $left);
         }
 
         return $spent->leaving(Units::of(...array_map(static fn(Weighed $weighed): Unit => $weighed->unit(), $queue)));
-    }
-
-    /**
-     * What was spent, and this batch, whose survivors static analysis checked
-     * already (see Invoking): where the run stops once it cannot pass,
-     * stopped on the first one left that makes the run certain to fail, if
-     * one does.
-     */
-    private function doomed(Spent $spent, Units $batch, Invoked $invoked): Spent
-    {
-        $after = $spent->after($invoked);
-        $doomed = $this->doom instanceof Doom
-            ? $this->doom->first($batch, $invoked->result->mutants(), $invoked->flaky, $invoked->equivalent)
-            : $this->doom;
-
-        return $doomed instanceof Doomed ? $after->doomedBy($doomed) : $after;
     }
 
     /** The time left before the deadline, or no limit where the run has none. */

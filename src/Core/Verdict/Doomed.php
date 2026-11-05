@@ -8,14 +8,16 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
 
 /**
- * The survivor that makes a pull request's run certain to fail (ADR-0008):
- * its unit, its id, the tree that holds it, the floor of 100 it fails and
- * which floor that is. The shard it is in stops there, and the verdict fails
- * naming it.
+ * The survivor that makes a pull request's run certain to fail (ADR-0008,
+ * ADR-0103): its unit, its id, the tree that holds it, the floor of 100 it
+ * fails and which floor that is; how far into its mutating the shard found it,
+ * and whether the shard stopped there, as `run.failFast: stop` and `cancel`
+ * ask, in which case the verdict fails naming it.
  *
  * @internal
  */
@@ -40,12 +42,33 @@ final readonly class Doomed
         private Path $tree,
         private Floor $floor,
         private DoomedBy $by,
+        private Seconds $after,
+        private bool $stopped,
     ) {
     }
 
+    /** Found as the shard began mutating, which stops there. */
     public static function of(Path $unit, MutantId $mutant, Path $tree, Floor $floor, DoomedBy $by): self
     {
-        return new self($unit, $mutant, $tree, $floor, $by);
+        return new self($unit, $mutant, $tree, $floor, $by, Seconds::none(), stopped: true);
+    }
+
+    /** The same, found this far into the shard's mutating, which stops there or judges on. */
+    public function found(Seconds $after, bool $stopped): self
+    {
+        return new self($this->unit, $this->mutant, $this->tree, $this->floor, $this->by, $after, $stopped);
+    }
+
+    /** How far into its mutating the shard found it. */
+    public function after(): Seconds
+    {
+        return $this->after;
+    }
+
+    /** Whether the shard stopped there, its other units unjudged. */
+    public function stopped(): bool
+    {
+        return $this->stopped;
     }
 
     /** The unit the survivor is a mutant of. */

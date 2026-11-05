@@ -539,6 +539,7 @@ services:
                     - COMMIT # the ledger's last run's field, not the commit a plan's digests were taken at
                     - TREE # the ledger's last run's field, not the tree floor a survivor dooms a run by
                 'NightWorksIO\MutationGate\Core\Plan\DoomedRecord':
+                    - STOPPED # whether a doomed shard stopped, not a recorded test's event
                     - TREE # the shard result's field naming a tree, not the tree floor a survivor dooms a run by
                     - FLOOR # the shard result's field holding a floor, not a gate manifest's key
                 'NightWorksIO\MutationGate\Core\Plan\Batching':
