@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinStore;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Doctor\AnonymousReadsRefused;
+use NightWorksIO\MutationGate\Core\Doctor\GateDefinitions;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -126,7 +127,7 @@ final readonly class Online
         $running = $observed->files()->runningTheGate();
         $workflows = Paths::none();
 
-        foreach ($running instanceof Paths ? $running : [] as $definition) {
+        foreach ($running instanceof GateDefinitions ? $running->paths() : [] as $definition) {
             $workflows = $definition->within(Path::of(self::WORKFLOWS)) ? $workflows->with($definition) : $workflows;
         }
 

@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
+use NightWorksIO\MutationGate\Tests\Support\GateRunning;
 
 it('runs every check over what was observed, what fails a run first', function (): void {
     $observed = Observations::none()
@@ -35,7 +36,7 @@ it('runs every check over what was observed, what fails a run first', function (
             ->withGitIgnore(GitIgnore::of(''))
             ->withInfection(InfectionConfig::in('infection.json5', minMsi: true, ignores: false))
             ->withComposer(ComposerSetup::of(Paths::of(Path::of('packages/money'))))
-            ->withRunningTheGate(Paths::of(Path::of('.gitlab-ci.yml')))
+            ->withRunningTheGate(GateRunning::at('', Path::of('.gitlab-ci.yml')))
             ->withBaseline(Baseline::none()))
         ->withLedgers(KeptLedgers::of(KeptLedger::of(Path::of('ledger.json.gz'), 30_000_000)))
         ->withSettings(Configs::settings([

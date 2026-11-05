@@ -11,7 +11,6 @@ use NightWorksIO\MutationGate\Core\Doctor\GitHub\GitHubSettings;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
 use NightWorksIO\MutationGate\Core\Doctor\ProjectFiles;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use Symfony\Component\HttpClient\MockHttpClient;
 
@@ -26,7 +25,8 @@ final readonly class OnlineAnswers
     public static function found(string $project, array $environment, MockHttpClient $github): GitHubSettings|CannotTell|NotGiven
     {
         return new Online($project, Variables::of($environment), $github)
-            ->into(Observations::none()->withFiles(ProjectFiles::none()->withRunningTheGate(Paths::of(
+            ->into(Observations::none()->withFiles(ProjectFiles::none()->withRunningTheGate(GateRunning::at(
+                '',
                 Path::of('.github/workflows/mutation.yml'),
                 Path::of('.gitlab-ci.yml'),
             ))))
