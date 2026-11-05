@@ -49,7 +49,7 @@ final readonly class PathRule
     /** The glob's literal prefix: the characters before its first wildcard, which rank how specific it is. */
     public function prefix(): string
     {
-        return preg_replace(self::WILDCARD_ON, '', $this->glob->value()) ?? '';
+        return (string) preg_replace(self::WILDCARD_ON, '', $this->glob->value());
     }
 
     /** The entry as a config at this origin writes it. */

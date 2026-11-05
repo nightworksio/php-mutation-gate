@@ -231,6 +231,17 @@ it('reaches what it reaches and what the default branch changed since its ledger
         ->and($nothing()->everywhere(Reason::that('Everything.'))->andSinceLedger($first, Revision::ref('1edcafe'))->isEverywhere())->toBeTrue();
 });
 
+it('reaches the files of every glob it is given, and keeps those it was given before', function (): void {
+    $reach = Reach::nothing(Packages::of(Trees::of()))
+        ->matching(Glob::of('src/Old/**'))
+        ->matching(Glob::of('src/Legacy/**'), Glob::of('src/Generated/**'));
+
+    expect($reach->reaches(Unit::file(Path::of('src/Old/A.php'))))->toBeTrue()
+        ->and($reach->reaches(Unit::file(Path::of('src/Legacy/A.php'))))->toBeTrue()
+        ->and($reach->reaches(Unit::file(Path::of('src/Generated/A.php'))))->toBeTrue()
+        ->and($reach->reaches(Unit::file(Path::of('src/New/A.php'))))->toBeFalse();
+});
+
 it('reaches the units whose files a glob matches, and the packages the glob can match a file of', function (): void {
     $root = Package::at(Path::root());
     $core = Package::at(Path::of('packages/core'));
