@@ -1,0 +1,10 @@
+<?php
+
+/**
+ * PHP fills the usage `pcntl_waitpid` reports of a child with numbers alone,
+ * `ru_maxrss` among them, as `getrusage` does; PHP's own stub leaves it untyped.
+ *
+ * @param array<string, int> $resource_usage
+ * @param-out array<string, int> $resource_usage
+ */
+function pcntl_waitpid(int $process_id, mixed &$status, int $flags = 0, array &$resource_usage = []): int {}

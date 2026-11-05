@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
+use function array_key_exists;
+
 use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
@@ -14,8 +16,25 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  */
 final readonly class MaxRss
 {
+    /** The field of `getrusage` and `wait4`'s usage that holds it. */
+    public const string FIELD = 'ru_maxrss';
+
+    /** The field a warm worker's record of how its child ended holds the child's `ru_maxrss` under. */
+    public const string RECORDED = 'peak';
+
     /** The operating system family, as `PHP_OS_FAMILY` names it, that counts `ru_maxrss` in bytes. */
     private const string IN_BYTES = 'Darwin';
+
+    /**
+     * The `ru_maxrss` of a usage `getrusage` or `wait4` reported, each of its
+     * fields a number: 0 where it holds none, which says nothing.
+     *
+     * @param array<array-key, int> $usage
+     */
+    public static function held(array $usage): int
+    {
+        return array_key_exists(self::FIELD, $usage) ? $usage[self::FIELD] : 0;
+    }
 
     /** `ru_maxrss` in bytes, on the operating system family `PHP_OS_FAMILY` names. */
     public static function bytes(int $maximum, string $family): int

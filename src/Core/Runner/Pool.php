@@ -39,10 +39,14 @@ final readonly class Pool
         return new self($this->processes, $this->workers, $startUp);
     }
 
-    /** This pool, each mutant started in a fresh process: how survivors are confirmed (ADR-0023). */
-    public function fresh(): self
+    /**
+     * This pool as the verification tail runs in it, survivors' runs again
+     * among them (ADR-0070): each forked where `runner.workers` forks the
+     * tail, and in a fresh process otherwise.
+     */
+    public function tail(): self
     {
-        return new self($this->processes, Workers::Fresh, $this->startUp);
+        return $this->workers->forksTheTail() ? $this : new self($this->processes, Workers::Fresh, $this->startUp);
     }
 
     /** How many mutants run at once. */

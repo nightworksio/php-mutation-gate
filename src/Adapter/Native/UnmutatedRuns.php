@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Native;
 
+use function array_values;
 use function file_get_contents;
 use function getmypid;
 use function is_file;
 use function is_string;
 
+use NightWorksIO\MutationGate\Adapter\Native\Warm\WarmEnds;
+use NightWorksIO\MutationGate\Adapter\Native\Warm\Workforce;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Control\Control;
 use NightWorksIO\MutationGate\Core\Control\ControlRun;
@@ -21,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Native\Shell;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
@@ -35,9 +39,11 @@ use function unlink;
  * a heavy mutant's run, as the mutant, served through the override as a
  * mutant's is (see ControlMutant), its tests and every test they depend on
  * run as a mutant's are, under the request's memory cap and stopped at its
- * limit, or at its silence limit where it has one, started through the
- * launcher that measures its peak (see PeakLauncher); side by side in the request's pool, none started once
- * the request's deadline has passed. A control whose file cannot be read, or
+ * limit, or at its silence limit where it has one: forked from a warm
+ * worker where `runner.workers` forks the tail (ADR-0070), and otherwise
+ * started through the launcher that measures its peak (see PeakLauncher);
+ * side by side in the request's pool, none started once the request's
+ * deadline has passed. A control whose file cannot be read, or
  * whose run is not started, never runs; one stopped at its limit ran out,
  * whether or not it had served the file yet.
  *
@@ -69,23 +75,34 @@ final readonly class UnmutatedRuns
             return $scan;
         }
 
+        $invocation = new Invocation($this->project, $override, $this->framework);
         $judging = new MutantRun(
             $this->project,
             $this->shell,
-            new Invocation($this->project, $override, $this->framework),
+            $invocation,
             $this->framework,
             $scan,
             $this->framework->errorDisplay(),
         );
-        $runs = $this->controlled($judging, $request, $controls);
+        $workforce = new Workforce($this->project, $this->shell, $invocation, $scan, $judging, $this->framework);
+        $runs = $this->controlled($judging, $workforce, $request, $controls);
         $scan->remove();
 
         return $runs;
     }
 
-    /** What each control's run found, run as a mutant that changes nothing. */
-    private function controlled(MutantRun $judging, MutationRequest $request, Controls $controls): ControlRuns
-    {
+    /**
+     * What each control's run found, run as a mutant that changes nothing:
+     * forked from a warm worker where `runner.workers` forks the tail and a
+     * worker forked it (ADR-0070), with the peak its child's end gave, and
+     * in a fresh process otherwise.
+     */
+    private function controlled(
+        MutantRun $judging,
+        Workforce $workforce,
+        MutationRequest $request,
+        Controls $controls,
+    ): ControlRuns {
         $runs = ControlRuns::none();
         $prepared = [];
         $asked = [];
@@ -115,7 +132,40 @@ final readonly class UnmutatedRuns
             );
         }
 
+        [$runs, $prepared, $asked] = $this->forked($judging, $workforce, $request, $runs, $prepared, $asked);
+
         return $prepared === [] ? $runs : $this->ended($judging, $request, $runs, $prepared, $asked);
+    }
+
+    /**
+     * What each prepared control a warm worker's child ran found, with the
+     * peak its child's end gave, where `runner.workers` forks the tail
+     * (ADR-0070); and the controls left to a fresh process, with their runs.
+     *
+     * @param  list<PreparedRun>                                    $prepared
+     * @param  list<Control>                                        $asked    each prepared run's control, in order
+     * @return array{ControlRuns, list<PreparedRun>, list<Control>}
+     */
+    private function forked(
+        MutantRun $judging,
+        Workforce $workforce,
+        MutationRequest $request,
+        ControlRuns $runs,
+        array $prepared,
+        array $asked,
+    ): array {
+        $warm = $request->pool()->workers()->forksTheTail()
+            ? $workforce->ended($request, Workforce::endingIn($request->deadline()), $prepared)
+            : WarmEnds::none();
+
+        foreach ($warm->all() as $at => $ran) {
+            $found = $this->found($judging, $prepared[$at], $ran);
+            $peak = $warm->peakAt($at);
+            $runs = $runs->with($asked[$at], $peak instanceof MemoryCap ? $found->withPeak($peak) : $found);
+            unset($prepared[$at], $asked[$at]);
+        }
+
+        return [$runs, array_values($prepared), array_values($asked)];
     }
 
     /**

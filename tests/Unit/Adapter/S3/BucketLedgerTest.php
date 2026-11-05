@@ -222,5 +222,5 @@ it('says why the bucket gave no coverage map, or one past its limit', function (
     expect($store(new Bucket(500))->companion(Scope::branch('main'), Companion::Coverage))
         ->toEqual(CannotJudge::because(sprintf('The kept coverage map at %s could not be read: HTTP 500, no error code.', $at)))
         ->and($store($large)->companion(Scope::branch('main'), Companion::Coverage))
-        ->toEqual(CannotJudge::because(sprintf('The kept coverage map at %s could not be read: it is larger than 1500000 bytes.', $at)));
+        ->toEqual(CannotJudge::because(sprintf('The kept coverage map at %s could not be read: it is larger than 4200000 bytes.', $at)));
 });

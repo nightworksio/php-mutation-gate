@@ -10,7 +10,6 @@ use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Pruning\PrunedList;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
-use NightWorksIO\MutationGate\Core\Runner\Workers;
 
 /**
  * What a mutation run tells the patched plugin through Pest's environment,
@@ -58,7 +57,7 @@ final readonly class Told
     /** Whether each mutant's own run forks from its place's warm worker: under the patch, where the request forks. */
     private function forks(MutationRequest $request): bool
     {
-        return $this->patching->isOn() && $request->pool()->workers() === Workers::Fork;
+        return $this->patching->isOn() && $request->pool()->workers()->forksMutants();
     }
 
     /**

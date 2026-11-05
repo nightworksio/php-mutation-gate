@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\WarmDatabase;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Php\PhpFile;
+use NightWorksIO\MutationGate\Core\Runner\MaxRss;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 
 use function pcntl_waitpid;
@@ -192,12 +193,14 @@ final readonly class Worker
      */
     private function waited(int $child, int $asker): Finish|NotGiven
     {
-        $waited = pcntl_waitpid($child, $status, WNOHANG);
+        $looked = $this->looked($child);
 
-        while ($waited === 0 && $this->isAlive($asker)) {
+        while ($looked[0] === 0 && $this->isAlive($asker)) {
             ($this->pause)(Polling::interval()->microseconds());
-            $waited = pcntl_waitpid($child, $status, WNOHANG);
+            $looked = $this->looked($child);
         }
+
+        [$waited, $status, $held] = $looked;
 
         if ($waited === 0) {
             WholeTree::stopped($child);
@@ -209,10 +212,24 @@ final readonly class Worker
         }
 
         $to = Offsets::now($this->seat);
-
-        return pcntl_wifsignaled($status)
+        $finish = pcntl_wifsignaled($status)
             ? Finish::signalled((int) pcntl_wtermsig($status), $to)
             : Finish::exited((int) pcntl_wexitstatus($status), $to);
+
+        return $finish->peaking($held);
+    }
+
+    /**
+     * One look at the child, which reaps it where it has ended: what
+     * `waitpid` answered, the child's status where it gave one, and the
+     * `ru_maxrss` it reported of the child, 0 where it reported none.
+     *
+     * @return array{int, int|NotGiven, int}
+     */
+    private function looked(int $child): array
+    {
+        $waited = pcntl_waitpid($child, $status, WNOHANG, $usage);
+        return [$waited, is_int($status) ? $status : NotGiven::value(), MaxRss::held($usage)];
     }
 
     /** Whether the run still wants the worker: its directory is there, it is not done, and the parent lives. */

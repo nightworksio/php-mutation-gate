@@ -57,19 +57,26 @@ final class PhpUnitWorkersFake implements Shell
         private readonly Closure $fresh,
         private readonly Refusal|Ran|NotGiven $boot = new NotGiven(),
         private readonly int $claims = PHP_INT_MAX,
+        private readonly int $maxRss = 0,
     ) {
     }
 
     /** This shell, its workers refusing, or failing as this says, before they claim any run. */
     public function booting(Refusal|Ran $boot): self
     {
-        return new self($this->child, $this->fresh, $boot, $this->claims);
+        return new self($this->child, $this->fresh, $boot, $this->claims, $this->maxRss);
     }
 
     /** This shell, each of its workers claiming at most this many runs, then ending, as at the run's end. */
     public function claimingAtMost(int $claims): self
     {
-        return new self($this->child, $this->fresh, $this->boot, $claims);
+        return new self($this->child, $this->fresh, $this->boot, $claims, $this->maxRss);
+    }
+
+    /** This shell, each of its workers' children reported as having held at most this `ru_maxrss`. */
+    public function peakingAt(int $maxRss): self
+    {
+        return new self($this->child, $this->fresh, $this->boot, $this->claims, $maxRss);
     }
 
     public function run(Command $command): Ran
@@ -162,7 +169,9 @@ final class PhpUnitWorkersFake implements Shell
             $ran = ($this->child)($job->run($next));
             file_put_contents($workplace->out($place), $ran->output(), FILE_APPEND);
             $code = $ran->exitCode();
-            End::exited(is_int($code) ? $code : 1, 0.5, $from->untilNow($workplace))->writtenTo($workplace->end($next));
+            End::exited(is_int($code) ? $code : 1, 0.5, $from->untilNow($workplace))
+                ->peaking($this->maxRss)
+                ->writtenTo($workplace->end($next));
         }
 
         return Ran::exited(0, '');

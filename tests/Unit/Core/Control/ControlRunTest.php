@@ -116,3 +116,17 @@ it('names the tests a failed control recorded failing, and every test it ran as 
         ->and(ControlRun::asMutant($killed))->toEqual(ControlRun::failed($failing))
         ->and(ControlRun::passed(Seconds::of(1.0))->failing())->toEqual(TestIds::none());
 });
+
+it('peaks at the larger of its peak and another, and keeps its own where the other is none or no larger', function (int $had, int $other, int $peak): void {
+    $capped = static fn(int $megabytes): MemoryCap|NotGiven => $megabytes > 0 ? MemoryCap::of($megabytes, MemoryUnit::Megabytes) : NotGiven::value();
+    $held = $capped($had);
+    $run = $held instanceof MemoryCap ? ControlRun::passed(Seconds::of(1.0))->withPeak($held) : ControlRun::passed(Seconds::of(1.0));
+
+    expect($run->peakingAtLeast($capped($other))->peak())->toEqual($capped($peak));
+})->with([
+    'none, then one' => [0, 20, 20],
+    'a smaller one, then a larger' => [20, 40, 40],
+    'a larger one, then a smaller' => [40, 20, 40],
+    'one, then none' => [40, 0, 40],
+    'none, then none' => [0, 0, 0],
+]);

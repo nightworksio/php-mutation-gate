@@ -10,6 +10,7 @@ use function implode;
 use function is_int;
 
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\MaxRss;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Runner\ProcessTable;
 use NightWorksIO\MutationGate\Core\Runner\Progress;
@@ -49,12 +50,13 @@ final readonly class Waiting
 
     /**
      * How the child ended, or that it was stopped at its limit or its silence
-     * limit, with what it printed from where it started.
+     * limit, with what it printed from where it started, and the most
+     * memory a child that ended held.
      */
     public function ended(Printed $from, Workplace $workplace): End
     {
         $progress = $this->firstProgress();
-        $waited = pcntl_waitpid($this->child, $status, WNOHANG);
+        [$waited, $status, $held] = $this->looked();
 
         while ($waited === 0 && $this->limit->outlasts(Seconds::of($this->seconds()))) {
             $progress = $this->read($progress);
@@ -66,7 +68,7 @@ final readonly class Waiting
             }
 
             usleep(Polling::interval()->microseconds());
-            $waited = pcntl_waitpid($this->child, $status, WNOHANG);
+            [$waited, $status, $held] = $this->looked();
         }
 
         if ($waited === 0 || ! is_int($status)) {
@@ -75,6 +77,25 @@ final readonly class Waiting
             return End::stopped($this->seconds(), $from->untilNow($workplace));
         }
 
+        return $this->endedOf($status, $from, $workplace)->peaking($held);
+    }
+
+    /**
+     * One look at the child, which reaps it where it has ended: what
+     * `waitpid` answered, the child's status where it gave one, and the
+     * `ru_maxrss` it reported of the child, 0 where it reported none.
+     *
+     * @return array{int, int|NotGiven, int}
+     */
+    private function looked(): array
+    {
+        $waited = pcntl_waitpid($this->child, $status, WNOHANG, $usage);
+        return [$waited, is_int($status) ? $status : NotGiven::value(), MaxRss::held($usage)];
+    }
+
+    /** How a child that ended of itself ended: by a signal, or with an exit code. */
+    private function endedOf(int $status, Printed $from, Workplace $workplace): End
+    {
         return pcntl_wifsignaled($status)
             ? End::signalled((int) pcntl_wtermsig($status), $this->seconds(), $from->untilNow($workplace))
             : End::exited((int) pcntl_wexitstatus($status), $this->seconds(), $from->untilNow($workplace));

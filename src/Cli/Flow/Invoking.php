@@ -179,7 +179,7 @@ final readonly class Invoking
 
     /**
      * Survivor confirmation (ADR-0008): each survivor run once more, alone,
-     * in a fresh process (ADR-0023) and by the same tests, where
+     * in the pool the tail runs in (ADR-0070) and by the same tests, where
      * `flaky.confirmSurvivors` asks for it, unless it is proven equivalent.
      * Those killed the second time are flaky, and those the time left had no
      * room for are unjudged.
@@ -201,7 +201,7 @@ final readonly class Invoking
             Step::Survivors,
             $fitting,
             fn(): Mutants|CannotJudge => $this->adapters->runner->retry(
-                $this->retimed($request)->across($request->pool()->fresh()),
+                $this->retimed($request)->across($request->pool()->tail()),
                 Mutants::of(...array_slice($survivors, 0, $fitting)),
                 $this->settings->triage()->most(),
             ),

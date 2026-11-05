@@ -36,10 +36,13 @@ use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
+use NightWorksIO\MutationGate\Core\Runner\Pool;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
 use NightWorksIO\MutationGate\Core\Runner\TighterVariables;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -520,4 +523,20 @@ it('runs a mutant a narrowed run killed with no killer again only while some tim
 })->with([
     'none left' => [10.0, 1],
     'half a second left' => [10.5, 2],
+]);
+
+it('runs a doubtful kill again forked from warm workers only where runner.workers forks the tail', function (Workers $workers, array $warm): void {
+    $at = PestCases::project();
+    $shell = PestCases::loadedNothing($at);
+
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), Triage::standard()->bounds())
+        ->mutate(PestCases::money()->across(Pool::of(ProcessCount::single(), $workers)));
+
+    expect(array_map(
+        static fn(Command $command): bool => is_string($command->environment()[GateVariable::Warm->value] ?? null),
+        $shell->commands(),
+    ))->toBe($warm);
+})->with([
+    'fork' => [Workers::Fork, [true, true]],
+    'mutants' => [Workers::Mutants, [true, false]],
 ]);

@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Native\Framework;
 use NightWorksIO\MutationGate\Core\Native\Shell;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\OwnScript;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
@@ -43,12 +44,13 @@ use function trim;
 use function unlink;
 
 /**
- * A mutation run's warm workers (ADR-0023): one in each
- * of the request's places, side by side, each booting once and claiming the
- * runs in turn from a workplace made for this run alone, so nothing an
- * earlier run left there is read as this one's. Once they are done, each run
- * a child ended is judged, every other is left to a fresh process, and the
- * reason a worker's boot was refused is warned of once.
+ * A run's warm workers (ADR-0023): one in each of the request's places,
+ * side by side, each booting once and claiming the runs in turn from a
+ * workplace made for this run alone, so nothing an earlier run left there is
+ * read as this one's. The runs are mutants' or unmutated controls'. Once the
+ * workers are done, each run a child ended is judged, every other is left to
+ * a fresh process, and the reason a worker's boot was refused is warned of
+ * once.
  *
  * @internal
  */
@@ -72,37 +74,64 @@ final readonly class Workforce
     ) {
     }
 
+    /** When a run that has this long stops starting runs, on `hrtime`'s clock: never, where it has no deadline. */
+    public static function endingIn(Seconds|Unlimited $deadline): int|float
+    {
+        return $deadline instanceof Seconds ? hrtime(as_number: true) + $deadline->nanoseconds() : PHP_INT_MAX;
+    }
+
     /**
-     * The runs, by their positions, in warm workers, none started once
-     * `hrtime` reaches the end.
+     * The mutants of the runs, by their positions, as warm workers' children
+     * judged them, none started once `hrtime` reaches the end.
      *
      * @param array<int, PreparedRun> $runs by position
      */
     public function judged(MutationRequest $request, int|float $end, array $runs): Forked
     {
+        $ends = $this->ended($request, $end, $runs);
+        $judged = [];
+        $evidence = Evidences::none();
+
+        foreach ($ends->all() as $at => $ran) {
+            $mutant = $this->run->finished($runs[$at], $ran);
+            $judged[$at] = $mutant;
+            $evidence = $evidence->with($mutant->id(), $this->run->evidenced($runs[$at], $ran, $mutant));
+        }
+
+        return Forked::of($judged, $ends->warnings(), $evidence);
+    }
+
+    /**
+     * How each of the runs, by their positions, ended in warm workers'
+     * children, none started once `hrtime` reaches the end.
+     *
+     * @param array<int, PreparedRun> $runs by position
+     */
+    public function ended(MutationRequest $request, int|float $end, array $runs): WarmEnds
+    {
         $script = $this->framework->workerScript();
 
         if ($runs === [] || $script instanceof NotGiven) {
-            return Forked::nothing();
+            return WarmEnds::none();
         }
 
         $workplace = Workplace::at($this->project->own(sprintf(self::WORKPLACE, getmypid(), hrtime(as_number: true))));
-        $forked = $workplace->opened($this->jobOf($end, array_values($runs)))
-            ? $this->worked($workplace, $script, $request, $this->deadlineOf($end, $runs), $runs)
-            : Forked::nothing();
+        $ends = $workplace->opened($this->jobOf($end, array_values($runs)))
+            ? $this->worked($workplace, $script, $request, $this->deadlineOf($end, $runs), array_keys($runs))
+            : WarmEnds::none();
         $workplace->removed();
 
-        return $forked;
+        return $ends;
     }
 
-    /** @param array<int, PreparedRun> $runs by position */
+    /** @param list<int> $positions each run's position, in the order the job holds them */
     private function worked(
         Workplace $workplace,
         OwnScript $script,
         MutationRequest $request,
         Seconds|Unlimited $deadline,
-        array $runs,
-    ): Forked {
+        array $positions,
+    ): WarmEnds {
         $slots = WorkerSlots::of($request->pool()->processes(), strval(getmypid()));
         $commands = [];
 
@@ -112,24 +141,20 @@ final readonly class Workforce
         }
 
         $ends = $this->shell->sideBySide($slots, Unlimited::time(), ...$commands);
-        $judged = [];
-        $evidence = Evidences::none();
-        $positions = array_keys($runs);
+        $ran = [];
+        $peaks = [];
 
-        foreach (array_values($runs) as $at => $run) {
-            $ran = End::ranIn($workplace, $at);
-
-            if ($ran instanceof Ran) {
-                $mutant = $this->run->finished($run, $ran);
-                $judged[$positions[$at]] = $mutant;
-                $evidence = $evidence->with($mutant->id(), $this->run->evidenced($run, $ran, $mutant));
-            }
+        foreach ($positions as $at => $position) {
+            $ended = End::ranIn($workplace, $at);
+            $peak = End::peakIn($workplace, $at);
+            $ran += $ended instanceof Ran ? [$position => $ended] : [];
+            $peaks += $peak instanceof MemoryCap ? [$position => $peak] : [];
         }
 
         $warnings = $this->refusals($workplace, $ends);
         $this->kept($warnings);
 
-        return Forked::of($judged, $warnings, $evidence);
+        return WarmEnds::of($ran, $peaks, $warnings);
     }
 
     /**

@@ -16,3 +16,8 @@ it('gives a peak of what ru_maxrss counts, and none where it counts none', funct
     expect([MaxRss::peak(1, 'Darwin'), MaxRss::peak(3, 'Linux'), MaxRss::peak(0, 'Linux')])
         ->toEqual([MemoryCap::atLeast(1), MemoryCap::atLeast(3 * 1024), NotGiven::value()]);
 });
+
+it('reads ru_maxrss out of a usage, and 0 out of one that holds none', function (): void {
+    expect(MaxRss::held(['ru_utime.tv_sec' => 1, 'ru_maxrss' => 20480]))->toBe(20480)
+        ->and(MaxRss::held(['ru_utime.tv_sec' => 1]))->toBe(0);
+});

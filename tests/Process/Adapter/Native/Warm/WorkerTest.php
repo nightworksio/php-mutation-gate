@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\Native\Warm\WarmRun;
 use NightWorksIO\MutationGate\Adapter\Native\Warm\Worker;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\PhpUnitBoot;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -38,6 +39,15 @@ it('forks a child for each run it claims, and writes how each ended with what it
     expect($code)->toBe(0)
         ->and($first)->toEqual(Ran::exited(3, 'one')->took(Measured::of($first instanceof Ran ? $first : Ran::stopped(''))))
         ->and($second)->toEqual(Ran::exited(0, 'two')->took(Measured::of($second instanceof Ran ? $second : Ran::stopped(''))));
+})->group(...$holds);
+
+it('writes the most memory a child that ended held, as its end, and none for one it stopped at its limit', function (): void {
+    $workplace = WarmWorkers::place([WarmWorkers::run(['CODE' => '0']), WarmWorkers::run(['CODE' => '0', 'LIMITED' => '1'], limit: 0.2)]);
+
+    Worker::at($workplace->directory(), 0)->run(new PhpUnitBoot(), WarmWorkers::forking('[ -z "$LIMITED" ] || sleep 5; exit "$CODE"', $workplace->out(0)));
+
+    expect(End::peakIn($workplace, 0))->toBeInstanceOf(MemoryCap::class)
+        ->and(End::peakIn($workplace, 1))->toEqual(NotGiven::value());
 })->group(...$holds);
 
 it('writes no end for a run it could start no child for, and claims the next run', function (): void {

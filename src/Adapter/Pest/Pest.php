@@ -249,7 +249,9 @@ final readonly class Pest implements Runner
     /** What each unmutated control finds, its file served through Pest's override (see UnmutatedRuns). */
     public function controls(MutationRequest $request, Controls $controls): ControlRuns|CannotJudge
     {
-        return new UnmutatedRuns($this->project, $this->shell, $this->files)->of($request, $controls);
+        $shell = TailShell::of($this->shell, $this->project, $this->patching, $request);
+
+        return new UnmutatedRuns($this->project, $shell, $this->files)->of($request, $controls);
     }
 
     /**

@@ -8,6 +8,7 @@ use Closure;
 
 use function explode;
 use function file_get_contents;
+use function file_put_contents;
 use function getcwd;
 use function getenv;
 use function getmypid;
@@ -15,16 +16,20 @@ use function hrtime;
 use function is_executable;
 use function is_file;
 use function is_int;
+use function is_string;
 use function max;
 
+use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\WorkerVariable;
 
 use function pcntl_exec;
 use function posix_kill;
 use function sprintf;
 use function str_contains;
+use function strval;
 use function unlink;
 
 /**
@@ -39,6 +44,11 @@ use function unlink;
  */
 final readonly class Client
 {
+    /** What a client is named for a place where it runs in the place its slot tells it (see placeOf). */
+    public const string SLOT = 'slot';
+
+    private const int FIRST = 1;
+
     /**
      * @param Closure(int): void    $pause  pauses this many microseconds between looks, as usleep does
      * @param Closure(string): void $out    prints on the run's standard output
@@ -85,8 +95,36 @@ final readonly class Client
             : NotGiven::value();
 
         return $finish instanceof Finish && ! $finish->isRefused()
-            ? $this->endedAs($finish)
+            ? $this->endedAs($this->peakWritten($finish))
             : $this->fresh($script, $arguments, $environment);
+    }
+
+    /**
+     * The place a client is started for: the one it is named, or, where it is
+     * named for its slot, the one the slot tells it in `TEST_TOKEN`, and the
+     * first where it is told none, as a runner of one process at a time tells
+     * nothing.
+     */
+    public static function placeOf(string $named): int
+    {
+        return $named === self::SLOT
+            ? max(self::FIRST, (int) getenv(WorkerVariable::TestToken->value))
+            : (int) $named;
+    }
+
+    /**
+     * The finish, with the most memory its child held written where the run
+     * is told to write it (see GateVariable::Peak), where it is told.
+     */
+    private function peakWritten(Finish $finish): Finish
+    {
+        $file = getenv(GateVariable::Peak->value);
+
+        if (is_string($file)) {
+            file_put_contents($file, strval($finish->maxRss()));
+        }
+
+        return $finish;
     }
 
     /** How the worker ran the request, printing what it printed; none where the worker went first. */
