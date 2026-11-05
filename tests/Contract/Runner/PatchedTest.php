@@ -309,7 +309,7 @@ it('reports the same four mutants from warm workers, and warns of nothing, with 
 })->skip(fn(): bool => ! function_exists('pcntl_fork') || ! function_exists('posix_kill'), 'warm workers need a PHP that forks')->group(...$holds);
 
 it('reports the same four mutants from warm workers that cache through opcache as from workers that do not', function (bool $caches): void {
-    Patch::applyIn(Library::vendor());
+    Patch::applyIn(Library::vendor(), new PackageDirectory());
     $library = Library::pest(Patching::on(Library::canary())->cachingInWorkers($caches));
     $result = $library->mutate(
         sprintf('money warm %s', $caches ? 'cached' : 'uncached'),

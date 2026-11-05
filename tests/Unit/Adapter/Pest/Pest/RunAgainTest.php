@@ -577,7 +577,7 @@ it('leaves what opcache keeps out beside every forked run, the mutants\' and the
         return $inner->run($command);
     });
 
-    new Pest($at, $shell, PestCases::canary()->cachingInWorkers($caches), new CapDirectory(), Triage::standard()->bounds())
+    new Pest($at, $shell, PestCases::canary()->cachingInWorkers($caches), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())
         ->mutate(PestCases::money()->across(Pool::of(ProcessCount::single(), Workers::Fork)));
 
     expect($seen)->toBe($kept);

@@ -39,8 +39,14 @@ it('removes a socket file nobody answers on before it starts one', function () u
     }
 
     $script = $standIn($project, '');
+    $started = new DaemonStart(ServeSocket::at('.mutation-gate/serve.sock', posix_geteuid()), Seconds::of(0.3))->started($script, $project);
+    $until = microtime(true) + 10.0;
 
-    expect(new DaemonStart(ServeSocket::at('.mutation-gate/serve.sock', posix_geteuid()), Seconds::of(0.3))->started($script, $project))->toBeFalse()
+    while (! file_exists('argv') && microtime(true) < $until) {
+        usleep(10_000);
+    }
+
+    expect($started)->toBeFalse()
         ->and(file_exists('.mutation-gate/serve.sock'))->toBeFalse()
         ->and(file_get_contents('argv'))->toBe('serve --detached');
 });

@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
 use NightWorksIO\MutationGate\Core\Mutant\Ended;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
@@ -159,26 +160,17 @@ final readonly class RecordLine
         ]);
     }
 
-    /** That the own run of the mutant with this mutated copy was stopped where no test finished for this long. */
-    public static function silent(string $mutated, float $seconds): string
-    {
-        return self::line([
-            RecordField::Event->value => RecordEvent::Silent->value,
-            RecordField::Mutated->value => $mutated,
-            RecordField::Seconds->value => $seconds,
-        ]);
-    }
-
     /**
      * That the own run of the mutant with this mutated copy was stopped where
-     * this test of it, by its id, ran past this own limit (ADR-0090).
+     * no test finished for this long, or where this test of it ran past this
+     * own limit (ADR-0090).
      */
-    public static function overran(string $mutated, string $test, float $seconds): string
+    public static function silent(string $mutated, float $seconds, TestId|NotGiven $overran = new NotGiven()): string
     {
         return self::line([
             RecordField::Event->value => RecordEvent::Silent->value,
             RecordField::Mutated->value => $mutated,
-            RecordField::Test->value => $test,
+            ...$overran instanceof TestId ? [RecordField::Test->value => $overran->value()] : [],
             RecordField::Seconds->value => $seconds,
         ]);
     }

@@ -86,7 +86,7 @@ final class Silence
         if (! $past instanceof NotGiven) {
             unset(self::$watched[$id]);
             self::recorded($past instanceof Overrun
-                ? RecordLine::overran($run->mutated(), $past->test()->value(), $past->limit()->seconds())
+                ? RecordLine::silent($run->mutated(), $past->limit()->seconds(), $past->test())
                 : RecordLine::silent($run->mutated(), $past->seconds()));
             $process->setTimeout(Progress::RUN_PAST);
             $process->checkTimeout();
