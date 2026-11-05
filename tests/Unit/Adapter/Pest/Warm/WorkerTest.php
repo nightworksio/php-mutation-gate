@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Pest\ServedClasses;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\Baseline;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Finish;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Forking;
@@ -17,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Tests\Support\Passing;
 use NightWorksIO\MutationGate\Tests\Support\Pauses;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\ServedBox;
 use NightWorksIO\MutationGate\Tests\Support\ShellForking;
 
 afterEach(function (): void {
@@ -143,6 +146,45 @@ it('forks the run of a mutant of a file whose names it has not declared, and loa
     'a class' => ['final class', 'LazyClass'],
     'an interface' => ['interface', 'LazyInterface'],
     'a trait' => ['trait', 'LazyTrait'],
+]);
+
+it('forks the run of a mutant the schema it serves switches, starts a pinned one of a file it serves a schema of fresh, and forks a pinned one of any other', function (bool $serves, bool $schema, string|false $pin, string $warning) use ($seat): void {
+    $at = $seat();
+    $box = ServedBox::registered();
+
+    try {
+        if ($serves) {
+            ServedClasses::serve($box->file, $box->copy);
+            class_exists($box->class);
+        }
+
+        $environment = [
+            Recorder::MUTANT => $box->file,
+            ...$schema ? [GateVariable::Schema->value => $box->copy] : [],
+            ...$pin === false ? [] : [GateVariable::SourcePinned->value => $pin],
+        ];
+        Request::of('42-1', (int) getmypid(), ['vendor/bin/pest'], $environment, (string) getcwd())->leftIn($at->request());
+        Worker::at($at->directory(), 1, Passing::for('0.3'), new Pauses()->pausing())->served(ShellForking::none($at));
+    } finally {
+        ServedClasses::forget($box->file);
+        $box->loader->unregister();
+    }
+
+    unlink($at->pid());
+
+    expect(WarmDirectory::cleared(sprintf('%s/results.jsonl', dirname($at->directory()))))
+        ->toEqual(Warnings::of(Warning::that(sprintf($warning, mb_strtolower($box->class), realpath($box->file)))));
+})->with([
+    'a mutant the schema switches' => [true, true, false, 'The warm worker could not fork, so a mutant ran fresh.'],
+    'a mutant pinned by source' => [
+        true,
+        false,
+        '1',
+        'The warm worker serves a schema for %2$s, which would hide its mutant pinned by source, so it ran fresh.',
+    ],
+    'a mutant the schema does not switch' => [true, false, false, 'The warm worker had declared %s, which %s declares, so its mutants ran fresh.'],
+    'a mutant told an empty pin' => [true, false, '', 'The warm worker had declared %s, which %s declares, so its mutants ran fresh.'],
+    'a mutant pinned by source of a file it serves nothing of' => [false, false, '1', 'The warm worker could not fork, so a mutant ran fresh.'],
 ]);
 
 it('starts fresh, and warns of it, a run it could fork no child for', function () use ($seat, $request, $warned): void {

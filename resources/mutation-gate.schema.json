@@ -2098,6 +2098,10 @@
                 "schemata": {
                     "type": "boolean",
                     "default": true
+                },
+                "bootMutants": {
+                    "type": "boolean",
+                    "default": true
                 }
             },
             "additionalProperties": false
@@ -4414,6 +4418,9 @@
                             "type": "boolean"
                         },
                         "schemata": {
+                            "type": "boolean"
+                        },
+                        "bootMutants": {
                             "type": "boolean"
                         }
                     },

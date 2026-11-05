@@ -165,7 +165,7 @@ it('compiles each file\'s mutants into a schema and serves a switched mutant the
         ->and($source($at, 'MutationTest.php'))
         ->toContain(sprintf('$envs = [...$envs, ...\\%s::variablesOf($this->mutation)];', Schemata::class))
         ->and($source($at, 'Plugins/Mutate.php'))
-        ->toContain(sprintf('$copy = class_exists(\\%1$s::class) ? \\%1$s::inForce($copy) : $copy;', Schemata::class));
+        ->toContain(sprintf('$copy = class_exists(\\%1$s::class) ? \\%1$s::inForce($original, $copy) : $copy;', Schemata::class));
 });
 
 it('has each mutant\'s run select exactly the tests that cover it, a row of a data set alone, named whole by the map Pest loaded', function () use ($vendor, $source): void {
@@ -191,7 +191,7 @@ it('serves a class Composer autoloads by an autoloader, and starts the wrapper f
     $at = $vendor();
     Patch::applyIn($at, new PackageDirectory());
 
-    expect($source($at, 'Plugins/Mutate.php'))->toContain(sprintf('if ($pinned || ! class_exists(\\%1$s::class) || ! \\%1$s::serve($original, $copy)) {', ServedClasses::class))
+    expect($source($at, 'Plugins/Mutate.php'))->toContain(sprintf('if ($copy !== \'\' && ($pinned || ! class_exists(\\%1$s::class) || ! \\%1$s::serve($original, $copy))) {', ServedClasses::class))
         ->and($source($at, 'Plugins/Mutate.php'))->toContain(sprintf("\$pinned = (string) getenv('%s') !== '';\n", GateVariable::SourcePinned->value))
         ->and($source($at, 'Plugins/Mutate.php'))->toContain('StreamWrapper::start(getenv(self::ENV_MUTATION_TESTING), $copy);')
         ->and($source($at, 'MutationTest.php'))->toContain(sprintf(

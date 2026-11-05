@@ -16,6 +16,7 @@ declare(strict_types=1);
 // of its test databases, and runs Pest's script as a fresh process runs it.
 
 use NightWorksIO\MutationGate\Adapter\Native\Warm\BootCheck;
+use NightWorksIO\MutationGate\Adapter\Pest\Schemata;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Booted;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\BootSpec;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\Baseline;
@@ -109,6 +110,12 @@ $boot = static function () use ($directory): string {
     require_once $spec->autoloader();
 
     Booted::booting();
+
+    if ($spec->isForMutants()) {
+        Booted::leavingPlugins();
+        Schemata::servedIn($directory);
+    }
+
     Kernel::boot(
         TestSuite::getInstance($spec->root(), 'tests'),
         new ArgvInput([$spec->script()]),
@@ -126,17 +133,15 @@ $boot = static function () use ($directory): string {
                 require_once $bootstrap;
             }
 
-            new TestSuiteMapper(Facade::emitter())->map($config, $xml->testSuite(), $suites, []);
+            if (! $spec->isForMutants()) {
+                new TestSuiteMapper(Facade::emitter())->map($config, $xml->testSuite(), $suites, []);
+            }
         }
     } catch (XmlConfigurationException|TextUiRuntimeException|TestDirectoryNotFoundException|TestFileNotFoundException $unread) {
-        $refused = sprintf('The tail\'s warm worker could not read the tests %s names, so its runs ran fresh: %s', $config, $unread->getMessage());
+        $refused = $reading->unread($config, $unread->getMessage());
     }
 
-    $opened = BootCheck::open() - $held;
-
-    return $refused === '' && $opened > 0
-        ? sprintf('The tail\'s warm worker left %d socket open once it booted, which every child would share, so its runs ran fresh.', $opened)
-        : $refused;
+    return $refused !== '' ? $refused : $reading->leftOpen(BootCheck::open() - $held);
 };
 
 exit(Worker::at($directory, (int) $place, (int) $parent, usleep(...))->booting($boot)->served(new class implements Forking {

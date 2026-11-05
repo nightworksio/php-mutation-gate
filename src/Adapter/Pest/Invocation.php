@@ -258,9 +258,10 @@ final readonly class Invocation
     }
 
     /**
-     * What a warm worker of the verification tail boots to fork the runs of
-     * every test file of these suites from (ADR-0075): Composer's autoloader
-     * in the project's vendor directory, and Pest's script there.
+     * What a booted warm worker boots to fork the runs of these suites from:
+     * Composer's autoloader in the project's vendor directory, and Pest's
+     * script there; every test file of the suites, for the verification
+     * tail's (ADR-0075).
      *
      * @param list<string> $suites
      */

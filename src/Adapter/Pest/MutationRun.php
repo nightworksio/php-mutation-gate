@@ -324,7 +324,7 @@ final readonly class MutationRun
             OpcacheBlacklist::of($this->project, $request)->leftIn($warm);
         }
 
-        TailBoot::of($this->project, $this->patching)->leftFor($request, $command, $this->narrows(), $warm);
+        WorkerBoot::of($this->project, $this->patching)->leftFor($request, $command, $this->narrows(), $warm);
         $ran = $this->shell->run(
             $command->with($told),
             new MutantsProgress($results, $handOff instanceof HandOff ? $handOff : new Unwatched()),

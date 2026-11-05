@@ -82,6 +82,17 @@ it('compiles schemata under the patch unless the options turn them off, and neve
         ->toEqual(Invalid::because(Problem::at('schemata', 'expected true or false, got "yes"')));
 });
 
+it('boots mutants\' workers under the patch unless the options turn it off, and never unpatched', function (): void {
+    $booting = PestOptions::read(Configs::options('{"patch": true}'));
+    $off = PestOptions::read(Configs::options('{"patch": true, "bootMutants": false}'));
+    $unpatched = PestOptions::read(Configs::options('{"patch": false, "bootMutants": true}'));
+
+    expect(array_map(static fn(PestOptions|Invalid $read): bool => $read instanceof PestOptions && $read->patching()->bootsMutants(), [$booting, $off, $unpatched]))
+        ->toBe([true, false, false])
+        ->and(PestOptions::read(Configs::options('{"bootMutants": "yes"}')))
+        ->toEqual(Invalid::because(Problem::at('bootMutants', 'expected true or false, got "yes"')));
+});
+
 it('stays unpatched when the config says so', function (): void {
     $read = PestOptions::read(Configs::options('{"patch": false, "canary": "smoke"}'));
 

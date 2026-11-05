@@ -47,6 +47,12 @@ function booting(string $root, array $suites = []): PestBoot
     return PestBoot::of(BootSpec::of($root, sprintf('%s/vendor/autoload.php', $root), 'vendor/pestphp/pest/bin/pest', $suites));
 }
 
+/** What a worker of mutants' runs of the project boots. */
+function bootingMutants(string $root): PestBoot
+{
+    return PestBoot::of(BootSpec::of($root, sprintf('%s/vendor/autoload.php', $root), 'vendor/pestphp/pest/bin/pest', [])->forMutants());
+}
+
 it('finds the PHPUnit config by the names PHPUnit looks for, in its order, and none where there is none', function (): void {
     $dist = bootedProject(name: 'phpunit.xml.dist');
     $both = bootedProject(name: 'phpunit.dist.xml');
@@ -93,4 +99,26 @@ it('refuses a boot of a config that caches PHPUnit\'s test index, where PHPUnit 
 
     expect(booting($indexed)->refusal(bootedConfig($indexed)))->toBe($cached ? $refused : '')
         ->and(booting($plain)->refusal(bootedConfig($plain)))->toBe('');
+});
+
+it('forks unbooted, saying nothing, where a worker of mutants\' runs finds no config, and refuses no config that caches the test index', function (): void {
+    $none = Scratch::directory();
+    $indexed = bootedProject('cacheDirectory=".cache" cacheTestIndex="true"');
+
+    expect(bootingMutants($none)->unconfigured())->toBe('')
+        ->and(bootingMutants($indexed)->refusal(bootedConfig($indexed)))->toBe('');
+});
+
+it('names the worker whose runs ran fresh where it could not read the tests, or its boot left a socket open, and says nothing of none left', function (): void {
+    $root = bootedProject();
+
+    expect([booting($root)->unread('/p/phpunit.xml', 'no tests'), bootingMutants($root)->unread('/p/phpunit.xml', 'no tests')])->toBe([
+        "The tail's warm worker could not read the tests /p/phpunit.xml names, so its runs ran fresh: no tests",
+        "A warm worker of mutants' runs could not read the tests /p/phpunit.xml names, so its runs ran fresh: no tests",
+    ])
+        ->and([booting($root)->leftOpen(1), bootingMutants($root)->leftOpen(2), booting($root)->leftOpen(0)])->toBe([
+            "The tail's warm worker left 1 socket open once it booted, which every child would share, so its runs ran fresh.",
+            "A warm worker of mutants' runs left 2 socket open once it booted, which every child would share, so its runs ran fresh.",
+            '',
+        ]);
 });

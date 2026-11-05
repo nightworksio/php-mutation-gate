@@ -63,6 +63,7 @@ final readonly class PestOptions
         $bootTail = $options->flag(Key::of(ConfigPest::BOOT_TAIL));
         $opcache = $options->flag(Key::of(ConfigPest::WORKER_OPCACHE));
         $schemata = $options->flag(Key::of(ConfigPest::SCHEMATA));
+        $bootMutants = $options->flag(Key::of(ConfigPest::BOOT_MUTANTS));
         $tests = $options->paths(Key::of(self::TESTS));
         $mutators = $options->texts(Key::of(self::MUTATORS));
         $bounds = BoundsOptions::read($options);
@@ -73,6 +74,7 @@ final readonly class PestOptions
             $bootTail instanceof Problem => Invalid::because($bootTail),
             $opcache instanceof Problem => Invalid::because($opcache),
             $schemata instanceof Problem => Invalid::because($schemata),
+            $bootMutants instanceof Problem => Invalid::because($bootMutants),
             $tests instanceof Problem => Invalid::because($tests),
             $mutators instanceof Problem => Invalid::because($mutators),
             $bounds instanceof Problem => Invalid::because($bounds),
@@ -80,7 +82,8 @@ final readonly class PestOptions
                 self::patchingOf($patch, $canary)
                     ->bootingTail($bootTail === true)
                     ->cachingInWorkers($opcache !== false)
-                    ->compilingSchemata($schemata !== false),
+                    ->compilingSchemata($schemata !== false)
+                    ->bootingMutants($bootMutants !== false),
                 $tests instanceof NotGiven ? Paths::of(TestsDirectory::conventional()) : $tests,
                 self::bridgesTo($mutators instanceof Listed ? [...$mutators] : []),
                 $bounds,

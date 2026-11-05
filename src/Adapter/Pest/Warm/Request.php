@@ -8,6 +8,7 @@ use function array_key_exists;
 use function array_map;
 use function is_file;
 
+use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
@@ -112,6 +113,22 @@ final readonly class Request
     public function mutated(): string
     {
         return array_key_exists(Recorder::MUTANT, $this->environment) ? $this->environment[Recorder::MUTANT] : '';
+    }
+
+    /** The schema the run's mutant is served, by its path; none where its file's schema does not switch it. */
+    public function schema(): string
+    {
+        $schema = GateVariable::Schema->value;
+
+        return array_key_exists($schema, $this->environment) ? $this->environment[$schema] : '';
+    }
+
+    /** Whether the run's mutant is pinned by source, served through the wrapper its test reads it by (ADR-0021). */
+    public function isPinnedBySource(): bool
+    {
+        $pinned = GateVariable::SourcePinned->value;
+
+        return array_key_exists($pinned, $this->environment) && $this->environment[$pinned] !== '';
     }
 
     private static function read(Node $at): self

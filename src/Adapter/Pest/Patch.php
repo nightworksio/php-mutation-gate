@@ -61,12 +61,13 @@ use function sprintf;
  * - Where the gate names a directory for warm workers, each mutant's own run
  *   is asked of its place's worker, which runs it in a child forked from a
  *   process booted once (see Warm\Pool).
- * - In Pest itself, a child forked from a warm worker of the verification
- *   tail that booted the project keeps the test suite its worker built,
- *   skips the bootstrappers and plugins its worker ran, and finds each test
- *   file where its worker found it; a booting worker leaves the kernel dump
- *   to each child, and a kernel shuts down only in the process that booted
- *   it (see Warm\Booted, ADR-0075). An unbooted process runs as it ships.
+ * - In Pest itself, a child forked from a warm worker that booted the
+ *   project keeps the test suite its worker built, skips the bootstrappers
+ *   its worker ran, and finds each test file where its worker found it; the
+ *   plugins boot once, in a tail's worker (ADR-0075) or in each child of a
+ *   mutants' worker (ADR-0091); a booting worker leaves the kernel dump to
+ *   each child, and a kernel shuts down only in the process that booted it
+ *   (see Warm\Booted). An unbooted process runs as it ships.
  * - A file whose every class Composer autoloads, none loaded yet, is served
  *   with no override: an autoloader loads its mutated copy in its place (see
  *   ServedClasses). A mutant whose mutator is pinned by source is still
@@ -163,9 +164,9 @@ final readonly class Patch
                     $pinned = (string) getenv('%2$s') !== '';
 
                     {MARK} a mutant its file's schema switches is served the schema, its switch in force.
-                    $copy = class_exists(\%3$s::class) ? \%3$s::inForce($copy) : $copy;
+                    $copy = class_exists(\%3$s::class) ? \%3$s::inForce($original, $copy) : $copy;
 
-                    if ($pinned || ! class_exists(\%1$s::class) || ! \%1$s::serve($original, $copy)) {
+                    if ($copy !== '' && ($pinned || ! class_exists(\%1$s::class) || ! \%1$s::serve($original, $copy))) {
                         // @phpstan-ignore-next-line
                         StreamWrapper::start(getenv(self::ENV_MUTATION_TESTING), $copy);
                     }
@@ -495,8 +496,8 @@ final readonly class Patch
         PHP;
 
     private const string PLUGINS_BECOMES = <<<'PHP'
-                {MARK} a booted worker's child boots none of the plugins its worker booted.
-                if (! class_exists(\%1$s::class, false) || ! \%1$s::isForked()) {
+                {MARK} plugins boot once: in a tail's booted worker, or in each child of a mutants' worker.
+                if (! class_exists(\%1$s::class, false) || \%1$s::bootsPlugins()) {
                     CallsBoot::execute();
                 }
         PHP;

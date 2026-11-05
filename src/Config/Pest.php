@@ -55,7 +55,22 @@ final readonly class Pest implements Setting
         return new self(Json::at('pest.schemata', value: false));
     }
 
-    /** `pest.bootTail`: the verification tail's workers boot nothing of the project, as mutants' do. */
+    /**
+     * `pest.bootMutants`, as by default: the workers of mutants' own runs boot
+     * the project, no test file loaded, before they fork (ADR-0091).
+     */
+    public static function bootingMutants(): self
+    {
+        return new self(Json::at('pest.bootMutants', value: true));
+    }
+
+    /** `pest.bootMutants` off: each child of a mutants' worker boots the project as a fresh run does. */
+    public static function mutantsUnbooted(): self
+    {
+        return new self(Json::at('pest.bootMutants', value: false));
+    }
+
+    /** `pest.bootTail`: the verification tail's workers boot nothing of the project. */
     public static function tailUnbooted(): self
     {
         return new self(Json::at('pest.bootTail', value: false));

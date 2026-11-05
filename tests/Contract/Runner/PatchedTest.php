@@ -349,6 +349,28 @@ it('reports the same records for every mutant Pest makes of the library\'s files
     'the runner contracts job installs the fixture library, and warm workers need a PHP that forks',
 )->group(...$holds);
 
+it('reports the same records for every mutant Pest makes of the library\'s files from mutants\' workers that boot the project as from workers that do not', function (): void {
+    Patch::applyIn(Library::vendor(), new PackageDirectory());
+    $records = static function (bool $boots): array {
+        $result = Library::pest(Patching::on(Library::canary())->bootingMutants($boots))->mutate(
+            sprintf('every mutant %s', $boots ? 'booted' : 'unbooted'),
+            MutationRequest::of(Paths::of(Path::of('src/Money.php'), Path::of('src/Shapes.php')), WholeSuite::tests())
+                ->across(Pool::of(ProcessCount::of(2), Workers::Fork)),
+        );
+
+        return $result instanceof MutationResult ? [Library::records($result->mutants()), [...$result->warnings()]] : [[$result], ['cannot judge']];
+    };
+    [$unbooted] = $records(boots: false);
+    [$booted, $warned] = $records(boots: true);
+
+    expect($booted)->toEqualCanonicalizing($unbooted)
+        ->and(count($unbooted))->toBeGreaterThan(4)
+        ->and($warned)->toBe([]);
+})->skip(
+    fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
+    'the runner contracts job installs the fixture library, and warm workers need a PHP that forks',
+)->group(...$holds);
+
 it('holds the library to the pest-plugin-mutate the package allows', function (): void {
     $conflict = static function (string $manifest): mixed {
         $decoded = json_decode((string) file_get_contents(Tree::at($manifest)), associative: true);

@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-11-05
-**Amends:** [0004](0004-pest-and-infection-behind-one-runner-port.md): how a patched Pest serves a mutant, for a mutant its file's schema switches
+**Amends:** [0004](0004-pest-and-infection-behind-one-runner-port.md): how a patched Pest serves a mutant, for a mutant its file's schema switches; [0023](0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md): what a patched Pest's worker of mutants' runs boots before it forks
 
 ## Context
 
@@ -46,6 +46,22 @@ same for every mutant and only the switch differs.
    through the same serving as a copy (ADR-0004); its records, limits and
    evidence stay keyed by its own copy, which Pest still writes for its id
    and its diff.
+5. **`pest.bootMutants`, true by default, boots each worker of mutants'
+   runs** under `pest.patch`, where `runner.workers` forks them. Before it
+   forks, the worker loads Composer's autoloader, serves each file's schema
+   in the file's place through an autoloader put before Composer's, boots
+   Pest's kernel, and applies the PHPUnit config's PHP settings and runs its
+   bootstraps, for the suites the run names, as a fresh run does up to its
+   first test. It loads no test file and boots none of Pest's plugins. Each
+   child boots the plugins, which its run's variables tell what to record,
+   and loads the test files its run selects, as a fresh run does. A child of
+   a mutant its file's schema switches is served nothing more: its switch is
+   set, and the schema the worker serves is in force. Any other mutant of a
+   file the worker loaded or declared from, and a mutant pinned by source of
+   a file whose schema the worker serves, runs fresh, as ADR-0023's workers
+   run a mutant of a file they loaded. A project with no PHPUnit config has
+   each run forked unbooted; a boot that leaves a socket open has every run
+   start fresh.
 
 ### Why a mutant under a schema runs as under its own copy
 
@@ -60,15 +76,34 @@ same for every mutant and only the switch differs.
   statement or item it replaces: a constant context, a write, a reference, a
   conditional declaration, a renumbered key.
 
+### Why a booted worker's child runs as a fresh run does
+
+- **The same boot, once.** The worker runs what a fresh run runs before its
+  first test, in the order it runs it; the child skips only what the worker
+  ran, as a booted tail's child does (ADR-0075), and runs the rest itself.
+- **Nothing a mutant changes is loaded before it is in force.** The worker
+  loads a mutated file only as its schema, whose sites all run their
+  originals until a child sets its switch; a file loaded any other way runs
+  its mutants fresh, as does a mutant pinned by source, which its test reads
+  through the file the schema's autoloader would pass by.
+- **What records stays per child.** The plugins, which record kills,
+  evidence and timings, boot in the child from its own variables, and the
+  test files load in the child, so a run's selection and order are its own.
+
 `PatchedTest`, in the runner contract, runs every mutant Pest makes of the
-library's files with schemata and with copies, with a real patched Pest, and
-fails where their records differ.
+library's files with schemata and with copies, and from mutants' workers that
+boot the project and from workers that do not, with a real patched Pest, and
+fails where their records differ or a booted worker warns of a run it started
+fresh.
 
 ## Consequences
 
 - Every mutant of a file runs the one file, so a worker that loads the file
-  before it forks can serve every mutant of it; the booted mutant worker
-  builds on this.
+  before it forks serves every mutant of it; a child of a booted worker of
+  mutants' runs starts at its first test file rather than at Pest's script.
+- A bootstrap with an effect each run needs afresh, beyond PHP's state, runs
+  once per worker; `pest.bootMutants: false` has each child boot as a fresh
+  run does.
 - A mutant cache Pest kept locally is not read while schemata are on.
 
 ## Alternatives considered
@@ -76,5 +111,6 @@ fails where their records differ.
 | Alternative | Why not |
 | --- | --- |
 | A switch read from the environment in every site | A call to `getenv` per evaluation is slow in a hot loop; the switch is a static int the runner sets once. |
+| Load every test file in a mutants' worker, as a booted tail's does | A mutant's run selects only its covering tests' files; loading every file would run each file's top-level code in runs that never load it fresh. |
 | Splice by re-printing the whole file with php-parser's format-preserving printer | It reprints every changed ancestor, so a nested site's original loses its own text and lines move; splicing by the original's offsets keeps both. |
 | Switch every site, falling back at runtime | A constant expression or a default cannot hold a call at all; the file would not compile. |
