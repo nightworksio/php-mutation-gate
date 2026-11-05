@@ -43,7 +43,7 @@ it('puts the files that fell after the trees in the pull request comment, and le
     $verdict = Verdicts::failing();
     $comment = Markdown::comment($verdict->withAccount($verdict->account()->withHeatmap(Heatmaps::fallen())));
 
-    expect($comment)->toContain("### Files that fell (2)\n\n| File | Score | Against the base | Lowest functions |")
+    expect($comment)->toContain("### Files that fell, or sit below their floor (2)\n\n| File | Score | Against the base | Lowest functions |")
         ->and(explode('### Files that fell', $comment, 2)[0])->toContain('| Tree |')
-        ->and(Markdown::comment($verdict))->not->toContain('Files that fell');
+        ->and(Markdown::comment($verdict))->not->toContain("Files that fell");
 });

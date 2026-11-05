@@ -109,7 +109,10 @@ final readonly class Markdown
                 MarkdownItems::details(array_slice($secured, 0, $shown), count($secured), $overview->gate()),
             ),
             ...$sets,
-            ...self::section(sprintf('Files that fell (%d)', count($fallen)), HeatmapMarkdown::table($fallen)),
+            ...self::section(
+                sprintf('Files that fell, or sit below their floor (%d)', count($fallen)),
+                HeatmapMarkdown::table($fallen),
+            ),
             ...self::section(
                 sprintf('Survivors on changed lines (%d)', count($changed)),
                 MarkdownItems::owned(
