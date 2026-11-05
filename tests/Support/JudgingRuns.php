@@ -294,7 +294,7 @@ final readonly class JudgingRuns
             new TreeSourceFake(Trees::of(Tree::at(Path::of('src'), $floor, Package::at(Path::root())))),
             ...$ports,
         );
-        $settings = self::settings(Equivalence::notProvenStatically(), Reach::stoppingWhenDoomed());
+        $settings = self::settings(Equivalence::notProvenStatically(), Reach::failFastStopping());
         new Handoff($adapters->project, HandedMaps::limits())->write($plan, Flows::map(), KillHistory::none(), Unplaced::map());
 
         foreach ($cancelled ? [1] : [1, 2] as $shard) {

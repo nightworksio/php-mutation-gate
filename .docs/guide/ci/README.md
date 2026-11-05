@@ -55,26 +55,34 @@ Schema, and the Jenkinsfile, which has no schema, with a snapshot test.
 ## A pull request that cannot pass
 
 A pull request's run mutates every unit it planned, and the verdict names
-every survivor, so one run lists everything to fix. With
-`run.stopWhenDoomed: true`, a pull request's shard instead stops once its run
-cannot pass, which saves runner minutes on a run that fails anyway. That is a
-survivor
-that did not prove flaky, that no ignore leaves out and that is not proven
-equivalent, where its tree's floor is 100, or its line is one the change
-added or modified and the new-code floor is 100. It stops only where no
-static analysis can clear such a survivor: `equivalence.static` is `false`
-and `staticCheck.tool` is `none`. The shard runs its units riskiest first,
-in chunks of about fifteen minutes of expected work, and stops after the chunk
-that confirms such a survivor. Its result names the survivor under `doomed`
-in `.mutation-gate/results/<id>.json`:
+every survivor, so one run lists everything to fix. Its shard still fails as
+soon as it can tell the run cannot pass, as `run.failFast` says (ADR-0103).
+The run cannot pass once a survivor did not prove flaky, no ignore leaves it
+out, static analysis neither killed it nor proved it equivalent, and its
+tree's floor is 100, or its line is one the change added or modified and the
+new-code floor is 100.
+
+- `mark`, the default: the shard judges every unit, then fails, and the
+  verdict warns how many runner minutes `stop` and `cancel` would have saved.
+- `stop`: the shard runs its units riskiest first, in chunks of about fifteen
+  minutes of expected work, and stops after the chunk that confirms such a
+  survivor, which saves runner minutes on a run that fails anyway.
+- `cancel`: as `stop`, and in the reusable workflow GitHub then cancels the
+  other shards of the matrix; on any other CI it acts as `stop`.
+- `off`: the shard passes, and the verdict alone fails.
+
+Its result names the survivor under `doomed` in
+`.mutation-gate/results/<id>.json`:
 
 ```json
-"doomed": {"unit": "src/Money.php", "mutant": "3f9c2a1b7d4e", "tree": "src", "floor": 100, "why": "tree"}
+"doomed": {"unit": "src/Money.php", "mutant": "3f9c2a1b7d4e", "tree": "src", "floor": 100, "why": "tree", "after": 412.5, "stopped": true}
 ```
 
-`why` is `tree` or `newCode`. A CI step that reads only that result, and
-runs none of the project's code, fails the shard's job; the other shards run
-on, each to its end or its own sure survivor. The verdict reads a shard that
-left no result beside a doomed one as stopped.
+`why` is `tree` or `newCode`, `after` the seconds into its mutating the shard
+found the survivor, and `stopped` whether it stopped there. A CI step that
+reads only that result, and runs none of the project's code, fails the
+shard's job; the other shards run on, each to its end or its own sure
+survivor, unless `cancel` cancels them. The verdict reads a shard that left
+no result beside one that stopped as stopped.
 The units the run did not mutate count by their newest results, as under a
 budget, and the verdict fails naming the survivor.

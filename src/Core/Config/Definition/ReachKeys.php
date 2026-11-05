@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\ChangedTests;
 use NightWorksIO\MutationGate\Core\Config\Effect;
+use NightWorksIO\MutationGate\Core\Config\FailFast;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
@@ -45,7 +46,7 @@ final readonly class ReachKeys
         $fixtures = Field::optional('fixtures', Items::of(Pattern::glob($origin)), Effect::DecidesHowTheGateRuns);
         $hotPath = Field::optional('hotPath', Number::between(0, 1), $judges);
         $full = Field::optional('full', Flag::boolean(), Effect::DecidesHowTheGateRuns);
-        $stopWhenDoomed = Field::optional('stopWhenDoomed', Flag::boolean(), $judges);
+        $failFast = Field::optional('failFast', Enumerated::of(FailFast::cases()), $judges);
 
         return [
             Field::optional(
@@ -99,20 +100,20 @@ final readonly class ReachKeys
             Field::section(
                 'run',
                 Section::of(
-                    static function (Node $run) use ($full, $stopWhenDoomed): Layer|Invalid {
+                    static function (Node $run) use ($full, $failFast): Layer|Invalid {
                         $considered = $full->read($run);
-                        $stopping = $stopWhenDoomed->read($run);
+                        $stopping = $failFast->read($run);
 
                         return Reading::built(
                             static fn(): Layer => Layer::of(
-                                Reach::of(full: $considered->value(), stopWhenDoomed: $stopping->value()),
+                                Reach::of(full: $considered->value(), failFast: $stopping->value()),
                             ),
                             $considered,
                             $stopping,
                         );
                     },
                     $full,
-                    $stopWhenDoomed,
+                    $failFast,
                 ),
             ),
         ];

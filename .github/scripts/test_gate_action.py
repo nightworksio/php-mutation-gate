@@ -278,6 +278,11 @@ class PestPatch(unittest.TestCase):
 
 
 class InfectionPatch(unittest.TestCase):
+    def test_reads_what_a_doomed_shard_does_and_marks_where_the_config_names_nothing(self):
+        self.assertEqual(action.fail_fast({"run": {"failFast": "cancel"}}), "cancel")
+        self.assertEqual(action.fail_fast({"run": {"full": True}}), "mark")
+        self.assertEqual(action.fail_fast({}), "mark")
+
     def test_patches_where_the_config_runs_infection(self):
         self.assertTrue(action.patches_infection({"runner": {"use": "infection", "memory": "1G"}}))
 
@@ -306,14 +311,18 @@ class InfectionPatch(unittest.TestCase):
 
 class Doomed(unittest.TestCase):
     def test_names_the_survivor_a_doomed_shard_stopped_on(self):
-        result = {"doomed": {"unit": "src/Money.php", "mutant": "a1b2c3d4e5f6", "tree": "src", "floor": "100%", "why": "tree"}}
+        result = {"doomed": {"unit": "src/Money.php", "mutant": "a1b2c3d4e5f6", "tree": "src", "floor": "100%", "why": "tree", "stopped": True}}
 
         why = action.doomed(result)
 
         self.assertIsNotNone(why)
-        self.assertIn("a1b2c3d4e5f6", why)
-        self.assertIn("src/Money.php", why)
+        self.assertTrue(why.startswith("Shard stopped: survivor a1b2c3d4e5f6 in src/Money.php"))
         self.assertIn("src below its floor of 100%", why)
+
+    def test_says_a_marking_shard_judged_every_unit_before_it_fails(self):
+        result = {"doomed": {"unit": "src/Money.php", "mutant": "a1b2c3d4e5f6", "tree": "src", "floor": "100%", "why": "tree", "stopped": False}}
+
+        self.assertTrue(action.doomed(result).startswith("Shard judged every unit, and fails: survivor a1b2c3d4e5f6"))
 
     def test_names_nothing_where_the_shard_ran_to_its_end(self):
         self.assertIsNone(action.doomed({"shard": 1, "mutants": []}))

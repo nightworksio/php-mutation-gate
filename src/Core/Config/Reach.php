@@ -23,7 +23,7 @@ use function sprintf;
  * share of the suite past which code nothing holds is warned about,
  * `holds.hotPath`, whether a run given no mode considers every unit,
  * `run.full`, rather than what changed since its last passing commit,
- * whether a pull request's run stops once it cannot pass, `run.stopWhenDoomed`,
+ * what a pull request's shard does once it cannot pass, `run.failFast`,
  * which mutators a reached unit whose content is unchanged leaves out,
  * `pruning`, and how a sampled run sizes and draws its sample, `sampling`.
  */
@@ -43,7 +43,7 @@ final readonly class Reach implements Part
         private Pruning $pruning,
         private Listed|Absent $lockPackages,
         private Sampling $sampling,
-        private bool|Absent $stopWhenDoomed,
+        private FailFast|Absent $failFast,
         private ChangedTests|Absent $changedTests,
         private Listed|Absent $fixtures,
     ) {
@@ -63,7 +63,7 @@ final readonly class Reach implements Part
         Pruning|Absent $pruning = new Absent(),
         Listed|Absent $lockPackages = new Absent(),
         Sampling|Absent $sampling = new Absent(),
-        bool|Absent $stopWhenDoomed = new Absent(),
+        FailFast|Absent $failFast = new Absent(),
         ChangedTests|Absent $changedTests = new Absent(),
         Listed|Absent $fixtures = new Absent(),
     ): self {
@@ -78,7 +78,7 @@ final readonly class Reach implements Part
             $set,
             $lockPackages,
             $drawn,
-            $stopWhenDoomed,
+            $failFast,
             $changedTests,
             $fixtures,
         );
@@ -103,7 +103,7 @@ final readonly class Reach implements Part
             $none->isFullByDefault(),
             Pruning::of($pruning->enabled(), $pruning->window()->mutants(), $pruning->audit()),
             sampling: Sampling::of($sampling->confidence(), $sampling->margin(), $sampling->minUnits()),
-            stopWhenDoomed: $none->stopsWhenDoomed(),
+            failFast: $none->failFast(),
             changedTests: $none->changedTests(),
             fixtures: $none->fixtures(),
         );
@@ -120,7 +120,7 @@ final readonly class Reach implements Part
                 $this->pruning->over($later->pruning),
                 $this->joinedNames($this->lockPackages, $later->lockPackages),
                 $this->sampling->over($later->sampling),
-                Absent::laid($this->stopWhenDoomed, $later->stopWhenDoomed),
+                Absent::laid($this->failFast, $later->failFast),
                 Absent::laid($this->changedTests, $later->changedTests),
                 $this->joined($this->fixtures, $later->fixtures),
             )
@@ -182,12 +182,12 @@ final readonly class Reach implements Part
     }
 
     /**
-     * Whether a pull request's run stops once one of its survivors leaves it no way to pass, its other units left
-     * unjudged; otherwise it runs to its end and names every survivor (ADR-0008).
+     * What a pull request's shard does once one of its confirmed survivors leaves it no way to pass: by default it
+     * judges every unit and then fails (ADR-0008, ADR-0103).
      */
-    public function stopsWhenDoomed(): bool
+    public function failFast(): FailFast
     {
-        return $this->stopWhenDoomed === true;
+        return $this->failFast instanceof FailFast ? $this->failFast : FailFast::Mark;
     }
 
     /** `pruning`: which mutators a reached unit whose content is unchanged leaves out (ADR-0025). */
@@ -241,7 +241,13 @@ final readonly class Reach implements Part
             Member::unlessEmpty('holds', Json::object(Member::of('hotPath', $this->hotPath))),
             Member::unlessEmpty(
                 'run',
-                Json::object(Member::of('full', $this->full), Member::of('stopWhenDoomed', $this->stopWhenDoomed)),
+                Json::object(
+                    Member::of('full', $this->full),
+                    Member::of(
+                        'failFast',
+                        $this->failFast instanceof FailFast ? $this->failFast->value : $this->failFast,
+                    ),
+                ),
             ),
             $this->pruning->written(),
             $this->sampling->written(),
@@ -276,11 +282,7 @@ final readonly class Reach implements Part
             default => [],
         };
 
-        $stopping = match ($this->stopWhenDoomed) {
-            true => ['Reach::stoppingWhenDoomed()'],
-            false => ['Reach::runningToTheEnd()'],
-            default => [],
-        };
+        $stopping = $this->failFast instanceof FailFast ? [$this->failFast->php()] : [];
 
         $calls = PhpCalls::inWith(
             ...$packages,

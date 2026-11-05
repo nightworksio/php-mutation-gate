@@ -11,7 +11,6 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
-use NightWorksIO\MutationGate\Core\Verdict\Doomed;
 
 use function sprintf;
 
@@ -43,7 +42,7 @@ final readonly class PartitionedRuns
         $outcome = NotGiven::value();
 
         foreach ($groups as $index => $group) {
-            if ($outcome instanceof Mutated && $outcome->doomed instanceof Doomed) {
+            if ($outcome instanceof Mutated && $outcome->doomed->stopped()) {
                 return $outcome->leaving($groups->unitsFrom($index));
             }
 

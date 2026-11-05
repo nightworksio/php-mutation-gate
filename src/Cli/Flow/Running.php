@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
-use Closure;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistory;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
@@ -50,7 +49,6 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Doom;
-use NightWorksIO\MutationGate\Core\Verdict\Doomed;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Core\Written;
@@ -139,7 +137,7 @@ final readonly class Running
      * Every shard of a plan, as {@see runAll()} runs them, stopping at a
      * deadline set before it, which several runs of one process share. Once
      * a shard stops because the run cannot pass, no later shard runs, and
-     * the verdict reads each as stopped (ADR-0008).
+     * the verdict reads each as stopped (ADR-0008, ADR-0103).
      */
     public function runAllBy(Plan $plan, Path $results, Deadline|Unlimited $deadline): Written|CannotJudge
     {
@@ -151,7 +149,7 @@ final readonly class Running
                 return $ran;
             }
 
-            if ($result instanceof ShardResult && $result->doomed() instanceof Doomed) {
+            if ($result instanceof ShardResult && $result->doomed()->stopped()) {
                 break;
             }
         }
@@ -327,7 +325,8 @@ final readonly class Running
             $preChecking,
         );
         $doom = new Dooming($this->adapters, $this->settings, $this->setup)->of($plan);
-        $batched = new Batched($invoking, $this->setup->clock, $deadline, $this->interruption, $doom);
+        $stops = $this->settings->reach()->failFast()->stops();
+        $batched = new Batched($invoking, $this->setup->clock, $deadline, $this->interruption, $doom, $stops);
         $batching = Batching::opening($map->suiteDuration());
         $pruned = $plan->considered()->pruned();
         $requestFor = fn(Units $units): MutationRequest => $this->requestFor(
@@ -338,13 +337,13 @@ final readonly class Running
             $pruned,
         );
         $spent = match (true) {
-            $doom instanceof Doom => $batched->spent(
+            $doom instanceof Doom && $stops => $batched->spent(
                 $this->weighed($kept, $plan),
                 $batching->inChunksOf(Batching::chunk()),
                 $requestFor,
             ),
             $deadline instanceof Deadline => $batched->spent($this->weighed($kept, $plan), $batching, $requestFor),
-            default => $this->spentWhole($invoking, $kept, $requestFor),
+            default => new Unbatched($invoking, $this->setup->clock, $doom)->spent($kept, $requestFor),
         };
 
         if ($spent instanceof CannotJudge) {
@@ -367,28 +366,6 @@ final readonly class Running
             ),
             $spent->doomed,
         );
-    }
-
-    /**
-     * Every invocation the shard plans, one after another.
-     *
-     * @param Closure(Units): MutationRequest $requestFor
-     */
-    private function spentWhole(Invoking $invoking, Shard $kept, Closure $requestFor): Spent|CannotJudge
-    {
-        $spent = Spent::none();
-
-        foreach ($kept->invocations() as $units) {
-            $invoked = $invoking->invoked($requestFor($units));
-
-            if ($invoked instanceof CannotJudge) {
-                return $invoked;
-            }
-
-            $spent = $spent->after($invoked);
-        }
-
-        return $spent;
     }
 
     /**

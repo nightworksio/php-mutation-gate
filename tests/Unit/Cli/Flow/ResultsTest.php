@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Plan\FailFastSavings;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -393,6 +394,22 @@ it('stops nothing and dooms nothing where no shard stopped once the run could no
         ->and($results instanceof Results ? $results->stopped()->doomed() : $results)->toEqual(Undoomed::run())
         ->and($results instanceof Results ? count($results->stopped()->failures()) : $results)->toBe(0)
         ->and($results instanceof Results ? $results->wereCutShort() : $results)->toBeFalse();
+});
+
+it('stops nothing where each doomed shard judged on, and says what stopping would have saved', function () use ($left, $makeDoomed, $paths): void {
+    $project = Flows::project();
+    $plan = Planned::twoShards();
+    $left($project, $plan, 1, Units::none(), $makeDoomed()->found(Seconds::of(0.25), stopped: false));
+    $left($project, $plan, 2, Units::none(), Undoomed::run());
+    $results = Results::read($plan, Workspace::results(), Directory::at($project));
+    $shards = $results instanceof Results ? array_map(static fn(array $read): ShardResult => $read[1], $results->shards()) : [];
+
+    expect($results instanceof Results ? $paths($results->stopped()->units()) : $results)->toBe([])
+        ->and($results instanceof Results ? $results->stopped()->doomed() : $results)->toEqual(Undoomed::run())
+        ->and($results instanceof Results ? count($results->stopped()->failures()) : $results)->toBe(0)
+        ->and($results instanceof Results ? $results->wereCutShort() : $results)->toBeFalse()
+        ->and($results instanceof Results ? $results->warnings() : $results)->toEqual(FailFastSavings::of($shards)->warnings())
+        ->and($results instanceof Results ? count($results->warnings()) : $results)->toBe(1);
 });
 
 it('still cannot judge a result that cannot be read, beside a doomed shard', function () use ($left, $makeDoomed): void {

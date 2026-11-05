@@ -353,27 +353,30 @@ it('lists the units its budget ran out before, and reads them back', function ()
         ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('"unjudged"');
 });
 
-it('names the survivor that made the run certain to fail, where the shard stopped on one, and reads it back', function (DoomedBy $by, string $why) use ($finished, $makeSurvivor, $makeMeasured): void {
+it('names the survivor that made the run certain to fail, how far in the shard found it and whether it stopped there, and reads it back', function (DoomedBy $by, string $why, bool $stopped) use ($finished, $makeSurvivor, $makeMeasured): void {
     $survivor = $makeSurvivor();
     $measured = $makeMeasured();
 
-    $doomed = Doomed::of(Path::of('src/Money.php'), $survivor->id(), Path::of('src'), Floor::whole(), $by);
+    $doomed = Doomed::of(Path::of('src/Money.php'), $survivor->id(), Path::of('src'), Floor::whole(), $by)
+        ->found(Seconds::of(12.5), $stopped);
     $result = $finished($survivor, $measured)->withDoomed($doomed);
     $written = ShardResultFile::encode($result);
 
     expect($written)->toEndWith(sprintf(
         "    \"doomed\": {\n        \"unit\": \"src/Money.php\",\n        \"mutant\": \"%s\",\n"
-            . "        \"tree\": \"src\",\n        \"floor\": 100,\n        \"why\": \"%s\"\n    }\n}",
+            . "        \"tree\": \"src\",\n        \"floor\": 100,\n        \"why\": \"%s\",\n"
+            . "        \"after\": 12.5,\n        \"stopped\": %s\n    }\n}",
         $survivor->id()->value(),
         $why,
+        $stopped ? 'true' : 'false',
     ))
         ->and(ShardResultFile::decode($written))->toEqual($result)
         ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('"doomed"')
         ->and(ShardResultFile::decode(ShardResultFile::encode($finished($survivor, $measured))))
         ->toEqual($finished($survivor, $measured));
 })->with([
-    'by its tree' => [DoomedBy::Tree, 'tree'],
-    'by the new code' => [DoomedBy::NewCode, 'newCode'],
+    'stopped by its tree' => [DoomedBy::Tree, 'tree', true],
+    'judged on past the new code' => [DoomedBy::NewCode, 'newCode', false],
 ]);
 
 it('reads back the floor a doom names as it was written', function () use ($finished, $makeSurvivor, $makeMeasured): void {

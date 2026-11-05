@@ -16,6 +16,10 @@
         "tests/Contract/StaticChecker/fixture",
         "tests/Fixtures/Archive"
     ],
+    "notPath": [
+        "#(^|/)(Contract/)?(Runner/)?(fixture|infection-fixture|crash|reach|stall|heavy|hang|override|constants|interceptor|twins)/#",
+        "#(^|/)(Fixtures/)?Archive/#"
+    ],
     "rules": {
         "declare_strict_types": true,
         "strict_comparison": true,

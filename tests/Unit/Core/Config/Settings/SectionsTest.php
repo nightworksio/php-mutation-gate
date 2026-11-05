@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Config\Reach as ReachSetting;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\ChangedTests;
+use NightWorksIO\MutationGate\Core\Config\FailFast;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Price;
@@ -21,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Test\JudgingSuites;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Locks;
 use NightWorksIO\MutationGate\Tests\Support\SettingsCases;
@@ -361,20 +363,48 @@ describe('Settings sections', function (): void {
         'what changed' => [['run' => ['full' => false]], false, 'Reach::changedByDefault()'],
     ]);
 
-    it('reads whether a pull request\'s run stops once it cannot pass, running to its end by default, and writes it into a config written as PHP', function (array $config, bool $stops, string $call): void {
+    it('reads what a pull request\'s shard does once it cannot pass, marking it by default, and writes it into a config written as PHP', function (array $config, FailFast $failFast, string $call): void {
         $php = Configs::valid(['runner' => 'pest', ...$config])->php(ProjectRoot::origin())->code();
 
-        expect(Configs::settings(['runner' => 'pest', ...$config])->reach()->stopsWhenDoomed())->toBe($stops)
-            ->and($call === '' ? ! str_contains($php, 'WhenDoomed()') && ! str_contains($php, 'ToTheEnd()') : str_contains($php, $call))->toBeTrue();
+        expect(Configs::settings(['runner' => 'pest', ...$config])->reach()->failFast())->toBe($failFast)
+            ->and($call === '' ? ! str_contains($php, 'Reach::failFast') : str_contains($php, $call))->toBeTrue();
     })->with([
-        'left out' => [[], false, ''],
-        'stopping' => [['run' => ['stopWhenDoomed' => true]], true, 'Reach::stoppingWhenDoomed()'],
-        'to the end' => [['run' => ['stopWhenDoomed' => false, 'full' => true]], false, 'Reach::runningToTheEnd()'],
+        'left out' => [[], FailFast::Mark, ''],
+        'off' => [['run' => ['failFast' => 'off']], FailFast::Off, 'Reach::failFastOff()'],
+        'marking' => [['run' => ['failFast' => 'mark', 'full' => true]], FailFast::Mark, 'Reach::failFastMarking()'],
+        'stopping' => [['run' => ['failFast' => 'stop']], FailFast::Stop, 'Reach::failFastStopping()'],
+        'cancelling' => [['run' => ['failFast' => 'cancel']], FailFast::Cancel, 'Reach::failFastCancelling()'],
     ]);
 
-    it('writes run.stopWhenDoomed from the PHP config\'s builders as the JSON a file writes', function (): void {
-        expect(ReachSetting::stoppingWhenDoomed()->written())->toEqual(Json::at('run.stopWhenDoomed', value: true))
-            ->and(ReachSetting::runningToTheEnd()->written())->toEqual(Json::at('run.stopWhenDoomed', value: false));
+    it('writes run.failFast from the PHP config\'s builders as the JSON a file writes', function (): void {
+        expect(ReachSetting::failFastOff()->written())->toEqual(Json::at('run.failFast', 'off'))
+            ->and(ReachSetting::failFastMarking()->written())->toEqual(Json::at('run.failFast', 'mark'))
+            ->and(ReachSetting::failFastStopping()->written())->toEqual(Json::at('run.failFast', 'stop'))
+            ->and(ReachSetting::failFastCancelling()->written())->toEqual(Json::at('run.failFast', 'cancel'));
+    });
+
+    it('marks and stops a doomed shard as each mode says', function (): void {
+        expect(array_map(static fn(FailFast $mode): array => [$mode->marks(), $mode->stops()], FailFast::cases()))
+            ->toBe([[false, false], [true, false], [true, true], [true, true]]);
+    });
+
+    it('warns that cancel only stops a doomed shard on a pull request\'s run off GitHub Actions, and nothing otherwise', function (): void {
+        $warned = static fn(FailFast $mode, bool $proposed, bool $onGitHub): array => array_map(
+            static fn(Warning $warning): string => $warning->text(),
+            [...$mode->warnings($proposed, $onGitHub)],
+        );
+
+        expect($warned(FailFast::Cancel, proposed: true, onGitHub: false))->toBe([implode("\n", [
+            'run.failFast is cancel, but only GitHub Actions\' matrix in the reusable workflow cancels the other shards.',
+            'On this CI a doomed shard stops, as under stop, and the others run on.',
+        ])])
+            ->and($warned(FailFast::Cancel, proposed: true, onGitHub: true))->toBe([])
+            ->and($warned(FailFast::Cancel, proposed: false, onGitHub: false))->toBe([])
+            ->and($warned(FailFast::Stop, proposed: true, onGitHub: false))->toBe([]);
+    });
+
+    it('refuses a run.failFast it does not know', function (): void {
+        expect(Configs::problems(Configs::layer(['run' => ['failFast' => true]]))[0])->toStartWith('run.failFast: ');
     });
 
     it('reads reach.lockPackages, deciding by every package where it is left out, writes it into a config written as PHP, and refuses what is no package\'s name', function (): void {

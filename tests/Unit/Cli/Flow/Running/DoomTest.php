@@ -3,8 +3,11 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Flow\Running;
+use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
+use NightWorksIO\MutationGate\Config\Budget;
 use NightWorksIO\MutationGate\Config\Equivalence;
+use NightWorksIO\MutationGate\Config\Reach;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\Finding;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
@@ -25,10 +28,12 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Core\Verdict\Doomed;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Fakes\CostModelFake;
 use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Dooms;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
@@ -36,6 +41,7 @@ use NightWorksIO\MutationGate\Tests\Support\RecordingChecker;
 use NightWorksIO\MutationGate\Tests\Support\RunningCases;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
+use NightWorksIO\MutationGate\Tests\Support\TickingClock;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -49,6 +55,11 @@ $makeFloored = static fn(): Closure => RunningCases::floored(...);
 $makeAsked = static fn(): Closure => RunningCases::asked(...);
 $makeDoomOf = static fn(): Closure => RunningCases::doomOf(...);
 $makeMoneySurvivor = static fn(): Closure => RunningCases::moneySurvivor(...);
+$makeTicking = static fn(): Closure => static function (): Setup {
+    $setup = Flows::setup();
+
+    return new Setup($setup->configFile, $setup->gate, $setup->installed, new TickingClock(Configs::NOW, 3), $setup->memory, $setup->config, $setup->command);
+};
 
 it('stops a pull request\'s shard after the chunk whose survivor makes its run certain to fail, leaving the rest unjudged', function () use (
     $makeDoomable,
@@ -78,7 +89,7 @@ it('stops a pull request\'s shard after the chunk whose survivor makes its run c
 
     expect($asked($runner))->toBe([['src/Money.php']])
         ->and($unjudged($result))->toBe(['src/Held.php'])
-        ->and($doomOf($result))->toBe(['src/Money.php', $moneySurvivor(), 'src', 10_000, 'tree']);
+        ->and($doomOf($result))->toBe(['src/Money.php', $moneySurvivor(), 'src', 10_000, 'tree', 'stopped']);
 });
 
 it('stops a merge group\'s shard, as a pull request\'s, after the chunk whose survivor makes its run certain to fail', function () use (
@@ -105,7 +116,7 @@ it('stops a merge group\'s shard, as a pull request\'s, after the chunk whose su
         ->and($unjudged($resultIn($project, 1)))->toBe(['src/Held.php']);
 });
 
-it('runs a pull request\'s shard to its end past a survivor that makes its run certain to fail, where the config asks no stop', function () use (
+it('runs a pull request\'s shard to its end past a survivor that makes its run certain to fail, noting it, where the config marks it by default', function () use (
     $makeResultIn,
     $makeUnjudged,
     $makeOnPullRequest,
@@ -132,7 +143,25 @@ it('runs a pull request\'s shard to its end past a survivor that makes its run c
 
     expect($every)->toBe(['src/Held.php', 'src/Money.php'])
         ->and($unjudged($result))->toBe([])
-        ->and($doomOf($result))->toBe('undoomed');
+        ->and($doomOf($result))->toBe(['src/Held.php', '8705b7dc7d27', 'src', 10_000, 'tree', 'judged on']);
+});
+
+it('notes no survivor where the config turns fail-fast off, and runs the shard to its end', function () use (
+    $makeResultIn,
+    $makeUnjudged,
+    $makeOnPullRequest,
+    $makeFloored,
+    $makeDoomOf,
+): void {
+    $resultIn = $makeResultIn();
+    $project = Flows::project();
+    $settings = Flows::settings(Equivalence::notProvenStatically(), Reach::failFastOff());
+
+    new Running(Flows::adapters($project, [], ScriptedRunner::fixture(), $makeFloored()(Floor::whole())), $settings, Flows::setup())
+        ->run(Planned::handedIn($project, $makeOnPullRequest()(Planned::oneShard())), ShardId::of(1), Workspace::results());
+
+    expect($makeUnjudged()($resultIn($project, 1)))->toBe([])
+        ->and($makeDoomOf()($resultIn($project, 1)))->toBe('undoomed');
 });
 
 it('runs a pull request\'s shard to its end in chunks, in the plan\'s order, while no survivor makes its run certain to fail', function () use (
@@ -305,6 +334,54 @@ it('runs no shard of a plan in one process after one that stopped once its run c
         ->and(is_file(sprintf('%s/.mutation-gate/results/2.json', $project)))->toBeFalse();
 });
 
+it('runs every shard of a plan in one process past one that judged on once its run could not pass', function () use (
+    $makeTicking,
+    $makeResultIn,
+    $makeOnPullRequest,
+    $makeFloored,
+    $makeAsked,
+    $makeDoomOf,
+): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture();
+    $settings = Flows::settings(Equivalence::notProvenStatically());
+
+    $written = new Running(Flows::adapters($project, [], $runner, $makeFloored()(Floor::whole())), $settings, $makeTicking()())
+        ->runAll(Planned::handedIn($project, $makeOnPullRequest()(Planned::twoShards())), Workspace::results());
+    $first = $makeResultIn()($project, 1);
+
+    expect($written)->toBeInstanceOf(Written::class)
+        ->and($makeAsked()($runner))->toBe([['src/Money.php'], ['src/Held.php']])
+        ->and($makeDoomOf()($first)[5] ?? '')->toBe('judged on')
+        ->and($first instanceof ShardResult && $first->doomed() instanceof Doomed ? $first->doomed()->after()->seconds() : 0.0)->toBeGreaterThan(0.0)
+        ->and($makeResultIn()($project, 2))->toBeInstanceOf(ShardResult::class);
+});
+
+it('runs a pull request\'s shard with a budget to its end in batches past a survivor it judges on', function () use (
+    $makeTicking,
+    $makeResultIn,
+    $makeUnjudged,
+    $makeOnPullRequest,
+    $makeFloored,
+    $makeAsked,
+    $makeDoomOf,
+): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture();
+    $settings = Flows::settings(Equivalence::notProvenStatically(), Budget::of('1h'));
+
+    new Running(Flows::adapters($project, [], $runner, $makeFloored()(Floor::whole())), $settings, $makeTicking()())
+        ->run(Planned::handedIn($project, $makeOnPullRequest()(Planned::oneShard())), ShardId::of(1), Workspace::results());
+    $result = $makeResultIn()($project, 1);
+    $every = array_merge(...$makeAsked()($runner));
+    sort($every);
+
+    expect($every)->toBe(['src/Held.php', 'src/Money.php'])
+        ->and($makeUnjudged()($result))->toBe([])
+        ->and($makeDoomOf()($result)[5] ?? '')->toBe('judged on')
+        ->and($result instanceof ShardResult && $result->doomed() instanceof Doomed ? $result->doomed()->after()->seconds() : 0.0)->toBeGreaterThan(0.0);
+});
+
 /** An analyser that answers each of these survivors' checks with what it finds, and finds nothing in the originals. */
 function doomChecker(string $project, Findings ...$found): RecordingChecker
 {
@@ -346,7 +423,7 @@ it('stops a pull request\'s shard after a chunk whose survivor static analysis d
 
     expect($asked($runner))->toBe([['src/Money.php']])
         ->and($unjudged($result))->toBe(['src/Held.php'])
-        ->and($doomOf($result))->toBe(['src/Money.php', $moneySurvivor(), 'src', 10_000, 'tree'])
+        ->and($doomOf($result))->toBe(['src/Money.php', $moneySurvivor(), 'src', 10_000, 'tree', 'stopped'])
         ->and(array_map(static fn(array $check): string => $check[0], $checker->asked()))->toBe(['src/Money.php'])
         ->and($checker->warmUps())->toHaveCount(1);
 });

@@ -9,7 +9,9 @@ use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Definition;
+use NightWorksIO\MutationGate\Core\Config\FailFast;
 use NightWorksIO\MutationGate\Core\Config\Proofs;
+use NightWorksIO\MutationGate\Core\Config\Reach;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Plan\DoomedRecord;
@@ -103,9 +105,14 @@ it('reads the exit infection:patch gives a release it does not patch as the one 
 it('reads a doomed shard\'s survivor where the shard\'s result writes it, and fails its job as a failed verdict does', function (): void {
     preg_match('/^FAILED = (?<code>\d+)$/mu', actionScript(), $failed);
 
-    expect([scriptText('DOOMED'), scriptText('DOOMED_UNIT'), scriptText('DOOMED_MUTANT'), scriptText('DOOMED_TREE'), scriptText('DOOMED_FLOOR')])
-        ->toBe([DoomedRecord::SECTION, ShardResultFile::UNIT, DoomedRecord::MUTANT, DoomedRecord::TREE, DoomedRecord::FLOOR])
+    expect([scriptText('DOOMED'), scriptText('DOOMED_UNIT'), scriptText('DOOMED_MUTANT'), scriptText('DOOMED_TREE'), scriptText('DOOMED_FLOOR'), scriptText('DOOMED_STOPPED')])
+        ->toBe([DoomedRecord::SECTION, ShardResultFile::UNIT, DoomedRecord::MUTANT, DoomedRecord::TREE, DoomedRecord::FLOOR, DoomedRecord::STOPPED])
         ->and(intval($failed['code'] ?? '-1'))->toBe(ExitCode::Failed->value);
+});
+
+it('takes a config that names no run.failFast to mark, as the gate does', function (): void {
+    expect(scriptText('MARK'))->toBe(FailFast::Mark->value)
+        ->and(Reach::none()->failFast())->toBe(FailFast::Mark);
 });
 
 it('names the package as Composer does', function (): void {
@@ -164,13 +171,13 @@ it('reads each exit code as the verdict the gate means by it', function (): void
     ]);
 });
 
-it('reads this package\'s effective config as the gate prints it: the ledger in the cached directory, Pest patched, Infection not run', function (): void {
-    $shown = new Process([PHP_BINARY, 'bin/mutation-gate', 'config:show', '--format=json'], Tree::root());
+it('reads this package\'s effective config of a pull request as the gate prints it: the ledger in the cached directory, Pest patched, Infection not run, cancelling the other shards once it cannot pass', function (): void {
+    $shown = new Process([PHP_BINARY, 'bin/mutation-gate', 'config:show', '--format=json', '--resolved', '--context=pr'], Tree::root());
     $shown->mustRun();
     $output = sprintf('%s/output', Scratch::directory());
     touch($output);
     $variables = ['GITHUB_OUTPUT' => $output, 'CACHE' => 'true'];
     new Process(['python3', 'resources/action/gate_action.py', 'config'], Tree::root(), $variables, $shown->getOutput())->mustRun();
 
-    expect((string) file_get_contents($output))->toBe("default_store=true\ncopies=newest\nafter_store=false\npest_patch=true\ninfection_patch=false\n");
+    expect((string) file_get_contents($output))->toBe("default_store=true\ncopies=newest\nafter_store=false\npest_patch=true\ninfection_patch=false\nfail_fast=cancel\n");
 });

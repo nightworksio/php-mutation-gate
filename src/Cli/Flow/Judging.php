@@ -305,7 +305,11 @@ final readonly class Judging
                 ->and($since->warnings())
                 ->and($ignoring->warnings())
                 ->and($equivalents->warnings)
-                ->and($ignoring->redundant($verdicts, $equivalents->proven)),
+                ->and($ignoring->redundant($verdicts, $equivalents->proven))
+                ->and($this->settings->reach()->failFast()->warnings(
+                    $plan->runOn()->isProposed(),
+                    $this->adapters->environment->onGitHubActions(),
+                )),
             $map,
             $matrix,
         );

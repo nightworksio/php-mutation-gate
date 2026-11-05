@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
+use NightWorksIO\MutationGate\Core\Plan\FailFastSavings;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
@@ -189,18 +190,21 @@ final readonly class Results
         );
     }
 
-    /** What every shard warns of, shard by shard. */
+    /** What every shard warns of, shard by shard, then what stopping would have saved shards that judged on. */
     public function warnings(): Warnings
     {
         $warnings = Warnings::none();
+        $results = [];
 
         foreach ($this->read as [, $result]) {
             foreach ($result->warnings() as $warning) {
                 $warnings = $warnings->with($warning);
             }
+
+            $results[] = $result;
         }
 
-        return $warnings;
+        return $warnings->and(FailFastSavings::of($results)->warnings());
     }
 
     /** What static analysis's checks of every shard's survivors came to, together (ADR-0020). */

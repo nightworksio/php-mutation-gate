@@ -49,7 +49,7 @@ final readonly class SettingsCases
         },
         "run": {
             "full": false,
-            "stopWhenDoomed": false
+            "failFast": "mark"
         },
         "pruning": {
             "enabled": true,

@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Percentage;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\Doomed;
 use NightWorksIO\MutationGate\Core\Verdict\DoomedBy;
 use NightWorksIO\MutationGate\Core\Verdict\Undoomed;
@@ -19,8 +20,10 @@ use NightWorksIO\MutationGate\Core\Verdict\Undoomed;
  * as the shard's result holds it under `doomed`: `unit`, the path of the
  * unit it is a mutant of, `mutant`, its id, `tree`, the path of the tree
  * that holds that unit, `floor`, the floor of 100 it fails, and `why`,
- * which floor that is, `tree` or `newCode`. A shard that ran to its end
- * holds none. A CI step that cancels the run's other shards reads it.
+ * which floor that is, `tree` or `newCode`, `after`, the seconds into its
+ * mutating the shard found it, and `stopped`, whether the shard stopped there.
+ * A shard that found none holds none. The CI step that fails the shard reads
+ * it.
  *
  * @internal the shape of a shard result's `doomed`
  */
@@ -34,7 +37,15 @@ final readonly class DoomedRecord
 
     public const string FLOOR = 'floor';
 
-    /** @return array{}|array{unit: string, mutant: string, tree: string, floor: int|float, why: string} */
+    public const string STOPPED = 'stopped';
+
+    private const string AFTER = 'after';
+
+    /**
+     * @return array{}|array{
+     *     unit: string, mutant: string, tree: string, floor: int|float, why: string, after: float, stopped: bool
+     * }
+     */
     public static function of(Doomed|Undoomed $doomed): array
     {
         return $doomed instanceof Undoomed ? [] : [
@@ -43,6 +54,8 @@ final readonly class DoomedRecord
             self::TREE => $doomed->tree()->value(),
             self::FLOOR => $doomed->floor()->written(),
             ShardResultFile::WHY => $doomed->by()->value,
+            self::AFTER => $doomed->after()->seconds(),
+            self::STOPPED => $doomed->stopped(),
         ];
     }
 
@@ -67,7 +80,7 @@ final readonly class DoomedRecord
             Path::of($section->field(self::TREE)->text()),
             self::floorIn($section->field(self::FLOOR)),
             DoomedBy::tryFrom($why->text()) ?? throw NotInShape::at($why->at(), 'why a survivor dooms a run'),
-        );
+        )->found(Seconds::of($section->field(self::AFTER)->number()), $section->field(self::STOPPED)->boolean());
     }
 
     /** @throws NotInShape */
