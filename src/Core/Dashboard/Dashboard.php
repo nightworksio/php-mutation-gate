@@ -18,7 +18,7 @@ use function usort;
  * An organisation's dashboard (ADR-0024): every repository it shows, by
  * name, each with its verdict, its score, the trees below their floors and
  * the time the gate saved it over the last 30 days, and its costliest
- * mutators (ADR-0076) and lowest-scoring files (ADR-0084) where it names
+ * mutators (ADR-0076) and lowest-scoring files (ADR-0100) where it names
  * them, as of an instant; and
  * `dashboard.json`, `"format": 1`, the same as data.
  *

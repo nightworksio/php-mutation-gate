@@ -20,7 +20,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
  * the floor for new code, the mutation time saved over the last 30 days in
  * seconds, the ten costliest mutators the default branch's ledger
  * tallies (ADR-0076), and the lowest-scoring files, as many as `heatmap.files`
- * says (ADR-0084). A set with nothing to mutate has no score, a tree held
+ * says (ADR-0100). A set with nothing to mutate has no score, a tree held
  * to no floor no floor, a run with no history of what it saved no savings,
  * and a ledger that tallies no mutator no mutators.
  * `resources/summary.schema.json` describes it, and it is public API.

@@ -15,7 +15,7 @@ use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 /**
  * The score of a file or of one of its functions, as its tree counts it,
  * how many of its mutants the score counts as not killed, and its score on
- * the base, for its change against it, where the base has one (ADR-0084).
+ * the base, for its change against it, where the base has one (ADR-0100).
  */
 final readonly class Heat
 {

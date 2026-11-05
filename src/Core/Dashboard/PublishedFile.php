@@ -9,7 +9,7 @@ use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
 use NightWorksIO\MutationGate\Core\Score\Score;
 
 /**
- * One of the lowest-scoring files a repository's `summary.json` names (ADR-0084): its path, its score, its
+ * One of the lowest-scoring files a repository's `summary.json` names (ADR-0100): its path, its score, its
  * score on the base where the base had one, and how many of its mutants are not killed.
  *
  * @internal

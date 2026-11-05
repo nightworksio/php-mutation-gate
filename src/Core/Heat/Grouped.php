@@ -13,7 +13,7 @@ use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 /**
  * Judged mutants in groups, by what a key makes of each: a file's path, or
  * the name of the function it is in; one the key names nothing for is in
- * no group (ADR-0084).
+ * no group (ADR-0100).
  *
  * @internal
  */

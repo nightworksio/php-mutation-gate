@@ -1,4 +1,4 @@
-# ADR-0084: A heatmap scores every file and function against the base
+# ADR-0100: A heatmap scores every file and function against the base
 
 **Status:** Accepted
 **Date:** 2026-11-05

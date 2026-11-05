@@ -21,7 +21,7 @@ use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
 
 /**
- * The heatmap of a verdict (ADR-0084): every file it judged, each mutant
+ * The heatmap of a verdict (ADR-0100): every file it judged, each mutant
  * with the function of the file on disk its line is in, compared with the
  * same units judged over the default branch's newest proof of each, each
  * of their mutants with the function its proof names for its line. A unit

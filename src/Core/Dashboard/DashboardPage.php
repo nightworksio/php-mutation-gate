@@ -120,7 +120,7 @@ final readonly class DashboardPage
 
     private const string MUTATOR = '<tr><td>%s</td><td><code>%s</code></td><td>%s</td><td>%s</td><td>%d</td></tr>';
 
-    /** The lowest-scoring files a repository named, collapsed under its row (ADR-0084). */
+    /** The lowest-scoring files a repository named, collapsed under its row (ADR-0100). */
     private const string FILES = <<<'HTML'
         <tr class="files">
         <td colspan="7"><details><summary>Lowest-scoring files</summary>

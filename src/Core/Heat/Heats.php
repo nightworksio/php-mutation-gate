@@ -9,7 +9,7 @@ use NightWorksIO\MutationGate\Core\Score\Score;
 use function usort;
 
 /**
- * The order the heatmap lists scores in (ADR-0084): lowest first, a set
+ * The order the heatmap lists scores in (ADR-0100): lowest first, a set
  * with nothing to mutate last, ties by name.
  *
  * @internal

@@ -18,7 +18,7 @@ use NightWorksIO\MutationGate\Core\Score\Score;
 use function sprintf;
 
 /**
- * The HTML report's heatmap (ADR-0084): every file the run scored, lowest
+ * The HTML report's heatmap (ADR-0100): every file the run scored, lowest
  * first, with its score, its change against the base and how many of its
  * mutants are not killed, its functions folded under it with theirs. The
  * whole table is folded, so the overview stays short; a run that scored

@@ -14,7 +14,7 @@ use NightWorksIO\MutationGate\Core\Heat\FunctionSpans;
 
 /**
  * The functions of a proof's unit that hold its mutants, as a proof's
- * optional `functions` field holds them (ADR-0084): each as
+ * optional `functions` field holds them (ADR-0100): each as
  * `[name, first line, last line]`, so a mutant of the base is scored with
  * its function by its line.
  *

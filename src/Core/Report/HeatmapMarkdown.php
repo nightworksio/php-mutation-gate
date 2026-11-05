@@ -18,7 +18,7 @@ use NightWorksIO\MutationGate\Core\Score\Score;
 use function sprintf;
 
 /**
- * The pull request comment's heatmap (ADR-0084): the files the change
+ * The pull request comment's heatmap (ADR-0100): the files the change
  * reaches that fell most since the base, then any below its tree's floor,
  * as a table, each with its score, its change against the base, and its
  * lowest-scoring functions inline with theirs.
