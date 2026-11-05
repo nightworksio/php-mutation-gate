@@ -899,6 +899,7 @@ it('learns each kill\'s pace by the map its shard was handed, and how many shard
     new Recorded(adapters: Flows::adapters($project, [], $store), settings: Flows::settings())->write(
         $plan,
         $results,
+        JudgedMutants::none(),
         $ledgers($store, $plan),
         $run($plan),
         CannotTell::because('It failed.'),
@@ -924,6 +925,7 @@ it('learns no concurrency from a run it was given no timings of, or one not cut 
         new Recorded(adapters: Flows::adapters($project, [], $store), settings: Flows::settings())->write(
             $plan,
             $results,
+            JudgedMutants::none(),
             $ledgers($store, $plan),
             $run($plan),
             CannotTell::because('It failed.'),
