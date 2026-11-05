@@ -92,9 +92,9 @@ it('counts the most of its shards that ran at once, each from its start to its e
 });
 
 it('counts a shard from how long after its instant it began, and one that ends as another begins as not at once', function (): void {
-    $shard = static fn(int $id, float $after, float $took): ShardTiming => ShardTiming::of(
+    $shard = static fn(int $id, float $after, float $took, string $at = '2026-09-30T12:00:00Z'): ShardTiming => ShardTiming::of(
         $id,
-        Phase::of(Moment::at('2026-09-30T12:00:00Z'), Seconds::of($took))->later(Seconds::of($after)),
+        Phase::of(Moment::at($at), Seconds::of($took))->later(Seconds::of($after)),
         StepTimes::none(),
     );
     $timings = static fn(ShardTiming ...$shards): int => array_reduce(
@@ -106,5 +106,6 @@ it('counts a shard from how long after its instant it began, and one that ends a
     expect($timings($shard(1, 0.0, 60.0), $shard(2, 60.0, 60.0)))->toBe(1)
         ->and($timings($shard(2, 60.0, 60.0), $shard(1, 0.0, 60.0)))->toBe(1)
         ->and($timings($shard(1, 0.0, 60.0), $shard(2, 30.0, 60.0)))->toBe(2)
-        ->and($timings($shard(1, 100.0, 60.0), $shard(2, 0.0, 30.0)))->toBe(1);
+        ->and($timings($shard(1, 100.0, 60.0), $shard(2, 0.0, 30.0)))->toBe(1)
+        ->and($timings($shard(1, 0.0, 60.0), $shard(2, 90.0, 30.0, '2026-09-30T12:02:00Z')))->toBe(1);
 });
