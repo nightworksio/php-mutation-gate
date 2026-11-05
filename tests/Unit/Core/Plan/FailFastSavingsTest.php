@@ -44,6 +44,15 @@ it('says what stop and cancel would have saved shards that judged on past the su
     ])]);
 });
 
+it('counts to the second, clamping a shard that ended before the doom it is measured from to nothing', function () use ($shard, $said): void {
+    $savings = FailFastSavings::of([$shard(1, 30.0, 10.0), $shard(2, 5.0), $shard(3, 20.0, 25.0), $shard(4, 15.0)]);
+
+    expect($said($savings))->toBe([implode("\n", [
+        'This run could not pass 10s into its shards\' mutating, and they judged on, as run.failFast: mark has them.',
+        'run.failFast: stop would have saved about 20s of runner time, and cancel about 35s.',
+    ])]);
+});
+
 it('says nothing where no shard was doomed, or where the doomed shard stopped', function () use ($shard, $said): void {
     expect($said(FailFastSavings::of([$shard(1, 60.0), $shard(2, 60.0)])))->toBe([])
         ->and($said(FailFastSavings::of([$shard(1, 60.0, 10.0, stopped: true), $shard(2, 60.0)])))->toBe([])
