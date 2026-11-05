@@ -205,6 +205,20 @@ final readonly class RecordLine
         ]);
     }
 
+    /**
+     * How many tests the own process of the mutant Pest serves this mutated
+     * copy for was to run, once it ordered them, and the digest of that order.
+     */
+    public static function ordered(string $mutated, int $tests, string $order): string
+    {
+        return self::line([
+            RecordField::Event->value => RecordEvent::Ordered->value,
+            RecordField::Mutated->value => $mutated,
+            RecordField::Count->value => $tests,
+            RecordField::Order->value => $order,
+        ]);
+    }
+
     /** The memory limit the own process of the mutant Pest serves this mutated copy for ran out of. */
     public static function exhausted(string $mutated, MemoryCap $limit): string
     {

@@ -160,11 +160,13 @@ final readonly class PhpUnitEvents
         self::emitterOf($events)->testFinished(TestMethodBuilder::fromCallStack(), 1);
     }
 
-    /** Emits that the test runner began its run, every test file loaded. */
-    public static function executionStarted(Facade $events): void
+    /** Emits that the test runner began its run of these tests, in this order, every test file loaded. */
+    public static function executionStarted(Facade $events, Test ...$tests): void
     {
         $events->seal();
-        self::emitterOf($events)->testRunnerExecutionStarted(new TestSuiteWithName('suite', 0, TestCollection::fromArray([])));
+        self::emitterOf($events)->testRunnerExecutionStarted(
+            new TestSuiteWithName('suite', count($tests), TestCollection::fromArray(array_values($tests))),
+        );
     }
 
     /** Emits that PHPUnit's runner warned, outside any test. */

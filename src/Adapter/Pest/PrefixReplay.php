@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_slice;
+use function is_string;
 use function max;
 
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -76,6 +77,31 @@ final readonly class PrefixReplay
             $this->key,
             $longer,
         );
+    }
+
+    /**
+     * This replay, run to the end of the whole order its run was to take,
+     * which vouches for every prefix of that order (ADR-0089).
+     */
+    public function toTheEnd(Prefix $planned): self
+    {
+        $key = $planned->key();
+
+        return new self(
+            $this->file,
+            $this->mutated,
+            $this->arguments,
+            $this->loaded,
+            max($planned->position(), $this->reach),
+            is_string($key) ? $key : $this->key,
+            $this->limit,
+        );
+    }
+
+    /** This replay, allowed the longer of its limit and another's, as it vouches for both. */
+    public function alongside(self $other): self
+    {
+        return $this->alsoFor($other->limit);
     }
 
     /**

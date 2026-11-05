@@ -64,6 +64,9 @@ enum RecordEvent: string
     /** How many tests a mutant's own process ran. */
     case Ran = 'ran';
 
+    /** How many tests a mutant's own process was to run, once it ordered them, and the digest of that order. */
+    case Ordered = 'ordered';
+
     /** A mutant's own process ran out of its memory limit. */
     case Exhausted = 'exhausted';
 

@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordField;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Mutant\Ended;
+use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\Overrun;
@@ -33,9 +34,6 @@ use function preg_match;
  */
 final class OwnRuns
 {
-    /** The pattern a digest of a run's order matches: a SHA-256 digest in lowercase hex. */
-    private const string DIGEST = '/^[0-9a-f]{64}$/';
-
     /** @var array<string, list<string>> the tests that failed or errored, in order, by the mutated copy they ran on */
     private array $killers = [];
 
@@ -287,7 +285,7 @@ final class OwnRuns
             throw NotInShape::at($at->at(), 'a position, which counts from one');
         }
 
-        if ($order->isPresent() && preg_match(self::DIGEST, $order->text()) !== 1) {
+        if ($order->isPresent() && preg_match(OrderDigest::PATTERN, $order->text()) !== 1) {
             throw NotInShape::at($order->at(), 'a SHA-256 digest in lowercase hex');
         }
 

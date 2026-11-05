@@ -75,3 +75,12 @@ it('takes no record from a last line with no line break after it, as a process s
 it('takes no record where there is no file', function (): void {
     expect(KillerFile::taken(sprintf('%s/results.jsonl.abc.killers', Scratch::directory()), '/m/a.php'))->toBe([]);
 });
+
+it('writes how many tests the process was to run and the digest of their order, and takes it as a record, past a malformed one', function (): void {
+    $order = hash('sha256', 'whole');
+    $file = sprintf('%s/results.jsonl.abc.killers', Scratch::directory());
+    file_put_contents($file, sprintf("%sordered 3\nordered x %s\nordered 3 abc\nordered -1 %s\n%s", KillerFile::ordered(3, $order), $order, $order, KillerFile::ordered(0, $order)));
+
+    expect(KillerFile::ordered(3, $order))->toBe(sprintf("ordered 3 %s\n", $order))
+        ->and(KillerFile::taken($file, '/m/a.php'))->toBe([RecordLine::ordered('/m/a.php', 3, $order), RecordLine::ordered('/m/a.php', 0, $order)]);
+});

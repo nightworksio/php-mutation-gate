@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
 
+use function array_map;
+use function count;
 use function dirname;
 use function file_put_contents;
 use function getenv;
@@ -14,9 +16,11 @@ use function is_writable;
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\ServedClasses;
+use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\InertSetting;
 use NightWorksIO\MutationGate\Core\Test\RunIssues;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use PHPUnit\Event\EventFacadeIsSealedException;
 use PHPUnit\Event\Facade;
 use PHPUnit\Event\UnknownSubscriberTypeException;
@@ -99,7 +103,7 @@ final readonly class Killers
                 new OnFailed($killers),
                 new OnErrored($killers),
                 new OnTestFinished($ran, $heartbeat, $killers->order),
-                new OnExecutionStarted($heartbeat),
+                new OnExecutionStarted($heartbeat, $killers),
                 new OnExecutionFinished($ran, $killers, $issues),
             );
         } catch (EventFacadeIsSealedException|UnknownSubscriberTypeException) {
@@ -132,6 +136,15 @@ final readonly class Killers
     public function erroredBy(string $test): void
     {
         $this->write(RecordEvent::Errored, $test);
+    }
+
+    /** Writes how many tests the process is to run, in the order it took them in, and the digest of that order. */
+    public function ordered(string ...$tests): void
+    {
+        $this->append(KillerFile::ordered(
+            count($tests),
+            OrderDigest::of(...array_map(TestId::of(...), $tests))->value(),
+        ));
     }
 
     /** The run ended: no test runs after it. */
