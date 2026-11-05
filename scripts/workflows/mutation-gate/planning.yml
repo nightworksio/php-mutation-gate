@@ -81,11 +81,90 @@
           if-no-files-found: ignore
           retention-days: 1
 
+  # The gate that judges the run, where `judge` names one (ADR-0140): built at
+  # the commit it names from its own lock, or the newest release's, downloaded
+  # and verified, for every job that runs the gate to run in the place of the
+  # project's copy. It runs the gate's own code at that commit, never the
+  # project's, and holds no secret. Where it fails, the plan fails fetching what
+  # it left, and the verdict is cannot-judge.
+  judge:
+    name: judge
+    if: inputs.judge != ''
+    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    outputs:
+      attempt: ${{ github.run_attempt }}
+      refused: ${{ steps.judge.outputs.refused }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: ${{ env.GATE_ACTION }}
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ inputs.php-version }}
+          extensions: ${{ inputs.extensions }}
+          coverage: none
+      - name: Name what builds the judge
+        id: judge
+        env:
+          JUDGE: ${{ inputs.judge }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch || vars.MUTATION_GATE_DEFAULT_BRANCH }}
+          GH_TOKEN: ${{ github.token }}
+        run: python3 "${GATE_ACTION}/resources/action/gate_action.py" judge
+      - name: Restore the judge built at that commit
+        id: built
+        if: steps.judge.outputs.commit != ''
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.JUDGE }}
+          key: mutation-gate-judge-${{ steps.judge.outputs.commit }}
+      - name: Build the judge at that commit
+        if: steps.judge.outputs.commit != '' && steps.built.outputs.cache-hit != 'true'
+        env:
+          COMMIT: ${{ steps.judge.outputs.commit }}
+        run: bash "${GATE_ACTION}/resources/action/judge.sh" "${COMMIT}" "${JUDGE}"
+      - name: Keep the judge built at that commit
+        if: steps.judge.outputs.commit != '' && steps.built.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.JUDGE }}
+          key: mutation-gate-judge-${{ steps.judge.outputs.commit }}
+      - name: Fetch and verify the release's judge
+        id: release
+        if: steps.judge.outputs.release == 'true'
+        env:
+          TAG: ${{ steps.judge.outputs.tag }}
+          ASSET: mutation-gate-judge.phar
+          GH_TOKEN: ${{ github.token }}
+        run: python3 "${GATE_ACTION}/resources/action/gate_action.py" phar
+      - name: Place the release's judge
+        if: steps.judge.outputs.release == 'true'
+        env:
+          FETCHED: ${{ steps.release.outputs.gate }}
+        run: |
+          mkdir -p "$(dirname "${JUDGE}")"
+          mv "${FETCHED}" "${JUDGE}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mutation-gate-judge-${{ github.run_attempt }}
+          path: ${{ env.JUDGE }}
+          if-no-files-found: error
+          retention-days: 1
+
   # The plan runs whatever fetch did: the ledger only saves work, and a fetch
   # that failed shows as its own red check.
   plan:
     name: plan
-    needs: fetch
+    needs: [fetch, judge]
     if: ${{ !cancelled() && needs.fetch.result != 'cancelled' }}
     runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: ${{ inputs.plan-timeout }}
@@ -136,6 +215,11 @@
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
         env:
           COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: inputs.judge != ''
+        with:
+          name: mutation-gate-judge-${{ needs.judge.outputs.attempt }}
+          path: .mutation-gate/judge
       - name: Resolve the run
         id: resolve
         env:
@@ -147,6 +231,8 @@
           REPORTS: ${{ inputs.reports }}
           CACHE: ${{ inputs.cache }}
           DEFAULT_BRANCH: ${{ steps.default.outputs.name }}
+          INSTALLED_BY: ${{ inputs.judge != '' && 'judge' || 'composer' }}
+          GATE_PHAR: ${{ inputs.judge != '' && env.JUDGE || '' }}
         run: python3 "${GATE_ACTION}/resources/action/gate_action.py" resolve
       - name: Read the effective config
         id: config
@@ -159,6 +245,15 @@
           mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
           "${GATE}" config:show --format=json --resolved "${arguments[@]}" \
             | python3 "${GATE_ACTION}/resources/action/gate_action.py" config
+      # ADR-0140: the project's install patched pest-plugin-mutate for its own
+      # copy of the gate, so the judge's Pest starts from the release Composer
+      # installs, patched by the judge where pest.patch is on.
+      - name: Hand Pest to the judge
+        if: inputs.judge != '' && steps.config.outputs.pest == 'true'
+        env:
+          GATE: ${{ steps.resolve.outputs.gate }}
+          PATCH: ${{ steps.config.outputs.pest_patch }}
+        run: bash "${GATE_ACTION}/resources/action/judge-pest.sh" "${GATE}" "${PATCH}"
       - name: Restore this scope's ledger
         if: steps.config.outputs.default_store == 'true' && steps.resolve.outputs.own_dir != ''
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

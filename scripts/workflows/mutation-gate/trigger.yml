@@ -106,6 +106,14 @@ on:
         description: The branch publish writes the badge and the trend to, and the verdict reads the last trend from.
         type: string
         default: mutation-gate
+      judge:
+        description: >-
+          What judges the run, where it is not the gate the project installs (ADR-0140). For the gate's own repository:
+          merge-base, the gate built at the commit the change branched from, or at its base, or else the newest signed
+          release's. For any repository: release, the newest signed release's; or a commit or tag of the gate's
+          repository, built. Empty, the default, runs the project's own copy.
+        type: string
+        default: ''
       runs-on:
         description: 'The runner the plan, the shards, the survivors and the verdict run on: a label, such as ubuntu-24.04-arm, or a JSON list of labels a runner must all have, such as ["self-hosted", "linux"].'
         type: string
@@ -187,5 +195,7 @@ env:
   HANDED: .mutation-gate/handed
   # Where the verdict keeps the error lines of each cancelled or failed job's log, a file a job by its id.
   ERRORS: .mutation-gate/errors
+  # Where each job that runs the gate finds the judge's PHAR, where `judge` names one (ADR-0140).
+  JUDGE: .mutation-gate/judge/mutation-gate-judge.phar
 
 jobs:

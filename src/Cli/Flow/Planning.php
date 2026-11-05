@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\RiskOrder;
+use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Plan\Considered;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
@@ -177,7 +178,10 @@ final readonly class Planning
                     $this->adapters->briefing($briefing->standingAs($planned->briefing())),
                 )),
                 $measured->said(),
-            )->without($ledgers->unread())->learning(...$learned->lines())
+            )->without($ledgers->unread())->learning(
+                ...$learned->lines(),
+                ...JudgedRun::of($this->adapters->project, OwnArchive::running())->lines($this->settings->reach()->everything()),
+            )
             : $planned;
     }
 

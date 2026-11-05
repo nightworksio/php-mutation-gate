@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\Reach\DecidingManifests;
 use NightWorksIO\MutationGate\Core\Reach\Layout;
 use NightWorksIO\MutationGate\Core\Reach\Modules;
@@ -144,8 +145,10 @@ final readonly class Reached
             $layout = $layout->runBy(Glob::of($definition->value()));
         }
 
+        $judged = JudgedRun::of($adapters->project, OwnArchive::running());
+
         foreach ($settings->reach()->everything() as $glob) {
-            $layout = $layout->decidedAlsoBy($glob);
+            $layout = $judged->leavesOut($glob) ? $layout : $layout->decidedAlsoBy($glob);
         }
 
         foreach (self::modules($adapters) as $module) {

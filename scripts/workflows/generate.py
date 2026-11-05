@@ -45,6 +45,7 @@ DOWNLOADS = (
     ("mutation-gate-survivors-", "shares", "what the survivors' shares made"),
     ("mutation-gate-delivery-", "delivery", "the verdict's delivery"),
     ("mutation-gate-plan-", "plan", "the plan"),
+    ("mutation-gate-judge-", "judge", "the judge's PHAR"),
     ("mutation-gate-coverage-", "coverage", "the plan's coverage maps"),
     ("mutation-gate-result-", "results", "the shards' results"),
     ("mutation-gate-publish-", "publish", "what the verdict publishes"),

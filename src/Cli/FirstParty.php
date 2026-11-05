@@ -210,6 +210,7 @@ final readonly class FirstParty implements Extension
                     new PackageDirectory(),
                     $processes,
                     OwnArchive::running(),
+                    PestPlugin::class,
                     Outbreak::beneath($options, self::root(), Resources::at(Shipped::Outbreak)),
                 ),
             )

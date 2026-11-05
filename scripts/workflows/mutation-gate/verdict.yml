@@ -4,7 +4,7 @@
   # judge makes it cannot-judge, and so does a shard that left no result.
   verdict:
     name: verdict
-    needs: [fetch, plan, shard, survivors, survivors-report]
+    needs: [fetch, judge, plan, shard, survivors, survivors-report]
     if: ${{ !cancelled() && needs.plan.result != 'skipped' }}
     runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: ${{ inputs.verdict-timeout }}
@@ -25,9 +25,17 @@
         if: needs.plan.result != 'success'
         env:
           PLAN: ${{ needs.plan.result }}
+          JUDGE_ENDED: ${{ needs.judge.result }}
+          JUDGE_REFUSED: ${{ needs.judge.outputs.refused }}
         run: |
           echo "verdict=cannot-judge" >> "${GITHUB_OUTPUT}"
-          echo "::error::The plan job ended ${PLAN}, so there is nothing to judge: the gate cannot judge this run. See the plan job."
+          if [ -n "${JUDGE_REFUSED}" ]; then
+            echo "::error::The gate cannot judge this run: ${JUDGE_REFUSED}"
+          elif [ "${JUDGE_ENDED}" = "failure" ]; then
+            echo "::error::The judge job failed, so the gate cannot judge this run. See the judge job; the workflow's judge input names the build it makes."
+          else
+            echo "::error::The plan job ended ${PLAN}, so there is nothing to judge: the gate cannot judge this run. See the plan job."
+          fi
           exit 2
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -86,6 +94,11 @@
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
         env:
           COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: inputs.judge != ''
+        with:
+          name: mutation-gate-judge-${{ needs.judge.outputs.attempt }}
+          path: .mutation-gate/judge
       - name: Resolve the run
         id: resolve
         env:
@@ -97,6 +110,8 @@
           REPORTS: ${{ inputs.reports }}
           CACHE: ${{ inputs.cache }}
           DEFAULT_BRANCH: ${{ steps.default.outputs.name }}
+          INSTALLED_BY: ${{ inputs.judge != '' && 'judge' || 'composer' }}
+          GATE_PHAR: ${{ inputs.judge != '' && env.JUDGE || '' }}
         run: python3 "${GATE_ACTION}/resources/action/gate_action.py" resolve
       - name: Read the effective config
         id: config

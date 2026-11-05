@@ -54,7 +54,6 @@ use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
-use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Port\MapEngine;
 use NightWorksIO\MutationGate\Port\Processes;
@@ -72,9 +71,6 @@ use function sprintf;
  */
 final readonly class Pest implements LeavesPhpReport, ListsSideBySide, Runner
 {
-    private const string ARCHIVED
-        = 'Pest runs the gate\'s plugin, which only the Composer package installs: composer require --dev %s -W';
-
     /** Where the gate runs Pest: the project's root, which the gate runs in. */
     private const string ROOT = '.';
 
@@ -128,8 +124,11 @@ final readonly class Pest implements LeavesPhpReport, ListsSideBySide, Runner
      * memory cap with these files, reading whether pest:patch is applied
      * through these package files and running through these processes, with
      * the engine that vouches for each map handed over, where one does
-     * (ADR-0118). The gate's PHAR refuses it: Pest finds the gate's plugin
-     * only among the project's installed packages (ADR-0022).
+     * (ADR-0118). Under the gate's PHAR, every PHP process of a run loads the
+     * archive first, and its plugin, this class, in the place of a copy of the
+     * gate's the project's Pest lists (ADR-0140).
+     *
+     * @param class-string $plugin
      */
     public static function fromOptions(
         Options $options,
@@ -138,12 +137,9 @@ final readonly class Pest implements LeavesPhpReport, ListsSideBySide, Runner
         PackageFiles $packages,
         Processes $processes,
         OwnArchive|NotGiven $archive,
+        string $plugin,
         MapEngine|NotGiven $maps = new NotGiven(),
     ): self|Invalid {
-        if ($archive instanceof OwnArchive) {
-            return Invalid::because(Problem::at('', sprintf(self::ARCHIVED, ThisPackage::COMPOSER)));
-        }
-
         $read = PestOptions::read($options);
 
         if ($read instanceof Invalid) {
@@ -151,10 +147,13 @@ final readonly class Pest implements LeavesPhpReport, ListsSideBySide, Runner
         }
 
         $project = Project::at(self::ROOT, $read->tests(), Workspace::root(), $vendor);
+        $loading = $archive instanceof OwnArchive
+            ? ArchiveLoading::writtenFor($project, $archive, GatePlugins::listedIn($project, $packages), $plugin)
+            : NotGiven::value();
 
-        return new self(
+        return $loading instanceof CannotJudge ? Invalid::because(Problem::at('', $loading->why())) : new self(
             $project,
-            new ProcessShell($processes, $project->root()),
+            new ProcessShell($processes, $project->root(), $loading),
             $read->patching(),
             $files,
             $packages,

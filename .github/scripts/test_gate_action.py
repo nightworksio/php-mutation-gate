@@ -767,8 +767,12 @@ FAKE_GH = """#!/bin/sh
 case "$*" in
   "release download"*)
     [ -n "${DOWNLOAD_FAILS}" ] && { echo "release not found" >&2; exit 1; }
-    while [ "$#" -gt 0 ]; do [ "$1" = "--dir" ] && dir="$2"; shift; done
-    echo phar > "${dir}/mutation-gate.phar"; echo signature > "${dir}/mutation-gate.phar.asc" ;;
+    for argument in "$@"; do [ "${previous}" = "--dir" ] && dir="${argument}"; previous="${argument}"; done
+    previous=""
+    for argument in "$@"; do [ "${previous}" = "--pattern" ] && echo "${argument}" > "${dir}/${argument}"; previous="${argument}"; done ;;
+  "release view"*)
+    [ -n "${NO_RELEASE}" ] && { echo "release not found" >&2; exit 1; }
+    echo v0.1.1 ;;
   "attestation verify"*)
     echo "$*" > "${ASKED}"
     [ -n "${UNATTESTED}" ] && { echo "no attestations found" >&2; exit 1; }
@@ -911,3 +915,201 @@ class PharRun(unittest.TestCase):
 
             self.assertEqual(2, code)
             self.assertIn("so the PHAR cannot run it", said)
+
+
+class JudgeCandidates(unittest.TestCase):
+    def test_release_is_the_newest_release_s_judge_and_builds_nothing(self):
+        self.assertEqual(([], True), action.judge_candidates("release", "pull_request", PULL, "octo/gate", "main"))
+
+    def test_a_commit_or_tag_builds_that_alone(self):
+        self.assertEqual(([["v0.2.0"]], False), action.judge_candidates("v0.2.0", "push", {}, "octo/gate", "main"))
+
+    def test_merge_base_builds_where_a_change_branched_then_its_base_then_takes_the_newest_release(self):
+        pull = {"pull_request": {"base": {"sha": "b" * 40}, "head": {"sha": "h" * 40}}}
+        group = {"merge_group": {"base_sha": "g" * 40}}
+
+        self.assertEqual(
+            ([["b" * 40, "h" * 40], ["b" * 40]], True),
+            action.judge_candidates("merge-base", "pull_request", pull, action.RELEASES, "main"),
+        )
+        self.assertEqual(
+            ([["g" * 40, "HEAD"], ["g" * 40]], True),
+            action.judge_candidates("merge-base", "merge_group", group, action.RELEASES, "main"),
+        )
+        self.assertEqual(
+            ([["origin/main", "HEAD"], ["origin/main"]], True),
+            action.judge_candidates("merge-base", "push", {}, action.RELEASES, "main"),
+        )
+
+    def test_its_own_history_is_the_gate_s_own_repository_s_alone(self):
+        for judge in action.JUDGE_OWN_HISTORY:
+            with self.subTest(judge), self.assertRaises(action.Refused) as refused:
+                action.judge_candidates(judge, "pull_request", PULL, "octo/gate", "main")
+
+            self.assertIn(f"judge: {judge} builds the gate from its own history", str(refused.exception))
+            self.assertIn(f"only {action.RELEASES} names it", str(refused.exception))
+
+
+def judged(directory: str, payload: dict, **env: str) -> tuple[int, dict, str]:
+    """The judge subcommand run in a git repository, with a fake gh: its exit code, its outputs and what it said."""
+    event = os.path.join(directory, "event.json")
+    with open(event, "w", encoding="utf-8") as file:
+        json.dump(payload, file)
+    outputs = os.path.join(directory, "outputs")
+    fakes = os.path.join(directory, "fakes")
+    os.makedirs(fakes, exist_ok=True)
+    with open(os.path.join(fakes, "gh"), "w", encoding="utf-8") as file:
+        file.write(FAKE_GH)
+    os.chmod(os.path.join(fakes, "gh"), 0o755)
+    ran = subprocess.run(
+        [sys.executable, action_script.PATH, "judge"],
+        cwd=directory,
+        env={
+            **os.environ,
+            "PATH": f"{fakes}{os.pathsep}{os.environ['PATH']}",
+            "GITHUB_OUTPUT": outputs,
+            "GITHUB_EVENT_NAME": "pull_request",
+            "GITHUB_EVENT_PATH": event,
+            "GITHUB_REPOSITORY": action.RELEASES,
+            "DEFAULT_BRANCH": "main",
+            **env,
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+    written = {}
+    if os.path.isfile(outputs):
+        with open(outputs, encoding="utf-8") as file:
+            written = dict(line.split("=", 1) for line in file.read().splitlines() if "=" in line)
+    return ran.returncode, written, ran.stderr
+
+
+class JudgeStep(unittest.TestCase):
+    @staticmethod
+    def git(directory: str, *arguments: str) -> str:
+        environment = {**os.environ, "GIT_AUTHOR_NAME": "a", "GIT_AUTHOR_EMAIL": "a@a", "GIT_COMMITTER_NAME": "a",
+                       "GIT_COMMITTER_EMAIL": "a@a", "GIT_CONFIG_GLOBAL": os.devnull}
+        ran = subprocess.run(["git", *arguments], cwd=directory, env=environment, capture_output=True, text=True, check=True)
+        return ran.stdout.strip()
+
+    def touching(self, directory: str, path: str) -> str:
+        """The change branch's tip after a commit that writes a file at a path, or under it where it names a directory."""
+        self.git(directory, "checkout", "--quiet", "change")
+        file = path if os.path.splitext(path)[1] else os.path.join(path, "touched")
+        os.makedirs(os.path.dirname(os.path.join(directory, file)), exist_ok=True)
+        with open(os.path.join(directory, file), "w", encoding="utf-8") as written:
+            written.write("touched")
+        self.git(directory, "add", file)
+        self.git(directory, "commit", "--quiet", "--message=touch")
+        return self.git(directory, "rev-parse", "HEAD")
+
+    def history(self, directory: str, build_at_fork: bool) -> tuple[str, str, str]:
+        """A base branch and a change branched from it: the fork point, the base's tip and the change's tip."""
+        def git(*arguments: str) -> str:
+            return self.git(directory, *arguments)
+
+        git("init", "--quiet", "--initial-branch=main")
+        if build_at_fork:
+            os.makedirs(os.path.join(directory, "scripts/judge"))
+            with open(os.path.join(directory, action.JUDGE_BUILD), "w", encoding="utf-8") as file:
+                file.write("")
+            git("add", "scripts")
+        git("commit", "--quiet", "--allow-empty", "--message=fork")
+        fork = git("rev-parse", "HEAD")
+        git("checkout", "--quiet", "-b", "change")
+        git("commit", "--quiet", "--allow-empty", "--message=change")
+        change = git("rev-parse", "HEAD")
+        git("checkout", "--quiet", "main")
+        os.makedirs(os.path.join(directory, "scripts/judge"), exist_ok=True)
+        with open(os.path.join(directory, action.JUDGE_BUILD), "w", encoding="utf-8") as file:
+            file.write("# moved on")
+        git("add", "scripts")
+        git("commit", "--quiet", "--message=main moved on")
+        return fork, git("rev-parse", "HEAD"), change
+
+    def test_builds_where_the_change_branched_where_that_commit_builds_a_judge(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fork, base, change = self.history(directory, build_at_fork=True)
+            pull = {"pull_request": {"base": {"sha": base}, "head": {"sha": change}}}
+
+            code, outputs, said = judged(directory, pull, JUDGE="merge-base")
+
+            self.assertEqual((0, {"commit": fork}), (code, outputs), said)
+
+    def test_builds_from_the_base_where_the_fork_point_builds_none(self):
+        with tempfile.TemporaryDirectory() as directory:
+            _, base, change = self.history(directory, build_at_fork=False)
+            pull = {"pull_request": {"base": {"sha": base}, "head": {"sha": change}}}
+
+            code, outputs, said = judged(directory, pull, JUDGE="merge-base")
+
+            self.assertEqual((0, {"commit": base}), (code, outputs), said)
+
+    def test_merge_base_builds_where_a_change_to_what_calls_a_judge_branched(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fork, base, _ = self.history(directory, build_at_fork=True)
+            change = self.touching(directory, "action.yml")
+            pull = {"pull_request": {"base": {"sha": base}, "head": {"sha": change}}}
+
+            code, outputs, said = judged(directory, pull, JUDGE="merge-base")
+
+            self.assertEqual((0, {"commit": fork}), (code, outputs), said)
+
+    def test_what_the_base_moved_on_to_is_not_the_change(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fork, base, change = self.history(directory, build_at_fork=True)
+            pull = {"pull_request": {"base": {"sha": base}, "head": {"sha": change}}}
+
+            code, outputs, said = judged(directory, pull, JUDGE="merge-base")
+
+            self.assertEqual((0, {"commit": fork}), (code, outputs), said)
+
+    def test_merge_base_takes_the_newest_release_where_neither_commit_builds_a_judge(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fork, _, change = self.history(directory, build_at_fork=False)
+            pull = {"pull_request": {"base": {"sha": fork}, "head": {"sha": change}}}
+
+            code, outputs, said = judged(directory, pull, JUDGE="merge-base")
+
+        self.assertEqual((0, {"release": "true", "tag": "v0.1.1"}), (code, outputs), said)
+
+    def test_takes_the_newest_release_where_no_commit_builds_one_and_refuses_a_named_commit_that_cannot(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fork, _, _ = self.history(directory, build_at_fork=False)
+
+            released = judged(directory, {}, JUDGE="release")
+            named = judged(directory, {}, JUDGE=fork)
+
+        self.assertEqual((0, {"release": "true", "tag": "v0.1.1"}), released[:2], released[2])
+        self.assertEqual(2, named[0])
+        self.assertIn(f"{fork} builds no judge: it holds no {action.JUDGE_BUILD}", named[2])
+
+    def test_refuses_where_no_release_can_be_found(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.history(directory, build_at_fork=False)
+
+            code, _, said = judged(directory, {}, JUDGE="release", NO_RELEASE="1")
+
+        self.assertEqual(2, code)
+        self.assertIn(f"No release of {action.RELEASES} could be found to judge with: release not found", said)
+
+
+class JudgeRun(unittest.TestCase):
+    def test_runs_the_judge_s_phar_whatever_the_project_installs_and_its_pest(self):
+        with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as other:
+            code, outputs, said = step("resolve", directory, NOT_REQUIRED, INSTALLED_BY="judge", GATE_PHAR="/tmp/judge.phar")
+            pest = json.dumps({"runner": {"use": "pest"}})
+            configured, _, refused = step("config", other, NOT_REQUIRED, stdin=pest, INSTALLED_BY="judge")
+
+        self.assertEqual((0, "/tmp/judge.phar"), (code, outputs["gate"]), said)
+        self.assertEqual(0, configured, refused)
+
+    def test_downloads_the_release_s_judge_where_asked_for_it(self):
+        with tempfile.TemporaryDirectory() as directory:
+            code, outputs, said = step("phar", directory, NOT_REQUIRED, TAG="v0.1.1", ASSET=action.JUDGE_PHAR)
+
+            self.assertEqual(0, code, said)
+            self.assertTrue(outputs["gate"].endswith(f"/{action.JUDGE_PHAR}"))
+

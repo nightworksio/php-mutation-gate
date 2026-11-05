@@ -122,6 +122,23 @@ it('judges whatever the plan did, so a plan that cannot judge never leaves the p
         ->toBe(sprintf('${{ steps.outputs.outputs.verdict || steps.%s.outputs.verdict }}', Lenient::text($first->field('id'))));
 });
 
+it('plans whatever the judge did, so a judge that fails makes the plan fail and never skips the protected check', function (): void {
+    $plan = WorkflowFile::at(REUSABLE)->field('jobs')->field('plan');
+
+    expect(Lenient::text($plan->field('if')))->not->toContain('needs.judge');
+});
+
+it('says why the judge refused where the verdict cannot judge, and passes no run that asked for a judge it lacks', function (): void {
+    $verdict = WorkflowFile::at(REUSABLE)->field('jobs')->field('verdict');
+    $first = jobSteps($verdict)[0];
+
+    expect(Lenient::text(WorkflowFile::at(REUSABLE)->field('jobs')->field('judge')->field('outputs')->field('refused')))
+        ->toBe('${{ steps.judge.outputs.refused }}')
+        ->and(Lenient::text($first->field('env')->field('JUDGE_REFUSED')))->toBe('${{ needs.judge.outputs.refused }}')
+        ->and(Lenient::text($first->field('run')))->toContain('The gate cannot judge this run: ${JUDGE_REFUSED}')
+        ->and(Lenient::text($first->field('run')))->toEndWith("exit 2\n");
+});
+
 it('publishes nothing where the plan did not succeed, since there is then nothing to publish', function (): void {
     $publish = WorkflowFile::at(REUSABLE)->field('jobs')->field('publish');
 
@@ -580,23 +597,39 @@ it('sets up the extensions on a release\'s gate that the package\'s own gate has
         ->and($of(RELEASE, 'gate'))->toBe($of('.github/workflows/ci.yml', 'mutation'));
 });
 
-it('signs, attests and pushes only the PHAR whose SHA-256 build named', function (string $id, string $using): void {
+it('signs, attests and pushes only the PHARs whose SHA-256s build named', function (string $id, string $using, string $checking, string $signing, array $digests): void {
     $steps = WorkflowFile::at(RELEASE)->field('jobs')->field($id)->field('steps');
-    $checked = WorkflowFile::stepsWhere($steps, 'name', static fn(string $name): bool => $name === 'Check the PHAR is the one build made');
+    $checked = WorkflowFile::stepsWhere($steps, 'name', static fn(string $name): bool => $name === $checking);
     $used = [
         ...WorkflowFile::stepsWhere($steps, 'uses', static fn(string $uses): bool => str_starts_with($uses, $using)),
         ...WorkflowFile::stepsWhere($steps, 'run', static fn(string $run): bool => str_contains($run, $using)),
     ];
-    $signed = WorkflowFile::stepsWhere($steps, 'name', static fn(string $name): bool => $name === 'Sign the PHAR with the release key');
+    $signed = WorkflowFile::stepsWhere($steps, 'name', static fn(string $name): bool => $name === $signing);
     $guarded = [...$used, ...$signed];
     $check = Lenient::items($steps)[$checked[0]];
 
     expect($checked)->toHaveCount(1)
         ->and($guarded)->not->toBe([])
-        ->and($guarded)->each->toBeGreaterThan($checked[0])
-        ->and(Lenient::text($check->field('env')->field('DIGEST')))->toBe('${{ needs.build.outputs.digest }}')
-        ->and(Lenient::text($check->field('run')))->toContain('echo "${DIGEST}  build/mutation-gate.phar" | sha256sum --check --strict');
+        ->and($guarded)->each->toBeGreaterThan($checked[0]);
+
+    /** @var array<string, array{string, string}> $digests */
+    foreach ($digests as $variable => [$output, $phar]) {
+        expect(Lenient::text($check->field('env')->field($variable)))->toBe(sprintf('${{ needs.build.outputs.%s }}', $output))
+            ->and(Lenient::text($check->field('run')))->toContain(sprintf('echo "${%s}  %s" | sha256sum --check --strict', $variable, $phar));
+    }
 })->with([
-    'the release' => ['publish', 'actions/attest-build-provenance@'],
-    'the image' => ['image-build', 'docker buildx build '],
+    'the release' => [
+        'publish',
+        'actions/attest-build-provenance@',
+        'Check the PHARs are the ones build made',
+        'Sign the PHARs with the release key',
+        ['DIGEST' => ['digest', 'build/mutation-gate.phar'], 'JUDGE_DIGEST' => ['judge-digest', 'build/mutation-gate-judge.phar']],
+    ],
+    'the image' => [
+        'image-build',
+        'docker buildx build ',
+        'Check the PHAR is the one build made',
+        'Sign the PHAR with the release key',
+        ['DIGEST' => ['digest', 'build/mutation-gate.phar']],
+    ],
 ]);

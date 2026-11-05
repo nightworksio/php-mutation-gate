@@ -78,6 +78,12 @@ inputs:
       the project's composer.json requires nightworksio/mutation-gate and phar where it does not.
     required: false
     default: auto
+  judge:
+    description: >-
+      A judge's PHAR to run in the place of the gate install chooses (ADR-0140), as the reusable workflow's judge job
+      builds or fetches it; where empty, the default, install decides.
+    required: false
+    default: ''
   composer-auth:
     description: >-
       The credentials Composer installs the project's dependencies with, as COMPOSER_AUTH holds them, for a private
@@ -185,8 +191,8 @@ runs:
         REPORTS: ${{ inputs.reports }}
         CACHE: ${{ inputs.cache }}
         DEFAULT_BRANCH: ${{ steps.default.outputs.name }}
-        INSTALLED_BY: ${{ steps.install.outputs.install }}
-        GATE_PHAR: ${{ steps.phar.outputs.gate }}
+        INSTALLED_BY: ${{ inputs.judge != '' && 'judge' || steps.install.outputs.install }}
+        GATE_PHAR: ${{ inputs.judge != '' && inputs.judge || steps.phar.outputs.gate }}
       run: python3 "${GITHUB_ACTION_PATH}/resources/action/gate_action.py" resolve
 
     # ADR-0007: the Actions cache holds the directory store at its default path
@@ -199,18 +205,29 @@ runs:
         GATE: ${{ steps.resolve.outputs.gate }}
         OPTIONS: ${{ steps.resolve.outputs.options }}
         CACHE: ${{ inputs.cache }}
-        INSTALLED_BY: ${{ steps.install.outputs.install }}
+        INSTALLED_BY: ${{ inputs.judge != '' && 'judge' || steps.install.outputs.install }}
       run: |
         set -euo pipefail
         mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
         "${GATE}" config:show --format=json --resolved "${arguments[@]}" \
           | python3 "${GITHUB_ACTION_PATH}/resources/action/gate_action.py" config
 
+    # ADR-0140: a judge patches the release of pest-plugin-mutate Composer
+    # installs, in the place of the patch the project's own copy of the gate
+    # applied, where pest.patch is on.
+    - name: Hand Pest to the judge
+      if: inputs.deliver != 'true' && inputs.judge != '' && steps.config.outputs.pest == 'true'
+      shell: bash
+      env:
+        GATE: ${{ steps.resolve.outputs.gate }}
+        PATCH: ${{ steps.config.outputs.pest_patch }}
+      run: bash "${GITHUB_ACTION_PATH}/resources/action/judge-pest.sh" "${GATE}" "${PATCH}"
+
     # ADR-0004: with pest.patch on, a mutation run refuses an unpatched
     # pest-plugin-mutate. The action patches the vendor directory this job
     # installed, so the project's Composer hook is for its runs elsewhere.
     - name: Apply the optional Pest patches
-      if: inputs.deliver != 'true' && steps.config.outputs.pest_patch == 'true'
+      if: inputs.deliver != 'true' && inputs.judge == '' && steps.config.outputs.pest_patch == 'true'
       shell: bash
       env:
         GATE: ${{ steps.resolve.outputs.gate }}

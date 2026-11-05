@@ -364,6 +364,13 @@
       "evidence": "none",
       "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
     },
+    "mutation/judge": {
+      "check": "mutation / judge",
+      "checks": "The gate that judges the run, built under a namespace of its own at the commit the change branched from, or the newest release's where no commit builds one (ADR-0140); it runs where the workflow's judge input names one.",
+      "reproduce": "composer phar:judge",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
     "mutation/plan": {
       "check": "mutation / plan",
       "checks": "G8: what a change reaches, the units a proof or a carried result already settles, and the shards the rest is cut into, by the gate over its own src.",

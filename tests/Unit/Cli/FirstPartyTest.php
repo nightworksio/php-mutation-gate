@@ -62,6 +62,7 @@ use NightWorksIO\MutationGate\Adapter\Yaml\YamlConfig;
 use NightWorksIO\MutationGate\Cli\ComposerVendor;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\FirstParty;
+use NightWorksIO\MutationGate\Cli\PestPlugin;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
@@ -214,7 +215,7 @@ it('registers Pest as a runner, in the vendor directory Composer installed the p
     $registry,
 ): void {
     expect(Lookup::in($registry())->runner(Name::of('pest'), Options::none()))
-        ->toEqual(Pest::fromOptions(Options::none(), ComposerVendor::of('.'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock(), new SystemGauge(SystemGauge::MEMINFO, '.'))), NotGiven::value(), Outbreak::beneath(Options::none(), (string) getcwd(), Resources::at(Shipped::Outbreak))));
+        ->toEqual(Pest::fromOptions(Options::none(), ComposerVendor::of('.'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock(), new SystemGauge(SystemGauge::MEMINFO, '.'))), NotGiven::value(), PestPlugin::class, Outbreak::beneath(Options::none(), (string) getcwd(), Resources::at(Shipped::Outbreak))));
 });
 
 it('registers the PHPUnit runner, in the vendor directory Composer installed the project into, from the options the flows write', function () use (

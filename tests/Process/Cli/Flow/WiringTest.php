@@ -38,6 +38,7 @@ use NightWorksIO\MutationGate\Cli\ComposerVendor;
 use NightWorksIO\MutationGate\Cli\Flow\Adapters;
 use NightWorksIO\MutationGate\Cli\Flow\Cores;
 use NightWorksIO\MutationGate\Cli\Flow\Wiring;
+use NightWorksIO\MutationGate\Cli\PestPlugin;
 use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Config\Ci;
 use NightWorksIO\MutationGate\Config\CostModel;
@@ -839,6 +840,7 @@ it('tells each runner its timeouts and the classes of the registered mutators th
         new PackageDirectory(),
         firstPartyProcesses(),
         NotGiven::value(),
+        PestPlugin::class,
         Outbreak::beneath($options, (string) getcwd(), Resources::at(Shipped::Outbreak)),
     ))
         ->and($infection instanceof Adapters ? $infection->runner : $infection)->toEqual(Infection::fromOptions(
@@ -919,6 +921,7 @@ it('tells each runner the test directories the PHPUnit config declares, each glo
         new PackageDirectory(),
         firstPartyProcesses(),
         NotGiven::value(),
+        PestPlugin::class,
         Outbreak::beneath(Configs::options($options(...$declared)), (string) getcwd(), Resources::at(Shipped::Outbreak)),
     ))
         ->and($phpunit instanceof Adapters ? $phpunit->runner : $phpunit)->toEqual(NativeRunner::fromOptions(

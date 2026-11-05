@@ -88,6 +88,7 @@ jobs:
 | `merged-records-days` | `30`: how many days that pass stays readable; a merge later than that is judged again |
 | `deliver` | `false`; `true` in a job of its own, after the run's, to send what the run left |
 | `install` | `auto`: the project's own copy where its `composer.json` requires `nightworksio/mutation-gate`, the release's PHAR where it does not; or `composer`, or `phar` |
+| `judge` | none; a judge's PHAR to run in the place of the gate `install` chooses, as the reusable workflow's `judge` job leaves it ([ADR-0140](../../decisions/0140-the-gate-s-own-pull-request-is-judged-by-its-base-s-build.md)) |
 | `composer-auth` | none; the credentials Composer installs the project's dependencies with, as `COMPOSER_AUTH` holds them, for a private repository. Pass a secret: only the install step reads it, and that step runs the project's Composer scripts and plugins, which can read it |
 
 A project that does not require the gate with Composer, such as one whose
@@ -181,11 +182,12 @@ jobs:
       AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
 ```
 
-It takes the action's inputs less `shard`, `deliver`, `install` and
-`composer-auth`, and its own: `coverage`, `runs-on`, `keyed-runs-on`,
-`plan-timeout` (60), `shard-timeout` (360), `verdict-timeout` (30), each in
-minutes, `plan-coverage` (`pcov`), the driver the plan sets up, and
-`publish-branch` (`mutation-gate`), where publish writes the badge and trend. Its outputs are
+It takes the action's inputs less `shard`, `deliver`, `install`,
+`composer-auth` and the action's `judge`, and its own: `coverage`, `judge`,
+`runs-on`, `keyed-runs-on`, `plan-timeout` (60), `shard-timeout` (360),
+`verdict-timeout` (30), each in minutes, `plan-coverage` (`pcov`), the driver
+the plan sets up, and `publish-branch` (`mutation-gate`), where publish writes
+the badge and trend. Its outputs are
 `verdict`, `scores` and `plan`, and it uploads the reports as the artifact
 `mutation-gate-reports`.
 
@@ -216,6 +218,28 @@ Where `runs-on` names such a runner, keep `keyed-runs-on` on a GitHub-hosted
 or an ephemeral one. With the one-step action, the same holds for the
 `deliver` job's `runs-on`: never put it on a persistent runner that runs pull
 requests' code. The one-step action runs on its own job's `runs-on`.
+
+`judge` has another build of the gate judge the run, in the place of the
+project's own copy
+([ADR-0140](../../decisions/0140-the-gate-s-own-pull-request-is-judged-by-its-base-s-build.md)).
+`release` takes the newest signed release's judge, verified by its signature
+and its attestation as the release's PHAR is, and a commit or tag of
+`nightworksio/php-mutation-gate` builds the judge there. Only the gate's own
+repository names the other three, which build it from its own history:
+
+| Value | Judge |
+|---|---|
+| `auto` | Built where the change branched, or else at its base. Built at the change's own tip where the change touches the reusable workflow, the action, the gate's `mutation-gate.json` or the judge's build. |
+| `merge-base` | Built where the change branched, or else at its base. Where the change touches what `auto` lists, or neither commit holds a judge's build, the verdict is cannot-judge, and says why. |
+| `head` | Built at the change's own tip. |
+
+A `judge` job builds it once a run, cached by
+commit, and the plan, shards, survivors and verdict run it. The judge's
+classes sit under a namespace of their own, so it runs beside the project's
+copy, and its Pest plugin takes the place of the copy's in every Pest process.
+It brings the first-party extensions itself; an extension of the project's
+own implements the gate's interfaces, not the judge's, so a project that
+registers one runs without a judge.
 
 By default the `plan` job runs the suite under coverage itself. Where a job of
 yours runs it under coverage already, it can hand its map over instead, so the

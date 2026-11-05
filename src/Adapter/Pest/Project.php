@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function dirname;
 use function file_exists;
+use function file_put_contents;
 use function glob;
 use function is_array;
 use function is_dir;
@@ -47,6 +48,9 @@ final readonly class Project
 
     /** Why a run cannot be told from an earlier one. */
     private const string STALE = 'An earlier run left %s or the map beside it, and the gate cannot remove them.';
+
+    /** Why a file of the adapter's own cannot be written. */
+    private const string UNWRITTEN = '%s cannot be written. Make the directory writable.';
 
     /** Why a run's orders cannot be told from an earlier run's. */
     private const string STALE_ORDER = 'An earlier run left orders in %s, and the gate cannot remove them.';
@@ -161,6 +165,20 @@ final readonly class Project
         $this->directory(Path::of(dirname($file)));
 
         return $this->without($file) ? $file : Leftover::at($file);
+    }
+
+    /**
+     * A file of the adapter's own in the gate's directory, written with its
+     * directory made and in place of a link where one is, never through it;
+     * or why it cannot be.
+     */
+    public function written(string $name, string $contents): string|CannotJudge
+    {
+        $file = $this->fresh($name);
+
+        return is_string($file) && file_put_contents($file, $contents) === false
+            ? CannotJudge::because(sprintf(self::UNWRITTEN, $file))
+            : $file;
     }
 
     /** The directory the plugin writes each mutant's order to, as a run left it. */

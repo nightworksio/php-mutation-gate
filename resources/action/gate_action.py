@@ -6,8 +6,13 @@ Usage:
   gate_action.py install   how the gate is installed, `install`: from the project's
                            Composer packages, or the release's PHAR, whose `tag`
                            it names from the ref the action is pinned to
-  gate_action.py phar      downloads that release's PHAR, verifies its signature
-                           and its attestation, and names it as `gate`
+  gate_action.py phar      downloads that release's PHAR, or ASSET where it names
+                           the judge's, verifies its signature and its
+                           attestation, and names it as `gate`
+  gate_action.py judge     what builds the run's judge, JUDGE (ADR-0140): the
+                           `commit` to build it from, or `release`, the newest
+                           release's judge, with its `tag`; where it refuses,
+                           it names why as `refused` before it exits 2
   gate_action.py resolve   the run's scope, ledger cache, gate binary and options:
                            `plan_options` adds the mode's to `options`
   gate_action.py run-times writes what the jobs JOBS lists took to RUN_TIMES, for
@@ -17,7 +22,7 @@ Usage:
                            its ledger in the default directory, which copy of a
                            ledger it reads, whether deliver keeps the ledger in
                            the cache after the store, from STORE and ON_DEFAULT,
-                           whether it runs Pest with the optional patches, and
+                           whether it runs Pest, and with the optional patches, and
                            whether it runs Infection
   gate_action.py merged-records  on a push to the default branch, into FETCHED, the
                            pass each pull request merged into the last commits
@@ -134,6 +139,24 @@ RELEASE_KEY_FILE = "release-key.asc"
 # A release's PHAR and its detached signature, as the release names them.
 PHAR = "mutation-gate.phar"
 SIGNATURE = "mutation-gate.phar.asc"
+
+# A release's judge PHAR and its detached signature (ADR-0140).
+JUDGE_PHAR = "mutation-gate-judge.phar"
+JUDGE_SIGNATURE = "mutation-gate-judge.phar.asc"
+
+# What the reusable workflow's `judge` names besides a commit or tag of the gate's repository: the build at
+# the commit the change branched from, or the newest release where none builds; or the newest release.
+JUDGE_MERGE_BASE = "merge-base"
+JUDGE_RELEASE = "release"
+
+# The modes that build the gate from its own history, which only its repository holds.
+JUDGE_OWN_HISTORY = (JUDGE_MERGE_BASE,)
+
+# The script a commit of the gate holds where it builds a judge.
+JUDGE_BUILD = "scripts/judge/scope.py"
+
+# How the resolve step names a judge's PHAR as the gate that runs.
+JUDGE_INSTALL = "judge"
 
 # A release's tag, a release line's tag, and a commit, as a ref may name them.
 RELEASE_TAG = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
@@ -477,6 +500,34 @@ def _instant(text: object) -> datetime | None:
         return None
 
 
+def judge_candidates(judge: str, event: str, payload: dict, repository: str, default_branch: str) -> tuple[list[list[str]], bool]:
+    """The commits a run's judge may be built from, the first that can build one taken, each as the revisions
+    it is: one, or two whose merge base it is; and whether the newest release's judge is taken where none
+    builds one.
+
+    The change's own history is the gate's, so only its repository names `merge-base`. A change is a pull
+    request's head from its base, a merge group's HEAD from its base, and any other run's HEAD from the default
+    branch, whose merge base on the default branch is the commit itself. `merge-base` builds where it branched,
+    then its base, then takes the newest release (ADR-0140).
+    """
+    if judge == JUDGE_RELEASE:
+        return [], True
+    if judge not in JUDGE_OWN_HISTORY:
+        return [[judge]], False
+    if repository != RELEASES:
+        raise Refused(
+            f"judge: {judge} builds the gate from its own history, so only {RELEASES} names it. "
+            f"Name {JUDGE_RELEASE}, or a commit or tag of {RELEASES}."
+        )
+    pull_request = payload.get("pull_request") or {}
+    group = payload.get(MERGE_GROUP) or {}
+    base, head = {
+        "pull_request": ((pull_request.get("base") or {}).get("sha", ""), (pull_request.get("head") or {}).get("sha", "")),
+        MERGE_GROUP: (group.get("base_sha", ""), "HEAD"),
+    }.get(event, (f"origin/{default_branch}", "HEAD"))
+    return [[base, head], [base]], True
+
+
 def phar_refusal(config: dict, installed_by: str) -> str | None:
     """Why the PHAR cannot run the effective config's runner, or nothing where it can (ADR-0022)."""
     if installed_by == PHAR_INSTALL and (config.get("runner") or {}).get("use") == PEST:
@@ -505,13 +556,14 @@ def keeps_after_store(chosen: str, store: str, on_default_branch: bool) -> bool:
     return chosen == TOGETHER and store != "" and on_default_branch
 
 
-def patches_pest(config: dict) -> bool:
-    """Whether the effective config runs Pest with the optional patches on (ADR-0004).
+def runs_pest(config: dict) -> bool:
+    """Whether the effective config runs Pest, by its `runner.use`."""
+    return (config.get("runner") or {}).get("use") == PEST
 
-    The effective config names its runner under `runner.use`.
-    """
-    runner = (config.get("runner") or {}).get("use")
-    return runner == PEST and (config.get(PEST) or {}).get("patch") is True
+
+def patches_pest(config: dict) -> bool:
+    """Whether the effective config runs Pest with the optional patches on (ADR-0004)."""
+    return runs_pest(config) and (config.get(PEST) or {}).get("patch") is True
 
 
 def fail_fast(config: dict) -> str:
@@ -678,6 +730,7 @@ def main(argv: list[str]) -> int:
         "guard": _guard,
         "install": _install,
         "phar": _phar,
+        "judge": _judge,
         "resolve": _resolve,
         "config": _config,
         "infection": _infection,
@@ -722,11 +775,12 @@ def _install() -> dict[str, str]:
 
 def _phar() -> dict[str, str]:
     tag = os.environ["TAG"]
+    asset, signed = (JUDGE_PHAR, JUDGE_SIGNATURE) if os.environ.get("ASSET") == JUDGE_PHAR else (PHAR, SIGNATURE)
     directory = tempfile.mkdtemp(prefix="mutation-gate-", dir=os.environ["RUNNER_TEMP"])
-    phar = os.path.join(directory, PHAR)
-    signature = os.path.join(directory, SIGNATURE)
+    phar = os.path.join(directory, asset)
+    signature = os.path.join(directory, signed)
     download = ["gh", "release", "download", tag, "--repo", RELEASES, "--dir", directory]
-    _ran([*download, "--pattern", PHAR, "--pattern", SIGNATURE], f"The PHAR of {tag} could not be downloaded")
+    _ran([*download, "--pattern", asset, "--pattern", signed], f"The PHAR of {tag} could not be downloaded")
     home = tempfile.mkdtemp(prefix="gnupg-", dir=os.environ["RUNNER_TEMP"])
     key = os.path.join(os.path.dirname(os.path.abspath(__file__)), RELEASE_KEY_FILE)
     _ran(["gpg", "--homedir", home, "--batch", "--quiet", "--import", key], "The release key could not be read")
@@ -763,14 +817,52 @@ def _json_list(path: str) -> list[dict]:
     return [item for item in loaded if isinstance(item, dict)] if isinstance(loaded, list) else []
 
 
+def _judge() -> dict[str, str]:
+    try:
+        return _judge_build()
+    except Refused as refused:
+        _write({"refused": str(refused)})
+        raise
+
+
+def _judge_build() -> dict[str, str]:
+    judge = os.environ.get("JUDGE", "")
+    candidates, release = judge_candidates(
+        judge,
+        os.environ.get("GITHUB_EVENT_NAME", ""),
+        _payload(),
+        os.environ.get("GITHUB_REPOSITORY", ""),
+        os.environ.get("DEFAULT_BRANCH", ""),
+    )
+    if candidates == [[judge]] and os.environ.get("GITHUB_REPOSITORY", "") != RELEASES:
+        _ran(
+            ["git", "fetch", "--quiet", "--depth=1", f"https://github.com/{RELEASES}", judge],
+            f"{judge} could not be fetched from {RELEASES}",
+        )
+        candidates = [["FETCH_HEAD"]]
+    for revisions in candidates:
+        commit = _commit(revisions)
+        if commit and _holds(commit, JUDGE_BUILD):
+            return {"commit": commit}
+    if not release:
+        raise Refused(f"{judge} builds no judge: it holds no {JUDGE_BUILD}, which builds one.")
+    tag = _ran(
+        ["gh", "release", "view", "--repo", RELEASES, "--json", "tagName", "--jq", ".tagName"],
+        f"No release of {RELEASES} could be found to judge with",
+    ).strip()
+    return {"release": "true", "tag": tag}
+
+
 def _resolve() -> dict[str, str]:
     _guard()
     event = os.environ.get("GITHUB_EVENT_NAME", "")
     ref = os.environ.get("GITHUB_REF", "")
     payload = _payload()
     manifest = _json_file("composer.json")
-    phar = os.environ.get("INSTALLED_BY") == PHAR_INSTALL
+    phar = os.environ.get("INSTALLED_BY") in (PHAR_INSTALL, JUDGE_INSTALL)
     gate = os.environ.get("GATE_PHAR", "") if phar else binary(manifest)
+    if os.environ.get("INSTALLED_BY") == JUDGE_INSTALL and os.path.isfile(gate):
+        os.chmod(gate, 0o755)
     why = None if phar or gate.startswith("bin/") else version_refusal(installed_version(_installed()), LINE)
     if why is not None:
         raise Refused(why)
@@ -811,6 +903,7 @@ def _config() -> dict[str, str]:
         "after_store": "true"
         if keeps_after_store(copies(config), os.environ.get("STORE", ""), os.environ.get("ON_DEFAULT") == "true")
         else "false",
+        "pest": "true" if runs_pest(config) else "false",
         "pest_patch": "true" if patches_pest(config) else "false",
         "infection_patch": "true" if patches_infection(config) else "false",
         "fail_fast": fail_fast(config),
@@ -975,6 +1068,19 @@ def _parents() -> list[str]:
         ["git", "rev-list", "--parents", "-n", "1", "HEAD"], capture_output=True, text=True, check=False, timeout=60
     )
     return listed.stdout.split() if listed.returncode == 0 else []
+
+
+def _commit(revisions: list[str]) -> str:
+    """The commit one revision names, or the merge base of two; none where git cannot say, as in a shallow clone."""
+    command = ["git", "merge-base", *revisions] if len(revisions) > 1 else ["git", "rev-parse", "--verify", "--quiet", f"{revisions[0]}^{{commit}}"]
+    named = subprocess.run(command, capture_output=True, text=True, check=False, timeout=60)
+    return named.stdout.strip() if named.returncode == 0 else ""
+
+
+def _holds(commit: str, path: str) -> bool:
+    """Whether a commit holds a file at a path."""
+    held = subprocess.run(["git", "cat-file", "-e", f"{commit}:{path}"], capture_output=True, check=False, timeout=60)
+    return held.returncode == 0
 
 
 def _installed() -> dict:

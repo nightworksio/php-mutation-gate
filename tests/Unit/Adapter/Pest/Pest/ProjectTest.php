@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\ProcessShell;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
+use NightWorksIO\MutationGate\Cli\PestPlugin;
 use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
@@ -146,18 +147,39 @@ it('is Pest in the project the gate runs in, as its options say, or the options\
         $bounds->tighterFor(TighterSilence::standard())->watchingEachTest(PerTestLimit::standard()),
     );
 
-    expect(Pest::fromOptions(Options::none(), Path::of('lib/vendor'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock()), NotGiven::value()))->toEqual($pest(LimitBounds::between(Seconds::of(10.0), Seconds::of(300.0))))
-        ->and(Pest::fromOptions(Configs::options('{"timeout": 30, "most": 60}'), Path::of('lib/vendor'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock()), NotGiven::value()))->toEqual($pest(LimitBounds::between(Seconds::of(30.0), Seconds::of(60.0))))
-        ->and(Pest::fromOptions(Configs::options('{"patch": 1}'), Path::of('vendor'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock()), NotGiven::value()))->toEqual(Invalid::because(
+    expect(Pest::fromOptions(Options::none(), Path::of('lib/vendor'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock()), NotGiven::value(), PestPlugin::class))->toEqual($pest(LimitBounds::between(Seconds::of(10.0), Seconds::of(300.0))))
+        ->and(Pest::fromOptions(Configs::options('{"timeout": 30, "most": 60}'), Path::of('lib/vendor'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock()), NotGiven::value(), PestPlugin::class))->toEqual($pest(LimitBounds::between(Seconds::of(30.0), Seconds::of(60.0))))
+        ->and(Pest::fromOptions(Configs::options('{"patch": 1}'), Path::of('vendor'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock()), NotGiven::value(), PestPlugin::class))->toEqual(Invalid::because(
             Problem::at('patch', 'expected true or false, got 1'),
         ));
 });
 
-it('is refused by the gate\'s PHAR, since only the Composer package installs the gate\'s Pest plugin', function (): void {
-    expect(Pest::fromOptions(Options::none(), Path::of('vendor'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock()), OwnArchive::at('/opt/mutation-gate.phar')))
-        ->toEqual(Invalid::because(Problem::at(
+it('runs under the gate\'s PHAR where the project\'s Pest lists a plugin of a copy of the gate, and is refused where it lists none', function (): void {
+    $root = (string) realpath(Scratch::directory());
+    $listing = static function (string ...$plugins) use ($root): void {
+        Scratch::write($root, 'vendor/pest-plugins.json', (string) json_encode($plugins));
+    };
+    Scratch::write($root, 'composer.json', (string) json_encode([
+        'name' => 'nightworksio/mutation-gate',
+        'autoload' => ['psr-4' => ['NightWorksIO\\MutationGate\\' => 'src/']],
+    ]));
+    $before = (string) getcwd();
+    chdir($root);
+
+    try {
+        $listing(PestPlugin::class);
+        $runs = Pest::fromOptions(Options::none(), Path::of('vendor'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock()), OwnArchive::at('/opt/mutation-gate-judge.phar'), PestPlugin::class);
+        $listing('Acme\\Plugin');
+        $refused = Pest::fromOptions(Options::none(), Path::of('vendor'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock()), OwnArchive::at('/opt/mutation-gate-judge.phar'), PestPlugin::class);
+    } finally {
+        chdir($before);
+    }
+
+    expect($runs)->toBeInstanceOf(Pest::class)
+        ->and(is_file(sprintf('%s/.mutation-gate/archive/prepend.php', $root)))->toBeTrue()
+        ->and($refused)->toEqual(Invalid::because(Problem::at(
             '',
-            'Pest runs the gate\'s plugin, which only the Composer package installs: composer require --dev nightworksio/mutation-gate -W',
+            'Pest finds the gate\'s plugin only by a name its list holds, and the project\'s lists no copy\'s: composer require --dev nightworksio/mutation-gate -W.',
         )));
 });
 

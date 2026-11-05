@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\EndedProcesses;
 use NightWorksIO\MutationGate\Core\Runner\EnvironmentRead;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
@@ -21,20 +22,25 @@ use NightWorksIO\MutationGate\Port\Processes;
 
 /**
  * Runs a command as a process in one directory, through the processes the
- * gate runs. At its deadline the process is stopped with every process under
- * it, such as Pest's paratest workers and each mutant's own run.
+ * gate runs, each PHP process of it loading the gate's archive first where
+ * the gate runs from one. At its deadline the process is stopped with every
+ * process under it, such as Pest's paratest workers and each mutant's own
+ * run.
  *
  * @internal
  */
 final readonly class ProcessShell implements Shell, StartsCommands
 {
-    public function __construct(private Processes $processes, private string $directory)
-    {
+    public function __construct(
+        private Processes $processes,
+        private string $directory,
+        private ArchiveLoading|NotGiven $loading = new NotGiven(),
+    ) {
     }
 
     public function in(string $directory): self
     {
-        return new self($this->processes, $directory);
+        return new self($this->processes, $directory, $this->loading);
     }
 
     public function run(Command $command, ProcessWatch $watch = new Unwatched()): Ran
@@ -75,9 +81,13 @@ final readonly class ProcessShell implements Shell, StartsCommands
         return $processes;
     }
 
-    /** A command as a process runs it, in this shell's directory. */
+    /**
+     * A command as a process runs it, in this shell's directory, loading the
+     * gate's archive first where it runs from one.
+     */
     private function processCommandOf(Command $command): ProcessCommand
     {
+        $command = $this->loading instanceof ArchiveLoading ? $this->loading->onto($command) : $command;
         $process = ProcessCommand::of($this->directory, ...$command->arguments())
             ->with(EnvironmentRead::of($command->environment()))
             ->within($command->deadline());
