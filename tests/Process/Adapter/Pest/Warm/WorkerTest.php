@@ -294,3 +294,27 @@ it('forks its runs with the ini files the variables it started with scan, as a f
     expect($run->getOutput())->toContain("memory 123M\n")
         ->and(parentOf($run))->toBe(warmWorker($results));
 })->group(...$holds);
+
+it('starts its workers in the environment it runs in, with the variables it is given over it', function (): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    $scanned = Scratch::directory();
+    Scratch::write($scanned, 'cap.ini', "memory_limit=97M\n");
+    $directory = WarmDirectory::made($results);
+    $before = getenv(MemoryCap::SCAN_DIR);
+    putenv(sprintf('%s=%s', MemoryCap::SCAN_DIR, MemoryCap::scanning($before, $scanned)));
+
+    try {
+        Pool::started(Seat::at($directory, 1), ['FIXTURE_GIVEN' => '1']);
+    } finally {
+        putenv(is_string($before) ? sprintf('%s=%s', MemoryCap::SCAN_DIR, $before) : MemoryCap::SCAN_DIR);
+    }
+
+    $run = new Process(
+        [PHP_BINARY, ...OwnScript::PestClient->started(), $directory, '1', Tree::at('tests/Fixtures/Warm/run')],
+        env: ['FIXTURE_END' => 'code:0'],
+    );
+    $run->run();
+
+    expect($run->getOutput())->toContain("memory 97M\n")
+        ->and(parentOf($run))->toBe(warmWorker($results));
+})->group(...$holds);

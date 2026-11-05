@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
-use function array_key_exists;
 use function array_keys;
 use function count;
 use function implode;
@@ -34,9 +33,8 @@ use function sprintf;
  * nothing an earlier run left in their directory. The workers start PHP
  * with the ini files the runs scan, so a memory cap reaches a forked run as
  * it reaches a fresh one; runs that scan others fork from workers of their
- * own. A run
- * whose worker forks it no child, or is gone, starts fresh in its client's
- * place.
+ * own. A run whose worker forks it no child, or is gone, starts fresh in its
+ * client's place.
  *
  * @internal
  */
@@ -80,7 +78,7 @@ final readonly class TailShell implements Shell
             $key = implode("\n", $startingWith);
             $besides[$key] ??= $this->started(
                 $slots,
-                $besides === [] ? $this->beside : sprintf(self::STARTING, $this->beside, count($besides) + 1),
+                $besides === [] ? $this->beside : sprintf(self::STARTING, $this->beside, count($besides)),
                 $startingWith,
             );
             $forked[] = $command->forkedIn(WarmDirectory::beside($besides[$key]));
@@ -109,10 +107,13 @@ final readonly class TailShell implements Shell
      */
     private function startingWith(Command $command): array
     {
-        $environment = $command->environment();
-        $scanned = array_key_exists(MemoryCap::SCAN_DIR, $environment) ? $environment[MemoryCap::SCAN_DIR] : false;
+        foreach ($command->environment() as $name => $value) {
+            if ($name === MemoryCap::SCAN_DIR && is_string($value)) {
+                return [$name => $value];
+            }
+        }
 
-        return is_string($scanned) ? [MemoryCap::SCAN_DIR => $scanned] : [];
+        return [];
     }
 
     /**
