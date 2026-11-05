@@ -65,6 +65,12 @@ it('keeps each runner\'s mutators in the order of their names, whatever order it
     expect(array_map(static fn(MutatorTally $tally): string => $tally->mutator(), [...$tallies]))->toBe(['Minus', 'Plus']);
 });
 
+it('keeps its runners in the order of their names, whatever order it was told them in', function (): void {
+    $tallies = Tallies::holding(Tallies::of('pest', 'Plus', 1, 1, 0, 0, 1.0), Tallies::of('infection', 'Plus', 1, 1, 0, 0, 1.0));
+
+    expect(array_map(static fn(MutatorTally $tally): string => $tally->runner(), [...$tallies]))->toBe(['infection', 'pest']);
+});
+
 it('gives a mutator its share of a single microsecond', function (): void {
     $tally = Tallies::of('fake', 'Plus', 1, 1, 0, 0, 0.000001);
 
