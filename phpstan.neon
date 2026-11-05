@@ -267,6 +267,10 @@ services:
                     - MOST_MULTIPLE # the most a learned timeouts.multiple is, not how long a daemon is waited on to listen
                 'NightWorksIO\MutationGate\Cli\Command\ServeCommand':
                     - STOP # serve's --stop option, not run.failFast's stop
+                'NightWorksIO\MutationGate\Core\Report\Page\Headline':
+                    - SAMPLED # the page's word for a sampled run, not a comment toggle
+                'NightWorksIO\MutationGate\Core\Comment\Cap':
+                    - FALLEN # files that fell a comment lists, not the riskiest units ranked
                 'NightWorksIO\MutationGate\Core\Proof\TallyRecord':
                     - MUTANTS # a ledger tally's count of mutants, not the kill history's section
                     - KILLED # a ledger tally's count of kills, not a judgement
@@ -425,6 +429,7 @@ services:
                     - Digest # the digest reporter's name, not a plan file's digest
                 'NightWorksIO\MutationGate\Cli\Command\DigestCommand':
                     - SURVIVORS # digest's option of how many survivors it lists, not a step or a stage
+                    - DETAIL # the digest command's option, not a comment key
                 'NightWorksIO\MutationGate\Core\Verdict\BaselineState':
                     - Missing # a baseline file holding no floor for a scored set, not a file's missing digest
                 'NightWorksIO\MutationGate\Core\Runner\MemoryUnit':
@@ -691,6 +696,7 @@ services:
                 'NightWorksIO\MutationGate\Core\Baseline\BaselineFile':
                     - FLOOR # a field of the baseline
                 'NightWorksIO\MutationGate\Core\Test\TestNamesRecord':
+                    - ROW # a test names record's field, not a comment's detail
                     - FILE # a field of the plan's test names
                 'NightWorksIO\MutationGate\Core\Unit\UnitRecord':
                     - PATH # a field of a unit's record

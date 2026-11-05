@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
 use NightWorksIO\MutationGate\Core\Delivery\AlertPost;
+use NightWorksIO\MutationGate\Core\Delivery\CommentWrite;
 use NightWorksIO\MutationGate\Core\Delivery\Deferring;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\Delivery\DeliveryFile;
@@ -82,17 +83,17 @@ it('cannot begin where the ledger an earlier run left cannot be removed, and lea
     chmod($stage, 0o755);
 
     expect($begun)->toEqual(CannotJudge::because(sprintf('%s/ledger.json.gz could not be removed.', $stage)))
-        ->and(deliveredIn($project, Stage::Verdict))->toEqual(Delivery::none()->withComment('stale'));
+        ->and(deliveredIn($project, Stage::Verdict))->toEqual(Delivery::none()->withComment('stale', CommentWrite::sticky()));
 });
 
 it('adds to what it holds, and to nothing where it holds nothing yet', function (): void {
     $project = Scratch::directory();
     $delivery = DeliveryDirectory::of(Directory::at($project), Stage::Planned);
-    $delivery->adding(static fn(Delivery $held): Delivery => $held->withComment('one'));
+    $delivery->adding(static fn(Delivery $held): Delivery => $held->withComment('one', CommentWrite::sticky()));
     $delivery->adding(static fn(Delivery $held): Delivery => $held->withAlert(AlertPost::of(BuiltinReporter::Slack, '{}')));
 
     expect(deliveredIn($project, Stage::Planned))
-        ->toEqual(Delivery::none()->withComment('one')->withAlert(AlertPost::of(BuiltinReporter::Slack, '{}')));
+        ->toEqual(Delivery::none()->withComment('one', CommentWrite::sticky())->withAlert(AlertPost::of(BuiltinReporter::Slack, '{}')));
 });
 
 it('adds nothing to a delivery it cannot read, and says why', function (string $held, string $why): void {
@@ -100,7 +101,7 @@ it('adds nothing to a delivery it cannot read, and says why', function (string $
     Scratch::write($project, $held === '' ? '.mutation-gate/delivery/verdict/delivery.json/kept' : '.mutation-gate/delivery/verdict/delivery.json', $held);
 
     $added = DeliveryDirectory::of(Directory::at($project), Stage::Verdict)
-        ->adding(static fn(Delivery $delivery): Delivery => $delivery->withComment('x'));
+        ->adding(static fn(Delivery $delivery): Delivery => $delivery->withComment('x', CommentWrite::sticky()));
 
     expect($added)->toEqual(CannotJudge::because(sprintf($why, $project)));
 })->with([
@@ -184,7 +185,7 @@ it('adds what a reporter would send to the delivery, rather than send it', funct
     $commenting = new class implements Deferring {
         public function deferred(Verdict $verdict, Delivery $delivery): Delivery
         {
-            return $delivery->withComment($verdict->judgement()->value);
+            return $delivery->withComment($verdict->judgement()->value, CommentWrite::sticky());
         }
     };
     $report = DeliveredReport::of($commenting, DeliveryDirectory::of(Directory::at($project), Stage::Verdict));
@@ -192,7 +193,7 @@ it('adds what a reporter would send to the delivery, rather than send it', funct
     Scratch::write($unread, '.mutation-gate/delivery/verdict/delivery.json', '{}');
 
     expect($report->report(Verdicts::passing()))->toEqual(Written::to(sprintf('%s/.mutation-gate/delivery/verdict/delivery.json', $project)))
-        ->and(deliveredIn($project, Stage::Verdict))->toEqual(Delivery::none()->withComment(Verdicts::passing()->judgement()->value))
+        ->and(deliveredIn($project, Stage::Verdict))->toEqual(Delivery::none()->withComment(Verdicts::passing()->judgement()->value, CommentWrite::sticky()))
         ->and(DeliveredReport::of($commenting, DeliveryDirectory::of(Directory::at($unread), Stage::Verdict))->report(Verdicts::passing()))
         ->toEqual(NotWritten::because('The delivery cannot be read, so deliver sends nothing: delivery.format is missing.'));
 });

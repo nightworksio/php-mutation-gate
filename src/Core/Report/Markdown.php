@@ -4,32 +4,18 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report;
 
-use function array_filter;
-use function array_map;
-use function array_merge;
-use function array_slice;
-
-use Closure;
-
 use function count;
 use function implode;
-use function intdiv;
 use function max;
-use function mb_strlen;
 
-use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Cost\NoHistory;
+use NightWorksIO\MutationGate\Core\Config\CommentShows;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Matrix\SuiteScores;
-use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Time\Instant;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\Failures;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
-use NightWorksIO\MutationGate\Core\Verdict\Obstacles;
-use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
@@ -71,72 +57,16 @@ final readonly class Markdown
     /** The most characters GitHub takes in a comment's body. */
     public const int COMMENT_CHARACTERS = 65_536;
 
-    private const string RAISE = 'Raise them with `%s`, and commit the baseline.';
-
     private const string RUN = '[The run](%s) keeps the HTML report among its artifacts.';
 
     /**
-     * The sticky comment: within what GitHub takes, showing half as many of each list's entries each time until it
-     * fits, none at the last. It ends where the line that links the run's HTML report goes, which is found as the
-     * comment is written.
+     * The sticky comment, as the config shapes it (ADR-0102): within what GitHub takes, showing half as many of each
+     * list's entries each time until it fits, none at the last. Where it shows the report, it ends where the line
+     * that links the run's HTML report goes, which is found as the comment is written.
      */
-    public static function comment(Verdict $verdict): string
+    public static function comment(Verdict $verdict, CommentShows $shows): string
     {
-        $overview = Overview::of($verdict);
-        $clusters = $verdict->trees()->clusters();
-        $listed = array_filter(
-            [...$overview->survivors()],
-            static fn(JudgedMutant $mutant): bool => ! $overview->isSecurity($mutant),
-        );
-        $other = [...array_filter($listed, static fn(JudgedMutant $mutant): bool => ! self::isSettled($mutant))];
-        $changed = [...array_filter(
-            $listed,
-            static fn(JudgedMutant $mutant): bool => self::isSettled($mutant) && $mutant->isOnChangedLine(),
-        )];
-
-        $folded = Folded::of($changed, $clusters);
-        $security = $overview->securitySurvivors();
-        $secured = Folded::of($security, $clusters);
-        $head = self::head($verdict, $overview, NoHistory::yet());
-        $sets = self::sets($verdict);
-        $fallen = $verdict->account()->heatmap()->fallen();
-        $tail = [...self::tail($verdict, self::REPORT_SLOT), CostText::of($verdict)];
-        $document = static fn(int $shown): string => self::document([
-            self::MARKER,
-            ...$head,
-            ...self::section(
-                sprintf('Security survivors (%d)', count($security)),
-                MarkdownItems::details(array_slice($secured, 0, $shown), count($secured), $overview->gate()),
-            ),
-            ...$sets,
-            ...self::section(
-                sprintf('Files that fell, or sit below their floor (%d)', count($fallen)),
-                HeatmapMarkdown::table($fallen),
-            ),
-            ...self::section(
-                sprintf('Survivors on changed lines (%d)', count($changed)),
-                MarkdownItems::owned(
-                    $verdict->sets()->owners(),
-                    $changed,
-                    $folded,
-                    $shown,
-                    static fn(array $items, int $of): array => MarkdownItems::details($items, $of, $overview->gate()),
-                    OwnerMentions::headings($verdict->sets()->owners()),
-                ),
-            ),
-            ...self::section(
-                sprintf('Unjudged and flaky (%d)', count($other)),
-                MarkdownItems::table(array_slice($other, 0, $shown), count($other), $overview->gate()),
-            ),
-            ...self::ignored($overview, $shown),
-            ...$tail,
-        ]);
-
-        return self::fitted(
-            $document,
-            Commented::MOST,
-            static fn(string $comment): bool => mb_strlen($comment) <= self::COMMENT_CHARACTERS,
-        );
+        return CommentDocument::of($verdict, $shows);
     }
 
     /** The line that links the run at this URL, which keeps the HTML report among its artifacts. */
@@ -153,112 +83,57 @@ final readonly class Markdown
     {
         $overview = Overview::of($verdict);
         $items = Folded::of($overview->survivors(), $verdict->trees()->clusters());
-        $head = self::head($verdict, $overview, $verdict->account()->savedSince($since));
-        $tail = self::tail($verdict, $run === '' ? '' : self::runLine($run));
-        $sets = [...self::sets($verdict), ...self::section('Suites', self::suites($verdict))];
-        $document = static fn(int $shown): string => self::document([
+        $head = MarkdownBlocks::head($verdict, $overview, $verdict->account()->savedSince($since));
+        $sets = [
+            ...MarkdownBlocks::trees($verdict),
+            ...MarkdownBlocks::sets($verdict),
+            ...MarkdownBlocks::section('Suites', self::suites($verdict)),
+        ];
+        $tail = [
+            ...MarkdownBlocks::section('Cannot judge', MarkdownBlocks::obstacles($verdict)),
+            ...MarkdownBlocks::section('Failures', MarkdownBlocks::failures($verdict)),
+            ...MarkdownBlocks::section('Warnings', MarkdownBlocks::warnings($verdict)),
+            ...MarkdownBlocks::section('Floors that can rise', MarkdownBlocks::floors($verdict)),
+            $run === '' ? '' : self::runLine($run),
+        ];
+        $shown = ItemShown::standard();
+        $document = static fn(int $count): string => MarkdownBlocks::document([
             ...$head,
             ...$sets,
-            ...self::section(
+            ...MarkdownBlocks::section(
                 sprintf('Not killed (%d)', count($overview->survivors())),
                 MarkdownItems::owned(
                     $verdict->sets()->owners(),
                     $overview->survivors(),
                     $items,
-                    $shown,
-                    static fn(array $items, int $of): array => MarkdownItems::table($items, $of, $overview->gate()),
+                    $count,
+                    static fn(array $items, int $of): array => MarkdownItems::table(
+                        $items,
+                        $of,
+                        $overview->gate(),
+                        $shown,
+                    ),
                     MarkdownItems::named(...),
                 ),
             ),
-            ...self::ignored($overview, $shown),
+            ...MarkdownBlocks::section(
+                sprintf('Ignored (%d)', count($overview->ignored())),
+                MarkdownBlocks::ignored($overview, $count),
+            ),
             ...$tail,
         ]);
 
-        return self::fitted(
+        return MarkdownBlocks::fitted(
             $document,
             max(count($items), count($overview->ignored())),
             static fn(string $summary): bool => Bytes::length($summary) <= self::SUMMARY_BYTES,
         );
     }
 
-    /**
-     * A document showing this many entries of each list, or half as many each time until it fits, none at the last.
-     *
-     * @param Closure(int): string  $document the document showing this many entries of each list
-     * @param Closure(string): bool $fits     whether a document fits
-     */
-    private static function fitted(Closure $document, int $shown, Closure $fits): string
+    /** Whether a mutant is neither unjudged nor flaky, which the comment lists apart from the survivors. */
+    public static function isSettled(JudgedMutant $mutant): bool
     {
-        do {
-            $fitted = $document($shown);
-            $tried = $shown;
-            $shown = intdiv($shown, 2);
-        } while (! $fits($fitted) && $tried > 0);
-
-        return $fitted;
-    }
-
-    /**
-     * @param  list<string> $blocks
-     */
-    private static function document(array $blocks): string
-    {
-        return sprintf("%s\n", implode("\n\n", array_filter($blocks, static fn(string $block): bool => $block !== '')));
-    }
-
-    /**
-     * The verdict, what the run took and saved and what pruning left out, and the project's score.
-     *
-     * @return list<string>
-     */
-    private static function head(Verdict $verdict, Overview $overview, Seconds|NoHistory $lately): array
-    {
-        return [
-            $verdict->trees()->sample()->isDrawn()
-                ? sprintf('## mutation-gate: %s, sampled', $verdict->judgement()->value)
-                : sprintf('## mutation-gate: %s', $verdict->judgement()->value),
-            SavingsText::of($verdict, $lately),
-            implode(' ', [
-                SetText::project($overview->score(), $verdict->trees()->standing()),
-                ...$verdict->wasCutShort() ? [SetText::CUT_SHORT] : [],
-                ...$verdict->trees()->sample()->isDrawn() ? [SetText::SAMPLED] : [],
-            ]),
-        ];
-    }
-
-    /**
-     * The trees, then the new-code sets and each package's security set.
-     *
-     * @return list<string>
-     */
-    private static function sets(Verdict $verdict): array
-    {
-        $trees = ['| Tree | Floor | Score | Against the base | Result |', '|---|---|---|---|---|'];
-
-        foreach ($verdict->trees() as $tree) {
-            $trees[] = self::treeRow($tree);
-        }
-
-        $sets = [];
-
-        foreach ($verdict->sets()->newCode() as $set) {
-            $sets[] = sprintf('- %s', Escape::text(SetText::newCode($set)));
-        }
-
-        foreach ($verdict->sets()->security() as $set) {
-            $sets[] = sprintf('- %s', Escape::text(SetText::security($set)));
-        }
-
-        $owners = array_map(
-            static fn(string $line): string => sprintf('- %s', Escape::text($line)),
-            SetText::owned($verdict->sets()),
-        );
-
-        return [
-            ...count($verdict->trees()) > 0 ? [implode("\n", $trees)] : [],
-            ...$sets === [] ? [] : [implode("\n", $sets)],
-            ...$owners === [] ? [] : [implode("\n", $owners)],
-        ];
+        return $mutant->judgement() !== MutantJudgement::Unjudged && $mutant->judgement() !== MutantJudgement::Flaky;
     }
 
     /**
@@ -303,122 +178,5 @@ final readonly class Markdown
                 $verdict->account()->provenance()->command(),
             ))],
         ];
-    }
-
-    private static function treeRow(TreeVerdict $tree): string
-    {
-        $floor = $tree->floor();
-
-        return sprintf(
-            '| %s | %s | %s | %s | %s |',
-            Escape::code($tree->tree()->path()->value()),
-            SetText::floor($floor),
-            $floor instanceof Exempt ? '' : SetText::score($tree),
-            SetText::change($tree),
-            Escape::text(
-                $floor instanceof Exempt ? sprintf('exempt: %s', $floor->reason()) : $tree->judgement()->value,
-            ),
-        );
-    }
-
-    /**
-     * The mutants an ignore left out, up to this many, each with why (ADR-0008).
-     *
-     * @return list<string>
-     */
-    private static function ignored(Overview $overview, int $shown): array
-    {
-        $ignored = $overview->ignored();
-
-        return self::section(
-            sprintf('Ignored (%d)', count($ignored)),
-            MarkdownItems::ignored(array_slice($ignored, 0, $shown), count($ignored)),
-        );
-    }
-
-    /**
-     * The floors that can rise, then how to raise them.
-     *
-     * @param  list<string> $raised
-     * @return list<string>
-     */
-    private static function raise(Verdict $verdict, array $raised): array
-    {
-        return [
-            implode("\n", $raised),
-            sprintf(self::RAISE, $verdict->account()->provenance()->command()->baselineWritten()),
-        ];
-    }
-
-    /**
-     * The obstacles, failures, warnings and floors that can rise, then the line that points at the run's HTML report,
-     * which a document leaves out where it is empty.
-     *
-     * @return list<string>
-     */
-    private static function tail(Verdict $verdict, string $report): array
-    {
-        $raised = [];
-
-        foreach (RisingFloors::of($verdict) as [$named, $floor]) {
-            $raised[] = sprintf('- %s to %s', Escape::code($named), Percent::of($floor));
-        }
-
-        return [
-            ...self::section('Cannot judge', self::reasons($verdict->obstacles())),
-            ...self::section('Failures', self::bullets($verdict->failures())),
-            ...self::section('Warnings', self::bullets($verdict->warnings())),
-            ...self::section('Floors that can rise', $raised === [] ? [] : self::raise($verdict, $raised)),
-            $report,
-        ];
-    }
-
-    /**
-     * A heading and its blocks; nothing where there are none.
-     *
-     * @param  list<string> $blocks
-     * @return list<string>
-     */
-    private static function section(string $heading, array $blocks): array
-    {
-        return $blocks === [] ? [] : [sprintf('### %s', $heading), ...$blocks];
-    }
-
-    /** @return list<string> */
-    private static function bullets(Failures|Warnings $items): array
-    {
-        $bullets = [];
-
-        foreach ($items as $item) {
-            $bullets[] = sprintf('- %s', Escape::text($item->text()));
-        }
-
-        return $bullets === [] ? [] : [implode("\n", $bullets)];
-    }
-
-    /**
-     * Why the run could not judge, as one list, each set of tests that fails
-     * without any mutant with the mutants it leaves out listed under it;
-     * nothing where it judged.
-     *
-     * @return list<string>
-     */
-    private static function reasons(Obstacles $obstacles): array
-    {
-        $reasons = [
-            ...array_map(
-                static fn(CannotJudge $obstacle): string => sprintf('- %s', Escape::text($obstacle->why())),
-                [...$obstacles->met()],
-            ),
-            ...array_merge(...array_map(FailingText::items(...), [...$obstacles->unmutatedFailures()])),
-        ];
-
-        return array_filter([implode("\n", $reasons)], static fn(string $list): bool => $list !== '');
-    }
-
-    /** Whether a mutant is neither unjudged nor flaky, which the comment lists apart from the survivors. */
-    private static function isSettled(JudgedMutant $mutant): bool
-    {
-        return $mutant->judgement() !== MutantJudgement::Unjudged && $mutant->judgement() !== MutantJudgement::Flaky;
     }
 }

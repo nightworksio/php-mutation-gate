@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Config\CommentShows;
 use NightWorksIO\MutationGate\Core\Config\HeatmapRows;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Heat\FileHeat;
@@ -48,8 +49,8 @@ it('lists the lowest-scoring files it is told to, leaving out one with nothing t
     ]);
     $heatmap = Heatmap::of($ignored, Heatmaps::spans(...));
 
-    expect(heatmapPaths($heatmap->listing(HeatmapRows::of(files: 5, comment: 0))->lowest()))->toBe(['src/Cart.php'])
-        ->and(heatmapPaths(Heatmaps::fallen()->listing(HeatmapRows::of(files: 1, comment: 0))->lowest()))->toBe(['src/Cart.php'])
+    expect(heatmapPaths($heatmap->listing(HeatmapRows::of(files: 5))->lowest()))->toBe(['src/Cart.php'])
+        ->and(heatmapPaths(Heatmaps::fallen()->listing(HeatmapRows::of(files: 1))->lowest()))->toBe(['src/Cart.php'])
         ->and(heatmapPaths($heatmap->lowest()))->toBe([]);
 });
 
@@ -57,10 +58,10 @@ it('lists the touched files that fell most, then those below their floor, and no
     $untouched = Heatmaps::tree(0, [['src/Money.php:6', MutantJudgement::Survived, false]]);
     $killed = Heatmaps::tree(0, [['src/Money.php:6', MutantJudgement::Killed, false]]);
 
-    expect(heatmapPaths(Heatmaps::fallen()->fallen()))->toBe(['src/Money.php', 'src/Cart.php'])
-        ->and(heatmapPaths(Heatmaps::fallen()->listing(HeatmapRows::of(files: 10, comment: 0))->fallen()))->toBe([])
-        ->and(heatmapPaths(Heatmap::of($untouched, Heatmaps::spans(...))->comparedWith(Heatmap::of($killed, Heatmaps::spans(...)))->listing(HeatmapRows::of(files: 1, comment: 1))->fallen()))->toBe([])
-        ->and([...Heatmap::none()->fallen()])->toBe([]);
+    expect(heatmapPaths(Heatmaps::fallen()->fallen(CommentShows::of())))->toBe(['src/Money.php', 'src/Cart.php'])
+        ->and(heatmapPaths(Heatmaps::fallen()->fallen(CommentShows::of(caps: ['heatmap' => 0]))))->toBe([])
+        ->and(heatmapPaths(Heatmap::of($untouched, Heatmaps::spans(...))->comparedWith(Heatmap::of($killed, Heatmaps::spans(...)))->listing(HeatmapRows::of(files: 1))->fallen(CommentShows::of(caps: ['heatmap' => 1]))))->toBe([])
+        ->and([...Heatmap::none()->fallen(CommentShows::of())])->toBe([]);
 });
 
 it('lists at most as many fallen files as it is told, the one that fell most first', function (): void {
@@ -80,8 +81,8 @@ it('lists at most as many fallen files as it is told, the one that fell most fir
     ]);
     $heatmap = Heatmap::of($now, Heatmaps::spans(...))->comparedWith(Heatmap::of($base, Heatmaps::spans(...)));
 
-    expect(heatmapPaths($heatmap->listing(HeatmapRows::of(files: 0, comment: 2))->fallen()))->toBe(['src/Money.php', 'src/Cart.php'])
-        ->and(heatmapPaths($heatmap->listing(HeatmapRows::of(files: 0, comment: 1))->fallen()))->toBe(['src/Money.php']);
+    expect(heatmapPaths($heatmap->listing(HeatmapRows::of(files: 0))->fallen(CommentShows::of(caps: ['heatmap' => 2]))))->toBe(['src/Money.php', 'src/Cart.php'])
+        ->and(heatmapPaths($heatmap->listing(HeatmapRows::of(files: 0))->fallen(CommentShows::of(caps: ['heatmap' => 1]))))->toBe(['src/Money.php']);
 });
 
 it('says a file is below its tree\'s floor only where it scores under it', function (): void {

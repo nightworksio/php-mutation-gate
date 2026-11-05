@@ -23,9 +23,12 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
+use NightWorksIO\MutationGate\Core\Config\CommentSettings;
+use NightWorksIO\MutationGate\Core\Config\CommentShows;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Delivery\CommentWrite;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\Delivery\DeliveryFile;
 use NightWorksIO\MutationGate\Core\Delivery\Stage;
@@ -213,7 +216,7 @@ function reportingCommentingThrough(MockHttpClient $client, bool $withToken = tr
 
     return new Chosen(new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER)))->withReporter(
         BuiltinReporter::GitHubComment->named(),
-        static fn(): Reporter => PullRequestComment::inRun($environment, $event, $client, 'gate-bot'),
+        static fn(): Reporter => PullRequestComment::inRun($environment, $event, $client, 'gate-bot', CommentSettings::standard()),
     ));
 }
 
@@ -273,10 +276,13 @@ it('leaves the planned state in the delivery under --deliver-later, on a pull re
 
     expect($said)->toBe([sprintf('Wrote %s/.mutation-gate/delivery/planned/delivery.json.', $project)])
         ->and($client->getRequestsCount())->toBe(0)
-        ->and($left)->toEqual(Delivery::none()->withComment(PlannedMarkdown::comment(
-            PlanEstimates::of($plan, $settings->shards()->setup())->work(),
-            'https://github.example/octo/gate/actions/runs/7',
-        )));
+        ->and($left)->toEqual(Delivery::none()->withComment(
+            PlannedMarkdown::comment(
+                PlanEstimates::of($plan, $settings->shards()->setup())->work(),
+                'https://github.example/octo/gate/actions/runs/7',
+            ),
+            CommentWrite::sticky(),
+        ));
 });
 
 it('leaves the planned state of a GitLab note in the delivery under --deliver-later, where reports lists it', function (): void {
@@ -295,10 +301,13 @@ it('leaves the planned state of a GitLab note in the delivery under --deliver-la
     $left = DeliveryFile::decode((string) file_get_contents(sprintf('%s/.mutation-gate/delivery/planned/delivery.json', $project)));
 
     expect($said)->toBe([sprintf('Wrote %s/.mutation-gate/delivery/planned/delivery.json.', $project)])
-        ->and($left)->toEqual(Delivery::none()->withComment(PlannedMarkdown::comment(
-            PlanEstimates::of($plan, $settings->shards()->setup())->work(),
-            $pipeline,
-        )));
+        ->and($left)->toEqual(Delivery::none()->withComment(
+            PlannedMarkdown::comment(
+                PlanEstimates::of($plan, $settings->shards()->setup())->work(),
+                $pipeline,
+            ),
+            CommentWrite::sticky(),
+        ));
 });
 
 it('chooses the comment on a pull request with no token under --deliver-later, and leaves each credentialed reporter\'s payload in the delivery', function (): void {
@@ -335,6 +344,7 @@ it('writes the re-checked survivors over the planned comment, and into the step 
                 (string) json_encode(['pull_request' => ['number' => 12]]),
                 $client,
                 'gate-bot',
+                CommentSettings::standard(),
             ),
         )
         ->withReporter(
@@ -350,9 +360,9 @@ it('writes the re-checked survivors over the planned comment, and into the step 
         Written::to($summary)->said(),
         Written::to('https://github.example/octo/gate/pull/12#issuecomment-5')->said(),
     ])
-        ->and(file_get_contents($summary))->toBe(RecheckedMarkdown::comment(Rechecks::mixed(), ''))
+        ->and(file_get_contents($summary))->toBe(RecheckedMarkdown::comment(Rechecks::mixed(), '', CommentShows::of()))
         ->and(Decoded::at(is_string($patch->getRequestOptions()['body']) ? $patch->getRequestOptions()['body'] : '', 'body'))
-        ->toBe(RecheckedMarkdown::comment(Rechecks::mixed(), 'https://github.com/octo/gate/actions/runs/'));
+        ->toBe(RecheckedMarkdown::comment(Rechecks::mixed(), 'https://github.com/octo/gate/actions/runs/', CommentShows::of()));
 });
 
 it('leaves the re-checked survivors in the delivery under --deliver-later, to be written only over the planned comment, with no token', function (): void {
@@ -368,7 +378,7 @@ it('leaves the re-checked survivors in the delivery under --deliver-later, to be
     $chosen = new Chosen(new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER)))
         ->withReporter(
             BuiltinReporter::GitHubComment->named(),
-            static fn(): Reporter => PullRequestComment::inRun($environment, '{"pull_request": {"number": 12}}', $client, ''),
+            static fn(): Reporter => PullRequestComment::inRun($environment, '{"pull_request": {"number": 12}}', $client, '', CommentSettings::standard()),
         )
         ->withReporter(
             BuiltinReporter::GitHubSummary->named(),
@@ -387,10 +397,14 @@ it('leaves the re-checked survivors in the delivery under --deliver-later, to be
         sprintf('Wrote %s/.mutation-gate/delivery/survivors/delivery.json.', $project),
     ])
         ->and($client->getRequestsCount())->toBe(0)
-        ->and($left)->toEqual(Delivery::none()->withCommentOverPlanned(RecheckedMarkdown::comment(
-            Rechecks::mixed(),
-            'https://github.example/octo/gate/actions/runs/7',
-        )));
+        ->and($left)->toEqual(Delivery::none()->withComment(
+            RecheckedMarkdown::comment(
+                Rechecks::mixed(),
+                'https://github.example/octo/gate/actions/runs/7',
+                CommentShows::of(),
+            ),
+            CommentWrite::sticky()->overPlanned(),
+        ));
 });
 
 it('says why where the re-checked survivors cannot be left in the delivery under --deliver-later', function (): void {
@@ -405,7 +419,7 @@ it('says why where the re-checked survivors cannot be left in the delivery under
     $chosen = new Chosen(new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER)))
         ->withReporter(
             BuiltinReporter::GitHubComment->named(),
-            static fn(): Reporter => PullRequestComment::inRun($environment, '{"pull_request": {"number": 12}}', new MockHttpClient([]), ''),
+            static fn(): Reporter => PullRequestComment::inRun($environment, '{"pull_request": {"number": 12}}', new MockHttpClient([]), '', CommentSettings::standard()),
         )
         ->withReporter(
             BuiltinReporter::GitHubSummary->named(),

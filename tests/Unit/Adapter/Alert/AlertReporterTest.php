@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Delivery\AlertPost;
+use NightWorksIO\MutationGate\Core\Delivery\CommentWrite;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery as Deferred;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
@@ -191,8 +192,8 @@ it('leaves each alert it would send for deliver, with no URL set, and none where
         ->withAlert(AlertPost::of(BuiltinReporter::Discord, DiscordMessage::json($alerts[1], Previous::ci()))))
         ->and($deferred(Verdicts::passing()->withAccount(Previous::run('passed'))))->toEqual(Deferred::none())
         ->and($outsideCi instanceof AlertReporter ? $outsideCi->deferred($verdict, Deferred::none()) : 'invalid')->toEqual(Deferred::none())
-        ->and($reporter instanceof AlertReporter ? $reporter->deferred($verdict, Deferred::none()->withComment('kept')) : 'invalid')
-        ->toEqual(Deferred::none()->withComment('kept')
+        ->and($reporter instanceof AlertReporter ? $reporter->deferred($verdict, Deferred::none()->withComment('kept', CommentWrite::sticky())) : 'invalid')
+        ->toEqual(Deferred::none()->withComment('kept', CommentWrite::sticky())
             ->withAlert(AlertPost::of(BuiltinReporter::Discord, DiscordMessage::json($alerts[0], Previous::ci())))
             ->withAlert(AlertPost::of(BuiltinReporter::Discord, DiscordMessage::json($alerts[1], Previous::ci()))));
 });

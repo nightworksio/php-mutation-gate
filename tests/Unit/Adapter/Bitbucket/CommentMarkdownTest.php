@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Bitbucket\CommentMarkdown;
+use NightWorksIO\MutationGate\Core\Config\CommentShows;
 use NightWorksIO\MutationGate\Core\Report\Escape;
 use NightWorksIO\MutationGate\Core\Report\Markdown;
 use NightWorksIO\MutationGate\Core\Report\PlannedMarkdown;
@@ -42,6 +43,6 @@ it('keeps every other entity the escaping wrote, which Bitbucket shows as its ch
 it('leaves no raw HTML in the comments the gate writes', function (string $comment): void {
     expect(CommentMarkdown::of($comment, 'https://bitbucket.org/acme/shop/pipelines/results/9'))->not->toMatch('/<\/?(details|summary|code)>|<!--/');
 })->with([
-    'the verdict' => [fn(): string => Markdown::comment(Verdicts::failing())],
+    'the verdict' => [fn(): string => Markdown::comment(Verdicts::failing(), CommentShows::of())],
     'the planned state' => [fn(): string => PlannedMarkdown::comment(ShardedPlan::planned(30), 'https://bitbucket.org/acme/shop/pipelines/results/9')],
 ]);

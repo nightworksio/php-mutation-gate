@@ -9,6 +9,7 @@ use function html_entity_decode;
 use function max;
 use function mb_strlen;
 
+use NightWorksIO\MutationGate\Core\Report\CommentDocument;
 use NightWorksIO\MutationGate\Core\Report\Markdown;
 
 use function preg_match_all;
@@ -33,11 +34,14 @@ final readonly class CommentMarkdown
     /** The marker the sticky comment is found by, which Bitbucket shows as nothing. */
     public const string MARKER = '[//]: # (mutation-gate)';
 
+    /** The marker of the run whose own comment it is, where each run writes its own, as Bitbucket shows nothing of. */
+    private const string RUN = '#<!-- mutation-gate run: (.*?) -->#';
+
+    private const string RUN_SHOWN = '[//]: # (mutation-gate run: $1)';
+
     private const string FOLD = '#<details><summary>(.*?)</summary>#s';
 
     private const string FOLDED = '**$1**';
-
-    private const string FOLD_END = '</details>';
 
     private const string CODE = '#<code>(.*?)</code>#s';
 
@@ -49,13 +53,13 @@ final readonly class CommentMarkdown
         $marked = strtr($markdown, [
             Markdown::MARKER => self::MARKER,
             Markdown::REPORT_SLOT => Markdown::runLine($pipeline),
-            self::FOLD_END => '',
+            CommentDocument::FOLD_END => '',
         ]);
 
         return (string) preg_replace_callback(
             self::CODE,
             static fn(array $code): string => self::span(html_entity_decode($code[1], ENT_QUOTES | ENT_HTML5, 'UTF-8')),
-            (string) preg_replace(self::FOLD, self::FOLDED, $marked),
+            (string) preg_replace([self::FOLD, self::RUN], [self::FOLDED, self::RUN_SHOWN], $marked),
         );
     }
 

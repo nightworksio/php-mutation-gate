@@ -13,6 +13,7 @@ use function file_put_contents;
 use function getenv;
 use function is_dir;
 
+use NightWorksIO\MutationGate\Core\Config\CommentShows;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Recheck\Rechecked;
@@ -78,7 +79,7 @@ final readonly class StepSummary implements Reporter
      */
     public function rechecked(Rechecked $rechecked): Written|NotWritten
     {
-        return $this->appended(RecheckedMarkdown::comment($rechecked, $this->run));
+        return $this->appended(RecheckedMarkdown::comment($rechecked, $this->run, CommentShows::of()));
     }
 
     private function appended(string $markdown): Written|NotWritten

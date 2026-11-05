@@ -24,30 +24,25 @@ final readonly class HeatmapKeys
     {
         $reports = Effect::JudgesOrReportsOnly;
         $files = Field::optional('files', Integer::atLeast(0), $reports);
-        $comment = Field::optional('comment', Integer::atLeast(0), $reports);
         $methods = Field::optional('methods', Flag::boolean(), $reports);
 
         return [Field::section(
             'heatmap',
             Section::of(
-                static function (Node $heatmap) use ($files, $comment, $methods): Layer|Invalid {
+                static function (Node $heatmap) use ($files, $methods): Layer|Invalid {
                     $lowest = $files->read($heatmap);
-                    $fallen = $comment->read($heatmap);
                     $scored = $methods->read($heatmap);
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Reports::heatmapping(HeatmapRows::of(
                             files: $lowest->value(),
-                            comment: $fallen->value(),
                             methods: $scored->value(),
                         ))),
                         $lowest,
-                        $fallen,
                         $scored,
                     );
                 },
                 $files,
-                $comment,
                 $methods,
             ),
         )];

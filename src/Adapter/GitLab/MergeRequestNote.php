@@ -9,9 +9,12 @@ use NightWorksIO\MutationGate\Core\Ci\CiRun;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\CommentOption;
+use NightWorksIO\MutationGate\Core\Config\CommentSettings;
+use NightWorksIO\MutationGate\Core\Config\Definition\CommentKeys;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Delivery\Commenting;
 use NightWorksIO\MutationGate\Core\Delivery\CommentStates;
+use NightWorksIO\MutationGate\Core\Delivery\CommentWrite;
 use NightWorksIO\MutationGate\Core\Delivery\Deferring;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\Http\Exchange;
@@ -25,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\Reporter;
 
+use function preg_match;
 use function sprintf;
 
 /**
@@ -41,6 +45,9 @@ final readonly class MergeRequestNote implements Commenting, Deferring, Reporter
     /** GitLab.com's API, where `CI_API_V4_URL` names no other. */
     private const string GITLAB = 'https://gitlab.com/api/v4';
 
+    /** How GitLab marks a draft's title. */
+    private const string DRAFT = '/^\s*(?:\[draft\]|\(draft\)|draft:)/i';
+
     private const string NOT_A_MERGE_REQUEST = 'This run is not for a merge request, so there is no note to write.';
 
     private const string NO_TOKEN = '%s is not set, so no note is written.';
@@ -54,10 +61,15 @@ final readonly class MergeRequestNote implements Commenting, Deferring, Reporter
 
     /**
      * The note of the merge request the job these variables describe runs for, written with the token in this
-     * variable; one that says why it cannot be written where they describe none it may write.
+     * variable, shaped as `comment` says; one that says why it cannot be written where they describe none it may
+     * write.
      */
-    public static function inEnvironment(Variables $environment, Exchange $exchange, string $tokenEnv): self
-    {
+    public static function inEnvironment(
+        Variables $environment,
+        Exchange $exchange,
+        string $tokenEnv,
+        CommentSettings $settings,
+    ): self {
         $number = self::numberIn($environment);
         $token = $environment->valueOf($tokenEnv);
         $target = match (true) {
@@ -77,16 +89,23 @@ final readonly class MergeRequestNote implements Commenting, Deferring, Reporter
             $pipeline,
         );
 
-        return new self(CommentStates::in($thread, $pipeline, commentsHere: $number instanceof PullRequestNumber));
+        return new self(CommentStates::in(
+            $thread,
+            $pipeline,
+            commentsHere: $number instanceof PullRequestNumber,
+            settings: $settings,
+            draft: self::isDraft($environment),
+        ));
     }
 
-    /** From the job's own variables, reading the token from the variable `tokenEnv` names. */
+    /** From the job's own variables, reading the token from the variable `tokenEnv` names, shaped by `with.comment`. */
     public static function configured(Options $options, Variables $environment, Exchange $exchange): self
     {
         return self::inEnvironment(
             $environment,
             $exchange,
             CommentOption::tokenEnv($options, GateSecret::GitLabComment->value),
+            CommentKeys::settingsIn($options),
         );
     }
 
@@ -121,14 +140,9 @@ final readonly class MergeRequestNote implements Commenting, Deferring, Reporter
         return $this->states->recheckedLater($rechecked, $delivery);
     }
 
-    public function write(string $markdown): Written|NotWritten
+    public function writeAs(string $markdown, CommentWrite $write): Written|NotWritten
     {
-        return $this->states->write($markdown);
-    }
-
-    public function writeOverPlanned(string $markdown): Written|NotWritten
-    {
-        return $this->states->writeOverPlanned($markdown);
+        return $this->states->writeAs($markdown, $write);
     }
 
     /**
@@ -138,6 +152,12 @@ final readonly class MergeRequestNote implements Commenting, Deferring, Reporter
     private static function numberIn(Variables $environment): PullRequestNumber|CannotTell
     {
         return PullRequestNumber::parse(self::either($environment, 'CI_MERGE_REQUEST_IID', GitLabPlan::MERGE_REQUEST));
+    }
+
+    /** Whether the merge request is a draft: its title starts as GitLab marks a draft's. */
+    private static function isDraft(Variables $environment): bool
+    {
+        return preg_match(self::DRAFT, $environment->valueOf('CI_MERGE_REQUEST_TITLE')) === 1;
     }
 
     /** Whether the merge request comes from another project than the one it targets. */

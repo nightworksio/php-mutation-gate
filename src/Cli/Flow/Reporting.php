@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
 use NightWorksIO\MutationGate\Core\Config\Choice;
+use NightWorksIO\MutationGate\Core\Config\Definition\CommentKeys;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
@@ -237,7 +238,9 @@ final readonly class Reporting
             $options = $path instanceof Path
                 ? $choice->options()->overPath(Key::of('path'), $path)
                 : $choice->options();
-            $reporters[] = $this->chosen->reporter(Choice::of($choice->use()->value(), $options), $index);
+            $use = $choice->use()->value();
+            $shaped = CommentKeys::forReporter($use, $options, $settings->effective()->reports()->comment());
+            $reporters[] = $this->chosen->reporter(Choice::of($use, $shaped), $index);
         }
 
         return $reporters;
@@ -270,7 +273,14 @@ final readonly class Reporting
             ...$this->onAPullRequestThatCanBeCommentedOn()
                 ? [$this->chosen->reporterChosenBy(
                     Variables::GITHUB_ACTIONS,
-                    Choice::of(BuiltinReporter::GitHubComment->value, $none),
+                    Choice::of(
+                        BuiltinReporter::GitHubComment->value,
+                        CommentKeys::forReporter(
+                            BuiltinReporter::GitHubComment->value,
+                            $none,
+                            $settings->effective()->reports()->comment(),
+                        ),
+                    ),
                 )]
                 : [],
             ...$this->environment->inCi() && $this->onDefaultBranch($runOn)

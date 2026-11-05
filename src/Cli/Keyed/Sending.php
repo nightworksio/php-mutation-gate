@@ -25,7 +25,9 @@ use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Config\CommentSettings;
 use NightWorksIO\MutationGate\Core\Delivery\AlertPost;
+use NightWorksIO\MutationGate\Core\Delivery\CommentWrite;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\Delivery\KeptPost;
 use NightWorksIO\MutationGate\Core\Delivery\LedgerPost;
@@ -135,7 +137,7 @@ final readonly class Sending
         $said = [
             ...$stored instanceof NotGiven ? [] : [$stored],
             ...$keeping,
-            ...$comment instanceof NotGiven ? [] : [$this->commented($comment, $delivery->commentsOverPlanned())],
+            ...$comment instanceof NotGiven ? [] : [$this->commented($comment, $delivery->commentWrite())],
             ...array_map($this->alerted(...), $delivery->alerts()),
             ...$otlp instanceof OtlpPost ? [$this->exported($otlp)] : [],
         ];
@@ -275,11 +277,11 @@ final readonly class Sending
     }
 
     /**
-     * The comment written, or only over its planned state where the delivery says so, on the forge its own CI
+     * The comment written as the delivery says, on the forge its own CI
      * keeps: a merge request's note under GitLab CI, a pull request's comment under Bitbucket Pipelines, and a
      * pull request's comment on GitHub otherwise, each with the token in its default variable.
      */
-    private function commented(string $markdown, bool $overPlanned): Written|NotWritten
+    private function commented(string $markdown, CommentWrite $write): Written|NotWritten
     {
         $environment = Variables::of($this->environment);
         $exchange = HttpExchange::over($this->client);
@@ -288,16 +290,23 @@ final readonly class Sending
                 $environment,
                 $exchange,
                 GateSecret::GitLabComment->value,
+                CommentSettings::standard(),
             ),
             $environment->has(Variables::BITBUCKET_BUILD_NUMBER) => BitbucketComment::inEnvironment(
                 $environment,
                 $exchange,
                 GateSecret::BitbucketComment->value,
+                CommentSettings::standard(),
             ),
-            default => PullRequestComment::fromEnvironment($this->environment, $this->client, ''),
+            default => PullRequestComment::fromEnvironment(
+                $this->environment,
+                $this->client,
+                '',
+                CommentSettings::standard(),
+            ),
         };
 
-        return $overPlanned ? $comment->writeOverPlanned($markdown) : $comment->write($markdown);
+        return $comment->writeAs($markdown, $write);
     }
 
     private function alerted(AlertPost $alert): Written|NotWritten

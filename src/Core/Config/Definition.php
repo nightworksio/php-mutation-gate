@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Config;
 
 use NightWorksIO\MutationGate\Core\Config\Definition\CiKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\CommentKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\ContextsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\CoverageKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\Field;
@@ -155,6 +156,7 @@ final readonly class Definition
             ...ReportsKeys::fields($origin),
             ...SuggestKeys::fields(),
             ...HeatmapKeys::fields(),
+            ...CommentKeys::fields(),
             ...PublishingKeys::fields(),
             ...PestKeys::fields(),
             ...StaticCheckKeys::fields($origin),

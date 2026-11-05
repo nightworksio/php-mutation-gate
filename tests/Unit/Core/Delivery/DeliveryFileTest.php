@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\Alert\AlertEvent;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
 use NightWorksIO\MutationGate\Core\Delivery\AlertPost;
+use NightWorksIO\MutationGate\Core\Delivery\CommentWrite;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\Delivery\DeliveryFile;
 use NightWorksIO\MutationGate\Core\Delivery\KeptPost;
@@ -21,7 +22,7 @@ function deliveryWhole(): Delivery
     return Delivery::none()
         ->withLedger(LedgerPost::to(Scope::branch('main')))
         ->withKept(KeptPost::of(Companion::Coverage, Scope::branch('main')))
-        ->withComment("## mutation-gate\n\nPassed.")
+        ->withComment("## mutation-gate\n\nPassed.", CommentWrite::sticky())
         ->withAlert(AlertPost::of(BuiltinReporter::Slack, '{"text": "main fell below its floor"}'))
         ->withAlert(AlertPost::of(BuiltinReporter::Webhook, '{"event": "floor.broken"}'))
         ->withOtlp(OtlpPost::of('{"resourceSpans": []}', '{"resourceMetrics": []}'));
@@ -42,21 +43,21 @@ it('writes nothing it does not hold, and reads back an empty delivery', function
 });
 
 it('reads back a comment written only over its planned state, which a later comment or none leaves written in place', function (): void {
-    $overPlanned = deliveryWhole()->withCommentOverPlanned('## Re-checked');
+    $overPlanned = deliveryWhole()->withComment('## Re-checked', CommentWrite::sticky()->overPlanned());
     $kept = $overPlanned->withLedger(LedgerPost::to(Scope::branch('main')))
         ->withAlert(AlertPost::of(BuiltinReporter::Slack, '{}'))
         ->withOtlp(OtlpPost::of(NotGiven::value(), '{}'))
         ->withKept(KeptPost::of(Companion::Coverage, Scope::branch('main')));
 
     expect(DeliveryFile::decode(DeliveryFile::encode($overPlanned)))->toEqual($overPlanned)
-        ->and(DeliveryFile::encode(Delivery::none()->withCommentOverPlanned('x')))
+        ->and(DeliveryFile::encode(Delivery::none()->withComment('x', CommentWrite::sticky()->overPlanned())))
         ->toBe("{\n    \"format\": 1,\n    \"comment\": \"x\",\n    \"overPlanned\": true\n}")
-        ->and($overPlanned->commentsOverPlanned())->toBeTrue()
-        ->and($kept->commentsOverPlanned())->toBeTrue()
-        ->and($overPlanned->withComment('## Passed')->commentsOverPlanned())->toBeFalse()
-        ->and(deliveryWhole()->commentsOverPlanned())->toBeFalse()
+        ->and($overPlanned->commentWrite()->isOverPlanned())->toBeTrue()
+        ->and($kept->commentWrite()->isOverPlanned())->toBeTrue()
+        ->and($overPlanned->withComment('## Passed', CommentWrite::sticky())->commentWrite()->isOverPlanned())->toBeFalse()
+        ->and(deliveryWhole()->commentWrite()->isOverPlanned())->toBeFalse()
         ->and(DeliveryFile::decode('{"format": 1, "comment": "x", "overPlanned": false}'))
-        ->toEqual(Delivery::none()->withComment('x'));
+        ->toEqual(Delivery::none()->withComment('x', CommentWrite::sticky()));
 });
 
 it('reads as many alerts to one channel as a verdict sends, one of each kind', function (): void {

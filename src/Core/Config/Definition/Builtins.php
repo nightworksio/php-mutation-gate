@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinStore;
 use NightWorksIO\MutationGate\Core\Config\BuiltinTreeSource;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\CommentOption;
+use NightWorksIO\MutationGate\Core\Config\CommentSettings;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
@@ -149,10 +150,16 @@ final readonly class Builtins
             ...$more,
         );
 
+        $shaped = Field::optional(
+            CommentKeys::KEY,
+            CommentKeys::section(static fn(CommentSettings $settings): Json => $settings->json()),
+            Effect::JudgesOrReportsOnly,
+        );
         $comment = static fn(string $token): Section => Section::options(
             Json::object(Member::of(CommentOption::TokenEnv->value, $token)),
             Field::optional(CommentOption::TokenEnv->value, $variable, $judges),
             Field::optional('token', Refused::because(sprintf(self::TOKEN, $token)), $judges),
+            $shaped,
         );
 
         return self::of([
@@ -192,6 +199,7 @@ final readonly class Builtins
             BuiltinReporter::GitHubComment->value => Section::options(
                 Json::object(),
                 Field::optional('identity', Text::of('an account name'), $judges),
+                $shaped,
             ),
             BuiltinReporter::Badge->value => Section::options(
                 Json::object(),

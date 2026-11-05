@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\GitHub\StepSummary;
+use NightWorksIO\MutationGate\Core\Config\CommentShows;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\Markdown;
@@ -72,7 +73,7 @@ it('appends the re-checked survivors as the comment shows them, so a fork\'s pul
     expect(StepSummary::appendingTo($file, 'https://github.com/octo/gate/actions/runs/7', $clock())->rechecked(Rechecks::mixed()))
         ->toEqual(Written::to($file))
         ->and(file_get_contents($file))
-        ->toBe(sprintf("Earlier step\n%s", RecheckedMarkdown::comment(Rechecks::mixed(), 'https://github.com/octo/gate/actions/runs/7')))
+        ->toBe(sprintf("Earlier step\n%s", RecheckedMarkdown::comment(Rechecks::mixed(), 'https://github.com/octo/gate/actions/runs/7', CommentShows::of())))
         ->and(StepSummary::appendingTo('', '', $clock())->rechecked(Rechecks::mixed()))
         ->toEqual(NotWritten::because('GITHUB_STEP_SUMMARY is not set, so there is no step summary to write.'));
 });

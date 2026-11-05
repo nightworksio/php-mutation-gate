@@ -105,4 +105,16 @@ enum BuiltinReporter: string
             self::GitHubComment, self::BitbucketInsights => NotGiven::value(),
         };
     }
+
+    /** Whether this reporter writes the pull request comment, which `comment` shapes (ADR-0102). */
+    public function comments(): bool
+    {
+        return match ($this) {
+            self::GitHubComment, self::GitLabComment, self::BitbucketComment => true,
+            self::Json, self::JUnit, self::Sarif, self::Html, self::Stryker, self::Digest, self::Tests,
+            self::KillMatrix, self::GitLab, self::Sonar, self::Badge, self::Console, self::Problems, self::Slack,
+            self::Discord, self::Webhook, self::Otlp, self::GitHubAnnotations, self::GitHubSummary,
+            self::BitbucketInsights => false,
+        };
+    }
 }

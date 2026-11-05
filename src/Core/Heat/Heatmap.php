@@ -18,6 +18,8 @@ use Countable;
 use function in_array;
 
 use IteratorAggregate;
+use NightWorksIO\MutationGate\Core\Comment\Cap;
+use NightWorksIO\MutationGate\Core\Config\CommentShows;
 use NightWorksIO\MutationGate\Core\Config\HeatmapRows;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -44,7 +46,7 @@ final readonly class Heatmap implements Countable, IteratorAggregate
 {
     /**
      * @param list<FileHeat> $files lowest score first
-     * @param HeatmapRows    $rows  how many files {@see lowest()} and {@see fallen()} list
+     * @param HeatmapRows    $rows  how many files {@see lowest()} lists
      */
     private function __construct(private array $files, private HeatmapRows $rows)
     {
@@ -73,7 +75,7 @@ final readonly class Heatmap implements Countable, IteratorAggregate
         return new self($files, self::unlisted());
     }
 
-    /** This, listing as many of its lowest-scoring files, and of the files that fell most, as `heatmap` says. */
+    /** This, listing as many of its lowest-scoring files as `heatmap.files` says. */
     public function listing(HeatmapRows $rows): self
     {
         return new self($this->files, $rows);
@@ -116,21 +118,23 @@ final readonly class Heatmap implements Countable, IteratorAggregate
 
     /**
      * The files the change reaches whose score fell most since the base, as
-     * many as it lists, then any other it reaches below its tree's floor;
-     * none where it lists none.
+     * many as the comment shows, then any other it reaches below its tree's
+     * floor; none where the comment shows none.
      *
      * @return Listed<FileHeat>
      */
-    public function fallen(): Listed
+    public function fallen(CommentShows $comment): Listed
     {
-        if ($this->rows->comment() === 0) {
+        $most = $comment->most(Cap::Heatmap);
+
+        if ($most === 0) {
             return Listed::of();
         }
 
         $touched = array_filter($this->files, static fn(FileHeat $file): bool => $file->isTouched());
         $dropped = array_filter($touched, static fn(FileHeat $file): bool => $file->heat()->drop() > 0);
         usort($dropped, $this->fellMore(...));
-        $fallen = array_slice($dropped, 0, $this->rows->comment());
+        $fallen = array_slice($dropped, 0, $most);
         $below = array_filter(
             $touched,
             static fn(FileHeat $file): bool => $file->isBelowFloor() && ! in_array($file, $fallen, strict: true),
@@ -152,7 +156,7 @@ final readonly class Heatmap implements Countable, IteratorAggregate
 
     private static function unlisted(): HeatmapRows
     {
-        return HeatmapRows::of(files: 0, comment: 0);
+        return HeatmapRows::of(files: 0);
     }
 
     private function fellMore(FileHeat $one, FileHeat $other): int

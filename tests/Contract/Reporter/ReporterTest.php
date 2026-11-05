@@ -30,6 +30,7 @@ use NightWorksIO\MutationGate\Adapter\GitHub\StepSummary;
 use NightWorksIO\MutationGate\Adapter\GitLab\MergeRequestNote;
 use NightWorksIO\MutationGate\Adapter\Otlp\OtlpReporter;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Config\CommentSettings;
 use NightWorksIO\MutationGate\Core\Delivery\Stage;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Report\BadgeColors;
@@ -179,6 +180,7 @@ $reporters = [
         $pullRequest(),
         new MockHttpClient([new JsonMockResponse([]), new JsonMockResponse(['artifacts' => []]), new JsonMockResponse(['html_url' => 'https://github.com/octo/gate/pull/12'])]),
         'gate-bot',
+        CommentSettings::standard(),
     ),
     'Slack' => fn(): Reporter => $alerting(Channel::Slack),
     'Discord' => fn(): Reporter => $alerting(Channel::Discord),
@@ -198,6 +200,7 @@ $reporters = [
             ->answering('https://gitlab.example/api/v4/projects/42/merge_requests/7/notes', 201, '{"id": 3}')
             ->exchange(),
         'MUTATION_GATE_GITLAB_TOKEN',
+        CommentSettings::standard(),
     ),
     'the Bitbucket pull request comment' => fn(): Reporter => BitbucketComment::inEnvironment(
         Variables::of(['BITBUCKET_BUILD_NUMBER' => '9', 'BITBUCKET_WORKSPACE' => 'acme', 'BITBUCKET_REPO_SLUG' => 'shop', 'BITBUCKET_PR_ID' => '7', 'MUTATION_GATE_BITBUCKET_TOKEN' => 'secret']),
@@ -206,6 +209,7 @@ $reporters = [
             ->answering('https://api.bitbucket.org/2.0/repositories/acme/shop/pullrequests/7/comments', 201, '{"links": {"html": {"href": "https://bitbucket.org/acme/shop/pull-requests/7#comment-3"}}}')
             ->exchange(),
         'MUTATION_GATE_BITBUCKET_TOKEN',
+        CommentSettings::standard(),
     ),
     'Code Insights' => fn(): Reporter => CodeInsights::inEnvironment(
         Variables::of(['BITBUCKET_BUILD_NUMBER' => '9', 'BITBUCKET_WORKSPACE' => 'acme', 'BITBUCKET_REPO_SLUG' => 'shop', 'BITBUCKET_COMMIT' => '5eeca8f']),
