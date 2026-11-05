@@ -34,6 +34,7 @@ final readonly class BuilderClasses
         'Flaky' => self::BUILDER,
         'Floor' => self::BUILDER,
         'Gate' => self::BUILDER,
+        'Heatmap' => self::BUILDER,
         'Ignore' => self::BUILDER,
         'Ignores' => self::BUILDER,
         'Load' => self::BUILDER,

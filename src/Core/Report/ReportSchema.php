@@ -228,7 +228,18 @@ final readonly class ReportSchema
                     'auditSeconds' => self::SECONDS,
                     'savedSeconds' => self::SECONDS,
                 ], []),
-            ], ['sample', 'score', 'suitesUnscored', 'suitesLowerBound', 'run', 'cost', 'savings', 'pruning']),
+                'heatmap' => HeatmapSchema::report(),
+            ], [
+                'sample',
+                'score',
+                'suitesUnscored',
+                'suitesLowerBound',
+                'run',
+                'cost',
+                'savings',
+                'pruning',
+                'heatmap',
+            ]),
         ]);
     }
 

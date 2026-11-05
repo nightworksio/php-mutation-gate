@@ -26,9 +26,8 @@ use function sprintf;
  */
 final readonly class Html
 {
+    public const string CODE = '<code>%s</code>';
     private const string ITEM = '<li>%s</li>';
-
-    private const string CODE = '<code>%s</code>';
 
     private const string HASH = 'sha256-%s';
 

@@ -28,8 +28,8 @@ use function sprintf;
  * A repository's `summary.json` as a dashboard reads it (ADR-0024): the
  * commit and time of its latest verdict on the default branch, the verdict,
  * the project's score, each tree, the floor for new code, what the gate
- * saved over the last 30 days, and its costliest mutators (ADR-0076), where
- * it names them. Whatever the file holds is the repository's
+ * saved over the last 30 days, its costliest mutators (ADR-0076) and its
+ * lowest-scoring files (ADR-0084), where it names them. Whatever the file holds is the repository's
  * word, so a file not in the shape of `"format": 1` is refused whole.
  *
  * @internal
@@ -43,6 +43,7 @@ final readonly class Published
     /**
      * @param list<PublishedTree>     $trees
      * @param list<PublishedMutator>  $mutators the costliest first
+     * @param list<PublishedFile>     $files    the lowest-scoring first
      */
     private function __construct(
         private string $commit,
@@ -53,6 +54,7 @@ final readonly class Published
         private Floor $newCode,
         private Seconds|NoHistory $saved,
         private array $mutators,
+        private array $files,
     ) {
     }
 
@@ -122,6 +124,12 @@ final readonly class Published
         return $this->mutators;
     }
 
+    /** @return list<PublishedFile> the lowest-scoring files it names, the lowest first; none where it names none */
+    public function files(): array
+    {
+        return $this->files;
+    }
+
     /** @throws NotInShape */
     private static function readFrom(Node $summary): self|CannotJudge
     {
@@ -134,6 +142,7 @@ final readonly class Published
         $score = $summary->field('score');
         $savings = $summary->field('savings');
         $mutators = $summary->field('mutators');
+        $files = $summary->field('heatmap');
 
         return new self(
             $summary->field('commit')->text(),
@@ -144,6 +153,7 @@ final readonly class Published
             Floor::ofHundredths(self::hundredths($summary->field('newCode')->field('floor'))),
             $savings->isPresent() ? Seconds::of(self::seconds($savings->field('last30Days'))) : NoHistory::yet(),
             $mutators->isPresent() ? array_map(self::mutator(...), $mutators->items()) : [],
+            $files->isPresent() ? array_map(self::file(...), $files->items()) : [],
         );
     }
 
@@ -173,6 +183,21 @@ final readonly class Published
             Seconds::of(self::seconds($mutator->field('seconds'))),
             $survived->integer() >= 0 ? $survived->integer() : throw NotInShape::at($survived->at(), 'a count'),
             $rate instanceof Score ? Percentage::of($rate) : $rate,
+        );
+    }
+
+    /** @throws NotInShape */
+    private static function file(Node $file): PublishedFile
+    {
+        $score = $file->field('score');
+        $base = $file->field('base');
+        $notKilled = $file->field('notKilled');
+
+        return PublishedFile::of(
+            $file->field('path')->text(),
+            $score->isPresent() ? Score::ofHundredths(self::hundredths($score)) : NothingToMutate::found(),
+            $base->isPresent() ? Score::ofHundredths(self::hundredths($base)) : NotGiven::value(),
+            $notKilled->integer() >= 0 ? $notKilled->integer() : throw NotInShape::at($notKilled->at(), 'a count'),
         );
     }
 

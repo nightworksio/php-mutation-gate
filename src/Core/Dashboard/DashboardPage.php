@@ -83,7 +83,7 @@ final readonly class DashboardPage
         <td data-value="%9$s">%10$s</td>
         <td data-value="%11$s">%11$s</td>
         </tr>
-        %12$s</tbody>
+        %12$s%13$s</tbody>
         HTML;
 
     private const string UNPUBLISHED = <<<'HTML'
@@ -119,6 +119,30 @@ final readonly class DashboardPage
         HTML;
 
     private const string MUTATOR = '<tr><td>%s</td><td><code>%s</code></td><td>%s</td><td>%s</td><td>%d</td></tr>';
+
+    /** The lowest-scoring files a repository named, collapsed under its row (ADR-0084). */
+    private const string FILES = <<<'HTML'
+        <tr class="files">
+        <td colspan="7"><details><summary>Lowest-scoring files</summary>
+        <table>
+        <thead>
+        <tr>
+        <th scope="col">File</th>
+        <th scope="col">Score</th>
+        <th scope="col">Against the base</th>
+        <th scope="col">Not killed</th>
+        </tr>
+        </thead>
+        <tbody>
+        %s
+        </tbody>
+        </table>
+        </details></td>
+        </tr>
+
+        HTML;
+
+    private const string FILE = '<tr><td><code>%s</code></td><td>%s</td><td>%s</td><td>%d</td></tr>';
 
     /** What the page may load and run: its own style and script, by their hashes, and nothing else. */
     private const string POLICY = "default-src 'none'; style-src '%s'; script-src '%s'";
@@ -193,7 +217,28 @@ final readonly class DashboardPage
             $saved instanceof Seconds ? $saved->text() : 'no history yet',
             $published->time()->value(),
             self::mutators($published),
+            self::files($published),
         );
+    }
+
+    /** The lowest-scoring files a repository named, collapsed; nothing where it named none. */
+    private static function files(Published $published): string
+    {
+        $rows = [];
+
+        foreach ($published->files() as $file) {
+            $score = $file->score();
+            $base = $file->base();
+            $rows[] = sprintf(
+                self::FILE,
+                Html::text($file->path()),
+                Percent::of($score),
+                $score instanceof Score && $base instanceof Score ? Percent::change($base, $score) : '',
+                $file->notKilled(),
+            );
+        }
+
+        return $rows === [] ? '' : sprintf(self::FILES, implode("\n", $rows));
     }
 
     /** The costliest mutators a repository named, collapsed; nothing where it named none. */

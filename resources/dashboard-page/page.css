@@ -77,11 +77,13 @@ td ul {
   padding: 0 0.4rem;
 }
 
-.mutators summary {
+.mutators summary,
+.files summary {
   color: var(--muted);
   cursor: pointer;
 }
 
-.mutators table {
+.mutators table,
+.files table {
   margin: 0.5rem 0;
 }

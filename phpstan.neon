@@ -277,6 +277,15 @@ services:
                     - INDENT # one level of a PHPUnit config's XML when it shows none, not a report's indent
                 'NightWorksIO\MutationGate\Core\Doctor\GatePins':
                     - USE_AT # a CI step's action at its commit, not a package at its version
+                'NightWorksIO\MutationGate\Core\Config\HeatmapRows':
+                    - FILES # files a dashboard summary lists, not shipped presets
+                    - COMMENT # files a pull request comment lists, not ranked killers
+                'NightWorksIO\MutationGate\Core\Proof\FunctionsRecord':
+                    - FIELD # a proof's field naming its unit's functions, not the kill history's section
+                    - SPAN # the items of a function's span, not letters per edit
+                'NightWorksIO\MutationGate\Core\Report\HeatmapMarkdown':
+                    - FUNCTIONS # functions a comment's row names, not letters per edit
+                    - CHANGED # a score with its change, not a trial's verdict with its reason
                 'NightWorksIO\MutationGate\Cli\Command\LedgerOption':
                     - LEDGER # the option that names a ledger file, not the workspace directory
                 'NightWorksIO\MutationGate\Core\Verb':

@@ -318,7 +318,10 @@ final readonly class Judging
             $pruning->window(),
             $pruning->audit(),
             $fresh,
-        ))->withTallies($ledgers->defaultBranch()->learned()->tallies()));
+        ))->withTallies($ledgers->defaultBranch()->learned()->tallies())->withHeatmap(
+            new Heating($this->adapters->project, $this->settings->effective()->reports()->heatmap())
+                ->of($verdicts, $judged, $judge, $ledgers->defaultBranch()->proofs()),
+        ));
 
         return new Assessed(
             $results->wereCutShort() ? $verdict->cutShort() : $verdict,

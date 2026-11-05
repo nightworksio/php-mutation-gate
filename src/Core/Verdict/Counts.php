@@ -51,6 +51,14 @@ final readonly class Counts
         return Score::of($killed, $counted);
     }
 
+    /** How many of the counted mutants the score counts as not killed. */
+    public function notKilled(Uncovered $uncovered): int
+    {
+        [$killed, $counted] = $this->tally($uncovered);
+
+        return $counted - $killed;
+    }
+
     /** How many more of the counted mutants must be killed for the score to reach a floor; none where it does. */
     public function shortOf(Floor $floor, Uncovered $uncovered): int
     {
