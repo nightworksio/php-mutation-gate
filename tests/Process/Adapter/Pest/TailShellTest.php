@@ -67,8 +67,10 @@ it('starts the tail\'s workers in a directory with nothing an earlier run left, 
     mkdir($left, 0o700, recursive: true);
     touch(Seat::stopIn($left));
     $running = false;
-    $shell = new ShellFake(static function () use ($left, &$running): Ran {
+    $stale = true;
+    $shell = new ShellFake(static function () use ($left, &$running, &$stale): Ran {
         $running = PidFile::isRunning(Seat::at($left, 1)->pid());
+        $stale = file_exists(Seat::stopIn($left));
 
         return Ran::finished(succeeded: true, output: '');
     });
@@ -77,5 +79,6 @@ it('starts the tail\'s workers in a directory with nothing an earlier run left, 
     TailShell::of($shell, $project, Patching::on(Group::named('canary')), $request)
         ->sideBySide(WorkerSlots::alone(), Unlimited::time(), Command::pest('vendor/bin/pest', Withheld::standard()));
 
-    expect($running)->toBeTrue();
+    expect($running)->toBeTrue()
+        ->and($stale)->toBeFalse();
 })->group(...$holds);
