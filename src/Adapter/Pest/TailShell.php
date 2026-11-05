@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function array_key_exists;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
@@ -24,9 +26,12 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
  * unmutated controls, baselines and trials, each run by the warm worker of
  * its place, which the gate's own process starts for the runs and ends once
  * they are done, as Pest's parent does for a mutation run (ADR-0023), with
- * nothing an earlier run left in their directory. Under `pest.bootTail`, a
- * run of every test file of its suites is run by a worker that booted the
- * project, those suites' test files loaded (ADR-0075). A run
+ * nothing an earlier run left in their directory. The workers start PHP
+ * with the ini files the runs scan, so a memory cap reaches a forked run as
+ * it reaches a fresh one; runs that scan others fork from workers of their
+ * own. Under `pest.bootTail`, a run of every test file of its suites is run
+ * by a worker that booted the project, those suites' test files loaded
+ * (ADR-0075). A run
  * whose worker forks it no child, or is gone, starts fresh in its client's
  * place.
  *
@@ -78,7 +83,8 @@ final readonly class TailShell implements Shell
         $forked = [];
 
         foreach ($commands as $command) {
-            $forked[] = $command->forkedIn(WarmDirectory::beside($sets->besideFor($this->bootedSuites($command))));
+            $beside = $sets->besideFor($this->bootedSuites($command), $this->startingWith($command));
+            $forked[] = $command->forkedIn(WarmDirectory::beside($beside));
         }
 
         $ends = $this->shell->sideBySide($slots, $startingWithin, ...$forked);
@@ -90,6 +96,21 @@ final readonly class TailShell implements Shell
     public function in(string $directory): Shell
     {
         return new self($this->shell->in($directory), $this->beside, $this->booting);
+    }
+
+    /**
+     * What a command sets of the variables PHP reads as it starts, which the
+     * workers it forks from must start with, as a fresh process of it would:
+     * the directories of ini files it scans, a memory cap's among them.
+     *
+     * @return array<string, string>
+     */
+    private function startingWith(Command $command): array
+    {
+        $environment = $command->environment();
+        $scanned = array_key_exists(MemoryCap::SCAN_DIR, $environment) ? $environment[MemoryCap::SCAN_DIR] : false;
+
+        return is_string($scanned) ? [MemoryCap::SCAN_DIR => $scanned] : [];
     }
 
     /**

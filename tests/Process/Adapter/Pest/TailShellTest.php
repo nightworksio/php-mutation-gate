@@ -129,3 +129,23 @@ it('forks runs that scan the same ini files from one set of workers, started sca
         ->and($forkedIn[0][0])->not->toBe($forkedIn[1][0])
         ->and(is_dir($forkedIn[0][0]) || is_dir($forkedIn[1][0]))->toBeFalse();
 })->group(...$holds);
+
+it('forks a run of every test file of every suite from a booted set of its own under pest.bootTail, apart from the unbooted runs', function (): void {
+    $root = Scratch::directory();
+    $booted = [];
+    $shell = new ShellFake(static function (Command $command) use (&$booted): Ran {
+        $directory = $command->arguments()[count(OwnScript::PestClient->started()) + 1];
+        $spec = BootSpec::readIn($directory);
+        $booted[] = [$directory, $spec instanceof BootSpec ? $spec->suites() : 'unbooted'];
+
+        return Ran::finished(succeeded: true, output: '');
+    });
+    $project = Project::at($root, Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'));
+    $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests())->across(Pool::of(ProcessCount::single(), Workers::Fork)->tail());
+
+    TailShell::of($shell, $project, Patching::on(Group::named('canary'))->bootingTail(boots: true), $request)
+        ->sideBySide(WorkerSlots::alone(), Unlimited::time(), Command::pest('vendor/bin/pest', Withheld::standard()), Command::pest('vendor/bin/pest', Withheld::standard())->loadingEveryTestFile());
+
+    expect(array_column($booted, 1))->toBe(['unbooted', []])
+        ->and($booted[0][0])->not->toBe($booted[1][0]);
+})->group(...$holds);
