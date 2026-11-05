@@ -223,7 +223,7 @@ it('says why it reads no coverage map past its limit, or one it cannot read', fu
     $read = $store->companion(Scope::branch('next'), Companion::Coverage);
 
     expect($store->companion(Scope::branch('main'), Companion::Coverage))->toEqual(CannotJudge::because(sprintf(
-        'The kept coverage map at %s/refs/heads/main/coverage.json.gz could not be read: it is larger than 1500000 bytes.',
+        'The kept coverage map at %s/refs/heads/main/coverage.json.gz could not be read: it is larger than 4200000 bytes.',
         $root,
     )))
         ->and($read instanceof CannotJudge ? $read->why() : '')

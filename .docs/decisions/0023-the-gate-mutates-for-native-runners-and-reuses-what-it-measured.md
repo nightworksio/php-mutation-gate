@@ -153,8 +153,8 @@ manual.
      whose runs read only the default branch's map. The plan records it as
      `ownScopeCoverage` in its briefing, and the ledger as `ownScopeCoverage`
      in `passed`.
-   - A kept map is read as untrusted input: one over 1,500,000 bytes packed
-     or 31,000,000 unpacked, twice the gate's own map, is neither read nor
+   - A kept map is read as untrusted input: one over 4,200,000 bytes packed
+     or 85,000,000 unpacked, twice the gate's own map, is neither read nor
      kept, and the run that would keep it says so; the next run measures
      every test.
    - This amends ADR-0001's `ProofStore` row and ADR-0007.

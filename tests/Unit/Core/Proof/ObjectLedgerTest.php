@@ -176,5 +176,5 @@ it('says why it reads and keeps no coverage map where there is no token, or the 
         ->and($ledgers->keep($none, Scope::branch('main'), Companion::Coverage, Contents::of('x')))
         ->toEqual(NotWritten::because(sprintf('%s could not be written: no token: invalid_grant', $named)))
         ->and($large->companion(objectStoreAt(FixedTokens::of('t')), Scope::branch('main'), Companion::Coverage))
-        ->toEqual(CannotJudge::because(sprintf('The kept coverage map at %s could not be read: it is larger than 1500000 bytes.', $named)));
+        ->toEqual(CannotJudge::because(sprintf('The kept coverage map at %s could not be read: it is larger than 4200000 bytes.', $named)));
 });
