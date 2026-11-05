@@ -449,11 +449,8 @@ jobs:
     timeout-minutes: 360
     permissions:
       contents: read
-    # ADR-0103: once a confirmed survivor leaves a pull request's run no way to
-    # pass, its shard fails: under `run.failFast: mark` after judging every
-    # unit, so the verdict names every survivor; under `stop` there. Under
-    # `cancel` it stops there and GitHub cancels the other shards of the
-    # matrix, which needs no token in a job that runs the project's code.
+    # ADR-0103: a doomed shard fails as `run.failFast` says; under `cancel`
+    # the matrix cancels the other shards, with no token in this job.
     strategy:
       fail-fast: ${{ needs.plan.outputs.fail-fast == 'cancel' && contains(fromJSON('["pull_request", "merge_group"]'), github.event_name) }}
       matrix:
