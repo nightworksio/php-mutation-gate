@@ -60,6 +60,17 @@ it('boots the tail\'s workers where the options say so under the patch, and neve
         ->toEqual(Invalid::because(Problem::at('bootTail', 'expected true or false, got "yes"')));
 });
 
+it('caches in the warm workers under the patch unless the options turn it off, and never unpatched', function (): void {
+    $caching = PestOptions::read(Configs::options('{"patch": true}'));
+    $off = PestOptions::read(Configs::options('{"patch": true, "workerOpcache": false}'));
+    $unpatched = PestOptions::read(Configs::options('{"patch": false, "workerOpcache": true}'));
+
+    expect(array_map(static fn(PestOptions|Invalid $read): bool => $read instanceof PestOptions && $read->patching()->cachesInWorkers(), [$caching, $off, $unpatched]))
+        ->toBe([true, false, false])
+        ->and(PestOptions::read(Configs::options('{"workerOpcache": "yes"}')))
+        ->toEqual(Invalid::because(Problem::at('workerOpcache', 'expected true or false, got "yes"')));
+});
+
 it('stays unpatched when the config says so', function (): void {
     $read = PestOptions::read(Configs::options('{"patch": false, "canary": "smoke"}'));
 

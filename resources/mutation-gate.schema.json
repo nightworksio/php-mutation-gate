@@ -1978,6 +1978,10 @@
                 "bootTail": {
                     "type": "boolean",
                     "default": false
+                },
+                "workerOpcache": {
+                    "type": "boolean",
+                    "default": true
                 }
             },
             "additionalProperties": false
@@ -4146,6 +4150,9 @@
                             "pattern": "^\\S+$"
                         },
                         "bootTail": {
+                            "type": "boolean"
+                        },
+                        "workerOpcache": {
                             "type": "boolean"
                         }
                     },

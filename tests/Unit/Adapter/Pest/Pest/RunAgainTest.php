@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\ShardMap;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\BootSpec;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\OpcacheBlacklist;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Triage;
@@ -563,4 +564,24 @@ it('leaves what the tail\'s workers boot beside a doubtful kill\'s run again of 
 })->with([
     'booting the tail' => [true, [false, true]],
     'leaving the tail unbooted' => [false, [false, false]],
+]);
+
+it('leaves what opcache keeps out beside every forked run, the mutants\' and the tail\'s, under pest.workerOpcache, and nothing where it is off', function (bool $caches, array $kept): void {
+    $at = PestCases::project();
+    $inner = PestCases::loadedNothing($at);
+    $seen = [];
+    $shell = new ShellFake(static function (Command $command) use ($inner, &$seen): Ran {
+        $warm = $command->environment()[GateVariable::Warm->value] ?? '';
+        $seen[] = is_string($warm) && $warm !== '' && OpcacheBlacklist::isIn($warm);
+
+        return $inner->run($command);
+    });
+
+    new Pest($at, $shell, PestCases::canary()->cachingInWorkers($caches), new CapDirectory(), Triage::standard()->bounds())
+        ->mutate(PestCases::money()->across(Pool::of(ProcessCount::single(), Workers::Fork)));
+
+    expect($seen)->toBe($kept);
+})->with([
+    'caching in the workers' => [true, [true, true]],
+    'leaving opcache off' => [false, [false, false]],
 ]);

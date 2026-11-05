@@ -8,6 +8,7 @@ use function array_keys;
 use function count;
 use function implode;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\OpcacheBlacklist;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Pool;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Seat;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
@@ -39,6 +40,7 @@ final class TailWorkers
         private readonly WorkerSlots $slots,
         private readonly string $beside,
         private readonly Project|NotGiven $booting,
+        private readonly OpcacheBlacklist|NotGiven $uncached,
     ) {
     }
 
@@ -83,6 +85,10 @@ final class TailWorkers
     {
         WarmDirectory::cleared($beside);
         $directory = WarmDirectory::made($beside);
+
+        if ($this->uncached instanceof OpcacheBlacklist) {
+            $this->uncached->leftIn($directory);
+        }
 
         if ($this->booting instanceof Project && ! $suites instanceof NotGiven) {
             Invocation::booting($this->booting, $suites)->leftIn($directory);

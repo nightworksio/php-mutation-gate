@@ -17,3 +17,15 @@ it('could serve a cached original from the command line only where opcache is on
         ->and(Opcache::ofCommandLine('0')->couldServeTheOriginal())->toBeFalse()
         ->and(Opcache::ofCommandLine(cli: false)->couldServeTheOriginal())->toBeFalse();
 });
+
+it('could serve a cached original of a file only where it is on and keeps out no path the file begins with', function (): void {
+    $on = Opcache::of('1', '')->keepingOut('/app/src/Money.php', '', '/app/.mutation-gate');
+
+    expect($on->couldServe('/app/src/Money.php'))->toBeFalse()
+        ->and($on->couldServe('/app/.mutation-gate/originals/abc.php'))->toBeFalse()
+        ->and($on->couldServe('/app/src/Rate.php'))->toBeTrue()
+        ->and($on->couldServeTheOriginal())->toBeTrue()
+        ->and(Opcache::of('1', '')->couldServe('/app/src/Money.php'))->toBeTrue()
+        ->and(Opcache::of('0', '')->keepingOut('/elsewhere')->couldServe('/app/src/Money.php'))->toBeFalse()
+        ->and(Opcache::of('1', '')->keepingOut('')->couldServe(''))->toBeTrue();
+});

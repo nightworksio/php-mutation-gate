@@ -308,6 +308,24 @@ it('reports the same four mutants from warm workers, and warns of nothing, with 
         ->and($result instanceof MutationResult ? [...$result->warnings()] : ['cannot judge'])->toBe([]);
 })->skip(fn(): bool => ! function_exists('pcntl_fork') || ! function_exists('posix_kill'), 'warm workers need a PHP that forks')->group(...$holds);
 
+it('reports the same four mutants from warm workers that cache through opcache as from workers that do not', function (bool $caches): void {
+    Patch::applyIn(Library::vendor());
+    $library = Library::pest(Patching::on(Library::canary())->cachingInWorkers($caches));
+    $result = $library->mutate(
+        sprintf('money warm %s', $caches ? 'cached' : 'uncached'),
+        MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
+            ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('adds', 'large', 'unused', 'drains')))
+            ->across(Pool::of(ProcessCount::of(2), Workers::Fork)),
+    );
+
+    expect($result instanceof MutationResult ? Library::records($result->mutants()) : [])
+        ->toEqualCanonicalizing($library->expected('adds', 'large', 'unused', 'drains'))
+        ->and($result instanceof MutationResult ? [...$result->warnings()] : ['cannot judge'])->toBe([]);
+})->with([
+    'caching through opcache' => [true],
+    'with opcache off' => [false],
+])->skip(fn(): bool => ! function_exists('pcntl_fork') || ! function_exists('posix_kill'), 'warm workers need a PHP that forks')->group(...$holds);
+
 it('holds the library to the pest-plugin-mutate the package allows', function (): void {
     $conflict = static function (string $manifest): mixed {
         $decoded = json_decode((string) file_get_contents(Tree::at($manifest)), associative: true);

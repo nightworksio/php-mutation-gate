@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function is_string;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\OpcacheBlacklist;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
@@ -41,8 +42,12 @@ final readonly class TailShell implements Shell
     /** The file the tail's workers' directory is named beside, among the adapter's own. */
     private const string BESIDE = 'pest/tail';
 
-    private function __construct(private Shell $shell, private string $beside, private Project|NotGiven $booting)
-    {
+    private function __construct(
+        private Shell $shell,
+        private string $beside,
+        private Project|NotGiven $booting,
+        private OpcacheBlacklist|NotGiven $uncached,
+    ) {
     }
 
     /**
@@ -57,7 +62,12 @@ final readonly class TailShell implements Shell
             : '';
 
         return is_string($beside) && $beside !== ''
-            ? new self($shell, $beside, $patching->bootsTail() ? $project : NotGiven::value())
+            ? new self(
+                $shell,
+                $beside,
+                $patching->bootsTail() ? $project : NotGiven::value(),
+                $patching->cachesInWorkers() ? OpcacheBlacklist::of($project, $request) : NotGiven::value(),
+            )
             : $shell;
     }
 
@@ -78,7 +88,7 @@ final readonly class TailShell implements Shell
         Seconds|Unlimited $startingWithin,
         Command ...$commands,
     ): ProcessEnds {
-        $sets = new TailWorkers($slots, $this->beside, $this->booting);
+        $sets = new TailWorkers($slots, $this->beside, $this->booting, $this->uncached);
         $forked = [];
 
         foreach ($commands as $command) {
@@ -94,7 +104,7 @@ final readonly class TailShell implements Shell
 
     public function in(string $directory): Shell
     {
-        return new self($this->shell->in($directory), $this->beside, $this->booting);
+        return new self($this->shell->in($directory), $this->beside, $this->booting, $this->uncached);
     }
 
     /**

@@ -89,6 +89,7 @@ final class Pool
             $seat->out(),
             $seat->err(),
             PHP_BINARY,
+            ...OpcacheBlacklist::options($seat->directory()),
             ...OwnScript::PestWorker->started(),
             $seat->directory(),
             strval($seat->place()),

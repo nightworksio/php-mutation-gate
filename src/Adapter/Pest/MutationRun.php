@@ -13,6 +13,7 @@ use function count;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\OpcacheBlacklist;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
 use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
 use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
@@ -318,6 +319,11 @@ final readonly class MutationRun
         $told = new Told($this->project, $this->patching, $this->only, $this->narrows())
             ->of($request, $results, $handOff instanceof HandOff, $bounds);
         $warm = WarmDirectory::made($results);
+
+        if ($this->patching->cachesInWorkers()) {
+            OpcacheBlacklist::of($this->project, $request)->leftIn($warm);
+        }
+
         TailBoot::of($this->project, $this->patching)->leftFor($request, $command, $this->narrows(), $warm);
         $ran = $this->shell->run(
             $command->with($told),

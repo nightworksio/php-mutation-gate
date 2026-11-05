@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\ReplayStop;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\StartedWith;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\TimedTests;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\WarmDatabase;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\OpcacheBlacklist;
 use NightWorksIO\MutationGate\Core\Runner\Opcache;
 use NightWorksIO\MutationGate\Core\Test\RunIssues;
 use Pest\Contracts\Plugins\Bootable;
@@ -140,7 +141,8 @@ final class Plugin implements Bootable, HandlesArguments
         Killers::bypassedIn($this->killers, $loaded);
 
         if ($this->guard instanceof Guard) {
-            $opcache = Opcache::of(ini_get(Opcache::CLI), ini_get(Opcache::FILE_CACHE));
+            $opcache = Opcache::of(ini_get(Opcache::CLI), ini_get(Opcache::FILE_CACHE))
+                ->keepingOut(...OpcacheBlacklist::named(ini_get(Opcache::BLACKLIST)));
             $this->guard->write($loaded, $opcache, ($this->erred)());
         }
     }

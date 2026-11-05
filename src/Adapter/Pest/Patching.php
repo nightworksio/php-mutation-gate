@@ -25,8 +25,11 @@ use function sprintf;
  */
 final readonly class Patching
 {
-    private function __construct(private Group|Unpatched $canary, private bool $bootsTail = false)
-    {
+    private function __construct(
+        private Group|Unpatched $canary,
+        private bool $bootsTail = false,
+        private bool $caches = true,
+    ) {
     }
 
     public static function off(): self
@@ -47,7 +50,22 @@ final readonly class Patching
     /** The same, the tail's workers booting the project where it applies the patch, as `pest.bootTail` says. */
     public function bootingTail(bool $boots): self
     {
-        return new self($this->canary, $boots);
+        return new self($this->canary, $boots, $this->caches);
+    }
+
+    /**
+     * The same, its warm workers compiling through opcache where it applies
+     * the patch, as `pest.workerOpcache` says.
+     */
+    public function cachingInWorkers(bool $caches): self
+    {
+        return new self($this->canary, $this->bootsTail, $caches);
+    }
+
+    /** Whether the warm workers compile through opcache, keeping out each file the run mutates and copy it serves. */
+    public function cachesInWorkers(): bool
+    {
+        return $this->isOn() && $this->caches;
     }
 
     /** Whether the verification tail's workers boot the project before they fork its runs of every test file. */

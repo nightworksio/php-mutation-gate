@@ -31,6 +31,18 @@ final readonly class Pest implements Setting
         return new self(Json::at('pest.bootTail', value: true));
     }
 
+    /** `pest.workerOpcache`, as by default: Pest's warm workers compile through opcache (ADR-0088). */
+    public static function cachingInWorkers(): self
+    {
+        return new self(Json::at('pest.workerOpcache', value: true));
+    }
+
+    /** `pest.workerOpcache` off: Pest's warm workers run with opcache off, every run compiling afresh. */
+    public static function uncachedInWorkers(): self
+    {
+        return new self(Json::at('pest.workerOpcache', value: false));
+    }
+
     /** `pest.bootTail`: the verification tail's workers boot nothing of the project, as mutants' do. */
     public static function tailUnbooted(): self
     {
