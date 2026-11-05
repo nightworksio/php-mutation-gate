@@ -157,7 +157,7 @@ final readonly class MutantJson
         };
     }
 
-    /** @return array{try?: string} a survivor's concrete way to be killed, where rules read one (ADR-0085) */
+    /** @return array{try?: string} a survivor's concrete way to be killed, where rules read one (ADR-0101) */
     private static function attempt(JudgedMutant|JudgedKill $judged): array
     {
         $attempt = $judged->hint()->attempt();

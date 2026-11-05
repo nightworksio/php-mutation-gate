@@ -164,7 +164,7 @@ final readonly class Scaffold
 
     /**
      * The function around the mutant, its call passing an attempt's
-     * arguments where the attempt makes that call (ADR-0085).
+     * arguments where the attempt makes that call (ADR-0101).
      *
      * @param list<array<string, string>> $calls
      */

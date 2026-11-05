@@ -17,7 +17,7 @@ use function sprintf;
 
 /**
  * The attempts for a survivor that changed an operator between a variable
- * and a value (ADR-0085): a boundary at its value, then one step past it;
+ * and a value (ADR-0101): a boundary at its value, then one step past it;
  * an equality at the value it compares, then at any other; arithmetic with
  * each variable at a value that is neither 0, 1 nor the other operand; and
  * a logical operator between two variables with exactly one of them true.

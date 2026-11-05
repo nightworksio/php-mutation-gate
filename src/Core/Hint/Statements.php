@@ -18,7 +18,7 @@ use function preg_match;
 use function sprintf;
 
 /**
- * The attempts for a survivor that changed a whole statement (ADR-0085): a
+ * The attempts for a survivor that changed a whole statement (ADR-0101): a
  * class constant or backed enum case's value, which a test asserts by its
  * name (ADR-0037); a returned literal, which a test expects the call to
  * return; and a removed call on a collaborator, which a test double that
@@ -74,11 +74,11 @@ final readonly class Statements
     public static function removed(Change $change, Enclosing|Nameless $function): Attempt|NotGiven
     {
         $removed = $change->removed();
-        $where = $function instanceof Enclosing ? sprintf(' to `%s()`', $function->name()) : '';
+        $where = $function instanceof Enclosing ? sprintf(', then call `%s()`', $function->name()) : '';
 
         return match (true) {
             preg_match(self::ON_PROPERTY, $removed, $called) === 1 => Attempt::of(sprintf(
-                'give a test double of `$this->%s` that expects `%s()`%s.',
+                'replace `$this->%s` with a test double that expects `%s()`%s.',
                 $called[1],
                 $called[2],
                 $where,

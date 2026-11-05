@@ -82,7 +82,7 @@ final readonly class Subject
         );
     }
 
-    /** This subject, whose first mutant rules found a concrete way to kill (ADR-0085). */
+    /** This subject, whose first mutant rules found a concrete way to kill (ADR-0101). */
     public function attempting(Attempt|NotGiven $attempt): self
     {
         return new self(

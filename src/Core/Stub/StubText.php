@@ -120,7 +120,7 @@ final readonly class StubText
     /**
      * One assertion scaffold for each family of the subject's members, none
      * for a mutator pinned by source, the first member's passing what rules
-     * found to try (ADR-0085).
+     * found to try (ADR-0101).
      *
      * @return list<string>
      */

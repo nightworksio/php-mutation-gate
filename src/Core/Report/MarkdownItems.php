@@ -237,7 +237,7 @@ final readonly class MarkdownItems
         return Escape::code(sprintf('%s:%d', $location->file()->value(), $location->start()->number()));
     }
 
-    /** @return list<string> a survivor's concrete way to be killed, after `Try:`, where rules read one (ADR-0085) */
+    /** @return list<string> a survivor's concrete way to be killed, after `Try:`, where rules read one (ADR-0101) */
     private static function attempt(JudgedMutant $mutant): array
     {
         $attempt = $mutant->hint()->attempt();

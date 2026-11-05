@@ -39,7 +39,7 @@ use function sprintf;
  * What the tests miss about one mutant, in one sentence filled in from its
  * diff and from the function around it, naming up to three of the tests that
  * judge it (ADR-0009); and, for a survivor, a concrete way to kill it where
- * rules read one (ADR-0085).
+ * rules read one (ADR-0101).
  */
 final readonly class Hint
 {
@@ -227,7 +227,7 @@ final readonly class Hint
 
     /**
      * A concrete way to kill a survivor, built by rules from its diff and its
-     * file, as `Try:` precedes it (ADR-0085); none where no rule reads a value.
+     * file, as `Try:` precedes it (ADR-0101); none where no rule reads a value.
      */
     public function attempt(): string|NotGiven
     {
