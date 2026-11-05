@@ -730,3 +730,15 @@ it('keys every coverage entry on what each reads, and leaves a PHP source and th
         ->and(contentKeyOf(gateVersion: '1.0.1', coverageBase: true))->not->toEqual($base)
         ->and(contentKeyOf())->not->toEqual($base);
 });
+
+it('keys a unit apart by what the paths entries matching it set, and as it always was where they set nothing', function (): void {
+    $coverage = CoverageMap::empty()->covered(Path::of('src/A.php'), Line::of(3), TestId::of('a::t'));
+    $judging = Judging::of(Unit::file(Path::of('src/A.php')), Paths::of(Path::of('tests/10')));
+    $keys = contentKeysPinned(CoverageMap::empty());
+    $key = static fn(Judging $judging): Digest|Unkeyed => $keys->keysOf($coverage, $judging)->keyOf(Path::of('src/A.php'));
+
+    expect($key($judging->ruledBy('')))->toEqual($key($judging))
+        ->and($key($judging->ruledBy('{"timeouts":{"seconds":60}}')))->not->toEqual($key($judging))
+        ->and($key($judging->ruledBy('{"timeouts":{"seconds":60}}')))
+        ->not->toEqual($key($judging->ruledBy('{"timeouts":{"seconds":90}}')));
+});

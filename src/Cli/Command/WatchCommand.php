@@ -150,7 +150,7 @@ final readonly class WatchCommand
     {
         $composed = $this->composed;
         $arrived = Interruption::when(fn(): bool => $this->hasChanged($seen));
-        $running = new Running($composed->adapters, $composed->settings, $composed->setup)->interrupted($arrived);
+        $running = Running::composed($composed)->interrupted($arrived);
         $this->printing->begin($this->output, $composed->adapters->project);
         $made = new Planning($composed->adapters, $composed->settings, $composed->setup)
             ->plan(

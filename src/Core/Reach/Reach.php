@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Reach;
 
+use function array_any;
+use function array_values;
+
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\ByPath;
+use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -16,7 +20,8 @@ use function sprintf;
 
 /**
  * What a change reaches, with a sentence for every decision: every unit, the
- * whole of some packages, some files, some trees, or nothing. It also holds
+ * whole of some packages, some files, some trees, the files some globs match,
+ * or nothing. It also holds
  * the lines the change added or modified in each source file, which the
  * new-code floor judges.
  */
@@ -24,7 +29,10 @@ final readonly class Reach
 {
     private const string SINCE_LEDGER = 'On the default branch since its ledger last passed, at %s: %s';
 
-    /** @param ByPath<Lines> $lines the changed lines of each source file */
+    /**
+     * @param ByPath<Lines> $lines the changed lines of each source file
+     * @param list<Glob>    $globs the globs whose files the change reaches, as `paths` entries it moved match them
+     */
     private function __construct(
         private Packages $packages,
         private bool $everywhere,
@@ -33,6 +41,7 @@ final readonly class Reach
         private Reached $trees,
         private ByPath $lines,
         private Reasons $reasons,
+        private array $globs,
     ) {
     }
 
@@ -47,6 +56,7 @@ final readonly class Reach
             trees: Reached::none(),
             lines: ByPath::none(),
             reasons: Reasons::of(),
+            globs: [],
         );
     }
 
@@ -61,6 +71,7 @@ final readonly class Reach
             trees: $this->trees,
             lines: $this->lines,
             reasons: $this->reasons->with($reason->widening()),
+            globs: $this->globs,
         );
     }
 
@@ -75,6 +86,7 @@ final readonly class Reach
             $this->trees,
             $this->lines,
             $this->reasons->with($reason->widening()),
+            $this->globs,
         );
     }
 
@@ -89,6 +101,22 @@ final readonly class Reach
             $this->trees,
             $this->lines,
             $this->reasons->with($reason),
+            $this->globs,
+        );
+    }
+
+    /** This reach, and the units whose files these globs match. */
+    public function matching(Glob $glob, Glob ...$more): self
+    {
+        return new self(
+            $this->packages,
+            $this->everywhere,
+            $this->wholly,
+            $this->files,
+            $this->trees,
+            $this->lines,
+            $this->reasons,
+            [...$this->globs, $glob, ...array_values($more)],
         );
     }
 
@@ -103,6 +131,7 @@ final readonly class Reach
             $this->trees->and($trees),
             $this->lines,
             $this->reasons->with($reason),
+            $this->globs,
         );
     }
 
@@ -117,6 +146,7 @@ final readonly class Reach
             $this->trees,
             $this->lines,
             $this->reasons->with($reason),
+            $this->globs,
         );
     }
 
@@ -142,6 +172,7 @@ final readonly class Reach
             $this->trees->and($sinceLedger->trees->paths()),
             $this->lines,
             $reasons,
+            [...$this->globs, ...$sinceLedger->globs],
         );
     }
 
@@ -156,6 +187,7 @@ final readonly class Reach
             $this->trees,
             $this->lines->with($file, $lines),
             $this->reasons,
+            $this->globs,
         );
     }
 
@@ -165,7 +197,8 @@ final readonly class Reach
         return $this->everywhere
             || $this->wholly->has($this->packages->holding($unit->path())->path())
             || $this->files->anyWithin($unit->path())
-            || $this->trees->anyAround($unit->path());
+            || $this->trees->anyAround($unit->path())
+            || array_any($this->globs, static fn(Glob $glob): bool => $glob->matches($unit->path()));
     }
 
     /** Whether the change reaches anything in a package, which is planned only if it does. */
@@ -174,7 +207,11 @@ final readonly class Reach
         return $this->everywhere
             || $this->wholly->has($package->path())
             || $this->holdsAny($this->files->paths(), $package)
-            || $this->holdsAny($this->trees->paths(), $package);
+            || $this->holdsAny($this->trees->paths(), $package)
+            || array_any(
+                $this->globs,
+                static fn(Glob $glob): bool => self::overlaps($glob->base(), $package->path()),
+            );
     }
 
     /** The lines of a source file the change added or modified; none for a file it did not change. */
@@ -204,6 +241,12 @@ final readonly class Reach
     public function reasons(): Reasons
     {
         return $this->reasons;
+    }
+
+    /** Whether a glob's base and a package's path hold one another, so the glob can match a file of the package. */
+    private static function overlaps(Path $base, Path $package): bool
+    {
+        return $base->within($package) || $package->within($base);
     }
 
     /** Whether any of these paths is a package's own, or inside it and in no package within it. */

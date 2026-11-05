@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\NoConfigFile;
 use NightWorksIO\MutationGate\Cli\InstalledGate;
+use NightWorksIO\MutationGate\Cli\Registry\Lookup;
+use NightWorksIO\MutationGate\Cli\Registry\RuledMutators;
 use NightWorksIO\MutationGate\Cli\StartedGate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
@@ -108,18 +110,22 @@ final readonly class Composition
     ): Composed|Invalid|CannotJudge {
         $project = Directory::at($this->project);
         $detected = new Detected($project, Directory::at($this->vendor));
-        $adapters = new Wiring($registry, $this->environment, $detected)->adapters($settings, $project);
+        $wiring = new Wiring($registry, $this->environment, $detected);
+        $adapters = $wiring->adapters($settings, $project);
         $reporting = new Reporting(new Chosen($registry), $this->environment);
         $reporters = $reporting->reporters($settings, RunOn::detached(CannotTell::because(self::UNPLANNED)));
+        $ruled = RuledMutators::checked(Lookup::in($registry), $settings);
 
         return match (true) {
             $adapters instanceof Invalid, $adapters instanceof CannotJudge => $adapters,
+            $ruled instanceof Invalid, $ruled instanceof CannotJudge => $ruled,
             $reporters instanceof Invalid, $reporters instanceof CannotJudge => $reporters,
             default => new Composed(
                 $settings,
                 $adapters->readingConfig($this->effective->reads($given)),
                 $this->setup($configFile, $given),
                 $reporting,
+                Ruling::by($wiring->adapters(...)),
             ),
         };
     }

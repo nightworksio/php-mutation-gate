@@ -100,9 +100,9 @@ it('keeps a setting in the comparison of what decides how the gate runs unless i
         $written = $writing($setting, 'changed');
 
         expect(Canonical::deciding($written, $effects) !== Canonical::deciding($none, $effects))
-            ->toBe($effect !== Effect::JudgesOrReportsOnly)
+            ->toBe($effect->decides())
             ->and(Canonical::of($written, $effects) !== Canonical::of($none, $effects))
-            ->toBe($effect === Effect::AffectsResults);
+            ->toBe($effect->isKeyed());
     }
 });
 

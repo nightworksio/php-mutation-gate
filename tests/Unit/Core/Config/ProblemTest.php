@@ -17,3 +17,8 @@ it('says what a value should have been, and what it was', function (): void {
     expect($problem->path())->toBe('region')
         ->and($problem->message())->toBe('expected a region, got "eu-west-1/x"');
 });
+
+it('says itself as one line does: its path, then its message', function (): void {
+    expect(Problem::at('trees[1].floor', 'expected a number from 0 to 100, got "80"')->said())
+        ->toBe('trees[1].floor: expected a number from 0 to 100, got "80"');
+});

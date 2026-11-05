@@ -29,7 +29,6 @@ final readonly class Config
 {
     private const string FOUND = 'The config cannot be used: %s';
 
-    private const string PROBLEM = '%s: %s';
 
     private const string WHY = 'Every command reads the config first, so none can run until it is right.';
 
@@ -66,7 +65,7 @@ final readonly class Config
         foreach ($refused as $problem) {
             $problems[] = $problem->path() === ''
                 ? $problem->message()
-                : sprintf(self::PROBLEM, $problem->path(), $problem->message());
+                : $problem->said();
         }
 
         return implode(' ', $problems);

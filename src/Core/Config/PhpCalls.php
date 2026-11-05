@@ -11,6 +11,7 @@ use function array_values;
 use function count;
 use function implode;
 use function sprintf;
+use function str_replace;
 use function var_export;
 
 /**
@@ -20,6 +21,9 @@ use function var_export;
  */
 final readonly class PhpCalls
 {
+    /** A new line a level deeper than the calls around it. */
+    private const string NESTED = "\n        ";
+
     /**
      * @param list<array{GateMethod, list<string>}> $gate each method on `Gate`, with its arguments
      * @param list<string>                          $with
@@ -73,6 +77,12 @@ final readonly class PhpCalls
                     [self::literal($choice->use()->value()), ...PhpOptions::of($choice->options()->written())],
                 ),
             );
+    }
+
+    /** These calls, as an argument writes them: each line a level deeper than the calls around them. */
+    public function nested(): string
+    {
+        return str_replace("\n", self::NESTED, $this->code());
     }
 
     /** These calls, then more. */

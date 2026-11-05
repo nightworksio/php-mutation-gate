@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\PathRuleMode;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
 
@@ -91,6 +92,14 @@ final readonly class Runner
         $runner = $this->json instanceof Json ? $this->json : Json::object(Member::of('use', $this->json));
 
         return new self($runner->with(Member::of('workers', $workers->value)));
+    }
+
+    /** `runner.pathRules`: how a shard applies what `paths` sets (ADR-0074). */
+    public function applyingPathRules(PathRuleMode $mode): self
+    {
+        $runner = $this->json instanceof Json ? $this->json : Json::object(Member::of('use', $this->json));
+
+        return new self($runner->with(Member::of('pathRules', $mode->value)));
     }
 
     public function written(): Json|string

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -63,4 +64,16 @@ it('leaves the sources it came from as they were', function (): void {
 
     expect($sources->now(Path::of('src/Money.php')))->toEqual(Missing::at(Path::of('src/Money.php')))
         ->and($sources->before(Path::of('src/Money.php')))->toEqual(Missing::at(Path::of('src/Money.php')));
+});
+
+it('names the globs a config\'s moved paths entries match, keeping them through every other reading', function (): void {
+    $config = Path::of('mutation-gate.json');
+    $sources = Sources::none()
+        ->movingRules($config, Glob::of('src/Legacy/**'), Glob::of('src/Gen/**'))
+        ->decidingAlike($config)
+        ->withNow(Path::of('src/A.php'), Contents::of('<?php'))
+        ->withBefore(Path::of('src/A.php'), Contents::of('<?php'));
+    expect(array_map(static fn(Glob $glob): string => $glob->value(), $sources->movedRules($config)))->toBe(['src/Legacy/**', 'src/Gen/**'])
+        ->and($sources->movedRules(Path::of('phpunit.xml')))->toBe([])
+        ->and(Sources::of(ByPath::none(), ByPath::none())->movedRules($config))->toBe([]);
 });

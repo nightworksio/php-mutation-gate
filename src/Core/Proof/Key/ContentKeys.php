@@ -225,7 +225,8 @@ final readonly class ContentKeys
             }
 
             $sources = $this->sourcesOf($judging->unit(), $testsOf[$set], $coverage);
-            $key = $this->keyReading($base, [$read[$set], $sources], $judging->unit(), $coverage, $sets);
+            $fields = [$read[$set], $sources, ...$judging->ruling()];
+            $key = $this->keyReading($base, $fields, $judging->unit(), $coverage, $sets);
             $keys[] = Keys::none()->with($judging->unit()->path(), $key);
         }
 
@@ -400,13 +401,14 @@ final readonly class ContentKeys
      * A unit's key, built from finished digests alone, so another
      * implementation can build it alike: the format with the base, what of
      * the test directories its judging test files read and the files outside
-     * them it reaches, then the unit and each of its covered lines, in
-     * ascending order, with the digest of the set of tests that ran it. Each
-     * set's digest is worked out once.
+     * them it reaches, and what the `paths` entries that match it set, where
+     * they set anything that affects results (ADR-0074), then the unit and
+     * each of its covered lines, in ascending order, with the digest of the
+     * set of tests that ran it. Each set's digest is worked out once.
      *
-     * @param string                $base the digest of what every key reads
-     * @param array{string, string} $read the digest of what its judging test files read, and of the files outside
-     *                                    them it reaches
+     * @param string       $base the digest of what every key reads
+     * @param list<string> $read the digest of what its judging test files read, of the files outside them it
+     *                           reaches, and what the `paths` entries matching it set
      */
     private function keyReading(string $base, array $read, Unit $unit, CoverageMap $coverage, SetDigests $sets): Digest
     {
@@ -428,6 +430,7 @@ final readonly class ContentKeys
 
         return Digest::sha256Of(self::framed(...$fields));
     }
+
 
     private function judgedBy(Unit $unit): string
     {

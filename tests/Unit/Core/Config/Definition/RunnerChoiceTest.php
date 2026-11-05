@@ -21,5 +21,6 @@ it('keeps the effect of each option its adapters take, and lets what a runner wi
             '.withhold' => Effect::AffectsResults,
             '.memory' => Effect::AffectsResults,
             '.workers' => Effect::AffectsResults,
+            '.pathRules' => Effect::AffectsResults,
         ]);
 });

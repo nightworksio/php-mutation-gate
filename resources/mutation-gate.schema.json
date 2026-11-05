@@ -61,6 +61,11 @@
                                 "fresh"
                             ]
                         },
+                        "pathRules": {
+                            "enum": [
+                                "partitioned"
+                            ]
+                        },
                         "with": {
                             "type": "object",
                             "additionalProperties": false
@@ -92,6 +97,11 @@
                             "enum": [
                                 "fork",
                                 "fresh"
+                            ]
+                        },
+                        "pathRules": {
+                            "enum": [
+                                "partitioned"
                             ]
                         },
                         "with": {
@@ -127,6 +137,11 @@
                                 "fresh"
                             ]
                         },
+                        "pathRules": {
+                            "enum": [
+                                "partitioned"
+                            ]
+                        },
                         "with": {
                             "type": "object",
                             "additionalProperties": false
@@ -158,6 +173,11 @@
                             "enum": [
                                 "fork",
                                 "fresh"
+                            ]
+                        },
+                        "pathRules": {
+                            "enum": [
+                                "partitioned"
                             ]
                         },
                         "with": {
@@ -193,6 +213,11 @@
                                 "fresh"
                             ]
                         },
+                        "pathRules": {
+                            "enum": [
+                                "partitioned"
+                            ]
+                        },
                         "with": {
                             "type": "object",
                             "additionalProperties": false
@@ -224,6 +249,11 @@
                             "enum": [
                                 "fork",
                                 "fresh"
+                            ]
+                        },
+                        "pathRules": {
+                            "enum": [
+                                "partitioned"
                             ]
                         },
                         "with": {
@@ -270,6 +300,11 @@
                                 "fresh"
                             ]
                         },
+                        "pathRules": {
+                            "enum": [
+                                "partitioned"
+                            ]
+                        },
                         "with": {
                             "type": "object"
                         }
@@ -297,6 +332,11 @@
                             "enum": [
                                 "fork",
                                 "fresh"
+                            ]
+                        },
+                        "pathRules": {
+                            "enum": [
+                                "partitioned"
                             ]
                         }
                     },
@@ -2148,6 +2188,184 @@
             },
             "additionalProperties": false
         },
+        "paths": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "glob": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "mutators": {
+                        "type": "object",
+                        "properties": {
+                            "sets": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+                                    "not": {
+                                        "const": "default"
+                                    }
+                                }
+                            },
+                            "except": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*/[A-Z][A-Za-z0-9]*$"
+                                }
+                            }
+                        },
+                        "additionalProperties": false
+                    },
+                    "timeouts": {
+                        "type": "object",
+                        "properties": {
+                            "seconds": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "most": {
+                                "type": "integer",
+                                "minimum": 1
+                            }
+                        },
+                        "additionalProperties": false
+                    },
+                    "staticCheck": {
+                        "type": "object",
+                        "properties": {
+                            "tool": {
+                                "anyOf": [
+                                    {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    {
+                                        "type": "object",
+                                        "properties": {
+                                            "use": {
+                                                "const": "auto"
+                                            },
+                                            "with": {
+                                                "type": "object",
+                                                "additionalProperties": false
+                                            }
+                                        },
+                                        "required": [
+                                            "use"
+                                        ],
+                                        "additionalProperties": false
+                                    },
+                                    {
+                                        "type": "object",
+                                        "properties": {
+                                            "use": {
+                                                "const": "none"
+                                            },
+                                            "with": {
+                                                "type": "object",
+                                                "additionalProperties": false
+                                            }
+                                        },
+                                        "required": [
+                                            "use"
+                                        ],
+                                        "additionalProperties": false
+                                    },
+                                    {
+                                        "type": "object",
+                                        "properties": {
+                                            "use": {
+                                                "const": "mago"
+                                            },
+                                            "with": {
+                                                "type": "object",
+                                                "additionalProperties": false
+                                            }
+                                        },
+                                        "required": [
+                                            "use"
+                                        ],
+                                        "additionalProperties": false
+                                    },
+                                    {
+                                        "type": "object",
+                                        "properties": {
+                                            "use": {
+                                                "const": "phpstan"
+                                            },
+                                            "with": {
+                                                "type": "object",
+                                                "additionalProperties": false
+                                            }
+                                        },
+                                        "required": [
+                                            "use"
+                                        ],
+                                        "additionalProperties": false
+                                    },
+                                    {
+                                        "type": "object",
+                                        "properties": {
+                                            "use": {
+                                                "const": "psalm"
+                                            },
+                                            "with": {
+                                                "type": "object",
+                                                "additionalProperties": false
+                                            }
+                                        },
+                                        "required": [
+                                            "use"
+                                        ],
+                                        "additionalProperties": false
+                                    },
+                                    {
+                                        "type": "object",
+                                        "properties": {
+                                            "use": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "not": {
+                                                    "enum": [
+                                                        "auto",
+                                                        "none",
+                                                        "mago",
+                                                        "phpstan",
+                                                        "psalm"
+                                                    ]
+                                                }
+                                            },
+                                            "with": {
+                                                "type": "object"
+                                            }
+                                        },
+                                        "required": [
+                                            "use"
+                                        ],
+                                        "additionalProperties": false
+                                    }
+                                ]
+                            },
+                            "before": {
+                                "type": "boolean"
+                            }
+                        },
+                        "additionalProperties": false
+                    }
+                },
+                "required": [
+                    "glob"
+                ],
+                "additionalProperties": false
+            },
+            "default": []
+        },
         "contexts": {
             "type": "object",
             "description": "What a run lays over the rest in each context: local, else ci with pr or main over it.",
@@ -2213,6 +2431,11 @@
                                         "fresh"
                                     ]
                                 },
+                                "pathRules": {
+                                    "enum": [
+                                        "partitioned"
+                                    ]
+                                },
                                 "with": {
                                     "type": "object",
                                     "additionalProperties": false
@@ -2244,6 +2467,11 @@
                                     "enum": [
                                         "fork",
                                         "fresh"
+                                    ]
+                                },
+                                "pathRules": {
+                                    "enum": [
+                                        "partitioned"
                                     ]
                                 },
                                 "with": {
@@ -2279,6 +2507,11 @@
                                         "fresh"
                                     ]
                                 },
+                                "pathRules": {
+                                    "enum": [
+                                        "partitioned"
+                                    ]
+                                },
                                 "with": {
                                     "type": "object",
                                     "additionalProperties": false
@@ -2310,6 +2543,11 @@
                                     "enum": [
                                         "fork",
                                         "fresh"
+                                    ]
+                                },
+                                "pathRules": {
+                                    "enum": [
+                                        "partitioned"
                                     ]
                                 },
                                 "with": {
@@ -2345,6 +2583,11 @@
                                         "fresh"
                                     ]
                                 },
+                                "pathRules": {
+                                    "enum": [
+                                        "partitioned"
+                                    ]
+                                },
                                 "with": {
                                     "type": "object",
                                     "additionalProperties": false
@@ -2376,6 +2619,11 @@
                                     "enum": [
                                         "fork",
                                         "fresh"
+                                    ]
+                                },
+                                "pathRules": {
+                                    "enum": [
+                                        "partitioned"
                                     ]
                                 },
                                 "with": {
@@ -2422,6 +2670,11 @@
                                         "fresh"
                                     ]
                                 },
+                                "pathRules": {
+                                    "enum": [
+                                        "partitioned"
+                                    ]
+                                },
                                 "with": {
                                     "type": "object"
                                 }
@@ -2449,6 +2702,11 @@
                                     "enum": [
                                         "fork",
                                         "fresh"
+                                    ]
+                                },
+                                "pathRules": {
+                                    "enum": [
+                                        "partitioned"
                                     ]
                                 }
                             },
@@ -4046,6 +4304,183 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "paths": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "glob": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "mutators": {
+                                "type": "object",
+                                "properties": {
+                                    "sets": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+                                            "not": {
+                                                "const": "default"
+                                            }
+                                        }
+                                    },
+                                    "except": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*/[A-Z][A-Za-z0-9]*$"
+                                        }
+                                    }
+                                },
+                                "additionalProperties": false
+                            },
+                            "timeouts": {
+                                "type": "object",
+                                "properties": {
+                                    "seconds": {
+                                        "type": "integer",
+                                        "minimum": 1
+                                    },
+                                    "most": {
+                                        "type": "integer",
+                                        "minimum": 1
+                                    }
+                                },
+                                "additionalProperties": false
+                            },
+                            "staticCheck": {
+                                "type": "object",
+                                "properties": {
+                                    "tool": {
+                                        "anyOf": [
+                                            {
+                                                "type": "string",
+                                                "minLength": 1
+                                            },
+                                            {
+                                                "type": "object",
+                                                "properties": {
+                                                    "use": {
+                                                        "const": "auto"
+                                                    },
+                                                    "with": {
+                                                        "type": "object",
+                                                        "additionalProperties": false
+                                                    }
+                                                },
+                                                "required": [
+                                                    "use"
+                                                ],
+                                                "additionalProperties": false
+                                            },
+                                            {
+                                                "type": "object",
+                                                "properties": {
+                                                    "use": {
+                                                        "const": "none"
+                                                    },
+                                                    "with": {
+                                                        "type": "object",
+                                                        "additionalProperties": false
+                                                    }
+                                                },
+                                                "required": [
+                                                    "use"
+                                                ],
+                                                "additionalProperties": false
+                                            },
+                                            {
+                                                "type": "object",
+                                                "properties": {
+                                                    "use": {
+                                                        "const": "mago"
+                                                    },
+                                                    "with": {
+                                                        "type": "object",
+                                                        "additionalProperties": false
+                                                    }
+                                                },
+                                                "required": [
+                                                    "use"
+                                                ],
+                                                "additionalProperties": false
+                                            },
+                                            {
+                                                "type": "object",
+                                                "properties": {
+                                                    "use": {
+                                                        "const": "phpstan"
+                                                    },
+                                                    "with": {
+                                                        "type": "object",
+                                                        "additionalProperties": false
+                                                    }
+                                                },
+                                                "required": [
+                                                    "use"
+                                                ],
+                                                "additionalProperties": false
+                                            },
+                                            {
+                                                "type": "object",
+                                                "properties": {
+                                                    "use": {
+                                                        "const": "psalm"
+                                                    },
+                                                    "with": {
+                                                        "type": "object",
+                                                        "additionalProperties": false
+                                                    }
+                                                },
+                                                "required": [
+                                                    "use"
+                                                ],
+                                                "additionalProperties": false
+                                            },
+                                            {
+                                                "type": "object",
+                                                "properties": {
+                                                    "use": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "not": {
+                                                            "enum": [
+                                                                "auto",
+                                                                "none",
+                                                                "mago",
+                                                                "phpstan",
+                                                                "psalm"
+                                                            ]
+                                                        }
+                                                    },
+                                                    "with": {
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "use"
+                                                ],
+                                                "additionalProperties": false
+                                            }
+                                        ]
+                                    },
+                                    "before": {
+                                        "type": "boolean"
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "glob"
+                        ],
+                        "additionalProperties": false
+                    }
                 }
             },
             "additionalProperties": false

@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
+use NightWorksIO\MutationGate\Core\Runner\PathRuleMode;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
 
@@ -31,6 +32,7 @@ final readonly class RunnerLayer
         private array $withhold,
         private MemoryCap|Absent $memory,
         private Workers|Absent $workers,
+        private PathRuleMode|Absent $pathRules,
     ) {
     }
 
@@ -39,8 +41,9 @@ final readonly class RunnerLayer
         Withheld|Absent $withhold,
         MemoryCap|Absent $memory,
         Workers|Absent $workers,
+        PathRuleMode|Absent $pathRules,
     ): self {
-        return new self($runner, $withhold instanceof Withheld ? [...$withhold] : [], $memory, $workers);
+        return new self($runner, $withhold instanceof Withheld ? [...$withhold] : [], $memory, $workers, $pathRules);
     }
 
     /** A later layer's choice and cap over this one's, and what both withhold. */
@@ -51,6 +54,7 @@ final readonly class RunnerLayer
             array_values(array_unique([...$this->withhold, ...$later->withhold])),
             Absent::laid($this->memory, $later->memory),
             Absent::laid($this->workers, $later->workers),
+            Absent::laid($this->pathRules, $later->pathRules),
         );
     }
 
@@ -75,6 +79,12 @@ final readonly class RunnerLayer
     public function workers(): Workers
     {
         return $this->workers instanceof Workers ? $this->workers : Workers::Fork;
+    }
+
+    /** How a shard applies what `paths` sets, or by partitioning its units where the layer says nothing (ADR-0074). */
+    public function pathRules(): PathRuleMode
+    {
+        return $this->pathRules instanceof PathRuleMode ? $this->pathRules : PathRuleMode::Partitioned;
     }
 
     /** The config with the runner in it: by itself as the adapter it chooses, or as an object with the rest. */
@@ -113,13 +123,19 @@ final readonly class RunnerLayer
                 $called = sprintf('%s->%s(%s)', $called, $method->value, $argument);
             }
 
+            $called = $this->pathRules instanceof PathRuleMode
+                ? sprintf('%s->applyingPathRules(%s)', $called, $this->pathRulesPhp($this->pathRules))
+                : $called;
+
             return PhpCalls::onGate(
                 GateMethod::Runner,
                 sprintf('%s%s', PhpCalls::chosen($this->runner, AdapterBuilder::Runner, ...$this->builtins()), $called),
             );
         }
 
-        $calls = PhpCalls::none();
+        $calls = $this->pathRules instanceof PathRuleMode
+            ? PhpCalls::inWith(sprintf('PathRule::applying(%s)', $this->pathRulesPhp($this->pathRules)))
+            : PhpCalls::none();
 
         foreach ($also as [$method, $argument]) {
             $calls = $calls->and(PhpCalls::onGate($method, $argument));
@@ -135,6 +151,7 @@ final readonly class RunnerLayer
             ...($this->withhold === [] ? [] : [Member::of('withhold', Json::items(...$this->withhold))]),
             ...($this->memory instanceof MemoryCap ? [Member::of('memory', $this->memory->written())] : []),
             ...($this->workers instanceof Workers ? [Member::of('workers', $this->workers->value)] : []),
+            ...($this->pathRules instanceof PathRuleMode ? [Member::of('pathRules', $this->pathRules->value)] : []),
         ];
     }
 
@@ -156,6 +173,12 @@ final readonly class RunnerLayer
     private function builtins(): array
     {
         return array_map(static fn(BuiltinRunner $runner): string => $runner->value, BuiltinRunner::cases());
+    }
+
+    /** How a shard applies `paths`, as the builder writes it. */
+    private function pathRulesPhp(PathRuleMode $mode): string
+    {
+        return sprintf('PathRuleMode::%s', $mode->name);
     }
 
     /** A memory cap as the builder writes it. */

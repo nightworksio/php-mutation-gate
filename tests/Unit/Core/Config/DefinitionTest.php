@@ -51,10 +51,11 @@ it('declares reach.fixtures in the schema as a list of globs, empty where it is 
     ])->and($reach['additionalProperties'])->toBeFalse();
 });
 
-it('declares every setting as affecting results, as deciding how the gate runs, or as judging or reporting only', function (): void {
+it('declares every setting as affecting results, as deciding how the gate runs, as judging or reporting only, or as affecting the units it matches', function (): void {
     $results = Effect::AffectsResults;
     $decides = Effect::DecidesHowTheGateRuns;
     $judges = Effect::JudgesOrReportsOnly;
+    $matching = Effect::AffectsMatchingUnits;
 
     // ADR-0007: what affects results is in a proof's key, and
     // every other setting is left out of it. ADR-0005: a change
@@ -68,6 +69,7 @@ it('declares every setting as affecting results, as deciding how the gate runs, 
         'runner.withhold' => $results,
         'runner.memory' => $results,
         'runner.workers' => $results,
+        'runner.pathRules' => $results,
         'treeSource' => $results,
         'treeSource.with.fallback' => $results,
         'trees[].path' => $results,
@@ -173,6 +175,13 @@ it('declares every setting as affecting results, as deciding how the gate runs, 
         'local.watchBudget' => $judges,
         'local.prePushBudget' => $judges,
         'coverage.incremental' => $decides,
+        'paths[].glob' => $matching,
+        'paths[].mutators.sets' => $matching,
+        'paths[].mutators.except' => $matching,
+        'paths[].timeouts.seconds' => $matching,
+        'paths[].timeouts.most' => $matching,
+        'paths[].staticCheck.tool' => $matching,
+        'paths[].staticCheck.before' => $judges,
         'contexts' => $results,
     ]);
 });

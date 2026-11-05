@@ -6,8 +6,10 @@ namespace NightWorksIO\MutationGate\Core\Reach;
 
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\ChangeKind;
+use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -27,14 +29,20 @@ final readonly class Sources
      * @param ByPath<Contents|Missing> $before each changed file as it was at the base
      * @param Paths                    $alike  each changed file that decides how the gate runs and decides it as it
      *                                         did at the base
+     * @param ByPath<Listed<Glob>>     $moved  each such config's globs whose files run otherwise than at the base,
+     *                                         as the `paths` entries it moved match them (ADR-0074)
      */
-    private function __construct(private ByPath $now, private ByPath $before, private Paths $alike)
-    {
+    private function __construct(
+        private ByPath $now,
+        private ByPath $before,
+        private Paths $alike,
+        private ByPath $moved,
+    ) {
     }
 
     public static function none(): self
     {
-        return new self(ByPath::none(), ByPath::none(), Paths::none());
+        return new self(ByPath::none(), ByPath::none(), Paths::none(), ByPath::none());
     }
 
     /**
@@ -46,19 +54,19 @@ final readonly class Sources
      */
     public static function of(ByPath $now, ByPath $before): self
     {
-        return new self($now, $before, Paths::none());
+        return new self($now, $before, Paths::none(), ByPath::none());
     }
 
     /** These, with what a file holds on disk. */
     public function withNow(Path $path, Contents $contents): self
     {
-        return new self($this->now->with($path, $contents), $this->before, $this->alike);
+        return new self($this->now->with($path, $contents), $this->before, $this->alike, $this->moved);
     }
 
     /** These, with what a changed file held at the base. */
     public function withBefore(Path $path, Contents $contents): self
     {
-        return new self($this->now, $this->before->with($path, $contents), $this->alike);
+        return new self($this->now, $this->before->with($path, $contents), $this->alike, $this->moved);
     }
 
     /**
@@ -68,7 +76,29 @@ final readonly class Sources
      */
     public function decidingAlike(Path $path): self
     {
-        return new self($this->now, $this->before, $this->alike->with($path));
+        return new self($this->now, $this->before, $this->alike->with($path), $this->moved);
+    }
+
+    /**
+     * These, where a config file deciding alike moved `paths` entries, so the files these globs match run
+     * otherwise than at the base (ADR-0074).
+     */
+    public function movingRules(Path $path, Glob $glob, Glob ...$more): self
+    {
+        $moved = $this->moved->with($path, Listed::of($glob, ...$more));
+
+        return new self($this->now, $this->before, $this->alike, $moved);
+    }
+
+    /**
+     * The globs whose files a config file's change makes run otherwise, as the `paths` entries it moved match
+     * them; none where it moved none.
+     *
+     * @return list<Glob>
+     */
+    public function movedRules(Path $path): array
+    {
+        return [...$this->moved->at($path, Listed::of())];
     }
 
     /**

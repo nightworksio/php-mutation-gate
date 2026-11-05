@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
-use function implode;
-
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\BaselineFile;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -127,12 +125,6 @@ final readonly class Baselines
     /** Why the config file the default branch holds names no baseline: each of its problems. */
     private function unreadConfig(Path $config, Invalid $invalid): string
     {
-        $problems = [];
-
-        foreach ($invalid as $problem) {
-            $problems[] = sprintf('%s: %s', $problem->path(), $problem->message());
-        }
-
-        return sprintf(self::UNREAD_CONFIG, $config->value(), implode(' ', $problems));
+        return sprintf(self::UNREAD_CONFIG, $config->value(), $invalid->said());
     }
 }

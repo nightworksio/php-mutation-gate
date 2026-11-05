@@ -25,6 +25,7 @@ final readonly class SettingsCases
                 "fallback": []
             }
         },
+        "paths": [],
         "newCode": {
             "floor": 100
         },

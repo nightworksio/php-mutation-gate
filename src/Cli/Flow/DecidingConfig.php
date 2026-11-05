@@ -34,7 +34,8 @@ use function sprintf;
  * (ADR-0005): a change to it in its place decides nothing where every
  * setting but those that only judge or report, and any key no setting
  * declares, reads the same at the base as now, the command line laid over
- * both. Its version at the base is read from a copy in the gate's
+ * both, and a change that moved only `paths` entries reaches the files they
+ * match (ADR-0074). Its version at the base is read from a copy in the gate's
  * directory, and the copy is removed once read. Where either version
  * cannot be read, or the change renamed, moved, added or deleted the
  * file, it decides.
@@ -69,21 +70,21 @@ final readonly class DecidingConfig
     /**
      * These sources, with the config file marked deciding alike where this
      * change to it in its place, from what it held at the base, moved no
-     * setting that decides how the gate runs.
+     * setting that decides how the gate runs, and with the globs of each
+     * `paths` entry it moved, whose files run otherwise (ADR-0074).
      */
     public function marking(Sources $sources, Change $change, Contents|Missing $before): Sources
     {
         $file = $this->file;
         $effective = $this->effective;
 
-        $alike = $file instanceof Path
+        $inPlace = $file instanceof Path
             && $effective instanceof Effective
             && $change->kind() === ChangeKind::Modified
             && $change->path()->equals($file)
-            && $before instanceof Contents
-            && $this->decidesAlike($effective, $file, $before);
+            && $before instanceof Contents;
 
-        return $alike ? $sources->decidingAlike($file) : $sources;
+        return $inPlace ? $this->markedAlike($sources, $effective, $file, $before) : $sources;
     }
 
     /**
@@ -109,15 +110,27 @@ final readonly class DecidingConfig
         return $then instanceof Settings ? $then->floors()->baseline() : $then;
     }
 
-    /** Whether the config file, holding what it held at the base, decides as now. */
-    private function decidesAlike(Effective $effective, Path $named, Contents $before): bool
+    /**
+     * These sources, with the config file marked deciding alike where, holding what it held at the base, it
+     * decides as now, and with the globs of each `paths` entry the change moved.
+     */
+    private function markedAlike(Sources $sources, Effective $effective, Path $named, Contents $before): Sources
     {
         $then = $this->atBase($effective, $named, $before);
         $now = $effective->settings($this->given);
 
-        return $then instanceof Settings
-            && $now instanceof Settings
-            && Canonical::decidingIn($then) === Canonical::decidingIn($now);
+        if (! $then instanceof Settings || ! $now instanceof Settings) {
+            return $sources;
+        }
+
+        $moved = $now->effective()->setup()->paths()->movedSince($then->effective()->setup()->paths());
+        $alike = $sources->decidingAlike($named);
+
+        return match (true) {
+            Canonical::decidingIn($then) !== Canonical::decidingIn($now) => $sources,
+            [...$moved] === [] => $alike,
+            default => $alike->movingRules($named, ...$moved),
+        };
     }
 
     /** The settings, where the config file holds what it held at the base, read from a copy in the gate's directory. */

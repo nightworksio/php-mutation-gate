@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Config\Definition\IgnoresKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\LocalKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\MutatorsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\OwnersKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\PathsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\PestKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\Placement;
 use NightWorksIO\MutationGate\Core\Config\Definition\ProofsKeys;
@@ -158,6 +159,7 @@ final readonly class Definition
             ...MutatorsKeys::fields(),
             ...LocalKeys::fields(),
             ...CoverageKeys::fields(),
+            ...PathsKeys::fields($origin),
         ];
     }
 

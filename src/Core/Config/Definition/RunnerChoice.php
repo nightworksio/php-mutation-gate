@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\PathRuleMode;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
 
@@ -52,15 +53,25 @@ final readonly class RunnerChoice implements Shape
         );
         $memory = Field::optional('memory', MemoryAmount::written(), Effect::AffectsResults);
         $workers = Field::optional('workers', Enumerated::of(Workers::cases()), Effect::AffectsResults);
+        $pathRules = Field::optional('pathRules', Enumerated::of(PathRuleMode::cases()), Effect::AffectsResults);
 
         return new self(
             Adapter::choosing($builtins),
             Section::of(
-                static function (Node $at) use ($builtins, $use, $with, $withhold, $memory, $workers): Setup|Invalid {
+                static function (Node $at) use (
+                    $builtins,
+                    $use,
+                    $with,
+                    $withhold,
+                    $memory,
+                    $workers,
+                    $pathRules,
+                ): Setup|Invalid {
                     $named = $use->read($at);
                     $withheld = $withhold->read($at);
                     $capped = $memory->read($at);
                     $started = $workers->read($at);
+                    $applied = $pathRules->read($at);
 
                     return Reading::built(
                         static fn(): Setup|Invalid => self::object(
@@ -70,12 +81,14 @@ final readonly class RunnerChoice implements Shape
                             $withheld->value(),
                             $capped->value(),
                             $started->value(),
+                            $applied->value(),
                         ),
                         $named,
                         $with->read($at),
                         $withheld,
                         $capped,
                         $started,
+                        $applied,
                     );
                 },
                 $use,
@@ -83,6 +96,7 @@ final readonly class RunnerChoice implements Shape
                 $withhold,
                 $memory,
                 $workers,
+                $pathRules,
             ),
             $builtins,
         );
@@ -110,6 +124,7 @@ final readonly class RunnerChoice implements Shape
             Member::of('withhold', Items::of(Text::of('a variable name or a glob'))->schema()),
             Member::of('memory', MemoryAmount::written()->schema()),
             Member::of('workers', Enumerated::of(Workers::cases())->schema()),
+            Member::of('pathRules', Enumerated::of(PathRuleMode::cases())->schema()),
         );
 
         return Json::object(Member::of(
@@ -136,6 +151,7 @@ final readonly class RunnerChoice implements Shape
             '.withhold' => Effect::AffectsResults,
             '.memory' => Effect::AffectsResults,
             '.workers' => Effect::AffectsResults,
+            '.pathRules' => Effect::AffectsResults,
         ];
     }
 
@@ -147,10 +163,14 @@ final readonly class RunnerChoice implements Shape
         Listed|Absent $withhold,
         MemoryCap|Absent $memory,
         Workers|Absent $workers,
+        PathRuleMode|Absent $pathRules,
     ): Setup|Invalid {
         $withheld = $withhold instanceof Absent ? Withheld::nothing() : Withheld::of(...$withhold);
         $options = $at->field('with');
-        $alone = $withhold instanceof Absent && $memory instanceof Absent && $workers instanceof Absent;
+        $alone = $withhold instanceof Absent
+            && $memory instanceof Absent
+            && $workers instanceof Absent
+            && $pathRules instanceof Absent;
         $chosen = $use instanceof Absent ? new Absent() : Adapter::chosen($builtins->choose($use, $options));
 
         return match (true) {
@@ -160,10 +180,11 @@ final readonly class RunnerChoice implements Shape
                 withhold: $withheld,
                 memory: $memory,
                 workers: $workers,
+                pathRules: $pathRules,
             ),
             $alone, $options->kind() !== Kind::Nothing
                 => Invalid::because($at->field('use')->mismatch('a name or a class')),
-            default => Setup::of(withhold: $withheld, memory: $memory, workers: $workers),
+            default => Setup::of(withhold: $withheld, memory: $memory, workers: $workers, pathRules: $pathRules),
         };
     }
 }

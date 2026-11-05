@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Key;
+use NightWorksIO\MutationGate\Core\Config\PathRules;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -33,14 +34,15 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
 /**
  * The content key of every unit a run considers: what the gate, its config,
  * the runner, what is installed and the files outside the tests no map shows
- * run say, the files outside the tests the unit reaches, and of the tests,
- * what can judge the unit.
+ * run say, the files outside the tests the unit reaches, of the tests, what
+ * can judge the unit, and what the `paths` entries that match it set that
+ * affects results (ADR-0074).
  *
  * @internal
  */
 final readonly class Keying
 {
-    private function __construct(private ContentKeys $keys, private MapJudges $judges)
+    private function __construct(private ContentKeys $keys, private MapJudges $judges, private PathRules $rules)
     {
     }
 
@@ -78,6 +80,7 @@ final readonly class Keying
                     new NameGraph($adapters)->reach($suite, $map),
                 ),
                 $judges,
+                $settings->effective()->setup()->paths(),
             )
             : CannotJudge::because('The content key could not be built.');
     }
@@ -127,7 +130,8 @@ final readonly class Keying
         $judging = [];
 
         foreach ($units as $unit) {
-            $judging[] = UnitJudging::of($unit, $unit->isHeld() ? Paths::none() : $this->judges->for($unit->path()));
+            $judges = $unit->isHeld() ? Paths::none() : $this->judges->for($unit->path());
+            $judging[] = UnitJudging::of($unit, $judges)->ruledBy($this->rules->for($unit->path())->key());
         }
 
         return $this->keys->keysOf($this->judges->map(), ...$judging);

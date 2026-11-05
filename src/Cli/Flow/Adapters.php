@@ -152,6 +152,38 @@ final readonly class Adapters
     }
 
     /**
+     * The same, with the runner, the analyser and the mutators these adapters, built from a group of units'
+     * settings, chose, as `paths` entries set them (ADR-0074); every other port, and what `--security` or
+     * `--suite` narrows to, as they are.
+     */
+    public function runningAs(self $ruled): self
+    {
+        return new self(
+            $ruled->runner,
+            $this->suite,
+            $ruled->checker,
+            $ruled->analyser,
+            $this->trees,
+            $this->proofs,
+            $this->costs,
+            $this->ci,
+            $this->changes,
+            $this->repository,
+            $this->project,
+            $this->environment,
+            $this->withheld,
+            $this->cores,
+            $ruled->engine,
+            $ruled->mutators,
+            $this->skippedSets,
+            $ruled->security,
+            $this->narrowing,
+            $this->equivalence,
+            $this->configReads,
+        );
+    }
+
+    /**
      * The same, its runs making mutants with the security mutators alone, as
      * `--security` asks (ADR-0021); or why there are none to make
      * them with.
