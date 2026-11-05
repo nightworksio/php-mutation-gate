@@ -43,6 +43,18 @@ final readonly class Pest implements Setting
         return new self(Json::at('pest.workerOpcache', value: false));
     }
 
+    /** `pest.schemata`, as by default: each file's mutants are compiled into one schema (ADR-0091). */
+    public static function compilingSchemata(): self
+    {
+        return new self(Json::at('pest.schemata', value: true));
+    }
+
+    /** `pest.schemata` off: each mutant's own run is served a mutated copy of its own. */
+    public static function withoutSchemata(): self
+    {
+        return new self(Json::at('pest.schemata', value: false));
+    }
+
     /** `pest.bootTail`: the verification tail's workers boot nothing of the project, as mutants' do. */
     public static function tailUnbooted(): self
     {

@@ -45,6 +45,20 @@ it('caches in its warm workers where it is on, unless told not to, and keeps the
     ])->toBe([true, false, true, false, false]);
 });
 
+it('compiles schemata where it is on, unless told not to, keeping its other settings as they were', function (): void {
+    $on = Patching::on(Group::named('canary'))->bootingTail(boots: true)->cachingInWorkers(caches: false);
+
+    expect([
+        $on->schemata(),
+        $on->compilingSchemata(compiles: false)->schemata(),
+        $on->compilingSchemata(compiles: false)->bootsTail(),
+        $on->compilingSchemata(compiles: false)->cachesInWorkers(),
+        $on->compilingSchemata(compiles: false)->bootingTail(boots: false)->schemata(),
+        $on->compilingSchemata(compiles: false)->cachingInWorkers(caches: true)->schemata(),
+        Patching::off()->schemata(),
+    ])->toBe([['MUTATION_GATE_SCHEMATA' => '1'], [], true, false, [], [], []]);
+});
+
 it('opens a run on the canary group where it is handed a map and the patch is on, or else on what judges it', function (): void {
     $canary = Group::named('mutation-canary');
     $held = Group::named('holds:src/Money.php');

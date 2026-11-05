@@ -71,6 +71,10 @@ use function sprintf;
  *   with no override: an autoloader loads its mutated copy in its place (see
  *   ServedClasses). A mutant whose mutator is pinned by source is still
  *   served through the override, which shows its test the mutant's text.
+ * - Where the gate asks for schemata, every mutant is made afresh, each
+ *   file's mutants are compiled into one schema once they are made, and a
+ *   mutant the schema switches is served the schema in its file's place,
+ *   its switch in force, rather than its own copy (see Schemata, ADR-0091).
  *
  * Applied as a VendorPatch: every anchor checked before anything is written.
  *
@@ -90,6 +94,63 @@ final readonly class Patch
 
     private const string STREAM_WRAPPER = 'Support/StreamWrapper.php';
 
+    private const string GENERATOR = 'Support/MutationGenerator.php';
+
+    private const string AFRESH_SHIPS = <<<'PHP'
+                    if ($cache->has($file, $contents, $linesToMutate, $mutator)) {
+        PHP;
+
+    private const string AFRESH_BECOMES = <<<'PHP'
+                    {MARK} a run that compiles schemata makes every mutant afresh, its node at hand.
+                    $afresh = class_exists(\%1$s::class) && \%1$s::areOn();
+                    if (! $afresh && $cache->has($file, $contents, $linesToMutate, $mutator)) {
+        PHP;
+
+    private const string SITED_SHIPS = <<<'PHP'
+                                modifiedAst: $modifiedAst,
+                            );
+        PHP;
+
+    private const string SITED_BECOMES = <<<'PHP'
+                                modifiedAst: $modifiedAst,
+                            );
+
+                            {MARK} each mutant's node and what replaced it, for its file's schema.
+                            if ($afresh) {
+                                $made = $newMutations[array_key_last($newMutations)];
+                                \%1$s::sited($made, $this->originalNode, $this->modifiedNode ?? false);
+                            }
+        PHP;
+
+    private const string COMPILED_SHIPS = <<<'PHP'
+                // sort mutations by line number
+        PHP;
+
+    private const string COMPILED_BECOMES = <<<'PHP'
+                {MARK} the file's schema, once every mutant of it is made.
+                if ($mutations !== [] && class_exists(\%1$s::class) && \%1$s::areOn()) {
+                    $copies = dirname($mutations[0]->modifiedSourcePath);
+                    \%1$s::written((string) $file->getRealPath(), $contents, $copies);
+                }
+
+                // sort mutations by line number
+        PHP;
+
+    private const string SWITCHED_SHIPS = <<<'PHP'
+                if ($processId !== null) {
+                    $envs['PARATEST'] = '1';
+        PHP;
+
+    private const string SWITCHED_BECOMES = <<<'PHP'
+                {MARK} a mutant its file's schema switches is told the schema and its switch's id.
+                if (class_exists(\%1$s::class)) {
+                    $envs = [...$envs, ...\%1$s::variablesOf($this->mutation)];
+                }
+
+                if ($processId !== null) {
+                    $envs['PARATEST'] = '1';
+        PHP;
+
     private const string SERVE_SHIPS = <<<'PHP'
                     // @phpstan-ignore-next-line
                     StreamWrapper::start(getenv(self::ENV_MUTATION_TESTING), (string) getenv(self::ENV_MUTATION_FILE));
@@ -100,6 +161,9 @@ final readonly class Patch
                     $original = (string) getenv(self::ENV_MUTATION_TESTING);
                     $copy = (string) getenv(self::ENV_MUTATION_FILE);
                     $pinned = (string) getenv('%2$s') !== '';
+
+                    {MARK} a mutant its file's schema switches is served the schema, its switch in force.
+                    $copy = class_exists(\%3$s::class) ? \%3$s::inForce($copy) : $copy;
 
                     if ($pinned || ! class_exists(\%1$s::class) || ! \%1$s::serve($original, $copy)) {
                         // @phpstan-ignore-next-line
@@ -567,7 +631,7 @@ final readonly class Patch
             Hunk::in(
                 self::MUTATE_PLUGIN,
                 self::SERVE_SHIPS,
-                sprintf(self::SERVE_BECOMES, ServedClasses::class, GateVariable::SourcePinned->value),
+                sprintf(self::SERVE_BECOMES, ServedClasses::class, GateVariable::SourcePinned->value, Schemata::class),
             ),
             Hunk::in(
                 self::MUTATION_TEST,
@@ -575,6 +639,10 @@ final readonly class Patch
                 sprintf(self::PINNED_BECOMES, Bridged::class, GateVariable::SourcePinned->value),
             ),
             Hunk::in(self::STREAM_WRAPPER, self::STAT_SHIPS, self::STAT_BECOMES),
+            Hunk::in(self::GENERATOR, self::AFRESH_SHIPS, sprintf(self::AFRESH_BECOMES, Schemata::class)),
+            Hunk::in(self::GENERATOR, self::SITED_SHIPS, sprintf(self::SITED_BECOMES, Schemata::class)),
+            Hunk::in(self::GENERATOR, self::COMPILED_SHIPS, sprintf(self::COMPILED_BECOMES, Schemata::class)),
+            Hunk::in(self::MUTATION_TEST, self::SWITCHED_SHIPS, sprintf(self::SWITCHED_BECOMES, Schemata::class)),
         ];
     }
 }

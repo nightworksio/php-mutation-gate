@@ -30,6 +30,7 @@ final readonly class Patching
         private Group|Unpatched $canary,
         private bool $bootsTail = false,
         private bool $caches = true,
+        private bool $compiles = true,
     ) {
     }
 
@@ -51,7 +52,7 @@ final readonly class Patching
     /** The same, the tail's workers booting the project where it applies the patch, as `pest.bootTail` says. */
     public function bootingTail(bool $boots): self
     {
-        return new self($this->canary, $boots, $this->caches);
+        return new self($this->canary, $boots, $this->caches, $this->compiles);
     }
 
     /**
@@ -60,7 +61,25 @@ final readonly class Patching
      */
     public function cachingInWorkers(bool $caches): self
     {
-        return new self($this->canary, $this->bootsTail, $caches);
+        return new self($this->canary, $this->bootsTail, $caches, $this->compiles);
+    }
+
+    /** The same, each file's mutants compiled into a schema where it applies the patch, as `pest.schemata` says. */
+    public function compilingSchemata(bool $compiles): self
+    {
+        return new self($this->canary, $this->bootsTail, $this->caches, $compiles);
+    }
+
+    /**
+     * What a run is started with to compile each file's mutants into a schema
+     * (see Schemata); nothing where the project does not apply the patch, or
+     * `pest.schemata` is off.
+     *
+     * @return array<string, string>
+     */
+    public function schemata(): array
+    {
+        return $this->isOn() && $this->compiles ? [GateVariable::Schemata->value => '1'] : [];
     }
 
     /** Whether the warm workers compile through opcache, keeping out each file the run mutates and copy it serves. */

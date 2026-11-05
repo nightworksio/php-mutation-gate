@@ -26,7 +26,8 @@ use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
  * on, `mutation-canary` by default; `bootTail`, whether the verification
  * tail's workers boot the project (ADR-0075), false by default;
  * `workerOpcache`, whether its warm workers compile through opcache
- * (ADR-0088), true by default; `tests`, the directories the tests live
+ * (ADR-0088), true by default; `schemata`, whether each file's mutants are
+ * compiled into a schema (ADR-0091), true by default; `tests`, the directories the tests live
  * in, which the flows write from the PHPUnit config, `tests` by default;
  * `timeout` and `most`, the floor and the most of each mutant's limit, which
  * the flows write from `timeouts.seconds` and `timeouts.most`; and
@@ -61,6 +62,7 @@ final readonly class PestOptions
         $canary = $options->text(Key::of(self::CANARY));
         $bootTail = $options->flag(Key::of(ConfigPest::BOOT_TAIL));
         $opcache = $options->flag(Key::of(ConfigPest::WORKER_OPCACHE));
+        $schemata = $options->flag(Key::of(ConfigPest::SCHEMATA));
         $tests = $options->paths(Key::of(self::TESTS));
         $mutators = $options->texts(Key::of(self::MUTATORS));
         $bounds = BoundsOptions::read($options);
@@ -70,13 +72,15 @@ final readonly class PestOptions
             $canary instanceof Problem => Invalid::because($canary),
             $bootTail instanceof Problem => Invalid::because($bootTail),
             $opcache instanceof Problem => Invalid::because($opcache),
+            $schemata instanceof Problem => Invalid::because($schemata),
             $tests instanceof Problem => Invalid::because($tests),
             $mutators instanceof Problem => Invalid::because($mutators),
             $bounds instanceof Problem => Invalid::because($bounds),
             default => new self(
                 self::patchingOf($patch, $canary)
                     ->bootingTail($bootTail === true)
-                    ->cachingInWorkers($opcache !== false),
+                    ->cachingInWorkers($opcache !== false)
+                    ->compilingSchemata($schemata !== false),
                 $tests instanceof NotGiven ? Paths::of(TestsDirectory::conventional()) : $tests,
                 self::bridgesTo($mutators instanceof Listed ? [...$mutators] : []),
                 $bounds,
