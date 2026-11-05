@@ -232,6 +232,19 @@ it('writes every other setting in one call to with', function () use ($php): voi
             PHP);
 });
 
+it('writes each suggest key with the Suggest builder', function () use ($php): void {
+    $suggest = ['idle' => ['judged' => 400, 'survivors' => 1, 'share' => 6], 'ignored' => ['share' => 70, 'mutants' => 40], 'timeouts' => ['cluster' => 4]];
+
+    expect($php(['runner' => 'pest', 'suggest' => $suggest]))
+        ->toContain('use NightWorksIO\\MutationGate\\Config\\Suggest;')
+        ->toContain('Suggest::idleJudged(400),')
+        ->toContain('Suggest::idleSurvivors(1),')
+        ->toContain('Suggest::idleShare(6),')
+        ->toContain('Suggest::ignoredShare(70),')
+        ->toContain('Suggest::ignoredMutants(40),')
+        ->toContain('Suggest::timeoutCluster(4),');
+});
+
 it('writes the mutator sets and the mutators turned off with the Mutators builder', function () use ($php): void {
     expect($php(['runner' => 'pest', 'mutators' => ['sets' => ['acme'], 'except' => ['acme/RemoveAudit']]]))
         ->toContain("Mutators::sets('acme'),")

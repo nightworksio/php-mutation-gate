@@ -8,7 +8,6 @@ use function array_filter;
 use function array_key_exists;
 use function array_keys;
 use function array_values;
-use function ceil;
 use function count;
 use function max;
 use function min;
@@ -114,7 +113,7 @@ final readonly class SlowDirectories
         $files = $this->timedOut[$directory];
         $effective = $settings->effective();
         $triage = $effective->over($effective->setup()->paths()->for($files[0])->layer())->triage();
-        $now = (int) ceil($triage->limit()->seconds());
+        $now = $triage->limit()->seconds();
         $raised = $now * self::RAISED;
         $most = $triage->most()->seconds();
         $bounded = $raised <= min($most, $effective->triage()->most()->seconds());

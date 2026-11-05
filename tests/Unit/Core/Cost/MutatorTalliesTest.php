@@ -48,6 +48,29 @@ it('shares a shard\'s time among its mutants by their durations, and gives none 
         ->and($times->took($mutant('Plus', 3)->id()))->toBeInstanceOf(NotGiven::class);
 });
 
+it('shares by durations that add up to less than a second, too', function () use ($mutant): void {
+    $times = MutantTimes::of(
+        Mutants::of($mutant('Plus', 1, Seconds::of(0.25)), $mutant('Plus', 2, Seconds::of(0.5))),
+        CoverageMap::empty(),
+        Seconds::of(3.0),
+    );
+
+    expect($times->took($mutant('Plus', 1)->id()))->toEqual(Seconds::of(1.0))
+        ->and($times->took($mutant('Plus', 2)->id()))->toEqual(Seconds::of(2.0));
+});
+
+it('keeps each runner\'s mutators in the order of their names, whatever order it was told them in', function (): void {
+    $tallies = Tallies::holding(Tallies::of('fake', 'Plus', 1, 1, 0, 0, 1.0), Tallies::of('fake', 'Minus', 1, 1, 0, 0, 1.0));
+
+    expect(array_map(static fn(MutatorTally $tally): string => $tally->mutator(), [...$tallies]))->toBe(['Minus', 'Plus']);
+});
+
+it('gives a mutator its share of a single microsecond', function (): void {
+    $tally = Tallies::of('fake', 'Plus', 1, 1, 0, 0, 0.000001);
+
+    expect(Tallies::holding($tally)->shareOf($tally))->toEqual(Percentage::inHundredths(10_000));
+});
+
 it('joins the times of each shard\'s mutants, and times nothing where it was given none', function () use ($mutant): void {
     $first = MutantTimes::of(Mutants::of($mutant('Plus', 1, Seconds::of(1.0))), CoverageMap::empty(), Seconds::of(2.0));
     $second = MutantTimes::of(Mutants::of($mutant('Plus', 2, Seconds::of(1.0))), CoverageMap::empty(), Seconds::of(3.0));

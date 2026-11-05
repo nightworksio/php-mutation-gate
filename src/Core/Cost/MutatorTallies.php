@@ -10,6 +10,9 @@ use function array_replace;
 use function array_values;
 
 use ArrayIterator;
+
+use function in_array;
+
 use IteratorAggregate;
 
 use function ksort;
@@ -84,8 +87,8 @@ final readonly class MutatorTallies implements IteratorAggregate
             $id = $mutant->mutant()->id()->value();
             $took = $mutant instanceof JudgedMutant ? $times->took($mutant->mutant()->id()) : NotGiven::value();
 
-            if ($took instanceof Seconds && ! array_key_exists($id, $counted)) {
-                $counted[$id] = true;
+            if ($took instanceof Seconds && ! in_array($id, $counted, strict: true)) {
+                $counted[] = $id;
                 $tallied = $this->counting($tallied, $runner, $mutant, $took);
             }
         }
