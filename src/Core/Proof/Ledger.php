@@ -160,18 +160,6 @@ final readonly class Ledger
         );
     }
 
-    /** This ledger with timings only for these units, which are the ones that still exist. */
-    public function keepingTimingsOf(Paths $units): self
-    {
-        return new self(
-            $this->proofs,
-            $this->timings->onlyFor($units),
-            $this->bases,
-            $this->runs,
-            $this->learned,
-        );
-    }
-
     /** This ledger with the kill history of the functions in these files only, which are the ones that still exist. */
     public function keepingKillersIn(Paths $files): self
     {
