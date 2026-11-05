@@ -229,6 +229,11 @@
 
     if (mutant.outcome !== 'killed' && mutant.outcome !== 'left-out') {
       shown.appendChild(prose('', mutant.hint));
+
+      if (mutant.try !== undefined) {
+        shown.appendChild(prose('try', `Try: ${mutant.try}`));
+      }
+
       shown.appendChild(element('code', 'reproduce', mutant.reproduce));
     }
 

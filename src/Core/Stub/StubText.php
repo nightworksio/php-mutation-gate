@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Config\IgnoredMutant;
 use NightWorksIO\MutationGate\Core\Config\PhpCalls;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Format\Fit;
+use NightWorksIO\MutationGate\Core\Hint\Attempt;
 use NightWorksIO\MutationGate\Core\Mutant\SourcePin;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Php\Enclosing;
@@ -101,30 +102,46 @@ final readonly class StubText
         $first = $subject->first();
         $function = $subject->function();
         $lines = [];
-        $families = [];
 
         foreach ($subject->members() as $member) {
             $block = MutantText::indented(MutantText::heading($member), ...MutantText::diff($member->mutant()));
             $lines = [...$lines, ...explode("\n", $block)];
         }
 
-        $lines[] = $first->hint()->text();
+        $lines = [...$lines, $first->hint()->text(), ...self::attempted($subject->attempt())];
         $lines = $function instanceof Enclosing ? [...$lines, sprintf('%s;', $function->call())] : $lines;
 
         $pin = $subject->pin();
         $lines = [...$lines, ...$pin instanceof SourcePin ? Scaffold::pinned($pin, $function, $style) : []];
-        $pinned = $pin instanceof SourcePin ? $first->mutant()->mutator() : NotGiven::value();
+
+        return [...$lines, ...self::scaffolds($subject, $style), ...self::strengthened($first->finding())];
+    }
+
+    /**
+     * One assertion scaffold for each family of the subject's members, none
+     * for a mutator pinned by source, the first member's passing what rules
+     * found to try (ADR-0085).
+     *
+     * @return list<string>
+     */
+    private static function scaffolds(Subject $subject, AssertionStyle $style): array
+    {
+        $first = $subject->first();
+        $pinned = $subject->pin() instanceof SourcePin ? $first->mutant()->mutator() : NotGiven::value();
+        $lines = [];
+        $families = [];
 
         foreach ($subject->members() as $member) {
             $family = $member->mutant()->mutation()->family();
+            $attempt = $member === $first ? $subject->attempt() : NotGiven::value();
             $scaffold = in_array($family, $families, strict: true) || $member->mutant()->mutator() === $pinned
                 ? []
-                : Scaffold::of($member->mutant(), $function, $style);
+                : Scaffold::of($member->mutant(), $subject->function(), $style, $attempt);
             $lines = [...$lines, ...$scaffold];
             $families[] = $family;
         }
 
-        return [...$lines, ...self::strengthened($first->finding())];
+        return $lines;
     }
 
     /**
@@ -256,5 +273,11 @@ final readonly class StubText
     private static function indented(array $lines, string $indent): string
     {
         return implode("\n", array_map(static fn(string $line): string => sprintf('%s%s', $indent, $line), $lines));
+    }
+
+    /** @return list<string> the line that says a concrete way to kill the first mutant, where rules found one */
+    private static function attempted(Attempt|NotGiven $attempt): array
+    {
+        return $attempt instanceof Attempt ? [sprintf(Attempt::SAID, $attempt->text())] : [];
     }
 }

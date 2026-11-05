@@ -8,10 +8,12 @@ use Closure;
 
 use function count;
 use function implode;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\GateCommand;
+use NightWorksIO\MutationGate\Core\Hint\Attempt;
 use NightWorksIO\MutationGate\Core\Owner\OwnerGroup;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\OwnerVerdicts;
@@ -100,6 +102,7 @@ final readonly class MarkdownItems
                 ),
                 self::diff($item),
                 Escape::text(self::cut($item->hint()->text())),
+                ...self::attempt($item),
                 Escape::code($item->reproduce($gate)),
                 '</details>',
             ]);
@@ -232,5 +235,13 @@ final readonly class MarkdownItems
         $location = $judged->mutant()->location();
 
         return Escape::code(sprintf('%s:%d', $location->file()->value(), $location->start()->number()));
+    }
+
+    /** @return list<string> a survivor's concrete way to be killed, after `Try:`, where rules read one (ADR-0085) */
+    private static function attempt(JudgedMutant $mutant): array
+    {
+        $attempt = $mutant->hint()->attempt();
+
+        return is_string($attempt) ? [Escape::text(sprintf(Attempt::SAID, self::cut($attempt)))] : [];
     }
 }

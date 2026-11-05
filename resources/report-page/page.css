@@ -114,6 +114,7 @@ h3 { font-size: 1rem; font-weight: 600; }
 .terms { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
 .term-word { font-weight: 600; margin-right: 4px; }
 .hint { margin: 2px 0 0; color: var(--muted); font-size: 0.9rem; }
+.try { margin: 2px 0 0; font-size: 0.9rem; }
 .aside, .empty { color: var(--muted); margin: 8px 0 0; }
 
 .tiles { list-style: none; margin: 12px 0 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }

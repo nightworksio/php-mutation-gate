@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report;
 
+use function is_string;
+
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\Cluster\Membership;
 use NightWorksIO\MutationGate\Core\Cluster\Unclustered;
@@ -49,6 +51,7 @@ use NightWorksIO\MutationGate\Core\Verdict\NoFinding;
  *     killedBy: list<int>,
  *     failingUnmutated?: list<int>,
  *     hint: string,
+ *     try?: string,
  *     reproduce: string,
  *     explain: string,
  *     seconds?: float,
@@ -93,6 +96,7 @@ final readonly class MutantJson
             ...$judgedBy === [] ? [] : ['judgedBy' => $judgedBy],
             ...self::tested($mutant, $table),
             'hint' => $judged->hint()->text(),
+            ...self::attempt($judged),
             'reproduce' => $judged->reproduce($gate),
             'explain' => $judged->explain($gate),
             ...self::optional($judged),
@@ -151,5 +155,13 @@ final readonly class MutantJson
             $reason instanceof Rejection => [MutantRecord::REJECTION => MutantRecord::rejection($reason)],
             default => [],
         };
+    }
+
+    /** @return array{try?: string} a survivor's concrete way to be killed, where rules read one (ADR-0085) */
+    private static function attempt(JudgedMutant|JudgedKill $judged): array
+    {
+        $attempt = $judged->hint()->attempt();
+
+        return is_string($attempt) ? ['try' => $attempt] : [];
     }
 }

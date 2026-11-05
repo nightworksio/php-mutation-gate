@@ -295,6 +295,8 @@ services:
                 'NightWorksIO\MutationGate\Core\Report\HeatmapMarkdown':
                     - FUNCTIONS # functions a comment's row names, not letters per edit
                     - CHANGED # a score with its change, not a trial's verdict with its reason
+                'NightWorksIO\MutationGate\Core\Hint\Attempts':
+                    - ARITHMETIC # PHP's arithmetic operators, power among them, not a glob's any depth
                 'NightWorksIO\MutationGate\Cli\Command\LedgerOption':
                     - LEDGER # the option that names a ledger file, not the workspace directory
                 'NightWorksIO\MutationGate\Core\Verb':

@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report\Page;
 
+use function array_key_exists;
 use function array_slice;
 use function count;
 use function implode;
 
+use NightWorksIO\MutationGate\Core\Hint\Attempt;
 use NightWorksIO\MutationGate\Core\Hint\Hint;
 use NightWorksIO\MutationGate\Core\Report\MutantJson;
 use NightWorksIO\MutationGate\Core\Report\Mutator;
@@ -43,8 +45,10 @@ final readonly class Survivors
         <span class="mutator" title="%4$s">%9$s</span>
         <span class="tag tag--%5$s">%6$s</span>
         <span class="judgement">%7$s</span>%8$s
-        <p class="hint">%10$s</p></li>
+        <p class="hint">%10$s</p>%11$s</li>
         HTML;
+
+    private const string TRY = '<p class="try">%s</p>';
 
     private const string CHANGED = ' <span class="chip">changed line</span>';
 
@@ -89,6 +93,9 @@ final readonly class Survivors
             $mutant['changedLine'] ? self::CHANGED : '',
             Html::text(Mutator::short($mutant['mutator'])),
             Html::prose(Hint::lead($mutant['hint'])),
+            array_key_exists('try', $mutant)
+                ? sprintf(self::TRY, Html::prose(sprintf(Attempt::SAID, $mutant['try'])))
+                : '',
         );
     }
 

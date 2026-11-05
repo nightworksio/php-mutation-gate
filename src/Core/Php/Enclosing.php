@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Php;
 
+use function array_key_exists;
 use function implode;
 use function mb_lcfirst;
 
@@ -61,6 +62,28 @@ final readonly class Enclosing
     public function name(): string
     {
         return $this->name;
+    }
+
+    /** @return list<string> each parameter's name, with its `$`, as its calls spell their arguments */
+    public function parameterNames(): array
+    {
+        return $this->parameters;
+    }
+
+    /**
+     * This, its calls passing these values in place of the parameters they name (ADR-0085).
+     *
+     * @param array<string, string> $values by the parameter's name, with its `$`
+     */
+    public function withArguments(array $values): self
+    {
+        $arguments = [];
+
+        foreach ($this->parameters as $parameter) {
+            $arguments[] = array_key_exists($parameter, $values) ? $values[$parameter] : $parameter;
+        }
+
+        return new self($this->name, $arguments, $this->class, $this->static);
     }
 
     /** The short name of the class it is a method of; nothing for a function, or a method of an anonymous class. */
