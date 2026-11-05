@@ -4,11 +4,17 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Command\MutatorsCommand;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
+use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\Unreadable;
+use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Core\Report\MutatorReport;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
+use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
@@ -84,3 +90,16 @@ it('says the ledger tallies nothing yet where it tallies nothing', function () u
     expect(FlowCommands::run(MutatorsCommand::command($composed(Ledger::empty(), FlowCommands::project())))->output)
         ->toBe(sprintf("%s\n", MutatorReport::NONE));
 });
+
+it('says why the config, the checkout or the default branch\'s ledger cannot be read, and exits 2', function (string $config, ProofStoreFake $store, RepositoryFake $repository, string $said): void {
+    $project = FlowCommands::project($config);
+    $registry = FlowCommands::registry(Flows::trees(), ScriptedRunner::fixture(), $store, Flows::ci(), $repository, Flows::checkout());
+    $printed = FlowCommands::run(MutatorsCommand::command(FlowCommands::registered($registry, $project, Variables::of([]))));
+
+    expect($printed->code)->toBe(2)
+        ->and($printed->errors)->toContain($said);
+})->with([
+    'a config it refuses' => fn(): array => ['"budget": "soon"', new ProofStoreFake(), RepositoryFake::onMain(Revision::ref(Flows::HEAD)), 'budget'],
+    'no commit checked out' => fn(): array => ['', new ProofStoreFake(), new RepositoryFake(CannotTell::because('There is no commit.'), Scope::branch('main'), Scope::branch('main')), 'There is no commit.'],
+    'an unreadable ledger' => fn(): array => ['', ProofStoreFake::unreadable(Unreadable::because(UnreadReason::Malformed, 'ledger.json.gz', 'not a ledger')), RepositoryFake::onMain(Revision::ref(Flows::HEAD)), 'not a ledger'],
+]);

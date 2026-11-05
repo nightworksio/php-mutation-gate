@@ -10,6 +10,8 @@ use function array_keys;
 use function array_values;
 use function ceil;
 use function count;
+use function max;
+use function min;
 
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Layer;
@@ -32,8 +34,10 @@ use function usort;
  * The directories whose mutants ran out of time in the newest proof of each
  * unit (ADR-0076): a timeout, or a mutant skipped as too slow to run, by the
  * directory of its file. Each that holds enough gets a `paths` entry that
- * doubles its files' `timeouts.seconds`, raising `timeouts.most` with it
- * where it would fall below, the directory with the most first.
+ * doubles its files' `timeouts.seconds`, setting `timeouts.most` where the
+ * doubled limit would pass the most its files or the project allow, to the
+ * larger of the two, so the entry is valid on its own and over the entries
+ * that match its files, the directory with the most timeouts first.
  *
  * @internal
  */
@@ -112,9 +116,11 @@ final readonly class SlowDirectories
         $triage = $effective->over($effective->setup()->paths()->for($files[0])->layer())->triage();
         $now = (int) ceil($triage->limit()->seconds());
         $raised = $now * self::RAISED;
+        $most = $triage->most()->seconds();
+        $bounded = $raised <= min($most, $effective->triage()->most()->seconds());
         $timeouts = Triage::of(
             limit: Seconds::of($raised),
-            most: $triage->most()->seconds() < $raised ? Seconds::of($raised) : Absent::setting(),
+            most: $bounded ? Absent::setting() : Seconds::of(max($raised, $most)),
         );
 
         return Suggestion::of(
