@@ -19,6 +19,8 @@ use NightWorksIO\MutationGate\Core\Format\Gzip;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\TooLarge;
+use NightWorksIO\MutationGate\Core\Heat\FunctionSpan;
+use NightWorksIO\MutationGate\Core\Heat\FunctionSpans;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -243,6 +245,20 @@ it('keeps two proofs as new as each other in the order it held them', function (
 
     expect(array_keys(Node::decode($json)->field('proofs')->entries()))
         ->toBe([str_repeat('c', 64), str_repeat('1', 64)]);
+});
+
+it('writes the functions a proof names and reads them back, and none for a proof that names none', function () use ($run, $base): void {
+    $spans = FunctionSpans::of(FunctionSpan::of('Money::add', Line::of(4), Line::of(7)));
+    $named = Proof::of(Digest::of(str_repeat('c', 64)), Path::of('src/A.php'), Mutants::none(), $run('local', '2026-09-29T20:00:00Z'));
+    $ledger = Ledger::empty()->withProof($named->withFunctions($spans))->withProof(
+        Proof::of(Digest::of(str_repeat('1', 64)), Path::of('src/B.php'), Mutants::none(), $run('local', '2026-09-29T20:00:00Z')),
+    )->atBase(Digest::of($base));
+    $read = LedgerFile::decode(LedgerFile::encode($ledger))->proofs()->newest();
+    $a = $read->of(Path::of('src/A.php'));
+    $b = $read->of(Path::of('src/B.php'));
+
+    expect($a instanceof Proof ? $a->functions() : null)->toEqual($spans)
+        ->and($b instanceof Proof ? $b->functions() : null)->toEqual(FunctionSpans::none());
 });
 
 it('keeps only the proofs of the five bases its runs saw most recently', function () use ($run): void {
