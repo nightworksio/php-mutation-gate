@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\ShardMap;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\BootSpec;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Triage;
@@ -539,4 +540,24 @@ it('runs a doubtful kill again forked from warm workers only where runner.worker
 })->with([
     'fork' => [Workers::Fork, [true, true]],
     'mutants' => [Workers::Mutants, [true, false]],
+]);
+
+it('leaves what the tail\'s workers boot beside a doubtful kill\'s run again of every test file under pest.bootTail, and nothing beside the narrowed run', function (bool $boots, array $booted): void {
+    $at = PestCases::project();
+    $inner = PestCases::loadedNothing($at);
+    $seen = [];
+    $shell = new ShellFake(static function (Command $command) use ($inner, &$seen): Ran {
+        $warm = $command->environment()[GateVariable::Warm->value] ?? '';
+        $seen[] = is_string($warm) && $warm !== '' && BootSpec::readIn($warm) instanceof BootSpec;
+
+        return $inner->run($command);
+    });
+
+    new Pest($at, $shell, PestCases::canary()->bootingTail($boots), new CapDirectory(), Triage::standard()->bounds())
+        ->mutate(PestCases::money()->across(Pool::of(ProcessCount::single(), Workers::Fork)));
+
+    expect($seen)->toBe($booted);
+})->with([
+    'booting the tail' => [true, [false, true]],
+    'leaving the tail unbooted' => [false, [false, false]],
 ]);

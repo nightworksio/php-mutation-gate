@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Pest;
+use NightWorksIO\MutationGate\Core\Config\PhpCalls;
+use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
@@ -30,4 +32,16 @@ it('boots the tail\'s workers only where pest.bootTail says so, a later layer wi
         ->toBe([false, true, false, true])
         ->and($booting->beneath(Choice::of('pest', Configs::options('{}'))))
         ->toEqual(Choice::of('pest', Configs::options('{"patch": true, "canary": "mutation-canary", "bootTail": true}')));
+});
+
+it('writes pest.bootTail as the PHP config calls it, and nothing where it is not set', function (): void {
+    expect([
+        Pest::of(bootTail: true)->php(ProjectRoot::origin()),
+        Pest::of(bootTail: false)->php(ProjectRoot::origin()),
+        Pest::of(patch: true)->php(ProjectRoot::origin()),
+    ])->toEqual([
+        PhpCalls::inWith('Pest::bootingTail()'),
+        PhpCalls::inWith('Pest::tailUnbooted()'),
+        PhpCalls::inWith('Pest::patched()'),
+    ]);
 });

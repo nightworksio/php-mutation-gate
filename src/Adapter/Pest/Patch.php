@@ -394,7 +394,7 @@ final readonly class Patch
 
     private const string SUITE_BECOMES = <<<'PHP'
             {MARK} a child of a booted worker keeps the test suite its worker built.
-            $testSuite = class_exists(\%1$s::class) && \%1$s::isForked()
+            $testSuite = class_exists(\%1$s::class, false) && \%1$s::isForked()
                 ? TestSuite::getInstance()
                 : TestSuite::getInstance(
         PHP;
@@ -406,7 +406,7 @@ final readonly class Patch
     private const string BOOTSTRAPPERS_BECOMES = <<<'PHP'
                 {MARK} a booted worker's child skips what its worker ran, and the worker leaves the kernel dump to it.
                 foreach (self::BOOTSTRAPPERS as $bootstrapper) {
-                    if (class_exists(\%1$s::class) && \%1$s::skips($bootstrapper)) {
+                    if (class_exists(\%1$s::class, false) && \%1$s::skips($bootstrapper)) {
                         continue;
                     }
 
@@ -418,7 +418,7 @@ final readonly class Patch
 
     private const string PLUGINS_BECOMES = <<<'PHP'
                 {MARK} a booted worker's child boots none of the plugins its worker booted.
-                if (! class_exists(\%1$s::class) || ! \%1$s::isForked()) {
+                if (! class_exists(\%1$s::class, false) || ! \%1$s::isForked()) {
                     CallsBoot::execute();
                 }
         PHP;
@@ -447,10 +447,10 @@ final readonly class Patch
             {MARK} a booted worker's child finds a test file where its worker found it, and a booting worker keeps it.
             public function load(string $suiteClassFile): ReflectionClass
             {
-                $booted = class_exists(\%1$s::class) ? \%1$s::loaded($suiteClassFile) : '';
+                $booted = class_exists(\%1$s::class, false) ? \%1$s::loaded($suiteClassFile) : '';
                 $class = $booted !== '' ? new ReflectionClass($booted) : $this->loadedHere($suiteClassFile);
 
-                if (class_exists(\%1$s::class)) {
+                if (class_exists(\%1$s::class, false)) {
                     \%1$s::kept($suiteClassFile, $class->getName());
                 }
 

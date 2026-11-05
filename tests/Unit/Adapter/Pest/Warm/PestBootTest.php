@@ -64,7 +64,7 @@ it('includes the suites the runs name, else the config\'s default, else every on
     $plain = bootedProject();
     $defaulted = bootedProject('defaultTestSuite="Feature"');
 
-    expect(booting($plain, ['Unit', ''])->suites(bootedConfig($plain)))->toBe(['Unit'])
+    expect(booting($plain, ['Unit', '', 'Feature'])->suites(bootedConfig($plain)))->toBe(['Unit', 'Feature'])
         ->and(booting($defaulted)->suites(bootedConfig($defaulted)))->toBe(['Feature'])
         ->and(booting($defaulted, ['Unit'])->suites(bootedConfig($defaulted)))->toBe(['Unit'])
         ->and(booting($plain)->suites(bootedConfig($plain)))->toBe([]);

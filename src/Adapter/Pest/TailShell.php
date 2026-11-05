@@ -4,14 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
-use function array_keys;
-use function array_values;
-use function count;
-use function implode;
 use function is_string;
 
-use NightWorksIO\MutationGate\Adapter\Pest\Warm\Pool;
-use NightWorksIO\MutationGate\Adapter\Pest\Warm\Seat;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
@@ -23,8 +17,6 @@ use NightWorksIO\MutationGate\Core\Runner\Unwatched;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
-
-use function sprintf;
 
 /**
  * The shell the verification tail runs Pest in where `runner.workers` forks
@@ -44,9 +36,6 @@ final readonly class TailShell implements Shell
 {
     /** The file the tail's workers' directory is named beside, among the adapter's own. */
     private const string BESIDE = 'pest/tail';
-
-    /** The file the directory of the tail's booted workers of one set of suites is named beside, by its place. */
-    private const string BOOTED = '%s-booted-%d';
 
     private function __construct(private Shell $shell, private string $beside, private Project|NotGiven $booting)
     {
@@ -85,21 +74,15 @@ final readonly class TailShell implements Shell
         Seconds|Unlimited $startingWithin,
         Command ...$commands,
     ): ProcessEnds {
-        $besides = [];
+        $sets = new TailWorkers($slots, $this->beside, $this->booting);
         $forked = [];
 
-        foreach (array_values($commands) as $command) {
-            $suites = $this->bootedSuites($command);
-            $key = $suites instanceof NotGiven ? '' : implode(',', $suites);
-            $besides[$key] ??= $this->started($slots, count($besides), $suites);
-            $forked[] = $command->forkedIn(WarmDirectory::beside($besides[$key]));
+        foreach ($commands as $command) {
+            $forked[] = $command->forkedIn(WarmDirectory::beside($sets->besideFor($this->bootedSuites($command))));
         }
 
         $ends = $this->shell->sideBySide($slots, $startingWithin, ...$forked);
-
-        foreach ($besides as $beside) {
-            WarmDirectory::cleared($beside);
-        }
+        $sets->cleared();
 
         return $ends;
     }
@@ -121,29 +104,5 @@ final readonly class TailShell implements Shell
         return $this->booting instanceof Project && $command->loadsEveryTestFile()
             ? PhpUnitOption::suitesIn($command->arguments())
             : NotGiven::value();
-    }
-
-    /**
-     * A set of workers started, one in each slot, in a directory of its own
-     * by its place among the sets, booting these suites where it boots:
-     * what that directory is named beside.
-     *
-     * @param list<string>|NotGiven $suites
-     */
-    private function started(WorkerSlots $slots, int $place, array|NotGiven $suites): string
-    {
-        $beside = $suites instanceof NotGiven ? $this->beside : sprintf(self::BOOTED, $this->beside, $place);
-        WarmDirectory::cleared($beside);
-        $directory = WarmDirectory::made($beside);
-
-        if ($this->booting instanceof Project && ! $suites instanceof NotGiven) {
-            Invocation::booting($this->booting, $suites)->leftIn($directory);
-        }
-
-        foreach (array_keys([...$slots]) as $at) {
-            Pool::started(Seat::at($directory, $at + 1));
-        }
-
-        return $beside;
     }
 }
