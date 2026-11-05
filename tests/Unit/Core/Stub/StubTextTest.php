@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Hint\Attempt;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\SourcePin;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -73,6 +74,26 @@ it('writes a Pest test that holds the mutant, its hint, the call and the scaffol
             // {"mutant":"%1$s","reason":""}
         });
         PHP, $id, $mutant->hint()->text(), str_replace("'", "\\'", $mutant->hint()->text())));
+});
+
+it('says what to try, and calls the function with the values it tries in the scaffold', function () use ($fits, $makeWhole): void {
+    $mutant = JudgedMutant::of(
+        Verdicts::mutant('src/Cart.php:7', 'LessThan', MutatorFamily::Boundary, Verdicts::diff('return $amount < 4;', 'return $amount <= 4;')),
+        MutantJudgement::Survived,
+    );
+    $subject = Subject::of($mutant, $fits(), $makeWhole())->attempting(Attempt::of('call `fits()` with `$amount` at 4, then at 3.', ['$amount' => '4'], ['$amount' => '3']));
+    $stub = StubText::of($subject, AssertionStyle::Pest, Format::Json, RunnerBehaviour::standard());
+
+    expect($stub)->toContain(implode("\n", [
+        '    // Try: call `fits()` with `$amount` at 4, then at 3.',
+        '    // $cart->fits($amount, $limit);',
+        '    // Call it at the boundary, then one step past it:',
+        '    // expect($cart->fits(4, $limit))->toBe(/* at the boundary */);',
+        '    // expect($cart->fits(3, $limit))->toBe(/* one step past it */);',
+    ]))
+        ->and(Subject::of($mutant, $fits(), $makeWhole())->attempt())->toEqual(NotGiven::value())
+        ->and($subject->forCluster(iterator_to_array(Clustered::verdict()->trees()->clusters(), preserve_keys: false)[0])->attempt())->toEqual($subject->attempt())
+        ->and($subject->pinned(SourcePin::call('hash_equals'))->attempt())->toEqual($subject->attempt());
 });
 
 it('writes a Pest test that runs the code and reads its file in place of the scaffold, where the mutator is pinned by source', function () use ($fits, $makeWhole): void {

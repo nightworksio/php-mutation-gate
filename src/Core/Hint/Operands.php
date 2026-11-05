@@ -19,7 +19,7 @@ use function trim;
 
 /**
  * The two sides of an expression and the operator between them, outside
- * every bracket (ADR-0085): `$amount < 10` as `$amount`, `<` and `10`.
+ * every bracket (ADR-0101): `$amount < 10` as `$amount`, `<` and `10`.
  *
  * @internal
  */

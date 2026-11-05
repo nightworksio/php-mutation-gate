@@ -7,7 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Hint;
 use function array_map;
 
 /**
- * An operator a boundary mutant changes (ADR-0085): where its sides swap,
+ * An operator a boundary mutant changes (ADR-0101): where its sides swap,
  * and whether one step past its boundary is below the value or above it.
  *
  * @internal

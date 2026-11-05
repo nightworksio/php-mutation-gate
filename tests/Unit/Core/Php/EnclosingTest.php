@@ -179,3 +179,11 @@ it('reflects a function by its name, and a method by its class and its name', fu
         ->and($reflected(32))->toBe("new \\ReflectionMethod(Cart::class, 'fits')")
         ->and($reflected(23))->toBe("new \\ReflectionMethod(Cart::class, 'of')");
 });
+
+it('names its parameters, and calls itself with values in place of those it is given', function () use ($file): void {
+    $fits = Enclosing::in(Contents::of($file), Line::of(32));
+
+    expect($fits instanceof Enclosing ? $fits->parameterNames() : [])->toBe(['$amount', '$limit'])
+        ->and($fits instanceof Enclosing ? $fits->withArguments(['$limit' => '10', '$other' => '1'])->call() : '')->toBe('$cart->fits($amount, 10)')
+        ->and($fits instanceof Enclosing ? $fits->withArguments(['$limit' => '10'])->described() : '')->toBe('$this->fits($amount, 10)');
+});

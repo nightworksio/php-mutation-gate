@@ -553,3 +553,7 @@ it('lists under Cannot judge each set of tests that fails without any mutant, li
         $id,
     ));
 });
+
+it('packs what to try with a survivor for the pane, and nothing with a kill', function (): void {
+    expect(substr_count(pageData(pageOf(onChangedLines())), '"try":"use `$a` at 3."'))->toBe(3);
+});

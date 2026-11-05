@@ -8,7 +8,7 @@ use function array_values;
 
 /**
  * A concrete way to kill one survivor, built by rules from its diff, the
- * function around it and the values its file declares (ADR-0085): what
+ * function around it and the values its file declares (ADR-0101): what
  * to try, as a sentence, and the arguments each call a stub makes passes in
  * place of the function's parameters.
  *

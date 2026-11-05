@@ -14,7 +14,7 @@ use function sprintf;
 
 /**
  * What an operand of a mutant's expression stands for, as far as rules can
- * read it (ADR-0085): a variable, a literal as it is written, and an integer,
+ * read it (ADR-0101): a variable, a literal as it is written, and an integer,
  * written out or the value of a class constant its file declares with one
  * (ADR-0037).
  *

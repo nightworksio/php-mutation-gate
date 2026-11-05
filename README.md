@@ -289,6 +289,7 @@ has a page for each, and the commands for any other CI.
 | | An organisation dashboard: a static site of every repository's trends, floors and savings | yes | [0024](https://nightworksio.github.io/php-mutation-gate/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation/) |
 | | `mutators`: what each mutator costs and finds, from the ledger, and each repository's ten costliest on the organisation dashboard | yes | [0076](https://nightworksio.github.io/php-mutation-gate/decisions/0076-a-ledger-tallies-what-each-mutator-costs-and-finds-and-config-suggest-proposes-changes/) |
 | | Heatmap: every file's and function's score against the base, in the HTML report, the lowest files on the organisation dashboard, and the files that fell in the pull request comment | yes | [0100](https://nightworksio.github.io/php-mutation-gate/decisions/0100-a-heatmap-scores-every-file-and-function-against-the-base/) |
+| | `Try: …`: a concrete way to kill each survivor, found by rules from its diff and its file, in the comment, the report and `stub` | yes | [0101](https://nightworksio.github.io/php-mutation-gate/decisions/0101-rules-find-a-concrete-way-to-kill-each-survivor/) |
 | | `config:suggest`: config changes with their evidence, turning off mutators that find nothing or make noise and giving slow directories a longer timeout, as a diff it never applies | yes | [0076](https://nightworksio.github.io/php-mutation-gate/decisions/0076-a-ledger-tallies-what-each-mutator-costs-and-finds-and-config-suggest-proposes-changes/) |
 
 ## Performance

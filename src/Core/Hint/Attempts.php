@@ -21,7 +21,7 @@ use function preg_replace;
 use function sprintf;
 
 /**
- * The attempt rules build for a survivor (ADR-0085), from its diff, the
+ * The attempt rules build for a survivor (ADR-0101), from its diff, the
  * function around it and the values its file declares; none where no rule
  * reads a value, so the hint and the stub keep their placeholders. A
  * boundary is tried at its value and one step past it, an equality at the
