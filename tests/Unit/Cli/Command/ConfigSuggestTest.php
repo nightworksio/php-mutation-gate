@@ -66,7 +66,7 @@ it('prints each suggestion with its evidence, then the config file with them lai
     $printed = FlowCommands::run($suggesting($idle('default/BitwiseAndToBitwiseOr'), $project));
 
     expect($printed->code)->toBe(0)
-        ->and($printed->errors)->toBe('')
+        ->and($printed->errors)->toBe('', sprintf('errors: %s', json_encode($printed->errors)))
         ->and($printed->output)->toBe(<<<'SAID'
             - `default/BitwiseAndToBitwiseOr` under fake: 600 judged, 0 survived, 50% of all the time (50s). It finds nothing: turn it off.
 
@@ -84,7 +84,7 @@ it('prints each suggestion with its evidence, then the config file with them lai
             +    }
              }
 
-            SAID)
+            SAID, sprintf('output: %s', json_encode($printed->output)))
         ->and((string) file_get_contents(sprintf('%s/mutation-gate.json', $project)))->toBe($before);
 });
 
