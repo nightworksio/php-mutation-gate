@@ -26,7 +26,6 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Secrets;
 use NightWorksIO\MutationGate\Core\Hold\HeldChecks;
 use NightWorksIO\MutationGate\Core\Mutant\Unevidenced;
-use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\KillSearch;
 use NightWorksIO\MutationGate\Core\Order\Ordering;
@@ -41,7 +40,6 @@ use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Pruning\Pruned;
-use NightWorksIO\MutationGate\Core\Runner\Multiple;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
@@ -50,7 +48,6 @@ use NightWorksIO\MutationGate\Core\Time\Deadline;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
-use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Doom;
 use NightWorksIO\MutationGate\Core\Verdict\Doomed;
@@ -292,7 +289,9 @@ final readonly class Running
         Stopwatch $stopwatch,
     ): Mutated|CannotJudge {
         $startUp = new StartUpTiming($this->adapters, StartUpSamples::standard())->of($map, $kept->units());
-        $pool = $this->poolOf($startUp, $plan->briefing()->multiple());
+        $pool = Pool::of($this->adapters->processes(), $this->settings->runner()->workers())
+            ->startingIn($startUp)
+            ->learning($plan->briefing()->multiple());
         $warmUp = new AnalyserWarmUp();
         $analyser = $this->adapters->analyser;
         $preChecking = $this->settings->staticCheck()->before() && $analyser instanceof AnalyserIdentity
@@ -450,17 +449,5 @@ final readonly class Running
             ->across($pool)
             ->reusingCoverage(Handed::maps(Workspace::shardCoverage($shard), Workspace::coverage()))
             ->searching($search);
-    }
-
-    /**
-     * The pool the shard's mutants run in: as many at once as the runner
-     * runs, laid on the start-up it measured, and allowing the multiple the
-     * plan learned, where it learned one (ADR-0073).
-     */
-    private function poolOf(Seconds|Unmeasured $startUp, Multiple|NotGiven $multiple): Pool
-    {
-        $pool = Pool::of($this->adapters->processes(), $this->settings->runner()->workers())->startingIn($startUp);
-
-        return $multiple instanceof NotGiven ? $pool : $pool->learning($multiple);
     }
 }

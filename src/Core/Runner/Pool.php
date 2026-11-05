@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
@@ -40,10 +41,15 @@ final readonly class Pool
         return new self($this->processes, $this->workers, $startUp, $this->multiple);
     }
 
-    /** This pool, a learned `timeouts.multiple` being this one, as the plan learned it from the ledger's kills. */
-    public function learning(Multiple $multiple): self
+    /**
+     * This pool, a learned `timeouts.multiple` being this one, as the plan
+     * learned it from the ledger's kills; as it is where the plan learned none.
+     */
+    public function learning(Multiple|NotGiven $multiple): self
     {
-        return new self($this->processes, $this->workers, $this->startUp, $multiple);
+        return $multiple instanceof Multiple
+            ? new self($this->processes, $this->workers, $this->startUp, $multiple)
+            : $this;
     }
 
     /**

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Config\Learned;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\Multiple;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
@@ -47,5 +48,6 @@ it('lays a learned multiple on bounds that learn one, keeping it in the tail, an
     expect($pool->bounding($learning)->multiple())->toEqual(Multiple::of(5.5))
         ->and($pool->tail()->startingIn(Seconds::of(1.0))->bounding($learning)->multiple())->toEqual(Multiple::of(5.5))
         ->and($pool->bounding($learning->multipliedBy(Multiple::of(4.0)))->multiple())->toEqual(Multiple::of(4.0))
-        ->and(Pool::single()->bounding($learning)->multiple())->toEqual(Multiple::of(3.0));
+        ->and(Pool::single()->bounding($learning)->multiple())->toEqual(Multiple::of(3.0))
+        ->and($pool->learning(NotGiven::value()))->toEqual($pool);
 });
