@@ -76,6 +76,7 @@ final readonly class SummarySchema
                         'additionalProperties' => false,
                     ],
                 ],
+                'heatmap' => HeatmapSchema::summary(),
             ],
             'required' => ['format', 'commit', 'time', 'verdict', 'trees', 'newCode'],
             'additionalProperties' => false,

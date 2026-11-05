@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Heat\FunctionSpans;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
@@ -27,7 +30,8 @@ use function sprintf;
  * The proof each unit a run judged leaves under its key, or why it leaves
  * none: a unit that did not run to the end, one with no key, and one the
  * run left some mutators out of, which carries their last results and so is
- * of no single run (ADR-0007; ADR-0025).
+ * of no single run (ADR-0007; ADR-0025). Each proof names the functions of
+ * its unit's file that hold its mutants (ADR-0084).
  *
  * @internal
  */
@@ -41,27 +45,45 @@ final readonly class Recordings
      *
      * @return list<array{UnitResult, Proof|NotRecorded}>
      */
-    public static function of(Plan $plan, UnitResults $fresh, Run $run): array
+    public static function of(Plan $plan, UnitResults $fresh, Run $run, Directory $project): array
     {
         $recordings = [];
         $pruned = $plan->considered()->pruned()->files();
 
         foreach ($fresh as $result) {
             $path = $result->unit()->path();
-            $recordings[] = [
-                $result,
-                $pruned->has($path) ? NotRecorded::because(sprintf(self::PRUNED, $path->value())) : Recording::of(
+            $recording = $pruned->has($path)
+                ? NotRecorded::because(sprintf(self::PRUNED, $path->value()))
+                : Recording::of(
                     $plan->keys()->keyOf($path),
                     $path,
                     $result->mutants(),
                     $result->flaky(),
                     $run,
                     self::inputsOf($plan, $result),
-                ),
+                );
+            $recordings[] = [
+                $result,
+                $recording instanceof Proof
+                    ? $recording->withFunctions(self::functionsOf($result, $project))
+                    : $recording,
             ];
         }
 
         return $recordings;
+    }
+
+    /** The functions of a unit's file that hold its mutants, as the file reads now; none where it cannot be read. */
+    private static function functionsOf(UnitResult $result, Directory $project): FunctionSpans
+    {
+        $contents = $project->read($result->unit()->path());
+        $lines = [];
+
+        foreach ($result->mutants() as $mutant) {
+            $lines[] = $mutant->location()->start();
+        }
+
+        return $contents instanceof Contents ? FunctionSpans::in($contents)->holding(...$lines) : FunctionSpans::none();
     }
 
     /**

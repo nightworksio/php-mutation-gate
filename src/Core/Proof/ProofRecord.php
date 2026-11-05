@@ -25,7 +25,8 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
  * {@see RunProfileRecord} writes it; its mutants, each one a test killed as a killed
  * record and every other in full; the digests of its inputs, where it records
  * them; and, for a held unit, the holding tests that run it, as indices into
- * the ledger's tests, where it names any.
+ * the ledger's tests, where it names any; and the functions of its unit
+ * that hold its mutants, where it names any (ADR-0084).
  *
  * @internal the shape of a proof in the ledger file
  *
@@ -41,6 +42,7 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
  *     mutants: list<array{string, int, int, list<int>}|Full>,
  *     digests?: ProofDigests,
  *     judging?: list<int>,
+ *     functions?: list<array{string, int, int}>,
  * }
  */
 final readonly class ProofRecord
@@ -83,6 +85,7 @@ final readonly class ProofRecord
             ],
             ...self::digests($proof->inputs(), $inputs),
             ...self::judging($proof->judging(), $tests),
+            ...FunctionsRecord::of($proof->functions()),
         ];
     }
 
@@ -121,7 +124,10 @@ final readonly class ProofRecord
                 self::baseIn($entry),
                 RunProfileRecord::read($entry),
             ),
-        )->withInputs($inputs)->judgedBy(self::judgingIn($entry->field(self::JUDGING), $read));
+        )
+            ->withInputs($inputs)
+            ->judgedBy(self::judgingIn($entry->field(self::JUDGING), $read))
+            ->withFunctions(FunctionsRecord::read($entry->field(FunctionsRecord::FIELD)));
     }
 
     /**

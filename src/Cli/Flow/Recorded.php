@@ -76,7 +76,7 @@ final readonly class Recorded
         $fresh = $this->checked($plan, $results, $ledgers);
         $written = $ledgers->written()->atBase($plan->base());
         $written = $written->withLearned($written->learned()->analysers()->plus($results->checks()->histories()));
-        $recordings = Recordings::of($plan, $fresh, $run);
+        $recordings = Recordings::of($plan, $fresh, $run, $this->adapters->project);
         $proved = $this->proved($written, $plan, $recordings);
         $learned = $this->adapters->narrowing->isNone()
             ? $this->learned($this->survived($proved, $fresh), $results, $judged, $ledgers->timings(), $plan)

@@ -22,7 +22,7 @@ use function sprintf;
 final readonly class Declarations
 {
     /** How a method's key joins its class's name and its own. */
-    private const string METHOD = '%s::%s';
+    public const string METHOD = '%s::%s';
 
     /** @param array<string, Declared> $declared each function and method, the first of its key, by that key */
     private function __construct(private array $declared)

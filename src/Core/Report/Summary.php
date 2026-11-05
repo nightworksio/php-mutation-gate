@@ -18,8 +18,9 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
  * repository's latest verdict on its default branch (ADR-0024): the commit
  * and time, the verdict, the project's score, each tree's floor and score,
  * the floor for new code, the mutation time saved over the last 30 days in
- * seconds, and the ten costliest mutators the default branch's ledger
- * tallies (ADR-0076). A set with nothing to mutate has no score, a tree held
+ * seconds, the ten costliest mutators the default branch's ledger
+ * tallies (ADR-0076), and the lowest-scoring files, as many as `heatmap.files`
+ * says (ADR-0084). A set with nothing to mutate has no score, a tree held
  * to no floor no floor, a run with no history of what it saved no savings,
  * and a ledger that tallies no mutator no mutators.
  * `resources/summary.schema.json` describes it, and it is public API.
@@ -37,8 +38,10 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
  *     newCode: array{floor: float},
  *     savings?: array{last30Days: float},
  *     mutators?: list<Costly>,
+ *     heatmap?: list<LowEntry>,
  * }
  * @phpstan-import-type Costly from MutatorReport
+ * @phpstan-import-type LowEntry from HeatmapJson
  */
 final readonly class Summary
 {
@@ -79,6 +82,7 @@ final readonly class Summary
             'newCode' => ['floor' => $newCode->percent()],
             ...$saved instanceof Seconds ? ['savings' => ['last30Days' => $saved->seconds()]] : [],
             ...$mutators === [] ? [] : ['mutators' => $mutators],
+            ...HeatmapJson::summary($verdict->account()->heatmap()),
         ];
     }
 

@@ -10,26 +10,32 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 
 /**
- * The reports a run writes or sends (ADR-0009): `reports`, which each layer adds to; and when `config:suggest`
- * proposes a change (ADR-0076): `suggest`.
+ * The reports a run writes or sends (ADR-0009): `reports`, which each layer adds to; when `config:suggest`
+ * proposes a change (ADR-0076): `suggest`; and how much of the heatmap each report shows (ADR-0084): `heatmap`.
  */
 final readonly class Reports implements Part
 {
     /** @param Listed<Report>|Absent $reports */
-    private function __construct(private Listed|Absent $reports, private Suggest $suggest)
+    private function __construct(private Listed|Absent $reports, private Suggest $suggest, private HeatmapRows $heatmap)
     {
     }
 
     /** @param Listed<Report>|Absent $reports */
     public static function of(Listed|Absent $reports): self
     {
-        return new self($reports, Suggest::of());
+        return new self($reports, Suggest::of(), HeatmapRows::of());
     }
 
     /** What a layer sets of when `config:suggest` proposes a change, and of no report. */
     public static function suggesting(Suggest $suggest): self
     {
-        return new self(Absent::setting(), $suggest);
+        return new self(Absent::setting(), $suggest, HeatmapRows::of());
+    }
+
+    /** What a layer sets of how much of the heatmap each report shows, and of no report. */
+    public static function heatmapping(HeatmapRows $heatmap): self
+    {
+        return new self(Absent::setting(), Suggest::of(), $heatmap);
     }
 
     public static function none(): self
@@ -57,7 +63,7 @@ final readonly class Reports implements Part
             ),
         };
 
-        return new self($reports, $this->suggest->over($later->suggest));
+        return new self($reports, $this->suggest->over($later->suggest), $this->heatmap->over($later->heatmap));
     }
 
     /** @return Listed<Report> */
@@ -71,6 +77,11 @@ final readonly class Reports implements Part
         return $this->suggest;
     }
 
+    public function heatmap(): HeatmapRows
+    {
+        return $this->heatmap;
+    }
+
     public function written(PathOrigin $origin): Json
     {
         return Json::object(
@@ -82,6 +93,7 @@ final readonly class Reports implements Part
                 )) : $this->reports,
             ),
             $this->suggest->written(),
+            $this->heatmap->written(),
         );
     }
 
@@ -97,6 +109,6 @@ final readonly class Reports implements Part
             )
             : PhpCalls::none();
 
-        return $reports->and($this->suggest->php());
+        return $reports->and($this->suggest->php())->and($this->heatmap->php());
     }
 }

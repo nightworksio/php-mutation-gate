@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Cost;
 
 use function max;
 
+use NightWorksIO\MutationGate\Core\Heat\Heatmap;
 use NightWorksIO\MutationGate\Core\Pruning\PruningAccount;
 use NightWorksIO\MutationGate\Core\Report\NoTrend;
 use NightWorksIO\MutationGate\Core\Report\Trend;
@@ -18,7 +19,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Provenance;
  * long it took, what it cost, what it saved, the runs `trend.json` held
  * from before it (ADR-0016, and ADR-0017),
  * what pruning did (ADR-0025), where the verdict comes from (ADR-0009),
- * and what each mutator costs and finds (ADR-0076).
+ * what each mutator costs and finds (ADR-0076), and the score of every
+ * file and function against the base (ADR-0084).
  * A run the flows gave no timings says nothing of its cost.
  */
 final readonly class RunAccount
@@ -31,6 +33,7 @@ final readonly class RunAccount
         private PruningAccount $pruning,
         private Provenance $provenance,
         private MutatorTallies $tallies,
+        private Heatmap $heatmap,
     ) {
     }
 
@@ -45,6 +48,7 @@ final readonly class RunAccount
             PruningAccount::none(),
             Provenance::unknown(),
             MutatorTallies::none(),
+            Heatmap::none(),
         );
     }
 
@@ -59,6 +63,7 @@ final readonly class RunAccount
             $this->pruning,
             $provenance,
             $this->tallies,
+            $this->heatmap,
         );
     }
 
@@ -78,6 +83,7 @@ final readonly class RunAccount
             $this->pruning,
             $this->provenance,
             $this->tallies,
+            $this->heatmap,
         );
     }
 
@@ -91,6 +97,7 @@ final readonly class RunAccount
             $this->pruning,
             $this->provenance,
             $this->tallies,
+            $this->heatmap,
         );
     }
 
@@ -104,6 +111,7 @@ final readonly class RunAccount
             $this->pruning,
             $this->provenance,
             $this->tallies,
+            $this->heatmap,
         );
     }
 
@@ -118,6 +126,7 @@ final readonly class RunAccount
             $pruning,
             $this->provenance,
             $this->tallies,
+            $this->heatmap,
         );
     }
 
@@ -133,6 +142,7 @@ final readonly class RunAccount
             $this->pruning,
             $this->provenance,
             $tallies,
+            $this->heatmap,
         );
     }
 
@@ -140,6 +150,27 @@ final readonly class RunAccount
     public function tallies(): MutatorTallies
     {
         return $this->tallies;
+    }
+
+    /** This account, with the score of every file and function it judged against the base (ADR-0084). */
+    public function withHeatmap(Heatmap $heatmap): self
+    {
+        return new self(
+            $this->timings,
+            $this->cost,
+            $this->savings,
+            $this->previous,
+            $this->pruning,
+            $this->provenance,
+            $this->tallies,
+            $heatmap,
+        );
+    }
+
+    /** The score of every file and function the verdict judged; none where the run did not score them. */
+    public function heatmap(): Heatmap
+    {
+        return $this->heatmap;
     }
 
     public function pruning(): PruningAccount
@@ -158,6 +189,7 @@ final readonly class RunAccount
             $this->pruning,
             $this->provenance,
             $this->tallies,
+            $this->heatmap,
         );
     }
 
