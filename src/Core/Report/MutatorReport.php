@@ -224,6 +224,12 @@ final readonly class MutatorReport
             }
         }
 
-        return array_map(static fn(array $column): int => max($column), $lengths);
+        $widths = [];
+
+        foreach ($lengths as $column => $each) {
+            $widths[$column] = max($each);
+        }
+
+        return $widths;
     }
 }
