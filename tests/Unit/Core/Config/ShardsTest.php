@@ -5,6 +5,8 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Floors;
 use NightWorksIO\MutationGate\Core\Config\Ignores;
+use NightWorksIO\MutationGate\Core\Config\Learned;
+use NightWorksIO\MutationGate\Core\Config\LearnedStatistic;
 use NightWorksIO\MutationGate\Core\Config\Local;
 use NightWorksIO\MutationGate\Core\Config\Part;
 use NightWorksIO\MutationGate\Core\Config\Pest;
@@ -19,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Config\Setup;
 use NightWorksIO\MutationGate\Core\Config\Shards;
 use NightWorksIO\MutationGate\Core\Config\Table;
 use NightWorksIO\MutationGate\Core\Config\Triage;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 describe('Shards', function (): void {
@@ -75,5 +78,12 @@ describe('Shards', function (): void {
             "Shards::secondsPerLine('src/Legacy', 2)",
             "Shards::perRunnerMinute(0.008, 'USD')",
         ));
+    });
+
+    it('learns shards.max from the statistic shards.learnedFrom names, the most by default, and from none where it is written', function (): void {
+        expect(Shards::of(max: Learned::Learned, learnedFrom: LearnedStatistic::Median)->learnedFrom())->toBe(LearnedStatistic::Median)
+            ->and(Shards::of(max: Learned::Learned)->learnedFrom())->toBe(LearnedStatistic::Max)
+            ->and(Shards::of(max: 3, learnedFrom: LearnedStatistic::Median)->learnedFrom())->toEqual(NotGiven::value())
+            ->and(Shards::none()->learnedFrom())->toEqual(NotGiven::value());
     });
 })->group('holds:src/Core/Config/Shards.php');
