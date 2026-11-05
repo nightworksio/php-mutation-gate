@@ -23,6 +23,8 @@ it('learns the multiple 99 in 100 kills took over their tests\' own time, kept b
     'two hundred kills, two slow' => [fn(): array => [...array_fill(0, 198, 4.0), 6.0, 50.0], 4.0],
     'two hundred kills, three slow' => [fn(): array => [...array_fill(0, 197, 4.0), 6.0, 7.0, 50.0], 6.0],
     'a single kill' => [fn(): array => [5.5], 5.5],
+    'two kills, the slower first' => [fn(): array => [9.0, 4.0], 9.0],
+    'sixty kills, one slow' => [fn(): array => [...array_fill(0, 59, 4.0), 7.0], 7.0],
     'kills quicker than twice their tests' => [fn(): array => [1.1, 1.4], 2.0],
     'kills slower than ten times their tests' => [fn(): array => [12.0, 40.0], 10.0],
 ]);
@@ -42,7 +44,7 @@ it('learns the most shards recent runs ran at once, or their median', function (
 
 it('learns no kill of no positive multiple and no run of no shard', function () use ($killed, $ran, $times, $counts): void {
     expect($times($killed(0.0, 2.5, -1.0)))->toBe([2.5])
-        ->and($counts($ran(0, 4)))->toBe([4])
+        ->and($counts($ran(0, 1, 4)))->toBe([1, 4])
         ->and($killed(0.0)->killCount())->toBe(0)
         ->and($ran(0)->runCount())->toBe(0);
 });

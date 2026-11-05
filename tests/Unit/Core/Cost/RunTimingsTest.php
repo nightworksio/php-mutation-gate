@@ -90,3 +90,21 @@ it('counts the most of its shards that ran at once, each from its start to its e
     expect($timings->mostAtOnce()->count())->toBe(3)
         ->and(RunTimings::of('run', RunTime::measured(Seconds::of(1.0), Seconds::of(1.0)))->mostAtOnce()->count())->toBe(0);
 });
+
+it('counts a shard from how long after its instant it began, and one that ends as another begins as not at once', function (): void {
+    $shard = static fn(int $id, float $after, float $took): ShardTiming => ShardTiming::of(
+        $id,
+        Phase::of(Moment::at('2026-09-30T12:00:00Z'), Seconds::of($took))->later(Seconds::of($after)),
+        StepTimes::none(),
+    );
+    $timings = static fn(ShardTiming ...$shards): int => array_reduce(
+        $shards,
+        static fn(RunTimings $timings, ShardTiming $shard): RunTimings => $timings->withShard($shard),
+        RunTimings::of('run', RunTime::measured(Seconds::of(1.0), Seconds::of(1.0))),
+    )->mostAtOnce()->count();
+
+    expect($timings($shard(1, 0.0, 60.0), $shard(2, 60.0, 60.0)))->toBe(1)
+        ->and($timings($shard(2, 60.0, 60.0), $shard(1, 0.0, 60.0)))->toBe(1)
+        ->and($timings($shard(1, 0.0, 60.0), $shard(2, 30.0, 60.0)))->toBe(2)
+        ->and($timings($shard(1, 100.0, 60.0), $shard(2, 0.0, 30.0)))->toBe(1);
+});

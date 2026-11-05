@@ -140,13 +140,13 @@ final readonly class RunTimings
             $moment = $whole->start()->moment();
 
             if (! $moment instanceof CannotJudge) {
-                $start = (float) $moment->getTimestamp() + $whole->after()->seconds();
+                $start = $moment->getTimestamp() + $whole->after()->seconds();
                 $edges[] = [$start, 1];
                 $edges[] = [$start + $whole->duration()->seconds(), -1];
             }
         }
 
-        usort($edges, static fn(array $one, array $other): int => [$one[0], $one[1]] <=> [$other[0], $other[1]]);
+        usort($edges, static fn(array $one, array $other): int => $one <=> $other);
         $running = 0;
         $most = 0;
 

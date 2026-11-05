@@ -100,3 +100,17 @@ it('learns nothing and says nothing where the config writes every limit', functi
         ->and($learned->briefing(Briefing::standard()))->toEqual(Briefing::standard())
         ->and($learned->cut(Cut::bySize(600, Seconds::of(60.0), 20)))->toEqual(Cut::bySize(600, Seconds::of(60.0), 20));
 });
+
+it('says the learned multiple to two places, and learns a single shard from runs that ran one at a time', function (): void {
+    $learned = LearnedLimits::of(
+        learningSettings(),
+        learnedLedgers(LimitHistory::none()->afterKills(Multiple::of(4.256)), LimitHistory::none()->afterRuns(ShardsAtOnce::of(1))),
+    );
+
+    expect($learned->cut(Cut::bySize(600, Seconds::of(60.0), 20)))->toEqual(Cut::bySize(600, Seconds::of(60.0), 1))
+        ->and($learned->lines())->toBe([
+            'timeouts.seconds learned: 3 times each shard\'s start-up, at least 1 s; 10 s where none is measured.',
+            'timeouts.multiple learned: 4.26, what 99 in 100 of 1 kills took over their tests\' time, in place of 3.',
+            'shards.max learned: 1, the most shards the last 1 runs ran at once, in place of 20.',
+        ]);
+});

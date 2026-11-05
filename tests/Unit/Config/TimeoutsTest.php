@@ -62,7 +62,8 @@ it('learns no limit a config writes a number for, and takes no statistic for a w
     expect([$bounds->learnsFloor(), $bounds->learnsMultiple(), $bounds->floor(), $bounds->multiple()])
         ->toEqual([false, false, Seconds::of(7.0), Multiple::of(4.0)])
         ->and($settings->shards()->max())->toBe(8)
-        ->and($settings->shards()->learnedFrom())->toBeInstanceOf(NotGiven::class);
+        ->and($settings->shards()->learnedFrom())->toBeInstanceOf(NotGiven::class)
+        ->and($settings->effective()->php(ProjectRoot::origin())->code())->toContain('Timeouts::multiple(4)');
 });
 
 it('refuses a multiple under one and a word other than learned', function (array $config, string $problem): void {

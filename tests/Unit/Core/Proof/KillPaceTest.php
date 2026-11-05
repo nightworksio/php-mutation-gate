@@ -32,6 +32,7 @@ it('paces each mutant a test killed by its run\'s time over its covering tests\'
         ->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'), TestId::of('MoneyTest::rounds'))
         ->covered(Path::of('src/Money.php'), Line::of(5), TestId::of('MoneyTest::untimed'))
         ->covered(Path::of('src/Money.php'), Line::of(7), TestId::of('MoneyTest::instant'))
+        ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds'))
         ->timed(TestId::of('MoneyTest::adds'), Seconds::of(0.5))
         ->timed(TestId::of('MoneyTest::rounds'), Seconds::of(1.5))
         ->timed(TestId::of('MoneyTest::instant'), Seconds::of(0.0));
@@ -44,5 +45,6 @@ it('paces each mutant a test killed by its run\'s time over its covering tests\'
         $paced(5, MutantStatus::Killed, Seconds::of(5.0)),
         $paced(7, MutantStatus::Killed, Seconds::of(5.0)),
         $paced(9, MutantStatus::Killed, Seconds::of(5.0)),
-    ), $map))->toEqual([Multiple::of(2.5)]);
+        $paced(11, MutantStatus::Killed, Seconds::of(2.0)),
+    ), $map))->toEqual([Multiple::of(2.5), Multiple::of(4.0)]);
 });

@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Analysis\AsWritten;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Learned;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
@@ -51,6 +52,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\Multiple;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
@@ -561,5 +563,22 @@ it('tells Infection\'s run the start-up the request\'s pool measured, which each
         ChildVariable::MutantFloor->value => '6.000000',
         ChildVariable::Results->value => $at->own(Invocation::SILENCED),
         ChildVariable::MutantStartUp->value => '2.500000',
+    ]);
+});
+
+it('tells Infection\'s run the multiple the pool learned, which each mutant\'s limit lays on its tests\' time', function (): void {
+    $at = InfectionCases::project();
+    $shell = InfectionCases::shell($at, [
+        'killed' => [InfectionRun::entry('Plus', sprintf('%s/src/Money.php', $at->root()), 11, '$a + $b', '$a - $b')],
+    ]);
+    $bounds = LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0))->multipliedBy(Learned::Learned);
+    new Infection($at, $shell, $bounds, nativeMarkersAllowed: false, files: new CapDirectory())->mutate(
+        MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->across(Pool::single()->learning(Multiple::of(4.5))),
+    );
+
+    expect($shell->commands()[1]->environment())->toBe([
+        ChildVariable::MutantFloor->value => '6.000000',
+        ChildVariable::Results->value => $at->own(Invocation::SILENCED),
+        ChildVariable::MutantMultiple->value => '4.500000',
     ]);
 });

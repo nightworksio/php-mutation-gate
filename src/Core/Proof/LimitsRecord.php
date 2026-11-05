@@ -51,28 +51,22 @@ final readonly class LimitsRecord
     /** What a ledger's two sections hold; nothing of either it holds none of. */
     public static function read(Node $kills, Node $concurrency): LimitHistory
     {
-        $ratios = array_map(self::ratioIn(...), self::itemsOf($kills));
-        $runs = array_map(self::runIn(...), self::itemsOf($concurrency));
+        $ratios = [];
+        $runs = [];
 
-        return LimitHistory::none()
-            ->afterKills(...array_map(Multiple::of(...), $ratios))
-            ->afterRuns(...array_map(ShardsAtOnce::of(...), $runs));
-    }
+        foreach (self::itemsOf($kills) as $kill) {
+            $ratios = match ($kill->kind()) {
+                Kind::Integer => [...$ratios, Multiple::of($kill->integer())],
+                Kind::Number => [...$ratios, Multiple::of($kill->number())],
+                Kind::Map, Kind::List, Kind::Empty, Kind::Text, Kind::Boolean, Kind::Null, Kind::Nothing => $ratios,
+            };
+        }
 
-    /** A kill's pace as its item holds it; nothing where it holds no number. */
-    private static function ratioIn(Node $kill): float
-    {
-        return match ($kill->kind()) {
-            Kind::Integer => (float) $kill->integer(),
-            Kind::Number => $kill->number(),
-            Kind::Map, Kind::List, Kind::Empty, Kind::Text, Kind::Boolean, Kind::Null, Kind::Nothing => 0.0,
-        };
-    }
+        foreach (self::itemsOf($concurrency) as $run) {
+            $runs = $run->kind() === Kind::Integer ? [...$runs, ShardsAtOnce::of($run->integer())] : $runs;
+        }
 
-    /** A run's most shards at once as its item holds it; nothing where it holds no whole number. */
-    private static function runIn(Node $run): int
-    {
-        return $run->kind() === Kind::Integer ? $run->integer() : 0;
+        return LimitHistory::none()->afterKills(...$ratios)->afterRuns(...$runs);
     }
 
     /** @return list<Node> */

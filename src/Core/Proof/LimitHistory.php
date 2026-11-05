@@ -14,7 +14,6 @@ use ArrayIterator;
 use function ceil;
 use function count;
 use function intdiv;
-use function max;
 
 use NightWorksIO\MutationGate\Core\Config\LearnedStatistic;
 use NightWorksIO\MutationGate\Core\Cost\ShardsAtOnce;
@@ -129,7 +128,7 @@ final readonly class LimitHistory
         usort($sorted, static fn(Multiple $one, Multiple $other): int => $one->times() <=> $other->times());
         $at = (int) ceil(self::PERCENTILE * count($sorted)) - 1;
 
-        return $sorted[max(0, $at)]->within(Multiple::of(self::LEAST_MULTIPLE), Multiple::of(self::MOST_MULTIPLE));
+        return $sorted[$at]->within(Multiple::of(self::LEAST_MULTIPLE), Multiple::of(self::MOST_MULTIPLE));
     }
 
     /** How many shards the runs ran at once, read by this statistic; none where no run was learned. */

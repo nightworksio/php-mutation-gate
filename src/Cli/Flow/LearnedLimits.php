@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
-use function max;
 use function min;
 
 use NightWorksIO\MutationGate\Core\Config\LearnedStatistic;
@@ -106,7 +105,7 @@ final readonly class LearnedLimits
         $learned = $runs->shards($statistic);
         $most = Shards::standard()->max();
 
-        return $learned instanceof NotGiven ? $most : min(max($learned, 1), $most);
+        return $learned instanceof NotGiven ? $most : min($learned, $most);
     }
 
     private static function multipleSaid(LimitHistory $kills): string
