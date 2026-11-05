@@ -145,6 +145,10 @@ return new Configuration()
     // own database layer needs (ADR-0023); composer.json suggests both.
     ->ignoreErrorsOnExtension('ext-posix', [ErrorType::DEV_DEPENDENCY_IN_PROD])
     ->ignoreErrorsOnExtension('ext-pdo', [ErrorType::DEV_DEPENDENCY_IN_PROD])
+    // A client and a daemon of `serve` tell the process at the other end of
+    // the socket only where PHP loads sockets, and run on their own otherwise
+    // (ADR-0078); composer.json suggests it.
+    ->ignoreErrorsOnExtension('ext-sockets', [ErrorType::DEV_DEPENDENCY_IN_PROD])
     // The tests' stand-in for Laravel's testing declares the classes a warm
     // worker's child reads by name, where a test loads it; the gate requires
     // no Laravel.

@@ -3,6 +3,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Serve\Forking;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\FromArchive;
 use NightWorksIO\MutationGate\Cli\Gate;
@@ -10,6 +11,7 @@ use NightWorksIO\MutationGate\Cli\Keyed\Deliver;
 use NightWorksIO\MutationGate\Cli\Keyed\Fetch;
 use NightWorksIO\MutationGate\Cli\Keyed\Installation;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\OwnScript;
 use NightWorksIO\MutationGate\Core\Proof\LedgerMemory;
@@ -95,4 +97,42 @@ if ($archive instanceof OwnArchive) {
     }
 }
 
-exit(Gate::in($project, $vendor, $archive)->run($input, $output, $output->getErrorOutput()));
+// A daemon of `serve` forks a child for each request, which leads a process group of its own so it stops with every
+// process under it, and leaves the session of the `watch` that started it (ADR-0078).
+$forking = function_exists('pcntl_fork') && function_exists('posix_setsid') ? new class implements Forking {
+    public function forked(Closure $child): int
+    {
+        $forked = pcntl_fork();
+
+        if ($forked === 0) {
+            posix_setpgid(0, 0);
+
+            exit($child());
+        }
+
+        if ($forked > 0) {
+            posix_setpgid($forked, $forked);
+        }
+
+        return $forked;
+    }
+
+    public function hasEnded(int $child): bool
+    {
+        $status = 0;
+
+        return pcntl_waitpid($child, $status, WNOHANG) === $child;
+    }
+
+    public function stopped(int $child): void
+    {
+        posix_kill(-$child, SIGTERM);
+    }
+
+    public function detached(): void
+    {
+        posix_setsid();
+    }
+} : NotGiven::value();
+
+exit(Gate::in($project, $vendor, $archive, $forking)->run($input, $output, $output->getErrorOutput()));

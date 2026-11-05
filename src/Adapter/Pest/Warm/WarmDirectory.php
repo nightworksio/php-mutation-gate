@@ -16,6 +16,7 @@ use function is_dir;
 use function is_file;
 use function mkdir;
 
+use NightWorksIO\MutationGate\Core\File\FileMode;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
@@ -45,7 +46,6 @@ final readonly class WarmDirectory
 
     private const string PID = '.pid';
 
-    private const int OWNER_ONLY = 0o700;
 
     /** The directory of the warm workers of the run that records to these results. */
     public static function beside(string $results): string
@@ -63,7 +63,7 @@ final readonly class WarmDirectory
         $directory = self::beside($results);
 
         if (! is_dir($directory)) {
-            mkdir($directory, self::OWNER_ONLY);
+            mkdir($directory, FileMode::OWNER_ONLY);
         }
 
         return $directory;

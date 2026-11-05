@@ -2203,6 +2203,18 @@
                     "type": "string",
                     "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
                     "default": "5m"
+                },
+                "serveIdle": {
+                    "type": "string",
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
+                    "default": "30m"
+                },
+                "serveStart": {
+                    "enum": [
+                        "watch",
+                        "never"
+                    ],
+                    "default": "watch"
                 }
             },
             "additionalProperties": false
@@ -4347,6 +4359,16 @@
                         "prePushBudget": {
                             "type": "string",
                             "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                        },
+                        "serveIdle": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                        },
+                        "serveStart": {
+                            "enum": [
+                                "watch",
+                                "never"
+                            ]
                         }
                     },
                     "additionalProperties": false

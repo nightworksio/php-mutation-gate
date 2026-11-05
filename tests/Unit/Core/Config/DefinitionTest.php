@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\Local;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Format\Json;
@@ -177,6 +178,8 @@ it('declares every setting as affecting results, as deciding how the gate runs, 
         'mutators.except' => $results,
         'local.watchBudget' => $judges,
         'local.prePushBudget' => $judges,
+        'local.serveIdle' => $judges,
+        'local.serveStart' => $judges,
         'coverage.incremental' => $decides,
         'paths[].glob' => $matching,
         'paths[].mutators.sets' => $matching,
@@ -203,7 +206,7 @@ it('declares every key of the configuration reference, or the entries it lists',
     expect(array_values($undeclared))->toBe([]);
 });
 
-it('states the default budgets the configuration reference gives watch and pre-push', function (): void {
+it('states the default budgets the configuration reference gives watch and pre-push, and the daemon\'s idle time and start', function (): void {
     $reference = (string) file_get_contents(Tree::at('.docs/reference/configuration.md'));
     $default = static fn(string $key): string => preg_match(
         sprintf('/^\\| `%s` \\| [^|]+ \\| `([^`]+)` \\|/m', preg_quote($key, '/')),
@@ -212,7 +215,9 @@ it('states the default budgets the configuration reference gives watch and pre-p
     ) === 1 ? $row[1] : sprintf('no row for %s', $key);
 
     expect([$default('local.watchBudget'), $default('local.prePushBudget')])
-        ->toBe([Budgets::standard()->watch()->written(), Budgets::standard()->prePush()->written()]);
+        ->toBe([Budgets::standard()->watch()->written(), Budgets::standard()->prePush()->written()])
+        ->and([$default('local.serveIdle'), $default('local.serveStart')])
+        ->toBe([Local::none()->serveIdle()->written(), Local::none()->serveStart()->value]);
 });
 
 it('gives runner.memory the default the configuration reference names', function (): void {

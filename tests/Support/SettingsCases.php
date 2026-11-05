@@ -169,7 +169,9 @@ final readonly class SettingsCases
         },
         "local": {
             "watchBudget": "1m",
-            "prePushBudget": "5m"
+            "prePushBudget": "5m",
+            "serveIdle": "30m",
+            "serveStart": "watch"
         }
     }
     JSON;
@@ -249,6 +251,6 @@ final readonly class SettingsCases
         'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45, 'before' => true],
         'pruning' => ['enabled' => false, 'window' => 200, 'audit' => '3d'],
         'sampling' => ['confidence' => 99, 'margin' => 1.5, 'minUnits' => 50, 'seed' => 'release-2026'],
-        'local' => ['watchBudget' => '2m', 'prePushBudget' => '90s'],
+        'local' => ['watchBudget' => '2m', 'prePushBudget' => '90s', 'serveIdle' => '10m', 'serveStart' => 'never'],
     ];
 }

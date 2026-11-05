@@ -196,6 +196,8 @@ services:
             protocols:
                 - src/Adapter/Native/MutantFile.php # PHP hands a stream wrapper resources, which have no native type
                 - src/Adapter/Process/Running.php # proc_open answers a process resource, which has no native type
+                - src/Adapter/Serve/Connection.php # PHP's sockets are resources, which have no native type
+                - src/Adapter/Serve/Listener.php # PHP's sockets are resources, which have no native type
             decoders:
                 - src/Core/Format/Node.php
                 - src/Core/Format/Json.php
@@ -287,6 +289,12 @@ services:
                     - MUTANTS # an unsampled unit's estimated mutants, not a proof's killed mutants
                 'NightWorksIO\MutationGate\Core\Runner\Workers':
                     - Mutants # runner.workers forking only the mutants, not a record's mutants
+                'NightWorksIO\MutationGate\Core\Config\Local':
+                    - SERVE_IDLE_MINUTES # how long a daemon idles, not how many presets ship
+                'NightWorksIO\MutationGate\Adapter\Serve\Connection':
+                    - PEER_PROCESS # the levels and options of the platforms' sockets, not exit codes
+                'NightWorksIO\MutationGate\Adapter\Serve\Daemon':
+                    - REQUEST # how long a client may take to send its request, not how many tests a ranking shows
                 'NightWorksIO\MutationGate\Core\Runner\MaxRss':
                     - RECORDED # a warm child's end's field for its memory, not a briefing's peak
                 'NightWorksIO\MutationGate\Core\Config\Pruning':

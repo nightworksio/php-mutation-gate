@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d19a589498e75475a9eb15ec3642eb23",
+    "content-hash": "434479fdb3430513144569e92237175d",
     "packages": [
         {
             "name": "fidry/cpu-core-counter",
@@ -10833,7 +10833,8 @@
         "ext-dom": "*",
         "ext-pcntl": "*",
         "ext-pdo": "*",
-        "ext-posix": "*"
+        "ext-posix": "*",
+        "ext-sockets": "*"
     },
     "platform-overrides": {
         "php": "8.4.27"

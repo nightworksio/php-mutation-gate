@@ -39,6 +39,7 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
+use NightWorksIO\MutationGate\Core\Serve\ServeStart;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
 it('writes nothing for a config with no settings', function (): void {
@@ -161,6 +162,8 @@ it('writes every setting of the configuration reference', function (): void {
                 Pruning::auditEvery('3d'),
                 Local::watchBudget('2m'),
                 Local::prePushBudget('10m'),
+                Local::serveIdle('1h'),
+                Local::serveStarting(ServeStart::Never),
             ),
     ))->toBe([
         'extensions' => ['Acme\\A', 'Acme\\B'],
@@ -235,7 +238,7 @@ it('writes every setting of the configuration reference', function (): void {
         'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45],
         'mutators' => ['sets' => ['acme', 'acme-auth'], 'except' => ['acme/RemoveAudit']],
         'pruning' => ['enabled' => false, 'window' => 200, 'audit' => '3d'],
-        'local' => ['watchBudget' => '2m', 'prePushBudget' => '10m'],
+        'local' => ['watchBudget' => '2m', 'prePushBudget' => '10m', 'serveIdle' => '1h', 'serveStart' => 'never'],
     ]);
 });
 

@@ -44,6 +44,17 @@ final readonly class PreCommitPush
     /** How git names no commit. */
     private const string NO_COMMIT = '0';
 
+    /**
+     * The variables the framework names a push with, which a daemon's child
+     * takes from its client (ADR-0078).
+     *
+     * @return list<string>
+     */
+    public static function variables(): array
+    {
+        return [self::FROM_REF, self::TO_REF, self::LOCAL_BRANCH, self::REMOTE_BRANCH];
+    }
+
     /** Git's line for the push the framework names, the working tree at this commit; none where it names none. */
     public static function line(Variables $environment, Revision $head): string
     {

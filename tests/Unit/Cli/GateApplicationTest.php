@@ -5,8 +5,15 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\GateApplication;
 use NightWorksIO\MutationGate\Cli\NotFinished;
+use NightWorksIO\MutationGate\Core\Serve\ServeFrame;
+use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
 use NightWorksIO\MutationGate\Tests\Support\Printed;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\ServedCommands;
+use NightWorksIO\MutationGate\Tests\Support\ServedProjects;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\ArgvInput;
+use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Tester\ApplicationTester;
 
 /**
@@ -50,4 +57,31 @@ it('keeps what stopped the command, and itself where nothing did', function (): 
         ->and(NotFinished::by($failed)->getMessage())->toBe('Wrong.')
         ->and(NotFinished::by($failed)->getCode())->toBe(ExitCode::CannotJudge->value)
         ->and(new NotFinished('Alone.')->cause())->toBeInstanceOf(NotFinished::class);
+});
+
+/**
+ * A command a daemon serves run twice by an application that hands it to a daemon: first while a daemon stood in for
+ * answers with 9, then with none; the command ends with 3 where it runs here. The two exit codes.
+ *
+ * @return array{int, int}
+ */
+function servedTwice(): array
+{
+    $project = ServedProjects::enteredAt(FlowCommands::project());
+    $application = new GateApplication('mutation-gate', 'test');
+    $application->setAutoExit(boolean: false);
+    $application->addCommand(new Command('pre-commit')->setCode(static fn(): int => 3));
+    $application->servedBy(ServedCommands::serving($project));
+    ServedProjects::answering(ServeFrame::exited(9)->line());
+    $served = $application->run(new ArgvInput(['gate', 'pre-commit']), new BufferedOutput());
+    ServedProjects::socket()->removed();
+    $local = $application->run(new ArgvInput(['gate', 'pre-commit']), new BufferedOutput());
+    ServedProjects::left();
+    Scratch::sweep();
+
+    return [$served, $local];
+}
+
+it('runs a command a daemon serves in the daemon, ending with its exit code, and in this process where none serves it', function (): void {
+    expect(servedTwice())->toBe([9, 3]);
 });

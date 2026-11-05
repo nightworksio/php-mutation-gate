@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Cli;
 use function getenv;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Serve\Forking;
 use NightWorksIO\MutationGate\Cli\Discovery\Discovery;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
@@ -31,19 +32,25 @@ final readonly class Gate
         private string $vendor,
         private ClockInterface $clock,
         private Variables $environment,
+        private Forking|NotGiven $forking = new NotGiven(),
     ) {
     }
 
     /**
      * The gate for a project, with the Composer vendor directory of its
-     * packages, and the gate's PHAR where it runs from one.
+     * packages, the gate's PHAR where it runs from one, and how its daemon
+     * forks, where its own script runs it (ADR-0078).
      */
-    public static function in(string $project, string $vendor, OwnArchive|NotGiven $archive): self
-    {
+    public static function in(
+        string $project,
+        string $vendor,
+        OwnArchive|NotGiven $archive,
+        Forking|NotGiven $forking = new NotGiven(),
+    ): self {
         $own = $archive instanceof OwnArchive ? Directory::at($archive->root()) : $archive;
         $discovery = new Discovery(Directory::at($project), Directory::at($vendor), $own);
 
-        return new self($discovery, $project, $vendor, new SystemClock(), Variables::of(getenv()));
+        return new self($discovery, $project, $vendor, new SystemClock(), Variables::of(getenv()), $forking);
     }
 
     public function run(InputInterface $input, OutputInterface $output, OutputInterface $errors): int
@@ -57,7 +64,14 @@ final readonly class Gate
             return ExitCode::CannotJudge->value;
         }
 
-        $console = Console::application($extensions, $this->project, $this->vendor, $this->clock, $this->environment);
+        $console = Console::application(
+            $extensions,
+            $this->project,
+            $this->vendor,
+            $this->clock,
+            $this->environment,
+            $this->forking,
+        );
 
         return $console->run($input, $output);
     }
