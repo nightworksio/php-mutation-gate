@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Warm\Seat;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\OwnScript;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
@@ -81,4 +82,26 @@ it('starts the tail\'s workers in a directory with nothing an earlier run left, 
 
     expect($running)->toBeTrue()
         ->and($stale)->toBeFalse();
+})->group(...$holds);
+
+it('forks runs that scan the same ini files from one set of workers, started scanning them, and runs that scan others from a set of their own', function (): void {
+    $root = Scratch::directory();
+    $forkedIn = [];
+    $shell = new ShellFake(static function (Command $command) use (&$forkedIn): Ran {
+        $directory = $command->arguments()[count(OwnScript::PestClient->started()) + 1];
+        $forkedIn[] = [$directory, PidFile::isRunning(Seat::at($directory, 1)->pid())];
+
+        return Ran::finished(succeeded: true, output: '');
+    });
+    $project = Project::at($root, Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'));
+    $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests())->across(Pool::of(ProcessCount::single(), Workers::Fork)->tail());
+    $capped = Command::pest('vendor/bin/pest', Withheld::standard())->with([MemoryCap::SCAN_DIR => ':/cap']);
+
+    TailShell::of($shell, $project, Patching::on(Group::named('canary')), $request)
+        ->sideBySide(WorkerSlots::alone(), Unlimited::time(), $capped, Command::pest('vendor/bin/pest', Withheld::standard()), $capped);
+
+    expect(array_column($forkedIn, 1))->toBe([true, true, true])
+        ->and($forkedIn[0][0])->toBe($forkedIn[2][0])
+        ->and($forkedIn[0][0])->not->toBe($forkedIn[1][0])
+        ->and(is_dir($forkedIn[0][0]) || is_dir($forkedIn[1][0]))->toBeFalse();
 })->group(...$holds);
