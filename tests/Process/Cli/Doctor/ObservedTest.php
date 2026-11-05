@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Doctor\ComposerSetup;
 use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
+use NightWorksIO\MutationGate\Core\Doctor\GateDefinitions;
 use NightWorksIO\MutationGate\Core\Doctor\InfectionConfig;
 use NightWorksIO\MutationGate\Core\Doctor\InstalledRunners;
 use NightWorksIO\MutationGate\Core\Doctor\KeptLedger;
@@ -159,8 +160,9 @@ it('observes the CI definitions that run the gate, the baseline, and the ledgers
     $php = FakePhp::printing(Described::output(['pcov' => '1.0.12'], []));
     $observed = Doctored::observed($project, sprintf('%s/php', $php))->of(CommandLine::nothing());
     $ledgers = $observed->ledgers();
+    $running = $observed->files()->runningTheGate();
 
-    expect($observed->files()->runningTheGate())->toEqual(Paths::of(Path::of('.github/workflows/mutation.yml'), Path::of('.gitlab-ci.yml')))
+    expect($running instanceof GateDefinitions ? $running->paths() : Paths::none())->toEqual(Paths::of(Path::of('.github/workflows/mutation.yml'), Path::of('.gitlab-ci.yml')))
         ->and($observed->files()->baseline())->toEqual(Baseline::of(Entry::of(Path::of('src'), Floor::of(70))))
         ->and($ledgers instanceof KeptLedgers ? array_map(static fn(KeptLedger $ledger): string => $ledger->file()->value(), [...$ledgers]) : [])
         ->toBe(['.mutation-gate/ledger/refs/heads/main/ledger.json.gz']);
