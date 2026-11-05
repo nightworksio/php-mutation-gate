@@ -35,7 +35,7 @@ final readonly class HeatmapJson
             $files[] = [
                 'path' => $file->path()->value(),
                 ...self::scored($file->heat()),
-                'functions' => array_map(self::function(...), $file->functions()),
+                'functions' => array_map(self::function(...), [...$file->functions()]),
             ];
         }
 
@@ -47,7 +47,7 @@ final readonly class HeatmapJson
     {
         $files = array_map(
             static fn(FileHeat $file): array => ['path' => $file->path()->value(), ...self::scored($file->heat())],
-            $heatmap->lowest(),
+            [...$heatmap->lowest()],
         );
 
         return $files === [] ? [] : ['heatmap' => $files];

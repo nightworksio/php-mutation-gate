@@ -19,6 +19,8 @@ use Countable;
 use function in_array;
 
 use IteratorAggregate;
+use NightWorksIO\MutationGate\Core\Config\HeatmapRows;
+use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Score\Score;
@@ -37,24 +39,21 @@ use function usort;
  * lowest of, and the pull request comment shows the files the change
  * reaches of, those that fell most and those below their tree's floor.
  *
- * @internal
- *
  * @implements IteratorAggregate<int, FileHeat>
  */
 final readonly class Heatmap implements Countable, IteratorAggregate
 {
     /**
-     * @param list<FileHeat> $files  lowest score first
-     * @param int            $lowest how many of the lowest-scoring files {@see lowest()} lists
-     * @param int            $fallen how many of the files that fell most {@see fallen()} lists
+     * @param list<FileHeat> $files lowest score first
+     * @param HeatmapRows    $rows  how many files {@see lowest()} and {@see fallen()} list
      */
-    private function __construct(private array $files, private int $lowest, private int $fallen)
+    private function __construct(private array $files, private HeatmapRows $rows)
     {
     }
 
     public static function none(): self
     {
-        return new self([], 0, 0);
+        return new self([], self::unlisted());
     }
 
     /**
@@ -72,13 +71,13 @@ final readonly class Heatmap implements Countable, IteratorAggregate
 
         usort($files, static fn(FileHeat $one, FileHeat $other): int => Heats::compare($one->heat(), $other->heat()));
 
-        return new self($files, 0, 0);
+        return new self($files, self::unlisted());
     }
 
-    /** This, listing this many of its lowest-scoring files, and this many of the files that fell most. */
-    public function listing(int $lowest, int $fallen): self
+    /** This, listing as many of its lowest-scoring files, and of the files that fell most, as `heatmap` says. */
+    public function listing(HeatmapRows $rows): self
     {
-        return new self($this->files, $lowest, $fallen);
+        return new self($this->files, $rows);
     }
 
     /** This, each file compared with the base's file at its path, where the base has one. */
@@ -98,22 +97,22 @@ final readonly class Heatmap implements Countable, IteratorAggregate
                 : $file;
         }
 
-        return new self($files, $this->lowest, $this->fallen);
+        return new self($files, $this->rows);
     }
 
     /**
      * The lowest-scoring files that have a score, as many as it lists.
      *
-     * @return list<FileHeat>
+     * @return Listed<FileHeat>
      */
-    public function lowest(): array
+    public function lowest(): Listed
     {
         $scored = array_filter(
             $this->files,
             static fn(FileHeat $file): bool => $file->heat()->score() instanceof Score,
         );
 
-        return array_slice(array_values($scored), 0, $this->lowest);
+        return Listed::of(...array_slice(array_values($scored), 0, $this->rows->files()));
     }
 
     /**
@@ -121,24 +120,24 @@ final readonly class Heatmap implements Countable, IteratorAggregate
      * many as it lists, then any other it reaches below its tree's floor;
      * none where it lists none.
      *
-     * @return list<FileHeat>
+     * @return Listed<FileHeat>
      */
-    public function fallen(): array
+    public function fallen(): Listed
     {
-        if ($this->fallen === 0) {
-            return [];
+        if ($this->rows->comment() === 0) {
+            return Listed::of();
         }
 
         $touched = array_values(array_filter($this->files, static fn(FileHeat $file): bool => $file->isTouched()));
         $dropped = array_values(array_filter($touched, static fn(FileHeat $file): bool => $file->heat()->drop() > 0));
         usort($dropped, $this->fellMore(...));
-        $fallen = array_slice($dropped, 0, $this->fallen);
+        $fallen = array_slice($dropped, 0, $this->rows->comment());
         $below = array_filter(
             $touched,
             static fn(FileHeat $file): bool => $file->isBelowFloor() && ! in_array($file, $fallen, strict: true),
         );
 
-        return [...$fallen, ...array_values($below)];
+        return Listed::of(...$fallen, ...array_values($below));
     }
 
     public function count(): int
@@ -150,6 +149,11 @@ final readonly class Heatmap implements Countable, IteratorAggregate
     public function getIterator(): Traversable
     {
         return new ArrayIterator($this->files);
+    }
+
+    private static function unlisted(): HeatmapRows
+    {
+        return HeatmapRows::of(files: 0, comment: 0);
     }
 
     private function fellMore(FileHeat $one, FileHeat $other): int
@@ -185,7 +189,7 @@ final readonly class Heatmap implements Countable, IteratorAggregate
 
             $files[] = FileHeat::of(
                 Heat::of($path, $mutants, $tree->uncovered()),
-                $heats,
+                Listed::of(...$heats),
                 $tree->floor(),
                 touched: count($mutants->changed()) > 0,
             );

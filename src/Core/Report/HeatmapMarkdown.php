@@ -6,8 +6,10 @@ namespace NightWorksIO\MutationGate\Core\Report;
 
 use function array_map;
 use function array_slice;
+use function count;
 use function implode;
 
+use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Heat\FileHeat;
 use NightWorksIO\MutationGate\Core\Heat\Heat;
@@ -37,12 +39,12 @@ final readonly class HeatmapMarkdown
     /**
      * The table of these files; nothing where there are none.
      *
-     * @param  list<FileHeat> $files
+     * @param  Listed<FileHeat> $files
      * @return list<string>
      */
-    public static function table(array $files): array
+    public static function table(Listed $files): array
     {
-        return $files === [] ? [] : [implode("\n", [...self::HEAD, ...array_map(self::row(...), $files)])];
+        return count($files) === 0 ? [] : [implode("\n", [...self::HEAD, ...array_map(self::row(...), [...$files])])];
     }
 
     private static function row(FileHeat $file): string
@@ -53,7 +55,7 @@ final readonly class HeatmapMarkdown
                 Escape::code($function->name()),
                 self::scored($function),
             ),
-            array_slice($file->functions(), 0, self::FUNCTIONS),
+            array_slice([...$file->functions()], 0, self::FUNCTIONS),
         );
 
         return sprintf(

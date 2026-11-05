@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 
 use function explode;
 
+use NightWorksIO\MutationGate\Core\Config\HeatmapRows;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
@@ -117,6 +118,6 @@ final readonly class Heatmaps
             ['src/Cart.php:4', MutantJudgement::Survived, false],
         ]);
 
-        return Heatmap::of($now, self::spans(...))->comparedWith(Heatmap::of($base, self::spans(...)))->listing(10, 5);
+        return Heatmap::of($now, self::spans(...))->comparedWith(Heatmap::of($base, self::spans(...)))->listing(HeatmapRows::of(files: 10, comment: 5));
     }
 }

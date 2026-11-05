@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Heat;
 
 use function array_key_exists;
 
+use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
@@ -17,24 +18,22 @@ use NightWorksIO\MutationGate\Core\Score\Undeclared;
  * that hold its mutants, lowest first, the floor of the tree it is in, and
  * whether the change reaches it: whether one of its mutants is on a
  * changed line.
- *
- * @internal
  */
 final readonly class FileHeat
 {
-    /** @param list<Heat> $functions lowest score first */
+    /** @param Listed<Heat> $functions lowest score first */
     private function __construct(
         private Heat $heat,
-        private array $functions,
+        private Listed $functions,
         private Floor|Exempt|Undeclared $floor,
         private bool $touched,
     ) {
     }
 
-    /** @param list<Heat> $functions */
-    public static function of(Heat $heat, array $functions, Floor|Exempt|Undeclared $floor, bool $touched): self
+    /** @param Listed<Heat> $functions */
+    public static function of(Heat $heat, Listed $functions, Floor|Exempt|Undeclared $floor, bool $touched): self
     {
-        return new self($heat, Heats::lowestFirst($functions), $floor, $touched);
+        return new self($heat, Listed::of(...Heats::lowestFirst([...$functions])), $floor, $touched);
     }
 
     /** This, its score and each function's compared with the base's file. */
@@ -54,7 +53,12 @@ final readonly class FileHeat
                 : $function;
         }
 
-        return new self($this->heat->comparedWith($base->heat->score()), $functions, $this->floor, $this->touched);
+        return new self(
+            $this->heat->comparedWith($base->heat->score()),
+            Listed::of(...$functions),
+            $this->floor,
+            $this->touched,
+        );
     }
 
     public function path(): Path
@@ -67,8 +71,8 @@ final readonly class FileHeat
         return $this->heat;
     }
 
-    /** @return list<Heat> lowest score first */
-    public function functions(): array
+    /** @return Listed<Heat> lowest score first */
+    public function functions(): Listed
     {
         return $this->functions;
     }

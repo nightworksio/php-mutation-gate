@@ -56,9 +56,9 @@ final readonly class Heatmap
 
     private const string FOLDED = '<details><summary>%s</summary><ul class="heat-functions">%s</ul></details>';
 
-    private const string FUNCTION = '<li><code>%s</code> %s <span class="heat-change">%s</span> %s</li>';
+    private const string FUNCTION = '<li><code>%s</code> %s <span class="heat-change">%s</span>%s</li>';
 
-    private const string NOT_KILLED = '<span class="tag tag--escaped">%d not killed</span>';
+    private const string NOT_KILLED = ' <span class="tag tag--escaped">%d not killed</span>';
 
 
     /** @param Report $report */

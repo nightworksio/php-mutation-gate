@@ -430,7 +430,9 @@ request wrote for itself is read.
 repository of an organisation that published a summary, with its verdict,
 score and trend, the trees below their floors, the time the gate saved
 it over 30 days, and, collapsed under its row, the ten mutators that cost
-it the most ([ADR-0076](../../decisions/0076-a-ledger-tallies-what-each-mutator-costs-and-finds-and-config-suggest-proposes-changes.md)),
+it the most ([ADR-0076](../../decisions/0076-a-ledger-tallies-what-each-mutator-costs-and-finds-and-config-suggest-proposes-changes.md))
+and its lowest-scoring files, each with its change against the base
+([ADR-0084](../../decisions/0084-a-heatmap-scores-every-file-and-function-against-the-base.md)),
 and the same as `dashboard.json` ([ADR-0024](../../decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md)). It reads
 each repository's `mutation-gate` branch, where the reusable workflow
 publishes, through GitHub's API with `GITHUB_TOKEN`, and shows the

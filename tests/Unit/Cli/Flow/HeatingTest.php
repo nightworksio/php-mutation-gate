@@ -53,7 +53,8 @@ afterEach(function (): void {
  *
  * @param array<int, MutantStatus> $at by line
  */
-$mutants = static function (array $at): Mutants {
+function heatingMutants(array $at): Mutants
+{
     $mutants = [];
 
     foreach ($at as $line => $status) {
@@ -68,11 +69,11 @@ $mutants = static function (array $at): Mutants {
     }
 
     return Mutants::of(...$mutants);
-};
+}
 
 $trees = static fn(): Trees => Trees::of(Tree::at(Path::of('src'), Floor::of(50), Package::at(Path::root())));
 $judge = static fn(): Judge => Judge::of($trees(), Baseline::none(), Reach::nothing(Packages::of($trees())), Uncovered::Count, TimeoutMode::Confirm, Ignoring::none());
-$run = Run::of('main', Instant::at(new DateTimeImmutable('2026-09-30T09:00:00Z')), Digest::of(str_repeat('b', 64)));
+$run = static fn(): Run => Run::of('main', Instant::at(new DateTimeImmutable('2026-09-30T09:00:00Z')), Digest::of(str_repeat('b', 64)));
 
 $functions = static fn(FileHeat $file): array => array_map(
     static fn(Heat $function): array => [
@@ -80,15 +81,15 @@ $functions = static fn(FileHeat $file): array => array_map(
         $function->score() instanceof Score ? $function->score()->hundredths() : null,
         $function->base() instanceof Score ? $function->base()->hundredths() : null,
     ],
-    $file->functions(),
+    [...$file->functions()],
 );
 
-it('scores each function as the file on disk holds it, against the functions the base\'s proof names', function () use ($mutants, $judge, $run, $functions): void {
+it('scores each function as the file on disk holds it, against the functions the base\'s proof names', function () use ($judge, $run, $functions): void {
     $project = Scratch::directory();
     Scratch::write($project, 'src/Money.php', Heatmaps::MONEY);
     $unit = Unit::file(Path::of('src/Money.php'));
-    $now = UnitResults::of(UnitResult::of($unit, Origin::Run, $mutants([6 => MutantStatus::Killed, 12 => MutantStatus::Survived])));
-    $proof = Proof::of(Digest::sha256Of('money'), Path::of('src/Money.php'), $mutants([6 => MutantStatus::Killed, 12 => MutantStatus::Killed]), $run)
+    $now = UnitResults::of(UnitResult::of($unit, Origin::Run, heatingMutants([6 => MutantStatus::Killed, 12 => MutantStatus::Survived])));
+    $proof = Proof::of(Digest::sha256Of('money'), Path::of('src/Money.php'), heatingMutants([6 => MutantStatus::Killed, 12 => MutantStatus::Killed]), $run())
         ->withFunctions(FunctionSpans::in(Contents::of(Heatmaps::MONEY)));
     $heatmap = new Heating(Directory::at($project), HeatmapRows::of(files: 3, comment: 0))
         ->of($judge()->trees($now), $now, $judge(), Proofs::of($proof));
@@ -97,15 +98,15 @@ it('scores each function as the file on disk holds it, against the functions the
     expect($functions($money))->toBe([['Money::sub', 0, 10_000], ['Money::add', 10_000, 10_000]])
         ->and($money->heat()->base())->toEqual(Score::ofHundredths(10_000))
         ->and($heatmap->lowest())->toHaveCount(1)
-        ->and($heatmap->fallen())->toBe([]);
+        ->and([...$heatmap->fallen()])->toBe([]);
 });
 
-it('scores no function where functions are not scored, the base\'s proof names none, or it never proved the unit', function () use ($mutants, $judge, $run, $functions): void {
+it('scores no function where functions are not scored, the base\'s proof names none, or it never proved the unit', function () use ($judge, $run, $functions): void {
     $project = Scratch::directory();
     Scratch::write($project, 'src/Money.php', Heatmaps::MONEY);
     $unit = Unit::file(Path::of('src/Money.php'));
-    $now = UnitResults::of(UnitResult::of($unit, Origin::Run, $mutants([6 => MutantStatus::Killed])));
-    $unnamed = Proof::of(Digest::sha256Of('money'), Path::of('src/Money.php'), $mutants([6 => MutantStatus::Killed]), $run);
+    $now = UnitResults::of(UnitResult::of($unit, Origin::Run, heatingMutants([6 => MutantStatus::Killed])));
+    $unnamed = Proof::of(Digest::sha256Of('money'), Path::of('src/Money.php'), heatingMutants([6 => MutantStatus::Killed]), $run());
     $named = $unnamed->withFunctions(FunctionSpans::in(Contents::of(Heatmaps::MONEY)));
     $heated = static fn(HeatmapRows $rows, Proofs $base, string $directory): Heatmap => new Heating(Directory::at($directory), $rows)
         ->of($judge()->trees($now), $now, $judge(), $base);
