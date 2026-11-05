@@ -33,14 +33,18 @@ use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
+use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
+use NightWorksIO\MutationGate\Core\Runner\TestWatch;
 use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlot;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestTime;
+use NightWorksIO\MutationGate\Core\Test\TestTimes;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -211,6 +215,20 @@ it('gives each mutant\'s run the silence limit of its slowest covering test, on 
         NotGiven::value(),
         SilenceLimit::of(Seconds::of(11.0), $shell->commands()[1]->environment()[Variable::Results->value]),
     ]);
+});
+
+it('holds each test of a mutant\'s run to its own limit, timed by the map, where the bounds name one', function (): void {
+    $root = library();
+    Scratch::write($root, 'src/Span.php', "<?php\n\nfunction add(\$a, \$b)\n{\n    return \$a\n        + \$b;\n}\n");
+    [$run, $shell] = killingRun($root);
+    $timed = CoverageMap::empty()
+        ->covered(Path::of('src/Span.php'), Line::of(5), TestId::of('Tests\MoneySpec::adds'))
+        ->timed(TestId::of('Tests\MoneySpec::adds'), Seconds::of(1.0));
+    $run->of(MutationRequest::of(Paths::of(Path::of('src/Span.php')), WholeSuite::tests()), $timed, LimitBounds::between(Seconds::of(6.0), Seconds::of(30.0))->watchingEachTest(PerTestLimit::standard()));
+    $silence = $shell->commands()[0]->silence();
+
+    expect($silence instanceof SilenceLimit ? $silence->tests() : $silence)
+        ->toEqual(TestWatch::of(PerTestLimit::standard(), TestTimes::of(TestTime::of(TestId::of('Tests\MoneySpec::adds'), Seconds::of(1.0)))));
 });
 
 it('keeps the silence limit of a mutant of a mutator timeouts.tighter lists above its lower floor', function (): void {

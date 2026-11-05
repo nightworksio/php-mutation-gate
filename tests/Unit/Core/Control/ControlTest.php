@@ -11,10 +11,14 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
 use NightWorksIO\MutationGate\Core\Runner\RunTests;
+use NightWorksIO\MutationGate\Core\Runner\TestWatch;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestTime;
+use NightWorksIO\MutationGate\Core\Test\TestTimes;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\LoadingUnfiltered;
@@ -107,4 +111,20 @@ it('gives the run that judges a mutant the test files its run loaded with no fil
         ->toEqual(RunTests::loading(TestIds::of(TestId::of('MoneyTest::a')), $files))
         ->and(Control::judging($mutant, $map, HeldCovered::none(), $echo, NotGiven::value()))
         ->toEqual(RunTests::of(TestIds::of(TestId::of('MoneyTest::a'))));
+});
+
+it('holds each of its tests to its own limit under a watch, told apart by the watch\'s multiple and floor, and kept through its parts', function (): void {
+    $times = TestTimes::of(TestTime::of(TestId::of('MoneyTest::a'), Seconds::of(1.0)));
+    $control = controlOf('src/Money.php', ['MoneyTest::a'], 5.0);
+    $watched = $control->watched(TestWatch::of(PerTestLimit::standard(), $times));
+
+    expect($watched->watch())->toEqual(TestWatch::of(PerTestLimit::standard(), $times))
+        ->and($control->watch())->toEqual(NotGiven::value())
+        ->and($control->watched(TestWatch::of(PerTestLimit::off(), $times)))->toEqual($control)
+        ->and($watched->key())->not->toBe($control->key())
+        ->and($watched->key())->not->toBe($control->watched(TestWatch::of(PerTestLimit::of(4, Seconds::of(3.0)), $times))->key())
+        ->and($watched->key())->not->toBe($control->watched(TestWatch::of(PerTestLimit::of(3, Seconds::of(2.0)), $times))->key())
+        ->and($watched->key())->toBe($control->watched(TestWatch::of(PerTestLimit::standard(), TestTimes::of(TestTime::of(TestId::of('MoneyTest::a'), Seconds::of(9.0)))))->key())
+        ->and($watched->serving(Contents::of('<?php // mutant'), Seconds::of(2.0))->watch())->toEqual($watched->watch())
+        ->and($watched->serving(Contents::of('<?php // mutant'), Seconds::of(2.0))->unmutated())->toEqual($watched);
 });

@@ -5,6 +5,9 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\LoadedMap;
 use NightWorksIO\MutationGate\Adapter\Pest\Suite;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestTime;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 afterEach(function (): void {
     LoadedMap::remember([]);
@@ -37,4 +40,14 @@ it('counts the map\'s tests once, and again once it reads another map', function
     expect(LoadedMap::suite())->toBe(LoadedMap::suite())
         ->and($first)->toEqual(Suite::named(['T::a']))
         ->and(LoadedMap::suite())->toEqual(Suite::named(['T::b']));
+});
+
+it('gives every test\'s own time once, and again once it reads another map', function (): void {
+    loadedMapOf(['T::a' => 0.25, 'T::c' => 0.5]);
+    $first = LoadedMap::times();
+    loadedMapOf(['T::b' => 1.0]);
+
+    expect(LoadedMap::times())->toBe(LoadedMap::times())
+        ->and([...$first])->toEqual([TestTime::of(TestId::of('T::a'), Seconds::of(0.25)), TestTime::of(TestId::of('T::c'), Seconds::of(0.5))])
+        ->and([...LoadedMap::times()])->toEqual([TestTime::of(TestId::of('T::b'), Seconds::of(1.0))]);
 });

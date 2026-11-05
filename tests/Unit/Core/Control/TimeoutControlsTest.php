@@ -22,14 +22,18 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ExactRun;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
+use NightWorksIO\MutationGate\Core\Runner\TestWatch;
 use NightWorksIO\MutationGate\Core\Runner\UnfilteredRuns;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestTime;
+use NightWorksIO\MutationGate\Core\Test\TestTimes;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
@@ -215,3 +219,13 @@ it('names, for a timeout whose tests fail without it, the tests its control reco
     'recorded' => [fn(): TestIds => TestIds::of(TestId::of('LoopTest::b')), ['LoopTest::b']],
     'none recorded' => [fn(): TestIds => TestIds::none(), ['LoopTest::a']],
 ]);
+
+it('holds each test of a timeout\'s control to the limit of its own its run was, timed by the map', function (): void {
+    $map = loopMap('LoopTest::a', 'LoopTest::b')->timed(TestId::of('LoopTest::a'), Seconds::of(2.0));
+    $asked = [...TimeoutControls::of(Mutants::of(hungMutant()), UnfilteredRuns::none(), $map, HeldCovered::none(), new ExactRun(), PerTestLimit::standard())->asked()];
+    $off = [...TimeoutControls::of(Mutants::of(hungMutant()), UnfilteredRuns::none(), $map, HeldCovered::none(), new ExactRun(), PerTestLimit::off())->asked()];
+
+    expect(array_map(static fn(Control $control): TestWatch|NotGiven => $control->watch(), $asked))
+        ->toEqual([TestWatch::of(PerTestLimit::standard(), TestTimes::of(TestTime::of(TestId::of('LoopTest::a'), Seconds::of(2.0))))])
+        ->and(array_map(static fn(Control $control): TestWatch|NotGiven => $control->watch(), $off))->toEqual([NotGiven::value()]);
+});

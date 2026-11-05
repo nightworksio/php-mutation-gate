@@ -15,7 +15,9 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Mutant\Ended;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function rtrim;
@@ -117,10 +119,13 @@ final readonly class PestRun
         return self::line(RecordLine::preloaded(self::mutated($id)));
     }
 
-    /** That the own run of the mutant with this native id was stopped where no test finished for this long. */
-    public static function silent(string $id, float $seconds): string
+    /**
+     * That the own run of the mutant with this native id was stopped where no
+     * test finished for this long, or where this test ran past this own limit.
+     */
+    public static function silent(string $id, float $seconds, TestId|NotGiven $overran = new NotGiven()): string
     {
-        return self::line(RecordLine::silent(self::mutated($id), $seconds));
+        return self::line(RecordLine::silent(self::mutated($id), $seconds, $overran));
     }
 
     /** How many tests the own process of the mutant with this native id ran. */

@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 it('holds the sentence a report prints beside the mutant', function (): void {
@@ -39,4 +40,9 @@ it('says no test of a mutant\'s run finished for its silence limit, so its run w
     expect(Reason::silent(Seconds::of(8.0))->text())
         ->toBe('No test finished for 8s, its silence limit, so its run was stopped.')
         ->and(Reason::silent(Seconds::of(8.0))->outOfTime())->toEqual(Unreported::reason());
+});
+
+it('says which test of a mutant\'s run ran past its own limit, so its run was stopped', function (): void {
+    expect(Reason::overran(TestId::of('MoneyTest::adds'), Seconds::of(3.0))->text())
+        ->toBe('Its test MoneyTest::adds ran past 3s, its own limit, so its run was stopped.');
 });

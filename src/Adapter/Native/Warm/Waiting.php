@@ -104,8 +104,9 @@ final readonly class Waiting
     }
 
     /**
-     * The child stopped, where it has made no progress for its silence limit
-     * or its test has run past its own; nothing where it runs on.
+     * The child stopped, where its test has run past its own limit, which its
+     * end names, or it has made no progress for its silence limit; nothing
+     * where it runs on.
      */
     private function stoppedEarly(
         Progress|NotGiven $progress,
@@ -121,7 +122,7 @@ final readonly class Waiting
 
         $this->stop();
 
-        return $overrun instanceof Overrun && ! $silent
+        return $overrun instanceof Overrun
             ? End::overran($overrun, $this->seconds(), $from->untilNow($workplace))
             : End::silenced($this->seconds(), $from->untilNow($workplace));
     }

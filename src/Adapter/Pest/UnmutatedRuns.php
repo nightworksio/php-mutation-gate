@@ -197,7 +197,7 @@ final readonly class UnmutatedRuns
             ...[
                 ...PhpUnitOption::inSuites($request->narrowing()->suitesFor($judgedBy)),
                 sprintf('%s=%s', PhpUnitOption::LogJunit->value, $log),
-                ...self::silenceOf($control, $events) instanceof SilenceLimit
+                ...$this->silenceOf($control, $events) instanceof SilenceLimit
                     ? [sprintf('%s=%s', PhpUnitOption::LogEventsText->value, $events)]
                     : [],
             ],
@@ -211,7 +211,7 @@ final readonly class UnmutatedRuns
      */
     private function silenced(Command $command, Control $control, string $events): Command
     {
-        $silence = self::silenceOf($control, $events);
+        $silence = $this->silenceOf($control, $events);
 
         return $silence instanceof SilenceLimit ? $command->silencedAfter($silence) : $command;
     }
@@ -221,7 +221,7 @@ final readonly class UnmutatedRuns
      * written to this file: its silence limit, and each test's own; none
      * where only its limit does.
      */
-    private static function silenceOf(Control $control, string $events): SilenceLimit|NotGiven
+    private function silenceOf(Control $control, string $events): SilenceLimit|NotGiven
     {
         return SilenceLimit::stopping($control->silence(), $control->watch(), $events, TestEvents::PhpUnitText);
     }

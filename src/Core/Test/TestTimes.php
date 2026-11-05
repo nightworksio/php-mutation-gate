@@ -21,7 +21,7 @@ use function sprintf;
  */
 final readonly class TestTimes implements IteratorAggregate
 {
-    /** @param array<string, float> $seconds each test's own seconds, by its id */
+    /** @param array<array-key, float> $seconds each test's own seconds, by its id, a number where it reads as one */
     private function __construct(private array $seconds)
     {
     }

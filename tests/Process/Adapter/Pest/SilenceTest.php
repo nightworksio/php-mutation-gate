@@ -7,6 +7,8 @@ use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\LoadedMap;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Adapter\Pest\Silence;
+use NightWorksIO\MutationGate\Core\Runner\TestEvents;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Tests\Support\GateEnvironment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
@@ -119,4 +121,50 @@ it('never stops a run it does not watch, one watched again under tests the map d
     foreach ($runs as $run) {
         $run->stop(0);
     }
+})->group(...$holds);
+
+/** An own run that tells, on its error output, that this test started, then prints a dot every tenth of a second. */
+function startedRun(string $test): Process
+{
+    $process = new Process([PHP_BINARY, '-r', sprintf(
+        'fwrite(STDERR, %s); for ($i = 0; $i < 300; $i++) { echo "."; usleep(100000); }',
+        var_export(sprintf("%s%s\n", TestEvents::TEST_STARTED, rawurlencode($test)), return: true),
+    )]);
+    $process->start();
+    $process->waitUntil(static fn(): bool => str_contains($process->getErrorOutput(), "\n"));
+
+    return $process;
+}
+
+it('stops a run whose test runs past its own limit, filtered or not, recording the test', function (string $filter): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    putenv(sprintf('%s=%s', GateVariable::Results->value, $results));
+    putenv(sprintf('%s=%s', GateVariable::TestMultiple->value, '3'));
+    putenv(sprintf('%s=%s', GateVariable::TestFloor->value, '1'));
+    LoadedMap::remember(['testResults' => ['T::a' => ['size' => 'unknown', 'status' => 'success', 'time' => 0.5]]]);
+    $process = startedRun('T::a');
+    Silence::watch($process, ['T::a'], '/tmp/mutations/abc', $filter, 'P\\Plus');
+
+    Silence::check($process, 1000.0);
+    Silence::check($process, 1001.4);
+    $running = $process->isRunning();
+
+    expect(static fn() => Silence::check($process, 1001.6))->toThrow(ProcessTimedOutException::class)
+        ->and($running)->toBeTrue()
+        ->and(file_get_contents($results))->toBe(RecordLine::silent('/tmp/mutations/abc', 1.5, TestId::of('T::a')));
+})->with([
+    'filtered' => ['--filter="T::a"'],
+    'its filter left out' => [fn(): string => str_repeat('T::a|', Ceiling::BYTES)],
+])->group(...$holds);
+
+it('holds no test to a limit of its own where the gate names none', function (): void {
+    LoadedMap::remember(['testResults' => ['T::a' => ['size' => 'unknown', 'status' => 'success', 'time' => 0.5]]]);
+    $process = startedRun('T::a');
+    Silence::watch($process, ['T::a'], '/tmp/mutations/abc', str_repeat('T::a|', Ceiling::BYTES), 'P\\Plus');
+
+    Silence::check($process, 1000.0);
+    Silence::check($process, 2000.0);
+
+    expect($process->isRunning())->toBeTrue();
+    $process->stop(0);
 })->group(...$holds);

@@ -65,7 +65,7 @@ final readonly class TestLog
     public function after(string $added, float $at): self
     {
         $lines = explode("\n", sprintf('%s%s', $this->pending, $added));
-        $pending = sprintf('%s', array_pop($lines));
+        $pending = array_pop($lines);
         $clock = $this->clock;
 
         foreach ($lines as $line) {
@@ -92,13 +92,13 @@ final readonly class TestLog
         return match ($this->events) {
             TestEvents::PhpUnitText => str_starts_with($line, self::PREPARING)
                 ? TestId::of(
-                    mb_substr($line, mb_strlen(self::PREPARING), self::closing($line) - mb_strlen(self::PREPARING)),
+                    mb_substr($line, mb_strlen(self::PREPARING), $this->closing($line) - mb_strlen(self::PREPARING)),
                 )
                 : NotGiven::value(),
             TestEvents::NativeResults => str_starts_with($line, self::STARTED)
                 ? TestId::of(rawurldecode(mb_substr($line, mb_strlen(self::STARTED))))
                 : NotGiven::value(),
-            TestEvents::Heartbeats => self::marked($line),
+            TestEvents::Heartbeats => $this->marked($line),
         };
     }
 
@@ -113,7 +113,7 @@ final readonly class TestLog
     }
 
     /** The test whose start a line of beats marks last; none where it marks none. */
-    private static function marked(string $line): TestId|NotGiven
+    private function marked(string $line): TestId|NotGiven
     {
         $marked = mb_strrpos($line, TestEvents::TEST_STARTED);
 
@@ -123,7 +123,7 @@ final readonly class TestLog
     }
 
     /** Where the bracket that closes a line's id is: its last. */
-    private static function closing(string $line): int
+    private function closing(string $line): int
     {
         $closing = mb_strrpos($line, self::CLOSING);
 

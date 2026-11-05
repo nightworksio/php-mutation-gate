@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Serve\DaemonStart;
 use NightWorksIO\MutationGate\Adapter\Serve\Listener;
 use NightWorksIO\MutationGate\Adapter\Serve\ServeSocket;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Tests\Support\Appeared;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ServedProjects;
 
@@ -40,13 +41,9 @@ it('removes a socket file nobody answers on before it starts one', function () u
 
     $script = $standIn($project, '');
     $started = new DaemonStart(ServeSocket::at('.mutation-gate/serve.sock', posix_geteuid()), Seconds::of(0.3))->started($script, $project);
-    $until = microtime(true) + 10.0;
-
-    while (! file_exists('argv') && microtime(true) < $until) {
-        usleep(10_000);
-    }
 
     expect($started)->toBeFalse()
+        ->and(Appeared::file('argv'))->toBeTrue()
         ->and(file_exists('.mutation-gate/serve.sock'))->toBeFalse()
         ->and(file_get_contents('argv'))->toBe('serve --detached');
 });

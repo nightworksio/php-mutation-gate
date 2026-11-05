@@ -21,9 +21,13 @@ use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Reach\TestPlaces;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
 use NightWorksIO\MutationGate\Core\Runner\RunTests;
+use NightWorksIO\MutationGate\Core\Runner\TestWatch;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestTime;
+use NightWorksIO\MutationGate\Core\Test\TestTimes;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /** A mutant of src/Loop.php that timed out at the most of 300 seconds. */
@@ -201,4 +205,13 @@ it('puts the halves of a split part in its place, between the parts before and a
         $runs->serving($part('LoopTest::d')),
         $runs->serving($part('LoopTest::b')),
     ])->and($last->reason())->toEqual(Reason::that(sprintf(PartedMutant::RAN_OUT, 4, 4)));
+});
+
+it('holds each test of a part to the limit of its own the bounds give it, timed by the map', function (): void {
+    $map = CoverageMap::empty()->timed(TestId::of('LoopTest::a'), Seconds::of(30.0));
+    $bounds = LimitBounds::between(Seconds::of(1.0), Seconds::of(300.0))->watchingEachTest(PerTestLimit::standard());
+    $part = PartControls::of(partedHeavy(), Contents::of('<?php // mutant'), $map, $bounds, TestPlaces::none())->serving(partedParts()[0]);
+
+    expect($part->watch())->toEqual(TestWatch::of(PerTestLimit::standard(), TestTimes::of(TestTime::of(TestId::of('LoopTest::a'), Seconds::of(30.0)))))
+        ->and(partedControls()[0]->watch())->toEqual(NotGiven::value());
 });

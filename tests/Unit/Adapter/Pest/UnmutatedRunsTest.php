@@ -45,6 +45,8 @@ use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\RunTests;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
+use NightWorksIO\MutationGate\Core\Runner\TestEvents;
+use NightWorksIO\MutationGate\Core\Runner\TestWatch;
 use NightWorksIO\MutationGate\Core\Runner\UnfilteredRuns;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -52,6 +54,8 @@ use NightWorksIO\MutationGate\Core\Test\JudgingSuites;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestTime;
+use NightWorksIO\MutationGate\Core\Test\TestTimes;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -378,6 +382,20 @@ it('runs a part of a heavy mutant\'s run with the mutant served in its file\'s p
         ->and($served->silence())->toEqual(SilenceLimit::of(Seconds::of(4.0), $events))
         ->and(implode(' ', $unmutated->arguments()))->not->toContain('--log-events-text')
         ->and($unmutated->silence())->toEqual(NotGiven::value());
+});
+
+it('runs a control whose tests are watched writing each event of its tests, stopped where a test runs past its own limit', function (): void {
+    $at = unmutatedProject();
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+    $watch = TestWatch::of(PerTestLimit::standard(), TestTimes::of(TestTime::of(TestId::of('MoneyTest::adds'), Seconds::of(1.0))));
+    $control = pestControl('src/Money.php', 7.0)->watched($watch);
+
+    unmutatedRuns($at, $shell, Controls::of($control), unmutatedRequest());
+    [$watched] = $shell->commands();
+    $events = sprintf('%s/pest/controls/events-0.txt', $at->workspace());
+
+    expect($watched->arguments())->toContain(sprintf('--log-events-text=%s', $events))
+        ->and($watched->silence())->toEqual(SilenceLimit::none($events)->watchingTests($watch, TestEvents::PhpUnitText));
 });
 
 it('tells each control where a forked child writes its peak, and gives it the larger of that one and the launcher\'s', function (string $launched, string $forked, string $peak): void {

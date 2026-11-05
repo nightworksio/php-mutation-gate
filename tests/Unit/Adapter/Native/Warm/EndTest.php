@@ -8,7 +8,9 @@ use NightWorksIO\MutationGate\Adapter\Native\Warm\Printed;
 use NightWorksIO\MutationGate\Adapter\Native\Warm\Workplace;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MaxRss;
+use NightWorksIO\MutationGate\Core\Runner\Overrun;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -83,4 +85,14 @@ it('reads back the most memory a child that ended held, and none of one that hel
         ->and(End::peakIn($workplace, 2))->toEqual(NotGiven::value())
         ->and(End::peakIn($workplace, 3))->toEqual(NotGiven::value())
         ->and(End::peakIn($workplace, 4))->toEqual(MaxRss::peak(1, PHP_OS_FAMILY));
+});
+
+it('writes a child stopped where a test of it ran past its own limit, naming the test, and reads it back so', function (): void {
+    [$workplace, $printed] = endsWorkplace();
+    $overrun = Overrun::of(TestId::of('Tests\\MoneyTest::adds'), Seconds::of(3.0));
+    End::overran($overrun, 3.2, $printed)->writtenTo($workplace->end(0));
+
+    expect(file_get_contents($workplace->end(0)))
+        ->toBe('{"overran":"Tests\\\\MoneyTest::adds","ownLimit":3.0,"seconds":3.2,"place":1,"out":[7,11],"err":[0,1]}')
+        ->and(End::ranIn($workplace, 0))->toEqual(Ran::overran($overrun, 'said!')->took(Seconds::of(3.2)));
 });

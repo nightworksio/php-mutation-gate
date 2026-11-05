@@ -13,8 +13,6 @@ use NightWorksIO\MutationGate\Core\Test\TestTime;
 use NightWorksIO\MutationGate\Core\Test\TestTimes;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
-use function sprintf;
-
 /**
  * The tests of the coverage map a patched Pest loaded, read in its parent
  * process, as php-code-coverage writes one since version 14, the one the
@@ -65,7 +63,7 @@ final class LoadedMap
             $times = [];
 
             foreach (self::$seconds as $test => $seconds) {
-                $times[] = TestTime::of(TestId::of(sprintf('%s', $test)), Seconds::of($seconds));
+                $times[] = TestTime::of(TestId::of($test), Seconds::of($seconds));
             }
 
             self::$times = [TestTimes::of(...$times)];
