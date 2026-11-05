@@ -183,3 +183,22 @@ it('serves a class Composer autoloads by an autoloader, and starts the wrapper f
         ))
         ->and($source($at, 'MutationTest.php'))->toContain(sprintf("\$envs['%s'] = '1';\n", GateVariable::SourcePinned->value));
 });
+
+it('plans what patching would write, writing nothing, and plans nothing once the patch is in place', function () use ($vendor, $source): void {
+    $at = $vendor();
+    $pristine = array_map(static fn(string $file): string => $source($at, $file), MutatePlugin::FILES);
+    $planned = Patch::plannedIn($at);
+
+    expect(array_map(static fn(string $file): string => $source($at, $file), MutatePlugin::FILES))->toBe($pristine);
+
+    Patch::applyIn($at);
+    $applied = [];
+
+    foreach (MutatePlugin::FILES as $file) {
+        $applied[sprintf('%s/pestphp/pest-plugin-mutate/src/%s', $at, $file)] = $source($at, $file);
+    }
+
+    expect($planned)->toBe($applied)
+        ->and(Patch::plannedIn($at))->toBe([])
+        ->and(Patch::plannedIn(Scratch::directory()))->toBeInstanceOf(CannotJudge::class);
+});

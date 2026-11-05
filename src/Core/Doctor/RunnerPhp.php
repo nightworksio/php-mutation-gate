@@ -165,6 +165,12 @@ final readonly class RunnerPhp
         return is_string($this->iniFile) ? $this->iniFile : 'the php.ini this PHP loads';
     }
 
+    /** The php.ini this PHP loads; none where it loads none. */
+    public function loadedIni(): string|NotGiven
+    {
+        return $this->iniFile;
+    }
+
     public function variable(string $name): string|NotGiven
     {
         return array_key_exists($name, $this->variables) ? $this->variables[$name] : NotGiven::value();

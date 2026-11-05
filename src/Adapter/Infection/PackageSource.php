@@ -88,6 +88,31 @@ final readonly class PackageSource
     }
 
     /**
+     * What patching packages in a vendor directory would write, writing nothing: each file it changes, by its path,
+     * with the source it would hold; or why a patch cannot be applied.
+     *
+     * @return array<string, string>|CannotJudge
+     */
+    public static function planned(string $vendor, VendorPatch ...$patches): array|CannotJudge
+    {
+        $changes = self::changesIn($vendor, ...$patches);
+
+        if ($changes instanceof CannotJudge) {
+            return $changes;
+        }
+
+        $planned = [];
+
+        foreach ($patches as $at => $patch) {
+            foreach ($changes[$at] as $file => $source) {
+                $planned[$patch->path($vendor, $file)] = $source;
+            }
+        }
+
+        return $planned;
+    }
+
+    /**
      * Each patch's files with the hunks they lack applied, by the patch's
      * place in the list; or why a patch cannot be applied.
      *

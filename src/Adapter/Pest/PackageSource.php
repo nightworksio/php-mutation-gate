@@ -61,6 +61,32 @@ final readonly class PackageSource
         return $written ? $patch->done(count($changed)) : $patch->unwritten($vendor);
     }
 
+    /**
+     * What patching the package in a vendor directory would write, writing nothing: each file it changes, by its
+     * path, with the source it would hold; or why the patch cannot be applied.
+     *
+     * @return array<string, string>|CannotJudge
+     */
+    public static function planned(VendorPatch $patch, string $vendor): array|CannotJudge
+    {
+        $sources = self::read($patch, $vendor);
+        $changed = $sources instanceof CannotJudge
+            ? $sources
+            : $patch->patched($vendor, $sources, self::every($patch, $vendor), is_writable(...));
+
+        if ($changed instanceof CannotJudge) {
+            return $changed;
+        }
+
+        $planned = [];
+
+        foreach ($changed as $file => $source) {
+            $planned[$patch->path($vendor, $file)] = $source;
+        }
+
+        return $planned;
+    }
+
     /** Whether the package in a vendor directory carries every hunk, and no hunk another version wrote. */
     public static function isAppliedIn(VendorPatch $patch, string $vendor): bool
     {

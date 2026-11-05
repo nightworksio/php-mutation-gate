@@ -43,6 +43,8 @@ use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\Formats;
 use NightWorksIO\MutationGate\Cli\Config\MigrationFiles;
 use NightWorksIO\MutationGate\Cli\Config\RunContext;
+use NightWorksIO\MutationGate\Cli\Doctor\Doctoring;
+use NightWorksIO\MutationGate\Cli\Doctor\Fixing;
 use NightWorksIO\MutationGate\Cli\Doctor\Measure;
 use NightWorksIO\MutationGate\Cli\Doctor\Observed;
 use NightWorksIO\MutationGate\Cli\Doctor\Online;
@@ -183,18 +185,26 @@ final readonly class Console
             Migrations::baseline()->startedAs($started),
         ));
         $probe = PhpProbe::of(PHP_BINARY, getenv());
+        $guide = $installed instanceof Installed ? Guide::installedIn($installed) : Guide::unreleased();
         $application->addCommand(Doctor::command(
-            new Observed(
-                $project,
-                $extensions,
-                $effective,
-                $detected,
-                $probe,
-                DoctorRun::of($now, ini_parse_quantity(ini_get('memory_limit')))->startedAs($started),
+            new Doctoring(
+                new Observed(
+                    $project,
+                    $extensions,
+                    $effective,
+                    $detected,
+                    $probe,
+                    DoctorRun::of($now, ini_parse_quantity(ini_get('memory_limit')))
+                        ->startedAs($started)
+                        ->pinning($gate),
+                ),
+                new Measure($composition),
+                new Online($project, $environment, HttpClient::create()),
+                new Fixing($project),
+                $guide,
             ),
-            new Measure($composition),
-            new Online($project, $environment, HttpClient::create()),
-            $installed instanceof Installed ? Guide::installedIn($installed) : Guide::unreleased(),
+            $guide,
+            $environment,
         ));
         $application->setDefaultCommand(self::DEFAULT);
 

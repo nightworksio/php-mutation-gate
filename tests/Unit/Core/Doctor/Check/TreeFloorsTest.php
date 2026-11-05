@@ -8,11 +8,11 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Doctor\Check\TreeFloors;
 use NightWorksIO\MutationGate\Core\Doctor\Finding;
 use NightWorksIO\MutationGate\Core\Doctor\Findings;
+use NightWorksIO\MutationGate\Core\Doctor\GateDefinitions;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
 use NightWorksIO\MutationGate\Core\Doctor\ProjectFiles;
 use NightWorksIO\MutationGate\Core\Doctor\Severity;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
+use NightWorksIO\MutationGate\Tests\Support\GateRunning;
 
 $makeTrees = static fn(): Trees => Trees::of(
     Tree::at(Path::of('src'), Undeclared::floor(), Package::at(Path::root())),
@@ -28,7 +29,7 @@ $makeTrees = static fn(): Trees => Trees::of(
     Tree::at(Path::of('legacy'), Exempt::because('generated'), Package::at(Path::root())),
 );
 $makeBaseline = static fn(): Baseline => Baseline::of(Entry::of(Path::of('lib'), Floor::of(70)));
-$observed = static fn(Paths $running, Baseline|CannotJudge $baseline): Observations => Observations::none()
+$observed = static fn(GateDefinitions $running, Baseline|CannotJudge $baseline): Observations => Observations::none()
     ->withTrees($makeTrees())
     ->withFiles(ProjectFiles::none()->withRunningTheGate($running)->withBaseline($baseline));
 $found = 'Neither the config nor the baseline gives a floor to src.';
@@ -37,7 +38,7 @@ $fix = 'Declare a floor for each, as trees: [{path: src, floor: 80}], or commit 
 it('fails a run where a CI definition runs the gate over a tree with no floor and no baseline', function () use ($observed, $makeBaseline, $found, $fix): void {
     $baseline = $makeBaseline();
 
-    $running = Paths::of(Path::of('.github/workflows/mutation.yml'), Path::of('.gitlab-ci.yml'));
+    $running = GateRunning::at('', Path::of('.github/workflows/mutation.yml'), Path::of('.gitlab-ci.yml'));
 
     expect(TreeFloors::in($observed($running, $baseline)))->toEqual(Findings::of(Finding::of(
         Slug::TreeWithoutFloor,
@@ -52,7 +53,7 @@ it('advises where no CI definition runs the gate, or none was read', function ()
     $trees = $makeTrees();
     $baseline = $makeBaseline();
 
-    expect(TreeFloors::in($observed(Paths::none(), $baseline)))->toEqual(Findings::of(Finding::of(
+    expect(TreeFloors::in($observed(GateDefinitions::none(), $baseline)))->toEqual(Findings::of(Finding::of(
         Slug::TreeWithoutFloor,
         Severity::Advice,
         $found,
@@ -63,7 +64,7 @@ it('advises where no CI definition runs the gate, or none was read', function ()
 });
 
 it('names every tree with no floor, in their order', function () use ($observed): void {
-    $found = [...TreeFloors::in($observed(Paths::none(), Baseline::none()))];
+    $found = [...TreeFloors::in($observed(GateDefinitions::none(), Baseline::none()))];
 
     expect($found[0]->found())->toBe('Neither the config nor the baseline gives a floor to src, lib.');
 });
@@ -72,6 +73,6 @@ it('finds nothing where every tree has a floor, the baseline cannot be read, or 
     $floored = Trees::of(Tree::at(Path::of('app'), Floor::of(80), Package::at(Path::root())));
 
     expect(TreeFloors::in(Observations::none()->withTrees($floored)->withFiles(ProjectFiles::none()->withBaseline(Baseline::none()))))->toEqual(Findings::none())
-        ->and(TreeFloors::in($observed(Paths::none(), CannotJudge::because('unreadable'))))->toEqual(Findings::none())
+        ->and(TreeFloors::in($observed(GateDefinitions::none(), CannotJudge::because('unreadable'))))->toEqual(Findings::none())
         ->and(TreeFloors::in(Observations::none()))->toEqual(Findings::none());
 });
