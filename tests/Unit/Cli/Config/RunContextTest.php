@@ -71,6 +71,16 @@ it('tells the contexts of a run from the environment and what the CI plan says o
     'a run the CI plan says nothing of' => [fn(): CannotTell => CannotTell::because('A fake run.'), true, [], 'ci'],
 ]);
 
+it('lays the block of the CI a built-in plan is for between ci and the kind of run', function (): void {
+    $chain = new RunContext(Variables::of(['CI' => 'true', 'GITLAB_CI' => 'true']))->chain(
+        CommandLine::nothing(),
+        static fn(): Settings => Configs::settings(['runner' => 'pest', 'ci' => ['plan' => 'gitlab']]),
+        Extensions::of(Origin::of('acme/gate')),
+    );
+
+    expect($chain instanceof ContextChain ? $chain->spelt() : $chain)->toStartWith('ci, gitlab');
+});
+
 it('puts the run in the context --context names, whatever the environment says', function () use ($contexts): void {
     $pullRequest = $contexts(
         CannotTell::because('A fake run.'),

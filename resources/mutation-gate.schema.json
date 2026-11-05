@@ -1967,6 +1967,9 @@
         "suggest": {
             "type": "object",
             "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
                 "idle": {
                     "type": "object",
                     "properties": {
@@ -2527,12 +2530,33 @@
         },
         "contexts": {
             "type": "object",
-            "description": "What a run lays over the rest in each context: local, else ci with pr or main over it.",
+            "description": "What a run lays over the rest in each context: local, else ci, its CI's block, then pr or main.",
             "properties": {
                 "local": {
                     "$ref": "#/$defs/contextBlock"
                 },
                 "ci": {
+                    "$ref": "#/$defs/contextBlock"
+                },
+                "github": {
+                    "$ref": "#/$defs/contextBlock"
+                },
+                "gitlab": {
+                    "$ref": "#/$defs/contextBlock"
+                },
+                "bitbucket": {
+                    "$ref": "#/$defs/contextBlock"
+                },
+                "azure": {
+                    "$ref": "#/$defs/contextBlock"
+                },
+                "buildkite": {
+                    "$ref": "#/$defs/contextBlock"
+                },
+                "jenkins": {
+                    "$ref": "#/$defs/contextBlock"
+                },
+                "circleci": {
                     "$ref": "#/$defs/contextBlock"
                 },
                 "pr": {
@@ -4264,6 +4288,9 @@
                 "suggest": {
                     "type": "object",
                     "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
                         "idle": {
                             "type": "object",
                             "properties": {

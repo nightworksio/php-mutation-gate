@@ -40,8 +40,11 @@ final readonly class FailFastSavings
         return new self($results);
     }
 
-    /** The suggestion of `stop` or `cancel`, with what each would have saved; none where no shard judged on. */
-    public function warnings(): Warnings
+    /**
+     * The suggestion of `stop` or `cancel`, with what each would have saved, where the gate suggests changes
+     * (ADR-0104); none where no shard judged on.
+     */
+    public function warnings(bool $suggests): Warnings
     {
         $stop = 0.0;
         $first = [];
@@ -53,7 +56,7 @@ final readonly class FailFastSavings
             $first = [...$first, ...$found];
         }
 
-        return $first === [] ? Warnings::none() : Warnings::of(Warning::that(sprintf(
+        return $first === [] || ! $suggests ? Warnings::none() : Warnings::of(Warning::that(sprintf(
             self::SAID,
             Seconds::of(min($first))->text(),
             Seconds::of($stop)->text(),

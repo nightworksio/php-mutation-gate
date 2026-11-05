@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\Config\ContextChain;
 use NightWorksIO\MutationGate\Core\Config\Contexts;
 use NightWorksIO\MutationGate\Core\Config\Local;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
 it('lays a later layer\'s block over an earlier one\'s of the same context, and keeps the others', function (): void {
@@ -73,10 +74,24 @@ it('writes each block as the PHP builder\'s Context, its calls nested a level de
 
 it('spells a chain of contexts by their keys, and every context\'s key for a message', function (): void {
     expect(Context::Main->chain()->spelt())->toBe('ci, main')
+        ->and(Context::GitLab->chain()->spelt())->toBe('ci, gitlab')
+        ->and(Context::Local->chain()->spelt())->toBe('local')
         ->and(ContextChain::none()->spelt())->toBe('')
-        ->and(Context::words())->toBe('local, ci, pr or main')
+        ->and(ContextChain::inCi(Context::GitHub, Context::PullRequest)->spelt())->toBe('ci, github, pr')
+        ->and(ContextChain::inCi(NotGiven::value(), NotGiven::value())->spelt())->toBe('ci')
+        ->and(Context::words())->toBe('local, ci, github, gitlab, bitbucket, azure, buildkite, jenkins, circleci, pr or main')
         ->and(array_map(static fn(Context $context): string => $context->builder(), Context::cases()))
-        ->toBe(['local', 'ci', 'pullRequest', 'main']);
+        ->toBe(['local', 'ci', 'gitHub', 'gitLab', 'bitbucket', 'azure', 'buildkite', 'jenkins', 'circleCi', 'pullRequest', 'main']);
+});
+
+it('names the context of the CI a plan is for, and none for a plan of no CI\'s own', function (): void {
+    expect(Context::ofPlan('github'))->toBe(Context::GitHub)
+        ->and(Context::ofPlan('circleci'))->toBe(Context::CircleCi)
+        ->and(Context::ofPlan('json'))->toEqual(NotGiven::value())
+        ->and(Context::ofPlan('pr'))->toEqual(NotGiven::value())
+        ->and(Context::ofPlan('ci'))->toEqual(NotGiven::value())
+        ->and(Context::ofPlan('local'))->toEqual(NotGiven::value())
+        ->and(Context::ofPlan('main'))->toEqual(NotGiven::value());
 });
 
 it('lays nothing of a part that holds no blocks', function (): void {

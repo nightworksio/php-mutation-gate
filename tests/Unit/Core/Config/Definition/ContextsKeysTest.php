@@ -53,7 +53,7 @@ it('names a block\'s keys once in the schema, under $defs, each context referrin
     $block = static fn(string ...$keys): mixed => Decoded::at($schema, '$defs', ContextsKeys::BLOCK, 'properties', ...$keys);
     $contexts = Decoded::at($schema, 'properties', 'contexts', 'properties');
 
-    expect(is_array($contexts) ? array_keys($contexts) : $contexts)->toBe(['local', 'ci', 'pr', 'main'])
+    expect(is_array($contexts) ? array_keys($contexts) : $contexts)->toBe(['local', 'ci', 'github', 'gitlab', 'bitbucket', 'azure', 'buildkite', 'jenkins', 'circleci', 'pr', 'main'])
         ->and(Decoded::at($schema, 'properties', 'contexts', 'properties', 'pr'))->toBe(['$ref' => '#/$defs/contextBlock'])
         ->and(Decoded::at($schema, 'properties', 'contexts', 'additionalProperties'))->toBeFalse()
         ->and($block('contexts'))->toBeNull()

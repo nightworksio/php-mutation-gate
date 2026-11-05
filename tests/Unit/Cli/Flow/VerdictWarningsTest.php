@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Flow\VerdictWarnings;
+use NightWorksIO\MutationGate\Config\Suggest;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -50,5 +51,7 @@ it('names no file every test runs through that a unit of the plan holds, proved,
 
     expect(array_map(static fn(Warning $warning): string => $warning->text(), [...$warnings]))->toBe([
         '`src/Loose.php` is run by 20 of 20 tests and nothing holds it; each of its mutants runs most of the suite.',
-    ]);
+    ])
+        ->and([...new VerdictWarnings(Flows::adapters(Scratch::directory()), Flows::settings(Suggest::off()), Flows::setup())->of($plan, TreeVerdicts::none(), Warnings::none(), $map)])
+        ->toBe([]);
 });

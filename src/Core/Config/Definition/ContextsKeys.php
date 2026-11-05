@@ -33,7 +33,7 @@ final readonly class ContextsKeys implements Shape
     public const string BLOCK = 'contextBlock';
 
     private const string DESCRIPTION
-        = 'What a run lays over the rest in each context: local, else ci with pr or main over it.';
+        = 'What a run lays over the rest in each context: local, else ci, its CI\'s block, then pr or main.';
 
     /** @param Section<Layer> $contexts */
     private function __construct(private Section $contexts)

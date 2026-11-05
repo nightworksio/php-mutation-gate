@@ -88,6 +88,14 @@ it('prints each suggestion with its evidence, then the config file with them lai
         ->and((string) file_get_contents(sprintf('%s/mutation-gate.json', $project)))->toBe($before);
 });
 
+it('says suggestions are off and proposes nothing where suggest.enabled is false', function () use ($suggesting, $idle): void {
+    $printed = FlowCommands::run($suggesting($idle('default/BitwiseAndToBitwiseOr'), FlowCommands::project('"suggest": {"enabled": false}')));
+
+    expect($printed->code)->toBe(0)
+        ->and($printed->output)->toBe(ConfigSuggest::OFF)
+        ->and($printed->errors)->toBe('');
+});
+
 it('names a change the config cannot say with why, and leaves it out of the diff', function () use ($suggesting, $idle): void {
     $project = FlowCommands::project();
     $printed = FlowCommands::within($project, $suggesting($idle('default/Unregistered'), $project));

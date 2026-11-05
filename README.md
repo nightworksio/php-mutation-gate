@@ -291,6 +291,7 @@ has a page for each, and the commands for any other CI.
 | | Heatmap: every file's and function's score against the base, in the HTML report, the lowest files on the organisation dashboard, and the files that fell in the pull request comment | yes | [0100](https://nightworksio.github.io/php-mutation-gate/decisions/0100-a-heatmap-scores-every-file-and-function-against-the-base/) |
 | | `Try: …`: a concrete way to kill each survivor, found by rules from its diff and its file, in the comment, the report and `stub` | yes | [0101](https://nightworksio.github.io/php-mutation-gate/decisions/0101-rules-find-a-concrete-way-to-kill-each-survivor/) |
 | | `config:suggest`: config changes with their evidence, turning off mutators that find nothing or make noise and giving slow directories a longer timeout, as a diff it never applies | yes | [0076](https://nightworksio.github.io/php-mutation-gate/decisions/0076-a-ledger-tallies-what-each-mutator-costs-and-finds-and-config-suggest-proposes-changes/) |
+| | `suggest.enabled` turns every suggestion off, and a context block for each CI (`github`, `gitlab`, `bitbucket`, `azure`, `buildkite`, `jenkins`, `circleci`) lets any key, suggestions among them, differ by CI | yes | [0104](https://nightworksio.github.io/php-mutation-gate/decisions/0104-suggestions-can-be-turned-off-and-each-ci-has-a-context/) |
 
 ## Performance
 

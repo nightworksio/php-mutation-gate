@@ -6,11 +6,23 @@ namespace NightWorksIO\MutationGate\Config;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
 
-/** When `config:suggest` proposes a change (ADR-0076): `suggest`. */
+/** Whether the gate suggests changes (ADR-0104), and when `config:suggest` proposes one (ADR-0076): `suggest`. */
 final readonly class Suggest implements Setting
 {
     private function __construct(private Json $json)
     {
+    }
+
+    /** `suggest.enabled`, `true`: the gate suggests changes, as it does by default. */
+    public static function on(): self
+    {
+        return new self(Json::at('suggest.enabled', value: true));
+    }
+
+    /** `suggest.enabled`, `false`: the gate suggests nothing, and `config:suggest` says suggestions are off. */
+    public static function off(): self
+    {
+        return new self(Json::at('suggest.enabled', value: false));
     }
 
     /** `suggest.idle.judged`: how many of a mutator's mutants must be judged before it can be idle; 500. */
