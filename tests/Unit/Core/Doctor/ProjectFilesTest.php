@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\File\GitIgnore;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Tests\Support\GateRunning;
 
 it('gives no file it was not given', function (): void {
     $none = ProjectFiles::none();
@@ -29,7 +30,7 @@ it('keeps each file it is given, whatever order they come in', function (): void
     $gitIgnore = GitIgnore::of('/vendor/');
     $infection = InfectionConfig::in('infection.json5', minMsi: true, ignores: false);
     $composer = ComposerSetup::of(Paths::of(Path::of('packages/money')));
-    $running = Paths::of(Path::of('.github/workflows/mutation.yml'));
+    $running = GateRunning::at('', Path::of('.github/workflows/mutation.yml'));
     $baseline = Baseline::none();
     $services = ServiceFiles::none()->withSonarSources(SonarSources::of(Path::of('src')));
     $warm = WarmRefusal::of('The boot left 1 socket open once bootstrap.php ran.');

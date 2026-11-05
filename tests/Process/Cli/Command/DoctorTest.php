@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Cli\Command\Doctor;
+use NightWorksIO\MutationGate\Cli\Doctor\Doctoring;
+use NightWorksIO\MutationGate\Cli\Doctor\Fixing;
 use NightWorksIO\MutationGate\Cli\Doctor\Measure;
 use NightWorksIO\MutationGate\Cli\Doctor\Online;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -60,10 +63,9 @@ afterEach(function () use ($makeHere): void {
 function doctorJson(string $project, string $php, Measure $measure, array $input, Online $online): string
 {
     $tester = new CommandTester(Doctor::command(
-        Doctored::observed($project, sprintf('%s/php', $php)),
-        $measure,
-        $online,
+        new Doctoring(Doctored::observed($project, sprintf('%s/php', $php)), $measure, $online, new Fixing($project, new PackageDirectory()), Guide::unreleased()),
         Guide::unreleased(),
+        Variables::of([]),
     ));
     $tester->execute(['--format' => 'json', ...$input]);
 

@@ -470,6 +470,17 @@ final readonly class Patch
         return PackageSource::of($files)->applyIn($vendor, self::patch(), self::pestPatch());
     }
 
+    /**
+     * What patching pest-plugin-mutate and Pest in a vendor directory would write, writing nothing: each file it
+     * changes, by its path, with the source it would hold; or why they cannot be patched.
+     *
+     * @return array<string, string>|CannotJudge
+     */
+    public static function plannedIn(string $vendor, PackageFiles $files): array|CannotJudge
+    {
+        return PackageSource::of($files)->planned($vendor, self::patch(), self::pestPatch());
+    }
+
     /** Whether pest-plugin-mutate and Pest in a vendor directory carry every hunk, and none another version wrote. */
     public static function isAppliedIn(string $vendor, PackageFiles $files): bool
     {

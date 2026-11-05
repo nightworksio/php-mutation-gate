@@ -54,6 +54,7 @@
                             "outside-sonar-sources",
                             "suite-served-elsewhere",
                             "teams-not-mentioned",
+                            "workflow-pin-stale",
                             "survived",
                             "uncovered",
                             "unjudged",

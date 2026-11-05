@@ -392,6 +392,18 @@ names each team in it without a mention, and still mentions each user once
 Write the comment with a token of a user or GitHub App that can read the
 organisation's teams, or set `owners.mention` to `never`.
 
+## workflow-pin-stale
+
+A CI definition pins a release of the gate other than the one the project
+installed: a `uses:` of its action or reusable workflow at another commit,
+or its container image at another tag. CI then judges with a gate nobody
+ran here, whose config and ledger may differ from the installed one's
+([ADR-0083](../decisions/0083-doctor-fixes-what-it-found-after-a-diff.md)).
+
+Pin the installed release, as the fix line names it, or run
+`mutation-gate doctor --fix`, which rewrites the commit, the version
+comment and the image tag.
+
 ## survived
 
 The tests that run the mutant's line all passed with it in place, so none of

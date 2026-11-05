@@ -280,6 +280,12 @@ services:
                     - TIMEOUT_CLUSTER # timeouts that make a directory slow, not letters per edit
                 'NightWorksIO\MutationGate\Core\Suggest\SlowDirectories':
                     - RAISED # how many times its timeout a slow directory gets, not an exit code
+                'NightWorksIO\MutationGate\Cli\Doctor\Doctoring':
+                    - 'YES' # doctor's option that applies fixes unasked, not a switch's spelling
+                'NightWorksIO\MutationGate\Core\Doctor\Fix\PhpUnitXml':
+                    - INDENT # one level of a PHPUnit config's XML when it shows none, not a report's indent
+                'NightWorksIO\MutationGate\Core\Doctor\GatePins':
+                    - USE_AT # a CI step's action at its commit, not a package at its version
                 'NightWorksIO\MutationGate\Cli\Command\LedgerOption':
                     - LEDGER # the option that names a ledger file, not the workspace directory
                 'NightWorksIO\MutationGate\Core\Verb':

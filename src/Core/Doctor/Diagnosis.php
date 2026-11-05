@@ -34,6 +34,7 @@ use NightWorksIO\MutationGate\Core\Doctor\Check\TreesFound;
 use NightWorksIO\MutationGate\Core\Doctor\Check\UnsupportedRunner;
 use NightWorksIO\MutationGate\Core\Doctor\Check\VerdictRequired;
 use NightWorksIO\MutationGate\Core\Doctor\Check\WarmBoot;
+use NightWorksIO\MutationGate\Core\Doctor\Check\WorkflowPin;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Workspace;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Xdebug;
 
@@ -80,6 +81,7 @@ final readonly class Diagnosis
             ScheduleRunning::in($observed),
             ShallowClone::in($observed),
             WarmBoot::in($observed),
+            WorkflowPin::in($observed),
         );
     }
 }

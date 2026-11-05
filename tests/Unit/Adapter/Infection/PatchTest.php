@@ -91,7 +91,8 @@ it('patches nothing where Composer lists nothing it installed, or a file it chan
             'infection:patch cannot read %s/infection/infection/src/Process/Runner/MutationTestingRunner.php. Is infection installed?',
             $gone,
         )))
-        ->and(Patch::stateIn($gone, new PackageDirectory()))->toBe(PatchState::Missing);
+        ->and(Patch::stateIn($gone, new PackageDirectory()))->toBe(PatchState::Missing)
+        ->and(Patch::plannedIn($gone, new PackageDirectory()))->toEqual(Patch::applyIn($gone, new PackageDirectory()));
 });
 
 it('patches nothing, in Infection either, where a line it rewrites in the interceptor has moved, and counts it unpatched', function (): void {
@@ -159,4 +160,18 @@ it('writes nothing where another version of the gate patched a file it leaves al
         $marked,
     )))->and(Patch::isAppliedIn($at, new PackageDirectory()))->toBeFalse()
         ->and(array_map(static fn(string $file): string => $source($at, $file), InfectionSource::FILES))->toBe($before);
+});
+
+it('plans what patching would write, writing nothing, and plans nothing for a release it does not patch', function () use ($source): void {
+    $at = InfectionSource::pristine()->vendor();
+    $pristine = array_map(static fn(string $file): string => $source($at, $file), InfectionSource::FILES);
+    $planned = Patch::plannedIn($at, new PackageDirectory());
+
+    expect(array_map(static fn(string $file): string => $source($at, $file), InfectionSource::FILES))->toBe($pristine)
+        ->and(is_array($planned) ? count($planned) : 0)->toBe(5);
+
+    Patch::applyIn($at, new PackageDirectory());
+
+    expect(Patch::plannedIn($at, new PackageDirectory()))->toBe([])
+        ->and(Patch::plannedIn(InfectionSource::pristine()->vendor('0.34.0'), new PackageDirectory()))->toBeInstanceOf(UnsupportedRelease::class);
 });

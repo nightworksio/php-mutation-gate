@@ -20,6 +20,7 @@ use function sprintf;
  */
 final readonly class PcovReach
 {
+    public const string SETTING = '%s=%s';
     /** pcov's setting of the directory it collects from. */
     private const string DIRECTORY = 'pcov.directory';
 
@@ -28,8 +29,6 @@ final readonly class PcovReach
 
     /** How PHP's command line sets an ini setting. */
     private const string SETS = '-d';
-
-    private const string SETTING = '%s=%s';
 
     /** A path that starts in a directory. */
     private const string WITHIN = '~^%s/~';
