@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Ci\GatePin;
 use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
 use NightWorksIO\MutationGate\Core\Doctor\Finding;
 use NightWorksIO\MutationGate\Core\Doctor\Findings;
+use NightWorksIO\MutationGate\Core\Doctor\Fix\Change;
 use NightWorksIO\MutationGate\Core\Doctor\Fix\Edit;
 use NightWorksIO\MutationGate\Core\Doctor\Fix\Repair;
 use NightWorksIO\MutationGate\Core\Doctor\Fix\Repairs;
@@ -127,19 +128,21 @@ it('repins each definition that pins another release, and none where nothing say
     $project = Scratch::directory();
     $old = sprintf("      - uses: nightworksio/php-mutation-gate@%s\n", str_repeat('a', 40));
     Scratch::write($project, '.github/workflows/mutation.yml', $old);
+    Scratch::write($project, '.github/workflows/nightly.yml', $old);
     $pin = GatePin::of(Version::of('nightworksio/mutation-gate', 'v0.4.0', str_repeat('b', 40)));
     $running = GateDefinitions::none()
         ->with(Path::of('.github/workflows/mutation.yml'), $old)
-        ->with(Path::of('.gitlab-ci.yml'), "    image: ghcr.io/nightworksio/mutation-gate:0.4.0\n");
+        ->with(Path::of('.gitlab-ci.yml'), "    image: ghcr.io/nightworksio/mutation-gate:0.4.0\n")
+        ->with(Path::of('.github/workflows/nightly.yml'), $old);
+    $repinned = sprintf("      - uses: nightworksio/php-mutation-gate@%s # v0.4.0\n", str_repeat('b', 40));
     $observed = Observations::none()
         ->in(DoctorRun::of(new DateTimeImmutable('2026-11-05'), -1)->pinning($pin))
         ->withFiles(ProjectFiles::none()->withRunningTheGate($running));
 
-    expect($fixed($project, Slug::WorkflowPinStale, $observed)[0])->toEqual([Edit::of(
-        '.github/workflows/mutation.yml',
-        $old,
-        sprintf("      - uses: nightworksio/php-mutation-gate@%s # v0.4.0\n", str_repeat('b', 40)),
-    )])
+    expect($fixed($project, Slug::WorkflowPinStale, $observed)[0])->toEqual([
+        Edit::of('.github/workflows/mutation.yml', $old, $repinned),
+        Edit::of('.github/workflows/nightly.yml', $old, $repinned),
+    ])
         ->and($fixed($project, Slug::WorkflowPinStale, Observations::none()))->toBe([[], []]);
 });
 
@@ -157,6 +160,16 @@ it('writes each edit, and refuses one whose file changed after it was read', fun
         ->and($fixing->write(Edit::of('a.txt', "a\n", "c\n")))
         ->toEqual(CannotJudge::because('a.txt changed after doctor read it, so doctor --fix left it as it is.'))
         ->and($fixing->edits(Repairs::of(Repair::refused(Slug::NoCoverageDriver, 'Install pcov.'))))->toBe([]);
+});
+
+it('writes a file that is not there yet, read as empty', function (): void {
+    $project = Scratch::directory();
+    $fixing = new Fixing($project);
+
+    expect($fixing->edits(Repairs::of(Repair::changing(Slug::WorkspaceNotIgnored, Change::of('.gitignore', static fn(string $text): string => sprintf('%sx', $text))))))
+        ->toEqual([Edit::of('.gitignore', '', 'x')])
+        ->and($fixing->write(Edit::of('new.txt', '', "x\n")))->toBe(1)
+        ->and((string) file_get_contents(sprintf('%s/new.txt', $project)))->toBe("x\n");
 });
 
 it('stops at an edit it cannot write, and writes none after it', function (): void {
