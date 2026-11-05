@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Pest\PackageSource;
+use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Core\Composer\Hunk;
+use NightWorksIO\MutationGate\Core\Composer\PackageSource;
 use NightWorksIO\MutationGate\Core\Composer\VendorPatch;
+use NightWorksIO\MutationGate\Tests\Support\RefusingPackageFiles;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -30,19 +32,19 @@ $patch = static fn(): VendorPatch => VendorPatch::of(
 it('writes every file it changes, and says how many', function () use ($vendor, $patch): void {
     $at = $vendor();
 
-    expect(PackageSource::applyIn($patch(), $at))->toBe($patch()->done(2))
+    expect(PackageSource::of(new PackageDirectory())->applyIn($at, $patch()))->toBe($patch()->done(2))
         ->and(file_get_contents(sprintf('%s/acme/lib/src/Two.php', $at)))->toContain('return 20;');
 });
 
 it('says the files could not be written where one write fails, though the others are written', function () use ($vendor, $patch): void {
     $at = $vendor();
     $written = [];
-    $write = static function (string $file, string $source) use (&$written): int|false {
+    $refuses = static function (string $file) use (&$written): bool {
         $written[] = basename($file);
 
-        return count($written) === 1 ? false : strlen($source);
+        return count($written) === 1;
     };
 
-    expect(PackageSource::applyWith($patch(), $at, $write))->toEqual($patch()->unwritten($at))
+    expect(PackageSource::of(new RefusingPackageFiles($refuses))->applyIn($at, $patch()))->toEqual($patch()->unwritten($at))
         ->and($written)->toBe(['One.php', 'Two.php']);
 });

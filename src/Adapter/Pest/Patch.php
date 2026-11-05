@@ -6,18 +6,21 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Twins;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Verdicts;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\Booted;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Pool;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Hunk;
 use NightWorksIO\MutationGate\Core\Composer\Package;
+use NightWorksIO\MutationGate\Core\Composer\PackageFiles;
+use NightWorksIO\MutationGate\Core\Composer\PackageSource;
 use NightWorksIO\MutationGate\Core\Composer\VendorPatch;
 use NightWorksIO\MutationGate\Core\Verb;
 
 use function sprintf;
 
 /**
- * `pest:patch`: the changes to pest-plugin-mutate the gate's `pest.patch`
- * setting relies on.
+ * `pest:patch`: the changes to pest-plugin-mutate, and to Pest, the gate's
+ * `pest.patch` setting relies on.
  * - A mutant's run selects exactly the tests that cover it, a row of a data
  *   set alone, a class or a data set named whole where they hold every test
  *   of it the map ran (see Selection::covering), not every row of their data
@@ -56,6 +59,12 @@ use function sprintf;
  * - Where the gate names a directory for warm workers, each mutant's own run
  *   is asked of its place's worker, which runs it in a child forked from a
  *   process booted once (see Warm\Pool).
+ * - In Pest itself, a child forked from a warm worker of the verification
+ *   tail that booted the project keeps the test suite its worker built,
+ *   skips the bootstrappers and plugins its worker ran, and finds each test
+ *   file where its worker found it; a booting worker leaves the kernel dump
+ *   to each child, and a kernel shuts down only in the process that booted
+ *   it (see Warm\Booted, ADR-0075). An unbooted process runs as it ships.
  * - A file whose every class Composer autoloads, none loaded yet, is served
  *   with no override: an autoloader loads its mutated copy in its place (see
  *   ServedClasses). A mutant whose mutator is pinned by source is still
@@ -374,21 +383,116 @@ final readonly class Patch
                 }
         PHP;
 
-    /** Patch pest-plugin-mutate in a vendor directory, and say what was done. */
-    public static function applyIn(string $vendor): string|CannotJudge
+    /** Pest's own script, Kernel and test suite loader, by their paths from its source directory (ADR-0075). */
+    private const string PEST_SCRIPT = '../bin/pest';
+
+    private const string KERNEL = 'Kernel.php';
+
+    private const string LOADER = '../overrides/Runner/TestSuiteLoader.php';
+
+    private const string SUITE_SHIPS = <<<'PHP'
+            $testSuite = TestSuite::getInstance(
+        PHP;
+
+    private const string SUITE_BECOMES = <<<'PHP'
+            {MARK} a child of a booted worker keeps the test suite its worker built.
+            $testSuite = class_exists(\%1$s::class, false) && \%1$s::isForked()
+                ? TestSuite::getInstance()
+                : TestSuite::getInstance(
+        PHP;
+
+    private const string BOOTSTRAPPERS_SHIPS = <<<'PHP'
+                foreach (self::BOOTSTRAPPERS as $bootstrapper) {
+        PHP;
+
+    private const string BOOTSTRAPPERS_BECOMES = <<<'PHP'
+                {MARK} a booted worker's child skips what its worker ran, and the worker leaves the kernel dump to it.
+                foreach (self::BOOTSTRAPPERS as $bootstrapper) {
+                    if (class_exists(\%1$s::class, false) && \%1$s::skips($bootstrapper)) {
+                        continue;
+                    }
+
+        PHP;
+
+    private const string PLUGINS_SHIPS = <<<'PHP'
+                CallsBoot::execute();
+        PHP;
+
+    private const string PLUGINS_BECOMES = <<<'PHP'
+                {MARK} a booted worker's child boots none of the plugins its worker booted.
+                if (! class_exists(\%1$s::class, false) || ! \%1$s::isForked()) {
+                    CallsBoot::execute();
+                }
+        PHP;
+
+    private const string SHUTDOWN_SHIPS = <<<'PHP'
+                register_shutdown_function($kernel->shutdown(...));
+        PHP;
+
+    private const string SHUTDOWN_BECOMES = <<<'PHP'
+                {MARK} a kernel shuts down in the process that booted it, and not in a child forked from it.
+                $booter = getmypid();
+                register_shutdown_function(static function () use ($kernel, $booter): void {
+                    if (getmypid() === $booter) {
+                        $kernel->shutdown();
+                    }
+                });
+        PHP;
+
+    private const string LOAD_SHIPS = <<<'PHP'
+            public function load(string $suiteClassFile): ReflectionClass
+            {
+                $suiteClassName = $this->classNameFromFileName($suiteClassFile);
+        PHP;
+
+    private const string LOAD_BECOMES = <<<'PHP'
+            {MARK} a booted worker's child finds a test file where its worker found it, and a booting worker keeps it.
+            public function load(string $suiteClassFile): ReflectionClass
+            {
+                $booted = class_exists(\%1$s::class, false) ? \%1$s::loaded($suiteClassFile) : '';
+                $class = $booted !== '' ? new ReflectionClass($booted) : $this->loadedHere($suiteClassFile);
+
+                if (class_exists(\%1$s::class, false)) {
+                    \%1$s::kept($suiteClassFile, $class->getName());
+                }
+
+                return $class;
+            }
+
+            private function loadedHere(string $suiteClassFile): ReflectionClass
+            {
+                $suiteClassName = $this->classNameFromFileName($suiteClassFile);
+        PHP;
+
+    /** Patch pest-plugin-mutate and Pest in a vendor directory, and say what was done. */
+    public static function applyIn(string $vendor, PackageFiles $files): string|CannotJudge
     {
-        return PackageSource::applyIn(self::patch(), $vendor);
+        return PackageSource::of($files)->applyIn($vendor, self::patch(), self::pestPatch());
     }
 
-    /** Whether pest-plugin-mutate in a vendor directory carries every hunk, and no hunk another version wrote. */
-    public static function isAppliedIn(string $vendor): bool
+    /** Whether pest-plugin-mutate and Pest in a vendor directory carry every hunk, and none another version wrote. */
+    public static function isAppliedIn(string $vendor, PackageFiles $files): bool
     {
-        return PackageSource::isAppliedIn(self::patch(), $vendor);
+        return PackageSource::of($files)->isAppliedIn($vendor, self::patch(), self::pestPatch());
     }
 
     private static function patch(): VendorPatch
     {
         return VendorPatch::of(self::COMMAND, Package::PestMutate->value, ...self::hunks());
+    }
+
+    /** Pest's own, which a booted warm worker of the verification tail relies on (ADR-0075). */
+    private static function pestPatch(): VendorPatch
+    {
+        return VendorPatch::of(
+            self::COMMAND,
+            Package::Pest->value,
+            Hunk::in(self::PEST_SCRIPT, self::SUITE_SHIPS, sprintf(self::SUITE_BECOMES, Booted::class)),
+            Hunk::in(self::KERNEL, self::BOOTSTRAPPERS_SHIPS, sprintf(self::BOOTSTRAPPERS_BECOMES, Booted::class)),
+            Hunk::in(self::KERNEL, self::PLUGINS_SHIPS, sprintf(self::PLUGINS_BECOMES, Booted::class)),
+            Hunk::in(self::KERNEL, self::SHUTDOWN_SHIPS, self::SHUTDOWN_BECOMES),
+            Hunk::in(self::LOADER, self::LOAD_SHIPS, sprintf(self::LOAD_BECOMES, Booted::class)),
+        );
     }
 
     /** @return list<Hunk> */

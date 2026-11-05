@@ -1249,6 +1249,23 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "perTest": {
+                    "oneOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "const": false
+                        }
+                    ],
+                    "default": 3
+                },
+                "testFloor": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 3
                 }
             },
             "additionalProperties": false
@@ -1999,6 +2016,14 @@
                     "minLength": 1,
                     "pattern": "^\\S+$",
                     "default": "mutation-canary"
+                },
+                "bootTail": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "workerOpcache": {
+                    "type": "boolean",
+                    "default": true
                 }
             },
             "additionalProperties": false
@@ -2131,7 +2156,7 @@
                 },
                 "before": {
                     "type": "boolean",
-                    "default": false
+                    "default": true
                 }
             },
             "additionalProperties": false
@@ -2224,6 +2249,18 @@
                     "type": "string",
                     "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
                     "default": "5m"
+                },
+                "serveIdle": {
+                    "type": "string",
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
+                    "default": "30m"
+                },
+                "serveStart": {
+                    "enum": [
+                        "watch",
+                        "never"
+                    ],
+                    "default": "watch"
                 }
             },
             "additionalProperties": false
@@ -3446,6 +3483,21 @@
                                 }
                             },
                             "additionalProperties": false
+                        },
+                        "perTest": {
+                            "oneOf": [
+                                {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                {
+                                    "const": false
+                                }
+                            ]
+                        },
+                        "testFloor": {
+                            "type": "integer",
+                            "minimum": 1
                         }
                     },
                     "additionalProperties": false
@@ -4180,6 +4232,12 @@
                             "type": "string",
                             "minLength": 1,
                             "pattern": "^\\S+$"
+                        },
+                        "bootTail": {
+                            "type": "boolean"
+                        },
+                        "workerOpcache": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false
@@ -4392,6 +4450,16 @@
                         "prePushBudget": {
                             "type": "string",
                             "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                        },
+                        "serveIdle": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                        },
+                        "serveStart": {
+                            "enum": [
+                                "watch",
+                                "never"
+                            ]
                         }
                     },
                     "additionalProperties": false

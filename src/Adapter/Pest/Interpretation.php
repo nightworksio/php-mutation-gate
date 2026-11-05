@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Exhaustion;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Overrun;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -237,9 +238,16 @@ final readonly class Interpretation
         return $rejection instanceof Rejection ? $mutant->rejected($rejection) : $mutant;
     }
 
-    /** A timed-out mutant, saying its run was stopped at its silence limit where it was. */
-    private function silenced(Mutant $mutant, Seconds|NotGiven $silence): Mutant
+    /**
+     * A timed-out mutant, saying its run was stopped at its silence limit, or
+     * where a test of it ran past its own limit, where it was.
+     */
+    private function silenced(Mutant $mutant, Seconds|Overrun|NotGiven $silence): Mutant
     {
-        return $silence instanceof Seconds ? $mutant->because(Reason::silent($silence)) : $mutant;
+        return match (true) {
+            $silence instanceof Seconds => $mutant->because(Reason::silent($silence)),
+            $silence instanceof Overrun => $mutant->because(Reason::overran($silence->test(), $silence->limit())),
+            default => $mutant,
+        };
     }
 }

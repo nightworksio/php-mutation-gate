@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Cli\PestPatch;
 use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
 use NightWorksIO\MutationGate\Tests\Support\Printed;
@@ -14,7 +15,7 @@ afterEach(function (): void {
 });
 
 it('is pest:patch, which applies the optional Pest patches', function (): void {
-    $command = PestPatch::command('/nowhere');
+    $command = PestPatch::command('/nowhere', new PackageDirectory());
 
     expect($command->getName())->toBe('pest:patch')
         ->and($command->getDescription())->toBe('Apply the optional Pest patches');
@@ -22,16 +23,16 @@ it('is pest:patch, which applies the optional Pest patches', function (): void {
 
 it('patches pest-plugin-mutate in the vendor directory and says so', function (): void {
     $vendor = MutatePlugin::pristine()->vendor();
-    $tester = new CommandTester(PestPatch::command($vendor));
+    $tester = new CommandTester(PestPatch::command($vendor, new PackageDirectory()));
 
     expect($tester->execute([]))->toBe(0)
         ->and(Printed::by($tester->getOutput()))
-        ->toBe("pest:patch patched 4 of the 4 files it changes in pest-plugin-mutate.\n");
+        ->toBe("pest:patch patched 4 of the 4 files it changes in pest-plugin-mutate. pest:patch patched 3 of the 3 files it changes in pest.\n");
 });
 
 it('fails the install, with the reason on its error output, when it cannot patch', function (): void {
     $vendor = Scratch::directory();
-    $tester = new CommandTester(PestPatch::command($vendor));
+    $tester = new CommandTester(PestPatch::command($vendor, new PackageDirectory()));
     $status = $tester->execute([], ['capture_stderr_separately' => true]);
     $output = $tester->getOutput();
     $errors = $output instanceof ConsoleOutputInterface ? $output->getErrorOutput() : $output;

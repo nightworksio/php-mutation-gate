@@ -4,15 +4,19 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli;
 
+use function array_first;
 use function class_exists;
+use function get_included_files;
 use function getenv;
 use function ini_get;
 use function ini_parse_quantity;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Waiting;
 use NightWorksIO\MutationGate\Adapter\Runtime\ChildMemory;
 use NightWorksIO\MutationGate\Adapter\Runtime\PhpProbe;
+use NightWorksIO\MutationGate\Adapter\Serve\Forking;
 use NightWorksIO\MutationGate\Cli\Command\AffectedCommand;
 use NightWorksIO\MutationGate\Cli\Command\BaselineCommand;
 use NightWorksIO\MutationGate\Cli\Command\ConfigSchema;
@@ -30,6 +34,7 @@ use NightWorksIO\MutationGate\Cli\Command\PreCommitCommand;
 use NightWorksIO\MutationGate\Cli\Command\PrePushCommand;
 use NightWorksIO\MutationGate\Cli\Command\ReproduceCommand;
 use NightWorksIO\MutationGate\Cli\Command\RunCommand;
+use NightWorksIO\MutationGate\Cli\Command\ServeCommand;
 use NightWorksIO\MutationGate\Cli\Command\StubCommand;
 use NightWorksIO\MutationGate\Cli\Command\SurvivorsCommand;
 use NightWorksIO\MutationGate\Cli\Command\TestsCommand;
@@ -45,13 +50,16 @@ use NightWorksIO\MutationGate\Cli\Doctor\Measure;
 use NightWorksIO\MutationGate\Cli\Doctor\Observed;
 use NightWorksIO\MutationGate\Cli\Doctor\Online;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
+use NightWorksIO\MutationGate\Cli\Serve\Serving;
 use NightWorksIO\MutationGate\Core\Ci\GatePin;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Config\Context;
 use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
 use NightWorksIO\MutationGate\Core\Migration\Migrations;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\OwnArchive;
+use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
 use NightWorksIO\MutationGate\Core\Watch\Poll;
 use NightWorksIO\MutationGate\Extension\Extensions;
@@ -75,7 +83,7 @@ final readonly class Console
 
     /**
      * The command line of a project, with the extensions found for it, the vendor directory it was installed
-     * into, the clock it reads the time from and the environment it was started in.
+     * into, the clock it reads the time from, the environment it was started in and how its daemon forks.
      */
     public static function application(
         Extensions $extensions,
@@ -83,6 +91,7 @@ final readonly class Console
         string $vendor,
         ClockInterface $clock,
         Variables $environment,
+        Forking|NotGiven $forking = new NotGiven(),
     ): GateApplication {
         $application = new GateApplication(self::NAME, InstalledGate::version()->spelt());
         $application->setAutoExit(boolean: false);
@@ -120,8 +129,8 @@ final readonly class Console
             default: false,
         ));
 
-        $application->addCommand(PestPatch::command(ComposerVendor::on($project)));
-        $application->addCommand(InfectionPatch::command(ComposerVendor::on($project)));
+        $application->addCommand(PestPatch::command(ComposerVendor::on($project), new PackageDirectory()));
+        $application->addCommand(InfectionPatch::command(ComposerVendor::on($project), new PackageDirectory()));
         $application->addCommand(HookCommand::command($project));
 
         $detected = new Detected(Directory::at($project), Directory::at($vendor));
@@ -145,6 +154,8 @@ final readonly class Console
         $application->addCommand(PreCommitCommand::command($composition));
         $application->addCommand(PrePushCommand::command($composition, $environment));
         $application->addCommand(WatchCommand::command($composition, Waiting::every(Poll::interval())));
+        $application->addCommand(ServeCommand::command($composition, $project, $vendor, $forking));
+        $application->servedBy(new Serving($composition, $project, self::script()));
         $application->addCommand(ReproduceCommand::command($composition));
         $application->addCommand(SurvivorsCommand::command($composition));
         $application->addCommand(ExplainCommand::command($composition));
@@ -195,5 +206,18 @@ final readonly class Console
         $application->setDefaultCommand(self::DEFAULT);
 
         return $application;
+    }
+
+    /**
+     * The script this process was started by, which starts a daemon as it
+     * started this one: Composer's proxy in the project's `vendor/bin`, the
+     * gate's own script, or its PHAR.
+     */
+    private static function script(): string
+    {
+        $archive = OwnArchive::running();
+        $started = array_first(get_included_files()) ?? ThisPackage::script(ThisPackage::NAME);
+
+        return $archive instanceof OwnArchive ? $archive->file() : $started;
     }
 }

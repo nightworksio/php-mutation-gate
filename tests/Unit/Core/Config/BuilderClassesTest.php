@@ -11,9 +11,10 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
+use NightWorksIO\MutationGate\Core\Serve\ServeStart;
 
 it('holds every class of the builder and each value of the core a config names, and no other class', function (): void {
-    foreach ([Gate::class, Runner::class, 'NightWorksIO\MutationGate\Config\Anything', Glob::class, MemoryCap::class, MemoryUnit::class, Withheld::class, Workers::class] as $class) {
+    foreach ([Gate::class, Runner::class, 'NightWorksIO\MutationGate\Config\Anything', Glob::class, MemoryCap::class, MemoryUnit::class, ServeStart::class, Withheld::class, Workers::class] as $class) {
         expect(BuilderClasses::holds($class))->toBeTrue();
     }
 

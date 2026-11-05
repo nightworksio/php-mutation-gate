@@ -6,7 +6,9 @@ use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\TailShell;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\BootSpec;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Client;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\OpcacheBlacklist;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\PidFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Seat;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -84,6 +86,29 @@ it('starts the tail\'s workers in a directory with nothing an earlier run left, 
         ->and($stale)->toBeFalse();
 })->group(...$holds);
 
+it('forks a run of every test file of its suites from workers booted on them where pest.bootTail is on, and every other run from unbooted ones', function (): void {
+    $root = Scratch::directory();
+    $booted = [];
+    $shell = new ShellFake(static function (Command $command) use (&$booted): Ran {
+        $directory = $command->arguments()[count(OwnScript::PestClient->started()) + 1];
+        $spec = BootSpec::readIn($directory);
+        $booted[] = [$directory, $spec instanceof BootSpec ? $spec->suites() : 'unbooted'];
+
+        return Ran::finished(succeeded: true, output: '');
+    });
+    $project = Project::at($root, Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'));
+    $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests())->across(Pool::of(ProcessCount::single(), Workers::Fork)->tail());
+    $every = Command::pest('vendor/bin/pest', Withheld::standard(), '--testsuite=unit')->loadingEveryTestFile();
+
+    TailShell::of($shell, $project, Patching::on(Group::named('canary'))->bootingTail(boots: true), $request)
+        ->sideBySide(WorkerSlots::alone(), Unlimited::time(), $every, Command::pest('vendor/bin/pest', Withheld::standard()), $every);
+
+    expect(array_column($booted, 1))->toBe([['unit'], 'unbooted', ['unit']])
+        ->and($booted[0][0])->toBe($booted[2][0])
+        ->and($booted[0][0])->not->toBe($booted[1][0])
+        ->and(is_dir($booted[0][0]))->toBeFalse();
+})->group(...$holds);
+
 it('forks runs that scan the same ini files from one set of workers, started scanning them, and runs that scan others from a set of their own', function (): void {
     $root = Scratch::directory();
     $forkedIn = [];
@@ -105,3 +130,45 @@ it('forks runs that scan the same ini files from one set of workers, started sca
         ->and($forkedIn[0][0])->not->toBe($forkedIn[1][0])
         ->and(is_dir($forkedIn[0][0]) || is_dir($forkedIn[1][0]))->toBeFalse();
 })->group(...$holds);
+
+it('forks a run of every test file of every suite from a booted set of its own under pest.bootTail, apart from the unbooted runs', function (): void {
+    $root = Scratch::directory();
+    $booted = [];
+    $shell = new ShellFake(static function (Command $command) use (&$booted): Ran {
+        $directory = $command->arguments()[count(OwnScript::PestClient->started()) + 1];
+        $spec = BootSpec::readIn($directory);
+        $booted[] = [$directory, $spec instanceof BootSpec ? $spec->suites() : 'unbooted'];
+
+        return Ran::finished(succeeded: true, output: '');
+    });
+    $project = Project::at($root, Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'));
+    $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests())->across(Pool::of(ProcessCount::single(), Workers::Fork)->tail());
+
+    TailShell::of($shell, $project, Patching::on(Group::named('canary'))->bootingTail(boots: true), $request)
+        ->sideBySide(WorkerSlots::alone(), Unlimited::time(), Command::pest('vendor/bin/pest', Withheld::standard()), Command::pest('vendor/bin/pest', Withheld::standard())->loadingEveryTestFile());
+
+    expect(array_column($booted, 1))->toBe(['unbooted', []])
+        ->and($booted[0][0])->not->toBe($booted[1][0]);
+})->group(...$holds);
+
+it('starts the tail\'s workers keeping the run\'s files out of opcache where pest.workerOpcache is on, and with opcache off where it is not', function (bool $caches): void {
+    $root = Scratch::directory();
+    $seen = [];
+    $shell = new ShellFake(static function (Command $command) use (&$seen): Ran {
+        $directory = $command->arguments()[count(OwnScript::PestClient->started()) + 1];
+        $seen = [OpcacheBlacklist::isIn($directory), PidFile::isRunning(Seat::at($directory, 1)->pid())];
+
+        return Ran::finished(succeeded: true, output: '');
+    });
+    $project = Project::at($root, Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'));
+    $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests())->across(Pool::of(ProcessCount::single(), Workers::Fork)->tail());
+
+    TailShell::of($shell, $project, Patching::on(Group::named('canary'))->cachingInWorkers($caches), $request)
+        ->in($root)
+        ->sideBySide(WorkerSlots::alone(), Unlimited::time(), Command::pest('vendor/bin/pest', Withheld::standard()));
+
+    expect($seen)->toBe([$caches, true]);
+})->with([
+    'pest.workerOpcache on' => [true],
+    'pest.workerOpcache off' => [false],
+])->group(...$holds);

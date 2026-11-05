@@ -9,6 +9,7 @@ use function is_string;
 use NightWorksIO\MutationGate\Adapter\Infection\Patch;
 use NightWorksIO\MutationGate\Adapter\Infection\UnsupportedRelease;
 use NightWorksIO\MutationGate\Cli\Command\Aside;
+use NightWorksIO\MutationGate\Core\Composer\PackageFiles;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Output\OutputInterface;
 
@@ -25,12 +26,12 @@ final readonly class InfectionPatch
 {
     private const string DESCRIPTION = 'Give Infection the gate\'s mutant limit';
 
-    public static function command(string $vendor): Command
+    public static function command(string $vendor, PackageFiles $files): Command
     {
         return new Command(Patch::COMMAND)
             ->setDescription(self::DESCRIPTION)
-            ->setCode(static function (OutputInterface $output) use ($vendor): int {
-                $patched = Patch::applyIn($vendor);
+            ->setCode(static function (OutputInterface $output) use ($vendor, $files): int {
+                $patched = Patch::applyIn($vendor, $files);
 
                 if (! is_string($patched)) {
                     Aside::of($output)->writeln($patched->why(), OutputInterface::OUTPUT_RAW);

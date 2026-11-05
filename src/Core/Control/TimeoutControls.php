@@ -7,13 +7,16 @@ namespace NightWorksIO\MutationGate\Core\Control;
 use function count;
 
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\OwnTime;
 use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
 use NightWorksIO\MutationGate\Core\Runner\RunSelection;
+use NightWorksIO\MutationGate\Core\Runner\TestWatch;
 use NightWorksIO\MutationGate\Core\Runner\UnfilteredRuns;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -24,7 +27,9 @@ use function sprintf;
  * the tests that judge it, those covering its lines as the coverage map
  * names them, and of a held unit only those that hold it, as its own run
  * selected them (see RunSelection), run with its file served unmutated as
- * its mutant was, allowed the limit its run was. A
+ * its mutant was, allowed the limit its run was, each test held to the
+ * limit of its own its run was (ADR-0090), so a timeout no slower than a
+ * test's own variance is never killed. A
  * mutant whose own run already ran its tests unmutated, as a trial does,
  * has none. The map's time of the tests only set the limit; what triage
  * weighs the timeout against is the control's (see TimeoutTriage). Where
@@ -62,6 +67,7 @@ final readonly class TimeoutControls implements ControlJudge
         CoverageMap $map,
         HeldCovered $held,
         RunSelection $run,
+        PerTestLimit $perTest,
     ): self {
         $controls = [];
 
@@ -76,7 +82,9 @@ final readonly class TimeoutControls implements ControlJudge
 
             $tests = Control::judging($mutant, $map, $held, $run, $unfiltered->of($mutant->id()));
             $controls += count($tests->tests()) > 0
-                ? [$mutant->id()->key() => Control::running($mutant->location()->file(), $tests, $limit)]
+                ? [$mutant->id()->key() => Control::running($mutant->location()->file(), $tests, $limit)->watched(
+                    TestWatch::of($perTest, OwnTime::each($map, $tests->tests())),
+                )]
                 : [];
         }
 

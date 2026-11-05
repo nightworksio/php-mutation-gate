@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
+use NightWorksIO\MutationGate\Core\Runner\Overrun;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -269,6 +270,16 @@ it('knows the silence limit a patched run stopped a mutant\'s own run at, by its
     expect($records instanceof Records ? $records->silenceOf($mutant('a', '/p/src/Money.php', 10)) : $records)->toEqual(Seconds::of(8.0))
         ->and($records instanceof Records ? $records->silenceOf($mutant('b', '/p/src/Money.php', 20)) : $records)->toEqual(NotGiven::value())
         ->and($refused instanceof CannotJudge ? $refused->why() : '')->toMatch('/the record\.seconds is not a number of seconds above 0\.$/');
+});
+
+it('knows the test of a mutant\'s own run a patched run stopped for running past its own limit, and that limit', function () use ($results, $planned, $mutant): void {
+    $records = Records::in($results([
+        $planned('a', '/p/src/Money.php', 10),
+        RecordLine::silent('/tmp/a', 3.0, TestId::of('MoneyTest::adds')),
+    ]));
+
+    expect($records instanceof Records ? $records->silenceOf($mutant('a', '/p/src/Money.php', 10)) : $records)
+        ->toEqual(Overrun::of(TestId::of('MoneyTest::adds'), Seconds::of(3.0)));
 });
 
 it('knows it wrote every mutant Pest made once it says how many', function () use ($results, $planned): void {

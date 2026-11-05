@@ -25,6 +25,8 @@ final readonly class Workspace
 
     private const string PHPUNIT = 'phpunit-cache';
 
+    private const string SERVE = 'serve.sock';
+
     /** Where a runner's bridges are, under the directory. */
     private const string BRIDGES = 'mutators/%s/bridges.php';
 
@@ -62,6 +64,12 @@ final readonly class Workspace
     public static function phpUnitCache(): Path
     {
         return Path::of(sprintf('%s/%s', self::ROOT, self::PHPUNIT));
+    }
+
+    /** The socket a daemon of `mutation-gate serve` listens on (ADR-0078): `.mutation-gate/serve.sock`. */
+    public static function serveSocket(): Path
+    {
+        return Path::of(sprintf('%s/%s', self::ROOT, self::SERVE));
     }
 
     /**

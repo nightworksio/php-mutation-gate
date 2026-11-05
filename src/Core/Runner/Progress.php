@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Runner;
 
 use const INF;
 
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
@@ -28,6 +29,14 @@ final readonly class Progress
 
     private function __construct(private Seconds $limit, private int $size, private float $since)
     {
+    }
+
+    /** The progress a process under this silence limit starts from; none where it has none to stall at. */
+    public static function of(SilenceLimit|NotGiven $silence): self|NotGiven
+    {
+        $limit = $silence instanceof SilenceLimit ? $silence->limit() : $silence;
+
+        return $limit instanceof Seconds ? self::under($limit) : $limit;
     }
 
     /** A process's progress under this silence limit, before anything has been read. */

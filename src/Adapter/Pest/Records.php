@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\Overrun;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
@@ -82,6 +83,9 @@ final class Records
     /** What each mutant's own process recorded, by the mutated copy it ran on. */
     private readonly OwnRuns $runs;
 
+    /** How many tests each mutant's own process was to run, and in what order, by the mutated copy it ran on. */
+    private readonly PlannedOrders $orders;
+
     private Seconds|Unmeasured $opening;
 
     private bool $made = false;
@@ -91,6 +95,7 @@ final class Records
     private function __construct()
     {
         $this->opening = Unmeasured::duration();
+        $this->orders = new PlannedOrders();
         $this->runs = new OwnRuns();
     }
 
@@ -156,7 +161,9 @@ final class Records
     /** What the plugin recorded of a mutant's own process. */
     public function runOf(PlannedMutant $mutant): OwnRun
     {
-        return $this->runs->of($mutant->mutated()->value());
+        $mutated = $mutant->mutated()->value();
+
+        return $this->runs->of($mutated)->orderedAs(...$this->orders->of($mutated));
     }
 
     /**
@@ -174,8 +181,11 @@ final class Records
         return count($sharing) > 1;
     }
 
-    /** The silence limit a patched run stopped the mutant's own run at; none where it did not. */
-    public function silenceOf(PlannedMutant $mutant): Seconds|NotGiven
+    /**
+     * The silence limit a patched run stopped the mutant's own run at, or the
+     * test of it that ran past its own limit; none where it did neither.
+     */
+    public function silenceOf(PlannedMutant $mutant): Seconds|Overrun|NotGiven
     {
         return $this->runs->silenceOf($mutant->mutated()->value());
     }
@@ -262,6 +272,7 @@ final class Records
             RecordEvent::Silent => $this->runs->silent($record),
             RecordEvent::Ran => $this->runs->ran($record),
             RecordEvent::Arguments => $this->runs->startedWith($record),
+            RecordEvent::Ordered => $this->orders->ordered($record),
             RecordEvent::Stopped => throw NotInShape::at($event->at(), 'an event of a mutation run, not a replay\'s'),
             RecordEvent::Ended => $this->runs->ended($record),
             RecordEvent::End => $this->ended = true,

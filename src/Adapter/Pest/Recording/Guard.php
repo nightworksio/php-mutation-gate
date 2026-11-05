@@ -64,7 +64,7 @@ final readonly class Guard
         $seen = [
             'before' => $this->before || ServedClasses::bypassed($loaded),
             'loaded' => Loaded::of([...$loaded, $erredIn])->has(ServedClasses::inPlaceOf($this->original)),
-            'opcache' => $opcache->couldServeTheOriginal(),
+            'opcache' => $opcache->couldServe($this->original),
         ];
 
         file_put_contents($this->file, json_encode($seen, JSON_UNESCAPED_SLASHES));

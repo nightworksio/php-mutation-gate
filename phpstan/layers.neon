@@ -209,6 +209,12 @@ parameters:
                 # warnings as well as answering false; the handler that keeps them from the run's output is restored
                 # before either answer is read.
                 - src/Adapter/Process/Running.php
+                # stream_socket_client, stream_socket_server, stream_socket_accept, stream_select and fwrite raise a
+                # socket nobody listens on, one that cannot be bound, a wait a signal cut short and a peer that has
+                # gone as warnings as well as answering false; the handler that keeps them from the run's output is
+                # restored before the answer is read (ADR-0078).
+                - src/Adapter/Serve/Connection.php
+                - src/Adapter/Serve/Listener.php
 
         # --- Q1, for ini_set: only the command, and the mutant's own error log ----------------------------
         -
@@ -255,6 +261,12 @@ parameters:
                 - src/Adapter/Pest/Warm/Worker.php
                 - src/Adapter/Pest/Warm/Client.php
                 - src/Adapter/Pest/Warm/PidFile.php
+                # A daemon of `mutation-gate serve` stops the process group of a child whose client has gone, or
+                # every child's where it is asked to stop, through the forking the gate's script hands it (ADR-0078).
+                - bin/mutation-gate
+                # A client of `mutation-gate serve`, and its daemon, ask whether the process at the other end of the
+                # socket is one this user may signal, with signal 0, which tells and sends nothing (ADR-0078).
+                - src/Adapter/Serve/ServeSocket.php
 
         # --- base64 of what holds no secret ------------------------------------------
         # The extension keys each entry by its call, so this entry replaces the timing-safe set's own for

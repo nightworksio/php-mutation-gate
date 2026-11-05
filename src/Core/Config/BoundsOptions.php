@@ -11,10 +11,11 @@ use NightWorksIO\MutationGate\Core\Runner\Multiple;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
- * `timeouts.seconds`, `timeouts.most`, `timeouts.multiple` and `timeouts.tighter` as the flows
- * write them into a built-in runner's options, and as the runner reads them
- * back: what each mutant's limit is kept between, the standard where they
- * write none.
+ * `timeouts.seconds`, `timeouts.most`, `timeouts.multiple`, `timeouts.tighter`,
+ * `timeouts.perTest` and `timeouts.testFloor` as the flows write them into a
+ * built-in runner's options, and as the runner reads them back: what each
+ * mutant's limit is kept between, and each test's own, the standard where
+ * they write none.
  *
  * @internal
  */
@@ -44,6 +45,7 @@ final readonly class BoundsOptions
         $learnsFloor = $options->flag(Key::of(self::LEARNS_FLOOR));
         $learnsMultiple = $options->flag(Key::of(self::LEARNS_MULTIPLE));
         $tighter = TighterOptions::read($options);
+        $perTest = PerTestOptions::read($options);
         $standard = Triage::standard();
 
         return match (true) {
@@ -53,6 +55,7 @@ final readonly class BoundsOptions
             $learnsFloor instanceof Problem => $learnsFloor,
             $learnsMultiple instanceof Problem => $learnsMultiple,
             $tighter instanceof Problem => $tighter,
+            $perTest instanceof Problem => $perTest,
             default => self::learning(
                 LimitBounds::between(
                     $timeout instanceof NotGiven ? $standard->limit() : Seconds::of($timeout),
@@ -61,7 +64,7 @@ final readonly class BoundsOptions
                     $learnsMultiple === true => Learned::Learned,
                     $multiple instanceof NotGiven => Multiple::standard(),
                     default => Multiple::of($multiple),
-                }),
+                })->watchingEachTest($perTest),
                 $learnsFloor,
             ),
         };
@@ -85,6 +88,7 @@ final readonly class BoundsOptions
             ...$bounds->learnsFloor() ? [Member::of(self::LEARNS_FLOOR, value: true)] : [],
             TighterOptions::floor($triage->tighter()),
             TighterOptions::mutators($triage->tighter()),
+            ...PerTestOptions::of($triage->bounds()->perTest()),
         ];
     }
 

@@ -16,6 +16,7 @@ use function is_file;
 use function iterator_to_array;
 use function ksort;
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Infection\Patch as InfectionPatch;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -174,7 +175,7 @@ final readonly class RunnerContracts
         $kept = array_map(static fn(string $file): string => (string) file_get_contents($file), $files);
 
         try {
-            $patched = InfectionPatch::applyIn($vendor);
+            $patched = InfectionPatch::applyIn($vendor, new PackageDirectory());
 
             return $patched instanceof CannotJudge ? $patched : $then();
         } finally {

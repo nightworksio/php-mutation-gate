@@ -18,6 +18,7 @@ use function is_string;
 use function mb_strlen;
 use function mb_substr;
 
+use NightWorksIO\MutationGate\Core\File\FileMode;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\WholeNumber;
 
@@ -45,10 +46,6 @@ final readonly class BootCheck
     /** Where the system lists a process's open files by their numbers. */
     private const string OPEN_FILES = '/dev/fd';
 
-    /** The bits of a file's mode that say what it is, and what they are for a socket. */
-    private const int TYPE = 0o170000;
-
-    private const int SOCKET = 0o140000;
 
 
     /** The resource type of PHP's streams. */
@@ -141,7 +138,7 @@ final readonly class BootCheck
 
             $stat = stat($path);
 
-            return is_array($stat) && ($stat['mode'] & self::TYPE) === self::SOCKET;
+            return is_array($stat) && ($stat['mode'] & FileMode::TYPE) === FileMode::SOCKET;
         });
 
         return count($sockets);

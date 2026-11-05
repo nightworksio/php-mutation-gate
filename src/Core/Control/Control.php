@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
 use NightWorksIO\MutationGate\Core\Runner\RunSelection;
 use NightWorksIO\MutationGate\Core\Runner\RunTests;
+use NightWorksIO\MutationGate\Core\Runner\TestWatch;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -30,7 +31,8 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  * An unmutated control of a mutant's run (ADR-0008): these
  * tests, in this order, selected as the run selected them, run with the file
  * the mutant changes served unmutated, as the runner served the mutant, and
- * allowed the limit its run was. A part of a heavy mutant's run is one too,
+ * allowed the limit its run was, each test held to its own limit where its
+ * run's were (ADR-0090). A part of a heavy mutant's run is one too,
  * with the mutant's text served in the file's place, and stopped where no
  * test finishes for its silence limit (see HeavyMutants). Two controls of
  * the same file, tests, selection, served text and limits are one control.
@@ -52,6 +54,7 @@ final readonly class Control
         private Seconds $limit,
         private Contents|NotGiven $served = new NotGiven(),
         private Seconds|NotGiven $silence = new NotGiven(),
+        private TestWatch|NotGiven $watch = new NotGiven(),
     ) {
     }
 
@@ -110,7 +113,18 @@ final readonly class Control
      */
     public function serving(Contents $mutated, Seconds $silence): self
     {
-        return new self($this->file, $this->run, $this->limit, $mutated, $silence);
+        return new self($this->file, $this->run, $this->limit, $mutated, $silence, $this->watch);
+    }
+
+    /**
+     * This run, each of its tests held to its own limit under this watch, as
+     * its mutant's run was (ADR-0090); as it was where the watch holds none.
+     */
+    public function watched(TestWatch $watch): self
+    {
+        return $watch->isOn()
+            ? new self($this->file, $this->run, $this->limit, $this->served, $this->silence, $watch)
+            : $this;
     }
 
     /**
@@ -119,7 +133,7 @@ final readonly class Control
      */
     public function unmutated(): self
     {
-        return new self($this->file, $this->run, $this->limit);
+        return new self($this->file, $this->run, $this->limit, watch: $this->watch);
     }
 
     /** The file the mutant changes, served unmutated. */
@@ -138,6 +152,12 @@ final readonly class Control
     public function silence(): Seconds|NotGiven
     {
         return $this->silence;
+    }
+
+    /** The watch each of its tests is held to on its own; none where none is. */
+    public function watch(): TestWatch|NotGiven
+    {
+        return $this->watch;
     }
 
     /** The tests the control runs, in the order it runs them. */
@@ -161,7 +181,7 @@ final readonly class Control
     /**
      * What tells this control from another, so each runs once: its file, its
      * tests in their order, how it selects them, its limit, and the text it
-     * serves and its silence limit where it has them.
+     * serves, its silence limit and each test's own limit where it has them.
      */
     public function key(): string
     {
@@ -172,6 +192,9 @@ final readonly class Control
             $this->limit->seconds(),
             ...$this->served instanceof Contents ? [Digest::sha256Of($this->served->text())->value()] : [],
             ...$this->silence instanceof Seconds ? [$this->silence->seconds()] : [],
+            ...$this->watch instanceof TestWatch
+                ? [$this->watch->limit()->multiple(), $this->watch->limit()->floor()->seconds()]
+                : [],
         ]);
     }
 

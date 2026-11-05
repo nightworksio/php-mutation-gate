@@ -23,13 +23,18 @@ use NightWorksIO\MutationGate\Core\Native\Variable;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
+use NightWorksIO\MutationGate\Core\Runner\TestEvents;
+use NightWorksIO\MutationGate\Core\Runner\TestWatch;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestTime;
+use NightWorksIO\MutationGate\Core\Test\TestTimes;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\NativePhpUnit;
@@ -247,6 +252,18 @@ it('runs a part of a heavy mutant\'s run with the mutant served through the over
     expect(file_get_contents($command->environment()[Variable::Mutated->value]))->toBe($mutated)
         ->and($silence instanceof SilenceLimit ? $silence->limit() : $silence)->toEqual(Seconds::of(3.0))
         ->and($runs->of($part)->end())->toBe(ControlEnd::Failed);
+});
+
+it('runs a control whose tests are watched with each test held to its own limit, as its mutant\'s run was', function () use ($makeWhole): void {
+    $project = unmutatedPhpUnitProject();
+    $shell = controlPhpUnit(Outcome::Passed, Ran::finished(succeeded: true, output: ''));
+    $watch = TestWatch::of(PerTestLimit::standard(), TestTimes::of(TestTime::of(TestId::of('Tests\\MoneyTest::testAdds'), Seconds::of(0.5))));
+
+    controlled(unmutated($project, $shell), Controls::of(phpUnitControl('src/Money.php', 6.0)->watched($watch)), $makeWhole());
+    $silence = $shell->commands()[0]->silence();
+
+    expect($silence instanceof SilenceLimit ? [$silence->limit(), $silence->tests(), $silence->events()] : $silence)
+        ->toEqual([NotGiven::value(), $watch, TestEvents::NativeResults]);
 });
 
 /** A shell whose workers' children and fresh runs each pass Money's test, its children holding 20480 at most. */

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\PrefixReplay;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -26,4 +27,16 @@ it('takes the longer limit of two kills it vouches for, and the time left once e
 
 it('spells its limit for a key, and nothing where it is not known', function (): void {
     expect([replayAllowed(Seconds::of(2.5))->limitText(), replayAllowed(Unmeasured::duration())->limitText()])->toBe(['2.5', '']);
+});
+
+it('replays to the end of the whole order its run was to take, under that order\'s key, never short of how far it reached', function (): void {
+    $replay = PrefixReplay::of(Path::of('src/Money.php'), '/m/abc', ['pest', '--bail'], Paths::none(), 2, 'abcdefabcdef', Seconds::of(2.0));
+    $whole = $replay->toTheEnd(Prefix::keyedAt(5, '123456123456'));
+    $short = $replay->toTheEnd(Prefix::keyedAt(1, '123456123456'));
+    $keyless = $replay->toTheEnd(Prefix::at(5));
+
+    expect([$whole->reach(), $whole->key(), $whole->file()->value(), $whole->mutated(), $whole->options(), $whole->limitText()])
+        ->toBe([5, '123456123456', 'src/Money.php', '/m/abc', ['--bail'], '2'])
+        ->and([$short->reach(), $keyless->key()])->toBe([2, 'abcdefabcdef'])
+        ->and($whole->alongside(replayAllowed(Seconds::of(7.0)))->limitText())->toBe('7');
 });

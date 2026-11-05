@@ -23,7 +23,10 @@ use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 /**
  * What the `pest` runner's options say: `patch`, whether the project applies
  * `pest:patch`, false by default; `canary`, the group a patched shard opens
- * on, `mutation-canary` by default; `tests`, the directories the tests live
+ * on, `mutation-canary` by default; `bootTail`, whether the verification
+ * tail's workers boot the project (ADR-0075), false by default;
+ * `workerOpcache`, whether its warm workers compile through opcache
+ * (ADR-0088), true by default; `tests`, the directories the tests live
  * in, which the flows write from the PHPUnit config, `tests` by default;
  * `timeout` and `most`, the floor and the most of each mutant's limit, which
  * the flows write from `timeouts.seconds` and `timeouts.most`; and
@@ -56,6 +59,8 @@ final readonly class PestOptions
     {
         $patch = $options->flag(Key::of(self::PATCH));
         $canary = $options->text(Key::of(self::CANARY));
+        $bootTail = $options->flag(Key::of(ConfigPest::BOOT_TAIL));
+        $opcache = $options->flag(Key::of(ConfigPest::WORKER_OPCACHE));
         $tests = $options->paths(Key::of(self::TESTS));
         $mutators = $options->texts(Key::of(self::MUTATORS));
         $bounds = BoundsOptions::read($options);
@@ -63,11 +68,15 @@ final readonly class PestOptions
         return match (true) {
             $patch instanceof Problem => Invalid::because($patch),
             $canary instanceof Problem => Invalid::because($canary),
+            $bootTail instanceof Problem => Invalid::because($bootTail),
+            $opcache instanceof Problem => Invalid::because($opcache),
             $tests instanceof Problem => Invalid::because($tests),
             $mutators instanceof Problem => Invalid::because($mutators),
             $bounds instanceof Problem => Invalid::because($bounds),
             default => new self(
-                self::patchingOf($patch, $canary),
+                self::patchingOf($patch, $canary)
+                    ->bootingTail($bootTail === true)
+                    ->cachingInWorkers($opcache !== false),
                 $tests instanceof NotGiven ? Paths::of(TestsDirectory::conventional()) : $tests,
                 self::bridgesTo($mutators instanceof Listed ? [...$mutators] : []),
                 $bounds,

@@ -22,7 +22,7 @@ use function sprintf;
  * Without a config, the analyser discovers its own. One check may take
  * `staticCheck.seconds`, and so may Psalm's language server to start.
  * `staticCheck.before` also checks a mutant before its tests where that pays;
- * off by default, so only the tests' survivors are checked (ADR-0020).
+ * on by default (ADR-0020, ADR-0077).
  */
 final readonly class StaticCheck implements Part
 {
@@ -97,11 +97,11 @@ final readonly class StaticCheck implements Part
 
     /**
      * `staticCheck.before`: whether a mutant is also checked before its tests
-     * where that pays; no by default, so only survivors are checked.
+     * where that pays; yes by default (ADR-0077).
      */
     public function before(): bool
     {
-        return $this->before === true;
+        return $this->before !== false;
     }
 
     public function written(PathOrigin $origin): Json

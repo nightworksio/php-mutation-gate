@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -75,7 +76,7 @@ function missedMutants(string $file, string $mutator): array|string
         copy(Tree::at(sprintf('tests/Contract/Runner/reach/%s', $each)), Tree::at(sprintf('%s/%s', Library::DIRECTORY, $each)));
     }
 
-    Patch::applyIn(Library::vendor());
+    Patch::applyIn(Library::vendor(), new PackageDirectory());
     $runner = Library::pest(Patching::on(Library::canary()))->runner();
     $mutated = Paths::of(Path::of($file));
     $directory = Path::of('.mutation-gate/missed');

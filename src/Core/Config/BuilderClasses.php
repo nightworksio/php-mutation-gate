@@ -63,6 +63,7 @@ final readonly class BuilderClasses
         'MemoryCap' => 'NightWorksIO\\MutationGate\\Core\\Runner',
         'MemoryUnit' => 'NightWorksIO\\MutationGate\\Core\\Runner',
         'PathRuleMode' => 'NightWorksIO\\MutationGate\\Core\\Runner',
+        'ServeStart' => 'NightWorksIO\\MutationGate\\Core\\Serve',
         'Withheld' => 'NightWorksIO\\MutationGate\\Core\\Runner',
         'Workers' => 'NightWorksIO\\MutationGate\\Core\\Runner',
     ];

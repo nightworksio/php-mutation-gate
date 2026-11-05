@@ -33,6 +33,18 @@ it('is on with the canary group a shard opens on', function (): void {
         ->and($patching->canary())->toEqual(Group::named('mutation-canary'));
 });
 
+it('caches in its warm workers where it is on, unless told not to, and keeps the tail\'s boot as it was', function (): void {
+    $on = Patching::on(Group::named('canary'))->bootingTail(boots: true);
+
+    expect([
+        $on->cachesInWorkers(),
+        $on->cachingInWorkers(caches: false)->cachesInWorkers(),
+        $on->cachingInWorkers(caches: false)->bootsTail(),
+        $on->cachingInWorkers(caches: false)->bootingTail(boots: true)->cachesInWorkers(),
+        Patching::off()->cachesInWorkers(),
+    ])->toBe([true, false, true, false, false]);
+});
+
 it('opens a run on the canary group where it is handed a map and the patch is on, or else on what judges it', function (): void {
     $canary = Group::named('mutation-canary');
     $held = Group::named('holds:src/Money.php');

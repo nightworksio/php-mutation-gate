@@ -39,6 +39,7 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
+use NightWorksIO\MutationGate\Core\Serve\ServeStart;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
 it('writes nothing for a config with no settings', function (): void {
@@ -138,6 +139,8 @@ it('writes every setting of the configuration reference', function (): void {
                 Timeouts::seconds(30),
                 Timeouts::most(120),
                 Timeouts::tighter(5, 'RemoveArrayItem', 'Foreach_'),
+                Timeouts::perTest(4),
+                Timeouts::testFloor(2),
                 Flaky::notConfirmingSurvivors(),
                 Survivors::firstAtMost(5),
                 Ignores::within(30),
@@ -150,6 +153,8 @@ it('writes every setting of the configuration reference', function (): void {
                 Dashboard::repositories('api', 'web'),
                 Pest::patched(),
                 Pest::canary('canary'),
+                Pest::bootingTail(),
+                Pest::cachingInWorkers(),
                 StaticCheck::phpstan(),
                 StaticCheck::config('phpstan.dist.neon'),
                 StaticCheck::seconds(45),
@@ -160,6 +165,8 @@ it('writes every setting of the configuration reference', function (): void {
                 Pruning::auditEvery('3d'),
                 Local::watchBudget('2m'),
                 Local::prePushBudget('10m'),
+                Local::serveIdle('1h'),
+                Local::serveStarting(ServeStart::Never),
             ),
     ))->toBe([
         'extensions' => ['Acme\\A', 'Acme\\B'],
@@ -224,17 +231,19 @@ it('writes every setting of the configuration reference', function (): void {
             'seconds' => 30,
             'most' => 120,
             'tighter' => ['mutators' => ['RemoveArrayItem', 'Foreach_'], 'floor' => 5],
+            'perTest' => 4,
+            'testFloor' => 2,
         ],
         'flaky' => ['confirmSurvivors' => false],
         'survivorsFirst' => ['max' => 5],
         'badge' => ['colors' => ['green' => 85]],
         'owners' => ['floors' => ['@acme/payments' => 90, 'jo@acme.example' => 75.5], 'mention' => 'never'],
         'dashboard' => ['topic' => 'mutation-tested', 'repositories' => ['api', 'web']],
-        'pest' => ['patch' => true, 'canary' => 'canary'],
+        'pest' => ['patch' => true, 'canary' => 'canary', 'bootTail' => true, 'workerOpcache' => true],
         'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45],
         'mutators' => ['sets' => ['acme', 'acme-auth'], 'except' => ['acme/RemoveAudit']],
         'pruning' => ['enabled' => false, 'window' => 200, 'audit' => '3d'],
-        'local' => ['watchBudget' => '2m', 'prePushBudget' => '10m'],
+        'local' => ['watchBudget' => '2m', 'prePushBudget' => '10m', 'serveIdle' => '1h', 'serveStart' => 'never'],
     ]);
 });
 
@@ -271,9 +280,12 @@ it('writes each other way to choose an adapter or a word', function (): void {
                 Proofs::directory('ledger'),
                 Proofs::writing(),
                 Timeouts::confirmed(),
+                Timeouts::noTestLimit(),
                 Flaky::confirmingSurvivors(),
                 Ignores::refusingNativeMarkers(),
                 Pest::unpatched(),
+                Pest::tailUnbooted(),
+                Pest::uncachedInWorkers(),
             ),
     ))->toBe([
         'preset' => ['symfony', 'laravel', 'acme'],
@@ -283,10 +295,10 @@ it('writes each other way to choose an adapter or a word', function (): void {
         'baseline' => ['improvement' => 'require'],
         'ci' => ['plan' => 'buildkite'],
         'proofs' => ['store' => ['use' => 'directory', 'with' => ['path' => 'ledger']], 'write' => 'auto'],
-        'timeouts' => ['mode' => 'confirm'],
+        'timeouts' => ['mode' => 'confirm', 'perTest' => false],
         'flaky' => ['confirmSurvivors' => true],
         'ignores' => ['native' => 'refuse'],
-        'pest' => ['patch' => false],
+        'pest' => ['patch' => false, 'bootTail' => false, 'workerOpcache' => false],
     ]);
 });
 

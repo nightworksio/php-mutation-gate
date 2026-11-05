@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed as ComposerInstalled;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
+use NightWorksIO\MutationGate\Core\Composer\PackageFiles;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
@@ -89,6 +90,7 @@ final readonly class Infection implements Runner
         private LimitBounds $bounds,
         private bool $nativeMarkersAllowed,
         private CapFiles $files,
+        private PackageFiles $packages,
         private Clock $clock = new WallClock(),
         private HeldCoverage $held = new HeldCoverage(),
         private StaticAnalysis $analysis = StaticAnalysis::Infection,
@@ -99,13 +101,15 @@ final readonly class Infection implements Runner
 
     /**
      * The adapter in the project the gate runs in, from the options the flows
-     * write (see Setup), writing its memory cap with these files, running
-     * through these processes, and having Infection load the gate's PHAR
-     * where the gate runs from one.
+     * write (see Setup), writing its memory cap with these files, reading
+     * whether infection:patch is applied through these package files,
+     * running through these processes, and having Infection load the gate's
+     * PHAR where the gate runs from one.
      */
     public static function fromOptions(
         Options $options,
         CapFiles $files,
+        PackageFiles $packages,
         Processes $processes,
         OwnArchive|NotGiven $archive,
     ): self|Invalid {
@@ -123,6 +127,7 @@ final readonly class Infection implements Runner
             $setup->bounds(),
             nativeMarkersAllowed: $setup->allowsNativeMarkers(),
             files: $files,
+            packages: $packages,
             analysis: $setup->analysis(),
             bridges: $setup->bridges()->loading($archive),
         );
@@ -364,6 +369,7 @@ final readonly class Infection implements Runner
                 $this->bounds,
                 $this->nativeMarkersAllowed,
                 $this->files,
+                $this->packages,
                 $this->clock,
                 analysis: $this->analysis,
                 bridges: $this->bridges,
@@ -384,7 +390,7 @@ final readonly class Infection implements Runner
             $this->nativeMarkersAllowed,
             $this->analysis,
             $covered,
-            Patch::stateIn($this->project->absolute(Path::of(Manifest::VENDOR))),
+            Patch::stateIn($this->project->absolute(Path::of(Manifest::VENDOR)), $this->packages),
             $this->clock,
             $this->bridges,
         );
@@ -399,7 +405,7 @@ final readonly class Infection implements Runner
             $config,
             $this->nativeMarkersAllowed,
             $this->analysis,
-            Patch::stateIn($this->project->absolute(Path::of(Manifest::VENDOR))),
+            Patch::stateIn($this->project->absolute(Path::of(Manifest::VENDOR)), $this->packages),
             $this->bridges,
         );
     }

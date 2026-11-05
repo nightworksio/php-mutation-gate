@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Mutant;
 
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
@@ -40,6 +41,12 @@ final readonly class Reason
      */
     private const string SILENT = 'No test finished for %s, its silence limit, so its run was stopped.';
 
+    /**
+     * Why a mutant timed out before its limit: one test of its run ran past
+     * the limit of its own, a multiple of its own time (ADR-0090).
+     */
+    private const string OVERRAN = 'Its test %s ran past %s, its own limit, so its run was stopped.';
+
     private function __construct(private string $text, private OutOfTime|Unreported $outOfTime)
     {
     }
@@ -65,6 +72,12 @@ final readonly class Reason
     public static function silent(Seconds $for): self
     {
         return self::that(sprintf(self::SILENT, $for->text()));
+    }
+
+    /** Why a mutant's run was stopped where this test of it ran past this limit of its own. */
+    public static function overran(TestId $test, Seconds $limit): self
+    {
+        return self::that(sprintf(self::OVERRAN, $test->value(), $limit->text()));
     }
 
     /** Whether it says the mutated file was loaded before the mutant was in place, as the ledger keeps it. */

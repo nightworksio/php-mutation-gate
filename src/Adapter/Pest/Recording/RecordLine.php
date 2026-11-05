@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
 use NightWorksIO\MutationGate\Core\Mutant\Ended;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
@@ -159,12 +160,17 @@ final readonly class RecordLine
         ]);
     }
 
-    /** That the own run of the mutant with this mutated copy was stopped where no test finished for this long. */
-    public static function silent(string $mutated, float $seconds): string
+    /**
+     * That the own run of the mutant with this mutated copy was stopped where
+     * no test finished for this long, or where this test of it ran past this
+     * own limit (ADR-0090).
+     */
+    public static function silent(string $mutated, float $seconds, TestId|NotGiven $overran = new NotGiven()): string
     {
         return self::line([
             RecordField::Event->value => RecordEvent::Silent->value,
             RecordField::Mutated->value => $mutated,
+            ...$overran instanceof TestId ? [RecordField::Test->value => $overran->value()] : [],
             RecordField::Seconds->value => $seconds,
         ]);
     }
@@ -188,6 +194,20 @@ final readonly class RecordLine
             RecordField::Event->value => RecordEvent::Ran->value,
             RecordField::Mutated->value => $mutated,
             RecordField::Count->value => $tests,
+        ]);
+    }
+
+    /**
+     * How many tests the own process of the mutant Pest serves this mutated
+     * copy for was to run, once it ordered them, and the digest of that order.
+     */
+    public static function ordered(string $mutated, int $tests, string $order): string
+    {
+        return self::line([
+            RecordField::Event->value => RecordEvent::Ordered->value,
+            RecordField::Mutated->value => $mutated,
+            RecordField::Count->value => $tests,
+            RecordField::Order->value => $order,
         ]);
     }
 

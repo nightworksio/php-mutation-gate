@@ -10,6 +10,7 @@ use function implode;
 use function is_file;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\BootSpec;
 use NightWorksIO\MutationGate\Core\Coverage\PhpReport;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -54,6 +55,9 @@ final readonly class Invocation
 
     /** Pest's script, in the directory Composer installed the project's packages in. */
     private const string SCRIPT = '%s/pestphp/pest/bin/pest';
+
+    /** Composer's autoloader, in the directory Composer installed the project's packages in. */
+    private const string AUTOLOADER = '%s/autoload.php';
 
     /** paratest's option of the PHP options each worker starts with. */
     private const string PASSED_ON = '--passthru-php=%s';
@@ -225,7 +229,8 @@ final readonly class Invocation
      * fails, narrowed to what judges: the run that judges a mutant of a line
      * that is not executable through Pest's override, and the run on the
      * unmutated code a narrowed kill stands on (see NarrowedKills). The
-     * options given come before the files, such as the log a run writes.
+     * options given come before the files, such as the log a run writes. A
+     * run that names no file runs every test file of its suites.
      */
     public function judging(
         Paths $tests,
@@ -239,7 +244,7 @@ final readonly class Invocation
             $files[] = $test->value();
         }
 
-        return $this->pest(
+        $command = $this->pest(
             $withheld,
             '--no-tia',
             '--bail',
@@ -247,6 +252,25 @@ final readonly class Invocation
             ...$this->narrowedTo($judgedBy),
             ...$options,
             ...$files,
+        );
+
+        return $files === [] ? $command->loadingEveryTestFile() : $command;
+    }
+
+    /**
+     * What a warm worker of the verification tail boots to fork the runs of
+     * every test file of these suites from (ADR-0075): Composer's autoloader
+     * in the project's vendor directory, and Pest's script there.
+     *
+     * @param list<string> $suites
+     */
+    public static function booting(Project $project, array $suites): BootSpec
+    {
+        return BootSpec::of(
+            $project->root(),
+            $project->absolute(Path::of(sprintf(self::AUTOLOADER, $project->vendor()->value()))),
+            self::of($project)->script,
+            $suites,
         );
     }
 

@@ -34,6 +34,7 @@ use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\TestWatch;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -235,6 +236,7 @@ final readonly class MutationRun
                     OwnTime::slowest($map, $covering),
                     $bounds->silenceOf(RunnerMutatorName::of($mutant->mutation()->mutator())),
                 ),
+                TestWatch::of($bounds->perTest(), OwnTime::each($map, $covering)),
             );
     }
 

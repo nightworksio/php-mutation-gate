@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Client;
 use NightWorksIO\MutationGate\Core\OwnScript;
+use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -166,4 +167,17 @@ it('runs Pest through the client of the warm worker its slot tells it, inside th
         ->and($launched->arguments())->toBe([PHP_BINARY, '/launcher.php', '/peak', PHP_BINARY, ...$client, 'vendor/bin/pest', '--bail', 'tests'])
         ->and($forked->forkedIn('/other')->arguments())->toBe($forked->arguments())
         ->and(Command::of('git', 'status')->forkedIn('/warm')->arguments())->toBe(['git', 'status']);
+});
+
+it('runs every test file of its suites only once it is told so, and keeps saying so through every change', function (): void {
+    $plain = Command::pest('vendor/bin/pest', Withheld::standard(), '--testsuite=unit');
+    $every = $plain->loadingEveryTestFile();
+
+    expect($plain->loadsEveryTestFile())->toBeFalse()
+        ->and($every->loadsEveryTestFile())->toBeTrue()
+        ->and($every->arguments())->toBe($plain->arguments())
+        ->and($every->with(['A' => 'b'])->loadsEveryTestFile())->toBeTrue()
+        ->and($every->within(Seconds::of(5.0))->loadsEveryTestFile())->toBeTrue()
+        ->and($every->launchedBy('/launcher.php', '/peak')->loadsEveryTestFile())->toBeTrue()
+        ->and($every->silencedAfter(SilenceLimit::of(Seconds::of(5.0), '/progress'))->loadsEveryTestFile())->toBeTrue();
 });

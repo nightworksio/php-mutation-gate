@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Tests\Support\PhpUnitEvents;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ServedBox;
 use PHPUnit\Event\Facade;
+use PHPUnit\Framework\TestCase;
 
 beforeEach(function (): void {
     GateEnvironment::clear();
@@ -222,3 +223,16 @@ it('names no test where its process ends between tests, once a test was named a 
         PhpUnitEvents::executionFinished($events);
     }],
 ]);
+
+it('writes how many tests its process is to run, and the digest of their order, as the runner begins its run', function (): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    $events = new Facade();
+    $first = PhpUnitEvents::test(TestCase::class, 'first');
+    $second = PhpUnitEvents::test(TestCase::class, 'second');
+    Killers::listening($results, '/tmp/mutations/abc', $events, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: IssueKillers::ofThisRun());
+
+    PhpUnitEvents::executionStarted($events, $first, $second);
+
+    expect(file_get_contents(KillerFile::beside($results, '/tmp/mutations/abc')))
+        ->toBe(KillerFile::ordered(2, OrderDigest::of(TestId::of($first->id()), TestId::of($second->id()))->value()));
+});

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Infection\Patch as InfectionPatch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Cli\CommandLine;
@@ -50,13 +51,12 @@ use NightWorksIO\MutationGate\Tests\Support\Scratch;
 $holds = [
     'holds:src/Adapter/Composer/Disk.php',
     'holds:src/Adapter/Filesystem/LedgerDirectory.php',
+    'holds:src/Adapter/Filesystem/PackageDirectory.php',
     'holds:src/Adapter/Infection/Importable.php',
     'holds:src/Adapter/Infection/Infection.php',
     'holds:src/Adapter/Infection/NativeMarkers.php',
     'holds:src/Adapter/Infection/OwnConfig.php',
-    'holds:src/Adapter/Infection/PackageSource.php',
     'holds:src/Adapter/Infection/RelaxedJson.php',
-    'holds:src/Adapter/Pest/PackageSource.php',
     'holds:src/Adapter/Runtime/PhpProbe.php',
     'holds:src/Cli/CommandLine.php',
     'holds:src/Cli/Config/Chosen.php',
@@ -69,6 +69,7 @@ $holds = [
     'holds:src/Cli/Flow/ProjectMemoryLimit.php',
     'holds:src/Core/Ci/Definitions.php',
     'holds:src/Core/Composer/Manifest.php',
+    'holds:src/Core/Composer/PackageSource.php',
 ];
 
 $makeHere = static fn(): string => (string) getcwd();
@@ -130,7 +131,7 @@ it('observes whether the installed Infection carries infection:patch', function 
     $none = $state($observed());
     $vendor = InfectionSource::pristine()->into(sprintf('%s/vendor', $project));
     $missing = $state($observed());
-    InfectionPatch::applyIn($vendor);
+    InfectionPatch::applyIn($vendor, new PackageDirectory());
 
     expect([$none, $missing, $state($observed())])
         ->toBe([Patched::NotInstalled, Patched::Missing, Patched::Applied]);
@@ -144,7 +145,7 @@ it('observes whether the installed pest-plugin-mutate carries pest:patch', funct
     $none = $state($observed());
     $vendor = MutatePlugin::pristine()->into(sprintf('%s/vendor', $project));
     $missing = $state($observed());
-    Patch::applyIn($vendor);
+    Patch::applyIn($vendor, new PackageDirectory());
 
     expect([$none, $missing, $state($observed())])->toBe([Patched::NotInstalled, Patched::Missing, Patched::Applied]);
 })->group(...$holds);

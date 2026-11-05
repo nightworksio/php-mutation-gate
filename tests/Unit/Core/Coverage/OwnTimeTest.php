@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\OwnTime;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestTime;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
@@ -33,4 +34,13 @@ it('times the slowest of tests as the map timed it, and leaves it unmeasured whe
     expect(OwnTime::slowest($map, TestIds::of(TestId::of('T::subtracts'), TestId::of('T::adds'))))->toEqual(Seconds::of(0.5))
         ->and(OwnTime::slowest($map, TestIds::of(TestId::of('T::adds'), TestId::of('T::untimed'))))->toEqual(Unmeasured::duration())
         ->and(OwnTime::slowest($map, TestIds::none()))->toEqual(Unmeasured::duration());
+});
+
+it('gives the own time of each test the map timed, and none of an untimed one', function () use ($makeMap): void {
+    $each = OwnTime::each($makeMap(), TestIds::of(TestId::of('T::adds'), TestId::of('T::untimed'), TestId::of('T::subtracts')));
+
+    expect([...$each])->toEqual([
+        TestTime::of(TestId::of('T::adds'), Seconds::of(0.25)),
+        TestTime::of(TestId::of('T::subtracts'), Seconds::of(0.5)),
+    ])->and(OwnTime::each($makeMap(), TestIds::none())->isEmpty())->toBeTrue();
 });

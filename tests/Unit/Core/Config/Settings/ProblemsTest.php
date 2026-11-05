@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
 use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -84,7 +85,11 @@ it('takes a timeouts.most equal to timeouts.seconds', function (): void {
     $settings = Configs::settings(['runner' => 'pest', 'timeouts' => ['seconds' => 30, 'most' => 30]]);
 
     expect($settings->triage()->bounds())
-        ->toEqual(LimitBounds::between(Seconds::of(30.0), Seconds::of(30.0))->tighterFor(TighterSilence::standard()));
+        ->toEqual(
+            LimitBounds::between(Seconds::of(30.0), Seconds::of(30.0))
+                ->tighterFor(TighterSilence::standard())
+                ->watchingEachTest(PerTestLimit::standard()),
+        );
 });
 
 it('refuses a config that is not an object', function (string $json, string $problem): void {
@@ -418,3 +423,18 @@ it('refuses a Buildkite step whose command is not text, or a list of text, at th
     expect(Configs::problems(Configs::validated(['runner' => 'pest', 'ci' => ['buildkite' => ['step' => ['command' => 7]]]])))
         ->toBe(['ci.buildkite.step.command: expected a command, or a list of commands, as text, got 7']);
 });
+
+it('reads each test\'s own limit from the config, off where it says false', function (): void {
+    expect(Configs::settings(['runner' => 'pest', 'timeouts' => ['perTest' => 5, 'testFloor' => 2]])->triage()->bounds()->perTest())
+        ->toEqual(PerTestLimit::of(5, Seconds::of(2.0)))
+        ->and(Configs::settings(['runner' => 'pest', 'timeouts' => ['perTest' => false]])->triage()->bounds()->perTest())
+        ->toEqual(PerTestLimit::off());
+});
+
+it('refuses a per-test multiple or floor under one', function (array $timeouts, string $problem): void {
+    expect(Configs::problems(Configs::validated(['runner' => 'pest', 'timeouts' => $timeouts])))->toBe([$problem]);
+})->with([
+    'a multiple of nought' => [['perTest' => 0], 'timeouts.perTest: expected an integer of at least 1, or false, got 0'],
+    'a multiple of true' => [['perTest' => true], 'timeouts.perTest: expected an integer of at least 1, or false, got true'],
+    'a floor of nought' => [['testFloor' => 0], 'timeouts.testFloor: expected an integer of at least 1, got 0'],
+]);

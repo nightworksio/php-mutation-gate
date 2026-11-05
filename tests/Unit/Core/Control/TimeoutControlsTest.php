@@ -22,13 +22,18 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ExactRun;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
+use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
+use NightWorksIO\MutationGate\Core\Runner\TestWatch;
 use NightWorksIO\MutationGate\Core\Runner\UnfilteredRuns;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestTime;
+use NightWorksIO\MutationGate\Core\Test\TestTimes;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
@@ -86,7 +91,7 @@ it('asks for one control of each timed-out mutant: its covering tests, its file 
         ->covered(Path::of('src/Loop.php'), Line::of(4), TestId::of('LoopTest::b'))
         ->covered(Path::of('src/Loop.php'), Line::of(5), TestId::of('LoopTest::c'));
 
-    expect(askedControls(TimeoutControls::of(Mutants::of(hungMutant(last: 4)), UnfilteredRuns::none(), $map, HeldCovered::none(), new ExactRun())))
+    expect(askedControls(TimeoutControls::of(Mutants::of(hungMutant(last: 4)), UnfilteredRuns::none(), $map, HeldCovered::none(), new ExactRun(), PerTestLimit::off())))
         ->toBe([['src/Loop.php', ['LoopTest::a', 'LoopTest::b'], 10.0]]);
 });
 
@@ -96,9 +101,9 @@ it('asks for a control of the tests its mutant\'s own run ran, every row of a da
         ->covered(Path::of('src/Other.php'), Line::of(1), TestId::of('LoopTest::b#0'));
     $mutants = Mutants::of(hungMutant());
 
-    expect(askedControls(TimeoutControls::of($mutants, UnfilteredRuns::none(), $map, HeldCovered::none(), new EveryRowOfTheMethod())))
+    expect(askedControls(TimeoutControls::of($mutants, UnfilteredRuns::none(), $map, HeldCovered::none(), new EveryRowOfTheMethod(), PerTestLimit::off())))
         ->toBe([['src/Loop.php', ['LoopTest::a#0', 'LoopTest::a#1'], 10.0]])
-        ->and(askedControls(TimeoutControls::of($mutants, UnfilteredRuns::none(), $map, HeldCovered::none(), new ExactRun())))
+        ->and(askedControls(TimeoutControls::of($mutants, UnfilteredRuns::none(), $map, HeldCovered::none(), new ExactRun(), PerTestLimit::off())))
         ->toBe([['src/Loop.php', ['LoopTest::a#0'], 10.0]]);
 });
 
@@ -106,7 +111,7 @@ it('asks for a control that loads the test files its mutant\'s run loaded with n
     $mutant = hungMutant();
     $files = Paths::of(Path::of('tests/LoopTest.php'));
     $unfiltered = UnfilteredRuns::none()->with($mutant->id(), $files);
-    $asked = [...TimeoutControls::of(Mutants::of($mutant), $unfiltered, loopMap('LoopTest::a'), HeldCovered::none(), new LoadingUnfiltered())->asked()];
+    $asked = [...TimeoutControls::of(Mutants::of($mutant), $unfiltered, loopMap('LoopTest::a'), HeldCovered::none(), new LoadingUnfiltered(), PerTestLimit::off())->asked()];
 
     expect($asked[0]->selected())->toBe($files)
         ->and($asked[0]->limit())->toEqual(Seconds::of(10.0));
@@ -122,11 +127,11 @@ it('asks for no control of a mutant that did not time out, of one with no limit 
         hungMutant('trialled')->withUnmutatedNeed(Seconds::of(0.4)),
     );
 
-    expect(askedControls(TimeoutControls::of($mutants, UnfilteredRuns::none(), loopMap('LoopTest::a'), HeldCovered::none(), new ExactRun())))->toBe([]);
+    expect(askedControls(TimeoutControls::of($mutants, UnfilteredRuns::none(), loopMap('LoopTest::a'), HeldCovered::none(), new ExactRun(), PerTestLimit::off())))->toBe([]);
 });
 
 it('asks for one control of mutants alike in their file, tests and limit', function (): void {
-    $controls = TimeoutControls::of(Mutants::of(hungMutant('1'), hungMutant('2')), UnfilteredRuns::none(), loopMap('LoopTest::a'), HeldCovered::none(), new ExactRun());
+    $controls = TimeoutControls::of(Mutants::of(hungMutant('1'), hungMutant('2')), UnfilteredRuns::none(), loopMap('LoopTest::a'), HeldCovered::none(), new ExactRun(), PerTestLimit::off());
 
     expect(askedControls($controls))->toBe([['src/Loop.php', ['LoopTest::a'], 10.0]]);
 });
@@ -142,13 +147,13 @@ it('controls a mutant of a held unit by the tests covering its lines that hold i
     ));
     $other = timeoutMutant('src/Other.php', '2', MutantStatus::TimedOut)->withLimit(Seconds::of(10.0));
 
-    expect(askedControls(TimeoutControls::of(Mutants::of(hungMutant(), $other), UnfilteredRuns::none(), $map, $held, new ExactRun())))
+    expect(askedControls(TimeoutControls::of(Mutants::of(hungMutant(), $other), UnfilteredRuns::none(), $map, $held, new ExactRun(), PerTestLimit::off())))
         ->toBe([['src/Loop.php', ['LoopTest::a'], 10.0], ['src/Other.php', ['SuiteTest::b'], 10.0]]);
 });
 
 it('judges each timeout by what its control found', function (ControlRun $found, MutantStatus $status, Seconds|Unmeasured $need, string $reason): void {
     $mutants = Mutants::of(hungMutant(), timeoutMutant('src/Loop.php', 'killed', MutantStatus::Killed));
-    $controls = TimeoutControls::of($mutants, UnfilteredRuns::none(), loopMap('LoopTest::a'), HeldCovered::none(), new ExactRun());
+    $controls = TimeoutControls::of($mutants, UnfilteredRuns::none(), loopMap('LoopTest::a'), HeldCovered::none(), new ExactRun(), PerTestLimit::off());
     $applied = [...$controls->applied($mutants, ControlRuns::none()->with([...$controls->asked()][0], $found), Controls::none())];
     $said = $applied[0]->reason();
 
@@ -171,7 +176,7 @@ it('judges each timeout by what its control found', function (ControlRun $found,
 
 it('says a control the runs hold nothing for never ran', function (): void {
     $mutants = Mutants::of(hungMutant());
-    $applied = [...TimeoutControls::of($mutants, UnfilteredRuns::none(), loopMap('LoopTest::a'), HeldCovered::none(), new ExactRun())
+    $applied = [...TimeoutControls::of($mutants, UnfilteredRuns::none(), loopMap('LoopTest::a'), HeldCovered::none(), new ExactRun(), PerTestLimit::off())
         ->applied($mutants, ControlRuns::none(), Controls::none())];
 
     expect($applied[0]->reason())->toEqual(Reason::that(sprintf(TimeoutControls::UNRUN, ControlRuns::NOT_RUN)));
@@ -179,7 +184,7 @@ it('says a control the runs hold nothing for never ran', function (): void {
 
 it('leaves a timeout unjudged, the budget having run out before its control, where its control is among those left', function (): void {
     $mutants = Mutants::of(hungMutant('1'), timeoutMutant('src/Loop.php', '2', MutantStatus::TimedOut)->withLimit(Seconds::of(20.0)));
-    $controls = TimeoutControls::of($mutants, UnfilteredRuns::none(), loopMap('LoopTest::a'), HeldCovered::none(), new ExactRun());
+    $controls = TimeoutControls::of($mutants, UnfilteredRuns::none(), loopMap('LoopTest::a'), HeldCovered::none(), new ExactRun(), PerTestLimit::off());
     [$first, $second] = [...$controls->asked()];
     $applied = [...$controls->applied($mutants, ControlRuns::none()->with($first, ControlRun::passed(Seconds::of(1.0))), Controls::of($second))];
 
@@ -194,7 +199,7 @@ it('asks for and applies controls in time linear in the number of mutants', func
         $mutants = Mutants::of(...array_map(static fn(int $at): Mutant => hungMutant(strval($at)), range(1, $size)));
 
         return static function () use ($mutants, $map): int {
-            $controls = TimeoutControls::of($mutants, UnfilteredRuns::none(), $map, HeldCovered::none(), new ExactRun());
+            $controls = TimeoutControls::of($mutants, UnfilteredRuns::none(), $map, HeldCovered::none(), new ExactRun(), PerTestLimit::off());
 
             return count($controls->applied($mutants, ControlRuns::none(), Controls::none()));
         };
@@ -206,7 +211,7 @@ it('asks for and applies controls in time linear in the number of mutants', func
 
 it('names, for a timeout whose tests fail without it, the tests its control recorded failing, or every test it ran', function (TestIds $recorded, array $failing): void {
     $mutants = Mutants::of(hungMutant());
-    $controls = TimeoutControls::of($mutants, UnfilteredRuns::none(), loopMap('LoopTest::a'), HeldCovered::none(), new ExactRun());
+    $controls = TimeoutControls::of($mutants, UnfilteredRuns::none(), loopMap('LoopTest::a'), HeldCovered::none(), new ExactRun(), PerTestLimit::off());
     $applied = [...$controls->applied($mutants, ControlRuns::none()->with([...$controls->asked()][0], ControlRun::failed($recorded)), Controls::none())];
 
     expect(array_map(static fn(TestId $test): string => $test->value(), [...$applied[0]->killers()]))->toBe($failing);
@@ -214,3 +219,13 @@ it('names, for a timeout whose tests fail without it, the tests its control reco
     'recorded' => [fn(): TestIds => TestIds::of(TestId::of('LoopTest::b')), ['LoopTest::b']],
     'none recorded' => [fn(): TestIds => TestIds::none(), ['LoopTest::a']],
 ]);
+
+it('holds each test of a timeout\'s control to the limit of its own its run was, timed by the map', function (): void {
+    $map = loopMap('LoopTest::a', 'LoopTest::b')->timed(TestId::of('LoopTest::a'), Seconds::of(2.0));
+    $asked = [...TimeoutControls::of(Mutants::of(hungMutant()), UnfilteredRuns::none(), $map, HeldCovered::none(), new ExactRun(), PerTestLimit::standard())->asked()];
+    $off = [...TimeoutControls::of(Mutants::of(hungMutant()), UnfilteredRuns::none(), $map, HeldCovered::none(), new ExactRun(), PerTestLimit::off())->asked()];
+
+    expect(array_map(static fn(Control $control): TestWatch|NotGiven => $control->watch(), $asked))
+        ->toEqual([TestWatch::of(PerTestLimit::standard(), TestTimes::of(TestTime::of(TestId::of('LoopTest::a'), Seconds::of(2.0))))])
+        ->and(array_map(static fn(Control $control): TestWatch|NotGiven => $control->watch(), $off))->toEqual([NotGiven::value()]);
+});

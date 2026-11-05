@@ -426,3 +426,56 @@ it('leaves unjudged the kills a failed assertion made, and doubts those only err
         ->toBe([['native-2', MutantStatus::Killed], ['native-4', MutantStatus::Killed]])
         ->and($kills->sets())->toBe(3);
 });
+
+it('replays the narrowed kills of one file whose runs were to take one whole order once, to its end, and replays each kill on its own only where that does not stand', function (ReplayVerdict $whole, bool $stands): void {
+    $alone = $stands ? ['native-3', 'native-4'] : ['native-1', 'native-2', 'native-3', 'native-4'];
+    $at = PestCases::project();
+    $loaded = sprintf('%s/tests/ASpec.php', $at->root());
+    $planned = OrderDigest::of(TestId::of('T::x'), TestId::of('T::a'), TestId::of('T::b'))->value();
+    $other = OrderDigest::of(TestId::of('T::b'), TestId::of('T::a'))->value();
+    $arguments = ['vendor/bin/pest', '--bail', '--filter=ASpec', $loaded];
+    $kill = static fn(string $native, string $killer, int $position, string $whole, float $limit): array => [
+        PestRun::killedAt($native, $killer, Placed::at($position, OrderDigest::of(...array_map(TestId::of(...), array_slice(['T::x', 'T::a', 'T::b'], 0, $position)))->value(), 9)),
+        PestRun::narrowed($native, [$loaded]),
+        rtrim(RecordLine::arguments(PestRun::mutated($native), $arguments)),
+        rtrim(RecordLine::limited(PestRun::mutated($native), $limit)),
+        rtrim(RecordLine::ordered(PestRun::mutated($native), 3, $whole)),
+    ];
+    $file = sprintf('%s/results.jsonl', Scratch::directory());
+    PestRun::write($file, [
+        PestRun::planned('native-1', '/p/src/Money.php', 1, 'Plus', 'a', 'b'),
+        PestRun::planned('native-2', '/p/src/Money.php', 2, 'Plus', 'a', 'b'),
+        PestRun::planned('native-3', '/p/src/Other.php', 3, 'Plus', 'a', 'b'),
+        PestRun::planned('native-4', '/p/src/Money.php', 4, 'Plus', 'a', 'b'),
+        ...$kill('native-1', 'T::a', 2, $planned, 2.0),
+        ...$kill('native-2', 'T::b', 3, $planned, 5.0),
+        ...$kill('native-3', 'T::a', 2, $planned, 2.0),
+        ...$kill('native-4', 'T::x', 1, $other, 2.0),
+    ]);
+    $killed = static function (string $at, string $native, string $killer): Mutant {
+        $made = Verdicts::mutant($at, 'Plus', MutatorFamily::Arithmetic, $native);
+
+        return Mutant::of($made->id(), $native, $made->location(), $made->mutation(), MutantStatus::Killed, Unmeasured::duration())
+            ->killedBy(TestIds::of(TestId::of($killer)));
+    };
+    $kills = NarrowedKills::in(MutationResult::of(Mutants::of(
+        $killed('src/Money.php:1', 'native-1', 'T::a'),
+        $killed('src/Money.php:2', 'native-2', 'T::b'),
+        $killed('src/Other.php:3', 'native-3', 'T::a'),
+        $killed('src/Money.php:4', 'native-4', 'T::x'),
+    ), 0), $file, $at);
+    $asked = [];
+
+    $unvouched = $kills->unvouched(static function (array $replays) use (&$asked, $whole): array {
+        $asked[] = array_map(static fn(PrefixReplay $replay): array => [$replay->file()->value(), $replay->mutated(), $replay->reach(), $replay->limitText()], $replays);
+
+        return count($asked) === 1 ? [$whole] : array_fill(0, count($replays), ReplayVerdict::OtherOrder);
+    });
+
+    expect($asked[0])->toBe([['src/Money.php', PestRun::mutated('native-1'), 3, '5']])
+        ->and(array_column($asked[1], 1))->toBe(array_map(PestRun::mutated(...), $alone))
+        ->and(array_map(static fn(Mutant $mutant): string => $mutant->nativeId(), [...$unvouched->unjudged()]))->toBe($alone);
+})->with([
+    'the whole order standing' => [ReplayVerdict::Stands, true],
+    'the whole order failing' => [ReplayVerdict::Failed, false],
+]);

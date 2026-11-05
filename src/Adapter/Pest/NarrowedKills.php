@@ -8,7 +8,6 @@ use function array_key_exists;
 use function array_keys;
 use function array_map;
 use function array_slice;
-use function array_values;
 
 use Closure;
 
@@ -70,6 +69,8 @@ final readonly class NarrowedKills
      *                                              for, by the same key
      * @param array<string, list<Mutant>> $errored  the kills only tests that errored made that each replay vouches
      *                                              for, by the same key
+     * @param array<string, Prefix>       $planned  the whole order the run of each replay was to take, where known,
+     *                                              by the same key
      */
     private function __construct(
         private array $doubtful,
@@ -77,6 +78,7 @@ final readonly class NarrowedKills
         private array $replays = [],
         private array $replayed = [],
         private array $errored = [],
+        private array $planned = [],
     ) {
     }
 
@@ -100,7 +102,8 @@ final readonly class NarrowedKills
             $replay = self::replayOf($mutant, $run, $copy, $limit, $project);
 
             if ($replay instanceof PrefixReplay) {
-                $replaying[] = [$mutant, $replay, $limit, $run->killedByErrorsOnly()];
+                $planned = $run->planned(Paths::of(...array_map($project->relative(...), $run->narrowedTo())));
+                $replaying[] = [$mutant, $replay, $limit, $run->killedByErrorsOnly(), $planned];
 
                 continue;
             }
@@ -111,9 +114,9 @@ final readonly class NarrowedKills
             }
         }
 
-        [$replays, $replayed, $errored] = self::byOrder($replaying);
+        [$replays, $replayed, $errored, $planned] = self::byOrder($replaying);
 
-        return new self($doubtful, $narrowed, $replays, $replayed, $errored);
+        return new self($doubtful, $narrowed, $replays, $replayed, $errored, $planned);
     }
 
     /**
@@ -136,14 +139,12 @@ final readonly class NarrowedKills
      */
     public function unvouched(Closure $replay): ReplayedKills
     {
-        $keys = array_keys($this->replays);
-        $replays = array_values($this->replays);
-        $said = $replays === [] ? [] : $replay($replays);
+        $said = WholeOrders::of($this->replays, $this->planned)->said($replay);
         $unjudged = [];
         $doubted = [];
 
-        foreach ($keys as $at => $key) {
-            $verdict = array_key_exists($at, $said) ? $said[$at] : ReplayVerdict::NoTime;
+        foreach (array_keys($this->replays) as $key) {
+            $verdict = array_key_exists($key, $said) ? $said[$key] : ReplayVerdict::NoTime;
             $reason = $verdict->reason();
 
             if ($reason instanceof NotGiven) {
@@ -201,21 +202,30 @@ final readonly class NarrowedKills
      * vouches for, by the same key: those a failed assertion made, and those
      * only tests that errored made.
      *
-     * @param list<array{Mutant, PrefixReplay, Seconds|Unmeasured, bool}> $replaying each kill, its replay, its limit,
-     *                                                                         and whether only errors made it
+     * @param list<array{Mutant, PrefixReplay, Seconds|Unmeasured, bool, Prefix|NotGiven}> $replaying each kill, its
+     *                                                                         replay, its limit, whether only errors
+     *                                                                         made it, and the whole order its run
+     *                                                                         was to take
      *
-     * @return array{array<string, PrefixReplay>, array<string, list<Mutant>>, array<string, list<Mutant>>}
+     * @return array{
+     *     array<string, PrefixReplay>,
+     *     array<string, list<Mutant>>,
+     *     array<string, list<Mutant>>,
+     *     array<string, Prefix>,
+     * }
      */
     private static function byOrder(array $replaying): array
     {
         $replays = [];
         $replayed = [];
         $errored = [];
+        $planned = [];
 
-        foreach ($replaying as [$mutant, $replay, $limit, $errorsOnly]) {
+        foreach ($replaying as [$mutant, $replay, $limit, $errorsOnly, $whole]) {
             $key = implode(self::BETWEEN, [$mutant->location()->file()->value(), $replay->key()]);
 
             $replays[$key] = array_key_exists($key, $replays) ? $replays[$key]->alsoFor($limit) : $replay;
+            $planned += $whole instanceof Prefix && is_string($whole->key()) ? [$key => $whole] : [];
             $replayed += [$key => []];
             $errored += [$key => []];
 
@@ -228,7 +238,7 @@ final readonly class NarrowedKills
             $replayed[$key][] = $mutant;
         }
 
-        return [$replays, $replayed, $errored];
+        return [$replays, $replayed, $errored, $planned];
     }
 
     /**

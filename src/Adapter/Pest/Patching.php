@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MultipleVariable;
+use NightWorksIO\MutationGate\Core\Runner\PerTestVariables;
 use NightWorksIO\MutationGate\Core\Runner\RunSelection;
 use NightWorksIO\MutationGate\Core\Runner\StartUpVariable;
 use NightWorksIO\MutationGate\Core\Runner\TighterVariables;
@@ -18,14 +19,18 @@ use function sprintf;
 
 /**
  * Whether the project applies `pest:patch`, the canary group a shard's
- * opening run is when it does, and which tests a mutant's own run selects.
+ * opening run is when it does, which tests a mutant's own run selects, and
+ * whether the verification tail's workers boot the project (ADR-0075).
  *
  * @internal
  */
 final readonly class Patching
 {
-    private function __construct(private Group|Unpatched $canary)
-    {
+    private function __construct(
+        private Group|Unpatched $canary,
+        private bool $bootsTail = false,
+        private bool $caches = true,
+    ) {
     }
 
     public static function off(): self
@@ -41,6 +46,33 @@ final readonly class Patching
     public function isOn(): bool
     {
         return $this->canary instanceof Group;
+    }
+
+    /** The same, the tail's workers booting the project where it applies the patch, as `pest.bootTail` says. */
+    public function bootingTail(bool $boots): self
+    {
+        return new self($this->canary, $boots, $this->caches);
+    }
+
+    /**
+     * The same, its warm workers compiling through opcache where it applies
+     * the patch, as `pest.workerOpcache` says.
+     */
+    public function cachingInWorkers(bool $caches): self
+    {
+        return new self($this->canary, $this->bootsTail, $caches);
+    }
+
+    /** Whether the warm workers compile through opcache, keeping out each file the run mutates and copy it serves. */
+    public function cachesInWorkers(): bool
+    {
+        return $this->isOn() && $this->caches;
+    }
+
+    /** Whether the verification tail's workers boot the project before they fork its runs of every test file. */
+    public function bootsTail(): bool
+    {
+        return $this->isOn() && $this->bootsTail;
     }
 
     /**
@@ -60,6 +92,7 @@ final readonly class Patching
                 ...TighterVariables::of($bounds->tighter()),
                 ...StartUpVariable::of($bounds),
                 ...MultipleVariable::of($bounds),
+                ...PerTestVariables::of($bounds->perTest()),
             ]
             : [];
     }

@@ -772,7 +772,7 @@ it('lays each request on no start-up where a run of no test cannot run, so each 
         ->each->toEqual(Pool::of(ProcessCount::single(), Workers::Fork));
 });
 
-it('checks mutants before their tests only where staticCheck.before asks and an analyser is wired, and otherwise leaves the analyser to the survivors', function () use (
+it('checks mutants before their tests by default where an analyser is wired, and leaves the analyser to the survivors where staticCheck.before is off or none is wired', function () use (
     $makeTicking,
 ): void {
     $ticking = $makeTicking();
@@ -788,14 +788,11 @@ it('checks mutants before their tests only where staticCheck.before asks and an 
         [],
     );
 
-    new Running(Flows::adapters($project, [], $after, $checker()), Flows::settings(), $ticking())
+    new Running(Flows::adapters($project, [], $after, $checker()), Flows::settings(StaticCheck::afterTests()), $ticking())
         ->run($plan, ShardId::of(1), Workspace::results());
-    new Running(
-        Flows::adapters($project, [], $before, $checker()),
-        Flows::settings(StaticCheck::beforeTests()),
-        $ticking(),
-    )->run($plan, ShardId::of(1), Workspace::results());
-    new Running(Flows::adapters($project, [], $unwired), Flows::settings(StaticCheck::beforeTests()), $ticking())
+    new Running(Flows::adapters($project, [], $before, $checker()), Flows::settings(), $ticking())
+        ->run($plan, ShardId::of(1), Workspace::results());
+    new Running(Flows::adapters($project, [], $unwired), Flows::settings(), $ticking())
         ->run($plan, ShardId::of(1), Workspace::results());
 
     expect(array_unique($after->preCheckers()))->toBe([NoPreCheck::class])

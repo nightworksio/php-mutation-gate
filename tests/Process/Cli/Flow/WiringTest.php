@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\FetchedCopies;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LocalLedgers;
 use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
+use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Git\Git;
 use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
 use NightWorksIO\MutationGate\Adapter\GitHub\MergedHeads;
@@ -652,9 +653,9 @@ it('tells Infection the bounds of each mutant\'s limit, and that the gate checks
     $pest = $wired(Runner::pest(), StaticCheck::uses('fake'));
 
     expect($checked instanceof Adapters ? $checked->runner : $checked)
-        ->toEqual(Infection::fromOptions(Configs::options('{"staticAnalysis": "gate", "timeout": 10.0, "most": 45.0}'), new CapDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock())), NotGiven::value()))
+        ->toEqual(Infection::fromOptions(Configs::options('{"staticAnalysis": "gate", "timeout": 10.0, "most": 45.0}'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock())), NotGiven::value()))
         ->and($unchecked instanceof Adapters ? $unchecked->runner : $unchecked)
-        ->toEqual(Infection::fromOptions(Configs::options('{"timeout": 10.0, "most": 45.0}'), new CapDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock())), NotGiven::value()))
+        ->toEqual(Infection::fromOptions(Configs::options('{"timeout": 10.0, "most": 45.0}'), new CapDirectory(), new PackageDirectory(), new LocalProcesses(new SystemClock(), Saying::on(ErrorOutputLog::onErrorOutput(), new SystemClock())), NotGiven::value()))
         ->and($pest instanceof Adapters ? $pest->runner : $pest)->not->toBeInstanceOf(Infection::class);
 })->group(...$holds);
 
@@ -665,7 +666,7 @@ it('tells each built-in runner the mutators whose silence limit has a lower floo
 
     expect($adapters instanceof Adapters ? $adapters->runner : $adapters)->toEqual($built($options));
 })->with([
-    'Infection' => [fn(): Runner => Runner::infection(), static fn(Options $options): object => Infection::fromOptions($options, new CapDirectory(), firstPartyProcesses(), NotGiven::value())],
+    'Infection' => [fn(): Runner => Runner::infection(), static fn(Options $options): object => Infection::fromOptions($options, new CapDirectory(), new PackageDirectory(), firstPartyProcesses(), NotGiven::value())],
 ])->group(...$holds);
 
 it('cannot wire an analyser the registry does not have', function (): void {
@@ -749,12 +750,14 @@ it('tells each runner its timeouts and the classes of the registered mutators th
         Configs::options((string) json_encode(['timeout' => 45.0, 'most' => 90.0, 'mutators' => [PlusToMinus::class]])),
         ComposerVendor::of('.'),
         new CapDirectory(),
+        new PackageDirectory(),
         firstPartyProcesses(),
         NotGiven::value(),
     ))
         ->and($infection instanceof Adapters ? $infection->runner : $infection)->toEqual(Infection::fromOptions(
             Configs::options((string) json_encode(['timeout' => 45.0, 'most' => 90.0, 'mutators' => [PlusToMinus::class]])),
             new CapDirectory(),
+            new PackageDirectory(),
             firstPartyProcesses(),
             NotGiven::value(),
         ))
@@ -826,6 +829,7 @@ it('tells each runner the test directories the PHPUnit config declares, each glo
         Configs::options($options(...$declared)),
         ComposerVendor::of('.'),
         new CapDirectory(),
+        new PackageDirectory(),
         firstPartyProcesses(),
         NotGiven::value(),
     ))
@@ -840,6 +844,7 @@ it('tells each runner the test directories the PHPUnit config declares, each glo
         ->and($infection instanceof Adapters ? $infection->runner : $infection)->toEqual(Infection::fromOptions(
             Configs::options($options(...$declared)),
             new CapDirectory(),
+            new PackageDirectory(),
             firstPartyProcesses(),
             NotGiven::value(),
         ));
