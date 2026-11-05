@@ -25,7 +25,9 @@ it('shows what --fix would change, and writes nothing where nobody can answer', 
     [$code, $output, , $project] = DoctorRuns::fixing('tests/Fixtures/Projects/Library', ['--fix' => true], ['.gitignore' => "vendor/\n"]);
 
     expect($code)->toBe(0)
-        ->and($output)->toContain(implode("\n", [
+        ->and($output)->toEndWith(implode("\n", [
+            'advice.',
+            '',
             'doctor --fix would change:',
             '',
             '--- a/.gitignore',
@@ -33,8 +35,9 @@ it('shows what --fix would change, and writes nothing where nobody can answer', 
             '@@ -1,1 +1,2 @@',
             ' vendor/',
             '+.mutation-gate/',
+            FixText::UNWRITTEN,
+            '',
         ]))
-        ->and($output)->toContain(FixText::UNWRITTEN)
         ->and((string) file_get_contents(sprintf('%s/.gitignore', $project)))->toBe("vendor/\n");
 });
 
@@ -42,21 +45,30 @@ it('writes what --yes answers for, and looks again', function (): void {
     [$code, $output, , $project] = DoctorRuns::fixing('tests/Fixtures/Projects/Library', ['--fix' => true, '--yes' => true], ['.gitignore' => "vendor/\n"]);
 
     expect($code)->toBe(0)
-        ->and($output)->toContain('Wrote 1 file.')
+        ->and($output)->toContain("+.mutation-gate/\n\nWrote 1 file.\n\nadvice  ")
         ->and(substr_count($output, 'workspace-not-ignored'))->toBe(2)
         ->and((string) file_get_contents(sprintf('%s/.gitignore', $project)))->toBe("vendor/\n.mutation-gate/\n");
 });
 
-it('asks once, and writes on yes and leaves everything as it was on no', function (string $answer, string $gitIgnore): void {
+it('asks once, and writes on yes and leaves everything as it was on no', function (string $answer, string $gitIgnore, string $after): void {
     [, $output, $errors, $project] = DoctorRuns::fixing('tests/Fixtures/Projects/Library', ['--fix' => true], ['.gitignore' => "vendor/\n"], $answer);
 
     expect($errors)->toContain('Apply 1 change to 1 file? [y/N]')
         ->and($output)->not->toContain(FixText::UNWRITTEN)
+        ->and(substr(explode("+.mutation-gate/\n", $output, 2)[1], 0, strlen($after)))->toBe($after)
         ->and((string) file_get_contents(sprintf('%s/.gitignore', $project)))->toBe($gitIgnore);
 })->with([
-    'yes' => ['y', "vendor/\n.mutation-gate/\n"],
-    'no' => ['n', "vendor/\n"],
+    'yes' => ['y', "vendor/\n.mutation-gate/\n", "\nWrote 1 file.\n"],
+    'no' => ['n', "vendor/\n", "\n"],
 ]);
+
+it('reads GitHub\'s settings only where --online asks it to', function (): void {
+    [, $online] = DoctorRuns::fixing('tests/Fixtures/Projects/Library', ['--online' => true]);
+    [, $offline] = DoctorRuns::fixing('tests/Fixtures/Projects/Library');
+
+    expect($online)->toContain('no-github-repository')
+        ->and($offline)->not->toContain('no-github-repository');
+});
 
 it('turns opcache off in the php.ini the runner\'s PHP loads, and names what it cannot fix', function (): void {
     $directory = Scratch::directory();
@@ -78,6 +90,6 @@ it('says it has nothing to change where it can fix nothing it found', function (
     [$code, $output] = DoctorRuns::fixing('tests/Fixtures/Projects/Library', ['--fix' => true]);
 
     expect($code)->toBe(0)
-        ->and($output)->toContain(FixText::NOTHING)
-        ->and($output)->not->toContain('Wrote');
+        ->and($output)->toEndWith(sprintf("\n\n%s\n", FixText::NOTHING))
+        ->and($output)->not->toContain(FixText::UNWRITTEN);
 });

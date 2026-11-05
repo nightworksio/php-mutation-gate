@@ -7,6 +7,9 @@ namespace NightWorksIO\MutationGate\Core\Doctor\Fix;
 use function array_filter;
 use function array_values;
 use function implode;
+
+use NightWorksIO\MutationGate\Core\NotGiven;
+
 use function preg_match;
 use function preg_quote;
 use function preg_replace;
@@ -32,8 +35,8 @@ final readonly class PhpUnitXml
 
     private const string SOURCE_CLOSED = '/^([ \t]*)<source\s*\/>/mu';
 
-    /** An `<include>`'s body. */
-    private const string INCLUDES = '/<include\b[^>]*>(.*?)<\/include>/su';
+    /** An `<include>` with its body. */
+    private const string INCLUDES = '/<include\b[^>]*>.*?<\/include>/su';
 
     private const string INCLUDE_END = '/^([ \t]*)<\/include>/mu';
 
@@ -66,10 +69,10 @@ final readonly class PhpUnitXml
     public static function sources(string $text, array $directories): string
     {
         $included = preg_match(self::SOURCE, $text, $source) === 1
-            && preg_match(self::INCLUDES, $source[3], $include) === 1 ? $include[1] : '';
+            && preg_match(self::INCLUDES, $source[3], $include) === 1 ? $include[0] : NotGiven::value();
         $missing = array_values(array_filter(
             $directories,
-            static fn(string $directory): bool => preg_match(
+            static fn(string $directory): bool => $included instanceof NotGiven || preg_match(
                 sprintf(self::INCLUDED, preg_quote($directory, '/')),
                 $included,
             ) !== 1,
@@ -87,13 +90,11 @@ final readonly class PhpUnitXml
                     $source[4],
                 ),
                 $text,
-                1,
             ),
             preg_match(self::SOURCE_CLOSED, $text) === 1 => (string) preg_replace_callback(
                 self::SOURCE_CLOSED,
                 static fn(array $closed): string => self::block($closed[1], $missing),
                 $text,
-                1,
             ),
             default => (string) preg_replace_callback(
                 self::ROOT_END,
@@ -104,7 +105,6 @@ final readonly class PhpUnitXml
                     $end[0],
                 ),
                 $text,
-                1,
             ),
         };
     }
@@ -126,7 +126,6 @@ final readonly class PhpUnitXml
                     $end[0],
                 ),
                 $body,
-                1,
             );
         }
 
