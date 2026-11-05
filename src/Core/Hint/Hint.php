@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Format\Series;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Php\Functions;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Removal\Removable;
@@ -37,7 +38,8 @@ use function sprintf;
 /**
  * What the tests miss about one mutant, in one sentence filled in from its
  * diff and from the function around it, naming up to three of the tests that
- * judge it (ADR-0009).
+ * judge it (ADR-0009); and, for a survivor, a concrete way to kill it where
+ * rules read one (ADR-0085).
  */
 final readonly class Hint
 {
@@ -143,26 +145,26 @@ final readonly class Hint
         MutantJudgement::Unjudged,
     ];
 
-    private function __construct(private string $text)
+    private function __construct(private string $text, private string|NotGiven $attempt)
     {
     }
 
     /** A hint as it was written, such as one a file the gate wrote holds. */
     public static function that(string $text): self
     {
-        return new self($text);
+        return new self($text, NotGiven::value());
     }
 
     /** The hint for a kill a ledger proved: nothing is missing. */
     public static function killed(): self
     {
-        return new self(self::KILLED);
+        return new self(self::KILLED, NotGiven::value());
     }
 
     /** The hint for a mutant nothing judged. */
     public static function unjudged(): self
     {
-        return new self(self::UNJUDGED);
+        return new self(self::UNJUDGED, NotGiven::value());
     }
 
     /**
@@ -210,12 +212,26 @@ final readonly class Hint
         };
         $naming = in_array($judgement, self::NAMING, strict: true) && count($tests) > 0;
 
-        return new self($naming ? sprintf(self::JUDGED_BY, $sentence, self::named($tests, $names)) : $sentence);
+        $attempt = $judgement === MutantJudgement::Survived ? Attempts::for($mutant, $source) : NotGiven::value();
+
+        return new self(
+            $naming ? sprintf(self::JUDGED_BY, $sentence, self::named($tests, $names)) : $sentence,
+            $attempt instanceof Attempt ? $attempt->text() : $attempt,
+        );
     }
 
     public function text(): string
     {
         return $this->text;
+    }
+
+    /**
+     * A concrete way to kill a survivor, built by rules from its diff and its
+     * file, as `Try:` precedes it (ADR-0085); none where no rule reads a value.
+     */
+    public function attempt(): string|NotGiven
+    {
+        return $this->attempt;
     }
 
     /**

@@ -1134,6 +1134,9 @@
                     "hint": {
                         "type": "string"
                     },
+                    "try": {
+                        "type": "string"
+                    },
                     "reproduce": {
                         "type": "string"
                     },

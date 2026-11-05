@@ -317,7 +317,8 @@ it('names the survivors on changed lines first, and counts the mutants on change
     $page = pageOf(onChangedLines());
     $survivors = pagePart($page, '<section class="card survivors"', '</section>');
     preg_match_all('~<a href="#m-[^"]+"><code>([^<]+)</code></a>~', $survivors, $named);
-    $hint = '<p class="hint">Add a test that checks the result of <code>$a + 1</code> with a non-zero operand.</p>';
+    $hint = '<p class="hint">Add a test that checks the result of <code>$a + 1</code> with a non-zero operand.</p>'
+        . '<p class="try">Try: use <code>$a</code> at 3.</p>';
 
     expect($named[1])->toBe(['src/B.php:5', 'src/A.php:1', 'src/A.php:2'])
         ->and(substr_count($survivors, '</li><li>'))->toBe(2)

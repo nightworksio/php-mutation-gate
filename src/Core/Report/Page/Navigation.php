@@ -59,6 +59,7 @@ use function sprintf;
  *     covered?: int,
  *     reason?: string,
  *     hint?: string,
+ *     try?: string,
  *     reproduce?: string,
  * }
  */
@@ -178,6 +179,7 @@ final readonly class Navigation
             ...$outcome !== Outcome::Killed ? ['covered' => count($mutant['coveredBy'])] : [],
             ...array_key_exists('reason', $mutant) ? ['reason' => $mutant['reason']] : [],
             ...$open ? ['hint' => $mutant['hint'], 'reproduce' => $mutant['reproduce']] : [],
+            ...$open && array_key_exists('try', $mutant) ? ['try' => $mutant['try']] : [],
         ];
     }
 }

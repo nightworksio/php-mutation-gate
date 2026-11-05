@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Stub;
 
+use function array_key_exists;
+
 use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\Config\PhpCalls;
+use NightWorksIO\MutationGate\Core\Hint\Attempt;
 use NightWorksIO\MutationGate\Core\Hint\Change;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\SourcePin;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Php\Enclosing;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Php\Names;
@@ -92,16 +96,21 @@ final readonly class Scaffold
      *
      * @return list<string>
      */
-    public static function of(Mutant $mutant, Enclosing|Nameless $function, AssertionStyle $style): array
-    {
-        $call = self::call($function, $style);
+    public static function of(
+        Mutant $mutant,
+        Enclosing|Nameless $function,
+        AssertionStyle $style,
+        Attempt|NotGiven $attempt = new NotGiven(),
+    ): array {
+        $calls = $attempt instanceof Attempt ? $attempt->calls() : [];
+        $call = self::call(self::passing($function, $calls, 0), $style);
         $change = Change::of($mutant->mutation()->diff());
 
         return match ($mutant->mutation()->family()) {
             MutatorFamily::Boundary => [
                 self::BOUNDARY,
                 self::asserted($style, $call, self::AT),
-                self::asserted($style, $call, self::PAST),
+                self::asserted($style, self::call(self::passing($function, $calls, 1), $style), self::PAST),
             ],
             MutatorFamily::ReturnValue => [self::RETURNED, self::asserted($style, $call, self::EXPECTED)],
             MutatorFamily::RemovedCall => [
@@ -151,6 +160,19 @@ final readonly class Scaffold
                 ),
             },
         ];
+    }
+
+    /**
+     * The function around the mutant, its call passing an attempt's
+     * arguments where the attempt makes that call (ADR-0085).
+     *
+     * @param list<array<string, string>> $calls
+     */
+    private static function passing(Enclosing|Nameless $function, array $calls, int $at): Enclosing|Nameless
+    {
+        return $function instanceof Enclosing && array_key_exists($at, $calls)
+            ? $function->withArguments($calls[$at])
+            : $function;
     }
 
     /** The call a test in a style makes to the function around the mutant; a placeholder where it is in none. */
