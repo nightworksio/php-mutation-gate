@@ -6,7 +6,7 @@ namespace NightWorksIO\MutationGate\Config;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
 
-/** How much of the heatmap each report shows (ADR-0084): `heatmap`. */
+/** How much of the heatmap each report shows (ADR-0100): `heatmap`. */
 final readonly class Heatmap implements Setting
 {
     private function __construct(private Json $json)

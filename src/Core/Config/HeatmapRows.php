@@ -13,7 +13,7 @@ use NightWorksIO\MutationGate\Core\Format\Member;
 use function sprintf;
 
 /**
- * How much of the heatmap each report shows (ADR-0084): `heatmap`, which
+ * How much of the heatmap each report shows (ADR-0100): `heatmap`, which
  * the `Reports` part holds. The dashboard's summary lists the lowest-scoring
  * files, the pull request comment the files the change reaches that fell
  * most or sit below their floor, and every report that lists files lists

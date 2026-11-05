@@ -29,7 +29,7 @@ use function sprintf;
  * commit and time of its latest verdict on the default branch, the verdict,
  * the project's score, each tree, the floor for new code, what the gate
  * saved over the last 30 days, its costliest mutators (ADR-0076) and its
- * lowest-scoring files (ADR-0084), where it names them. Whatever the file holds is the repository's
+ * lowest-scoring files (ADR-0100), where it names them. Whatever the file holds is the repository's
  * word, so a file not in the shape of `"format": 1` is refused whole.
  *
  * @internal

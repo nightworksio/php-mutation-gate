@@ -11,7 +11,7 @@ use NightWorksIO\MutationGate\Core\Format\Member;
 
 /**
  * The reports a run writes or sends (ADR-0009): `reports`, which each layer adds to; when `config:suggest`
- * proposes a change (ADR-0076): `suggest`; and how much of the heatmap each report shows (ADR-0084): `heatmap`.
+ * proposes a change (ADR-0076): `suggest`; and how much of the heatmap each report shows (ADR-0100): `heatmap`.
  */
 final readonly class Reports implements Part
 {

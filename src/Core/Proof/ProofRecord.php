@@ -26,7 +26,7 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
  * record and every other in full; the digests of its inputs, where it records
  * them; and, for a held unit, the holding tests that run it, as indices into
  * the ledger's tests, where it names any; and the functions of its unit
- * that hold its mutants, where it names any (ADR-0084).
+ * that hold its mutants, where it names any (ADR-0100).
  *
  * @internal the shape of a proof in the ledger file
  *

@@ -6,7 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Report;
 
 /**
  * The JSON Schema of the heatmap the JSON report and `summary.json` hold
- * (ADR-0084), as {@see HeatmapJson} writes it.
+ * (ADR-0100), as {@see HeatmapJson} writes it.
  *
  * @internal
  *

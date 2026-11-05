@@ -44,7 +44,7 @@ use function sprintf;
  * failures, the warnings, the floors that can rise, and a link to the run.
  * The comment holds up to 20 security survivors, in a section before the
  * trees (ADR-0021), after the trees the files the change reaches that fell
- * most or sit below their floor (ADR-0084), up to 20 other survivors on changed lines, each with its
+ * most or sit below their floor (ADR-0100), up to 20 other survivors on changed lines, each with its
  * diff, hint and reproduce command, up to 20 other unjudged and flaky
  * mutants, and up to 20 ignored mutants; the summary lists every mutant
  * counted as not killed and every ignored one in a table each (ADR-0009;

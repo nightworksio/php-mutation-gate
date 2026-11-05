@@ -25,7 +25,7 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
  * result can stand for other code (ADR-0008); a proof of an
  * earlier ledger format records none. A proof of a held unit also records the
  * holding tests that run it, which judge its mutants, and the functions of
- * its unit that hold its mutants, which score them by function (ADR-0084).
+ * its unit that hold its mutants, which score them by function (ADR-0100).
  */
 final readonly class Proof
 {
@@ -92,7 +92,7 @@ final readonly class Proof
         );
     }
 
-    /** This proof, naming these functions of its unit, which hold its mutants (ADR-0084). */
+    /** This proof, naming these functions of its unit, which hold its mutants (ADR-0100). */
     public function withFunctions(FunctionSpans $functions): self
     {
         return new self(

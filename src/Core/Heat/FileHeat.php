@@ -14,7 +14,7 @@ use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 
 /**
- * One file of the heatmap (ADR-0084): its score, those of the functions
+ * One file of the heatmap (ADR-0100): its score, those of the functions
  * that hold its mutants, lowest first, the floor of the tree it is in, and
  * whether the change reaches it: whether one of its mutants is on a
  * changed line.

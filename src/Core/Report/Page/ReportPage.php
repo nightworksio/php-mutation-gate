@@ -14,7 +14,7 @@ use function str_replace;
  * its script inline, so it loads nothing from a network (ADR-0009). Its top
  * says the verdict and why, the counts and each set against its floor, the
  * survivors and the files they are in, the score of every file and its
- * functions, folded (ADR-0084), and where the verdict comes from;
+ * functions, folded (ADR-0100), and where the verdict comes from;
  * all of it is read without a script. Below, a list of the files beside a
  * pane of the one chosen, each mutant with what it changed, what it came to
  * and the test that killed it or that none did, which the script draws from

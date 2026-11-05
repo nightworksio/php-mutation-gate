@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Core\Heat\Heatmap;
 use NightWorksIO\MutationGate\Core\Score\Score;
 
 /**
- * The heatmap as the JSON report and `summary.json` write it (ADR-0084):
+ * The heatmap as the JSON report and `summary.json` write it (ADR-0100):
  * the report, every file lowest first, each with the functions that hold
  * its mutants; the summary, the lowest-scoring files only. A file or
  * function with nothing to mutate has no score, and one the base has no

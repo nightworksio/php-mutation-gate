@@ -8,7 +8,7 @@ use NightWorksIO\MutationGate\Core\File\Line;
 
 /**
  * A named function or method of a file and the lines it runs over, from
- * its `function` keyword to its closing brace (ADR-0084): a method as
+ * its `function` keyword to its closing brace (ADR-0100): a method as
  * `Class::method`, by its class's short name, and a function by its own.
  */
 final readonly class FunctionSpan

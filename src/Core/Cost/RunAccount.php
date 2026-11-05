@@ -20,7 +20,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Provenance;
  * from before it (ADR-0016, and ADR-0017),
  * what pruning did (ADR-0025), where the verdict comes from (ADR-0009),
  * what each mutator costs and finds (ADR-0076), and the score of every
- * file and function against the base (ADR-0084).
+ * file and function against the base (ADR-0100).
  * A run the flows gave no timings says nothing of its cost.
  */
 final readonly class RunAccount
@@ -152,7 +152,7 @@ final readonly class RunAccount
         return $this->tallies;
     }
 
-    /** This account, with the score of every file and function it judged against the base (ADR-0084). */
+    /** This account, with the score of every file and function it judged against the base (ADR-0100). */
     public function withHeatmap(Heatmap $heatmap): self
     {
         return new self(

@@ -17,7 +17,7 @@ use Traversable;
 
 /**
  * The named functions and methods of a file, each with the lines it runs
- * over (ADR-0084), so a mutant is scored with the function its line is in:
+ * over (ADR-0100), so a mutant is scored with the function its line is in:
  * the narrowest that holds it. A closure has no name, so its lines are the
  * function's around it; a function without a body is not held.
  *

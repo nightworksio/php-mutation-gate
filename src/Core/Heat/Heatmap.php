@@ -35,7 +35,7 @@ use function usort;
 /**
  * The score of every file a verdict judged, lowest first, each with those
  * of the functions that hold its mutants and its change against the base
- * (ADR-0084): what the HTML report shows whole, the dashboard shows the
+ * (ADR-0100): what the HTML report shows whole, the dashboard shows the
  * lowest of, and the pull request comment shows the files the change
  * reaches of, those that fell most and those below their tree's floor.
  *

@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Core\Config\Reports;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 /**
- * How the `heatmap` keys a config writes are read into its `Reports` part (ADR-0002, ADR-0084): how much of the
+ * How the `heatmap` keys a config writes are read into its `Reports` part (ADR-0002, ADR-0100): how much of the
  * heatmap each report shows, which reports and never judges.
  *
  * @internal
