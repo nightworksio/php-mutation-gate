@@ -41,6 +41,7 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
+use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\RunTests;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
@@ -167,7 +168,7 @@ it('runs a timeout\'s control of a data set\'s rows as its mutant\'s own run ran
         Unmeasured::duration(),
     )->withLimit(Seconds::of(7.0));
     $controlOf = static fn(Patching $patching): Controls
-        => TimeoutControls::of(Mutants::of($hung), UnfilteredRuns::none(), $map, HeldCovered::none(), $patching->selection(new TestFiles(unmutatedProject())))->asked();
+        => TimeoutControls::of(Mutants::of($hung), UnfilteredRuns::none(), $map, HeldCovered::none(), $patching->selection(new TestFiles(unmutatedProject())), PerTestLimit::off())->asked();
 
     unmutatedRuns(unmutatedProject(), $shell, $controlOf(Patching::on(Group::named('canary'))), unmutatedRequest());
     unmutatedRuns(unmutatedProject(), $shell, $controlOf(Patching::off()), unmutatedRequest());

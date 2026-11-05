@@ -26,10 +26,10 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
+use NightWorksIO\MutationGate\Core\Runner\TestEvents;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\JUnitFailures;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
 use function strval;
@@ -177,8 +177,8 @@ final readonly class UnmutatedRuns
      * every one, under the request's tests; or else exactly its tests, a row
      * of a data set alone, where Pest's filter can hold them, and the tests
      * that judge the request where it cannot. Allowed its limit, logged to
-     * a file, and, under a silence limit, writing each event of its tests
-     * as it happens.
+     * a file, and, under a silence limit or a watch of its tests, writing
+     * each event of its tests as it happens.
      */
     private function judging(Control $control, MutationRequest $request, string $log, string $events): Command
     {
@@ -197,7 +197,7 @@ final readonly class UnmutatedRuns
             ...[
                 ...PhpUnitOption::inSuites($request->narrowing()->suitesFor($judgedBy)),
                 sprintf('%s=%s', PhpUnitOption::LogJunit->value, $log),
-                ...$control->silence() instanceof Seconds
+                ...self::silenceOf($control, $events) instanceof SilenceLimit
                     ? [sprintf('%s=%s', PhpUnitOption::LogEventsText->value, $events)]
                     : [],
             ],
@@ -206,13 +206,24 @@ final readonly class UnmutatedRuns
 
     /**
      * A control's command, stopped where it writes no event of its tests for
-     * its silence limit, where it has one: a part of a heavy mutant's run.
+     * its silence limit, as a part of a heavy mutant's run is, or where a
+     * test of it runs past its own limit (ADR-0090).
      */
     private function silenced(Command $command, Control $control, string $events): Command
     {
-        $silence = $control->silence();
+        $silence = self::silenceOf($control, $events);
 
-        return $silence instanceof Seconds ? $command->silencedAfter(SilenceLimit::of($silence, $events)) : $command;
+        return $silence instanceof SilenceLimit ? $command->silencedAfter($silence) : $command;
+    }
+
+    /**
+     * What stops a control's run before its limit, the events of its tests
+     * written to this file: its silence limit, and each test's own; none
+     * where only its limit does.
+     */
+    private static function silenceOf(Control $control, string $events): SilenceLimit|NotGiven
+    {
+        return SilenceLimit::stopping($control->silence(), $control->watch(), $events, TestEvents::PhpUnitText);
     }
 
     /** The peak a file holds, as a launcher or a forked child's client writes it; none where it holds none. */

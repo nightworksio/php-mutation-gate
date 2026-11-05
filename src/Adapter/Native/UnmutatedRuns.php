@@ -117,6 +117,7 @@ final readonly class UnmutatedRuns
                     $request,
                     $control->limit(),
                     $control->silence(),
+                    $control->watch(),
                 );
 
             if ($run instanceof PreparedRun) {

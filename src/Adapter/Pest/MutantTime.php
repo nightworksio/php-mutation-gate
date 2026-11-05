@@ -18,7 +18,10 @@ use NightWorksIO\MutationGate\Core\Mutant\RunnerMutatorName;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
+use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
+use NightWorksIO\MutationGate\Core\Runner\PerTestVariables;
 use NightWorksIO\MutationGate\Core\Runner\StartUpVariable;
+use NightWorksIO\MutationGate\Core\Runner\TestWatch;
 use NightWorksIO\MutationGate\Core\Runner\TighterVariables;
 use NightWorksIO\MutationGate\Core\Runner\ToldSeconds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -95,9 +98,24 @@ final class MutantTime
     }
 
     /**
+     * What each test of a mutant's own run is held to on its own (ADR-0090):
+     * the limit the gate names, over each test's time as the coverage map
+     * Pest loaded timed it; none where the gate names no bounds.
+     */
+    public static function watch(): TestWatch
+    {
+        $bounds = self::bounds();
+
+        return TestWatch::of(
+            $bounds instanceof LimitBounds ? $bounds->perTest() : PerTestLimit::off(),
+            LoadedMap::times(),
+        );
+    }
+
+    /**
      * The bounds the gate names, the floor and the most, each a positive
-     * number of seconds, with the mutators `timeouts.tighter` lists and the
-     * start-up the run measured; or none.
+     * number of seconds, with the mutators `timeouts.tighter` lists, the
+     * start-up the run measured and each test's own limit; or none.
      */
     private static function bounds(): LimitBounds|NotGiven
     {
@@ -111,6 +129,10 @@ final class MutantTime
                     getenv(GateVariable::TighterMutators->value),
                 ),
             )->startingIn(StartUpVariable::read(getenv(GateVariable::MutantStartUp->value)))
+                ->watchingEachTest(PerTestVariables::read(
+                    getenv(GateVariable::TestMultiple->value),
+                    getenv(GateVariable::TestFloor->value),
+                ))
             : NotGiven::value();
     }
 

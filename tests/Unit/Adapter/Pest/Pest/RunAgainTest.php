@@ -37,6 +37,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
+use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
+use NightWorksIO\MutationGate\Core\Runner\PerTestVariables;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
@@ -118,7 +120,7 @@ it('runs mutants again on the canary group, reading the map the planning job han
             'MUTATION_GATE_NARROW' => '1',
             'MUTATION_GATE_MUTANT_FLOOR' => '10.000000',
             'MUTATION_GATE_MUTANT_CAP' => '20.000000',
-            ...TighterVariables::of(TighterSilence::standard()),
+            ...TighterVariables::of(TighterSilence::standard()), ...PerTestVariables::of(PerTestLimit::standard()),
         ]));
 });
 

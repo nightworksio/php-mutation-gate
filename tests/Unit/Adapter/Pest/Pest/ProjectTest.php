@@ -35,6 +35,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
@@ -140,7 +141,7 @@ it('is Pest in the project the gate runs in, as its options say, or the options\
         new ProcessShell(new LocalProcesses(new SystemClock()), Project::at('.', Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'))->root()),
         Patching::off(),
         new CapDirectory(),
-        $bounds->tighterFor(TighterSilence::standard()),
+        $bounds->tighterFor(TighterSilence::standard())->watchingEachTest(PerTestLimit::standard()),
     );
 
     expect(Pest::fromOptions(Options::none(), Path::of('lib/vendor'), new CapDirectory(), new LocalProcesses(new SystemClock()), NotGiven::value()))->toEqual($pest(LimitBounds::between(Seconds::of(10.0), Seconds::of(300.0))))

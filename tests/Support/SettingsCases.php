@@ -125,7 +125,9 @@ final readonly class SettingsCases
                     "Ternary"
                 ],
                 "floor": 7
-            }
+            },
+            "perTest": 3,
+            "testFloor": 3
         },
         "flaky": {
             "confirmSurvivors": true
@@ -220,7 +222,7 @@ final readonly class SettingsCases
         ],
         'coverage' => ['incremental' => false],
         'budget' => '1h30m',
-        'timeouts' => ['mode' => 'unjudged', 'seconds' => 30, 'most' => 120],
+        'timeouts' => ['mode' => 'unjudged', 'seconds' => 30, 'most' => 120, 'perTest' => false, 'testFloor' => 2],
         'flaky' => ['confirmSurvivors' => false],
         'tests' => ['suites' => ['Unit', 'Plugins', 'Unit'], 'holding' => ['Process']],
         'survivorsFirst' => ['max' => 5],

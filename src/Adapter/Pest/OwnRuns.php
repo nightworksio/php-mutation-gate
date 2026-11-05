@@ -15,7 +15,9 @@ use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Mutant\Ended;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\Overrun;
 use NightWorksIO\MutationGate\Core\Runner\WrittenBytes;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function preg_match;
@@ -55,7 +57,10 @@ final class OwnRuns
     /** @var array<string, true> each mutated copy whose own runs a patched run left the filter out of */
     private array $unfiltered = [];
 
-    /** @var array<string, float> the silence limit each own run was stopped at, by the mutated copy it ran on */
+    /**
+     * @var array<string, Seconds|Overrun> the silence limit each own run was stopped at, or the test that ran past
+     *                                    its own limit, by the mutated copy it ran on
+     */
     private array $silent = [];
 
     /** @var array<string, non-empty-list<int>> how many tests each own run on a mutated copy ran, by the copy */
@@ -97,10 +102,13 @@ final class OwnRuns
         return array_key_exists($mutated, $this->limited) ? Seconds::of($this->limited[$mutated]) : NotGiven::value();
     }
 
-    /** The silence limit the own runs on this mutated copy were stopped at; none where they were not. */
-    public function silenceOf(string $mutated): Seconds|NotGiven
+    /**
+     * The silence limit the own runs on this mutated copy were stopped at, or
+     * the test of them that ran past its own limit; none where they were not.
+     */
+    public function silenceOf(string $mutated): Seconds|Overrun|NotGiven
     {
-        return array_key_exists($mutated, $this->silent) ? Seconds::of($this->silent[$mutated]) : NotGiven::value();
+        return array_key_exists($mutated, $this->silent) ? $this->silent[$mutated] : NotGiven::value();
     }
 
     /**
@@ -164,7 +172,11 @@ final class OwnRuns
     /** @throws NotInShape */
     public function silent(Node $record): void
     {
-        $this->silent[$this->mutatedIn($record)] = $this->secondsIn($record);
+        $seconds = Seconds::of($this->secondsIn($record));
+        $test = $record->field(RecordField::Test->value);
+        $this->silent[$this->mutatedIn($record)] = $test->isPresent()
+            ? Overrun::of(TestId::of($test->text()), $seconds)
+            : $seconds;
     }
 
     /** @throws NotInShape */

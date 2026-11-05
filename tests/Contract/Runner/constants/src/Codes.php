@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Library;
 
+use function in_array;
+
 /** The codes a contract names, each in exactly one list. */
 final readonly class Codes
 {

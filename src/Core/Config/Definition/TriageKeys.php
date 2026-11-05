@@ -46,6 +46,8 @@ final readonly class TriageKeys
         $seconds = Field::optional('seconds', Integer::atLeast(1), $results);
         $atMost = Field::optional('most', Integer::atLeast(1), $results);
         $tighter = Field::section('tighter', self::tighter($results));
+        $perTest = Field::optional('perTest', MultipleOrOff::atLeast(1), $results);
+        $testFloor = Field::optional('testFloor', Integer::atLeast(1), $results);
 
         return [
             Field::optional(
@@ -59,11 +61,20 @@ final readonly class TriageKeys
             Field::section(
                 'timeouts',
                 Section::of(
-                    static function (Node $timeouts) use ($mode, $seconds, $atMost, $tighter): Layer|Invalid {
+                    static function (Node $timeouts) use (
+                        $mode,
+                        $seconds,
+                        $atMost,
+                        $tighter,
+                        $perTest,
+                        $testFloor,
+                    ): Layer|Invalid {
                         $timedOut = $mode->read($timeouts);
                         $limit = $seconds->read($timeouts);
                         $upper = $atMost->read($timeouts);
                         $lower = $tighter->read($timeouts);
+                        $eachTest = $perTest->read($timeouts);
+                        $least = $testFloor->read($timeouts);
 
                         return Reading::built(
                             static fn(): Layer => Layer::of(Triage::of(
@@ -71,17 +82,23 @@ final readonly class TriageKeys
                                 limit: self::seconds($limit->value()),
                                 most: self::seconds($upper->value()),
                                 tighter: $lower->value(),
+                                perTest: $eachTest->value(),
+                                testFloor: self::seconds($least->value()),
                             )),
                             $timedOut,
                             $limit,
                             $upper,
                             $lower,
+                            $eachTest,
+                            $least,
                         );
                     },
                     $mode,
                     $seconds,
                     $atMost,
                     $tighter,
+                    $perTest,
+                    $testFloor,
                 ),
             ),
             Field::section(

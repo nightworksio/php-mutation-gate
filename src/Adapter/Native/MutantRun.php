@@ -23,8 +23,11 @@ use NightWorksIO\MutationGate\Core\Runner\ErrorDisplay;
 use NightWorksIO\MutationGate\Core\Runner\Exhaustion;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\Overrun;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
+use NightWorksIO\MutationGate\Core\Runner\TestEvents;
+use NightWorksIO\MutationGate\Core\Runner\TestWatch;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -121,8 +124,9 @@ final readonly class MutantRun
         MutationRequest $request,
         Seconds $limit,
         Seconds|NotGiven $silence = new NotGiven(),
+        TestWatch|NotGiven $watch = new NotGiven(),
     ): Mutant|CannotJudge {
-        $prepared = $this->prepared($made, $covering, $request, $limit, $silence);
+        $prepared = $this->prepared($made, $covering, $request, $limit, $silence, $watch);
 
         return $prepared instanceof PreparedRun
             ? $this->finished($prepared, $this->shell->run($prepared->command()))
@@ -165,7 +169,8 @@ final readonly class MutantRun
      * cannot be written. The run is stopped at its silence limit where no
      * test starts or ends for that long, as the results file shows, where it
      * selects its tests by their ids: one that selects their files runs
-     * other tests too, whose times are not known, so it has none.
+     * other tests too, whose times are not known, so it has none. Each test
+     * the watch times is held to its own limit too (ADR-0090).
      */
     public function prepared(
         MadeMutant $made,
@@ -173,6 +178,7 @@ final readonly class MutantRun
         MutationRequest $request,
         Seconds $limit,
         Seconds|NotGiven $silence = new NotGiven(),
+        TestWatch|NotGiven $watch = new NotGiven(),
     ): PreparedRun|Mutant|CannotJudge {
         $selection = $this->framework->selection($covering);
 
@@ -188,14 +194,13 @@ final readonly class MutantRun
 
         $applied = $selection->isExact() ? $silence : NotGiven::value();
         $command = $this->scan->onto($this->invocation->of($files, $request, $limit));
+        $silenced = SilenceLimit::stopping($applied, $watch, $files->results(), TestEvents::NativeResults);
 
         return PreparedRun::of(
             $made,
             $covering,
             $files,
-            $applied instanceof Seconds
-                ? $command->silencedAfter(SilenceLimit::of($applied, $files->results()))
-                : $command,
+            $silenced instanceof SilenceLimit ? $command->silencedAfter($silenced) : $command,
             $limit,
             $request->memory(),
             $applied,
@@ -217,7 +222,7 @@ final readonly class MutantRun
         return match (true) {
             $verdict instanceof Reason => $mutant->because($verdict),
             $status === MutantStatus::TimedOut
-                => $this->silenced($mutant->withLimit($prepared->limit()), $ran, $prepared),
+                => $this->stoppedEarly($mutant->withLimit($prepared->limit()), $ran, $prepared),
             $status === MutantStatus::OutOfMemory && Exhaustion::isOf(Exhaustion::in($ran->output()), $cap)
                 => $mutant->withLimit($cap),
             $status === MutantStatus::Killed && $ran->wasStopped() => $mutant->killedBy($recorded->creditedFailures()),
@@ -312,14 +317,20 @@ final readonly class MutantRun
         return sprintf($reason, $this->framework->runner()->program()->title(), ...$values);
     }
 
-    /** A timed-out mutant, saying its run was stopped at its silence limit where it was. */
-    private function silenced(Mutant $mutant, Ran $ran, PreparedRun $prepared): Mutant
+    /**
+     * A timed-out mutant, saying its run was stopped at its silence limit, or
+     * where a test of it ran past its own limit, where it was.
+     */
+    private function stoppedEarly(Mutant $mutant, Ran $ran, PreparedRun $prepared): Mutant
     {
         $silence = $prepared->silence();
+        $overrun = $ran->overrun();
 
-        return $ran->wasSilenced() && $silence instanceof Seconds
-            ? $mutant->because(Reason::silent($silence))
-            : $mutant;
+        return match (true) {
+            $overrun instanceof Overrun => $mutant->because(Reason::overran($overrun->test(), $overrun->limit())),
+            $ran->wasSilenced() && $silence instanceof Seconds => $mutant->because(Reason::silent($silence)),
+            default => $mutant,
+        };
     }
 
     private function mutant(MadeMutant $made, MutantStatus $status, Seconds|Unmeasured $duration): Mutant

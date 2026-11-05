@@ -488,6 +488,9 @@ services:
                     - PHP # the protocol's language identifier, not a config format
                 'NightWorksIO\MutationGate\Core\Runner\TighterSilence':
                     - FLOOR # seconds of a silence limit's floor, not a seed's step
+                'NightWorksIO\MutationGate\Core\Runner\PerTestLimit':
+                    - MULTIPLE # how many times its own time one test may run
+                    - FLOOR # the seconds one test may always run
                 'NightWorksIO\MutationGate\Core\Runner\MutantLimit':
                     - START_UP # the time a mutant's run allows PHPUnit to start
                     - FACTOR # a mutant limit's multiple of its tests' time

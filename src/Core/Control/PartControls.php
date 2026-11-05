@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Reach\TestPlaces;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
 use NightWorksIO\MutationGate\Core\Runner\RunTests;
+use NightWorksIO\MutationGate\Core\Runner\TestWatch;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
 /**
@@ -62,7 +63,8 @@ final readonly class PartControls
             $this->mutant->location()->file(),
             $part,
             MutantLimit::standard()->of(OwnTime::of($this->map, $part->tests()), $this->bounds),
-        )->serving($this->text, MutantLimit::standard()->of(OwnTime::slowest($this->map, $part->tests()), $silent));
+        )->serving($this->text, MutantLimit::standard()->of(OwnTime::slowest($this->map, $part->tests()), $silent))
+            ->watched(TestWatch::of($this->bounds->perTest(), OwnTime::each($this->map, $part->tests())));
     }
 
     /**

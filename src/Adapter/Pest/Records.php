@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\Overrun;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
@@ -174,8 +175,11 @@ final class Records
         return count($sharing) > 1;
     }
 
-    /** The silence limit a patched run stopped the mutant's own run at; none where it did not. */
-    public function silenceOf(PlannedMutant $mutant): Seconds|NotGiven
+    /**
+     * The silence limit a patched run stopped the mutant's own run at, or the
+     * test of it that ran past its own limit; none where it did neither.
+     */
+    public function silenceOf(PlannedMutant $mutant): Seconds|Overrun|NotGiven
     {
         return $this->runs->silenceOf($mutant->mutated()->value());
     }

@@ -95,7 +95,7 @@ final readonly class Killers
         try {
             $ran = new RanTests($results, $mutated);
             $events->registerSubscribers(
-                new OnPreparationStarted($killers->order),
+                new OnPreparationStarted($killers->order, $heartbeat),
                 new OnFailed($killers),
                 new OnErrored($killers),
                 new OnTestFinished($ran, $heartbeat, $killers->order),

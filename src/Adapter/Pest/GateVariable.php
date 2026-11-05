@@ -39,6 +39,12 @@ enum GateVariable: string
     /** The mutators `timeouts.tighter` lists (see TighterVariables). */
     case TighterMutators = ChildVariable::TighterMutators->value;
 
+    /** How many times its own time one test of a mutant's run may run (see PerTestVariables). */
+    case TestMultiple = ChildVariable::TestMultiple->value;
+
+    /** The least one test of a mutant's run may run for (see PerTestVariables). */
+    case TestFloor = ChildVariable::TestFloor->value;
+
     /** The canary group a patched shard's opening run is. */
     case Canary = 'MUTATION_GATE_CANARY';
 

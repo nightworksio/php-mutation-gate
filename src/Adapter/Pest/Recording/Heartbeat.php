@@ -8,17 +8,24 @@ use Closure;
 
 use function fwrite;
 
-use NightWorksIO\MutationGate\Adapter\Pest\Silence;
+use NightWorksIO\MutationGate\Core\Runner\TestEvents;
+
+use function rawurlencode;
+use function sprintf;
 
 /**
  * What a mutant's own process tells Pest's parent of its progress, on its
  * error output, which the parent's Silence reads: a beat as its tests begin
- * and as each finishes.
+ * and as each finishes, and each test's id as it starts (ADR-0090), each a
+ * line of its own.
  *
  * @internal
  */
 final readonly class Heartbeat
 {
+    /** What ends each thing it tells. */
+    private const string END = "\n";
+
     /** @param Closure(string): void $write */
     private function __construct(private Closure $write)
     {
@@ -44,6 +51,12 @@ final readonly class Heartbeat
 
     public function beat(): void
     {
-        ($this->write)(Silence::BEAT);
+        ($this->write)(sprintf('%s%s', TestEvents::BEAT, self::END));
+    }
+
+    /** Tells that this test, by its id, started. */
+    public function started(string $test): void
+    {
+        ($this->write)(sprintf('%s%s%s', TestEvents::TEST_STARTED, rawurlencode($test), self::END));
     }
 }

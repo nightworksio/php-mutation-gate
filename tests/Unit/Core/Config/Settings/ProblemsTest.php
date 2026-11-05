@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
 use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -84,7 +85,11 @@ it('takes a timeouts.most equal to timeouts.seconds', function (): void {
     $settings = Configs::settings(['runner' => 'pest', 'timeouts' => ['seconds' => 30, 'most' => 30]]);
 
     expect($settings->triage()->bounds())
-        ->toEqual(LimitBounds::between(Seconds::of(30.0), Seconds::of(30.0))->tighterFor(TighterSilence::standard()));
+        ->toEqual(
+            LimitBounds::between(Seconds::of(30.0), Seconds::of(30.0))
+                ->tighterFor(TighterSilence::standard())
+                ->watchingEachTest(PerTestLimit::standard()),
+        );
 });
 
 it('refuses a config that is not an object', function (string $json, string $problem): void {

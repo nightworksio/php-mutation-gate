@@ -45,6 +45,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\ExactRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
+use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\UnfilteredRuns;
 use NightWorksIO\MutationGate\Core\Runner\Version;
@@ -228,7 +229,7 @@ final readonly class Flows
         $runner = RunnerFake::ofTheFixture();
         $request = MutationRequest::of(Paths::of(Path::of($file)), WholeSuite::tests());
         $mutants = $runner->mutate($request)->mutants();
-        $controls = TimeoutControls::of($mutants, UnfilteredRuns::none(), self::map(), HeldCovered::none(), new ExactRun());
+        $controls = TimeoutControls::of($mutants, UnfilteredRuns::none(), self::map(), HeldCovered::none(), new ExactRun(), PerTestLimit::off());
 
         return $controls->applied($mutants, $runner->controls($request, $controls->asked()), Controls::none());
     }

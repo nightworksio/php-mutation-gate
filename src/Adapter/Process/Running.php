@@ -25,6 +25,7 @@ use function min;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ChildProcess;
 use NightWorksIO\MutationGate\Core\Runner\Environment;
+use NightWorksIO\MutationGate\Core\Runner\Overrun;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
 use NightWorksIO\MutationGate\Core\Runner\Progress;
@@ -94,6 +95,7 @@ final class Running
         private readonly SilenceLimit|NotGiven $silence,
         private Progress|NotGiven $progress,
         private array $pipes,
+        private readonly TestEventsFile $tests,
         private string $printedOut = '',
         private string $printedErrors = '',
     ) {
@@ -146,8 +148,9 @@ final class Running
             $now,
             $deadline instanceof Seconds ? $now + $deadline->seconds() : INF,
             $silence,
-            $silence instanceof SilenceLimit ? Progress::under($silence->limit()) : NotGiven::value(),
+            Progress::of($silence),
             $pipes,
+            TestEventsFile::of($silence),
         );
     }
 
@@ -192,7 +195,8 @@ final class Running
 
     /**
      * How it ended by a time: exited, or stopped with every process it started
-     * where it runs past its deadline or has stalled; nothing where it runs on.
+     * where it runs past its deadline, has stalled or a test of it has run
+     * past its own limit; nothing where it runs on.
      */
     public function endedBy(float $now): Ran|NotGiven
     {
@@ -207,7 +211,7 @@ final class Running
             ),
             $now >= $this->until => $this->stopped(Ran::stopped(...), $now, $status['pid']),
             $this->hasStalled($now) => $this->stopped(Ran::silenced(...), $now, $status['pid']),
-            default => $this->runningOn(),
+            default => $this->overranBy($now, $status['pid']),
         };
     }
 
@@ -261,6 +265,20 @@ final class Running
         $this->progress = is_int($size) ? $this->progress->read($size, $now) : $this->progress;
 
         return $this->progress->hasStalled($now);
+    }
+
+    /** Stopped where the test it runs has run past its own limit; nothing, as it runs on, where it has not. */
+    private function overranBy(float $now, int $pid): Ran|NotGiven
+    {
+        $overrun = $this->tests->overrun($now);
+
+        return $overrun instanceof Overrun
+            ? $this->stopped(
+                static fn(string $output, string $printed): Ran => Ran::overran($overrun, $output, $printed),
+                $now,
+                $pid,
+            )
+            : $this->runningOn();
     }
 
     /** Nothing, as it runs on, once what it printed so far is kept, so it never waits on a full pipe. */

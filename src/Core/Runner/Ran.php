@@ -35,6 +35,7 @@ final readonly class Ran
         private int|NotGiven $code,
         private Seconds|Unmeasured $took,
         private string|NotGiven $printed = new NotGiven(),
+        private Overrun|NotGiven $overrun = new NotGiven(),
     ) {
     }
 
@@ -80,10 +81,25 @@ final readonly class Ran
         return new self($output, Ending::Silenced, NotGiven::value(), Unmeasured::duration(), $printed);
     }
 
+    /**
+     * A process stopped where a test of it ran past the limit of its own a
+     * watchdog held it to, before its deadline (ADR-0090).
+     */
+    public static function overran(Overrun $overrun, string $output, string|NotGiven $printed = new NotGiven()): self
+    {
+        return new self($output, Ending::Silenced, NotGiven::value(), Unmeasured::duration(), $printed, $overrun);
+    }
+
     /** This, having taken so long. */
     public function took(Seconds $took): self
     {
-        return new self($this->output, $this->ending, $this->code, $took, $this->printed);
+        return new self($this->output, $this->ending, $this->code, $took, $this->printed, $this->overrun);
+    }
+
+    /** The test that ran past its own limit, so it was stopped; none where none did. */
+    public function overrun(): Overrun|NotGiven
+    {
+        return $this->overrun;
     }
 
     /** What it printed on both of its streams, its standard output first. */
@@ -128,13 +144,13 @@ final readonly class Ran
         return $this->ending === Ending::Succeeded;
     }
 
-    /** Whether it was stopped, at its deadline or at its silence limit. */
+    /** Whether it was stopped, at its deadline, at its silence limit or at a test's own limit. */
     public function wasStopped(): bool
     {
         return $this->ending === Ending::Stopped || $this->ending === Ending::Silenced;
     }
 
-    /** Whether it was stopped at its silence limit. */
+    /** Whether it was stopped at its silence limit, or at a test's own limit. */
     public function wasSilenced(): bool
     {
         return $this->ending === Ending::Silenced;

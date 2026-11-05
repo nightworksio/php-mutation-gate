@@ -10,10 +10,10 @@ use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
- * `timeouts.seconds`, `timeouts.most` and `timeouts.tighter` as the flows
- * write them into a built-in runner's options, and as the runner reads them
- * back: what each mutant's limit is kept between, the standard where they
- * write none.
+ * `timeouts.seconds`, `timeouts.most`, `timeouts.tighter`, `timeouts.perTest`
+ * and `timeouts.testFloor` as the flows write them into a built-in runner's
+ * options, and as the runner reads them back: what each mutant's limit is
+ * kept between, and each test's own, the standard where they write none.
  *
  * @internal
  */
@@ -31,16 +31,18 @@ final readonly class BoundsOptions
         $timeout = $options->number(Key::of(self::TIMEOUT));
         $most = $options->number(Key::of(self::MOST));
         $tighter = TighterOptions::read($options);
+        $perTest = PerTestOptions::read($options);
         $standard = Triage::standard();
 
         return match (true) {
             $timeout instanceof Problem => $timeout,
             $most instanceof Problem => $most,
             $tighter instanceof Problem => $tighter,
+            $perTest instanceof Problem => $perTest,
             default => LimitBounds::between(
                 $timeout instanceof NotGiven ? $standard->limit() : Seconds::of($timeout),
                 $most instanceof NotGiven ? $standard->most() : Seconds::of($most),
-            )->tighterFor($tighter),
+            )->tighterFor($tighter)->watchingEachTest($perTest),
         };
     }
 
@@ -56,6 +58,7 @@ final readonly class BoundsOptions
             Member::of(self::MOST, $triage->most()->seconds()),
             TighterOptions::floor($triage->tighter()),
             TighterOptions::mutators($triage->tighter()),
+            ...PerTestOptions::of($triage->bounds()->perTest()),
         ];
     }
 }

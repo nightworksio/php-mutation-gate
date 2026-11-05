@@ -11,6 +11,7 @@ use function is_int;
 
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MaxRss;
+use NightWorksIO\MutationGate\Core\Runner\Overrun;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Runner\ProcessTable;
 use NightWorksIO\MutationGate\Core\Runner\Progress;
@@ -25,10 +26,11 @@ use function pcntl_wtermsig;
 use function usleep;
 
 /**
- * A worker waiting for its child: until it ends, until its limit, or until
+ * A worker waiting for its child: until it ends, until its limit, until
  * no test of it has started or ended for its silence limit where it has one,
- * when the child and every process under it are stopped, looking about a
- * hundred times a second, on `hrtime`'s clock.
+ * or until a test of it runs past its own limit where it is watched
+ * (ADR-0090), when the child and every process under it are stopped, looking
+ * about a hundred times a second, on `hrtime`'s clock.
  *
  * @internal
  */
@@ -56,15 +58,15 @@ final readonly class Waiting
     public function ended(Printed $from, Workplace $workplace): End
     {
         $progress = $this->firstProgress();
+        $tests = TestEventsTail::of($this->silence);
         [$waited, $status, $held] = $this->looked();
 
         while ($waited === 0 && $this->limit->outlasts(Seconds::of($this->seconds()))) {
             $progress = $this->read($progress);
+            $early = $this->stoppedEarly($progress, $tests->overrun($this->seconds()), $from, $workplace);
 
-            if ($progress instanceof Progress && $progress->hasStalled($this->seconds())) {
-                $this->stop();
-
-                return End::silenced($this->seconds(), $from->untilNow($workplace));
+            if ($early instanceof End) {
+                return $early;
             }
 
             usleep(Polling::interval()->microseconds());
@@ -101,10 +103,33 @@ final readonly class Waiting
             : End::exited((int) pcntl_wexitstatus($status), $this->seconds(), $from->untilNow($workplace));
     }
 
+    /**
+     * The child stopped, where it has made no progress for its silence limit
+     * or its test has run past its own; nothing where it runs on.
+     */
+    private function stoppedEarly(
+        Progress|NotGiven $progress,
+        Overrun|NotGiven $overrun,
+        Printed $from,
+        Workplace $workplace,
+    ): End|NotGiven {
+        $silent = $progress instanceof Progress && $progress->hasStalled($this->seconds());
+
+        if (! $silent && ! $overrun instanceof Overrun) {
+            return NotGiven::value();
+        }
+
+        $this->stop();
+
+        return $overrun instanceof Overrun && ! $silent
+            ? End::overran($overrun, $this->seconds(), $from->untilNow($workplace))
+            : End::silenced($this->seconds(), $from->untilNow($workplace));
+    }
+
     /** The progress the child starts from; none where it has no silence limit. */
     private function firstProgress(): Progress|NotGiven
     {
-        return $this->silence instanceof SilenceLimit ? Progress::under($this->silence->limit()) : NotGiven::value();
+        return Progress::of($this->silence);
     }
 
     /** The progress as its file stands now; none where the child has no silence limit. */

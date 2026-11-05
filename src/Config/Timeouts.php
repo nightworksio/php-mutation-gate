@@ -39,6 +39,24 @@ final readonly class Timeouts implements Setting
         return new self(Json::at('timeouts.most', $seconds));
     }
 
+    /** `timeouts.perTest`: each test of a run may run this many times its own time (ADR-0090). */
+    public static function perTest(int $multiple): self
+    {
+        return new self(Json::at('timeouts.perTest', $multiple));
+    }
+
+    /** `timeouts.perTest` off: no test of a run is held to a limit of its own. */
+    public static function noTestLimit(): self
+    {
+        return new self(Json::at('timeouts.perTest', value: false));
+    }
+
+    /** `timeouts.testFloor`: the least each test of a run may run, in seconds, where `timeouts.perTest` holds it. */
+    public static function testFloor(int $seconds): self
+    {
+        return new self(Json::at('timeouts.testFloor', $seconds));
+    }
+
     /**
      * `timeouts.tighter`: the silence limit of a mutant of these mutators,
      * each by its short name, the last part of the name a runner gives it,

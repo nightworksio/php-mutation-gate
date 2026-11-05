@@ -230,7 +230,14 @@ final readonly class Invoking
         $bounds = $request->pool()->bounding($this->settings->triage()->bounds());
         $timed = $this->settings->triage()->timeouts() === TimeoutMode::Unjudged ? Mutants::none() : $mutants;
         $heavy = $this->parted->among($timed, $run, $bounds);
-        $timeouts = TimeoutControls::of($heavy->without($timed), $unfiltered, $this->map, $this->held, $run);
+        $timeouts = TimeoutControls::of(
+            $heavy->without($timed),
+            $unfiltered,
+            $this->map,
+            $this->held,
+            $run,
+            $bounds->perTest(),
+        );
         $kills = KillControls::of($mutants, $this->map, $bounds);
         $memory = MemoryControls::of($mutants, $unfiltered, $this->map, $this->held, $run, $bounds);
         $unnamed = UnnamedKillControls::of($mutants, $evidence, $this->map, $this->held, $run, $bounds);

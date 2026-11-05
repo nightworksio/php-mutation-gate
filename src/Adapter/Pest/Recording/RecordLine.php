@@ -170,6 +170,20 @@ final readonly class RecordLine
     }
 
     /**
+     * That the own run of the mutant with this mutated copy was stopped where
+     * this test of it, by its id, ran past this own limit (ADR-0090).
+     */
+    public static function overran(string $mutated, string $test, float $seconds): string
+    {
+        return self::line([
+            RecordField::Event->value => RecordEvent::Silent->value,
+            RecordField::Mutated->value => $mutated,
+            RecordField::Test->value => $test,
+            RecordField::Seconds->value => $seconds,
+        ]);
+    }
+
+    /**
      * That the own process of the mutant Pest serves this mutated copy for had
      * loaded the original file before the mutant was in its place.
      */

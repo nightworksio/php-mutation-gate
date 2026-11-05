@@ -8,6 +8,7 @@ use function max;
 use function min;
 
 use NightWorksIO\MutationGate\Core\Mutant\RunnerMutatorName;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
@@ -25,6 +26,7 @@ final readonly class LimitBounds
         private Seconds $most,
         private TighterSilence $tighter,
         private Seconds|Unmeasured $startUp,
+        private PerTestLimit|NotGiven $perTest = new NotGiven(),
     ) {
     }
 
@@ -42,13 +44,25 @@ final readonly class LimitBounds
     /** These bounds, the silence limit of these mutators kept above a lower floor. */
     public function tighterFor(TighterSilence $tighter): self
     {
-        return new self($this->floor, $this->most, $tighter, $this->startUp);
+        return new self($this->floor, $this->most, $tighter, $this->startUp, $this->perTest);
     }
 
     /** These bounds, a run of no test having taken this long to start, or nothing having measured one. */
     public function startingIn(Seconds|Unmeasured $startUp): self
     {
-        return new self($this->floor, $this->most, $this->tighter, $startUp);
+        return new self($this->floor, $this->most, $this->tighter, $startUp, $this->perTest);
+    }
+
+    /** These bounds, each test of a run held to this limit of its own (ADR-0090). */
+    public function watchingEachTest(PerTestLimit $perTest): self
+    {
+        return new self($this->floor, $this->most, $this->tighter, $this->startUp, $perTest);
+    }
+
+    /** What each test of a run is held to on its own: `timeouts.perTest` and `timeouts.testFloor`. */
+    public function perTest(): PerTestLimit
+    {
+        return $this->perTest instanceof PerTestLimit ? $this->perTest : PerTestLimit::off();
     }
 
     /** How long a run of no test took to start on this machine, or that nothing measured it. */
@@ -64,7 +78,13 @@ final readonly class LimitBounds
      */
     public function silenceOf(RunnerMutatorName $mutator): self
     {
-        return new self($this->tighter->floorOf($mutator, $this->floor), $this->most, $this->tighter, $this->startUp);
+        return new self(
+            $this->tighter->floorOf($mutator, $this->floor),
+            $this->most,
+            $this->tighter,
+            $this->startUp,
+            $this->perTest,
+        );
     }
 
     /** The mutators whose silence limit has a lower floor. */
@@ -88,7 +108,7 @@ final readonly class LimitBounds
     /** These bounds with another most, as a run again asks for. */
     public function upToInstead(Seconds $most): self
     {
-        return new self($this->floor, $most, $this->tighter, $this->startUp);
+        return new self($this->floor, $most, $this->tighter, $this->startUp, $this->perTest);
     }
 
     /** These seconds, raised to the floor and lowered to the most. */

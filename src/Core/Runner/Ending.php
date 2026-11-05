@@ -16,6 +16,9 @@ enum Ending
     /** It was stopped at its deadline. */
     case Stopped;
 
-    /** It was stopped where it made no progress for its silence limit (see SilenceLimit). */
+    /**
+     * It was stopped where it made no progress for its silence limit, or a
+     * test of it ran past the limit of its own (see SilenceLimit).
+     */
     case Silenced;
 }
