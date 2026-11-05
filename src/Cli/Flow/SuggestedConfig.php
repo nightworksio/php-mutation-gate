@@ -11,9 +11,7 @@ use NightWorksIO\MutationGate\Cli\Config\NoConfigFile;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
 use NightWorksIO\MutationGate\Core\Config\Format;
-use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
-use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Migration\UnifiedDiff;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -65,7 +63,7 @@ final readonly class SuggestedConfig
         $change = Layer::of();
 
         foreach ($suggestions as $suggestion) {
-            $refused = $this->refused($suggestion->change());
+            $refused = Unsayable::why($this->composed, $suggestion->change());
             $lines[] = sprintf(self::ITEM, $suggestion->why());
             $lines = $refused instanceof NotGiven ? $lines : [...$lines, sprintf(self::UNSAID, $refused)];
             $change = $refused instanceof NotGiven ? $change->over($suggestion->change()) : $change;
@@ -76,22 +74,6 @@ final readonly class SuggestedConfig
         return $diff === ''
             ? sprintf("%s\n", implode("\n", $lines))
             : sprintf("%s\n\n%s", implode("\n", $lines), $diff);
-    }
-
-    /** Why the config cannot say a change: the settings it makes, or the adapters they choose, are refused. */
-    private function refused(Layer $change): string|NotGiven
-    {
-        $composed = $this->composed;
-        $settings = Settings::settled($composed->settings->effective()->over($change), $composed->setup->clock->now());
-        $adapters = $settings instanceof Settings
-            ? $composed->ruling->adapters($composed->adapters, $settings)
-            : $settings;
-
-        return match (true) {
-            $adapters instanceof Invalid => $adapters->said(),
-            $adapters instanceof CannotJudge => $adapters->why(),
-            default => NotGiven::value(),
-        };
     }
 
     private function diff(Layer $written, Layer $change, Path|NoConfigFile $located): string

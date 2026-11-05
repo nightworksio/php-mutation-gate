@@ -7,11 +7,16 @@ use NightWorksIO\MutationGate\Cli\Config\Formats;
 use NightWorksIO\MutationGate\Cli\Config\NoConfigFile;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\SuggestedConfig;
+use NightWorksIO\MutationGate\Cli\Flow\Unsayable;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\Triage;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
@@ -111,4 +116,30 @@ it('says why the ledger cannot be read, and exits 2', function () use ($suggesti
 
     expect($printed->code)->toBe(2)
         ->and($printed->errors)->toContain('No ledger is at gone.json.gz.');
+});
+
+it('names a change whose settings a run would refuse, as it would refuse them', function () use ($registered): void {
+    $project = FlowCommands::project();
+    $composed = FlowCommands::registered($registered(Ledger::empty()), $project, Variables::of([]))->compose(new ArrayInput([]));
+    $unbounded = Layer::of(Triage::of(limit: Seconds::of(600), most: Seconds::of(60)));
+
+    expect($composed instanceof Composed ? Unsayable::why($composed, $unbounded) : $composed)->toBeString()
+        ->and($composed instanceof Composed ? Unsayable::why($composed, Layer::of()) : $composed)->toBeInstanceOf(NotGiven::class);
+});
+
+it('says the change cannot be shown where the config file is in a format the gate does not write', function () use ($registered, $idle): void {
+    $project = FlowCommands::project();
+    $composed = FlowCommands::registered($registered(Ledger::empty()), $project, Variables::of([]))->compose(new ArrayInput([]));
+    $said = $composed instanceof Composed
+        ? new SuggestedConfig($composed, new Formats(class_exists(...)), $project)->said($idle('default/BitwiseAndToBitwiseOr'), Layer::of(), Path::of(sprintf('%s/mutation-gate.toml', $project)))
+        : '';
+
+    expect($said)->toEndWith("The change cannot be shown: mutation-gate.toml is in a format the gate does not write.\n");
+});
+
+it('says why the config cannot be read, and exits 2', function () use ($suggesting, $idle): void {
+    $printed = FlowCommands::run($suggesting($idle('default/BitwiseAndToBitwiseOr'), FlowCommands::project('"budget": "soon"')));
+
+    expect($printed->code)->toBe(2)
+        ->and($printed->errors)->toContain('budget');
 });
