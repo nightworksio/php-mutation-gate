@@ -176,6 +176,21 @@ it('sets the most a raised entry allows where the project\'s own would fall belo
         ->and(Settings::settled($settings->effective()->over($suggested[0]->change()), new DateTimeImmutable('2026-11-05')))->toBeInstanceOf(Settings::class);
 });
 
+it('sets no most where the raised timeout reaches the most exactly', function () use ($mutant, $proof): void {
+    $proofs = Proofs::of($proof('src/Legacy/A.php', '2026-11-01T00:00:00Z', ...array_map(static fn(int $line): Mutant => $mutant('src/Legacy/A.php', $line, MutantStatus::TimedOut), [1, 2, 3])));
+    $settings = Flows::settings(Timeouts::seconds(150), Timeouts::most(300));
+
+    expect(array_column(suggested(Suggestions::of(MutatorTallies::none(), $proofs->newest(), $settings)), 1))
+        ->toBe(['{"paths":[{"glob":"src/Legacy/**","timeouts":{"seconds":300}}]}']);
+});
+
+it('calls a mutator noisy at exactly the share and the mutants its thresholds name', function () use ($none): void {
+    $tallies = Tallies::holding(Tallies::of('fake', 'Edge', 50, 10, 0, 40, 1.0), Tallies::of('fake', 'Busy', 100, 50, 50, 0, 99.0));
+
+    expect(array_column(suggested(Suggestions::of($tallies, $none(), Flows::settings())), 0))
+        ->toBe(['`Edge` under fake: 40 of 50 mutants (80%) ignored or equivalent. It makes noise: turn it off.']);
+});
+
 it('reads how many timeouts make a directory slow from suggest', function () use ($mutant, $proof): void {
     $proofs = Proofs::of($proof('src/A.php', '2026-11-01T00:00:00Z', $mutant('src/A.php', 1, MutantStatus::TimedOut)));
 
