@@ -39,6 +39,8 @@ use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\GateCommand;
+use NightWorksIO\MutationGate\Core\Heat\FunctionSpan;
+use NightWorksIO\MutationGate\Core\Heat\FunctionSpans;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -594,6 +596,58 @@ it('learns each killed mutant\'s first killer in its function, and forgets funct
         ->toEqual(TestIds::of(TestId::of('MoneyTest::adds')))
         ->and($killers->likelyKillers($unseen, $add))->toEqual(TestIds::of(TestId::of('MoneyTest::adds')))
         ->and($killers->likelyKillers($unseen, $gone))->toEqual(TestIds::none());
+});
+
+it('names with each proof the functions of its file that hold its mutants, and none where its file cannot be read', function () use (
+    $map,
+    $run,
+    $ledgers,
+): void {
+    $project = Flows::project();
+    Scratch::write($project, 'src/Money.php', <<<'PHP'
+        <?php
+
+        final class Money
+        {
+            public function add(): int
+            {
+                return 1 + 1;
+            }
+
+            public function unmutated(): int
+            {
+                return 2;
+            }
+        }
+
+        PHP);
+    $store = new ProofStoreFake();
+    $plan = Planned::twoShards();
+    $killed = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Plus', '@@ @@', 0),
+        'Plus-7',
+        Location::of(Path::of('src/Money.php'), Line::of(7), Line::of(7)),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, '@@ @@'),
+        MutantStatus::Killed,
+        Seconds::of(0.1),
+    )->killedBy(TestIds::of(TestId::of('MoneyTest::adds')));
+
+    new Recorded(adapters: Flows::adapters($project, [], $store), settings: Flows::settings())->write(
+        $plan,
+        recordedRanOf($plan, $project, ScriptedRunner::fixture()->answering(Mutants::of($killed), 0), $map()),
+        JudgedMutants::none(),
+        $ledgers($store, $plan),
+        $run($plan),
+        CannotTell::because('It failed.'),
+        recordedLastRun(),
+    );
+    $proofs = LedgerRead::ledger($store->read(Scope::branch('main')))->proofs();
+    $money = $proofs->proofFor(Digest::sha256Of('money'));
+    $held = $proofs->proofFor(Digest::sha256Of('held'));
+
+    expect($money instanceof Proof ? $money->functions() : $money)
+        ->toEqual(FunctionSpans::of(FunctionSpan::of('Money::add', Line::of(5), Line::of(8))))
+        ->and($held instanceof Proof ? $held->functions() : $held)->toEqual(FunctionSpans::none());
 });
 
 it('records with each proof its share of the plan\'s digests, with each test file that killed a mutant of it and the commit they were taken at', function () use (
