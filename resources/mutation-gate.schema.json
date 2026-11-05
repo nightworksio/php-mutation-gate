@@ -1955,6 +1955,23 @@
             },
             "additionalProperties": false
         },
+        "heatmap": {
+            "type": "object",
+            "properties": {
+                "files": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "comment": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "methods": {
+                    "type": "boolean"
+                }
+            },
+            "additionalProperties": false
+        },
         "badge": {
             "type": "object",
             "properties": {
@@ -4149,6 +4166,23 @@
                                 }
                             },
                             "additionalProperties": false
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "heatmap": {
+                    "type": "object",
+                    "properties": {
+                        "files": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "comment": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "methods": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false

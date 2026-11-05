@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\Dashboard\Published;
+use NightWorksIO\MutationGate\Core\Dashboard\PublishedFile;
 use NightWorksIO\MutationGate\Core\Dashboard\PublishedMutator;
 use NightWorksIO\MutationGate\Core\Dashboard\PublishedTree;
 use NightWorksIO\MutationGate\Core\Dashboard\TreeBelow;
@@ -48,7 +49,22 @@ it('reads a project with nothing to mutate and no history of what it saved', fun
         ->and($published instanceof Published ? $published->saved() : $published)->toEqual(NoHistory::yet())
         ->and($published instanceof Published ? $published->verdict() : $published)->toBe(Judgement::Passed)
         ->and($published instanceof Published ? $published->belowFloor() : $published)->toBe([])
-        ->and($published instanceof Published ? $published->mutators() : $published)->toBe([]);
+        ->and($published instanceof Published ? $published->mutators() : $published)->toBe([])
+        ->and($published instanceof Published ? $published->files() : $published)->toBe([]);
+});
+
+it('reads the lowest-scoring files a repository named, each with its base where it gave one', function (): void {
+    $published = Published::read('{"format": 1, "commit": "a", "time": "2026-09-30T10:00:00Z", "verdict": "passed", "trees": [], "newCode": {"floor": 100}, '
+        . '"heatmap": [{"path": "src/A.php", "score": 40, "base": 60, "notKilled": 3}, {"path": "src/B.php", "notKilled": 0}]}');
+    $read = $published instanceof Published ? array_map(
+        static fn(PublishedFile $file): array => [$file->path(), $file->score(), $file->base(), $file->notKilled()],
+        $published->files(),
+    ) : $published;
+
+    expect($read)->toEqual([
+        ['src/A.php', Score::ofHundredths(4_000), Score::ofHundredths(6_000), 3],
+        ['src/B.php', NothingToMutate::found(), NotGiven::value(), 0],
+    ]);
 });
 
 it('reads the costliest mutators a repository named, each with its kill rate where it gave one', function (): void {
@@ -87,6 +103,8 @@ it('refuses whole what is not a summary in the shape of format 1, and says why',
     'savings below nothing' => ['{"format": 1, "commit": "a", "time": "2026-09-30T10:00:00Z", "verdict": "passed", "trees": [], "newCode": {"floor": 100}, "savings": {"last30Days": -1}}', 'Its summary.json is not one this gate reads: summary.json.savings.last30Days is not a number of seconds.'],
     'a mutator with no runner' => ['{"format": 1, "commit": "a", "time": "2026-09-30T10:00:00Z", "verdict": "passed", "trees": [], "newCode": {"floor": 100}, "mutators": [{"mutator": "Plus", "seconds": 1, "survived": 0}]}', 'Its summary.json is not one this gate reads: summary.json.mutators[0].runner is missing.'],
     'a mutator with fewer than no survivors' => ['{"format": 1, "commit": "a", "time": "2026-09-30T10:00:00Z", "verdict": "passed", "trees": [], "newCode": {"floor": 100}, "mutators": [{"runner": "pest", "mutator": "Plus", "seconds": 1, "survived": -1}]}', 'Its summary.json is not one this gate reads: summary.json.mutators[0].survived is not a count.'],
+    'a file with fewer than none not killed' => ['{"format": 1, "commit": "a", "time": "2026-09-30T10:00:00Z", "verdict": "passed", "trees": [], "newCode": {"floor": 100}, "heatmap": [{"path": "src/A.php", "notKilled": -1}]}', 'Its summary.json is not one this gate reads: summary.json.heatmap[0].notKilled is not a count.'],
+    'a file with no path' => ['{"format": 1, "commit": "a", "time": "2026-09-30T10:00:00Z", "verdict": "passed", "trees": [], "newCode": {"floor": 100}, "heatmap": [{"notKilled": 0}]}', 'Its summary.json is not one this gate reads: summary.json.heatmap[0].path is missing.'],
     'no floor for new code' => ['{"format": 1, "commit": "a", "time": "2026-09-30T10:00:00Z", "verdict": "passed", "trees": []}', 'Its summary.json is not one this gate reads: summary.json.newCode.floor is missing.'],
 ]);
 

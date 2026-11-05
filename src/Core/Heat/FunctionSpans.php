@@ -27,8 +27,6 @@ use Traversable;
  * the narrowest that holds it. A closure has no name, so its lines are the
  * function's around it; a function without a body is not held.
  *
- * @internal
- *
  * @implements IteratorAggregate<int, FunctionSpan>
  */
 final readonly class FunctionSpans implements IteratorAggregate

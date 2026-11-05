@@ -79,6 +79,21 @@ it('collapses the costliest mutators a repository named under its row, in its ow
         ->and($html)->toContain(implode("\n", ['</details></td>', '</tr>', '</tbody>']));
 });
 
+it('collapses the lowest-scoring files a repository named under its row, with each change against the base it gave', function () use ($page, $published): void {
+    $named = Listing::of('api', 'https://github.com/acme/api', private: false, published: Published::read('{"format": 1, "commit": "a", "time": "2026-09-30T10:00:00Z", "verdict": "passed", "trees": [], "newCode": {"floor": 100}, '
+        . '"heatmap": [{"path": "src/<b>A</b>.php", "score": 40, "base": 60, "notKilled": 3}, {"path": "src/B.php", "notKilled": 0}]}'), trend: Trend::none());
+    $html = $page($named);
+
+    expect($html)->toContain(implode("\n", [
+        '</tr>',
+        '<tr class="files">',
+        '<td colspan="7"><details><summary>Lowest-scoring files</summary>',
+    ]))
+        ->and($html)->toContain('<tr><td><code>src/&lt;b&gt;A&lt;/b&gt;.php</code></td><td>40.00%</td><td>-20.00</td><td>3</td></tr>')
+        ->and($html)->toContain('<tr><td><code>src/B.php</code></td><td>nothing to mutate</td><td></td><td>0</td></tr>')
+        ->and($page($published('api')))->not->toContain('class="files"');
+});
+
 it('says a repository that has no tree below its floor, no score and no history says so', function () use ($page): void {
     $quiet = Listing::of('api', 'https://github.com/acme/api', private: false, published: Published::read('{"format": 1, "commit": "a", "time": "2026-09-30T10:00:00Z", "verdict": "passed", "trees": [], "newCode": {"floor": 100}}'), trend: Trend::none());
 

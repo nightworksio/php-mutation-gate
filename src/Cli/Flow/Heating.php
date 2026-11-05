@@ -63,7 +63,7 @@ final readonly class Heating
 
         return Heatmap::of($verdicts, $this->onDisk(...))
             ->comparedWith($base)
-            ->listing($this->rows->files(), $this->rows->comment());
+            ->listing($this->rows);
     }
 
     /** The functions of a file as it reads now; none where it cannot be read, or functions are not scored. */
