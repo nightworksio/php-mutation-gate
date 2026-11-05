@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
-use function array_key_exists;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
@@ -107,10 +106,13 @@ final readonly class TailShell implements Shell
      */
     private function startingWith(Command $command): array
     {
-        $environment = $command->environment();
-        $scanned = array_key_exists(MemoryCap::SCAN_DIR, $environment) ? $environment[MemoryCap::SCAN_DIR] : false;
+        foreach ($command->environment() as $name => $value) {
+            if ($name === MemoryCap::SCAN_DIR && is_string($value)) {
+                return [$name => $value];
+            }
+        }
 
-        return is_string($scanned) ? [MemoryCap::SCAN_DIR => $scanned] : [];
+        return [];
     }
 
     /**

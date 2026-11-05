@@ -55,7 +55,7 @@ final class TailWorkers
         $booted = $suites instanceof NotGiven ? '' : sprintf('booted %s', implode(',', $suites));
         $key = implode("\n", [$booted, ...$startingWith]);
         $this->sets[$key] ??= $this->started(
-            $this->sets === [] ? $this->beside : sprintf(self::OTHER, $this->beside, count($this->sets) + 1),
+            $this->sets === [] ? $this->beside : sprintf(self::OTHER, $this->beside, count($this->sets)),
             $suites,
             $startingWith,
         );
