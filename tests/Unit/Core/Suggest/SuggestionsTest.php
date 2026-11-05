@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Config\PathRule as ConfiguredPathRule;
 use NightWorksIO\MutationGate\Config\Suggest as SuggestBuilder;
 use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
+use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Cost\MutatorTallies;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -161,6 +162,18 @@ it('starts from the timeout the paths entries matching a directory give it, and 
 
     expect(array_column(suggested(Suggestions::of(MutatorTallies::none(), $proofs->newest(), $settings)), 1))
         ->toBe(['{"paths":[{"glob":"src/Legacy/**","timeouts":{"seconds":400,"most":400}}]}']);
+});
+
+it('sets the most a raised entry allows where the project\'s own would fall below it, so the entry is valid on its own', function () use ($mutant, $proof): void {
+    $proofs = Proofs::of($proof('src/Legacy/A.php', '2026-11-01T00:00:00Z', ...array_map(static fn(int $line): Mutant => $mutant('src/Legacy/A.php', $line, MutantStatus::TimedOut), [1, 2, 3])));
+    $settings = Flows::settings(
+        Timeouts::most(300),
+        ConfiguredPathRule::matching('src/Legacy/**', Gate::configure()->with(Timeouts::seconds(200))->with(Timeouts::most(400))),
+    );
+    $suggested = Suggestions::of(MutatorTallies::none(), $proofs->newest(), $settings);
+
+    expect(array_column(suggested($suggested), 1))->toBe(['{"paths":[{"glob":"src/Legacy/**","timeouts":{"seconds":400,"most":400}}]}'])
+        ->and(Settings::settled($settings->effective()->over($suggested[0]->change()), new DateTimeImmutable('2026-11-05')))->toBeInstanceOf(Settings::class);
 });
 
 it('reads how many timeouts make a directory slow from suggest', function () use ($mutant, $proof): void {
