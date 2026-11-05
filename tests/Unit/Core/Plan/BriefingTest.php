@@ -2,11 +2,14 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Briefing;
+use NightWorksIO\MutationGate\Core\Plan\BriefingRecord;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
+use NightWorksIO\MutationGate\Core\Runner\Multiple;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 
 it('measures no peak and records first killers, by default', function (): void {
@@ -33,4 +36,15 @@ it('has every test judge the mutants by default, and one suite\'s tests alone wh
         ->and($suite->suite())->toEqual(SuiteName::of('unit'))
         ->and($suite->matrix())->toBe(MatrixKind::Full)
         ->and($suite->isSecurityOnly())->toBeFalse();
+});
+
+it('tells every shard the multiple the plan learned, which its file holds, and none by default', function (): void {
+    $learning = Briefing::standard()->learning(Multiple::of(4.5))->weighing(NotGiven::value())->onOwnScopeCoverage();
+
+    expect(Briefing::standard()->multiple())->toBeInstanceOf(NotGiven::class)
+        ->and($learning->multiple())->toEqual(Multiple::of(4.5))
+        ->and(BriefingRecord::of($learning))->toMatchArray(['learnedMultiple' => 4.5])
+        ->and(BriefingRecord::of(Briefing::standard()))->not->toHaveKey('learnedMultiple')
+        ->and(BriefingRecord::read(Node::decode((string) json_encode(BriefingRecord::of($learning)))))
+        ->toEqual($learning);
 });

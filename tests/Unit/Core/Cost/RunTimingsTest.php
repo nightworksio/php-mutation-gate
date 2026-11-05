@@ -73,3 +73,39 @@ it('says whether the CI measured a run time or the gate estimated it', function 
         ->and($estimated->isMeasured())->toBeFalse()
         ->and(Verdicts::account()->timings())->toBeInstanceOf(RunTimings::class);
 });
+
+it('counts the most of its shards that ran at once, each from its start to its end', function (): void {
+    $shard = static fn(int $id, string $start, float $took): ShardTiming => ShardTiming::of(
+        $id,
+        Phase::of(Moment::at($start), Seconds::of($took)),
+        StepTimes::none(),
+    );
+    $timings = RunTimings::of('run', RunTime::measured(Seconds::of(1.0), Seconds::of(1.0)))
+        ->withShard($shard(1, '2026-09-30T12:00:00Z', 600.0))
+        ->withShard($shard(2, '2026-09-30T12:01:00Z', 60.0))
+        ->withShard($shard(3, '2026-09-30T12:05:00Z', 120.0))
+        ->withShard($shard(4, '2026-09-30T12:06:00Z', 30.0))
+        ->withShard($shard(5, '2026-09-30T12:10:00Z', 30.0));
+
+    expect($timings->mostAtOnce()->count())->toBe(3)
+        ->and(RunTimings::of('run', RunTime::measured(Seconds::of(1.0), Seconds::of(1.0)))->mostAtOnce()->count())->toBe(0);
+});
+
+it('counts a shard from how long after its instant it began, and one that ends as another begins as not at once', function (): void {
+    $shard = static fn(int $id, float $after, float $took, string $at = '2026-09-30T12:00:00Z'): ShardTiming => ShardTiming::of(
+        $id,
+        Phase::of(Moment::at($at), Seconds::of($took))->later(Seconds::of($after)),
+        StepTimes::none(),
+    );
+    $timings = static fn(ShardTiming ...$shards): int => array_reduce(
+        $shards,
+        static fn(RunTimings $timings, ShardTiming $shard): RunTimings => $timings->withShard($shard),
+        RunTimings::of('run', RunTime::measured(Seconds::of(1.0), Seconds::of(1.0))),
+    )->mostAtOnce()->count();
+
+    expect($timings($shard(1, 0.0, 60.0), $shard(2, 60.0, 60.0)))->toBe(1)
+        ->and($timings($shard(2, 60.0, 60.0), $shard(1, 0.0, 60.0)))->toBe(1)
+        ->and($timings($shard(1, 0.0, 60.0), $shard(2, 30.0, 60.0)))->toBe(2)
+        ->and($timings($shard(1, 100.0, 60.0), $shard(2, 0.0, 30.0)))->toBe(1)
+        ->and($timings($shard(1, 0.0, 60.0), $shard(2, 90.0, 30.0, '2026-09-30T12:02:00Z')))->toBe(1);
+});

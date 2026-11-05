@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\LearnedStatistic;
 use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\Config\Price;
 use NightWorksIO\MutationGate\Core\Config\Shards;
@@ -27,7 +28,8 @@ final readonly class ShardsKeys
     {
         $judges = Effect::JudgesOrReportsOnly;
         $seconds = Field::optional('seconds', Integer::atLeast(1), $judges);
-        $max = Field::optional('max', Integer::atLeast(1), $judges);
+        $max = Field::optional('max', OrLearned::of(Integer::atLeast(1)), $judges);
+        $learnedFrom = Field::optional('learnedFrom', Enumerated::of(LearnedStatistic::cases()), $judges);
         $target = Field::optional('target', Duration::written(), $judges);
         $setup = Field::optional('setup', Duration::written(), $judges);
         $perLine = Field::optional(SecondsPerLine::KEY, NumberMap::byPrefix(Number::atLeast(0), $origin), $judges);
@@ -37,9 +39,10 @@ final readonly class ShardsKeys
             Field::section(
                 'shards',
                 Section::of(
-                    static function (Node $shards) use ($seconds, $max, $target, $setup): Layer|Invalid {
+                    static function (Node $shards) use ($seconds, $max, $learnedFrom, $target, $setup): Layer|Invalid {
                         $cut = $seconds->read($shards);
                         $most = $max->read($shards);
+                        $statistic = $learnedFrom->read($shards);
                         $fit = $target->read($shards);
                         $before = $setup->read($shards);
 
@@ -49,15 +52,18 @@ final readonly class ShardsKeys
                                 max: $most->value(),
                                 target: $fit->value(),
                                 setup: $before->value(),
+                                learnedFrom: $statistic->value(),
                             )),
                             $cut,
                             $most,
+                            $statistic,
                             $fit,
                             $before,
                         );
                     },
                     $seconds,
                     $max,
+                    $learnedFrom,
                     $target,
                     $setup,
                 )->atMostOne(['seconds', 'target']),

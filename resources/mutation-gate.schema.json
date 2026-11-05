@@ -617,9 +617,24 @@
                     "default": 600
                 },
                 "max": {
-                    "type": "integer",
-                    "minimum": 1,
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "enum": [
+                                "learned"
+                            ]
+                        }
+                    ],
                     "default": 20
+                },
+                "learnedFrom": {
+                    "enum": [
+                        "max",
+                        "median"
+                    ]
                 },
                 "target": {
                     "type": "string",
@@ -1166,14 +1181,36 @@
                     "default": "confirm"
                 },
                 "seconds": {
-                    "type": "integer",
-                    "minimum": 1,
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "enum": [
+                                "learned"
+                            ]
+                        }
+                    ],
                     "default": 10
                 },
                 "most": {
                     "type": "integer",
                     "minimum": 1,
                     "default": 300
+                },
+                "multiple": {
+                    "anyOf": [
+                        {
+                            "type": "number",
+                            "minimum": 1
+                        },
+                        {
+                            "enum": [
+                                "learned"
+                            ]
+                        }
+                    ]
                 },
                 "tighter": {
                     "type": "object",
@@ -2972,8 +3009,23 @@
                             "minimum": 1
                         },
                         "max": {
-                            "type": "integer",
-                            "minimum": 1
+                            "anyOf": [
+                                {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                {
+                                    "enum": [
+                                        "learned"
+                                    ]
+                                }
+                            ]
+                        },
+                        "learnedFrom": {
+                            "enum": [
+                                "max",
+                                "median"
+                            ]
                         },
                         "target": {
                             "type": "string",
@@ -3338,12 +3390,34 @@
                             ]
                         },
                         "seconds": {
-                            "type": "integer",
-                            "minimum": 1
+                            "anyOf": [
+                                {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                {
+                                    "enum": [
+                                        "learned"
+                                    ]
+                                }
+                            ]
                         },
                         "most": {
                             "type": "integer",
                             "minimum": 1
+                        },
+                        "multiple": {
+                            "anyOf": [
+                                {
+                                    "type": "number",
+                                    "minimum": 1
+                                },
+                                {
+                                    "enum": [
+                                        "learned"
+                                    ]
+                                }
+                            ]
                         },
                         "tighter": {
                             "type": "object",

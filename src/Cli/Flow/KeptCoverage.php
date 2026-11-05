@@ -130,15 +130,24 @@ final readonly class KeptCoverage
 
     /**
      * The entries of the project's test files, keyed as it stands, which a
-     * run measures against the kept map and keys its own map by; none where
+     * run measures against the kept map and keys its own map by, through the
+     * names the plan read, or read now where it read none; none where
      * `coverage.incremental` is false; or why they cannot be told.
      */
-    public function entries(Inventory|CannotJudge $inventory): CoverageEntries|CannotJudge|NotGiven
-    {
+    public function entries(
+        Inventory|CannotJudge $inventory,
+        SuiteNames|CannotJudge|NotGiven $names = new NotGiven(),
+    ): CoverageEntries|CannotJudge|NotGiven {
         return match (true) {
             ! $this->settings->proofs()->incrementalCoverage() => NotGiven::value(),
             $inventory instanceof CannotJudge => $inventory,
-            default => CoverageEntries::of($this->adapters, $this->settings, $this->setup, $inventory),
+            default => CoverageEntries::of(
+                $this->adapters,
+                $this->settings,
+                $this->setup,
+                $inventory,
+                $names instanceof NotGiven ? new NameGraph($this->adapters)->named($inventory->suite) : $names,
+            ),
         };
     }
 

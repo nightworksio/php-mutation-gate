@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Mutant\RunnerMutatorName;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\Multiple;
+use NightWorksIO\MutationGate\Core\Runner\MultipleVariable;
 use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
 use NightWorksIO\MutationGate\Core\Runner\StartUpVariable;
 use NightWorksIO\MutationGate\Core\Runner\TighterVariables;
@@ -44,7 +46,10 @@ final class MutantTime
 
         return $floor instanceof Seconds
             ? MutantLimit::standard()
-                ->of($taking, LimitBounds::between($floor, $most)->startingIn(self::startUp()))
+                ->of(
+                    $taking,
+                    LimitBounds::between($floor, $most)->startingIn(self::startUp())->multipliedBy(self::multiple()),
+                )
                 ->seconds()
             : MutantLimit::infections()->of($taking, LimitBounds::upTo($most))->seconds();
     }
@@ -75,6 +80,7 @@ final class MutantTime
                 $slowest,
                 LimitBounds::between($floor, Seconds::of($timeout))
                     ->startingIn(self::startUp())
+                    ->multipliedBy(self::multiple())
                     ->tighterFor($tighter)
                     ->silenceOf(RunnerMutatorName::of($mutator)),
             )
@@ -114,6 +120,12 @@ final class MutantTime
     private static function startUp(): Seconds|Unmeasured
     {
         return StartUpVariable::read(getenv(ChildVariable::MutantStartUp->value));
+    }
+
+    /** The multiple of its covering tests' own time the gate allows each mutant. */
+    private static function multiple(): Multiple
+    {
+        return MultipleVariable::read(getenv(ChildVariable::MutantMultiple->value));
     }
 
     /** The floor the gate names, a positive number of seconds; or none. */

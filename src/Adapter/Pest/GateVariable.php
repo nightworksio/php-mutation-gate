@@ -33,6 +33,9 @@ enum GateVariable: string
     /** How long a run of no test took to start on this machine (see MutantTime). */
     case MutantStartUp = ChildVariable::MutantStartUp->value;
 
+    /** How many times its covering tests' own time a patched run allows one mutant (see MutantTime). */
+    case MutantMultiple = ChildVariable::MutantMultiple->value;
+
     /** The lower floor of the silence limit of the mutators `timeouts.tighter` lists (see TighterVariables). */
     case TighterFloor = ChildVariable::TighterFloor->value;
 

@@ -11,11 +11,13 @@ use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\PathRules;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Key\CiDefinition;
 use NightWorksIO\MutationGate\Core\Proof\Key\CiDefinitions;
@@ -24,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Proof\Key\Exceptions;
 use NightWorksIO\MutationGate\Core\Proof\Key\Ignored;
 use NightWorksIO\MutationGate\Core\Proof\Key\Judging as UnitJudging;
 use NightWorksIO\MutationGate\Core\Proof\Key\Source;
+use NightWorksIO\MutationGate\Core\Proof\Key\SourceReach;
 use NightWorksIO\MutationGate\Core\Proof\Key\Tests;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -52,6 +55,7 @@ final readonly class Keying
         Setup $setup,
         Suite $suite,
         MapJudges $judges,
+        SuiteNames|CannotJudge|NotGiven $names = new NotGiven(),
     ): self|CannotJudge {
         $map = $judges->map();
         $identity = $adapters->runner->identity($adapters->withheld);
@@ -77,7 +81,7 @@ final readonly class Keying
                         $judges->known(),
                         Paths::of(...self::canaries($adapters, $suite), ...self::declaring($adapters, $suite)),
                     ),
-                    new NameGraph($adapters)->reach($suite, $map),
+                    self::reach($adapters, $suite, $names, $map),
                 ),
                 $judges,
                 $settings->effective()->setup()->paths(),
@@ -155,6 +159,22 @@ final readonly class Keying
         }
 
         return $exceptions;
+    }
+
+    /**
+     * Which files outside the suite's test directories each unit's key reads
+     * on its own, through the names the plan read, or read now where it read
+     * none; nothing beyond the base where they cannot be read.
+     */
+    private static function reach(
+        Adapters $adapters,
+        Suite $suite,
+        SuiteNames|CannotJudge|NotGiven $names,
+        CoverageMap $map,
+    ): SourceReach {
+        $named = $names instanceof NotGiven ? new NameGraph($adapters)->named($suite) : $names;
+
+        return $named instanceof SuiteNames ? $named->reach($map) : SourceReach::nothing();
     }
 
     /**

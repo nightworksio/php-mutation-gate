@@ -86,6 +86,10 @@ final readonly class LedgerJson
             yield SurvivalRecord::SECTION => JsonText::compact($survival);
         }
 
+        foreach (LimitsRecord::of($ledger->limits()) as $section => $items) {
+            yield $section => JsonText::compact($items);
+        }
+
         if ($passed instanceof Passed) {
             yield LedgerFile::PASSED => JsonText::compact(PassedRecord::of($passed));
         }

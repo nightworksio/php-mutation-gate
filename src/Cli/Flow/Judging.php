@@ -549,7 +549,7 @@ final readonly class Judging
             ? LastRun::of($judged, $this->settings->ci()->check(), $plan->briefing()->profile())
             : $judged;
         $written = new Recorded($this->adapters, $this->settings)
-            ->write($plan, $results, $assessed->ledgers, $run, $passed, $lastRun);
+            ->write($plan, $results, $assessed->ledgers, $run, $passed, $lastRun, $verdict->account()->timings());
 
         return match (true) {
             $written instanceof Written => $written->said(),

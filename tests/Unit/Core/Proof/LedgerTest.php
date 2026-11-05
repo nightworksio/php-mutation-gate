@@ -115,19 +115,6 @@ it('reads another scope\'s ledger beside its own, its own proofs and passing com
         ->and(Ledger::empty()->and($theirs)->runs()->passed())->toEqual(CannotTell::because('No commit of this scope has passed yet.'));
 });
 
-it('keeps only the timings of units that still exist, and every proof', function () use ($proof, $timing): void {
-    $ledger = Ledger::empty()
-        ->withProof($proof('a', 'src/Gone.php'))
-        ->withTimings(Timings::of($timing('src/Gone.php', 1.0)))
-        ->withTimings(Timings::of($timing('src/Here.php', 2.0)))
-        ->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0)))
-        ->keepingTimingsOf(Paths::of(Path::of('src/Here.php')));
-
-    expect($ledger->timings())->toEqual(Timings::of($timing('src/Here.php', 2.0)))
-        ->and($ledger->proofs())->toEqual(Proofs::of($proof('a', 'src/Gone.php')))
-        ->and($ledger->runs()->passed())->toEqual(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0));
-});
-
 it('leaves the ledger it came from as it was', function () use ($proof, $timing): void {
     $ledger = Ledger::empty();
     $ledger->withProof($proof('a', 'src/A.php'));
@@ -164,8 +151,7 @@ it('holds the bases its runs keyed at, the most recently seen first, whatever el
         ->withoutProof(Digest::of(str_repeat('a', 64)))
         ->withTimings(Timings::of($timing('src/A.php', 1.0)))
         ->withTimings(Timings::none())
-        ->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('206b4e0'), 'mutation-gate', 0)))
-        ->keepingTimingsOf(Paths::none());
+        ->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('206b4e0'), 'mutation-gate', 0)));
 
     expect(Ledger::empty()->bases())->toEqual(Bases::none())
         ->and($ledger->bases())->toEqual(Bases::of($second, $first))

@@ -101,10 +101,11 @@
         "patch": true
     },
     "shards": {
-        "max": 20
+        "max": "learned"
     },
     "timeouts": {
-        "seconds": 30
+        "seconds": "learned",
+        "multiple": "learned"
     },
     "staticCheck": {
         "config": "phpstan/mutants.neon"

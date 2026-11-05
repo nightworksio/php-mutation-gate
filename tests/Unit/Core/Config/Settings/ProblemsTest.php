@@ -44,7 +44,7 @@ it('reports every problem at once, each at its path with what was expected', fun
         'uncovered: expected "count" or "exclude", got "all"',
         'holds.hotPath: expected a number from 0 to 1, got 1.5',
         'shards.seconds: expected an integer of at least 1, got 0',
-        'shards.max: expected an integer of at least 1, got 2.5',
+        'shards.max: expected an integer of at least 1, or "learned", got 2.5',
         'costs.secondsPerLine["src"]: expected a number of at least 0, got -1',
         'proofs.store.with.bucket: expected a bucket name, got nothing',
         'budget: expected a duration such as 90s, 15m, 1h30m or 7d, got "15 minutes"',
@@ -100,7 +100,7 @@ it('refuses a string where a number belongs, and a fraction where an integer doe
         . '"flaky": {"confirmSurvivors": 1}, "staticCheck": {"seconds": 2.5}}',
     )))->toBe([
         'newCode.floor: expected a number from 0 to 100, got "100"',
-        'timeouts.seconds: expected an integer of at least 1, got 10.0',
+        'timeouts.seconds: expected an integer of at least 1, or "learned", got 10.0',
         'timeouts.most: expected an integer of at least 1, got 0',
         'flaky.confirmSurvivors: expected true or false, got 1',
         'staticCheck.seconds: expected an integer of at least 1, got 2.5',

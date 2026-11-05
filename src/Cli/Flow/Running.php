@@ -48,7 +48,6 @@ use NightWorksIO\MutationGate\Core\Time\Deadline;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
-use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Doom;
 use NightWorksIO\MutationGate\Core\Verdict\Doomed;
@@ -290,6 +289,9 @@ final readonly class Running
         Stopwatch $stopwatch,
     ): Mutated|CannotJudge {
         $startUp = new StartUpTiming($this->adapters, StartUpSamples::standard())->of($map, $kept->units());
+        $pool = Pool::of($this->adapters->processes(), $this->settings->runner()->workers())
+            ->startingIn($startUp)
+            ->learning($plan->briefing()->multiple());
         $warmUp = new AnalyserWarmUp();
         $analyser = $this->adapters->analyser;
         $preChecking = $this->settings->staticCheck()->before() && $analyser instanceof AnalyserIdentity
@@ -332,7 +334,7 @@ final readonly class Running
             $units,
             $kept->id(),
             $search,
-            $startUp,
+            $pool,
             $pruned,
         );
         $spent = match (true) {
@@ -430,7 +432,7 @@ final readonly class Running
         Units $units,
         ShardId $shard,
         KillSearch $search,
-        Seconds|Unmeasured $startUp,
+        Pool $pool,
         Pruned $pruned,
     ): MutationRequest {
         $files = Paths::none();
@@ -444,9 +446,8 @@ final readonly class Running
         $request = RunRequest::of($this->adapters, $this->settings, $files, $judgedBy);
 
         return $request->narrowedTo($files, $request->narrowing()->pruning($pruned))
-            ->across(Pool::of($this->adapters->processes(), $this->settings->runner()->workers())->startingIn($startUp))
+            ->across($pool)
             ->reusingCoverage(Handed::maps(Workspace::shardCoverage($shard), Workspace::coverage()))
             ->searching($search);
     }
-
 }
