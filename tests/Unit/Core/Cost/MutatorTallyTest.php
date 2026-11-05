@@ -52,6 +52,10 @@ it('rates kills over judged mutants, ignores over every mutant, and seconds over
         ->and($tally->secondsPerKill())->toEqual(Seconds::of(2.0));
 });
 
+it('rates the seconds of a single kill', function (): void {
+    expect(Tallies::of('fake', 'Plus', 1, 1, 0, 0, 2.0)->secondsPerKill())->toEqual(Seconds::of(2.0));
+});
+
 it('rates nothing it has nothing to rate', function (): void {
     $none = MutatorTally::of('pest', 'Plus');
 

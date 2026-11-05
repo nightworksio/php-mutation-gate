@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Tests\Support\Schema;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 use NightWorksIO\MutationGate\Tests\Support\Tallies;
+use Symfony\Component\Console\Command\Command;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -45,6 +46,13 @@ it('prints what each mutator costs and finds from the default branch\'s ledger, 
     expect($printed->code)->toBe(0)
         ->and($printed->errors)->toBe('')
         ->and($printed->output)->toBe(MutatorReport::text($tallied()->learned()->tallies()));
+});
+
+it('reads the default branch\'s ledger where --ledger names nothing', function () use ($tallied, $composed): void {
+    $command = static fn(): Command => MutatorsCommand::command($composed($tallied(), FlowCommands::project()));
+
+    expect(FlowCommands::run($command(), '--ledger=')->output)->toBe(FlowCommands::run($command())->output)
+        ->and(FlowCommands::run($command(), '--ledger=')->code)->toBe(0);
 });
 
 it('prints its JSON as the committed schema describes it', function () use ($tallied, $composed): void {

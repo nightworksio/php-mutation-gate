@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report;
 
-use function array_key_exists;
 use function array_map;
 use function array_slice;
 use function implode;
@@ -217,14 +216,14 @@ final readonly class MutatorReport
      */
     private static function widths(array $rows): array
     {
-        $widths = [];
+        $lengths = [];
 
         foreach ($rows as $row) {
             foreach ($row as $column => $cell) {
-                $widths[$column] = max(array_key_exists($column, $widths) ? $widths[$column] : 0, mb_strlen($cell));
+                $lengths[$column][] = mb_strlen($cell);
             }
         }
 
-        return $widths;
+        return array_map(static fn(array $column): int => max($column), $lengths);
     }
 }

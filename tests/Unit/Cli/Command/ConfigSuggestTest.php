@@ -97,6 +97,20 @@ it('names a change the config cannot say with why, and leaves it out of the diff
         ->and($printed->output)->not->toContain('--- a/');
 });
 
+it('lists every suggestion, a change the config cannot say among them, and diffs only those it can', function () use ($suggesting): void {
+    $ledger = Ledger::empty()->withLearned(Tallies::holding(
+        Tallies::of('fake', 'default/BitwiseAndToBitwiseOr', 600, 600, 0, 0, 50.0),
+        Tallies::of('fake', 'default/Unregistered', 600, 600, 0, 0, 50.0),
+        Tallies::of('fake', 'Busy', 100, 50, 50, 0, 50.0),
+    ));
+    $printed = FlowCommands::run($suggesting($ledger, FlowCommands::project()));
+
+    expect($printed->output)->toStartWith('- `default/BitwiseAndToBitwiseOr` under fake: 600 judged')
+        ->and($printed->output)->toContain("\n- `default/Unregistered` under fake: 600 judged")
+        ->and($printed->output)->toContain('  The config cannot say this: mutators.except names "default/Unregistered"')
+        ->and($printed->output)->toContain('+            "default/BitwiseAndToBitwiseOr"');
+});
+
 it('adds mutation-gate.json where the project has no config file', function () use ($registered, $idle): void {
     $project = FlowCommands::project();
     $composed = FlowCommands::registered($registered(Ledger::empty()), $project, Variables::of([]))->compose(new ArrayInput([]));
