@@ -14,18 +14,22 @@ use function sprintf;
 
 /**
  * How long the gate runs while a person works and before a push (ADR-0010),
- * and how its daemon serves those runs (ADR-0078): `local`.
+ * and how its daemon serves those runs and is started (ADR-0078): `local`.
  */
 final readonly class Local implements Part
 {
     /** How long a daemon waits for a request before it stops, by default. */
     private const int SERVE_IDLE_MINUTES = 30;
 
+    /** How long `watch` waits for a daemon it starts to listen, by default, in seconds. */
+    private const float SERVE_START_WAIT = 10.0;
+
     private function __construct(
         private Seconds|Absent $watchBudget,
         private Seconds|Absent $prePushBudget,
         private Seconds|Absent $serveIdle,
         private ServeStart|Absent $serveStart,
+        private Seconds|Absent $serveStartWait = new Absent(),
     ) {
     }
 
@@ -34,8 +38,9 @@ final readonly class Local implements Part
         Seconds|Absent $prePushBudget = new Absent(),
         Seconds|Absent $serveIdle = new Absent(),
         ServeStart|Absent $serveStart = new Absent(),
+        Seconds|Absent $serveStartWait = new Absent(),
     ): self {
-        return new self($watchBudget, $prePushBudget, $serveIdle, $serveStart);
+        return new self($watchBudget, $prePushBudget, $serveIdle, $serveStart, $serveStartWait);
     }
 
     public static function none(): self
@@ -47,7 +52,13 @@ final readonly class Local implements Part
     {
         $none = self::none();
 
-        return self::of($none->watchBudget(), $none->prePushBudget(), $none->serveIdle(), $none->serveStart());
+        return self::of(
+            $none->watchBudget(),
+            $none->prePushBudget(),
+            $none->serveIdle(),
+            $none->serveStart(),
+            $none->serveStartWait(),
+        );
     }
 
     public function over(Part $later): self
@@ -58,6 +69,7 @@ final readonly class Local implements Part
                 Absent::laid($this->prePushBudget, $later->prePushBudget),
                 Absent::laid($this->serveIdle, $later->serveIdle),
                 Absent::laid($this->serveStart, $later->serveStart),
+                Absent::laid($this->serveStartWait, $later->serveStartWait),
             )
             : $this;
     }
@@ -76,6 +88,12 @@ final readonly class Local implements Part
     public function serveIdle(): Seconds
     {
         return $this->serveIdle instanceof Seconds ? $this->serveIdle : Seconds::minutes(self::SERVE_IDLE_MINUTES);
+    }
+
+    /** `local.serveStartWait`: how long `watch` waits for a daemon it starts to listen. */
+    public function serveStartWait(): Seconds
+    {
+        return $this->serveStartWait instanceof Seconds ? $this->serveStartWait : Seconds::of(self::SERVE_START_WAIT);
     }
 
     /** `local.serveStart`: whether `watch` starts a daemon where none runs; it does by default. */
@@ -105,6 +123,10 @@ final readonly class Local implements Part
                     'serveStart',
                     $this->serveStart instanceof ServeStart ? $this->serveStart->value : $this->serveStart,
                 ),
+                Member::of(
+                    'serveStartWait',
+                    $this->serveStartWait instanceof Seconds ? $this->serveStartWait->written() : $this->serveStartWait,
+                ),
             ),
         ));
     }
@@ -123,6 +145,9 @@ final readonly class Local implements Part
                 : [],
             ...$this->serveStart instanceof ServeStart
                 ? [sprintf('Local::serveStarting(ServeStart::%s)', $this->serveStart->name)]
+                : [],
+            ...$this->serveStartWait instanceof Seconds
+                ? [sprintf('Local::serveStartWait(%s)', PhpCalls::literal($this->serveStartWait->written()))]
                 : [],
         ]);
     }

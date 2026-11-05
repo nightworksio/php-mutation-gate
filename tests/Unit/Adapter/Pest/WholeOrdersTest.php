@@ -34,3 +34,29 @@ it('replays on its own each replay with no keyed whole order, and each that shar
     expect($asked)->toEqual([array_values($replays)])
         ->and($said)->toBe(['a' => ReplayVerdict::Stands, 'b' => ReplayVerdict::Failed, 'c' => ReplayVerdict::NoTime]);
 });
+
+it('replays each whole order two replays of one file share once, to its end, side by side, and on their own those whose whole did not stand', function (): void {
+    $replays = [
+        'a1' => wholeReplay('src/A.php', 1, 'a1a1a1a1a1a1'),
+        'a2' => wholeReplay('src/A.php', 2, 'a2a2a2a2a2a2'),
+        'b1' => wholeReplay('src/B.php', 1, 'b1b1b1b1b1b1'),
+        'b2' => wholeReplay('src/B.php', 3, 'b2b2b2b2b2b2'),
+    ];
+    $whole = Prefix::keyedAt(6, 'kkkkkkkkkkkk');
+    $asked = [];
+
+    $said = WholeOrders::of($replays, ['a1' => $whole, 'a2' => $whole, 'b1' => $whole, 'b2' => $whole])
+        ->said(static function (array $ran) use (&$asked): array {
+            $asked[] = count($ran);
+
+            return [ReplayVerdict::Stands, ReplayVerdict::Failed];
+        });
+
+    expect($asked)->toBe([2, 2])
+        ->and($said)->toBe([
+            'a1' => ReplayVerdict::Stands,
+            'a2' => ReplayVerdict::Stands,
+            'b1' => ReplayVerdict::Stands,
+            'b2' => ReplayVerdict::Failed,
+        ]);
+});

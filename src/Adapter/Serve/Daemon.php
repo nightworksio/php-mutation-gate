@@ -52,7 +52,7 @@ final class Daemon
     /** The longest wait between two looks at the children, in microseconds. */
     private const int LOOK = Seconds::MICROSECONDS;
 
-    private const int NANOSECONDS_PER_MICROSECOND = 1_000;
+    private const int NANOSECONDS_PER_MICROSECOND = Seconds::NANOSECONDS / Seconds::MICROSECONDS;
 
     private Listener|NotGiven $listener;
 
@@ -105,8 +105,14 @@ final class Daemon
 
         $wait = $this->children->areNone() ? min($left, self::LOOK) : self::LOOK;
 
-        foreach (Listener::ready($this->listener, $this->children->connections(), $wait) as $key) {
-            $key === Listener::KEY ? $this->accepted() : $this->children->stoppedWhereGone($key);
+        [$waiting, $connections] = Listener::ready($this->listener, $this->children->connections(), $wait);
+
+        foreach ($connections as $child) {
+            $this->children->stoppedWhereGone($child);
+        }
+
+        if ($waiting) {
+            $this->accepted();
         }
     }
 
@@ -144,7 +150,6 @@ final class Daemon
 
         if ($refused !== '') {
             $connection->sent(ServeFrame::refused($refused)->line());
-            $connection->closed();
         }
     }
 
@@ -158,7 +163,7 @@ final class Daemon
             ! $identity->isOfRootOf($this->started)
                 => sprintf(self::OTHER_ROOT, $this->started->root(), $identity->root()),
             $request->stops() => $this->stopped(),
-            $changed !== '' => $this->closed(sprintf(self::CHANGED, $changed)),
+            $changed !== '' => $this->closing(sprintf(self::CHANGED, $changed)),
             default => '',
         };
     }
@@ -168,19 +173,24 @@ final class Daemon
     {
         $this->children->allStopped();
 
-        return $this->closed(self::STOPPED);
+        return $this->closing(self::STOPPED);
     }
 
-    /** The socket closed and its file removed, so no request comes; the children running finish. The reason given. */
-    private function closed(string $why = ''): string
+    /** The socket closed, as for this reason: the reason. */
+    private function closing(string $why): string
+    {
+        $this->closed();
+
+        return $why;
+    }
+
+    /** The socket closed and its file removed, so no request comes; the children running finish. */
+    private function closed(): void
     {
         if ($this->listener instanceof Listener) {
-            $this->listener->closed();
             $this->socket->removed();
         }
 
         $this->listener = NotGiven::value();
-
-        return $why;
     }
 }

@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Core\Runner;
 
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\TestId;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
  * The test a run is running and since when, as its events tell (ADR-0090):
@@ -16,20 +15,20 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  */
 final readonly class TestClock
 {
-    private function __construct(private TestId|NotGiven $test, private float $since)
+    private function __construct(private TestStart|NotGiven $running)
     {
     }
 
     /** A run running no test. */
     public static function idle(): self
     {
-        return new self(NotGiven::value(), 0.0);
+        return new self(NotGiven::value());
     }
 
     /** The run, a test having started at these seconds of the clock. */
     public function started(TestId $test, float $at): self
     {
-        return new self($test, $at);
+        return new self(TestStart::of($test, $at));
     }
 
     /** The run, its test having finished. */
@@ -45,11 +44,6 @@ final readonly class TestClock
      */
     public function pastLimit(TestWatch $watch, float $now): Overrun|NotGiven
     {
-        $test = $this->test;
-        $limit = $test instanceof NotGiven ? $test : $watch->limitOf($test);
-
-        return $test instanceof TestId && $limit instanceof Seconds && $now - $this->since > $limit->seconds()
-            ? Overrun::of($test, $limit)
-            : NotGiven::value();
+        return $this->running instanceof TestStart ? $this->running->pastLimit($watch, $now) : $this->running;
     }
 }

@@ -16,8 +16,8 @@ declare(strict_types=1);
 // of its test databases, and runs Pest's script as a fresh process runs it.
 
 use NightWorksIO\MutationGate\Adapter\Native\Warm\BootCheck;
-use NightWorksIO\MutationGate\Adapter\Pest\Warm\BootSpec;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Booted;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\BootSpec;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\Baseline;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\WarmDatabase;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Forking;
@@ -86,13 +86,6 @@ pcntl_signal(SIGALRM, static function () use ($directory, $parent): void {
 });
 pcntl_alarm(1);
 
-// A worker of the verification tail whose directory says what to boot boots the project once it has written its
-// process id (ADR-0075), as Pest's script and PHPUnit boot a fresh run of every test file up to its first test:
-// Collision's printer set and Composer's autoloader loaded as Pest's script does, Pest's kernel booted, then the
-// PHPUnit config's PHP settings and bootstraps, and every test file of the runs' suites loaded through Pest's
-// loader as PHPUnit's mapper selects them, which keeps each for the worker's children (see Booted). It refuses every
-// run where it found no config, where the config caches PHPUnit's test index, or where the boot left a socket open,
-// which every child would share.
 $boot = static function () use ($directory): string {
     $spec = BootSpec::readIn($directory);
 
@@ -160,7 +153,9 @@ exit(Worker::at($directory, (int) $place, (int) $parent, usleep(...))->booting($
         }
 
         ForkedChild::reseeded();
-        Booted::forked();
+        if (class_exists(Booted::class, autoload: false)) {
+            Booted::forked();
+        }
 
         pcntl_alarm(0);
         pcntl_signal(SIGALRM, SIG_DFL);

@@ -114,3 +114,31 @@ it('hands the command line what it read on standard input, where it read anythin
     expect(is_resource($stream) ? stream_get_contents($stream) : '')->toBe("a b c d\n")
         ->and($untouched->getStream())->toBeNull();
 });
+
+it('leaves a hook that runs on its own what it read on standard input', function () use ($servingOf): void {
+    $serving = $servingOf();
+    $input = new ArgvInput(['gate', 'pre-push', 'origin']);
+    Serving::reading($input, "refs/heads/main abc refs/heads/main def\n");
+
+    $code = $serving->forwarded('pre-push', $input, new BufferedOutput());
+    $stream = $input->getStream();
+
+    expect($code)->toBeInstanceOf(NotGiven::class)
+        ->and(is_resource($stream) ? stream_get_contents($stream) : '')->toBe("refs/heads/main abc refs/heads/main def\n");
+});
+
+it('reads standard input only for a pre-push not handed its lines, and takes no option after --', function (): void {
+    $project = ServedProjects::enteredAt(FlowCommands::project());
+    $serving = ServedCommands::serving($project);
+    ServedCommands::servedAside($project, 6);
+    file_put_contents('other.json', '{"runner": "pest"}');
+    $read = static function (string $command, ArgvInput $input) use ($serving): array {
+        Serving::reading($input, "lines\n");
+
+        return [$serving->forwarded($command, $input, new BufferedOutput()), ServedCommands::asked()[2]];
+    };
+
+    expect($read('pre-commit', new ArgvInput(['gate', 'pre-commit'])))->toBe([6, ''])
+        ->and($read('pre-push', new ArgvInput(['gate', 'pre-push', '--', '--stdin=refs', '--config=other.json'])))
+        ->toBe([6, "lines\n"]);
+});

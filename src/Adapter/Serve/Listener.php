@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Serve;
 
-use function array_keys;
+use function array_map;
+use function count;
 
 use const E_WARNING;
 
@@ -40,8 +41,6 @@ use function umask;
  */
 final readonly class Listener
 {
-    /** The key of the listener among what a wait reads; no child's process id is 0. */
-    public const int KEY = 0;
     private const string UNBOUND = 'The daemon could not listen on %s: %s';
 
     /** @param resource $stream */
@@ -65,33 +64,42 @@ final readonly class Listener
     public static function boundTo(string $path): self|CannotJudge
     {
         $mask = umask(FileMode::OTHERS);
-        $code = 0;
-        $message = '';
-        set_error_handler(static fn(): bool => true, E_WARNING);
+        $warned = '';
+        set_error_handler(static function (int $level, string $text) use (&$warned): bool {
+            $warned = $text;
+
+            return true;
+        }, E_WARNING);
 
         try {
-            $stream = stream_socket_server(sprintf(Connection::SCHEME, $path), $code, $message);
+            $stream = stream_socket_server(sprintf(Connection::SCHEME, $path));
         } finally {
             restore_error_handler();
             umask($mask);
         }
 
-        return is_resource($stream) ? new self($stream) : CannotJudge::because(sprintf(self::UNBOUND, $path, $message));
+        return is_resource($stream) ? new self($stream) : CannotJudge::because(sprintf(self::UNBOUND, $path, $warned));
     }
 
     /**
-     * Which of the listener, by its key, and the connections, by theirs,
-     * have something to read once this many microseconds have passed at most.
+     * Whether a client waits on the listener, and which of the connections,
+     * by their keys, have something to read, once this many microseconds
+     * have passed at most.
      *
-     * @param  array<int, Connection> $connections
-     * @return list<int>
+     * @param  array<int, Connection>  $connections
+     * @return array{bool, list<int>}
      */
     public static function ready(self|NotGiven $listener, array $connections, int $microseconds): array
     {
-        $read = $listener instanceof self ? [self::KEY => $listener->stream] : [];
+        $read = array_map(static fn(Connection $connection): mixed => $connection->stream(), $connections);
+        $listening = $listener instanceof self ? $listener->stream : NotGiven::value();
 
-        foreach ($connections as $key => $connection) {
-            $read[$key] = $connection->stream();
+        if ($listener instanceof self) {
+            $read[] = $listener->stream;
+        }
+
+        if ($read === []) {
+            return [false, []];
         }
 
         $write = null;
@@ -99,7 +107,7 @@ final readonly class Listener
         set_error_handler(static fn(): bool => true, E_WARNING);
 
         try {
-            $ready = $read === [] ? false : stream_select(
+            $ready = stream_select(
                 $read,
                 $write,
                 $except,
@@ -110,7 +118,7 @@ final readonly class Listener
             restore_error_handler();
         }
 
-        return is_int($ready) ? array_keys($read) : [];
+        return is_int($ready) ? self::readied($read, $listening) : [false, []];
     }
 
     /**
@@ -136,5 +144,23 @@ final readonly class Listener
         if (is_resource($this->stream)) {
             fclose($this->stream);
         }
+    }
+
+    /**
+     * Whether the listening stream is among those a wait found ready, and
+     * the keys of the others.
+     *
+     * @param  array<int, mixed>  $ready
+     * @return array{bool, list<int>}
+     */
+    private static function readied(array $ready, mixed $listening): array
+    {
+        $connections = [];
+
+        foreach ($ready as $key => $stream) {
+            $connections = $stream === $listening ? $connections : [...$connections, $key];
+        }
+
+        return [count($connections) < count($ready), $connections];
     }
 }

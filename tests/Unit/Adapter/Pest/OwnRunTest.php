@@ -32,3 +32,10 @@ it('knows no whole order where none was recorded, or it was to run no test', fun
         ->and(ownRunOfThree()->orderedAs(3, NotGiven::value())->planned($files))->toBeInstanceOf(NotGiven::class)
         ->and(ownRunOfThree()->orderedAs(0, hash('sha256', 'order'))->planned($files))->toBeInstanceOf(NotGiven::class);
 });
+
+it('reaches the end of a whole order of one test', function (): void {
+    $order = hash('sha256', 'one');
+    $files = Paths::of(Path::of('tests/ASpec.php'));
+
+    expect(ownRunOfThree()->orderedAs(1, $order)->planned($files))->toEqual(Prefix::keyedAt(1, Prefix::keyOf($files, $order)));
+});

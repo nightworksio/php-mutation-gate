@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
+use function array_any;
 use function array_filter;
 use function array_values;
 use function file_get_contents;
@@ -42,8 +43,8 @@ final readonly class ServedClients
      * Clients in a process of their own, each sending its line in turn once
      * the daemon listens and keeping its answer's lines; a line ending in
      * HANG_UP is sent and its connection closed at once, unread, and one
-     * ending in HOLD is sent and its connection held open, unread: the file
-     * they keep the answers in.
+     * ending in HOLD is sent and its connection held open, unread, until two
+     * seconds after the answers are kept: the file they keep the answers in.
      *
      * @param list<string> $lines
      */
@@ -60,6 +61,7 @@ final readonly class ServedClients
             }
 
             file_put_contents($kept, (string) json_encode($answers));
+            Waiting::every(Seconds::of(array_any($lines, static fn(string $line): bool => str_ends_with($line, self::HOLD)) ? 2.0 : 0.0))();
         });
         register_shutdown_function(static fn() => ServedProjects::waitedFor($child));
 

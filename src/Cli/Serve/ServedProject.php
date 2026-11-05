@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Cli\Serve;
 
 use function file_get_contents;
 use function is_file;
+use function is_readable;
 use function is_string;
 
 use NightWorksIO\MutationGate\Cli\Config\ConfigLocation;
@@ -43,10 +44,10 @@ final readonly class ServedProject
         );
     }
 
-    /** The digest of a file's contents; nothing where there is no file. */
+    /** The digest of a file's contents; nothing where there is no file it can read. */
     private static function digestOf(string $file): string
     {
-        $contents = is_file($file) ? file_get_contents($file) : false;
+        $contents = is_file($file) && is_readable($file) ? file_get_contents($file) : NotGiven::value();
 
         return is_string($contents) ? Digest::sha256Of($contents)->value() : '';
     }

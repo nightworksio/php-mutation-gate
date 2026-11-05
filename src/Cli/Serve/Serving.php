@@ -20,11 +20,13 @@ use NightWorksIO\MutationGate\Cli\Command\Failed;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Local;
 use NightWorksIO\MutationGate\Core\Hook\Hook;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Serve\ServedVariables;
 use NightWorksIO\MutationGate\Core\Serve\ServeRefusal;
 use NightWorksIO\MutationGate\Core\Serve\ServeRequest;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verb;
 
 use function rewind;
@@ -147,18 +149,25 @@ final readonly class Serving
         $client = self::client();
         $answer = $client->answered($request);
         $unserved = $answer instanceof NotGiven || $answer instanceof ServeRefusal;
-        $started = $watch && $unserved && $this->startsForWatch($input)
-            && new DaemonStart(ServeSocket::ofProject())->started($this->script, $this->project);
+        $wait = $watch && $unserved ? $this->startWait($input) : NotGiven::value();
+        $started = $wait instanceof Seconds
+            && new DaemonStart(ServeSocket::ofProject(), $wait)->started($this->script, $this->project);
 
         return $started ? $client->answered($request) : $answer;
     }
 
-    /** Whether `local.serveStart` lets `watch` start a daemon. */
-    private function startsForWatch(InputInterface $input): bool
+    /**
+     * How long `watch` waits for a daemon it starts, `local.serveStartWait`,
+     * where `local.serveStart` lets it start one; none where it may not.
+     */
+    private function startWait(InputInterface $input): Seconds|NotGiven
     {
         $composed = $this->composition->composeLocally($input);
+        $local = $composed instanceof Composed ? $composed->settings->local() : NotGiven::value();
 
-        return $composed instanceof Composed && $composed->settings->local()->serveStart()->startsForWatch();
+        return $local instanceof Local && $local->serveStart()->startsForWatch()
+            ? $local->serveStartWait()
+            : NotGiven::value();
     }
 
     private function outcome(int|ServeRefusal|NotGiven|CannotJudge $answer, OutputInterface $output): int|NotGiven

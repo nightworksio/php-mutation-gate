@@ -9,6 +9,7 @@ use Closure;
 use function in_array;
 
 use NightWorksIO\MutationGate\Adapter\Serve\Forking;
+use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
  * A daemon's forking that runs each child's work in the test's own process,
@@ -42,10 +43,10 @@ final class InlineForking implements Forking
         return new self(runs: false);
     }
 
-    public function forked(Closure $child): int
+    public function forked(Closure $child): int|NotGiven
     {
         if (! $this->forks) {
-            return -1;
+            return NotGiven::value();
         }
 
         if ($this->runs) {

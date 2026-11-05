@@ -21,12 +21,14 @@ use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\Analysis\Rejections;
 use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
+use NightWorksIO\MutationGate\Core\Analysis\Unchecked;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Time\Deadline;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
+use NightWorksIO\MutationGate\Port\StaticChecker;
 use Psr\Clock\ClockInterface;
 
 /**
@@ -65,20 +67,21 @@ final class PreChecking implements PreChecker
     {
         $checker = $this->adapters->checker;
         $identity = $this->adapters->analyser;
-        $chosen = $this->chosen($mutants);
 
         if (
             $checker instanceof NoAnalyser
             || ! $identity instanceof AnalyserIdentity
-            || $chosen === []
             || ($this->deadline instanceof Deadline && $this->deadline->hasPassed($this->clock->now()))
         ) {
             return Rejections::none();
         }
 
         $from = $this->stopwatch->now();
-        $warm = $this->warmUp->of($checker, $identity, $this->adapters, $this->clock);
-        $rejections = $warm instanceof WarmedUp ? $this->checked($warm, $chosen, $side) : Rejections::none();
+        $history = $this->known->plus($this->learned);
+        $measured = $history->time()->each();
+        $check = $measured instanceof Seconds ? $measured : $this->warmUpOf($checker, $identity);
+        $chosen = $check instanceof Seconds ? $this->chosen($mutants, $history, $check) : [];
+        $rejections = $chosen === [] ? Rejections::none() : $this->warmChecked($checker, $identity, $chosen, $side);
         $this->stopwatch->handled(Step::StaticCheck, $from, count($chosen));
 
         return $rejections;
@@ -91,19 +94,55 @@ final class PreChecking implements PreChecker
     }
 
     /**
+     * The time of one check before any was timed: the analyser's warm-up
+     * over the originals, which no check from its result cache outlasts; or
+     * why there is none.
+     */
+    private function warmUpOf(StaticChecker $checker, AnalyserIdentity $identity): Seconds|Unchecked
+    {
+        $warm = $this->warmUp->of($checker, $identity, $this->adapters, $this->clock);
+
+        return $warm instanceof WarmedUp ? $warm->took : $warm;
+    }
+
+    /**
+     * The chosen mutants checked once the analyser has warmed up; none
+     * rejected where it could not.
+     *
+     * @param non-empty-list<PreCheckable> $chosen
+     */
+    private function warmChecked(
+        StaticChecker $checker,
+        AnalyserIdentity $identity,
+        array $chosen,
+        ProcessCount $side,
+    ): Rejections {
+        $warm = $this->warmUp->of($checker, $identity, $this->adapters, $this->clock);
+
+        return $warm instanceof WarmedUp ? $this->checked($warm, $chosen, $side) : Rejections::none();
+    }
+
+    /**
      * The mutants whose check pays, by what the ledgers and this run have
-     * learned of their mutators.
+     * learned of their mutators, where one check takes these seconds; each
+     * mutator still being learned checked no more often than its learning
+     * needs.
      *
      * @return list<PreCheckable>
      */
-    private function chosen(PreCheckables $mutants): array
+    private function chosen(PreCheckables $mutants, AnalyserHistory $history, Seconds $check): array
     {
-        $history = $this->known->plus($this->learned);
         $chosen = [];
+        $pending = [];
 
         foreach ($mutants as $mutant) {
-            if ($this->policy->pays($history, $mutant->mutant()->mutation(), $mutant->tests())) {
+            $mutation = $mutant->mutant()->mutation();
+            $mutator = $mutation->mutator();
+            $pending[$mutator] ??= 0;
+
+            if ($this->policy->pays($history, $mutation, $mutant->tests(), $check, $pending[$mutator])) {
                 $chosen[] = $mutant;
+                $pending[$mutator]++;
             }
         }
 

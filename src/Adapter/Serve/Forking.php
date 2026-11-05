@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Serve;
 
 use Closure;
+use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
  * How a daemon of `mutation-gate serve` makes and stops its children
@@ -18,11 +19,11 @@ interface Forking
 {
     /**
      * The process id of a child forked to run this, which ends with what it
-     * answers; -1 where none could be forked.
+     * answers; none where none could be forked.
      *
      * @param Closure(): int $child
      */
-    public function forked(Closure $child): int;
+    public function forked(Closure $child): int|NotGiven;
 
     /** Whether the child has ended, which it is then forgotten as. */
     public function hasEnded(int $child): bool;

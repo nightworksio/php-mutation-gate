@@ -80,3 +80,9 @@ it('reads the log of a process whose silence limit watches its tests, and none o
         ->toEqual(Overrun::of(TestId::of('Money::subtracts'), Seconds::of(3.0)))
         ->and(TestLog::under(SilenceLimit::of(Seconds::of(9.0), 'results.jsonl')))->toEqual(NotGiven::value());
 });
+
+it('keeps a test of the extension\'s lines running across a blank line, which ends none', function (): void {
+    $log = TestLog::of(TestEvents::NativeResults, moneyWatch())->after("started Money%3A%3Asubtracts\n\n", 0.0);
+
+    expect($log->pastLimit(3.5))->toEqual(Overrun::of(TestId::of('Money::subtracts'), Seconds::of(3.0)));
+});

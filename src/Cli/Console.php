@@ -59,7 +59,6 @@ use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
 use NightWorksIO\MutationGate\Core\Migration\Migrations;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\OwnArchive;
-use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
 use NightWorksIO\MutationGate\Core\Watch\Poll;
 use NightWorksIO\MutationGate\Extension\Extensions;
@@ -216,7 +215,7 @@ final readonly class Console
     private static function script(): string
     {
         $archive = OwnArchive::running();
-        $started = array_first(get_included_files()) ?? ThisPackage::script(ThisPackage::NAME);
+        $started = sprintf('%s', array_first(get_included_files()));
 
         return $archive instanceof OwnArchive ? $archive->file() : $started;
     }

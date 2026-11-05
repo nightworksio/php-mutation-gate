@@ -137,7 +137,7 @@ final class ServedProjects
     public static function connectedPair(): array
     {
         $listener = Listener::boundTo(self::SOCKET);
-        $client = Connection::to(self::SOCKET, 1.0);
+        $client = Connection::to(self::SOCKET);
         $daemon = $listener instanceof Listener ? array_first($listener->accepted()) : null;
 
         return $listener instanceof Listener && $client instanceof Connection && $daemon instanceof Connection
@@ -184,7 +184,7 @@ final class ServedProjects
     /** The next client's connection, once one comes within five seconds; none otherwise. */
     public static function acceptedFrom(Listener $listener): Connection|NotGiven
     {
-        return Listener::ready($listener, [], 5_000_000) === []
+        return ! Listener::ready($listener, [], 5_000_000)[0]
             ? NotGiven::value()
             : array_first($listener->accepted()) ?? NotGiven::value();
     }

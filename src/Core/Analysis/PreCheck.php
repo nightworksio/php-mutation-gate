@@ -6,18 +6,21 @@ namespace NightWorksIO\MutationGate\Core\Analysis;
 
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
-use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
 /**
  * Whether a mutant is also checked before its tests, where it pays
- * (ADR-0020). Every survivor is checked after them whatever this says.
+ * (ADR-0020, ADR-0077). Every survivor is checked after them whatever this
+ * says.
  *
- * - A mutator is checked before the tests until its history holds this many
- *   checks of it, which is how its rate is learned.
+ * - A mutant whose judging tests take no longer than one check is checked
+ *   only after them: a check saves at most the tests' time.
+ * - A mutator is checked before the tests until its history, with the checks
+ *   this run already makes of it before their tests, holds this many checks
+ *   of it, which is how its rate is learned.
  * - Then a mutator the analyser never rejected is checked only after them.
  * - Any other is checked before them where its rejection rate times its
- *   judging tests' time is greater than one check's time, measured or not
- *   yet: a check saves the tests' time for the mutants it rejects.
+ *   judging tests' time is greater than one check's time: a check saves the
+ *   tests' time for the mutants it rejects.
  *
  * Placement only judges: a mutant is killed whether the tests or the
  * analyser caught it, so no placement moves a score.
@@ -38,16 +41,24 @@ final readonly class PreCheck
         return new self(self::STANDARD);
     }
 
-    /** Whether to check a mutant before the tests that judge it, which take these seconds. */
-    public function pays(AnalyserHistory $history, Mutation $mutation, Seconds $tests): bool
-    {
+    /**
+     * Whether to check a mutant before the tests that judge it, which take
+     * these seconds, where one check takes these, and this run already checks
+     * this many mutants of its mutator before their tests.
+     */
+    public function pays(
+        AnalyserHistory $history,
+        Mutation $mutation,
+        Seconds $tests,
+        Seconds $check,
+        int $pending,
+    ): bool {
         $rate = $history->rateOf($mutation);
-        $check = $history->time()->each();
 
         return match (true) {
-            $rate->checks() < $this->learning => true,
+            $tests->seconds() <= $check->seconds() => false,
+            $rate->checks() < $this->learning => $rate->checks() + $pending < $this->learning,
             $rate->rejections() === 0 => false,
-            $check instanceof Unmeasured => true,
             default => $rate->saving($tests)->seconds() > $check->seconds(),
         };
     }

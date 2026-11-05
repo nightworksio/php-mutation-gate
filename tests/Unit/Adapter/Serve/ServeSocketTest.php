@@ -146,11 +146,45 @@ it('refuses a peer it cannot tell, as a stream that is no socket is', function (
 it('closes a connection whose other end is not the owner\'s, and says so, and keeps one whose end is', function (): void {
     ServedProjects::entered();
     $listener = ServedProjects::socket()->listened();
-    $refused = Connection::to(ServedProjects::SOCKET, 1.0);
-    $kept = Connection::to(ServedProjects::SOCKET, 1.0);
+    $refused = Connection::to(ServedProjects::SOCKET);
+    $kept = Connection::to(ServedProjects::SOCKET);
 
     expect($listener)->toBeInstanceOf(Listener::class)
         ->and($refused instanceof Connection ? ServeSocket::at(ServedProjects::SOCKET, posix_geteuid() + 1)->trusted($refused) : null)
         ->toEqual(ServeRefusal::because('A process of another user answers on .mutation-gate/serve.sock.'))
-        ->and($kept instanceof Connection ? ServedProjects::socket()->trusted($kept) : null)->toBe($kept);
+        ->and($kept instanceof Connection ? ServedProjects::socket()->trusted($kept) : null)->toBe($kept)
+        ->and([
+            $refused instanceof Connection && is_resource($refused->stream()),
+            $kept instanceof Connection && is_resource($kept->stream()),
+        ])->toBe([false, true]);
+});
+
+it('connects to nothing, and finds nothing untrusted, where the socket\'s directory is not there', function (): void {
+    ServedProjects::entered();
+
+    expect(ServeSocket::at('missing/serve.sock', posix_geteuid())->connected())->toEqual(NotGiven::value());
+});
+
+it('leaves a linked directory\'s target as it was, refusing to listen through the link', function (): void {
+    ServedProjects::entered();
+    mkdir('target', 0o755);
+    chmod('target', 0o755);
+    symlink('target', 'linked');
+    $listened = ServeSocket::at('linked/serve.sock', posix_geteuid())->listened();
+    clearstatcache();
+
+    expect($listened)->toEqual(CannotJudge::because('linked is a symbolic link, which the daemon\'s socket never is.'))
+        ->and(fileperms('target') & 0o777)->toBe(0o755);
+});
+
+it('sees a socket file another process removed', function (): void {
+    ServedProjects::entered();
+    touch(ServedProjects::SOCKET);
+    $socket = ServedProjects::socket();
+    $before = $socket->isThere();
+    ServedProjects::waitedFor(ServedProjects::aside(static function (): void {
+        unlink(ServedProjects::SOCKET);
+    }));
+
+    expect([$before, $socket->isThere()])->toBe([true, false]);
 });

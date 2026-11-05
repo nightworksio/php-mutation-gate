@@ -89,7 +89,7 @@ final readonly class OpcacheBlacklist
      */
     public static function named(string|false $file): array
     {
-        $lines = is_string($file) && $file !== '' && is_file($file) ? file($file, FILE_IGNORE_NEW_LINES) : false;
+        $lines = is_string($file) && is_file($file) ? file($file, FILE_IGNORE_NEW_LINES) : [];
 
         return is_array($lines)
             ? array_values(array_filter($lines, static fn(string $line): bool => $line !== ''))

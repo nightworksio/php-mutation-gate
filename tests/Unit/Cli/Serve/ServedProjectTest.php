@@ -35,3 +35,17 @@ it('identifies a project with no lock or config by empty digests, and a root tha
     expect($identity->written()->line())->toContain('"root":"/no/such/project"')
         ->and($identity->written()->line())->toContain('"lock":"","config":""');
 });
+
+it('gives an empty digest, warning nothing, for a lock it cannot read and a config that is a directory', function (): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'composer.lock', '{"packages": []}');
+    chmod(sprintf('%s/composer.lock', $project), 0o000);
+    mkdir(sprintf('%s/mutation-gate.json', $project));
+    error_clear_last();
+    $identity = ServedProject::identity($project, 'mutation-gate.json');
+    $warned = error_get_last();
+    chmod(sprintf('%s/composer.lock', $project), 0o600);
+
+    expect($identity->written()->line())->toContain('"lock":"","config":""')
+        ->and($warned)->toBeNull();
+});

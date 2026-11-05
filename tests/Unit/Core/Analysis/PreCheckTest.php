@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistory;
-use NightWorksIO\MutationGate\Core\Analysis\CheckTime;
 use NightWorksIO\MutationGate\Core\Analysis\PreCheck;
 use NightWorksIO\MutationGate\Core\Analysis\RejectionRate;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
@@ -11,42 +10,41 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 $makePlus = static fn(): Mutation => Mutation::of('Plus', MutatorFamily::Arithmetic, "-+\n+-");
-$learned = static fn(int $checks, int $rejections, float $seconds): AnalyserHistory => AnalyserHistory::of('phpstan')
-    ->withRate(RejectionRate::of('Plus', $checks, $rejections))
-    ->withTime(CheckTime::of(100, Seconds::of($seconds)));
+$learned = static fn(int $checks, int $rejections): AnalyserHistory => AnalyserHistory::of('phpstan')
+    ->withRate(RejectionRate::of('Plus', $checks, $rejections));
 
-it('checks a mutator before its tests until it holds fifty checks of it', function () use ($makePlus, $learned): void {
+it('checks a mutator before its tests until its history and this run\'s checks before the tests hold fifty of it', function () use ($makePlus, $learned): void {
     $plus = $makePlus();
+    $second = Seconds::of(1.0);
+    $pays = static fn(AnalyserHistory $history, int $pending): bool => PreCheck::standard()->pays($history, $plus, Seconds::of(1.5), $second, $pending);
 
-    expect(PreCheck::standard()->pays(AnalyserHistory::of('phpstan'), $plus, Seconds::of(0.0)))->toBeTrue()
-        ->and(PreCheck::standard()->pays($learned(49, 0, 100.0), $plus, Seconds::of(0.0)))->toBeTrue()
-        ->and(PreCheck::standard()->pays($learned(50, 0, 100.0), $plus, Seconds::of(9.0)))->toBeFalse();
+    expect($pays(AnalyserHistory::of('phpstan'), 0))->toBeTrue()
+        ->and($pays(AnalyserHistory::of('phpstan'), 49))->toBeTrue()
+        ->and($pays(AnalyserHistory::of('phpstan'), 50))->toBeFalse()
+        ->and($pays($learned(49, 0), 0))->toBeTrue()
+        ->and($pays($learned(30, 0), 19))->toBeTrue()
+        ->and($pays($learned(30, 0), 20))->toBeFalse()
+        ->and($pays($learned(50, 0), 0))->toBeFalse();
 });
 
-it('checks a mutator the analyser never rejected only after its tests, timed or not', function () use ($makePlus, $learned): void {
+it('checks a mutant only after its tests where they take no longer than one check, learned or not', function () use ($makePlus, $learned): void {
     $plus = $makePlus();
+    $pays = static fn(AnalyserHistory $history, float $tests): bool => PreCheck::standard()->pays($history, $plus, Seconds::of($tests), Seconds::of(2.0), 0);
 
-    $untimed = AnalyserHistory::of('phpstan')->withRate(RejectionRate::of('Plus', 60, 0));
+    expect($pays(AnalyserHistory::of('phpstan'), 2.0))->toBeFalse()
+        ->and($pays(AnalyserHistory::of('phpstan'), 2.5))->toBeTrue()
+        ->and($pays($learned(50, 50), 2.0))->toBeFalse()
+        ->and($pays($learned(50, 50), 2.5))->toBeTrue();
+});
 
-    expect(PreCheck::standard()->pays($learned(500, 0, 0.1), $plus, Seconds::of(60.0)))->toBeFalse()
-        ->and(PreCheck::standard()->pays($untimed, $plus, Seconds::of(60.0)))->toBeFalse();
+it('checks a mutator the analyser never rejected only after its tests', function () use ($makePlus, $learned): void {
+    expect(PreCheck::standard()->pays($learned(500, 0), $makePlus(), Seconds::of(60.0), Seconds::of(0.001), 0))->toBeFalse();
 });
 
 it('checks before the tests where the rate times the tests\' time is more than one check\'s', function (float $tests, bool $pays) use ($makePlus, $learned): void {
-    $plus = $makePlus();
-
-    // a fifth of its mutants rejected, one check taking a second
-    expect(PreCheck::standard()->pays($learned(50, 10, 100.0), $plus, Seconds::of($tests)))->toBe($pays);
+    expect(PreCheck::standard()->pays($learned(50, 10), $makePlus(), Seconds::of($tests), Seconds::of(1.0), 0))->toBe($pays);
 })->with([
     'tests of 10s save 2s' => [10.0, true],
     'tests of 5s save exactly 1s' => [5.0, false],
     'tests of 2s save 0.4s' => [2.0, false],
 ]);
-
-it('checks before the tests while no check has been timed', function () use ($makePlus): void {
-    $plus = $makePlus();
-
-    $untimed = AnalyserHistory::of('phpstan')->withRate(RejectionRate::of('Plus', 50, 1));
-
-    expect(PreCheck::standard()->pays($untimed, $plus, Seconds::of(0.1)))->toBeTrue();
-});

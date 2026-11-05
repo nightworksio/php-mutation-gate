@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Migration\Migrations;
 use NightWorksIO\MutationGate\Core\Migration\Rename;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Time\Budgets;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 
 it('ships the JSON Schema config:schema prints', function (): void {
@@ -183,6 +184,7 @@ it('declares every setting as affecting results, as deciding how the gate runs, 
         'local.prePushBudget' => $judges,
         'local.serveIdle' => $judges,
         'local.serveStart' => $judges,
+        'local.serveStartWait' => $judges,
         'coverage.incremental' => $decides,
         'paths[].glob' => $matching,
         'paths[].mutators.sets' => $matching,
@@ -219,8 +221,10 @@ it('states the default budgets the configuration reference gives watch and pre-p
 
     expect([$default('local.watchBudget'), $default('local.prePushBudget')])
         ->toBe([Budgets::standard()->watch()->written(), Budgets::standard()->prePush()->written()])
-        ->and([$default('local.serveIdle'), $default('local.serveStart')])
-        ->toBe([Local::none()->serveIdle()->written(), Local::none()->serveStart()->value]);
+        ->and([$default('local.serveIdle'), $default('local.serveStart'), $default('local.serveStartWait')])
+        ->toBe([Local::none()->serveIdle()->written(), Local::none()->serveStart()->value, '10s'])
+        ->and(Local::none()->serveStartWait()->written())->toBe('10s')
+        ->and(Local::of(serveStartWait: Seconds::of(3.0))->over(Local::none())->serveStartWait()->written())->toBe('3s');
 });
 
 it('gives runner.memory the default the configuration reference names', function (): void {

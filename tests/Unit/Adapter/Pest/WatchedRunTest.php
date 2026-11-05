@@ -49,3 +49,11 @@ it('is watched where a silence limit or a test\'s own could stop it, and not whe
         ->and(WatchedRun::of(NotGiven::value(), '/tmp/m', $off)->isWatched())->toBeFalse()
         ->and(WatchedRun::of(NotGiven::value(), '/tmp/m', $off)->pastLimit(TestEvents::BEAT, 1000.0))->toEqual(NotGiven::value());
 });
+
+it('is silent only once more than its silence limit has passed since its last beat', function (): void {
+    $run = WatchedRun::of(Seconds::of(2.0), '/tmp/m', TestWatch::of(PerTestLimit::off(), TestTimes::none()));
+
+    expect($run->pastLimit(TestEvents::BEAT, 100.0))->toEqual(NotGiven::value())
+        ->and($run->pastLimit('', 102.0))->toEqual(NotGiven::value())
+        ->and($run->pastLimit('', 102.25))->toEqual(Seconds::of(2.0));
+});

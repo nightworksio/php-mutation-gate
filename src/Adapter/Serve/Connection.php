@@ -6,14 +6,16 @@ namespace NightWorksIO\MutationGate\Adapter\Serve;
 
 use function array_key_exists;
 
+use const E_NOTICE;
 use const E_WARNING;
 
 use function fclose;
 use function feof;
+use function fgetc;
 use function fgets;
-use function fread;
 use function function_exists;
 use function fwrite;
+use function is_array;
 use function is_int;
 use function is_resource;
 use function is_string;
@@ -36,9 +38,9 @@ use function stream_socket_client;
 /**
  * One connection between a client and a daemon of `mutation-gate serve`
  * (ADR-0078), over the project's Unix socket: lines of JSON each way. PHP
- * raises a socket nobody listens on, a write to a peer that has gone, and a
- * stream whose peer it cannot tell, as warnings as well as answering false;
- * they are kept from the output, and the answer is read.
+ * raises a socket nobody listens on and a stream whose peer it cannot tell
+ * as warnings, and a write to a peer that has gone as a notice, as well as
+ * answering false; they are kept from the output, and the answer is read.
  *
  * @internal
  */
@@ -65,15 +67,17 @@ final readonly class Connection
         return new self($stream);
     }
 
-    /** A connection to the daemon listening on the socket at this path; or none, where none answers in time. */
-    public static function to(string $path, float $seconds): self|NotGiven
+    /**
+     * A connection to the daemon listening on the socket at this path; or
+     * none, where none takes it: a Unix socket's connect never waits, as a
+     * full backlog refuses it at once.
+     */
+    public static function to(string $path): self|NotGiven
     {
-        $code = 0;
-        $message = '';
         set_error_handler(static fn(): bool => true, E_WARNING);
 
         try {
-            $stream = stream_socket_client(sprintf(self::SCHEME, $path), $code, $message, $seconds);
+            $stream = stream_socket_client(sprintf(self::SCHEME, $path));
         } finally {
             restore_error_handler();
         }
@@ -92,7 +96,7 @@ final readonly class Connection
     /** Whether the text was sent whole. */
     public function sent(string $text): bool
     {
-        set_error_handler(static fn(): bool => true, E_WARNING);
+        set_error_handler(static fn(): bool => true, E_WARNING | E_NOTICE);
 
         try {
             return fwrite($this->stream, $text) !== false;
@@ -112,15 +116,25 @@ final readonly class Connection
     /** Whether the other end has closed it, once a look found something to read: nothing follows a request. */
     public function hasEnded(): bool
     {
-        $read = fread($this->stream, 1);
-
-        return ($read === '' || $read === false) && feof($this->stream);
+        return fgetc($this->stream) === false && feof($this->stream);
     }
 
     /** Whether PHP can tell which process is at the other end of a connection on this platform. */
     public static function tellsPeers(): bool
     {
-        return function_exists('socket_import_stream') && array_key_exists(PHP_OS_FAMILY, self::PEER_PROCESS);
+        return is_array(self::peerOption());
+    }
+
+    /**
+     * The level and the option of a socket that tell the process at its
+     * other end on a platform, as PHP names the platform's family; none
+     * where it tells none.
+     *
+     * @return array{int, int}|NotGiven
+     */
+    public static function peerOptionOn(string $family): array|NotGiven
+    {
+        return array_key_exists($family, self::PEER_PROCESS) ? self::PEER_PROCESS[$family] : NotGiven::value();
     }
 
     /**
@@ -130,17 +144,22 @@ final readonly class Connection
      */
     public function peer(): int|NotGiven
     {
-        $option = array_key_exists(PHP_OS_FAMILY, self::PEER_PROCESS) ? self::PEER_PROCESS[PHP_OS_FAMILY] : [];
+        $option = self::peerOption();
+
+        if (! is_array($option)) {
+            return NotGiven::value();
+        }
+
         set_error_handler(static fn(): bool => true, E_WARNING);
 
         try {
-            $socket = $option !== [] && self::tellsPeers() ? socket_import_stream($this->stream) : false;
-            $peer = $socket instanceof Socket ? socket_get_option($socket, $option[0], $option[1]) : false;
+            $socket = socket_import_stream($this->stream);
+            $peer = $socket instanceof Socket ? socket_get_option($socket, $option[0], $option[1]) : NotGiven::value();
         } finally {
             restore_error_handler();
         }
 
-        return is_int($peer) && $peer > 0 ? $peer : NotGiven::value();
+        return is_int($peer) ? $peer : NotGiven::value();
     }
 
     /** @return resource what PHP waits on for it */
@@ -154,5 +173,16 @@ final readonly class Connection
         if (is_resource($this->stream)) {
             fclose($this->stream);
         }
+    }
+
+    /**
+     * The level and the option of a socket that tell the process at its other
+     * end here, where PHP can import a stream as a socket; none otherwise.
+     *
+     * @return array{int, int}|NotGiven
+     */
+    private static function peerOption(): array|NotGiven
+    {
+        return function_exists('socket_import_stream') ? self::peerOptionOn(PHP_OS_FAMILY) : NotGiven::value();
     }
 }

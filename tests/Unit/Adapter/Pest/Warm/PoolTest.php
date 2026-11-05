@@ -52,3 +52,27 @@ it('starts its place\'s worker once, and puts the client asking it before each m
         ->and($warnings)->toEqual(Warnings::of())
         ->and($cleared)->toBeLessThan(Seat::WAIT / 2);
 });
+
+it('starts a worker that compiles through opcache, its blacklist named, where its directory keeps one', function (): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    $directory = WarmDirectory::made($results);
+    file_put_contents(sprintf('%s/opcache-blacklist', $directory), "/p/src/Money.php\n");
+    putenv(sprintf('%s=%s', GateVariable::Warm->value, $directory));
+    Pool::prefix(1);
+    $worker = file_get_contents(Seat::at($directory, 1)->pid());
+    $listed = new Process(['ps', '-ww', '-o', 'args=', '-p', (string) $worker]);
+    $listed->run();
+    WarmDirectory::cleared($results);
+
+    expect(trim($listed->getOutput()))->toBe(implode(' ', [
+        PHP_BINARY,
+        '-d',
+        'opcache.enable_cli=1',
+        '-d',
+        sprintf('opcache.blacklist_filename=%s/opcache-blacklist', $directory),
+        ThisPackage::script('mutation-gate-pest-worker'),
+        $directory,
+        '1',
+        (string) getmypid(),
+    ]));
+});

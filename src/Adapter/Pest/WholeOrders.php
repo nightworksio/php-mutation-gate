@@ -9,7 +9,6 @@ use function array_fill_keys;
 use function array_key_exists;
 use function array_keys;
 use function array_map;
-use function array_slice;
 use function array_values;
 
 use Closure;
@@ -115,7 +114,7 @@ final readonly class WholeOrders
         foreach ($sharing as $keys) {
             $whole = $this->replays[$keys[0]]->toTheEnd($this->planned[$keys[0]]);
 
-            foreach (array_slice($keys, 1) as $key) {
+            foreach ($keys as $key) {
                 $whole = $whole->alongside($this->replays[$key]);
             }
 

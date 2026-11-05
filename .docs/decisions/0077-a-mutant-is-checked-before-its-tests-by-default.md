@@ -29,16 +29,34 @@ mutant is checked first only where the check is expected to save time, and
 a mutator that rejects nothing in 50 checks is then checked only after the
 tests.
 
+Two gaps in rule 11 made a cold ledger slow. On the gate's own CI, one test
+shard with no learned rates took 2048 s against 1219 s before, about 1430 s
+of it in the static check:
+
+- A shard offers all its mutants in one batch. Rule 11 read each mutator's
+  rate before that batch, so it checked every mutant of a mutator with
+  fewer than 50 checks, 2686 checks in that shard, not 50 per mutator.
+- Before any check was timed, a check was taken to pay whatever its tests
+  took, even where they took 0.19 s and a check took 2 s.
+
 ## Decision
 
 1. **`staticCheck.before` is true by default.** Wherever an analyser is
    wired, rule 11's placement decides each mutant: it is checked before its
    tests where its mutator's rejection rate × its judging tests' time is
-   greater than one check's time, or while no check has been timed.
-   Survivors are still checked after their tests.
-2. **`staticCheck.before: false` restores checking survivors only.** The
+   greater than one check's time. Survivors are still checked after their
+   tests.
+2. **A mutant whose tests take no longer than one check is checked after
+   them,** whatever its mutator's rate: a check saves at most its tests'
+   time. Before any check is timed, one check is taken to last as long as
+   the analyser's warm-up over the originals, which no check from its
+   result cache outlasts.
+3. **A run checks a mutator before its tests only until it holds 50 checks
+   of it,** counting the ledger's checks and those this run already makes
+   before their tests, in the same batch or an earlier one.
+4. **`staticCheck.before: false` restores checking survivors only.** The
    analyser's run over the originals then waits until a survivor needs it.
-3. Nothing else in rule 11 changes. The placement, the rates and the
+5. Nothing else in rule 11 changes. The placement, the rates and the
    timings judge only, so the key is unchanged (ADR-0007), and a pre-check
    never moves a score.
 
@@ -48,9 +66,11 @@ tests.
   before its first mutant, from the warm result cache where one is kept.
 - A project with no analyser, or with `staticCheck.tool: none`, runs as
   before.
-- A cold ledger checks every mutator before its tests until it holds 50
-  checks of that mutator, as rule 11 states. Those first checks pay for the
-  rates that later keep fast mutants' tests first.
+- A cold ledger checks at most 50 mutants of each mutator before their
+  tests, and none whose tests take no longer than one check. Those first
+  checks pay for the rates that later keep fast mutants' tests first.
+- With no check timed, a shard warms the analyser up before it chooses, to
+  time a check. A survivor's check after its tests reuses that warm-up.
 
 ## Alternatives
 

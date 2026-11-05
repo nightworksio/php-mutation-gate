@@ -6,7 +6,9 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_keys;
 use function count;
-use function implode;
+use function json_encode;
+
+use const JSON_THROW_ON_ERROR;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\OpcacheBlacklist;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Pool;
@@ -54,8 +56,7 @@ final class TailWorkers
      */
     public function besideFor(array|NotGiven $suites, array $startingWith): string
     {
-        $booted = $suites instanceof NotGiven ? '' : sprintf('booted %s', implode(',', $suites));
-        $key = implode("\n", [$booted, ...$startingWith]);
+        $key = json_encode([$suites, $startingWith], JSON_THROW_ON_ERROR);
         $this->sets[$key] ??= $this->started(
             $this->sets === [] ? $this->beside : sprintf(self::OTHER, $this->beside, count($this->sets)),
             $suites,

@@ -26,6 +26,12 @@ final readonly class Local implements Setting
         return new self(Json::at('local.prePushBudget', $duration));
     }
 
+    /** `local.serveStartWait`: how long `watch` waits for a daemon it starts to listen. */
+    public static function serveStartWait(string $duration): self
+    {
+        return new self(Json::at('local.serveStartWait', $duration));
+    }
+
     /** `local.serveIdle`: how long a daemon waits for a request before it stops. */
     public static function serveIdle(string $duration): self
     {

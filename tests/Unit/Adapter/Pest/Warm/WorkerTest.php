@@ -51,7 +51,7 @@ it('runs a run in a child it forks, and writes how the child ended where the run
     $at = $seat();
     $request((int) getmypid())->leftIn($at->request());
     $paused = new Pauses();
-    $served = Worker::at($at->directory(), 1, (int) getmypid(), $paused->pausing())->served(ShellForking::running($at, 'sleep 0.2; exit 3'));
+    $served = Worker::at($at->directory(), 1, Passing::for('10'), $paused->pausing())->served(ShellForking::running($at, 'sleep 0.2; exit 3'));
     $finish = Finish::readFrom($at->ended('42-1'));
 
     expect($served)->toBe(0)
@@ -64,7 +64,7 @@ it('runs a run in a child it forks, and writes how the child ended where the run
 it('stops a child, with every process under it, once the run\'s asker is gone', function () use ($seat, $request): void {
     $at = $seat();
     $request(Passing::for('0.3'))->leftIn($at->request());
-    Worker::at($at->directory(), 1, (int) getmypid(), new Pauses()->pausing())->served(ShellForking::running($at, 'sleep 30'));
+    Worker::at($at->directory(), 1, Passing::for('10'), new Pauses()->pausing())->served(ShellForking::running($at, 'sleep 30'));
     $finish = Finish::readFrom($at->ended('42-1'));
 
     expect($finish instanceof Finish ? $finish->signal() : $finish)->toBe(SIGKILL);
@@ -148,7 +148,7 @@ it('forks the run of a mutant of a file whose names it has not declared, and loa
 it('starts fresh, and warns of it, a run it could fork no child for', function () use ($seat, $request, $warned): void {
     $at = $seat();
     $request((int) getmypid())->leftIn($at->request());
-    Worker::at($at->directory(), 1, (int) getmypid(), new Pauses()->pausing())->served(ShellForking::none($at));
+    Worker::at($at->directory(), 1, Passing::for('10'), new Pauses()->pausing())->served(ShellForking::none($at));
     $finish = Finish::readFrom($at->ended('42-1'));
 
     expect($finish instanceof Finish && $finish->isRefused())->toBeTrue()
@@ -158,7 +158,7 @@ it('starts fresh, and warns of it, a run it could fork no child for', function (
 it('starts fresh, and warns of it, a run whose child the system no longer tells of', function () use ($seat, $request, $warned): void {
     $at = $seat();
     $request((int) getmypid())->leftIn($at->request());
-    $served = Worker::at($at->directory(), 1, (int) getmypid(), new Pauses()->pausing())->served(new readonly class ($at) implements Forking {
+    $served = Worker::at($at->directory(), 1, Passing::for('10'), new Pauses()->pausing())->served(new readonly class ($at) implements Forking {
         public function __construct(private Seat $seat)
         {
         }

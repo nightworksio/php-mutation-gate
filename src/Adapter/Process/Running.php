@@ -95,7 +95,7 @@ final class Running
         private readonly SilenceLimit|NotGiven $silence,
         private Progress|NotGiven $progress,
         private array $pipes,
-        private readonly TestEventsFile $tests,
+        private readonly TestEventsFile|NotGiven $tests,
         private string $printedOut = '',
         private string $printedErrors = '',
     ) {
@@ -270,7 +270,7 @@ final class Running
     /** Stopped where the test it runs has run past its own limit; nothing, as it runs on, where it has not. */
     private function overranBy(float $now, int $pid): Ran|NotGiven
     {
-        $overrun = $this->tests->overrun($now);
+        $overrun = $this->tests instanceof TestEventsFile ? $this->tests->overrun($now) : $this->tests;
 
         return $overrun instanceof Overrun
             ? $this->stopped(

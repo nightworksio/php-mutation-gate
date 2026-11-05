@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Serve;
 
-use function hrtime;
-use function is_resource;
-
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -31,19 +28,16 @@ final readonly class DaemonStart
     public const string DETACHED = 'detached';
     private const string NULL_DEVICE = '/dev/null';
 
-    /** How long the start waits for the daemon to listen, in seconds, by default. */
-    private const float STARTING = 10.0;
-
     private const string OPTION = '--%s';
 
-    public function __construct(private ServeSocket $socket, private Seconds|NotGiven $within = new NotGiven())
+    public function __construct(private ServeSocket $socket, private Seconds $within)
     {
     }
 
     /**
      * Whether a daemon listens: one that already does, or one started by the
-     * gate's script in this directory within ten seconds, or as long as it is
-     * told. None starts where
+     * gate's script in this directory within the time it is given
+     * (`local.serveStartWait`). None starts where
      * the socket or its directory is not the user's own; a socket file no
      * daemon answers on is removed before it starts.
      */
@@ -51,35 +45,19 @@ final readonly class DaemonStart
     {
         $running = $this->socket->connected();
 
-        if ($running instanceof Connection) {
-            $running->closed();
-        }
-
         if (! $running instanceof NotGiven) {
             return $running instanceof Connection;
         }
 
         $this->socket->removed();
         $pipes = [];
-        $process = proc_open(
+        proc_open(
             [PHP_BINARY, $script, Verb::Serve->value, sprintf(self::OPTION, self::DETACHED)],
             [['file', self::NULL_DEVICE, 'r'], ['file', self::NULL_DEVICE, 'w'], ['file', self::NULL_DEVICE, 'w']],
             $pipes,
             $directory,
         );
-
-        $within = $this->within instanceof Seconds ? $this->within : Seconds::of(self::STARTING);
-        $end = hrtime(as_number: true) + $within->nanoseconds();
-
-        return is_resource($process) && $this->listening($end);
-    }
-
-    /** Whether the daemon's socket is there before the end, on `hrtime`'s clock; a daemon makes it as it listens. */
-    private function listening(int|float $end): bool
-    {
-        while (! $this->socket->isThere() && hrtime(as_number: true) < $end) {
-            usleep(Polling::interval()->microseconds());
-        }
+        Polling::wait($this->within, $this->socket->isThere(...), usleep(...));
 
         return $this->socket->isThere();
     }

@@ -54,6 +54,7 @@ it('offers every command the command-line reference lists', function (string $co
     'watch',
     'pre-push',
     'pre-commit',
+    'serve',
     'hook',
     'init',
     'import',

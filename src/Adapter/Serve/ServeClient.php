@@ -50,10 +50,8 @@ final readonly class ServeClient
         }
 
         $connection->sent($request->line());
-        $answer = $this->read($connection);
-        $connection->closed();
 
-        return $answer;
+        return $this->read($connection);
     }
 
     private function read(Connection $connection): int|ServeRefusal|CannotJudge

@@ -167,6 +167,7 @@ it('writes every setting of the configuration reference', function (): void {
                 Local::prePushBudget('10m'),
                 Local::serveIdle('1h'),
                 Local::serveStarting(ServeStart::Never),
+                Local::serveStartWait('20s'),
             ),
     ))->toBe([
         'extensions' => ['Acme\\A', 'Acme\\B'],
@@ -243,7 +244,7 @@ it('writes every setting of the configuration reference', function (): void {
         'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45],
         'mutators' => ['sets' => ['acme', 'acme-auth'], 'except' => ['acme/RemoveAudit']],
         'pruning' => ['enabled' => false, 'window' => 200, 'audit' => '3d'],
-        'local' => ['watchBudget' => '2m', 'prePushBudget' => '10m', 'serveIdle' => '1h', 'serveStart' => 'never'],
+        'local' => ['watchBudget' => '2m', 'prePushBudget' => '10m', 'serveIdle' => '1h', 'serveStart' => 'never', 'serveStartWait' => '20s'],
     ]);
 });
 

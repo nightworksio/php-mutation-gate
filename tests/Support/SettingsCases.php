@@ -172,7 +172,8 @@ final readonly class SettingsCases
             "watchBudget": "1m",
             "prePushBudget": "5m",
             "serveIdle": "30m",
-            "serveStart": "watch"
+            "serveStart": "watch",
+            "serveStartWait": "10s"
         }
     }
     JSON;

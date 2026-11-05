@@ -63,7 +63,8 @@ final readonly class Waiting
 
         while ($waited === 0 && $this->limit->outlasts(Seconds::of($this->seconds()))) {
             $progress = $this->read($progress);
-            $early = $this->stoppedEarly($progress, $tests->overrun($this->seconds()), $from, $workplace);
+            $overrun = $tests instanceof TestEventsTail ? $tests->overrun($this->seconds()) : $tests;
+            $early = $this->stoppedEarly($progress, $overrun, $from, $workplace);
 
             if ($early instanceof End) {
                 return $early;

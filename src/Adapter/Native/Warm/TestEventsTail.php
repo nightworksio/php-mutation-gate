@@ -31,25 +31,25 @@ final class TestEventsTail
     /** How many bytes of the file have been read. */
     private int $read = 0;
 
-    private function __construct(private readonly string $file, private TestLog|NotGiven $log)
+    private function __construct(private readonly string $file, private TestLog $log)
     {
     }
 
     /** The results file a child under this silence limit writes, where the limit watches its tests. */
-    public static function of(SilenceLimit|NotGiven $silence): self
+    public static function of(SilenceLimit|NotGiven $silence): self|NotGiven
     {
-        return $silence instanceof SilenceLimit
-            ? new self($silence->progress(), TestLog::under($silence))
-            : new self('', NotGiven::value());
+        if (! $silence instanceof SilenceLimit) {
+            return $silence;
+        }
+
+        $log = TestLog::under($silence);
+
+        return $log instanceof TestLog ? new self($silence->progress(), $log) : $log;
     }
 
     /** The test the child is running, where it has run past its own limit at these seconds of the clock. */
     public function overrun(float $now): Overrun|NotGiven
     {
-        if (! $this->log instanceof TestLog) {
-            return NotGiven::value();
-        }
-
         $this->log = $this->log->after($this->added(), $now);
 
         return $this->log->pastLimit($now);

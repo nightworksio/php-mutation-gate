@@ -261,6 +261,8 @@ services:
                     - RUNS # the newest runs a learned most shards is read from, not a count of presets
                     - LEAST_MULTIPLE # the least a learned timeouts.multiple is, not work per shard overhead
                     - MOST_MULTIPLE # the most a learned timeouts.multiple is, not how long a daemon is waited on to listen
+                'NightWorksIO\MutationGate\Cli\Command\ServeCommand':
+                    - STOP # serve's --stop option, not run.failFast's stop
                 'NightWorksIO\MutationGate\Cli\Init\InitQuestions':
                     - NONE # init's answer of no CI, not a hook setup's or a status
                 'NightWorksIO\MutationGate\Core\Native\Launched':

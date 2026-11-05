@@ -7,6 +7,9 @@ namespace NightWorksIO\MutationGate\Adapter\Serve;
 use function array_keys;
 
 use Closure;
+
+use function is_int;
+
 use NightWorksIO\MutationGate\Core\Serve\ServeFrame;
 use NightWorksIO\MutationGate\Core\Serve\ServeRequest;
 
@@ -35,11 +38,11 @@ final class Children
     {
         $child = $this->forking->forked(static fn(): int => self::child($request, $connection, $run));
 
-        if ($child > 0) {
+        if (is_int($child)) {
             $this->running[$child] = $connection;
         }
 
-        return $child > 0;
+        return is_int($child);
     }
 
     /** @return array<int, Connection> each running child's connection, by its process id */
@@ -58,9 +61,8 @@ final class Children
     {
         $any = false;
 
-        foreach ($this->running as $child => $connection) {
+        foreach (array_keys($this->running) as $child) {
             if ($this->forking->hasEnded($child)) {
-                $connection->closed();
                 unset($this->running[$child]);
                 $any = true;
             }

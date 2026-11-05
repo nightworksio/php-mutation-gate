@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Command;
 
-use function chdir;
 use function is_string;
 
-use NightWorksIO\MutationGate\Adapter\Serve\ChildEnvironment;
 use NightWorksIO\MutationGate\Adapter\Serve\Connection;
 use NightWorksIO\MutationGate\Adapter\Serve\Daemon;
 use NightWorksIO\MutationGate\Adapter\Serve\DaemonStart;
@@ -18,6 +16,7 @@ use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Cli\Gate;
+use NightWorksIO\MutationGate\Cli\Serve\ServedChild;
 use NightWorksIO\MutationGate\Cli\Serve\ServedProject;
 use NightWorksIO\MutationGate\Cli\Serve\Serving;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -32,7 +31,6 @@ use NightWorksIO\MutationGate\Core\Verb;
 use function sprintf;
 
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Input\ArgvInput;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -154,10 +152,7 @@ final readonly class ServeCommand
      */
     private static function ran(ServeRequest $request, Connection $connection, string $root, string $vendor): int
     {
-        ChildEnvironment::madeAs($request->environment());
-        chdir($root);
-        $input = new ArgvInput($request->argv());
-        Serving::reading($input, $request->input());
+        $input = ServedChild::prepared($request, $root);
 
         return Gate::in($root, $vendor, OwnArchive::running())->run(
             $input,

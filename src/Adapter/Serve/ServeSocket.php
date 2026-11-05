@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Serve;
 
 use function chmod;
-use function clearstatcache;
 use function dirname;
 use function file_exists;
 use function fileowner;
@@ -60,9 +59,6 @@ final readonly class ServeSocket
     /** The user id of root, which may signal any process, so a signal tells no owner. */
     private const int ROOT = 0;
 
-    /** How long a client waits for a daemon to take its connection, in seconds. */
-    private const float CONNECTING = 1.0;
-
     private function __construct(private string $path, private int $owner)
     {
     }
@@ -104,10 +100,6 @@ final readonly class ServeSocket
 
         $other = $this->connected();
 
-        if ($other instanceof Connection) {
-            $other->closed();
-        }
-
         return match (true) {
             $other instanceof Connection => CannotJudge::because(sprintf(self::TAKEN, $this->path)),
             $other instanceof ServeRefusal => CannotJudge::because($other->why()),
@@ -123,15 +115,14 @@ final readonly class ServeSocket
     public function connected(): Connection|NotGiven|ServeRefusal
     {
         $untrusted = Connection::tellsPeers() && $this->owner !== self::ROOT ? $this->untrusted() : self::UNTOLD;
-        $connection = $untrusted === '' && $this->isThere()
-            ? Connection::to($this->path, self::CONNECTING)
-            : NotGiven::value();
 
-        return match (true) {
-            $untrusted !== '' => ServeRefusal::because($untrusted),
-            $connection instanceof Connection => $this->trusted($connection),
-            default => $connection,
-        };
+        if ($untrusted !== '') {
+            return ServeRefusal::because($untrusted);
+        }
+
+        $connection = $this->isThere() ? Connection::to($this->path) : NotGiven::value();
+
+        return $connection instanceof Connection ? $this->trusted($connection) : $connection;
     }
 
     /** The connection, where the process at the other end is the owner's; closed, and why not, otherwise. */
@@ -169,8 +160,6 @@ final readonly class ServeSocket
     /** Whether the socket's file is there. */
     public function isThere(): bool
     {
-        clearstatcache();
-
         return file_exists($this->path) || is_link($this->path);
     }
 
@@ -193,7 +182,6 @@ final readonly class ServeSocket
     /** Why the socket or its directory may be another user's; nothing where both are the owner's own. */
     private function untrusted(): string
     {
-        clearstatcache();
         $directory = dirname($this->path);
         $socket = $this->socketUntrusted();
 

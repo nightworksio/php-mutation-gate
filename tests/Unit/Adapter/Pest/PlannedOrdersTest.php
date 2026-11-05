@@ -32,3 +32,11 @@ it('refuses a count below none and an order that is no SHA-256 digest', function
     'a negative count' => [fn(): string => RecordLine::ordered('/m/a', -1, hash('sha256', 'order'))],
     'a short order' => [fn(): string => RecordLine::ordered('/m/a', 3, 'abc')],
 ]);
+
+it('keeps a run that was to run no test, at the count of none', function (): void {
+    $order = hash('sha256', '');
+    $orders = new PlannedOrders();
+    $orders->ordered(orderedRecord(RecordLine::ordered('/m/a', 0, $order)));
+
+    expect($orders->of('/m/a'))->toBe([0, $order]);
+});
