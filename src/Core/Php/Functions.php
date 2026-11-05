@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Php;
 
 use function array_filter;
+use function array_map;
 use function array_pop;
 use function array_push;
 use function array_values;
@@ -12,6 +13,8 @@ use function array_values;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
 use PhpToken;
+
+use function sprintf;
 
 /**
  * Every named function and method a PHP file declares, with the lines from its
@@ -25,8 +28,11 @@ final readonly class Functions
     /** What opens a block, at the top or inside a function alike. */
     private const array OPENS = ['{', T_DOLLAR_OPEN_CURLY_BRACES];
 
-    /** @param list<array{string, int, int}> $spans each function's name, first line and last line */
-    private function __construct(private array $spans)
+    /**
+     * @param list<array{string, int, int}> $spans     each function's name, first line and last line
+     * @param list<array{string, int, int}> $qualified the same, each method's name after its class's short name
+     */
+    private function __construct(private array $spans, private array $qualified)
     {
     }
 
@@ -43,7 +49,7 @@ final readonly class Functions
 
         foreach ($tokens as $at => $token) {
             $pending = match (true) {
-                $token->is(T_FUNCTION) => [self::nameAfter($read, $at), $token->line],
+                $token->is(T_FUNCTION) => [self::nameAfter($read, $at), $token->line, self::qualifiedAt($read, $at)],
                 $token->is(';') => [],
                 default => $pending,
             };
@@ -58,7 +64,21 @@ final readonly class Functions
             }
         }
 
-        return new self($spans);
+        return new self(
+            array_map(static fn(array $span): array => [$span[0], $span[1], $span[2]], $spans),
+            array_map(static fn(array $span): array => [$span[3], $span[1], $span[2]], $spans),
+        );
+    }
+
+    /**
+     * Each named function and method, by its name, a method's after its class's short name, with its first and
+     * last line, in the order their blocks close.
+     *
+     * @return list<array{string, int, int}>
+     */
+    public function qualified(): array
+    {
+        return $this->qualified;
     }
 
     /** The innermost named function a line is in, or nothing where it is in none. */
@@ -81,12 +101,22 @@ final readonly class Functions
      * The span of a block that closes on a line: a named function's name, first line and last line; none for any
      * other block.
      *
-     * @param  array{}|array{string, int}     $opened what opened the block: a function's name and first line
-     * @return list<array{string, int, int}>
+     * @param  array{}|array{string, int, string} $opened what opened the block: a function's name, first line and
+     *                                                     name after its class's
+     * @return list<array{string, int, int, string}>
      */
     private static function spanOf(array $opened, int $closes): array
     {
-        return $opened !== [] && $opened[0] !== '' ? [[$opened[0], $opened[1], $closes]] : [];
+        return $opened !== [] && $opened[0] !== '' ? [[$opened[0], $opened[1], $closes, $opened[2]]] : [];
+    }
+
+    /** The name after a `function` keyword, a method's after its class's short name; nothing for a closure. */
+    private static function qualifiedAt(Tokens $tokens, int $at): string
+    {
+        $name = self::nameAfter($tokens, $at);
+        $class = Enclosing::classOf($tokens, $at);
+
+        return $name === '' || $class instanceof Nameless ? $name : sprintf(Declarations::METHOD, $class, $name);
     }
 
     /**

@@ -11,14 +11,8 @@ use ArrayIterator;
 use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
-use NightWorksIO\MutationGate\Core\Php\Declarations;
-use NightWorksIO\MutationGate\Core\Php\Enclosing;
+use NightWorksIO\MutationGate\Core\Php\Functions;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
-use NightWorksIO\MutationGate\Core\Php\Shape;
-use NightWorksIO\MutationGate\Core\Php\Tokens;
-
-use function sprintf;
-
 use Traversable;
 
 /**
@@ -49,12 +43,10 @@ final readonly class FunctionSpans implements IteratorAggregate
     /** Every named function and method with a body a file declares. */
     public static function in(Contents $file): self
     {
-        $tokens = Tokens::in($file);
         $spans = [];
 
-        foreach ($tokens->indicesOf(T_FUNCTION) as $keyword) {
-            $span = self::declaredAt($tokens, $keyword);
-            $spans = $span instanceof FunctionSpan ? [...$spans, $span] : $spans;
+        foreach (Functions::in($file)->qualified() as [$name, $first, $last]) {
+            $spans[] = FunctionSpan::of($name, Line::of($first), Line::of($last));
         }
 
         return new self($spans);
@@ -91,24 +83,5 @@ final readonly class FunctionSpans implements IteratorAggregate
     public function getIterator(): Traversable
     {
         return new ArrayIterator($this->spans);
-    }
-
-    private static function declaredAt(Tokens $tokens, int $keyword): FunctionSpan|Nameless
-    {
-        $named = $tokens->functionName($keyword);
-        $body = $named === Tokens::NONE ? Tokens::NONE : Shape::braceAfter($tokens, $keyword);
-
-        if ($body === Tokens::NONE) {
-            return Nameless::code();
-        }
-
-        $class = Enclosing::classOf($tokens, $keyword);
-        $name = $tokens->text($named);
-
-        return FunctionSpan::of(
-            $class instanceof Nameless ? $name : sprintf(Declarations::METHOD, $class, $name),
-            Line::of($tokens->line($keyword)),
-            Line::of($tokens->line($tokens->closing($body))),
-        );
     }
 }
