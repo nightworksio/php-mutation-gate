@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Library;
 
-use function is_link;
-
 /** Whether a path is a link, looked at as often as LOOKS says: looking more than once finds the same. */
 final readonly class Linked
 {
