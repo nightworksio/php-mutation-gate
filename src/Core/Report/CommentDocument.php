@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report;
 
+use function array_filter;
 use function array_map;
+use function array_values;
 use function implode;
 use function intdiv;
 use function max;
@@ -96,11 +98,13 @@ final readonly class CommentDocument
      */
     private static function part(string $title, string $heading, array $blocks, bool $open): array
     {
+        $said = array_values(array_filter($blocks, static fn(string $block): bool => $block !== ''));
+
         return match (true) {
-            $blocks === [] => [],
-            ! $open => [self::folded($title, $blocks)],
-            $heading === '' => $blocks,
-            default => MarkdownBlocks::section($heading, $blocks),
+            $said === [] => [],
+            ! $open => [self::folded($title, $said)],
+            $heading === '' => $said,
+            default => MarkdownBlocks::section($heading, $said),
         };
     }
 

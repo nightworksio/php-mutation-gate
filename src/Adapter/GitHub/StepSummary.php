@@ -90,7 +90,7 @@ final readonly class StepSummary implements Reporter
      */
     public function rechecked(Rechecked $rechecked): Written|NotWritten
     {
-        return $this->appended(RecheckedMarkdown::comment($rechecked, $this->run, CommentShows::of()));
+        return $this->appended(RecheckedMarkdown::comment($rechecked, $this->run, CommentShows::unfolded()));
     }
 
     private function appended(string $markdown): Written|NotWritten

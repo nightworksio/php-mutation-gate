@@ -70,7 +70,7 @@ it('posts a new comment where the token\'s identity has none, linking the run\'s
             '[The HTML report](https://github.example/octo/gate/actions/runs/7/artifacts/42) of [this run](https://github.example/octo/gate/actions/runs/7).',
             Markdown::comment(Verdicts::failing(), CommentShows::of()),
         ))
-        ->and($body)->toEndWith("[this run](https://github.example/octo/gate/actions/runs/7).\n");
+        ->and($body)->toEndWith("[this run](https://github.example/octo/gate/actions/runs/7).\n\n</details>\n");
 });
 
 it('updates its own comment in place, passing runs included, reading every page of comments', function () use ($environment, $event, $comment, $report): void {

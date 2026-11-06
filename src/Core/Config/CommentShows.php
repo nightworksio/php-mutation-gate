@@ -42,6 +42,9 @@ final readonly class CommentShows
         Section::Costs,
     ];
 
+    /** The sections shown open where the config lists none: the verdict, the trees and the heatmap. */
+    private const array OPEN = [Section::Verdict, Section::Trees, Section::Heatmap];
+
     /** What this part says of, of the toggles. */
     private const array TOGGLES = [Toggle::Try, Toggle::Reproduce];
 
@@ -78,6 +81,12 @@ final readonly class CommentShows
         return new self($sections, $open, $caps, $toggles, $lines, $detail);
     }
 
+    /** Every default but `comment.open`, which shows every section open, as a summary does. */
+    public static function unfolded(): self
+    {
+        return self::of(open: self::SECTIONS);
+    }
+
     /** This, with what a later layer sets laid over it, key by key. */
     public function over(self $later): self
     {
@@ -97,10 +106,10 @@ final readonly class CommentShows
         return is_array($this->sections) ? $this->sections : self::SECTIONS;
     }
 
-    /** `comment.open`: whether a section is shown open, rather than folded; every one is where it says nothing. */
+    /** `comment.open`: whether a section is shown open, not folded; the verdict, trees and heatmap are by default. */
     public function isOpen(Section $section): bool
     {
-        return ! is_array($this->open) || in_array($section, $this->open, strict: true);
+        return in_array($section, is_array($this->open) ? $this->open : self::OPEN, strict: true);
     }
 
     /** `comment.<cap>.most`: how many of a list the comment shows, or how many characters of one text. */
