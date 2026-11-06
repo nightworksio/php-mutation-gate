@@ -126,5 +126,76 @@ class Line(unittest.TestCase):
             release.with_plugin_line('{"require": {}}', "0.2", "composer.json")
 
 
+README = """# The gate
+
+## Features
+
+*Built* says whether `main` holds the feature.
+
+| | Feature | Built | Decided in |
+|---|---------|-------|------------|
+| **Adoption** | Zero-config start | yes | [0002](https://example.org/0002/) |
+| | `a \\| b` | yes; one note | |
+| **Reporting** | JSON | yes | [0009](https://example.org/0009/) |
+
+## Performance
+
+| x | y |
+|---|---|
+"""
+
+CLIFF = '''[changelog]
+header = """
+# Changelog
+
+Every release.
+"""
+'''
+
+
+class Signature(unittest.TestCase):
+    PINNED = release.gate_action.RELEASE_FINGERPRINT
+
+    def test_a_good_signature_by_the_pinned_key_passes(self):
+        status = f"[GNUPG:] GOODSIG B757A4B1136116D2 Release\n[GNUPG:] VALIDSIG {self.PINNED} 2026-11-06 1 0 4 0 1 10 00 {self.PINNED}\n"
+
+        self.assertIsNone(release.signature_refusal(status))
+
+    def test_a_signature_by_another_key_or_no_good_one_is_refused(self):
+        other = "A" * 40
+        for status in (
+            f"[GNUPG:] GOODSIG X Other\n[GNUPG:] VALIDSIG {other} 2026-11-06 1 0 4 0 1 10 00 {other}\n",
+            f"[GNUPG:] BADSIG X Release\n[GNUPG:] VALIDSIG {self.PINNED} 2026-11-06\n",
+            "",
+        ):
+            with self.subTest(status):
+                self.assertIn(self.PINNED, release.signature_refusal(status))
+
+
+class FirstNotes(unittest.TestCase):
+    def test_the_first_release_s_notes_are_the_feature_table_grouped_as_the_readme_groups_it(self):
+        self.assertEqual(release.first_notes(README, CLIFF, "v0.1.0", "2026-11-06"), (
+            "# Changelog\n\nEvery release.\n\n## [0.1.0] - 2026-11-06\n\n"
+            "### Adoption\n\n- Zero-config start ([0002](https://example.org/0002/))\n- `a \\| b`\n\n"
+            "### Reporting\n\n- JSON ([0009](https://example.org/0009/))\n"
+        ))
+
+    def test_a_feature_main_does_not_hold_refuses_the_notes(self):
+        with self.assertRaises(release.Refused) as refused:
+            release.first_notes(README.replace("| JSON | yes |", "| JSON | no |"), CLIFF, "0.1.0", "2026-11-06")
+
+        self.assertIn("JSON", str(refused.exception))
+
+    def test_a_table_with_no_built_column_is_taken_whole(self):
+        plain = README.replace("| Built ", "| Stage ")
+
+        self.assertIn("- JSON", release.first_notes(plain.replace("| JSON | yes |", "| JSON | no |"), CLIFF, "0.1.0", "2026-11-06"))
+
+    def test_a_readme_with_no_feature_table_refuses(self):
+        for readme in ("# The gate\n", "# The gate\n\n## Features\n\nNone yet.\n", "\n## Features\n\n| a | b |\n|---|---|\n| c | d |\n"):
+            with self.subTest(readme), self.assertRaises(release.Refused):
+                release.feature_rows(readme)
+
+
 if __name__ == "__main__":
     unittest.main()

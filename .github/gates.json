@@ -46,15 +46,16 @@
     },
     "scripts": {
       "check": "scripts",
-      "checks": "The deciding half of every script under .github/scripts, by its unit tests.",
-      "reproduce": "python3 -m unittest discover --start-directory .github/scripts",
+      "checks": "The deciding half of every script under .github/scripts, by its unit tests, and every line of the bot's scripts covered by them.",
+      "reproduce": "python3 .github/scripts/unit.py",
       "evidence": [
         {"step": "unittest", "tool": "scripts", "raw": "evidence/raw/scripts.json"}
       ],
       "rules": {
         "scripts": "The tests did not run to the end.",
         "failure": "A test's assertion failed.",
-        "error": "A test threw before it could finish."
+        "error": "A test threw before it could finish.",
+        "uncovered": "No test runs this line of a bot script. Every line of the bot's scripts is covered: add the test that runs it, or remove the line."
       }
     },
     "replay": {
@@ -178,16 +179,24 @@
     },
     "phar": {
       "check": "phar",
-      "checks": "The gate's PHAR builds as a release builds it, says its version, prints the committed config schema, judges an Infection project that installs no copy of the gate, and refuses the Pest runner.",
+      "checks": "The gate's PHAR builds as a release builds it, says its version, prints the committed config schema, judges an Infection project that installs no copy of the gate, and refuses the Pest runner, on the PHP it is built with and on the lowest PHP the package supports.",
       "reproduce": "composer phar && composer install --working-dir=tests/Fixtures/Archive && vendor/bin/pest --group=phar",
       "evidence": [
-        {"step": "smoke", "tool": "pest", "raw": "evidence/raw/phar.xml"}
+        {"step": "smoke", "tool": "pest", "raw": "evidence/raw/phar.xml"},
+        {"step": "smoke-lowest", "tool": "pest", "raw": "evidence/raw/phar-lowest.xml"}
       ],
       "rules": {
         "pest": "The PHAR did not build, or its smoke suite did not run to the end, so it wrote no log of its tests.",
         "failure": "The PHAR ran, and did not do what its smoke suite expects of it.",
         "error": "The PHAR could not be run, or a step of its smoke suite threw."
       }
+    },
+    "image": {
+      "check": "image (${{ matrix.platform }})",
+      "checks": "The gate's image builds for each platform a release pushes, from a PHAR built as a release builds it, and runs.",
+      "reproduce": "composer phar && docker build --tag mutation-gate:ci . && docker run --rm mutation-gate:ci --version",
+      "evidence": "none",
+      "why": "Each platform's leg runs on a runner of its own, and docker's log, which the job shows, names the step of the Dockerfile that failed."
     },
     "runner-contract": {
       "check": "runner contract",

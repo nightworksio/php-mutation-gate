@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest import mock
 
 import bot_command
+import fake_github
 import github_api
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -85,7 +86,8 @@ class Parse(unittest.TestCase):
     def test_a_command_is_a_whole_word_and_takes_no_words_but_docs(self):
         self.assertIsNone(bot_command.parse("/updated"))
         self.assertIsNone(bot_command.parse("/update now"))
-        self.assertIsNone(bot_command.parse("/fix"))
+        self.assertIsNone(bot_command.parse("/fixes"))
+        self.assertIsNone(bot_command.parse("/fix it"))
         self.assertIsNone(bot_command.parse("/UPDATE"))
 
 
@@ -294,6 +296,41 @@ class Docs(Run):
         )
 
 
+class Failures(unittest.TestCase):
+    """What GitHub answers that the commands do not explain stops the job, so its log shows it."""
+
+    def test_a_command_the_job_does_not_run_stops_it(self):
+        with fake_github.running(fake_github.GitHub(), {"NUMBER": "7", "COMMAND": "docs"}), self.assertRaises(ValueError):
+            bot_command.refuse()
+
+    def test_an_error_reading_a_permission_other_than_none_stops_it(self):
+        fake = fake_github.GitHub({
+            ("GET", "pulls/7"): pull(),
+            ("GET", "collaborators/someone/permission"): github_api.Failed(500),
+        })
+        environment = {"NUMBER": "7", "COMMENT_BODY": "/update", "COMMENTER_ID": str(WRITER), "COMMENTER_LOGIN": "someone", "ON_PULL_REQUEST": "true"}
+        with fake_github.running(fake, environment), self.assertRaises(github_api.Failed):
+            bot_command.decide()
+
+    def test_an_error_updating_the_branch_other_than_a_refusal_stops_it(self):
+        fake = fake_github.GitHub({
+            ("GET", "pulls/7"): pull(),
+            ("GET", f"compare/main...{HEAD}"): {"behind_by": 2},
+            ("PUT", "pulls/7/update-branch"): github_api.Failed(500),
+        })
+        with fake_github.running(fake, {"NUMBER": "7", "COMMAND": "update"}), self.assertRaises(github_api.Failed):
+            bot_command.update()
+
+
+class Main(unittest.TestCase):
+    def test_it_runs_the_step_it_is_named_and_refuses_others(self):
+        fake = fake_github.GitHub()
+        with fake_github.running(fake, {"COMMENT_BODY": "nothing"}):
+            self.assertEqual(bot_command.main(["bot_command.py", "decide"]), 0)
+            self.assertEqual(bot_command.main(["bot_command.py", "nonsense"]), 2)
+            self.assertEqual(bot_command.main(["bot_command.py"]), 2)
+
+
 class Table(unittest.TestCase):
     def test_every_reply_sent_is_in_the_table_and_every_reply_there_is_sent(self):
         table = json.loads((ROOT / ".github" / "bot" / "commands.json").read_text(encoding="utf-8"))
@@ -302,7 +339,7 @@ class Table(unittest.TestCase):
 
     def test_every_reply_the_script_names_is_one_it_declares(self):
         source = (ROOT / ".github" / "scripts" / "bot_command.py").read_text(encoding="utf-8")
-        named = set(re.findall(r'"((?:refused|closed|update|rebase|retest|docs)-?[a-z-]*)"', source)) - set(bot_command.COMMANDS)
+        named = set(re.findall(r'"((?:refused|closed|update|rebase|retest|docs)-?[a-z-]*|(?:fix|why)-[a-z-]+)"', source)) - set(bot_command.COMMANDS)
 
         self.assertEqual(sorted(named - set(bot_command.REPLIES)), [])
 

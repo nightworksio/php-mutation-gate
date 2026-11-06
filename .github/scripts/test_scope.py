@@ -62,8 +62,10 @@ class Outputs(unittest.TestCase):
             self.assertEqual(pull(path), {**NOTHING, "jobs": '["alone", "tests", "mutation"]'}, path)
 
     def test_runs_no_php_gate_for_another_gate_s_own_file(self):
-        for path in ("typos.toml", "lychee.toml", ".markdownlint.jsonc", "cliff.toml", "Dockerfile", ".dockerignore", "bench/jwt.sh"):
+        for path in ("typos.toml", "lychee.toml", ".markdownlint.jsonc", "cliff.toml", "bench/jwt.sh"):
             self.assertEqual(pull(path), NOTHING, path)
+        for path in ("Dockerfile", ".dockerignore"):
+            self.assertEqual(pull(path), {**NOTHING, "jobs": '["image"]'}, path)
         self.assertEqual(pull("sonar-project.properties"), {**NOTHING, "jobs": '["tests"]'})
 
     def test_runs_every_program_job_for_the_program_and_the_hook_managers_outside_the_suites(self):
@@ -167,6 +169,13 @@ class Outputs(unittest.TestCase):
         self.assertEqual(legs(pull("composer.json.bak")), [])
 
 
+class TheImage(unittest.TestCase):
+    def test_builds_the_image_where_its_recipe_or_the_phar_s_build_changed_and_nowhere_else(self):
+        for path in scope.IMAGE:
+            self.assertIn("image", ran(pull(path)), path)
+        self.assertNotIn("image", ran(pull("src/Core/Plan/Cut.php")))
+
+
 class TheWorkflowAgrees(unittest.TestCase):
     def setUp(self):
         self.ci = (scope.ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
@@ -263,7 +272,7 @@ class Scripts(unittest.TestCase):
         legs_only = pull(".github/scripts/leg_support.py")
         self.assertEqual((ran(legs_only), legs(legs_only)), (["runner-contracts"], sorted(scope.RUNNERS)))
         evidence = pull(".github/scripts/evidence.py")
-        self.assertEqual(ran(evidence), [job for job in scope.GATED if job != "mutation"])
+        self.assertEqual(ran(evidence), [job for job in scope.GATED if job not in ("mutation", "image")])
         self.assertEqual((evidence["warm"], evidence["hooks"]), ("true", "true"))
 
 

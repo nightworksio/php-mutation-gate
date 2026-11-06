@@ -496,7 +496,9 @@ jobs:
 
   # The gate's PHAR (ADR-0022), built as a release builds it, and its smoke
   # suite run against it: its version, its config schema, an Infection
-  # project's verdict and its refusal of the Pest runner. It publishes
+  # project's verdict and its refusal of the Pest runner. The suite runs on
+  # the PHP the PHAR is built with, and again on the lowest PHP the package
+  # supports (ADR-0042), which is where a consumer may run it. It publishes
   # nothing.
   phar:
     name: phar
@@ -522,6 +524,14 @@ jobs:
         run: |
           mkdir -p evidence/raw
           vendor/bin/pest --group=phar --log-junit=evidence/raw/phar.xml
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        with:
+          php-version: ${{ env.LOWEST_PHP }}
+          coverage: pcov
+      - id: smoke-lowest
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: vendor/bin/pest --group=phar --log-junit=evidence/raw/phar-lowest.xml
       # The job's evidence, whatever the steps above did (ADR-0019).
       - name: evidence
         if: ${{ !cancelled() }}
@@ -538,6 +548,46 @@ jobs:
       - name: what failed
         if: failure()
         run: python3 .github/scripts/gate_summary.py phar
+
+  # The gate's image (ADR-0022), built for each platform a release pushes, on a
+  # runner of that platform, from a PHAR built as a release builds it, and run
+  # once. It pushes nothing. It runs on a pull request that changes the
+  # Dockerfile or how the PHAR is built, and on the nightly run, so a release
+  # never builds an image for the first time.
+  image:
+    name: image (${{ matrix.platform }})
+    needs: scope
+    if: ${{ !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'schedule') && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'image')) }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      - id: phar
+        run: composer phar
+      - id: build
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: docker build --platform "${PLATFORM}" --tag mutation-gate:ci .
+      - id: run
+        run: docker run --rm mutation-gate:ci --version
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py image
 
   # ADR-0004's Runner contract suite against the real runners, and ADR-0020's
   # StaticChecker contract suite against the real analysers, at both ends of
@@ -957,7 +1007,7 @@ jobs:
   # left none.
   evidence:
     name: evidence
-    needs: [scope, scripts, alone, hygiene, security, site, rules, guards, checks, tests, lowest, phar, runner-contract, runner-contracts, end-to-end, mutation, replay, sonar, gate]
+    needs: [scope, scripts, alone, hygiene, security, site, rules, guards, checks, tests, lowest, phar, image, runner-contract, runner-contracts, end-to-end, mutation, replay, sonar, gate]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10

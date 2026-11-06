@@ -1,0 +1,80 @@
+{
+  "$comment": "Every sentence the bot's relay, explainer, checklist, welcome and duplicate-issue replies write (ADR-0019). A {name} is filled only with a value the scripts validated, or with text from main's other tables. .github/scripts/test_bot_tables.py fails where a key the scripts use is missing here, or a key here is never used.",
+  "says": {
+    "explaining": "> **Explaining** [the {workflow} run]({run}) on `{sha}`…",
+    "headline-waiting": "CI waits for a maintainer to approve it on `{sha}`.",
+    "headline-running": "CI is running on `{sha}`.",
+    "headline-green": "Every gate passed on `{sha}`.",
+    "headline-red": "Gates that failed on `{sha}`: {count}.",
+    "done": "Done: {count}",
+    "github-changed": "This pull request changes CI itself, so a maintainer reviews that before any check here means anything.",
+    "gate-failed": "#### `{check}` failed",
+    "finding-lines": "- `{path}`, line {lines}: `{rule}`. {says}",
+    "finding-file": "- `{path}`: `{rule}`. {says}",
+    "finding-plain": "- `{rule}`. {says}",
+    "more": "[More]({link}).",
+    "unrecognised": "- Findings with a rule main does not explain: {count}. See the job's annotations.",
+    "outside": "- Findings in files this pull request does not change: {count}. See the job's annotations.",
+    "cut": "- Findings left out of this comment: {count}. See the job's annotations.",
+    "no-evidence": "- The job left no evidence the bot could read. See [the job]({job}).",
+    "reproduce": "Reproduce: `{command}`",
+    "fix-here": "Fix: `{command}`, or comment `/fix` and the bot commits the fix CI computed.",
+    "fix-fork": "Fix: `{command}`, or commit the suggested changes on the diff.",
+    "fix-none": "This fix is not mechanical.",
+    "verdict": "The gate's own comment lists each mutant that survived, with a hint and the command that reproduces it: [the gate's comment]({comment}).",
+    "verdict-run": "The gate's own report is in [the run]({run}).",
+    "other-jobs": "Jobs outside main's gates that failed: {count}. See [the run]({run}).",
+    "rerunning": "Re-running after an infrastructure failure: {jobs}.",
+    "reran": "Re-ran once after an infrastructure failure: {jobs}.",
+    "reran-job": "[{name}]({job}) ({why})",
+    "a-job": "a job",
+    "changelog": "**Changelog.** Merged, this pull request adds to *{section}*:",
+    "changelog-none": "**Changelog.** Merged, this pull request adds no line: only `feat`, `fix`, `perf` and breaking changes are listed.",
+    "suggest-title": "**Title.** A conventional title for these changes starts with `{title}`.",
+    "suggest-spec": "**Spec.** These changes touch paths that belong to {specs}. Name the decision this pull request follows with a `Spec:` line.",
+    "outside-diff": "The fix CI computed, outside this pull request's diff",
+    "outside-diff-cut": "The fix CI computed is too long for this comment. `{command}` makes it.",
+    "suggestions-review": "The fix CI computed, as suggested changes. Commit them here, or comment `/fix`.",
+    "suggestions-review-fork": "The fix CI computed, as suggested changes. Commit them here.",
+    "decision": "[{number}]({link})",
+    "welcome": "Thank you for your first pull request here. CONTRIBUTING.md has the [setup and the local gates]({contributing}): each CI job's entry in `.github/gates.json` names the command that reproduces it. CI on a first pull request waits for a maintainer to approve it. The title becomes the commit on `main`, so it is conventional: `type(scope): subject`. This comment follows the pull request and says what each red gate needs."
+  },
+  "checklist": {
+    "approved": {
+      "done": "A maintainer approved CI.",
+      "todo": "CI waits for a maintainer to approve it."
+    },
+    "title": {
+      "done": "The title is conventional.",
+      "todo": "The title is conventional: `type(scope): subject`. A squash merge makes it the subject of the commit on `main`."
+    },
+    "gates": {
+      "done": "Every gate passed.",
+      "todo": "Every gate passes. Each red one is explained below."
+    },
+    "tested": {
+      "done": "The gate found the new code tested.",
+      "todo": "The gate finds the new code tested. Its comment lists what is not."
+    },
+    "spec": {
+      "done": "The body names the decision it follows with a `Spec:` line.",
+      "todo": "The body names the decision it follows with a `Spec:` line: these paths belong to {specs}."
+    },
+    "ready": {
+      "done": "Ready for review.",
+      "todo": "Ready for review: the pull request is a draft."
+    }
+  },
+  "reasons": {
+    "checkout": "checking out the code failed",
+    "setup-php": "setting up PHP failed",
+    "composer-install": "installing the Composer packages failed",
+    "artifact-download": "downloading an artifact failed",
+    "runner": "the runner was lost"
+  },
+  "duplicates": {
+    "found": "Issues that name the same message, open and closed:\n\n{issues}\n\nWhat each message means, and what to do: {sections}.",
+    "issue": "- #{number}",
+    "section": "[{slug}]({link})"
+  }
+}

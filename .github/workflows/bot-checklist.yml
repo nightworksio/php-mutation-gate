@@ -1,0 +1,41 @@
+# The checklist and the welcome: the sticky comment, written when a pull
+# request opens or changes between draft and ready (ADR-0019).
+# pull_request_target runs main's workflow with a token that can write, so it
+# reads the pull request only as data, through the API, and checks out only
+# main. It opens the comment for an author new here, with the welcome, while
+# CI waits for a maintainer to approve it.
+name: bot checklist
+
+# The trigger is ADR-0019's: the job reads the pull request only through the
+# API, and the test of V5 holds it to that.
+on: # zizmor: ignore[dangerous-triggers]
+  pull_request_target:
+    types: [opened, ready_for_review, converted_to_draft]
+
+permissions: {}
+
+jobs:
+  checklist:
+    name: checklist
+    # A Dependabot pull request's pull_request_target gets a read-only token.
+    if: ${{ github.event.pull_request.user.login != 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: bot-sticky-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    permissions:
+      actions: read # to read the runs, their jobs and their evidence
+      contents: read # to check out main's tables and read the head's files
+      pull-requests: write # to write the sticky comment and the suggested changes
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github
+            .docs
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.pull_request.number }}
+        run: python3 .github/scripts/bot_explain.py checklist

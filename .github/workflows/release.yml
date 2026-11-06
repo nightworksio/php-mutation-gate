@@ -11,10 +11,18 @@ name: release
 #   `git tag -s vX.Y.Z` on the squash commit and pushes the tag.
 # - Publishing, on that tag: the tag's signature is checked against
 #   `.github/allowed_signers` on main, and fails closed without it; the gate
-#   runs in full; the GitHub release takes the version's section as its notes
-#   and the signed, attested PHAR as its assets; the image is pushed to GHCR
-#   with its provenance; and the tag of its release line moves to it:
-#   vMAJOR.MINOR while the major is 0 (v0.1), vMAJOR from 1.0.0.
+#   runs in full; the PHAR is built, and the image is built for each platform
+#   and pushed by its digest alone, so nothing is published before both are
+#   made; the PHAR is signed, and its signature checked as the action checks
+#   it, against the committed public key by the fingerprint the action pins;
+#   the GitHub release takes the version's section as its notes and the
+#   signed, attested PHAR as its assets; the image's tags are set and its
+#   provenance attested; the tag of its release line moves to it, as the App
+#   (ADR-0110): vMAJOR.MINOR while the major is 0 (v0.1), vMAJOR from 1.0.0;
+#   and the docs site is built again with the release's copy.
+#
+# The image is MUTATION_GATE_IMAGE where the repository sets that variable,
+# and ghcr.io/<owner>/mutation-gate where not.
 #
 # This workflow never creates a version tag.
 
@@ -68,12 +76,18 @@ jobs:
           echo "${CLIFF_SHA256}  ${RUNNER_TEMP}/${archive}" | sha256sum --check --strict
           tar -xzf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}"
           echo "${RUNNER_TEMP}/git-cliff-${CLIFF_VERSION}" >> "${GITHUB_PATH}"
+      # The first release's notes are the README's feature table, written by
+      # release.py, and every later one's are git-cliff's section of the
+      # commits since the last tag (ADR-0018).
       - name: Write the version's changelog section
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          if [ -f CHANGELOG.md ]; then
+          released="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*')"
+          if [ -z "${released}" ]; then
+            python3 .github/scripts/release.py first > CHANGELOG.md
+          elif [ -f CHANGELOG.md ]; then
             git-cliff --config cliff.toml --unreleased --tag "v${VERSION}" --strip all \
               | python3 .github/scripts/release.py prepend
           else
@@ -181,10 +195,13 @@ jobs:
           fi
 
   # The gate over the package in full (ADR-0011): only when it passes is the
-  # release published. A called job gets only what it asks for itself: the
-  # publish job asks for contents: write and runs on the default branch only,
-  # never on a tag, and fetch and deliver ask for id-token: write. It runs on
-  # the runner ci.yml's gate does, so its proofs are keyed alike.
+  # release published. GitHub refuses a call whose grant is below what any
+  # called job asks for, whether or not that job runs, so this grant covers
+  # publish's contents: write and the deliver jobs' pull-requests: write. On a
+  # tag those jobs do not run, and a job that runs gets a token holding only
+  # what it asks for itself: plan, shards and verdict read, and fetch adds
+  # id-token: write. It runs on the runner ci.yml's gate does, so its proofs
+  # are keyed alike.
   gate:
     name: mutation
     needs: verify
@@ -248,7 +265,7 @@ jobs:
   # Composer and installs nothing.
   publish:
     name: publish
-    needs: [verify, build]
+    needs: [verify, build, image-build]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: release
@@ -304,8 +321,14 @@ jobs:
           printf '%s' "${RELEASE_GPG_KEY}" | gpg --batch --quiet --import
           printf '%s' "${RELEASE_GPG_PASSPHRASE}" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
             --armor --detach-sign --output build/mutation-gate.phar.asc build/mutation-gate.phar
-          gpg --batch --verify build/mutation-gate.phar.asc build/mutation-gate.phar
           rm -rf "${GNUPGHOME}"
+      # The signature as every consumer that runs the PHAR checks it: against
+      # the committed public key, by the fingerprint the action pins. A
+      # release key that is not that key publishes nothing.
+      - name: Check the signature is by the key the action pins
+        env:
+          PHAR: build/mutation-gate.phar
+        run: python3 .github/scripts/release.py verify-signature
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: build/mutation-gate.phar
@@ -320,21 +343,28 @@ jobs:
             --title "${TAG}" --notes-file "${RUNNER_TEMP}/notes.md" \
             build/mutation-gate.phar build/mutation-gate.phar.asc
 
-  # The image (ADR-0022), built from the PHAR build made, once its SHA-256 is
-  # the one build named, for linux/amd64 and linux/arm64, pushed to GHCR as
-  # <version>, <major>.<minor> and <major>, and its provenance attested beside
-  # it in the registry. It runs once the release is published, holds no
+  # The image (ADR-0022) for one platform, built on a runner of that platform
+  # from the PHAR build made, once its SHA-256 is the one build named, and
+  # pushed by its digest alone, with no tag. So a Dockerfile that fails stops
+  # the release before anything is published. Each platform keeps one
+  # artifact of its digest, which a re-run of its leg replaces. It holds no
   # secret and runs no Composer.
-  image:
-    name: image
-    needs: [build, publish]
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
+  image-build:
+    name: image build (${{ matrix.platform }})
+    needs: [verify, build]
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
-      id-token: write
-      attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -354,21 +384,15 @@ jobs:
             exit 1
           fi
           echo "${DIGEST}  build/mutation-gate.phar" | sha256sum --check --strict
-      - name: Name the image's tags
-        id: tags
+      - name: Name the image
+        id: name
         env:
-          TAG: ${{ github.ref_name }}
+          IMAGE: ${{ vars.MUTATION_GATE_IMAGE }}
+          PLATFORM: ${{ matrix.platform }}
         run: |
           set -euo pipefail
-          version="${TAG#v}"
-          minor="${version%.*}"
-          major="${version%%.*}"
-          image="ghcr.io/${GITHUB_REPOSITORY_OWNER}/mutation-gate"
-          {
-            echo "image=${image}"
-            echo "tags=${image}:${version},${image}:${minor},${image}:${major}"
-          } >> "$GITHUB_OUTPUT"
-      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+          echo "image=${IMAGE:-ghcr.io/${GITHUB_REPOSITORY_OWNER}/mutation-gate}" >> "$GITHUB_OUTPUT"
+          echo "platform=${PLATFORM//\//-}" >> "$GITHUB_OUTPUT"
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
@@ -379,29 +403,105 @@ jobs:
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.tags.outputs.tags }}
+          platforms: ${{ matrix.platform }}
           labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          outputs: type=image,name=${{ steps.name.outputs.image }},push-by-digest=true,name-canonical=true,push=true
+      - name: Keep the platform's digest
+        env:
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/digests"
+          touch "${RUNNER_TEMP}/digests/${DIGEST#sha256:}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: image-digest-${{ steps.name.outputs.platform }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 1
+
+  # The image's tags, <version>, <major>.<minor> and <major>, set on one index
+  # of the platforms' digests once the release is published, and its
+  # provenance attested beside it in the registry. It holds no secret and runs
+  # no Composer.
+  image:
+    name: image
+    needs: [image-build, publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: image-digest-*
+          path: ${{ runner.temp }}/digests
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Tag the image
+        id: tags
+        env:
+          TAG: ${{ github.ref_name }}
+          IMAGE: ${{ vars.MUTATION_GATE_IMAGE }}
+        run: |
+          set -euo pipefail
+          image="${IMAGE:-ghcr.io/${GITHUB_REPOSITORY_OWNER}/mutation-gate}"
+          version="${TAG#v}"
+          minor="${version%.*}"
+          major="${version%%.*}"
+          sources=()
+          for digest in "${RUNNER_TEMP}"/digests/*; do
+            sources+=("${image}@sha256:$(basename "${digest}")")
+          done
+          if [ "${#sources[@]}" -ne 2 ]; then
+            echo "::error::Expected an image for each of the two platforms, and found ${#sources[@]}."
+            exit 1
+          fi
+          docker buildx imagetools create \
+            --tag "${image}:${version}" --tag "${image}:${minor}" --tag "${image}:${major}" \
+            "${sources[@]}"
+          digest="$(docker buildx imagetools inspect "${image}:${version}" --format '{{json .Manifest}}' | jq -r .digest)"
+          {
+            echo "image=${image}"
+            echo "digest=${digest}"
+          } >> "$GITHUB_OUTPUT"
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ steps.tags.outputs.image }}
-          subject-digest: ${{ steps.image.outputs.digest }}
+          subject-digest: ${{ steps.tags.outputs.digest }}
           push-to-registry: true
 
   # The tag of the release line, moved to the released commit once the
-  # release and its image are published.
+  # release and its image are published. A tag ruleset lets only the App
+  # create or move a line tag (ADR-0110), so its token moves it. The App's key
+  # lives in the bot environment, whose deployment policy allows main and the
+  # release tags only.
   line:
     name: line
     needs: [verify, publish, image]
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    permissions:
-      contents: write
+    environment: bot
+    permissions: {}
     steps:
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        id: app
+        with:
+          client-id: ${{ vars.MUTATION_GATE_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.MUTATION_GATE_BOT_PRIVATE_KEY }}
+          permission-contents: write
       - name: Move the release line's tag
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app.outputs.token }}
           LINE: ${{ needs.verify.outputs.line }}
           COMMIT: ${{ github.sha }}
         run: |
@@ -418,3 +518,21 @@ jobs:
           else
             gh api "${repository}/git/refs" -f ref="refs/tags/${moving}" -f sha="${commit}" --silent
           fi
+
+  # The docs site, built again with the release's copy (ADR-0038). A release
+  # published with the job's token starts no workflow, so this asks for the
+  # site's build by name: a workflow_dispatch is the one event that token
+  # starts.
+  docs:
+    name: docs
+    needs: line
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Build the docs site again
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: gh workflow run pages.yml --repo "${GITHUB_REPOSITORY}" --ref "${DEFAULT_BRANCH}"

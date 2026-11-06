@@ -1,0 +1,47 @@
+{
+  "$comment": "Every limit and list the contributor bot works by (ADR-0019). The words it writes are in explain.json. .github/scripts/test_bot_tables.py holds this file to the scripts that read it.",
+  "relay": {
+    "workflows": {
+      "ci": ".github/workflows/ci.yml",
+      "pr": ".github/workflows/pr.yml"
+    }
+  },
+  "rerun": {
+    "steps": {
+      "checkout": ["Run actions/checkout@"],
+      "setup-php": ["Run shivammathur/setup-php@"],
+      "composer-install": ["Run ramsey/composer-install@"],
+      "artifact-download": ["Run actions/download-artifact@"],
+      "runner": ["Set up job"]
+    },
+    "conclusions": ["failure"]
+  },
+  "evidence": {
+    "most_archive_bytes": 5242880,
+    "most_file_bytes": 1048576,
+    "most_total_bytes": 5242880
+  },
+  "comment": {
+    "most_findings_per_gate": 30,
+    "most_characters": 60000,
+    "verdict_gate": "mutation/verdict",
+    "gate_marker": "<!-- mutation-gate -->"
+  },
+  "checklist": {
+    "welcomed": ["FIRST_TIME_CONTRIBUTOR", "FIRST_TIMER", "NONE"],
+    "ci_changes": [".github/"]
+  },
+  "fix": {
+    "headline": "style: apply the fixes CI computed",
+    "beyond_the_diff": {
+      "checks": ["composer.json"]
+    },
+    "never": [".github/workflows/"],
+    "protecting_rules": ["pull_request", "required_status_checks", "update", "non_fast_forward", "deletion", "required_linear_history"],
+    "most_patch_bytes": 262144
+  },
+  "duplicates": {
+    "most_slugs": 5,
+    "most_issues": 10
+  }
+}

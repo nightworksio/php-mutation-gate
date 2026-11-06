@@ -1,5 +1,5 @@
 name: mutation-gate
-description: Mutation testing for PHP that runs only what a change reaches, proves what it skips, and fails a pull request that lowers a floor.
+description: PHP mutation testing that runs what a change reaches, proves what it skips, and fails a pull request that lowers a floor.
 author: NightWorksIO
 
 branding:

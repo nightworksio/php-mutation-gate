@@ -8,10 +8,18 @@ Usage:
                         everywhere it is written: gate_action.py's LINE, the
                         address each JSON Schema is published at, and what each
                         first-party plugin requires
+  release.py first      prints CHANGELOG.md for the first release, VERSION:
+                        cliff.toml's header and one section holding the
+                        README's feature table, grouped as the README groups
+                        it (ADR-0018)
   release.py prepend    puts the section on stdin at the top of CHANGELOG.md
   release.py notes      prints TAG's section of CHANGELOG.md
   release.py check-tag  refuses TAG where its release line is not
                         gate_action.py's, and writes line= to $GITHUB_OUTPUT
+  release.py verify-signature
+                        refuses PHAR where PHAR.asc is not a good signature by
+                        the key the action pins, read as the action reads it:
+                        from the committed public key, by its fingerprint
 
 Each refuses with exit code 2 and says why (ADR-0019).
 
@@ -19,10 +27,13 @@ Two halves: the functions below `main` read git, the environment and files,
 and the ones above decide from what they read. The deciding half is what
 test_release.py tests.
 """
+import datetime
 import os
 import re
 import subprocess
 import sys
+import tempfile
+import tomllib
 
 import action_script
 import gate_action
@@ -49,6 +60,7 @@ PUBLISHING = (
     "resources/webhook.schema.json",
     "resources/explain.schema.json",
     "resources/summary.schema.json",
+    "resources/mutators.schema.json",
 )
 
 # What each first-party plugin requires of the package: its release line.
@@ -62,6 +74,16 @@ PLUGINS = (
 )
 
 CHANGELOG = "CHANGELOG.md"
+
+README = "README.md"
+CLIFF = "cliff.toml"
+
+# The README's section that holds the feature table, and the table's columns
+# the first release's notes are written from.
+FEATURES = "## Features"
+FEATURE = "Feature"
+DECIDED = "Decided in"
+BUILT = "Built"
 
 LEVELS = ("patch", "minor", "major")
 
@@ -134,6 +156,46 @@ def notes(changelog: str, version: str) -> str:
     return body + "\n"
 
 
+def _cells(row: str) -> list[str]:
+    """A table row's cells; a pipe a cell escapes stays in it."""
+    return [cell.strip() for cell in re.split(r"(?<!\\)\|", row.strip().removeprefix("|").removesuffix("|"))]
+
+
+def feature_rows(readme: str) -> list[dict[str, str]]:
+    """The README's feature table, row by row, each with its group carried down from the row that names it."""
+    start = readme.find(f"\n{FEATURES}\n")
+    if start < 0:
+        raise Refused(f"{README} has no {FEATURES} section to write the first release's notes from.")
+    following = re.compile(r"^## ", re.MULTILINE).search(readme, start + len(FEATURES) + 2)
+    rows = [line for line in readme[start : following.start() if following else len(readme)].splitlines() if line.startswith("|")]
+    if len(rows) < 3 or FEATURE not in _cells(rows[0]):
+        raise Refused(f"{README}'s {FEATURES} section holds no table with a {FEATURE} column.")
+    header = _cells(rows[0])
+    found, group = [], ""
+    for row in rows[2:]:
+        cells = dict(zip(header, _cells(row)))
+        group = cells.get(header[0], "").strip("*") or group
+        found.append({**cells, "group": group})
+    return found
+
+
+def first_notes(readme: str, cliff: str, version: str, date: str) -> str:
+    """CHANGELOG.md for the first release: its header, and the feature table as the version's section."""
+    rows = feature_rows(readme)
+    unbuilt = [row[FEATURE] for row in rows if BUILT in row and not row[BUILT].startswith("yes")]
+    if unbuilt:
+        raise Refused(f"{README} lists features main does not hold: {'; '.join(unbuilt)}.")
+    out = [tomllib.loads(cliff)["changelog"]["header"].strip(), "", "## [{}.{}.{}] - {}".format(*parse(version), date)]
+    group = None
+    for row in rows:
+        if row["group"] != group:
+            group = row["group"]
+            out += ["", f"### {group}", ""]
+        decided = f" ({row[DECIDED]})" if row.get(DECIDED) else ""
+        out.append(f"- {row[FEATURE]}{decided}")
+    return "\n".join(out) + "\n"
+
+
 def line(version: str) -> str:
     """A version's release line, whose tag (`v0.1`) each release of the line moves."""
     return gate_action.line_of("{}.{}.{}".format(*parse(version)))
@@ -175,7 +237,14 @@ def with_plugin_line(source: str, moved_to: str, path: str) -> str:
 
 
 def main(argv: list[str]) -> int:
-    commands = {"next": _next, "prepend": _prepend, "notes": _notes, "check-tag": _check_tag}
+    commands = {
+        "next": _next,
+        "first": _first,
+        "prepend": _prepend,
+        "notes": _notes,
+        "check-tag": _check_tag,
+        "verify-signature": _verify_signature,
+    }
     if len(argv) != 2 or argv[1] not in commands:
         print(__doc__, file=sys.stderr)
         return 2
@@ -201,6 +270,11 @@ def _next() -> None:
     _write_outputs({"version": version, "line": released})
 
 
+def _first() -> None:
+    date = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
+    sys.stdout.write(first_notes(_read_file(README), _read_file(CLIFF), os.environ["VERSION"], date))
+
+
 def _prepend() -> None:
     _write_file(CHANGELOG, prepend(_read_file(CHANGELOG), sys.stdin.read()))
 
@@ -214,6 +288,30 @@ def _check_tag() -> None:
     if why is not None:
         raise Refused(why)
     _write_outputs({"line": gate_action.LINE})
+
+
+def signature_refusal(status: str) -> str | None:
+    """Why gpg's status lines are no good signature by the key the action pins, or nothing where they are."""
+    if gate_action.signed_by(status, gate_action.RELEASE_FINGERPRINT):
+        return None
+    return (
+        f"The PHAR is not signed by the release key {gate_action.RELEASE_FINGERPRINT} that the action pins, "
+        "so every consumer that runs the PHAR would refuse it. RELEASE_GPG_KEY holds another key."
+    )
+
+
+def _verify_signature() -> None:
+    phar = os.environ["PHAR"]
+    key = os.path.join(os.path.dirname(action_script.PATH), gate_action.RELEASE_KEY_FILE)
+    with tempfile.TemporaryDirectory() as home:
+        subprocess.run(["gpg", "--homedir", home, "--batch", "--quiet", "--import", key], check=True)
+        verified = subprocess.run(
+            ["gpg", "--homedir", home, "--batch", "--status-fd", "1", "--verify", f"{phar}.asc", phar],
+            capture_output=True, text=True, check=False, timeout=60,
+        )
+    why = signature_refusal(verified.stdout)
+    if why is not None:
+        raise Refused(why)
 
 
 def _write_outputs(outputs: dict[str, str]) -> None:

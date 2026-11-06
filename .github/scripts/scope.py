@@ -76,7 +76,7 @@ LEG_TABLE = json.loads(Path(__file__).resolve().with_name("legs.json").read_text
 RUNNERS = tuple(LEG_TABLE)
 
 # The jobs of ci.yml this script gates, in the workflow's order.
-GATED = ("site", "alone", "guards", "checks", "tests", "lowest", "phar", "runner-contracts", "end-to-end", "mutation", "replay")
+GATED = ("site", "alone", "guards", "checks", "tests", "lowest", "phar", "image", "runner-contracts", "end-to-end", "mutation", "replay")
 
 # The job that runs the legs, the end-to-end workflow's jobs by the input that
 # runs each, and the job that decides every output.
@@ -187,6 +187,10 @@ REPLAY = (
     "src/Core/Config/Definition/ReachKeys.php",
     "mutation-gate.json",
 )
+
+# What the image is built from beside the PHAR, and how the PHAR is built
+# (ADR-0022).
+IMAGE = ("Dockerfile", ".dockerignore", "box.json.dist", "scoper.inc.php", "scripts/phar.sh")
 
 # The native runner, which drives each framework that has no runner of its own.
 NATIVE = ("src/Adapter/Native/", "src/Core/Native/")
@@ -311,6 +315,7 @@ INPUTS: dict[str, Callable[[str], bool]] = {
     "tests": lambda path: suites_read(path) or under(path, SONAR),
     "lowest": is_program,
     "phar": is_program,
+    "image": lambda path: path in IMAGE,
     "mutation": lambda path: is_program(path) or under(path, SHIPPED_CI),
     "replay": lambda path: under(path, REPLAY),
 }

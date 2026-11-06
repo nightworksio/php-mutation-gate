@@ -18,7 +18,10 @@ composer install --no-interaction --no-progress
 bench_resolve require --dev --no-interaction --no-progress --no-scripts --with-all-dependencies \
   'nightworksio/mutation-gate:@dev' 'symfony/yaml:^8.1.11'
 bench_versions pestphp/pest pestphp/pest-plugin-mutate phpunit/phpunit nightworksio/mutation-gate
-npm install --no-audit --no-fund
+# pinkary.com commits no lock of its front end, so its locked packages at the
+# pinned commit are bench/pinkary/package-lock.json's.
+cp "${GITHUB_WORKSPACE}/bench/pinkary/package-lock.json" package-lock.json
+npm ci --no-audit --no-fund
 npm run build
 cp .env.example .env
 php artisan key:generate

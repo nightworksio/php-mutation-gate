@@ -1,5 +1,5 @@
-# The commands comments run: /update, /rebase and /retest on a pull request,
-# and /docs on an issue or a pull request (ADR-0019).
+# The commands comments run: /update, /rebase, /retest and /fix on a pull
+# request, and /docs on an issue or a pull request (ADR-0019).
 # issue_comment runs main's workflow with a token that can write, so every
 # comment is read as hostile. Only main is checked out, only the stdlib
 # scripts run, the comment reaches them through env alone, and each job holds
@@ -113,6 +113,40 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           NUMBER: ${{ github.event.issue.number }}
         run: python3 .github/scripts/bot_command.py retest
+
+  # The fix the latest CI run on the head computed, committed by the App to a
+  # branch of this repository, where main's rules let it. The App's key lives
+  # in the bot environment, whose deployment-branch policy allows main and the
+  # release tags only.
+  fix:
+    name: fix
+    needs: decide
+    if: ${{ needs.decide.outputs.allowed == 'true' && needs.decide.outputs.command == 'fix' }}
+    runs-on: ubuntu-latest
+    environment: bot
+    permissions:
+      actions: read # to read the run and its evidence
+      contents: read # to check out main's tables and read the head's files
+      pull-requests: write # to reply
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github
+            .docs
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        id: app
+        with:
+          client-id: ${{ vars.MUTATION_GATE_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.MUTATION_GATE_BOT_PRIVATE_KEY }}
+          permission-contents: write
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          APP_TOKEN: ${{ steps.app.outputs.token }}
+          NUMBER: ${{ github.event.issue.number }}
+        run: python3 .github/scripts/bot_command.py fix
 
   # Links to at most three headings of main's documentation, and no prose, on
   # an issue or a pull request.

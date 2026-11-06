@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The commands a pull request's comments run (ADR-0019).
 
-Usage: bot_command.py decide|refuse|update|retest|docs
+Usage: bot_command.py decide|refuse|update|retest|fix|docs
 
 `/docs` answers on issues and pull requests, and the rest on pull requests
 only. Every comment is read as hostile. Its body reaches this script through the
@@ -10,7 +10,8 @@ below. Who may run a command is never read from the comment: the pull
 request's author is matched by user id from the API, and anyone else must
 hold write, maintain or admin on this repository by the collaborator
 permission endpoint. Every reply is a text from .github/bot/commands.json,
-filled with values validated here.
+filled with values validated here. `/fix` commits as the App, through
+bot_fix, which says what it holds the fix to.
 
 Two halves: the functions above `main` decide from values alone, and the
 functions below them ask GitHub, and write the job's outputs and replies.
@@ -22,10 +23,15 @@ import sys
 from pathlib import Path
 
 import bot_docs
+import bot_evidence
+import bot_explain
+import bot_fix
+import bot_patch
+import bot_tables
 import github_api
 
 # What each command does is in ADR-0019's table. `/docs` may be run by anyone.
-COMMANDS = ("update", "rebase", "retest", "docs")
+COMMANDS = ("update", "rebase", "retest", "fix", "docs")
 ANYONE = ("docs",)
 
 # The collaborator permission that may run the rest: `write` also stands for
@@ -68,6 +74,19 @@ REPLIES = (
     "retest-running",
     "retest-green",
     "retest-spent",
+    "fix-committed",
+    "fix-nothing",
+    "fix-fork",
+    "fix-running",
+    "fix-refused",
+    "fix-moved",
+    "fix-protected",
+    "fix-unmatched",
+    "fix-commit-body",
+    "why-not-in-diff",
+    "why-never",
+    "why-too-large",
+    "why-stale",
     "docs-found",
     "docs-none",
 )
@@ -246,6 +265,76 @@ def retest() -> None:
     _reply(number, [key], values)
 
 
+def _ci_run(sha: str, tables: bot_tables.Tables) -> dict | None:
+    workflow = Path(tables.config["relay"]["workflows"]["ci"]).name
+    runs = github_api.call("GET", f"actions/workflows/{workflow}/runs?event=pull_request&head_sha={sha}&per_page=1")["workflow_runs"]
+    return runs[0] if runs else None
+
+
+def fix() -> None:
+    """Commit the fix the pull request's own latest CI run computed, as the App, to its own branch alone."""
+    number = _number()
+    tables = bot_tables.Tables()
+    pull = _pull(number)
+    values = {"command": "fix"}
+    key = _fix_target(number, pull, tables, values)
+    _reply(number, [key], values)
+
+
+def _fix_target(number: int, pull: dict, tables: bot_tables.Tables, values: dict[str, str]) -> str:
+    """The reply where the branch or the run is not one the App may act on; else what `_fix` does."""
+    if pull["state"] != "open":
+        return "closed"
+    head = pull["head"]
+    if (head.get("repo") or {}).get("full_name") != github_api.repository():
+        return "fix-fork"
+    ref = _checked(head["ref"], BRANCH)
+    default = _checked(pull["base"]["repo"]["default_branch"], BRANCH)
+    protected = github_api.call("GET", f"branches/{github_api.quoted(ref)}").get("protected") is True
+    rules = github_api.listed(f"rules/branches/{github_api.quoted(ref)}")
+    if bot_fix.off_limits(ref, pull["base"]["ref"], default, protected, rules, tables.config["fix"]["protecting_rules"]):
+        return "fix-protected"
+    run = _ci_run(head["sha"], tables)
+    if run is None or run.get("status") != "completed":
+        return "fix-running"
+    if not bot_fix.own_run(run, ref, head["sha"], number):
+        return "fix-unmatched"
+    run_id = int(run["id"])
+    values["run"] = github_api.web_url(f"actions/runs/{run_id}")
+    return _fix(number, pull, ref, run_id, tables, values)
+
+
+def _fix(number: int, pull: dict, ref: str, run_id: int, tables: bot_tables.Tables, values: dict[str, str]) -> str:
+    names = bot_evidence.expected(tables.gates)
+    _, fixes = bot_evidence.read(bot_evidence.fetch(run_id, names, tables.config["evidence"]), names, tables.tools_of)
+    if not fixes:
+        return "fix-nothing"
+    sha = pull["head"]["sha"]
+    size = sum(len(bot_patch.render(patch)) for patches in fixes.values() for patch in patches)
+    why = bot_fix.refusal(fixes, set(bot_explain.files(number)), tables.config["fix"], size)
+    texts: dict[str, str] = {}
+    if not why:
+        heads = {patch.path: bot_explain.head_text(patch.path, sha) for patches in fixes.values() for patch in patches}
+        try:
+            texts = bot_fix.applied(fixes, heads)
+        except bot_patch.Refused:
+            why = "why-stale"
+    if why:
+        table = json.loads(TABLE.read_text(encoding="utf-8"))["replies"]
+        values |= {"why": table[why], "command": " && ".join(tables.gates[gate]["fix"] for gate in sorted(fixes))}
+        return "fix-refused"
+    if not texts:
+        return "fix-nothing"
+    table = json.loads(TABLE.read_text(encoding="utf-8"))["replies"]
+    body = fill(table["fix-commit-body"], {"run": values["run"], "sha": sha})
+    try:
+        made = bot_fix.commit(ref, sha, texts, tables.config["fix"]["headline"], body)
+    except github_api.Failed:
+        return "fix-moved"
+    values["commit"] = bot_explain.web(made["url"])
+    return "fix-committed"
+
+
 def docs() -> None:
     """Reply with the headings of `.docs` the words name, as links into main."""
     asked = bot_docs.tokens(os.environ.get("WORDS", ""))
@@ -255,7 +344,7 @@ def docs() -> None:
 
 
 def main(argv: list[str]) -> int:
-    steps = {"decide": decide, "refuse": refuse, "update": update, "retest": retest, "docs": docs}
+    steps = {"decide": decide, "refuse": refuse, "update": update, "retest": retest, "fix": fix, "docs": docs}
     if len(argv) != 2 or argv[1] not in steps:
         print(f"usage: bot_command.py {'|'.join(steps)}", file=sys.stderr)
         return 2

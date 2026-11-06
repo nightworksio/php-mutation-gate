@@ -1,0 +1,50 @@
+# The explainer: the sticky comment, written over the explaining state the
+# App's relay set (ADR-0019).
+# issue_comment runs main's workflow with a token that can write, so it reads
+# the pull request only as data: its title, body, files and runs through the
+# API, its CI's evidence as hostile bytes, and the files a fix changes as the
+# head's blobs. It checks nothing out but main, and installs nothing. It acts
+# only on a bot's edit of the bot's own comment that carries the relay's mark,
+# and writes with the job's token, whose edit starts no workflow.
+name: bot explain
+
+on:
+  issue_comment:
+    types: [edited]
+
+permissions: {}
+
+jobs:
+  explain:
+    name: explain
+    if: >-
+      ${{
+        github.event.issue.pull_request
+        && github.event.comment.user.type == 'Bot'
+        && github.event.sender.type == 'Bot'
+        && startsWith(github.event.comment.body, '<!-- mutation-gate-bot -->')
+        && contains(github.event.comment.body, '<!-- mutation-gate-bot: run=')
+      }}
+    runs-on: ubuntu-latest
+    # One writer of the sticky comment at a time on each pull request; a newer
+    # relay supersedes the explaining it started.
+    concurrency:
+      group: bot-sticky-${{ github.event.issue.number }}
+      cancel-in-progress: true
+    permissions:
+      actions: read # to read the runs, their jobs and their evidence
+      contents: read # to check out main's tables and read the head's files
+      pull-requests: write # to write the sticky comment and the suggested changes
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github
+            .docs
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.issue.number }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: python3 .github/scripts/bot_explain.py explain
