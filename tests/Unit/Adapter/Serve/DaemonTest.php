@@ -172,7 +172,7 @@ it('refuses a request its client takes longer than five seconds to send', functi
         }
     });
 
-    expect($daemonOf(new InlineForking(), 2.0)->served())->toBeInstanceOf(NotGiven::class);
+    expect($daemonOf(new InlineForking(), 6.0)->served())->toBeInstanceOf(NotGiven::class);
 
     ServedProjects::waitedFor($client);
 
