@@ -8,6 +8,10 @@ use function array_key_exists;
 use function array_keys;
 
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestTime;
+use NightWorksIO\MutationGate\Core\Test\TestTimes;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
  * The tests of the coverage map a patched Pest loaded, read in its parent
@@ -26,6 +30,9 @@ final class LoadedMap
     /** @var list<Suite> the map's tests, counted by class and data set, once read */
     private static array $suite = [];
 
+    /** @var list<TestTimes> the map's tests' own times, once read */
+    private static array $times = [];
+
     /**
      * Keeps every test of the coverage map Pest loaded, and its seconds.
      *
@@ -36,6 +43,7 @@ final class LoadedMap
         $results = array_key_exists('testResults', $loaded) ? $loaded['testResults'] : [];
         self::$seconds = [];
         self::$suite = [];
+        self::$times = [];
 
         foreach ($results as $test => $result) {
             self::$seconds[$test] = $result['time'];
@@ -46,6 +54,22 @@ final class LoadedMap
     public static function tests(): array
     {
         return array_keys(self::$seconds);
+    }
+
+    /** The own time of each test the map timed, read once. */
+    public static function times(): TestTimes
+    {
+        if (self::$times === []) {
+            $times = [];
+
+            foreach (self::$seconds as $test => $seconds) {
+                $times[] = TestTime::of(TestId::of($test), Seconds::of($seconds));
+            }
+
+            self::$times = [TestTimes::of(...$times)];
+        }
+
+        return self::$times[0];
     }
 
     /** The map's tests, counted by class and data set, read once. */

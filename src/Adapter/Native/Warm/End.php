@@ -16,8 +16,10 @@ use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MaxRss;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\Overrun;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Staged;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function rename;
@@ -25,7 +27,8 @@ use function rename;
 /**
  * How a warm worker's child ended, as the worker writes it beside the run's
  * output once the child is gone: the code it exited with, the signal that
- * ended it, or that it was stopped at its limit or its silence limit; how
+ * ended it, or that it was stopped at its limit, its silence limit or a
+ * test's own limit, and that test; how
  * long it ran; and the most memory it held, where it ended of itself.
  *
  * @internal
@@ -33,6 +36,10 @@ use function rename;
 final readonly class End
 {
     private const string SILENCED = 'silenced';
+
+    private const string OVERRAN = 'overran';
+
+    private const string OWN_LIMIT = 'ownLimit';
 
     /** @param list<Member> $record */
     private function __construct(private array $record)
@@ -59,6 +66,17 @@ final readonly class End
     {
         return new self([
             Member::of(self::SILENCED, value: true),
+            Member::of('seconds', $seconds),
+            ...$printed->members(),
+        ]);
+    }
+
+    /** A child stopped where this test of it ran past its own limit (ADR-0090). */
+    public static function overran(Overrun $overrun, float $seconds, Printed $printed): self
+    {
+        return new self([
+            Member::of(self::OVERRAN, $overrun->test()->value()),
+            Member::of(self::OWN_LIMIT, $overrun->limit()->seconds()),
             Member::of('seconds', $seconds),
             ...$printed->members(),
         ]);
@@ -119,10 +137,15 @@ final readonly class End
         $output = Printed::read($record)->text($workplace);
         $code = $record->field('code');
         $signal = $record->field('signal');
+        $overran = $record->field(self::OVERRAN);
         $ended = match (true) {
             $code->isPresent() => Ran::exited($code->integer(), $output),
             $signal->isPresent() => Ran::signalled($signal->integer(), $output),
             $record->field(self::SILENCED)->isPresent() => Ran::silenced($output),
+            $overran->isPresent() => Ran::overran(
+                Overrun::of(TestId::of($overran->text()), Seconds::of($record->field(self::OWN_LIMIT)->number())),
+                $output,
+            ),
             default => Ran::stopped($output),
         };
 

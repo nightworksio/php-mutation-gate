@@ -8,6 +8,8 @@ use function count;
 use function max;
 
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestTime;
+use NightWorksIO\MutationGate\Core\Test\TestTimes;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
@@ -58,5 +60,24 @@ final readonly class OwnTime
         }
 
         return $durations === [] ? Unmeasured::duration() : Seconds::of(max($durations));
+    }
+
+    /**
+     * The own time of each of the tests the map timed, which a watch holds
+     * each test of a run to (ADR-0090).
+     */
+    public static function each(CoverageMap $map, TestIds $tests): TestTimes
+    {
+        $each = [];
+
+        foreach ($tests as $test) {
+            $duration = $map->durationOf($test);
+
+            if ($duration instanceof Seconds) {
+                $each[] = TestTime::of($test, $duration);
+            }
+        }
+
+        return TestTimes::of(...$each);
     }
 }

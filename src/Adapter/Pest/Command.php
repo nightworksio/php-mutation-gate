@@ -48,6 +48,7 @@ final readonly class Command
         private Seconds|Unlimited $deadline,
         private SilenceLimit|NotGiven $silence = new NotGiven(),
         private int|NotGiven $script = new NotGiven(),
+        private bool $everyFile = false,
     ) {
     }
 
@@ -91,12 +92,20 @@ final readonly class Command
             $this->deadline,
             $this->silence,
             $this->script,
+            $this->everyFile,
         );
     }
 
     public function within(Seconds|Unlimited $deadline): self
     {
-        return new self($this->arguments, $this->environment, $deadline, $this->silence, $this->script);
+        return new self(
+            $this->arguments,
+            $this->environment,
+            $deadline,
+            $this->silence,
+            $this->script,
+            $this->everyFile,
+        );
     }
 
     /**
@@ -113,6 +122,7 @@ final readonly class Command
             $this->deadline,
             $this->silence,
             is_int($this->script) ? $this->script + count($launching) : $this->script,
+            $this->everyFile,
         );
     }
 
@@ -138,6 +148,25 @@ final readonly class Command
         ) : $this;
     }
 
+    /** This command, which runs Pest over every test file of its suites, as a run that names no test file does. */
+    public function loadingEveryTestFile(): self
+    {
+        return new self(
+            $this->arguments,
+            $this->environment,
+            $this->deadline,
+            $this->silence,
+            $this->script,
+            everyFile: true,
+        );
+    }
+
+    /** Whether it runs Pest over every test file of its suites, which a booted worker can fork it from (ADR-0075). */
+    public function loadsEveryTestFile(): bool
+    {
+        return $this->everyFile;
+    }
+
     /** @return list<string> */
     public function arguments(): array
     {
@@ -158,7 +187,14 @@ final readonly class Command
     /** This command, also stopped once it has made no progress for this silence limit. */
     public function silencedAfter(SilenceLimit $silence): self
     {
-        return new self($this->arguments, $this->environment, $this->deadline, $silence, $this->script);
+        return new self(
+            $this->arguments,
+            $this->environment,
+            $this->deadline,
+            $silence,
+            $this->script,
+            $this->everyFile,
+        );
     }
 
     /** How long it may go without progress, and what shows its progress; none where only its deadline stops it. */

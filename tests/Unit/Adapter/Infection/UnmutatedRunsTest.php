@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Infection\Command;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Infection\MemoryScan;
@@ -197,7 +198,7 @@ it('runs each control through the Infection runner', function () use ($makeReque
 
     $at = controlledInfection();
     $shell = InfectionShellFake::answering(Ran::finished(succeeded: true, output: ''));
-    $runs = new Infection($at, $shell, LimitBounds::between(Seconds::of(10.0), Seconds::of(10.0)), nativeMarkersAllowed: false, files: new CapDirectory())
+    $runs = new Infection($at, $shell, LimitBounds::between(Seconds::of(10.0), Seconds::of(10.0)), nativeMarkersAllowed: false, files: new CapDirectory(), packages: new PackageDirectory())
         ->controls($request, Controls::of(infectionControl('src/Money.php')));
 
     expect($runs instanceof ControlRuns ? $runs->of(infectionControl('src/Money.php'))->end() : $runs)->toBe(ControlEnd::Passed);

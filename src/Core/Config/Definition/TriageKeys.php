@@ -49,6 +49,8 @@ final readonly class TriageKeys
         $atMost = Field::optional('most', Integer::atLeast(1), $results);
         $multiple = Field::optional('multiple', OrLearned::of(Number::atLeast(1)), $results);
         $tighter = Field::section('tighter', self::tighter($results));
+        $perTest = Field::optional('perTest', MultipleOrOff::atLeast(1), $results);
+        $testFloor = Field::optional('testFloor', Integer::atLeast(1), $results);
 
         return [
             Field::optional(
@@ -62,14 +64,22 @@ final readonly class TriageKeys
             Field::section(
                 'timeouts',
                 Section::of(
-                    static function (
-                        Node $timeouts,
-                    ) use ($mode, $seconds, $atMost, $multiple, $tighter): Layer|Invalid {
+                    static function (Node $timeouts) use (
+                        $mode,
+                        $seconds,
+                        $atMost,
+                        $multiple,
+                        $tighter,
+                        $perTest,
+                        $testFloor,
+                    ): Layer|Invalid {
                         $timedOut = $mode->read($timeouts);
                         $limit = $seconds->read($timeouts);
                         $upper = $atMost->read($timeouts);
                         $times = $multiple->read($timeouts);
                         $lower = $tighter->read($timeouts);
+                        $eachTest = $perTest->read($timeouts);
+                        $least = $testFloor->read($timeouts);
 
                         return Reading::built(
                             static fn(): Layer => Layer::of(Triage::of(
@@ -78,12 +88,16 @@ final readonly class TriageKeys
                                 most: self::seconds($upper->value()),
                                 tighter: $lower->value(),
                                 multiple: $times->value(),
+                                perTest: $eachTest->value(),
+                                testFloor: self::seconds($least->value()),
                             )),
                             $timedOut,
                             $limit,
                             $upper,
                             $times,
                             $lower,
+                            $eachTest,
+                            $least,
                         );
                     },
                     $mode,
@@ -91,6 +105,8 @@ final readonly class TriageKeys
                     $atMost,
                     $multiple,
                     $tighter,
+                    $perTest,
+                    $testFloor,
                 ),
             ),
             Field::section(

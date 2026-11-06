@@ -9,8 +9,15 @@ use NightWorksIO\MutationGate\Adapter\Native\Warm\Worker;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\PhpUnitBoot;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\Overrun;
+use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
+use NightWorksIO\MutationGate\Core\Runner\TestEvents;
+use NightWorksIO\MutationGate\Core\Runner\TestWatch;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestTime;
+use NightWorksIO\MutationGate\Core\Test\TestTimes;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\CpuTime;
 use NightWorksIO\MutationGate\Tests\Support\Ended;
@@ -106,6 +113,37 @@ it('stops a child that has made no progress for its silence limit since it last 
     ))->toBe([[true, true, false], [false, true, false], [false, false, true]])
         ->and($ends[0] instanceof Ran ? Measured::of($ends[0])->seconds() : 30.0)->toBeLessThan(20.0)
         ->and(Ended::process((int) file_get_contents(sprintf('%s.child', $progress('stalls')))))->toBeTrue();
+})->group(...$holds);
+
+// The child writes a line to its progress file as a test of it starts, and another as it ends.
+it('stops a child whose test runs past its own limit, naming the test, and holds one whose tests end, or are untimed, to its limit', function (): void {
+    $directory = Scratch::directory();
+    $progress = static fn(string $name): string => sprintf('%s/%s.jsonl', $directory, $name);
+    $watch = TestWatch::of(PerTestLimit::of(1, Seconds::of(0.5)), TestTimes::of(
+        TestTime::of(TestId::of('Money::adds'), Seconds::of(0.1)),
+        TestTime::of(TestId::of('Money::subtracts'), Seconds::of(0.1)),
+    ));
+    $watched = static fn(string $name): SilenceLimit => SilenceLimit::none($progress($name))->watchingTests($watch, TestEvents::NativeResults);
+    $workplace = WarmWorkers::place([
+        WarmWorkers::run(['PROGRESS' => $progress('hangs'), 'ACT' => 'hang'], 20.0, $watched('hangs')),
+        WarmWorkers::run(['PROGRESS' => $progress('ends'), 'ACT' => 'end'], 1.0, $watched('ends')),
+        WarmWorkers::run(['PROGRESS' => $progress('untimed'), 'ACT' => 'untimed'], 1.0, $watched('untimed')),
+    ]);
+    $script = <<<'SH'
+        case "$ACT" in
+            hang) printf 'started Money%%3A%%3Aadds\npassed\n' >> "$PROGRESS"; sleep 0.3; printf 'started Money%%3A%%3Asubtracts\n' >> "$PROGRESS"; sleep 30 ;;
+            end) printf 'started Money%%3A%%3Aadds\npassed\n' >> "$PROGRESS"; sleep 30 ;;
+            untimed) printf 'started Money%%3A%%3Adivides\n' >> "$PROGRESS"; sleep 30 ;;
+        esac
+        SH;
+
+    Worker::at($workplace->directory(), 0)->run(new PhpUnitBoot(), WarmWorkers::forking($script, $workplace->out(0)));
+    $ends = array_map(static fn(int $at): Ran|NotGiven => End::ranIn($workplace, $at), [0, 1, 2]);
+
+    expect(array_map(static fn(Ran|NotGiven $ran): array => $ran instanceof Ran ? [$ran->wasSilenced(), $ran->wasStopped()] : [], $ends))
+        ->toBe([[true, true], [false, true], [false, true]])
+        ->and($ends[0] instanceof Ran ? $ends[0]->overrun() : $ends[0])->toEqual(Overrun::of(TestId::of('Money::subtracts'), Seconds::of(0.5)))
+        ->and($ends[0] instanceof Ran ? Measured::of($ends[0])->seconds() : 30.0)->toBeLessThan(20.0);
 })->group(...$holds);
 
 it('waits on a child without spinning: it looks at it a hundred times a second, not as often as it can', function (): void {

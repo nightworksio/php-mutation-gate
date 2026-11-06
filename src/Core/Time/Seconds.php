@@ -29,7 +29,8 @@ final readonly class Seconds
     /** Seconds in an hour. */
     public const int PER_HOUR = 3600;
 
-    private const int MICROSECONDS = 1_000_000;
+    /** Microseconds in a second. */
+    public const int MICROSECONDS = 1_000_000;
 
     /** Days, hours, minutes and seconds, each optional and in that order: `90s`, `15m`, `1h30m`, `7d`. */
     private const string DURATION = '/^(?:(?<d>\d+)d)?(?:(?<h>\d+)h)?(?:(?<m>\d+)m)?(?:(?<s>\d+)s)?$/D';

@@ -12,5 +12,5 @@ it('beats on the process\'s error output, and on nothing else', function (): voi
     )]);
     $php->run();
 
-    expect([$php->getOutput(), $php->getErrorOutput()])->toBe(['', Silence::BEAT]);
+    expect([$php->getOutput(), $php->getErrorOutput()])->toBe(['', sprintf("%s\n", Silence::BEAT)]);
 });

@@ -23,6 +23,9 @@ use function sprintf;
  */
 final readonly class OrderDigest
 {
+    /** The pattern the digest of an order matches: a SHA-256 digest in lowercase hex. */
+    public const string PATTERN = '/^[0-9a-f]{64}$/';
+
     private function __construct(private HashContext $context)
     {
     }

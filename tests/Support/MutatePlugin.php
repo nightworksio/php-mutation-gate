@@ -8,9 +8,9 @@ use function file_get_contents;
 use function sprintf;
 
 /**
- * The files of pest-plugin-mutate that `pest:patch` changes, copied into
- * a vendor directory: as the version composer.json allows ships them, or as
- * this repository's vendor directory holds them.
+ * The files of pest-plugin-mutate and of Pest that `pest:patch` changes,
+ * copied into a vendor directory: as the versions composer.json allows ship
+ * them, or as this repository's vendor directory holds them.
  */
 final readonly class MutatePlugin
 {
@@ -22,7 +22,14 @@ final readonly class MutatePlugin
         'Support/StreamWrapper.php',
     ];
 
-    private function __construct(private string $source, private string $suffix)
+    /** The files of Pest itself the patch changes, relative to its package. */
+    public const array PEST_FILES = [
+        'bin/pest' => 'bin/pest',
+        'src/Kernel.php' => 'src/Kernel',
+        'overrides/Runner/TestSuiteLoader.php' => 'overrides/Runner/TestSuiteLoader',
+    ];
+
+    private function __construct(private string $source, private string $suffix, private string $pest, private string $pestSuffix)
     {
     }
 
@@ -32,13 +39,13 @@ final readonly class MutatePlugin
      */
     public static function pristine(): self
     {
-        return new self(Tree::at('tests/Fixtures/PestPluginMutate/src'), 's');
+        return new self(Tree::at('tests/Fixtures/PestPluginMutate/src'), 's', Tree::at('tests/Fixtures/Pest'), '.phps');
     }
 
     /** As this repository's vendor directory holds them, patched where its Composer hook ran. */
     public static function installed(): self
     {
-        return new self(Tree::at('vendor/pestphp/pest-plugin-mutate/src'), '');
+        return new self(Tree::at('vendor/pestphp/pest-plugin-mutate/src'), '', Tree::at('vendor/pestphp/pest'), '');
     }
 
     /** A new vendor directory holding the files. */
@@ -53,6 +60,11 @@ final readonly class MutatePlugin
         foreach (self::FILES as $file) {
             $contents = (string) file_get_contents(sprintf('%s/%s%s', $this->source, $file, $this->suffix));
             Scratch::write($vendor, sprintf('pestphp/pest-plugin-mutate/src/%s', $file), $contents);
+        }
+
+        foreach (self::PEST_FILES as $file => $fixture) {
+            $from = $this->pestSuffix === '' ? $file : sprintf('%s%s', $fixture, $this->pestSuffix);
+            Scratch::write($vendor, sprintf('pestphp/pest/%s', $file), (string) file_get_contents(sprintf('%s/%s', $this->pest, $from)));
         }
 
         return $vendor;

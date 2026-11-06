@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Cli;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Cli\Command\Aside;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Composer\PackageFiles;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Output\OutputInterface;
 
@@ -20,12 +21,12 @@ final readonly class PestPatch
 {
     private const string DESCRIPTION = 'Apply the optional Pest patches';
 
-    public static function command(string $vendor): Command
+    public static function command(string $vendor, PackageFiles $files): Command
     {
         return new Command(Patch::COMMAND)
             ->setDescription(self::DESCRIPTION)
-            ->setCode(static function (OutputInterface $output) use ($vendor): int {
-                $patched = Patch::applyIn($vendor);
+            ->setCode(static function (OutputInterface $output) use ($vendor, $files): int {
+                $patched = Patch::applyIn($vendor, $files);
 
                 if ($patched instanceof CannotJudge) {
                     Aside::of($output)->writeln($patched->why(), OutputInterface::OUTPUT_RAW);

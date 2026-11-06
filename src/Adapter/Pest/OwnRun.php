@@ -6,6 +6,9 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_diff;
 use function array_map;
+use function is_array;
+use function is_int;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Ended;
@@ -34,7 +37,8 @@ final readonly class OwnRun
      * @param list<string> $killers
      * @param list<string> $errored
      * @param list<string>          $loaded
-     * @param list<string>|NotGiven $arguments
+     * @param list<string>|NotGiven            $arguments
+     * @param array{int, string}|NotGiven      $ordered   how many tests it was to run, and the digest of their order
      */
     private function __construct(
         private array $killers,
@@ -47,6 +51,7 @@ final readonly class OwnRun
         private Ended|NotGiven $ended,
         private array|NotGiven $arguments,
         private bool $unfiltered = false,
+        private array|NotGiven $ordered = new NotGiven(),
     ) {
     }
 
@@ -94,6 +99,8 @@ final readonly class OwnRun
             $places,
             $ended,
             $this->arguments,
+            $this->unfiltered,
+            $this->ordered,
         );
     }
 
@@ -116,6 +123,7 @@ final readonly class OwnRun
             $this->ended,
             $arguments,
             $this->unfiltered,
+            $this->ordered,
         );
     }
 
@@ -133,7 +141,43 @@ final readonly class OwnRun
             $this->ended,
             $this->arguments,
             unfiltered: true,
+            ordered: $this->ordered,
         );
+    }
+
+    /**
+     * This, with how many tests it was to run once it ordered them and the
+     * digest of that order, as the plugin recorded them, or none where they
+     * are not known.
+     */
+    public function orderedAs(int|NotGiven $tests, string|NotGiven $order): self
+    {
+        return new self(
+            $this->killers,
+            $this->errored,
+            $this->loaded,
+            $this->exhaustion,
+            $this->preloaded,
+            $this->tests,
+            $this->places,
+            $this->ended,
+            $this->arguments,
+            $this->unfiltered,
+            is_int($tests) && is_string($order) ? [$tests, $order] : NotGiven::value(),
+        );
+    }
+
+    /**
+     * The whole order it was to run its tests in, as a prefix that reaches
+     * its last test, for a run that loaded these test files: a replay of it
+     * to the end vouches for every prefix of it (ADR-0089); none where it is
+     * not known.
+     */
+    public function planned(Paths $files): Prefix|NotGiven
+    {
+        return is_array($this->ordered) && $this->ordered[0] > 0
+            ? Prefix::keyedAt($this->ordered[0], Prefix::keyOf($files, $this->ordered[1]))
+            : NotGiven::value();
     }
 
     /**

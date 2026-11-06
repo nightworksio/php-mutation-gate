@@ -20,8 +20,10 @@ use function json_encode;
 use function json_validate;
 
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
 use NightWorksIO\MutationGate\Core\WholeNumber;
 
+use function preg_match;
 use function rawurldecode;
 use function rawurlencode;
 use function sprintf;
@@ -107,6 +109,23 @@ final readonly class KillerFile
     }
 
     /**
+     * The line that says how many tests the process was to run, once it
+     * ordered them, and the digest of that order (OrderDigest).
+     */
+    public static function ordered(int $tests, string $order): string
+    {
+        return sprintf(
+            '%s%s%d%s%s%s',
+            RecordEvent::Ordered->value,
+            self::SEPARATOR,
+            $tests,
+            self::SEPARATOR,
+            $order,
+            self::LINE,
+        );
+    }
+
+    /**
      * The line that names a test that failed or errored, by the record Pest's
      * own process writes for it, and where it stood in the order the process
      * started its tests in.
@@ -158,8 +177,22 @@ final readonly class KillerFile
             RecordEvent::Preloaded => [RecordLine::preloaded($mutated)],
             RecordEvent::Ran => WholeNumber::isDigits($test) ? [RecordLine::ran($mutated, (int) $test)] : [],
             RecordEvent::Arguments => self::startedWith($mutated, $named),
+            RecordEvent::Ordered => self::orderedOf($mutated, $test, implode(self::SEPARATOR, array_slice($fields, 2))),
             default => [],
         };
+    }
+
+    /**
+     * The record of how many tests a process was to run and the digest of
+     * their order, where the line holds a count and a digest; none otherwise.
+     *
+     * @return list<string>
+     */
+    private static function orderedOf(string $mutated, string $count, string $order): array
+    {
+        return WholeNumber::isDigits($count) && preg_match(OrderDigest::PATTERN, $order) === 1
+            ? [RecordLine::ordered($mutated, (int) $count, $order)]
+            : [];
     }
 
     /**

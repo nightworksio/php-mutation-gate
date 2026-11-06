@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Infection\Release;
 use NightWorksIO\MutationGate\Cli\InfectionPatch;
 use NightWorksIO\MutationGate\Tests\Support\InfectionSource;
@@ -15,7 +16,7 @@ afterEach(function (): void {
 });
 
 it('is infection:patch, which gives Infection the gate\'s mutant limit', function (): void {
-    $command = InfectionPatch::command('/nowhere');
+    $command = InfectionPatch::command('/nowhere', new PackageDirectory());
 
     expect($command->getName())->toBe('infection:patch')
         ->and($command->getDescription())->toBe('Give Infection the gate\'s mutant limit');
@@ -23,7 +24,7 @@ it('is infection:patch, which gives Infection the gate\'s mutant limit', functio
 
 it('patches Infection in the vendor directory and says so', function (): void {
     $vendor = InfectionSource::pristine()->vendor();
-    $tester = new CommandTester(InfectionPatch::command($vendor));
+    $tester = new CommandTester(InfectionPatch::command($vendor, new PackageDirectory()));
 
     expect($tester->execute([]))->toBe(0)
         ->and(Printed::by($tester->getOutput()))
@@ -32,7 +33,7 @@ it('patches Infection in the vendor directory and says so', function (): void {
 
 it('exits 1, with the reason on its error output, for a release it does not patch, which runs unpatched', function (): void {
     $vendor = InfectionSource::pristine()->vendor('0.34.0');
-    $tester = new CommandTester(InfectionPatch::command($vendor));
+    $tester = new CommandTester(InfectionPatch::command($vendor, new PackageDirectory()));
     $status = $tester->execute([], ['capture_stderr_separately' => true]);
     $output = $tester->getOutput();
     $errors = $output instanceof ConsoleOutputInterface ? $output->getErrorOutput() : $output;
@@ -50,7 +51,7 @@ it('exits 2, with the reason on its error output, where it cannot patch a releas
     $vendor = InfectionSource::pristine()->vendor();
     $file = sprintf('%s/infection/infection/src/Process/Runner/MutationTestingRunner.php', $vendor);
     file_put_contents($file, str_replace('$mutant->getMutation()->get', '$mutant->getMutation()?->get', (string) file_get_contents($file)));
-    $tester = new CommandTester(InfectionPatch::command($vendor));
+    $tester = new CommandTester(InfectionPatch::command($vendor, new PackageDirectory()));
     $status = $tester->execute([], ['capture_stderr_separately' => true]);
     $output = $tester->getOutput();
     $errors = $output instanceof ConsoleOutputInterface ? $output->getErrorOutput() : $output;

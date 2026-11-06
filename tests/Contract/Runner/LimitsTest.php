@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -92,7 +93,7 @@ it('allows a mutant Infection times out its own five seconds and five times its 
 })->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library')->group(...$holds);
 
 it('allows a mutant patched Pest times out the floor its quick tests fall under, and runs it again within a raised most', function (): void {
-    Patch::applyIn(Library::vendor());
+    Patch::applyIn(Library::vendor(), new PackageDirectory());
     $library = Library::pest(Patching::on(Library::canary()));
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
         ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('drains')));
@@ -119,7 +120,7 @@ it('stops a mutant\'s run where no test of it finishes for its silence limit, sh
     $spec = Tree::at(sprintf('%s/tests/StallSpec.php', Library::DIRECTORY));
     copy(Tree::at('tests/Contract/Runner/stall/src/Stall.php'), $source);
     copy(Tree::at('tests/Contract/Runner/stall/tests/StallSpec.php'), $spec);
-    Patch::applyIn(Library::vendor());
+    Patch::applyIn(Library::vendor(), new PackageDirectory());
     $library = Library::pestWithin(
         Patching::on(Library::canary()),
         LimitBounds::between(Seconds::of(1.0), Seconds::of(300.0)),
@@ -154,7 +155,7 @@ it('stops a mutant\'s run where no test of it finishes for its silence limit, sh
 // timeouts.tighter lists, so its silence limit keeps above seven seconds
 // only, and its run is stopped there, before its own limit.
 it('stops a mutant\'s run at the lower floor timeouts.tighter gives its mutator, with patched Pest', function (): void {
-    Patch::applyIn(Library::vendor());
+    Patch::applyIn(Library::vendor(), new PackageDirectory());
     $library = Library::pestWithin(Patching::on(Library::canary()), RunnerContracts::tighterBounds('PostDecrementToPostIncrement'), 'pest patched, drains tighter');
     $result = $library->runner()->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
         ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('drains'))));
@@ -232,7 +233,7 @@ it('judges a mutant whose covering tests take longer than the floor, rather than
 })->skip(fn(): bool => ! Library::isCodeceptionInstalled(), 'the Codeception runner contracts steps install its library')->group(...$holds);
 
 it('judges a mutant whose covering tests take longer than the floor, rather than stopping it at the floor, with patched Pest', function (): void {
-    Patch::applyIn(Library::vendor());
+    Patch::applyIn(Library::vendor(), new PackageDirectory());
     $library = Library::pestWithin(
         Patching::on(Library::canary()),
         LimitBounds::between(Seconds::of(0.001), Seconds::of(300.0)),

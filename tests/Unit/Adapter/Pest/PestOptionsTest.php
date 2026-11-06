@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
 use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -24,13 +25,13 @@ it('is unpatched, with the tests under tests and the standard timeouts, where th
     $read = PestOptions::read(Options::none());
 
     expect($read instanceof PestOptions ? [$read->patching(), $read->tests(), $read->bounds()] : $read)
-        ->toEqual([Patching::off(), Paths::of(Path::of('tests')), LimitBounds::between(Seconds::of(10.0), Seconds::of(300.0))->tighterFor(TighterSilence::standard())]);
+        ->toEqual([Patching::off(), Paths::of(Path::of('tests')), LimitBounds::between(Seconds::of(10.0), Seconds::of(300.0))->tighterFor(TighterSilence::standard())->watchingEachTest(PerTestLimit::standard())]);
 });
 
 it('keeps each mutant\'s limit between the timeout and the most the flows write', function (): void {
     $read = PestOptions::read(Configs::options('{"timeout": 45, "most": 90}'));
 
-    expect($read instanceof PestOptions ? $read->bounds() : $read)->toEqual(LimitBounds::between(Seconds::of(45.0), Seconds::of(90.0))->tighterFor(TighterSilence::standard()))
+    expect($read instanceof PestOptions ? $read->bounds() : $read)->toEqual(LimitBounds::between(Seconds::of(45.0), Seconds::of(90.0))->tighterFor(TighterSilence::standard())->watchingEachTest(PerTestLimit::standard()))
         ->and(PestOptions::read(Configs::options('{"most": "long"}')))->toBeInstanceOf(Invalid::class);
 });
 
@@ -46,6 +47,28 @@ it('opens a patched shard on mutation-canary unless the config names another gro
 
     expect($read instanceof PestOptions ? $read->patching() : $read)
         ->toEqual(Patching::on(Group::named('mutation-canary')));
+});
+
+it('boots the tail\'s workers where the options say so under the patch, and never unpatched', function (): void {
+    $booting = PestOptions::read(Configs::options('{"patch": true, "bootTail": true}'));
+    $unpatched = PestOptions::read(Configs::options('{"patch": false, "bootTail": true}'));
+    $unsaid = PestOptions::read(Configs::options('{"patch": true}'));
+
+    expect(array_map(static fn(PestOptions|Invalid $read): bool => $read instanceof PestOptions && $read->patching()->bootsTail(), [$booting, $unpatched, $unsaid]))
+        ->toBe([true, false, false])
+        ->and(PestOptions::read(Configs::options('{"bootTail": "yes"}')))
+        ->toEqual(Invalid::because(Problem::at('bootTail', 'expected true or false, got "yes"')));
+});
+
+it('caches in the warm workers under the patch unless the options turn it off, and never unpatched', function (): void {
+    $caching = PestOptions::read(Configs::options('{"patch": true}'));
+    $off = PestOptions::read(Configs::options('{"patch": true, "workerOpcache": false}'));
+    $unpatched = PestOptions::read(Configs::options('{"patch": false, "workerOpcache": true}'));
+
+    expect(array_map(static fn(PestOptions|Invalid $read): bool => $read instanceof PestOptions && $read->patching()->cachesInWorkers(), [$caching, $off, $unpatched]))
+        ->toBe([true, false, false])
+        ->and(PestOptions::read(Configs::options('{"workerOpcache": "yes"}')))
+        ->toEqual(Invalid::because(Problem::at('workerOpcache', 'expected true or false, got "yes"')));
 });
 
 it('stays unpatched when the config says so', function (): void {

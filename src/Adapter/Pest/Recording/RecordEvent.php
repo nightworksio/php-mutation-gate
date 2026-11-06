@@ -45,7 +45,11 @@ enum RecordEvent: string
     /** A patched run left a mutant's filter out, so its own run ran every test it loaded (see MutantTime). */
     case Unfiltered = 'unfiltered';
 
-    /** The silence limit a patched run stopped a mutant's own run at, by its mutated copy (see Silence). */
+    /**
+     * The silence limit a patched run stopped a mutant's own run at, by its
+     * mutated copy, or the test of it that ran past its own limit and that
+     * limit (see Silence).
+     */
     case Silent = 'silent';
 
     /** A mutant's own process had loaded the original file before Pest put the mutant in its place. */
@@ -59,6 +63,9 @@ enum RecordEvent: string
 
     /** How many tests a mutant's own process ran. */
     case Ran = 'ran';
+
+    /** How many tests a mutant's own process was to run, once it ordered them, and the digest of that order. */
+    case Ordered = 'ordered';
 
     /** A mutant's own process ran out of its memory limit. */
     case Exhausted = 'exhausted';

@@ -39,4 +39,10 @@ enum ChildVariable: string
 
     /** The mutators `timeouts.tighter` lists, by their short names, one after another (see TighterVariables). */
     case TighterMutators = 'MUTATION_GATE_TIGHTER_MUTATORS';
+
+    /** How many times its own time one test of a mutant's run may run: `timeouts.perTest` (see PerTestVariables). */
+    case TestMultiple = 'MUTATION_GATE_TEST_MULTIPLE';
+
+    /** The least one test of a mutant's run may run for: `timeouts.testFloor` (see PerTestVariables). */
+    case TestFloor = 'MUTATION_GATE_TEST_FLOOR';
 }

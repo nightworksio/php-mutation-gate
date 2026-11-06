@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\Multiple;
+use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
 use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
 use NightWorksIO\MutationGate\Core\Test\JudgingSuites;
 use NightWorksIO\MutationGate\Core\Time\Budgets;
@@ -43,6 +44,7 @@ final readonly class Triage implements Part
         private TestOrder|Absent $order,
         private SurvivorsFirst|Absent $survivorsFirst,
         private SuiteLists $lists,
+        private PerTestSetting $perTest,
     ) {
     }
 
@@ -57,6 +59,8 @@ final readonly class Triage implements Part
         TighterSilence|Absent $tighter = new Absent(),
         SuiteLists|Absent $lists = new Absent(),
         int|float|Learned|Absent $multiple = new Absent(),
+        int|false|Absent $perTest = new Absent(),
+        Seconds|Absent $testFloor = new Absent(),
     ): self {
         return new self(
             $budget,
@@ -69,6 +73,7 @@ final readonly class Triage implements Part
             $order,
             $survivorsFirst,
             $lists instanceof SuiteLists ? $lists : SuiteLists::of(),
+            PerTestSetting::of($perTest, $testFloor),
         );
     }
 
@@ -89,6 +94,8 @@ final readonly class Triage implements Part
             order: $none->order(),
             survivorsFirst: $none->survivorsFirst(),
             tighter: $none->tighter(),
+            perTest: PerTestLimit::MULTIPLE,
+            testFloor: Seconds::of(PerTestLimit::FLOOR),
         );
     }
 
@@ -106,6 +113,7 @@ final readonly class Triage implements Part
                 Absent::laid($this->order, $later->order),
                 Absent::laid($this->survivorsFirst, $later->survivorsFirst),
                 $this->lists->over($later->lists),
+                $this->perTest->over($later->perTest),
             )
             : $this;
     }
@@ -152,7 +160,8 @@ final readonly class Triage implements Part
     /**
      * What each mutant's limit is kept between, `timeouts.seconds` and
      * `timeouts.most`, with the mutators whose silence limit has a lower
-     * floor, `timeouts.tighter`.
+     * floor, `timeouts.tighter`, and how long each test of a run may run on
+     * its own, `timeouts.perTest` and `timeouts.testFloor` (ADR-0090).
      */
     public function bounds(): LimitBounds
     {
@@ -162,7 +171,8 @@ final readonly class Triage implements Part
                 $this->multiple instanceof Absent => Multiple::standard(),
                 $this->multiple instanceof Learned => Learned::Learned,
                 default => Multiple::of($this->multiple),
-            });
+            })
+            ->watchingEachTest($this->perTest->limit());
 
         return $this->limit instanceof Learned ? $bounds->learningFloor() : $bounds;
     }
@@ -218,6 +228,7 @@ final readonly class Triage implements Part
                     Member::of('most', WholeSeconds::written($this->most)),
                     Member::of('multiple', LimitCalls::multipleWritten($this->multiple)),
                     Member::of('tighter', $this->tighterWritten()),
+                    ...$this->perTest->written(),
                 ),
             ),
             Member::unlessEmpty('flaky', Json::object(Member::of('confirmSurvivors', $this->confirmSurvivors))),
@@ -255,6 +266,7 @@ final readonly class Triage implements Part
                 'Timeouts::tighter(%s)',
                 PhpCalls::literals(intval($this->tighter->floor()->seconds()), ...$this->tighter),
             )] : [],
+            ...$this->perTest->calls(),
             ...$this->confirmSurvivors instanceof Absent ? [] : [
                 $this->confirmSurvivors ? 'Flaky::confirmingSurvivors()' : 'Flaky::notConfirmingSurvivors()',
             ],

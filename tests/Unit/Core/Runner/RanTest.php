@@ -5,7 +5,9 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Ending;
+use NightWorksIO\MutationGate\Core\Runner\Overrun;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
@@ -81,4 +83,17 @@ it('is a program stopped at its silence limit, which was stopped, did not succee
         ->toBe([true, true, false, Ending::Silenced, 'quiet'])
         ->and($silenced->exitCode())->toEqual(NotGiven::value())
         ->and(Ran::stopped('late')->wasSilenced())->toBeFalse();
+});
+
+it('is a program stopped where a test ran past its own limit, which names the test, and keeps it once timed', function (): void {
+    $overrun = Overrun::of(TestId::of('Money::adds'), Seconds::of(3.0));
+    $overran = Ran::overran($overrun, 'both', 'out')->took(Seconds::of(3.2));
+
+    expect([$overran->wasSilenced(), $overran->wasStopped(), $overran->succeeded(), $overran->ending(), $overran->output(), $overran->printed()])
+        ->toBe([true, true, false, Ending::Silenced, 'both', 'out'])
+        ->and($overran->overrun())->toEqual($overrun)
+        ->and($overran->duration())->toEqual(Seconds::of(3.2))
+        ->and($overran->exitCode())->toEqual(NotGiven::value())
+        ->and(Ran::silenced('quiet')->overrun())->toEqual(NotGiven::value())
+        ->and(Ran::overran($overrun, 'both')->printed())->toBe('both');
 });

@@ -101,7 +101,7 @@ it('writes a config that reads back into the same effective config', function (a
         'pest' => ['patch' => true, 'canary' => 'canary'],
         'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon'],
         'mutators' => ['sets' => ['acme', 'acme-auth'], 'except' => ['acme/RemoveAudit']],
-        'local' => ['watchBudget' => '2m', 'prePushBudget' => '90s'],
+        'local' => ['watchBudget' => '2m', 'prePushBudget' => '90s', 'serveIdle' => '10m', 'serveStart' => 'never', 'serveStartWait' => '20s'],
     ]],
     'a runner that starts each mutant fresh' => [['runner' => ['use' => 'pest', 'workers' => 'fresh']]],
     'adapters another extension registers' => [[

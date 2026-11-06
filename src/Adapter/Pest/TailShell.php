@@ -4,16 +4,14 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
-use function array_keys;
-use function count;
-use function implode;
 use function is_string;
 
-use NightWorksIO\MutationGate\Adapter\Pest\Warm\Pool;
-use NightWorksIO\MutationGate\Adapter\Pest\Warm\Seat;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\OpcacheBlacklist;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
 use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
@@ -21,8 +19,6 @@ use NightWorksIO\MutationGate\Core\Runner\Unwatched;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
-
-use function sprintf;
 
 /**
  * The shell the verification tail runs Pest in where `runner.workers` forks
@@ -33,8 +29,11 @@ use function sprintf;
  * nothing an earlier run left in their directory. The workers start PHP
  * with the ini files the runs scan, so a memory cap reaches a forked run as
  * it reaches a fresh one; runs that scan others fork from workers of their
- * own. A run whose worker forks it no child, or is gone, starts fresh in its
- * client's place.
+ * own. Under `pest.bootTail`, a run of every test file of its suites is run
+ * by a worker that booted the project, those suites' test files loaded
+ * (ADR-0075). A run
+ * whose worker forks it no child, or is gone, starts fresh in its client's
+ * place.
  *
  * @internal
  */
@@ -43,21 +42,33 @@ final readonly class TailShell implements Shell
     /** The file the tail's workers' directory is named beside, among the adapter's own. */
     private const string BESIDE = 'pest/tail';
 
-    /** The file the directory of a set of workers that start PHP otherwise is named beside, by its place. */
-    private const string STARTING = '%s-%d';
-
-    private function __construct(private Shell $shell, private string $beside)
-    {
+    private function __construct(
+        private Shell $shell,
+        private string $beside,
+        private Project|NotGiven $booting,
+        private OpcacheBlacklist|NotGiven $uncached,
+    ) {
     }
 
-    /** The shell the tail of this request runs Pest in: this one, forking where the request and the patch ask. */
+    /**
+     * The shell the tail of this request runs Pest in: this one, forking
+     * where the request and the patch ask, and booting where `pest.bootTail`
+     * does too.
+     */
     public static function of(Shell $shell, Project $project, Patching $patching, MutationRequest $request): Shell
     {
         $beside = $patching->isOn() && $request->pool()->workers()->forksTheTail()
             ? $project->fresh(self::BESIDE)
             : '';
 
-        return is_string($beside) && $beside !== '' ? new self($shell, $beside) : $shell;
+        return is_string($beside) && $beside !== ''
+            ? new self(
+                $shell,
+                $beside,
+                $patching->bootsTail() ? $project : NotGiven::value(),
+                $patching->cachesInWorkers() ? OpcacheBlacklist::of($project, $request) : NotGiven::value(),
+            )
+            : $shell;
     }
 
     public function run(Command $command, ProcessWatch $watch = new Unwatched()): Ran
@@ -65,37 +76,35 @@ final readonly class TailShell implements Shell
         return $this->shell->run($command, $watch);
     }
 
+    /**
+     * Each command run through the client of its slot's worker: a booted
+     * one, of the suites it names, where it runs every test file of them and
+     * the tail boots, and an unbooted one otherwise. Each set of workers is
+     * started for the runs, in a directory with nothing an earlier run left,
+     * and ended once they are done.
+     */
     public function sideBySide(
         WorkerSlots $slots,
         Seconds|Unlimited $startingWithin,
         Command ...$commands,
     ): ProcessEnds {
-        $besides = [];
+        $sets = new TailWorkers($slots, $this->beside, $this->booting, $this->uncached);
         $forked = [];
 
         foreach ($commands as $command) {
-            $startingWith = $this->startingWith($command);
-            $key = implode("\n", $startingWith);
-            $besides[$key] ??= $this->started(
-                $slots,
-                $besides === [] ? $this->beside : sprintf(self::STARTING, $this->beside, count($besides)),
-                $startingWith,
-            );
-            $forked[] = $command->forkedIn(WarmDirectory::beside($besides[$key]));
+            $beside = $sets->besideFor($this->bootedSuites($command), $this->startingWith($command));
+            $forked[] = $command->forkedIn(WarmDirectory::beside($beside));
         }
 
         $ends = $this->shell->sideBySide($slots, $startingWithin, ...$forked);
-
-        foreach ($besides as $beside) {
-            WarmDirectory::cleared($beside);
-        }
+        $sets->cleared();
 
         return $ends;
     }
 
     public function in(string $directory): Shell
     {
-        return new self($this->shell->in($directory), $this->beside);
+        return new self($this->shell->in($directory), $this->beside, $this->booting, $this->uncached);
     }
 
     /**
@@ -117,21 +126,16 @@ final readonly class TailShell implements Shell
     }
 
     /**
-     * A set of workers started, one in each slot, with these variables, in
-     * the directory named beside this, with nothing an earlier run left:
-     * what it is named beside.
+     * The suites a booted worker forks this command from, where the tail
+     * boots and it runs every test file of the suites it names, none naming
+     * every suite; or none, where an unbooted worker forks it.
      *
-     * @param array<string, string> $startingWith
+     * @return list<string>|NotGiven
      */
-    private function started(WorkerSlots $slots, string $beside, array $startingWith): string
+    private function bootedSuites(Command $command): array|NotGiven
     {
-        WarmDirectory::cleared($beside);
-        $directory = WarmDirectory::made($beside);
-
-        foreach (array_keys([...$slots]) as $at) {
-            Pool::started(Seat::at($directory, $at + 1), $startingWith);
-        }
-
-        return $beside;
+        return $this->booting instanceof Project && $command->loadsEveryTestFile()
+            ? PhpUnitOption::suitesIn($command->arguments())
+            : NotGiven::value();
     }
 }

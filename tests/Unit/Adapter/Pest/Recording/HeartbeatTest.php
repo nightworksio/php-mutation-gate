@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\Killers;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Loaded;
 use NightWorksIO\MutationGate\Adapter\Pest\Silence;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\IssueKillers;
+use NightWorksIO\MutationGate\Core\Runner\TestEvents;
 use NightWorksIO\MutationGate\Tests\Support\Beats;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitEvents;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -37,8 +38,26 @@ it('beats once as a mutant\'s own process begins its tests, and once as each fin
     PhpUnitEvents::finished($events);
     PhpUnitEvents::finished($events);
 
-    expect($started)->toBe(Silence::BEAT)
-        ->and($beats->kept())->toBe(sprintf('%1$s%1$s%1$s', Silence::BEAT));
+    expect($started)->toBe(sprintf("%s\n", Silence::BEAT))
+        ->and($beats->kept())->toBe(sprintf("%1\$s\n%1\$s\n%1\$s\n", Silence::BEAT));
+});
+
+it('tells Pest\'s parent each test\'s id, rawurlencoded, as the test starts, a line of its own', function (): void {
+    $beats = new Beats();
+    $events = new Facade();
+    Killers::listening(
+        sprintf('%s/results.jsonl', Scratch::directory()),
+        '/tmp/mutations/abc',
+        $events,
+        original: false,
+        loaded: Loaded::of([]),
+        heartbeat: $beats->heartbeat(),
+        issues: IssueKillers::ofThisRun(),
+    );
+
+    PhpUnitEvents::started($events);
+
+    expect($beats->kept())->toBe(sprintf("%s%s\n", TestEvents::TEST_STARTED, rawurlencode(PhpUnitEvents::runningId())));
 });
 
 it('beats on the process\'s error output', function (): void {

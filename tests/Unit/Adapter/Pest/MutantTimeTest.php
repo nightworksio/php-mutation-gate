@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\LoadedMap;
 use NightWorksIO\MutationGate\Adapter\Pest\MutantTime;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\GateEnvironment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -184,4 +185,24 @@ it('allows a mutant whose filter is left out the standard limit of every timed t
             RecordLine::limited('/tmp/mutations/abc', 7.25),
             RecordLine::unfiltered('/tmp/mutations/abc'),
         ));
+});
+
+it('holds each test of a mutant\'s run to the limit of its own the gate names, over the map\'s times, and none where it names no bounds', function (): void {
+    mutantTimeBounds('2', '300');
+    putenv(sprintf('%s=4', GateVariable::TestMultiple->value));
+    putenv(sprintf('%s=1.5', GateVariable::TestFloor->value));
+    LoadedMap::remember(['testResults' => mutantTimeTests(['T::a' => 0.25])]);
+    $watch = MutantTime::watch();
+
+    expect($watch->limit())->toEqual(PerTestLimit::of(4, Seconds::of(1.5)))
+        ->and($watch->times())->toBe(LoadedMap::times());
+
+    putenv(GateVariable::TestFloor->value);
+
+    expect(MutantTime::watch()->limit())->toEqual(PerTestLimit::off());
+
+    putenv(sprintf('%s=1.5', GateVariable::TestFloor->value));
+    putenv(GateVariable::MutantCap->value);
+
+    expect(MutantTime::watch()->limit())->toEqual(PerTestLimit::off());
 });

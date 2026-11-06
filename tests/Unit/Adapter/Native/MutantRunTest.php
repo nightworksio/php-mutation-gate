@@ -34,15 +34,21 @@ use NightWorksIO\MutationGate\Core\Runner\ErrorDisplay;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\Overrun;
+use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
+use NightWorksIO\MutationGate\Core\Runner\TestEvents;
+use NightWorksIO\MutationGate\Core\Runner\TestWatch;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestMethod;
+use NightWorksIO\MutationGate\Core\Test\TestTime;
+use NightWorksIO\MutationGate\Core\Test\TestTimes;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -344,6 +350,26 @@ it('stops a run that selects its tests by their ids at its silence limit too, on
         ->and(judgedAs($quiet))->toBe([MutantStatus::TimedOut, [], Reason::silent(Seconds::of(1.0))->text()])
         ->and($quiet instanceof Mutant ? $quiet->limit() : null)->toEqual(Seconds::of(3.0))
         ->and($late instanceof Mutant ? [$late->status(), $late->reason()] : [])->toEqual([MutantStatus::TimedOut, Unreported::reason()]);
+});
+
+it('holds each test of a run to its own limit under a watch, with or without a silence limit, and says which test of a mutant it stopped ran past it', function () use ($makeAdds, $makeRequest): void {
+    $adds = $makeAdds();
+    $request = $makeRequest();
+
+    $project = phpUnitProject();
+    $watch = TestWatch::of(PerTestLimit::standard(), TestTimes::of(TestTime::of($adds, Seconds::of(0.5))));
+    $overrun = Overrun::of($adds, Seconds::of(3.0));
+    $overran = recording('', Ran::overran($overrun, '')->took(Seconds::of(3.1)));
+    $unwatched = recording('', Ran::finished(succeeded: true, output: ''));
+    $run = static fn(PhpUnitShellFake $shell): MutantRun => new MutantRun($project, $shell, new Invocation($project, '/gate/override.php', NativePhpUnit::in($project)), NativePhpUnit::in($project), PhpUnitScan::uncapped($project), NotGiven::value());
+    $stopped = $run($overran)->judged(moneyMutant($project), TestIds::of($adds), $request, Seconds::of(9.0), NotGiven::value(), $watch);
+    $run($unwatched)->judged(moneyMutant($project), TestIds::of($adds), $request, Seconds::of(9.0), Seconds::of(1.0), TestWatch::of(PerTestLimit::off(), TestTimes::none()));
+    $command = $overran->commands()[0];
+    $results = $command->environment()[Variable::Results->value];
+
+    expect($command->silence())->toEqual(SilenceLimit::none($results)->watchingTests($watch, TestEvents::NativeResults))
+        ->and(judgedAs($stopped))->toBe([MutantStatus::TimedOut, [], Reason::overran($adds, Seconds::of(3.0))->text()])
+        ->and($unwatched->commands()[0]->silence())->toEqual(SilenceLimit::of(Seconds::of(1.0), $unwatched->commands()[0]->environment()[Variable::Results->value]));
 });
 
 it('gives a run that selects its tests by their files no silence limit, as it runs other tests too', function () use ($makeAdds, $makeRequest): void {

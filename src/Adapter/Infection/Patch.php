@@ -11,6 +11,8 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Hunk;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Composer\Package;
+use NightWorksIO\MutationGate\Core\Composer\PackageFiles;
+use NightWorksIO\MutationGate\Core\Composer\PackageSource;
 use NightWorksIO\MutationGate\Core\Composer\VendorPatch;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -202,23 +204,23 @@ final readonly class Patch
      * release it does not patch, which runs unpatched; or why a release it
      * supports cannot be patched.
      */
-    public static function applyIn(string $vendor): string|UnsupportedRelease|CannotJudge
+    public static function applyIn(string $vendor, PackageFiles $files): string|UnsupportedRelease|CannotJudge
     {
         $release = self::release($vendor);
 
-        return $release instanceof Version ? PackageSource::applyIn($vendor, ...self::patches()) : $release;
+        return $release instanceof Version ? PackageSource::of($files)->applyIn($vendor, ...self::patches()) : $release;
     }
 
     /** Whether Infection and its include-interceptor in a vendor directory carry every hunk, none another gate's. */
-    public static function isAppliedIn(string $vendor): bool
+    public static function isAppliedIn(string $vendor, PackageFiles $files): bool
     {
-        return PackageSource::isAppliedIn($vendor, ...self::patches());
+        return PackageSource::of($files)->isAppliedIn($vendor, ...self::patches());
     }
 
     /** Whose limit each mutant of the Infection in a vendor directory gets. */
-    public static function stateIn(string $vendor): PatchState
+    public static function stateIn(string $vendor, PackageFiles $files): PatchState
     {
-        return self::isAppliedIn($vendor) ? PatchState::Applied : PatchState::Missing;
+        return self::isAppliedIn($vendor, $files) ? PatchState::Applied : PatchState::Missing;
     }
 
     /**

@@ -40,3 +40,10 @@ it('keeps PHPUnit\'s caches in a directory after the other arguments, dropping a
         ->and(PhpUnitOption::cachedIn('/g', ['--cache-directory', '.cache', '--group', 'slow']))->toBe(['--group', 'slow', '--cache-directory=/g'])
         ->and(PhpUnitOption::cachedIn('/g', ['--cache-directory-x', '--cache-result']))->toBe(['--cache-directory-x', '--cache-result', '--cache-directory=/g']);
 });
+
+it('reads the suites a command line\'s last --testsuite= names, split at commas, skipping empty names, and none where it names none', function (): void {
+    expect(PhpUnitOption::suitesIn(['--bail', '--testsuite=unit,Contract Tests']))->toBe(['unit', 'Contract Tests'])
+        ->and(PhpUnitOption::suitesIn(['--testsuite=unit', '--testsuite=feature,,']))->toBe(['feature'])
+        ->and(PhpUnitOption::suitesIn(['--testsuite', 'unit', 'tests/Unit']))->toBe([])
+        ->and(PhpUnitOption::suitesIn([]))->toBe([]);
+});

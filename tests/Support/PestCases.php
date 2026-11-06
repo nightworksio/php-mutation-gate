@@ -13,6 +13,7 @@ use function in_array;
 use function is_file;
 use function json_encode;
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\Diff;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
@@ -193,7 +194,7 @@ final readonly class PestCases
         $at = self::project($vendor);
 
         MutatePlugin::pristine()->into(sprintf('%s/%s', $at->root(), $vendor));
-        Patch::applyIn(sprintf('%s/%s', $at->root(), $vendor));
+        Patch::applyIn(sprintf('%s/%s', $at->root(), $vendor), new PackageDirectory());
         self::handedOver($at, 'planned', CoverageMap::of(CoveredLine::of(Path::of('src/Money.php'), 11, self::RUN_ADDS))
             ->timedEach(TimedTest::of(self::RUN_ADDS, 1.25), TimedTest::of('Tests\B::c', 2.0)));
 

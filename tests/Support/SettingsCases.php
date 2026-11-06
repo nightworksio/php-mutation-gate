@@ -125,7 +125,9 @@ final readonly class SettingsCases
                     "Ternary"
                 ],
                 "floor": 7
-            }
+            },
+            "perTest": 3,
+            "testFloor": 3
         },
         "flaky": {
             "confirmSurvivors": true
@@ -157,16 +159,21 @@ final readonly class SettingsCases
         },
         "pest": {
             "patch": false,
-            "canary": "mutation-canary"
+            "canary": "mutation-canary",
+            "bootTail": false,
+            "workerOpcache": true
         },
         "staticCheck": {
             "tool": "auto",
             "seconds": 60,
-            "before": false
+            "before": true
         },
         "local": {
             "watchBudget": "1m",
-            "prePushBudget": "5m"
+            "prePushBudget": "5m",
+            "serveIdle": "30m",
+            "serveStart": "watch",
+            "serveStartWait": "10s"
         }
     }
     JSON;
@@ -219,7 +226,7 @@ final readonly class SettingsCases
         ],
         'coverage' => ['incremental' => false],
         'budget' => '1h30m',
-        'timeouts' => ['mode' => 'unjudged', 'seconds' => 30, 'most' => 120],
+        'timeouts' => ['mode' => 'unjudged', 'seconds' => 30, 'most' => 120, 'perTest' => false, 'testFloor' => 2],
         'flaky' => ['confirmSurvivors' => false],
         'tests' => ['suites' => ['Unit', 'Plugins', 'Unit'], 'holding' => ['Process']],
         'survivorsFirst' => ['max' => 5],
@@ -242,10 +249,10 @@ final readonly class SettingsCases
         ],
         'badge' => ['colors' => ['green' => 95]],
         'dashboard' => ['topic' => 'mutation-tested', 'repositories' => ['api', 'web']],
-        'pest' => ['patch' => true, 'canary' => 'canary'],
+        'pest' => ['patch' => true, 'canary' => 'canary', 'bootTail' => true, 'workerOpcache' => false],
         'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45, 'before' => true],
         'pruning' => ['enabled' => false, 'window' => 200, 'audit' => '3d'],
         'sampling' => ['confidence' => 99, 'margin' => 1.5, 'minUnits' => 50, 'seed' => 'release-2026'],
-        'local' => ['watchBudget' => '2m', 'prePushBudget' => '90s'],
+        'local' => ['watchBudget' => '2m', 'prePushBudget' => '90s', 'serveIdle' => '10m', 'serveStart' => 'never'],
     ];
 }

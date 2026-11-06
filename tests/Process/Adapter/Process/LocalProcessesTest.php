@@ -4,12 +4,20 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Cli\SystemClock;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Environment;
+use NightWorksIO\MutationGate\Core\Runner\Overrun;
+use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
+use NightWorksIO\MutationGate\Core\Runner\TestEvents;
+use NightWorksIO\MutationGate\Core\Runner\TestWatch;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestTime;
+use NightWorksIO\MutationGate\Core\Test\TestTimes;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Tests\Support\CountedLooks;
@@ -97,6 +105,30 @@ it('stops a program that has made no progress for its silence limit since it las
     expect(array_map(static fn(Ran $ran): array => [$ran->wasSilenced(), $ran->wasStopped(), $ran->succeeded()], $ends))
         ->toBe([[true, true, false], [false, true, false], [false, false, true]])
         ->and(Measured::of($ends[0])->seconds())->toBeLessThan(2.0);
+})->group(...$holds);
+
+it('stops a program whose test runs past its own limit, naming it, and holds one whose tests end, or are untimed, to its deadline', function (): void {
+    $directory = Scratch::directory();
+    $watch = TestWatch::of(PerTestLimit::of(1, Seconds::of(0.5)), TestTimes::of(
+        TestTime::of(TestId::of('Money::adds'), Seconds::of(0.1)),
+        TestTime::of(TestId::of('Money::subtracts'), Seconds::of(0.1)),
+    ));
+    $watched = static fn(string $name, string $code, float $deadline = 2.0): ProcessCommand => ProcessCommand::of($directory, PHP_BINARY, '-r', $code)
+        ->within(Seconds::of($deadline))
+        ->silencedAfter(SilenceLimit::none(sprintf('%s/%s', $directory, $name))->watchingTests($watch, TestEvents::NativeResults));
+    $ends = [...new LocalProcesses(new SystemClock())->sideBySide(
+        WorkerSlots::of(ProcessCount::of(3), 'test'),
+        Unlimited::time(),
+        $watched('hangs', 'file_put_contents("hangs", "started Money%3A%3Aadds\\npassed\\n"); usleep(300000); file_put_contents("hangs", "started Money%3A%3Asubtracts\\n", FILE_APPEND); sleep(30);', 20.0),
+        $watched('ends', 'file_put_contents("ends", "started Money%3A%3Aadds\\npassed\\n"); sleep(30);'),
+        $watched('untimed', 'file_put_contents("untimed", "started Money%3A%3Adivides\\n"); sleep(30);'),
+    )];
+
+    expect(array_map(static fn(Ran $ran): array => [$ran->wasSilenced(), $ran->wasStopped()], $ends))
+        ->toBe([[true, true], [false, true], [false, true]])
+        ->and($ends[0]->overrun())->toEqual(Overrun::of(TestId::of('Money::subtracts'), Seconds::of(0.5)))
+        ->and(Measured::of($ends[0])->seconds())->toBeLessThan(20.0)
+        ->and($ends[1]->overrun())->toEqual(NotGiven::value());
 })->group(...$holds);
 
 it('measures a deadline on its clock', function (): void {

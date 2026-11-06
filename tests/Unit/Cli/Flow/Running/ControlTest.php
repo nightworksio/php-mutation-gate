@@ -37,10 +37,14 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
+use NightWorksIO\MutationGate\Core\Runner\TestWatch;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestTime;
+use NightWorksIO\MutationGate\Core\Test\TestTimes;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -101,7 +105,10 @@ $moneyControl = static fn(): Control => Control::of(
     Path::of('src/Money.php'),
     TestIds::of(TestId::of('MoneyTest::adds')),
     Seconds::of(5.0),
-);
+)->watched(TestWatch::of(
+    PerTestLimit::standard(),
+    TestTimes::of(TestTime::of(TestId::of('MoneyTest::adds'), Seconds::of(1.0))),
+));
 
 it('keeps with each timed-out mutant the time its unmutated control took, its tests run under its limit', function () use (
     $makeResultIn,

@@ -95,3 +95,14 @@ it('writes a served copy as the original loaded, and the original loaded by its 
         $box->loader->unregister();
     }
 });
+
+it('writes that opcache could not serve the original where its blacklist keeps the original out', function (): void {
+    $root = Scratch::directory();
+    $guard = sprintf('%s/guard.json', $root);
+
+    $kept = guardWritten($guard, '/p/src/A.php', [], ['/p/src/A.php'], Opcache::of('1', '')->keepingOut('/p/src/A.php'));
+    $other = guardWritten($guard, '/p/src/B.php', [], ['/p/src/B.php'], Opcache::of('1', '')->keepingOut('/p/src/A.php'));
+
+    expect($kept)->toBe('{"before":false,"loaded":true,"opcache":false}')
+        ->and($other)->toBe('{"before":false,"loaded":true,"opcache":true}');
+});

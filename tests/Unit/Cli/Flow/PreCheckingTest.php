@@ -320,3 +320,70 @@ it('checks nothing, and rejects nothing, where no chosen mutant\'s print analyse
         ->toBe([Workspace::checkedOriginal($held->id())->value()])
         ->and($checking->checks()->histories()->of(preIdentity())->time()->checks())->toBe(0);
 });
+
+it('checks a mutator still being learned before its tests no more often in one batch than its learning needs', function (): void {
+    $project = Scratch::directory();
+    [$first, $second] = preOffered();
+    $known = AnalyserHistory::of('fake')
+        ->withRate(RejectionRate::of($first->mutator(), 48, 0))
+        ->withTime(CheckTime::of(10, Seconds::of(1.0)));
+    $checker = preCheckedBy($project, [
+        Workspace::checkedMutant($first->id())->value() => preOriginals(),
+        Workspace::checkedMutant($second->id())->value() => preOriginals(),
+    ]);
+
+    preChecking($project, $checker, $known)->rejected(
+        PreCheckables::of(preOffer($first), preOffer($first), preOffer($first), preOffer($second), preOffer($second)),
+        ProcessCount::single(),
+    );
+
+    expect(array_map(static fn(array $check): string => $check[1], $checker->asked()))->toBe([
+        Workspace::checkedMutant($first->id())->value(),
+        Workspace::checkedMutant($first->id())->value(),
+        Workspace::checkedMutant($second->id())->value(),
+        Workspace::checkedMutant($second->id())->value(),
+    ]);
+});
+
+it('takes a check before any was timed to last as long as the warm-up, and checks no mutant whose tests take no longer', function (): void {
+    $project = Scratch::directory();
+    [$first, $second] = preOffered();
+    $checker = preCheckedBy($project, [Workspace::checkedMutant($second->id())->value() => preOriginals()]);
+    $checking = preChecking($project, $checker, AnalyserHistory::of('fake'));
+
+    $checking->rejected(PreCheckables::of(preOffer($first, 1.0), preOffer($second, 1.5)), ProcessCount::single());
+
+    expect(array_map(static fn(array $check): string => $check[1], $checker->asked()))
+        ->toBe([Workspace::checkedMutant($second->id())->value()])
+        ->and($checker->warmUps())->toHaveCount(1);
+});
+
+it('warms up only to time a check, and checks nothing whose tests a timed check outlasts', function (): void {
+    $project = Scratch::directory();
+    [$first] = preOffered();
+    $checker = preCheckedBy($project, []);
+    [$checking, $stopwatch] = preTimed($project, $checker, AnalyserHistory::of('fake')->withTime(CheckTime::of(2, Seconds::of(6.0))));
+    $cold = preTimed($project, $checker, AnalyserHistory::of('fake'));
+
+    $checking->rejected(PreCheckables::of(preOffer($first, 3.0)), ProcessCount::single());
+    $warmedBefore = count($checker->warmUps());
+    $cold[0]->rejected(PreCheckables::of(preOffer($first, 1.0)), ProcessCount::single());
+
+    expect($checker->asked())->toBe([])
+        ->and($warmedBefore)->toBe(0)
+        ->and($checker->warmUps())->toHaveCount(1)
+        ->and([...$stopwatch->steps()])->toBe([])
+        ->and(array_map(static fn(StepTime $step): array => [$step->step(), $step->count()], [...$cold[1]->steps()]))->toBe([]);
+});
+
+it('checks nothing, and rejects nothing, where the analyser could not warm up to time a check', function (): void {
+    $project = Scratch::directory();
+    [$first] = preOffered();
+    $checker = new RecordingChecker(new StaticCheckerFake(preIdentity(), CannotJudge::because('The analyser crashed.'), []), $project);
+
+    $rejections = preChecking($project, $checker, AnalyserHistory::of('fake'))->rejected(PreCheckables::of(preOffer($first)), ProcessCount::single());
+
+    expect(count($rejections))->toBe(0)
+        ->and($checker->asked())->toBe([])
+        ->and($checker->warmUps())->toHaveCount(1);
+});

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Infection\MutantTime;
 use NightWorksIO\MutationGate\Adapter\Infection\Patch;
 use NightWorksIO\MutationGate\Adapter\Infection\PatchState;
@@ -27,9 +28,9 @@ it('patches the limit, the skip, the pruned mutators and the silence limit of ev
     foreach (Release::cases() as $release) {
         $at = InfectionSource::pristine($release->value)->vendor();
 
-        expect(Patch::stateIn($at))->toBe(PatchState::Missing)
-            ->and(Patch::applyIn($at))->toBe('infection:patch patched 4 of the 4 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.')
-            ->and(Patch::stateIn($at))->toBe(PatchState::Applied)
+        expect(Patch::stateIn($at, new PackageDirectory()))->toBe(PatchState::Missing)
+            ->and(Patch::applyIn($at, new PackageDirectory()))->toBe('infection:patch patched 4 of the 4 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.')
+            ->and(Patch::stateIn($at, new PackageDirectory()))->toBe(PatchState::Applied)
             ->and($source($at, 'Process/Factory/MutantProcessContainerFactory.php'))
             ->toContain(sprintf(
                 "? \\%s::of(\$mutant->getMutation()->getNominalTestExecutionTime(), \$this->timeout)\n",
@@ -61,7 +62,7 @@ it('patches the interceptor\'s stat of every include-interceptor release Infecti
     foreach (array_keys(InfectionSource::INTERCEPTOR_SHIPS_AS) as $interceptor) {
         $at = InfectionSource::pristine('0.35.6', $interceptor)->vendor();
 
-        expect(Patch::applyIn($at))->toBe(
+        expect(Patch::applyIn($at, new PackageDirectory()))->toBe(
             'infection:patch patched 4 of the 4 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.',
         )
             ->and(InfectionPatches::interceptor($at))->toContain("if (! file_exists(\$path) && ! (\$link && is_link(\$path))) {\n")
@@ -136,7 +137,7 @@ function interceptedStats(string $vendor = ''): array
 
 it('stats a dangling link as a link, and a file it cannot read as there, while the patched interceptor serves a file, as PHP does without it', function (): void {
     $at = InfectionSource::pristine()->vendor();
-    Patch::applyIn($at);
+    Patch::applyIn($at, new PackageDirectory());
 
     expect(interceptedStats($at))->toBe(interceptedStats())
         ->and(interceptedStats())->toMatchArray([

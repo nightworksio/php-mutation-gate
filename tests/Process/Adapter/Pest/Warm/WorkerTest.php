@@ -279,6 +279,15 @@ it('hands a child its run\'s environment alone, with `$_ENV` as a fresh process 
         ->and(environmentOf($warm))->toEndWith(' clean');
 })->group(...$holds);
 
+it('loads none of the gate\'s boot state into a child of a worker that booted nothing', function (): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    $warm = warmRun($results, 'code:0');
+    $warm->run();
+
+    expect(parentOf($warm))->toBe(warmWorker($results))
+        ->and($warm->getOutput())->toContain("booted unloaded\n");
+})->group(...$holds);
+
 it('forks its runs with the ini files the variables it started with scan, as a fresh run of them would start', function (): void {
     $results = sprintf('%s/results.jsonl', Scratch::directory());
     $scanned = Scratch::directory();

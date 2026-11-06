@@ -25,26 +25,36 @@ final readonly class PestKeys
         $results = Effect::AffectsResults;
         $patch = Field::optional('patch', Flag::boolean(), $results);
         $canary = Field::optional('canary', Text::word('a group name'), $results);
+        $bootTail = Field::optional(Pest::BOOT_TAIL, Flag::boolean(), $results);
+        $opcache = Field::optional(Pest::WORKER_OPCACHE, Flag::boolean(), $results);
 
         return [Field::section(
             'pest',
             Section::of(
-                static function (Node $pest) use ($patch, $canary): Layer|Invalid {
+                static function (Node $pest) use ($patch, $canary, $bootTail, $opcache): Layer|Invalid {
                     $patched = $patch->read($pest);
                     $group = $canary->read($pest);
+                    $booted = $bootTail->read($pest);
+                    $cached = $opcache->read($pest);
                     $named = $group->value();
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Pest::of(
                             $patched->value(),
                             $named instanceof Absent ? $named : Group::named($named),
+                            $booted->value(),
+                            $cached->value(),
                         )),
                         $patched,
                         $group,
+                        $booted,
+                        $cached,
                     );
                 },
                 $patch,
                 $canary,
+                $bootTail,
+                $opcache,
             ),
         )];
     }

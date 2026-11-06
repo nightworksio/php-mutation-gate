@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
 use NightWorksIO\MutationGate\Adapter\Infection\Patch as InfectionPatch;
 use NightWorksIO\MutationGate\Adapter\Infection\Release;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
@@ -83,8 +84,8 @@ it('patches the Infection library\'s release and its include-interceptor, whiche
 
     expect(Release::tryFrom($release))->toBeInstanceOf(Release::class)
         ->and(array_key_exists($interceptor, InfectionSource::INTERCEPTOR_SHIPS_AS))->toBeTrue()
-        ->and(InfectionPatch::applyIn($installed))->toBe('infection:patch patched 4 of the 4 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.')
-        ->and(InfectionPatch::applyIn($pristine))->toBe('infection:patch patched 4 of the 4 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.')
+        ->and(InfectionPatch::applyIn($installed, new PackageDirectory()))->toBe('infection:patch patched 4 of the 4 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.')
+        ->and(InfectionPatch::applyIn($pristine, new PackageDirectory()))->toBe('infection:patch patched 4 of the 4 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.')
         ->and($read($installed))->toBe($read($pristine));
 })->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library')->group(...$holds);
 
@@ -105,7 +106,7 @@ it('leaves a mutant unjudged, naming the test, when Pest\'s filter cannot select
 })->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 it('opens a patched shard on the canary group and reads the map the planning job handed over', function (): void {
-    $patched = Patch::applyIn(Library::vendor());
+    $patched = Patch::applyIn(Library::vendor(), new PackageDirectory());
     $library = Library::pest(Patching::on(Library::canary()));
     $planned = CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/planned'));
     $map = $library->runner()->coverage($planned);
@@ -120,7 +121,7 @@ it('opens a patched shard on the canary group and reads the map the planning job
     $result = $library->mutate('shared', $request);
 
     expect($patched)->toBeString()
-        ->and(Patch::isAppliedIn(Library::vendor()))->toBeTrue()
+        ->and(Patch::isAppliedIn(Library::vendor(), new PackageDirectory()))->toBeTrue()
         ->and($map)->toBeInstanceOf(CoverageMap::class)
         ->and($result instanceof MutationResult ? Library::records($result->mutants()) : $result)
         ->toEqualCanonicalizing($library->expected('adds', 'large'));
@@ -149,7 +150,7 @@ it('narrows a mutant\'s own run over a test that needs another test file, loaded
         copy(Tree::at(sprintf('tests/Contract/Runner/reach/tests/Reach/%s', $file)), sprintf('%s/%s', $into, $file));
     }
 
-    Patch::applyIn(Library::vendor());
+    Patch::applyIn(Library::vendor(), new PackageDirectory());
     $runner = Library::pest(Patching::on(Library::canary()))->runner();
     $expected = $together ? Library::acting(...array_map(static fn(string $file): string => sprintf('tests/Reach/%s', $file), $files)) : [];
 
@@ -199,7 +200,7 @@ it('narrows a mutant\'s own run over a test that needs another test file, loaded
 ])->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 it('hands each mutant\'s own run the test files its covering tests need as paths, and no other', function (): void {
-    Patch::applyIn(Library::vendor());
+    Patch::applyIn(Library::vendor(), new PackageDirectory());
     $library = Library::pest(Patching::on(Library::canary()));
     $map = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/planned')));
     file_put_contents(
@@ -234,7 +235,7 @@ it('hands each mutant\'s own run the test files its covering tests need as paths
 })->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 it('vouches for a narrowed kill by its own run, replayed unmutated in the order it took, stopped after its last killer', function (): void {
-    Patch::applyIn(Library::vendor());
+    Patch::applyIn(Library::vendor(), new PackageDirectory());
     $library = Library::pest(Patching::on(Library::canary()));
     $map = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/replayed')));
     file_put_contents(
@@ -258,7 +259,7 @@ it('vouches for a narrowed kill by its own run, replayed unmutated in the order 
 })->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 it('runs again, patched, only the mutants the file it hands over names, on the map the invocation read', function (): void {
-    Patch::applyIn(Library::vendor());
+    Patch::applyIn(Library::vendor(), new PackageDirectory());
     $library = Library::pest(Patching::on(Library::canary()));
     $map = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/planned')));
     file_put_contents(
@@ -293,7 +294,7 @@ it('runs again, patched, only the mutants the file it hands over names, on the m
 // covering tests from php-code-coverage 14.3's map as hit counts rather than test
 // ids, and passes an int to preg_match, a TypeError under every Pest ^5.1.
 it('reports the same four mutants from warm workers, and warns of nothing, with Pest patched', function (): void {
-    Patch::applyIn(Library::vendor());
+    Patch::applyIn(Library::vendor(), new PackageDirectory());
     $library = Library::installed('pest patched');
     $result = $library->mutate(
         'money warm',
@@ -306,6 +307,27 @@ it('reports the same four mutants from warm workers, and warns of nothing, with 
         ->toEqualCanonicalizing($library->expected('adds', 'large', 'unused', 'drains'))
         ->and($result instanceof MutationResult ? [...$result->warnings()] : ['cannot judge'])->toBe([]);
 })->skip(fn(): bool => ! function_exists('pcntl_fork') || ! function_exists('posix_kill'), 'warm workers need a PHP that forks')->group(...$holds);
+
+it('reports the same four mutants from warm workers that cache through opcache as from workers that do not', function (bool $caches): void {
+    Patch::applyIn(Library::vendor(), new PackageDirectory());
+    $library = Library::pest(Patching::on(Library::canary())->cachingInWorkers($caches));
+    $result = $library->mutate(
+        sprintf('money warm %s', $caches ? 'cached' : 'uncached'),
+        MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
+            ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('adds', 'large', 'unused', 'drains')))
+            ->across(Pool::of(ProcessCount::of(2), Workers::Fork)),
+    );
+
+    expect($result instanceof MutationResult ? Library::records($result->mutants()) : [])
+        ->toEqualCanonicalizing($library->expected('adds', 'large', 'unused', 'drains'))
+        ->and($result instanceof MutationResult ? [...$result->warnings()] : ['cannot judge'])->toBe([]);
+})->with([
+    'caching through opcache' => [true],
+    'with opcache off' => [false],
+])->skip(
+    fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
+    'the runner contracts job installs the fixture library, and warm workers need a PHP that forks',
+)->group(...$holds);
 
 it('holds the library to the pest-plugin-mutate the package allows', function (): void {
     $conflict = static function (string $manifest): mixed {
@@ -393,8 +415,8 @@ it('patches the installed pest-plugin-mutate into the files the pristine fixture
         MutatePlugin::FILES,
     );
 
-    expect(Patch::applyIn($installed))->toBeString()
-        ->and(Patch::applyIn($pristine))->toBe('pest:patch patched 4 of the 4 files it changes in pest-plugin-mutate.')
+    expect(Patch::applyIn($installed, new PackageDirectory()))->toBeString()
+        ->and(Patch::applyIn($pristine, new PackageDirectory()))->toBe('pest:patch patched 4 of the 4 files it changes in pest-plugin-mutate. pest:patch patched 3 of the 3 files it changes in pest.')
         ->and($read($installed))->toBe($read($pristine));
 })->group(...$holds);
 
