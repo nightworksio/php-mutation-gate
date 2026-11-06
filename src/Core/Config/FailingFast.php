@@ -45,34 +45,34 @@ final readonly class FailingFast
     /**
      * `run.failFastWaits`: by default, the survivors whose check ran out of time or could not run.
      *
-     * @return list<Unchecked>
+     * @return Listed<Unchecked>
      */
-    public function waits(): array
+    public function waits(): Listed
     {
-        return $this->waits instanceof Listed ? [...$this->waits] : [Unchecked::OutOfTime, Unchecked::Failed];
+        return $this->waits instanceof Listed ? $this->waits : Listed::of(Unchecked::OutOfTime, Unchecked::Failed);
     }
 
-    /** @return list<Member> the members of `run` it writes */
-    public function written(): array
+    /** The members of `run` it writes, those set. */
+    public function written(): Json
     {
-        return [
+        return Json::object(
             Member::of('failFast', $this->mode instanceof FailFast ? $this->mode->value : $this->mode),
             Member::of(
                 'failFastWaits',
                 $this->waits instanceof Listed ? Json::items(...$this->outcomes($this->waits)) : $this->waits,
             ),
-        ];
+        );
     }
 
-    /** @return list<string> the builder's calls for the keys it sets */
-    public function php(): array
+    /** The builder's calls for the keys it sets. */
+    public function php(): PhpCalls
     {
-        return [
+        return PhpCalls::inWith(
             ...$this->mode instanceof FailFast ? [$this->mode->php()] : [],
             ...$this->waits instanceof Listed
                 ? [sprintf('Reach::failFastWaitingOn(%s)', PhpCalls::literals(...$this->outcomes($this->waits)))]
                 : [],
-        ];
+        );
     }
 
     /**

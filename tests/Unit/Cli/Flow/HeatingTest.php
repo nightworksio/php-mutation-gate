@@ -5,6 +5,8 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Flow\Heating;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
+use NightWorksIO\MutationGate\Core\Comment\Cap;
+use NightWorksIO\MutationGate\Core\Config\CommentCaps;
 use NightWorksIO\MutationGate\Core\Config\CommentShows;
 use NightWorksIO\MutationGate\Core\Config\HeatmapRows;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
@@ -99,7 +101,7 @@ it('scores each function as the file on disk holds it, against the functions the
     expect($functions($money))->toBe([['Money::sub', 0, 10_000], ['Money::add', 10_000, 10_000]])
         ->and($money->heat()->base())->toEqual(Score::ofHundredths(10_000))
         ->and($heatmap->lowest())->toHaveCount(1)
-        ->and([...$heatmap->fallen(CommentShows::of(caps: ['heatmap' => 0]))])->toBe([]);
+        ->and([...$heatmap->fallen(CommentShows::of(caps: CommentCaps::capping(Cap::Heatmap, 0)))])->toBe([]);
 });
 
 it('scores no function where functions are not scored, the base\'s proof names none, or it never proved the unit', function () use ($judge, $run, $functions): void {

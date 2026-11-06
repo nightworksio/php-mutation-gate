@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Comment\Cap;
+use NightWorksIO\MutationGate\Core\Config\CommentCaps;
 use NightWorksIO\MutationGate\Core\Config\CommentShows;
 use NightWorksIO\MutationGate\Core\Config\HeatmapRows;
 use NightWorksIO\MutationGate\Core\Config\Listed;
@@ -59,8 +61,8 @@ it('lists the touched files that fell most, then those below their floor, and no
     $killed = Heatmaps::tree(0, [['src/Money.php:6', MutantJudgement::Killed, false]]);
 
     expect(heatmapPaths(Heatmaps::fallen()->fallen(CommentShows::of())))->toBe(['src/Money.php', 'src/Cart.php'])
-        ->and(heatmapPaths(Heatmaps::fallen()->fallen(CommentShows::of(caps: ['heatmap' => 0]))))->toBe([])
-        ->and(heatmapPaths(Heatmap::of($untouched, Heatmaps::spans(...))->comparedWith(Heatmap::of($killed, Heatmaps::spans(...)))->listing(HeatmapRows::of(files: 1))->fallen(CommentShows::of(caps: ['heatmap' => 1]))))->toBe([])
+        ->and(heatmapPaths(Heatmaps::fallen()->fallen(CommentShows::of(caps: CommentCaps::capping(Cap::Heatmap, 0)))))->toBe([])
+        ->and(heatmapPaths(Heatmap::of($untouched, Heatmaps::spans(...))->comparedWith(Heatmap::of($killed, Heatmaps::spans(...)))->listing(HeatmapRows::of(files: 1))->fallen(CommentShows::of(caps: CommentCaps::capping(Cap::Heatmap, 1)))))->toBe([])
         ->and([...Heatmap::none()->fallen(CommentShows::of())])->toBe([]);
 });
 
@@ -81,8 +83,8 @@ it('lists at most as many fallen files as it is told, the one that fell most fir
     ]);
     $heatmap = Heatmap::of($now, Heatmaps::spans(...))->comparedWith(Heatmap::of($base, Heatmaps::spans(...)));
 
-    expect(heatmapPaths($heatmap->listing(HeatmapRows::of(files: 0))->fallen(CommentShows::of(caps: ['heatmap' => 2]))))->toBe(['src/Money.php', 'src/Cart.php'])
-        ->and(heatmapPaths($heatmap->listing(HeatmapRows::of(files: 0))->fallen(CommentShows::of(caps: ['heatmap' => 1]))))->toBe(['src/Money.php']);
+    expect(heatmapPaths($heatmap->listing(HeatmapRows::of(files: 0))->fallen(CommentShows::of(caps: CommentCaps::capping(Cap::Heatmap, 2)))))->toBe(['src/Money.php', 'src/Cart.php'])
+        ->and(heatmapPaths($heatmap->listing(HeatmapRows::of(files: 0))->fallen(CommentShows::of(caps: CommentCaps::capping(Cap::Heatmap, 1)))))->toBe(['src/Money.php']);
 });
 
 it('says a file is below its tree\'s floor only where it scores under it', function (): void {
@@ -107,8 +109,8 @@ it('scores the files of every tree, lists none before it is told how many, and a
 
     expect(heatmapPaths(Listed::of(...$heatmap)))->toBe(['src/Cart.php', 'src/Money.php'])
         ->and(heatmapPaths($heatmap->lowest()))->toBe([])
-        ->and(heatmapPaths($unlisted->fallen(CommentShows::of(caps: ['heatmap' => 2]))))->toBe(['src/Cart.php', 'src/Money.php'])
-        ->and(heatmapPaths($unlisted->fallen(CommentShows::of(caps: ['heatmap' => 1]))))->toBe(['src/Cart.php']);
+        ->and(heatmapPaths($unlisted->fallen(CommentShows::of(caps: CommentCaps::capping(Cap::Heatmap, 2)))))->toBe(['src/Cart.php', 'src/Money.php'])
+        ->and(heatmapPaths($unlisted->fallen(CommentShows::of(caps: CommentCaps::capping(Cap::Heatmap, 1)))))->toBe(['src/Cart.php']);
 });
 
 it('lists a touched file that fell by a hundredth of a percent, and none that held', function (): void {
@@ -116,7 +118,7 @@ it('lists a touched file that fell by a hundredth of a percent, and none that he
         static fn(int $at): array => [sprintf('src/Cart.php:%d', $at), $at <= $killed ? MutantJudgement::Killed : MutantJudgement::Survived, $at === 1],
         range(1, $all),
     );
-    $shows = CommentShows::of(caps: ['heatmap' => 1]);
+    $shows = CommentShows::of(caps: CommentCaps::capping(Cap::Heatmap, 1));
     $fell = Heatmap::of(Heatmaps::tree(0, $mutants(33, 80)), Heatmaps::spans(...))
         ->comparedWith(Heatmap::of(Heatmaps::tree(0, $mutants(26, 63)), Heatmaps::spans(...)));
     $held = Heatmap::of(Heatmaps::tree(0, $mutants(26, 63)), Heatmaps::spans(...))

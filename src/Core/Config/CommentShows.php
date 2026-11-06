@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-use function array_key_exists;
 use function in_array;
-use function is_array;
+use function is_int;
 
 use NightWorksIO\MutationGate\Core\Comment\Cap;
 use NightWorksIO\MutationGate\Core\Comment\Detail;
@@ -49,42 +48,45 @@ final readonly class CommentShows
     private const array TOGGLES = [Toggle::Try, Toggle::Reproduce];
 
     /**
-     * @param list<Section>|Absent $sections
-     * @param list<Section>|Absent $open
-     * @param array<string, int>   $caps     by the cap's name, those set
-     * @param array<string, bool>  $toggles  by the toggle's name, those set
+     * @param Listed<Section>|Absent $sections
+     * @param Listed<Section>|Absent $open
      */
     private function __construct(
-        private array|Absent $sections,
-        private array|Absent $open,
-        private array $caps,
-        private array $toggles,
+        private Listed|Absent $sections,
+        private Listed|Absent $open,
+        private CommentCaps $caps,
+        private CommentToggles $toggles,
         private Lines|Absent $lines,
         private Detail|Absent $detail,
     ) {
     }
 
     /**
-     * @param list<Section>|Absent $sections
-     * @param list<Section>|Absent $open
-     * @param array<string, int>   $caps     by the cap's name
-     * @param array<string, bool>  $toggles  by the toggle's name: `try` and `reproduce`
+     * @param Listed<Section>|Absent $sections
+     * @param Listed<Section>|Absent $open
      */
     public static function of(
-        array|Absent $sections = new Absent(),
-        array|Absent $open = new Absent(),
-        array $caps = [],
-        array $toggles = [],
+        Listed|Absent $sections = new Absent(),
+        Listed|Absent $open = new Absent(),
+        CommentCaps|Absent $caps = new Absent(),
+        CommentToggles|Absent $toggles = new Absent(),
         Lines|Absent $lines = new Absent(),
         Detail|Absent $detail = new Absent(),
     ): self {
-        return new self($sections, $open, $caps, $toggles, $lines, $detail);
+        return new self(
+            $sections,
+            $open,
+            $caps instanceof CommentCaps ? $caps : CommentCaps::none(),
+            $toggles instanceof CommentToggles ? $toggles : CommentToggles::none(),
+            $lines,
+            $detail,
+        );
     }
 
     /** Every default but `comment.open`, which shows every section open, as a summary does. */
     public static function unfolded(): self
     {
-        return self::of(open: self::SECTIONS);
+        return self::of(open: Listed::of(...self::SECTIONS));
     }
 
     /** This, with what a later layer sets laid over it, key by key. */
@@ -93,35 +95,35 @@ final readonly class CommentShows
         return new self(
             $later->sections instanceof Absent ? $this->sections : $later->sections,
             $later->open instanceof Absent ? $this->open : $later->open,
-            [...$this->caps, ...$later->caps],
-            [...$this->toggles, ...$later->toggles],
+            $this->caps->over($later->caps),
+            $this->toggles->over($later->toggles),
             $later->lines instanceof Absent ? $this->lines : $later->lines,
             $later->detail instanceof Absent ? $this->detail : $later->detail,
         );
     }
 
-    /** @return list<Section> `comment.sections`: the sections the comment shows, in order, the verdict first */
-    public function sections(): array
+    /** @return Listed<Section> `comment.sections`: the sections the comment shows, in order, the verdict first */
+    public function sections(): Listed
     {
-        return is_array($this->sections) ? $this->sections : self::SECTIONS;
+        return $this->sections instanceof Listed ? $this->sections : Listed::of(...self::SECTIONS);
     }
 
     /** `comment.open`: whether a section is shown open, not folded; the verdict, trees and heatmap are by default. */
     public function isOpen(Section $section): bool
     {
-        return in_array($section, is_array($this->open) ? $this->open : self::OPEN, strict: true);
+        return in_array($section, $this->open instanceof Listed ? [...$this->open] : self::OPEN, strict: true);
     }
 
     /** `comment.<cap>.most`: how many of a list the comment shows, or how many characters of one text. */
     public function most(Cap $cap): int
     {
-        return array_key_exists($cap->value, $this->caps) ? $this->caps[$cap->value] : $cap->standard();
+        return $this->caps->most($cap);
     }
 
     /** `comment.try` and `comment.reproduce`: whether the comment says it; each is on by default. */
     public function allows(Toggle $toggle): bool
     {
-        return ! array_key_exists($toggle->value, $this->toggles) || $this->toggles[$toggle->value];
+        return $this->toggles->allows($toggle);
     }
 
     /** `comment.survivors.lines`: which survivors the comment lists. */
@@ -136,8 +138,8 @@ final readonly class CommentShows
         return $this->detail instanceof Detail ? $this->detail : Detail::Full;
     }
 
-    /** @return list<Member> the keys a config writes of it, those set */
-    public function members(): array
+    /** The keys a config writes of it, those set. */
+    public function json(): Json
     {
         $members = [
             Member::of('sections', CommentWritten::listed($this->sections)),
@@ -145,16 +147,16 @@ final readonly class CommentShows
         ];
 
         foreach (Cap::cases() as $cap) {
-            $set = array_key_exists($cap->value, $this->caps) ? $this->caps[$cap->value] : new Absent();
-            $keys = [Member::of('most', $set), ...$cap === Cap::Survivors ? $this->survivorKeys() : []];
+            $survivors = $cap === Cap::Survivors ? $this->survivorKeys() : [];
+            $keys = [Member::of('most', $this->caps->set($cap)), ...$survivors];
             $members[] = Member::unlessEmpty($cap->value, Json::object(...$keys));
         }
 
-        return [...$members, ...CommentWritten::toggles($this->toggles, self::TOGGLES)];
+        return Json::object(...$members, ...CommentWritten::toggles($this->toggles, self::TOGGLES));
     }
 
-    /** @return list<string> the PHP builder's calls for the keys set */
-    public function calls(): array
+    /** The PHP builder's calls for the keys set. */
+    public function php(): PhpCalls
     {
         $calls = [
             ...CommentWritten::casesCall(Key::Sections, $this->sections),
@@ -163,11 +165,12 @@ final readonly class CommentShows
             ...CommentWritten::caseCall(Key::Detail, $this->detail),
         ];
 
-        foreach ($this->caps as $cap => $most) {
-            $calls[] = sprintf('Comment::most(Cap::%s, %d)', Cap::from($cap)->name, $most);
+        foreach (Cap::cases() as $cap) {
+            $most = $this->caps->set($cap);
+            $calls = is_int($most) ? [...$calls, sprintf('Comment::most(Cap::%s, %d)', $cap->name, $most)] : $calls;
         }
 
-        return [...$calls, ...CommentWritten::togglesCall($this->toggles)];
+        return PhpCalls::inWith(...$calls, ...CommentWritten::togglesCall($this->toggles, self::TOGGLES));
     }
 
     /** @return list<Member> `comment.survivors.lines` and `comment.survivors.detail`, where they are set */

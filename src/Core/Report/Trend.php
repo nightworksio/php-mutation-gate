@@ -46,22 +46,25 @@ final readonly class Trend
     /**
      * @param list<Entry> $runs oldest first
      */
-    private function __construct(private array $runs)
+    private function __construct(private array $runs, private int $kept)
     {
     }
 
     public static function none(): self
     {
-        return new self([]);
+        return new self([], self::KEPT);
     }
 
-    /** A trend as `trend.json` holds it; text that is not one reads as none. */
-    public static function decode(string $json): self
+    /**
+     * A trend as `trend.json` holds it, keeping as many of the newest entries as `badge.trendKept` says, or 500;
+     * text that is not one reads as none.
+     */
+    public static function decode(string $json, int $kept = self::KEPT): self
     {
         try {
             $items = Node::decode($json)->field('runs')->items();
         } catch (NotInShape) {
-            return self::none();
+            return new self([], $kept);
         }
 
         $runs = [];
@@ -74,16 +77,15 @@ final readonly class Trend
             }
         }
 
-        return new self($runs);
+        return new self($runs, $kept);
     }
 
     /** This trend, and a verdict's entry, keeping the newest. */
-    /** This trend with the verdict's entry appended, keeping as many of the newest as it is told, or 500. */
-    public function with(Verdict $verdict, Revision $commit, Instant $time, int $kept = self::KEPT): self
+    public function with(Verdict $verdict, Revision $commit, Instant $time): self
     {
         $runs = [...$this->runs, TrendRecord::of($verdict, $commit, $time)];
 
-        return new self(array_slice($runs, -$kept));
+        return new self(array_slice($runs, -$this->kept), $this->kept);
     }
 
     public function json(): string

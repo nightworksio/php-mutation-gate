@@ -98,20 +98,20 @@ final readonly class Publishing implements Part
     }
 
     /**
-     * A reporter's options; the badge's with `badge.colors`, `badge.trendKept` and this floor for new code laid
-     * beneath them, so each it sets itself wins, its colours whole, as one scale.
+     * A reporter's choice; the badge's with `badge.colors`, `badge.trendKept` and this floor for new code laid
+     * beneath its options, so each it sets itself wins, its colours whole, as one scale.
      */
-    public function under(string $use, Options $options, Floor $newCode): Options
+    public function under(Choice $choice, Floor $newCode): Choice
     {
-        $colors = $options->object(Key::of('colors')) instanceof NotGiven ? $this->colors()->written() : new Absent();
+        $own = $choice->options()->object(Key::of('colors'));
 
-        return $use === BuiltinReporter::Badge->value
-            ? $options->over(Json::object(
-                Member::of('colors', $colors),
+        return $choice->use()->value() === BuiltinReporter::Badge->value
+            ? $choice->over(Json::object(
+                Member::of('colors', $own instanceof NotGiven ? $this->colors()->written() : new Absent()),
                 Member::of(Trend::KEPT_OPTION, $this->trendKept()),
                 Member::of('newCode', $newCode->percent()),
             ))
-            : $options;
+            : $choice;
     }
 
     /** `dashboard.topic`: the topic of the repositories the dashboard shows. */

@@ -9,8 +9,6 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 /**
  * The runner time the gate saved in the savings window, as the summary and
  * the badge show it (ADR-0016, ADR-0017).
- *
- * @internal
  */
 final readonly class SavedLately
 {

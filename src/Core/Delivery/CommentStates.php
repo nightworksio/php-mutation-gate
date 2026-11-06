@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Comment\Passing;
 use NightWorksIO\MutationGate\Core\Comment\State;
 use NightWorksIO\MutationGate\Core\Comment\Toggle;
 use NightWorksIO\MutationGate\Core\Config\CommentSettings;
+use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\PlannedWork;
@@ -172,7 +173,8 @@ final readonly class CommentStates implements Commenting
         $passed = $verdict instanceof Verdict && $verdict->judgement() === Judgement::Passed;
 
         return match (true) {
-            ! $writes->commentsOn(Occasion::PullRequest, [Occasion::PullRequest]) => NotWritten::because(self::NOT_ON),
+            ! $writes->commentsOn(Occasion::PullRequest, Listed::of(Occasion::PullRequest))
+                => NotWritten::because(self::NOT_ON),
             ! $writes->writes($state) => NotWritten::because(sprintf(self::LEFT_OUT, $state->value)),
             $this->draft && ! $writes->allows(Toggle::Drafts) => $this->notLet(Toggle::Drafts),
             $verdict instanceof Verdict => $this->whyNotOf($verdict, $passed),

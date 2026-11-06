@@ -142,8 +142,8 @@ final readonly class BadgeDirectory implements Reporter
         }
 
         $now = $this->clock->now();
-        $trend = Trend::decode($this->path->file(self::TREND)->read())
-            ->with($verdict, Revision::ref($this->commit), Instant::at($now), $this->kept);
+        $trend = Trend::decode($this->path->file(self::TREND)->read(), $this->kept)
+            ->with($verdict, Revision::ref($this->commit), Instant::at($now));
         $saved = $this->window->saved($trend->savedSince($this->window->since($now)));
         $summary = Summary::json($verdict, Revision::ref($this->commit), Instant::at($now), $this->newCode, $saved);
         $written = [

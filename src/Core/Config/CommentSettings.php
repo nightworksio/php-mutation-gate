@@ -53,12 +53,12 @@ final readonly class CommentSettings
     /** The keys set, as the object a config writes at `comment` or a comment reporter's `with.comment`. */
     public function json(): Json
     {
-        return Json::object(...$this->shows->members(), ...$this->writes->members());
+        return $this->shows->json()->merged($this->writes->json());
     }
 
     /** The PHP builder's calls for the keys set. */
     public function php(): PhpCalls
     {
-        return PhpCalls::inWith(...$this->shows->calls(), ...$this->writes->calls());
+        return $this->shows->php()->and($this->writes->php());
     }
 }

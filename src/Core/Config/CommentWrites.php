@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-use function array_key_exists;
 use function in_array;
-use function is_array;
 
 use NightWorksIO\MutationGate\Core\Comment\Key;
 use NightWorksIO\MutationGate\Core\Comment\Mode;
@@ -14,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Comment\Occasion;
 use NightWorksIO\MutationGate\Core\Comment\Passing;
 use NightWorksIO\MutationGate\Core\Comment\State;
 use NightWorksIO\MutationGate\Core\Comment\Toggle;
+use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 
 /**
@@ -27,32 +26,36 @@ final readonly class CommentWrites
     private const array TOGGLES = [Toggle::Drafts, Toggle::Sampled, Toggle::CutShort];
 
     /**
-     * @param list<State>|Absent    $states
-     * @param list<Occasion>|Absent $on
-     * @param array<string, bool>   $toggles by the toggle's name, those set
+     * @param Listed<State>|Absent    $states
+     * @param Listed<Occasion>|Absent $on
      */
     private function __construct(
         private Mode|Absent $mode,
-        private array|Absent $states,
+        private Listed|Absent $states,
         private Passing|Absent $passing,
-        private array|Absent $on,
-        private array $toggles,
+        private Listed|Absent $on,
+        private CommentToggles $toggles,
     ) {
     }
 
     /**
-     * @param list<State>|Absent    $states
-     * @param list<Occasion>|Absent $on
-     * @param array<string, bool>   $toggles by the toggle's name: `drafts`, `sampled` and `cutShort`
+     * @param Listed<State>|Absent    $states
+     * @param Listed<Occasion>|Absent $on
      */
     public static function of(
         Mode|Absent $mode = new Absent(),
-        array|Absent $states = new Absent(),
+        Listed|Absent $states = new Absent(),
         Passing|Absent $passing = new Absent(),
-        array|Absent $on = new Absent(),
-        array $toggles = [],
+        Listed|Absent $on = new Absent(),
+        CommentToggles|Absent $toggles = new Absent(),
     ): self {
-        return new self($mode, $states, $passing, $on, $toggles);
+        return new self(
+            $mode,
+            $states,
+            $passing,
+            $on,
+            $toggles instanceof CommentToggles ? $toggles : CommentToggles::none(),
+        );
     }
 
     /** This, with what a later layer sets laid over it, key by key. */
@@ -63,7 +66,7 @@ final readonly class CommentWrites
             $later->states instanceof Absent ? $this->states : $later->states,
             $later->passing instanceof Absent ? $this->passing : $later->passing,
             $later->on instanceof Absent ? $this->on : $later->on,
-            [...$this->toggles, ...$later->toggles],
+            $this->toggles->over($later->toggles),
         );
     }
 
@@ -76,7 +79,7 @@ final readonly class CommentWrites
     /** `comment.states`: whether the comment is written in a state; in every one by default. */
     public function writes(State $state): bool
     {
-        return ! is_array($this->states) || in_array($state, $this->states, strict: true);
+        return ! $this->states instanceof Listed || in_array($state, [...$this->states], strict: true);
     }
 
     /** `comment.passing`: what a passing run writes. */
@@ -88,40 +91,40 @@ final readonly class CommentWrites
     /**
      * `comment.on`: whether a kind of run writes the comment, where the reporter's own default is these.
      *
-     * @param list<Occasion> $standard
+     * @param Listed<Occasion> $standard
      */
-    public function commentsOn(Occasion $occasion, array $standard): bool
+    public function commentsOn(Occasion $occasion, Listed $standard): bool
     {
-        return in_array($occasion, is_array($this->on) ? $this->on : $standard, strict: true);
+        return in_array($occasion, [...$this->on instanceof Listed ? $this->on : $standard], strict: true);
     }
 
     /** `comment.drafts`, `.sampled` and `.cutShort`: whether such a run comments; each does by default. */
     public function allows(Toggle $toggle): bool
     {
-        return ! array_key_exists($toggle->value, $this->toggles) || $this->toggles[$toggle->value];
+        return $this->toggles->allows($toggle);
     }
 
-    /** @return list<Member> the keys a config writes of it, those set */
-    public function members(): array
+    /** The keys a config writes of it, those set. */
+    public function json(): Json
     {
-        return [
+        return Json::object(
             Member::of('mode', $this->mode instanceof Mode ? $this->mode->value : $this->mode),
             Member::of('states', CommentWritten::listed($this->states)),
             Member::of('passing', $this->passing instanceof Passing ? $this->passing->value : $this->passing),
             Member::of('on', CommentWritten::listed($this->on)),
             ...CommentWritten::toggles($this->toggles, self::TOGGLES),
-        ];
+        );
     }
 
-    /** @return list<string> the PHP builder's calls for the keys set */
-    public function calls(): array
+    /** The PHP builder's calls for the keys set. */
+    public function php(): PhpCalls
     {
-        return [
+        return PhpCalls::inWith(
             ...CommentWritten::caseCall(Key::Mode, $this->mode),
             ...CommentWritten::casesCall(Key::States, $this->states),
             ...CommentWritten::caseCall(Key::Passing, $this->passing),
             ...CommentWritten::casesCall(Key::On, $this->on),
-            ...CommentWritten::togglesCall($this->toggles),
-        ];
+            ...CommentWritten::togglesCall($this->toggles, self::TOGGLES),
+        );
     }
 }

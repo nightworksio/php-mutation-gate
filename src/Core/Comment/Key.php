@@ -11,6 +11,8 @@ use function implode;
 /**
  * A `comment` key that takes words, by its name, which is the PHP builder's method too (ADR-0102), with the enum
  * its words are cases of.
+ *
+ * @internal
  */
 enum Key: string
 {

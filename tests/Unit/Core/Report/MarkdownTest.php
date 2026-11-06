@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\Comment\Section;
 use NightWorksIO\MutationGate\Core\Config\CommentShows;
+use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\Cost\SavingsWindow;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -696,7 +697,7 @@ it('says what to try under a survivor in the pull request comment', function ():
 
 it('shows the verdict, the trees and the heatmap open by default and folds every other section, or opens those comment.open lists', function (): void {
     $folded = Markdown::comment(Verdicts::failing(), CommentShows::of());
-    $opened = Markdown::comment(Verdicts::failing(), CommentShows::of(open: [Section::Verdict, Section::Sets]));
+    $opened = Markdown::comment(Verdicts::failing(), CommentShows::of(open: Listed::of(Section::Verdict, Section::Sets)));
 
     expect($folded)->toContain("| Tree | Floor | Score | Against the base | Result |")
         ->and($folded)->toContain('<details><summary>Sets</summary>')

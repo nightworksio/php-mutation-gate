@@ -118,7 +118,7 @@ final readonly class Reach implements Part
             failFast: $none->failingFast()->mode(),
             changedTests: $none->changedTests(),
             fixtures: $none->fixtures(),
-            failFastWaits: Listed::of(...$none->failingFast()->waits()),
+            failFastWaits: $none->failingFast()->waits(),
         );
     }
 
@@ -251,10 +251,7 @@ final readonly class Reach implements Part
             Member::unlessEmpty('holds', Json::object(Member::of('hotPath', $this->hotPath))),
             Member::unlessEmpty(
                 'run',
-                Json::object(
-                    Member::of('full', $this->full),
-                    ...$this->failingFast->written(),
-                ),
+                Json::object(Member::of('full', $this->full))->merged($this->failingFast->written()),
             ),
             $this->pruning->written(),
             $this->sampling->written(),
@@ -298,10 +295,9 @@ final readonly class Reach implements Part
             ...$fixtures,
             ...$hotPath,
             ...$full,
-            ...$this->failingFast->php(),
         );
 
-        return $calls->and($this->pruning->php())->and($this->sampling->php());
+        return $calls->and($this->failingFast->php())->and($this->pruning->php())->and($this->sampling->php());
     }
 
     /**

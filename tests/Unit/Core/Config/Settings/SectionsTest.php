@@ -396,7 +396,7 @@ describe('Settings sections', function (): void {
         $config = ['runner' => 'pest', 'run' => $run];
         $php = Configs::valid($config)->php(ProjectRoot::origin())->code();
 
-        expect(Configs::settings($config)->reach()->failingFast()->waits())->toBe($waits)
+        expect([...Configs::settings($config)->reach()->failingFast()->waits()])->toBe($waits)
             ->and($call === '' ? ! str_contains($php, 'Reach::failFastWaitingOn') : str_contains($php, $call))->toBeTrue();
     })->with([
         'left out' => [[], [Unchecked::OutOfTime, Unchecked::Failed], ''],

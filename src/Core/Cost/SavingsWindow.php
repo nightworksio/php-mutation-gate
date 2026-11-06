@@ -10,13 +10,13 @@ use DateTimeImmutable;
 use function intdiv;
 use function is_string;
 
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
+use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
-use NightWorksIO\MutationGate\Core\Format\Node;
-use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -26,8 +26,6 @@ use function sprintf;
  * How far back the savings a run reports count (ADR-0016): the default
  * branch's runs of the last 30 days, or as long as `costs.savingsWindow`
  * says; the summary and the badge say what was saved in it.
- *
- * @internal
  */
 final readonly class SavingsWindow
 {
@@ -55,34 +53,30 @@ final readonly class SavingsWindow
     public static function in(Options $options): self
     {
         $written = $options->text(Key::of(self::KEY));
-        $length = is_string($written) ? Seconds::parse($written) : $written;
+        $window = is_string($written) ? self::parse($written) : $written;
 
-        return $length instanceof Seconds ? new self($length) : self::standard();
+        return $window instanceof self ? $window : self::standard();
     }
 
-    /**
-     * A window as a published file writes it, such as `30d`.
-     *
-     * @throws NotInShape
-     */
-    public static function read(Node $window): self
+    /** A window as a config or a published file writes it, such as `30d`; or why it is none. */
+    public static function parse(string $written): self|CannotJudge
     {
-        $length = Seconds::parse($window->text());
+        $length = Seconds::parse($written);
 
-        return $length instanceof Seconds ? new self($length) : throw NotInShape::at($window->at(), 'a duration');
+        return $length instanceof Seconds ? new self($length) : $length;
     }
 
     /**
-     * A reporter's options; those of one that shows what the gate saved with this window laid beneath them, so the
+     * A reporter's choice; one that shows what the gate saved with this window laid beneath its options, so the
      * summary and the badge count over `costs.savingsWindow`.
      */
-    public function under(string $use, Options $options): Options
+    public function under(Choice $choice): Choice
     {
-        $reporter = BuiltinReporter::tryFrom($use);
+        $reporter = BuiltinReporter::tryFrom($choice->use()->value());
 
         return $reporter instanceof BuiltinReporter && $reporter->countsSavings()
-            ? $options->over(Json::object(Member::of(self::KEY, $this->length->written())))
-            : $options;
+            ? $choice->over(Json::object(Member::of(self::KEY, $this->length->written())))
+            : $choice;
     }
 
     public function length(): Seconds

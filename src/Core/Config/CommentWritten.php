@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-use function array_key_exists;
 use function array_map;
 use function implode;
-use function is_array;
+use function is_bool;
 
 use NightWorksIO\MutationGate\Core\Comment\Detail;
 use NightWorksIO\MutationGate\Core\Comment\Key;
@@ -35,48 +34,35 @@ final readonly class CommentWritten
     private const string CALL = 'Comment::%s(%s)';
 
 
-    /** @param list<Section|State|Occasion>|Absent $cases */
-    public static function listed(array|Absent $cases): Json|Absent
+    /** @param Listed<Section|State|Occasion>|Absent $cases */
+    public static function listed(Listed|Absent $cases): Json|Absent
     {
-        return is_array($cases)
-            ? Json::items(...array_map(static fn(Section|State|Occasion $case): string => $case->value, $cases))
+        return $cases instanceof Listed
+            ? Json::items(...array_map(static fn(Section|State|Occasion $case): string => $case->value, [...$cases]))
             : $cases;
     }
 
     /**
-     * @param  array<string, bool> $set   by the toggle's name, those set
-     * @param  list<Toggle>        $among the toggles a part says of
+     * @param  list<Toggle> $among the toggles a part says of
      * @return list<Member>
      */
-    public static function toggles(array $set, array $among): array
+    public static function toggles(CommentToggles $set, array $among): array
     {
-        return array_map(
-            static fn(Toggle $toggle): Member => Member::of(
-                $toggle->value,
-                array_key_exists($toggle->value, $set) ? $set[$toggle->value] : new Absent(),
-            ),
-            $among,
-        );
+        return array_map(static fn(Toggle $toggle): Member => Member::of($toggle->value, $set->set($toggle)), $among);
     }
 
     /**
-     * @param  list<Section|State|Occasion>|Absent $cases
+     * @param  Listed<Section|State|Occasion>|Absent $cases
      * @return list<string>
      */
-    public static function casesCall(Key $key, array|Absent $cases): array
+    public static function casesCall(Key $key, Listed|Absent $cases): array
     {
-        $written = is_array($cases)
-            ? array_map(
-                static fn(Section|State|Occasion $case): string => sprintf(
-                    Declarations::METHOD,
-                    $key->enum(),
-                    $case->name,
-                ),
-                $cases,
-            )
-            : [];
+        $written = array_map(
+            static fn(Section|State|Occasion $case): string => sprintf(Declarations::METHOD, $key->enum(), $case->name),
+            $cases instanceof Listed ? [...$cases] : [],
+        );
 
-        return is_array($cases) ? [sprintf(self::CALL, $key->value, implode(', ', $written))] : [];
+        return $cases instanceof Listed ? [sprintf(self::CALL, $key->value, implode(', ', $written))] : [];
     }
 
     /** @return list<string> */
@@ -88,16 +74,17 @@ final readonly class CommentWritten
     }
 
     /**
-     * @param  array<string, bool> $set by the toggle's name, those set
+     * @param  list<Toggle> $among the toggles a part says of
      * @return list<string>
      */
-    public static function togglesCall(array $set): array
+    public static function togglesCall(CommentToggles $set, array $among): array
     {
         $calls = [];
 
-        foreach ($set as $toggle => $on) {
-            $named = sprintf(Declarations::METHOD, 'Toggle', Toggle::from($toggle)->name);
-            $calls[] = sprintf(self::CALL, $on ? 'with' : 'without', $named);
+        foreach ($among as $toggle) {
+            $on = $set->set($toggle);
+            $named = sprintf(Declarations::METHOD, 'Toggle', $toggle->name);
+            $calls = is_bool($on) ? [...$calls, sprintf(self::CALL, $on ? 'with' : 'without', $named)] : $calls;
         }
 
         return $calls;

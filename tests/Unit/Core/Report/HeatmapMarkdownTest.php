@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Comment\Cap;
+use NightWorksIO\MutationGate\Core\Config\CommentCaps;
 use NightWorksIO\MutationGate\Core\Config\CommentShows;
 use NightWorksIO\MutationGate\Core\Config\HeatmapRows;
 use NightWorksIO\MutationGate\Core\Config\Listed;
@@ -34,7 +36,7 @@ it('names at most three functions of a file, and a function the base has no scor
     ];
     $spans = static fn(): FunctionSpans => FunctionSpans::in(Contents::of($source));
     $base = Heatmap::of(Heatmaps::tree(0, $at(MutantJudgement::Killed)), static fn(): FunctionSpans => FunctionSpans::none());
-    $fallen = Heatmap::of(Heatmaps::tree(0, $at(MutantJudgement::Survived)), $spans)->comparedWith($base)->listing(HeatmapRows::of(files: 0))->fallen(CommentShows::of(caps: ['heatmap' => 1]));
+    $fallen = Heatmap::of(Heatmaps::tree(0, $at(MutantJudgement::Survived)), $spans)->comparedWith($base)->listing(HeatmapRows::of(files: 0))->fallen(CommentShows::of(caps: CommentCaps::capping(Cap::Heatmap, 1)));
 
     expect(HeatmapMarkdown::table($fallen)[0])
         ->toEndWith('| <code>src/Many.php</code> | 75.00% | -25.00 | <code>d</code> 0.00%, <code>a</code> 100.00%, <code>b</code> 100.00% |');

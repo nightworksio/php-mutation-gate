@@ -9,7 +9,6 @@ use function array_map;
 use BackedEnum;
 use Closure;
 
-use function is_bool;
 use function is_int;
 
 use NightWorksIO\MutationGate\Core\Comment\Cap;
@@ -25,8 +24,10 @@ use NightWorksIO\MutationGate\Core\Comment\Toggle;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\BoundsOptions;
 use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
+use NightWorksIO\MutationGate\Core\Config\CommentCaps;
 use NightWorksIO\MutationGate\Core\Config\CommentSettings;
 use NightWorksIO\MutationGate\Core\Config\CommentShows;
+use NightWorksIO\MutationGate\Core\Config\CommentToggles;
 use NightWorksIO\MutationGate\Core\Config\CommentWrites;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -149,33 +150,33 @@ final readonly class CommentKeys
         );
     }
 
-    /**
-     * @param  array<string, Reading<object|scalar>> $read by the key
-     * @return array<string, int>                    each cap's `most`, by the cap's name, those set
-     */
-    private static function caps(array $read): array
+    /** @param array<string, Reading<object|scalar>> $read by the key */
+    private static function caps(array $read): CommentCaps
     {
-        $caps = [];
+        $caps = CommentCaps::none();
 
         foreach (Cap::cases() as $cap) {
             $value = $read[$cap->value]->value();
-            $caps = $value instanceof CapRead && is_int($value->most) ? [...$caps, $cap->value => $value->most] : $caps;
+            $caps = $value instanceof CapRead && is_int($value->most)
+                ? $caps->over(CommentCaps::capping($cap, $value->most))
+                : $caps;
         }
 
         return $caps;
     }
 
-    /**
-     * @param  array<string, Reading<object|scalar>> $read by the key
-     * @return array<string, bool>                   each toggle, by its name, those set
-     */
-    private static function toggles(array $read): array
+    /** @param array<string, Reading<object|scalar>> $read by the key */
+    private static function toggles(array $read): CommentToggles
     {
-        $toggles = [];
+        $toggles = CommentToggles::none();
 
         foreach (Toggle::cases() as $toggle) {
             $value = $read[$toggle->value]->value();
-            $toggles = is_bool($value) ? [...$toggles, $toggle->value => $value] : $toggles;
+            $toggles = match ($value) {
+                true => $toggles->over(CommentToggles::on($toggle)),
+                false => $toggles->over(CommentToggles::off($toggle)),
+                default => $toggles,
+            };
         }
 
         return $toggles;
@@ -232,10 +233,10 @@ final readonly class CommentKeys
     /**
      * @template E of BackedEnum
      *
-     * @param  class-string<E> $enum
-     * @return list<E>|Absent
+     * @param  class-string<E>  $enum
+     * @return Listed<E>|Absent
      */
-    private static function casesOf(object|string|int|float|bool $read, string $enum): array|Absent
+    private static function casesOf(object|string|int|float|bool $read, string $enum): Listed|Absent
     {
         if (! $read instanceof Listed) {
             return Absent::setting();
@@ -247,7 +248,7 @@ final readonly class CommentKeys
             $cases = $item instanceof $enum ? [...$cases, $item] : $cases;
         }
 
-        return $cases;
+        return Listed::of(...$cases);
     }
 
     /**

@@ -296,7 +296,6 @@ services:
                     - USE_AT # a CI step's action at its commit, not a package at its version
                 'NightWorksIO\MutationGate\Core\Config\HeatmapRows':
                     - FILES # files a dashboard summary lists, not shipped presets
-                    - COMMENT # files a pull request comment lists, not ranked killers
                 'NightWorksIO\MutationGate\Core\Proof\FunctionsRecord':
                     - FIELD # a proof's field naming its unit's functions, not the kill history's section
                     - SPAN # the items of a function's span, not letters per edit
@@ -426,7 +425,6 @@ services:
                     - Mutant # the guide's section on a mutant, not a doomed record's key
                     - Floor # the guide's section on a floor, not a manifest's key
                 'NightWorksIO\MutationGate\Core\Report\Digest\MutantDetail':
-                    - TESTS # covering tests a mutant's detail names, not a ranking's top
                     - DIFF_LINE # a diff line set in below the digest's, not a found tree's list item
                     - DIFF # the word that opens a mutant's diff in its detail, not a record's field
                 'NightWorksIO\MutationGate\Core\Format\ShortEscape':
@@ -718,8 +716,6 @@ services:
                 'NightWorksIO\MutationGate\Core\Report\Stryker':
                     - LANGUAGE # Stryker's name for the language
                     - THRESHOLDS # Stryker's own scores in percent
-                'NightWorksIO\MutationGate\Core\Report\SavingsText':
-                    - DAYS # days the savings count
                 'NightWorksIO\MutationGate\Core\Report\AffectedText':
                     - OWN # a listed test file and one of its reasons, not a config problem
                 'NightWorksIO\MutationGate\Core\Coverage\MeasuredAt':

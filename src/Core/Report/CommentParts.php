@@ -93,7 +93,7 @@ final readonly class CommentParts
     {
         $head = [['', MarkdownBlocks::head($this->verdict, $this->overview, NoHistory::yet())]];
 
-        return in_array(Section::Problems, $this->shows->sections(), strict: true)
+        return in_array(Section::Problems, [...$this->shows->sections()], strict: true)
             ? $head
             : [...$head, ['Cannot judge', MarkdownBlocks::obstacles($this->verdict)]];
     }

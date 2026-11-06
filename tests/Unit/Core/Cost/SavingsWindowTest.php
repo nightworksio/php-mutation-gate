@@ -2,12 +2,11 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
+use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\Cost\SavedLately;
 use NightWorksIO\MutationGate\Core\Cost\SavingsWindow;
-use NightWorksIO\MutationGate\Core\Format\Node;
-use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
@@ -47,21 +46,21 @@ it('reads the window a reporter\'s options hold, the standard one where they hol
     'no text' => ['{"savingsWindow": 7}', fn(): SavingsWindow => SavingsWindow::standard()],
 ]);
 
-it('reads a published window, and refuses one that is no duration', function (): void {
-    expect(SavingsWindow::read(Node::config('"36h"')))->toEqual(SavingsWindow::of(Seconds::of(129_600.0)))
-        ->and(static fn(): SavingsWindow => SavingsWindow::read(Node::config('"a month"')))->toThrow(NotInShape::class, 'is not a duration');
+it('reads a window as a config writes it, and says why it reads no other', function (): void {
+    expect(SavingsWindow::parse('36h'))->toEqual(SavingsWindow::of(Seconds::of(129_600.0)))
+        ->and(SavingsWindow::parse('a month'))->toEqual(CannotJudge::because('"a month" is not a duration. Write it as 90s, 15m, 1h30m or 7d.'));
 });
 
 it('lays itself beneath the options of the summary and the badge only, under what they say', function (string $use, string $written): void {
-    expect(SavingsWindow::of(Seconds::days(7))->under($use, Configs::options('{"path": "x"}'))->written()->line())->toBe($written);
+    expect(SavingsWindow::of(Seconds::days(7))->under(Choice::of($use, Configs::options('{"path": "x"}')))->options()->written()->line())->toBe($written);
 })->with([
-    'the step summary' => [BuiltinReporter::GitHubSummary->value, '{"savingsWindow":"7d","path":"x"}'],
-    'the badge' => [BuiltinReporter::Badge->value, '{"savingsWindow":"7d","path":"x"}'],
-    'the JSON report' => [BuiltinReporter::Json->value, '{"path":"x"}'],
+    'the step summary' => ['github-summary', '{"savingsWindow":"7d","path":"x"}'],
+    'the badge' => ['badge', '{"savingsWindow":"7d","path":"x"}'],
+    'the JSON report' => ['json', '{"path":"x"}'],
     'a reporter of an extension' => ['\\Acme\\Reporter', '{"path":"x"}'],
 ]);
 
 it('leaves a window its options already hold', function (): void {
-    expect(SavingsWindow::standard()->under(BuiltinReporter::Badge->value, Configs::options('{"savingsWindow": "1d"}'))->written()->line())
+    expect(SavingsWindow::standard()->under(Choice::of('badge', Configs::options('{"savingsWindow": "1d"}')))->options()->written()->line())
         ->toBe('{"savingsWindow":"1d"}');
 });

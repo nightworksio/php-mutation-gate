@@ -10,7 +10,6 @@ use function in_array;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\Cost\SavedLately;
-use NightWorksIO\MutationGate\Core\Cost\SavingsWindow;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -156,7 +155,7 @@ final readonly class Published
             $savings->isPresent()
                 ? SavedLately::of(
                     Seconds::of(self::seconds($savings->field('seconds'))),
-                    SavingsWindow::read($savings->field('window')),
+                    PublishedWindow::read($savings->field('window')),
                 )
                 : NoHistory::yet(),
             $mutators->isPresent() ? array_map(self::mutator(...), $mutators->items()) : [],
