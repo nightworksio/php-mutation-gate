@@ -60,10 +60,23 @@ $idle = static fn(string $mutator): Ledger => Ledger::empty()->withLearned(Talli
     Tallies::of('fake', 'Busy', 100, 50, 50, 0, 50.0),
 ));
 
-it('prints each suggestion with its evidence, then the config file with them laid over it as a diff, writes nothing, and exits 0', function () use ($suggesting, $idle): void {
+it('prints each suggestion with its evidence, then the config file with them laid over it as a diff, writes nothing, and exits 0', function () use ($suggesting, $idle, $registered): void {
     $project = FlowCommands::project();
     $before = (string) file_get_contents(sprintf('%s/mutation-gate.json', $project));
     $printed = FlowCommands::run($suggesting($idle('default/BitwiseAndToBitwiseOr'), $project));
+    $composed = FlowCommands::registered($registered($idle('default/BitwiseAndToBitwiseOr')), $project, Variables::of([]))->compose(new ArrayInput([]));
+    $read = $composed instanceof Composed ? NightWorksIO\MutationGate\Cli\Flow\TalliedLedger::read($composed, NotGiven::value()) : null;
+    $diagnosed = json_encode([
+        'runner' => $composed instanceof Composed ? $composed->settings->runner()->name()->value() : 'uncomposed',
+        'store' => $composed instanceof Composed ? $composed->adapters->proofs::class : '',
+        'tallies' => match (true) {
+            $read instanceof Ledger => count([...$read->learned()->tallies()]),
+            $read === null => 'none',
+            default => $read->why(),
+        },
+        'config' => (string) file_get_contents(sprintf('%s/mutation-gate.json', $project)),
+        'env' => array_filter(getenv(), static fn(string $name): bool => str_starts_with($name, 'MUTATION_GATE') || str_starts_with($name, 'GITHUB_A'), ARRAY_FILTER_USE_KEY),
+    ]);
 
     expect($printed->code)->toBe(0)
         ->and($printed->errors)->toBe('', sprintf('errors: %s', json_encode($printed->errors)))
@@ -84,7 +97,7 @@ it('prints each suggestion with its evidence, then the config file with them lai
             +    }
              }
 
-            SAID, sprintf('output: %s', json_encode($printed->output)))
+            SAID, sprintf('output: %s %s', json_encode($printed->output), $diagnosed))
         ->and((string) file_get_contents(sprintf('%s/mutation-gate.json', $project)))->toBe($before);
 });
 
