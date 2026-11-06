@@ -86,15 +86,13 @@ END_TO_END_JOBS = ("warm", "hooks")
 SCOPE_JOB = "scope"
 
 # Paths that the suites read although they read as documentation: ARCHITECTURE.md
-# holds the rule tables the Guards suite reads, .docs/reference/ the config
-# reference and examples the config tests read, .docs/guide/ci/ the CI setups
-# the CI tests read, and the troubleshooting guide the slugs the Docs suite
-# reads.
+# holds the rule tables the Guards suite reads, and .docs/using/ the config
+# reference and examples the config tests read, the CI setups the CI tests
+# read, and the troubleshooting guide and the guide to the report, whose
+# sections the Docs suite reads.
 CODE_DOCS = (
     "ARCHITECTURE.md",
-    ".docs/reference/",
-    ".docs/guide/ci/",
-    ".docs/guide/troubleshooting.md",
+    ".docs/using/",
 )
 
 # The action, and the reusable workflow the self-gate calls, which the suites
@@ -159,13 +157,16 @@ CONTRACT_RUN = ("phpunit.xml", ".github/scripts/legs.json")
 
 INFECTION = ("src/Adapter/Infection/", "src/Core/Coverage/PhpUnitXml.php", "tests/Contract/Runner/infection-fixture/")
 
-# What the docs site is built from, how it is built, and what prints a link
-# into it (ADR-0038).
+# What the docs site is built from, the root's pages among it, how it is
+# built, and what prints a link into it (ADR-0038).
 SITE = (
     ".docs/",
     ".site/",
     ".github/scripts/decisions_index.py",
     "README.md",
+    "CONTRIBUTING.md",
+    "ARCHITECTURE.md",
+    "SECURITY.md",
     "src/Core/ThisPackage.php",
     "src/Core/Troubleshooting/",
     "src/Core/Report/Term.php",

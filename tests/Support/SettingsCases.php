@@ -158,7 +158,8 @@ final readonly class SettingsCases
                 "green": 80,
                 "yellow": 70,
                 "orange": 60
-            }
+            },
+            "logo": true
         },
         "dashboard": {
             "topic": "mutation-gate"
@@ -258,7 +259,7 @@ final readonly class SettingsCases
             ['use' => 'sarif', 'path' => 'build/mutation.sarif'],
             ['use' => 'Acme\\GateSlack\\SlackReporter', 'with' => ['channel' => '#ci']],
         ],
-        'badge' => ['colors' => ['green' => 95]],
+        'badge' => ['colors' => ['green' => 95], 'logo' => 'build/logo.svg'],
         'dashboard' => ['topic' => 'mutation-tested', 'repositories' => ['api', 'web']],
         'pest' => ['patch' => true, 'canary' => 'canary', 'bootTail' => true, 'workerOpcache' => false, 'schemata' => false, 'bootMutants' => false],
         'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45, 'before' => true],

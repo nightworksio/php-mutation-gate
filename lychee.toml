@@ -5,7 +5,7 @@
 hidden = true
 # The vendored viewer, the fixtures and the docs site's packages are other
 # projects' files, and its build is the docs again.
-exclude_path = [".git", "vendor", "tests/Fixtures", ".site/node_modules", ".site/dist", ".site/.astro"]
+exclude_path = [".git", "vendor", "tests/Fixtures", ".site/node_modules", ".site/dist", ".site/out", ".site/.astro"]
 
 exclude_loopback = true
 max_retries = 3

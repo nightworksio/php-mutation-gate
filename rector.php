@@ -6,6 +6,12 @@ use Rector\CodingStyle\Rector\ArrowFunction\ArrowFunctionDelegatingCallToFirstCl
 use Rector\Config\RectorConfig;
 use Rector\Php55\Rector\String_\StringClassNameToClassConstantRector;
 
+$phpstanCache = __DIR__ . '/.phpstan-cache';
+
+if (! is_dir($phpstanCache)) {
+    mkdir($phpstanCache, recursive: true);
+}
+
 return RectorConfig::configure()
     // R3 — the same trees phpstan.neon and the Arch suite read, and the executables.
     ->withPaths([
@@ -69,4 +75,4 @@ return RectorConfig::configure()
         __DIR__ . '/tests/Contract/StaticChecker/fixture',
     ])
     ->withImportNames(importShortClasses: false)
-    ->withCache(__DIR__ . '/.rector-cache');
+    ->withCache(__DIR__ . '/.rector-cache', containerCacheDirectory: $phpstanCache);

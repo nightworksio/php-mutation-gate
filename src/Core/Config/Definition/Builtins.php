@@ -196,6 +196,7 @@ final readonly class Builtins
             BuiltinReporter::Badge->value => Section::options(
                 Json::object(),
                 Field::optional('colors', NumberMap::of(Number::percent()), $judges),
+                Field::optional('logo', FlagOrPath::of($origin), $judges),
                 Field::optional('commit', Text::of('a commit'), $judges),
             ),
         ], $origin);

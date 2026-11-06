@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\Badge;
 use NightWorksIO\MutationGate\Core\Report\BadgeColors;
+use NightWorksIO\MutationGate\Core\Report\BadgeLogo;
 use NightWorksIO\MutationGate\Core\Report\Summary;
 use NightWorksIO\MutationGate\Core\Report\Trend;
 use NightWorksIO\MutationGate\Core\Report\TrendSvg;
@@ -40,7 +41,7 @@ it('writes the badge, and the trend with this verdict appended to the one it fin
     $trend = $earlier->with(Verdicts::passing(), Revision::ref('abc123'), Moment::at('2026-09-30T12:00:00Z'));
 
     expect($answer)->toEqual(Written::to($publish))
-        ->and(file_get_contents(sprintf('%s/badge.json', $publish)))->toBe(Badge::json(Score::ofHundredths(10_000), BadgeColors::defaults()))
+        ->and(file_get_contents(sprintf('%s/badge.json', $publish)))->toBe(Badge::json(Score::ofHundredths(10_000), BadgeColors::defaults(), BadgeDirectory::helix()))
         ->and(file_get_contents(sprintf('%s/trend.json', $publish)))->toBe($trend->json())
         ->and(file_get_contents(sprintf('%s/trend.svg', $publish)))->toBe(TrendSvg::of($trend));
 });
@@ -123,7 +124,26 @@ it('refuses colours that are not a map of scores, and a directory that is not te
     'a directory up out of the project' => ['{"path": "../x"}', 'path', 'expected a path inside the project, got "../x"'],
     'a floor for new code as text' => ['{"newCode": "high"}', 'newCode', 'The floor for new code is a percentage from 0 to 100.'],
     'a floor for new code past 100' => ['{"newCode": 101}', 'newCode', 'The floor for new code is a percentage from 0 to 100.'],
+    'a logo as a number' => ['{"logo": 3}', 'logo', 'The badge\'s logo is true for the helix, false for none, or the path of an SVG file.'],
+    'a logo outside the project' => ['{"logo": "../logo.svg"}', 'logo', 'The badge\'s logo is true for the helix, false for none, or the path of an SVG file.'],
+    'a logo file that holds nothing' => ['{"logo": "no/such/logo.svg"}', 'logo', 'The badge\'s logo names a file that holds no SVG.'],
 ]);
+
+it('shows the helix the package ships, none, or the SVG file its logo names', function (string $options, BadgeLogo $logo) use ($clock): void {
+    expect(BadgeDirectory::configured(Configs::options($options), $clock()))
+        ->toEqual(BadgeDirectory::at('.mutation-gate/publish', BadgeColors::defaults(), 'abc123', $clock())->showing($logo));
+})->with([
+    'no logo named' => ['{"commit": "abc123"}', fn(): BadgeLogo => BadgeDirectory::helix()],
+    'the helix' => ['{"commit": "abc123", "logo": true}', fn(): BadgeLogo => BadgeDirectory::helix()],
+    'none' => ['{"commit": "abc123", "logo": false}', fn(): BadgeLogo => BadgeLogo::none()],
+    'a file' => ['{"commit": "abc123", "logo": "tests/Fixtures/Badge/logo.svg"}', fn(): BadgeLogo => BadgeLogo::drawn('<svg xmlns="http://www.w3.org/2000/svg"/>')],
+]);
+
+it('ships the helix as a 14 by 14 pixel-art SVG, which shields.io shows beside the label', function (): void {
+    expect(BadgeDirectory::helix()->fields()['logoSvg'] ?? '')
+        ->toStartWith('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14" width="14" height="14" shape-rendering="crispEdges">')
+        ->toEndWith('</svg>');
+});
 
 it('writes what the gate saved over the last 30 days beside the badge', function () use ($clock): void {
     $publish = sprintf('%s/publish', Scratch::directory());
@@ -134,7 +154,7 @@ it('writes what the gate saved over the last 30 days beside the badge', function
 
     BadgeDirectory::at($publish, BadgeColors::defaults(), 'abc123', $clock())->report(Verdicts::named('accounted'));
 
-    expect(file_get_contents(sprintf('%s/savings.json', $publish)))->toBe(Badge::savings(Seconds::of(8_820.0)));
+    expect(file_get_contents(sprintf('%s/savings.json', $publish)))->toBe(Badge::savings(Seconds::of(8_820.0), BadgeDirectory::helix()));
 });
 
 it('says there is no history yet where no run knew what it saved', function () use ($clock): void {
@@ -142,7 +162,7 @@ it('says there is no history yet where no run knew what it saved', function () u
 
     BadgeDirectory::at($publish, BadgeColors::defaults(), 'abc123', $clock())->report(Verdicts::failing());
 
-    expect(file_get_contents(sprintf('%s/savings.json', $publish)))->toBe(Badge::savings(NoHistory::yet()));
+    expect(file_get_contents(sprintf('%s/savings.json', $publish)))->toBe(Badge::savings(NoHistory::yet(), BadgeDirectory::helix()));
 });
 
 it('updates neither the badge nor the trend for a sampled run', function () use ($clock): void {

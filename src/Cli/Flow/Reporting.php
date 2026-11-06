@@ -55,7 +55,7 @@ final readonly class Reporting
     /**
      * What chose the reporters the run chooses on GitHub.
      *
-     * @param list<Member> $publishing what the badge is told of where to write, beside its colours
+     * @param list<Member> $publishing what the badge is told of where to write, beside its colours and its logo
      */
     public function __construct(
         private Chosen $chosen,
@@ -251,6 +251,7 @@ final readonly class Reporting
             BuiltinReporter::Badge->value,
             Options::of(Json::object(
                 Member::of('colors', $settings->publishing()->colors()->written()),
+                Member::of('logo', $settings->publishing()->logoOption()),
                 Member::of('newCode', $settings->floors()->newCode()->percent()),
                 ...$this->publishing,
             )),

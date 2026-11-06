@@ -219,15 +219,15 @@ it('shows each tree, new-code and security set, its score as a bar against its f
 it('opens with what mutation testing is, linking to the guide of the gate that rendered it', function (): void {
     $provenance = Provenance::of(Version::of('nightworksio/mutation-gate', 'v1.4.0', 'abc'), Path::of('mutation-gate.baseline.json'));
     $released = pageOf(Verdicts::passing()->withAccount(Verdicts::account()->withProvenance($provenance)));
-    $guide = 'https://nightworksio.github.io/php-mutation-gate%s/guide/reading-the-report/#%s';
+    $guide = 'https://nightworksio.github.io/php-mutation-gate%s/using/reading-the-report/#%s';
 
     expect($released)->toContain(sprintf('<p class="intro">%s <a href="%s">How to read this report</a></p>', Term::MutationTesting->meaning(), sprintf($guide, '/1.4', 'mutation-testing')))
-        ->and(pageOf(Verdicts::passing()))->toContain(sprintf($guide, '', 'mutation-testing'));
+        ->and(pageOf(Verdicts::passing()))->toContain(sprintf($guide, '/next', 'mutation-testing'));
 });
 
 it('grades every count in a word with why, never by colour alone, and says what each word means where it appears', function (): void {
     $page = pageOf(everyJudged());
-    $guide = 'https://nightworksio.github.io/php-mutation-gate/guide/reading-the-report/#%s';
+    $guide = 'https://nightworksio.github.io/php-mutation-gate/next/using/reading-the-report/#%s';
 
     foreach ([...Outcome::counted(), Outcome::LeftOut] as $outcome) {
         expect($page)->toContain(sprintf('<span class="grade grade--%s">%s</span>', $outcome->grade()->value, $outcome->grade()->label()))
