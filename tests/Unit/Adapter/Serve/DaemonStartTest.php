@@ -61,6 +61,8 @@ it('starts none where one already listens, or where the socket is not the user\'
 
 it('starts the daemon with its input, output and errors on the null device, so it prints nothing where it was started', function () use ($standIn): void {
     $project = ServedProjects::entered();
+    $bound = $standIn($project, "stream_socket_server('unix://.mutation-gate/serve.sock');");
+    $first = new DaemonStart(ServedProjects::socket(), Seconds::of(5.0))->started($bound, $project);
     $script = $standIn($project, "fwrite(STDOUT, 'out');\nfwrite(STDERR, 'err');\nfile_put_contents('read', (string) fgets(STDIN));\n\$s = stream_socket_server('unix://.mutation-gate/serve.sock');\nsleep(2);");
     file_put_contents('given', "secret\n");
     $starter = ServedProjects::aside(static function () use ($script, $project): void {
@@ -73,7 +75,8 @@ it('starts the daemon with its input, output and errors on the null device, so i
     });
     ServedProjects::waitedFor($starter);
 
-    expect(file_get_contents('started'))->toBe(var_export([true, [true, true, true]], return: true))
+    expect($first)->toBeTrue()
+        ->and(file_get_contents('started'))->toBe(var_export([true, [true, true, true]], return: true))
         ->and(file_get_contents('printed'))->toBe('')
         ->and(file_get_contents('warned'))->toBe('')
         ->and(Appeared::file('read') ? file_get_contents('read') : 'unread')->toBe('');

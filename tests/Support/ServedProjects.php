@@ -118,8 +118,11 @@ final class ServedProjects
         $child = pcntl_fork();
 
         if ($child === 0) {
-            $run();
-            pcntl_exec('/usr/bin/true');
+            try {
+                $run();
+            } finally {
+                pcntl_exec('/usr/bin/true');
+            }
         }
 
         return $child;
