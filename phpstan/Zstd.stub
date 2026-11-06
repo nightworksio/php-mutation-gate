@@ -1,0 +1,13 @@
+<?php
+
+function zstd_compress(string $data, int $level = 3): string|false
+{
+}
+
+function zstd_uncompress_init(): object|false
+{
+}
+
+function zstd_uncompress_add(object $context, string $data): string|false
+{
+}

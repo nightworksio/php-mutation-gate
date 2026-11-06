@@ -63,7 +63,7 @@ it('offers plan\'s options: a ref to change since, a full run, a coverage map, a
         ->and($definition->getOption('coverage')->isValueRequired())->toBeTrue()
         ->and($definition->getOption('shards')->isValueRequired())->toBeTrue()
         ->and($definition->getOption('kill-matrix')->isValueRequired())->toBeTrue()
-        ->and(array_keys($definition->getOptions()))->toBe(['changed-since', 'full', 'sample', 'coverage', 'shards', 'kill-matrix', 'security', 'suite', 'deliver-later']);
+        ->and(array_keys($definition->getOptions()))->toBe(['changed-since', 'full', 'unproven', 'sample', 'coverage', 'shards', 'kill-matrix', 'security', 'suite', 'deliver-later']);
 });
 
 it('considers what changed since the last commit that passed unless asked otherwise, or run.full asks for every unit', function (array $options, bool $fullByDefault, Mode $mode, bool $full) use (
@@ -77,6 +77,7 @@ it('considers what changed since the last commit that passed unless asked otherw
     'nothing asked' => [[], false, fn(): Mode => Mode::since('last-passed'), false],
     'nothing asked, where run.full is true' => [[], true, fn(): Mode => Mode::full(), true],
     '--full' => [['--full' => true], false, fn(): Mode => Mode::full(), true],
+    '--unproven' => [['--unproven' => true], false, fn(): Mode => Mode::unproven(), true],
     '--changed-since' => [['--changed-since' => 'origin/main'], false, fn(): Mode => Mode::since('origin/main'), false],
     '--changed-since, where run.full is true' => [['--changed-since' => 'origin/main'], true, fn(): Mode => Mode::since('origin/main'), false],
     'last-run' => [['--changed-since' => 'last-run'], false, fn(): Mode => Mode::since('last-run'), false],
@@ -104,6 +105,8 @@ it('refuses a sample beside the security mutators alone or one suite alone, and 
 it('refuses a full run and a change-scoped one asked for together', function () use ($given): void {
     expect(FlowOptions::mode($given(['--full' => true, '--changed-since' => 'origin/main']), Flows::settings()))
         ->toEqual(CannotJudge::because('--full and --changed-since ask for different runs. Give one of them.'));
+    expect(FlowOptions::mode($given(['--unproven' => true, '--changed-since' => 'origin/main']), Flows::settings()))
+        ->toEqual(CannotJudge::because('--unproven and --changed-since ask for different runs. Give one of them.'));
 });
 
 it('considers what changed since the last commit that passed where the command takes none of the flows\' options', function () use ($bare): void {

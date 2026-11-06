@@ -25,7 +25,7 @@ final readonly class SampleText
         SAID;
 
     private const string NOTHING = <<<'SAID'
-        --sample has nothing to sample: every tree is held to 100, or each unit it runs is known exactly.
+        The run has nothing to sample: every tree is held to 100, or each unit it runs is known exactly.
         SAID;
 
     /** @return list<string> */

@@ -54,7 +54,12 @@ final readonly class Measured
             return $inventory;
         }
 
-        $ledgers = Ledgers::read($adapters->proofs, $inventory->standing, Writing::Never);
+        $ledgers = Ledgers::read(
+            $adapters->proofs,
+            $inventory->standing,
+            Writing::Never,
+            $settings->proofs()->taken(),
+        );
         $newest = Considering::of(
             $inventory->units,
             Reach::nothing(Packages::of($inventory->trees)),

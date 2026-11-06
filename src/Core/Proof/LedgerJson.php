@@ -52,12 +52,13 @@ final readonly class LedgerJson
         $kept = $retention->proofsOf($ledger);
         $killers = $retention->killersOf($ledger);
         $mutators = self::namesOf($kept, static fn(Mutant|ProvedKill $killed): array => [$killed->mutator()]);
-        $tests = array_values(array_unique([
+        $tests = TestsTable::of(
             ...self::namesOf($kept, static fn(Mutant|ProvedKill $killed): array => self::idsOf($killed->killers())),
             ...KillersRecord::testsOf($killers),
             ...self::judgingOf($kept),
-        ]));
-        $testIndex = array_flip($tests);
+        );
+        $testIndex = $tests->indices();
+        $bases = array_map(static fn(Digest $base): string => $base->value(), [...$retention->basesOf($ledger)]);
         $inputs = InputsTable::of(...$kept);
         $timings = self::timings($ledger->timings());
         $analysers = AnalysersRecord::of($ledger->learned()->analysers());
@@ -66,19 +67,19 @@ final readonly class LedgerJson
         $subsumption = SubsumptionRecord::of($ledger->learned()->subsumption());
         $passed = $ledger->runs()->passed();
         $lastRun = $ledger->runs()->lastRun();
-        $proofs = self::proofsWritten($kept, array_flip($mutators), $testIndex, $inputs);
+        $shared = ProofsShared::of(array_flip($mutators), $testIndex, $inputs, array_flip($bases));
+        $proofs = self::proofsWritten($kept, $shared);
 
         yield 'format' => sprintf('%d', LedgerFile::FORMAT);
-        yield LedgerFile::BASES => JsonText::compact(array_map(
-            static fn(Digest $base): string => $base->value(),
-            [...$retention->basesOf($ledger)],
-        ));
+        yield LedgerFile::BASES => JsonText::compact($bases);
         yield LedgerFile::MUTATORS => JsonText::compact($mutators);
-        yield LedgerFile::TESTS => JsonText::compact($tests);
+        yield LedgerFile::TESTS => JsonText::object($tests->written());
         yield InputsTable::SECTION => JsonText::compact($inputs->written());
         yield LedgerFile::PROOFS => JsonText::object($proofs);
         yield 'timings' => $timings === [] ? JsonText::object([]) : JsonText::compact($timings);
-        yield KillersRecord::SECTION => JsonText::compact(KillersRecord::of($killers, $testIndex));
+        yield KillersRecord::SECTION => JsonText::compact(
+            KillersRecord::placing($killers, $testIndex, self::placesOf($kept)),
+        );
 
         if ($analysers !== []) {
             yield AnalysersRecord::SECTION => JsonText::compact($analysers);
@@ -112,16 +113,37 @@ final readonly class LedgerJson
     /**
      * Each kept proof's record, as JSON text, by its key.
      *
-     * @param  list<Proof>        $kept
-     * @param  array<string, int> $mutators each mutator's index in the ledger, by its name
-     * @param  array<string, int> $tests    each killing test's index in the ledger, by its id
+     * @param  list<Proof>               $kept
      * @return Generator<string, string>
      */
-    private static function proofsWritten(array $kept, array $mutators, array $tests, InputsTable $inputs): Generator
+    private static function proofsWritten(array $kept, ProofsShared $shared): Generator
     {
         foreach ($kept as $proof) {
-            yield $proof->key()->value() => JsonText::compact(ProofRecord::of($proof, $mutators, $tests, $inputs));
+            yield $proof->key()->value() => JsonText::compact(ProofRecord::of($proof, $shared));
         }
+    }
+
+    /**
+     * Where the kept proofs first record each mutant: the proof's index among them, and the mutant's among its
+     * records, which hold its reported mutants and then its kills.
+     *
+     * @param  list<Proof>                    $kept
+     * @return array<string, array{int, int}>
+     */
+    private static function placesOf(array $kept): array
+    {
+        $places = [];
+
+        foreach ($kept as $index => $proof) {
+            $place = 0;
+
+            foreach ([...$proof->reported(), ...$proof->kills()] as $mutant) {
+                $places[$mutant->id()->value()] ??= [$index, $place];
+                $place++;
+            }
+        }
+
+        return $places;
     }
 
     /**
@@ -195,7 +217,7 @@ final readonly class LedgerJson
 
         foreach ($timings as $timing) {
             $written[$timing->unit()->value()] = [
-                LedgerFile::SECONDS => $timing->seconds()->seconds(),
+                LedgerFile::SECONDS => $timing->seconds()->toTheMillisecond(),
                 LedgerFile::RUNNER => $timing->runner(),
                 LedgerFile::AT => $timing->at()->value(),
                 ...$timing->gate()->isRecorded() ? [LedgerFile::GATE => $timing->gate()->value()] : [],

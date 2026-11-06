@@ -5,15 +5,16 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Proof;
 
 use function count;
+use function is_string;
 
-use NightWorksIO\MutationGate\Core\Format\Gzip;
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Written;
 
 use function sprintf;
 
 /**
  * A ledger as it is written: what {@see LedgerRetention::standard()} keeps,
- * gzipped, and within the limits a run reads a ledger to (ADR-0013).
+ * packed as its codec says, and within the limits a run reads a ledger to (ADR-0013).
  * Retention caps proofs, not bytes, so a project whose units hold many
  * mutants can reach the limits first; then the oldest proofs of those kept
  * are dropped until the ledger is within them, and the run says so.
@@ -28,22 +29,25 @@ final readonly class EncodedLedger
     {
     }
 
-    /** This ledger, with the oldest proofs dropped until it is within these limits. */
-    public static function within(Ledger $ledger, LedgerLimits $limits): self
+    /**
+     * This ledger, packed as the codec says, with the oldest proofs dropped until it is within these limits; or
+     * why it cannot be packed.
+     */
+    public static function within(Ledger $ledger, LedgerLimits $limits, LedgerCodec $codec): self|CannotJudge
     {
         $retention = LedgerRetention::standard();
         $retained = count($retention->proofsOf($ledger));
         $kept = $retained;
         $text = LedgerJson::text($ledger, $retention);
-        $bytes = Gzip::pack($text);
+        $bytes = $codec->pack($text);
 
-        while ($kept > 0 && ! $limits->admitsWritten($text, $bytes)) {
+        while (is_string($bytes) && $kept > 0 && ! $limits->admitsWritten($text, $bytes)) {
             $kept = $limits->fitting($kept, $text, $bytes);
             $text = LedgerJson::text($ledger, $retention->keepingAtMost($kept));
-            $bytes = Gzip::pack($text);
+            $bytes = $codec->pack($text);
         }
 
-        return new self($bytes, $kept, $retained);
+        return is_string($bytes) ? new self($bytes, $kept, $retained) : $bytes;
     }
 
     /** The ledger's file. */

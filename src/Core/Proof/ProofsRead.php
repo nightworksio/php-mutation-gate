@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Proof;
 
+use function array_key_exists;
+
 use ArrayObject;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
+use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Mutant\KilledRecords;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 
@@ -27,20 +31,36 @@ final readonly class ProofsRead
     private const string RAN = '%s %s %s %s';
 
     /**
+     * @param list<string>              $bases the ledger's bases, each at its index
      * @param ArrayObject<string, Path> $units each unit read so far, by its path
      * @param ArrayObject<string, Run>  $runs  each run read so far, by its id, its time, its base and its matrix
      */
     private function __construct(
         private KilledRecords $killed,
         private InputsTable $inputs,
+        private array $bases,
         private ArrayObject $units,
         private ArrayObject $runs,
     ) {
     }
 
-    public static function of(KilledRecords $killed, InputsTable $inputs): self
+    /** @param list<string> $bases the ledger's bases, each at its index, as its file writes them */
+    public static function of(KilledRecords $killed, InputsTable $inputs, array $bases = []): self
     {
-        return new self($killed, $inputs, new ArrayObject(), new ArrayObject());
+        return new self($killed, $inputs, $bases, new ArrayObject(), new ArrayObject());
+    }
+
+    /**
+     * The base an index into the ledger's bases names.
+     *
+     * @throws NotInShape
+     */
+    public function base(Node $index): Digest
+    {
+        $at = $index->integer();
+        return array_key_exists($at, $this->bases) && Digest::isSha256($this->bases[$at])
+            ? Digest::of($this->bases[$at])
+            : throw NotInShape::at($index->at(), 'a base');
     }
 
     public function killed(): KilledRecords

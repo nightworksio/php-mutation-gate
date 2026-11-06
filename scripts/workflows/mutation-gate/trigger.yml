@@ -1,0 +1,155 @@
+name: mutation-gate
+
+# The sharded gate, called with workflow_call: a plan job, one job per shard, a
+# verdict job, which is the check a branch protects, and on the default branch
+# a job that publishes the badge and trend (ADR-0011).
+#
+# The plan, the shards and the verdict run the project's own code, so they
+# hold no token that can write, and no secret but the credentials Composer
+# installs the project with, which their install steps alone read (ADR-0029).
+# What needs a credential happens in fetch, deliver-plan, deliver-survivors
+# and deliver, which run none of it, from the gate's own installation at this
+# workflow's commit, installed from resources/action/keyed's lock (ADR-0007).
+#
+# The shard jobs run the action from this workflow's own commit, which each
+# checks out at job.workflow_sha, so the workflow and the action are always
+# one version.
+#
+# Each artifact one job hands another is named with the attempt of the job
+# that wrote it, its `attempt` output, and a shard's result with its plan's, so
+# a re-run reads what it and the jobs it kept wrote, never an older attempt's.
+#
+# A calling job grants what its called jobs ask for, or the run does not
+# start: contents: write (publish, which runs on the default branch only),
+# actions: read (verdict and deliver), pull-requests: write (the deliver
+# jobs) and id-token: write (fetch and deliver). It passes each secret
+# declared below under its own name, read from its own secrets by that name;
+# the store's values stay in the two environments, and COMPOSER_AUTH is a
+# repository secret, since every job that installs the project reads it.
+
+on:
+  workflow_call:
+    inputs:
+      config:
+        description: The config file, where the gate should not look for one.
+        type: string
+        default: ''
+      php-version:
+        description: The PHP version to set up.
+        type: string
+        default: '8.5'
+      extensions:
+        description: 'PHP extensions to set up besides the defaults, as setup-php takes them, such as "zstd, intl".'
+        type: string
+        default: ''
+      runner:
+        description: pest, infection, phpunit, phpspec, codeception, testo or a registered runner's name; the config's, or zero-config's, where empty.
+        type: string
+        default: ''
+      mode:
+        description: auto, full, changed, sampled or unproven.
+        type: string
+        default: auto
+      changed-since:
+        description: A git ref, or last-passed; where empty, on pull_request the commit its merge checkout merges it onto (its base where the checkout is no merge), the group's base on merge_group, the default branch on another branch, and last-passed on the default branch.
+        type: string
+        default: ''
+      budget:
+        description: How long the run may take, such as 15m or 1h30m.
+        type: string
+        default: ''
+      reports:
+        description: '<name>:<path> lines, each added as --report.'
+        type: string
+        default: ''
+      cache:
+        description: Keep the proof ledger in the Actions cache.
+        type: boolean
+        default: true
+      coverage:
+        description: >-
+          An artifact of this run that holds map.json.gz, the map `mutation-gate coverage --into` wrote in the job
+          that ran the suite under coverage; where empty, the plan runs the suite under coverage itself.
+        type: string
+        default: ''
+      runs-on:
+        description: 'The runner the plan, the shards, the survivors and the verdict run on: a label, such as ubuntu-24.04-arm, or a JSON list of labels a runner must all have, such as ["self-hosted", "linux"].'
+        type: string
+        default: ubuntu-latest
+      keyed-runs-on:
+        description: 'The runner fetch, the deliver jobs and publish run on, which hold a key or a token that writes: a label or a JSON list of labels, as runs-on takes. A runner a pull request''s code ran on can keep what that code left for the next job, so name a GitHub-hosted or an ephemeral one.'
+        type: string
+        default: ubuntu-latest
+    # A called job reads an environment's secret only under a name its caller
+    # passes (ADR-0029), so each is declared here and passed by name. The value
+    # comes from the environment the reading job enters, which wins over what
+    # the caller passes. Only fetch and deliver read them, but COMPOSER_AUTH,
+    # which only the steps that install the project's dependencies read.
+    secrets:
+      COMPOSER_AUTH:
+        description: The credentials Composer installs the project's dependencies with, for a private repository; read by the install steps alone, never by a step that runs the project's tests or mutants, though an install step runs the project's Composer scripts and plugins, which can read it.
+        required: false
+      MUTATION_GATE_READ_AWS_ACCESS_KEY_ID:
+        description: The key that reads the default branch's ledger, from the environment mutation-gate-read.
+        required: false
+      MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY:
+        description: The secret of that key, from the environment mutation-gate-read.
+        required: false
+      AWS_ACCESS_KEY_ID:
+        description: The key that writes the default branch's ledger, from the environment mutation-gate-store.
+        required: false
+      AWS_SECRET_ACCESS_KEY:
+        description: The secret of that key, from the environment mutation-gate-store.
+        required: false
+      AWS_SESSION_TOKEN:
+        description: The session token of a temporary key, from the environment mutation-gate-store.
+        required: false
+      MUTATION_GATE_SLACK_URL:
+        description: The Slack webhook alerts go to, from the environment mutation-gate-store.
+        required: false
+      MUTATION_GATE_DISCORD_URL:
+        description: The Discord webhook alerts go to, from the environment mutation-gate-store.
+        required: false
+      MUTATION_GATE_WEBHOOK_URL:
+        description: The webhook alerts go to, from the environment mutation-gate-store.
+        required: false
+      MUTATION_GATE_WEBHOOK_SECRET:
+        description: The secret that signs what the webhook receives, from the environment mutation-gate-store.
+        required: false
+      OTEL_EXPORTER_OTLP_ENDPOINT:
+        description: Where the trace is exported, from the environment mutation-gate-store.
+        required: false
+      OTEL_EXPORTER_OTLP_HEADERS:
+        description: The headers the trace is exported with, from the environment mutation-gate-store.
+        required: false
+    outputs:
+      verdict:
+        description: passed, failed or cannot-judge.
+        value: ${{ jobs.verdict.outputs.verdict }}
+      scores:
+        description: 'JSON: each tree''s score, and the new code''s.'
+        value: ${{ jobs.verdict.outputs.scores }}
+      plan:
+        description: 'JSON: the plan, as plan --ci=json prints it.'
+        value: ${{ jobs.plan.outputs.plan }}
+
+permissions: {}
+
+env:
+  # The directory each job checks this workflow's own repository out into, at
+  # the commit it was called at: under .mutation-gate, which the gate leaves
+  # out of every change and every proof key.
+  GATE_ACTION: .mutation-gate/workflow
+  # The branch publish writes the badge and the trend to, and the verdict reads the last trend from.
+  PUBLISHED: mutation-gate
+  # Where the directory store keeps every scope's ledger: the Actions cache.
+  LEDGERS: .mutation-gate/ledger
+  # Where fetch writes the store's copy of the default branch's ledger, which
+  # the gate reads beside the cache's, as proofs.copies says (ADR-0061).
+  FETCHED: .mutation-gate/fetched
+  # Where the project's code leaves what deliver sends, by command: planned, survivors and verdict.
+  DELIVERY: .mutation-gate/delivery
+  # Where the plan finds the map another job of the run handed over, as the `coverage` input names it.
+  HANDED: .mutation-gate/handed
+
+jobs:

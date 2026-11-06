@@ -11,7 +11,9 @@ use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Copies;
+use NightWorksIO\MutationGate\Core\Proof\EncodesLedgers;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Written;
@@ -25,7 +27,7 @@ use NightWorksIO\MutationGate\Port\ProofStore;
  *
  * @internal
  */
-final readonly class FetchedCopies implements ProofStore
+final readonly class FetchedCopies implements EncodesLedgers, ProofStore
 {
     private function __construct(private ProofStore $kept, private LedgerDirectory $fetched, private Copies $copies)
     {
@@ -38,6 +40,15 @@ final readonly class FetchedCopies implements ProofStore
     }
 
     /** The copies under this directory, beside this store. */
+    public function encoding(LedgerCodec $codec): static
+    {
+        return new self(
+            $this->kept instanceof EncodesLedgers ? $this->kept->encoding($codec) : $this->kept,
+            $this->fetched->encoding($codec),
+            $this->copies,
+        );
+    }
+
     public static function of(ProofStore $kept, LedgerDirectory $fetched, Copies $copies): self
     {
         return new self($kept, $fetched, $copies);

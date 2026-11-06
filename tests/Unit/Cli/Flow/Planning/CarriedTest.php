@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Flow\Mode;
+use NightWorksIO\MutationGate\Cli\Flow\OwnScopeStanding;
 use NightWorksIO\MutationGate\Cli\Flow\Planning;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Pruning;
@@ -37,6 +38,8 @@ use NightWorksIO\MutationGate\Core\Pruning\Outcome;
 use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Pruning\Survival;
 use NightWorksIO\MutationGate\Core\Pruning\Window;
+use NightWorksIO\MutationGate\Core\Reach\Reason;
+use NightWorksIO\MutationGate\Core\Reach\Reasons;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -131,11 +134,14 @@ it('carries a pull request\'s own results for what it changed before its last ru
 
     $planned = $plan($project, Mode::since(Mode::LAST_RUN), Cut::exactly(1), $store, $checkout, $pullRequest);
 
+    $texts = static fn(Reasons $reasons): array => array_map(static fn(Reason $reason): string => $reason->text(), [...$reasons]);
     $digested = $planned instanceof Plan ? $planned->digests() : Undigested::proof();
 
     expect($planned instanceof Plan ? [...[...$planned][0]->units()] : $planned)->toEqual($run)
         ->and($planned instanceof Plan ? [...$planned->considered()->carriedOwn()] : $planned)->toEqual($carriedOwn)
-        ->and($digested instanceof Digests ? $digested->sourceOf(Path::of('src/Money.php')) : $digested)->toEqual($sourceOf($money));
+        ->and($digested instanceof Digests ? $digested->sourceOf(Path::of('src/Money.php')) : $digested)->toEqual($sourceOf($money))
+        ->and($planned instanceof Plan ? $texts($planned->considered()->reach()) : $planned)
+        ->toContain(...$texts(OwnScopeStanding::said(Reasons::of(), count($carriedOwn))));
 })->with([
     'both as their own results record them' => [true, true, [], fn(): array => [Unit::held(Path::of('src/Held.php'), Group::named('holds:src/Held.php')), Unit::file(Path::of('src/Money.php'))]],
     'one changed since its own result, as a race leaves it' => [false, true, fn(): array => [Unit::held(Path::of('src/Held.php'), Group::named('holds:src/Held.php'))], fn(): array => [Unit::file(Path::of('src/Money.php'))]],

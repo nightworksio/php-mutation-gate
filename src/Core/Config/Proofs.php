@@ -13,15 +13,18 @@ use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Proof\Compression;
 use NightWorksIO\MutationGate\Core\Proof\Copies;
+use NightWorksIO\MutationGate\Core\Proof\TakenProofs;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 
 use function sprintf;
 
 /**
  * Where proofs are kept, what they leave out, whether the verdict writes
- * them (ADR-0007), and which copy of a ledger a run reads where the store's
- * and its own differ: `proofs`; and whether a run keeps the coverage map it
+ * them (ADR-0007), which copy of a ledger a run reads where the store's
+ * and its own differ, and whether a run takes its own scope's proofs
+ * (ADR-0081): `proofs`; and whether a run keeps the coverage map it
  * measures beside them to measure again only what moved (ADR-0023):
  * `coverage`.
  */
@@ -37,6 +40,8 @@ final readonly class Proofs implements Part
         private Writing|Absent $write,
         private bool|Absent $incremental,
         private Copies|Absent $copies,
+        private bool|Absent $ownScope,
+        private Compressed $compressed,
     ) {
     }
 
@@ -47,8 +52,19 @@ final readonly class Proofs implements Part
         Writing|Absent $write = new Absent(),
         bool|Absent $incremental = new Absent(),
         Copies|Absent $copies = new Absent(),
+        bool|Absent $ownScope = new Absent(),
+        Compression|Absent $compression = new Absent(),
+        int|Absent $compressionLevel = new Absent(),
     ): self {
-        return new self($store, $ignore, $write, $incremental, $copies);
+        return new self(
+            $store,
+            $ignore,
+            $write,
+            $incremental,
+            $copies,
+            $ownScope,
+            Compressed::of($compression, $compressionLevel),
+        );
     }
 
     public static function none(): self
@@ -60,7 +76,15 @@ final readonly class Proofs implements Part
     {
         $none = self::none();
 
-        return self::of($none->store(), $none->ignore(), $none->write(), $none->incrementalCoverage(), $none->copies());
+        return self::of(
+            $none->store(),
+            $none->ignore(),
+            $none->write(),
+            $none->incrementalCoverage(),
+            $none->copies(),
+            compression: $none->compression(),
+            compressionLevel: $none->compressionLevel(),
+        );
     }
 
     /** A store is chosen whole; the globs a later layer ignores add to an earlier one's. */
@@ -77,6 +101,8 @@ final readonly class Proofs implements Part
                 Absent::laid($this->write, $later->write),
                 Absent::laid($this->incremental, $later->incremental),
                 Absent::laid($this->copies, $later->copies),
+                Absent::laid($this->ownScope, $later->ownScope),
+                $this->compressed->over($later->compressed),
             )
             : $this;
     }
@@ -115,6 +141,28 @@ final readonly class Proofs implements Part
     }
 
     /**
+     * Which proofs a run takes: also those its own scope's earlier runs
+     * left, so a new push to a pull request runs only the units whose key
+     * moved, unless `proofs.ownScope` is off.
+     */
+    public function taken(): TakenProofs
+    {
+        return $this->ownScope === false ? TakenProofs::DefaultBranchOnly : TakenProofs::Every;
+    }
+
+    /** How a ledger's file is compressed: `proofs.compression`, zstd where it is here and gzip where not by default. */
+    public function compression(): Compression
+    {
+        return $this->compressed->compression();
+    }
+
+    /** The level a ledger's file is packed at: `proofs.compressionLevel`. */
+    public function compressionLevel(): int
+    {
+        return $this->compressed->level();
+    }
+
+    /**
      * Whether a run measures again only the test files whose coverage could
      * have moved, keeping the rest from the map kept beside the ledger
      * (ADR-0023): `coverage.incremental`, yes where nothing says.
@@ -142,6 +190,8 @@ final readonly class Proofs implements Part
                     ),
                     Member::of('write', $this->write instanceof Writing ? $this->write->value : $this->write),
                     Member::of('copies', $this->copies instanceof Copies ? $this->copies->value : $this->copies),
+                    Member::of('ownScope', $this->ownScope),
+                    ...$this->compressed->members(),
                 ),
             ),
             Member::unlessEmpty('coverage', Json::object(Member::of('incremental', $this->incremental))),
@@ -160,6 +210,8 @@ final readonly class Proofs implements Part
                 Writing::Never => 'Proofs::readOnly()',
             }] : [],
             ...$this->copiesCalls(),
+            ...$this->ownScopeCalls(),
+            ...$this->compressed->calls(),
             ...$this->incremental instanceof Absent
                 ? []
                 : [$this->incremental ? 'Coverage::incremental()' : 'Coverage::full()'],
@@ -173,6 +225,16 @@ final readonly class Proofs implements Part
             Copies::Newest => ['Proofs::newestCopy()'],
             Copies::Together => ['Proofs::copiesTogether()'],
             Copies::Merged => ['Proofs::mergedCopies()'],
+            default => [],
+        };
+    }
+
+    /** @return list<string> the call that says whether a run takes its own scope's proofs, where the config says */
+    private function ownScopeCalls(): array
+    {
+        return match ($this->ownScope) {
+            true => ['Proofs::ownScope()'],
+            false => ['Proofs::defaultBranchOnly()'],
             default => [],
         };
     }

@@ -62,7 +62,13 @@ GENERATED = (
         generator="scripts/workflows/generate.py",
         recipe="python3 scripts/workflows/generate.py",
         paths=(".github/workflows/mutation-gate.yml",),
-        sources=("scripts/workflows/generate.py", "scripts/workflows/mutation-gate.yml"),
+        sources=(
+            "scripts/workflows/generate.py",
+            "scripts/workflows/mutation-gate/trigger.yml",
+            "scripts/workflows/mutation-gate/planning.yml",
+            "scripts/workflows/mutation-gate/shards.yml",
+            "scripts/workflows/mutation-gate/verdict.yml",
+        ),
     ),
 )
 

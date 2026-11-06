@@ -71,8 +71,12 @@ has to bring its result with it.
       comparison put numeric-looking paths in an order that hung on the
       order they came in. Format 7 leaves out of item 6 the PHP files a
       coverage map shows some test executed, and reads those a unit
-      reaches in item 10.
-   2. **The gate**: its installed version and source reference.
+      reaches in item 10. Format 8 reads a workflow by the jobs that run the
+      gate (ADR-0058). Format 9 keys the gate by its verdict code (item 2,
+      ADR-0084).
+   2. **The gate**: the code of it a result depends on, in the sets its
+      runner reads, its mutator packages with them, and a semantics number
+      raised by hand ([ADR-0084](0084-the-gate-is-keyed-by-the-code-a-verdict-depends-on.md)).
    3. **The configuration** as it affects results: the effective config after
       presets, serialised canonically, with the settings that only judge or
       report left out.
@@ -130,8 +134,10 @@ has to bring its result with it.
       - the static analyser that checks the mutants (ADR-0020):
         its name, exact version and a digest of its config, or `none` where
         `staticCheck.tool` is `none` or the analyser cannot say who it is.
-   5. **What is installed**: the digest of `vendor/composer/installed.json`. It
-      catches a dependency installed differently from the lock. The lock itself
+   5. **What is installed**: the digest of each package
+      `vendor/composer/installed.json` lists, less the gate's own, which item
+      2 reads (ADR-0084). It catches a dependency installed differently from
+      the lock. The lock itself
       is in the next item.
    6. **Every file in the repository outside the test directories that no
       coverage map shows run**, by the git blob id of its content as it is on

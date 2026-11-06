@@ -12,15 +12,20 @@ use NightWorksIO\MutationGate\Core\Format\Gzip;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
+use NightWorksIO\MutationGate\Core\Proof\Compression;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
+use NightWorksIO\MutationGate\Core\Proof\LedgerJson;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
+use NightWorksIO\MutationGate\Core\Proof\LedgerRetention;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Core\Time\Instant;
+use NightWorksIO\MutationGate\Tests\Fakes\ZstandardFake;
 use NightWorksIO\MutationGate\Tests\Support\CountingClient;
 use NightWorksIO\MutationGate\Tests\Support\LedgerRead;
 use Symfony\Component\HttpClient\MockHttpClient;
@@ -244,4 +249,17 @@ it('keeps no object beside a ledger, sends no request, and says it is read-only'
             'read-only: no credentials; this run\'s proofs are not kept. The default branch\'s ledger is read from https://ledgers.example.com.',
         ))
         ->and($sent->count())->toBe(0);
+});
+
+it('reads a ledger it is served packed as its codec reads, keeping the scope it reads alone and its limits', function (): void {
+    $codec = LedgerCodec::of(Compression::Zstd, 9, ZstandardFake::here());
+    $zstd = $codec->pack(LedgerJson::text(publicLedgerProved(), LedgerRetention::standard()));
+    $served = static fn(): array => publicLedgerServer(new MockResponse(is_string($zstd) ? $zstd : ''));
+    [$client] = $served();
+    [$scoped] = $served();
+    [$limited] = $served();
+
+    expect(count(LedgerRead::ledger(PublicLedger::at($client, 'https://ledgers.example.com', 'mutation-gate')->encoding($codec)->read(Scope::branch('main')))->proofs()))->toBe(1)
+        ->and(count(LedgerRead::ledger(PublicLedger::at($scoped, 'https://ledgers.example.com', 'mutation-gate')->encoding($codec)->onlyReading(Scope::branch('main'))->read(Scope::branch('main')))->proofs()))->toBe(1)
+        ->and(count(LedgerRead::ledger(PublicLedger::at($limited, 'https://ledgers.example.com', 'mutation-gate')->encoding($codec)->within(LedgerLimits::standard())->read(Scope::branch('main')))->proofs()))->toBe(1);
 });

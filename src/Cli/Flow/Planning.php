@@ -99,7 +99,12 @@ final readonly class Planning
         }
 
         $writing = Writing::from($this->settings->proofs()->write()->value);
-        $ledgers = Ledgers::read($this->adapters->proofs, $inventory->standing, $writing);
+        $ledgers = Ledgers::read(
+            $this->adapters->proofs,
+            $inventory->standing,
+            $writing,
+            $mode->takes($this->settings->proofs()->taken()),
+        );
         $unchanged = new UnchangedPlan($this->adapters, $this->settings, $this->setup)
             ->of($inventory, $ledgers, $mode, $matrix);
 
@@ -206,8 +211,19 @@ final readonly class Planning
         $keys = $keying->keysOf($considering->considered());
         $proving = $ledgers->proving($considering->considered(), $keys, $keying->base(), $kind);
         $changed = $this->newCode($inventory->standing, $reached);
+        $auto = AutoSampling::of(
+            $this->adapters,
+            $this->settings,
+            $this->setup,
+            $mode,
+            $inventory,
+            $ledgers,
+            $proving->toRun(),
+            $changed,
+            $ledgers->newest($kind),
+        );
         $sample = new Sampled($this->adapters, $this->settings, $this->setup)
-            ->drawn($mode, $inventory, $proving->toRun(), $reached, $changed, $ledgers->newest($kind), $base);
+            ->drawn($auto->mode(), $inventory, $proving->toRun(), $reached, $changed, $ledgers->newest($kind), $base);
         $toRun = $sample instanceof Sample ? $sample->running($proving->toRun()) : $proving->toRun();
         $pruned = new PrunedUnits($this->adapters, $this->settings, $this->setup)
             ->of($base, $ledgers, $ledgers->newest($kind), $toRun, $keying);
@@ -224,6 +240,10 @@ final readonly class Planning
         );
         $shards = $shards instanceof Shards ? $this->opening($shards, $opening) : $shards;
         $digests = $this->committed($now, $inventory->standing->head());
+        $reasons = OwnScopeStanding::said(
+            $reached->reach()->reasons(),
+            $proving->ownScopeProofs() + $considering->ownScopeProofs(),
+        );
         $standing = new NothingReached($this->adapters, $this->settings, $this->setup)->briefing(
             $shards,
             $inventory,
@@ -245,7 +265,7 @@ final readonly class Planning
                     ->digesting($digests)
                     ->considering(
                         Considered::everything()
-                            ->reaching($changed, $reached->reach()->reasons())
+                            ->reaching($changed, $auto->said($reasons))
                             ->untesting(Untested::of($changed, $map))
                             ->proving($this->unitsOf($proving->proved()))
                             ->carrying($carried)

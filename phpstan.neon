@@ -59,6 +59,9 @@ parameters:
         - phpstan/DescribeCall.stub
         - phpstan/Pcntl.stub
         - phpstan/TestCall.stub
+    # PHP's zstd extension, which the gate uses where it is loaded and which is not loaded where it is analysed.
+    scanFiles:
+        - phpstan/Zstd.stub
 
     # There is no `ignoreErrors` and no baseline. A rule that is wrong somewhere
     # is scoped with `allowIn`, which names where it does not apply.
@@ -198,6 +201,7 @@ services:
                 - src/Adapter/Process/Running.php # proc_open answers a process resource, which has no native type
                 - src/Adapter/Serve/Connection.php # PHP's sockets are resources, which have no native type
                 - src/Adapter/Serve/Listener.php # PHP's sockets are resources, which have no native type
+                - src/Adapter/Zstd/ZstdProgram.php # proc_open answers a process resource, which has no native type
             decoders:
                 - src/Core/Format/Node.php
                 - src/Core/Format/Json.php
@@ -613,6 +617,7 @@ services:
                     - VALUE # the name of a parameter the mutant's code declares
                 'NightWorksIO\MutationGate\Core\Proof\LedgerFile':
                     - FORMAT # a format version
+                    - EARLIER # the format version before the one written
                     - SECONDS # a field of the ledger
                     - RUNNER # a field of the ledger
                     - TESTS # a field of the ledger
@@ -640,7 +645,20 @@ services:
                     - END # a field of a shard result
                     - DIFF # a field of a shard result
                     - FILE # a field of a shard result
+                'NightWorksIO\MutationGate\Core\Mutant\RejectionRecord':
                     - CODE # a field of a rejection, not the exit code a Pest results file records
+                'NightWorksIO\MutationGate\Core\Proof\PlacedRankings':
+                    - FIELDS # the fields of a placed ranking, not letters per edit
+                'NightWorksIO\MutationGate\Core\Time\Seconds':
+                    - MILLISECOND_DIGITS # the decimals of a millisecond, not letters per edit
+                'NightWorksIO\MutationGate\Core\Sample\AutoSample':
+                    - 'OFF' # sampling.auto's word for never, not run.failFast's; quoted, as NEON reads a bare OFF as false
+                'NightWorksIO\MutationGate\Core\Proof\LedgerCodec':
+                    - LEVEL # the level a ledger is packed at, not gzip's highest
+                'NightWorksIO\MutationGate\Adapter\Zstd\ZstdProgram':
+                    - PROGRAM # the program's name, not proofs.compression's word for it
+                'NightWorksIO\MutationGate\Core\Format\Gzip':
+                    - MOST # gzip's highest level, not a signal
                 'NightWorksIO\MutationGate\Adapter\Infection\Results':
                     - MUTATOR # a field of Infection's log
                 'NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile':

@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use function implode;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Zstd\ZstdHere;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
@@ -14,8 +15,10 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\TooLarge;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
+use NightWorksIO\MutationGate\Core\Proof\TakenProofs;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 
 use function sprintf;
@@ -49,7 +52,7 @@ final readonly class TalliedLedger
             return $standing;
         }
 
-        $ledgers = Ledgers::read($adapters->proofs, $standing, Writing::Never);
+        $ledgers = Ledgers::read($adapters->proofs, $standing, Writing::Never, TakenProofs::Every);
         $unread = [];
 
         foreach ($ledgers->unread() as $warning) {
@@ -62,10 +65,12 @@ final readonly class TalliedLedger
     private static function file(Composed $composed, Path $file): Ledger|CannotJudge
     {
         $limits = LedgerLimits::standard();
+        $proofs = $composed->settings->proofs();
+        $codec = LedgerCodec::of($proofs->compression(), $proofs->compressionLevel(), ZstdHere::found());
         $directory = $file->isAbsolute() ? Directory::at($file->base()) : $composed->adapters->project;
         $bytes = $directory->readAtMost($file->fromBase(), $limits->packed());
         $read = match (true) {
-            $bytes instanceof Contents => LedgerFile::read($bytes->text(), $limits),
+            $bytes instanceof Contents => LedgerFile::read($bytes->text(), $limits, $codec),
             $bytes instanceof TooLarge => CannotJudge::because($limits->pastPacked()),
             default => $bytes,
         };

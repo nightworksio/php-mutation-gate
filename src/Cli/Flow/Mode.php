@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\RunProfile;
+use NightWorksIO\MutationGate\Core\Proof\TakenProofs;
 
 /**
  * Which units a run considers: every one, as `--full` asks and as a run with
@@ -33,13 +34,23 @@ final readonly class Mode
 
     private const string ONLY_A_RUN = '`last-run` names the commit a run of the gate judged, so only `run` reads it.';
 
-    private function __construct(private string $since, private bool $sampled)
-    {
+    private function __construct(
+        private string $since,
+        private bool $sampled,
+        private bool $unproven = false,
+        private bool $byItself = false,
+    ) {
     }
 
     public static function full(): self
     {
         return new self('', sampled: false);
+    }
+
+    /** Every unit, taking no proof, so every unit runs (ADR-0084). */
+    public static function unproven(): self
+    {
+        return new self('', sampled: false, unproven: true);
     }
 
     /** Change-scoped, since a ref git resolves, `last-passed` or `last-run`. */
@@ -51,7 +62,22 @@ final readonly class Mode
     /** This mode, sampling the units no proof covers. */
     public function sampled(): self
     {
-        return new self($this->since, sampled: true);
+        return new self($this->since, sampled: true, unproven: $this->unproven);
+    }
+
+    /**
+     * This mode, sampling of its own accord as `sampling.auto` decides
+     * (ADR-0086): the reached units that hold no new code are sampled too.
+     */
+    public function sampledByItself(): self
+    {
+        return new self($this->since, sampled: true, unproven: $this->unproven, byItself: true);
+    }
+
+    /** Whether the reached units that hold no new code are sampled too, as a run sampled of itself does. */
+    public function samplesReached(): bool
+    {
+        return $this->byItself;
     }
 
     /** Whether the units no proof covers are sampled, as `--sample` asks. */
@@ -64,6 +90,12 @@ final readonly class Mode
     public function isSinceLastPassed(): bool
     {
         return $this->since === self::LAST_PASSED;
+    }
+
+    /** Which proofs the run takes: none, as `--unproven` asks, or those the config has it take. */
+    public function takes(TakenProofs $configured): TakenProofs
+    {
+        return $this->unproven ? TakenProofs::None : $configured;
     }
 
     /** Whether every unit is considered, as `--full` asks. */

@@ -72,11 +72,11 @@ final readonly class RunnerContracts
         return $left;
     }
 
-    /** Money's four mutants, as a library's runner reports them. */
-    public static function money(Library $library): MutationResult|CannotJudge
+    /** Money's four mutants, as a library's runner reports them, run once for each key. */
+    public static function money(Library $library, string $key = 'money'): MutationResult|CannotJudge
     {
         return $library->mutate(
-            'money',
+            $key,
             MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
             ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('adds', 'large', 'unused', 'drains'))),
         );

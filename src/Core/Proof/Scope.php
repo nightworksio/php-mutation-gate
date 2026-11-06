@@ -64,6 +64,12 @@ final readonly class Scope
         return new self($ref);
     }
 
+    /** Whether it is a branch's, not a pull request's. */
+    public function isBranch(): bool
+    {
+        return preg_match(self::BRANCH, $this->ref) === 1;
+    }
+
     public function ref(): string
     {
         return $this->ref;

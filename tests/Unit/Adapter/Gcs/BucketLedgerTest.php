@@ -11,7 +11,9 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
+use NightWorksIO\MutationGate\Core\Proof\Compression;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
@@ -19,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Written;
+use NightWorksIO\MutationGate\Tests\Fakes\ZstandardFake;
 use NightWorksIO\MutationGate\Tests\Support\Cloud;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\FixedTokens;
@@ -94,4 +97,16 @@ it('keeps the coverage map beside a scope\'s ledger in the bucket, and gets it b
             ['PUT', 'https://storage.googleapis.com/acme-ledgers/gate/refs/heads/main/coverage.json.gz'],
             ['GET', 'https://storage.googleapis.com/acme-ledgers/gate/refs/heads/main/coverage.json.gz'],
         ]);
+});
+
+it('writes and reads back a ledger packed as its codec says, which a store that reads gzip alone cannot read', function (): void {
+    $cloud = new Cloud();
+    $store = BucketLedger::of($cloud->exchange(), 'acme-ledgers', 'gate', FixedTokens::of('t'))
+        ->encoding(LedgerCodec::of(Compression::Zstd, 9, ZstandardFake::here()));
+    $store->write(Scope::branch('main'), gcsProved());
+
+    expect(str_starts_with($cloud->requests[0]['body'], ZstandardFake::MAGIC))->toBeTrue()
+        ->and(count(LedgerRead::ledger($store->read(Scope::branch('main')))->proofs()))->toBe(1)
+        ->and(LedgerRead::unread(BucketLedger::of($cloud->exchange(), 'acme-ledgers', 'gate', FixedTokens::of('t'))->read(Scope::branch('main')))[0])
+        ->toBe(UnreadReason::Malformed);
 });

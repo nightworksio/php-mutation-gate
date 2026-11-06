@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\RunProfile;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\ScopeRuns;
+use NightWorksIO\MutationGate\Core\Proof\TakenProofs;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
@@ -42,12 +43,23 @@ function modeLedgers(string $passed): Ledgers
     $standing = Standing::of($ci, RepositoryFake::onMain(Revision::ref('head')), Absent::setting());
 
     return $standing instanceof Standing
-        ? Ledgers::read($store, $standing, Writing::Auto)
+        ? Ledgers::read($store, $standing, Writing::Auto, TakenProofs::Every)
         : throw new RuntimeException($standing->why());
 }
 
 it('considers every unit in a full run', function (): void {
     expect(Mode::full()->base(modeLedgers('p1')))->toEqual(CannotTell::because('A full run considers every unit.'));
+});
+
+it('takes the proofs the config has it take but in an unproven run, which considers every unit and takes none, sampled or not', function (): void {
+    expect([
+        Mode::full()->takes(TakenProofs::Every),
+        Mode::since('main')->takes(TakenProofs::DefaultBranchOnly),
+        Mode::unproven()->takes(TakenProofs::Every),
+        Mode::unproven()->sampled()->takes(TakenProofs::DefaultBranchOnly),
+    ])
+        ->toBe([TakenProofs::Every, TakenProofs::DefaultBranchOnly, TakenProofs::None, TakenProofs::None])
+        ->and(Mode::unproven()->isFull())->toBeTrue();
 });
 
 it('reads the change since the ref it names', function (): void {
@@ -86,7 +98,7 @@ function modeStanding(Scope $scope, ScopeRuns $runs): array
     $standing = Standing::of($ci, RepositoryFake::onMain(Revision::ref('head')), Absent::setting());
 
     return $standing instanceof Standing
-        ? [Ledgers::read($store, $standing, Writing::Auto), $standing]
+        ? [Ledgers::read($store, $standing, Writing::Auto, TakenProofs::Every), $standing]
         : throw new RuntimeException($standing->why());
 }
 
@@ -129,6 +141,17 @@ it('samples neither a full run nor a change-scoped one until asked, keeping what
         ->and(Mode::since(Mode::LAST_PASSED)->sampled()->isSinceLastPassed())->toBeTrue();
 });
 
+it('samples the reached units too only when it samples of its own accord, keeping what it considers', function (): void {
+    $itself = Mode::since(Mode::LAST_PASSED)->sampledByItself();
+
+    expect($itself->isSampled())->toBeTrue()
+        ->and($itself->samplesReached())->toBeTrue()
+        ->and($itself->isSinceLastPassed())->toBeTrue()
+        ->and(Mode::full()->sampled()->samplesReached())->toBeFalse()
+        ->and(Mode::full()->samplesReached())->toBeFalse()
+        ->and(Mode::unproven()->sampledByItself()->takes(TakenProofs::Every))->toBe(TakenProofs::None);
+});
+
 it('reads, off the default branch, its change also since the commit the default branch\'s ledger last passed at, and on it not', function () use ($lastRun): void {
     [$pullRequest, $standing] = modeStanding(Scope::pullRequest(7), $lastRun());
     [$onMain, $mainStanding] = modeStanding(Scope::branch('main'), ScopeRuns::none()->passing(Passed::of(Revision::ref('main-passed'), 'check', 0)));
@@ -151,7 +174,7 @@ function modeStandingUnrun(): array
     $standing = Standing::of(new CiPlanFake(RunOn::at(Scope::pullRequest(7), Scope::branch('main'))), RepositoryFake::onMain(Revision::ref('head')), Absent::setting());
 
     return $standing instanceof Standing
-        ? [Ledgers::read(new ProofStoreFake(), $standing, Writing::Auto), $standing]
+        ? [Ledgers::read(new ProofStoreFake(), $standing, Writing::Auto, TakenProofs::Every), $standing]
         : throw new RuntimeException($standing->why());
 }
 

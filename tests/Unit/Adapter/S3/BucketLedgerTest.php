@@ -17,7 +17,9 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
+use NightWorksIO\MutationGate\Core\Proof\Compression;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
@@ -26,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Written;
+use NightWorksIO\MutationGate\Tests\Fakes\ZstandardFake;
 use NightWorksIO\MutationGate\Tests\Support\Bucket;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\LedgerRead;
@@ -223,4 +226,16 @@ it('says why the bucket gave no coverage map, or one past its limit', function (
         ->toEqual(CannotJudge::because(sprintf('The kept coverage map at %s could not be read: HTTP 500, no error code.', $at)))
         ->and($store($large)->companion(Scope::branch('main'), Companion::Coverage))
         ->toEqual(CannotJudge::because(sprintf('The kept coverage map at %s could not be read: it is larger than 4200000 bytes.', $at)));
+});
+
+it('writes and reads back a ledger packed as its codec says, and says why it cannot pack one as zstd where zstd is not here', function () use ($proved, $store): void {
+    $bucket = new Bucket();
+    $zstd = $store($bucket)->encoding(LedgerCodec::of(Compression::Zstd, 9, ZstandardFake::here()));
+    $zstd->write(Scope::branch('main'), $proved());
+
+    expect(str_starts_with($bucket->requests[0]['body'], ZstandardFake::MAGIC))->toBeTrue()
+        ->and(count(LedgerRead::ledger($zstd->read(Scope::branch('main')))->proofs()))->toBe(1)
+        ->and(count(LedgerRead::ledger($zstd->within(LedgerLimits::standard())->read(Scope::branch('main')))->proofs()))->toBe(1)
+        ->and($store(new Bucket())->encoding(LedgerCodec::of(Compression::Zstd, 9, ZstandardFake::absent()))->write(Scope::branch('main'), $proved()))
+        ->toEqual(NotWritten::because('fake is not here'));
 });

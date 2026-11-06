@@ -46,6 +46,9 @@ final readonly class FlowOptions
 
     public const string FULL = 'full';
 
+    /** Considers every unit, taking no proof. */
+    public const string UNPROVEN = 'unproven';
+
     /** The option that has `plan` and `run` sample the units no proof covers (ADR-0020). */
     public const string SAMPLE = 'sample';
 
@@ -111,6 +114,11 @@ final readonly class FlowOptions
                 description: 'Consider what changed since this ref, last-passed (the default) or last-run',
             )
             ->addOption(self::FULL, mode: InputOption::VALUE_NONE, description: 'Consider every unit')
+            ->addOption(
+                self::UNPROVEN,
+                mode: InputOption::VALUE_NONE,
+                description: 'Consider every unit and take no proof, so every unit runs',
+            )
             ->addOption(
                 self::SAMPLE,
                 mode: InputOption::VALUE_NONE,
@@ -218,11 +226,16 @@ final readonly class FlowOptions
     {
         $since = self::text($input, self::CHANGED_SINCE);
         $full = $input->hasOption(self::FULL) && $input->getOption(self::FULL) === true;
+        $unproven = $input->hasOption(self::UNPROVEN) && $input->getOption(self::UNPROVEN) === true;
         $sampled = $input->hasOption(self::SAMPLE) && $input->getOption(self::SAMPLE) === true;
         $mode = match (true) {
             $full && $since !== '' => CannotJudge::because(
                 '--full and --changed-since ask for different runs. Give one of them.',
             ),
+            $unproven && $since !== '' => CannotJudge::because(
+                '--unproven and --changed-since ask for different runs. Give one of them.',
+            ),
+            $unproven => Mode::unproven(),
             $full => Mode::full(),
             $since !== '' => Mode::since($since),
             $settings->reach()->isFullByDefault() => Mode::full(),

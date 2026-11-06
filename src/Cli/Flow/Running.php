@@ -377,7 +377,12 @@ final readonly class Running
      */
     private function known(Plan $plan, AnalyserIdentity $identity): AnalyserHistory
     {
-        $ledgers = Ledgers::read($this->adapters->proofs, Standing::planned($plan), Writing::Never);
+        $ledgers = Ledgers::read(
+            $this->adapters->proofs,
+            Standing::planned($plan),
+            Writing::Never,
+            $this->settings->proofs()->taken(),
+        );
 
         return $ledgers->own()->learned()->analysers()->of($identity)
             ->and($ledgers->defaultBranch()->learned()->analysers()->of($identity));
@@ -392,7 +397,12 @@ final readonly class Running
      */
     private function weighed(Shard $shard, Plan $plan): array
     {
-        $ledgers = Ledgers::read($this->adapters->proofs, Standing::planned($plan), Writing::Never);
+        $ledgers = Ledgers::read(
+            $this->adapters->proofs,
+            Standing::planned($plan),
+            Writing::Never,
+            $this->settings->proofs()->taken(),
+        );
         $weighed = [];
 
         foreach ($shard->units() as $unit) {

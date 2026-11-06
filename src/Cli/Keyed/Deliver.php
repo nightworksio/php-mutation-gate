@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Format\TooLarge;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\CompanionRead;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 
@@ -128,7 +129,7 @@ final readonly class Deliver
         $read = $from->readAtMost(Path::of(LedgerFile::NAME), $limits->packed());
 
         return match (true) {
-            $read instanceof Contents => LedgerFile::read($read->text(), $limits),
+            $read instanceof Contents => LedgerFile::read($read->text(), $limits, LedgerCodec::gzipOnly()),
             $read instanceof CannotJudge, $read instanceof TooLarge => $read,
             default => CannotJudge::because(sprintf(Sending::MISSING, LedgerFile::NAME)),
         };

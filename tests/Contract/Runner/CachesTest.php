@@ -22,7 +22,6 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
-use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Suites;
@@ -89,7 +88,7 @@ function keysOfSources(string $root): array
 {
     $files = listedIn($root);
     $keys = ContentKeys::of(
-        Version::of('nightworksio/mutation-gate', '1.0.0', 'abc123'),
+        Digest::sha256Of('verdict code'),
         '{}',
         Identity::of('phpunit', Versions::none(), Digest::of('platform')),
         NoAnalyser::configured(),

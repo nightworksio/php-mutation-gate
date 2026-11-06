@@ -28,9 +28,13 @@ use stdClass;
 
 /**
  * A kill history as a ledger holds it, in its `killers` section: each
- * mutant's ranking by its id, and each function's by its file and then its
- * name, each ranking a list of `[test, kills]` pairs, most kills first, the
- * test an index into the ledger's `tests`.
+ * mutant's ranking, and each function's by its file and then its name, each
+ * ranking a list of `[test, kills]` pairs, most kills first, the test an
+ * index into the ledger's `tests`. A ledger places the ranking of a mutant
+ * one of its proofs records as `[proof, place, pairs]`, by the proof's index
+ * among the ledger's proofs and the mutant's among its records, the newest
+ * last, and keeps any other by its id; a kill history's own file keeps every
+ * one by its id.
  *
  * Reading keeps each well-formed pair and drops anything else, never
  * repairing it: a pair whose index is past `tests`, or whose kills are not a
@@ -40,6 +44,7 @@ use stdClass;
  *
  * @phpstan-type Pairs list<array{int, int}>
  * @phpstan-type Written array{
+ *     placed?: list<array{int, int, Pairs}>,
  *     mutants: array<string, Pairs>|stdClass,
  *     functions: array<string, array<string, Pairs>>|stdClass,
  * }
@@ -48,6 +53,9 @@ final readonly class KillersRecord
 {
     /** The section's name, in a ledger and in the plan the Pest adapter hands its plugin. */
     public const string SECTION = 'killers';
+
+    /** The rankings a ledger places among its proofs' records. */
+    public const string PLACED = 'placed';
 
     private const string MUTANTS = 'mutants';
 
@@ -59,12 +67,21 @@ final readonly class KillersRecord
      */
     public static function of(KillHistory $history, array $tests): array
     {
-        $mutants = [];
-        $functions = [];
+        return self::placing($history, $tests, []);
+    }
 
-        foreach ($history->mutants() as $ranked) {
-            $mutants[$ranked->mutant()->value()] = self::pairs($ranked->ranking(), $tests);
-        }
+    /**
+     * A ledger's kill history, each mutant's ranking placed where one of its proofs records the mutant.
+     *
+     * @param  array<string, int>             $tests  each test's index in the ledger, by its id
+     * @param  array<string, array{int, int}> $places each mutant's proof and place among its records, by its id
+     * @return Written
+     */
+    public static function placing(KillHistory $history, array $tests, array $places): array
+    {
+        $placed = PlacedRankings::of($history, $tests, $places);
+        $mutants = PlacedRankings::unplaced($history, $tests, $places);
+        $functions = [];
 
         foreach ($history->functions() as $ranked) {
             $function = $ranked->function();
@@ -72,6 +89,7 @@ final readonly class KillersRecord
         }
 
         return [
+            ...$placed === [] ? [] : [self::PLACED => $placed],
             self::MUTANTS => $mutants === [] ? new stdClass() : $mutants,
             self::FUNCTIONS => $functions === [] ? new stdClass() : $functions,
         ];
@@ -107,17 +125,59 @@ final readonly class KillersRecord
     /**
      * The history a ledger's `killers` section holds, none where it holds none.
      *
-     * @param list<string> $tests the ledger's test ids, each at its index
+     * @param list<string>             $tests  the ledger's test ids, each at its index
+     * @param array<int, list<string>> $proofs the ids each placed proof records, in the order it records them, by
+     *                                         the proof's index among the ledger's proofs
      */
-    public static function read(Node $section, array $tests): KillHistory
+    public static function read(Node $section, array $tests, array $proofs = []): KillHistory
     {
-        return self::functionsIn($section->field(self::FUNCTIONS), $tests, self::mutantsIn($section, $tests));
+        return self::functionsIn(
+            $section->field(self::FUNCTIONS),
+            $tests,
+            self::mutantsIn($section, $tests, PlacedRankings::read($section->field(self::PLACED), $tests, $proofs)),
+        );
     }
 
-    /** @param list<string> $tests */
-    private static function mutantsIn(Node $section, array $tests): KillHistory
+    /**
+     * A ranking as its `[test, kills]` pairs, most kills first.
+     *
+     * @param  array<string, int>    $tests each test's index in the ledger, by its id
+     * @return list<array{int, int}>
+     */
+    public static function pairs(Ranking $ranking, array $tests): array
     {
-        $ranked = [];
+        $pairs = [];
+
+        foreach ($ranking as $kills) {
+            $pairs[] = [$tests[$kills->test()->value()], $kills->count()];
+        }
+
+        return $pairs;
+    }
+
+    /**
+     * The ranking a list of `[test, kills]` pairs holds, each well-formed pair of it.
+     *
+     * @param list<string> $tests the ledger's test ids, each at its index
+     */
+    public static function rankingIn(Node $pairs, array $tests): Ranking
+    {
+        $kills = [];
+
+        foreach (self::itemsOf($pairs) as $pair) {
+            $kills = [...$kills, ...self::killsIn($pair, $tests)];
+        }
+
+        return Ranking::of(...$kills);
+    }
+
+    /**
+     * @param list<string>       $tests
+     * @param list<RankedMutant> $placed
+     */
+    private static function mutantsIn(Node $section, array $tests, array $placed): KillHistory
+    {
+        $ranked = $placed;
 
         foreach (self::entriesOf($section->field(self::MUTANTS)) as $id => $pairs) {
             $mutant = MutantId::parse(sprintf('%s', $id));
@@ -153,33 +213,6 @@ final readonly class KillersRecord
     private static function functionAt(string $file, string $name): Enclosing|Nameless
     {
         return $file === '' ? Nameless::code() : Enclosing::of(Path::of($file), $name);
-    }
-
-    /**
-     * @param  array<string, int> $tests
-     * @return list<array{int, int}>
-     */
-    private static function pairs(Ranking $ranking, array $tests): array
-    {
-        $pairs = [];
-
-        foreach ($ranking as $kills) {
-            $pairs[] = [$tests[$kills->test()->value()], $kills->count()];
-        }
-
-        return $pairs;
-    }
-
-    /** @param list<string> $tests */
-    private static function rankingIn(Node $pairs, array $tests): Ranking
-    {
-        $kills = [];
-
-        foreach (self::itemsOf($pairs) as $pair) {
-            $kills = [...$kills, ...self::killsIn($pair, $tests)];
-        }
-
-        return Ranking::of(...$kills);
     }
 
     /**

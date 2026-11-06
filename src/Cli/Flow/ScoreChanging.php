@@ -73,7 +73,12 @@ final readonly class ScoreChanging
     private function changed(Inventory $inventory, Baseline $baseline, MapJudges $judges, Keying $keying): string
     {
         $trees = $inventory->trees;
-        $ledgers = Ledgers::read($this->adapters->proofs, $inventory->standing, Writing::Never);
+        $ledgers = Ledgers::read(
+            $this->adapters->proofs,
+            $inventory->standing,
+            Writing::Never,
+            $this->settings->proofs()->taken(),
+        );
         $defaultBranch = $ledgers->defaultBranch()->proofs();
         $reach = Reached::since(
             ChangeBase::since($inventory->standing->fetchedBase()),

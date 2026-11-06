@@ -208,6 +208,9 @@ than written: `79.999` holds a score to `80`.
 | `proofs.ignore` | list of globs | `[]` | [0007](../decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.write` | `auto` or `never` | `auto` | [0007](../decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.copies` | where the store's copy of a ledger, which `fetch` writes into `.mutation-gate/fetched`, and the copy the run keeps both hold a scope's ledger, the one the run reads: `newest`, the copy with the later record, the store's where neither is later, for most projects; `together`, the store's copy, with the reusable workflow keeping its own copy only once the store holds the same, where the cache must never get ahead of the store, as where a fork's run reads it through `publicUrl`, or another system reads it; or `merged`, both read as one, where each copy can hold proofs the other lacks, as where another pipeline also writes the store | `newest` | [0061](../decisions/0061-a-run-reads-the-copy-of-a-ledger-proofs-copies-chooses.md) |
+| `proofs.ownScope` | boolean: a run takes the proofs its own scope's earlier runs left, so a new push to a pull request mutates again only the units whose key moved; `false` reads none of them, and every unit the run reaches runs. The default branch and a merge group take none of a pull request's proofs either way. The plan says how many units the scope's earlier runs stand for | `true` | [0081](../decisions/0081-a-new-push-mutates-only-what-its-earlier-runs-do-not-prove.md) |
+| `proofs.compression` | `auto`, `gzip` or `zstd`: how a ledger's file is compressed. `auto` writes zstd where PHP's zstd extension (0.13 or later) is loaded or the `zstd` program is on the path, and gzip where neither is; `zstd` leaves the ledger unwritten where neither is, and says why. A reader tells the two by the file's first bytes, whatever wrote it, and one with no zstd says what to install | `auto` | [0085](../decisions/0085-the-ledger-is-compact-and-compressed-with-zstd-where-it-can-be.md) |
+| `proofs.compressionLevel` | integer, 1 to 19: the level a ledger is packed at; gzip packs at 9 at most | `9` | [0085](../decisions/0085-the-ledger-is-compact-and-compressed-with-zstd-where-it-can-be.md) |
 | `coverage.incremental` | boolean: whether a run measures again only the test files whose coverage could have moved, keeping the rest from the map its own scope keeps, or else the default branch's | `true` | [0023](../decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) |
 | `budget` | duration | none | [0008](../decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `timeouts.mode` | `confirm` or `unjudged` | `confirm` | [0008](../decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
@@ -258,6 +261,8 @@ than written: `79.999` holds a score to `80`.
 | `sampling.margin` | number, above 0 and at most 10: the half-width in points each tree's interval is sized for | `2.0` | [0020](../decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) |
 | `sampling.minUnits` | integer, at least 1: the fewest units of a tree's sampled stratum a sample runs, or every one where it holds fewer | `30` | [0020](../decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) |
 | `sampling.seed` | string: what a sample is drawn from | the change's base commit in a change-scoped run, and the plan's commit otherwise | [0020](../decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) |
+| `sampling.auto` | `off`, an integer of at least 1, or a duration: a run of a kind `sampling.autoRuns` lists samples by itself where the units it runs beyond its new code, outside a tree held to 100, are expected to hold more mutants than the count, or to take more runner time than the duration ([sampling by itself](#sampling-by-itself)) | `off` | [0086](../decisions/0086-a-pull-request-can-sample-by-itself-above-a-threshold.md) |
+| `sampling.autoRuns` | list of `pullRequests`, `mergeGroups` and `branches`, a push to a branch that is not the default: the kinds of run that may sample by themselves; the default branch, a tag and an `--unproven` run never do | `["pullRequests"]` | [0086](../decisions/0086-a-pull-request-can-sample-by-itself-above-a-threshold.md) |
 | `mutators.sets` | list of mutator set names, never `default`, which is always on | `[]`, plus the preset's | [0021](../decisions/0021-mutators-are-written-once-and-first-party-sets-can-leave.md) |
 | `mutators.except` | list of mutator names, `<set>/<Name>`, each held by a set in `mutators.sets` or by the default set; under Pest or Infection, by a set in `mutators.sets` | `[]` | [0021](../decisions/0021-mutators-are-written-once-and-first-party-sets-can-leave.md) |
 | `local.watchBudget` | duration | `1m` | [0010](../decisions/0010-the-gate-runs-while-you-work-and-before-you-push.md) |
@@ -275,6 +280,36 @@ than written: `79.999` holds a score to `80`.
 | `paths[].timeouts.most` | as `timeouts.most`, at least the entry's `timeouts.seconds` | `timeouts.most` | [0074](../decisions/0074-paths-set-mutators-timeouts-and-the-static-check-by-glob.md) |
 | `paths[].staticCheck.tool` | as `staticCheck.tool`, `none` included | `staticCheck.tool` | [0074](../decisions/0074-paths-set-mutators-timeouts-and-the-static-check-by-glob.md) |
 | `paths[].staticCheck.before` | as `staticCheck.before` | `staticCheck.before` | [0074](../decisions/0074-paths-set-mutators-timeouts-and-the-static-check-by-glob.md) |
+
+## Sampling by itself
+
+With `sampling.auto` set, a pull request that reaches more than the threshold
+beyond its own lines runs a sample in place of every unit it reaches, as
+`--sample` would, and its plan says why:
+
+```json
+{
+    "sampling": {
+        "auto": "1h",
+        "autoRuns": ["pullRequests"]
+    }
+}
+```
+
+The units holding a line of the change, and every tree held to 100, still run
+in full, and the threshold counts neither. Everything else the run would run
+is sampled, sized by `sampling.margin` and `sampling.minUnits`, and each tree
+is judged on its interval.
+
+- **Gains:** a change to a file that reaches everything, such as the lock or
+  the test bootstrap, costs a sample's runner time and wall time, not a full
+  run's.
+- **Costs:** a pull request can merge on a sampled pass, so a survivor in a
+  unit the sample left out is caught only by the next run that runs that unit
+  in full: the default branch's run after the merge, or a scheduled or
+  `--unproven` run. A sampled pass is never `last-passed` and raises no floor.
+- **Keep it off** where every merge must be proved whole. Merge groups and
+  branches are listed by name only: a merge group's pass merges at once.
 
 ## Context blocks
 

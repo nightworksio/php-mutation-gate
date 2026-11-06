@@ -100,7 +100,12 @@ final readonly class Selecting
             return NotGiven::value();
         }
 
-        $ledgers = Ledgers::read($this->adapters->proofs, $inventory->standing, Writing::Never);
+        $ledgers = Ledgers::read(
+            $this->adapters->proofs,
+            $inventory->standing,
+            Writing::Never,
+            $this->settings->proofs()->taken(),
+        );
         $base = Mode::since($since)->base($ledgers);
 
         return match (true) {

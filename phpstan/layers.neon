@@ -215,6 +215,12 @@ parameters:
                 # restored before the answer is read (ADR-0078).
                 - src/Adapter/Serve/Connection.php
                 - src/Adapter/Serve/Listener.php
+                # proc_open raises a program that cannot start as a warning as well as answering false; the handler
+                # that keeps it from the run's output is restored before the answer is read.
+                - src/Adapter/Zstd/ZstdProgram.php
+                # The zstd extension raises a broken stream as a warning as well as answering false; the handler that
+                # keeps the warning from the run's output is restored before zstd_uncompress_add's answer is returned.
+                - src/Adapter/Zstd/ZstdExtension.php
 
         # --- Q1, for ini_set: only the command, and the mutant's own error log ----------------------------
         -

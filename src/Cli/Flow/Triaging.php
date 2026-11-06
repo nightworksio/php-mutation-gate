@@ -113,7 +113,12 @@ final readonly class Triaging
 
     private function requestFor(Unit $unit, TestOrder $order, Inventory $inventory): MutationRequest
     {
-        $history = Ledgers::read($this->adapters->proofs, $inventory->standing, Writing::Never)
+        $history = Ledgers::read(
+            $this->adapters->proofs,
+            $inventory->standing,
+            Writing::Never,
+            $this->settings->proofs()->taken(),
+        )
             ->killers()
             ->onlyIn($this->filesOf($unit, $inventory));
 

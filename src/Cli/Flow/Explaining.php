@@ -61,7 +61,7 @@ final readonly class Explaining
             return $standing;
         }
 
-        $ledgers = Ledgers::read($adapters->proofs, $standing, Writing::Never);
+        $ledgers = Ledgers::read($adapters->proofs, $standing, Writing::Never, $settings->proofs()->taken());
         $last = LastRun::verdict($this->composed);
 
         return $sought instanceof ClusterId

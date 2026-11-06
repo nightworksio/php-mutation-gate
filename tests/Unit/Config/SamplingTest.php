@@ -14,3 +14,10 @@ it('writes each sampling key it sets', function (): void {
         Sampling::seed('release'),
     )))->toBe(['sampling' => ['confidence' => 99, 'margin' => 1.5, 'minUnits' => 50, 'seed' => 'release']]);
 });
+
+it('writes when a run samples by itself, and which runs may', function (): void {
+    expect(Configs::written(Gate::configure()->with(Sampling::auto('2h'), Sampling::autoRuns('pullRequests', 'branches'))))
+        ->toBe(['sampling' => ['auto' => '2h', 'autoRuns' => ['pullRequests', 'branches']]])
+        ->and(Configs::written(Gate::configure()->with(Sampling::auto(20000))))->toBe(['sampling' => ['auto' => 20000]])
+        ->and(Configs::written(Gate::configure()->with(Sampling::autoOff())))->toBe(['sampling' => ['auto' => 'off']]);
+});

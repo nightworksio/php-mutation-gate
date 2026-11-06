@@ -10,7 +10,9 @@ use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\Config\Proofs;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Proof\Compression;
 use NightWorksIO\MutationGate\Core\Proof\Copies;
+use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 
 /**
@@ -28,15 +30,30 @@ final readonly class ProofsKeys
         $ignore = Field::optional('ignore', Items::of(Pattern::glob($origin)), $decides);
         $write = Field::optional('write', Enumerated::of(Writing::cases()), $decides);
         $copies = Field::optional('copies', Enumerated::of(Copies::cases()), $decides);
+        $ownScope = Field::optional('ownScope', Flag::boolean(), Effect::AffectsResults);
+        $judges = Effect::JudgesOrReportsOnly;
+        $compression = Field::optional('compression', Enumerated::of(Compression::cases()), $judges);
+        $level = Field::optional('compressionLevel', Integer::between(1, LedgerCodec::MOST_LEVEL), $judges);
 
         return [Field::section(
             'proofs',
             Section::of(
-                static function (Node $proofs) use ($store, $ignore, $write, $copies): Layer|Invalid {
+                static function (Node $proofs) use (
+                    $store,
+                    $ignore,
+                    $write,
+                    $copies,
+                    $ownScope,
+                    $compression,
+                    $level,
+                ): Layer|Invalid {
                     $kept = $store->read($proofs);
                     $left = $ignore->read($proofs);
                     $writing = $write->read($proofs);
                     $chosen = $copies->read($proofs);
+                    $trusted = $ownScope->read($proofs);
+                    $packed = $compression->read($proofs);
+                    $packedAt = $level->read($proofs);
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Proofs::of(
@@ -44,17 +61,26 @@ final readonly class ProofsKeys
                             $left->value(),
                             $writing->value(),
                             copies: $chosen->value(),
+                            ownScope: $trusted->value(),
+                            compression: $packed->value(),
+                            compressionLevel: $packedAt->value(),
                         )),
                         $kept,
                         $left,
                         $writing,
                         $chosen,
+                        $trusted,
+                        $packed,
+                        $packedAt,
                     );
                 },
                 $store,
                 $ignore,
                 $write,
                 $copies,
+                $ownScope,
+                $compression,
+                $level,
             ),
         )];
     }

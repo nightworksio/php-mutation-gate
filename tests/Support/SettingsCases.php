@@ -59,7 +59,11 @@ final readonly class SettingsCases
         "sampling": {
             "confidence": 95,
             "margin": 2.0,
-            "minUnits": 30
+            "minUnits": 30,
+            "auto": "off",
+            "autoRuns": [
+                "pullRequests"
+            ]
         },
         "shards": {
             "seconds": 600,
@@ -100,7 +104,9 @@ final readonly class SettingsCases
             },
             "ignore": [],
             "write": "auto",
-            "copies": "newest"
+            "copies": "newest",
+            "compression": "auto",
+            "compressionLevel": 9
         },
         "coverage": {
             "incremental": true
@@ -226,6 +232,8 @@ final readonly class SettingsCases
             'ignore' => ['docs/**'],
             'write' => 'never',
             'copies' => 'merged',
+            'compression' => 'zstd',
+            'compressionLevel' => 15,
         ],
         'coverage' => ['incremental' => false],
         'budget' => '1h30m',
@@ -255,7 +263,14 @@ final readonly class SettingsCases
         'pest' => ['patch' => true, 'canary' => 'canary', 'bootTail' => true, 'workerOpcache' => false, 'schemata' => false, 'bootMutants' => false],
         'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45, 'before' => true],
         'pruning' => ['enabled' => false, 'window' => 200, 'audit' => '3d'],
-        'sampling' => ['confidence' => 99, 'margin' => 1.5, 'minUnits' => 50, 'seed' => 'release-2026'],
+        'sampling' => [
+            'confidence' => 99,
+            'margin' => 1.5,
+            'minUnits' => 50,
+            'seed' => 'release-2026',
+            'auto' => '2h',
+            'autoRuns' => ['pullRequests', 'mergeGroups'],
+        ],
         'local' => ['watchBudget' => '2m', 'prePushBudget' => '90s', 'serveIdle' => '10m', 'serveStart' => 'never', 'inferSubsumed' => false],
     ];
 }

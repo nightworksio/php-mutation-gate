@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Format\Gzip;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Proof\EncodedLedger;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\LedgerJson;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
@@ -50,9 +51,17 @@ function encodedLedgerUnits(Ledger $ledger): array
     return $units;
 }
 
+/** A ledger encoded gzipped within these limits, which gzip always packs. */
+function encodedWithin(Ledger $ledger, LedgerLimits $limits): EncodedLedger
+{
+    $encoded = EncodedLedger::within($ledger, $limits, LedgerCodec::gzipOnly());
+
+    return $encoded instanceof EncodedLedger ? $encoded : throw new LogicException($encoded->why());
+}
+
 it('writes all that retention keeps where it is within the limits, and says nothing more', function (): void {
     $ledger = encodedLedgerOf(200);
-    $encoded = EncodedLedger::within($ledger, LedgerLimits::standard());
+    $encoded = encodedWithin($ledger, LedgerLimits::standard());
 
     expect(encodedLedgerUnits(LedgerFile::decode($encoded->bytes())))->toBe(encodedLedgerUnits($ledger))
         ->and($encoded->written(Written::to('ledger.json.gz'))->said())->toBe('Wrote ledger.json.gz.');
@@ -65,12 +74,12 @@ it('drops the oldest proofs until a ledger past a limit is within it, reads back
     $ledger = encodedLedgerOf(200);
     $whole = LedgerJson::text($ledger, LedgerRetention::standard());
     $limits = LedgerLimits::of(
-        intdiv(strlen(Gzip::pack($whole)), $packedShare),
+        intdiv(strlen(Gzip::packAt($whole, LedgerCodec::LEVEL)), $packedShare),
         intdiv(strlen($whole), $textShare),
         60.0,
     );
-    $encoded = EncodedLedger::within($ledger, $limits);
-    $read = LedgerFile::read($encoded->bytes(), $limits);
+    $encoded = encodedWithin($ledger, $limits);
+    $read = LedgerFile::read($encoded->bytes(), $limits, LedgerCodec::gzipOnly());
     $kept = $read instanceof Ledger ? encodedLedgerUnits($read) : [];
 
     expect(count($kept))->toBeGreaterThan(0)->toBeLessThan(200)
@@ -85,7 +94,7 @@ it('drops the oldest proofs until a ledger past a limit is within it, reads back
 ]);
 
 it('keeps no proof where even one is past the limits, and still ends', function (): void {
-    $encoded = EncodedLedger::within(encodedLedgerOf(20), LedgerLimits::of(1, 1, 60.0));
+    $encoded = encodedWithin(encodedLedgerOf(20), LedgerLimits::of(1, 1, 60.0));
 
     expect(LedgerFile::decode($encoded->bytes())->proofs())->toHaveCount(0)
         ->and($encoded->written(Written::to('ledger.json.gz'))->said())
@@ -94,10 +103,10 @@ it('keeps no proof where even one is past the limits, and still ends', function 
 
 it('steps down to one proof, and past it to none where one is still past the limits', function (): void {
     $two = encodedLedgerOf(2);
-    $whole = strlen(Gzip::pack(LedgerJson::text($two, LedgerRetention::standard())));
-    $one = strlen(Gzip::pack(LedgerJson::text($two, LedgerRetention::standard()->keepingAtMost(1))));
+    $whole = strlen(Gzip::packAt(LedgerJson::text($two, LedgerRetention::standard()), LedgerCodec::LEVEL));
+    $one = strlen(Gzip::packAt(LedgerJson::text($two, LedgerRetention::standard()->keepingAtMost(1)), LedgerCodec::LEVEL));
     $limits = LedgerLimits::of(intdiv($whole, 2) + 1, 38_000_000, 60.0);
-    $encoded = EncodedLedger::within($two, $limits);
+    $encoded = encodedWithin($two, $limits);
 
     expect($one)->toBeGreaterThan(intdiv($whole, 2) + 1)
         ->and(LedgerFile::decode($encoded->bytes())->proofs())->toHaveCount(0)

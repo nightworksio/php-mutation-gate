@@ -85,8 +85,7 @@ const CONTENT_KEY_VERSIONS = [['pestphp/pest-plugin-mutate', '5.0.1', 'r2'], ['p
  * @param list<string>                         $definitions the files outside the tests that define the runner
  */
 function contentKeyOf(
-    string $gateVersion = '1.0.0',
-    string $gateReference = 'abc123',
+    string $gateCode = 'verdict code',
     string $config = '{"runner":"pëst"}',
     string $runner = 'pest',
     array $versions = CONTENT_KEY_VERSIONS,
@@ -136,7 +135,7 @@ function contentKeyOf(
         $drives = $drives->with(Version::of($version[0], $version[1], $version[2]));
     }
 
-    $gate = Version::of('nightworksio/mutation-gate', $gateVersion, $gateReference);
+    $gate = Digest::sha256Of($gateCode);
     $identity = Identity::of($runner, $drives, Digest::of($platform));
     $analysed = $analyser === [] ? NoAnalyser::configured() : AnalyserIdentity::of($analyser[0], $analyser[1], Digest::of($analyser[2]));
     $read = Source::of(
@@ -216,11 +215,10 @@ it('hashes everything a result could depend on, in order, from finished digests'
     $keyOf = $makeKeyOf();
 
     $base = $framed(
-        'mutation-gate proof 8',
+        'mutation-gate proof 9',
         'gate',
-        'nightworksio/mutation-gate',
-        '1.0.0',
-        'abc123',
+        '1',
+        Digest::sha256Of('verdict code')->value(),
         'config',
         '{"runner":"pëst"}',
         'runner',
@@ -271,9 +269,9 @@ it('hashes everything a result could depend on, in order, from finished digests'
         'm1',
     ));
 
-    expect(ContentKeys::FORMAT)->toBe('mutation-gate proof 8')
+    expect(ContentKeys::FORMAT)->toBe('mutation-gate proof 9')
         ->and($keyOf())->toEqual($framed(
-            'mutation-gate proof 8',
+            'mutation-gate proof 9',
             $base,
             $read,
             hash('sha256', $frame('reached', '0')),
@@ -303,8 +301,7 @@ it('changes with every input a result could depend on', function (Closure $chang
 
     expect($changed())->not->toEqual($keyOf());
 })->with([
-    'the gate\'s version' => [fn(): Digest|Unkeyed => $makeKeyOf()(gateVersion: '1.0.1')],
-    'the gate\'s reference' => [fn(): Digest|Unkeyed => $makeKeyOf()(gateReference: 'abc124')],
+    'the gate\'s verdict code' => [fn(): Digest|Unkeyed => $makeKeyOf()(gateCode: 'other verdict code')],
     'the config' => [fn(): Digest|Unkeyed => $makeKeyOf()(config: '{"runner":"infection"}')],
     'the runner' => [fn(): Digest|Unkeyed => $makeKeyOf()(runner: 'infection')],
     'a version the runner drives' => [fn(): Digest|Unkeyed => $makeKeyOf()(versions: [['pestphp/pest-plugin-mutate', '5.0.1', 'r2'], ['pestphp/pest', '5.2.1', 'r1']])],
@@ -379,7 +376,7 @@ it('keys no unit whose judging tests the runner cannot name', function () use ($
 });
 
 $bare = static fn(): ContentKeys => ContentKeys::of(
-    Version::of('nightworksio/mutation-gate', '1.0.0', 'abc123'),
+    Digest::sha256Of('verdict code'),
     '{}',
     Identity::of('pest', Versions::none(), Digest::of('platform')),
     NoAnalyser::configured(),
@@ -393,7 +390,7 @@ it('writes what holds a unit, by its name', function (Unit $unit, string $heldBy
     $keys = $bare();
 
     expect($keys->keyOf($unit, Paths::none(), CoverageMap::empty()))->toEqual($framed(
-        'mutation-gate proof 8',
+        'mutation-gate proof 9',
         $keys->base()->value(),
         hash('sha256', $frame('tests', '0')),
         hash('sha256', $frame('reached', '0')),
@@ -427,7 +424,7 @@ function contentKeysPinned(CoverageMap $observed): ContentKeys
     $paths = static fn(string ...$paths): Paths => Paths::of(...array_map(Path::of(...), $paths));
 
     return ContentKeys::of(
-        Version::of('nightworksio/mutation-gate', '1.2.3', 'abc'),
+        Digest::sha256Of('verdict code'),
         '{"runner":"pest","floor":80}',
         Identity::of('pest', Versions::of(Version::of('pestphp/pest', '4.1.0', 'r1'), Version::of('pestphp/pest-plugin-mutate', '4.0.1', 'r2')), Digest::of('platform')),
         NoAnalyser::configured(),
@@ -476,12 +473,12 @@ it('keys each unit of a fixture with the bytes its format gives it, whatever ord
     expect($keys->keyOf($unit, $judges, $coverage))->toEqual(Digest::of($key))
         ->and($keys->keyOf($unit, Paths::of(...array_reverse([...$judges])), $coverage))->toEqual(Digest::of($key));
 })->with([
-    'a unit judged by one test file' => [fn(): Unit => Unit::file(Path::of('src/A.php')), fn(): Paths => Paths::of(Path::of('tests/Unit/MoneyTest.php')), '338e35e60993fb80eb225d9555081cec00f7d5a7491b1c81928e3fe44b15676c'],
-    'a unit judged by test files named by digits' => [fn(): Unit => Unit::file(Path::of('src/A.php')), fn(): Paths => Paths::of(Path::of('tests/10'), Path::of('tests/9'), Path::of('tests/Unit/LedgerTest.php')), 'd82c7f43e4e675229ea8463f9a6d111d1151d3604be594c8c328bba23c44cf75'],
-    'a unit judged by a test file the key does not hold' => [fn(): Unit => Unit::file(Path::of('src/B.php')), fn(): Paths => Paths::of(Path::of('tests/Unit/GoneTest.php'), Path::of('tests/Unit/MoneyTest.php')), '5c38d9da228cc9aa03f0d01aebfb9bad3dccc31f663594bd2f66a809130c8da1'],
-    'a unit nothing judges' => [fn(): Unit => Unit::file(Path::of('src/C.php')), fn(): Paths => Paths::none(), '0ba956cb965fc707296007e68573dc1684e346e5ef3d64b72a2a3cb282a6de67'],
-    'a unit a group holds' => [fn(): Unit => Unit::held(Path::of('src/A.php'), Group::named('holds:src/A.php')), fn(): Paths => Paths::none(), 'd805c9e10ec3074ff22b009f00483182abde094d3ad19c4de5424d458a094609'],
-    'a unit a filter holds' => [fn(): Unit => Unit::held(Path::of('src/B.php'), Filter::matching('Money')), fn(): Paths => Paths::of(Path::of('tests/Unit/MoneyTest.php')), 'a6c0fb8197f1576deff2d06b47f048b7335cdd5579dcc75ca8a7d729a9d165ba'],
+    'a unit judged by one test file' => [fn(): Unit => Unit::file(Path::of('src/A.php')), fn(): Paths => Paths::of(Path::of('tests/Unit/MoneyTest.php')), '0dce7551e31840424ce61f1419cc58bfbdbd98db2e5a726c94d6ceb34b5a7dc4'],
+    'a unit judged by test files named by digits' => [fn(): Unit => Unit::file(Path::of('src/A.php')), fn(): Paths => Paths::of(Path::of('tests/10'), Path::of('tests/9'), Path::of('tests/Unit/LedgerTest.php')), '61af28331df3670023f1da9aebaf04bfbd6a8ae8a0206a66b4ee38522751fe8d'],
+    'a unit judged by a test file the key does not hold' => [fn(): Unit => Unit::file(Path::of('src/B.php')), fn(): Paths => Paths::of(Path::of('tests/Unit/GoneTest.php'), Path::of('tests/Unit/MoneyTest.php')), 'e22d48f2a7a9b02dab32dad2dc3bae61528efd2ca2d42ee388b48de52dba3eed'],
+    'a unit nothing judges' => [fn(): Unit => Unit::file(Path::of('src/C.php')), fn(): Paths => Paths::none(), '32dca3a16940c9e0e4dc54024c34fe45c98de65dc093c13646cacc7cce99fd2b'],
+    'a unit a group holds' => [fn(): Unit => Unit::held(Path::of('src/A.php'), Group::named('holds:src/A.php')), fn(): Paths => Paths::none(), '04761e49a7e0fb75ab3d20b9f44f36d4886da71a84992ebfd6d187fa7d28871b'],
+    'a unit a filter holds' => [fn(): Unit => Unit::held(Path::of('src/B.php'), Filter::matching('Money')), fn(): Paths => Paths::of(Path::of('tests/Unit/MoneyTest.php')), '1602790e71fd6959b59e75ab3ff8a45f4e06161f6ac5fa015b7b09492c4ec4ab'],
 ]);
 
 it('keys a unit alike whatever order packages, files or judges that read as numbers come in', function () use ($makeKeyOf): void {
@@ -540,7 +537,7 @@ it('keys units in time linear in the test files that judge them', function (): v
         }
 
         $keys = ContentKeys::of(
-            Version::of('nightworksio/mutation-gate', '1.0.0', 'abc123'),
+            Digest::sha256Of('verdict code'),
             '{}',
             Identity::of('pest', Versions::none(), Digest::of('platform')),
             NoAnalyser::configured(),
@@ -567,11 +564,10 @@ it('names the base every key of a run is built on: the digest of what every key 
     $keys = $bare();
 
     expect($keys->base())->toEqual($framed(
-        'mutation-gate proof 8',
+        'mutation-gate proof 9',
         'gate',
-        'nightworksio/mutation-gate',
-        '1.0.0',
-        'abc123',
+        '1',
+        Digest::sha256Of('verdict code')->value(),
         'config',
         '{}',
         'runner',
@@ -621,7 +617,7 @@ function contentDigestsOf(
     }
 
     return ContentKeys::of(
-        Version::of('nightworksio/mutation-gate', '1.0.0', 'abc123'),
+        Digest::sha256Of('verdict code'),
         $config,
         Identity::of('pest', Versions::none(), Digest::of('platform')),
         NoAnalyser::configured(),
@@ -645,11 +641,10 @@ it('digests what decides a mutant set, each unit\'s source, and each test file w
     $digests = contentDigestsOf(Units::of(Unit::file(Path::of('src/A.php')), Unit::held(Path::of('src'), Group::named('holds:src'))));
 
     expect($digests->mutation())->toEqual($framed(
-        'mutation-gate proof 8',
+        'mutation-gate proof 9',
         'gate',
-        'nightworksio/mutation-gate',
-        '1.0.0',
-        'abc123',
+        '1',
+        Digest::sha256Of('verdict code')->value(),
         'config',
         '{"runner":"pëst"}',
         'runner',
@@ -709,7 +704,7 @@ it('keys every coverage entry on each file that defines the runner, PHP or not, 
     );
 
     expect($defined('s1'))->not->toEqual($defined('s2'))
-        ->and(contentKeyOf(coverageBase: true))->toEqual(Digest::of('4473d6a02bf71379e5098e124ad27b77a5e9dceecaea025c6bf1b7adb30b1db8'));
+        ->and(contentKeyOf(coverageBase: true))->toEqual(Digest::of('2cfd728b5dee246e212445a549b41e1975f1f5658a0a1b3e0bbb34185b2eb74a'));
 });
 
 it('keys every coverage entry on what each reads, and leaves a PHP source and the tests to the entries that read them', function (): void {
@@ -727,7 +722,7 @@ it('keys every coverage entry on what each reads, and leaves a PHP source and th
         ->and(contentKeyOf(config: '{"runner":"infection"}', coverageBase: true))->not->toEqual($base)
         ->and(contentKeyOf(ci: "name: other\n", coverageBase: true))->not->toEqual($base)
         ->and(contentKeyOf(installed: 'other', coverageBase: true))->not->toEqual($base)
-        ->and(contentKeyOf(gateVersion: '1.0.1', coverageBase: true))->not->toEqual($base)
+        ->and(contentKeyOf(gateCode: 'other verdict code', coverageBase: true))->not->toEqual($base)
         ->and(contentKeyOf())->not->toEqual($base);
 });
 

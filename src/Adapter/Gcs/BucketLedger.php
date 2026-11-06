@@ -17,7 +17,9 @@ use NightWorksIO\MutationGate\Core\Http\Token;
 use NightWorksIO\MutationGate\Core\Http\Tokens;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
+use NightWorksIO\MutationGate\Core\Proof\EncodesLedgers;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\ObjectLedger;
 use NightWorksIO\MutationGate\Core\Proof\ObjectStore;
@@ -35,7 +37,7 @@ use function sprintf;
  *
  * @internal
  */
-final readonly class BucketLedger implements ObjectStore, ProofStore
+final readonly class BucketLedger implements EncodesLedgers, ObjectStore, ProofStore
 {
     private const string OBJECT = 'https://storage.googleapis.com/%s/%s';
 
@@ -67,6 +69,11 @@ final readonly class BucketLedger implements ObjectStore, ProofStore
     public function within(LedgerLimits $limits): self
     {
         return new self($this->ledgers->within($limits), $this->bucket, $this->tokens);
+    }
+
+    public function encoding(LedgerCodec $codec): static
+    {
+        return new self($this->ledgers->encoding($codec), $this->bucket, $this->tokens);
     }
 
     public function read(Scope $scope): Ledger|Unreadable

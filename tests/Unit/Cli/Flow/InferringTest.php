@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\TakenProofs;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
@@ -46,7 +47,7 @@ function inferringLedgers(Mutant $by, Mutant $of): Ledgers
     );
 
     return $standing instanceof Standing
-        ? Ledgers::read($store, $standing, Writing::Auto)
+        ? Ledgers::read($store, $standing, Writing::Auto, TakenProofs::Every)
         : throw new RuntimeException($standing->why());
 }
 

@@ -68,7 +68,12 @@ final readonly class Measure
         $measured = Measurement::of(
             $adapters->runner->coverage($request),
             $inventory->units,
-            Ledgers::read($adapters->proofs, $inventory->standing, Writing::Never)->timings(),
+            Ledgers::read(
+                $adapters->proofs,
+                $inventory->standing,
+                Writing::Never,
+                $settings->proofs()->taken(),
+            )->timings(),
         );
         $peak = $composed->setup->memory->peak();
 

@@ -230,7 +230,12 @@ final readonly class Judging
         Baseline $baseline,
         Writing $writing,
     ): Assessed|CannotJudge {
-        $ledgers = Ledgers::read($this->adapters->proofs, Standing::planned($plan), $writing);
+        $ledgers = Ledgers::read(
+            $this->adapters->proofs,
+            Standing::planned($plan),
+            $writing,
+            $this->settings->proofs()->taken(),
+        );
         $kind = $plan->briefing()->profile();
         $proving = $ledgers->proving($plan->considered()->proved(), $plan->keys(), $plan->base(), $kind);
         $carrying = $ledgers->considering(

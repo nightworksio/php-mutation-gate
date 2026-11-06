@@ -65,7 +65,12 @@ final readonly class Rechecking
             $scope->equals($standing->defaultBranch()) => NoRecheck::onTheDefaultBranch(),
             default => $this->inOwnScope(
                 $plan,
-                Ledgers::read($this->adapters->proofs, $standing, Writing::Never)->own(),
+                Ledgers::read(
+                    $this->adapters->proofs,
+                    $standing,
+                    Writing::Never,
+                    $this->settings->proofs()->taken(),
+                )->own(),
                 $survivorsFirst,
             ),
         };

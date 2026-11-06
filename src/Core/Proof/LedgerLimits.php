@@ -26,10 +26,10 @@ use function sprintf;
  */
 final readonly class LedgerLimits
 {
-    /** Twice the 5,486,948 bytes a ledger of 20,000 proofs measures gzipped. */
+    /** Twice the 5,486,948 bytes a format 3 ledger of 20,000 proofs measured gzipped, past what format 5 needs. */
     private const int PACKED = 11_000_000;
 
-    /** Twice the 18,830,752 bytes that ledger measures decompressed. */
+    /** Twice the 18,830,752 bytes that ledger measured decompressed. */
     private const int UNPACKED = 38_000_000;
 
     /** The longest one read over a network may take, in seconds. */

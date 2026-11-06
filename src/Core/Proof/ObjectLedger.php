@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Http\Exchange;
+use NightWorksIO\MutationGate\Core\Http\Request;
 use NightWorksIO\MutationGate\Core\Http\Token;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Written;
@@ -37,18 +38,25 @@ final readonly class ObjectLedger
         private Exchange $exchange,
         private LedgerObject $objects,
         private LedgerLimits $limits,
+        private LedgerCodec $codec,
     ) {
     }
 
     public static function under(Exchange $exchange, string $prefix): self
     {
-        return new self($exchange, LedgerObject::under($prefix), LedgerLimits::standard());
+        return new self($exchange, LedgerObject::under($prefix), LedgerLimits::standard(), LedgerCodec::gzipOnly());
     }
 
     /** Reading and writing ledgers within these limits. */
     public function within(LedgerLimits $limits): self
     {
-        return new self($this->exchange, $this->objects, $limits);
+        return new self($this->exchange, $this->objects, $limits, $this->codec);
+    }
+
+    /** Writing ledgers packed as this codec says, and reading them as it reads them. */
+    public function encoding(LedgerCodec $codec): self
+    {
+        return new self($this->exchange, $this->objects, $this->limits, $codec);
     }
 
     /** The scope's ledger in the store; an empty one where there is none yet; or why it could not be read. */
@@ -69,7 +77,7 @@ final readonly class ObjectLedger
 
         $request = $store->reading($scope, LedgerObject::encoded($key), $token);
         $fetched = $this->exchange->fetch($request, $this->limits, $at);
-        $read = is_string($fetched) ? LedgerFile::read($fetched, $this->limits) : $fetched;
+        $read = is_string($fetched) ? LedgerFile::read($fetched, $this->limits, $this->codec) : $fetched;
 
         return $read instanceof Ledger || $read instanceof Unreadable ? $read : Unreadable::notRead($at, $read);
     }
@@ -90,11 +98,12 @@ final readonly class ObjectLedger
             return NotWritten::because(sprintf(self::UNWRITTEN, $at, $token->why()));
         }
 
-        $encoded = EncodedLedger::within($ledger, $this->limits);
-        $request = $store->writing($scope, LedgerObject::encoded($key), $token, $encoded->bytes());
-        $written = $this->exchange->put($request, $this->limits, $at);
+        $encoded = EncodedLedger::within($ledger, $this->limits, $this->codec);
+        $path = LedgerObject::encoded($key);
 
-        return $written instanceof Written ? $encoded->written($written) : $written;
+        return $encoded instanceof CannotJudge
+            ? NotWritten::because($encoded->why())
+            : $this->put($encoded, $store->writing($scope, $path, $token, $encoded->bytes()), $at);
     }
 
     /** The bytes of an object kept beside the scope's ledger; none where there is none yet; or why not. */
@@ -142,5 +151,13 @@ final readonly class ObjectLedger
         $request = $store->writing($scope, LedgerObject::encoded($key), $token, $bytes->text());
 
         return $this->exchange->put($request, CompanionRead::limitsOf($companion), $at);
+    }
+
+    /** Put an encoded ledger with this request, saying where it went and what it dropped, or why it did not. */
+    private function put(EncodedLedger $encoded, Request $request, string $at): Written|NotWritten
+    {
+        $written = $this->exchange->put($request, $this->limits, $at);
+
+        return $written instanceof Written ? $encoded->written($written) : $written;
     }
 }

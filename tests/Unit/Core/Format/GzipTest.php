@@ -20,6 +20,16 @@ it('packs text smaller, and unpacks what it packs', function (): void {
         ->and(strlen(Gzip::pack($text)))->toBeLessThan(strlen($text));
 });
 
+it('packs at the level it is asked, the nearest gzip has past either end, and unpacks it', function (): void {
+    $text = str_repeat('{"unit":"src/Money.php","line":12}', 2_000);
+
+    expect(Gzip::packAt($text, 1))->toBe(gzencode($text, 1))
+        ->and(Gzip::packAt($text, 0))->toBe(gzencode($text, 1))
+        ->and(Gzip::packAt($text, 9))->toBe(gzencode($text, 9))
+        ->and(Gzip::packAt($text, 19))->toBe(gzencode($text, 9))
+        ->and(Gzip::unpackAtMost(Gzip::packAt($text, 9), 'the ledger', strlen($text)))->toBe($text);
+});
+
 it('unpacks a stream that inflates to no more than the limit', function (): void {
     $text = str_repeat('{"unit":"src/Money.php"}', 1_000);
 

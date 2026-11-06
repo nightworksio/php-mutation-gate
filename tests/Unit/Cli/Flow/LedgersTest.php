@@ -35,6 +35,7 @@ use NightWorksIO\MutationGate\Core\Proof\RunProfile;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\ScopeRuns;
 use NightWorksIO\MutationGate\Core\Proof\Scopes;
+use NightWorksIO\MutationGate\Core\Proof\TakenProofs;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Proof\Undigested;
@@ -107,7 +108,7 @@ $store = static function () use ($ledger): ProofStoreFake {
 };
 
 /** The ledgers a run on this ref reads from a store, where main is the default branch. */
-function ledgersOn(RunOn $run, Writing $writing, ProofStore $store): Ledgers
+function ledgersOn(RunOn $run, Writing $writing, ProofStore $store, TakenProofs $taken = TakenProofs::Every): Ledgers
 {
     $standing = Standing::of(
         new CiPlanFake($run),
@@ -116,7 +117,7 @@ function ledgersOn(RunOn $run, Writing $writing, ProofStore $store): Ledgers
     );
 
     return $standing instanceof Standing
-        ? Ledgers::read($store, $standing, $writing)
+        ? Ledgers::read($store, $standing, $writing, $taken)
         : throw new RuntimeException($standing->why());
 }
 
@@ -219,6 +220,19 @@ it('takes a proof whose key still matches from either ledger, and runs the rest'
         ->and($proving->ownScopeProofs())->toBe(1);
 });
 
+it('takes no proof of its own scope where proofs.ownScope says not to, and keeps the rest its own ledger learned', function () use ($store): void {
+    $units = Units::of(Unit::file(Path::of('src/A.php')), Unit::file(Path::of('src/B.php')));
+    $keys = Keys::none()->with(Path::of('src/A.php'), Digest::of('a'))->with(Path::of('src/B.php'), Digest::of('b'));
+    $ledgers = ledgersOn(RunOn::at(Scope::pullRequest(7), Scope::branch('main')), Writing::Auto, $store(), TakenProofs::DefaultBranchOnly);
+    $proving = $ledgers->proving($units, $keys, Digest::sha256Of('now'), RunProfile::standard());
+
+    expect($proving->toRun())->toEqual(Units::of(Unit::file(Path::of('src/B.php'))))
+        ->and($proving->ownScopeProofs())->toBe(0)
+        ->and($ledgers->own()->proofs())->toHaveCount(0)
+        ->and($ledgers->timings()->secondsFor(Path::of('src/B.php')))->toEqual(Seconds::of(2.0))
+        ->and($ledgers->lastPassed())->toEqual(Passed::of(Revision::ref('pr-passed'), 'check', 0));
+});
+
 it('proves and carries a run that records every killer only from proofs whose runs recorded every killer', function () use ($ledger): void {
     $store = new ProofStoreFake();
     $full = Run::of('local', Moment::at('2026-09-30T10:00:00Z'), Digest::sha256Of('now'))->recording(MatrixKind::Full);
@@ -300,6 +314,16 @@ it('looks for no proof in a ledger that holds none at the base the keys are buil
         ->and($proving->ownScopeProofs())->toBe(0)
         ->and($atBefore->toRun())->toEqual(Units::of(Unit::file(Path::of('src/A.php'))))
         ->and($atBefore->ownScopeProofs())->toBe(1);
+});
+
+it('takes no proof of either ledger where the run takes none, and keeps all else they learned', function () use ($store): void {
+    $ledgers = ledgersOn(RunOn::at(Scope::pullRequest(7), Scope::branch('main')), Writing::Auto, $store(), TakenProofs::None);
+    $units = Units::of(Unit::file(Path::of('src/A.php')), Unit::file(Path::of('src/B.php')));
+    $keys = Keys::none()->with(Path::of('src/A.php'), Digest::of('a'))->with(Path::of('src/B.php'), Digest::of('b'));
+
+    expect($ledgers->proving($units, $keys, Digest::sha256Of('now'), RunProfile::standard())->toRun())->toEqual($units)
+        ->and($ledgers->timings())->toHaveCount(2)
+        ->and($ledgers->lastPassed())->toEqual(Passed::of(Revision::ref('pr-passed'), 'check', 0));
 });
 
 it('counts no timing twice', function () use ($read): void {

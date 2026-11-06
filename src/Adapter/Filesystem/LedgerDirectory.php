@@ -29,7 +29,9 @@ use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\CompanionRead;
 use NightWorksIO\MutationGate\Core\Proof\EncodedLedger;
+use NightWorksIO\MutationGate\Core\Proof\EncodesLedgers;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\LedgerObject;
@@ -53,22 +55,27 @@ use function usort;
  *
  * @internal
  */
-final readonly class LedgerDirectory implements Configurable, ProofStore
+final readonly class LedgerDirectory implements Configurable, EncodesLedgers, ProofStore
 {
-    private function __construct(private ProjectPath $path, private LedgerLimits $limits)
+    private function __construct(private ProjectPath $path, private LedgerLimits $limits, private LedgerCodec $codec)
     {
     }
 
     /** The ledgers under this directory: from the project and inside it, or absolute. */
     public static function at(string $path): self
     {
-        return new self(ProjectPath::of($path), LedgerLimits::standard());
+        return new self(ProjectPath::of($path), LedgerLimits::standard(), LedgerCodec::gzipOnly());
     }
 
     /** Reading and writing ledgers within these limits. */
     public function within(LedgerLimits $limits): self
     {
-        return new self($this->path, $limits);
+        return new self($this->path, $limits, $this->codec);
+    }
+
+    public function encoding(LedgerCodec $codec): static
+    {
+        return new self($this->path, $this->limits, $codec);
     }
 
     public static function fromOptions(Options $options): self|Invalid
@@ -122,12 +129,13 @@ final readonly class LedgerDirectory implements Configurable, ProofStore
     public function write(Scope $scope, Ledger $ledger): Written|NotWritten
     {
         $file = $this->fileOf($scope);
-        $encoded = EncodedLedger::within($ledger, $this->limits);
-        $written = $file instanceof ProjectPath
-            ? $this->path->directory()->write($file->inside(), Contents::of($encoded->bytes()))
-            : $file;
+        $encoded = EncodedLedger::within($ledger, $this->limits, $this->codec);
 
-        return $written instanceof CannotJudge ? NotWritten::because($written->why()) : $encoded->written($written);
+        return match (true) {
+            $encoded instanceof CannotJudge => NotWritten::because($encoded->why()),
+            $file instanceof ProjectPath => $this->keptAs($file, $encoded),
+            default => NotWritten::because($file->why()),
+        };
     }
 
     /**
@@ -182,6 +190,14 @@ final readonly class LedgerDirectory implements Configurable, ProofStore
         return KeptLedgers::of(...$kept);
     }
 
+    /** Keep an encoded ledger in this file, saying where and what it dropped, or why it could not. */
+    private function keptAs(ProjectPath $file, EncodedLedger $encoded): Written|NotWritten
+    {
+        $written = $this->path->directory()->write($file->inside(), Contents::of($encoded->bytes()));
+
+        return $written instanceof CannotJudge ? NotWritten::because($written->why()) : $encoded->written($written);
+    }
+
     /**
      * The ledger a file of the directory is, where it is one.
      *
@@ -225,7 +241,7 @@ final readonly class LedgerDirectory implements Configurable, ProofStore
     /** The ledger a file's contents are; or why they are none this gate reads. */
     private function decoded(Contents $contents, ProjectPath $file): Ledger|Unreadable
     {
-        $read = LedgerFile::read($contents->text(), $this->limits);
+        $read = LedgerFile::read($contents->text(), $this->limits, $this->codec);
 
         return $read instanceof Ledger ? $read : Unreadable::notRead($file->value(), $read);
     }

@@ -37,12 +37,12 @@ final readonly class PlanEstimates
     private const string ASSUMED = 'It takes each shard\'s runner to run %d mutants at once, as this machine does.';
 
     private const string UNMET = <<<'SAID'
-        shards.target is %s, and at shards.max of %d shards the longest is expected to take %s.
+        shards.target is %s, and at shards.max of %d the longest is expected to take %s.
         Raise shards.max, or shards.target, to meet it.
         SAID;
 
     private const string UNSPLIT = <<<'SAID'
-        shards.target is %s, and at %d shards the longest is expected to take %s.
+        shards.target is %s, and at %d %s the longest is expected to take %s.
         More shards would each cost less than twice their opening run and setup, or split a unit, which no cut does.
         Raise shards.target to meet it.
         SAID;
@@ -206,7 +206,7 @@ final readonly class PlanEstimates
 
         return Warnings::of(Warning::that($shards >= $most
             ? sprintf(self::UNMET, $target->text(), $most, $longest->text())
-            : sprintf(self::UNSPLIT, $target->text(), $shards, $longest->text())));
+            : sprintf(self::UNSPLIT, $target->text(), $shards, $shards === 1 ? 'shard' : 'shards', $longest->text())));
     }
 
     /** A shard's job: its units, its opening run and its setup; no time for a shard of no units. */

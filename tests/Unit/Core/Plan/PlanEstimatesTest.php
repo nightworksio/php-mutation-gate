@@ -105,7 +105,7 @@ it('warns where the plan cannot meet shards.target, saying what stops it', funct
 
     expect($estimates->summary(ProcessCount::of(4), Seconds::of(600.0), 2))
         ->toBe([$total, <<<'SAID'
-            shards.target is 10m, and at shards.max of 2 shards the longest is expected to take 14m.
+            shards.target is 10m, and at shards.max of 2 the longest is expected to take 14m.
             Raise shards.max, or shards.target, to meet it.
             SAID])
         ->and($estimates->summary(ProcessCount::of(4), Seconds::of(600.0), 3))->toBe([$total, <<<'SAID'
@@ -115,6 +115,16 @@ it('warns where the plan cannot meet shards.target, saying what stops it', funct
             SAID])
         ->and($estimates->summary(ProcessCount::of(4), $estimates->runTime()->wall(), 2))->toBe([$total])
         ->and($estimates->summary(ProcessCount::of(4), Absent::setting(), 2))->toBe([$total]);
+});
+
+it('says one shard as one where the plan cannot split it to meet shards.target', function (): void {
+    $estimates = PlanEstimates::of(estimatedPlan(estimatedShard(1, 0.0, 700.0, 60.0)), Seconds::of(60.0));
+
+    expect($estimates->summary(ProcessCount::of(4), Seconds::of(600.0), 3)[1])->toBe(<<<'SAID'
+        shards.target is 10m, and at 1 shard the longest is expected to take 14m.
+        More shards would each cost less than twice their opening run and setup, or split a unit, which no cut does.
+        Raise shards.target to meet it.
+        SAID);
 });
 
 it('says each shard\'s runner is taken to run as many mutants at once as this machine, where a unit\'s estimate is measured', function (): void {

@@ -17,6 +17,10 @@ inputs:
     description: The PHP version to set up.
     required: false
     default: '8.5'
+  extensions:
+    description: 'PHP extensions to set up besides the defaults, as setup-php takes them, such as "zstd, intl".'
+    required: false
+    default: ''
   runner:
     description: pest, infection, phpunit, phpspec, codeception, testo or a registered runner's name; the config's, or zero-config's, where empty.
     required: false
@@ -26,7 +30,7 @@ inputs:
     required: false
     default: ''
   mode:
-    description: auto (change-scoped on pull requests, merge groups and pushes, full on schedules, manual runs, releases and tags), full, changed, or sampled (as auto, sampling the units no proof covers).
+    description: auto (change-scoped on pull requests, merge groups and pushes, full on schedules, manual runs, releases and tags), full, changed, sampled (as auto, sampling the units no proof covers), or unproven (every unit, taking no proof, so every unit runs).
     required: false
     default: auto
   changed-since:
@@ -95,6 +99,7 @@ runs:
       uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
       with:
         php-version: ${{ inputs.php-version }}
+        extensions: ${{ inputs.extensions }}
         coverage: pcov
 
     # Before the project's dependencies install, so none of its code runs
@@ -441,6 +446,7 @@ runs:
       uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
       with:
         php-version: ${{ inputs.php-version }}
+        extensions: ${{ inputs.extensions }}
         coverage: none
 
     - name: Install the gate's own copy

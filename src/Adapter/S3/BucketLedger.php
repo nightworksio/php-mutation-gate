@@ -26,7 +26,9 @@ use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\CompanionRead;
 use NightWorksIO\MutationGate\Core\Proof\EncodedLedger;
+use NightWorksIO\MutationGate\Core\Proof\EncodesLedgers;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\LedgerObject;
@@ -55,7 +57,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  *
  * @internal
  */
-final readonly class BucketLedger implements Configurable, ProofStore
+final readonly class BucketLedger implements Configurable, EncodesLedgers, ProofStore
 {
     /** Where an object of the bucket is, as a run names it. */
     private const string AT = 's3://%s/%s';
@@ -68,18 +70,26 @@ final readonly class BucketLedger implements Configurable, ProofStore
         private string $bucket,
         private LedgerObject $objects,
         private LedgerLimits $limits,
+        private LedgerCodec $codec,
     ) {
     }
 
     public static function of(S3Client $client, string $bucket, string $prefix): self
     {
-        return new self($client, $bucket, LedgerObject::under($prefix), LedgerLimits::standard());
+        $objects = LedgerObject::under($prefix);
+
+        return new self($client, $bucket, $objects, LedgerLimits::standard(), LedgerCodec::gzipOnly());
     }
 
     /** Reading and writing ledgers within these limits. */
     public function within(LedgerLimits $limits): self
     {
-        return new self($this->client, $this->bucket, $this->objects, $limits);
+        return new self($this->client, $this->bucket, $this->objects, $limits, $this->codec);
+    }
+
+    public function encoding(LedgerCodec $codec): static
+    {
+        return new self($this->client, $this->bucket, $this->objects, $this->limits, $codec);
     }
 
     public static function fromOptions(Options $options): self|Invalid
@@ -117,7 +127,7 @@ final readonly class BucketLedger implements Configurable, ProofStore
 
         $at = sprintf(self::AT, $this->bucket, $key);
         $fetched = $this->fetched($key, $at);
-        $read = is_string($fetched) ? LedgerFile::read($fetched, $this->limits) : $fetched;
+        $read = is_string($fetched) ? LedgerFile::read($fetched, $this->limits, $this->codec) : $fetched;
 
         return $read instanceof Ledger || $read instanceof Unreadable ? $read : Unreadable::notRead($at, $read);
     }
@@ -130,10 +140,9 @@ final readonly class BucketLedger implements Configurable, ProofStore
             return NotWritten::because($key->why());
         }
 
-        $encoded = EncodedLedger::within($ledger, $this->limits);
-        $written = $this->put($key, $encoded->bytes());
+        $encoded = EncodedLedger::within($ledger, $this->limits, $this->codec);
 
-        return $written instanceof Written ? $encoded->written($written) : $written;
+        return $encoded instanceof CannotJudge ? NotWritten::because($encoded->why()) : $this->kept($key, $encoded);
     }
 
     /**
@@ -165,6 +174,14 @@ final readonly class BucketLedger implements Configurable, ProofStore
         $key = $this->objects->companionOf($scope, $companion);
 
         return $key instanceof CannotJudge ? NotWritten::because($key->why()) : $this->put($key, $bytes->text());
+    }
+
+    /** Put an encoded ledger under this key, saying where it went and what it dropped, or why it did not. */
+    private function kept(string $key, EncodedLedger $encoded): Written|NotWritten
+    {
+        $written = $this->put($key, $encoded->bytes());
+
+        return $written instanceof Written ? $encoded->written($written) : $written;
     }
 
     /** Put these bytes at a key, saying where, or why not. */

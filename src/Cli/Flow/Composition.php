@@ -24,9 +24,8 @@ use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Context;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Settings;
-use NightWorksIO\MutationGate\Core\File\Contents;
-use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Proof\Key\InstalledPackages;
 use NightWorksIO\MutationGate\Core\Runner\PeakMemory;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use Psr\Clock\ClockInterface;
@@ -63,7 +62,7 @@ final readonly class Composition
         return new Setup(
             $file,
             InstalledGate::version(),
-            Digest::sha256Of($installed instanceof Contents ? $installed->text() : ''),
+            InstalledPackages::digestOf($installed),
             $this->clock,
             $this->memory,
             $file instanceof Path

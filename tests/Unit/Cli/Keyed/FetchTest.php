@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Format\TooLarge;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
@@ -62,7 +63,7 @@ function fetchedIn(string $directory, string $ref): Ledger|CannotJudge|TooLarge|
 {
     $file = sprintf('%s/%s/ledger.json.gz', $directory, $ref);
 
-    return is_file($file) ? LedgerFile::read((string) file_get_contents($file), LedgerLimits::standard()) : 'nothing';
+    return is_file($file) ? LedgerFile::read((string) file_get_contents($file), LedgerLimits::standard(), LedgerCodec::gzipOnly()) : 'nothing';
 }
 
 it('is asked for by its name alone', function (): void {

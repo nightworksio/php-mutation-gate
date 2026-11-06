@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Matrix\Standing;
 use NightWorksIO\MutationGate\Core\Mutant\MutantRecord;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\RejectionRecord;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Sample\Confidence;
 use NightWorksIO\MutationGate\Core\Score\Percentage;
@@ -483,10 +484,10 @@ final readonly class ReportSchema
             'judgement' => self::oneOf(...MutantJudgement::cases()),
             'reason' => self::TEXT,
             MutantRecord::REJECTION => self::object([
-                MutantRecord::ANALYSER => self::TEXT,
-                MutantRecord::FILE => self::TEXT,
-                MutantRecord::CODE => self::TEXT,
-                MutantRecord::MESSAGE => self::TEXT,
+                RejectionRecord::ANALYSER => self::TEXT,
+                RejectionRecord::FILE => self::TEXT,
+                RejectionRecord::CODE => self::TEXT,
+                RejectionRecord::MESSAGE => self::TEXT,
             ], []),
             'changedLine' => self::FLAG,
             'carriedPruned' => self::PRESENT,

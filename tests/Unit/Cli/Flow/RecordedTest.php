@@ -83,6 +83,7 @@ use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\RunProfile;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\ScopeRuns;
+use NightWorksIO\MutationGate\Core\Proof\TakenProofs;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Proof\Undigested;
@@ -209,6 +210,7 @@ $ledgers = static fn(ProofStore $store, Plan $plan, Writing $writing = Writing::
     $store,
     Standing::planned($plan),
     $writing,
+    TakenProofs::Every,
 );
 
 it('writes a proof of every unit that ran to the end, at the plan\'s base, and what each shard cost', function () use (

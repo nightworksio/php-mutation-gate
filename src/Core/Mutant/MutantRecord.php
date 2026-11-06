@@ -8,11 +8,11 @@ use function array_map;
 use function count;
 use function is_string;
 
-use NightWorksIO\MutationGate\Core\Analysis\Finding;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -35,7 +35,8 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  *
  * @internal the shape of the plan, shard result and ledger files
  *
- * @phpstan-type RejectionWritten array{analyser: string, file: string, code: string, message: string}
+ * @phpstan-import-type Written from RejectionRecord as RejectionWritten
+ * @phpstan-import-type Kept from RejectionRecord as RejectionKept
  * @phpstan-type Full array{
  *     id: string,
  *     native: string,
@@ -58,26 +59,43 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  *     failingUnmutated?: list<string>,
  *     rejection?: RejectionWritten,
  * }
+ * @phpstan-type Kept array{
+ *     id: string,
+ *     native: string,
+ *     file: string,
+ *     line: int,
+ *     end?: int,
+ *     mutator: string,
+ *     family: string,
+ *     diff?: string,
+ *     hint?: string,
+ *     status: string,
+ *     seconds?: float,
+ *     limit?: float,
+ *     limitBytes?: int,
+ *     testSeconds?: float,
+ *     suiteBytes?: int,
+ *     reason?: string,
+ *     outOfTime?: string,
+ *     killedBy?: list<string>,
+ *     failingUnmutated?: list<string>,
+ *     rejection?: RejectionWritten|RejectionKept,
+ * }
  */
 final readonly class MutantRecord
 {
     /** The field of a record, and of the JSON report's mutant, that holds the rejection. */
     public const string REJECTION = 'rejection';
 
-    /** A field of a rejection, as {@see self::rejection()} writes it. */
-    public const string ANALYSER = 'analyser';
-
-    /** The field of a record that holds the mutant's file, and of a rejection, the file its finding sits in. */
+    /** The field of a record that holds the mutant's file. */
     public const string FILE = 'file';
 
-    /** A field of a rejection, as {@see self::rejection()} writes it. */
-    public const string CODE = 'code';
-
-    /** A field of a rejection, as {@see self::rejection()} writes it. */
-    public const string MESSAGE = 'message';
-
     public const string REASON = 'reason';
-    private const string ID = 'id';
+    /** The field of a full record that holds the mutant's id. */
+    public const string ID = 'id';
+
+    /** What a time budget ran out before, where one left the mutant unjudged. */
+    public const string OUT_OF_TIME = 'outOfTime';
 
     private const string LINE = 'line';
 
@@ -93,9 +111,6 @@ final readonly class MutantRecord
 
     /** A registered mutator's own sentence for a survivor, where it has one. */
     private const string HINT = 'hint';
-
-    /** What a time budget ran out before, where one left the mutant unjudged. */
-    private const string OUT_OF_TIME = 'outOfTime';
 
     /** How many fields a killed record holds: its id, its line, its mutator and its killers. */
     private const int KILLED = 4;
@@ -128,23 +143,34 @@ final readonly class MutantRecord
             ...LimitRecord::of($mutant),
             ...$reason instanceof Reason ? [self::REASON => $reason->text(), ...self::outOfTime($reason)] : [],
             ...self::tested($mutant),
-            ...$reason instanceof Rejection ? [self::REJECTION => self::rejection($reason)] : [],
+            ...$reason instanceof Rejection ? [self::REJECTION => RejectionRecord::of($reason)] : [],
         ];
     }
 
     /**
-     * A rejection as a record and the JSON report write it.
+     * A mutant's full record as a ledger keeps it: its duration to the
+     * millisecond, and of a mutant killed by static analysis no diff, which a
+     * kill needs no more than a test's kill does, and of its rejection the
+     * analyser and the finding's code alone.
      *
-     * @return RejectionWritten
+     * @return Kept
      */
-    public static function rejection(Rejection $rejection): array
+    public static function kept(Mutant $mutant): array
     {
-        return [
-            self::ANALYSER => $rejection->analyser(),
-            self::FILE => $rejection->finding()->file()->value(),
-            self::CODE => $rejection->finding()->code(),
-            self::MESSAGE => $rejection->finding()->message(),
+        $duration = $mutant->duration();
+        $reason = $mutant->reason();
+        $kept = [
+            ...self::full($mutant),
+            ...$duration instanceof Seconds ? [self::SECONDS => $duration->toTheMillisecond()] : [],
         ];
+
+        if (! $reason instanceof Rejection) {
+            return $kept;
+        }
+
+        unset($kept[self::DIFF]);
+
+        return [...$kept, self::REJECTION => RejectionRecord::kept($reason)];
     }
 
     /**
@@ -179,7 +205,7 @@ final readonly class MutantRecord
             Mutation::of(
                 $record->field(self::MUTATOR)->text(),
                 self::familyIn($record),
-                $record->field(self::DIFF)->text(),
+                self::textIn($record->field(self::DIFF)),
                 self::hintIn($record),
             ),
             self::statusIn($record),
@@ -192,7 +218,7 @@ final readonly class MutantRecord
         $said = $reason instanceof Reason ? $limited->because($reason) : $limited;
         $killed = $killers->isPresent() ? $said->killedBy(self::testsIn($killers)) : $said;
 
-        return self::rejectedIn($record, $killed);
+        return RejectionRecord::onto($record, $killed);
     }
 
     /**
@@ -221,7 +247,7 @@ final readonly class MutantRecord
     /** Whether a record is a full one, rather than the killed one a ledger keeps of a killed mutant. */
     public static function isFull(Node $record): bool
     {
-        return $record->field(self::DIFF)->isPresent();
+        return $record->kind() === Kind::Map;
     }
 
     /**
@@ -242,35 +268,13 @@ final readonly class MutantRecord
     }
 
     /**
-     * The mutant, rejected as the record says a static analyser rejected it.
-     * A rejection belongs only to a mutant killed by static analysis, and is
-     * its whole reason, so a record that gives one any other status, or a
-     * reason or what a time budget ran out before beside it, contradicts
-     * itself.
+     * The text a field holds, none where it is not there.
      *
      * @throws NotInShape
      */
-    private static function rejectedIn(Node $record, Mutant $mutant): Mutant
+    private static function textIn(Node $field): string
     {
-        $rejection = $record->field(self::REJECTION);
-
-        return match (true) {
-            ! $rejection->isPresent() => $mutant,
-            $mutant->status() !== MutantStatus::KilledByStaticAnalysis => throw NotInShape::at(
-                $rejection->at(),
-                'a rejection only on a mutant killed by static analysis',
-            ),
-            $record->field(self::REASON)->isPresent() || $record->field(self::OUT_OF_TIME)->isPresent()
-                => throw NotInShape::at($rejection->at(), 'a rejection with no reason beside it'),
-            default => $mutant->rejected(Rejection::by(
-                $rejection->field(self::ANALYSER)->text(),
-                Finding::error(
-                    Path::of($rejection->field(self::FILE)->text()),
-                    $rejection->field(self::CODE)->text(),
-                    $rejection->field(self::MESSAGE)->text(),
-                ),
-            )),
-        };
+        return $field->isPresent() ? $field->text() : '';
     }
 
     /** @throws NotInShape */

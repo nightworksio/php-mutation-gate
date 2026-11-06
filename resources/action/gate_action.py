@@ -71,7 +71,7 @@ MERGE_GROUP = "merge_group"
 # The events `mode: auto` runs in full on (ADR-0005).
 FULL = frozenset({"schedule", "workflow_dispatch", "release"})
 
-MODES = frozenset({"auto", "full", "changed", "sampled"})
+MODES = frozenset({"auto", "full", "changed", "sampled", "unproven"})
 
 LEDGERS = ".mutation-gate/ledger"
 
@@ -208,10 +208,13 @@ def mode_arguments(
     (ADR-0022), which holds every pull request the group merges. Another branch
     runs from the default branch, and the default branch from the last commit
     whose verdict passed (ADR-0005). `sampled` considers what `auto` does, and
-    samples the units no proof covers (ADR-0020).
+    samples the units no proof covers (ADR-0020). `unproven` considers every
+    unit and takes no proof, so every unit runs (ADR-0084).
     """
     if mode not in MODES:
-        raise Refused(f"mode is {mode!r}; it is auto, full, changed or sampled.")
+        raise Refused(f"mode is {mode!r}; it is auto, full, changed, sampled or unproven.")
+    if mode == "unproven":
+        return ["--unproven"]
     if mode == "sampled":
         return [*mode_arguments("auto", changed_since, event, ref, payload, default_branch, merged_onto), "--sample"]
     tag = ref.startswith("refs/tags/")

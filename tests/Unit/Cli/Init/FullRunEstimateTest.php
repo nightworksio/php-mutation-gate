@@ -76,7 +76,7 @@ it('says where shards.max stops a full run meeting shards.target', function (): 
 
     expect(fullRunEstimateIn($project, $runner)
         ->said(fullRunEstimateInput(), fullRunEstimateSettings(), Output::Written, fresh: true))->toEndWith(<<<'SAID'
-            shards.target is 30s, and at shards.max of 1 shards the longest is expected to take 1m.
+            shards.target is 30s, and at shards.max of 1 the longest is expected to take 1m.
             Raise shards.max, or shards.target, to meet it.
             SAID);
 });

@@ -263,13 +263,35 @@ it('refuses a record that gives a rejection to a mutant of any other status, say
         ->toThrow(NotInShape::at('the file.rejection', 'a rejection only on a mutant killed by static analysis'));
 })->with(['survived', 'unjudged', 'killed']);
 
-it('refuses a rejection that does not name the file its finding sits in, saying where', function () use ($makeUnjudged, $read): void {
-    $unjudged = $makeUnjudged();
+it('reads a rejection that names no file and no message, as a ledger keeps one, as a finding in the mutant\'s own file that says nothing more', function () use ($makeUnjudged, $read): void {
+    $rejected = $makeUnjudged()->rejected(Rejection::by('phpstan', Finding::error(Path::of('src/Other.php'), 'return.type', 'No.')));
 
-    $record = MutantRecord::full($unjudged->rejected(Rejection::by('phpstan', Finding::error(Path::of('src/Money.php'), 'return.type', 'No.'))));
-    unset($record['rejection']['file']);
+    $record = MutantRecord::full($rejected);
+    unset($record['rejection']['file'], $record['rejection']['message']);
+    $reason = MutantRecord::readFull($read($record))->reason();
 
-    expect(static fn(): Mutant => MutantRecord::readFull($read($record)))->toThrow(NotInShape::class, 'the file.rejection.file');
+    expect($reason instanceof Rejection ? [$reason->analyser(), $reason->finding()->file()->value(), $reason->finding()->code(), $reason->finding()->message()] : [])
+        ->toBe(['phpstan', 'src/Money.php', 'return.type', '']);
+});
+
+it('keeps in a ledger a mutant\'s duration to the millisecond, and of one killed by static analysis no diff and of its rejection the analyser and code', function () use ($makeTimedOut, $makeUnjudged, $read): void {
+    $timedOut = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'LessThan', "-<\n+<=", 0),
+        '9a0b7e',
+        Location::of(Path::of('src/Money.php'), Line::of(42), Line::of(43)),
+        Mutation::of('LessThan', MutatorFamily::Boundary, "-<\n+<="),
+        MutantStatus::TimedOut,
+        Seconds::of(0.35933804512),
+    )->withLimit(Seconds::of(5.00049))->withUnmutatedNeed(Seconds::of(1.5));
+    $rejected = $makeUnjudged()->rejected(Rejection::by('phpstan', Finding::error(Path::of('src/Money.php'), 'return.type', 'No.')));
+    $kept = MutantRecord::kept($rejected);
+    $back = MutantRecord::readFull($read($kept));
+
+    expect(MutantRecord::kept($timedOut))->toBe([...MutantRecord::full($timedOut), 'seconds' => 0.359])
+        ->and(MutantRecord::kept($makeTimedOut()))->toBe(MutantRecord::full($makeTimedOut()))
+        ->and($kept)->not->toHaveKey('diff')
+        ->and($kept['rejection'] ?? [])->toBe(['analyser' => 'phpstan', 'code' => 'return.type'])
+        ->and([$back->status(), $back->mutation()->diff()])->toBe([MutantStatus::KilledByStaticAnalysis, '']);
 });
 
 it('writes and reads back a rejected mutant left unjudged as unjudged, with no rejection', function () use ($makeKilled, $read): void {
