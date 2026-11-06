@@ -57,14 +57,12 @@ final readonly class Outcomes
 
     private static function byStatus(MutantStatus $status, string $mutator, string $id): Outcome|NotGiven
     {
-        return match ($status) {
-            MutantStatus::Killed,
-            MutantStatus::KilledByStaticAnalysis,
-            MutantStatus::TimedOut,
-            MutantStatus::OutOfMemory,
-            MutantStatus::Errored => Outcome::killed($mutator, $id),
-            MutantStatus::Survived, MutantStatus::Uncovered, MutantStatus::Unjudged => Outcome::through($mutator, $id),
-            MutantStatus::IgnoredByMarker, MutantStatus::Skipped, MutantStatus::FailsUnmutated => NotGiven::value(),
+        return match (true) {
+            $status->letsThrough() => Outcome::through($mutator, $id),
+            $status === MutantStatus::IgnoredByMarker,
+            $status === MutantStatus::Skipped,
+            $status === MutantStatus::FailsUnmutated => NotGiven::value(),
+            default => Outcome::killed($mutator, $id),
         };
     }
 }

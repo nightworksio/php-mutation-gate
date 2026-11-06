@@ -43,6 +43,12 @@ enum MutantStatus: string
         return $this === self::KilledByStaticAnalysis ? self::Killed : $this;
     }
 
+    /** Whether the mutant let the change through: it survived, no test covered it, or no run judged it. */
+    public function letsThrough(): bool
+    {
+        return $this === self::Survived || $this === self::Uncovered || $this === self::Unjudged;
+    }
+
     /** Whether the mutant's time ran out: it timed out, or was skipped for taking as long as its timeout. */
     public function ranOutOfTime(): bool
     {

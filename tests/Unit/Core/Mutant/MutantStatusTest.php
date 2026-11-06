@@ -27,3 +27,19 @@ it('answers as killed where a static analyser killed it, and as itself otherwise
     'survived' => [MutantStatus::Survived, MutantStatus::Survived],
     'timed out' => [MutantStatus::TimedOut, MutantStatus::TimedOut],
 ]);
+
+it('knows a mutant that let the change through: it survived, no test covered it, or no run judged it', function (MutantStatus $status, bool $through): void {
+    expect($status->letsThrough())->toBe($through);
+})->with([
+    'killed' => [MutantStatus::Killed, false],
+    'killed by static analysis' => [MutantStatus::KilledByStaticAnalysis, false],
+    'survived' => [MutantStatus::Survived, true],
+    'uncovered' => [MutantStatus::Uncovered, true],
+    'timed out' => [MutantStatus::TimedOut, false],
+    'errored' => [MutantStatus::Errored, false],
+    'unjudged' => [MutantStatus::Unjudged, true],
+    'ignored by a marker' => [MutantStatus::IgnoredByMarker, false],
+    'skipped' => [MutantStatus::Skipped, false],
+    'out of memory' => [MutantStatus::OutOfMemory, false],
+    'failing unmutated' => [MutantStatus::FailsUnmutated, false],
+]);
