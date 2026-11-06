@@ -38,8 +38,9 @@ sum, rule 11 still checked most of them first.
    kills a learned `timeouts.multiple` reads: the last 2,000 the run's own
    scope's ledger holds, or the default branch's where that holds none. It says what it learned, as in
    `staticCheck.testsTime learned: 0.9 times their tests' own time, the
-   median of 812 kills.` It learns none under `covering`, or where checks
-   run only after the tests.
+   median of 812 kills.` It learns none under `covering`, with no analyser,
+   or where checks run only after the tests, and says nothing where it
+   learned none.
 3. **The pace is the kills' median, unbounded.** A learned
    `timeouts.multiple` bounds a percentile between 2 and 10, as it must
    allow the slowest kill. The pace estimates the typical one, which can

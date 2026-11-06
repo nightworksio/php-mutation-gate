@@ -91,7 +91,6 @@ it('takes the fixed limits from a cold ledger, and says so', function (): void {
             'timeouts.seconds learned: 3 times each shard\'s start-up, at least 1 s; 10 s where none is measured.',
             'timeouts.multiple learned: 3, the fixed one: the ledger holds no kill yet.',
             'shards.max learned: 20, the fixed one: the ledger holds no sharded run yet.',
-            'staticCheck.testsTime learned: their tests\' own time: the ledger holds no kill yet.',
         ]);
 });
 
@@ -121,11 +120,21 @@ it('says the learned multiple to two places, and learns a single shard from runs
         ]);
 });
 
-it('learns no pace, and says none, where checks run after the tests alone', function (): void {
+it('learns no pace, and says none, where no analyser checks before the tests', function (array $staticCheck): void {
     $learned = LearnedLimits::of(
-        Configs::settings(['runner' => 'pest', 'staticCheck' => ['before' => false]]),
+        Configs::settings(['runner' => 'pest', 'staticCheck' => $staticCheck]),
         learnedLedgers(LimitHistory::none()->afterKills(Multiple::of(0.5)), LimitHistory::none()),
     );
+
+    expect($learned->lines())->toBe([])
+        ->and($learned->briefing(Briefing::standard()))->toEqual(Briefing::standard());
+})->with([
+    'checks after the tests alone' => [['before' => false]],
+    'no analyser' => [['tool' => 'none']],
+]);
+
+it('says nothing of a pace while the ledger holds no kill', function (): void {
+    $learned = LearnedLimits::of(Configs::settings(['runner' => 'pest']), learnedLedgers(LimitHistory::none(), LimitHistory::none()));
 
     expect($learned->lines())->toBe([])
         ->and($learned->briefing(Briefing::standard()))->toEqual(Briefing::standard());
