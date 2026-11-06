@@ -139,8 +139,7 @@ it('waits up to five seconds for a client to send its request', function () use 
     $kept = sprintf('%s/slow-answer', (string) getcwd());
     $request = $runRequest($started(), 'pre-commit');
     $client = ServedProjects::aside(static function () use ($kept, $request): void {
-        ServedProjects::until(static fn(): bool => ServedProjects::socket()->isThere());
-        $connection = ServedProjects::socket()->connected();
+        $connection = ServedClients::connected();
 
         if ($connection instanceof Connection) {
             Waiting::every(Seconds::of(4.5))();
@@ -162,8 +161,7 @@ it('refuses a request its client takes longer than five seconds to send', functi
     $kept = sprintf('%s/late-answer', (string) getcwd());
     $request = $runRequest($started(), 'pre-commit');
     $client = ServedProjects::aside(static function () use ($kept, $request): void {
-        ServedProjects::until(static fn(): bool => ServedProjects::socket()->isThere());
-        $connection = ServedProjects::socket()->connected();
+        $connection = ServedClients::connected();
 
         if ($connection instanceof Connection) {
             Waiting::every(Seconds::of(5.6))();

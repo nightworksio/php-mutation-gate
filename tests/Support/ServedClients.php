@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function random_bytes;
 use function register_shutdown_function;
+use function rename;
 use function sodium_bin2hex;
 use function sprintf;
 use function str_ends_with;
@@ -46,7 +47,8 @@ final readonly class ServedClients
      * answer's lines; a line ending in
      * HANG_UP is sent and its connection closed at once, unread, and one
      * ending in HOLD is sent and its connection held open, unread, until two
-     * seconds after the answers are kept: the file they keep the answers in.
+     * seconds after the answers are kept: the file they keep the answers in,
+     * there only once it holds them all.
      *
      * @param list<string> $lines
      */
@@ -64,7 +66,9 @@ final readonly class ServedClients
                 [$answers[], $held[]] = self::asked($line);
             }
 
-            file_put_contents($kept, (string) json_encode($answers));
+            $part = sprintf('%s.part', $kept);
+            file_put_contents($part, (string) json_encode($answers));
+            rename($part, $kept);
             Waiting::every(Seconds::of(array_any($lines, static fn(string $line): bool => str_ends_with($line, self::HOLD)) ? 2.0 : 0.0))();
         });
         register_shutdown_function(static fn() => ServedProjects::waitedFor($child));
@@ -93,14 +97,25 @@ final readonly class ServedClients
     }
 
     /**
-     * A line sent, and the answer's lines read where it is to be read: the
+     * A connection to the daemon of the project, once its socket's file is
+     * there.
+     */
+    public static function connected(): Connection|NotGiven
+    {
+        ServedProjects::until(static fn(): bool => ServedProjects::socket()->isThere());
+
+        return self::reached();
+    }
+
+    /**
+     * A line sent and the answer's lines read where it is to be read: the
      * lines, and the connection, held open where the line says to hold it.
      *
      * @return array{list<string>, Connection|NotGiven}
      */
     private static function asked(string $line): array
     {
-        $connection = ServedProjects::socket()->connected();
+        $connection = self::reached();
         $then = match (true) {
             str_ends_with($line, self::HANG_UP) => self::HANG_UP,
             str_ends_with($line, self::HOLD) => self::HOLD,
@@ -124,6 +139,23 @@ final readonly class ServedClients
         }
 
         return [$answer, $connection];
+    }
+
+    /**
+     * A connection to the daemon of the project: the socket's file is there
+     * before its daemon listens, so a refused connection is tried again
+     * while the file stays; none where the socket refuses the client.
+     */
+    private static function reached(): Connection|NotGiven
+    {
+        $connection = NotGiven::value();
+        ServedProjects::until(static function () use (&$connection): bool {
+            $connection = ServedProjects::socket()->connected();
+
+            return ! $connection instanceof NotGiven || ! ServedProjects::socket()->isThere();
+        });
+
+        return $connection instanceof Connection ? $connection : NotGiven::value();
     }
 
     /**
