@@ -166,6 +166,19 @@ it('draws the badge in CI on the default branch, in the colours the config sets'
     )]);
 });
 
+it('draws the badge with the logo the config names, or none', function (bool|string $logo): void {
+    $settings = Flows::settings(Badge::logo($logo));
+    $chosen = reportersOf($settings, Variables::of(['CI' => 'true']), reportingOnMain());
+
+    expect($chosen)->toEqual([BadgeDirectory::configured(
+        Configs::options(json_encode(['logo' => $logo], JSON_THROW_ON_ERROR)),
+        new SystemClock(),
+    )]);
+})->with([
+    'a file' => ['tests/Fixtures/Badge/logo.svg'],
+    'none' => [false],
+]);
+
 it('draws the badge into the directory --publish-dir names', function (): void {
     $settings = Flows::settings(Badge::colour('green', 90), Badge::colour('red', 0));
     $chosen = new Chosen(new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER))));
