@@ -180,7 +180,7 @@ final readonly class Worker
 
         return match (true) {
             $refused !== '' => $refused,
-            ServedClasses::serves($request->mutated(), $request->schema()) => '',
+            $request->isServedItsSchema() => '',
             $request->isPinnedBySource() && $this->servesSchemaOf($request->mutated())
                 => sprintf(self::PINNED, $request->mutated()),
             default => $this->loaded($request->mutated()),

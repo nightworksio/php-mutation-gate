@@ -148,13 +148,16 @@ it('forks the run of a mutant of a file whose names it has not declared, and loa
     'a trait' => ['trait', 'LazyTrait'],
 ]);
 
-it('forks the run of a mutant the schema it serves switches, starts a pinned one of a file it serves a schema of fresh, and forks a pinned one of any other', function (bool $serves, bool $schema, string|false $pin, string $warning) use ($seat): void {
+it('forks the run of a mutant the schema it serves switches, starts a pinned one of a file it serves a schema of fresh, and forks a pinned one of any other', function (string $state, bool $schema, string|false $pin, string $warning) use ($seat): void {
     $at = $seat();
     $box = ServedBox::registered();
 
     try {
-        if ($serves) {
+        if ($state === 'served') {
             ServedClasses::serve($box->file, $box->copy);
+        }
+
+        if ($state !== 'untouched') {
             class_exists($box->class);
         }
 
@@ -175,16 +178,22 @@ it('forks the run of a mutant the schema it serves switches, starts a pinned one
     expect(WarmDirectory::cleared(sprintf('%s/results.jsonl', dirname($at->directory()))))
         ->toEqual(Warnings::of(Warning::that(sprintf($warning, mb_strtolower($box->class), realpath($box->file)))));
 })->with([
-    'a mutant the schema switches' => [true, true, false, 'The warm worker could not fork, so a mutant ran fresh.'],
+    'a mutant the schema switches' => ['served', true, false, 'The warm worker could not fork, so a mutant ran fresh.'],
     'a mutant pinned by source' => [
-        true,
+        'served',
         false,
         '1',
         'The warm worker serves a schema for %2$s, which would hide its mutant pinned by source, so it ran fresh.',
     ],
-    'a mutant the schema does not switch' => [true, false, false, 'The warm worker had declared %s, which %s declares, so its mutants ran fresh.'],
-    'a mutant told an empty pin' => [true, false, '', 'The warm worker had declared %s, which %s declares, so its mutants ran fresh.'],
-    'a mutant pinned by source of a file it serves nothing of' => [false, false, '1', 'The warm worker could not fork, so a mutant ran fresh.'],
+    'a mutant the schema does not switch' => ['served', false, false, 'The warm worker had declared %s, which %s declares, so its mutants ran fresh.'],
+    'a mutant told an empty pin' => ['served', false, '', 'The warm worker had declared %s, which %s declares, so its mutants ran fresh.'],
+    'a mutant pinned by source of a file it serves nothing of' => ['untouched', false, '1', 'The warm worker could not fork, so a mutant ran fresh.'],
+    'a mutant told a schema of a file it loaded as it is' => [
+        'loaded',
+        true,
+        false,
+        'The warm worker had loaded %2$s, which a mutant changes, so its mutants ran fresh.',
+    ],
 ]);
 
 it('starts fresh, and warns of it, a run it could fork no child for', function () use ($seat, $request, $warned): void {

@@ -25,11 +25,12 @@ it('puts nothing before a mutant\'s run where the gate names no directory for wa
     expect(Pool::prefix(1))->toBe([]);
 });
 
-it('starts its place\'s worker once, and puts the client asking it before each mutant\'s run', function (): void {
+it('starts its place\'s worker once, leaving it the run\'s schemata, and puts the client asking it before each mutant\'s run', function (): void {
     $results = sprintf('%s/results.jsonl', Scratch::directory());
     $directory = WarmDirectory::made($results);
     putenv(sprintf('%s=%s', GateVariable::Warm->value, $directory));
     $first = Pool::prefix(1);
+    $leftSchemata = is_file(sprintf('%s/schemata.json', $directory));
     $worker = file_get_contents(Seat::at($directory, 1)->pid());
     $second = Pool::prefix(1);
     $again = file_get_contents(Seat::at($directory, 1)->pid());
@@ -41,6 +42,7 @@ it('starts its place\'s worker once, and puts the client asking it before each m
 
     expect($first)->toBe([PHP_BINARY, ThisPackage::script('mutation-gate-pest-client'), $directory, '1'])
         ->and($second)->toBe($first)
+        ->and($leftSchemata)->toBeTrue()
         ->and($again)->toBe($worker)
         ->and(trim($listed->getOutput()))->toBe(implode(' ', [
             PHP_BINARY,

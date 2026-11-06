@@ -10,6 +10,7 @@ use function is_file;
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Pest\ServedClasses;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
@@ -115,12 +116,13 @@ final readonly class Request
         return array_key_exists(Recorder::MUTANT, $this->environment) ? $this->environment[Recorder::MUTANT] : '';
     }
 
-    /** The schema the run's mutant is served, by its path; none where its file's schema does not switch it. */
-    public function schema(): string
+    /** Whether this process serves the schema the run's mutant is told, which switches it, in its file's place. */
+    public function isServedItsSchema(): bool
     {
         $schema = GateVariable::Schema->value;
 
-        return array_key_exists($schema, $this->environment) ? $this->environment[$schema] : '';
+        return array_key_exists($schema, $this->environment)
+            && ServedClasses::serves($this->mutated(), $this->environment[$schema]);
     }
 
     /** Whether the run's mutant is pinned by source, served through the wrapper its test reads it by (ADR-0021). */
