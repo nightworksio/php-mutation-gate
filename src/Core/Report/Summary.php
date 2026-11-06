@@ -17,9 +17,12 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
  * `summary.json`, `"format": 1`: what an organisation's dashboard reads of a
  * repository's latest verdict on its default branch (ADR-0024): the commit
  * and time, the verdict, the project's score, each tree's floor and score,
- * the floor for new code, and the mutation time saved over the last 30 days
- * in seconds. A set with nothing to mutate has no score, a tree held to no
- * floor no floor, and a run with no history of what it saved no savings.
+ * the floor for new code, the mutation time saved over the last 30 days in
+ * seconds, the ten costliest mutators the default branch's ledger
+ * tallies (ADR-0076), and the lowest-scoring files, as many as `heatmap.files`
+ * says (ADR-0100). A set with nothing to mutate has no score, a tree held
+ * to no floor no floor, a run with no history of what it saved no savings,
+ * and a ledger that tallies no mutator no mutators.
  * `resources/summary.schema.json` describes it, and it is public API.
  *
  * @internal
@@ -34,7 +37,11 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
  *     trees: list<TreeSummary>,
  *     newCode: array{floor: float},
  *     savings?: array{last30Days: float},
+ *     mutators?: list<Costly>,
+ *     heatmap?: list<LowEntry>,
  * }
+ * @phpstan-import-type Costly from MutatorReport
+ * @phpstan-import-type LowEntry from HeatmapJson
  */
 final readonly class Summary
 {
@@ -52,6 +59,7 @@ final readonly class Summary
         Seconds|NoHistory $saved,
     ): array {
         $score = Overview::of($verdict)->score();
+        $mutators = MutatorReport::costliest($verdict->account()->tallies());
         $trees = [];
 
         foreach ($verdict->trees() as $tree) {
@@ -73,6 +81,8 @@ final readonly class Summary
             'trees' => $trees,
             'newCode' => ['floor' => $newCode->percent()],
             ...$saved instanceof Seconds ? ['savings' => ['last30Days' => $saved->seconds()]] : [],
+            ...$mutators === [] ? [] : ['mutators' => $mutators],
+            ...HeatmapJson::summary($verdict->account()->heatmap()),
         ];
     }
 

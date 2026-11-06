@@ -22,3 +22,17 @@ it('holds every class of the builder and each value of the core a config names, 
         expect(BuilderClasses::holds($class))->toBeFalse();
     }
 });
+
+it('names every class of the builder by its namespace, the interface they share aside', function (): void {
+    $builder = [];
+    $files = glob(sprintf('%s/../../../../src/Config/*.php', __DIR__));
+
+    foreach (is_array($files) ? $files : [] as $file) {
+        $class = sprintf('%s\\%s', BuilderClasses::BUILDER, basename($file, '.php'));
+        $builder = interface_exists($class) ? $builder : [...$builder, basename($file, '.php')];
+    }
+
+    expect($builder)->not->toBe([])
+        ->and(array_keys(array_filter(BuilderClasses::CLASSES, static fn(string $namespace): bool => $namespace === BuilderClasses::BUILDER)))
+        ->toEqualCanonicalizing($builder);
+});

@@ -10,6 +10,7 @@ use function implode;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Doctor\Finding;
 use NightWorksIO\MutationGate\Core\Doctor\Findings;
+use NightWorksIO\MutationGate\Core\Doctor\GateDefinitions;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
 use NightWorksIO\MutationGate\Core\Doctor\Severity;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -44,14 +45,15 @@ final readonly class TreeFloors
     {
         $trees = $observed->trees();
         $baseline = $observed->files()->baseline();
-        $running = $observed->files()->runningTheGate();
+        $definitions = $observed->files()->runningTheGate();
+        $running = $definitions instanceof GateDefinitions ? $definitions->paths() : Paths::none();
 
         if (! $trees instanceof Trees || ! $baseline instanceof Baseline) {
             return Findings::none();
         }
 
         $floorless = self::floorless($trees, $baseline);
-        $inCi = $running instanceof Paths && count($running) > 0;
+        $inCi = count($running) > 0;
 
         return $floorless === [] ? Findings::none() : Findings::of(Finding::of(
             Slug::TreeWithoutFloor,

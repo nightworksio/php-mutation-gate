@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Proof;
 
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistories;
+use NightWorksIO\MutationGate\Core\Cost\MutatorTallies;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
@@ -13,9 +14,8 @@ use NightWorksIO\MutationGate\Core\Pruning\Survival;
 /**
  * What one scope has proved: its proofs, how long each unit took, the bases
  * the runs that wrote it keyed their units at, the most recent first, what it
- * holds of its runs ({@see ScopeRuns}), which tests killed its mutants first,
- * what it learned of each static analyser, and what each mutator's newest
- * mutants came to.
+ * holds of its runs ({@see ScopeRuns}), and what its runs learned beside its
+ * proofs ({@see Learned}).
  */
 final readonly class Ledger
 {
@@ -24,10 +24,7 @@ final readonly class Ledger
         private Timings $timings,
         private Bases $bases,
         private ScopeRuns $runs,
-        private KillHistory $killers,
-        private AnalyserHistories $analysers,
-        private Survival $survival,
-        private LimitHistory $limits,
+        private Learned $learned,
     ) {
     }
 
@@ -38,10 +35,7 @@ final readonly class Ledger
             Timings::none(),
             Bases::none(),
             ScopeRuns::none(),
-            KillHistory::none(),
-            AnalyserHistories::none(),
-            Survival::none(),
-            LimitHistory::none(),
+            Learned::none(),
         );
     }
 
@@ -52,10 +46,7 @@ final readonly class Ledger
             $this->timings,
             $this->bases,
             $this->runs,
-            $this->killers,
-            $this->analysers,
-            $this->survival,
-            $this->limits,
+            $this->learned,
         );
     }
 
@@ -70,10 +61,7 @@ final readonly class Ledger
             $this->timings,
             $this->bases,
             $this->runs,
-            $this->killers,
-            $this->analysers,
-            $this->survival,
-            $this->limits,
+            $this->learned,
         );
     }
 
@@ -85,10 +73,7 @@ final readonly class Ledger
             $this->timings,
             $this->bases,
             $this->runs,
-            $this->killers,
-            $this->analysers,
-            $this->survival,
-            $this->limits,
+            $this->learned,
         );
     }
 
@@ -100,10 +85,7 @@ final readonly class Ledger
             $this->timings->and($timings),
             $this->bases,
             $this->runs,
-            $this->killers,
-            $this->analysers,
-            $this->survival,
-            $this->limits,
+            $this->learned,
         );
     }
 
@@ -115,10 +97,7 @@ final readonly class Ledger
             $this->timings,
             $this->bases->seen($base),
             $this->runs,
-            $this->killers,
-            $this->analysers,
-            $this->survival,
-            $this->limits,
+            $this->learned,
         );
     }
 
@@ -130,10 +109,7 @@ final readonly class Ledger
             $this->timings,
             $this->bases->and($bases),
             $this->runs,
-            $this->killers,
-            $this->analysers,
-            $this->survival,
-            $this->limits,
+            $this->learned,
         );
     }
 
@@ -145,71 +121,33 @@ final readonly class Ledger
             $this->timings,
             $this->bases,
             $runs,
-            $this->killers,
-            $this->analysers,
-            $this->survival,
-            $this->limits,
+            $this->learned,
         );
     }
 
     /**
      * This ledger, with what a run learned, replacing what it held of that
      * kind: the kill history, what the static analysers came to, what each
-     * mutator's newest mutants came to, or what the learned limits are read from.
+     * mutator's newest mutants came to, what each mutator's mutants cost
+     * and found, or what the learned limits are read from.
      */
-    public function withLearned(KillHistory|AnalyserHistories|Survival|LimitHistory $learned): self
-    {
-        return match (true) {
-            $learned instanceof LimitHistory => new self(
-                $this->proofs,
-                $this->timings,
-                $this->bases,
-                $this->runs,
-                $this->killers,
-                $this->analysers,
-                $this->survival,
-                $learned,
-            ),
-            $learned instanceof KillHistory => new self(
-                $this->proofs,
-                $this->timings,
-                $this->bases,
-                $this->runs,
-                $learned,
-                $this->analysers,
-                $this->survival,
-                $this->limits,
-            ),
-            $learned instanceof AnalyserHistories => new self(
-                $this->proofs,
-                $this->timings,
-                $this->bases,
-                $this->runs,
-                $this->killers,
-                $learned,
-                $this->survival,
-                $this->limits,
-            ),
-            default => new self(
-                $this->proofs,
-                $this->timings,
-                $this->bases,
-                $this->runs,
-                $this->killers,
-                $this->analysers,
-                $learned,
-                $this->limits,
-            ),
-        };
+    public function withLearned(
+        KillHistory|AnalyserHistories|Survival|MutatorTallies|LimitHistory $learned,
+    ): self {
+        return new self(
+            $this->proofs,
+            $this->timings,
+            $this->bases,
+            $this->runs,
+            $this->learned->with($learned),
+        );
     }
 
     /**
      * This ledger and another scope's, read together: this one's proofs first,
      * so a key both prove keeps this one's, each unit's newest timing, this
      * one's bases before the other's, what this one holds of its runs, and
-     * where both know who killed a mutant or a function's mutants, this
-     * one's, and where both learned of an analyser or of a runner's mutator,
-     * this one's.
+     * where both learned of the same thing, this one's.
      */
     public function and(self $other): self
     {
@@ -218,10 +156,7 @@ final readonly class Ledger
             $this->timings->and($other->timings),
             $this->bases->and($other->bases),
             $this->runs,
-            $this->killers->and($other->killers),
-            $this->analysers->and($other->analysers),
-            $this->survival->and($other->survival),
-            $this->limits->and($other->limits),
+            $this->learned->and($other->learned),
         );
     }
 
@@ -233,10 +168,7 @@ final readonly class Ledger
             $this->timings,
             $this->bases,
             $this->runs,
-            $this->killers->onlyIn($files),
-            $this->analysers,
-            $this->survival,
-            $this->limits,
+            $this->learned->keepingKillersIn($files),
         );
     }
 
@@ -262,27 +194,9 @@ final readonly class Ledger
         return $this->runs;
     }
 
-    /** Which tests killed this scope's mutants first, and its functions' mutants. */
-    public function killers(): KillHistory
+    /** What this scope's runs learned beside its proofs. */
+    public function learned(): Learned
     {
-        return $this->killers;
-    }
-
-    /** What this scope's runs learned of each static analyser: its rejection rates and how long its checks take. */
-    public function analysers(): AnalyserHistories
-    {
-        return $this->analysers;
-    }
-
-    /** What each mutator's newest judged mutants in this scope came to, by runner, which decides pruning. */
-    public function survival(): Survival
-    {
-        return $this->survival;
-    }
-
-    /** What the limits a config has the gate learn are read from (ADR-0073). */
-    public function limits(): LimitHistory
-    {
-        return $this->limits;
+        return $this->learned;
     }
 }

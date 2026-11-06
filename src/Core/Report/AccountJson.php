@@ -26,9 +26,12 @@ use stdClass;
  * The JSON report's `run`, `cost`, `savings` and `pruning`: the run's
  * timings, what it cost, and what it saved, each left out where the flows gave
  * the verdict no timings (ADR-0016, and ADR-0017); and what pruning left out,
- * left out where it left nothing out (ADR-0025).
+ * left out where it left nothing out (ADR-0025); and the `heatmap`, left out
+ * where the run scored no file (ADR-0100).
  *
  * @internal
+ *
+ * @phpstan-import-type FileEntry from HeatmapJson
  *
  * @phpstan-type Timed array{start: string, seconds: float}
  * @phpstan-type Shard array{
@@ -78,6 +81,7 @@ final readonly class AccountJson
      *     cost?: CostEntry,
      *     savings?: Saved|array{noHistory: true},
      *     pruning?: PruningEntry,
+     *     heatmap?: list<FileEntry>,
      * }
      */
     public static function of(Verdict $verdict): array
@@ -95,6 +99,7 @@ final readonly class AccountJson
                 ? ['savings' => $savings instanceof Savings ? self::savings($savings) : ['noHistory' => true]]
                 : [],
             ...$pruning->isNone() ? [] : ['pruning' => self::pruning($pruning)],
+            ...HeatmapJson::report($account->heatmap()),
         ];
     }
 

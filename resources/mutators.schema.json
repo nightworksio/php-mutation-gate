@@ -1,0 +1,80 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://raw.githubusercontent.com/nightworksio/php-mutation-gate/v0.1/resources/mutators.schema.json",
+    "title": "mutation-gate mutators report",
+    "description": "What each mutator costs and finds, from a ledger's tally (ADR-0076).",
+    "type": "object",
+    "properties": {
+        "format": {
+            "const": 1
+        },
+        "seconds": {
+            "type": "number",
+            "minimum": 0
+        },
+        "mutators": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "runner": {
+                        "type": "string"
+                    },
+                    "mutator": {
+                        "type": "string"
+                    },
+                    "mutants": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "killed": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "survived": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "ignored": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "seconds": {
+                        "type": "number",
+                        "minimum": 0
+                    },
+                    "killRate": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                    },
+                    "secondsPerKill": {
+                        "type": "number",
+                        "minimum": 0
+                    },
+                    "share": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                    }
+                },
+                "required": [
+                    "runner",
+                    "mutator",
+                    "mutants",
+                    "killed",
+                    "survived",
+                    "ignored",
+                    "seconds"
+                ],
+                "additionalProperties": false
+            }
+        }
+    },
+    "required": [
+        "format",
+        "seconds",
+        "mutators"
+    ],
+    "additionalProperties": false
+}

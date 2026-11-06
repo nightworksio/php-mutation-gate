@@ -31,6 +31,7 @@ use NightWorksIO\MutationGate\Core\Composer\Package;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Doctor\ComposerSetup;
+use NightWorksIO\MutationGate\Core\Doctor\GateDefinitions;
 use NightWorksIO\MutationGate\Core\Doctor\InfectionConfig;
 use NightWorksIO\MutationGate\Core\Doctor\Patched;
 use NightWorksIO\MutationGate\Core\Doctor\PhpUnitMemory;
@@ -119,10 +120,10 @@ final readonly class Files
         return $suite instanceof TestSuite ? $config->withSuitesElsewhere($suite->elsewhere()) : $config;
     }
 
-    /** Every CI definition that names the gate, which a definition that runs it does. */
-    private function runningTheGate(): Paths
+    /** Every CI definition that names the gate, which a definition that runs it does, with its text. */
+    private function runningTheGate(): GateDefinitions
     {
-        $running = [];
+        $running = GateDefinitions::none();
 
         foreach (Definitions::places() as $place) {
             $definitions = str_ends_with($place, '/')
@@ -130,12 +131,12 @@ final readonly class Files
                 : [Path::of($place)];
 
             foreach ($definitions as $definition) {
-                $runs = str_contains($this->text($definition), ThisPackage::NAME);
-                $running = $runs ? [...$running, $definition] : $running;
+                $text = $this->text($definition);
+                $running = str_contains($text, ThisPackage::NAME) ? $running->with($definition, $text) : $running;
             }
         }
 
-        return Paths::of(...$running);
+        return $running;
     }
 
     /** The baseline, empty where there is none, or why it cannot be read. */

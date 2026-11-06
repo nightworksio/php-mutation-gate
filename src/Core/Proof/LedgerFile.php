@@ -154,6 +154,7 @@ final readonly class LedgerFile
             ->withLearned(KillersRecord::read($file->field(KillersRecord::SECTION), self::namesIn($file, self::TESTS)))
             ->withLearned(AnalysersRecord::read($file->field(AnalysersRecord::SECTION)))
             ->withLearned(SurvivalRecord::read($file->field(SurvivalRecord::SECTION)))
+            ->withLearned(TallyRecord::read($file->field(TallyRecord::SECTION)))
             ->withLearned(LimitsRecord::read(
                 $file->field(LimitsRecord::KILLS),
                 $file->field(LimitsRecord::CONCURRENCY),

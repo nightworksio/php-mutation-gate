@@ -65,3 +65,25 @@ it('leaves out the score of a project with nothing to mutate, and the savings of
         'belowFloor' => [],
     ]);
 });
+
+it('writes the lowest-scoring files a repository named into its entry', function (): void {
+    $published = Published::read('{"format": 1, "commit": "a", "time": "2026-09-30T10:00:00Z", "verdict": "passed", "trees": [], "newCode": {"floor": 100}, '
+        . '"heatmap": [{"path": "src/A.php", "score": 40, "base": 60, "notKilled": 3}, {"path": "src/B.php", "notKilled": 0}]}');
+    $json = Dashboard::of('acme', Moment::at('2026-10-01T06:00:00Z'), Listing::of('api', '', private: false, published: $published, trend: Trend::none()))->json();
+
+    expect(Decoded::at($json, 'repositories', 0, 'lowestFiles'))->toBe([
+        ['path' => 'src/A.php', 'score' => 40.0, 'base' => 60.0, 'notKilled' => 3],
+        ['path' => 'src/B.php', 'notKilled' => 0],
+    ]);
+});
+
+it('writes the costliest mutators a repository named into its entry', function (): void {
+    $published = Published::read('{"format": 1, "commit": "a", "time": "2026-09-30T10:00:00Z", "verdict": "passed", "trees": [], "newCode": {"floor": 100}, '
+        . '"mutators": [{"runner": "pest", "mutator": "Plus", "seconds": 9, "survived": 1, "killRate": 90}, {"runner": "pest", "mutator": "Minus", "seconds": 1, "survived": 0}]}');
+    $json = Dashboard::of('acme', Moment::at('2026-10-01T06:00:00Z'), Listing::of('api', '', private: false, published: $published, trend: Trend::none()))->json();
+
+    expect(Decoded::at($json, 'repositories', 0, 'costliestMutators'))->toBe([
+        ['runner' => 'pest', 'mutator' => 'Plus', 'seconds' => 9.0, 'survived' => 1, 'killRate' => 90.0],
+        ['runner' => 'pest', 'mutator' => 'Minus', 'seconds' => 1.0, 'survived' => 0],
+    ]);
+});

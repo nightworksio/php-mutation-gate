@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Cost\Savings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
@@ -23,6 +24,8 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
+use NightWorksIO\MutationGate\Core\Reach\Packages;
+use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Report\JsonReport;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
@@ -39,6 +42,7 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
+use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
@@ -549,4 +553,24 @@ it('writes each set of tests that fails without any mutant, by their places, wit
         ->and(Decoded::at($report, 'failingUnmutated'))->toBe([['line' => 'The tests fail without any mutant: MoneyTest::adds', 'tests' => [0], 'mutants' => [$id]]])
         ->and(Decoded::at($report, 'tests', 0, 'id'))->toBe('MoneyTest::adds')
         ->and(Decoded::at($report, 'mutants', 0))->toMatchArray(['status' => 'fails-unmutated', 'judgement' => 'fails-unmutated', 'killedBy' => [], 'failingUnmutated' => [0]]);
+});
+
+/** A survivor rules find something to try for, on a changed line, beside a kill they find nothing for. */
+function attemptedVerdict(): Verdict
+{
+    $reach = Reach::nothing(Packages::of(Trees::none()))->withLines(Path::of('src/A.php'), Lines::of(Line::of(1)));
+    $mutant = static fn(string $at): Mutant => Verdicts::mutant($at, 'Plus', MutatorFamily::Arithmetic, Verdicts::diff('$a + 1', '$a - 1'));
+
+    return Verdicts::of(
+        Floor::of(80),
+        JudgedMutant::of($mutant('src/A.php:1'), MutantJudgement::Survived)->within($reach),
+        JudgedMutant::of($mutant('src/A.php:2'), MutantJudgement::Killed),
+    );
+}
+
+it('writes what to try with a survivor in the JSON report, and nothing with a kill', function (): void {
+    $mutants = JsonReport::of(attemptedVerdict())['mutants'];
+
+    expect($mutants[0]['try'] ?? null)->toBe('use `$a` at 3.')
+        ->and($mutants[1])->not->toHaveKey('try');
 });

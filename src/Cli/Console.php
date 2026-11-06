@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Cli\Command\AffectedCommand;
 use NightWorksIO\MutationGate\Cli\Command\BaselineCommand;
 use NightWorksIO\MutationGate\Cli\Command\ConfigSchema;
 use NightWorksIO\MutationGate\Cli\Command\ConfigShow;
+use NightWorksIO\MutationGate\Cli\Command\ConfigSuggest;
 use NightWorksIO\MutationGate\Cli\Command\CoverageCommand;
 use NightWorksIO\MutationGate\Cli\Command\DashboardCommand;
 use NightWorksIO\MutationGate\Cli\Command\DigestCommand;
@@ -29,6 +30,7 @@ use NightWorksIO\MutationGate\Cli\Command\ExplainCommand;
 use NightWorksIO\MutationGate\Cli\Command\HookCommand;
 use NightWorksIO\MutationGate\Cli\Command\Init;
 use NightWorksIO\MutationGate\Cli\Command\MigrateCommand;
+use NightWorksIO\MutationGate\Cli\Command\MutatorsCommand;
 use NightWorksIO\MutationGate\Cli\Command\PlanCommand;
 use NightWorksIO\MutationGate\Cli\Command\PreCommitCommand;
 use NightWorksIO\MutationGate\Cli\Command\PrePushCommand;
@@ -46,6 +48,8 @@ use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\Formats;
 use NightWorksIO\MutationGate\Cli\Config\MigrationFiles;
 use NightWorksIO\MutationGate\Cli\Config\RunContext;
+use NightWorksIO\MutationGate\Cli\Doctor\Doctoring;
+use NightWorksIO\MutationGate\Cli\Doctor\Fixing;
 use NightWorksIO\MutationGate\Cli\Doctor\Measure;
 use NightWorksIO\MutationGate\Cli\Doctor\Observed;
 use NightWorksIO\MutationGate\Cli\Doctor\Online;
@@ -160,6 +164,7 @@ final readonly class Console
         $application->addCommand(ExplainCommand::command($composition));
         $application->addCommand(DigestCommand::command($composition));
         $application->addCommand(TestsCommand::command($composition));
+        $application->addCommand(MutatorsCommand::command($composition));
         $application->addCommand(StubCommand::command($composition));
         $application->addCommand(TriageCommand::command($composition));
         $application->addCommand(AffectedCommand::command($composition));
@@ -181,6 +186,7 @@ final readonly class Console
         );
         $application->addCommand(Init::import($project, $extensions, $effective, $formats, $now, $gate, $composition));
         $application->addCommand(ConfigShow::command($effective, $formats));
+        $application->addCommand(ConfigSuggest::command($composition, $effective, $formats, $project));
         $application->addCommand(DashboardCommand::command($effective, $environment, HttpClient::create(), $clock));
         $application->addCommand(ConfigSchema::command());
         $application->addCommand(MigrateCommand::command(
@@ -189,18 +195,26 @@ final readonly class Console
             Migrations::baseline()->startedAs($started),
         ));
         $probe = PhpProbe::of(PHP_BINARY, getenv());
+        $guide = $installed instanceof Installed ? Guide::installedIn($installed) : Guide::unreleased();
         $application->addCommand(Doctor::command(
-            new Observed(
-                $project,
-                $extensions,
-                $effective,
-                $detected,
-                $probe,
-                DoctorRun::of($now, ini_parse_quantity(ini_get('memory_limit')))->startedAs($started),
+            new Doctoring(
+                new Observed(
+                    $project,
+                    $extensions,
+                    $effective,
+                    $detected,
+                    $probe,
+                    DoctorRun::of($now, ini_parse_quantity(ini_get('memory_limit')))
+                        ->startedAs($started)
+                        ->pinning($gate),
+                ),
+                new Measure($composition),
+                new Online($project, $environment, HttpClient::create()),
+                new Fixing($project, new PackageDirectory()),
+                $guide,
             ),
-            new Measure($composition),
-            new Online($project, $environment, HttpClient::create()),
-            $installed instanceof Installed ? Guide::installedIn($installed) : Guide::unreleased(),
+            $guide,
+            $environment,
         ));
         $application->setDefaultCommand(self::DEFAULT);
 

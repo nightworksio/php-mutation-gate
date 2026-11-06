@@ -250,8 +250,8 @@ it('says what to do: how many more mutants a set below its floor must catch, or 
         ->and(pageOf(Verdicts::passing()))->toContain(sprintf('<ul><li>%s</li></ul>', NextSteps::NOTHING));
 });
 
-it('says of each survivor in the overview what test would catch it', function (): void {
-    expect(pageOf(Verdicts::failing()))->toContain('<p class="hint">Add a test that uses a value at the boundary of <code>$amount &lt; $limit</code>.</p>');
+it('says of each survivor in the overview what test would catch it, and nothing to try where it has nothing', function (): void {
+    expect(pageOf(Verdicts::failing()))->toContain('<p class="hint">Add a test that uses a value at the boundary of <code>$amount &lt; $limit</code>.</p></li>');
 });
 
 it('shows each mutant with what it came to and the gate\'s own judgement beside it', function (): void {
@@ -317,7 +317,8 @@ it('names the survivors on changed lines first, and counts the mutants on change
     $page = pageOf(onChangedLines());
     $survivors = pagePart($page, '<section class="card survivors"', '</section>');
     preg_match_all('~<a href="#m-[^"]+"><code>([^<]+)</code></a>~', $survivors, $named);
-    $hint = '<p class="hint">Add a test that checks the result of <code>$a + 1</code> with a non-zero operand.</p>';
+    $hint = '<p class="hint">Add a test that checks the result of <code>$a + 1</code> with a non-zero operand.</p>'
+        . '<p class="try">Try: use <code>$a</code> at 3.</p>';
 
     expect($named[1])->toBe(['src/B.php:5', 'src/A.php:1', 'src/A.php:2'])
         ->and(substr_count($survivors, '</li><li>'))->toBe(2)
@@ -551,4 +552,8 @@ it('lists under Cannot judge each set of tests that fails without any mutant, li
         $id,
         $id,
     ));
+});
+
+it('packs what to try with a survivor for the pane, and nothing with a kill', function (): void {
+    expect(substr_count(pageData(pageOf(onChangedLines())), '"try":"use `$a` at 3."'))->toBe(3);
 });

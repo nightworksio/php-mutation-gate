@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Php;
 
+use function array_key_exists;
 use function implode;
 use function mb_lcfirst;
 
@@ -61,6 +62,28 @@ final readonly class Enclosing
     public function name(): string
     {
         return $this->name;
+    }
+
+    /** @return list<string> each parameter's name, with its `$`, as its calls spell their arguments */
+    public function parameterNames(): array
+    {
+        return $this->parameters;
+    }
+
+    /**
+     * This, its calls passing these values in place of the parameters they name (ADR-0101).
+     *
+     * @param array<string, string> $values by the parameter's name, with its `$`
+     */
+    public function withArguments(array $values): self
+    {
+        $arguments = [];
+
+        foreach ($this->parameters as $parameter) {
+            $arguments[] = array_key_exists($parameter, $values) ? $values[$parameter] : $parameter;
+        }
+
+        return new self($this->name, $arguments, $this->class, $this->static);
     }
 
     /** The short name of the class it is a method of; nothing for a function, or a method of an anonymous class. */
@@ -136,6 +159,20 @@ final readonly class Enclosing
             : sprintf("new \\ReflectionMethod(%s::class, '%s')", $class, $this->name);
     }
 
+    /** The short name of the class a method's body stands inside; nothing for a function, or an anonymous class. */
+    public static function classOf(Tokens $tokens, int $keyword): string|Nameless
+    {
+        $body = $tokens->enclosing($keyword);
+        $class = Nameless::code();
+
+        foreach ($tokens->is($body, '{') ? $tokens->indicesOf(...self::CLASSES) : [] as $declaring) {
+            $opens = Shape::braceAfter($tokens, $declaring) === $body && $tokens->is($declaring + 1, T_STRING);
+            $class = $opens ? $tokens->text($declaring + 1) : $class;
+        }
+
+        return $class;
+    }
+
     /** The named function a `function` keyword declares, where its body holds the line; nothing otherwise. */
     private static function read(Tokens $tokens, int $keyword, Line $line): self|Nameless
     {
@@ -171,20 +208,6 @@ final readonly class Enclosing
         }
 
         return $names;
-    }
-
-    /** The short name of the class a method's body stands inside; nothing for a function, or an anonymous class. */
-    private static function classOf(Tokens $tokens, int $keyword): string|Nameless
-    {
-        $body = $tokens->enclosing($keyword);
-        $class = Nameless::code();
-
-        foreach ($tokens->is($body, '{') ? $tokens->indicesOf(...self::CLASSES) : [] as $declaring) {
-            $opens = Shape::braceAfter($tokens, $declaring) === $body && $tokens->is($declaring + 1, T_STRING);
-            $class = $opens ? $tokens->text($declaring + 1) : $class;
-        }
-
-        return $class;
     }
 
     /** Whether the modifiers before a `function` keyword make it static. */

@@ -21,6 +21,8 @@ enum Verb: string
     case Migrate = 'migrate';
     case Coverage = 'coverage';
     case ConfigShow = 'config:show';
+    case ConfigSuggest = 'config:suggest';
+    case Mutators = 'mutators';
     case Init = 'init';
     case Doctor = 'doctor';
     case Hook = 'hook';

@@ -211,6 +211,20 @@ final readonly class Patch
         return $release instanceof Version ? PackageSource::of($files)->applyIn($vendor, ...self::patches()) : $release;
     }
 
+    /**
+     * What patching Infection and its include-interceptor in a vendor directory would write, writing nothing: each
+     * file it changes, by its path, with the source it would hold; a release it does not patch; or why a release it
+     * supports cannot be patched.
+     *
+     * @return array<string, string>|UnsupportedRelease|CannotJudge
+     */
+    public static function plannedIn(string $vendor, PackageFiles $files): array|UnsupportedRelease|CannotJudge
+    {
+        $release = self::release($vendor);
+
+        return $release instanceof Version ? PackageSource::of($files)->planned($vendor, ...self::patches()) : $release;
+    }
+
     /** Whether Infection and its include-interceptor in a vendor directory carry every hunk, none another gate's. */
     public static function isAppliedIn(string $vendor, PackageFiles $files): bool
     {

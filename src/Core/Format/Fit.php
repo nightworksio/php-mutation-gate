@@ -36,13 +36,13 @@ final readonly class Fit
     /** Any run of white space, which a plain line holds as one space. */
     public const string SPACE = '/\s+/u';
 
+    /** What parts one shown name from the next. */
+    public const string COMMA = ', ';
+
     private const string MORE = 'And %d more.';
 
     /** The names a list shows, then how many more it holds. */
     private const string NAMED_MORE = '%s and %d more';
-
-    /** What parts one shown name from the next. */
-    private const string COMMA = ', ';
 
     /** What is added to a text that is cut, as `…`. */
     private const string CUT = '…';

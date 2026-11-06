@@ -58,6 +58,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  * @phpstan-import-type CostEntry from AccountJson
  * @phpstan-import-type Saved from AccountJson
  * @phpstan-import-type PruningEntry from AccountJson
+ * @phpstan-import-type FileEntry from HeatmapJson as HeatFileEntry
  *
  * @phpstan-type Numbers array<string, int>
  * @phpstan-type TestEntry array{id: string, name: string, file?: string, row?: string, seconds?: float}
@@ -159,6 +160,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  *     cost?: CostEntry,
  *     savings?: Saved|array{noHistory: true},
  *     pruning?: PruningEntry,
+ *     heatmap?: list<HeatFileEntry>,
  * }
  */
 final readonly class JsonReport

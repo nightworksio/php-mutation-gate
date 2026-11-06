@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
+use function chdir;
 use function explode;
+use function getcwd;
+use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
@@ -174,7 +177,24 @@ final readonly class FlowCommands
         ChangeSource $changes,
         PeakMemory $memory = new PeakMemoryFake(new NotGiven()),
     ): Composition {
-        $registry = new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER)))
+        return self::registered(
+            self::registry($trees, $runner, $proofs, $ci, $repository, $changes),
+            $project,
+            $environment,
+            $memory,
+        );
+    }
+
+    /** The registry {@see reading()} composes over, with these ports in place of the ones the gate would choose. */
+    public static function registry(
+        Trees $trees,
+        Runner $runner,
+        ProofStore $proofs,
+        CiPlan $ci,
+        Repository $repository,
+        ChangeSource $changes,
+    ): Extensions {
+        return new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER)))
             ->withRunner(Name::of('fake'), static fn(): Runner => $runner)
             ->withTreeSource(Name::of('phpunit'), static fn(): TreeSource => new TreeSourceFake($trees))
             ->withProofStore(Name::of('directory'), static fn(): ProofStore => $proofs)
@@ -184,19 +204,32 @@ final readonly class FlowCommands
             ->withRepository(Name::of('git'), static fn(): Repository => $repository)
             ->withChangeSource(Name::of('github'), static fn(): ChangeSource => $changes)
             ->withRepository(Name::of('github'), static fn(): Repository => $repository);
-        $vendor = sprintf('%s/vendor', $project);
-        $detected = new Detected(Directory::at($project), Directory::at($vendor));
-        $effective = new Effective($project, $registry, $detected, new StoppedClock(Configs::NOW)->now(), new RunContext(Variables::of([])));
+    }
 
+    /** How the command line composes a flow in a project over this registry. */
+    public static function registered(
+        Extensions $registry,
+        string $project,
+        Variables $environment,
+        PeakMemory $memory = new PeakMemoryFake(new NotGiven()),
+    ): Composition {
         return new Composition(
-            $effective,
+            self::effective($registry, $project),
             $registry,
             $project,
-            $vendor,
+            sprintf('%s/vendor', $project),
             new StoppedClock(Configs::NOW),
             $memory,
             $environment,
         );
+    }
+
+    /** The effective config of a project over this registry, as {@see registered()} composes with it. */
+    public static function effective(Extensions $registry, string $project): Effective
+    {
+        $detected = new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project)));
+
+        return new Effective($project, $registry, $detected, new StoppedClock(Configs::NOW)->now(), new RunContext(Variables::of([])));
     }
 
     /**
@@ -208,6 +241,24 @@ final readonly class FlowCommands
     public static function run(Command $command, string $options = ''): self
     {
         return self::handed($command, '', $options);
+    }
+
+    /**
+     * A command run as {@see run()} runs it, from inside this project, as the
+     * gate runs from the project it gates: what it reads of the workspace,
+     * a fetched copy of a ledger among it, is the project's, never the one
+     * the suite runs in.
+     */
+    public static function within(string $project, Command $command, string $options = ''): self
+    {
+        $before = getcwd();
+        chdir($project);
+
+        try {
+            return self::run($command, $options);
+        } finally {
+            chdir(is_string($before) ? $before : '/');
+        }
     }
 
     /** A command run as {@see run()} runs it, handed this text on standard input, as git hands a hook its refs. */

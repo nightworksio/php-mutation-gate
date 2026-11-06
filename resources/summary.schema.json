@@ -78,6 +78,71 @@
                 "last30Days"
             ],
             "additionalProperties": false
+        },
+        "mutators": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "runner": {
+                        "type": "string"
+                    },
+                    "mutator": {
+                        "type": "string"
+                    },
+                    "seconds": {
+                        "type": "number",
+                        "minimum": 0
+                    },
+                    "survived": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "killRate": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                    }
+                },
+                "required": [
+                    "runner",
+                    "mutator",
+                    "seconds",
+                    "survived"
+                ],
+                "additionalProperties": false
+            }
+        },
+        "heatmap": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string"
+                    },
+                    "score": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                    },
+                    "base": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                    },
+                    "notKilled": {
+                        "type": "integer",
+                        "minimum": 0
+                    }
+                },
+                "required": [
+                    "path",
+                    "notKilled"
+                ],
+                "additionalProperties": false
+            }
         }
     },
     "required": [

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Cost\MutatorTally;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\Report\Summary;
 use NightWorksIO\MutationGate\Core\Report\SummarySchema;
@@ -10,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Schema;
+use NightWorksIO\MutationGate\Tests\Support\Tallies;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
 it('says the commit, time, verdict, the project\'s score, each tree\'s floor and score, the floor for new code and what was saved', function (): void {
@@ -35,6 +37,22 @@ it('leaves out a score where there is nothing to mutate, a floor no tree is held
     expect($summary)->not->toHaveKey('score')
         ->and($summary)->not->toHaveKey('savings')
         ->and($summary['newCode'])->toBe(['floor' => 100.0]);
+});
+
+it('names the ten costliest mutators the default branch\'s ledger tallies, and none where it tallies none', function (): void {
+    $tallies = Tallies::holding(...array_map(
+        static fn(int $at): MutatorTally => Tallies::of('pest', sprintf('M%02d', $at), 4, 2, 2, 0, (float) $at),
+        range(1, 12),
+    ));
+    $verdict = Verdicts::failing();
+    $summary = Summary::of($verdict->withAccount($verdict->account()->withTallies($tallies)), Revision::ref('3f9a1c2'), Moment::at('2026-09-30T10:00:00Z'), Floor::of(95), NoHistory::yet());
+    $json = Summary::json($verdict->withAccount($verdict->account()->withTallies($tallies)), Revision::ref('3f9a1c2'), Moment::at('2026-09-30T10:00:00Z'), Floor::of(95), NoHistory::yet());
+
+    expect($summary['mutators'] ?? [])->toHaveCount(10)
+        ->and(($summary['mutators'] ?? [])[0])->toBe(['runner' => 'pest', 'mutator' => 'M12', 'seconds' => 12.0, 'survived' => 2, 'killRate' => 50.0])
+        ->and(($summary['mutators'] ?? [])[9]['mutator'])->toBe('M03')
+        ->and(Summary::of($verdict, Revision::ref('3f9a1c2'), Moment::at('2026-09-30T10:00:00Z'), Floor::of(95), NoHistory::yet()))->not->toHaveKey('mutators')
+        ->and(Schema::errors($json, Schema::at('resources/summary.schema.json')))->toBe([]);
 });
 
 it('writes what its committed schema describes', function (string $verdict): void {

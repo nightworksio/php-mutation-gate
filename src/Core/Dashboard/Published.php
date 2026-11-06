@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Report\Summary;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
@@ -26,8 +27,9 @@ use function sprintf;
 /**
  * A repository's `summary.json` as a dashboard reads it (ADR-0024): the
  * commit and time of its latest verdict on the default branch, the verdict,
- * the project's score, each tree, the floor for new code, and what the gate
- * saved over the last 30 days. Whatever the file holds is the repository's
+ * the project's score, each tree, the floor for new code, what the gate
+ * saved over the last 30 days, its costliest mutators (ADR-0076) and its
+ * lowest-scoring files (ADR-0100), where it names them. Whatever the file holds is the repository's
  * word, so a file not in the shape of `"format": 1` is refused whole.
  *
  * @internal
@@ -38,7 +40,11 @@ final readonly class Published
 
     private const string FORMAT = 'Its summary.json is format %s, and this gate reads format %d.';
 
-    /** @param list<PublishedTree> $trees */
+    /**
+     * @param list<PublishedTree>     $trees
+     * @param list<PublishedMutator>  $mutators the costliest first
+     * @param list<PublishedFile>     $files    the lowest-scoring first
+     */
     private function __construct(
         private string $commit,
         private Instant $time,
@@ -47,6 +53,8 @@ final readonly class Published
         private array $trees,
         private Floor $newCode,
         private Seconds|NoHistory $saved,
+        private array $mutators,
+        private array $files,
     ) {
     }
 
@@ -110,6 +118,18 @@ final readonly class Published
         return $this->saved;
     }
 
+    /** @return list<PublishedMutator> the costliest mutators it names, the costliest first; none where it names none */
+    public function mutators(): array
+    {
+        return $this->mutators;
+    }
+
+    /** @return list<PublishedFile> the lowest-scoring files it names, the lowest first; none where it names none */
+    public function files(): array
+    {
+        return $this->files;
+    }
+
     /** @throws NotInShape */
     private static function readFrom(Node $summary): self|CannotJudge
     {
@@ -121,6 +141,8 @@ final readonly class Published
 
         $score = $summary->field('score');
         $savings = $summary->field('savings');
+        $mutators = $summary->field('mutators');
+        $files = $summary->field('heatmap');
 
         return new self(
             $summary->field('commit')->text(),
@@ -130,6 +152,8 @@ final readonly class Published
             array_map(self::tree(...), $summary->field('trees')->items()),
             Floor::ofHundredths(self::hundredths($summary->field('newCode')->field('floor'))),
             $savings->isPresent() ? Seconds::of(self::seconds($savings->field('last30Days'))) : NoHistory::yet(),
+            $mutators->isPresent() ? array_map(self::mutator(...), $mutators->items()) : [],
+            $files->isPresent() ? array_map(self::file(...), $files->items()) : [],
         );
     }
 
@@ -143,6 +167,37 @@ final readonly class Published
             $tree->field('path')->text(),
             $floor->isPresent() ? Floor::ofHundredths(self::hundredths($floor)) : Undeclared::floor(),
             $score->isPresent() ? Score::ofHundredths(self::hundredths($score)) : NothingToMutate::found(),
+        );
+    }
+
+    /** @throws NotInShape */
+    private static function mutator(Node $mutator): PublishedMutator
+    {
+        $killRate = $mutator->field('killRate');
+        $survived = $mutator->field('survived');
+        $rate = $killRate->isPresent() ? Score::ofHundredths(self::hundredths($killRate)) : NotGiven::value();
+
+        return PublishedMutator::of(
+            $mutator->field('runner')->text(),
+            $mutator->field('mutator')->text(),
+            Seconds::of(self::seconds($mutator->field('seconds'))),
+            $survived->integer() >= 0 ? $survived->integer() : throw NotInShape::at($survived->at(), 'a count'),
+            $rate instanceof Score ? Percentage::of($rate) : $rate,
+        );
+    }
+
+    /** @throws NotInShape */
+    private static function file(Node $file): PublishedFile
+    {
+        $score = $file->field('score');
+        $base = $file->field('base');
+        $notKilled = $file->field('notKilled');
+
+        return PublishedFile::of(
+            $file->field('path')->text(),
+            $score->isPresent() ? Score::ofHundredths(self::hundredths($score)) : NothingToMutate::found(),
+            $base->isPresent() ? Score::ofHundredths(self::hundredths($base)) : NotGiven::value(),
+            $notKilled->integer() >= 0 ? $notKilled->integer() : throw NotInShape::at($notKilled->at(), 'a count'),
         );
     }
 

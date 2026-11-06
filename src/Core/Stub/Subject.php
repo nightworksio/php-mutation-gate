@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Stub;
 
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\Cluster\Unclustered;
+use NightWorksIO\MutationGate\Core\Hint\Attempt;
 use NightWorksIO\MutationGate\Core\Mutant\SourcePin;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Php\Enclosing;
@@ -31,19 +32,36 @@ final readonly class Subject
         private Enclosing|Nameless $function,
         private Unit $unit,
         private SourcePin|NotGiven $pin,
+        private Attempt|NotGiven $attempt,
     ) {
     }
 
     /** One mutant, in the function around it, in its unit. */
     public static function of(JudgedMutant $mutant, Enclosing|Nameless $function, Unit $unit): self
     {
-        return new self($mutant, Survivors::of($mutant), Unclustered::mutant(), $function, $unit, NotGiven::value());
+        return new self(
+            $mutant,
+            Survivors::of($mutant),
+            Unclustered::mutant(),
+            $function,
+            $unit,
+            NotGiven::value(),
+            NotGiven::value(),
+        );
     }
 
     /** This subject, standing for the whole of a cluster whose first survivor it is. */
     public function forCluster(Cluster $cluster): self
     {
-        return new self($this->first, $cluster->members(), $cluster, $this->function, $this->unit, $this->pin);
+        return new self(
+            $this->first,
+            $cluster->members(),
+            $cluster,
+            $this->function,
+            $this->unit,
+            $this->pin,
+            $this->attempt,
+        );
     }
 
     /**
@@ -53,7 +71,35 @@ final readonly class Subject
      */
     public function pinned(SourcePin $pin): self
     {
-        return new self($this->first, $this->members, $this->cluster, $this->function, $this->unit, $pin);
+        return new self(
+            $this->first,
+            $this->members,
+            $this->cluster,
+            $this->function,
+            $this->unit,
+            $pin,
+            $this->attempt,
+        );
+    }
+
+    /** This subject, whose first mutant rules found a concrete way to kill (ADR-0101). */
+    public function attempting(Attempt|NotGiven $attempt): self
+    {
+        return new self(
+            $this->first,
+            $this->members,
+            $this->cluster,
+            $this->function,
+            $this->unit,
+            $this->pin,
+            $attempt,
+        );
+    }
+
+    /** The concrete way rules found to kill its first mutant; none where they read none. */
+    public function attempt(): Attempt|NotGiven
+    {
+        return $this->attempt;
     }
 
     /** What a test that reads the file must find there, where the first mutant's mutator is pinned by source. */

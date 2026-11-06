@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Config\Definition\ContextsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\CoverageKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\Field;
 use NightWorksIO\MutationGate\Core\Config\Definition\FloorsKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\HeatmapKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\IgnoresKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\LocalKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\MutatorsKeys;
@@ -27,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Config\Definition\Section;
 use NightWorksIO\MutationGate\Core\Config\Definition\SetupKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\ShardsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\StaticCheckKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\SuggestKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\TriageKeys;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\JsonDocument;
@@ -151,6 +153,8 @@ final readonly class Definition
             ...TriageKeys::fields(),
             ...IgnoresKeys::fields($origin),
             ...ReportsKeys::fields($origin),
+            ...SuggestKeys::fields(),
+            ...HeatmapKeys::fields(),
             ...PublishingKeys::fields(),
             ...PestKeys::fields(),
             ...StaticCheckKeys::fields($origin),

@@ -8,6 +8,7 @@ use function array_key_exists;
 
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Heat\FunctionSpans;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
@@ -23,7 +24,8 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
  * Beside its key it records the digests of its inputs, which say whether its
  * result can stand for other code (ADR-0008); a proof of an
  * earlier ledger format records none. A proof of a held unit also records the
- * holding tests that run it, which judge its mutants.
+ * holding tests that run it, which judge its mutants, and the functions of
+ * its unit that hold its mutants, which score them by function (ADR-0100).
  */
 final readonly class Proof
 {
@@ -35,31 +37,80 @@ final readonly class Proof
         private Run $run,
         private Inputs|Undigested $inputs,
         private TestIds $judging,
+        private FunctionSpans $functions,
     ) {
     }
 
     /** The proof of a run: every mutant of the unit, as its runner reported them. */
     public static function of(Digest $key, Path $unit, Mutants $reported, Run $run): self
     {
-        return new self($key, $unit, $reported, ProvedKills::none(), $run, Undigested::proof(), TestIds::none());
+        return self::held($key, $unit, $reported, ProvedKills::none(), $run);
     }
 
     /** A proof as a ledger holds it: its killed mutants as kills, and every other in full. */
     public static function held(Digest $key, Path $unit, Mutants $reported, ProvedKills $kills, Run $run): self
     {
-        return new self($key, $unit, $reported, $kills, $run, Undigested::proof(), TestIds::none());
+        return new self(
+            $key,
+            $unit,
+            $reported,
+            $kills,
+            $run,
+            Undigested::proof(),
+            TestIds::none(),
+            FunctionSpans::none(),
+        );
     }
 
     /** This proof, recording these digests of its inputs. */
     public function withInputs(Inputs|Undigested $inputs): self
     {
-        return new self($this->key, $this->unit, $this->reported, $this->kills, $this->run, $inputs, $this->judging);
+        return new self(
+            $this->key,
+            $this->unit,
+            $this->reported,
+            $this->kills,
+            $this->run,
+            $inputs,
+            $this->judging,
+            $this->functions,
+        );
     }
 
     /** This proof, of a held unit these of whose holding tests run it. */
     public function judgedBy(TestIds $judging): self
     {
-        return new self($this->key, $this->unit, $this->reported, $this->kills, $this->run, $this->inputs, $judging);
+        return new self(
+            $this->key,
+            $this->unit,
+            $this->reported,
+            $this->kills,
+            $this->run,
+            $this->inputs,
+            $judging,
+            $this->functions,
+        );
+    }
+
+    /** This proof, naming these functions of its unit, which hold its mutants (ADR-0100). */
+    public function withFunctions(FunctionSpans $functions): self
+    {
+        return new self(
+            $this->key,
+            $this->unit,
+            $this->reported,
+            $this->kills,
+            $this->run,
+            $this->inputs,
+            $this->judging,
+            $functions,
+        );
+    }
+
+    /** The functions of its unit that hold its mutants; none where the proof names none. */
+    public function functions(): FunctionSpans
+    {
+        return $this->functions;
     }
 
     /** The holding tests that run a held unit; none for a unit the whole suite judges, or a proof that names none. */

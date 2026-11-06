@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\Hint\Attempt;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\SourcePin;
 use NightWorksIO\MutationGate\Core\Php\Enclosing;
@@ -167,4 +168,19 @@ it('runs the method in a spec, then fails the example where the file no longer h
         "if (! str_contains((string) file_get_contents((new \\ReflectionMethod(Cart::class, 'fits'))->getFileName()), 'hash_equals(')) "
             . "{ throw new \\PhpSpec\\Exception\\Example\\FailureException('The file no longer holds it.'); }",
     ]);
+});
+
+it('calls the function with the values an attempt tries, at the boundary and past it, and for any other family the first', function () use ($fits): void {
+    $boundary = Verdicts::mutant('src/Cart.php:7', 'M', MutatorFamily::Boundary, Verdicts::diff('return $amount < 4;', 'return $amount <= 4;'));
+    $arithmetic = Verdicts::mutant('src/Cart.php:7', 'M', MutatorFamily::Arithmetic, Verdicts::diff('return $amount + 4;', 'return $amount - 4;'));
+    $tried = Attempt::of('call `fits()` with `$amount` at 4, then at 3.', ['$amount' => '4'], ['$amount' => '3']);
+
+    expect(Scaffold::of($boundary, $fits(), AssertionStyle::Pest, $tried))->toBe([
+        'Call it at the boundary, then one step past it:',
+        'expect($cart->fits(4, $limit))->toBe(/* at the boundary */);',
+        'expect($cart->fits(3, $limit))->toBe(/* one step past it */);',
+    ])
+        ->and(Scaffold::of($arithmetic, $fits(), AssertionStyle::Pest, Attempt::of('try.', ['$amount' => '3'])))
+        ->toBe(['Assert on its result:', 'expect($cart->fits(3, $limit))->toBe(/* expected */);'])
+        ->and(Scaffold::of($boundary, $fits(), AssertionStyle::Pest, Attempt::of('try.')))->toBe(Scaffold::of($boundary, $fits(), AssertionStyle::Pest));
 });

@@ -11,7 +11,9 @@ use NightWorksIO\MutationGate\Core\Cluster\ClusterId;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Hint\Attempts;
 use NightWorksIO\MutationGate\Core\Mutant\IdPrefix;
 use NightWorksIO\MutationGate\Core\Mutant\SourcePin;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -129,7 +131,10 @@ final readonly class Stubbing
             $first,
             $source instanceof Contents ? Enclosing::in($source, $location->start()) : Nameless::code(),
             $unit instanceof JudgedUnit ? $unit->unit() : Unit::file($location->file()),
-        );
+        )->attempting(Attempts::for(
+            $first->mutant(),
+            $source instanceof Contents ? $source : Missing::at($location->file()),
+        ));
         $cluster = $explained->cluster();
         $subject = $cluster instanceof Cluster ? $subject->forCluster($cluster) : $subject;
         $pin = $this->pinOf($first);

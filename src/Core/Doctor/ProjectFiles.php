@@ -7,7 +7,6 @@ namespace NightWorksIO\MutationGate\Core\Doctor;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\GitIgnore;
-use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
@@ -26,7 +25,7 @@ final readonly class ProjectFiles
         private GitIgnore|NotGiven $gitIgnore,
         private InfectionConfig|NotGiven $infection,
         private ComposerSetup|NotGiven $composer,
-        private Paths|NotGiven $runningTheGate,
+        private GateDefinitions|NotGiven $runningTheGate,
         private Baseline|CannotJudge|NotGiven $baseline,
         private RunnerConfig $runnerConfig,
         private bool $shallow,
@@ -101,7 +100,7 @@ final readonly class ProjectFiles
     }
 
     /** These, with every CI definition that runs the gate, none where no definition does. */
-    public function withRunningTheGate(Paths $definitions): self
+    public function withRunningTheGate(GateDefinitions $definitions): self
     {
         return new self(
             $this->gitIgnore,
@@ -222,7 +221,7 @@ final readonly class ProjectFiles
         return $this->composer;
     }
 
-    public function runningTheGate(): Paths|NotGiven
+    public function runningTheGate(): GateDefinitions|NotGiven
     {
         return $this->runningTheGate;
     }

@@ -6,13 +6,13 @@ namespace NightWorksIO\MutationGate\Cli\Command;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Doctor\Fix\Lines;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\GitIgnore;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 
 use function sprintf;
-use function str_ends_with;
 
 /**
  * The gate's own directory kept out of git: the line `init` adds to `.gitignore` where it is not there.
@@ -34,14 +34,7 @@ final readonly class IgnoredWorkspace
 
         $added = $project->write(
             Path::of(GitIgnore::FILE),
-            Contents::of(
-                sprintf(
-                    '%s%s%s',
-                    $text,
-                    $text === '' || str_ends_with($text, "\n") ? '' : "\n",
-                    sprintf("%s\n", self::line()),
-                ),
-            ),
+            Contents::of(Lines::appended($text, self::line())),
         );
 
         return $added instanceof CannotJudge ? $added : true;

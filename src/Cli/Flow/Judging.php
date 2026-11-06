@@ -317,12 +317,15 @@ final readonly class Judging
         $pruning = $this->settings->reach()->pruning();
         $verdict = $verdict->withAccount($verdict->account()->withPruning(PruningAccount::of(
             $plan->considered()->pruned(),
-            $ledgers->own()->and($ledgers->defaultBranch())->survival(),
+            $ledgers->own()->and($ledgers->defaultBranch())->learned()->survival(),
             $this->settings->runner()->name(),
             $pruning->window(),
             $pruning->audit(),
             $fresh,
-        )));
+        ))->withTallies($ledgers->defaultBranch()->learned()->tallies())->withHeatmap(
+            new Heating($this->adapters->project, $this->settings->effective()->reports()->heatmap())
+                ->of($verdicts, $judged, $judge, $ledgers->defaultBranch()->proofs()),
+        ));
 
         return new Assessed(
             $results->wereCutShort() ? $verdict->cutShort() : $verdict,
@@ -553,7 +556,16 @@ final readonly class Judging
             ? LastRun::of($judged, $this->settings->ci()->check(), $plan->briefing()->profile())
             : $judged;
         $written = new Recorded($this->adapters, $this->settings)
-            ->write($plan, $results, $assessed->ledgers, $run, $passed, $lastRun, $verdict->account()->timings());
+            ->write(
+                $plan,
+                $results,
+                $verdict->trees()->mutants(),
+                $assessed->ledgers,
+                $run,
+                $passed,
+                $lastRun,
+                $verdict->account()->timings(),
+            );
 
         return match (true) {
             $written instanceof Written => $written->said(),

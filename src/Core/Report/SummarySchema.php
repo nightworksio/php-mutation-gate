@@ -60,6 +60,23 @@ final readonly class SummarySchema
                     'required' => ['last30Days'],
                     'additionalProperties' => false,
                 ],
+                'mutators' => [
+                    'type' => 'array',
+                    'maxItems' => MutatorReport::COSTLIEST,
+                    'items' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'runner' => ReportSchema::TEXT,
+                            'mutator' => ReportSchema::TEXT,
+                            'seconds' => ReportSchema::SECONDS,
+                            'survived' => ReportSchema::WHOLE,
+                            'killRate' => ReportSchema::PERCENT,
+                        ],
+                        'required' => ['runner', 'mutator', 'seconds', 'survived'],
+                        'additionalProperties' => false,
+                    ],
+                ],
+                'heatmap' => HeatmapSchema::summary(),
             ],
             'required' => ['format', 'commit', 'time', 'verdict', 'trees', 'newCode'],
             'additionalProperties' => false,

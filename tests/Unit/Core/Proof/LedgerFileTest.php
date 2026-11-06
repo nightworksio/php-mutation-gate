@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Cost\MutatorTallies;
 use NightWorksIO\MutationGate\Core\Cost\ShardsAtOnce;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -18,6 +19,8 @@ use NightWorksIO\MutationGate\Core\Format\Gzip;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\TooLarge;
+use NightWorksIO\MutationGate\Core\Heat\FunctionSpan;
+use NightWorksIO\MutationGate\Core\Heat\FunctionSpans;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -65,6 +68,7 @@ use NightWorksIO\MutationGate\Tests\Support\Gunzipped;
 use NightWorksIO\MutationGate\Tests\Support\JudgedCommits;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\PruningCases;
+use NightWorksIO\MutationGate\Tests\Support\Tallies;
 
 $keyA = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 $keyB = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
@@ -241,6 +245,20 @@ it('keeps two proofs as new as each other in the order it held them', function (
 
     expect(array_keys(Node::decode($json)->field('proofs')->entries()))
         ->toBe([str_repeat('c', 64), str_repeat('1', 64)]);
+});
+
+it('writes the functions a proof names and reads them back, and none for a proof that names none', function () use ($run, $base): void {
+    $spans = FunctionSpans::of(FunctionSpan::of('Money::add', Line::of(4), Line::of(7)));
+    $named = Proof::of(Digest::of(str_repeat('c', 64)), Path::of('src/A.php'), Mutants::none(), $run('local', '2026-09-29T20:00:00Z'));
+    $ledger = Ledger::empty()->withProof($named->withFunctions($spans))->withProof(
+        Proof::of(Digest::of(str_repeat('1', 64)), Path::of('src/B.php'), Mutants::none(), $run('local', '2026-09-29T20:00:00Z')),
+    )->atBase(Digest::of($base));
+    $read = LedgerFile::decode(LedgerFile::encode($ledger))->proofs()->newest();
+    $a = $read->of(Path::of('src/A.php'));
+    $b = $read->of(Path::of('src/B.php'));
+
+    expect($a instanceof Proof ? $a->functions() : null)->toEqual($spans)
+        ->and($b instanceof Proof ? $b->functions() : null)->toEqual(FunctionSpans::none());
 });
 
 it('keeps only the proofs of the five bases its runs saw most recently', function () use ($run): void {
@@ -434,7 +452,7 @@ it('reads proofs and timings that are not maps as none, and keeps what else it h
 
     $file = [...$data(), 'proofs' => 7, 'timings' => 'none'];
 
-    expect(LedgerFile::decode($written($file)))->toEqual(Ledger::empty()->atBase(Digest::of($base))->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708'), 'mutation-gate', 0)))->withLearned($ledger->killers()));
+    expect(LedgerFile::decode($written($file)))->toEqual(Ledger::empty()->atBase(Digest::of($base))->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708'), 'mutation-gate', 0)))->withLearned($ledger->learned()->killers()));
 });
 
 it('drops each kill pair that is not well formed, a ranking left with none, and an entry under no name', function () use ($data, $written, $makeKilledId): void {
@@ -454,7 +472,7 @@ it('drops each kill pair that is not well formed, a ranking left with none, and 
         ],
     ];
 
-    expect(LedgerFile::decode($written($file))->killers())->toEqual(KillHistory::none()
+    expect(LedgerFile::decode($written($file))->learned()->killers())->toEqual(KillHistory::none()
         ->withMutant($killedId, Ranking::of(
             Kills::of(TestId::of('MoneyTest::adds'), 3),
             Kills::of(TestId::of('TaxTest::rounds'), 1),
@@ -463,7 +481,7 @@ it('drops each kill pair that is not well formed, a ranking left with none, and 
             Enclosing::named(Path::of('src/Money.php'), 'add'),
             Ranking::of(Kills::of(TestId::of('CartTest::totals'), 1)),
         ))
-        ->and(LedgerFile::decode($written([...$data(), 'killers' => ['mutants' => 7, 'functions' => []]]))->killers())
+        ->and(LedgerFile::decode($written([...$data(), 'killers' => ['mutants' => 7, 'functions' => []]]))->learned()->killers())
         ->toEqual(KillHistory::none());
 });
 
@@ -472,9 +490,9 @@ it('writes the kill history of the mutants its kept proofs hold, and of every fu
     $killedId = $makeKilledId();
 
     $gone = MutantId::hash(Path::of('src/Gone.php'), 'Plus', "-+\n+-", 0);
-    $history = $ledger->killers()->withMutant($gone, Ranking::of(Kills::of(TestId::of('GoneTest::goes'), 1)));
+    $history = $ledger->learned()->killers()->withMutant($gone, Ranking::of(Kills::of(TestId::of('GoneTest::goes'), 1)));
 
-    $read = LedgerFile::decode(LedgerFile::encode($ledger->withLearned($history)))->killers();
+    $read = LedgerFile::decode(LedgerFile::encode($ledger->withLearned($history)))->learned()->killers();
 
     expect(array_map(static fn(RankedMutant $ranked): string => $ranked->mutant()->value(), [...$read->mutants()]))
         ->toBe([$killedId->value()]);
@@ -686,6 +704,19 @@ it('writes what each mutator\'s newest mutants came to in its own section, and r
         ->and(LedgerFile::decode(LedgerFile::encode($ledger->withLearned($survival))))->toEqual($readBack->withLearned($survival));
 });
 
+it('writes what each mutator\'s mutants cost and found in its own section, reads it back, and reads a ledger without it as tallying nothing', function () use ($makeLedger, $makeReadBack): void {
+    $ledger = $makeLedger();
+    $readBack = $makeReadBack();
+    $tallies = Tallies::holding(Tallies::of('pest', 'PlusToMinus', 4, 3, 1, 0, 2.5));
+    $data = json_decode(Gunzipped::of(LedgerFile::encode($ledger->withLearned($tallies))), associative: true);
+
+    expect(is_array($data) ? $data['tally'] : [])->toBe(['pest' => ['PlusToMinus' => ['mutants' => 4, 'killed' => 3, 'survived' => 1, 'ignored' => 0, 'seconds' => 2.5]]])
+        ->and(json_decode(Gunzipped::of(LedgerFile::encode($ledger)), associative: true))->not->toHaveKey('tally')
+        ->and(LedgerFile::decode(LedgerFile::encode($ledger->withLearned($tallies))))->toEqual($readBack->withLearned($tallies))
+        ->and(LedgerFile::decode(LedgerFile::encode($ledger)))->toEqual($readBack)
+        ->and(LedgerFile::decode(LedgerFile::encode($ledger))->learned()->tallies())->toEqual(MutatorTallies::none());
+});
+
 it('reads a ledger whose analysers section is not well formed as having learned nothing of them, and keeps the rest', function () use ($data, $written, $makeReadBack): void {
     $readBack = $makeReadBack();
 
@@ -830,8 +861,8 @@ it('reads a format 4 ledger written before the learned limits as having learned 
     expect($file['format'])->toBe(4)
         ->and($read->proofs())->toEqual($makeReadBack()->proofs())
         ->and($read->proofs())->not->toHaveCount(0)
-        ->and($read->limits())->toEqual(LimitHistory::none())
-        ->and($read->limits()->multiple())->toBeInstanceOf(NotGiven::class);
+        ->and($read->learned()->limits())->toEqual(LimitHistory::none())
+        ->and($read->learned()->limits()->multiple())->toBeInstanceOf(NotGiven::class);
 });
 
 it('keeps each positive number of the learned limits\' sections, and drops anything else', function () use ($data, $written, $makeReadBack): void {
@@ -839,12 +870,12 @@ it('keeps each positive number of the learned limits\' sections, and drops anyth
     $file['kills'] = [2, 'fast', -1, 3.5, null, 0];
     $file['concurrency'] = [3, 2.5, 'four', 0, 5];
 
-    expect(LedgerFile::decode($written($file))->limits())->toEqual(
+    expect(LedgerFile::decode($written($file))->learned()->limits())->toEqual(
         LimitHistory::none()
             ->afterKills(Multiple::of(2.0), Multiple::of(3.5))
             ->afterRuns(ShardsAtOnce::of(3), ShardsAtOnce::of(5)),
     )
-        ->and(LedgerFile::decode($written([...$data(), 'kills' => 'many', 'concurrency' => ['runs' => 3]]))->limits())
+        ->and(LedgerFile::decode($written([...$data(), 'kills' => 'many', 'concurrency' => ['runs' => 3]]))->learned()->limits())
         ->toEqual(LimitHistory::none())
         ->and(LedgerFile::decode($written([...$data(), 'kills' => 'many']))->proofs())->toEqual($makeReadBack()->proofs());
 });

@@ -8,10 +8,9 @@
   }
 
   var headers = table.tHead.rows[0].cells;
-  var body = table.tBodies[0];
 
-  function valueOf(row, column, kind) {
-    var cell = row.cells[column];
+  function valueOf(body, column, kind) {
+    var cell = body.rows[0].cells[column];
     var value = cell ? cell.getAttribute('data-value') || '' : '';
 
     if (kind !== 'number') {
@@ -25,9 +24,9 @@
     var header = headers[column];
     var kind = header.getAttribute('data-sort');
     var ascending = header.getAttribute('aria-sort') !== 'ascending';
-    var rows = Array.prototype.slice.call(body.rows);
+    var bodies = Array.prototype.slice.call(table.tBodies);
 
-    rows.sort(function (one, other) {
+    bodies.sort(function (one, other) {
       var a = valueOf(one, column, kind);
       var b = valueOf(other, column, kind);
       var order = a < b ? -1 : a > b ? 1 : 0;
@@ -39,8 +38,8 @@
       each.removeAttribute('aria-sort');
     });
     header.setAttribute('aria-sort', ascending ? 'ascending' : 'descending');
-    rows.forEach(function (row) {
-      body.appendChild(row);
+    bodies.forEach(function (body) {
+      table.appendChild(body);
     });
   }
 

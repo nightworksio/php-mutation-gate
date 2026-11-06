@@ -42,6 +42,7 @@ it('prints a failing Pest test for a survivor, under the test file of its class 
                 //     -return $amount > 100;
                 //     +return $amount >= 100;
                 // Add a test that uses a value at the boundary of `$amount > 100`.
+                // Try: use `$amount` at 100, then at 101.
                 // Call it at the boundary, then one step past it:
                 // expect(/* the code it changes */)->toBe(/* at the boundary */);
                 // expect(/* the code it changes */)->toBe(/* one step past it */);

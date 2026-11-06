@@ -43,7 +43,7 @@ use function trim;
 final readonly class Change
 {
     /** What PHP code is read after, for a line that is not a file. */
-    private const string OPENING = '<?php ';
+    public const string OPENING = '<?php ';
 
     /** Where an expression stops, outside brackets. */
     private const array STOPS = [

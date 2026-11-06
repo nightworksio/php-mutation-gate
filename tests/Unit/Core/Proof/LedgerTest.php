@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Analysis\RejectionRate;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Cost\MutatorTallies;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -38,6 +39,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\JudgedCommits;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\PruningCases;
+use NightWorksIO\MutationGate\Tests\Support\Tallies;
 
 $proof = static fn(string $key, string $unit): Proof => Proof::of(
     Digest::of($key),
@@ -169,9 +171,9 @@ it('holds the kill history a run learned, reads its own before another scope\'s,
         ->withFunction($total, Ranking::of(Kills::of(TestId::of('default'), 1)));
     $read = Ledger::empty()->withLearned($mine)->and(Ledger::empty()->withLearned($default));
 
-    expect(Ledger::empty()->killers())->toEqual(KillHistory::none())
-        ->and($read->killers())->toEqual($mine->and($default))
-        ->and($read->keepingKillersIn(Paths::of(Path::of('src/Money.php')))->killers())
+    expect(Ledger::empty()->learned()->killers())->toEqual(KillHistory::none())
+        ->and($read->learned()->killers())->toEqual($mine->and($default))
+        ->and($read->keepingKillersIn(Paths::of(Path::of('src/Money.php')))->learned()->killers())
         ->toEqual($mine->and($default)->onlyIn(Paths::of(Path::of('src/Money.php'))));
 });
 
@@ -181,9 +183,20 @@ it('holds what each mutator\'s newest mutants came to, and reads its own before 
         ->with(Name::of('pest'), PruningCases::window('Minus', '0'));
     $read = Ledger::empty()->withLearned($own)->and(Ledger::empty()->withLearned($other));
 
-    expect(Ledger::empty()->survival())->toEqual(Survival::none())
-        ->and($read->survival()->of(Name::of('pest'), RunnerMutatorName::of('Plus'))->last())->toBe('mine')
-        ->and($read->survival()->of(Name::of('pest'), RunnerMutatorName::of('Minus'))->outcomes())->toBe('0');
+    expect(Ledger::empty()->learned()->survival())->toEqual(Survival::none())
+        ->and($read->learned()->survival()->of(Name::of('pest'), RunnerMutatorName::of('Plus'))->last())->toBe('mine')
+        ->and($read->learned()->survival()->of(Name::of('pest'), RunnerMutatorName::of('Minus'))->outcomes())->toBe('0');
+});
+
+it('holds what each mutator\'s mutants cost and found, and reads its own before another scope\'s', function (): void {
+    $own = Tallies::holding(Tallies::of('pest', 'Plus', 1, 1, 0, 0, 1.0));
+    $other = Tallies::holding(Tallies::of('pest', 'Plus', 5, 5, 0, 0, 5.0), Tallies::of('pest', 'Minus', 2, 2, 0, 0, 2.0));
+    $read = Ledger::empty()->withLearned($own)->and(Ledger::empty()->withLearned($other));
+
+    expect(Ledger::empty()->learned()->tallies())->toEqual(MutatorTallies::none())
+        ->and($read->learned()->tallies()->of(Name::of('pest'), RunnerMutatorName::of('Plus'))->mutants())->toBe(1)
+        ->and($read->learned()->tallies()->of(Name::of('pest'), RunnerMutatorName::of('Minus'))->mutants())->toBe(2)
+        ->and($read->keepingKillersIn(Paths::none())->learned()->tallies())->toEqual($own->and($other));
 });
 
 it('holds what a run learned of the analysers, and reads its own before another scope\'s', function (): void {
@@ -195,10 +208,10 @@ it('holds what a run learned of the analysers, and reads its own before another 
         ->withTime(CheckTime::of(90, Seconds::of(45.0))));
     $read = Ledger::empty()->withLearned($own)->and(Ledger::empty()->withLearned($other));
 
-    expect(Ledger::empty()->analysers())->toEqual(AnalyserHistories::none())
-        ->and(Ledger::empty()->withLearned($own)->analysers())->toBe($own)
-        ->and($read->analysers()->of($phpstan)->rateOf($plus))->toEqual(RejectionRate::of('Plus', 3, 1))
-        ->and($read->analysers()->of($phpstan)->time())->toEqual(CheckTime::of(90, Seconds::of(45.0)));
+    expect(Ledger::empty()->learned()->analysers())->toEqual(AnalyserHistories::none())
+        ->and(Ledger::empty()->withLearned($own)->learned()->analysers())->toBe($own)
+        ->and($read->learned()->analysers()->of($phpstan)->rateOf($plus))->toEqual(RejectionRate::of('Plus', 3, 1))
+        ->and($read->learned()->analysers()->of($phpstan)->time())->toEqual(CheckTime::of(90, Seconds::of(45.0)));
 });
 
 it('holds the newest commit whose run judged every unit it considered, and reads another scope\'s beside its own, its own first', function (): void {
