@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Tests\Support;
 
 use function array_map;
+use function explode;
 
 use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
@@ -14,10 +15,10 @@ use function sprintf;
 
 /**
  * The legs of the matrix jobs a CI job waits for, which a job that gathers what each leg left reads as its steps
- * (V2): each leg is named by its values, joined by `-`, in the order its matrix declares its dimensions, as
- * `<runner>-<resolution>`, from a matrix of dimensions alone, as the workflows write one. A dimension a run narrows
- * by an expression, `${{ fromJSON(<output> || '<list>') }}`, is read by the list it falls back to, which holds every
- * value it can take.
+ * (V2): each leg is named by its values, joined by `-`, in the order its matrix declares its dimensions, then by each
+ * word of its `RESOLUTIONS`, where a matrix job runs several legs one after the other, as `<runner>-<resolution>`,
+ * from a matrix of dimensions alone, as the workflows write one. A dimension a run narrows by an expression,
+ * `${{ fromJSON(<output> || '<list>') }}`, is read by the list it falls back to, which holds every value it can take.
  */
 final readonly class Legs
 {
@@ -54,7 +55,9 @@ final readonly class Legs
             $legs = self::crossed($legs, self::values($values));
         }
 
-        return $legs;
+        $resolutions = Lenient::text($job->field('env')->field('RESOLUTIONS'));
+
+        return $resolutions === '' || $legs === [] ? $legs : self::crossed($legs, explode(' ', $resolutions));
     }
 
     /**

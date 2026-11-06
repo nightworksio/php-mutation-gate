@@ -9,40 +9,24 @@
       "evidence": "none",
       "why": "It decides which gates run and checks nothing itself."
     },
-    "commitlint": {
-      "check": "commitlint",
-      "checks": "Every commit subject, and the pull request title, is conventional: type(scope): subject.",
-      "reproduce": "python3 .github/scripts/commit_lint.py origin/main HEAD --title \"<the pull request title>\"",
+    "pr": {
+      "check": "pr",
+      "checks": "Every commit subject, and the pull request title, is conventional: type(scope): subject. The pull request's body: every Spec: line names a decision in .docs/decisions, and a breaking title (feat!:) has a Migration section.",
+      "reproduce": "python3 .github/scripts/commit_lint.py origin/main HEAD --title \"<the pull request title>\"\nPR_TITLE=\"<the title>\" PR_BODY=\"<the body>\" python3 .github/scripts/pr_text.py origin/main HEAD",
       "evidence": [
-        {"step": "check", "tool": "commitlint", "raw": "evidence/raw/commitlint.json"}
+        {"step": "commitlint", "tool": "commitlint", "raw": "evidence/raw/commitlint.json"},
+        {"step": "description", "tool": "description", "raw": "evidence/raw/description.json"}
       ],
       "rules": {
         "commitlint": "The check could not read the commits.",
         "conventional-subject": "A commit subject is not conventional. Reword it as type(scope): subject, with a type from feat, fix, docs, refactor, test, chore, ci, perf, build, style or revert.",
-        "conventional-title": "The pull request title is not conventional. A squash merge makes it the subject of the commit on main, so write it as type(scope): subject."
-      }
-    },
-    "description": {
-      "check": "description",
-      "checks": "The pull request's body: every Spec: line names a decision in .docs/decisions, and a breaking title (feat!:) has a Migration section.",
-      "reproduce": "PR_TITLE=\"<the title>\" PR_BODY=\"<the body>\" python3 .github/scripts/pr_text.py origin/main HEAD",
-      "evidence": [
-        {"step": "check", "tool": "description", "raw": "evidence/raw/description.json"}
-      ],
-      "rules": {
+        "conventional-title": "The pull request title is not conventional. A squash merge makes it the subject of the commit on main, so write it as type(scope): subject.",
         "description": "The check could not read the pull request's changes.",
         "unknown-spec": "A Spec: line names a number that is no decision in .docs/decisions. The body becomes main's commit message, so it names only decisions that exist.",
         "missing-migration": "The title marks a breaking change, and the body has no Migration section saying what a user changes. Add a ## Migration section.",
         "suggest-title": "A conventional title for these changes starts like this.",
         "suggest-spec": "These changes touch paths that belong to these decisions. Name the one this pull request follows with a Spec: line."
       }
-    },
-    "pr-evidence": {
-      "check": "pr evidence",
-      "checks": "It gathers the pr workflow's evidence into the one artifact the bot reads.",
-      "reproduce": "Nothing to reproduce",
-      "evidence": "none",
-      "why": "It holds the other jobs' evidence and checks nothing itself."
     },
     "scripts": {
       "check": "scripts",
@@ -191,8 +175,8 @@
     },
     "runner-contract": {
       "check": "runner contract",
-      "checks": "One leg of runner contracts: one runner's contracts, Pest's, Infection's with PHPUnit 13 or 12, PHPUnit's, PhpSpec's, Codeception's or the analysers', at one resolution of its fixture, the highest its committed lock holds or the lowest the package supports.",
-      "reproduce": "vendor/bin/pest --testsuite=Contract with the leg's --filter, after installing the leg's fixture as the job does (composer install for the locked highest, composer update --prefer-lowest for the lowest); ANALYSER_CONTRACTS=1 for the analysers",
+      "checks": "One runner's two legs of runner contracts: its contracts, Pest's, Infection's with PHPUnit 13 or 12, PHPUnit's, PhpSpec's, Codeception's or the analysers', at each resolution of its fixture, the highest its committed lock holds and the lowest the package supports.",
+      "reproduce": ".github/scripts/leg.sh <runner> <highest or lowest>, which empties tests/Contract of what is untracked and installs the leg's fixture (composer install for the locked highest, composer update --prefer-lowest for the lowest); ANALYSER_CONTRACTS=1 for the analysers",
       "evidence": "none",
       "why": "Each leg leaves its log and its suite's outcome to runner contracts, which reads them as its evidence and is the check main requires."
     },
@@ -369,12 +353,24 @@
       "evidence": "none",
       "why": "It holds the other jobs' evidence and checks nothing itself."
     },
-    "hygiene/actionlint": {
-      "check": "hygiene / actionlint",
-      "checks": "The workflows, by actionlint and the shellcheck it runs over their scripts.",
-      "reproduce": "actionlint",
+    "hygiene/tools": {
+      "check": "hygiene / tools",
+      "checks": "The workflows, by actionlint and the shellcheck it runs over their scripts. The workflows and dependabot.yml, audited by zizmor for the ways a workflow is attacked. The spelling of every file, by typos. That no tracked file is over 1,000 lines, by .github/scripts/line_cap.py: lockfiles, images and fonts are not counted, and a file scripts/generated.py registers is held to the cap through its sources. Every link in the Markdown, by lychee. No secret anywhere in the history, by gitleaks. No known vulnerability in what the lock files install, by osv-scanner. The Markdown, by markdownlint with .markdownlint.jsonc, the depth cap of the vendored braces its globs go through, and the ADRs the site builds its index of.",
+      "reproduce": "actionlint\nzizmor .\ntypos\npython3 .github/scripts/line_cap.py --root .\nlychee --config lychee.toml .\ngitleaks git --redact .\nosv-scanner scan source --recursive .\nnpm ci --prefix .github/bot/markdownlint && node .github/bot/markdownlint/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs \"**/*.md\" && node --test .github/bot/markdownlint/braces.test.mjs && python3 .github/scripts/decisions_index.py validate",
+      "fix": "zizmor --fix=safe .\nnpm ci --prefix .github/bot/markdownlint && node .github/bot/markdownlint/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs --fix \"**/*.md\"",
       "evidence": [
-        {"step": "actionlint", "tool": "actionlint", "raw": "evidence/raw/actionlint.json"}
+        {"step": "actionlint", "tool": "actionlint", "raw": "evidence/raw/actionlint.json"},
+        {"step": "zizmor", "tool": "zizmor", "raw": "evidence/raw/zizmor.json"},
+        {"step": "typos", "tool": "typos", "raw": "evidence/raw/typos.jsonl"},
+        {"step": "lines", "tool": "lines", "raw": "evidence/raw/lines.txt"},
+        {"step": "lychee", "tool": "lychee", "raw": "evidence/raw/lychee.json"},
+        {"step": "gitleaks", "tool": "gitleaks", "raw": "evidence/raw/gitleaks.json"},
+        {"step": "freshness", "tool": "gitleaks-freshness"},
+        {"step": "osv-scanner", "tool": "osv-scanner", "raw": "evidence/raw/osv-scanner.json"},
+        {"step": "markdownlint", "tool": "markdownlint", "raw": "evidence/raw/markdownlint.json"},
+        {"step": "table", "tool": "markdownlint-table"},
+        {"step": "braces", "tool": "braces-cap"},
+        {"step": "decisions", "tool": "decisions-index"}
       ],
       "rules": {
         "actionlint": "actionlint did not run to the end.",
@@ -396,18 +392,7 @@
         "job-needs": "A job needs a job that does not exist, or the needs form a loop.",
         "deprecated-commands": "A step uses a workflow command GitHub has retired.",
         "env-var": "An environment variable's name is not valid.",
-        "config": "actionlint's own configuration is not valid."
-      }
-    },
-    "hygiene/zizmor": {
-      "check": "hygiene / zizmor",
-      "checks": "The workflows and dependabot.yml, audited by zizmor for the ways a workflow is attacked.",
-      "reproduce": "zizmor .",
-      "fix": "zizmor --fix=safe .",
-      "evidence": [
-        {"step": "zizmor", "tool": "zizmor", "raw": "evidence/raw/zizmor.json"}
-      ],
-      "rules": {
+        "config": "actionlint's own configuration is not valid.",
         "zizmor": "zizmor did not run to the end.",
         "adhoc-packages": "A step installs a package outside a lock file, so what it installs can change between runs.",
         "anonymous-definition": "A workflow or action has no name.",
@@ -449,87 +434,22 @@
         "unsound-condition": "An if: is always true because of how it is written, such as text around a ${{ }}.",
         "unsound-contains": "contains() is called on text where a list was meant, so a substring passes.",
         "unsound-ternary": "An a && b || c expression gives c when b is empty or false.",
-        "use-trusted-publishing": "A release publishes with a long-lived token where trusted publishing works."
-      }
-    },
-    "hygiene/typos": {
-      "check": "hygiene / typos",
-      "checks": "The spelling of every file, by typos.",
-      "reproduce": "typos",
-      "evidence": [
-        {"step": "typos", "tool": "typos", "raw": "evidence/raw/typos.jsonl"}
-      ],
-      "rules": {
+        "use-trusted-publishing": "A release publishes with a long-lived token where trusted publishing works.",
         "typos": "typos did not run to the end.",
-        "typo": "A word typos knows as a misspelling. Its correction is proposed, not applied: inside an identifier, the corrected word can be wrong."
-      }
-    },
-    "hygiene/lines": {
-      "check": "hygiene / lines",
-      "checks": "That no tracked file is over 1,000 lines, by .github/scripts/line_cap.py: lockfiles, images and fonts are not counted, and a file scripts/generated.py registers is held to the cap through its sources.",
-      "reproduce": "python3 .github/scripts/line_cap.py --root .",
-      "evidence": [
-        {"step": "lines", "tool": "lines", "raw": "evidence/raw/lines.txt"}
-      ],
-      "rules": {
+        "typo": "A word typos knows as a misspelling. Its correction is proposed, not applied: inside an identifier, the corrected word can be wrong.",
         "lines": "The line cap did not run to the end, as where git could not list the tree.",
-        "over-cap": "A tracked file over 1,000 lines. Split it by what it holds; a generated file is split where it is generated, or registered in scripts/generated.py with the sources it is read through."
-      }
-    },
-    "hygiene/links": {
-      "check": "hygiene / links",
-      "checks": "Every link in the Markdown, by lychee.",
-      "reproduce": "lychee --config lychee.toml .",
-      "evidence": [
-        {"step": "lychee", "tool": "lychee", "raw": "evidence/raw/lychee.json"}
-      ],
-      "rules": {
+        "over-cap": "A tracked file over 1,000 lines. Split it by what it holds; a generated file is split where it is generated, or registered in scripts/generated.py with the sources it is read through.",
         "lychee": "lychee did not run to the end, or found no link where there are some.",
-        "broken-link": "A link answers 404 or 410, points at a file that is not there, or timed out."
-      }
-    },
-    "hygiene/markdown": {
-      "check": "hygiene / markdown",
-      "checks": "The Markdown, by markdownlint with .markdownlint.jsonc, the depth cap of the vendored braces its globs go through, and the ADRs the site builds its index of.",
-      "reproduce": "npm ci --prefix .github/bot/markdownlint && node .github/bot/markdownlint/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs \"**/*.md\" && node --test .github/bot/markdownlint/braces.test.mjs && python3 .github/scripts/decisions_index.py validate",
-      "fix": "npm ci --prefix .github/bot/markdownlint && node .github/bot/markdownlint/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs --fix \"**/*.md\"",
-      "evidence": [
-        {"step": "markdownlint", "tool": "markdownlint", "raw": "evidence/raw/markdownlint.json"},
-        {"step": "table", "tool": "markdownlint-table"},
-        {"step": "braces", "tool": "braces-cap"},
-        {"step": "decisions", "tool": "decisions-index"}
-      ],
-      "rules": {
+        "broken-link": "A link answers 404 or 410, points at a file that is not there, or timed out.",
+        "gitleaks": "gitleaks did not run to the end.",
+        "gitleaks-freshness": "The pinned gitleaks is more than 30 days behind its latest release, so it misses rules the latest has. Raise GITLEAKS_VERSION and GITLEAKS_SHA256 in .github/workflows/security.yml.",
+        "secret": "gitleaks finds a secret committed here. Revoke it first, then remove it from the history; deleting the file in a later commit leaves it readable.",
+        "osv-scanner": "osv-scanner did not run to the end.",
+        "vulnerability": "A package a lock file installs has a known vulnerability. Raise it to a release the advisory says is fixed.",
         "markdownlint": "markdownlint did not run to the end.",
         "braces-cap": "The vendored braces in .github/bot/markdownlint/vendor/braces does not refuse a pattern nested past its depth cap, micromatch does not resolve it, or it expands a pattern differently from braces 3.0.3. Run npm ci --prefix .github/bot/markdownlint && node --test .github/bot/markdownlint/braces.test.mjs.",
         "markdownlint-table": ".github/bot/rules/markdownlint.json is not what the locked markdownlint says of its rules. Run node .github/bot/markdownlint/rules.mjs > .github/bot/rules/markdownlint.json and commit it.",
         "decisions-index": "An ADR cannot be read as one, two ADR files take one number, or .docs/decisions/README.md holds an index between its markers, which the site builds. Run python3 .github/scripts/decisions_index.py validate, which says which."
-      }
-    },
-    "security/gitleaks": {
-      "check": "security / gitleaks",
-      "checks": "No secret anywhere in the history, by gitleaks.",
-      "reproduce": "gitleaks git --redact .",
-      "evidence": [
-        {"step": "gitleaks", "tool": "gitleaks", "raw": "evidence/raw/gitleaks.json"},
-        {"step": "freshness", "tool": "gitleaks-freshness"}
-      ],
-      "rules": {
-        "gitleaks": "gitleaks did not run to the end.",
-        "gitleaks-freshness": "The pinned gitleaks is more than 30 days behind its latest release, so it misses rules the latest has. Raise GITLEAKS_VERSION and GITLEAKS_SHA256 in .github/workflows/security.yml.",
-        "secret": "gitleaks finds a secret committed here. Revoke it first, then remove it from the history; deleting the file in a later commit leaves it readable."
-      }
-    },
-    "security/osv-scanner": {
-      "check": "security / osv-scanner",
-      "checks": "No known vulnerability in what the lock files install, by osv-scanner.",
-      "reproduce": "osv-scanner scan source --recursive .",
-      "evidence": [
-        {"step": "osv-scanner", "tool": "osv-scanner", "raw": "evidence/raw/osv-scanner.json"}
-      ],
-      "rules": {
-        "osv-scanner": "osv-scanner did not run to the end.",
-        "vulnerability": "A package a lock file installs has a known vulnerability. Raise it to a release the advisory says is fixed."
       }
     },
     "site/build": {

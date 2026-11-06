@@ -17,101 +17,53 @@ concurrency:
 
 jobs:
   # The record of every commit a pull request brings: its subject is
-  # conventional. It reads the pull request's base..head.
-  commitlint:
-    name: commitlint
+  # conventional, reading the pull request's base..head. And what the body
+  # promises: every `Spec:` names a decision in .docs/decisions, and a breaking
+  # title has a *Migration* section. Its evidence also carries the suggestions
+  # the bot shows: a conventional title from the changed paths, and the
+  # decisions .github/spec-map.json maps them to. All of it is gathered into the
+  # one artifact `evidence` of this run, which the bot reads beside the ci
+  # run's (ADR-0019).
+  pr:
+    name: pr
     runs-on: ubuntu-latest
     permissions:
       contents: read
     timeout-minutes: 10
+    env:
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      PR_TITLE: ${{ github.event.pull_request.title }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
-      - env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-        id: check
+      - run: mkdir -p evidence/raw
+      - id: commitlint
         run: |
-          mkdir -p evidence/raw
           python3 .github/scripts/commit_lint.py "${BASE_SHA}" "${HEAD_SHA}" --title "${PR_TITLE}" \
             --findings evidence/raw/commitlint.json
-      # The job's evidence, whatever the steps above did (ADR-0019).
-      - name: evidence
+      - id: description
         if: ${{ !cancelled() }}
         env:
-          STEPS: ${{ toJSON(steps) }}
-        run: python3 .github/scripts/evidence.py commitlint
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: ${{ !cancelled() }}
-        with:
-          name: evidence-commitlint
-          path: evidence/commitlint*
-          if-no-files-found: error
-          retention-days: 7
-      - name: what failed
-        if: failure()
-        run: python3 .github/scripts/gate_summary.py commitlint
-
-  # What the body promises: every `Spec:` names a decision in .docs/decisions,
-  # and a breaking title has a *Migration* section. Its evidence also carries
-  # the suggestions the bot shows: a conventional title from the changed paths,
-  # and the decisions .github/spec-map.json maps them to.
-  description:
-    name: description
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body }}
-        id: check
-        run: |
-          mkdir -p evidence/raw
-          python3 .github/scripts/pr_text.py "${BASE_SHA}" "${HEAD_SHA}" --findings evidence/raw/description.json
-      # The job's evidence, whatever the steps above did (ADR-0019).
+        run: python3 .github/scripts/pr_text.py "${BASE_SHA}" "${HEAD_SHA}" --findings evidence/raw/description.json
+      # The job's evidence, whatever the steps above did.
       - name: evidence
         if: ${{ !cancelled() }}
         env:
           STEPS: ${{ toJSON(steps) }}
-        run: python3 .github/scripts/evidence.py description
+        run: python3 .github/scripts/evidence.py pr
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
-          name: evidence-description
-          path: evidence/description*
+          name: evidence-pr
+          path: evidence/pr*
           if-no-files-found: error
           retention-days: 7
-      - name: what failed
-        if: failure()
-        run: python3 .github/scripts/gate_summary.py description
-
-  # Every job's evidence, gathered into the one artifact `evidence` of this
-  # run, which the bot reads beside the ci run's (ADR-0019).
-  pr-evidence:
-    name: pr evidence
-    needs: [commitlint, description]
-    if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          sparse-checkout: .github
       - uses: actions/upload-artifact/merge@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
         with:
           name: evidence
           pattern: evidence-*
@@ -119,4 +71,4 @@ jobs:
           retention-days: 7
       - name: what failed
         if: failure()
-        run: python3 .github/scripts/gate_summary.py pr-evidence
+        run: python3 .github/scripts/gate_summary.py pr
