@@ -190,7 +190,7 @@ REPLAY = (
 
 # What the image is built from beside the PHAR, and how the PHAR is built
 # (ADR-0022).
-IMAGE = ("Dockerfile", ".dockerignore", "box.json.dist", "scoper.inc.php", "scripts/phar.sh")
+IMAGE = ("Dockerfile", ".dockerignore", "box.json.dist", "scoper.inc.php", "scripts/phar.sh", ".github/workflows/image.yml")
 
 # The native runner, which drives each framework that has no runner of its own.
 NATIVE = ("src/Adapter/Native/", "src/Core/Native/")

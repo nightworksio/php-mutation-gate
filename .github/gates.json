@@ -191,8 +191,8 @@
         "error": "The PHAR could not be run, or a step of its smoke suite threw."
       }
     },
-    "image": {
-      "check": "image (${{ matrix.platform }})",
+    "image/build": {
+      "check": "image / build (${{ matrix.platform }})",
       "checks": "The gate's image builds for each platform a release pushes, from a PHAR built as a release builds it, and runs.",
       "reproduce": "composer phar && docker build --tag mutation-gate:ci . && docker run --rm mutation-gate:ci --version",
       "evidence": "none",
