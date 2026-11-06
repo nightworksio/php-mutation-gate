@@ -723,6 +723,51 @@ it('records with each proof its share of the plan\'s digests, with each test fil
         ->and($held instanceof Proof ? $held->inputs() : $held)->toEqual(Undigested::proof());
 });
 
+it('records with each proof each test file that covers its file, where the run read a coverage map, killed one of its mutants or not', function () use (
+    $map,
+    $run,
+    $ledgers,
+): void {
+    $project = Flows::project();
+    $store = new ProofStoreFake();
+    $digests = Digests::of(Digest::sha256Of('mutation'))
+        ->withSource(Path::of('src/Money.php'), Digest::sha256Of('money source'))
+        ->withTest(Path::of('tests/MoneyTest.php'), Digest::sha256Of('money test'))
+        ->withTest(Path::of('tests/TaxTest.php'), Digest::sha256Of('tax test'));
+    $plan = Planned::twoShards()
+        ->digesting($digests)
+        ->naming(TestNames::none()
+            ->with(TestId::of('MoneyTest::adds'), TestName::in(Path::of('tests/MoneyTest.php'), 'adds'))
+            ->with(TestId::of('TaxTest::rounds'), TestName::in(Path::of('tests/TaxTest.php'), 'rounds')));
+    $timedOut = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Minus', '@@ @@', 0),
+        'Minus-2',
+        Location::of(Path::of('src/Money.php'), Line::of(2), Line::of(2)),
+        Mutation::of('Minus', MutatorFamily::Arithmetic, '@@ @@'),
+        MutantStatus::TimedOut,
+        Seconds::of(0.1),
+    );
+    $covering = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(9), TestId::of('TaxTest::rounds'));
+    $results = recordedRanOf($plan, $project, ScriptedRunner::fixture()->answering(Mutants::of($timedOut), 0), $map());
+
+    new Recorded(adapters: Flows::adapters($project, [], $store), settings: Flows::settings())->write(
+        $plan,
+        $results,
+        JudgedMutants::none(),
+        $ledgers($store, $plan),
+        $run($plan),
+        CannotTell::because('It failed.'),
+        recordedLastRun(),
+        map: $covering,
+    );
+    $money = LedgerRead::ledger($store->read(Scope::branch('main')))->proofs()->proofFor(Digest::sha256Of('money'));
+
+    expect($money instanceof Proof ? $money->inputs() : $money)->toEqual(
+        Inputs::of(Digest::sha256Of('money source'), Digest::sha256Of('mutation'))
+            ->withTest(Path::of('tests/TaxTest.php'), Digest::sha256Of('tax test')),
+    );
+});
+
 it('records no digests where the plan has none', function () use ($map, $run, $ledgers): void {
     $project = Flows::project();
     $store = new ProofStoreFake();

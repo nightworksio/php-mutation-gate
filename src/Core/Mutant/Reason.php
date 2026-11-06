@@ -69,6 +69,7 @@ final readonly class Reason
         private string $text,
         private OutOfTime|Unreported $outOfTime,
         private TestId|NotGiven $stoppedAt = new NotGiven(),
+        private bool $silenced = false,
     ) {
     }
 
@@ -98,7 +99,7 @@ final readonly class Reason
     /** Why a mutant's run was stopped where no test of it finished for this long, its silence limit. */
     public static function silent(Seconds $for): self
     {
-        return self::that(sprintf(self::SILENT, $for->text()));
+        return new self(sprintf(self::SILENT, $for->text()), Unreported::reason(), silenced: true);
     }
 
     /** Why a mutant's run was stopped where this test of it ran past this limit of its own. */
@@ -110,7 +111,12 @@ final readonly class Reason
     /** This reason, saying first that the mutant's kill is inferred from that of this mutant, which subsumes it. */
     public function inferredFrom(MutantId $subsumer): self
     {
-        return new self(sprintf(self::INFERRED, $subsumer->value(), $this->text), $this->outOfTime, $this->stoppedAt);
+        return new self(
+            sprintf(self::INFERRED, $subsumer->value(), $this->text),
+            $this->outOfTime,
+            $this->stoppedAt,
+            $this->silenced,
+        );
     }
 
     /** Whether it says the mutated file was loaded before the mutant was in place, as the ledger keeps it. */
@@ -134,6 +140,12 @@ final readonly class Reason
     public function text(): string
     {
         return $this->text;
+    }
+
+    /** Whether its run stopped before its limit: no test finished for the silence limit, or one ran past its own. */
+    public function stoppedEarly(): bool
+    {
+        return $this->silenced || $this->stoppedAt instanceof TestId;
     }
 
     /** The test that ran past its own limit, so its run was stopped; none where no test's own limit stopped it. */

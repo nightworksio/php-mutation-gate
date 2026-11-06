@@ -345,6 +345,7 @@ final readonly class Judging
             $ledgers,
             $proving->ownScopeProofs() + $carrying->ownScopeProofs(),
             $refused,
+            $map,
         );
     }
 
@@ -577,6 +578,7 @@ final readonly class Judging
                 $passed,
                 $lastRun,
                 $verdict->account()->timings(),
+                $assessed->map,
             );
 
         return match (true) {

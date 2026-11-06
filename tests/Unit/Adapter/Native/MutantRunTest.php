@@ -229,11 +229,11 @@ it('judges a mutant by what its run recorded, ended as and served', function (st
         "served\n",
         [MutantStatus::Killed, ['T::fails'], ''],
     ],
-    'errored where PHPUnit failed before any test started' => [
+    'killed with no test named where PHPUnit failed before any test started, so its ending or a control must vouch for it' => [
         '',
         fn(): Ran => Ran::finished(succeeded: false, output: 'Fatal error'),
         "served\n",
-        [MutantStatus::Errored, [], ''],
+        [MutantStatus::Killed, [], ''],
     ],
     'killed by a test whose issue failed the run, where no test failed' => [
         fn(): string => records(Outcome::Started->line($makeAdds()->value()), Outcome::Passed->line($makeAdds()->value()), Outcome::Issued->line($makeAdds()->value())),

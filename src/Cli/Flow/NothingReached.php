@@ -32,7 +32,7 @@ use function sprintf;
  * The verdict that stands for a plan that runs no unit, where the commit its
  * change is read since passed on the default branch ({@see ReachingNothing}):
  * only for a standard run that reads its change since a ref, takes no result
- * of its own scope, proves no unit it reaches by an earlier result (ADR-0107),
+ * of its own scope, proves no unit it reaches by an earlier result (ADR-0108),
  * has a config that reads no file it cannot name, and, in a
  * pull request or merge group, is not held to commit each raise with it.
  *
@@ -44,7 +44,7 @@ final readonly class NothingReached
 
     private const string OWN_SCOPE = 'The plan takes %d results of the run\'s own scope.';
 
-    private const string PROVED = 'The change reaches %d units that earlier results prove, so this run\'s verdict judges them.';
+    private const string PROVED = 'The change reaches %d units earlier results prove, which this verdict judges.';
 
     private const string RAISES
         = 'A proposed change must commit each raise with it, so its verdict judges what it carries.';
@@ -94,7 +94,7 @@ final readonly class NothingReached
             ! $base instanceof ChangeBase => Reason::that($base->why()),
             ! $kind->equals(RunProfile::standard()) => Reason::that(self::NOT_STANDARD),
             $ownScopeProofs > 0 => Reason::that(sprintf(self::OWN_SCOPE, $ownScopeProofs)),
-            $proved > 0 => Reason::that(sprintf(self::PROVED, $proved)),
+            $proved !== 0 => Reason::that(sprintf(self::PROVED, $proved)),
             is_string($unnamed) => Reason::that($unnamed),
             $proposed && $this->settings->floors()->improvement() === Improvement::Require
                 => Reason::that(self::RAISES),

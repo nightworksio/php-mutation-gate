@@ -56,6 +56,9 @@ use NightWorksIO\MutationGate\Core\Report\JsonReport;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestName;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
@@ -868,4 +871,20 @@ it('carries the last result\'s mutants of a mutator the plan pruned into the uni
             Decoded::column(JsonReport::encode($verdict), 'id', 'mutants'),
             array_filter(Decoded::column(JsonReport::encode($verdict), 'carriedPruned', 'mutants'), static fn(mixed $mark): bool => $mark === true),
         )))->toBe([$carried->value()]);
+});
+
+it('records with each proof the test files the coverage map it read says cover its file, which pruning then holds it to', function () use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $store = new ProofStoreFake();
+    $plan = Planned::twoShards()
+        ->digesting(Digests::of(Digest::sha256Of('mutation'))
+            ->withSource(Path::of('src/Held.php'), Digest::sha256Of('held source'))
+            ->withTest(Path::of('tests/HeldTest.php'), Digest::sha256Of('held test')))
+        ->naming(TestNames::none()->with(TestId::of('HeldTest::doubles'), TestName::in(Path::of('tests/HeldTest.php'), 'doubles')));
+
+    $makeJudged()($plan, Flows::adapters(Flows::project(), [], $store, $tree(Floor::of(50))), JudgingRuns::settings(), $makeReporting()(new ReporterFake()));
+    $held = LedgerRead::ledger($store->read(Scope::branch('main')))->proofs()->proofFor(Digest::sha256Of('held'));
+    $inputs = $held instanceof Proof ? $held->inputs() : $held;
+
+    expect($inputs instanceof Inputs ? $inputs->testDigest(Path::of('tests/HeldTest.php')) : $inputs)->toEqual(Digest::sha256Of('held test'));
 });

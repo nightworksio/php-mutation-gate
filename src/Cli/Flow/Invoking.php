@@ -93,48 +93,72 @@ final readonly class Invoking
     }
 
     /**
-     * An invocation's mutants triaged: its survivors proven equivalent, then
-     * checked by static analysis, then the rest run once more, and each
-     * mutant a control judges controlled.
+     * An invocation's mutants triaged: its survivors screened, each mutant
+     * a control judges controlled, and the survivors a control left, as the
+     * parts of a heavy mutant leave them, screened after it (ADR-0108).
      */
     private function triaged(MutationResult $result, MutationRequest $request): Invoked|CannotJudge
     {
-        $equivalent = $this->equivalent($result->mutants());
-        $checked = $this->checking->checked($result->mutants(), MutantIds::none());
-        $again = $this->confirmed($checked->mutants, $equivalent, $request);
-        $controlled = $again instanceof CannotJudge
-            ? $again
-            : $this->controlled($again->mutants, $request, $result->evidence());
+        $first = $this->screened($result->mutants(), MutantIds::none(), $request);
 
-        return match (true) {
-            $again instanceof CannotJudge => $again,
-            $controlled instanceof CannotJudge => $controlled,
-            default => new Invoked(
-                MutationResult::of($controlled->mutants, $result->skipped())
-                    ->withWarnings($result->warnings())
-                    ->withEvidence($controlled->evidence),
-                $again->flaky,
-                $equivalent,
-                $checked->checks,
-                $checked->examinedIds(),
-                $checked->unchecked,
-            ),
-        };
+        if ($first instanceof CannotJudge) {
+            return $first;
+        }
+
+        $controlled = $this->controlled($first->mutants, $request, $result->evidence());
+
+        if ($controlled instanceof CannotJudge) {
+            return $controlled;
+        }
+
+        return $this->afterControls($first, $controlled, $result, $request);
+    }
+
+    /** The invocation, the survivors its controls left, as a heavy mutant's parts leave them, screened in turn. */
+    private function afterControls(
+        Screened $first,
+        Controlled $controlled,
+        MutationResult $result,
+        MutationRequest $request,
+    ): Invoked|CannotJudge {
+        $settled = $first->settledIn($controlled->mutants);
+        $late = count($settled) < count($controlled->mutants);
+        $screened = $late
+            ? $this->screened($controlled->mutants, $settled, $request)
+            : $first->controlled($controlled->mutants);
+        $all = $late && $screened instanceof Screened ? $first->then($screened) : $screened;
+
+        return $all instanceof CannotJudge ? $all : new Invoked(
+            MutationResult::of($all->mutants, $result->skipped())
+                ->withWarnings($result->warnings())
+                ->withEvidence($controlled->evidence),
+            $all->flaky,
+            $all->equivalent,
+            $all->checks,
+            $all->checked,
+            $all->unchecked,
+        );
     }
 
     /**
-     * The survivors proven equivalent, where `equivalence.static` asks
-     * (ADR-0013), timed: no test can tell one from its
-     * original, so none runs again, and none dooms the run (see Doom). The
-     * verdict proves the survivors again itself.
+     * These mutants' survivors, but those settled already, screened: those
+     * proven equivalent where `equivalence.static` asks (ADR-0013), timed, so
+     * none runs again and none dooms the run (see Doom), which the verdict
+     * proves again itself; then checked by static analysis; then the rest run
+     * once more.
      */
-    private function equivalent(Mutants $mutants): MutantIds
+    private function screened(Mutants $mutants, MutantIds $settled, MutationRequest $request): Screened|CannotJudge
     {
+        $open = Mutants::of(
+            ...array_filter([...$mutants], static fn(Mutant $mutant): bool => ! $settled->has($mutant->id())),
+        );
         $from = $this->stopwatch->now();
-        $equivalent = new StaticEquivalence($this->adapters, $this->settings)->proven($mutants)->proven;
-        $this->stopwatch->handled(Step::Equivalence, $from, $mutants->counting(MutantStatus::Survived));
+        $equivalent = new StaticEquivalence($this->adapters, $this->settings)->proven($open)->proven;
+        $this->stopwatch->handled(Step::Equivalence, $from, $open->counting(MutantStatus::Survived));
+        $checked = $this->checking->checked($mutants, $settled);
+        $again = $this->confirmed($checked->mutants, $equivalent->and($settled), $request);
 
-        return $equivalent;
+        return $again instanceof CannotJudge ? $again : Screened::of($checked, $again, $equivalent);
     }
 
     /** The runner's run of the request, the steps its time went to kept. */

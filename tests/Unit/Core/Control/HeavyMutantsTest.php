@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Reach\TestPlaces;
 use NightWorksIO\MutationGate\Core\Runner\ExactRun;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
@@ -97,6 +98,16 @@ it('parts a mutant that timed out at the most whose tests run past it only toget
             $control->silence(),
         ], $asked))->toEqual([[['a'], Seconds::of(4.8), Contents::of('<?php // mutant'), Seconds::of(4.8)]]);
 });
+
+it('leaves to its control a mutant at the most that its silence limit or a test\'s own limit stopped, which no part would judge sooner', function (Reason $stopped): void {
+    $mutants = Mutants::of(heavyMutant('src/Heavy.php', MutantStatus::TimedOut, 6.0)->because($stopped));
+
+    expect(count(heavyAmong($mutants)->without($mutants)))->toBe(1)
+        ->and([...heavyAmong($mutants)->asked()])->toBe([]);
+})->with([
+    'its silence limit' => [fn(): Reason => Reason::silent(Seconds::of(2.0))],
+    'a test\'s own limit' => [fn(): Reason => Reason::overran(TestId::of('a'), Seconds::of(3.0))],
+]);
 
 it('judges each heavy mutant part after part, and unjudges one whose run the time left had no room for', function (): void {
     $heavy = heavyMutant('src/Heavy.php', MutantStatus::TimedOut, 6.0);

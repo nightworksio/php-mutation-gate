@@ -8,8 +8,12 @@ use NightWorksIO\MutationGate\Cli\Flow\PartedRuns;
 use NightWorksIO\MutationGate\Cli\Flow\Stopwatch;
 use NightWorksIO\MutationGate\Cli\Flow\SurvivorChecking;
 use NightWorksIO\MutationGate\Core\Control\Control;
+use NightWorksIO\MutationGate\Cli\Flow\Workspace;
+use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
+use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Control\ControlRun;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -32,7 +36,9 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Deadline;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\RecordingChecker;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 use NightWorksIO\MutationGate\Tests\Support\StoppedClock;
@@ -54,11 +60,11 @@ function invokedMutant(string $file, string $nativeId, MutantStatus $status): Mu
     );
 }
 
-/** One invocation of this runner, with this much of its budget left, over this map. */
-function invokedWithin(ScriptedRunner $runner, Seconds $left, CoverageMap $map, Pool|NotGiven $pool = new NotGiven()): Invoked
+/** One invocation of this runner, with this much of its budget left, over this map, in this pool, with these ports besides. */
+function invokedWithin(ScriptedRunner $runner, Seconds $left, CoverageMap $map, Pool|NotGiven $pool = new NotGiven(), object ...$ports): Invoked
 {
     $clock = new StoppedClock('2026-09-30T12:00:00+00:00');
-    $adapters = Flows::adapters(Flows::project(), [], $runner);
+    $adapters = Flows::adapters(Flows::project(), [], $runner, ...$ports);
     $deadline = Deadline::after($clock->now(), $left);
     $stopwatch = new Stopwatch($clock, $clock->now());
     $invoked = new Invoking(
@@ -178,3 +184,49 @@ it('fills a round of heavy parts with those ahead that fit in the time left, and
     'the part at hand does not fit' => [fn(): CoverageMap => invokedHeavyMap(a: 90.0, b: 90.0, c: 90.0, d: 90.0), 200.0, [], MutantStatus::Unjudged],
     'a shorter part at hand, those ahead too long' => [fn(): CoverageMap => invokedHeavyMap(a: 10.0, b: 90.0, c: 90.0, d: 90.0), 100.0, [1], MutantStatus::Unjudged],
 ]);
+
+/** The fixture's first mutant of src/Money.php, timed out at the most a mutant may run. */
+function invokedTimedOut(): Mutant
+{
+    $fixture = [...Flows::mutantsOf('src/Money.php')][0];
+
+    return Mutant::of($fixture->id(), $fixture->nativeId(), $fixture->location(), $fixture->mutation(), MutantStatus::TimedOut, Seconds::of(300.0))
+        ->withLimit(Seconds::of(300.0));
+}
+
+/** A map in which two tests of 200 seconds each cover the heavy mutant's line, more than the most one run may take. */
+function invokedTimedOutMap(): CoverageMap
+{
+    $location = invokedTimedOut()->location();
+
+    return CoverageMap::empty()
+        ->covered($location->file(), $location->start(), TestId::of('a'), TestId::of('b'))
+        ->timed(TestId::of('a'), Seconds::of(200.0))
+        ->timed(TestId::of('b'), Seconds::of(200.0));
+}
+
+it('screens a heavy mutant whose parts all pass as a survivor, after the survivors the run left, and keeps what both screenings found', function (): void {
+    $fixture = [...Flows::mutantsOf('src/Money.php')][1];
+    $survivor = Mutant::of($fixture->id(), $fixture->nativeId(), $fixture->location(), $fixture->mutation(), MutantStatus::Survived, Seconds::of(0.1));
+    $runner = ScriptedRunner::fixture()
+        ->answering(Mutants::of(invokedTimedOut(), $survivor), 0)
+        ->controlling(ControlRun::passed(Seconds::of(1.0)))
+        ->killingAgain();
+    $checker = new RecordingChecker(new StaticCheckerFake(
+        AnalyserIdentity::of('fake', '1.0.0', Digest::sha256Of('{}')),
+        Findings::none(),
+        [
+            Workspace::checkedMutant(invokedTimedOut()->id())->value() => Findings::none(),
+            Workspace::checkedMutant($survivor->id())->value() => Findings::none(),
+        ],
+    ), Flows::project());
+
+    $invoked = invokedWithin($runner, Seconds::of(100000.0), invokedTimedOutMap(), new NotGiven(), $checker);
+
+    expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), [...$invoked->result->mutants()]))
+        ->toBe([MutantStatus::Survived, MutantStatus::Survived])
+        ->and(array_map(static fn(array $retry): array => array_map(static fn(Mutant $mutant): string => $mutant->nativeId(), [...$retry[0]]), $runner->retries()))
+        ->toBe([[$survivor->nativeId()], [invokedTimedOut()->nativeId()]])
+        ->and([...$invoked->flaky])->toEqual([$survivor->id(), invokedTimedOut()->id()])
+        ->and(count($checker->asked()))->toBe(2);
+});

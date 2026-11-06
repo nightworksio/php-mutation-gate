@@ -104,6 +104,7 @@ enum VerdictSet
                 'src/Cli/Flow/Invoked.php',
                 'src/Cli/Flow/SurvivorBatch.php',
                 'src/Cli/Flow/Confirmed.php',
+                'src/Cli/Flow/Screened.php',
                 'src/Cli/Flow/Controlled.php',
                 'src/Cli/Flow/Equivalents.php',
                 'src/Cli/Flow/StaticEquivalence.php',

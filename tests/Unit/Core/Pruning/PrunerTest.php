@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Pruning;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
@@ -86,6 +87,28 @@ it('prunes in no unit whose result let a mutant through, and in one whose result
     'an unjudged mutant' => [MutantStatus::Unjudged, []],
     'a kill by static analysis' => [MutantStatus::KilledByStaticAnalysis, ['src/A.php']],
     'a timeout' => [MutantStatus::TimedOut, ['src/A.php']],
+]);
+
+it('prunes in a unit only while every test file its result records, covering it or killing a mutant of it, reads as it did then', function (array $tests, array $files) use ($pruner): void {
+    $proofs = Proofs::of(PruningCases::proof('src/A.php', '2026-10-05T00:00:00Z', 'a', Mutants::none(), tests: [
+        'tests/ATest.php' => 'assertSame',
+        'tests/MoreTest.php' => 'assertTrue',
+    ]));
+    $now = PruningCases::now(...['src/A.php' => 'a']);
+
+    /** @var array<string, string> $tests */
+    foreach ($tests as $file => $content) {
+        $now = $now->withTest(Path::of($file), Digest::sha256Of($content));
+    }
+
+    $pruned = $pruner()->pruned(PruningCases::clean('Plus'), Units::of(Unit::file(Path::of('src/A.php'))), $proofs->newest(), $now);
+
+    expect(array_map(static fn(Path $file): string => $file->value(), [...$pruned->files()]))->toBe($files);
+})->with([
+    'every test as it was' => [['tests/ATest.php' => 'assertSame', 'tests/MoreTest.php' => 'assertTrue'], ['src/A.php']],
+    'a test weakened' => [['tests/ATest.php' => 'assertNotNull', 'tests/MoreTest.php' => 'assertTrue'], []],
+    'the last test weakened' => [['tests/ATest.php' => 'assertSame', 'tests/MoreTest.php' => 'assertNotNull'], []],
+    'a test deleted' => [['tests/MoreTest.php' => 'assertTrue'], []],
 ]);
 
 it('carries a result made at the audit\'s very start', function () use ($pruner): void {

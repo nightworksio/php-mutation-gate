@@ -122,7 +122,7 @@ it('reads every list of the log as the gate\'s status, by file and then by line,
         ['src/Money.php', 21, MutantStatus::Uncovered, MutatorFamily::Arithmetic, ''],
         ['src/Money.php', 27, MutantStatus::TimedOut, MutatorFamily::Arithmetic, 'n27'],
         ['src/Money.php', 30, MutantStatus::KilledByStaticAnalysis, MutatorFamily::Literal, ''],
-        ['src/Money.php', 31, MutantStatus::Errored, MutatorFamily::Exception, ''],
+        ['src/Money.php', 31, MutantStatus::Killed, MutatorFamily::Exception, ''],
         ['src/Money.php', 32, MutantStatus::Errored, MutatorFamily::None, ''],
     ])->and($result instanceof MutationResult ? $result->skipped() : -1)->toBe(0)
         ->and($result instanceof MutationResult ? iterator_to_array($result->mutants(), preserve_keys: false)[1] : null)
@@ -419,7 +419,7 @@ it('says PHP recorded a fatal error in a kill that names no killer where its out
     expect($ended instanceof Ended ? $ended->fatal() : $ended)->toBeTrue();
 });
 
-it('gives a kill that names no killer the output of its process, with no code or signal, which Infection does not log, and no other evidence', function (): void {
+it('gives a kill that names no killer, an errored mutant among them, the output of its process, with no code or signal, which Infection does not log, and no other evidence', function (): void {
     $at = resultsProject();
     $failed = "There was 1 failure:\n\n1) Tests\\MoneySpec::addsTwoAmounts#0 with data (2, 3)\nFailed.";
     $result = resultsRead($at, [
@@ -438,6 +438,6 @@ it('gives a kill that names no killer the output of its process, with no code or
         Evidence::none(),
         Evidence::none(),
         Evidence::none()->withEnded(Ended::of(NotGiven::value(), NotGiven::value(), 'Segmentation fault')->withFatal(fatal: false)),
-        Evidence::none(),
+        Evidence::none()->withEnded(Ended::of(NotGiven::value(), NotGiven::value(), 'Fatal')->withFatal(fatal: false)),
     ]);
 });

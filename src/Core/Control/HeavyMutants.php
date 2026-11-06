@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Reach\TestPlaces;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
@@ -225,13 +226,18 @@ final readonly class HeavyMutants
         return $heavy;
     }
 
-    /** Whether a mutant timed out at the most its bounds allow. */
+    /**
+     * Whether a mutant timed out at the most its bounds allow, that limit and
+     * not its silence limit or a test's own having stopped it (ADR-0108).
+     */
     private static function atMost(Mutant $mutant, LimitBounds $bounds): bool
     {
         $limit = $mutant->limit();
+        $reason = $mutant->reason();
 
         return $mutant->status() === MutantStatus::TimedOut
             && $limit instanceof Seconds
-            && $limit->seconds() >= $bounds->most()->seconds();
+            && $limit->seconds() >= $bounds->most()->seconds()
+            && (!$reason instanceof Reason || !$reason->stoppedEarly());
     }
 }

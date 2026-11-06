@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Reach;
 
 use function array_key_exists;
+use function array_map;
 use function array_pop;
 use function array_values;
 
@@ -33,6 +34,14 @@ final readonly class Packages
         }
 
         return new self($packages);
+    }
+
+    /** The directory of every package. */
+    public function paths(): Paths
+    {
+        $paths = array_map(static fn(Package $package): Path => $package->path(), array_values($this->packages));
+
+        return Paths::of(...$paths);
     }
 
     /** The package a path is in: the innermost one whose directory holds it. */
