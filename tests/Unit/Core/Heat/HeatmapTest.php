@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Heat\Heat;
 use NightWorksIO\MutationGate\Core\Heat\Heatmap;
 use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
+use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Tests\Support\Heatmaps;
 
 $scored = static fn(Heat $heat): array => [
@@ -94,4 +95,33 @@ it('says a file is below its tree\'s floor only where it scores under it', funct
         ->and($money->isTouched())->toBeTrue()
         ->and([...$exact][0]->isBelowFloor())->toBeFalse()
         ->and([...$exact][0]->isTouched())->toBeFalse();
+});
+
+it('scores the files of every tree, and lists none before it is told how many', function (): void {
+    $cart = Heatmaps::tree(0, [['src/Cart.php:3', MutantJudgement::Survived, true]]);
+    $money = Heatmaps::tree(0, [['src/Money.php:6', MutantJudgement::Killed, true], ['src/Money.php:7', MutantJudgement::Survived, true]]);
+    $heatmap = Heatmap::of(TreeVerdicts::of(...[...$cart], ...[...$money]), Heatmaps::spans(...));
+    $unlisted = Heatmap::of(TreeVerdicts::of(...[...$cart], ...[...$money]), Heatmaps::spans(...))
+        ->comparedWith(Heatmap::of(Heatmaps::tree(0, [['src/Cart.php:3', MutantJudgement::Killed, false], ['src/Money.php:6', MutantJudgement::Killed, false]]), Heatmaps::spans(...)));
+
+    expect(heatmapPaths(Listed::of(...$heatmap)))->toBe(['src/Cart.php', 'src/Money.php'])
+        ->and(heatmapPaths($heatmap->lowest()))->toBe([])
+        ->and(heatmapPaths($unlisted->fallen()))->toBe([])
+        ->and(heatmapPaths($unlisted->listing(HeatmapRows::of(files: 0, comment: 2))->fallen()))->toBe(['src/Cart.php', 'src/Money.php']);
+});
+
+it('lists a touched file that fell by a hundredth of a percent, and none that held', function (): void {
+    $mutants = static fn(int $killed, int $all): array => array_map(
+        static fn(int $at): array => [sprintf('src/Cart.php:%d', $at), $at <= $killed ? MutantJudgement::Killed : MutantJudgement::Survived, $at === 1],
+        range(1, $all),
+    );
+    $rows = HeatmapRows::of(files: 1, comment: 1);
+    $fell = Heatmap::of(Heatmaps::tree(0, $mutants(33, 80)), Heatmaps::spans(...))
+        ->comparedWith(Heatmap::of(Heatmaps::tree(0, $mutants(26, 63)), Heatmaps::spans(...)));
+    $held = Heatmap::of(Heatmaps::tree(0, $mutants(26, 63)), Heatmaps::spans(...))
+        ->comparedWith(Heatmap::of(Heatmaps::tree(0, $mutants(26, 63)), Heatmaps::spans(...)));
+
+    expect([...$fell][0]->heat()->drop())->toBe(1)
+        ->and(heatmapPaths($fell->listing($rows)->fallen()))->toBe(['src/Cart.php'])
+        ->and(heatmapPaths($held->listing($rows)->fallen()))->toBe([]);
 });

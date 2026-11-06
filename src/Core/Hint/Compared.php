@@ -43,7 +43,7 @@ final readonly class Compared
         }
 
         $right = Values::integer($sides->right, $source);
-        $leftSide = Values::isVariable($sides->left) && is_int($right);
+        $leftSide = Values::isVariable($sides->left);
         $variable = $leftSide ? $sides->left : $sides->right;
         $value = $leftSide ? $right : Values::integer($sides->left, $source);
         $operator = Comparison::from($sides->operator);
@@ -60,7 +60,7 @@ final readonly class Compared
         }
 
         $right = Values::literal($sides->right);
-        $variable = Values::isVariable($sides->left) && is_string($right) ? $sides->left : $sides->right;
+        $variable = Values::isVariable($sides->left) ? $sides->left : $sides->right;
         $value = $variable === $sides->left ? $right : Values::literal($sides->left);
 
         return Values::isVariable($variable) && is_string($value)

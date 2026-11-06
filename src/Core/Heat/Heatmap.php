@@ -7,7 +7,6 @@ namespace NightWorksIO\MutationGate\Core\Heat;
 use function array_filter;
 use function array_key_exists;
 use function array_slice;
-use function array_values;
 
 use ArrayIterator;
 use Closure;
@@ -112,7 +111,7 @@ final readonly class Heatmap implements Countable, IteratorAggregate
             static fn(FileHeat $file): bool => $file->heat()->score() instanceof Score,
         );
 
-        return Listed::of(...array_slice(array_values($scored), 0, $this->rows->files()));
+        return Listed::of(...array_slice($scored, 0, $this->rows->files()));
     }
 
     /**
@@ -128,8 +127,8 @@ final readonly class Heatmap implements Countable, IteratorAggregate
             return Listed::of();
         }
 
-        $touched = array_values(array_filter($this->files, static fn(FileHeat $file): bool => $file->isTouched()));
-        $dropped = array_values(array_filter($touched, static fn(FileHeat $file): bool => $file->heat()->drop() > 0));
+        $touched = array_filter($this->files, static fn(FileHeat $file): bool => $file->isTouched());
+        $dropped = array_filter($touched, static fn(FileHeat $file): bool => $file->heat()->drop() > 0);
         usort($dropped, $this->fellMore(...));
         $fallen = array_slice($dropped, 0, $this->rows->comment());
         $below = array_filter(
@@ -137,7 +136,7 @@ final readonly class Heatmap implements Countable, IteratorAggregate
             static fn(FileHeat $file): bool => $file->isBelowFloor() && ! in_array($file, $fallen, strict: true),
         );
 
-        return Listed::of(...$fallen, ...array_values($below));
+        return Listed::of(...$fallen, ...$below);
     }
 
     public function count(): int

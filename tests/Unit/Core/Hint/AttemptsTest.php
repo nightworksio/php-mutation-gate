@@ -89,6 +89,10 @@ it('tries an equality at the value it compares, then at any other', function ():
         ->toBe(['call `fits()` with `$amount` at \'gift\', then at any other value.', [['$amount' => '\'gift\'']]])
         ->and(attempted(MutatorFamily::Condition, 'return null !== $limit;', 'return null === $limit;'))
         ->toBe(['call `fits()` with `$limit` at null, then at any other value.', [['$limit' => 'null']]])
+        ->and(attempted(MutatorFamily::Condition, 'return $amount == 4;', 'return $amount != 4;'))
+        ->toBe(['call `fits()` with `$amount` at 4, then at any other value.', [['$amount' => '4']]])
+        ->and(attempted(MutatorFamily::Condition, 'return $amount != 4;', 'return $amount == 4;'))
+        ->toBe(['call `fits()` with `$amount` at 4, then at any other value.', [['$amount' => '4']]])
         ->and(attempted(MutatorFamily::Condition, 'return $amount === $limit;', 'return $amount !== $limit;'))->toBe([])
         ->and(attempted(MutatorFamily::Condition, 'if ($amount) {', 'if (!$amount) {'))->toBe([]);
 });
@@ -97,6 +101,12 @@ it('tries arithmetic with operands that are neither 0, 1 nor each other', functi
     expect(attempted(MutatorFamily::Arithmetic, 'return $amount + $limit;', 'return $amount - $limit;'))
         ->toBe(['call `fits()` with `$amount` at 3 and `$limit` at 5.', [['$amount' => '3', '$limit' => '5']]])
         ->and(attempted(MutatorFamily::Arithmetic, 'return $amount * 3;', 'return $amount / 3;'))
+        ->toBe(['call `fits()` with `$amount` at 5.', [['$amount' => '5']]])
+        ->and(attempted(MutatorFamily::Arithmetic, 'return $amount / 3;', 'return $amount * 3;'))
+        ->toBe(['call `fits()` with `$amount` at 5.', [['$amount' => '5']]])
+        ->and(attempted(MutatorFamily::Arithmetic, 'return $amount % 3;', 'return $amount * 3;'))
+        ->toBe(['call `fits()` with `$amount` at 5.', [['$amount' => '5']]])
+        ->and(attempted(MutatorFamily::Arithmetic, 'return $amount ** 3;', 'return $amount * 3;'))
         ->toBe(['call `fits()` with `$amount` at 5.', [['$amount' => '5']]])
         ->and(attempted(MutatorFamily::Arithmetic, 'return 2 - $limit;', 'return 2 + $limit;'))
         ->toBe(['call `fits()` with `$limit` at 3.', [['$limit' => '3']]])
@@ -111,6 +121,14 @@ it('tries a logical operator between two variables with exactly one of them true
     ])
         ->and(attempted(MutatorFamily::Logical, 'if ($open || $paid) {', 'if ($open && $paid) {', source: ''))
         ->toBe(['use `$open` at true and `$paid` at false, then the other way round.', []])
+        ->and(attempted(MutatorFamily::Logical, 'return $amount and $limit;', 'return $amount or $limit;'))->toBe([
+            'call `fits()` with `$amount` at true and `$limit` at false, then the other way round.',
+            [['$amount' => 'true', '$limit' => 'false'], ['$amount' => 'false', '$limit' => 'true']],
+        ])
+        ->and(attempted(MutatorFamily::Logical, 'return $amount or $limit;', 'return $amount and $limit;'))->toBe([
+            'call `fits()` with `$amount` at true and `$limit` at false, then the other way round.',
+            [['$amount' => 'true', '$limit' => 'false'], ['$amount' => 'false', '$limit' => 'true']],
+        ])
         ->and(attempted(MutatorFamily::Logical, 'return $amount && ready();', 'return $amount || ready();'))->toBe([])
         ->and(attempted(MutatorFamily::Logical, 'return ready();', 'return !ready();'))->toBe([]);
 });
