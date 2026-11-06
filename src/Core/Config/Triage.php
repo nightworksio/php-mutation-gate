@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\Multiple;
+use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
 use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
 use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
 use NightWorksIO\MutationGate\Core\Test\JudgingSuites;
@@ -94,6 +95,7 @@ final readonly class Triage implements Part
             order: $none->order(),
             survivorsFirst: $none->survivorsFirst(),
             tighter: $none->tighter(),
+            multiple: MutantLimit::FACTOR,
             perTest: PerTestLimit::MULTIPLE,
             testFloor: Seconds::of(PerTestLimit::FLOOR),
         );

@@ -13,7 +13,10 @@ final readonly class SettingsCases
         "extensions": [],
         "runner": {
             "use": "pest",
-            "memory": "1G"
+            "withhold": [],
+            "memory": "1G",
+            "workers": "fork",
+            "pathRules": "partitioned"
         },
         "mutators": {
             "sets": [],
@@ -72,6 +75,7 @@ final readonly class SettingsCases
         "shards": {
             "seconds": 600,
             "max": 20,
+            "learnedFrom": "max",
             "setup": "1m"
         },
         "costs": {
@@ -120,6 +124,7 @@ final readonly class SettingsCases
             "mode": "confirm",
             "seconds": 10,
             "most": 300,
+            "multiple": 3,
             "tighter": {
                 "mutators": [
                     "RemoveArrayItem",
@@ -157,6 +162,25 @@ final readonly class SettingsCases
             "static": true
         },
         "reports": [],
+        "suggest": {
+            "enabled": true,
+            "idle": {
+                "judged": 500,
+                "survivors": 0,
+                "share": 5
+            },
+            "ignored": {
+                "share": 80,
+                "mutants": 50
+            },
+            "timeouts": {
+                "cluster": 3
+            }
+        },
+        "heatmap": {
+            "files": 10,
+            "methods": true
+        },
         "digest": {
             "tests": 5
         },

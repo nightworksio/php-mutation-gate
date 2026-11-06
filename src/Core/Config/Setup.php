@@ -92,9 +92,12 @@ final readonly class Setup implements Part
 
         return self::of(
             extensions: $none->extensions(),
+            withhold: $none->runnerLayer()->withhold(),
             treeSource: $none->treeSource(),
             memory: $none->runnerLayer()->memory(),
             mutators: Mutators::standard(),
+            workers: $none->runnerLayer()->workers(),
+            pathRules: $none->runnerLayer()->pathRules(),
             paths: PathRules::standard(),
         );
     }

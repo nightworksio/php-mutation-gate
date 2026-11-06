@@ -52,7 +52,13 @@ final readonly class Reports implements Part
 
     public static function standard(): self
     {
-        return self::of(Listed::of())->over(self::digesting(DigestRows::of(DigestRows::TESTS)));
+        return new self(
+            Listed::of(),
+            Suggest::standard(),
+            HeatmapRows::standard(),
+            CommentSettings::standard(),
+            DigestRows::of(DigestRows::TESTS),
+        );
     }
 
     public function over(Part $later): self

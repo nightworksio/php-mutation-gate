@@ -353,7 +353,10 @@
                 }
             ],
             "default": {
-                "memory": "1G"
+                "withhold": [],
+                "memory": "1G",
+                "workers": "fork",
+                "pathRules": "partitioned"
             }
         },
         "treeSource": {
@@ -719,7 +722,8 @@
                     "enum": [
                         "max",
                         "median"
-                    ]
+                    ],
+                    "default": "max"
                 },
                 "target": {
                     "type": "string",
@@ -1362,7 +1366,8 @@
                                 "learned"
                             ]
                         }
-                    ]
+                    ],
+                    "default": 3
                 },
                 "tighter": {
                     "type": "object",
@@ -2670,23 +2675,27 @@
             "type": "object",
             "properties": {
                 "enabled": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "default": true
                 },
                 "idle": {
                     "type": "object",
                     "properties": {
                         "judged": {
                             "type": "integer",
-                            "minimum": 1
+                            "minimum": 1,
+                            "default": 500
                         },
                         "survivors": {
                             "type": "integer",
-                            "minimum": 0
+                            "minimum": 0,
+                            "default": 0
                         },
                         "share": {
                             "type": "number",
                             "minimum": 0,
-                            "maximum": 100
+                            "maximum": 100,
+                            "default": 5
                         }
                     },
                     "additionalProperties": false
@@ -2697,11 +2706,13 @@
                         "share": {
                             "type": "number",
                             "minimum": 0,
-                            "maximum": 100
+                            "maximum": 100,
+                            "default": 80
                         },
                         "mutants": {
                             "type": "integer",
-                            "minimum": 1
+                            "minimum": 1,
+                            "default": 50
                         }
                     },
                     "additionalProperties": false
@@ -2711,7 +2722,8 @@
                     "properties": {
                         "cluster": {
                             "type": "integer",
-                            "minimum": 1
+                            "minimum": 1,
+                            "default": 3
                         }
                     },
                     "additionalProperties": false
@@ -2724,10 +2736,12 @@
             "properties": {
                 "files": {
                     "type": "integer",
-                    "minimum": 0
+                    "minimum": 0,
+                    "default": 10
                 },
                 "methods": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "default": true
                 }
             },
             "additionalProperties": false

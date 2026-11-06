@@ -26,10 +26,10 @@ use function sprintf;
  */
 final readonly class RunnerLayer
 {
-    /** @param list<string> $withhold */
+    /** @param list<string>|Absent $withhold */
     private function __construct(
         private Choice|Absent $runner,
-        private array $withhold,
+        private array|Absent $withhold,
         private MemoryCap|Absent $memory,
         private Workers|Absent $workers,
         private PathRuleMode|Absent $pathRules,
@@ -43,7 +43,13 @@ final readonly class RunnerLayer
         Workers|Absent $workers,
         PathRuleMode|Absent $pathRules,
     ): self {
-        return new self($runner, $withhold instanceof Withheld ? [...$withhold] : [], $memory, $workers, $pathRules);
+        return new self(
+            $runner,
+            $withhold instanceof Withheld ? [...$withhold] : $withhold,
+            $memory,
+            $workers,
+            $pathRules,
+        );
     }
 
     /** A later layer's choice and cap over this one's, and what both withhold. */
@@ -51,7 +57,9 @@ final readonly class RunnerLayer
     {
         return new self(
             Absent::laid($this->runner, $later->runner),
-            array_values(array_unique([...$this->withhold, ...$later->withhold])),
+            $this->withhold instanceof Absent && $later->withhold instanceof Absent
+                ? $later->withhold
+                : array_values(array_unique([...$this->withheld(), ...$later->withheld()])),
             Absent::laid($this->memory, $later->memory),
             Absent::laid($this->workers, $later->workers),
             Absent::laid($this->pathRules, $later->pathRules),
@@ -66,7 +74,7 @@ final readonly class RunnerLayer
 
     public function withhold(): Withheld
     {
-        return Withheld::of(...$this->withhold);
+        return Withheld::of(...$this->withheld());
     }
 
     /** The cap the layer sets, or 1G where it sets none. */
@@ -144,11 +152,17 @@ final readonly class RunnerLayer
         return $calls;
     }
 
+    /** @return list<string> what the layer withholds */
+    private function withheld(): array
+    {
+        return $this->withhold instanceof Absent ? [] : $this->withhold;
+    }
+
     /** @return list<Member> each setting the layer writes beside the runner's own */
     private function alsoWritten(): array
     {
         return [
-            ...($this->withhold === [] ? [] : [Member::of('withhold', Json::items(...$this->withhold))]),
+            ...($this->withhold instanceof Absent ? [] : [Member::of('withhold', Json::items(...$this->withhold))]),
             ...($this->memory instanceof MemoryCap ? [Member::of('memory', $this->memory->written())] : []),
             ...($this->workers instanceof Workers ? [Member::of('workers', $this->workers->value)] : []),
             ...($this->pathRules instanceof PathRuleMode ? [Member::of('pathRules', $this->pathRules->value)] : []),
@@ -159,9 +173,9 @@ final readonly class RunnerLayer
     private function alsoPhp(): array
     {
         return [
-            ...($this->withhold === []
+            ...($this->withheld() === []
                 ? []
-                : [[GateMethod::Withholding, sprintf('Withheld::of(%s)', PhpCalls::literals(...$this->withhold))]]),
+                : [[GateMethod::Withholding, sprintf('Withheld::of(%s)', PhpCalls::literals(...$this->withheld()))]]),
             ...($this->memory instanceof MemoryCap ? [[GateMethod::CappedAt, $this->memoryPhp($this->memory)]] : []),
             ...($this->workers instanceof Workers
                 ? [[GateMethod::InWorkers, sprintf('Workers::%s', $this->workers->name)]]

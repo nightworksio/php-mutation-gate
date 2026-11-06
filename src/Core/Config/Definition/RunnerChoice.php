@@ -165,7 +165,7 @@ final readonly class RunnerChoice implements Shape
         Workers|Absent $workers,
         PathRuleMode|Absent $pathRules,
     ): Setup|Invalid {
-        $withheld = $withhold instanceof Absent ? Withheld::nothing() : Withheld::of(...$withhold);
+        $withheld = $withhold instanceof Absent ? $withhold : Withheld::of(...$withhold);
         $options = $at->field('with');
         $alone = $withhold instanceof Absent
             && $memory instanceof Absent

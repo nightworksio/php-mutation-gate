@@ -85,10 +85,10 @@ it('finds the preset and the runner of a project with no config', function () us
 
     expect($shown($settings))->toMatchArray([
         'preset' => 'laravel',
-        'runner' => ['use' => 'pest', 'memory' => '1G'],
+        'runner' => ['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned'],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app']]],
         'reach' => ['everything' => ['bootstrap/**', 'config/**', 'routes/**', '.env.testing'], 'changedTests' => 'narrow', 'fixtures' => []],
-        'timeouts' => ['mode' => 'confirm', 'seconds' => 30, 'most' => 300, 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR],
+        'timeouts' => ['mode' => 'confirm', 'seconds' => 30, 'most' => 300, 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'multiple' => 3, 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR],
     ]);
 });
 
@@ -101,12 +101,12 @@ it('lays the config file over its presets, and the command line over both', func
 
     expect($shown($settings))->toMatchArray([
         'preset' => 'symfony',
-        'runner' => ['use' => 'pest', 'memory' => '1G'],
+        'runner' => ['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned'],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['src']]],
         'trees' => [['path' => 'src/Domain', 'floor' => 100]],
         'reach' => ['everything' => ['config/**', '.env.test', 'tests/bootstrap.php', 'migrations/**'], 'changedTests' => 'narrow', 'fixtures' => []],
         'budget' => '5m',
-        'timeouts' => ['mode' => 'confirm', 'seconds' => 30, 'most' => 300, 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR],
+        'timeouts' => ['mode' => 'confirm', 'seconds' => 30, 'most' => 300, 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'multiple' => 3, 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR],
         'reports' => [
             ['use' => 'sarif', 'path' => 'build/mutation.sarif'],
             ['use' => 'json', 'path' => 'build/mutation.json'],
@@ -176,10 +176,10 @@ it('gives a library listed after a framework its own timeout and floor', functio
 
     expect($shown($effective($project)->settings($nothing())))->toMatchArray([
         'newCode' => ['floor' => 100],
-        'timeouts' => ['seconds' => 10, 'most' => 300, 'mode' => 'confirm', 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR],
+        'timeouts' => ['seconds' => 10, 'most' => 300, 'mode' => 'confirm', 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'multiple' => 3, 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR],
     ])->and($shown($effective($project)->settings($framework)))->toMatchArray([
         'newCode' => ['floor' => 100],
-        'timeouts' => ['seconds' => 30, 'most' => 300, 'mode' => 'confirm', 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR],
+        'timeouts' => ['seconds' => 30, 'most' => 300, 'mode' => 'confirm', 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'multiple' => 3, 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR],
     ]);
 });
 
@@ -193,9 +193,9 @@ it('chooses the library preset for a project without composer.json', function ()
 
     expect($shown($effective($project)->settings($nothing())))->toMatchArray([
         'preset' => 'library',
-        'runner' => ['use' => 'infection', 'memory' => '1G'],
+        'runner' => ['use' => 'infection', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned'],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => []]],
-        'timeouts' => ['mode' => 'confirm', 'seconds' => 10, 'most' => 300, 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR],
+        'timeouts' => ['mode' => 'confirm', 'seconds' => 10, 'most' => 300, 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'multiple' => 3, 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR],
     ]);
 });
 
@@ -328,7 +328,7 @@ it('reads the config file --config names', function () use ($effective, $shown):
     Scratch::write($project, 'ci/gate.neon', "runner: pest\nbudget: 90s\n");
 
     expect($shown($effective($project)->settings(CommandLine::nothing()->withConfig('ci/gate.neon'))))
-        ->toMatchArray(['runner' => ['use' => 'pest', 'memory' => '1G'], 'budget' => '1m30s']);
+        ->toMatchArray(['runner' => ['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned'], 'budget' => '1m30s']);
 });
 
 it('cannot judge a project whose composer.json it cannot read, where it must choose the preset', function () use (

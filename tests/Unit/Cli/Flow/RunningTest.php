@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Cli\Flow\PreChecking;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
+use NightWorksIO\MutationGate\Cli\Flow\ShardLeft;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Budget;
 use NightWorksIO\MutationGate\Config\Flaky;
@@ -110,7 +111,8 @@ it('runs the shard it is named, on the commit its plan was made on, and leaves i
         ->run($plan, ShardId::of(1), Workspace::results());
     $result = $resultIn($project, 1);
 
-    expect($written)->toEqual(Written::to(sprintf('%s/.mutation-gate/results/1.json', $project)))
+    expect($written instanceof ShardLeft ? $written->said() : $written)
+        ->toBe(Written::to(sprintf('%s/.mutation-gate/results/1.json', $project))->said())
         ->and($result instanceof ShardResult ? $result->plan() : $result)->toEqual($plan->digest())
         ->and($result instanceof ShardResult ? $result->shard() : $result)->toEqual(ShardId::of(1))
         ->and($result instanceof ShardResult ? $result->units() : $result)
@@ -496,7 +498,8 @@ it('leaves the runner\'s cannot judge as the shard\'s result, with nothing flaky
         ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
     $result = $resultIn($project, 1);
 
-    expect($written)->toEqual(Written::to(sprintf('%s/.mutation-gate/results/1.json', $project)))
+    expect($written instanceof ShardLeft ? $written->said() : $written)
+        ->toBe(Written::to(sprintf('%s/.mutation-gate/results/1.json', $project))->said())
         ->and($result instanceof ShardResult ? $result->outcome() : $result)
         ->toEqual(CannotJudge::because('The suite failed without mutants.'))
         ->and($flaky($result))->toBe([])

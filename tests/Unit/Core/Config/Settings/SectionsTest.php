@@ -356,7 +356,7 @@ describe('Settings sections', function (): void {
 
         expect($fresh->runner()->workers())->toBe(Workers::Fresh)
             ->and(Configs::settings(['runner' => 'phpunit'])->runner()->workers())->toBe(Workers::Fork)
-            ->and(Configs::shown($fresh, 'runner'))->toBe(['use' => 'phpunit', 'memory' => '1G', 'workers' => 'fresh'])
+            ->and(Configs::shown($fresh, 'runner'))->toBe(['use' => 'phpunit', 'withhold' => [], 'memory' => '1G', 'workers' => 'fresh', 'pathRules' => 'partitioned'])
             ->and(Configs::problems(Configs::validated(['runner' => ['use' => 'phpunit', 'workers' => 'warm']])))
             ->toBe(['runner.workers: expected "fork", "mutants" or "fresh", got "warm"']);
     });

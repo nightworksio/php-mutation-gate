@@ -32,6 +32,12 @@ final readonly class HeatmapRows
         return new self($files, $methods);
     }
 
+    /** Every key at the value it takes where every layer leaves it out. */
+    public static function standard(): self
+    {
+        return new self(self::FILES, methods: true);
+    }
+
     /** This, with what a later layer sets laid over it, key by key. */
     public function over(self $later): self
     {

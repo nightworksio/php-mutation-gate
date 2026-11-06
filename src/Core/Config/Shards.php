@@ -81,7 +81,7 @@ final readonly class Shards implements Part
             new Absent(),
             $none->setup(),
             Costs::standard(),
-            new Absent(),
+            LearnedStatistic::Max,
         );
     }
 
