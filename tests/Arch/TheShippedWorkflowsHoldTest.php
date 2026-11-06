@@ -539,7 +539,10 @@ it('builds the PHAR in a job that holds no secret and may write nothing, and sig
 it('signs, attests and pushes only the PHAR whose SHA-256 build named', function (string $id, string $using): void {
     $steps = WorkflowFile::at(RELEASE)->field('jobs')->field($id)->field('steps');
     $checked = WorkflowFile::stepsWhere($steps, 'name', static fn(string $name): bool => $name === 'Check the PHAR is the one build made');
-    $used = WorkflowFile::stepsWhere($steps, 'uses', static fn(string $uses): bool => str_starts_with($uses, $using));
+    $used = [
+        ...WorkflowFile::stepsWhere($steps, 'uses', static fn(string $uses): bool => str_starts_with($uses, $using)),
+        ...WorkflowFile::stepsWhere($steps, 'run', static fn(string $run): bool => str_contains($run, $using)),
+    ];
     $signed = WorkflowFile::stepsWhere($steps, 'name', static fn(string $name): bool => $name === 'Sign the PHAR with the release key');
     $guarded = [...$used, ...$signed];
     $check = Lenient::items($steps)[$checked[0]];
@@ -551,5 +554,5 @@ it('signs, attests and pushes only the PHAR whose SHA-256 build named', function
         ->and(Lenient::text($check->field('run')))->toContain('echo "${DIGEST}  build/mutation-gate.phar" | sha256sum --check --strict');
 })->with([
     'the release' => ['publish', 'actions/attest-build-provenance@'],
-    'the image' => ['image-build', 'docker/build-push-action@'],
+    'the image' => ['image-build', 'docker buildx build '],
 ]);
