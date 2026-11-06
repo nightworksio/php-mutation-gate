@@ -71,7 +71,7 @@ final readonly class LedgerDirectory implements Configurable, EncodesLedgers, Pr
     /** The ledgers under this directory of this project. */
     public static function in(Root $project, string $path): self
     {
-        return new self(ProjectPath::in($project, $path), LedgerLimits::standard());
+        return new self(ProjectPath::in($project, $path), LedgerLimits::standard(), LedgerCodec::gzipOnly());
     }
 
     /** Reading and writing ledgers within these limits. */

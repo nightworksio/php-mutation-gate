@@ -253,10 +253,13 @@ it('reads the copy of a ledger fetch wrote beside the one the run keeps, as proo
 ])->group(...$holds);
 
 it('writes and reads every ledger as proofs.compression and proofs.compressionLevel say, zstd where it is here by default', function (): void {
-    expect(wiredOf(Flows::settings(Proofs::compression('gzip'), Proofs::compressionLevel(3)), Variables::of(['CI' => 'true']))->proofs)
-        ->toEqual(encodedAs(FetchedCopies::over(LedgerDirectory::at('.mutation-gate/ledger'), Copies::Newest), Compression::Gzip, 3))
-        ->and(wiredOf(Flows::settings(), Variables::of(['CI' => 'true']))->proofs)
-        ->not->toEqual(FetchedCopies::over(LedgerDirectory::at('.mutation-gate/ledger'), Copies::Newest));
+    $project = Flows::project();
+    $root = Root::of($project);
+
+    expect(wiredOf(Flows::settings(Proofs::compression('gzip'), Proofs::compressionLevel(3)), Variables::of(['CI' => 'true']), $project)->proofs)
+        ->toEqual(encodedAs(FetchedCopies::over(LedgerDirectory::at('.mutation-gate/ledger'), Copies::Newest, $root), Compression::Gzip, 3))
+        ->and(wiredOf(Flows::settings(), Variables::of(['CI' => 'true']), $project)->proofs)
+        ->not->toEqual(FetchedCopies::over(LedgerDirectory::at('.mutation-gate/ledger'), Copies::Newest, $root));
 })->group(...$holds);
 
 /**
