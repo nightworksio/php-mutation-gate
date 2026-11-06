@@ -234,6 +234,13 @@ it('judges what it proves in a full run, which reads its change since no commit,
         ->toEqual([0, 2, NotGiven::value()]);
 });
 
+it('judges what it proves where its change reaches units earlier results prove, so no older verdict stands for them', function () use ($plan, $reporting): void {
+    $made = $plan(Changes::of(Change::modified(Path::of('.github/workflows/ci.yml'), Lines::of(Line::of(1)))), $reporting(), keyed: true);
+
+    expect($made instanceof Plan ? [count($made), count($made->considered()->proved()), $made->briefing()->unchanged()] : $made)
+        ->toEqual([0, 2, NotGiven::value()]);
+});
+
 it('judges what it carries where the plan takes a result of the pull request\'s own, or reads the change since its own last run', function (Mode|NotGiven $mode, string $own) use ($plan, $pullRequest516, $reporting): void {
     $made = $plan($pullRequest516(), $reporting(), $mode, own: $own);
 

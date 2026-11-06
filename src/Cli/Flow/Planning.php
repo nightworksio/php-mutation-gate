@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function count;
+
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
@@ -254,6 +256,7 @@ final readonly class Planning
             $base,
             $kind,
             $proving->ownScopeProofs() + $considering->ownScopeProofs(),
+            count($proving->proved()),
         );
 
         return match (true) {

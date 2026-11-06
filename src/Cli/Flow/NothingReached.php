@@ -32,7 +32,8 @@ use function sprintf;
  * The verdict that stands for a plan that runs no unit, where the commit its
  * change is read since passed on the default branch ({@see ReachingNothing}):
  * only for a standard run that reads its change since a ref, takes no result
- * of its own scope, has a config that reads no file it cannot name, and, in a
+ * of its own scope, proves no unit it reaches by an earlier result (ADR-0107),
+ * has a config that reads no file it cannot name, and, in a
  * pull request or merge group, is not held to commit each raise with it.
  *
  * @internal
@@ -42,6 +43,8 @@ final readonly class NothingReached
     private const string NOT_STANDARD = 'A run narrowed or recording more than first killers judges what it carries.';
 
     private const string OWN_SCOPE = 'The plan takes %d results of the run\'s own scope.';
+
+    private const string PROVED = 'The change reaches %d units that earlier results prove, so this run\'s verdict judges them.';
 
     private const string RAISES
         = 'A proposed change must commit each raise with it, so its verdict judges what it carries.';
@@ -62,9 +65,10 @@ final readonly class NothingReached
         ChangeBase|CannotTell $base,
         RunProfile $kind,
         int $ownScopeProofs,
+        int $proved,
     ): Briefing {
         $stands = $shards instanceof Shards && count($shards) === 0
-            ? $this->of($inventory, $ledgers, $base, $kind, $ownScopeProofs)
+            ? $this->of($inventory, $ledgers, $base, $kind, $ownScopeProofs, $proved)
             : NotGiven::value();
 
         return $stands instanceof Unchanged ? Briefing::standard()->unchangedSince($stands) : Briefing::standard();
@@ -81,6 +85,7 @@ final readonly class NothingReached
         ChangeBase|CannotTell $base,
         RunProfile $kind,
         int $ownScopeProofs,
+        int $proved,
     ): Unchanged|Reason {
         $proposed = $inventory->standing->runOn()->isProposed();
         $unnamed = $this->adapters->configReads->unnamedBecause();
@@ -89,6 +94,7 @@ final readonly class NothingReached
             ! $base instanceof ChangeBase => Reason::that($base->why()),
             ! $kind->equals(RunProfile::standard()) => Reason::that(self::NOT_STANDARD),
             $ownScopeProofs > 0 => Reason::that(sprintf(self::OWN_SCOPE, $ownScopeProofs)),
+            $proved > 0 => Reason::that(sprintf(self::PROVED, $proved)),
             is_string($unnamed) => Reason::that($unnamed),
             $proposed && $this->settings->floors()->improvement() === Improvement::Require
                 => Reason::that(self::RAISES),
