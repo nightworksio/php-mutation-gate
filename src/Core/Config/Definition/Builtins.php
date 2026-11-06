@@ -37,6 +37,7 @@ use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Report\Page\PageShows;
 use NightWorksIO\MutationGate\Core\Report\ProblemsShown;
+use NightWorksIO\MutationGate\Core\Report\Trend;
 use NightWorksIO\MutationGate\Core\Runner\GateSecret;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 
@@ -155,19 +156,11 @@ final readonly class Builtins
             Field::optional(AlertShape::LINE_LENGTH, Integer::atLeast(1), $judges),
         ];
         $chat = static fn(string $url, Json $defaults, Field ...$more): Section => Section::options(
-            Json::object(
-                Member::of(AlertOption::UrlEnv->value, $url),
-                Member::of(PostLimits::TIMEOUT, PostLimits::standard()->timeout()->written()),
-                Member::of(PostLimits::LONGEST_WAIT, PostLimits::standard()->longestWait()->written()),
-            )->merged($defaults),
+            Json::object(Member::of(AlertOption::UrlEnv->value, $url))->merged($defaults),
             Field::optional(AlertOption::UrlEnv->value, $variable, $judges),
             Field::optional('url', Refused::because(sprintf(self::CREDENTIAL, $url)), $judges),
             ...$posts,
             ...$more,
-        );
-        $lines = Json::object(
-            Member::of(AlertShape::SURVIVORS, AlertShape::standard()->survivors()),
-            Member::of(AlertShape::LINE_LENGTH, AlertShape::standard()->lineLength()),
         );
 
         $shaped = Field::optional(
@@ -198,18 +191,15 @@ final readonly class Builtins
                 BuiltinReporter::Sonar,
                 BuiltinReporter::BitbucketInsights,
             ),
-            BuiltinReporter::Slack->value => $chat(GateSecret::SlackUrl->value, $lines, ...$lined),
-            BuiltinReporter::Discord->value => $chat(GateSecret::DiscordUrl->value, $lines, ...$lined),
+            BuiltinReporter::Slack->value => $chat(GateSecret::SlackUrl->value, Json::object(), ...$lined),
+            BuiltinReporter::Discord->value => $chat(GateSecret::DiscordUrl->value, Json::object(), ...$lined),
             BuiltinReporter::Webhook->value => $chat(
                 GateSecret::WebhookUrl->value,
                 Json::object(Member::of(AlertOption::SecretEnv->value, GateSecret::WebhookSecret->value)),
                 Field::optional(AlertOption::SecretEnv->value, $variable, $judges),
             ),
             BuiltinReporter::Html->value => Section::options(
-                Json::object(
-                    Member::of(PageShows::FILES, PageShows::standard()->files()),
-                    Member::of(PageShows::SURVIVORS, PageShows::standard()->survivors()),
-                ),
+                Json::object(),
                 Field::optional(PageShows::FILES, Integer::atLeast(0), $judges),
                 Field::optional(PageShows::SURVIVORS, Integer::atLeast(0), $judges),
             ),
@@ -232,6 +222,7 @@ final readonly class Builtins
                 Json::object(),
                 Field::optional('colors', NumberMap::of(Number::percent()), $judges),
                 Field::optional('commit', Text::of('a commit'), $judges),
+                Field::optional(Trend::KEPT_OPTION, Integer::atLeast(1), $judges),
             ),
         ], $origin);
     }

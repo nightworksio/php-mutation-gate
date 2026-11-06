@@ -163,7 +163,8 @@ final readonly class SettingsCases
                 "green": 80,
                 "yellow": 70,
                 "orange": 60
-            }
+            },
+            "trendKept": 500
         },
         "dashboard": {
             "topic": "mutation-gate"
@@ -220,7 +221,7 @@ final readonly class SettingsCases
         ],
         'holds' => ['hotPath' => 1],
         'shards' => ['seconds' => 900, 'max' => 8],
-        'costs' => ['secondsPerLine' => ['' => 0.25, 'src/Legacy' => 2]],
+        'costs' => ['secondsPerLine' => ['' => 0.25, 'src/Legacy' => 2], 'savingsWindow' => '14d'],
         'ci' => [
             'plan' => 'gitlab',
             'defaultBranch' => 'trunk',
@@ -263,7 +264,7 @@ final readonly class SettingsCases
             ['use' => 'sarif', 'path' => 'build/mutation.sarif'],
             ['use' => 'Acme\\GateSlack\\SlackReporter', 'with' => ['channel' => '#ci']],
         ],
-        'badge' => ['colors' => ['green' => 95]],
+        'badge' => ['colors' => ['green' => 95], 'trendKept' => 200],
         'dashboard' => ['topic' => 'mutation-tested', 'repositories' => ['api', 'web']],
         'pest' => ['patch' => true, 'canary' => 'canary', 'bootTail' => true, 'workerOpcache' => false, 'schemata' => false, 'bootMutants' => false],
         'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45, 'before' => true],

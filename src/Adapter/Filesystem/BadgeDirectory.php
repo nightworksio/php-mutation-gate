@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Filesystem;
 
 use function getenv;
 use function is_float;
+use function is_int;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\Change\Revision;
@@ -74,26 +75,36 @@ final readonly class BadgeDirectory implements Reporter
         private ClockInterface $clock,
         private Floor $newCode,
         private SavingsWindow $window,
+        private int $kept,
     ) {
     }
 
     /** Into a directory, with the standard floor for new code and the standard savings window. */
     public static function at(string $path, BadgeColors $colors, string $commit, ClockInterface $clock): self
     {
-        return new self(ReportPath::at($path), $colors, $commit, $clock, Floor::whole(), SavingsWindow::standard());
+        return new self(
+            ReportPath::at($path),
+            $colors,
+            $commit,
+            $clock,
+            Floor::whole(),
+            SavingsWindow::standard(),
+            Trend::KEPT,
+        );
     }
 
     /** This reporter, with this floor for new code in the summary. */
     public function holdingNewCodeTo(Floor $newCode): self
     {
-        return new self($this->path, $this->colors, $this->commit, $this->clock, $newCode, $this->window);
+        return new self($this->path, $this->colors, $this->commit, $this->clock, $newCode, $this->window, $this->kept);
     }
 
     /**
      * From `path` (the publish directory), `colors` (`badge.colors`),
      * `newCode` (`floors.newCode`, whole where it is not given),
-     * `savingsWindow` (`costs.savingsWindow`) and `commit`, which is
-     * otherwise read from the CI's variables, dated by a clock.
+     * `savingsWindow` (`costs.savingsWindow`), `trendKept`, the newest
+     * entries the trend keeps, and `commit`, which is otherwise read from
+     * the CI's variables, dated by a clock.
      */
     public static function configured(Options $options, ClockInterface $clock): self|Invalid
     {
@@ -113,6 +124,7 @@ final readonly class BadgeDirectory implements Reporter
                 $clock,
                 $newCode,
                 SavingsWindow::in($options),
+                self::keptIn($options),
             ),
         };
     }
@@ -131,7 +143,7 @@ final readonly class BadgeDirectory implements Reporter
 
         $now = $this->clock->now();
         $trend = Trend::decode($this->path->file(self::TREND)->read())
-            ->with($verdict, Revision::ref($this->commit), Instant::at($now));
+            ->with($verdict, Revision::ref($this->commit), Instant::at($now), $this->kept);
         $saved = $this->window->saved($trend->savedSince($this->window->since($now)));
         $summary = Summary::json($verdict, Revision::ref($this->commit), Instant::at($now), $this->newCode, $saved);
         $written = [
@@ -186,6 +198,14 @@ final readonly class BadgeDirectory implements Reporter
             $floor instanceof NotGiven => Floor::whole(),
             default => Invalid::because(Problem::at('newCode', self::NEW_CODE)),
         };
+    }
+
+    /** How many of the newest entries the trend keeps: `trendKept`, which the definition checked, or 500. */
+    private static function keptIn(Options $options): int
+    {
+        $kept = $options->integer(Key::of(Trend::KEPT_OPTION));
+
+        return is_int($kept) ? $kept : Trend::KEPT;
     }
 
     /** The commit the CI's job runs in, as each CI names it; none outside a CI. */

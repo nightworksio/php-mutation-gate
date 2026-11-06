@@ -35,10 +35,13 @@ final readonly class Trend
     /** The file it is written to, beside the badge. */
     public const string FILE = 'trend.json';
 
-    private const int FORMAT = 1;
+    /** How many entries it keeps, the newest, unless the badge's `trendKept` says otherwise. */
+    public const int KEPT = 500;
 
-    /** How many entries it keeps, the newest. */
-    private const int KEPT = 500;
+    /** The key under `badge`, and the badge's option, that holds how many entries it keeps. */
+    public const string KEPT_OPTION = 'trendKept';
+
+    private const int FORMAT = 1;
 
     /**
      * @param list<Entry> $runs oldest first
@@ -75,11 +78,12 @@ final readonly class Trend
     }
 
     /** This trend, and a verdict's entry, keeping the newest. */
-    public function with(Verdict $verdict, Revision $commit, Instant $time): self
+    /** This trend with the verdict's entry appended, keeping as many of the newest as it is told, or 500. */
+    public function with(Verdict $verdict, Revision $commit, Instant $time, int $kept = self::KEPT): self
     {
         $runs = [...$this->runs, TrendRecord::of($verdict, $commit, $time)];
 
-        return new self(array_slice($runs, -self::KEPT));
+        return new self(array_slice($runs, -$kept));
     }
 
     public function json(): string

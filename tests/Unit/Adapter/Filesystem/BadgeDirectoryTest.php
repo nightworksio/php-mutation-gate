@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
+use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Sampled;
@@ -185,6 +186,21 @@ it('writes the summary an organisation\'s dashboard reads, with the floor for ne
     expect($answer)->toEqual(Written::to($publish))
         ->and(file_get_contents(sprintf('%s/summary.json', $publish)))
         ->toBe(Summary::json(Verdicts::named('accounted'), Revision::ref('abc123'), Moment::at('2026-09-30T12:00:00Z'), Floor::of(90.5), SavedLately::of(Seconds::of(8_820.0), SavingsWindow::standard())));
+});
+
+it('keeps as many of the trend\'s newest entries as its options say', function () use ($clock): void {
+    $project = Scratch::directory();
+    Scratch::write(sprintf('%s/publish', $project), 'trend.json', '{"format": 1, "runs": [
+        {"commit": "a", "time": "2026-09-10T00:00:00Z", "trees": {}},
+        {"commit": "b", "time": "2026-09-11T00:00:00Z", "trees": {}}
+    ]}');
+    $here = (string) getcwd();
+    chdir($project);
+    $badge = BadgeDirectory::configured(Configs::options('{"path": "publish", "commit": "c", "trendKept": 2}'), $clock());
+    $badge instanceof BadgeDirectory ? $badge->report(Verdicts::passing()) : $badge;
+    chdir($here);
+
+    expect(Decoded::column((string) file_get_contents(sprintf('%s/publish/trend.json', $project)), 'commit', 'runs'))->toBe(['b', 'c']);
 });
 
 it('reads the floor for new code from its options', function () use ($clock): void {

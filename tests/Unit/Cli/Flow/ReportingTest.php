@@ -180,6 +180,20 @@ it('counts what the summary and the badge show saved over costs.savingsWindow, l
     ]);
 });
 
+it('hands a listed badge badge.colors, badge.trendKept and the floor for new code where its options set none', function (): void {
+    $settings = Flows::settings(Badge::colour('red', 0), Badge::trendKept(9), Report::writing('badge', 'publish'));
+    $own = Flows::settings(Badge::colour('red', 0), Report::writing('badge', 'publish', Option::nested('colors', Option::of('blue', 50)), Option::of('trendKept', 3)));
+    $clock = new SystemClock();
+
+    expect(reportersOf($settings, Variables::of([]), reportingOnMain()))->toEqual([BadgeDirectory::configured(
+        Configs::options('{"path": "publish", "colors": {"red": 0}, "trendKept": 9, "newCode": 100, "savingsWindow": "30d"}'),
+        $clock,
+    )])->and(reportersOf($own, Variables::of([]), reportingOnMain()))->toEqual([BadgeDirectory::configured(
+        Configs::options('{"path": "publish", "colors": {"blue": 50}, "trendKept": 3, "newCode": 100}'),
+        $clock,
+    )]);
+});
+
 it('draws the badge into the directory --publish-dir names', function (): void {
     $settings = Flows::settings(Badge::colour('green', 90), Badge::colour('red', 0));
     $chosen = new Chosen(new FirstParty()->extend(Extensions::of(Origin::of(ThisPackage::COMPOSER))));

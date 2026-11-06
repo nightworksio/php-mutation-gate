@@ -1710,23 +1710,19 @@
                                     },
                                     "timeout": {
                                         "type": "string",
-                                        "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
-                                        "default": "10s"
+                                        "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
                                     },
                                     "longestWait": {
                                         "type": "string",
-                                        "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
-                                        "default": "30s"
+                                        "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
                                     },
                                     "survivors": {
                                         "type": "integer",
-                                        "minimum": 0,
-                                        "default": 5
+                                        "minimum": 0
                                     },
                                     "lineLength": {
                                         "type": "integer",
-                                        "minimum": 1,
-                                        "default": 120
+                                        "minimum": 1
                                     }
                                 },
                                 "additionalProperties": false
@@ -1757,23 +1753,19 @@
                                     },
                                     "timeout": {
                                         "type": "string",
-                                        "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
-                                        "default": "10s"
+                                        "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
                                     },
                                     "longestWait": {
                                         "type": "string",
-                                        "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
-                                        "default": "30s"
+                                        "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
                                     },
                                     "survivors": {
                                         "type": "integer",
-                                        "minimum": 0,
-                                        "default": 5
+                                        "minimum": 0
                                     },
                                     "lineLength": {
                                         "type": "integer",
-                                        "minimum": 1,
-                                        "default": 120
+                                        "minimum": 1
                                     }
                                 },
                                 "additionalProperties": false
@@ -1804,13 +1796,11 @@
                                     },
                                     "timeout": {
                                         "type": "string",
-                                        "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
-                                        "default": "10s"
+                                        "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
                                     },
                                     "longestWait": {
                                         "type": "string",
-                                        "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
-                                        "default": "30s"
+                                        "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
                                     },
                                     "secretEnv": {
                                         "type": "string",
@@ -1841,13 +1831,11 @@
                                 "properties": {
                                     "files": {
                                         "type": "integer",
-                                        "minimum": 0,
-                                        "default": 8
+                                        "minimum": 0
                                     },
                                     "survivors": {
                                         "type": "integer",
-                                        "minimum": 0,
-                                        "default": 25
+                                        "minimum": 0
                                     }
                                 },
                                 "additionalProperties": false
@@ -2506,6 +2494,10 @@
                                     "commit": {
                                         "type": "string",
                                         "minLength": 1
+                                    },
+                                    "trendKept": {
+                                        "type": "integer",
+                                        "minimum": 1
                                     }
                                 },
                                 "additionalProperties": false
@@ -2816,6 +2808,11 @@
                         "yellow": 70,
                         "orange": 60
                     }
+                },
+                "trendKept": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 500
                 }
             },
             "additionalProperties": false
@@ -4832,23 +4829,19 @@
                                             },
                                             "timeout": {
                                                 "type": "string",
-                                                "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
-                                                "default": "10s"
+                                                "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
                                             },
                                             "longestWait": {
                                                 "type": "string",
-                                                "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
-                                                "default": "30s"
+                                                "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
                                             },
                                             "survivors": {
                                                 "type": "integer",
-                                                "minimum": 0,
-                                                "default": 5
+                                                "minimum": 0
                                             },
                                             "lineLength": {
                                                 "type": "integer",
-                                                "minimum": 1,
-                                                "default": 120
+                                                "minimum": 1
                                             }
                                         },
                                         "additionalProperties": false
@@ -4879,23 +4872,19 @@
                                             },
                                             "timeout": {
                                                 "type": "string",
-                                                "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
-                                                "default": "10s"
+                                                "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
                                             },
                                             "longestWait": {
                                                 "type": "string",
-                                                "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
-                                                "default": "30s"
+                                                "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
                                             },
                                             "survivors": {
                                                 "type": "integer",
-                                                "minimum": 0,
-                                                "default": 5
+                                                "minimum": 0
                                             },
                                             "lineLength": {
                                                 "type": "integer",
-                                                "minimum": 1,
-                                                "default": 120
+                                                "minimum": 1
                                             }
                                         },
                                         "additionalProperties": false
@@ -4926,13 +4915,11 @@
                                             },
                                             "timeout": {
                                                 "type": "string",
-                                                "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
-                                                "default": "10s"
+                                                "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
                                             },
                                             "longestWait": {
                                                 "type": "string",
-                                                "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
-                                                "default": "30s"
+                                                "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
                                             },
                                             "secretEnv": {
                                                 "type": "string",
@@ -4963,13 +4950,11 @@
                                         "properties": {
                                             "files": {
                                                 "type": "integer",
-                                                "minimum": 0,
-                                                "default": 8
+                                                "minimum": 0
                                             },
                                             "survivors": {
                                                 "type": "integer",
-                                                "minimum": 0,
-                                                "default": 25
+                                                "minimum": 0
                                             }
                                         },
                                         "additionalProperties": false
@@ -5628,6 +5613,10 @@
                                             "commit": {
                                                 "type": "string",
                                                 "minLength": 1
+                                            },
+                                            "trendKept": {
+                                                "type": "integer",
+                                                "minimum": 1
                                             }
                                         },
                                         "additionalProperties": false
@@ -5931,6 +5920,10 @@
                                 "minimum": 0,
                                 "maximum": 100
                             }
+                        },
+                        "trendKept": {
+                            "type": "integer",
+                            "minimum": 1
                         }
                     },
                     "additionalProperties": false

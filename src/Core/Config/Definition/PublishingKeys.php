@@ -4,15 +4,14 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
-use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Publishing;
-use NightWorksIO\MutationGate\Core\Config\Table;
 use NightWorksIO\MutationGate\Core\Dashboard\RepositoryName;
 use NightWorksIO\MutationGate\Core\Dashboard\Topic;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Report\Trend;
 
 use function sprintf;
 
@@ -41,12 +40,28 @@ final readonly class PublishingKeys
             $reports,
         );
 
+        $colors = Field::optional('colors', NumberMap::of(Number::percent()), $reports);
+        $kept = Field::optional(Trend::KEPT_OPTION, Integer::atLeast(1), $reports);
+
         return [
             Field::section(
                 'badge',
-                Section::single(
-                    Field::optional('colors', NumberMap::of(Number::percent()), $reports),
-                    static fn(Table|Absent $colors): Layer => Layer::of(Publishing::of(colors: $colors)),
+                Section::of(
+                    static function (Node $badge) use ($colors, $kept): Layer|Invalid {
+                        $bands = $colors->read($badge);
+                        $newest = $kept->read($badge);
+
+                        return Reading::built(
+                            static fn(): Layer => Layer::of(Publishing::of(
+                                colors: $bands->value(),
+                                trendKept: $newest->value(),
+                            )),
+                            $bands,
+                            $newest,
+                        );
+                    },
+                    $colors,
+                    $kept,
                 ),
             ),
             Field::section(

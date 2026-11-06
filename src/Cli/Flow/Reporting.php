@@ -25,7 +25,6 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Settings;
-use NightWorksIO\MutationGate\Core\Cost\SavingsWindow;
 use NightWorksIO\MutationGate\Core\Delivery\Commenting;
 use NightWorksIO\MutationGate\Core\Delivery\Deferring;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
@@ -241,8 +240,7 @@ final readonly class Reporting
                 : $choice->options();
             $use = $choice->use()->value();
             $shaped = CommentKeys::forReporter($use, $options, $settings->effective()->reports()->comment());
-            $windowed = $settings->shards()->savingsWindow()->under($use, $shaped);
-            $reporters[] = $this->chosen->reporter(Choice::of($use, $windowed), $index);
+            $reporters[] = $this->chosen->reporter(Choice::of($use, $this->laid($use, $shaped, $settings)), $index);
         }
 
         return $reporters;
@@ -254,12 +252,7 @@ final readonly class Reporting
         $none = Options::none();
         $badge = Choice::of(
             BuiltinReporter::Badge->value,
-            Options::of(Json::object(
-                Member::of('colors', $settings->publishing()->colors()->written()),
-                Member::of('newCode', $settings->floors()->newCode()->percent()),
-                Member::of(SavingsWindow::KEY, $settings->shards()->savingsWindow()->length()->written()),
-                ...$this->publishing,
-            )),
+            $this->laid(BuiltinReporter::Badge->value, Options::of(Json::object(...$this->publishing)), $settings),
         );
 
         return [
@@ -272,7 +265,7 @@ final readonly class Reporting
                     Variables::GITHUB_ACTIONS,
                     Choice::of(
                         BuiltinReporter::GitHubSummary->value,
-                        $settings->shards()->savingsWindow()->under(BuiltinReporter::GitHubSummary->value, $none),
+                        $this->laid(BuiltinReporter::GitHubSummary->value, $none, $settings),
                     ),
                 ),
             ] : [],
@@ -293,6 +286,14 @@ final readonly class Reporting
                 ? [$this->chosen->reporterChosenBy(BuiltinReporter::Badge->value, $badge)]
                 : [],
         ];
+    }
+
+    /** A reporter's options, with what the run's settings tell the summary and the badge laid beneath them. */
+    private function laid(string $use, Options $options, Settings $settings): Options
+    {
+        $windowed = $settings->shards()->savingsWindow()->under($use, $options);
+
+        return $settings->publishing()->under($use, $windowed, $settings->floors()->newCode());
     }
 
     private function onGitHub(): bool
