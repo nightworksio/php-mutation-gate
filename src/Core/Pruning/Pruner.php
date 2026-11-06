@@ -88,7 +88,7 @@ final readonly class Pruner
     }
 
     /** Whether a result holds a mutant that let the change through, which a run judges again rather than carry. */
-    private static function letThrough(Proof $proof): bool
+    private function letThrough(Proof $proof): bool
     {
         return array_any([...$proof->reported()], static fn(Mutant $mutant): bool => $mutant->status()->letsThrough());
     }
@@ -105,6 +105,6 @@ final readonly class Pruner
             && $proof instanceof Proof
             && self::stands($proof, $unit->path(), $now)
             && ! $this->since->isAfter($proof->run()->at())
-            && ! self::letThrough($proof);
+            && ! $this->letThrough($proof);
     }
 }

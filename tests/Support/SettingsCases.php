@@ -142,7 +142,9 @@ final readonly class SettingsCases
             "order": "killers-first"
         },
         "survivorsFirst": {
-            "max": 20
+            "max": 20,
+            "budget": "20m",
+            "shards": 4
         },
         "ignores": {
             "entries": [],
@@ -240,7 +242,7 @@ final readonly class SettingsCases
         'timeouts' => ['mode' => 'unjudged', 'seconds' => 30, 'most' => 120, 'perTest' => false, 'testFloor' => 2],
         'flaky' => ['confirmSurvivors' => false],
         'tests' => ['suites' => ['Unit', 'Plugins', 'Unit'], 'holding' => ['Process']],
-        'survivorsFirst' => ['max' => 5],
+        'survivorsFirst' => ['max' => 5, 'budget' => '45m', 'shards' => 6],
         'ignores' => [
             'entries' => [
                 ['mutant' => '3f9a1c2b7d04', 'reason' => 'Both branches build the same list', 'expires' => '2026-12-29'],

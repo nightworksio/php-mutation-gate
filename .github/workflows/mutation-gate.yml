@@ -245,6 +245,8 @@ jobs:
       plan: ${{ steps.plan.outputs.plan }}
       stands: ${{ steps.plan.outputs.stands }}
       fail-fast: ${{ steps.config.outputs.fail_fast }}
+      survivor-shares: ${{ steps.survivors.outputs.shares }}
+      survivor-minutes: ${{ steps.survivors.outputs.minutes }}
       delivery: ${{ steps.delivery.outputs.left }}
       attempt: ${{ github.run_attempt }}
     steps:
@@ -365,6 +367,21 @@ jobs:
             arguments+=("--coverage=${HANDED}")
           fi
           "${GATE}" plan --ci=github --deliver-later "${arguments[@]}"
+      # ADR-0106: on a pull request whose plan runs a shard, the jobs the last
+      # run's survivors are re-checked in, one per file of those it takes, at
+      # most survivorsFirst.shards, and the minutes each may take.
+      - name: Share the re-check of the last run's survivors
+        id: survivors
+        if: github.event_name == 'pull_request' && steps.plan.outputs.shards != '[]'
+        env:
+          GATE: ${{ steps.resolve.outputs.gate }}
+          OPTIONS: ${{ steps.resolve.outputs.options }}
+        run: |
+          set -euo pipefail
+          mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
+          jobs="$("${GATE}" survivors --plan=.mutation-gate/plan.json --jobs "${arguments[@]}")"
+          echo "shares=$(jq -c .shares <<< "${jobs}")" >> "${GITHUB_OUTPUT}"
+          echo "minutes=$(jq .minutes <<< "${jobs}")" >> "${GITHUB_OUTPUT}"
       - name: Say whether the plan left a delivery
         id: delivery
         run: |
@@ -539,21 +556,23 @@ jobs:
         run: python3 "${GATE_ACTION}/resources/action/gate_action.py" doomed
 
   # On a pull request whose plan runs a shard, the last run's survivors run
-  # again beside the shards, for a signal within minutes (ADR-0020; ADR-0062).
-  # It runs the project's code, as a shard does, so it holds no secret and no
-  # token, and leaves the comment's "survivors re-checked" state for
-  # deliver-survivors. It writes no ledger; the verdict judges nothing it found.
+  # again beside the shards, for a signal within minutes (ADR-0020; ADR-0062),
+  # shared among the jobs the plan names, each taking its share of their files
+  # within survivorsFirst.budget and leaving what it made (ADR-0106). It runs
+  # the project's code, as a shard does, so it holds no secret and no token.
+  # It writes no ledger; the verdict judges nothing it found.
   survivors:
-    name: survivors
+    name: survivors ${{ matrix.share }}
     needs: plan
-    if: ${{ !cancelled() && needs.plan.result == 'success' && github.event_name == 'pull_request' && needs.plan.outputs.shards != '[]' }}
+    if: ${{ !cancelled() && needs.plan.result == 'success' && github.event_name == 'pull_request' && needs.plan.outputs.survivor-shares != '' && needs.plan.outputs.survivor-shares != '[]' && needs.plan.outputs.shards != '[]' }}
     runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
-    timeout-minutes: 30
+    timeout-minutes: ${{ fromJSON(needs.plan.outputs.survivor-minutes) }}
     permissions:
       contents: read
-    outputs:
-      delivery: ${{ steps.delivery.outputs.left }}
-      attempt: ${{ github.run_attempt }}
+    strategy:
+      fail-fast: false
+      matrix:
+        share: ${{ fromJSON(needs.plan.outputs.survivor-shares) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -660,14 +679,132 @@ jobs:
         with:
           name: mutation-gate-coverage-${{ needs.plan.outputs.attempt }}
           path: .mutation-gate/coverage
-      - name: Re-check the last run's survivors
+      - name: Re-check this share of the last run's survivors
         env:
           GATE: ${{ steps.resolve.outputs.gate }}
           OPTIONS: ${{ steps.resolve.outputs.options }}
+          SHARE: ${{ matrix.share }}
+          OF: ${{ strategy.job-total }}
         run: |
           set -euo pipefail
           mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
-          "${GATE}" survivors --plan=.mutation-gate/plan.json --deliver-later "${arguments[@]}"
+          "${GATE}" survivors --plan=.mutation-gate/plan.json --share="${SHARE}" --of="${OF}" "${arguments[@]}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mutation-gate-survivors-${{ needs.plan.outputs.attempt }}-${{ matrix.share }}
+          path: .mutation-gate/survivors/${{ matrix.share }}.json
+          include-hidden-files: true
+          if-no-files-found: ignore
+          overwrite: true
+          retention-days: 1
+
+  # The re-check's shares, paired again with the survivors they were taken
+  # for, a share that left nothing read as not reached, and the comment's
+  # "survivors re-checked" state left for deliver-survivors (ADR-0106). It
+  # runs the project's code to read the config and the plan, and holds no
+  # secret and no token.
+  survivors-report:
+    name: survivors report
+    needs: [plan, survivors]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.survivors.result != 'skipped' }}
+    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    outputs:
+      delivery: ${{ steps.delivery.outputs.left }}
+      attempt: ${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: ${{ env.GATE_ACTION }}
+          persist-credentials: false
+      - name: Refuse an event the gate never runs under
+        run: python3 "${GATE_ACTION}/resources/action/gate_action.py" guard
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ inputs.php-version }}
+          extensions: ${{ inputs.extensions }}
+          coverage: none
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+        env:
+          COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
+      - name: Resolve the run
+        id: resolve
+        env:
+          MODE: ${{ inputs.mode }}
+          CHANGED_SINCE: ${{ inputs.changed-since }}
+          CONFIG: ${{ inputs.config }}
+          RUNNER: ${{ inputs.runner }}
+          BUDGET: ${{ inputs.budget }}
+          REPORTS: ${{ inputs.reports }}
+          CACHE: ${{ inputs.cache }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch || vars.MUTATION_GATE_DEFAULT_BRANCH }}
+        run: python3 "${GATE_ACTION}/resources/action/gate_action.py" resolve
+      - name: Read the effective config
+        id: config
+        env:
+          GATE: ${{ steps.resolve.outputs.gate }}
+          OPTIONS: ${{ steps.resolve.outputs.options }}
+          CACHE: ${{ inputs.cache }}
+        run: |
+          set -euo pipefail
+          mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
+          "${GATE}" config:show --format=json --resolved "${arguments[@]}" \
+            | python3 "${GATE_ACTION}/resources/action/gate_action.py" config
+      # The branch's own ledger holds its last run's survivors.
+      - name: Restore this scope's ledger
+        if: steps.config.outputs.default_store == 'true' && steps.resolve.outputs.own_dir != ''
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.resolve.outputs.own_dir }}
+          key: ${{ steps.resolve.outputs.own_prefix }}${{ github.run_id }}
+          restore-keys: ${{ steps.resolve.outputs.own_prefix }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        id: download-plan
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: mutation-gate-plan-${{ needs.plan.outputs.attempt }}
+          path: .mutation-gate
+      - name: Retry downloading the plan
+        if: steps.download-plan.outcome == 'failure'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        timeout-minutes: 2
+        with:
+          name: mutation-gate-plan-${{ needs.plan.outputs.attempt }}
+          path: .mutation-gate
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        id: download-shares
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          pattern: mutation-gate-survivors-${{ needs.plan.outputs.attempt }}-*
+          path: .mutation-gate/survivors
+          merge-multiple: true
+      - name: Retry downloading what the survivors' shares made
+        if: steps.download-shares.outcome == 'failure'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        timeout-minutes: 2
+        with:
+          pattern: mutation-gate-survivors-${{ needs.plan.outputs.attempt }}-*
+          path: .mutation-gate/survivors
+          merge-multiple: true
+      - name: Report the re-check of the last run's survivors
+        env:
+          GATE: ${{ steps.resolve.outputs.gate }}
+          OPTIONS: ${{ steps.resolve.outputs.options }}
+          SHARES: ${{ needs.plan.outputs.survivor-shares }}
+        run: |
+          set -euo pipefail
+          mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
+          "${GATE}" survivors --plan=.mutation-gate/plan.json --from=.mutation-gate/survivors \
+            --of="$(jq length <<< "${SHARES}")" --deliver-later "${arguments[@]}"
       - name: Say whether the re-check left a delivery
         id: delivery
         run: |
@@ -683,14 +820,14 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # The comment's "survivors re-checked" state, which the survivors job left,
+  # The comment's "survivors re-checked" state, which survivors-report left,
   # written only over its planned state, so the verdict's is never replaced.
   # It installs and runs none of the project's code, and holds the token that
   # may comment and no secret.
   deliver-survivors:
     name: deliver survivors
-    needs: survivors
-    if: ${{ !cancelled() && needs.survivors.result == 'success' && needs.survivors.outputs.delivery == 'true' }}
+    needs: survivors-report
+    if: ${{ !cancelled() && needs.survivors-report.result == 'success' && needs.survivors-report.outputs.delivery == 'true' }}
     runs-on: ${{ startsWith(inputs.keyed-runs-on, '[') && fromJSON(inputs.keyed-runs-on) || inputs.keyed-runs-on }}
     timeout-minutes: 10
     permissions:
@@ -715,14 +852,14 @@ jobs:
         timeout-minutes: 2
         continue-on-error: true
         with:
-          name: mutation-gate-delivery-survivors-${{ needs.survivors.outputs.attempt }}
+          name: mutation-gate-delivery-survivors-${{ needs.survivors-report.outputs.attempt }}
           path: ${{ env.DELIVERY }}/survivors
       - name: Retry downloading the survivors' delivery
         if: steps.download-delivery.outcome == 'failure'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         timeout-minutes: 2
         with:
-          name: mutation-gate-delivery-survivors-${{ needs.survivors.outputs.attempt }}
+          name: mutation-gate-delivery-survivors-${{ needs.survivors-report.outputs.attempt }}
           path: ${{ env.DELIVERY }}/survivors
       - name: Deliver
         id: deliver
@@ -736,7 +873,7 @@ jobs:
   # judge makes it cannot-judge, and so does a shard that left no result.
   verdict:
     name: verdict
-    needs: [fetch, plan, shard, survivors]
+    needs: [fetch, plan, shard, survivors, survivors-report]
     if: ${{ !cancelled() && needs.plan.result != 'skipped' }}
     runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: 30

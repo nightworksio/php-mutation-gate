@@ -42,6 +42,7 @@ DOWNLOADS = (
     ("${{ inputs.coverage }}", "map", "the coverage map"),
     ("mutation-gate-delivery-plan-", "delivery", "the plan's delivery"),
     ("mutation-gate-delivery-survivors-", "delivery", "the survivors' delivery"),
+    ("mutation-gate-survivors-", "shares", "what the survivors' shares made"),
     ("mutation-gate-delivery-", "delivery", "the verdict's delivery"),
     ("mutation-gate-plan-", "plan", "the plan"),
     ("mutation-gate-coverage-", "coverage", "the plan's coverage maps"),

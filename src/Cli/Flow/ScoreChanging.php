@@ -22,7 +22,6 @@ use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Report\ScoreChangeText;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
-use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
@@ -109,7 +108,7 @@ final readonly class ScoreChanging
             $trees,
             $baseline,
             $reach,
-            Uncovered::from($this->settings->floors()->uncovered()->value),
+            $this->settings->floors()->uncovered(),
             $this->settings->triage()->timeouts(),
             Ignoring::of($this->settings->ignores()->entries(), $this->setup->clock->now()),
         );

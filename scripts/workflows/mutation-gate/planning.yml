@@ -88,6 +88,8 @@
       plan: ${{ steps.plan.outputs.plan }}
       stands: ${{ steps.plan.outputs.stands }}
       fail-fast: ${{ steps.config.outputs.fail_fast }}
+      survivor-shares: ${{ steps.survivors.outputs.shares }}
+      survivor-minutes: ${{ steps.survivors.outputs.minutes }}
       delivery: ${{ steps.delivery.outputs.left }}
       attempt: ${{ github.run_attempt }}
     steps:
@@ -187,6 +189,21 @@
             arguments+=("--coverage=${HANDED}")
           fi
           "${GATE}" plan --ci=github --deliver-later "${arguments[@]}"
+      # ADR-0106: on a pull request whose plan runs a shard, the jobs the last
+      # run's survivors are re-checked in, one per file of those it takes, at
+      # most survivorsFirst.shards, and the minutes each may take.
+      - name: Share the re-check of the last run's survivors
+        id: survivors
+        if: github.event_name == 'pull_request' && steps.plan.outputs.shards != '[]'
+        env:
+          GATE: ${{ steps.resolve.outputs.gate }}
+          OPTIONS: ${{ steps.resolve.outputs.options }}
+        run: |
+          set -euo pipefail
+          mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
+          jobs="$("${GATE}" survivors --plan=.mutation-gate/plan.json --jobs "${arguments[@]}")"
+          echo "shares=$(jq -c .shares <<< "${jobs}")" >> "${GITHUB_OUTPUT}"
+          echo "minutes=$(jq .minutes <<< "${jobs}")" >> "${GITHUB_OUTPUT}"
       - name: Say whether the plan left a delivery
         id: delivery
         run: |

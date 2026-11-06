@@ -42,7 +42,7 @@ final readonly class Triage implements Part
         private TighterSilence|Absent $tighter,
         private bool|Absent $confirmSurvivors,
         private TestOrder|Absent $order,
-        private SurvivorsFirst|Absent $survivorsFirst,
+        private SurvivorsFirst $survivorsFirst,
         private SuiteLists $lists,
         private PerTestSetting $perTest,
     ) {
@@ -71,7 +71,7 @@ final readonly class Triage implements Part
             $tighter,
             $confirmSurvivors,
             $order,
-            $survivorsFirst,
+            $survivorsFirst instanceof SurvivorsFirst ? $survivorsFirst : SurvivorsFirst::standard(),
             $lists instanceof SuiteLists ? $lists : SuiteLists::of(),
             PerTestSetting::of($perTest, $testFloor),
         );
@@ -92,7 +92,7 @@ final readonly class Triage implements Part
             most: $none->most(),
             confirmSurvivors: $none->confirmSurvivors(),
             order: $none->order(),
-            survivorsFirst: $none->survivorsFirst(),
+            survivorsFirst: $none->survivorsFirst()->resolved(),
             tighter: $none->tighter(),
             perTest: PerTestLimit::MULTIPLE,
             testFloor: Seconds::of(PerTestLimit::FLOOR),
@@ -111,7 +111,7 @@ final readonly class Triage implements Part
                 Absent::laid($this->tighter, $later->tighter),
                 Absent::laid($this->confirmSurvivors, $later->confirmSurvivors),
                 Absent::laid($this->order, $later->order),
-                Absent::laid($this->survivorsFirst, $later->survivorsFirst),
+                $this->survivorsFirst->over($later->survivorsFirst),
                 $this->lists->over($later->lists),
                 $this->perTest->over($later->perTest),
             )
@@ -210,10 +210,10 @@ final readonly class Triage implements Part
         return $this->lists->suites();
     }
 
-    /** `survivorsFirst.max`: how many of the last run's survivors a pull request's run re-checks first. */
+    /** `survivorsFirst`: how a pull request's run re-checks the last run's survivors first. */
     public function survivorsFirst(): SurvivorsFirst
     {
-        return $this->survivorsFirst instanceof SurvivorsFirst ? $this->survivorsFirst : SurvivorsFirst::standard();
+        return $this->survivorsFirst;
     }
 
     public function written(PathOrigin $origin): Json
@@ -240,15 +240,7 @@ final readonly class Triage implements Part
                     $this->lists->holdingWritten(),
                 ),
             ),
-            Member::unlessEmpty(
-                'survivorsFirst',
-                Json::object(Member::of(
-                    'max',
-                    $this->survivorsFirst instanceof SurvivorsFirst
-                        ? $this->survivorsFirst->most()
-                        : $this->survivorsFirst,
-                )),
-            ),
+            Member::unlessEmpty('survivorsFirst', $this->survivorsFirst->written()),
         );
     }
 
@@ -271,7 +263,7 @@ final readonly class Triage implements Part
                 $this->confirmSurvivors ? 'Flaky::confirmingSurvivors()' : 'Flaky::notConfirmingSurvivors()',
             ],
             ...$this->orderCalls(),
-        ])->and($this->lists->calls());
+        ])->and($this->survivorsFirst->calls())->and($this->lists->calls());
     }
 
     /** `timeouts.tighter` as a config writes it; nothing where no layer set it. */
@@ -285,17 +277,12 @@ final readonly class Triage implements Part
             : $this->tighter;
     }
 
-    /** @return list<string> the builder's calls for the order of each mutant's tests, and of the survivors' re-check */
+    /** @return list<string> the builder's call for the order of each mutant's tests */
     private function orderCalls(): array
     {
-        return [
-            ...$this->order instanceof TestOrder ? [match ($this->order) {
-                TestOrder::KillersFirst => 'Tests::killersFirst()',
-                TestOrder::Runner => 'Tests::inRunnerOrder()',
-            }] : [],
-            ...$this->survivorsFirst instanceof SurvivorsFirst
-                ? [sprintf('Survivors::firstAtMost(%d)', $this->survivorsFirst->most())]
-                : [],
-        ];
+        return $this->order instanceof TestOrder ? [match ($this->order) {
+            TestOrder::KillersFirst => 'Tests::killersFirst()',
+            TestOrder::Runner => 'Tests::inRunnerOrder()',
+        }] : [];
     }
 }

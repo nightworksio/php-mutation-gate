@@ -17,7 +17,6 @@ use NightWorksIO\MutationGate\Core\Proof\RunProfile;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
-use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Verdict\Ignoring;
@@ -78,7 +77,7 @@ final readonly class Measured
             self::measuredOf($inventory->trees, $unmeasured),
             $baseline,
             Reach::nothing(Packages::of($inventory->trees)),
-            Uncovered::from($settings->floors()->uncovered()->value),
+            $settings->floors()->uncovered(),
             $settings->triage()->timeouts(),
             Ignoring::of($settings->ignores()->entries(), $now),
         );

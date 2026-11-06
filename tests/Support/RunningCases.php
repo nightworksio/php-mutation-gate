@@ -8,21 +8,16 @@ use function array_map;
 use function file_get_contents;
 use function is_file;
 
-use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Config\Equivalence;
 use NightWorksIO\MutationGate\Config\Reach;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
-use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Settings;
-use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
-use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\Ordering;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
@@ -30,7 +25,6 @@ use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
-use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
@@ -47,29 +41,13 @@ final readonly class RunningCases
     /** A setup whose clock moves on three seconds each time the run reads it. */
     public static function ticking(): Setup
     {
-        return new Setup(
-            Absent::setting(),
-            Version::of('nightworksio/mutation-gate', '1.0.0', 'gate'),
-            Digest::sha256Of('installed'),
-            new TickingClock('2026-09-30T12:00:00+00:00', 3),
-            new PeakMemoryFake(NotGiven::value()),
-            DecidingConfig::unread(),
-            GateCommand::installed(),
-        );
+        return self::tickingBy(3);
     }
 
     /** A setup whose clock moves on this many seconds each time the run reads it. */
     public static function tickingBy(int $step): Setup
     {
-        return new Setup(
-            Absent::setting(),
-            Version::of('nightworksio/mutation-gate', '1.0.0', 'gate'),
-            Digest::sha256Of('installed'),
-            new TickingClock('2026-09-30T12:00:00+00:00', $step),
-            new PeakMemoryFake(NotGiven::value()),
-            DecidingConfig::unread(),
-            GateCommand::installed(),
-        );
+        return Flows::setupAt(new TickingClock('2026-09-30T12:00:00+00:00', $step));
     }
 
     /** @return list<string> the paths of the units a result says its budget ran out before */

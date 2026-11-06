@@ -15,7 +15,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Scoring;
  */
 final readonly class Recheck
 {
-    private function __construct(private JudgedMutant $before, private JudgedMutant|Gone $now)
+    private function __construct(private JudgedMutant $before, private JudgedMutant|Gone|Unreached $now)
     {
     }
 
@@ -29,14 +29,20 @@ final readonly class Recheck
         return new self($before, Gone::value());
     }
 
+    /** A survivor the re-check did not run again. */
+    public static function unreached(JudgedMutant $before): self
+    {
+        return new self($before, Unreached::value());
+    }
+
     /** The survivor as the last run left it. */
     public function before(): JudgedMutant
     {
         return $this->before;
     }
 
-    /** The same mutant as this run judged it; gone where it made none. */
-    public function now(): JudgedMutant|Gone
+    /** The same mutant as this run judged it; gone where it made none, and unreached where it did not run it. */
+    public function now(): JudgedMutant|Gone|Unreached
     {
         return $this->now;
     }

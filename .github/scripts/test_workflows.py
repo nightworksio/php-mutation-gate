@@ -454,10 +454,10 @@ class Secrets(unittest.TestCase):
 
 
 class ProjectCode(unittest.TestCase):
-    def test_the_plan_the_shards_and_the_verdict_run_the_project_s_code(self):
+    def test_the_plan_the_shards_the_survivors_and_the_verdict_run_the_project_s_code(self):
         running = sorted(name for name, lines in jobs(WORKFLOW).items() if runs_project_code(lines))
 
-        self.assertEqual(["plan", "shard", "survivors", "verdict"], running)
+        self.assertEqual(["plan", "shard", "survivors", "survivors-report", "verdict"], running)
 
     def test_no_job_that_runs_the_project_s_code_holds_a_secret_or_a_credential(self):
         for name, lines in jobs(WORKFLOW).items():
@@ -482,6 +482,7 @@ class ProjectCode(unittest.TestCase):
                 ("plan", install, [INSTALLING[0]]),
                 ("shard", action_step, [INSTALLING[1]]),
                 ("survivors", install, [INSTALLING[0]]),
+                ("survivors-report", install, [INSTALLING[0]]),
                 ("verdict", install, [INSTALLING[0]]),
             ],
             reached,

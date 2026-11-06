@@ -16,25 +16,28 @@ $judged = static fn(int $line, MutantJudgement $judgement): JudgedMutant => Judg
     $judgement,
 );
 
-it('counts which still survive, which were killed, and which are gone, in the order taken', function () use ($judged): void {
+it('counts which still survive, which were killed, which are gone and which were not reached, in the order taken', function () use ($judged): void {
     $surviving = $judged(1, MutantJudgement::Survived);
     $uncovered = $judged(2, MutantJudgement::Uncovered);
     $lost = $judged(3, MutantJudgement::Survived);
+    $late = $judged(5, MutantJudgement::Survived);
     $rechecked = Rechecked::of(
         Uncovered::Count,
         Recheck::found($judged(1, MutantJudgement::Survived), $surviving),
         Recheck::found($judged(4, MutantJudgement::Survived), $judged(4, MutantJudgement::Killed)),
         Recheck::gone($lost),
+        Recheck::unreached($late),
         Recheck::found($judged(2, MutantJudgement::Uncovered), $uncovered),
     );
 
     expect($rechecked->surviving())->toBe([$surviving, $uncovered])
         ->and($rechecked->gone())->toBe([$lost])
+        ->and($rechecked->unreached())->toBe([$late])
         ->and($rechecked->killed())->toBe(1)
-        ->and(count($rechecked))->toBe(4)
+        ->and(count($rechecked))->toBe(5)
         ->and($rechecked->uncovered())->toBe(Uncovered::Count)
         ->and(array_map(static fn(Recheck $recheck): int => $recheck->before()->mutant()->location()->start()->number(), [...$rechecked]))
-        ->toBe([1, 4, 3, 2]);
+        ->toBe([1, 4, 3, 5, 2]);
 });
 
 it('counts an uncovered mutant as killed where the score leaves uncovered mutants out', function () use ($judged): void {

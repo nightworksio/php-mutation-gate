@@ -117,16 +117,41 @@ final readonly class TriageKeys
                 ),
             ),
             Field::section('tests', self::tests($results)),
-            Field::section(
-                'survivorsFirst',
-                Section::single(
-                    Field::optional('max', Integer::atLeast(0), $judges),
-                    static fn(int|Absent $most): Layer => Layer::of(Triage::of(
-                        survivorsFirst: $most instanceof Absent ? $most : SurvivorsFirst::atMost($most),
-                    )),
-                ),
-            ),
+            Field::section('survivorsFirst', self::survivorsFirst($judges)),
         ];
+    }
+
+    /**
+     * `survivorsFirst`: how many of the last run's survivors a pull request's
+     * run re-checks first, within what time, across how many jobs (ADR-0106).
+     *
+     * @return Section<Layer>
+     */
+    private static function survivorsFirst(Effect $judges): Section
+    {
+        $max = Field::optional('max', Integer::atLeast(0), $judges);
+        $budget = Field::optional('budget', Duration::written(), $judges);
+        $shards = Field::optional('shards', Integer::between(1, SurvivorsFirst::MOST_SHARDS), $judges);
+
+        return Section::of(
+            static function (Node $first) use ($max, $budget, $shards): Layer|Invalid {
+                $most = $max->read($first);
+                $within = $budget->read($first);
+                $across = $shards->read($first);
+
+                return Reading::built(
+                    static fn(): Layer => Layer::of(Triage::of(
+                        survivorsFirst: SurvivorsFirst::of($most->value(), $within->value(), $across->value()),
+                    )),
+                    $most,
+                    $within,
+                    $across,
+                );
+            },
+            $max,
+            $budget,
+            $shards,
+        );
     }
 
     /**

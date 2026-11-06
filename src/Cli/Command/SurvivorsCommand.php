@@ -29,17 +29,20 @@ use Symfony\Component\Console\Output\OutputInterface;
 /**
  * `mutation-gate survivors [--plan=<file>]`: on a pull request, the last
  * run's survivors run again before the shards, for a signal within minutes
- * (ADR-0020). It re-checks what the plan reaches, or,
- * without one, what a plan made as `plan` makes one would; it writes the
- * comment over its planned state and the step summary, and says on standard
- * output how many still survive and what became of each. It writes no
- * ledger and judges nothing, so it exits 0 whatever it found, and 2 where it
- * cannot re-check.
+ * (ADR-0020, ADR-0106). It re-checks what the plan reaches, or,
+ * without one, what a plan made as `plan` makes one would, within
+ * `survivorsFirst.budget`; it writes the comment over its planned state and
+ * the step summary, and says on standard output how many still survive, how
+ * many it had no time for, and what became of each. Several jobs may share
+ * it ({@see SharedRecheck}). It writes no ledger and judges nothing, so it
+ * exits 0 whatever it found, and 2 where it cannot re-check.
  *
  * @internal
  */
 final readonly class SurvivorsCommand
 {
+    public const string UNCHECKED = 'The last run\'s survivors could not be re-checked first: %s';
+
     private const string SECURITY_WITH_PLAN = <<<'SAID'
         survivors --plan re-checks what its plan was made for, so it takes no --security. Give it to plan.
         SAID;
@@ -48,11 +51,9 @@ final readonly class SurvivorsCommand
         survivors --plan re-checks what its plan was made for, so it takes no --suite. Give it to plan.
         SAID;
 
-    private const string UNCHECKED = 'The last run\'s survivors could not be re-checked first: %s';
-
     public static function command(Composition $composition): Command
     {
-        return DeliverLater::option(FlowOptions::planning(new Command('survivors')))
+        return SharedRecheck::options(DeliverLater::option(FlowOptions::planning(new Command('survivors'))))
             ->setDescription('Run the last run\'s survivors again first, on a pull request, before its shards')
             ->addOption(
                 FlowOptions::PLAN,
@@ -71,7 +72,7 @@ final readonly class SurvivorsCommand
                     ! $composed instanceof Composed => $composed,
                     $planned && FlowOptions::isSecurityOnly($input) => CannotJudge::because(self::SECURITY_WITH_PLAN),
                     $planned && FlowOptions::isSuiteOnly($input) => CannotJudge::because(self::SUITE_WITH_PLAN),
-                    default => self::said($composed, $input, $planned),
+                    default => self::said($composed, $input, $planned, Aside::of($output)),
                 };
 
                 if (! is_array($lines)) {
@@ -122,7 +123,7 @@ final readonly class SurvivorsCommand
      *
      * @return list<string>
      */
-    private static function reported(Composed $composed, Plan $plan, Rechecked|NoRecheck $rechecked): array
+    public static function reported(Composed $composed, Plan $plan, Rechecked|NoRecheck $rechecked): array
     {
         return $rechecked instanceof NoRecheck ? [$rechecked->why()] : [
             ...RecheckedText::lines($rechecked),
@@ -131,8 +132,12 @@ final readonly class SurvivorsCommand
     }
 
     /** @return list<string>|CannotJudge */
-    private static function said(Composed $composed, InputInterface $input, bool $planned): array|CannotJudge
-    {
+    private static function said(
+        Composed $composed,
+        InputInterface $input,
+        bool $planned,
+        OutputInterface $aside,
+    ): array|CannotJudge {
         $made = $planned
             ? VerdictCommand::planIn($composed, FlowOptions::path($input, FlowOptions::PLAN, Workspace::plan()))
             : PlanCommand::planOf($composed, $input);
@@ -142,6 +147,7 @@ final readonly class SurvivorsCommand
         return match (true) {
             ! $plan instanceof Plan => $plan,
             ! $following instanceof Composed => $following,
+            SharedRecheck::isAsked($input) => SharedRecheck::said($following, $plan, $input, $aside),
             default => self::rechecked($following, $plan),
         };
     }
