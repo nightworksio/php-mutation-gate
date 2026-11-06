@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
 use function array_filter;
-use function array_values;
 use function count;
 
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
@@ -76,7 +75,7 @@ final readonly class StickyComment
         for ($page = 1; $full && $page <= self::PAGES; ++$page) {
             $items = $this->page($number, $page);
             $other = static fn(Answer $comment): bool => self::isOther($comment, $author, $marker);
-            $others = [...$others, ...array_values(array_filter($items, $other))];
+            $others = [...$others, ...array_filter($items, $other)];
             $full = count($items) === self::PAGE;
         }
 

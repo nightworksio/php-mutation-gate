@@ -6,8 +6,12 @@ use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
 use NightWorksIO\MutationGate\Adapter\GitLab\MergeRequestNote;
 use NightWorksIO\MutationGate\Adapter\GitLab\NoteMarkdown;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Comment\Mode;
+use NightWorksIO\MutationGate\Core\Comment\Toggle;
 use NightWorksIO\MutationGate\Core\Config\CommentSettings;
 use NightWorksIO\MutationGate\Core\Config\CommentShows;
+use NightWorksIO\MutationGate\Core\Config\CommentToggles;
+use NightWorksIO\MutationGate\Core\Config\CommentWrites;
 use NightWorksIO\MutationGate\Core\Delivery\CommentStates;
 use NightWorksIO\MutationGate\Core\Delivery\CommentWrite;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
@@ -163,6 +167,57 @@ it('writes the re-checked survivors over its planned state alone', function (str
     'its planned state' => [fn(): string => (string) json_encode([gitlabNote(5, 'project_42_bot', PlannedMarkdown::comment(ShardedPlan::planned(2), ''))]), true],
     'the verdict' => [fn(): string => (string) json_encode([gitlabNote(5, 'project_42_bot', Markdown::comment(Verdicts::failing(), CommentShows::of()))]), false],
     'no note of its own' => [fn(): string => (string) json_encode([gitlabNote(5, 'someone', PlannedMarkdown::comment(ShardedPlan::planned(2), ''))]), false],
+]);
+
+it('reads a draft from the title GitLab marks, so comment.drafts can keep it quiet', function (string $title, bool $left): void {
+    $cloud = gitlabHolding('[]')->answering(GITLAB_NOTES, 201, '{"id": 5}');
+    $settings = CommentSettings::of(CommentShows::of(), CommentWrites::of(toggles: CommentToggles::off(Toggle::Drafts)));
+    $answer = MergeRequestNote::inEnvironment(gitlabMergeRequest(['CI_MERGE_REQUEST_TITLE' => $title]), $cloud->exchange(), 'MUTATION_GATE_GITLAB_TOKEN', $settings)
+        ->report(Verdicts::failing());
+
+    expect($answer)->toEqual($left
+        ? NotWritten::because('comment.drafts is false, so this run writes no comment.')
+        : Written::to('https://gitlab.example/acme/shop/-/merge_requests/7#note_5'));
+})->with([
+    'marked a draft' => ['Draft: the fix', true],
+    'marked in brackets' => ['[Draft] the fix', true],
+    'marked in parentheses' => ['(draft) the fix', true],
+    'a draft only in its words' => ['Fix the draft: reader', false],
+]);
+
+it('updates only where the gate has noted before, an earlier run\'s note being one', function (CommentWrite $write, array $notes, string $method): void {
+    $cloud = gitlabHolding((string) json_encode($notes))
+        ->answering(GITLAB_NOTES, 201, '{"id": 6}')
+        ->answering(sprintf('%s/5', GITLAB_NOTES), 200, '{"id": 5}');
+    $answer = MergeRequestNote::inEnvironment(gitlabMergeRequest(), $cloud->exchange(), 'MUTATION_GATE_GITLAB_TOKEN', CommentSettings::standard())
+        ->writeAs('text', $write);
+    $written = array_values(array_filter(array_column($cloud->requests, 'method'), static fn(string $sent): bool => $sent !== 'GET'));
+
+    expect($written)->toBe($method === '' ? [] : [$method])
+        ->and($answer)->toEqual($method === ''
+            ? NotWritten::because(CommentStates::NOT_THERE)
+            : Written::to(sprintf('https://gitlab.example/acme/shop/-/merge_requests/7#note_%d', $method === 'PUT' ? 5 : 6)));
+})->with([
+    'an earlier run\'s note, under a mode of its own' => [
+        fn(): CommentWrite => CommentWrite::of(Mode::New, 'run')->existingOnly(),
+        [gitlabNote(5, 'project_42_bot', Markdown::MARKER)],
+        'POST',
+    ],
+    'none, under a mode of its own' => [
+        fn(): CommentWrite => CommentWrite::of(Mode::New, 'run')->existingOnly(),
+        [gitlabNote(5, 'someone', Markdown::MARKER)],
+        '',
+    ],
+    'its own, the one note' => [
+        fn(): CommentWrite => CommentWrite::sticky()->existingOnly(),
+        [gitlabNote(5, 'project_42_bot', Markdown::MARKER)],
+        'PUT',
+    ],
+    'none, the one note' => [
+        fn(): CommentWrite => CommentWrite::sticky()->existingOnly(),
+        [gitlabNote(5, 'someone', Markdown::MARKER)],
+        '',
+    ],
 ]);
 
 it('writes no note, and says why, where the job cannot write one', function (Variables $environment, string $why): void {

@@ -148,6 +148,93 @@ it('posts each run\'s own comment under comment.mode, leaving the comments befor
     'a new comment that hides the one before' => [fn(): Mode => Mode::NewHidingOld, 2],
 ]);
 
+it('hides only the comments of other runs this author wrote holding the gate\'s marker, through every page it reads', function (int $pages) use ($environment, $event, $comment): void {
+    $run = 'https://github.example/octo/gate/actions/runs/7';
+    $earlier = static fn(int $id): array => [
+        ...$comment($id, 'gate-bot', sprintf("%s\n<!-- mutation-gate run: https://github.example/octo/gate/actions/runs/%d -->\n", Markdown::MARKER, $id)),
+        'node_id' => sprintf('node-%d', $id),
+    ];
+    $noise = static fn(int $id): array => [...$comment($id, 'someone', 'text'), 'node_id' => sprintf('noise-%d', $id)];
+    $full = array_map($noise, range(4, 100));
+    $page = static fn(int $number): array => match (true) {
+        $number === 1 => [
+            $earlier(1),
+            [...$comment(2, 'someone', sprintf("%s\nnot the gate's", Markdown::MARKER)), 'node_id' => 'theirs'],
+            [...$comment(3, 'gate-bot', 'no marker'), 'node_id' => 'unmarked'],
+            ...$full,
+        ],
+        $number === $pages => [
+            $earlier(200),
+            [...$comment(201, 'gate-bot', sprintf("%s\n%s", Markdown::MARKER, sprintf(CommentWrite::RUN, 'elsewhere'))), 'node_id' => 'node-201'],
+            ...array_map($noise, range(4, 50)),
+        ],
+        default => array_map($noise, range(1, 100)),
+    };
+    $asked = [];
+    $queries = [];
+    $client = new MockHttpClient(static function (string $method, string $url, array $options) use (&$asked, &$queries, $page): JsonMockResponse {
+        $number = preg_match('/[?&]page=(\d+)/', $url, $found) === 1 ? (int) $found[1] : 0;
+
+        return match (true) {
+            str_ends_with($url, '/graphql') => (static function () use (&$queries, $options): JsonMockResponse {
+                $queries[] = Decoded::at(is_string($options['body'] ?? null) ? $options['body'] : '', 'query');
+
+                return new JsonMockResponse(['data' => ['nodes' => []]]);
+            })(),
+            $method === 'POST' => new JsonMockResponse(['html_url' => 'written']),
+            $number > 0 => (static function () use (&$asked, $number, $page): JsonMockResponse {
+                $asked[] = $number;
+
+                return new JsonMockResponse($page($number));
+            })(),
+            default => new JsonMockResponse(['total_count' => 0, 'artifacts' => []]),
+        };
+    });
+    $thread = PullRequestComment::inRun($environment, $event(), $client, 'gate-bot', CommentSettings::of(CommentShows::of(), CommentWrites::of(mode: Mode::NewHidingOld)));
+
+    expect($thread->writeAs('text', CommentWrite::of(Mode::NewHidingOld, $run)))->toEqual(Written::to('written'))
+        ->and($queries)->toBe(['query { nodes(ids: ["node-1", "node-200", "node-201"]) { ... on IssueComment { id isMinimized } } }'])
+        ->and(array_values(array_unique($asked)))->toBe(range(1, $pages));
+})->with([
+    'the first page and the next' => [2],
+    'the last of the thirty pages it reads' => [30],
+]);
+
+it('reads thirty pages of comments of other runs, and no more', function () use ($environment, $event, $comment): void {
+    $asked = [];
+    $client = new MockHttpClient(static function (string $method, string $url) use (&$asked, $comment): JsonMockResponse {
+        if (preg_match('/[?&]page=(\d+)/', $url, $found) === 1) {
+            $asked[] = (int) $found[1];
+
+            return new JsonMockResponse(array_map(static fn(int $id): array => $comment($id, 'someone', 'text'), range(1, 100)));
+        }
+
+        return $method === 'POST' ? new JsonMockResponse(['html_url' => 'written']) : new JsonMockResponse(['total_count' => 0, 'artifacts' => []]);
+    });
+    $thread = PullRequestComment::inRun($environment, $event(), $client, 'gate-bot', CommentSettings::standard());
+
+    expect($thread->writeAs('text', CommentWrite::of(Mode::New, 'run')))->toEqual(Written::to('written'))
+        ->and($asked)->toBe([...range(1, 30), ...range(1, 30)]);
+});
+
+it('updates only where the gate has commented before, an earlier run\'s comment being one', function (string $author, bool $written) use ($environment, $event, $comment): void {
+    $held = [$comment(1, $author, Markdown::MARKER)];
+    $post = new JsonMockResponse(['html_url' => 'written']);
+    $thread = PullRequestComment::inRun(
+        $environment,
+        $event(),
+        new MockHttpClient([new JsonMockResponse($held), new JsonMockResponse($held), $post]),
+        'gate-bot',
+        CommentSettings::standard(),
+    );
+
+    expect($thread->writeAs('text', CommentWrite::of(Mode::New, 'run')->existingOnly()))
+        ->toEqual($written ? Written::to('written') : NotWritten::because(CommentStates::NOT_THERE));
+})->with([
+    'an earlier run\'s comment' => ['gate-bot', true],
+    'none of the gate\'s' => ['someone', false],
+]);
+
 it('reads a draft from the event, so comment.drafts can keep it quiet, and takes a draft it cannot read as none', function (string $draft, bool $left) use ($environment, $report): void {
     $event = sprintf('{"pull_request": {"number": 12, "draft": %s}}', $draft);
     $settings = CommentSettings::of(CommentShows::of(), CommentWrites::of(toggles: CommentToggles::off(Toggle::Drafts)));
