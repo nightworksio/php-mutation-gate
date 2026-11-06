@@ -16,8 +16,8 @@ use function sprintf;
  * What a project publishes, and how an organisation's dashboard reads what
  * its projects published: `badge.colors`, the lowest score of each
  * shields.io colour, red below them all, and `badge.logo`, the logo the
- * badges show: the gate's helix, none, or an SVG file (ADR-0009); `dashboard.topic`, the
- * topic of the repositories the dashboard shows, and
+ * badges show: the gate's helix, none, or an SVG file (ADR-0009);
+ * `dashboard.topic`, the topic of the repositories the dashboard shows, and
  * `dashboard.repositories`, those it shows by name (ADR-0024).
  */
 final readonly class Publishing implements Part
