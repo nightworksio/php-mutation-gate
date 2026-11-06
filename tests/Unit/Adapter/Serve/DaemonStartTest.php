@@ -9,8 +9,6 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Appeared;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ServedProjects;
-use NightWorksIO\MutationGate\Tests\Support\Tree;
-use Symfony\Component\Process\Process;
 
 afterEach(function (): void {
     ServedProjects::left();
@@ -64,21 +62,19 @@ it('starts none where one already listens, or where the socket is not the user\'
 it('starts the daemon with its input, output and errors on the null device, so it prints nothing where it was started', function () use ($standIn): void {
     $project = ServedProjects::entered();
     $script = $standIn($project, "fwrite(STDOUT, 'out');\nfwrite(STDERR, 'err');\nfile_put_contents('read', (string) fgets(STDIN));\n\$s = stream_socket_server('unix://.mutation-gate/serve.sock');\nsleep(2);");
-    $starter = sprintf('%s/start.php', $project);
-    file_put_contents($starter, sprintf(
-        "<?php\nrequire %s;\nexit(new %s(%s::at('.mutation-gate/serve.sock', posix_geteuid()), %s::of(5.0))->started(%s, %s) ? 0 : 1);\n",
-        var_export(Tree::at('vendor/autoload.php'), return: true),
-        DaemonStart::class,
-        ServeSocket::class,
-        Seconds::class,
-        var_export($script, return: true),
-        var_export($project, return: true),
-    ));
-    $starting = new Process([PHP_BINARY, $starter], $project, input: "secret\n");
-    $starting->run();
+    file_put_contents('given', "secret\n");
+    $starter = ServedProjects::aside(static function () use ($script, $project): void {
+        fclose(STDIN);
+        fclose(STDOUT);
+        fclose(STDERR);
+        $descriptors = [fopen('given', 'r'), fopen('printed', 'w'), fopen('warned', 'w')];
+        $started = new DaemonStart(ServedProjects::socket(), Seconds::of(5.0))->started($script, $project);
+        file_put_contents('started', var_export([$started, array_map(is_resource(...), $descriptors)], return: true));
+    });
+    ServedProjects::waitedFor($starter);
 
-    expect($starting->getExitCode())->toBe(0)
-        ->and($starting->getOutput())->toBe('')
-        ->and($starting->getErrorOutput())->toBe('')
+    expect(file_get_contents('started'))->toBe(var_export([true, [true, true, true]], return: true))
+        ->and(file_get_contents('printed'))->toBe('')
+        ->and(file_get_contents('warned'))->toBe('')
         ->and(Appeared::file('read') ? file_get_contents('read') : 'unread')->toBe('');
 });

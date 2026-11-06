@@ -147,11 +147,17 @@ it('gives up a read on a quiet peer once its wait is up, and tells a quiet peer 
 it('tells a client waiting on the listener apart from a connection that has something to read, by the connection\'s key', function (): void {
     ServedProjects::entered();
     [$listener, $client, $daemon] = ServedProjects::connectedPair();
+    $other = Connection::to(ServedProjects::SOCKET);
+    $accepted = array_first($listener->accepted());
     $client->sent("x\n");
-    $second = Connection::to(ServedProjects::SOCKET);
+    if ($other instanceof Connection) {
+        $other->sent("y\n");
+    }
+    $waiting = Connection::to(ServedProjects::SOCKET);
+    $connections = $accepted instanceof Connection ? [4242 => $daemon, 4343 => $accepted] : [4242 => $daemon];
 
-    expect(Listener::ready($listener, [4242 => $daemon], 1_000_000))->toBe([true, [4242]])
-        ->and($second)->toBeInstanceOf(Connection::class);
+    expect(Listener::ready($listener, $connections, 1_000_000))->toBe([true, [4242, 4343]])
+        ->and($waiting)->toBeInstanceOf(Connection::class);
 });
 
 it('makes a missing directory with the ones above it, and raises no warning where it cannot make one, bind, accept or wait', function (): void {
@@ -174,8 +180,8 @@ it('makes a missing directory with the ones above it, and raises no warning wher
     pcntl_signal(SIGALRM, SIG_DFL);
 
     expect([$made, $blocked, is_dir('deep/er/inner')])->toBe([true, false, true])
-        ->and($unbound instanceof CannotJudge ? $unbound->why() : '')->toStartWith('The daemon could not listen on missing/serve.sock: ')
-        ->and($unbound instanceof CannotJudge ? $unbound->why() : '')->not->toEndWith(': ')
+        ->and($unbound instanceof CannotJudge ? $unbound->why() : '')
+        ->toMatch('/^The daemon could not listen on missing\/serve\.sock: stream_socket_server\(\): \S/')
         ->and(umask($mask))->toBe(0o002)
         ->and($accepted)->toBe([])
         ->and($waited)->toBeLessThan(0.5)

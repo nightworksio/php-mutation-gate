@@ -10,6 +10,7 @@ use function chdir;
 use function chmod;
 
 use Closure;
+use Error;
 
 use function file_put_contents;
 use function getcwd;
@@ -24,8 +25,11 @@ use NightWorksIO\MutationGate\Adapter\Serve\ServeSocket;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
+use function pcntl_alarm;
+use function pcntl_async_signals;
 use function pcntl_exec;
 use function pcntl_fork;
+use function pcntl_signal;
 use function pcntl_waitpid;
 use function posix_geteuid;
 use function random_bytes;
@@ -119,6 +123,30 @@ final class ServedProjects
         }
 
         return $child;
+    }
+
+    /**
+     * What the run returns, where it returns within this many seconds; a
+     * failure otherwise, so that a run that never ends fails at once.
+     *
+     * @template T of object|array
+     *
+     * @param Closure(): T $run
+     *
+     * @return T
+     */
+    public static function within(int $seconds, Closure $run): object|array
+    {
+        pcntl_async_signals(enable: true);
+        pcntl_signal(SIGALRM, static fn(): never => throw new Error(sprintf('Still running after %ds.', $seconds)));
+        pcntl_alarm($seconds);
+
+        try {
+            return $run();
+        } finally {
+            pcntl_alarm(0);
+            pcntl_signal(SIGALRM, SIG_DFL);
+        }
     }
 
     /** Waits for a process started aside. */

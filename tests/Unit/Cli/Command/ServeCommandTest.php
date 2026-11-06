@@ -55,7 +55,10 @@ it('refuses to serve where this process cannot fork', function (): void {
 
 it('serves the project until it idles, leaving the starter\'s session where it is started detached', function (): void {
     $forking = new InlineForking();
-    [$code, $printed] = ServedCommands::serveWith('"local": {"serveIdle": "1s"}', $forking, ['--detached' => true]);
+    [$code, $printed] = ServedProjects::within(
+        2,
+        static fn(): array => ServedCommands::serveWith('"local": {"serveIdle": "1s"}', $forking, ['--detached' => true]),
+    );
 
     expect($code)->toBe(0)
         ->and($printed)->toEndWith("on .mutation-gate/serve.sock. It stops after 1s with no request, or on `serve --stop`.\n")

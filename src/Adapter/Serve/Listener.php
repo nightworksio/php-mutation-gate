@@ -64,9 +64,9 @@ final readonly class Listener
     public static function boundTo(string $path): self|CannotJudge
     {
         $mask = umask(FileMode::OTHERS);
-        $warned = '';
-        set_error_handler(static function (int $level, string $text) use (&$warned): bool {
-            $warned = $text;
+        $why = sprintf(self::UNBOUND, $path, '');
+        set_error_handler(static function (int $level, string $text) use (&$why): bool {
+            $why .= $text;
 
             return true;
         }, E_WARNING);
@@ -78,7 +78,7 @@ final readonly class Listener
             umask($mask);
         }
 
-        return is_resource($stream) ? new self($stream) : CannotJudge::because(sprintf(self::UNBOUND, $path, $warned));
+        return is_resource($stream) ? new self($stream) : CannotJudge::because($why);
     }
 
     /**
