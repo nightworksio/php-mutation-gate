@@ -10,7 +10,7 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 
 /**
  * What decides what a change reaches (ADR-0005): `packages`, `reach.everything`, `reach.lockPackages`,
- * `reach.changedTests`, `reach.fixtures`, `holds.hotPath`, `run.full`, `run.failFast`.
+ * `reach.changedTests`, `reach.fixtures`, `holds.hotPath`, `run.full`, `run.failFast`, `run.failFastWaits`.
  */
 final readonly class Reach implements Setting
 {
@@ -103,6 +103,15 @@ final readonly class Reach implements Setting
     public static function failFastCancelling(): self
     {
         return self::failingFast(FailFast::Cancel);
+    }
+
+    /**
+     * `run.failFastWaits`: why static analysis may leave a survivor unchecked that a pull request's shard waits on
+     * rather than counting as a doom, each an outcome its warnings name, `out-of-time` and `failed` by default.
+     */
+    public static function failFastWaitingOn(string ...$outcomes): self
+    {
+        return new self(Json::at('run.failFastWaits', Json::items(...$outcomes)));
     }
 
     public function written(): Json

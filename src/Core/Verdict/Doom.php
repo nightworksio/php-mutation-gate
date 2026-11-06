@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Verdict;
 
+use function array_values;
+
+use NightWorksIO\MutationGate\Core\Analysis\Unchecked;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
@@ -24,32 +27,50 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  * or the run's, is 100. A score of whole hundredths below 100 is all one
  * survivor leaves, so either floor fails. A survivor static analysis
  * proved equivalent is no survivor to the verdict, so it dooms nothing;
- * one static analysis killed is a survivor no more, and one whose static
- * check ran out of time or could not run dooms nothing yet, since a check
+ * one static analysis killed is a survivor no more, and one it left
+ * unchecked for a reason `run.failFastWaits` names, by default because the
+ * check ran out of time or could not run, dooms nothing yet, since a check
  * may still kill it (ADR-0103).
  *
  * @internal
  */
 final readonly class Doom
 {
+    /** @param list<Unchecked> $waits */
     private function __construct(
         private Trees $trees,
         private Baseline $baseline,
         private Reach $reach,
         private Floor $newCode,
         private Ignoring $ignoring,
+        private array $waits,
     ) {
     }
 
-    /** Judged over these trees, the committed baseline, the lines the change reached and the run's new-code floor. */
+    /**
+     * Judged over these trees, the committed baseline, the lines the change
+     * reached and the run's new-code floor, waiting on the survivors left
+     * unchecked for these reasons.
+     */
     public static function over(
         Trees $trees,
         Baseline $baseline,
         Reach $reach,
         Floor $newCode,
         Ignoring $ignoring,
+        Unchecked ...$waits,
     ): self {
-        return new self($trees, $baseline, $reach, $newCode, $ignoring);
+        return new self($trees, $baseline, $reach, $newCode, $ignoring, array_values($waits));
+    }
+
+    /**
+     * Why static analysis may leave a survivor unchecked that the run waits on rather than counting as a doom.
+     *
+     * @return list<Unchecked>
+     */
+    public function waits(): array
+    {
+        return $this->waits;
     }
 
     /**

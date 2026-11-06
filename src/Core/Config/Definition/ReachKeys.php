@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
+use NightWorksIO\MutationGate\Core\Analysis\Unchecked;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\ChangedTests;
 use NightWorksIO\MutationGate\Core\Config\Effect;
@@ -47,6 +48,11 @@ final readonly class ReachKeys
         $hotPath = Field::optional('hotPath', Number::between(0, 1), $judges);
         $full = Field::optional('full', Flag::boolean(), Effect::DecidesHowTheGateRuns);
         $failFast = Field::optional('failFast', Enumerated::of(FailFast::cases()), $judges);
+        $waits = Field::optional(
+            'failFastWaits',
+            Items::distinct(Enumerated::of(Unchecked::cases()), static fn(Unchecked $why): string => $why->value),
+            $judges,
+        );
 
         return [
             Field::optional(
@@ -100,20 +106,25 @@ final readonly class ReachKeys
             Field::section(
                 'run',
                 Section::of(
-                    static function (Node $run) use ($full, $failFast): Layer|Invalid {
+                    static function (Node $run) use ($full, $failFast, $waits): Layer|Invalid {
                         $considered = $full->read($run);
                         $stopping = $failFast->read($run);
+                        $waiting = $waits->read($run);
 
                         return Reading::built(
-                            static fn(): Layer => Layer::of(
-                                Reach::of(full: $considered->value(), failFast: $stopping->value()),
-                            ),
+                            static fn(): Layer => Layer::of(Reach::of(
+                                full: $considered->value(),
+                                failFast: $stopping->value(),
+                                failFastWaits: $waiting->value(),
+                            )),
                             $considered,
                             $stopping,
+                            $waiting,
                         );
                     },
                     $full,
                     $failFast,
+                    $waits,
                 ),
             ),
         ];

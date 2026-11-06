@@ -112,7 +112,7 @@ it('reads a doomed shard\'s survivor where the shard\'s result writes it, and fa
 
 it('takes a config that names no run.failFast to mark, as the gate does', function (): void {
     expect(scriptText('MARK'))->toBe(FailFast::Mark->value)
-        ->and(Reach::none()->failFast())->toBe(FailFast::Mark);
+        ->and(Reach::none()->failingFast()->mode())->toBe(FailFast::Mark);
 });
 
 it('names the package as Composer does', function (): void {

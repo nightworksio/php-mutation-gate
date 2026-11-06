@@ -31,9 +31,12 @@ the end.
    merge group's run whose verdict holds its trees watches for one; a run of
    the security mutators or one suite alone, a run on a branch, a tag or a
    schedule, and a run whose trees or baseline cannot be read never do. A
-   survivor whose static check ran out of time or could not run dooms
-   nothing, since a check may yet kill it; it counts only once a check
-   settles it.
+   survivor static analysis left unchecked for a reason `run.failFastWaits`
+   names dooms nothing, since a check may yet kill it; it counts only once
+   a check settles it. The list takes any reason static analysis leaves a
+   survivor unchecked for (ADR-0020), and by default holds `out-of-time` and
+   `failed`, where the check ran out of time or could not run; `[]` lets
+   every unchecked survivor doom the run.
 
 3. **`cancel` uses the CI's own matrix, never a token.** In the reusable
    workflow the plan job outputs the resolved `run.failFast`, and the shard

@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Config;
 
 use function array_map;
 
+use NightWorksIO\MutationGate\Core\Analysis\Unchecked;
 use NightWorksIO\MutationGate\Core\Composer\DecidingPackages;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\Format\Json;
@@ -24,6 +25,8 @@ use function sprintf;
  * `holds.hotPath`, whether a run given no mode considers every unit,
  * `run.full`, rather than what changed since its last passing commit,
  * what a pull request's shard does once it cannot pass, `run.failFast`,
+ * which survivors static analysis left unchecked it waits on rather than
+ * counting, `run.failFastWaits`,
  * which mutators a reached unit whose content is unchanged leaves out,
  * `pruning`, and how a sampled run sizes and draws its sample, `sampling`.
  */
@@ -43,7 +46,7 @@ final readonly class Reach implements Part
         private Pruning $pruning,
         private Listed|Absent $lockPackages,
         private Sampling $sampling,
-        private FailFast|Absent $failFast,
+        private FailingFast $failingFast,
         private ChangedTests|Absent $changedTests,
         private Listed|Absent $fixtures,
     ) {
@@ -54,6 +57,7 @@ final readonly class Reach implements Part
      * @param Listed<Glob>|Absent   $everything
      * @param Listed<string>|Absent $lockPackages
      * @param Listed<Glob>|Absent   $fixtures
+     * @param Listed<Unchecked>|Absent $failFastWaits
      */
     public static function of(
         Listed|Absent $packages = new Absent(),
@@ -66,8 +70,10 @@ final readonly class Reach implements Part
         FailFast|Absent $failFast = new Absent(),
         ChangedTests|Absent $changedTests = new Absent(),
         Listed|Absent $fixtures = new Absent(),
+        Listed|Absent $failFastWaits = new Absent(),
     ): self {
         $set = $pruning instanceof Pruning ? $pruning : Pruning::of();
+        $failing = FailingFast::of($failFast, $failFastWaits);
         $drawn = $sampling instanceof Sampling ? $sampling : Sampling::of();
 
         return new self(
@@ -78,7 +84,7 @@ final readonly class Reach implements Part
             $set,
             $lockPackages,
             $drawn,
-            $failFast,
+            $failing,
             $changedTests,
             $fixtures,
         );
@@ -109,9 +115,10 @@ final readonly class Reach implements Part
                 auto: $sampling->auto(),
                 autoRuns: $sampling->autoRuns(),
             ),
-            failFast: $none->failFast(),
+            failFast: $none->failingFast()->mode(),
             changedTests: $none->changedTests(),
             fixtures: $none->fixtures(),
+            failFastWaits: Listed::of(...$none->failingFast()->waits()),
         );
     }
 
@@ -126,7 +133,7 @@ final readonly class Reach implements Part
                 $this->pruning->over($later->pruning),
                 $this->joinedNames($this->lockPackages, $later->lockPackages),
                 $this->sampling->over($later->sampling),
-                Absent::laid($this->failFast, $later->failFast),
+                $this->failingFast->over($later->failingFast),
                 Absent::laid($this->changedTests, $later->changedTests),
                 $this->joined($this->fixtures, $later->fixtures),
             )
@@ -187,13 +194,10 @@ final readonly class Reach implements Part
         return $this->full === true;
     }
 
-    /**
-     * What a pull request's shard does once one of its confirmed survivors leaves it no way to pass: by default it
-     * judges every unit and then fails (ADR-0008, ADR-0103).
-     */
-    public function failFast(): FailFast
+    /** `run.failFast` and `run.failFastWaits`: what a pull request's shard does once it cannot pass (ADR-0103). */
+    public function failingFast(): FailingFast
     {
-        return $this->failFast instanceof FailFast ? $this->failFast : FailFast::Mark;
+        return $this->failingFast;
     }
 
     /** `pruning`: which mutators a reached unit whose content is unchanged leaves out (ADR-0025). */
@@ -249,10 +253,7 @@ final readonly class Reach implements Part
                 'run',
                 Json::object(
                     Member::of('full', $this->full),
-                    Member::of(
-                        'failFast',
-                        $this->failFast instanceof FailFast ? $this->failFast->value : $this->failFast,
-                    ),
+                    ...$this->failingFast->written(),
                 ),
             ),
             $this->pruning->written(),
@@ -288,7 +289,6 @@ final readonly class Reach implements Part
             default => [],
         };
 
-        $stopping = $this->failFast instanceof FailFast ? [$this->failFast->php()] : [];
 
         $calls = PhpCalls::inWith(
             ...$packages,
@@ -298,7 +298,7 @@ final readonly class Reach implements Part
             ...$fixtures,
             ...$hotPath,
             ...$full,
-            ...$stopping,
+            ...$this->failingFast->php(),
         );
 
         return $calls->and($this->pruning->php())->and($this->sampling->php());

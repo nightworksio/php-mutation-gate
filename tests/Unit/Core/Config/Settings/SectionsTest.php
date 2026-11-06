@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Config\Reach as ReachSetting;
+use NightWorksIO\MutationGate\Core\Analysis\Unchecked;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\ChangedTests;
 use NightWorksIO\MutationGate\Core\Config\FailFast;
@@ -366,7 +367,7 @@ describe('Settings sections', function (): void {
     it('reads what a pull request\'s shard does once it cannot pass, marking it by default, and writes it into a config written as PHP', function (array $config, FailFast $failFast, string $call): void {
         $php = Configs::valid(['runner' => 'pest', ...$config])->php(ProjectRoot::origin())->code();
 
-        expect(Configs::settings(['runner' => 'pest', ...$config])->reach()->failFast())->toBe($failFast)
+        expect(Configs::settings(['runner' => 'pest', ...$config])->reach()->failingFast()->mode())->toBe($failFast)
             ->and($call === '' ? ! str_contains($php, 'Reach::failFast') : str_contains($php, $call))->toBeTrue();
     })->with([
         'left out' => [[], FailFast::Mark, ''],
@@ -381,6 +382,32 @@ describe('Settings sections', function (): void {
             ->and(ReachSetting::failFastMarking()->written())->toEqual(Json::at('run.failFast', 'mark'))
             ->and(ReachSetting::failFastStopping()->written())->toEqual(Json::at('run.failFast', 'stop'))
             ->and(ReachSetting::failFastCancelling()->written())->toEqual(Json::at('run.failFast', 'cancel'));
+    });
+
+    it('waits on the survivors a check ran out of time for or could not run by default, on those run.failFastWaits names, and writes them', function (array $run, array $waits, string $call): void {
+        $config = ['runner' => 'pest', 'run' => $run];
+        $php = Configs::valid($config)->php(ProjectRoot::origin())->code();
+
+        expect(Configs::settings($config)->reach()->failingFast()->waits())->toBe($waits)
+            ->and($call === '' ? ! str_contains($php, 'Reach::failFastWaitingOn') : str_contains($php, $call))->toBeTrue();
+    })->with([
+        'left out' => [[], [Unchecked::OutOfTime, Unchecked::Failed], ''],
+        'none' => [['failFastWaits' => []], [], 'Reach::failFastWaitingOn()'],
+        'any reason' => [['failFastWaits' => ['out-of-scope', 'out-of-time']], [Unchecked::OutOfScope, Unchecked::OutOfTime], "Reach::failFastWaitingOn('out-of-scope', 'out-of-time')"],
+    ]);
+
+    it('refuses run.failFastWaits naming what no check leaves', function (array $waits, string $at): void {
+        $problems = Configs::problems(Configs::validated(['runner' => 'pest', 'run' => ['failFastWaits' => $waits]]));
+
+        expect($problems)->toHaveCount(1)
+            ->and(str_starts_with($problems[0], $at))->toBeTrue();
+    })->with([
+        'no such outcome' => [['soon'], 'run.failFastWaits[0]: expected "unidentified", "no-warm-up"'],
+        'one of several' => [['failed', 'later'], 'run.failFastWaits[1]: expected'],
+    ]);
+
+    it('writes run.failFastWaits from the PHP config\'s builder as the JSON a file writes', function (): void {
+        expect(ReachSetting::failFastWaitingOn('failed')->written())->toEqual(Json::at('run.failFastWaits', Json::items('failed')));
     });
 
     it('marks and stops a doomed shard as each mode says', function (): void {

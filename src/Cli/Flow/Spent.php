@@ -97,12 +97,17 @@ final readonly class Spent
     /**
      * What was spent, with the first survivor of this batch that makes the run certain to fail, where none did
      * before, found this far into the shard's mutating, the shard stopping there or judging on (ADR-0008,
-     * ADR-0103). Those flaky or proven equivalent never do, nor those a static check that never ran may yet kill.
+     * ADR-0103). Those flaky or proven equivalent never do, nor those left unchecked for a reason it waits on.
      */
     public function watched(Doom|Undoomed $doom, Units $batch, Invoked $invoked, Seconds $after, bool $stops): self
     {
         $doomed = $doom instanceof Doom && ! $this->doomed instanceof Doomed
-            ? $doom->first($batch, $invoked->result->mutants(), $invoked->flaky, $invoked->passedOver())
+            ? $doom->first(
+                $batch,
+                $invoked->result->mutants(),
+                $invoked->flaky,
+                $invoked->passedOver(...$doom->waits()),
+            )
             : Undoomed::run();
 
         return $doomed instanceof Doomed ? $this->doomedBy($doomed->found($after, $stops)) : $this;

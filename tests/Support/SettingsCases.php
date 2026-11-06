@@ -49,7 +49,11 @@ final readonly class SettingsCases
         },
         "run": {
             "full": false,
-            "failFast": "mark"
+            "failFast": "mark",
+            "failFastWaits": [
+                "out-of-time",
+                "failed"
+            ]
         },
         "pruning": {
             "enabled": true,
