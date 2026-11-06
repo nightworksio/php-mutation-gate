@@ -24,7 +24,9 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  * or the run's, is 100. A score of whole hundredths below 100 is all one
  * survivor leaves, so either floor fails. A survivor static analysis
  * proved equivalent is no survivor to the verdict, so it dooms nothing;
- * one static analysis killed is a survivor no more.
+ * one static analysis killed is a survivor no more, and one whose static
+ * check ran out of time or could not run dooms nothing yet, since a check
+ * may still kill it (ADR-0103).
  *
  * @internal
  */
@@ -52,13 +54,14 @@ final readonly class Doom
 
     /**
      * The first of these mutants of these units that makes the run certain
-     * to fail, in order; or none. Those flaky or proven equivalent never do.
+     * to fail, in order; or none. Those flaky, and those passed over, proven
+     * equivalent or whose static check never ran, never do.
      */
-    public function first(Units $units, Mutants $mutants, MutantIds $flaky, MutantIds $equivalent): Doomed|Undoomed
+    public function first(Units $units, Mutants $mutants, MutantIds $flaky, MutantIds $passedOver): Doomed|Undoomed
     {
         foreach ($mutants as $mutant) {
             $unit = $this->unitOf($units, $mutant);
-            $doomed = $unit instanceof Unit && $this->counts($mutant, $flaky) && ! $equivalent->has($mutant->id())
+            $doomed = $unit instanceof Unit && $this->counts($mutant, $flaky) && ! $passedOver->has($mutant->id())
                 ? $this->doomedIn($unit, $mutant)
                 : Undoomed::run();
 

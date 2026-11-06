@@ -30,7 +30,10 @@ the end.
 2. **What dooms a run is what ADR-0008 says.** Only a pull request's or a
    merge group's run whose verdict holds its trees watches for one; a run of
    the security mutators or one suite alone, a run on a branch, a tag or a
-   schedule, and a run whose trees or baseline cannot be read never do.
+   schedule, and a run whose trees or baseline cannot be read never do. A
+   survivor whose static check ran out of time or could not run dooms
+   nothing, since a check may yet kill it; it counts only once a check
+   settles it.
 
 3. **`cancel` uses the CI's own matrix, never a token.** In the reusable
    workflow the plan job outputs the resolved `run.failFast`, and the shard

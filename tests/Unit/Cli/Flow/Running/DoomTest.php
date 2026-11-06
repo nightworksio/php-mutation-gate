@@ -461,3 +461,31 @@ it('runs a pull request\'s shard on past each survivor static analysis kills, ch
         ->and(array_map(static fn(array $check): string => $check[0], $checker->asked()))->toBe(['src/Money.php', 'src/Held.php'])
         ->and($checker->warmUps())->toHaveCount(1);
 });
+
+it('runs a pull request\'s shard on past a survivor whose static check could not run, which a check may yet kill', function () use (
+    $makeDoomable,
+    $makeResultIn,
+    $makeUnjudged,
+    $makeOnPullRequest,
+    $makeFloored,
+    $makeAsked,
+    $makeDoomOf,
+): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture();
+    $answers = [];
+
+    foreach (['src/Money.php', 'src/Held.php'] as $file) {
+        $answers[Workspace::checkedMutant(Dooms::survivor($file)->id())->value()] = CannotJudge::because('The analyser crashed.');
+    }
+
+    $checker = new RecordingChecker(new StaticCheckerFake(AnalyserIdentity::of('fake', '1.0.0', Digest::sha256Of('')), Findings::none(), $answers), $project);
+
+    new Running(Flows::adapters($project, [], $runner, $makeFloored()(Floor::whole()), $checker), $makeDoomable()(), Flows::setup())
+        ->run(Planned::handedIn($project, $makeOnPullRequest()(Planned::oneShard())), ShardId::of(1), Workspace::results());
+    $result = $makeResultIn()($project, 1);
+
+    expect($makeAsked()($runner))->toBe([['src/Money.php'], ['src/Held.php']])
+        ->and($makeUnjudged()($result))->toBe([])
+        ->and($makeDoomOf()($result))->toBe('undoomed');
+});
