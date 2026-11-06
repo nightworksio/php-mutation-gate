@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Alert;
 
 use NightWorksIO\MutationGate\Core\Alert\Alert;
+use NightWorksIO\MutationGate\Core\Alert\AlertShape;
 use NightWorksIO\MutationGate\Core\Alert\DiscordMessage;
 use NightWorksIO\MutationGate\Core\Alert\SlackMessage;
 use NightWorksIO\MutationGate\Core\Alert\WebhookPayload;
@@ -71,11 +72,11 @@ enum Channel
         };
     }
 
-    public function message(Alert $alert, CiRun $run): string
+    public function message(Alert $alert, CiRun $run, AlertShape $shape): string
     {
         return match ($this) {
-            self::Slack => SlackMessage::json($alert, $run),
-            self::Discord => DiscordMessage::json($alert, $run),
+            self::Slack => SlackMessage::json($alert, $run, $shape),
+            self::Discord => DiscordMessage::json($alert, $run, $shape),
             self::Webhook => WebhookPayload::json($alert, $run),
         };
     }

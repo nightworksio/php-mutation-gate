@@ -408,8 +408,10 @@ services:
                     - FORMAT # the json report's version, not an exit code or an argument's place
                 'NightWorksIO\MutationGate\Core\Report\Commented':
                     - MOST # entries a list of the pull request comment shows, not commits a range proves
-                'NightWorksIO\MutationGate\Core\Report\Page\Files':
-                    - SHOWN # files the HTML report's overview lists, not a seed's first byte
+                'NightWorksIO\MutationGate\Core\Report\Page\PageShows':
+                    - STANDARD_FILES # files the HTML report's overview lists, not a seed's first byte
+                    - FILES # the html reporter's option, not a record's or a manifest's files
+                    - SURVIVORS # the html reporter's option, not a comment section or a chat's option
                 'NightWorksIO\MutationGate\Core\Report\Page\Survivors':
                     - SHOWN # survivors the HTML report's overview lists, not a dependent's cap
                 'NightWorksIO\MutationGate\Core\Report\Page\Origin':
@@ -468,16 +470,18 @@ services:
                 'NightWorksIO\MutationGate\Adapter\Bitbucket\InsightAnnotation':
                     - SUMMARY # characters of a summary
                     - DETAILS # characters of the details
-                'NightWorksIO\MutationGate\Adapter\Alert\Delivery':
-                    - TIMEOUT # seconds a post may take
-                    - LONGEST_WAIT # seconds a Retry-After is waited
+                'NightWorksIO\MutationGate\Core\Alert\PostLimits':
+                    - STANDARD_TIMEOUT # seconds a post may take, not a daemon's start-up wait
+                    - STANDARD_LONGEST_WAIT # seconds a Retry-After is waited, not a probe's limit
+                    - TIMEOUT # a chat reporter's option, not a mutant's outcome
                 'NightWorksIO\MutationGate\Core\Http\Reply':
                     - FORBIDDEN # an HTTP status
                     - SERVER # an HTTP status
                     - REDIRECT # an HTTP status
                     - ANSWER # characters of an answer repeated
-                'NightWorksIO\MutationGate\Core\Alert\AlertLines':
-                    - SURVIVORS # survivors an alert names
+                'NightWorksIO\MutationGate\Core\Alert\AlertShape':
+                    - STANDARD_SURVIVORS # survivors an alert names, not a ranking's top
+                    - SURVIVORS # a chat reporter's option, not a comment section or the html reporter's option
                 'NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks':
                     - MANY # the plural a sentence counts, not the delivery's stage
                 'NightWorksIO\MutationGate\Core\Alert\DiscordMessage':

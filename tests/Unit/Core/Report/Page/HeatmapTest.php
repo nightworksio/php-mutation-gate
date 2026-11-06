@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Heat\Heatmap;
 use NightWorksIO\MutationGate\Core\Report\JsonReport;
 use NightWorksIO\MutationGate\Core\Report\Page\Heatmap as HeatmapCard;
+use NightWorksIO\MutationGate\Core\Report\Page\PageShows;
 use NightWorksIO\MutationGate\Core\Report\Page\ReportPage;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Tests\Support\Heatmaps;
@@ -37,5 +38,5 @@ it('shows no change where the base has no score, says a file with nothing to mut
 
     expect(HeatmapCard::html($report($unscored)))->toContain('<tr><td><code>src/Cart.php</code></td><td>nothing to mutate</td><td></td><td>0</td></tr>')
         ->and(HeatmapCard::html($report(Heatmap::none())))->toBe('')
-        ->and(ReportPage::html($report(Heatmaps::fallen()), '', ''))->toContain('id="heatmap-title"');
+        ->and(ReportPage::html($report(Heatmaps::fallen()), '', '', PageShows::standard()))->toContain('id="heatmap-title"');
 });

@@ -14,6 +14,7 @@ use function is_numeric;
 use function max;
 use function min;
 
+use NightWorksIO\MutationGate\Core\Alert\PostLimits;
 use NightWorksIO\MutationGate\Core\Http\Reply;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Written;
@@ -34,12 +35,6 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  */
 final readonly class Delivery
 {
-    /** The longest one request may take, in seconds. */
-    private const float TIMEOUT = 10.0;
-
-    /** The longest a `Retry-After` is waited for, in seconds. */
-    private const int LONGEST_WAIT = 30;
-
     /** How HTTP writes a date, as `Wed, 30 Sep 2026 12:00:30 GMT`. */
     private const string HTTP_DATE = 'D, d M Y H:i:s \G\M\T';
 
@@ -48,19 +43,26 @@ final readonly class Delivery
         private HttpClientInterface $client,
         private ClockInterface $clock,
         private Closure $wait,
+        private PostLimits $limits,
     ) {
     }
 
     /** @param Closure(int): void $wait waits this many seconds */
     public static function over(HttpClientInterface $client, ClockInterface $clock, Closure $wait): self
     {
-        return new self($client, $clock, $wait);
+        return new self($client, $clock, $wait, PostLimits::standard());
     }
 
     /** Over the network, waiting in real time. */
     public static function online(ClockInterface $clock): self
     {
-        return new self(HttpClient::create(), $clock, Pause::for(...));
+        return self::over(HttpClient::create(), $clock, Pause::for(...));
+    }
+
+    /** This delivery, each request and each wait held to these limits. */
+    public function within(PostLimits $limits): self
+    {
+        return new self($this->client, $this->clock, $this->wait, $limits);
     }
 
     /**
@@ -91,7 +93,7 @@ final readonly class Delivery
             $response = $this->client->request('POST', $url, [
                 'body' => $body,
                 'headers' => $headers,
-                'max_duration' => self::TIMEOUT,
+                'max_duration' => $this->limits->timeout()->seconds(),
                 'max_redirects' => 0,
             ]);
             $answered = $response->getHeaders(throw: false);
@@ -106,7 +108,7 @@ final readonly class Delivery
         }
     }
 
-    /** The seconds a reply asks to be waited, as a number or a date, never more than 30. */
+    /** The seconds a reply asks to be waited, as a number or a date, never more than the longest wait. */
     private function waitFor(Reply $reply): int
     {
         $after = $reply->retryAfter();
@@ -116,6 +118,6 @@ final readonly class Delivery
             ? (int) $after
             : ($date instanceof DateTimeImmutable ? $date : $now)->getTimestamp() - $now->getTimestamp();
 
-        return min(max(0, $seconds), self::LONGEST_WAIT);
+        return min(max(0, $seconds), (int) $this->limits->longestWait()->seconds());
     }
 }

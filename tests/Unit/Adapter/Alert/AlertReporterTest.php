@@ -7,7 +7,9 @@ use NightWorksIO\MutationGate\Adapter\Alert\Channel;
 use NightWorksIO\MutationGate\Adapter\Alert\Delivery;
 use NightWorksIO\MutationGate\Adapter\Alert\Pause;
 use NightWorksIO\MutationGate\Core\Alert\Alerts;
+use NightWorksIO\MutationGate\Core\Alert\AlertShape;
 use NightWorksIO\MutationGate\Core\Alert\DiscordMessage;
+use NightWorksIO\MutationGate\Core\Alert\PostLimits;
 use NightWorksIO\MutationGate\Core\Alert\SlackMessage;
 use NightWorksIO\MutationGate\Core\Alert\WebhookPayload;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
@@ -21,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Delivery\Delivery as Deferred;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
@@ -76,8 +79,8 @@ it('posts each alert to the URL its variable holds, as the channel writes it', f
 
     expect($sent)->toEqual(Written::to('Slack'))
         ->and($first->getRequestUrl())->toBe('https://hooks.example/slack')
-        ->and($first->getRequestOptions()['body'])->toBe(SlackMessage::json($alerts[0], Previous::ci()))
-        ->and($second->getRequestOptions()['body'])->toBe(SlackMessage::json($alerts[1], Previous::ci()))
+        ->and($first->getRequestOptions()['body'])->toBe(SlackMessage::json($alerts[0], Previous::ci(), AlertShape::standard()))
+        ->and($second->getRequestOptions()['body'])->toBe(SlackMessage::json($alerts[1], Previous::ci(), AlertShape::standard()))
         ->and(headersOf($first))->toContain('Content-Type: application/json')
         ->and(headersOf($first))->not->toContain('X-Mutation-Gate-Signature');
 });
@@ -188,14 +191,14 @@ it('leaves each alert it would send for deliver, with no URL set, and none where
     $deferred = static fn(Verdict $judged): Deferred|string => $reporter instanceof AlertReporter ? $reporter->deferred($judged, Deferred::none()) : 'invalid';
 
     expect($deferred($verdict))->toEqual(Deferred::none()
-        ->withAlert(AlertPost::of(BuiltinReporter::Discord, DiscordMessage::json($alerts[0], Previous::ci())))
-        ->withAlert(AlertPost::of(BuiltinReporter::Discord, DiscordMessage::json($alerts[1], Previous::ci()))))
+        ->withAlert(AlertPost::of(BuiltinReporter::Discord, DiscordMessage::json($alerts[0], Previous::ci(), AlertShape::standard())))
+        ->withAlert(AlertPost::of(BuiltinReporter::Discord, DiscordMessage::json($alerts[1], Previous::ci(), AlertShape::standard()))))
         ->and($deferred(Verdicts::passing()->withAccount(Previous::run('passed'))))->toEqual(Deferred::none())
         ->and($outsideCi instanceof AlertReporter ? $outsideCi->deferred($verdict, Deferred::none()) : 'invalid')->toEqual(Deferred::none())
         ->and($reporter instanceof AlertReporter ? $reporter->deferred($verdict, Deferred::none()->withComment('kept', CommentWrite::sticky())) : 'invalid')
         ->toEqual(Deferred::none()->withComment('kept', CommentWrite::sticky())
-            ->withAlert(AlertPost::of(BuiltinReporter::Discord, DiscordMessage::json($alerts[0], Previous::ci())))
-            ->withAlert(AlertPost::of(BuiltinReporter::Discord, DiscordMessage::json($alerts[1], Previous::ci()))));
+            ->withAlert(AlertPost::of(BuiltinReporter::Discord, DiscordMessage::json($alerts[0], Previous::ci(), AlertShape::standard())))
+            ->withAlert(AlertPost::of(BuiltinReporter::Discord, DiscordMessage::json($alerts[1], Previous::ci(), AlertShape::standard()))));
 });
 
 it('names the reporter that sends each channel\'s alerts', function (): void {
@@ -203,4 +206,16 @@ it('names the reporter that sends each channel\'s alerts', function (): void {
         ->toBe([BuiltinReporter::Slack, BuiltinReporter::Discord, BuiltinReporter::Webhook])
         ->and(array_map(static fn(Channel $channel): Channel|NotGiven => Channel::of($channel->reporter()), Channel::cases()))
         ->toBe(Channel::cases());
+});
+
+it('reads how much an alert says and how long it waits on its post from its options', function (): void {
+    $delivery = Delivery::over(new MockHttpClient([]), new StoppedClock('2026-09-30T12:00:00Z'), Pause::for(...));
+    $clock = new StoppedClock('2026-09-30T12:00:00Z');
+    $options = '{"survivors": 2, "lineLength": 40, "timeout": "3s", "longestWait": "1m"}';
+
+    expect(AlertReporter::inEnvironment(Channel::Slack, Configs::options($options), Variables::of([]), $delivery, $clock))
+        ->toEqual(AlertReporter::to(Channel::Slack, Variables::of([]), $delivery, $clock, 'MUTATION_GATE_SLACK_URL', 'MUTATION_GATE_WEBHOOK_SECRET')
+            ->shaped(AlertShape::of(2, 40), PostLimits::of(Seconds::of(3.0), Seconds::of(60.0))))
+        ->and(AlertReporter::inEnvironment(Channel::Slack, Configs::options('{}'), Variables::of([]), $delivery, $clock))
+        ->toEqual(AlertReporter::to(Channel::Slack, Variables::of([]), $delivery, $clock, 'MUTATION_GATE_SLACK_URL', 'MUTATION_GATE_WEBHOOK_SECRET'));
 });

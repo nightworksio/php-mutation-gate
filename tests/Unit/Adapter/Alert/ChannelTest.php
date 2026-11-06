@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Alert\Channel;
 use NightWorksIO\MutationGate\Core\Alert\Alert;
 use NightWorksIO\MutationGate\Core\Alert\AlertEvent;
+use NightWorksIO\MutationGate\Core\Alert\AlertShape;
 use NightWorksIO\MutationGate\Core\Alert\DiscordMessage;
 use NightWorksIO\MutationGate\Core\Alert\SlackMessage;
 use NightWorksIO\MutationGate\Core\Alert\WebhookPayload;
@@ -20,9 +21,9 @@ it('reads each URL from its own variable, and writes each message its own way', 
         ->toBe(['MUTATION_GATE_SLACK_URL', 'MUTATION_GATE_DISCORD_URL', 'MUTATION_GATE_WEBHOOK_URL'])
         ->and(array_map(static fn(Channel $channel): string => $channel->said(), Channel::cases()))
         ->toBe(['Slack', 'Discord', 'the webhook'])
-        ->and(Channel::Slack->message($alert, Previous::ci()))->toBe(SlackMessage::json($alert, Previous::ci()))
-        ->and(Channel::Discord->message($alert, Previous::ci()))->toBe(DiscordMessage::json($alert, Previous::ci()))
-        ->and(Channel::Webhook->message($alert, Previous::ci()))->toBe(WebhookPayload::json($alert, Previous::ci()));
+        ->and(Channel::Slack->message($alert, Previous::ci(), AlertShape::standard()))->toBe(SlackMessage::json($alert, Previous::ci(), AlertShape::standard()))
+        ->and(Channel::Discord->message($alert, Previous::ci(), AlertShape::standard()))->toBe(DiscordMessage::json($alert, Previous::ci(), AlertShape::standard()))
+        ->and(Channel::Webhook->message($alert, Previous::ci(), AlertShape::standard()))->toBe(WebhookPayload::json($alert, Previous::ci()));
 });
 
 it('is the channel of each built-in reporter that sends alerts, and of no other', function (): void {

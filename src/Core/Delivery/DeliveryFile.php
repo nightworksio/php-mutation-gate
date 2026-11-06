@@ -12,6 +12,7 @@ use function array_values;
 use function count;
 
 use NightWorksIO\MutationGate\Core\Alert\AlertEvent;
+use NightWorksIO\MutationGate\Core\Alert\PostLimits;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Comment\Mode;
 use NightWorksIO\MutationGate\Core\Config\Absent;
@@ -90,6 +91,7 @@ final readonly class DeliveryFile
             static fn(AlertPost $alert): Json => Json::object(
                 Member::of('channel', $alert->channel()->value),
                 Member::of('body', $alert->body()),
+                ...$alert->limits()->recording(),
             ),
             $delivery->alerts(),
         );
@@ -254,7 +256,7 @@ final readonly class DeliveryFile
      */
     private static function alertIn(Node $alert, Delivery $before): AlertPost
     {
-        self::onlyKeys($alert, 'channel', 'body');
+        self::onlyKeys($alert, 'channel', 'body', PostLimits::TIMEOUT, PostLimits::LONGEST_WAIT);
         $channel = BuiltinReporter::tryFrom($alert->field('channel')->text());
 
         if (! $channel instanceof BuiltinReporter || ! $channel->alerts()) {
@@ -262,7 +264,7 @@ final readonly class DeliveryFile
         }
 
         return self::sentTo($channel, $before) < count(AlertEvent::cases())
-            ? AlertPost::of($channel, $alert->field('body')->text())
+            ? AlertPost::of($channel, $alert->field('body')->text())->within(PostLimits::recorded($alert))
             : throw NotInShape::at($alert->at(), self::TOO_MANY);
     }
 

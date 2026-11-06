@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Adapter\Otlp\OtelEnvironment;
 use NightWorksIO\MutationGate\Adapter\Otlp\OtlpReporter;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\SystemClock;
+use NightWorksIO\MutationGate\Core\Alert\AlertShape;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\CommentSettings;
@@ -321,7 +322,7 @@ final readonly class Sending
                 $this->clock,
                 $channel->urlEnv(),
                 GateSecret::WebhookSecret->value,
-            )->posted($alert->body())
+            )->shaped(AlertShape::standard(), $alert->limits())->posted($alert->body())
             : NotWritten::because(sprintf('%s sends no alert.', $alert->channel()->value));
     }
 
