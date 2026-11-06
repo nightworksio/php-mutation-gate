@@ -2252,6 +2252,13 @@
                 "before": {
                     "type": "boolean",
                     "default": true
+                },
+                "testsTime": {
+                    "enum": [
+                        "learned",
+                        "covering"
+                    ],
+                    "default": "learned"
                 }
             },
             "additionalProperties": false
@@ -4613,6 +4620,12 @@
                         },
                         "before": {
                             "type": "boolean"
+                        },
+                        "testsTime": {
+                            "enum": [
+                                "learned",
+                                "covering"
+                            ]
                         }
                     },
                     "additionalProperties": false

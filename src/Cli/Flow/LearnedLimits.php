@@ -9,9 +9,11 @@ use function min;
 use NightWorksIO\MutationGate\Core\Config\LearnedStatistic;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\Shards;
+use NightWorksIO\MutationGate\Core\Config\TestsTime;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
+use NightWorksIO\MutationGate\Core\Plan\KillsLearned;
 use NightWorksIO\MutationGate\Core\Proof\LimitHistory;
 use NightWorksIO\MutationGate\Core\Runner\Multiple;
 use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
@@ -26,7 +28,9 @@ use function sprintf;
  * allows; `shards.max` from the runs of the default branch's ledger alone,
  * between one and the standard most; and the lines that say what each is and
  * why, `timeouts.seconds` among them, which each shard learns from the
- * start-up it measures.
+ * start-up it measures; and, where `staticCheck.testsTime` is learned and
+ * checks run before the tests, the median pace of those kills, which each
+ * shard weighs a check before a mutant's tests by (ADR-0077).
  *
  * @internal
  */
@@ -44,6 +48,12 @@ final readonly class LearnedLimits
     private const string FLOOR
         = 'timeouts.seconds learned: %d times each shard\'s start-up, at least 1 s; %d s where none is measured.';
 
+    private const string PACE
+        = 'staticCheck.testsTime learned: %s times their tests\' own time, the median of %d kills.';
+
+    private const string PACE_COLD
+        = 'staticCheck.testsTime learned: their tests\' own time: the ledger holds no kill yet.';
+
     private const string MOST_AT_ONCE = 'the most shards';
 
     private const string MEDIAN_AT_ONCE = 'the median of the shards';
@@ -52,6 +62,7 @@ final readonly class LearnedLimits
     private function __construct(
         private Multiple|NotGiven $multiple,
         private int|NotGiven $shards,
+        private Multiple|NotGiven $pace,
         private array $lines,
     ) {
     }
@@ -65,20 +76,26 @@ final readonly class LearnedLimits
         $multiple = $bounds->learnsMultiple() ? self::multipleOf($kills) : NotGiven::value();
         $shards = $statistic instanceof LearnedStatistic ? self::shardsOf($runs, $statistic) : NotGiven::value();
         $floor = $settings->triage()->limit()->seconds();
+        $pacing = $settings->staticCheck()->before() && $settings->staticCheck()->testsTime() === TestsTime::Learned;
+        $pace = $pacing ? $kills->pace() : NotGiven::value();
 
-        return new self($multiple, $shards, [
+        return new self($multiple, $shards, $pace, [
             ...$bounds->learnsFloor()
                 ? [sprintf(self::FLOOR, MutantLimit::FACTOR, $floor)]
                 : [],
             ...$bounds->learnsMultiple() ? [self::multipleSaid($kills)] : [],
             ...$statistic instanceof LearnedStatistic ? [self::shardsSaid($runs, $statistic)] : [],
+            ...$pacing ? [self::paceSaid($kills)] : [],
         ]);
     }
 
-    /** The briefing, telling every shard the multiple learned, where one was. */
+    /** The briefing, telling every shard the multiple and the pace learned, where each was. */
     public function briefing(Briefing $briefing): Briefing
     {
-        return $this->multiple instanceof NotGiven ? $briefing : $briefing->learning($this->multiple);
+        $none = KillsLearned::none();
+        $kills = $this->multiple instanceof NotGiven ? $none : $none->allowing($this->multiple);
+
+        return $briefing->learning($this->pace instanceof NotGiven ? $kills : $kills->pacing($this->pace));
     }
 
     /** The cut, at most the shards learned, where they were. */
@@ -115,6 +132,15 @@ final readonly class LearnedLimits
         return $learned instanceof NotGiven
             ? sprintf(self::MULTIPLE_COLD, MutantLimit::FACTOR)
             : sprintf(self::MULTIPLE, round($learned->times(), 2), $kills->killCount(), MutantLimit::FACTOR);
+    }
+
+    private static function paceSaid(LimitHistory $kills): string
+    {
+        $pace = $kills->pace();
+
+        return $pace instanceof NotGiven
+            ? self::PACE_COLD
+            : sprintf(self::PACE, round($pace->times(), 2), $kills->killCount());
     }
 
     private static function shardsSaid(LimitHistory $runs, LearnedStatistic $statistic): string

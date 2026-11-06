@@ -7,6 +7,9 @@ use NightWorksIO\MutationGate\Core\Analysis\PreCheck;
 use NightWorksIO\MutationGate\Core\Analysis\RejectionRate;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Plan\Briefing;
+use NightWorksIO\MutationGate\Core\Plan\KillsLearned;
+use NightWorksIO\MutationGate\Core\Runner\Multiple;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 $makePlus = static fn(): Mutation => Mutation::of('Plus', MutatorFamily::Arithmetic, "-+\n+-");
@@ -47,4 +50,14 @@ it('checks before the tests where the rate times the tests\' time is more than o
     'tests of 10s save 2s' => [10.0, true],
     'tests of 5s save exactly 1s' => [5.0, false],
     'tests of 2s save 0.4s' => [2.0, false],
+]);
+
+it('weighs a check against its tests at the pace the plan learned kills take, and their own time where it learned none', function (Briefing $briefing, float $covering, bool $pays) use ($makePlus, $learned): void {
+    expect(PreCheck::briefed($briefing)->pays($learned(50, 10), $makePlus(), Seconds::of($covering), Seconds::of(1.0), 0))->toBe($pays);
+})->with([
+    'a quarter of tests of 40s saves 2s' => [Briefing::standard()->learning(KillsLearned::none()->pacing(Multiple::of(0.25))), 40.0, true],
+    'a quarter of tests of 10s saves 0.5s' => [Briefing::standard()->learning(KillsLearned::none()->pacing(Multiple::of(0.25))), 10.0, false],
+    'a quarter of tests of 4s takes no longer than one check' => [Briefing::standard()->learning(KillsLearned::none()->pacing(Multiple::of(0.25))), 4.0, false],
+    'twice tests of 4s saves 1.6s' => [Briefing::standard()->learning(KillsLearned::none()->pacing(Multiple::of(2.0))), 4.0, true],
+    'no pace learned, tests of 10s save 2s' => [Briefing::standard()->learning(KillsLearned::none()->allowing(Multiple::of(4.0))), 10.0, true],
 ]);

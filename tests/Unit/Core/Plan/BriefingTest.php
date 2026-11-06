@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Plan\BriefingRecord;
+use NightWorksIO\MutationGate\Core\Plan\KillsLearned;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\Multiple;
@@ -38,13 +39,20 @@ it('has every test judge the mutants by default, and one suite\'s tests alone wh
         ->and($suite->isSecurityOnly())->toBeFalse();
 });
 
-it('tells every shard the multiple the plan learned, which its file holds, and none by default', function (): void {
-    $learning = Briefing::standard()->learning(Multiple::of(4.5))->weighing(NotGiven::value())->onOwnScopeCoverage();
+it('tells every shard the multiple and the pace the plan learned, which its file holds, and neither by default', function (KillsLearned $kills, array $written): void {
+    $learning = Briefing::standard()->learning($kills)->weighing(NotGiven::value())->onOwnScopeCoverage();
 
-    expect(Briefing::standard()->multiple())->toBeInstanceOf(NotGiven::class)
-        ->and($learning->multiple())->toEqual(Multiple::of(4.5))
-        ->and(BriefingRecord::of($learning))->toMatchArray(['learnedMultiple' => 4.5])
-        ->and(BriefingRecord::of(Briefing::standard()))->not->toHaveKey('learnedMultiple')
+    expect(Briefing::standard()->learned())->toEqual(KillsLearned::none())
+        ->and($learning->learned())->toEqual($kills)
+        ->and(BriefingRecord::of($learning))->toMatchArray($written)
+        ->and(BriefingRecord::of(Briefing::standard()))->not->toHaveKeys(['learnedMultiple', 'learnedPace'])
         ->and(BriefingRecord::read(Node::decode((string) json_encode(BriefingRecord::of($learning)))))
         ->toEqual($learning);
-});
+})->with([
+    'a multiple' => [KillsLearned::none()->allowing(Multiple::of(4.5)), ['learnedMultiple' => 4.5]],
+    'a pace' => [KillsLearned::none()->pacing(Multiple::of(0.25)), ['learnedPace' => 0.25]],
+    'both' => [
+        KillsLearned::none()->allowing(Multiple::of(4.5))->pacing(Multiple::of(0.25)),
+        ['learnedMultiple' => 4.5, 'learnedPace' => 0.25],
+    ],
+]);

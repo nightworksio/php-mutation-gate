@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\Config\StaticCheck;
+use NightWorksIO\MutationGate\Core\Config\TestsTime;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -30,15 +31,17 @@ final readonly class StaticCheckKeys
         $config = Field::optional('config', Location::path($origin), $results);
         $seconds = Field::optional('seconds', Integer::atLeast(1), $results);
         $before = Field::optional('before', Flag::boolean(), Effect::JudgesOrReportsOnly);
+        $testsTime = Field::optional('testsTime', Enumerated::of(TestsTime::cases()), Effect::JudgesOrReportsOnly);
 
         return [Field::section(
             'staticCheck',
             Section::of(
-                static function (Node $staticCheck) use ($tool, $config, $seconds, $before): Layer|Invalid {
+                static function (Node $staticCheck) use ($tool, $config, $seconds, $before, $testsTime): Layer|Invalid {
                     $chosen = $tool->read($staticCheck);
                     $read = $config->read($staticCheck);
                     $limit = $seconds->read($staticCheck);
                     $placed = $before->read($staticCheck);
+                    $weighed = $testsTime->read($staticCheck);
                     $cap = $limit->value();
 
                     return Reading::built(
@@ -47,17 +50,20 @@ final readonly class StaticCheckKeys
                             $read->value(),
                             $cap instanceof Absent ? $cap : Seconds::of($cap),
                             $placed->value(),
+                            $weighed->value(),
                         )),
                         $chosen,
                         $read,
                         $limit,
                         $placed,
+                        $weighed,
                     );
                 },
                 $tool,
                 $config,
                 $seconds,
                 $before,
+                $testsTime,
             ),
         )];
     }

@@ -22,7 +22,8 @@ use function sprintf;
  * Without a config, the analyser discovers its own. One check may take
  * `staticCheck.seconds`, and so may Psalm's language server to start.
  * `staticCheck.before` also checks a mutant before its tests where that pays;
- * on by default (ADR-0020, ADR-0077).
+ * on by default (ADR-0020, ADR-0077), weighed against the time of its tests
+ * `staticCheck.testsTime` names.
  */
 final readonly class StaticCheck implements Part
 {
@@ -37,6 +38,7 @@ final readonly class StaticCheck implements Part
         private Path|Absent $config,
         private Seconds|Absent $seconds,
         private bool|Absent $before,
+        private TestsTime|Absent $testsTime,
     ) {
     }
 
@@ -45,8 +47,9 @@ final readonly class StaticCheck implements Part
         Path|Absent $config = new Absent(),
         Seconds|Absent $seconds = new Absent(),
         bool|Absent $before = new Absent(),
+        TestsTime|Absent $testsTime = new Absent(),
     ): self {
-        return new self($tool, $config, $seconds, $before);
+        return new self($tool, $config, $seconds, $before, $testsTime);
     }
 
     public static function none(): self
@@ -58,7 +61,12 @@ final readonly class StaticCheck implements Part
     {
         $none = self::none();
 
-        return self::of($none->tool(), seconds: $none->seconds(), before: $none->before());
+        return self::of(
+            $none->tool(),
+            seconds: $none->seconds(),
+            before: $none->before(),
+            testsTime: $none->testsTime(),
+        );
     }
 
     /** An analyser is chosen whole, and so is the config it reads. */
@@ -70,6 +78,7 @@ final readonly class StaticCheck implements Part
                 Absent::laid($this->config, $later->config),
                 Absent::laid($this->seconds, $later->seconds),
                 Absent::laid($this->before, $later->before),
+                Absent::laid($this->testsTime, $later->testsTime),
             )
             : $this;
     }
@@ -104,6 +113,16 @@ final readonly class StaticCheck implements Part
         return $this->before !== false;
     }
 
+    /**
+     * `staticCheck.testsTime`: the time of a mutant's tests a check before
+     * them is weighed against; what the ledgers learned it costs by default
+     * (ADR-0077).
+     */
+    public function testsTime(): TestsTime
+    {
+        return $this->testsTime instanceof TestsTime ? $this->testsTime : TestsTime::Learned;
+    }
+
     public function written(PathOrigin $origin): Json
     {
         return Json::object(Member::unlessEmpty(
@@ -113,6 +132,10 @@ final readonly class StaticCheck implements Part
                 Member::of('config', $this->config instanceof Path ? $origin->written($this->config) : $this->config),
                 Member::of('seconds', WholeSeconds::written($this->seconds)),
                 Member::of('before', $this->before),
+                Member::of(
+                    'testsTime',
+                    $this->testsTime instanceof TestsTime ? $this->testsTime->value : $this->testsTime,
+                ),
             ),
         ));
     }
@@ -131,6 +154,7 @@ final readonly class StaticCheck implements Part
                 : [],
             ...$this->before === true ? ['StaticCheck::beforeTests()'] : [],
             ...$this->before === false ? ['StaticCheck::afterTests()'] : [],
+            ...$this->testsTime instanceof TestsTime ? [$this->testsTime->php()] : [],
         ]);
     }
 

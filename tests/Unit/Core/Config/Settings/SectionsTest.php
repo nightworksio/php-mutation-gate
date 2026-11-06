@@ -474,5 +474,12 @@ describe('Settings sections', function (): void {
         'after' => [['staticCheck' => ['before' => false]], 'StaticCheck::afterTests()', 'StaticCheck::beforeTests()'],
         'before' => [['staticCheck' => ['before' => true]], 'StaticCheck::beforeTests()', 'StaticCheck::afterTests()'],
         'unset' => [[], 'Runner::pest()', 'Tests()'],
+        'weighed as learned' => [[
+            'staticCheck' => ['testsTime' => 'learned'],
+        ], 'StaticCheck::learnedTestsTime()', 'StaticCheck::coveringTestsTime()'],
+        'weighed as covering' => [[
+            'staticCheck' => ['testsTime' => 'covering'],
+        ], 'StaticCheck::coveringTestsTime()', 'StaticCheck::learnedTestsTime()'],
+        'weighed as by default' => [[], 'Runner::pest()', 'TestsTime()'],
     ]);
 })->group('holds:src/Core/Config/Floors.php', 'holds:src/Core/Config/Shards.php');

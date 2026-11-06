@@ -146,8 +146,8 @@ it('hears the dependency analyser refuse every dependency planted for it', funct
 
 // The two below run in CI only, as the `ci-only` group phpunit.xml leaves out
 // by default: the audit asks Packagist for its advisories, and the coverage
-// floor runs the whole covered suite once more. CI's guards job runs them, and
-// there a missing answer fails, as any other would.
+// floor runs a covered suite in a copy of the tree. CI's guards job runs them,
+// and there a missing answer fails, as any other would.
 
 it('hears composer audit refuse every advisory planted for it, in a copy of its own', function (): void {
     $copy = aCopy();
@@ -176,7 +176,7 @@ it('hears composer audit refuse every advisory planted for it, in a copy of its 
         ));
 })->group('ci-only');
 
-it('sees the coverage floor refuse every uncovered line planted for it, alone in a copy of its own', function (): void {
+it('sees the coverage floor refuse every uncovered line planted for it, under a few tests in a copy of its own', function (): void {
     $copy = aCopy();
 
     foreach (fixturesProvenBy(Proof::Coverage) as $fixture) {
@@ -184,7 +184,12 @@ it('sees the coverage floor refuse every uncovered line planted for it, alone in
     }
 
     $report = sprintf('%s.junit.xml', $copy);
-    $covered = new Process(['sh', 'scripts/coverage.sh', sprintf('--log-junit=%s', $report)], $copy, Command::unset(), timeout: null);
+    $covered = new Process(
+        ['sh', 'scripts/coverage.sh', sprintf('--log-junit=%s', $report), '--processes=2', 'tests/Unit/Core/Time'],
+        $copy,
+        Command::unset(),
+        timeout: null,
+    );
     $covered->run();
     $said = sprintf('%s%s', $covered->getOutput(), $covered->getErrorOutput());
     $failed = array_map(trim(...), array_values(suiteFailures($covered, $report)));
