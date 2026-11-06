@@ -37,6 +37,10 @@ BRANCH = re.compile(r"\A[A-Za-z0-9._/-]{1,255}\Z")
 WORD = re.compile(r"\A[a-z_]{1,32}\Z")
 ASSOCIATION = re.compile(r"\A[A-Z_]{1,32}\Z")
 
+# What a bot's pull request counts as: GitHub calls its author NONE, as it does
+# a person new here, and a bot is not welcomed.
+BOT_AUTHOR = "BOT"
+
 # The most characters of a title and a body the bot reads, as GitHub caps them.
 MOST_TITLE = 256
 MOST_BODY = 65536
@@ -70,7 +74,7 @@ def pull(number: int) -> bot_render.Pull:
         number=number,
         sha=checked(head["sha"], SHA),
         draft=answer.get("draft") is True,
-        association=checked(answer.get("author_association", "NONE"), ASSOCIATION),
+        association=BOT_AUTHOR if (answer.get("user") or {}).get("type") == "Bot" else checked(answer.get("author_association", "NONE"), ASSOCIATION),
         title=text(answer.get("title"), MOST_TITLE),
         body=text(answer.get("body"), MOST_BODY),
         same_repo=((head.get("repo") or {}).get("full_name") == github_api.repository()),

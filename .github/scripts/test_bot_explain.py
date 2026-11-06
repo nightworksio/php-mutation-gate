@@ -185,6 +185,17 @@ class Checklist(unittest.TestCase):
         self.assertIn("Thank you for your first pull request", body["body"])
         self.assertIn("CI waits for a maintainer to approve it.", body["body"])
 
+    def test_a_bot_s_pull_request_is_not_welcomed_though_github_calls_its_author_none(self):
+        fake = github({
+            ("GET", "pulls/7"): pull_answer(author_association="NONE", user={"type": "Bot"}),
+            ("GET", "issues/7/comments"): [],
+            ("GET", "actions/runs"): {"workflow_runs": []},
+        })
+        with fake_github.running(fake, {"NUMBER": "7"}):
+            bot_explain.checklist(TABLES)
+
+        self.assertEqual(fake.writes(), [])
+
     def test_a_member_s_pull_request_gets_no_comment_until_ci_relays_one(self):
         fake = github({("GET", "issues/7/comments"): [], ("GET", "actions/runs"): {"workflow_runs": []}})
         with fake_github.running(fake, {"NUMBER": "7"}):

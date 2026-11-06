@@ -138,7 +138,7 @@ jobs:
           open="$(gh api "${repository}/pulls?head=${GITHUB_REPOSITORY_OWNER}:${branch}&state=open" --jq length)"
           if [ "${open}" = "0" ]; then
             cat > "${RUNNER_TEMP}/body.md" <<EOF
-          The CHANGELOG.md section of v${VERSION}, from the commits since the last tag.
+          The CHANGELOG.md section of v${VERSION}.
 
           - Edit the section: it becomes the release's notes.
           - Merge, then tag the squash commit on ${DEFAULT_BRANCH} and push the tag:
