@@ -1,7 +1,7 @@
 {
     "format": 1,
-    "commit": "74b67f2d6b04d55c99ee8890c6a9b5658ed081ec",
-    "time": "2026-11-06T13:48:51Z",
+    "commit": "488a3bff0bf0a5ca31598d9b69586f839f4a2e13",
+    "time": "2026-11-06T15:04:45Z",
     "verdict": "passed",
     "score": 100.0,
     "trees": [
@@ -38,70 +38,70 @@
         {
             "runner": "pest",
             "mutator": "Pest\\Mutate\\Mutators\\Logical\\InstanceOfToTrue",
-            "seconds": 5348.506631329262,
+            "seconds": 8863.111564708579,
             "survived": 0,
             "killRate": 100.0
         },
         {
             "runner": "pest",
             "mutator": "Pest\\Mutate\\Mutators\\Logical\\InstanceOfToFalse",
-            "seconds": 5331.209627925963,
-            "survived": 0,
-            "killRate": 100.0
-        },
-        {
-            "runner": "pest",
-            "mutator": "Pest\\Mutate\\Mutators\\ControlStructures\\TernaryNegated",
-            "seconds": 3679.0136760888395,
+            "seconds": 8846.383791576858,
             "survived": 0,
             "killRate": 100.0
         },
         {
             "runner": "pest",
             "mutator": "Pest\\Mutate\\Mutators\\ControlStructures\\ForeachEmptyIterable",
-            "seconds": 3521.044116414754,
+            "seconds": 6289.988132431644,
+            "survived": 0,
+            "killRate": 100.0
+        },
+        {
+            "runner": "pest",
+            "mutator": "Pest\\Mutate\\Mutators\\ControlStructures\\TernaryNegated",
+            "seconds": 6203.563376800176,
             "survived": 0,
             "killRate": 100.0
         },
         {
             "runner": "pest",
             "mutator": "Pest\\Mutate\\Mutators\\Removal\\RemoveArrayItem",
-            "seconds": 2736.6236200259705,
+            "seconds": 4842.430782963576,
             "survived": 0,
             "killRate": 100.0
         },
         {
             "runner": "pest",
             "mutator": "Pest\\Mutate\\Mutators\\Number\\DecrementInteger",
-            "seconds": 1353.6250638423462,
+            "seconds": 2203.867118785257,
             "survived": 0,
             "killRate": 100.0
         },
         {
             "runner": "pest",
             "mutator": "Pest\\Mutate\\Mutators\\Logical\\BooleanAndToBooleanOr",
-            "seconds": 1314.5997592659257,
+            "seconds": 2183.106837552116,
             "survived": 0,
             "killRate": 100.0
         },
         {
             "runner": "pest",
             "mutator": "Pest\\Mutate\\Mutators\\ControlStructures\\IfNegated",
-            "seconds": 1176.6650069627115,
+            "seconds": 1969.31812027092,
             "survived": 0,
             "killRate": 100.0
         },
         {
             "runner": "pest",
             "mutator": "Pest\\Mutate\\Mutators\\Number\\IncrementInteger",
-            "seconds": 1134.015826445473,
+            "seconds": 1829.1016656240636,
             "survived": 0,
             "killRate": 100.0
         },
         {
             "runner": "pest",
             "mutator": "Pest\\Mutate\\Mutators\\Array\\UnwrapArrayValues",
-            "seconds": 994.526620324278,
+            "seconds": 1573.562477856914,
             "survived": 0,
             "killRate": 100.0
         }
