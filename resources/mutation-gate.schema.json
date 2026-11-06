@@ -1917,6 +1917,17 @@
                                             "maximum": 100
                                         }
                                     },
+                                    "logo": {
+                                        "oneOf": [
+                                            {
+                                                "type": "boolean"
+                                            },
+                                            {
+                                                "type": "string",
+                                                "minLength": 1
+                                            }
+                                        ]
+                                    },
                                     "commit": {
                                         "type": "string",
                                         "minLength": 1
@@ -2067,6 +2078,18 @@
                         "yellow": 70,
                         "orange": 60
                     }
+                },
+                "logo": {
+                    "oneOf": [
+                        {
+                            "type": "boolean"
+                        },
+                        {
+                            "type": "string",
+                            "minLength": 1
+                        }
+                    ],
+                    "default": true
                 }
             },
             "additionalProperties": false
@@ -4295,6 +4318,17 @@
                                                     "maximum": 100
                                                 }
                                             },
+                                            "logo": {
+                                                "oneOf": [
+                                                    {
+                                                        "type": "boolean"
+                                                    },
+                                                    {
+                                                        "type": "string",
+                                                        "minLength": 1
+                                                    }
+                                                ]
+                                            },
                                             "commit": {
                                                 "type": "string",
                                                 "minLength": 1
@@ -4438,6 +4472,17 @@
                                 "minimum": 0,
                                 "maximum": 100
                             }
+                        },
+                        "logo": {
+                            "oneOf": [
+                                {
+                                    "type": "boolean"
+                                },
+                                {
+                                    "type": "string",
+                                    "minLength": 1
+                                }
+                            ]
                         }
                     },
                     "additionalProperties": false

@@ -155,7 +155,7 @@ final readonly class Definition
             ...ReportsKeys::fields($origin),
             ...SuggestKeys::fields(),
             ...HeatmapKeys::fields(),
-            ...PublishingKeys::fields(),
+            ...PublishingKeys::fields($origin),
             ...PestKeys::fields(),
             ...StaticCheckKeys::fields($origin),
             ...PruningKeys::fields(),

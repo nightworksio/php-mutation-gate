@@ -96,7 +96,7 @@ it('writes a config that reads back into the same effective config', function (a
             ['use' => 'Acme\\GateSlack\\SlackReporter', 'with' => ['channel' => '#ci', 'mentions' => ['@ops']]],
             ['use' => 'Acme\\Html\\Reporter', 'path' => 'build/site'],
         ],
-        'badge' => ['colors' => ['green' => 95]],
+        'badge' => ['colors' => ['green' => 95], 'logo' => false],
         'owners' => ['floors' => ['@acme/payments' => 90, 'jo@acme.example' => 75.5], 'mention' => 'never'],
         'pest' => ['patch' => true, 'canary' => 'canary'],
         'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon'],

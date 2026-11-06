@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Report\BadgeColors;
@@ -14,7 +15,8 @@ use function sprintf;
 /**
  * What a project publishes, and how an organisation's dashboard reads what
  * its projects published: `badge.colors`, the lowest score of each
- * shields.io colour, red below them all (ADR-0009); `dashboard.topic`, the
+ * shields.io colour, red below them all, and `badge.logo`, the logo the
+ * badges show: the gate's helix, none, or an SVG file (ADR-0009); `dashboard.topic`, the
  * topic of the repositories the dashboard shows, and
  * `dashboard.repositories`, those it shows by name (ADR-0024).
  */
@@ -23,9 +25,13 @@ final readonly class Publishing implements Part
     /** The topic of the repositories a dashboard shows where the config names none: the gate's own name. */
     public const string TOPIC = ThisPackage::NAME;
 
+    /** Whether the badges show the gate's helix where the config names no logo. */
+    public const bool LOGO = true;
+
     /** @param Listed<string>|Absent $repositories */
     private function __construct(
         private Table|Absent $colors,
+        private bool|Path|Absent $logo,
         private string|Absent $topic,
         private Listed|Absent $repositories,
     ) {
@@ -34,10 +40,11 @@ final readonly class Publishing implements Part
     /** @param Listed<string>|Absent $repositories */
     public static function of(
         Table|Absent $colors = new Absent(),
+        bool|Path|Absent $logo = new Absent(),
         string|Absent $topic = new Absent(),
         Listed|Absent $repositories = new Absent(),
     ): self {
-        return new self($colors, $topic, $repositories);
+        return new self($colors, $logo, $topic, $repositories);
     }
 
     public static function none(): self
@@ -47,7 +54,7 @@ final readonly class Publishing implements Part
 
     public static function standard(): self
     {
-        return self::of(colors: self::none()->colors(), topic: self::TOPIC);
+        return self::of(colors: self::none()->colors(), logo: self::LOGO, topic: self::TOPIC);
     }
 
     /**
@@ -60,6 +67,7 @@ final readonly class Publishing implements Part
         return $later instanceof self
             ? new self(
                 Absent::laid($this->colors, $later->colors),
+                Absent::laid($this->logo, $later->logo),
                 Absent::laid($this->topic, $later->topic),
                 Absent::laid($this->repositories, $later->repositories),
             )
@@ -80,6 +88,20 @@ final readonly class Publishing implements Part
         }
 
         return $colors;
+    }
+
+    /** `badge.logo`: `true` for the gate's helix, `false` for none, or the path of an SVG file. */
+    public function logo(): bool|Path
+    {
+        return $this->logo instanceof Absent ? self::LOGO : $this->logo;
+    }
+
+    /** `badge.logo` as the badge reporter's `logo` option takes it: a flag, or the SVG file's path from the project. */
+    public function logoOption(): bool|string
+    {
+        $logo = $this->logo();
+
+        return $logo instanceof Path ? $logo->value() : $logo;
     }
 
     /** `dashboard.topic`: the topic of the repositories the dashboard shows. */
@@ -105,6 +127,7 @@ final readonly class Publishing implements Part
                 'badge',
                 Json::object(
                     Member::of('colors', $this->colors instanceof Table ? $this->colors->written() : $this->colors),
+                    Member::of('logo', $this->logo instanceof Path ? $origin->written($this->logo) : $this->logo),
                 ),
             ),
             Member::unlessEmpty(
@@ -128,6 +151,13 @@ final readonly class Publishing implements Part
 
         foreach ($this->colors instanceof Table ? $this->colors : [] as $colour => $lowest) {
             $calls[] = sprintf('Badge::colour(%s, %s)', PhpCalls::literal($colour), PhpCalls::literal($lowest));
+        }
+
+        if (! $this->logo instanceof Absent) {
+            $calls[] = sprintf(
+                'Badge::logo(%s)',
+                PhpCalls::literal($this->logo instanceof Path ? $origin->written($this->logo) : $this->logo),
+            );
         }
 
         $topic = $this->topic instanceof Absent
