@@ -26,6 +26,8 @@ use function var_export;
 /** Schemata built from code the tests write, and what their code returns with a mutant switched on. */
 final class Schemata
 {
+    /** The key a test's schemata switch by, which no file of a run is keyed by. */
+    public const string KEY = 'a test';
     /**
      * The schema of this code with the sites a closure names among its
      * nodes, read as both runners read a file: names resolved, parents set.
@@ -40,10 +42,10 @@ final class Schemata
         return Schema::of($code, self::switch(), ...$sites(new Nodes(array_values(new NodeFinder()->findInstanceOf($statements, Node::class)))));
     }
 
-    /** The static method a test's schemata switch by. */
+    /** The call a test's schemata switch by, `%d` where it takes the id. */
     public static function switch(): string
     {
-        return sprintf('\\%s::is', SchemaSwitch::class);
+        return sprintf("\\%s::is('%s', %%d)", SchemaSwitch::class, self::KEY);
     }
 
     /**
@@ -54,12 +56,12 @@ final class Schemata
     {
         $file = sprintf('%s/schema-%d.php', Scratch::directory(), $on);
         file_put_contents($file, $schema->text());
-        SchemaSwitch::on($on);
+        SchemaSwitch::on(self::KEY, $on);
 
         try {
             return var_export(include $file, return: true);
         } finally {
-            SchemaSwitch::off();
+            SchemaSwitch::off(self::KEY);
         }
     }
 }

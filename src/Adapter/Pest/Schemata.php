@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_key_exists;
 use function array_map;
+use function basename;
 use function count;
 use function dirname;
 use function file_exists;
@@ -18,6 +19,7 @@ use function is_string;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WholeFile;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
@@ -46,14 +48,14 @@ use function strval;
  */
 final class Schemata
 {
-    /** Where a file's schema is written, beside the folder of mutated copies, by the digest of its code. */
-    private const string PATH = '%s/../schemata/%s.php';
+    /** Where a file's schema is written, beside the folder of mutated copies, by the file's key. */
+    private const string PATH = '%s/../schemata/%s%s';
 
-    /** The digest a schema is named by. */
+    /** The digest of a file's real path that keys its schema's switch and names the schema. */
     private const string DIGEST = 'xxh3';
 
-    /** The static method each schema's switches call. */
-    private const string SWITCH = '\\%s::is';
+    /** The call each switch of a file's schema makes, by the file's key, `%d` where it takes the id. */
+    private const string SWITCH = "\\%s::is('%s', %%d)";
 
     /** The file in a run's warm directory that names each file's schema, by the file (ADR-0091). */
     private const string MAP = '%s/schemata.json';
@@ -90,13 +92,14 @@ final class Schemata
         $kept = array_key_exists($file, self::$sites) ? self::$sites[$file] : [];
         unset(self::$sites[$file]);
         $sites = array_map(static fn(array $kept): Site => $kept[1], $kept);
-        $schema = Schema::of($code, sprintf(self::SWITCH, SchemaSwitch::class), ...$sites);
+        $key = hash(self::DIGEST, $file);
+        $schema = Schema::of($code, sprintf(self::SWITCH, SchemaSwitch::class, $key), ...$sites);
 
         if ($schema->isEmpty()) {
             return;
         }
 
-        $path = sprintf(self::PATH, $copies, hash(self::DIGEST, $schema->text()));
+        $path = sprintf(self::PATH, $copies, $key, Path::PHP);
 
         if (! is_dir(dirname($path))) {
             mkdir(dirname($path), recursive: true);
@@ -144,7 +147,7 @@ final class Schemata
             return $copy;
         }
 
-        SchemaSwitch::on(intval($on));
+        SchemaSwitch::on(basename($schema, Path::PHP), intval($on));
 
         return ServedClasses::serves($original, $schema) ? '' : $schema;
     }

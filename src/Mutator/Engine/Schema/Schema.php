@@ -27,7 +27,7 @@ final readonly class Schema
     {
     }
 
-    /** The schema of a file's code with these sites, each switch a call to this static method of an id. */
+    /** The schema of a file's code with these sites, each switch this call, `%d` where it takes the site's id. */
     public static function of(string $source, string $switch, Site ...$sites): self
     {
         $placed = [];

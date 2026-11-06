@@ -20,13 +20,18 @@ enum SiteKind
     case Statement;
     case ArrayItem;
 
-    /** The switch in the original's place, the mutant this id names in force where it is on. */
+    /**
+     * The switch in the original's place, the mutant this id names in force
+     * where it is on: the switch is a call, `%d` where it takes the id.
+     */
     public function switched(string $switch, int $id, string $mutated, string $original): string
     {
+        $on = sprintf($switch, $id);
+
         return match ($this) {
-            self::Expression => sprintf('(%s(%d) ? (%s) : (%s))', $switch, $id, $mutated, $original),
-            self::Statement => sprintf('if (%s(%d)) { %s } else { %s }', $switch, $id, $mutated, $original),
-            self::ArrayItem => sprintf('...(%s(%d) ? [%s] : [%s])', $switch, $id, $mutated, $original),
+            self::Expression => sprintf('(%s ? (%s) : (%s))', $on, $mutated, $original),
+            self::Statement => sprintf('if (%s) { %s } else { %s }', $on, $mutated, $original),
+            self::ArrayItem => sprintf('...(%s ? [%s] : [%s])', $on, $mutated, $original),
         };
     }
 }

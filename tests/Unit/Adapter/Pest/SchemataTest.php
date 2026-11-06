@@ -32,7 +32,6 @@ beforeEach(function (): void {
 
 afterEach(function (): void {
     GateEnvironment::restore();
-    SchemaSwitch::off();
     Scratch::sweep();
 });
 
@@ -100,8 +99,12 @@ it('serves the schema a mutant\'s run was told, its switch in force, and its own
         putenv(GateVariable::SchemaOn->value);
     }
 
-    expect(Schemata::inForce('/original.php', '/copy.php'))->toBe($served ? $file : '/copy.php')
-        ->and(SchemaSwitch::is(7))->toBe($served);
+    $inForce = Schemata::inForce('/original.php', '/copy.php');
+    $switched = SchemaSwitch::is('schema', 7);
+    SchemaSwitch::off('schema');
+
+    expect($inForce)->toBe($served ? $file : '/copy.php')
+        ->and($switched)->toBe($served);
 })->with([
     'a schema there and an id' => ['there', '7', true],
     'no schema' => [false, '7', false],
@@ -157,7 +160,7 @@ it('leaves each file\'s schema in a warm directory, which a worker serves in the
         putenv(sprintf('%s=1', GateVariable::SchemaOn->value));
         $served = Schemata::inForce($box->file, $box->copy);
         $mutated = $box->called('size');
-        SchemaSwitch::off();
+        SchemaSwitch::off(basename($schema, '.php'));
 
         expect($left)->toHaveKey($box->file, $schema)
             ->and(ServedClasses::serves($box->file, $schema))->toBeTrue()
@@ -200,4 +203,33 @@ it('numbers the mutants of a file it switches from one, in the order Pest made t
     Schemata::written('', $code, sprintf('%s/mutations', $root));
 
     expect([$on($first), $on($second), $on($later)])->toBe(['1', '2', '1']);
+});
+
+it('switches a mutant on in its own file\'s schema alone, though another file\'s mutant has its id', function (): void {
+    $root = Scratch::directory();
+    mkdir(sprintf('%s/mutations', $root));
+    $code = "<?php\n\nreturn 1 + 2;\n";
+    $schemata = [];
+
+    foreach (['Money', 'Tax'] as $name) {
+        $file = sprintf('%s/%s.php', $root, $name);
+        file_put_contents($file, $code);
+        $plus = generatedNode($code, Plus::class);
+        $mutation = Mutations::mutation($file, $name, 3);
+        Schemata::sited($mutation, $plus, new Minus($plus->left, $plus->right));
+        Schemata::written((string) realpath($file), $code, sprintf('%s/mutations', $root));
+        $schemata[] = Schemata::variablesOf($mutation);
+    }
+
+    [$money, $tax] = array_map(static fn(array $told): string => $told[GateVariable::Schema->value] ?? '', $schemata);
+    SchemaSwitch::on(basename($money, '.php'), 1);
+
+    try {
+        $returned = [include $money, include $tax];
+    } finally {
+        SchemaSwitch::off(basename($money, '.php'));
+    }
+
+    expect(array_map(static fn(array $told): string => $told[GateVariable::SchemaOn->value] ?? '', $schemata))->toBe(['1', '1'])
+        ->and($returned)->toBe([-1, 3]);
 });

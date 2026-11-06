@@ -81,7 +81,7 @@ it('switches an expression by a ternary on its own line: the original wherever i
     expect(Schemata::returned($schema, 0))->toBe(exported(3))
         ->and(Schemata::returned($schema, 1))->toBe(exported(-1))
         ->and(Schemata::returned($schema, 2))->toBe(exported(3))
-        ->and($schema->text())->toBe(sprintf("<?php\n\nreturn (%s(1) ? (1 - 2) : (1 + 2));\n", Schemata::switch()))
+        ->and($schema->text())->toBe(sprintf("<?php\n\nreturn (%s ? (1 - 2) : (1 + 2));\n", sprintf(Schemata::switch(), 1)))
         ->and([$schema->switches(1), $schema->switches(2), $schema->isEmpty()])->toBe([true, false, false]);
 });
 

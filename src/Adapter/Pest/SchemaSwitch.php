@@ -4,35 +4,36 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function array_key_exists;
+
 /**
- * The switch a schema's sites read (ADR-0091): the id of the one mutant in
- * force in this process, which the runner turns on as the process starts
- * its tests, or none, where every site runs the original.
+ * The switch a schema's sites read (ADR-0091): for each file, by its key,
+ * the id of the one mutant of it in force in this process, which the runner
+ * turns on as the process starts its tests; none, where every site of the
+ * file runs the original.
  *
  * @internal
  */
 final class SchemaSwitch
 {
-    /** The id no mutant has: every site runs the original. */
-    private const int NONE = 0;
+    /** @var array<string, int> the id of the mutant in force, by the key of the file whose schema switches it */
+    private static array $on = [];
 
-    private static int $on = self::NONE;
-
-    /** Puts the mutant this id names in force. */
-    public static function on(int $id): void
+    /** Puts the mutant this id names in force in the file this key names. */
+    public static function on(string $file, int $id): void
     {
-        self::$on = $id;
+        self::$on[$file] = $id;
     }
 
-    /** Puts no mutant in force. */
-    public static function off(): void
+    /** Puts no mutant of the file this key names in force. */
+    public static function off(string $file): void
     {
-        self::$on = self::NONE;
+        unset(self::$on[$file]);
     }
 
-    /** Whether the mutant this id names is the one in force. */
-    public static function is(int $id): bool
+    /** Whether the mutant this id names is the one in force in the file this key names. */
+    public static function is(string $file, int $id): bool
     {
-        return self::$on === $id;
+        return array_key_exists($file, self::$on) && self::$on[$file] === $id;
     }
 }

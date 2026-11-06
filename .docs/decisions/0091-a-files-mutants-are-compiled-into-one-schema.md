@@ -27,8 +27,11 @@ same for every mutant and only the switch differs.
    Pest's mutant cache is not read while it is on, so every node is at hand.
    It is in key item 3 (ADR-0007).
 2. **Each mutant is a switch on its original's line.** An expression becomes
-   a ternary, `(switch(id) ? (mutated) : (original))`, a statement of a body
-   an `if`, and an item of an array a spread, `...(switch(id) ? [] : [item])`.
+   a ternary, `(switch(file, id) ? (mutated) : (original))`, a statement of a
+   body an `if`, and an item of an array a spread,
+   `...(switch(file, id) ? [] : [item])`. The switch is keyed by the file, so
+   a mutant in force in one file leaves every other file's schema at its
+   original.
    The mutated code is printed on one line, its comments left out, and the
    original keeps its own text, so no line of the file moves. A site within
    another is switched inside the other's original, and two mutants of one
