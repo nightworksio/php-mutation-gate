@@ -31,6 +31,9 @@ final readonly class HiddenComments
     /** Whether GitHub shows a comment hidden. */
     private const string MINIMIZED = 'isMinimized';
 
+    /** Where GitHub's answer to a hide says it is hidden. */
+    private const array HID = ['data', 'minimizeComment', 'minimizedComment', self::MINIMIZED];
+
     private function __construct(private Api $graphql)
     {
     }
@@ -76,9 +79,9 @@ final readonly class HiddenComments
     /** Whether GitHub hid the comment this node names. */
     private function hid(Answer $node): bool
     {
-        $hide = sprintf(self::HIDE, self::quoted($node->text('id')), self::MINIMIZED);
+        $answer = $this->graphql->query(sprintf(self::HIDE, self::quoted($node->text('id')), self::MINIMIZED));
 
-        return $this->graphql->query($hide) instanceof Answer;
+        return $answer instanceof Answer && $answer->isTrue(...self::HID);
     }
 
     private static function quoted(string $id): string

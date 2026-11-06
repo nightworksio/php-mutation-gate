@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Alert\AlertEvent;
 use NightWorksIO\MutationGate\Core\Alert\PostLimits;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Comment\Mode;
 use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
 use NightWorksIO\MutationGate\Core\Delivery\AlertPost;
 use NightWorksIO\MutationGate\Core\Delivery\CommentWrite;
@@ -60,6 +61,23 @@ it('reads back a comment written only over its planned state, which a later comm
         ->and(deliveryWhole()->commentWrite()->isOverPlanned())->toBeFalse()
         ->and(DeliveryFile::decode('{"format": 1, "comment": "x", "overPlanned": false}'))
         ->toEqual(Delivery::none()->withComment('x', CommentWrite::sticky()));
+});
+
+it('reads back how a comment is written: by each run\'s own marker, hiding the old, or only over one already there', function (): void {
+    $new = CommentWrite::of(Mode::New, 'https://ci.example/7');
+    $hiding = CommentWrite::of(Mode::NewHidingOld, 'https://ci.example/7');
+    $existing = CommentWrite::sticky()->existingOnly();
+    $held = static fn(CommentWrite $write): Delivery => Delivery::none()->withComment('x', $write);
+    $read = static fn(CommentWrite $write): Delivery|CannotJudge => DeliveryFile::decode(DeliveryFile::encode($held($write)));
+
+    expect(DeliveryFile::encode(Delivery::none()->withComment('x', $new)))
+        ->toBe("{\n    \"format\": 1,\n    \"comment\": \"x\",\n    \"commentMode\": \"new\",\n    \"commentRun\": \"https://ci.example/7\"\n}")
+        ->and($read($new))->toEqual($held($new))
+        ->and($read($hiding))->toEqual($held($hiding))
+        ->and($read($existing))->toEqual($held($existing))
+        ->and($read(CommentWrite::of(Mode::Sticky, 'https://ci.example/7')))->toEqual($held(CommentWrite::sticky()))
+        ->and(DeliveryFile::decode('{"format": 1, "comment": "x", "commentMode": "loud", "commentRun": ""}'))
+        ->toBeInstanceOf(CannotJudge::class);
 });
 
 it('reads as many alerts to one channel as a verdict sends, one of each kind', function (): void {

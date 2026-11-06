@@ -3,8 +3,12 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
+use NightWorksIO\MutationGate\Core\Comment\Mode;
+use NightWorksIO\MutationGate\Core\Comment\Toggle;
 use NightWorksIO\MutationGate\Core\Config\CommentSettings;
 use NightWorksIO\MutationGate\Core\Config\CommentShows;
+use NightWorksIO\MutationGate\Core\Config\CommentToggles;
+use NightWorksIO\MutationGate\Core\Config\CommentWrites;
 use NightWorksIO\MutationGate\Core\Delivery\CommentStates;
 use NightWorksIO\MutationGate\Core\Delivery\CommentWrite;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
@@ -118,6 +122,47 @@ it('finds its comment by the identity it is given, asking GitHub nothing about t
 
     expect($patch->getRequestUrl())->toBe('https://api.github.example/repos/octo/gate/issues/comments/6');
 });
+
+it('posts each run\'s own comment under comment.mode, leaving the comments before it, or hiding them', function (Mode $mode, int $hidden) use ($environment, $event, $comment, $report): void {
+    $run = 'https://github.example/octo/gate/actions/runs/7';
+    $post = new JsonMockResponse(['html_url' => 'https://github.example/octo/gate/pull/12#issuecomment-9']);
+    $earlier = [
+        $comment(1, 'gate-bot', sprintf("%s\nearlier\n\n<!-- mutation-gate run: https://github.example/octo/gate/actions/runs/6 -->\n", Markdown::MARKER)),
+        $comment(2, 'someone', sprintf("%s\nnot the gate's", Markdown::MARKER)),
+        $comment(3, 'gate-bot', 'no marker'),
+    ];
+    $known = new JsonMockResponse(['data' => ['nodes' => [['id' => 'one', 'isMinimized' => false]]]]);
+    $hide = new JsonMockResponse(['data' => ['minimizeComment' => ['minimizedComment' => ['isMinimized' => true]]]]);
+    $requests = [new JsonMockResponse($earlier), new JsonMockResponse($earlier), $report(42), $post, $known, $hide];
+    $client = new MockHttpClient($requests);
+    $settings = CommentSettings::of(CommentShows::of(), CommentWrites::of(mode: $mode));
+    $answer = PullRequestComment::inRun($environment, $event(), $client, 'gate-bot', $settings)->report(Verdicts::failing());
+    $body = Decoded::at(is_string($post->getRequestOptions()['body']) ? $post->getRequestOptions()['body'] : '', 'body');
+
+    expect($answer)->toEqual(Written::to('https://github.example/octo/gate/pull/12#issuecomment-9'))
+        ->and($post->getRequestMethod())->toBe('POST')
+        ->and($body)->toEndWith(sprintf("\n\n<!-- mutation-gate run: %s -->\n", $run))
+        ->and($client->getRequestsCount())->toBe(4 + $hidden);
+})->with([
+    'a new comment' => [fn(): Mode => Mode::New, 0],
+    'a new comment that hides the one before' => [fn(): Mode => Mode::NewHidingOld, 2],
+]);
+
+it('reads a draft from the event, so comment.drafts can keep it quiet, and takes a draft it cannot read as none', function (string $draft, bool $left) use ($environment, $report): void {
+    $event = sprintf('{"pull_request": {"number": 12, "draft": %s}}', $draft);
+    $settings = CommentSettings::of(CommentShows::of(), CommentWrites::of(toggles: CommentToggles::off(Toggle::Drafts)));
+    $post = new JsonMockResponse(['html_url' => 'https://github.example/octo/gate/pull/12#issuecomment-9']);
+    $client = new MockHttpClient([new JsonMockResponse([]), $report(1), $post]);
+    $answer = PullRequestComment::inRun($environment, $event, $client, 'gate-bot', $settings)->report(Verdicts::failing());
+
+    expect($answer)->toEqual($left
+        ? NotWritten::because('comment.drafts is false, so this run writes no comment.')
+        : Written::to('https://github.example/octo/gate/pull/12#issuecomment-9'));
+})->with([
+    'a draft' => ['true', true],
+    'no draft' => ['false', false],
+    'a draft it cannot read' => ['"yes"', false],
+]);
 
 it('writes its planned state into the same comment the verdict later replaces', function () use ($environment, $event, $comment): void {
     $patch = new JsonMockResponse(['html_url' => 'https://github.example/octo/gate/pull/12#issuecomment-5']);

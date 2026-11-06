@@ -106,6 +106,7 @@ it('writes a config that reads back into the same effective config', function (a
             'mode' => 'new',
             'passing' => 'always',
             'try' => false,
+            'reproduce' => true,
             'drafts' => false,
             'survivors' => ['most' => 10, 'lines' => 'all', 'detail' => 'row'],
             'text' => ['most' => 900],

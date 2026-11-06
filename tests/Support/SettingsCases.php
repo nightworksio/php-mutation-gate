@@ -277,6 +277,7 @@ final readonly class SettingsCases
             'mode' => 'new',
             'passing' => 'always',
             'try' => false,
+            'reproduce' => true,
             'drafts' => false,
             'survivors' => ['most' => 10, 'lines' => 'all', 'detail' => 'row'],
             'text' => ['most' => 900],

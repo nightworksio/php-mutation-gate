@@ -5,8 +5,11 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Bitbucket\CommentMarkdown;
 use NightWorksIO\MutationGate\Adapter\Bitbucket\PullRequestComment;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Comment\Toggle;
 use NightWorksIO\MutationGate\Core\Config\CommentSettings;
 use NightWorksIO\MutationGate\Core\Config\CommentShows;
+use NightWorksIO\MutationGate\Core\Config\CommentToggles;
+use NightWorksIO\MutationGate\Core\Config\CommentWrites;
 use NightWorksIO\MutationGate\Core\Delivery\CommentStates;
 use NightWorksIO\MutationGate\Core\Delivery\CommentWrite;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
@@ -141,6 +144,37 @@ it('reads thirty pages of comments, and no more', function (): void {
 
     expect(array_column($cloud->requests, 'url'))->toContain(bitbucketPage(30))
         ->and(array_column($cloud->requests, 'url'))->not->toContain(bitbucketPage(31));
+});
+
+it('asks Bitbucket whether the pull request is a draft only where comment.drafts keeps one quiet', function (string $answer, bool $left): void {
+    $cloud = new Cloud()
+        ->answering('https://api.bitbucket.org/2.0/repositories/acme/shop/pullrequests/7', 200, $answer)
+        ->answering(bitbucketPage(1), 200, '{"values": []}')
+        ->answering(BITBUCKET_COMMENTS, 201, bitbucketWritten(9));
+    $settings = CommentSettings::of(CommentShows::of(), CommentWrites::of(toggles: CommentToggles::off(Toggle::Drafts)));
+    $written = PullRequestComment::inEnvironment(bitbucketPullRequest(), $cloud->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN', $settings)
+        ->report(Verdicts::failing());
+
+    expect($written)->toEqual($left
+        ? NotWritten::because('comment.drafts is false, so this run writes no comment.')
+        : Written::to('https://bitbucket.org/acme/shop/pull-requests/7#comment-9'));
+})->with([
+    'a draft' => ['{"draft": true}', true],
+    'no draft' => ['{"draft": false}', false],
+    'one that does not say' => ['{}', false],
+]);
+
+it('asks no question of a run on no pull request, and of one where drafts comment', function (): void {
+    $none = new Cloud();
+    $drafts = new Cloud()->answering(bitbucketPage(1), 200, '{"values": []}')->answering(BITBUCKET_COMMENTS, 201, bitbucketWritten(9));
+    $offs = CommentSettings::of(CommentShows::of(), CommentWrites::of(toggles: CommentToggles::off(Toggle::Drafts)));
+
+    PullRequestComment::inEnvironment(Variables::of(['BITBUCKET_BUILD_NUMBER' => '99']), $none->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN', $offs);
+    PullRequestComment::inEnvironment(bitbucketPullRequest(), $drafts->exchange(), 'MUTATION_GATE_BITBUCKET_TOKEN', CommentSettings::standard())
+        ->report(Verdicts::failing());
+
+    expect($none->requests)->toBe([])
+        ->and(array_column($drafts->requests, 'method'))->toBe(['GET', 'POST']);
 });
 
 it('writes its planned state into the comment the verdict later replaces', function (): void {

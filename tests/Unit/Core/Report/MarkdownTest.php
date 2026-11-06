@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
+use NightWorksIO\MutationGate\Core\Comment\Cap;
+use NightWorksIO\MutationGate\Core\Comment\Detail;
 use NightWorksIO\MutationGate\Core\Comment\Section;
+use NightWorksIO\MutationGate\Core\Comment\Toggle;
+use NightWorksIO\MutationGate\Core\Config\CommentCaps;
 use NightWorksIO\MutationGate\Core\Config\CommentShows;
+use NightWorksIO\MutationGate\Core\Config\CommentToggles;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\Cost\SavingsWindow;
@@ -705,4 +710,14 @@ it('shows the verdict, the trees and the heatmap open by default and folds every
         ->and($opened)->toContain('<details><summary>Trees</summary>')
         ->and($folded)->not->toContain('<details><summary>What the run cost</summary>')
         ->and(Markdown::comment(Verdicts::failing(), CommentShows::unfolded()))->not->toContain('<details><summary>Sets</summary>');
+});
+
+it('leaves out a list comment.<cap>.most sets to 0, and shows the survivors as table rows where comment.survivors.detail says', function (): void {
+    $none = Markdown::comment(Verdicts::failing(), CommentShows::of(caps: CommentCaps::capping(Cap::Survivors, 0)));
+    $rows = Markdown::comment(Verdicts::failing(), CommentShows::of(detail: Detail::Row));
+    $quiet = Markdown::comment(Verdicts::failing(), CommentShows::of(toggles: CommentToggles::off(Toggle::Reproduce), detail: Detail::Row));
+
+    expect($none)->not->toContain('Survivors on changed lines')
+        ->and($rows)->toContain('| Mutant | Mutator | Judgement | What the tests miss | Command |')
+        ->and($quiet)->toContain("| Mutant | Mutator | Judgement | What the tests miss |\n|---|---|---|---|\n");
 });

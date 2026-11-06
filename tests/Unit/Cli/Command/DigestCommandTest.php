@@ -93,6 +93,13 @@ it('names as many of a mutant\'s covering tests as --tests asks, or digest.tests
         ->and($unread->errors)->toContain('--tests is some; it takes a whole number.');
 });
 
+it('says what is wrong with a config that names no count of tests, and exits 2', function () use ($composed): void {
+    $digest = FlowCommands::run(DigestCommand::command($composed(FlowCommands::project('"digest": {"tests": -1}'))));
+
+    expect($digest->code)->toBe(2)
+        ->and($digest->errors)->toContain('digest.tests: expected an integer of at least 0, got -1');
+});
+
 it('says no run left a report, that the report is in another format, or where it is not in shape, and exits 2', function () use ($composed): void {
     $project = FlowCommands::project();
     $none = FlowCommands::run(DigestCommand::command($composed($project)));
