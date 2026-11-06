@@ -36,6 +36,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
@@ -123,6 +124,7 @@ it('runs mutants again on the canary group, reading the map the planning job han
             'MUTATION_GATE_MUTANT_FLOOR' => '10.000000',
             'MUTATION_GATE_MUTANT_CAP' => '20.000000',
             ...TighterVariables::of(TighterSilence::standard()), ...PerTestVariables::of(PerTestLimit::standard()),
+            'MUTATION_GATE_SCHEMATA' => '1',
         ]));
 });
 
@@ -546,24 +548,31 @@ it('runs a doubtful kill again forked from warm workers only where runner.worker
     'mutants' => [Workers::Mutants, [true, false]],
 ]);
 
-it('leaves what the tail\'s workers boot beside a doubtful kill\'s run again of every test file under pest.bootTail, and nothing beside the narrowed run', function (bool $boots, array $booted): void {
+it('leaves what mutants\' workers boot beside the mutants\' run, and what the tail\'s boot beside a doubtful kill\'s run again of every test file under pest.bootTail', function (bool $tail, bool $mutants, array $booted): void {
     $at = PestCases::project();
     $inner = PestCases::loadedNothing($at);
     $seen = [];
     $shell = new ShellFake(static function (Command $command) use ($inner, &$seen): Ran {
         $warm = $command->environment()[GateVariable::Warm->value] ?? '';
-        $seen[] = is_string($warm) && $warm !== '' && BootSpec::readIn($warm) instanceof BootSpec;
+        $spec = is_string($warm) && $warm !== '' ? BootSpec::readIn($warm) : NotGiven::value();
+        $seen[] = match (true) {
+            ! $spec instanceof BootSpec => '',
+            $spec->isForMutants() => 'mutants',
+            default => 'tail',
+        };
 
         return $inner->run($command);
     });
+    $patching = PestCases::canary()->bootingTail($tail)->bootingMutants($mutants);
 
-    new Pest($at, $shell, PestCases::canary()->bootingTail($boots), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())
+    new Pest($at, $shell, $patching, new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())
         ->mutate(PestCases::money()->across(Pool::of(ProcessCount::single(), Workers::Fork)));
 
     expect($seen)->toBe($booted);
 })->with([
-    'booting the tail' => [true, [false, true]],
-    'leaving the tail unbooted' => [false, [false, false]],
+    'booting both' => [true, true, ['mutants', 'tail']],
+    'leaving the tail unbooted' => [false, true, ['mutants', '']],
+    'leaving mutants\' workers unbooted' => [true, false, ['', 'tail']],
 ]);
 
 it('leaves what opcache keeps out beside every forked run, the mutants\' and the tail\'s, under pest.workerOpcache, and nothing where it is off', function (bool $caches, array $kept): void {

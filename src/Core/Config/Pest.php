@@ -11,8 +11,10 @@ use NightWorksIO\MutationGate\Core\Test\Group;
 use function sprintf;
 
 /**
- * The optional Pest patches, the tests that show they work (ADR-0004), and
- * whether the verification tail's workers boot the project (ADR-0075): `pest`.
+ * The optional Pest patches, the tests that show they work (ADR-0004),
+ * whether the verification tail's workers boot the project (ADR-0075), and
+ * how Pest's warm workers compile, serve and boot each mutant's run
+ * (ADR-0088, ADR-0091): `pest`.
  */
 final readonly class Pest implements Part
 {
@@ -21,6 +23,13 @@ final readonly class Pest implements Part
 
     /** The key, and the Pest runner's option, that says whether Pest's warm workers compile through opcache. */
     public const string WORKER_OPCACHE = 'workerOpcache';
+
+    /** The key, and the Pest runner's option, that says whether each file's mutants are compiled into a schema. */
+    public const string SCHEMATA = 'schemata';
+
+    /** The key, and the Pest runner's option, that says whether mutants' workers boot the project. */
+    public const string BOOT_MUTANTS = 'bootMutants';
+
     private const string CANARY = 'mutation-canary';
 
     private function __construct(
@@ -28,6 +37,8 @@ final readonly class Pest implements Part
         private Group|Absent $canary,
         private bool|Absent $bootTail = new Absent(),
         private bool|Absent $workerOpcache = new Absent(),
+        private bool|Absent $schemata = new Absent(),
+        private bool|Absent $bootMutants = new Absent(),
     ) {
     }
 
@@ -36,8 +47,10 @@ final readonly class Pest implements Part
         Group|Absent $canary = new Absent(),
         bool|Absent $bootTail = new Absent(),
         bool|Absent $workerOpcache = new Absent(),
+        bool|Absent $schemata = new Absent(),
+        bool|Absent $bootMutants = new Absent(),
     ): self {
-        return new self($patch, $canary, $bootTail, $workerOpcache);
+        return new self($patch, $canary, $bootTail, $workerOpcache, $schemata, $bootMutants);
     }
 
     public static function none(): self
@@ -49,7 +62,14 @@ final readonly class Pest implements Part
     {
         $none = self::none();
 
-        return self::of($none->patch(), $none->canary(), $none->bootTail(), $none->workerOpcache());
+        return self::of(
+            $none->patch(),
+            $none->canary(),
+            $none->bootTail(),
+            $none->workerOpcache(),
+            $none->schemata(),
+            $none->bootMutants(),
+        );
     }
 
     public function over(Part $later): self
@@ -60,6 +80,8 @@ final readonly class Pest implements Part
                 Absent::laid($this->canary, $later->canary),
                 Absent::laid($this->bootTail, $later->bootTail),
                 Absent::laid($this->workerOpcache, $later->workerOpcache),
+                Absent::laid($this->schemata, $later->schemata),
+                Absent::laid($this->bootMutants, $later->bootMutants),
             )
             : $this;
     }
@@ -90,6 +112,27 @@ final readonly class Pest implements Part
         return $this->workerOpcache instanceof Absent || $this->workerOpcache;
     }
 
+    /**
+     * Whether each file's mutants are compiled into one schema, every mutant
+     * a switch on the original's line, which a mutant's own run serves in its
+     * file's place (ADR-0091); true by default.
+     */
+    public function schemata(): bool
+    {
+        return $this->schemata instanceof Absent || $this->schemata;
+    }
+
+    /**
+     * Whether the workers of mutants' own runs boot the project, no test file
+     * loaded and each file's schema served, before they fork, each child
+     * booting Pest's plugins and loading its own test files (ADR-0091); true
+     * by default.
+     */
+    public function bootMutants(): bool
+    {
+        return $this->bootMutants instanceof Absent || $this->bootMutants;
+    }
+
     /** The group of tests that shows the patches work. */
     public function canary(): Group
     {
@@ -108,6 +151,8 @@ final readonly class Pest implements Part
             Member::of('canary', $this->canary()->name()),
             Member::of(self::BOOT_TAIL, $this->bootTail()),
             Member::of(self::WORKER_OPCACHE, $this->workerOpcache()),
+            Member::of(self::SCHEMATA, $this->schemata()),
+            Member::of(self::BOOT_MUTANTS, $this->bootMutants()),
         );
 
         return $runner->use()->value() === BuiltinRunner::Pest->value
@@ -124,6 +169,8 @@ final readonly class Pest implements Part
                 Member::of('canary', $this->canary instanceof Group ? $this->canary->name() : $this->canary),
                 Member::of(self::BOOT_TAIL, $this->bootTail),
                 Member::of(self::WORKER_OPCACHE, $this->workerOpcache),
+                Member::of(self::SCHEMATA, $this->schemata),
+                Member::of(self::BOOT_MUTANTS, $this->bootMutants),
             ),
         ));
     }
@@ -137,6 +184,8 @@ final readonly class Pest implements Part
                 : [],
             ...$this->switched($this->bootTail, 'Pest::bootingTail()', 'Pest::tailUnbooted()'),
             ...$this->switched($this->workerOpcache, 'Pest::cachingInWorkers()', 'Pest::uncachedInWorkers()'),
+            ...$this->switched($this->schemata, 'Pest::compilingSchemata()', 'Pest::withoutSchemata()'),
+            ...$this->switched($this->bootMutants, 'Pest::bootingMutants()', 'Pest::mutantsUnbooted()'),
         ]);
     }
 

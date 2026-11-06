@@ -51,6 +51,7 @@ final readonly class Told
             ...$handsOff ? [GateVariable::Verdicts->value => Verdicts::beside($results)] : [],
             ...$this->forks($request) ? [GateVariable::Warm->value => WarmDirectory::beside($results)] : [],
             ...$this->patching->bounding($bounds),
+            ...$this->patching->schemata(),
         ];
     }
 

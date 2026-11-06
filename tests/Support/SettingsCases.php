@@ -161,7 +161,9 @@ final readonly class SettingsCases
             "patch": false,
             "canary": "mutation-canary",
             "bootTail": false,
-            "workerOpcache": true
+            "workerOpcache": true,
+            "schemata": true,
+            "bootMutants": true
         },
         "staticCheck": {
             "tool": "auto",
@@ -250,7 +252,7 @@ final readonly class SettingsCases
         ],
         'badge' => ['colors' => ['green' => 95]],
         'dashboard' => ['topic' => 'mutation-tested', 'repositories' => ['api', 'web']],
-        'pest' => ['patch' => true, 'canary' => 'canary', 'bootTail' => true, 'workerOpcache' => false],
+        'pest' => ['patch' => true, 'canary' => 'canary', 'bootTail' => true, 'workerOpcache' => false, 'schemata' => false, 'bootMutants' => false],
         'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45, 'before' => true],
         'pruning' => ['enabled' => false, 'window' => 200, 'audit' => '3d'],
         'sampling' => ['confidence' => 99, 'margin' => 1.5, 'minUnits' => 50, 'seed' => 'release-2026'],

@@ -20,6 +20,7 @@ use function is_file;
 use function is_int;
 use function is_string;
 
+use NightWorksIO\MutationGate\Adapter\Pest\ServedClasses;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\Baseline;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\WarmDatabase;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -47,8 +48,11 @@ use function trait_exists;
  * readies its test databases from the baseline the worker keeps, and the
  * worker keeps what the child reports. A run of a mutant of a file the worker
  * loaded, one of the gate's own, or of a file that declares a class or function
- * the worker declared from another, starts fresh. The worker ends once its
- * parent is gone, or the gate says the run is done.
+ * the worker declared from another, starts fresh, unless the worker serves
+ * the file's schema and the schema switches the mutant (ADR-0091); so does a
+ * mutant pinned by source of a file whose schema the worker serves, which
+ * the wrapper its test reads it by could not put in force. The worker ends
+ * once its parent is gone, or the gate says the run is done.
  *
  * @internal
  */
@@ -57,6 +61,9 @@ final readonly class Worker
     private const string LOADED = 'The warm worker had loaded %s, which a mutant changes, so its mutants ran fresh.';
 
     private const string DECLARED = 'The warm worker had declared %s, which %s declares, so its mutants ran fresh.';
+
+    private const string PINNED
+        = 'The warm worker serves a schema for %s, which would hide its mutant pinned by source, so it ran fresh.';
 
     private const string UNFORKED = 'The warm worker could not fork, so a mutant ran fresh.';
 
@@ -171,7 +178,19 @@ final readonly class Worker
     {
         Offsets::now($this->seat)->writtenTo($this->seat->started($request->id()));
 
-        return $refused !== '' ? $refused : $this->loaded($request->mutated());
+        return match (true) {
+            $refused !== '' => $refused,
+            $request->isServedItsSchema() => '',
+            $request->isPinnedBySource() && $this->servesSchemaOf($request->mutated())
+                => sprintf(self::PINNED, $request->mutated()),
+            default => $this->loaded($request->mutated()),
+        };
+    }
+
+    /** Whether the worker serves a schema in this file's place, as a worker of mutants' runs does (ADR-0091). */
+    private function servesSchemaOf(string $mutated): bool
+    {
+        return ServedClasses::inPlaceOf($mutated) !== $mutated;
     }
 
     /**

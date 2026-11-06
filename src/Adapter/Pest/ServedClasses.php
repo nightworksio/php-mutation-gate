@@ -77,6 +77,14 @@ final class ServedClasses
             && self::served($path, $classes, sprintf(self::SERVED, $copy), $copied);
     }
 
+    /** Whether this process serves this copy in place of this original, as it loads the original's classes. */
+    public static function serves(string $original, string $copy): bool
+    {
+        $path = (string) realpath($original);
+
+        return array_key_exists($path, self::$serving) && self::$serving[$path] === sprintf(self::SERVED, $copy);
+    }
+
     /** Forgets that this process serves a copy in place of an original, as a test that served one does once done. */
     public static function forget(string $original): void
     {

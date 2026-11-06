@@ -27,15 +27,26 @@ final readonly class PestKeys
         $canary = Field::optional('canary', Text::word('a group name'), $results);
         $bootTail = Field::optional(Pest::BOOT_TAIL, Flag::boolean(), $results);
         $opcache = Field::optional(Pest::WORKER_OPCACHE, Flag::boolean(), $results);
+        $schemata = Field::optional(Pest::SCHEMATA, Flag::boolean(), $results);
+        $bootMutants = Field::optional(Pest::BOOT_MUTANTS, Flag::boolean(), $results);
 
         return [Field::section(
             'pest',
             Section::of(
-                static function (Node $pest) use ($patch, $canary, $bootTail, $opcache): Layer|Invalid {
+                static function (Node $pest) use (
+                    $patch,
+                    $canary,
+                    $bootTail,
+                    $opcache,
+                    $schemata,
+                    $bootMutants,
+                ): Layer|Invalid {
                     $patched = $patch->read($pest);
                     $group = $canary->read($pest);
                     $booted = $bootTail->read($pest);
                     $cached = $opcache->read($pest);
+                    $compiled = $schemata->read($pest);
+                    $forked = $bootMutants->read($pest);
                     $named = $group->value();
 
                     return Reading::built(
@@ -44,17 +55,23 @@ final readonly class PestKeys
                             $named instanceof Absent ? $named : Group::named($named),
                             $booted->value(),
                             $cached->value(),
+                            $compiled->value(),
+                            $forked->value(),
                         )),
                         $patched,
                         $group,
                         $booted,
                         $cached,
+                        $compiled,
+                        $forked,
                     );
                 },
                 $patch,
                 $canary,
                 $bootTail,
                 $opcache,
+                $schemata,
+                $bootMutants,
             ),
         )];
     }

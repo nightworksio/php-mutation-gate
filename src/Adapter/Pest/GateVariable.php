@@ -110,4 +110,13 @@ enum GateVariable: string
      * ServedClasses); unset in every other run.
      */
     case SourcePinned = 'MUTATION_GATE_SOURCE_PINNED';
+
+    /** Set where a patched run compiles each file's mutants into a schema (see Schemata). */
+    case Schemata = 'MUTATION_GATE_SCHEMATA';
+
+    /** The schema a mutant's own run serves in its file's place, where its file has one (see Schemata). */
+    case Schema = 'MUTATION_GATE_SCHEMA';
+
+    /** The id of the mutant a schema's switch puts in force in a mutant's own run (see Schemata). */
+    case SchemaOn = 'MUTATION_GATE_SCHEMA_ON';
 }

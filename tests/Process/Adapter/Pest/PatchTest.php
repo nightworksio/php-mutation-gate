@@ -33,7 +33,7 @@ it('patches the four files, leaving each one PHP', function () use ($vendor, $so
     $at = $vendor();
 
     expect(Patch::isAppliedIn($at, new PackageDirectory()))->toBeFalse()
-        ->and(Patch::applyIn($at, new PackageDirectory()))->toBe('pest:patch patched 4 of the 4 files it changes in pest-plugin-mutate. pest:patch patched 3 of the 3 files it changes in pest.')
+        ->and(Patch::applyIn($at, new PackageDirectory()))->toBe('pest:patch patched 5 of the 5 files it changes in pest-plugin-mutate. pest:patch patched 3 of the 3 files it changes in pest.')
         ->and(Patch::isAppliedIn($at, new PackageDirectory()))->toBeTrue()
         ->and($source($at, 'MutationTest.php'))->toContain(sprintf(
             '$passed = class_exists(\\%1$s::class) ? \\%1$s::passable($filter) : strlen($filter) < 100000;',

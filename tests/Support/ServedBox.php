@@ -13,6 +13,7 @@ use function realpath;
 
 use ReflectionClassConstant;
 use ReflectionException;
+use ReflectionMethod;
 
 use function sprintf;
 
@@ -66,6 +67,14 @@ final readonly class ServedBox
     public function read(string $constant): string
     {
         return self::constantOf($this->class, $constant);
+    }
+
+    /** What a static method of the box's class returns, loading the class where it is not loaded yet, as text. */
+    public function called(string $method): string
+    {
+        $value = new ReflectionMethod($this->class, $method)->invoke(null);
+
+        return is_scalar($value) ? (string) $value : '';
     }
 
     /** A constant of a class, loading the class where it is not loaded yet, as text; empty where it has none. */

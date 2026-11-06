@@ -155,6 +155,8 @@ it('writes every setting of the configuration reference', function (): void {
                 Pest::canary('canary'),
                 Pest::bootingTail(),
                 Pest::cachingInWorkers(),
+                Pest::compilingSchemata(),
+                Pest::bootingMutants(),
                 StaticCheck::phpstan(),
                 StaticCheck::config('phpstan.dist.neon'),
                 StaticCheck::seconds(45),
@@ -241,7 +243,7 @@ it('writes every setting of the configuration reference', function (): void {
         'badge' => ['colors' => ['green' => 85]],
         'owners' => ['floors' => ['@acme/payments' => 90, 'jo@acme.example' => 75.5], 'mention' => 'never'],
         'dashboard' => ['topic' => 'mutation-tested', 'repositories' => ['api', 'web']],
-        'pest' => ['patch' => true, 'canary' => 'canary', 'bootTail' => true, 'workerOpcache' => true],
+        'pest' => ['patch' => true, 'canary' => 'canary', 'bootTail' => true, 'workerOpcache' => true, 'schemata' => true, 'bootMutants' => true],
         'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45],
         'mutators' => ['sets' => ['acme', 'acme-auth'], 'except' => ['acme/RemoveAudit']],
         'pruning' => ['enabled' => false, 'window' => 200, 'audit' => '3d'],
@@ -288,6 +290,8 @@ it('writes each other way to choose an adapter or a word', function (): void {
                 Pest::unpatched(),
                 Pest::tailUnbooted(),
                 Pest::uncachedInWorkers(),
+                Pest::withoutSchemata(),
+                Pest::mutantsUnbooted(),
             ),
     ))->toBe([
         'preset' => ['symfony', 'laravel', 'acme'],
@@ -300,7 +304,7 @@ it('writes each other way to choose an adapter or a word', function (): void {
         'timeouts' => ['mode' => 'confirm', 'perTest' => false],
         'flaky' => ['confirmSurvivors' => true],
         'ignores' => ['native' => 'refuse'],
-        'pest' => ['patch' => false, 'bootTail' => false, 'workerOpcache' => false],
+        'pest' => ['patch' => false, 'bootTail' => false, 'workerOpcache' => false, 'schemata' => false, 'bootMutants' => false],
     ]);
 });
 

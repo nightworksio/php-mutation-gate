@@ -2094,6 +2094,14 @@
                 "workerOpcache": {
                     "type": "boolean",
                     "default": true
+                },
+                "schemata": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "bootMutants": {
+                    "type": "boolean",
+                    "default": true
                 }
             },
             "additionalProperties": false
@@ -4407,6 +4415,12 @@
                             "type": "boolean"
                         },
                         "workerOpcache": {
+                            "type": "boolean"
+                        },
+                        "schemata": {
+                            "type": "boolean"
+                        },
+                        "bootMutants": {
                             "type": "boolean"
                         }
                     },

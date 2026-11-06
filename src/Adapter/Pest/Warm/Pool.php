@@ -11,6 +11,7 @@ use function is_resource;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
+use NightWorksIO\MutationGate\Adapter\Pest\Schemata;
 use NightWorksIO\MutationGate\Core\OwnScript;
 
 use const PHP_BINARY;
@@ -61,6 +62,7 @@ final class Pool
         $seat = Seat::at($directory, $place);
 
         if (! array_key_exists($seat->pid(), self::$started)) {
+            Schemata::leftIn($directory);
             self::$started[$seat->pid()] = self::started($seat);
         }
 

@@ -19,8 +19,10 @@ use function sprintf;
 
 /**
  * Whether the project applies `pest:patch`, the canary group a shard's
- * opening run is when it does, which tests a mutant's own run selects, and
- * whether the verification tail's workers boot the project (ADR-0075).
+ * opening run is when it does, which tests a mutant's own run selects,
+ * whether the verification tail's workers boot the project (ADR-0075), and
+ * how its warm workers compile, serve and boot mutants' runs (ADR-0088,
+ * ADR-0091).
  *
  * @internal
  */
@@ -30,6 +32,8 @@ final readonly class Patching
         private Group|Unpatched $canary,
         private bool $bootsTail = false,
         private bool $caches = true,
+        private bool $compiles = true,
+        private bool $bootsMutants = true,
     ) {
     }
 
@@ -51,7 +55,7 @@ final readonly class Patching
     /** The same, the tail's workers booting the project where it applies the patch, as `pest.bootTail` says. */
     public function bootingTail(bool $boots): self
     {
-        return new self($this->canary, $boots, $this->caches);
+        return new self($this->canary, $boots, $this->caches, $this->compiles, $this->bootsMutants);
     }
 
     /**
@@ -60,7 +64,31 @@ final readonly class Patching
      */
     public function cachingInWorkers(bool $caches): self
     {
-        return new self($this->canary, $this->bootsTail, $caches);
+        return new self($this->canary, $this->bootsTail, $caches, $this->compiles, $this->bootsMutants);
+    }
+
+    /** The same, each file's mutants compiled into a schema where it applies the patch, as `pest.schemata` says. */
+    public function compilingSchemata(bool $compiles): self
+    {
+        return new self($this->canary, $this->bootsTail, $this->caches, $compiles, $this->bootsMutants);
+    }
+
+    /** The same, mutants' workers booting the project where it applies the patch, as `pest.bootMutants` says. */
+    public function bootingMutants(bool $boots): self
+    {
+        return new self($this->canary, $this->bootsTail, $this->caches, $this->compiles, $boots);
+    }
+
+    /**
+     * What a run is started with to compile each file's mutants into a schema
+     * (see Schemata); nothing where the project does not apply the patch, or
+     * `pest.schemata` is off.
+     *
+     * @return array<string, string>
+     */
+    public function schemata(): array
+    {
+        return $this->isOn() && $this->compiles ? [GateVariable::Schemata->value => '1'] : [];
     }
 
     /** Whether the warm workers compile through opcache, keeping out each file the run mutates and copy it serves. */
@@ -73,6 +101,12 @@ final readonly class Patching
     public function bootsTail(): bool
     {
         return $this->isOn() && $this->bootsTail;
+    }
+
+    /** Whether the workers of mutants' own runs boot the project, no test file loaded, before they fork. */
+    public function bootsMutants(): bool
+    {
+        return $this->isOn() && $this->bootsMutants;
     }
 
     /**

@@ -13,11 +13,11 @@ it('lays its settings beneath the Pest runner\'s options, where the runner\'s ow
     $pest = Pest::of(patch: true, canary: Group::named('smoke'));
 
     expect($pest->beneath(Choice::of('pest', Configs::options('{}'))))
-        ->toEqual(Choice::of('pest', Configs::options('{"patch": true, "canary": "smoke", "bootTail": false, "workerOpcache": true}')))
+        ->toEqual(Choice::of('pest', Configs::options('{"patch": true, "canary": "smoke", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": true}')))
         ->and($pest->beneath(Choice::of('pest', Configs::options('{"canary": "own", "tests": ["spec"]}'))))
-        ->toEqual(Choice::of('pest', Configs::options('{"patch": true, "canary": "own", "bootTail": false, "workerOpcache": true, "tests": ["spec"]}')))
+        ->toEqual(Choice::of('pest', Configs::options('{"patch": true, "canary": "own", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": true, "tests": ["spec"]}')))
         ->and(Pest::none()->beneath(Choice::of('pest', Configs::options('{}'))))
-        ->toEqual(Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true}')));
+        ->toEqual(Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": true}')));
 });
 
 it('leaves any other runner\'s options as they are', function (): void {
@@ -31,7 +31,7 @@ it('boots the tail\'s workers only where pest.bootTail says so, a later layer wi
     expect([Pest::none()->bootTail(), $booting->bootTail(), $booting->over(Pest::of(bootTail: false))->bootTail(), $booting->over(Pest::of())->bootTail()])
         ->toBe([false, true, false, true])
         ->and($booting->beneath(Choice::of('pest', Configs::options('{}'))))
-        ->toEqual(Choice::of('pest', Configs::options('{"patch": true, "canary": "mutation-canary", "bootTail": true, "workerOpcache": true}')));
+        ->toEqual(Choice::of('pest', Configs::options('{"patch": true, "canary": "mutation-canary", "bootTail": true, "workerOpcache": true, "schemata": true, "bootMutants": true}')));
 });
 
 it('writes pest.bootTail as the PHP config calls it, and nothing where it is not set', function (): void {
@@ -52,7 +52,7 @@ it('caches in the warm workers unless pest.workerOpcache turns it off, a later l
     expect([Pest::none()->workerOpcache(), $off->workerOpcache(), $off->over(Pest::of(workerOpcache: true))->workerOpcache(), $off->over(Pest::of())->workerOpcache()])
         ->toBe([true, false, true, false])
         ->and($off->beneath(Choice::of('pest', Configs::options('{}'))))
-        ->toEqual(Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": false}')));
+        ->toEqual(Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": false, "schemata": true, "bootMutants": true}')));
 });
 
 it('writes pest.workerOpcache as the PHP config calls it, and nothing where it is not set', function (): void {
@@ -67,4 +67,26 @@ it('writes pest.workerOpcache as the PHP config calls it, and nothing where it i
         PhpCalls::inWith('Pest::unpatched()', 'Pest::bootingTail()', 'Pest::uncachedInWorkers()'),
         PhpCalls::inWith(),
     ]);
+});
+
+it('compiles schemata unless pest.schemata turns them off, a later layer winning, and writes it as the PHP config calls it', function (): void {
+    $off = Pest::of(schemata: false);
+
+    expect([Pest::none()->schemata(), $off->schemata(), $off->over(Pest::of(schemata: true))->schemata(), $off->over(Pest::of())->schemata()])
+        ->toBe([true, false, true, false])
+        ->and($off->beneath(Choice::of('pest', Configs::options('{}'))))
+        ->toEqual(Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": false, "bootMutants": true}')))
+        ->and([Pest::of(schemata: true)->php(ProjectRoot::origin()), $off->php(ProjectRoot::origin())])
+        ->toEqual([PhpCalls::inWith('Pest::compilingSchemata()'), PhpCalls::inWith('Pest::withoutSchemata()')]);
+});
+
+it('boots mutants\' workers unless pest.bootMutants turns it off, a later layer winning, and writes it as the PHP config calls it', function (): void {
+    $off = Pest::of(bootMutants: false);
+
+    expect([Pest::none()->bootMutants(), $off->bootMutants(), $off->over(Pest::of(bootMutants: true))->bootMutants(), $off->over(Pest::of())->bootMutants()])
+        ->toBe([true, false, true, false])
+        ->and($off->beneath(Choice::of('pest', Configs::options('{}'))))
+        ->toEqual(Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": false}')))
+        ->and([Pest::of(bootMutants: true)->php(ProjectRoot::origin()), $off->php(ProjectRoot::origin())])
+        ->toEqual([PhpCalls::inWith('Pest::bootingMutants()'), PhpCalls::inWith('Pest::mutantsUnbooted()')]);
 });

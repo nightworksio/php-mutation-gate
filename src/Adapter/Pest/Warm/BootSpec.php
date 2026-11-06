@@ -15,10 +15,12 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use function sprintf;
 
 /**
- * What a warm worker of the verification tail boots before it forks
- * (ADR-0075), as the gate leaves it in the directory the workers share: the
- * project's root, its Composer autoloader, Pest's script, and the suites the
- * runs it serves name, none where they name none. Each worker of that
+ * What a warm worker boots before it forks, as the gate leaves it in the
+ * directory the workers share: the project's root, its Composer autoloader,
+ * Pest's script, the suites the runs it serves name, none where they name
+ * none, and whether its workers serve mutants' runs (ADR-0091), loading no
+ * test file and serving each file's schema, or the verification tail's
+ * (ADR-0075), loading every test file of those suites. Each worker of that
  * directory boots it.
  *
  * @internal
@@ -27,12 +29,15 @@ final readonly class BootSpec
 {
     private const string FILE = '%s/boot.json';
 
+    private const string MUTANTS = 'forMutants';
+
     /** @param list<string> $suites */
     private function __construct(
         private string $root,
         private string $autoloader,
         private string $script,
         private array $suites,
+        private bool $mutants = false,
     ) {
     }
 
@@ -40,6 +45,12 @@ final readonly class BootSpec
     public static function of(string $root, string $autoloader, string $script, array $suites): self
     {
         return new self($root, $autoloader, $script, $suites);
+    }
+
+    /** The same, booted by a worker of mutants' runs: no test file, and each file's schema in its place (ADR-0091). */
+    public function forMutants(): self
+    {
+        return new self($this->root, $this->autoloader, $this->script, $this->suites, mutants: true);
     }
 
     /** What the workers sharing this directory boot; none where they boot nothing of the project. */
@@ -62,6 +73,7 @@ final readonly class BootSpec
             Member::of('autoloader', $this->autoloader),
             Member::of('script', $this->script),
             Member::of('suites', Json::items(...$this->suites)),
+            Member::of(self::MUTANTS, $this->mutants),
         );
 
         return WholeFile::written(sprintf(self::FILE, $directory), $written->line());
@@ -88,6 +100,12 @@ final readonly class BootSpec
         return $this->suites;
     }
 
+    /** Whether the workers serve mutants' runs, loading no test file and each file's schema in its place. */
+    public function isForMutants(): bool
+    {
+        return $this->mutants;
+    }
+
     private static function read(Node $at): self
     {
         $suites = array_map(static fn(Node $suite): string => $suite->text(), $at->field('suites')->items());
@@ -97,6 +115,7 @@ final readonly class BootSpec
             $at->field('autoloader')->text(),
             $at->field('script')->text(),
             $suites,
+            $at->field(self::MUTANTS)->isPresent() && $at->field(self::MUTANTS)->boolean(),
         );
     }
 }
