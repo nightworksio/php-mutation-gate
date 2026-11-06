@@ -250,8 +250,8 @@ it('says what to do: how many more mutants a set below its floor must catch, or 
         ->and(pageOf(Verdicts::passing()))->toContain(sprintf('<ul><li>%s</li></ul>', NextSteps::NOTHING));
 });
 
-it('says of each survivor in the overview what test would catch it', function (): void {
-    expect(pageOf(Verdicts::failing()))->toContain('<p class="hint">Add a test that uses a value at the boundary of <code>$amount &lt; $limit</code>.</p>');
+it('says of each survivor in the overview what test would catch it, and nothing to try where it has nothing', function (): void {
+    expect(pageOf(Verdicts::failing()))->toContain('<p class="hint">Add a test that uses a value at the boundary of <code>$amount &lt; $limit</code>.</p></li>');
 });
 
 it('shows each mutant with what it came to and the gate\'s own judgement beside it', function (): void {

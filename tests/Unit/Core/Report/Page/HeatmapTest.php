@@ -28,6 +28,7 @@ it('shows every file folded in one table, lowest first, each function folded und
             . '<li><code>Money::add</code> 100.00% <span class="heat-change">±0.00</span></li>'
             . '</ul></details></td><td>50.00%</td><td>-25.00</td><td>2</td></tr>',
         )
+        ->and($card)->toContain('<td>1</td></tr><tr><td><details><summary><code>src/Money.php</code>')
         ->and(explode('src/Cart.php', $card, 2)[0])->not->toContain('src/Money.php');
 });
 
