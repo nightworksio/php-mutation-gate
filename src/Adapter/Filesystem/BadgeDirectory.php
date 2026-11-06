@@ -220,13 +220,15 @@ final readonly class BadgeDirectory implements Reporter
     private static function logoFileIn(Options $options): BadgeLogo|Invalid
     {
         $file = $options->path(Key::of('logo'));
-        $svg = $file instanceof Path ? ReportPath::at($file->value())->read() : '';
 
-        return match (true) {
-            ! $file instanceof Path => Invalid::because(Problem::at('logo', self::LOGO)),
-            $svg === '' => Invalid::because(Problem::at('logo', self::NO_LOGO)),
-            default => BadgeLogo::drawn($svg),
-        };
+        return $file instanceof Path ? self::logoAt($file) : Invalid::because(Problem::at('logo', self::LOGO));
+    }
+
+    private static function logoAt(Path $file): BadgeLogo|Invalid
+    {
+        $svg = ReportPath::at($file->value())->read();
+
+        return $svg === '' ? Invalid::because(Problem::at('logo', self::NO_LOGO)) : BadgeLogo::drawn($svg);
     }
 
     private static function newCodeIn(Options $options): Floor|Invalid
