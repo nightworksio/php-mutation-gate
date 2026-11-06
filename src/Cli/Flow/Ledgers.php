@@ -75,8 +75,8 @@ final readonly class Ledgers
             $scope,
             $default,
             Access::of($scope, $default, $writing),
-            $taken === TakenProofs::None ? self::withoutProofs($defaultBranchRead) : $defaultBranchRead,
-            $taken === TakenProofs::Every ? $ownRead : self::withoutProofs($ownRead),
+            $taken === TakenProofs::None ? $defaultBranchRead->withoutProofs() : $defaultBranchRead,
+            $taken === TakenProofs::Every ? $ownRead : $ownRead->withoutProofs(),
             self::unreadIn($defaultBranch, $own),
         );
     }
@@ -250,19 +250,6 @@ final readonly class Ledgers
             $this->readsOwnScope() => $this->own->runs()->passed(),
             default => $this->defaultBranch->runs()->passed(),
         };
-    }
-
-    /** A ledger without its proofs, keeping all else it learned. */
-    private static function withoutProofs(Ledger $ledger): Ledger
-    {
-        return Ledger::empty()
-            ->withTimings($ledger->timings())
-            ->withBases($ledger->bases())
-            ->withRuns($ledger->runs())
-            ->withLearned($ledger->killers())
-            ->withLearned($ledger->analysers())
-            ->withLearned($ledger->survival())
-            ->withLearned($ledger->limits());
     }
 
     private static function unreadIn(Ledger|Unreadable ...$read): Warnings

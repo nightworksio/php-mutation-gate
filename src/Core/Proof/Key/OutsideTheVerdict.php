@@ -137,6 +137,8 @@ final readonly class OutsideTheVerdict
             'src/Config/**',
         ],
         'Reports, deliveries, comments and alerts: what is said of results.' => [
+            'src/Core/Heat/**',
+            'src/Cli/Flow/Heating.php',
             'src/Core/Report/**',
             'src/Core/Delivery/**',
             'src/Core/Alert/**',
@@ -179,6 +181,7 @@ final readonly class OutsideTheVerdict
             'src/Port/Repository.php',
         ],
         'Proofs, ledgers and their stores: the key, whose meaning its format holds, and where proofs are kept.' => [
+            'src/Cli/Flow/TalliedLedger.php',
             'src/Core/Proof/**',
             'src/Adapter/Filesystem/InstalledVerdictCode.php',
             'src/Adapter/S3/**',
@@ -187,6 +190,8 @@ final readonly class OutsideTheVerdict
             'src/Port/ProofStore.php',
         ],
         'Reach, sampling and recheck: which units a run considers, and the order of a verdict\'s work.' => [
+            'src/Core/Subsumption/**',
+            'src/Cli/Flow/Inferring.php',
             'src/Core/Reach/**',
             'src/Core/Sample/**',
             'src/Core/Recheck/**',
@@ -200,6 +205,9 @@ final readonly class OutsideTheVerdict
         ],
         'The cost model and timings: how long work is expected to take and took.' => [
             'src/Core/Cost/Cost.php',
+            'src/Core/Cost/MutantTimes.php',
+            'src/Core/Cost/MutatorTallies.php',
+            'src/Core/Cost/MutatorTally.php',
             'src/Core/Cost/CostBasis.php',
             'src/Core/Cost/Estimated.php',
             'src/Core/Cost/FirstRun.php',
@@ -256,6 +264,9 @@ final readonly class OutsideTheVerdict
             'src/Adapter/Filesystem/Waiting.php',
         ],
         'The doctor, migrations, stubs, imports and setup tooling.' => [
+            'src/Core/Suggest/**',
+            'src/Cli/Flow/SuggestedConfig.php',
+            'src/Cli/Flow/Unsayable.php',
             'src/Core/Doctor/**',
             'src/Core/Migration/**',
             'src/Core/Stub/**',

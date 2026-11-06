@@ -145,6 +145,12 @@ final readonly class Ledger
         );
     }
 
+    /** This ledger without its proofs, keeping all else it holds. */
+    public function withoutProofs(): self
+    {
+        return new self(Proofs::none(), $this->timings, $this->bases, $this->runs, $this->learned);
+    }
+
     /**
      * This ledger and another scope's, read together: this one's proofs first,
      * so a key both prove keeps this one's, each unit's newest timing, this
