@@ -45,6 +45,7 @@ use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\LedgerRead;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
+use NightWorksIO\MutationGate\Tests\Support\RunningCases;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
@@ -89,6 +90,27 @@ it('runs the shard it is named, leaves its result, and exits 0 whatever its muta
         ->and($ran->errors)->toBe('')
         ->and($result instanceof ShardResult ? $result->shard()->number() : $result)->toBe(2)
         ->and(is_file(sprintf('%s/.mutation-gate/results/1.json', $project)))->toBeFalse();
+});
+
+it('leaves the result of a shard whose run cannot pass, says why, and exits 1, so its job fails on any CI', function () use ($floored): void {
+    $project = FlowCommands::project();
+    $composition = FlowCommands::over(
+        $floored(100),
+        $project,
+        ScriptedRunner::fixture(),
+        new ProofStoreFake(),
+        new CiPlanFake(RunOn::at(Scope::pullRequest(7), Scope::branch('main'))),
+        Variables::of(['CI' => 'true']),
+    );
+    Scratch::write($project, '.mutation-gate/plan.json', PlanFile::encode(Planned::handedIn($project, RunningCases::onPullRequest(Planned::oneShard()))));
+
+    $ran = FlowCommands::run(RunCommand::command($composition), '--plan=.mutation-gate/plan.json --shard=1');
+
+    expect($ran->code)->toBe(1)
+        ->and($ran->output)->toBe(sprintf("Wrote %s/.mutation-gate/results/1.json.\n", $project))
+        ->and($ran->errors)->toStartWith('Shard 1 judged every unit, and fails: mutant ')
+        ->and($ran->errors)->toContain('survived, and the floor of tree src is 100%, so its run cannot pass.')
+        ->and(is_file(sprintf('%s/.mutation-gate/results/1.json', $project)))->toBeTrue();
 });
 
 it('runs the shard the environment names, into the results directory it is named', function () use ($floored): void {

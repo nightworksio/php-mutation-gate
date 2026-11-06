@@ -27,6 +27,12 @@ the end.
    - `cancel`: as `stop`, and the CI cancels the run's other shards where it
      can.
 
+   `run --plan` is what fails the job: it exits 1 once it has written the
+   shard's result, on every CI, so each CI's job fails without a step of its
+   own. Each template keeps the result of a failed shard and still runs the
+   verdict. Bitbucket runs no step after a failed one, so its template lets
+   exit 1 pass the shard's step, and the verdict alone fails that pipeline.
+
 2. **What dooms a run is what ADR-0008 says.** Only a pull request's or a
    merge group's run whose verdict holds its trees watches for one; a run of
    the security mutators or one suite alone, a run on a branch, a tag or a

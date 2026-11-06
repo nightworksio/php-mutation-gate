@@ -389,6 +389,8 @@ services:
                     - SLACK # seconds a warm worker may take past its last run, not the ledger's limit
                 'NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan':
                     - TRUSTED_SOURCES # Buildkite's build.source values, not another CI's event names
+                'NightWorksIO\MutationGate\Core\Verdict\Doomed':
+                    - STOPPED # what a shard did once its run could not pass, not a recorded event
                 'NightWorksIO\MutationGate\Core\Config\DigestRows':
                     - TESTS # the covering tests the digest names, not the ranking's top
                 'NightWorksIO\MutationGate\Core\Cost\SavingsWindow':

@@ -35,8 +35,13 @@ jobs:
       - checkout
       - attach_workspace: { at: . }
       - run: composer install
-      - run: vendor/bin/mutation-gate run --plan=.mutation-gate/plan.json
+      # Exit 1 is a shard that cannot pass; its result goes on to the verdict first.
+      - run: |
+          code=0
+          vendor/bin/mutation-gate run --plan=.mutation-gate/plan.json || code=$?
+          echo "$code" > .mutation-gate/shard-exit
       - persist_to_workspace: { root: ., paths: [.mutation-gate/results] }
+      - run: exit "$(cat .mutation-gate/shard-exit)"
   mutation-verdict:
     docker: [{ image: <a PHP 8.5 image> }]
     steps:

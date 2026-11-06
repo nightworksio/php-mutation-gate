@@ -532,11 +532,6 @@ jobs:
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 1
-      # Reads the result alone and runs none of the project's code.
-      - name: Fail this shard once it cannot pass
-        env:
-          RESULT: .mutation-gate/results/${{ matrix.shard.id }}.json
-        run: python3 "${GATE_ACTION}/resources/action/gate_action.py" doomed
 
   # On a pull request whose plan runs a shard, the last run's survivors run
   # again beside the shards, for a signal within minutes (ADR-0020; ADR-0062).

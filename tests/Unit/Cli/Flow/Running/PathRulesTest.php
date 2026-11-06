@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Flow\Adapters;
 use NightWorksIO\MutationGate\Cli\Flow\Ruling;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
+use NightWorksIO\MutationGate\Cli\Flow\ShardLeft;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Gate;
 use NightWorksIO\MutationGate\Config\Mutators;
@@ -22,7 +23,6 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
-use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
 use NightWorksIO\MutationGate\Tests\Support\RunningCases;
@@ -68,7 +68,7 @@ it('runs each group of a shard\'s units paths entries match with the runner its 
         ->run($plan, ShardId::of(1), Workspace::results());
     $result = RunningCases::resultIn($project, 1);
 
-    expect($written)->toBeInstanceOf(Written::class)
+    expect($written)->toBeInstanceOf(ShardLeft::class)
         ->and($result)->toBeInstanceOf(ShardResult::class)
         ->and($files($global))->toBe(['src/Held.php'])
         ->and(array_map(static fn(array $group): array => [

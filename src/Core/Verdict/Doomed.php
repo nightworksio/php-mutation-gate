@@ -32,6 +32,12 @@ final readonly class Doomed
         The run stopped before this unit, once mutant %s of %s made it certain to fail. Kill that mutant and run again.
         LEFT;
 
+    private const string FAILING = 'Shard %1$d %2$s: mutant %3$s of %4$s survived, and %5$s, so its run cannot pass.';
+
+    private const string STOPPED = 'stopped';
+
+    private const string JUDGED_ON = 'judged every unit, and fails';
+
     private const string BY_TREE = 'the floor of tree %s is %s%%';
 
     private const string BY_NEW_CODE = 'it is on a line the change added or modified, whose new-code floor is %s%%';
@@ -110,11 +116,28 @@ final readonly class Doomed
     /** Why the verdict fails, of the shard that stopped here. */
     public function said(int $shard): string
     {
+        return sprintf(self::SAID, $shard, $this->mutant->value(), $this->unit->value(), $this->floorSaid());
+    }
+
+    /** Why the shard's own job fails, whether it stopped here or judged on. */
+    public function failing(int $shard): string
+    {
+        return sprintf(
+            self::FAILING,
+            $shard,
+            $this->stopped ? self::STOPPED : self::JUDGED_ON,
+            $this->mutant->value(),
+            $this->unit->value(),
+            $this->floorSaid(),
+        );
+    }
+
+    private function floorSaid(): string
+    {
         $floor = $this->floor->written();
-        $why = $this->by === DoomedBy::Tree
+
+        return $this->by === DoomedBy::Tree
             ? sprintf(self::BY_TREE, $this->tree->value(), $floor)
             : sprintf(self::BY_NEW_CODE, $floor);
-
-        return sprintf(self::SAID, $shard, $this->mutant->value(), $this->unit->value(), $why);
     }
 }

@@ -104,6 +104,7 @@ final readonly class OutsideTheVerdict
             'src/Cli/Flow/Reporting.php',
             'src/Cli/Flow/Reproduced.php',
             'src/Cli/Flow/Reproducing.php',
+            'src/Cli/Flow/ShardLeft.php',
             'src/Cli/Flow/Results.php',
             'src/Cli/Flow/RunName.php',
             'src/Cli/Flow/RunnerMarkers.php',

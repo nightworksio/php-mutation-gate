@@ -114,7 +114,7 @@ final readonly class Running
     }
 
     /** The shard `--shard` names, or, where it names none, the one the environment's variables name (WhichShard). */
-    public function run(Plan $plan, ShardId|Absent $named, Path $results): Written|CannotJudge
+    public function run(Plan $plan, ShardId|Absent $named, Path $results): ShardLeft|CannotJudge
     {
         $followed = self::followed($plan, $this->adapters->repository);
         $id = $named instanceof ShardId ? $named : WhichShard::in($this->adapters->environment, $plan);
@@ -125,7 +125,7 @@ final readonly class Running
             default => $this->resultOf($followed, $id, $this->deadline()),
         };
 
-        return $this->written($result, $results);
+        return ShardLeft::after($result, $this->written($result, $results));
     }
 
     /** Every shard of a plan, one after another in this process, each leaving its result. */
