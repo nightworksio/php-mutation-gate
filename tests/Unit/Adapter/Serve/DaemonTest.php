@@ -52,7 +52,7 @@ it('runs each request in a child, which answers with what it wrote and its exit 
     $kept = ServedClients::clients([$runRequest($started(), 'pre-commit'), $runRequest($started(), 'pre-push')]);
     $forking = new InlineForking();
 
-    expect($daemonOf($forking, 1.0)->served())->toBeInstanceOf(NotGiven::class)
+    expect($daemonOf($forking, 2.0)->served())->toBeInstanceOf(NotGiven::class)
         ->and(ServedClients::answersIn($kept))->toBe([
             [['printed', 'gate pre-commit', 0], ['exit', '', 4]],
             [['printed', 'gate pre-push', 0], ['exit', '', 4]],
@@ -65,7 +65,7 @@ it('refuses a request it cannot read, one of another root, and one it cannot for
     ServedProjects::entered();
     $kept = ServedClients::clients(["not a request\n", $runRequest(ServeIdentity::of('/q', '1.0.0', 'lock', 'config'), 'pre-commit')]);
 
-    expect($daemonOf(new InlineForking(), 1.0)->served())->toBeInstanceOf(NotGiven::class)
+    expect($daemonOf(new InlineForking(), 2.0)->served())->toBeInstanceOf(NotGiven::class)
         ->and(ServedClients::answersIn($kept))->toBe([
             [['refused', 'The daemon could not read the request.', 0]],
             [['refused', 'The daemon serves /p, not /q.', 0]],
@@ -73,7 +73,7 @@ it('refuses a request it cannot read, one of another root, and one it cannot for
 
     $kept = ServedClients::clients([$runRequest($started(), 'pre-commit')]);
 
-    expect($daemonOf(InlineForking::failing(), 1.0)->served())->toBeInstanceOf(NotGiven::class)
+    expect($daemonOf(InlineForking::failing(), 2.0)->served())->toBeInstanceOf(NotGiven::class)
         ->and(ServedClients::answersIn($kept))->toBe([[['refused', 'The daemon could not fork a child for the request.', 0]]]);
 });
 
@@ -95,7 +95,7 @@ it('stops a child whose client hangs up', function () use ($started, $runRequest
     $forking = InlineForking::holding();
     ServedClients::clients([sprintf('%s%s', $runRequest($started(), 'watch'), ServedClients::HANG_UP)]);
 
-    expect($daemonOf($forking, 1.0)->served())->toBeInstanceOf(NotGiven::class)
+    expect($daemonOf($forking, 2.0)->served())->toBeInstanceOf(NotGiven::class)
         ->and($forking->stopped)->toBe([1000]);
 });
 

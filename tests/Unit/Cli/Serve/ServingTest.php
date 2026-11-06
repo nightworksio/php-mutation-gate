@@ -93,7 +93,8 @@ it('starts a daemon for watch where none runs and local.serveStart lets it, and 
     $project = ServedProjects::enteredAt(FlowCommands::project());
     Scratch::write($project, 'gate.php', <<<'PHP'
         <?php
-        $server = stream_socket_server('unix://.mutation-gate/serve.sock');
+        $server = stream_socket_server('unix://.mutation-gate/staged.sock');
+        rename('.mutation-gate/staged.sock', '.mutation-gate/serve.sock');
         $connection = stream_socket_accept($server, 5);
         fgets($connection);
         fwrite($connection, "{\"stream\":\"exit\",\"text\":\"\",\"code\":7}\n");

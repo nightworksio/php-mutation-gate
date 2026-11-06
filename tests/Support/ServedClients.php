@@ -29,6 +29,7 @@ use function sprintf;
 use function str_ends_with;
 use function strlen;
 use function substr;
+use function touch;
 
 /** The clients the tests of a daemon of `mutation-gate serve` send their requests from, in a process of their own. */
 final readonly class ServedClients
@@ -40,8 +41,9 @@ final readonly class ServedClients
     public const string HOLD = '<hold>';
 
     /**
-     * Clients in a process of their own, each sending its line in turn once
-     * the daemon listens and keeping its answer's lines; a line ending in
+     * Clients in a process of their own, started before this returns, each
+     * sending its line in turn once the daemon listens and keeping its
+     * answer's lines; a line ending in
      * HANG_UP is sent and its connection closed at once, unread, and one
      * ending in HOLD is sent and its connection held open, unread, until two
      * seconds after the answers are kept: the file they keep the answers in.
@@ -51,7 +53,9 @@ final readonly class ServedClients
     public static function clients(array $lines): string
     {
         $kept = sprintf('%s/answers-%s.json', (string) getcwd(), sodium_bin2hex(random_bytes(4)));
-        $child = ServedProjects::aside(static function () use ($lines, $kept): void {
+        $ready = sprintf('%s.ready', $kept);
+        $child = ServedProjects::aside(static function () use ($lines, $kept, $ready): void {
+            touch($ready);
             ServedProjects::until(static fn(): bool => ServedProjects::socket()->isThere());
             $held = [];
             $answers = [];
@@ -64,6 +68,7 @@ final readonly class ServedClients
             Waiting::every(Seconds::of(array_any($lines, static fn(string $line): bool => str_ends_with($line, self::HOLD)) ? 2.0 : 0.0))();
         });
         register_shutdown_function(static fn() => ServedProjects::waitedFor($child));
+        ServedProjects::until(static fn(): bool => is_file($ready));
 
         return $kept;
     }

@@ -146,20 +146,7 @@ final readonly class Connection
     {
         $option = self::peerOption();
 
-        if (! is_array($option)) {
-            return NotGiven::value();
-        }
-
-        set_error_handler(static fn(): bool => true, E_WARNING);
-
-        try {
-            $socket = socket_import_stream($this->stream);
-            $peer = $socket instanceof Socket ? socket_get_option($socket, $option[0], $option[1]) : NotGiven::value();
-        } finally {
-            restore_error_handler();
-        }
-
-        return is_int($peer) ? $peer : NotGiven::value();
+        return is_array($option) ? $this->peerBy($option) : NotGiven::value();
     }
 
     /** @return resource what PHP waits on for it */
@@ -173,6 +160,25 @@ final readonly class Connection
         if (is_resource($this->stream)) {
             fclose($this->stream);
         }
+    }
+
+    /**
+     * The id of the process at the other end, read by this level and option.
+     *
+     * @param array{int, int} $option
+     */
+    private function peerBy(array $option): int|NotGiven
+    {
+        set_error_handler(static fn(): bool => true, E_WARNING);
+
+        try {
+            $socket = socket_import_stream($this->stream);
+            $peer = $socket instanceof Socket ? socket_get_option($socket, $option[0], $option[1]) : NotGiven::value();
+        } finally {
+            restore_error_handler();
+        }
+
+        return is_int($peer) ? $peer : NotGiven::value();
     }
 
     /**
