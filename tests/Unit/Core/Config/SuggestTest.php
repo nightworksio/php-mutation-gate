@@ -19,7 +19,7 @@ it('suggests by default from 500 judged mutants, no survivors and 5% of the time
         ->and([$suggest->idleShare(), $suggest->ignoredShare()])->toEqual([Percentage::parse(5), Percentage::parse(80)]);
 });
 
-it('reads every suggest key a config writes, and lays a later layer\'s over an earlier one\'s, key by key', function (): void {
+it('reads every suggest key a config writes, the rest at their defaults, and lays a later layer\'s over an earlier one\'s, key by key', function (): void {
     $read = Configs::valid(['suggest' => [
         'idle' => ['judged' => 100, 'survivors' => 1, 'share' => 2.5],
         'ignored' => ['share' => 90, 'mutants' => 10],
@@ -30,7 +30,10 @@ it('reads every suggest key a config writes, and lays a later layer\'s over an e
         ->reports()
         ->suggest();
 
+    $alone = Configs::valid(['suggest' => ['timeouts' => ['cluster' => 6]]])->reports()->suggest();
+
     expect([$read->idleJudged(), $read->idleSurvivors(), $read->ignoredMutants(), $read->timeoutCluster()])->toBe([100, 1, 10, 5])
+        ->and([$alone->idleJudged(), $alone->ignoredMutants(), $alone->timeoutCluster()])->toBe([500, 50, 6])
         ->and([$read->idleShare(), $read->ignoredShare()])->toEqual([Percentage::parse(2.5), Percentage::parse(90)])
         ->and([$laid->idleJudged(), $laid->timeoutCluster()])->toBe([100, 6]);
 });

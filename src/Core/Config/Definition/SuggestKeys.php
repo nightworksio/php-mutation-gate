@@ -49,8 +49,7 @@ final readonly class SuggestKeys
         $suggest = Suggest::of();
 
         foreach ($parts as $part) {
-            $read = $part->value();
-            $suggest = $read instanceof Suggest ? $suggest->over($read) : $suggest;
+            $suggest = $suggest->over($part->must());
         }
 
         return Layer::of(Reports::suggesting($suggest));
