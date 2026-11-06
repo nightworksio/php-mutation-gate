@@ -151,6 +151,11 @@ final readonly class OutsideTheVerdict
             'src/Adapter/Otlp/**',
             'src/Adapter/Json/**',
         ],
+        'The local daemon of serve: where a local run runs, handing a command to the flows and back.' => [
+            'src/Adapter/Serve/**',
+            'src/Cli/Serve/**',
+            'src/Core/Serve/**',
+        ],
         'CI providers, version control and the plan: where a run runs, keyed by its CI definitions and files.' => [
             'src/Core/Ci/**',
             'src/Core/Change/**',

@@ -27,8 +27,19 @@ it('reads every run\'s sets and the runner\'s own, and every built-in runner\'s 
         $reads('pest', 'src/Cli/Flow/Planning.php'),
         $reads('pest', 'src/Adapter/PhpUnit/IssueKillers.php'),
         $reads('infection', 'src/Adapter/PhpUnit/IssueKillers.php'),
-    ])->toBe([true, true, false, false, true, true, true, true, true, false, false, true, false])
-        ->and(VerdictCode::SEMANTICS)->toBe(1)
+    ])->toBe([true, true, false, false, true, true, true, true, true, false, false, true, false]);
+});
+
+it('reads the package files a patch reads in the runs of each runner it patches, and in no other', function (string $file) use ($reads): void {
+    expect([$reads('pest', $file), $reads('infection', $file), $reads('phpunit', $file)])->toBe([true, true, false]);
+})->with([
+    'the port' => ['src/Core/Composer/PackageFiles.php'],
+    'its source' => ['src/Core/Composer/PackageSource.php'],
+    'its directory' => ['src/Adapter/Filesystem/PackageDirectory.php'],
+]);
+
+it('keeps its semantics and its plugins\' code', function (): void {
+    expect(VerdictCode::SEMANTICS)->toBe(1)
         ->and(VerdictCode::pluginCode()->matches(Path::of('src/Arithmetic/PlusToMinus.php')))->toBeTrue()
         ->and(VerdictCode::pluginCode()->matches(Path::of('tests/PlusToMinusTest.php')))->toBeFalse();
 });

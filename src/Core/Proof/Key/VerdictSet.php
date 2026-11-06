@@ -28,9 +28,9 @@ enum VerdictSet
     case Running;
     /** What every native runner shares. */
     case Native;
-    /** Pest, its patch and its plugin, with the PHPUnit issue reader the plugin loads. */
+    /** Pest, its patch and plugin, the PHPUnit issue reader the plugin loads and the package files the patch reads. */
     case Pest;
-    /** Infection and its patch. */
+    /** Infection and its patch, with the package files the patch reads. */
     case Infection;
     /** PHPUnit. */
     case PhpUnit;
@@ -132,11 +132,17 @@ enum VerdictSet
                 'src/Cli/PestPatch.php',
                 'src/Cli/PestPlugin.php',
                 'src/Adapter/PhpUnit/IssueKillers.php',
+                'src/Core/Composer/PackageFiles.php',
+                'src/Core/Composer/PackageSource.php',
+                'src/Adapter/Filesystem/PackageDirectory.php',
                 'bin/mutation-gate-pest-*',
             ],
             self::Infection => [
                 'src/Adapter/Infection/**',
                 'src/Cli/InfectionPatch.php',
+                'src/Core/Composer/PackageFiles.php',
+                'src/Core/Composer/PackageSource.php',
+                'src/Adapter/Filesystem/PackageDirectory.php',
             ],
             self::PhpUnit => [
                 'src/Adapter/PhpUnit/**',
