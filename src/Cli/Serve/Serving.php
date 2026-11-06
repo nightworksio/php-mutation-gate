@@ -32,9 +32,7 @@ use NightWorksIO\MutationGate\Core\Verb;
 use function rewind;
 use function sprintf;
 
-use const STDERR;
 use const STDIN;
-use const STDOUT;
 
 use function stream_get_contents;
 
@@ -84,7 +82,7 @@ final readonly class Serving
         }
 
         $request = $this->request($command, $input, $output);
-        $outcome = $this->outcome($this->answered($request, $watch, $input), $output);
+        $outcome = $this->outcome($this->answered($request, $watch, $input, $output), $output);
 
         if ($outcome instanceof NotGiven) {
             self::reading($input, $request->input());
@@ -105,16 +103,16 @@ final readonly class Serving
         }
     }
 
-    /** A client of the project's daemon that writes its answers to this process's standard output and error. */
-    public static function client(): ServeClient
+    /** A client of the project's daemon that writes its answers to this output and its error output. */
+    public static function client(OutputInterface $output): ServeClient
     {
         return new ServeClient(
             ServeSocket::ofProject(),
-            static function (string $text): void {
-                fwrite(STDOUT, $text);
+            static function (string $text) use ($output): void {
+                $output->write($text, options: OutputInterface::OUTPUT_RAW);
             },
-            static function (string $text): void {
-                fwrite(STDERR, $text);
+            static function (string $text) use ($output): void {
+                Aside::of($output)->write($text, options: OutputInterface::OUTPUT_RAW);
             },
         );
     }
@@ -145,8 +143,9 @@ final readonly class Serving
         ServeRequest $request,
         bool $watch,
         InputInterface $input,
+        OutputInterface $output,
     ): int|ServeRefusal|NotGiven|CannotJudge {
-        $client = self::client();
+        $client = self::client($output);
         $answer = $client->answered($request);
         $unserved = $answer instanceof NotGiven || $answer instanceof ServeRefusal;
         $wait = $watch && $unserved ? $this->startWait($input) : NotGiven::value();

@@ -101,7 +101,7 @@ final readonly class ServeCommand
 
     private function stopped(ServeIdentity $identity, OutputInterface $output): int
     {
-        $answer = Serving::client()->answered(ServeRequest::stopping($identity));
+        $answer = Serving::client($output)->answered(ServeRequest::stopping($identity));
         $output->writeln($answer instanceof ServeRefusal ? $answer->why() : self::NONE, OutputInterface::OUTPUT_RAW);
 
         return ExitCode::Passed->value;
