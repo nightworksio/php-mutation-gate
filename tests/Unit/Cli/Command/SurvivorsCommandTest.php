@@ -253,3 +253,18 @@ it('cannot re-check a share it cannot leave what it made of', function () use ($
     expect([$ran->code, $ran->output])->toBe([2, ''])
         ->and($ran->errors)->toContain('.mutation-gate/survivors/1.json');
 });
+
+it('cannot report the shares where it cannot tell which survivors they were taken for', function () use ($store, $feature): void {
+    $project = FlowCommands::project();
+    FlowCommands::run(PlanCommand::command(FlowCommands::composition($project, ScriptedRunner::fixture(), $store(), $feature())), '--shards=1');
+    $unread = FlowCommands::registered(
+        FlowCommands::registry(Flows::trees(), ScriptedRunner::fixture(), $store(), $feature(), RepositoryFake::onMain(Revision::ref(Flows::HEAD)), Flows::checkout())
+            ->withTreeSource(Name::of('phpunit'), static fn(): TreeSource => new TreeSourceFake(CannotJudge::because('No tree is declared.'))),
+        $project,
+        Variables::of([]),
+    );
+
+    $ran = FlowCommands::run(SurvivorsCommand::command($unread), '--plan=.mutation-gate/plan.json --from=.mutation-gate/survivors --of=1');
+
+    expect([$ran->code, $ran->output, $ran->errors])->toBe([2, '', "No tree is declared.\n"]);
+});
