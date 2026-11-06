@@ -174,5 +174,5 @@ it('says why it cannot resolve the config for a context --context does not name,
     $shown = Commands::run($project, 'config:show', ['--resolved' => true, '--context' => 'staging']);
 
     expect($shown->code)->toBe(2)
-        ->and(sprintf('%s%s', $shown->output, $shown->errors))->toContain('--context: expected local, ci, pr or main, got "staging"');
+        ->and(sprintf('%s%s', $shown->output, $shown->errors))->toContain('--context: expected local, ci, github, gitlab, bitbucket, azure, buildkite, jenkins, circleci, pr or main, got "staging"');
 });

@@ -144,7 +144,7 @@ it('reads the context --context names, nothing where it is left off, and a probl
     expect($given(['--context' => 'pr'])->context())->toBe(Context::PullRequest)
         ->and($given([])->context())->toEqual(NotGiven::value())
         ->and(($named = $given(['--context' => 'staging'])->context()) instanceof Invalid ? Configs::problems($named) : $named)
-        ->toBe(['--context: expected local, ci, pr or main, got "staging"']);
+        ->toBe(['--context: expected local, ci, github, gitlab, bitbucket, azure, buildkite, jenkins, circleci, pr or main, got "staging"']);
 });
 
 it('puts a run in a context only where --context names none', function () use ($definition): void {

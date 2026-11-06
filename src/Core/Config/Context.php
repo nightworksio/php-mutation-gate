@@ -82,7 +82,7 @@ enum Context: string
         };
     }
 
-    /** Every context's key, as `--context` and `contexts` take them: `local, ci, pr or main`. */
+    /** Every context's key, as `--context` and `contexts` take them, `local, ci, github, ..., pr or main`. */
     public static function words(): string
     {
         $keys = array_map(static fn(self $context): string => $context->value, self::cases());
