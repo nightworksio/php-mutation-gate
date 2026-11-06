@@ -18,7 +18,7 @@ enum VerdictSet
 {
     /** What a run records of each mutant, and the values it records them in. */
     case Records;
-    /** The gate's engine that makes mutants for a native runner and registered mutators. */
+    /** The engine that makes mutants for a native runner and registered mutators, and the opening it reads after. */
     case Mutators;
     /** How the gate starts, watches and ends the processes a run runs. */
     case Processes;
@@ -75,6 +75,7 @@ enum VerdictSet
             ],
             self::Mutators => [
                 'src/Mutator/**',
+                'src/Core/Hint/Change.php',
             ],
             self::Processes => [
                 'src/Adapter/Process/**',
