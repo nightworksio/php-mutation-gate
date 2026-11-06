@@ -27,16 +27,18 @@ final readonly class LocalKeys
         $idle = Field::optional('serveIdle', Duration::written(), $judges);
         $start = Field::optional('serveStart', Enumerated::of(ServeStart::cases()), $judges);
         $startWait = Field::optional('serveStartWait', Duration::written(), $judges);
+        $infer = Field::optional('inferSubsumed', Flag::boolean(), $judges);
 
         return [Field::section(
             'local',
             Section::of(
-                static function (Node $local) use ($watch, $prePush, $idle, $start, $startWait): Layer|Invalid {
+                static function (Node $local) use ($watch, $prePush, $idle, $start, $startWait, $infer): Layer|Invalid {
                     $watching = $watch->read($local);
                     $pushing = $prePush->read($local);
                     $idling = $idle->read($local);
                     $starting = $start->read($local);
                     $waiting = $startWait->read($local);
+                    $inferring = $infer->read($local);
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Local::of(
@@ -45,12 +47,14 @@ final readonly class LocalKeys
                             $idling->value(),
                             $starting->value(),
                             $waiting->value(),
+                            $inferring->value(),
                         )),
                         $watching,
                         $pushing,
                         $idling,
                         $starting,
                         $waiting,
+                        $inferring,
                     );
                 },
                 $watch,
@@ -58,6 +62,7 @@ final readonly class LocalKeys
                 $idle,
                 $start,
                 $startWait,
+                $infer,
             ),
         )];
     }

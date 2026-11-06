@@ -101,7 +101,7 @@ it('writes a config that reads back into the same effective config', function (a
         'pest' => ['patch' => true, 'canary' => 'canary'],
         'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon'],
         'mutators' => ['sets' => ['acme', 'acme-auth'], 'except' => ['acme/RemoveAudit']],
-        'local' => ['watchBudget' => '2m', 'prePushBudget' => '90s', 'serveIdle' => '10m', 'serveStart' => 'never', 'serveStartWait' => '20s'],
+        'local' => ['watchBudget' => '2m', 'prePushBudget' => '90s', 'serveIdle' => '10m', 'serveStart' => 'never', 'serveStartWait' => '20s', 'inferSubsumed' => false],
     ]],
     'a runner that starts each mutant fresh' => [['runner' => ['use' => 'pest', 'workers' => 'fresh']]],
     'adapters another extension registers' => [[
@@ -176,6 +176,7 @@ it('writes a layer that reads back into the same layer', function () use ($php):
         'tests' => ['order' => 'killers-first'],
         'equivalence' => ['static' => true],
         'pest' => ['patch' => false],
+        'local' => ['inferSubsumed' => true],
     ];
     $project = Scratch::directory();
     Scratch::write($project, 'mutation-gate.php', $php($config));

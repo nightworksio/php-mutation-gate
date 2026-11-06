@@ -30,6 +30,7 @@ final readonly class Local implements Part
         private Seconds|Absent $serveIdle,
         private ServeStart|Absent $serveStart,
         private Seconds|Absent $serveStartWait = new Absent(),
+        private bool|Absent $inferSubsumed = new Absent(),
     ) {
     }
 
@@ -39,8 +40,9 @@ final readonly class Local implements Part
         Seconds|Absent $serveIdle = new Absent(),
         ServeStart|Absent $serveStart = new Absent(),
         Seconds|Absent $serveStartWait = new Absent(),
+        bool|Absent $inferSubsumed = new Absent(),
     ): self {
-        return new self($watchBudget, $prePushBudget, $serveIdle, $serveStart, $serveStartWait);
+        return new self($watchBudget, $prePushBudget, $serveIdle, $serveStart, $serveStartWait, $inferSubsumed);
     }
 
     public static function none(): self
@@ -58,6 +60,7 @@ final readonly class Local implements Part
             $none->serveIdle(),
             $none->serveStart(),
             $none->serveStartWait(),
+            $none->inferSubsumed(),
         );
     }
 
@@ -70,6 +73,7 @@ final readonly class Local implements Part
                 Absent::laid($this->serveIdle, $later->serveIdle),
                 Absent::laid($this->serveStart, $later->serveStart),
                 Absent::laid($this->serveStartWait, $later->serveStartWait),
+                Absent::laid($this->inferSubsumed, $later->inferSubsumed),
             )
             : $this;
     }
@@ -102,6 +106,17 @@ final readonly class Local implements Part
         return $this->serveStart instanceof ServeStart ? $this->serveStart : ServeStart::Watch;
     }
 
+    /**
+     * `local.inferSubsumed`: whether a run outside CI runs each mutant another
+     * subsumes after the others, and shows one its budget left unjudged as
+     * inferred killed where its subsumer was killed (ADR-0079); it does by
+     * default.
+     */
+    public function inferSubsumed(): bool
+    {
+        return $this->inferSubsumed instanceof Absent || $this->inferSubsumed;
+    }
+
     public function written(PathOrigin $origin): Json
     {
         return Json::object(Member::unlessEmpty(
@@ -127,6 +142,7 @@ final readonly class Local implements Part
                     'serveStartWait',
                     $this->serveStartWait instanceof Seconds ? $this->serveStartWait->written() : $this->serveStartWait,
                 ),
+                Member::of('inferSubsumed', $this->inferSubsumed),
             ),
         ));
     }
@@ -149,6 +165,11 @@ final readonly class Local implements Part
             ...$this->serveStartWait instanceof Seconds
                 ? [sprintf('Local::serveStartWait(%s)', PhpCalls::literal($this->serveStartWait->written()))]
                 : [],
+            ...match ($this->inferSubsumed) {
+                true => ['Local::inferringSubsumed()'],
+                false => ['Local::runningSubsumed()'],
+                default => [],
+            },
         ]);
     }
 }

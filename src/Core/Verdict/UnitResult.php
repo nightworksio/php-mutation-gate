@@ -79,6 +79,21 @@ final readonly class UnitResult
         );
     }
 
+    /** This result, with each of these mutants in place of its own of the same id. */
+    public function replacing(Mutants $mutants): self
+    {
+        return new self(
+            $this->unit,
+            $this->origin,
+            $this->mutants->replacing($mutants),
+            $this->kills,
+            $this->flaky,
+            $this->run,
+            $this->judging,
+            $this->carriedPruned,
+        );
+    }
+
     /** This result, its unit held by tests of which these run it (ADR-0005). */
     public function judgedBy(TestIds $judging): self
     {

@@ -2336,6 +2336,10 @@
                     "type": "string",
                     "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
                     "default": "10s"
+                },
+                "inferSubsumed": {
+                    "type": "boolean",
+                    "default": true
                 }
             },
             "additionalProperties": false
@@ -4630,6 +4634,9 @@
                         "serveStartWait": {
                             "type": "string",
                             "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                        },
+                        "inferSubsumed": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false
