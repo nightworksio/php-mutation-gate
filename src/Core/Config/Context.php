@@ -23,19 +23,19 @@ enum Context: string
 
     case Ci = 'ci';
 
-    case GitHub = 'github';
+    case GitHub = BuiltinCiPlan::GitHub->value;
 
-    case GitLab = 'gitlab';
+    case GitLab = BuiltinCiPlan::GitLab->value;
 
-    case Bitbucket = 'bitbucket';
+    case Bitbucket = BuiltinCiPlan::Bitbucket->value;
 
-    case Azure = 'azure';
+    case Azure = BuiltinCiPlan::Azure->value;
 
-    case Buildkite = 'buildkite';
+    case Buildkite = BuiltinCiPlan::Buildkite->value;
 
-    case Jenkins = 'jenkins';
+    case Jenkins = BuiltinCiPlan::Jenkins->value;
 
-    case CircleCi = 'circleci';
+    case CircleCi = BuiltinCiPlan::CircleCi->value;
 
     case PullRequest = 'pr';
 
