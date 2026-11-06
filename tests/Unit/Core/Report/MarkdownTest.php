@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\Config\CommentShows;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
+use NightWorksIO\MutationGate\Core\Cost\SavingsWindow;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -132,7 +133,7 @@ it('says whose earlier verdict stands in place of the project\'s score, in the c
     $standing = Verdict::of(TreeVerdicts::standingOn(Unchanged::standing(StandsBecause::NothingReached, Passed::of(Revision::ref('5eeca8f0'), 'mutation / verdict', 0)->passedAt($at), $at)));
 
     expect(Markdown::comment($standing, CommentShows::of()))->toContain("## mutation-gate: passed\n\nThe default branch's earlier verdict at 5eeca8f0 stands.\n")
-        ->and(Markdown::summary($standing, $run, $at))->toContain("\n\nThe default branch's earlier verdict at 5eeca8f0 stands.\n")
+        ->and(Markdown::summary($standing, $run, SavingsWindow::standard(), new DateTimeImmutable('2026-10-01T12:00:00Z')))->toContain("\n\nThe default branch's earlier verdict at 5eeca8f0 stands.\n")
         ->and(Markdown::comment($standing, CommentShows::of()))->not->toContain('The project has nothing to mutate.');
 });
 
@@ -174,7 +175,7 @@ it('comments on up to 20 survivors on changed lines, 20 unjudged or flaky and 20
 });
 
 it('writes the step summary with every mutant counted as not killed in one table, and every ignored one in another', function () use ($run): void {
-    $summary = Markdown::summary(Verdicts::failing(), $run, Verdicts::monthAgo());
+    $summary = Markdown::summary(Verdicts::failing(), $run, SavingsWindow::standard(), Verdicts::clockNow());
 
     expect($summary)->toStartWith("## mutation-gate: failed\n\nThe project scores 44.44%.")
         ->and($summary)->not->toContain(Markdown::MARKER)
@@ -192,16 +193,16 @@ it('writes the step summary with every mutant counted as not killed in one table
 });
 
 it('names no run in a step summary of a run it does not know', function () use ($run): void {
-    $named = Markdown::summary(Verdicts::failing(), $run, Verdicts::monthAgo());
+    $named = Markdown::summary(Verdicts::failing(), $run, SavingsWindow::standard(), Verdicts::clockNow());
 
-    expect(Markdown::summary(Verdicts::failing(), '', Verdicts::monthAgo()))
+    expect(Markdown::summary(Verdicts::failing(), '', SavingsWindow::standard(), Verdicts::clockNow()))
         ->toBe(str_replace(sprintf("\n\n[The run](%s) keeps the HTML report among its artifacts.", $run), '', $named));
 });
 
 it('writes what each suite alone kills in the step summary, and never in the comment', function () use ($run): void {
     $verdict = Killings::suited(MatrixKind::FirstKiller);
 
-    expect(Markdown::summary($verdict, $run, Verdicts::monthAgo()))->toContain(implode("\n", [
+    expect(Markdown::summary($verdict, $run, SavingsWindow::standard(), Verdicts::clockNow()))->toContain(implode("\n", [
         "### Suites\n",
         '| Suite | Covered | Killed | Score |',
         '|---|---|---|---|',
@@ -209,15 +210,15 @@ it('writes what each suite alone kills in the step summary, and never in the com
         "| <code>feature</code> | 2 | 1 | at least 50.00% |\n",
         'Each is a lower bound, from first killers: <code>vendor/bin/mutation-gate run --kill-matrix=full</code> makes it exact.',
     ]))
-        ->and(Markdown::summary(Killings::suited(MatrixKind::Full), $run, Verdicts::monthAgo()))
+        ->and(Markdown::summary(Killings::suited(MatrixKind::Full), $run, SavingsWindow::standard(), Verdicts::clockNow()))
         ->toContain('| <code>unit</code> | 3 | 2 | 66.66% |')
-        ->and(Markdown::summary(Killings::unplaced(), $run, Verdicts::monthAgo()))
+        ->and(Markdown::summary(Killings::unplaced(), $run, SavingsWindow::standard(), Verdicts::clockNow()))
         ->toContain("### Suites\n\nThe runner named no test, so no suite can be scored.")
         ->and(Markdown::comment($verdict, CommentShows::of()))->not->toContain('Suites');
 });
 
 it('writes a hostile suite\'s name in the step summary as inert text in one table cell', function () use ($run): void {
-    $summary = Markdown::summary(Killings::hostile(), $run, Verdicts::monthAgo());
+    $summary = Markdown::summary(Killings::hostile(), $run, SavingsWindow::standard(), Verdicts::clockNow());
 
     expect($summary)->toContain('| <code>&lt;script&gt;alert(1)&lt;/script&gt;&#124;x &#91;31mred</code> | 3 | 2 | 66.66% |')
         ->and($summary)->not->toContain('<script>')
@@ -231,7 +232,7 @@ it('fits the step summary into the size one step may write, saying how many it l
         $mutants[] = JudgedMutant::of(Verdicts::mutant(sprintf('src/%s.php:%d', str_repeat('LongName', 600), $line), 'Plus', MutatorFamily::None, ''), MutantJudgement::Survived);
     }
 
-    $summary = Markdown::summary(Verdicts::of(Floor::of(80), ...$mutants), '', Verdicts::monthAgo());
+    $summary = Markdown::summary(Verdicts::of(Floor::of(80), ...$mutants), '', SavingsWindow::standard(), Verdicts::clockNow());
 
     expect(strlen($summary))->toBeLessThanOrEqual(Markdown::SUMMARY_BYTES)
         ->and($summary)->toContain('### Not killed (300)')
@@ -246,7 +247,8 @@ it('keeps a step summary of exactly the mebibyte one step may write whole, and c
     $summary = static fn(int $length): string => Markdown::summary(
         Verdicts::of(Floor::of(80), $judged(3, 1), $judged(4, $length)),
         '',
-        Verdicts::monthAgo(),
+        SavingsWindow::standard(),
+        Verdicts::clockNow(),
     );
     $fits = 1_048_576 - (strlen($summary(2)) - 2);
 
@@ -258,7 +260,7 @@ it('keeps a step summary of exactly the mebibyte one step may write whole, and c
 
 it('fits a step summary whose one survivor alone is past the size one step may write, by showing none', function (): void {
     $huge = JudgedMutant::of(Verdicts::mutant(sprintf('src/%s.php:3', str_repeat('a', 1_100_000)), 'Plus', MutatorFamily::None, ''), MutantJudgement::Survived);
-    $summary = Markdown::summary(Verdicts::of(Floor::of(80), $huge), '', Verdicts::monthAgo());
+    $summary = Markdown::summary(Verdicts::of(Floor::of(80), $huge), '', SavingsWindow::standard(), Verdicts::clockNow());
 
     expect(strlen($summary))->toBeLessThanOrEqual(1_048_576)
         ->and($summary)->toContain('### Not killed (1)')
@@ -274,7 +276,7 @@ it('stops cutting once it shows no survivor, even where what is left is past the
         JudgedMutants::of(JudgedMutant::of(Verdicts::mutant(sprintf('%s/Money.php:3', $path), 'Plus', MutatorFamily::None, ''), MutantJudgement::Survived)),
         Uncovered::Count,
     );
-    $summary = Markdown::summary(Verdict::of(TreeVerdicts::of($tree)), '', Verdicts::monthAgo());
+    $summary = Markdown::summary(Verdict::of(TreeVerdicts::of($tree)), '', SavingsWindow::standard(), Verdicts::clockNow());
 
     expect($summary)->toContain('And 1 more; the JSON report lists every one.')
         ->and($summary)->not->toContain('| Mutant | Mutator |');
@@ -288,7 +290,7 @@ it('fits the ignored mutants of a step summary into the size one step may write,
         $mutants[] = JudgedMutant::of(Verdicts::mutant(sprintf('src/Log.php:%d', $line), 'Plus', MutatorFamily::None, '')->because($reason), MutantJudgement::Ignored);
     }
 
-    $summary = Markdown::summary(Verdicts::of(Floor::of(80), ...$mutants), '', Verdicts::monthAgo());
+    $summary = Markdown::summary(Verdicts::of(Floor::of(80), ...$mutants), '', SavingsWindow::standard(), Verdicts::clockNow());
 
     expect(strlen($summary))->toBeLessThanOrEqual(Markdown::SUMMARY_BYTES)
         ->and($summary)->toContain('### Ignored (300)')
@@ -356,21 +358,21 @@ it('says under the verdict what pruning left out, in the comment and the step su
     $pruned = "\nPruned: 2 mutators on 1 unit; 3 mutants carried from runs of the last 7 days.\n\nThe project scores 44.44%.";
 
     expect(Markdown::comment($verdict, CommentShows::of()))->toContain($pruned)
-        ->and(Markdown::summary($verdict, $run, Verdicts::monthAgo()))->toContain($pruned);
+        ->and(Markdown::summary($verdict, $run, SavingsWindow::standard(), Verdicts::clockNow()))->toContain($pruned);
 });
 
 it('adds to the step summary what the default branch saved lately', function () use ($run): void {
     $verdict = Verdicts::failing()->withAccount(Verdicts::account()->after(Trend::decode(
         '{"format": 1, "runs": [{"commit": "a", "time": "2026-09-10T00:00:00Z", "trees": {}, "runnerSeconds": 60, "fullRunSeconds": 3660}]}',
     )));
-    $summary = Markdown::summary($verdict, $run, Verdicts::monthAgo());
+    $summary = Markdown::summary($verdict, $run, SavingsWindow::standard(), Verdicts::clockNow());
 
     expect($summary)->toContain(sprintf(
         "%s\nIn the last 30 days the gate saved 2h 27m of runner time.\n\nThe project scores 44.44%%.",
         SavingsText::of($verdict, NoHistory::yet()),
     ))
-        ->and(Markdown::summary(Verdicts::named('accounted'), $run, Verdicts::monthAgo()))->not->toContain('In the last 30 days')
-        ->and(Markdown::summary(Verdicts::named('accounted'), $run, Verdicts::monthAgo()))->not->toContain('What this run cost');
+        ->and(Markdown::summary(Verdicts::named('accounted'), $run, SavingsWindow::standard(), Verdicts::clockNow()))->not->toContain('In the last 30 days')
+        ->and(Markdown::summary(Verdicts::named('accounted'), $run, SavingsWindow::standard(), Verdicts::clockNow()))->not->toContain('What this run cost');
 });
 
 /**
@@ -439,7 +441,7 @@ it('writes a cluster as one row of the step summary, with its size and its stub 
         Escape::text(ClusterText::hint($cluster)),
         $cluster->id()->value(),
     );
-    $summary = Markdown::summary(Clustered::verdict(), '', Verdicts::monthAgo());
+    $summary = Markdown::summary(Clustered::verdict(), '', SavingsWindow::standard(), Verdicts::clockNow());
 
     expect($summary)->toContain(implode("\n", [
         '### Not killed (7)',
@@ -464,7 +466,7 @@ it('comments on the security survivors in a section before the trees, and lists 
         ->and($comment)->toContain('### Survivors on changed lines (1)')
         ->and(substr_count($comment, '<code>src/Auth.php:3</code>'))->toBe(1)
         ->and($comment)->toContain("### Floors that can rise\n\n- <code>security set of packages/billing</code> to 100.00%")
-        ->and(Markdown::summary(Verdicts::secured(), $run, Verdicts::monthAgo()))->toContain('- Security scores 0.00%, below its floor of 100.00%.');
+        ->and(Markdown::summary(Verdicts::secured(), $run, SavingsWindow::standard(), Verdicts::clockNow()))->toContain('- Security scores 0.00%, below its floor of 100.00%.');
 });
 
 it('comments on up to 20 security survivors, then says how many more', function (): void {
@@ -615,7 +617,7 @@ it('comments on the survivors on changed lines under their owner group, each wit
 
 it('heads each owner group of the comment with a placeholder for each owner, under owners.mention first, and the summary with text', function () use ($run): void {
     $comment = Markdown::comment(Owners::mentioned(), CommentShows::of());
-    $summary = Markdown::summary(Owners::mentioned(), $run, Verdicts::monthAgo());
+    $summary = Markdown::summary(Owners::mentioned(), $run, SavingsWindow::standard(), Verdicts::clockNow());
 
     expect($comment)->toContain(sprintf(
         "### Survivors on changed lines (1)\n\n#### %s %s (1)\n",
@@ -628,7 +630,7 @@ it('heads each owner group of the comment with a placeholder for each owner, und
 });
 
 it('writes every mutant not killed in the step summary under its owner group, in a table each', function () use ($run): void {
-    $summary = Markdown::summary(Owners::verdict(), $run, Verdicts::monthAgo());
+    $summary = Markdown::summary(Owners::verdict(), $run, SavingsWindow::standard(), Verdicts::clockNow());
 
     expect($summary)->toContain('### Not killed (3)')
         ->and($summary)->toContain(implode("\n", [
@@ -667,10 +669,10 @@ it('writes the comment and the step summary in time linear in the mutants', func
     $written = static function (int $size) use ($run): Closure {
         $verdict = ManyMutants::verdict($size);
 
-        return static fn(): int => strlen(Markdown::comment($verdict, CommentShows::of())) + strlen(Markdown::summary($verdict, $run, Instant::at(new DateTimeImmutable('2026-10-01T12:00:00Z'))));
+        return static fn(): int => strlen(Markdown::comment($verdict, CommentShows::of())) + strlen(Markdown::summary($verdict, $run, SavingsWindow::standard(), new DateTimeImmutable('2026-10-01T12:00:00Z')));
     };
 
-    expect(Markdown::summary(ManyMutants::verdict(8), $run, Instant::at(new DateTimeImmutable('2026-10-01T12:00:00Z'))))->toContain('## Not killed (2)')
+    expect(Markdown::summary(ManyMutants::verdict(8), $run, SavingsWindow::standard(), new DateTimeImmutable('2026-10-01T12:00:00Z')))->toContain('## Not killed (2)')
         ->and(Growth::of(250, $written))->toBeLessThan(Growth::LINEAR);
 });
 

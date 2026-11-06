@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
+use NightWorksIO\MutationGate\Core\Cost\SavedLately;
+use NightWorksIO\MutationGate\Core\Cost\SavingsWindow;
 use NightWorksIO\MutationGate\Core\Dashboard\Published;
 use NightWorksIO\MutationGate\Core\Dashboard\PublishedFile;
 use NightWorksIO\MutationGate\Core\Dashboard\PublishedMutator;
@@ -37,7 +39,7 @@ it('reads what a repository published: its commit, time, verdict, score, trees, 
         ->and($published->trees()[1]->score())->toEqual(NothingToMutate::found())
         ->and($published->trees()[2]->floor())->toEqual(Floor::of(90))
         ->and($published->newCode())->toEqual(Floor::of(95))
-        ->and($published->saved())->toEqual(Seconds::of(147_600.0))
+        ->and($published->saved())->toEqual(SavedLately::of(Seconds::of(147_600.0), SavingsWindow::standard()))
         ->and(array_map(static fn(TreeBelow $tree): array => [$tree->path(), $tree->floor()->percent(), $tree->score()->percent()], $published->belowFloor()))
         ->toBe([['src', 80.0, 44.44]]);
 });
@@ -83,10 +85,10 @@ it('reads the costliest mutators a repository named, each with its kill rate whe
 
 it('reads a run that could not judge, saved nothing, and left every tree below its floor', function (): void {
     $published = Published::read('{"format": 1, "commit": "a", "time": "2026-09-30T10:00:00Z", "verdict": "cannot-judge", "score": 10, '
-        . '"trees": [{"path": "src", "floor": 80, "score": 10}, {"path": "lib", "floor": 50, "score": 20}], "newCode": {"floor": 100}, "savings": {"last30Days": 0}}');
+        . '"trees": [{"path": "src", "floor": 80, "score": 10}, {"path": "lib", "floor": 50, "score": 20}], "newCode": {"floor": 100}, "savings": {"seconds": 0, "window": "7d"}}');
 
     expect($published instanceof Published ? $published->verdict() : $published)->toBe(Judgement::CannotJudge)
-        ->and($published instanceof Published ? $published->saved() : $published)->toEqual(Seconds::of(0.0))
+        ->and($published instanceof Published ? $published->saved() : $published)->toEqual(SavedLately::of(Seconds::of(0.0), SavingsWindow::of(Seconds::days(7))))
         ->and($published instanceof Published ? array_map(static fn(TreeBelow $tree): string => $tree->path(), $published->belowFloor()) : $published)
         ->toBe(['src', 'lib']);
 });
@@ -100,7 +102,8 @@ it('refuses whole what is not a summary in the shape of format 1, and says why',
     'a time not in UTC' => ['{"format": 1, "commit": "a", "time": "yesterday", "verdict": "passed", "trees": [], "newCode": {"floor": 100}}', 'Its summary.json is not one this gate reads: summary.json.time is not an instant in UTC.'],
     'a score past 100' => ['{"format": 1, "commit": "a", "time": "2026-09-30T10:00:00Z", "verdict": "passed", "score": 101, "trees": [], "newCode": {"floor": 100}}', 'Its summary.json is not one this gate reads: summary.json.score is not a percentage from 0 to 100.'],
     'a tree\'s floor below 0' => ['{"format": 1, "commit": "a", "time": "2026-09-30T10:00:00Z", "verdict": "passed", "trees": [{"path": "src", "floor": -1}], "newCode": {"floor": 100}}', 'Its summary.json is not one this gate reads: summary.json.trees[0].floor is not a percentage from 0 to 100.'],
-    'savings below nothing' => ['{"format": 1, "commit": "a", "time": "2026-09-30T10:00:00Z", "verdict": "passed", "trees": [], "newCode": {"floor": 100}, "savings": {"last30Days": -1}}', 'Its summary.json is not one this gate reads: summary.json.savings.last30Days is not a number of seconds.'],
+    'savings below nothing' => ['{"format": 1, "commit": "a", "time": "2026-09-30T10:00:00Z", "verdict": "passed", "trees": [], "newCode": {"floor": 100}, "savings": {"seconds": -1, "window": "30d"}}', 'Its summary.json is not one this gate reads: summary.json.savings.seconds is not a number of seconds.'],
+    'savings in no window' => ['{"format": 1, "commit": "a", "time": "2026-09-30T10:00:00Z", "verdict": "passed", "trees": [], "newCode": {"floor": 100}, "savings": {"seconds": 1, "window": "a month"}}', 'Its summary.json is not one this gate reads: summary.json.savings.window is not a duration.'],
     'a mutator with no runner' => ['{"format": 1, "commit": "a", "time": "2026-09-30T10:00:00Z", "verdict": "passed", "trees": [], "newCode": {"floor": 100}, "mutators": [{"mutator": "Plus", "seconds": 1, "survived": 0}]}', 'Its summary.json is not one this gate reads: summary.json.mutators[0].runner is missing.'],
     'a mutator with fewer than no survivors' => ['{"format": 1, "commit": "a", "time": "2026-09-30T10:00:00Z", "verdict": "passed", "trees": [], "newCode": {"floor": 100}, "mutators": [{"runner": "pest", "mutator": "Plus", "seconds": 1, "survived": -1}]}', 'Its summary.json is not one this gate reads: summary.json.mutators[0].survived is not a count.'],
     'a file with fewer than none not killed' => ['{"format": 1, "commit": "a", "time": "2026-09-30T10:00:00Z", "verdict": "passed", "trees": [], "newCode": {"floor": 100}, "heatmap": [{"path": "src/A.php", "notKilled": -1}]}', 'Its summary.json is not one this gate reads: summary.json.heatmap[0].notKilled is not a count.'],

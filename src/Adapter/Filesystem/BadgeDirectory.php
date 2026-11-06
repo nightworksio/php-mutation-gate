@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Filesystem;
 
-use DateInterval;
-
 use function getenv;
 use function is_float;
 use function is_string;
@@ -17,12 +15,12 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Cost\SavingsWindow;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\Badge;
 use NightWorksIO\MutationGate\Core\Report\BadgeColors;
 use NightWorksIO\MutationGate\Core\Report\Overview;
-use NightWorksIO\MutationGate\Core\Report\SavingsText;
 use NightWorksIO\MutationGate\Core\Report\Summary;
 use NightWorksIO\MutationGate\Core\Report\Trend;
 use NightWorksIO\MutationGate\Core\Report\TrendSvg;
@@ -34,13 +32,11 @@ use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\Reporter;
 use Psr\Clock\ClockInterface;
 
-use function sprintf;
-
 /**
  * The reporter `badge`: into `--publish-dir`, `badge.json` for shields.io,
  * the trend, `trend.json` with this verdict's entry appended to the one
  * found there and `trend.svg` drawn from it, `savings.json`, what the gate
- * saved over the last 30 days (ADR-0017), and `summary.json`, what an
+ * saved in `costs.savingsWindow`, 30 days unless set (ADR-0017), and `summary.json`, what an
  * organisation's dashboard reads (ADR-0024). A run its budget cut short
  * updates none of them (ADR-0009). The command line runs it only for
  * a verdict in CI on the default branch.
@@ -77,25 +73,27 @@ final readonly class BadgeDirectory implements Reporter
         private string $commit,
         private ClockInterface $clock,
         private Floor $newCode,
+        private SavingsWindow $window,
     ) {
     }
 
-    /** Into a directory, with the standard floor for new code. */
+    /** Into a directory, with the standard floor for new code and the standard savings window. */
     public static function at(string $path, BadgeColors $colors, string $commit, ClockInterface $clock): self
     {
-        return new self(ReportPath::at($path), $colors, $commit, $clock, Floor::whole());
+        return new self(ReportPath::at($path), $colors, $commit, $clock, Floor::whole(), SavingsWindow::standard());
     }
 
     /** This reporter, with this floor for new code in the summary. */
     public function holdingNewCodeTo(Floor $newCode): self
     {
-        return new self($this->path, $this->colors, $this->commit, $this->clock, $newCode);
+        return new self($this->path, $this->colors, $this->commit, $this->clock, $newCode, $this->window);
     }
 
     /**
      * From `path` (the publish directory), `colors` (`badge.colors`),
-     * `newCode` (`floors.newCode`, whole where it is not given) and `commit`,
-     * which is otherwise read from the CI's variables, dated by a clock.
+     * `newCode` (`floors.newCode`, whole where it is not given),
+     * `savingsWindow` (`costs.savingsWindow`) and `commit`, which is
+     * otherwise read from the CI's variables, dated by a clock.
      */
     public static function configured(Options $options, ClockInterface $clock): self|Invalid
     {
@@ -114,6 +112,7 @@ final readonly class BadgeDirectory implements Reporter
                 is_string($commit) ? $commit : self::commitOfCi(Variables::of(getenv())),
                 $clock,
                 $newCode,
+                SavingsWindow::in($options),
             ),
         };
     }
@@ -133,8 +132,7 @@ final readonly class BadgeDirectory implements Reporter
         $now = $this->clock->now();
         $trend = Trend::decode($this->path->file(self::TREND)->read())
             ->with($verdict, Revision::ref($this->commit), Instant::at($now));
-        $since = Instant::at($now->sub(new DateInterval(sprintf('P%dD', SavingsText::DAYS))));
-        $saved = $trend->savedSince($since);
+        $saved = $this->window->saved($trend->savedSince($this->window->since($now)));
         $summary = Summary::json($verdict, Revision::ref($this->commit), Instant::at($now), $this->newCode, $saved);
         $written = [
             $this->path->file(self::BADGE)->write(Badge::json(Overview::of($verdict)->score(), $this->colors)),

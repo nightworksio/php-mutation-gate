@@ -5,6 +5,8 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Cost\MutatorTally;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
+use NightWorksIO\MutationGate\Core\Cost\SavedLately;
+use NightWorksIO\MutationGate\Core\Cost\SavingsWindow;
 use NightWorksIO\MutationGate\Core\Report\Summary;
 use NightWorksIO\MutationGate\Core\Report\SummarySchema;
 use NightWorksIO\MutationGate\Core\Score\Floor;
@@ -15,7 +17,7 @@ use NightWorksIO\MutationGate\Tests\Support\Tallies;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
 it('says the commit, time, verdict, the project\'s score, each tree\'s floor and score, the floor for new code and what was saved', function (): void {
-    expect(Summary::of(Verdicts::failing(), Revision::ref('3f9a1c2'), Moment::at('2026-09-30T10:00:00Z'), Floor::of(95), Seconds::of(147_600.0)))->toBe([
+    expect(Summary::of(Verdicts::failing(), Revision::ref('3f9a1c2'), Moment::at('2026-09-30T10:00:00Z'), Floor::of(95), SavedLately::of(Seconds::of(147_600.0), SavingsWindow::standard())))->toBe([
         'format' => 1,
         'commit' => '3f9a1c2',
         'time' => '2026-09-30T10:00:00Z',
@@ -27,7 +29,7 @@ it('says the commit, time, verdict, the project\'s score, each tree\'s floor and
             ['path' => 'src/Empty', 'floor' => 90.0],
         ],
         'newCode' => ['floor' => 95.0],
-        'savings' => ['last30Days' => 147_600.0],
+        'savings' => ['seconds' => 147_600.0, 'window' => '30d'],
     ]);
 });
 
@@ -56,7 +58,7 @@ it('names the ten costliest mutators the default branch\'s ledger tallies, and n
 });
 
 it('writes what its committed schema describes', function (string $verdict): void {
-    $json = Summary::json(Verdicts::named($verdict), Revision::ref('3f9a1c2'), Moment::at('2026-09-30T10:00:00Z'), Floor::of(90), Seconds::of(60.0));
+    $json = Summary::json(Verdicts::named($verdict), Revision::ref('3f9a1c2'), Moment::at('2026-09-30T10:00:00Z'), Floor::of(90), SavedLately::of(Seconds::of(60.0), SavingsWindow::standard()));
 
     expect(Schema::errors($json, Schema::at('resources/summary.schema.json')))->toBe([])
         ->and(Schema::errors(Summary::json(Verdicts::named($verdict), Revision::ref('a'), Moment::at('2026-09-30T10:00:00Z'), Floor::of(90), NoHistory::yet()), Schema::at('resources/summary.schema.json')))->toBe([]);

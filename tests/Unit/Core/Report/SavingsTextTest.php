@@ -6,7 +6,9 @@ use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\Cost\RunAccount;
 use NightWorksIO\MutationGate\Core\Cost\RunTime;
 use NightWorksIO\MutationGate\Core\Cost\RunTimings;
+use NightWorksIO\MutationGate\Core\Cost\SavedLately;
 use NightWorksIO\MutationGate\Core\Cost\Savings;
+use NightWorksIO\MutationGate\Core\Cost\SavingsWindow;
 use NightWorksIO\MutationGate\Core\Report\SavingsText;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Percentage;
@@ -37,9 +39,10 @@ it('gives a verdict\'s headline, what the default branch saved lately under it, 
     $headline = 'Judged in 6m wall, 14m runner time. A full one-job run: 1h 41m (94% measured). Reach saved 1h 20m, proofs 7m; sharding cut the wait by 38m and cost 3m of setup.';
 
     expect(SavingsText::of($verdict, NoHistory::yet()))->toBe($headline)
-        ->and(SavingsText::of($verdict, Seconds::of(147_600.0)))->toBe(sprintf("%s\nIn the last 30 days the gate saved 41h of runner time.", $headline))
-        ->and(SavingsText::of(Verdicts::failing(), Seconds::of(60.0)))->toBe('')
-        ->and(SavingsText::DAYS)->toBe(30);
+        ->and(SavingsText::of($verdict, SavedLately::of(Seconds::of(147_600.0), SavingsWindow::standard())))->toBe(sprintf("%s\nIn the last 30 days the gate saved 41h of runner time.", $headline))
+        ->and(SavingsText::of($verdict, SavedLately::of(Seconds::of(3_600.0), SavingsWindow::of(Seconds::days(7)))))
+        ->toBe(sprintf("%s\nIn the last 7 days the gate saved 1h of runner time.", $headline))
+        ->and(SavingsText::of(Verdicts::failing(), SavedLately::of(Seconds::of(60.0), SavingsWindow::standard())))->toBe('');
 });
 
 it('says what pruning saved in the headline, and under it what pruning left out, though the run was untimed', function (): void {
@@ -47,9 +50,9 @@ it('says what pruning saved in the headline, and under it what pruning left out,
     $headline = 'Judged in 6m wall, 14m runner time. A full one-job run: 1h 41m (94% measured). Reach saved 1h 20m, proofs 7m, pruning 2m; sharding cut the wait by 38m and cost 3m of setup.';
     $pruned = 'Pruned: 2 mutators on 1 unit; 3 mutants carried from runs of the last 7 days.';
 
-    expect(SavingsText::of(Verdicts::failing()->withAccount($account), Seconds::of(147_600.0)))
+    expect(SavingsText::of(Verdicts::failing()->withAccount($account), SavedLately::of(Seconds::of(147_600.0), SavingsWindow::standard())))
         ->toBe(sprintf("%s\nIn the last 30 days the gate saved 41h of runner time.\n%s", $headline, $pruned))
-        ->and(SavingsText::of(Verdicts::failing()->withAccount(RunAccount::none()->withPruning(PruningCases::account())), Seconds::of(60.0)))
+        ->and(SavingsText::of(Verdicts::failing()->withAccount(RunAccount::none()->withPruning(PruningCases::account())), SavedLately::of(Seconds::of(60.0), SavingsWindow::standard())))
         ->toBe($pruned);
 });
 

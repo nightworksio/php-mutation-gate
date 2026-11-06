@@ -8,13 +8,13 @@ use function count;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Cost\SavedLately;
 use NightWorksIO\MutationGate\Core\Http\Origin;
 use NightWorksIO\MutationGate\Core\Report\Page\Html;
 use NightWorksIO\MutationGate\Core\Report\Percent;
 use NightWorksIO\MutationGate\Core\Report\TrendSvg;
 use NightWorksIO\MutationGate\Core\Score\Percentage;
 use NightWorksIO\MutationGate\Core\Score\Score;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
 use function str_starts_with;
@@ -24,8 +24,8 @@ use function str_starts_with;
  * script inline, so it loads nothing at view time, and a Content Security
  * Policy that lets it run those alone: a table of every
  * repository it shows, with its verdict, its score and the trend of it as a
- * sparkline, the trees below their floors, the time the gate saved it over
- * the last 30 days and when its latest verdict was; a repository that
+ * sparkline, the trees below their floors, the time the gate saved it in
+ * its savings window and when its latest verdict was; a repository that
  * published nothing says why. The script sorts the table by any column;
  * without it, the table reads in the order of the names. Everything a
  * repository published is its own word, and escaped.
@@ -57,7 +57,7 @@ final readonly class DashboardPage
         <th scope="col" data-sort="number">Score</th>
         <th scope="col">Trend</th>
         <th scope="col" data-sort="number">Trees below their floor</th>
-        <th scope="col" data-sort="number">Saved in 30 days</th>
+        <th scope="col" data-sort="number">Saved</th>
         <th scope="col" data-sort="text">Latest verdict</th>
         </tr>
         </thead>
@@ -71,6 +71,8 @@ final readonly class DashboardPage
         HTML;
 
     private const string LEAD = '%d %s, as of %s.';
+
+    private const string SAVED_IN = '%s in %s';
 
     private const string ROW = <<<'HTML'
         <tbody>
@@ -213,8 +215,10 @@ final readonly class DashboardPage
             TrendSvg::of($listing->trend()),
             count($below),
             $trees === [] ? 'none' : sprintf('<ul>%s</ul>', implode('', $trees)),
-            $saved instanceof Seconds ? sprintf('%.0f', $saved->seconds()) : '',
-            $saved instanceof Seconds ? $saved->text() : 'no history yet',
+            $saved instanceof SavedLately ? sprintf('%.0f', $saved->saved()->seconds()) : '',
+            $saved instanceof SavedLately
+                ? sprintf(self::SAVED_IN, $saved->saved()->text(), $saved->window()->said())
+                : 'no history yet',
             $published->time()->value(),
             self::mutators($published),
             self::files($published),

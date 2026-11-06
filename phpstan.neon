@@ -390,6 +390,10 @@ services:
                     - SLACK # seconds a warm worker may take past its last run, not the ledger's limit
                 'NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan':
                     - TRUSTED_SOURCES # Buildkite's build.source values, not another CI's event names
+                'NightWorksIO\MutationGate\Core\Cost\SavingsWindow':
+                    - STANDARD_DAYS # the days what the gate saved is counted over, not a preset's value
+                'NightWorksIO\MutationGate\Core\Dashboard\DashboardPage':
+                    - SAVED_IN # the time saved in a window, not the runs a triage gave in a time
                 'NightWorksIO\MutationGate\Core\Cost\StartUpSamples':
                     - STANDARD # runs of no test the plan times
                 'NightWorksIO\MutationGate\Core\Composer\ManifestKey':

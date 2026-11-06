@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\Report;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
+use NightWorksIO\MutationGate\Core\Cost\SavingsWindow;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
@@ -35,7 +36,7 @@ describe('Settings sections', function (): void {
             'runner' => 'pest',
             'trees' => [['path' => 'src', 'exclude' => ['src/Legacy/**', 'src/Generated/*.php']]],
             'shards' => ['target' => '20m', 'setup' => '3m'],
-            'costs' => ['perRunnerMinute' => ['amount' => 0.008, 'currency' => 'USD']],
+            'costs' => ['perRunnerMinute' => ['amount' => 0.008, 'currency' => 'USD'], 'savingsWindow' => '7d'],
             'proofs' => ['store' => ['use' => 's3', 'with' => [
                 'bucket' => 'proofs',
                 'publicUrl' => 'https://proofs.example.com',
@@ -51,6 +52,8 @@ describe('Settings sections', function (): void {
             ->and($settings->shards()->target())->toEqual(Seconds::of(1200))
             ->and($settings->shards()->setup())->toEqual(Seconds::of(180))
             ->and($price instanceof Price ? [$price->amount(), $price->currency()] : [])->toBe([0.008, 'USD'])
+            ->and($settings->shards()->savingsWindow())->toEqual(SavingsWindow::of(Seconds::days(7)))
+            ->and(Configs::shown($settings, 'costs', 'savingsWindow'))->toBe('7d')
             ->and(Configs::shown($settings, 'proofs', 'store', 'with', 'publicUrl'))->toBe('https://proofs.example.com')
             ->and($settings->triage()->order())->toBe(TestOrder::Runner)
             ->and($settings->triage()->suites())->toEqual(JudgingSuites::holding(
@@ -69,6 +72,7 @@ describe('Settings sections', function (): void {
             ->and($settings->shards()->target())->toEqual(Absent::setting())
             ->and($settings->shards()->setup())->toEqual(Seconds::of(60))
             ->and($settings->shards()->perRunnerMinute())->toEqual(Absent::setting())
+            ->and($settings->shards()->savingsWindow())->toEqual(SavingsWindow::standard())
             ->and($settings->triage()->order())->toBe(TestOrder::KillersFirst)
             ->and($settings->triage()->suites())->toEqual(JudgingSuites::every())
             ->and(Configs::settings(['runner' => 'pest', 'tests' => ['holding' => ['Process']]])->triage()->suites())
@@ -76,7 +80,7 @@ describe('Settings sections', function (): void {
             ->and($settings->ignores()->staticEquivalence())->toBeTrue();
     });
 
-    it('refuses a shard count set two ways, and a price, a public URL, an order or an exclude written wrong', function (
+    it('refuses a shard count set two ways, and a price, a savings window, a public URL, an order or an exclude written wrong', function (
         array $config,
         array $problems,
     ): void {
@@ -92,6 +96,10 @@ describe('Settings sections', function (): void {
                 'costs.perRunnerMinute.amount: expected a number of at least 0, got -1',
                 'costs.perRunnerMinute.currency: expected a currency, such as EUR, got nothing',
             ],
+        ],
+        'a savings window that is no duration' => [
+            ['costs' => ['savingsWindow' => 'a month']],
+            ['costs.savingsWindow: expected a duration such as 90s, 15m, 1h30m or 7d, got "a month"'],
         ],
         'a public URL that is not https' => [
             ['proofs' => ['store' => ['use' => 's3', 'with' => ['bucket' => 'b', 'publicUrl' => 'http://proofs']]]],
@@ -153,11 +161,21 @@ describe('Settings sections', function (): void {
             ['use' => 'tests', 'path' => 'build/tests.json'],
             ['use' => 'kill-matrix', 'path' => 'build/kills.csv'],
             ['use' => 'gitlab', 'path' => 'gl-code-quality.json'],
-            ['use' => 'slack', 'with' => ['urlEnv' => 'MUTATION_GATE_SLACK_URL']],
-            ['use' => 'discord', 'with' => ['urlEnv' => 'TEAM_DISCORD']],
+            [
+                'use' => 'slack',
+                'with' => ['urlEnv' => 'MUTATION_GATE_SLACK_URL', 'timeout' => '10s', 'longestWait' => '30s', 'survivors' => 5, 'lineLength' => 120],
+            ],
+            [
+                'use' => 'discord',
+                'with' => ['urlEnv' => 'TEAM_DISCORD', 'timeout' => '10s', 'longestWait' => '30s', 'survivors' => 5, 'lineLength' => 120],
+            ],
             [
                 'use' => 'webhook',
-                'with' => ['urlEnv' => 'MUTATION_GATE_WEBHOOK_URL', 'secretEnv' => 'MUTATION_GATE_WEBHOOK_SECRET'],
+                'with' => [
+                    'urlEnv' => 'MUTATION_GATE_WEBHOOK_URL',
+                    'timeout' => '10s', 'longestWait' => '30s',
+                    'secretEnv' => 'MUTATION_GATE_WEBHOOK_SECRET',
+                ],
             ],
             ['use' => 'otlp', 'with' => ['endpoint' => 'https://otel.example.com']],
             ['use' => 'gitlab-comment', 'with' => ['tokenEnv' => 'MUTATION_GATE_GITLAB_TOKEN']],
@@ -168,9 +186,9 @@ describe('Settings sections', function (): void {
                 '{}',
                 '{}',
                 '{}',
-                '{"urlEnv":"MUTATION_GATE_SLACK_URL"}',
-                '{"urlEnv":"TEAM_DISCORD"}',
-                '{"urlEnv":"MUTATION_GATE_WEBHOOK_URL","secretEnv":"MUTATION_GATE_WEBHOOK_SECRET"}',
+                '{"urlEnv":"MUTATION_GATE_SLACK_URL","timeout":"10s","longestWait":"30s","survivors":5,"lineLength":120}',
+                '{"urlEnv":"TEAM_DISCORD","timeout":"10s","longestWait":"30s","survivors":5,"lineLength":120}',
+                '{"urlEnv":"MUTATION_GATE_WEBHOOK_URL","timeout":"10s","longestWait":"30s","secretEnv":"MUTATION_GATE_WEBHOOK_SECRET"}',
                 '{"endpoint":"https://otel.example.com"}',
                 '{"tokenEnv":"MUTATION_GATE_GITLAB_TOKEN"}',
                 '{"tokenEnv":"TEAM_BITBUCKET"}',

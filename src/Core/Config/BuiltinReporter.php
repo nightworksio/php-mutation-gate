@@ -106,6 +106,18 @@ enum BuiltinReporter: string
         };
     }
 
+    /** Whether this reporter shows what the gate saved in `costs.savingsWindow` (ADR-0016). */
+    public function countsSavings(): bool
+    {
+        return match ($this) {
+            self::GitHubSummary, self::Badge => true,
+            self::Json, self::JUnit, self::Sarif, self::Html, self::Stryker, self::Digest, self::Tests,
+            self::KillMatrix, self::GitLab, self::Sonar, self::Console, self::Problems, self::Slack, self::Discord,
+            self::Webhook, self::Otlp, self::GitHubAnnotations, self::GitHubComment, self::GitLabComment,
+            self::BitbucketComment, self::BitbucketInsights => false,
+        };
+    }
+
     /** Whether this reporter writes the pull request comment, which `comment` shapes (ADR-0102). */
     public function comments(): bool
     {

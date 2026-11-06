@@ -8,6 +8,8 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
+use NightWorksIO\MutationGate\Core\Cost\SavedLately;
+use NightWorksIO\MutationGate\Core\Cost\SavingsWindow;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\Badge;
 use NightWorksIO\MutationGate\Core\Report\BadgeColors;
@@ -134,7 +136,25 @@ it('writes what the gate saved over the last 30 days beside the badge', function
 
     BadgeDirectory::at($publish, BadgeColors::defaults(), 'abc123', $clock())->report(Verdicts::named('accounted'));
 
-    expect(file_get_contents(sprintf('%s/savings.json', $publish)))->toBe(Badge::savings(Seconds::of(8_820.0)));
+    expect(file_get_contents(sprintf('%s/savings.json', $publish)))->toBe(Badge::savings(SavedLately::of(Seconds::of(8_820.0), SavingsWindow::standard())));
+});
+
+it('counts what the gate saved over the window its options give, and says the window in the summary', function () use ($clock): void {
+    $project = Scratch::directory();
+    $publish = sprintf('%s/publish', $project);
+    Scratch::write($publish, 'trend.json', '{"format": 1, "runs": [
+        {"commit": "b", "time": "2026-09-10T00:00:00Z", "trees": {}, "runnerSeconds": 60, "fullRunSeconds": 3660}
+    ]}');
+    $week = SavingsWindow::of(Seconds::days(7));
+    $here = (string) getcwd();
+    chdir($project);
+    $badge = BadgeDirectory::configured(Configs::options('{"path": "publish", "commit": "abc123", "savingsWindow": "7d"}'), $clock());
+    $written = $badge instanceof BadgeDirectory ? $badge->report(Verdicts::named('accounted')) : $badge;
+    chdir($here);
+
+    expect($written)->toEqual(Written::to('publish'))
+        ->and(file_get_contents(sprintf('%s/savings.json', $publish)))->toBe(Badge::savings(SavedLately::of(Seconds::of(5_220.0), $week)))
+        ->and(file_get_contents(sprintf('%s/summary.json', $publish)))->toContain('"window": "7d"');
 });
 
 it('says there is no history yet where no run knew what it saved', function () use ($clock): void {
@@ -164,7 +184,7 @@ it('writes the summary an organisation\'s dashboard reads, with the floor for ne
 
     expect($answer)->toEqual(Written::to($publish))
         ->and(file_get_contents(sprintf('%s/summary.json', $publish)))
-        ->toBe(Summary::json(Verdicts::named('accounted'), Revision::ref('abc123'), Moment::at('2026-09-30T12:00:00Z'), Floor::of(90.5), Seconds::of(8_820.0)));
+        ->toBe(Summary::json(Verdicts::named('accounted'), Revision::ref('abc123'), Moment::at('2026-09-30T12:00:00Z'), Floor::of(90.5), SavedLately::of(Seconds::of(8_820.0), SavingsWindow::standard())));
 });
 
 it('reads the floor for new code from its options', function () use ($clock): void {

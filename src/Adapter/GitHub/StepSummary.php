@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
 use function array_key_exists;
-
-use DateInterval;
-
 use function dirname;
 use function file_put_contents;
 use function getenv;
@@ -15,12 +12,12 @@ use function is_dir;
 
 use NightWorksIO\MutationGate\Core\Config\CommentShows;
 use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\Cost\SavingsWindow;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Recheck\Rechecked;
 use NightWorksIO\MutationGate\Core\Report\Markdown;
 use NightWorksIO\MutationGate\Core\Report\RecheckedMarkdown;
-use NightWorksIO\MutationGate\Core\Report\SavingsText;
-use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\Reporter;
@@ -39,14 +36,25 @@ final readonly class StepSummary implements Reporter
 {
     private const string UNSET = 'GITHUB_STEP_SUMMARY is not set, so there is no step summary to write.';
 
-    private function __construct(private string $file, private string $run, private ClockInterface $clock)
-    {
+    private function __construct(
+        private string $file,
+        private string $run,
+        private ClockInterface $clock,
+        private SavingsWindow $window,
+    ) {
     }
 
-    /** A summary appended to this file, linking to this run, counting what was saved lately by this clock. */
-    public static function appendingTo(string $file, string $run, ClockInterface $clock): self
-    {
-        return new self($file, $run, $clock);
+    /**
+     * A summary appended to this file, linking to this run, counting what was saved in the window, 30 days unless
+     * it is given, by this clock.
+     */
+    public static function appendingTo(
+        string $file,
+        string $run,
+        ClockInterface $clock,
+        SavingsWindow|NotGiven $window = new NotGiven(),
+    ): self {
+        return new self($file, $run, $clock, $window instanceof SavingsWindow ? $window : SavingsWindow::standard());
     }
 
     /** The summary GitHub Actions names for this run, counting what was saved lately by this clock. */
@@ -62,14 +70,17 @@ final readonly class StepSummary implements Reporter
             $read('GITHUB_RUN_ID'),
         );
 
-        return new self($read('GITHUB_STEP_SUMMARY'), $read('GITHUB_RUN_ID') === '' ? '' : $run, $clock);
+        return new self(
+            $read('GITHUB_STEP_SUMMARY'),
+            $read('GITHUB_RUN_ID') === '' ? '' : $run,
+            $clock,
+            SavingsWindow::in($options),
+        );
     }
 
     public function report(Verdict $verdict): Written|NotWritten
     {
-        $since = Instant::at($this->clock->now()->sub(new DateInterval(sprintf('P%dD', SavingsText::DAYS))));
-
-        return $this->appended(Markdown::summary($verdict, $this->run, $since));
+        return $this->appended(Markdown::summary($verdict, $this->run, $this->window, $this->clock->now()));
     }
 
     /**

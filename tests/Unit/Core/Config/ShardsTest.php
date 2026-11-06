@@ -67,6 +67,7 @@ describe('Shards', function (): void {
             setup: Seconds::of(180),
             secondsPerLine: Table::row('', 0.25)->merged(Table::row('src/Legacy', 2)),
             perRunnerMinute: Price::of(0.008, 'USD'),
+            savingsWindow: Seconds::days(7),
         );
 
         expect($shards->php(ProjectRoot::origin()))->toEqual(PhpCalls::inWith(
@@ -77,6 +78,7 @@ describe('Shards', function (): void {
             "Shards::secondsPerLine('', 0.25)",
             "Shards::secondsPerLine('src/Legacy', 2)",
             "Shards::perRunnerMinute(0.008, 'USD')",
+            "Shards::savingsWindow('7d')",
         ));
     });
 

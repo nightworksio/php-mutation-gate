@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
+use NightWorksIO\MutationGate\Core\Cost\SavedLately;
+use NightWorksIO\MutationGate\Core\Cost\SavingsWindow;
 use NightWorksIO\MutationGate\Core\Report\Badge;
 use NightWorksIO\MutationGate\Core\Report\BadgeColors;
 use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
@@ -24,8 +26,8 @@ it('says nothing to mutate rather than 100%', function (): void {
         ->toMatchArray(['message' => 'nothing to mutate', 'color' => 'lightgrey']);
 });
 
-it('says what the gate saved over the last 30 days, or that there is no history yet', function (): void {
-    expect(Decoded::at(Badge::savings(Seconds::of(147_600.0))))->toBe([
+it('says what the gate saved in its window, or that there is no history yet', function (): void {
+    expect(Decoded::at(Badge::savings(SavedLately::of(Seconds::of(147_600.0), SavingsWindow::standard()))))->toBe([
         'schemaVersion' => 1,
         'label' => 'mutation time saved',
         'message' => '41h / 30 days',
@@ -36,5 +38,7 @@ it('says what the gate saved over the last 30 days, or that there is no history 
             'label' => 'mutation time saved',
             'message' => 'no history yet',
             'color' => 'lightgrey',
-        ]);
+        ])
+        ->and(Decoded::at(Badge::savings(SavedLately::of(Seconds::of(3_600.0), SavingsWindow::of(Seconds::days(1))))))
+        ->toMatchArray(['message' => '1h / 1 day']);
 });

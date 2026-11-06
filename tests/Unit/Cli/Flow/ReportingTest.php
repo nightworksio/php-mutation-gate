@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Config\Badge;
 use NightWorksIO\MutationGate\Config\Option;
 use NightWorksIO\MutationGate\Config\Report;
+use NightWorksIO\MutationGate\Config\Shards;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
@@ -167,6 +168,16 @@ it('draws the badge in CI on the default branch, in the colours the config sets'
         Configs::options('{"colors": {"green": 90, "red": 0}}'),
         new SystemClock(),
     )]);
+});
+
+it('counts what the summary and the badge show saved over costs.savingsWindow, listed or chosen by the run', function (): void {
+    $settings = Flows::settings(Badge::colour('red', 0), Shards::savingsWindow('7d'), Report::uses('github-summary'));
+    $chosen = reportersOf($settings, Variables::of(['CI' => 'true']), reportingOnMain());
+
+    expect($chosen)->toEqual([
+        StepSummary::configured(Configs::options('{"savingsWindow": "7d"}'), new SystemClock()),
+        BadgeDirectory::configured(Configs::options('{"colors": {"red": 0}, "savingsWindow": "7d"}'), new SystemClock()),
+    ]);
 });
 
 it('draws the badge into the directory --publish-dir names', function (): void {

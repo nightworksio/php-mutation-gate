@@ -80,6 +80,12 @@ final readonly class Shards implements Setting
         ));
     }
 
+    /** `costs.savingsWindow`: how far back the summary and the badge count what the gate saved, such as `30d`. */
+    public static function savingsWindow(string $duration): self
+    {
+        return new self(Json::object(Member::of('costs', Json::object(Member::of('savingsWindow', $duration)))));
+    }
+
     public function written(): Json
     {
         return $this->json;

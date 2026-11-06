@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Cost\SavingsWindow;
 use NightWorksIO\MutationGate\Core\Delivery\Commenting;
 use NightWorksIO\MutationGate\Core\Delivery\Deferring;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
@@ -240,7 +241,8 @@ final readonly class Reporting
                 : $choice->options();
             $use = $choice->use()->value();
             $shaped = CommentKeys::forReporter($use, $options, $settings->effective()->reports()->comment());
-            $reporters[] = $this->chosen->reporter(Choice::of($use, $shaped), $index);
+            $windowed = $settings->shards()->savingsWindow()->under($use, $shaped);
+            $reporters[] = $this->chosen->reporter(Choice::of($use, $windowed), $index);
         }
 
         return $reporters;
@@ -255,6 +257,7 @@ final readonly class Reporting
             Options::of(Json::object(
                 Member::of('colors', $settings->publishing()->colors()->written()),
                 Member::of('newCode', $settings->floors()->newCode()->percent()),
+                Member::of(SavingsWindow::KEY, $settings->shards()->savingsWindow()->length()->written()),
                 ...$this->publishing,
             )),
         );
@@ -267,7 +270,10 @@ final readonly class Reporting
                 ),
                 $this->chosen->reporterChosenBy(
                     Variables::GITHUB_ACTIONS,
-                    Choice::of(BuiltinReporter::GitHubSummary->value, $none),
+                    Choice::of(
+                        BuiltinReporter::GitHubSummary->value,
+                        $settings->shards()->savingsWindow()->under(BuiltinReporter::GitHubSummary->value, $none),
+                    ),
                 ),
             ] : [],
             ...$this->onAPullRequestThatCanBeCommentedOn()

@@ -52,7 +52,7 @@ it('writes a row of each repository: its verdict, score, trend, trees below thei
         '<td data-value="44.44">44.44%</td>',
         sprintf('<td>%s</td>', TrendSvg::of(Trend::decode(Dashboards::trend()))),
         '<td data-value="1"><ul><li><code>src</code> 44.44%, below 80.00%</li></ul></td>',
-        '<td data-value="147600">41h</td>',
+        '<td data-value="147600">41h in 30 days</td>',
         '<td data-value="2026-09-30T10:00:00Z">2026-09-30T10:00:00Z</td>',
         '</tr>',
         '</tbody>',

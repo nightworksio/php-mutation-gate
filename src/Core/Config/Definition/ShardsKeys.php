@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Config\LearnedStatistic;
 use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\Config\Price;
 use NightWorksIO\MutationGate\Core\Config\Shards;
+use NightWorksIO\MutationGate\Core\Cost\SavingsWindow;
 use NightWorksIO\MutationGate\Core\Cost\SecondsPerLine;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -34,6 +35,7 @@ final readonly class ShardsKeys
         $setup = Field::optional('setup', Duration::written(), $judges);
         $perLine = Field::optional(SecondsPerLine::KEY, NumberMap::byPrefix(Number::atLeast(0), $origin), $judges);
         $perMinute = Field::optional('perRunnerMinute', self::price(), $judges);
+        $window = Field::optional(SavingsWindow::KEY, Duration::written(), $judges);
 
         return [
             Field::section(
@@ -71,21 +73,25 @@ final readonly class ShardsKeys
             Field::section(
                 'costs',
                 Section::of(
-                    static function (Node $costs) use ($perLine, $perMinute): Layer|Invalid {
+                    static function (Node $costs) use ($perLine, $perMinute, $window): Layer|Invalid {
                         $lines = $perLine->read($costs);
                         $minutes = $perMinute->read($costs);
+                        $back = $window->read($costs);
 
                         return Reading::built(
                             static fn(): Layer => Layer::of(Shards::of(
                                 secondsPerLine: $lines->value(),
                                 perRunnerMinute: $minutes->value(),
+                                savingsWindow: $back->value(),
                             )),
                             $lines,
                             $minutes,
+                            $back,
                         );
                     },
                     $perLine,
                     $perMinute,
+                    $window,
                 ),
             ),
         ];

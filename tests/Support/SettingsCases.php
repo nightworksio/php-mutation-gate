@@ -77,7 +77,8 @@ final readonly class SettingsCases
         "costs": {
             "secondsPerLine": {
                 "": 0.2
-            }
+            },
+            "savingsWindow": "30d"
         },
         "ci": {
             "check": "mutation / verdict",

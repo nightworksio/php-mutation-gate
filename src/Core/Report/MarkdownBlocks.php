@@ -17,8 +17,8 @@ use function intdiv;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
+use NightWorksIO\MutationGate\Core\Cost\SavedLately;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\Failures;
 use NightWorksIO\MutationGate\Core\Verdict\Obstacles;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
@@ -66,7 +66,7 @@ final readonly class MarkdownBlocks
      *
      * @return list<string>
      */
-    public static function head(Verdict $verdict, Overview $overview, Seconds|NoHistory $lately): array
+    public static function head(Verdict $verdict, Overview $overview, SavedLately|NoHistory $lately): array
     {
         return [
             $verdict->trees()->sample()->isDrawn()

@@ -5,14 +5,17 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Report;
 
 use function count;
+
+use DateTimeImmutable;
+
 use function implode;
 use function max;
 
 use NightWorksIO\MutationGate\Core\Config\CommentShows;
+use NightWorksIO\MutationGate\Core\Cost\SavingsWindow;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Matrix\SuiteScores;
 use NightWorksIO\MutationGate\Core\Score\Score;
-use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
@@ -74,14 +77,18 @@ final readonly class Markdown
     }
 
     /**
-     * The summary, with what the default branch saved since this instant under the headline: within the bytes one
-     * step may write, showing half as many survivors each time until it fits, none at the last.
+     * The summary, with what the default branch saved in the window ending now under the headline: within the
+     * bytes one step may write, showing half as many survivors each time until it fits, none at the last.
      */
-    public static function summary(Verdict $verdict, string $run, Instant $since): string
+    public static function summary(Verdict $verdict, string $run, SavingsWindow $window, DateTimeImmutable $now): string
     {
         $overview = Overview::of($verdict);
         $items = Folded::of($overview->survivors(), $verdict->trees()->clusters());
-        $head = MarkdownBlocks::head($verdict, $overview, $verdict->account()->savedSince($since));
+        $head = MarkdownBlocks::head(
+            $verdict,
+            $overview,
+            $window->saved($verdict->account()->savedSince($window->since($now))),
+        );
         $sets = [
             ...MarkdownBlocks::trees($verdict),
             ...MarkdownBlocks::sets($verdict),

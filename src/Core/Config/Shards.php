@@ -8,6 +8,7 @@ use function intval;
 use function is_int;
 
 use NightWorksIO\MutationGate\Core\Cost\LineRate;
+use NightWorksIO\MutationGate\Core\Cost\SavingsWindow;
 use NightWorksIO\MutationGate\Core\Cost\SecondsPerLine;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
@@ -40,6 +41,7 @@ final readonly class Shards implements Part
         private Table|Absent $secondsPerLine,
         private Price|Absent $perRunnerMinute,
         private LearnedStatistic|Absent $learnedFrom,
+        private Seconds|Absent $savingsWindow,
     ) {
     }
 
@@ -57,8 +59,18 @@ final readonly class Shards implements Part
         Table|Absent $secondsPerLine = new Absent(),
         Price|Absent $perRunnerMinute = new Absent(),
         LearnedStatistic|Absent $learnedFrom = new Absent(),
+        Seconds|Absent $savingsWindow = new Absent(),
     ): self {
-        return new self($seconds, $max, $target, $setup, $secondsPerLine, $perRunnerMinute, $learnedFrom);
+        return new self(
+            $seconds,
+            $max,
+            $target,
+            $setup,
+            $secondsPerLine,
+            $perRunnerMinute,
+            $learnedFrom,
+            $savingsWindow,
+        );
     }
 
     public static function none(): self
@@ -75,6 +87,7 @@ final readonly class Shards implements Part
             max: $none->max(),
             setup: $none->setup(),
             secondsPerLine: self::table(SecondsPerLine::standard()),
+            savingsWindow: $none->savingsWindow()->length(),
         );
     }
 
@@ -103,6 +116,7 @@ final readonly class Shards implements Part
             },
             Absent::laid($this->perRunnerMinute, $later->perRunnerMinute),
             Absent::laid($this->learnedFrom, $later->learnedFrom),
+            Absent::laid($this->savingsWindow, $later->savingsWindow),
         );
     }
 
@@ -171,6 +185,14 @@ final readonly class Shards implements Part
         return $this->perRunnerMinute;
     }
 
+    /** `costs.savingsWindow`: how far back the savings the summary and the badge show are counted (ADR-0016). */
+    public function savingsWindow(): SavingsWindow
+    {
+        return $this->savingsWindow instanceof Seconds
+            ? SavingsWindow::of($this->savingsWindow)
+            : SavingsWindow::standard();
+    }
+
     public function written(PathOrigin $origin): Json
     {
         return Json::object(
@@ -198,6 +220,12 @@ final readonly class Shards implements Part
                         $this->perRunnerMinute instanceof Price
                             ? $this->perRunnerMinute->written()
                             : $this->perRunnerMinute,
+                    ),
+                    Member::of(
+                        SavingsWindow::KEY,
+                        $this->savingsWindow instanceof Seconds
+                            ? $this->savingsWindow->written()
+                            : $this->savingsWindow,
                     ),
                 ),
             ),
@@ -237,11 +265,17 @@ final readonly class Shards implements Part
             );
         }
 
-        return $this->perRunnerMinute instanceof Price ? [...$calls, sprintf(
-            'Shards::perRunnerMinute(%s, %s)',
-            PhpCalls::literal($this->perRunnerMinute->amount()),
-            PhpCalls::literal($this->perRunnerMinute->currency()),
-        )] : $calls;
+        return [
+            ...$calls,
+            ...$this->perRunnerMinute instanceof Price ? [sprintf(
+                'Shards::perRunnerMinute(%s, %s)',
+                PhpCalls::literal($this->perRunnerMinute->amount()),
+                PhpCalls::literal($this->perRunnerMinute->currency()),
+            )] : [],
+            ...$this->savingsWindow instanceof Seconds
+                ? [sprintf('Shards::savingsWindow(%s)', PhpCalls::literal($this->savingsWindow->written()))]
+                : [],
+        ];
     }
 
     /** Seconds per line by path prefix, as a table of them. */

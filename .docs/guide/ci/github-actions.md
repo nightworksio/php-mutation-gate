@@ -430,7 +430,7 @@ request wrote for itself is read.
 `mutation-gate dashboard --org=<org> --out=<dir>` builds one page of every
 repository of an organisation that published a summary, with its verdict,
 score and trend, the trees below their floors, the time the gate saved
-it over 30 days, and, collapsed under its row, the ten mutators that cost
+it in its `costs.savingsWindow`, 30 days by default, and, collapsed under its row, the ten mutators that cost
 it the most ([ADR-0076](../../decisions/0076-a-ledger-tallies-what-each-mutator-costs-and-finds-and-config-suggest-proposes-changes.md))
 and its lowest-scoring files, each with its change against the base
 ([ADR-0100](../../decisions/0100-a-heatmap-scores-every-file-and-function-against-the-base.md)),
