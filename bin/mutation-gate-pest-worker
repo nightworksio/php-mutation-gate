@@ -144,6 +144,8 @@ $boot = static function () use ($directory): string {
     return $refused !== '' ? $refused : $reading->leftOpen(BootCheck::open() - $held);
 };
 
+class_exists(WarmDatabase::class);
+
 exit(Worker::at($directory, (int) $place, (int) $parent, usleep(...))->booting($boot)->served(new class implements Forking {
     public function forked(Request $request, Baseline|NotGiven $baseline, string $report): int|NotGiven
     {

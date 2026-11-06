@@ -89,34 +89,6 @@ it('writes nothing for a file whose mutants no schema can switch, and forgets a 
         ->and(Schemata::variablesOf($mutation))->toBe([]);
 });
 
-it('serves the schema a mutant\'s run was told, its switch in force, and its own copy where it was told none it can serve', function (string|false $schema, string|false $on, bool $served): void {
-    $file = sprintf('%s/schema.php', Scratch::directory());
-    file_put_contents($file, '<?php');
-    putenv(sprintf('%s=%s', GateVariable::Schema->value, $schema === 'there' ? $file : $schema));
-    putenv(sprintf('%s=%s', GateVariable::SchemaOn->value, $on));
-
-    if ($schema === false) {
-        putenv(GateVariable::Schema->value);
-    }
-
-    if ($on === false) {
-        putenv(GateVariable::SchemaOn->value);
-    }
-
-    $inForce = Schemata::inForce('/original.php', '/copy.php');
-    $switched = SchemaSwitch::is('schema', 7);
-    SchemaSwitch::off('schema');
-
-    expect($inForce)->toBe($served ? $file : '/copy.php')
-        ->and($switched)->toBe($served);
-})->with([
-    'a schema there and an id' => ['there', '7', true],
-    'no schema' => [false, '7', false],
-    'a schema not there' => ['/nowhere/schema.php', '7', false],
-    'no id' => ['there', false, false],
-    'an id of nought' => ['there', '0', false],
-]);
-
 it('asks for schemata only where the gate says so', function (): void {
     $off = Schemata::areOn();
     putenv(sprintf('%s=1', GateVariable::Schemata->value));
@@ -160,9 +132,7 @@ it('leaves each file\'s schema in a warm directory, which a worker serves in the
         Schemata::leftIn($warm);
         $left = json_decode((string) file_get_contents(sprintf('%s/schemata.json', $warm)), associative: true);
         Schemata::servedIn($warm);
-        putenv(sprintf('%s=%s', GateVariable::Schema->value, $schema));
-        putenv(sprintf('%s=1', GateVariable::SchemaOn->value));
-        $served = Schemata::inForce($box->file, $box->copy);
+        $served = SchemaSwitch::inForce($box->file, $box->copy, $schema, '1');
         $mutated = $box->called('size');
         SchemaSwitch::off(basename($schema, '.php'));
 

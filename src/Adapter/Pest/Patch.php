@@ -75,7 +75,8 @@ use function sprintf;
  * - Where the gate asks for schemata, every mutant is made afresh, each
  *   file's mutants are compiled into one schema once they are made, and a
  *   mutant the schema switches is served the schema in its file's place,
- *   its switch in force, rather than its own copy (see Schemata, ADR-0091).
+ *   its switch in force, rather than its own copy (see Schemata and
+ *   SchemaSwitch, ADR-0091).
  *
  * Applied as a VendorPatch: every anchor checked before anything is written.
  *
@@ -164,7 +165,9 @@ final readonly class Patch
                     $pinned = (string) getenv('%2$s') !== '';
 
                     {MARK} a mutant its file's schema switches is served the schema, its switch in force.
-                    $copy = class_exists(\%3$s::class) ? \%3$s::inForce($original, $copy) : $copy;
+                    $schema = (string) getenv('%4$s');
+                    $on = (string) getenv('%5$s');
+                    $copy = class_exists(\%3$s::class) ? \%3$s::inForce($original, $copy, $schema, $on) : $copy;
 
                     if ($copy !== '' && ($pinned || ! class_exists(\%1$s::class) || ! \%1$s::serve($original, $copy))) {
                         // @phpstan-ignore-next-line
@@ -632,7 +635,14 @@ final readonly class Patch
             Hunk::in(
                 self::MUTATE_PLUGIN,
                 self::SERVE_SHIPS,
-                sprintf(self::SERVE_BECOMES, ServedClasses::class, GateVariable::SourcePinned->value, Schemata::class),
+                sprintf(
+                    self::SERVE_BECOMES,
+                    ServedClasses::class,
+                    GateVariable::SourcePinned->value,
+                    SchemaSwitch::class,
+                    GateVariable::Schema->value,
+                    GateVariable::SchemaOn->value,
+                ),
             ),
             Hunk::in(
                 self::MUTATION_TEST,

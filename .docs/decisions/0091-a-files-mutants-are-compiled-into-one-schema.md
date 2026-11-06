@@ -48,7 +48,10 @@ same for every mutant and only the switch differs.
 4. **A mutant's own run is served the schema**, its switch's id in force,
    through the same serving as a copy (ADR-0004); its records, limits and
    evidence stay keyed by its own copy, which Pest still writes for its id
-   and its diff.
+   and its diff. The switch is set as pest-plugin-mutate boots, before the
+   run loads anything a mutant changes, by a class that loads none of the
+   gate's others but the one serving copies; the gate's own run leaves both
+   out of its mutation, as no mutant of either can be in place in time.
 5. **`pest.bootMutants`, true by default, boots each worker of mutants'
    runs** under `pest.patch`, where `runner.workers` forks them. Before it
    forks, the worker loads Composer's autoloader, serves each file's schema
@@ -88,7 +91,10 @@ same for every mutant and only the switch differs.
   loads a mutated file only as its schema, whose sites all run their
   originals until a child sets its switch; a file loaded any other way runs
   its mutants fresh, as does a mutant pinned by source, which its test reads
-  through the file the schema's autoloader would pass by.
+  through the file the schema's autoloader would pass by. The worker loads
+  the class that hands each child its test databases before it serves any
+  run, as the child uses it before Pest's script, so a mutant of it runs
+  fresh too.
 - **What records stays per child.** The plugins, which record kills,
   evidence and timings, boot in the child from its own variables, and the
   test files load in the child, so a run's selection and order are its own.

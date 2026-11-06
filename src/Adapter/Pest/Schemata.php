@@ -6,16 +6,12 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_key_exists;
 use function array_map;
-use function basename;
 use function count;
 use function dirname;
-use function file_exists;
 use function file_put_contents;
 use function getenv;
 use function hash;
-use function intval;
 use function is_dir;
-use function is_string;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WholeFile;
@@ -24,7 +20,6 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
-use NightWorksIO\MutationGate\Core\WholeNumber;
 use NightWorksIO\MutationGate\Mutator\Engine\Schema\Schema;
 use NightWorksIO\MutationGate\Mutator\Engine\Schema\Site;
 use Pest\Mutate\Mutation;
@@ -130,26 +125,6 @@ final class Schemata
                 GateVariable::SchemaOn->value => sprintf('%d', self::$switched[$mutation->id][1]),
             ]
             : [];
-    }
-
-    /**
-     * The file a mutant's own run serves in its file's place, its mutant put
-     * in force: the schema it was told, where it was told one that is there,
-     * and its own copy otherwise; nothing, where the process already serves
-     * the schema, as a child of a mutants' warm worker does.
-     */
-    public static function inForce(string $original, string $copy): string
-    {
-        $schema = getenv(GateVariable::Schema->value);
-        $on = getenv(GateVariable::SchemaOn->value);
-
-        if (! is_string($schema) || ! file_exists($schema) || ! is_string($on) || ! WholeNumber::isPositive($on)) {
-            return $copy;
-        }
-
-        SchemaSwitch::on(basename($schema, Path::PHP), intval($on));
-
-        return ServedClasses::serves($original, $schema) ? '' : $schema;
     }
 
     /** Leaves each file's schema, by the file, in a run's warm directory, for its workers to serve as they boot. */

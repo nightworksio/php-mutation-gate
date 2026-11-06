@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\LoadedMap;
 use NightWorksIO\MutationGate\Adapter\Pest\MutantTime;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
+use NightWorksIO\MutationGate\Adapter\Pest\SchemaSwitch;
 use NightWorksIO\MutationGate\Adapter\Pest\Schemata;
 use NightWorksIO\MutationGate\Adapter\Pest\Selection;
 use NightWorksIO\MutationGate\Adapter\Pest\ServedClasses;
@@ -165,7 +166,12 @@ it('compiles each file\'s mutants into a schema and serves a switched mutant the
         ->and($source($at, 'MutationTest.php'))
         ->toContain(sprintf('$envs = [...$envs, ...\\%s::variablesOf($this->mutation)];', Schemata::class))
         ->and($source($at, 'Plugins/Mutate.php'))
-        ->toContain(sprintf('$copy = class_exists(\\%1$s::class) ? \\%1$s::inForce($original, $copy) : $copy;', Schemata::class));
+        ->toContain(sprintf('$schema = (string) getenv(\'%s\');', GateVariable::Schema->value))
+        ->toContain(sprintf('$on = (string) getenv(\'%s\');', GateVariable::SchemaOn->value))
+        ->toContain(sprintf(
+            '$copy = class_exists(\\%1$s::class) ? \\%1$s::inForce($original, $copy, $schema, $on) : $copy;',
+            SchemaSwitch::class,
+        ));
 });
 
 it('has each mutant\'s run select exactly the tests that cover it, a row of a data set alone, named whole by the map Pest loaded', function () use ($vendor, $source): void {
