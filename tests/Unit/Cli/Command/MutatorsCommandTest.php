@@ -41,7 +41,8 @@ $composed = static function (Ledger $ledger, string $project): Composition {
 };
 
 it('prints what each mutator costs and finds from the default branch\'s ledger, running nothing, and exits 0', function () use ($tallied, $composed): void {
-    $printed = FlowCommands::run(MutatorsCommand::command($composed($tallied(), FlowCommands::project())));
+    $project = FlowCommands::project();
+    $printed = FlowCommands::within($project, MutatorsCommand::command($composed($tallied(), $project)));
 
     expect($printed->code)->toBe(0)
         ->and($printed->errors)->toBe('')
@@ -49,14 +50,16 @@ it('prints what each mutator costs and finds from the default branch\'s ledger, 
 });
 
 it('reads the default branch\'s ledger where --ledger names nothing', function () use ($tallied, $composed): void {
-    $command = static fn(): Command => MutatorsCommand::command($composed($tallied(), FlowCommands::project()));
+    $project = FlowCommands::project();
+    $command = static fn(): Command => MutatorsCommand::command($composed($tallied(), $project));
 
-    expect(FlowCommands::run($command(), '--ledger=')->output)->toBe(FlowCommands::run($command())->output)
-        ->and(FlowCommands::run($command(), '--ledger=')->code)->toBe(0);
+    expect(FlowCommands::within($project, $command(), '--ledger=')->output)->toBe(MutatorReport::text($tallied()->learned()->tallies()))
+        ->and(FlowCommands::within($project, $command(), '--ledger=')->code)->toBe(0);
 });
 
 it('prints its JSON as the committed schema describes it', function () use ($tallied, $composed): void {
-    $printed = FlowCommands::run(MutatorsCommand::command($composed($tallied(), FlowCommands::project())), '--format=json');
+    $project = FlowCommands::project();
+    $printed = FlowCommands::within($project, MutatorsCommand::command($composed($tallied(), $project)), '--format=json');
 
     expect($printed->code)->toBe(0)
         ->and(Decoded::at($printed->output, 'mutators', 0, 'mutator'))->toBe('Plus')
@@ -95,14 +98,16 @@ it('says where the ledger --ledger names is missing or unreadable, or the form i
 ]);
 
 it('says the ledger tallies nothing yet where it tallies nothing', function () use ($composed): void {
-    expect(FlowCommands::run(MutatorsCommand::command($composed(Ledger::empty(), FlowCommands::project())))->output)
+    $project = FlowCommands::project();
+
+    expect(FlowCommands::within($project, MutatorsCommand::command($composed(Ledger::empty(), $project)))->output)
         ->toBe(sprintf("%s\n", MutatorReport::NONE));
 });
 
 it('says why the config, the checkout or the default branch\'s ledger cannot be read, and exits 2', function (string $config, ProofStoreFake $store, RepositoryFake $repository, string $said): void {
     $project = FlowCommands::project($config);
     $registry = FlowCommands::registry(Flows::trees(), ScriptedRunner::fixture(), $store, Flows::ci(), $repository, Flows::checkout());
-    $printed = FlowCommands::run(MutatorsCommand::command(FlowCommands::registered($registry, $project, Variables::of([]))));
+    $printed = FlowCommands::within($project, MutatorsCommand::command(FlowCommands::registered($registry, $project, Variables::of([]))));
 
     expect($printed->code)->toBe(2)
         ->and($printed->errors)->toContain($said);

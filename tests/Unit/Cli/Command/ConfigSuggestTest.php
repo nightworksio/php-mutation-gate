@@ -60,23 +60,10 @@ $idle = static fn(string $mutator): Ledger => Ledger::empty()->withLearned(Talli
     Tallies::of('fake', 'Busy', 100, 50, 50, 0, 50.0),
 ));
 
-it('prints each suggestion with its evidence, then the config file with them laid over it as a diff, writes nothing, and exits 0', function () use ($suggesting, $idle, $registered): void {
+it('prints each suggestion with its evidence, then the config file with them laid over it as a diff, writes nothing, and exits 0', function () use ($suggesting, $idle): void {
     $project = FlowCommands::project();
     $before = (string) file_get_contents(sprintf('%s/mutation-gate.json', $project));
-    $printed = FlowCommands::run($suggesting($idle('default/BitwiseAndToBitwiseOr'), $project));
-    $composed = FlowCommands::registered($registered($idle('default/BitwiseAndToBitwiseOr')), $project, Variables::of([]))->compose(new ArrayInput([]));
-    $read = $composed instanceof Composed ? NightWorksIO\MutationGate\Cli\Flow\TalliedLedger::read($composed, NotGiven::value()) : null;
-    $diagnosed = json_encode([
-        'runner' => $composed instanceof Composed ? $composed->settings->runner()->name()->value() : 'uncomposed',
-        'store' => $composed instanceof Composed ? $composed->adapters->proofs::class : '',
-        'tallies' => match (true) {
-            $read instanceof Ledger => count([...$read->learned()->tallies()]),
-            $read === null => 'none',
-            default => $read->why(),
-        },
-        'config' => (string) file_get_contents(sprintf('%s/mutation-gate.json', $project)),
-        'env' => array_filter(getenv(), static fn(string $name): bool => str_starts_with($name, 'MUTATION_GATE') || str_starts_with($name, 'GITHUB_A'), ARRAY_FILTER_USE_KEY),
-    ]);
+    $printed = FlowCommands::within($project, $suggesting($idle('default/BitwiseAndToBitwiseOr'), $project));
 
     expect($printed->code)->toBe(0)
         ->and($printed->errors)->toBe('', sprintf('errors: %s', json_encode($printed->errors)))
@@ -97,12 +84,13 @@ it('prints each suggestion with its evidence, then the config file with them lai
             +    }
              }
 
-            SAID, sprintf('output: %s %s', json_encode($printed->output), $diagnosed))
+            SAID, sprintf('output: %s', json_encode($printed->output)))
         ->and((string) file_get_contents(sprintf('%s/mutation-gate.json', $project)))->toBe($before);
 });
 
 it('names a change the config cannot say with why, and leaves it out of the diff', function () use ($suggesting, $idle): void {
-    $printed = FlowCommands::run($suggesting($idle('default/Unregistered'), FlowCommands::project()));
+    $project = FlowCommands::project();
+    $printed = FlowCommands::within($project, $suggesting($idle('default/Unregistered'), $project));
 
     expect($printed->code)->toBe(0)
         ->and($printed->output)->toContain('  The config cannot say this: mutators.except names "default/Unregistered"')
@@ -116,7 +104,8 @@ it('lists every suggestion, a change the config cannot say among them, and diffs
         Tallies::of('fake', 'default/Unregistered', 600, 600, 0, 0, 50.0),
         Tallies::of('fake', 'Busy', 100, 50, 50, 0, 50.0),
     ));
-    $printed = FlowCommands::run($suggesting($ledger, FlowCommands::project()));
+    $project = FlowCommands::project();
+    $printed = FlowCommands::within($project, $suggesting($ledger, $project));
 
     expect($printed->output)->toStartWith('- `default/BitwiseAndToBitwiseOr` under fake: 600 judged')
         ->and($printed->output)->toContain("\n- `default/Unregistered` under fake: 600 judged")
@@ -135,7 +124,9 @@ it('adds mutation-gate.json where the project has no config file', function () u
 });
 
 it('says there is nothing to suggest where the ledger gives evidence for nothing', function () use ($suggesting): void {
-    expect(FlowCommands::run($suggesting(Ledger::empty(), FlowCommands::project()))->output)->toBe(sprintf("%s\n", SuggestedConfig::NONE));
+    $project = FlowCommands::project();
+
+    expect(FlowCommands::within($project, $suggesting(Ledger::empty(), $project))->output)->toBe(sprintf("%s\n", SuggestedConfig::NONE));
 });
 
 it('says why the ledger cannot be read, and exits 2', function () use ($suggesting): void {
