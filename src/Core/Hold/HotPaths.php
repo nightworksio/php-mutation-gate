@@ -63,7 +63,7 @@ final readonly class HotPaths
         $warnings = [];
 
         foreach ($this->hot($suite, $held) as $file) {
-            $warnings[] = Warning::that(self::said($suite, $file));
+            $warnings[] = Warning::noting(self::said($suite, $file));
         }
 
         return Warnings::of(...$warnings);

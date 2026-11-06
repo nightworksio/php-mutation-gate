@@ -260,6 +260,8 @@ services:
         arguments:
             # Constants whose value only coincides with another's, meaning something else.
             coincidences:
+                'NightWorksIO\MutationGate\Core\Plan\ShardResultFile':
+                    - NOTES # a shard result's section, not the comment's
                 'NightWorksIO\MutationGate\Core\Proof\LimitHistory':
                     - KILLS # the newest kills a learned multiple is read from, not a message's length
                     - RUNS # the newest runs a learned most shards is read from, not a count of presets

@@ -94,7 +94,7 @@ it('starts fresh, and warns of it, the run of a mutant of a file it loaded', fun
     $finish = Finish::readFrom($at->ended('42-1'));
 
     expect($finish instanceof Finish && $finish->isRefused())->toBeTrue()
-        ->and($warned($at))->toEqual(Warnings::of(Warning::that(sprintf(
+        ->and($warned($at))->toEqual(Warnings::of(Warning::noting(sprintf(
             'The warm worker had loaded %s, which a mutant changes, so its mutants ran fresh.',
             $mutated,
         ))));
@@ -110,7 +110,7 @@ it('starts fresh, and warns of it, the run of a mutant of a file that declares w
     $finish = Finish::readFrom($at->ended('42-1'));
 
     expect($finish instanceof Finish && $finish->isRefused())->toBeTrue()
-        ->and($warned($at))->toEqual(Warnings::of(Warning::that(sprintf(
+        ->and($warned($at))->toEqual(Warnings::of(Warning::noting(sprintf(
             'The warm worker had declared %s, which %s declares, so its mutants ran fresh.',
             $declared,
             $mutated,
@@ -141,7 +141,7 @@ it('forks the run of a mutant of a file whose names it has not declared, and loa
         spl_autoload_unregister($lazy);
     }
 
-    expect($warned($at))->toEqual(Warnings::of(Warning::that('The warm worker could not fork, so a mutant ran fresh.')));
+    expect($warned($at))->toEqual(Warnings::of(Warning::noting('The warm worker could not fork, so a mutant ran fresh.')));
 })->with([
     'a class' => ['final class', 'LazyClass'],
     'an interface' => ['interface', 'LazyInterface'],
@@ -176,7 +176,7 @@ it('forks the run of a mutant the schema it serves switches, starts a pinned one
     unlink($at->pid());
 
     expect(WarmDirectory::cleared(sprintf('%s/results.jsonl', dirname($at->directory()))))
-        ->toEqual(Warnings::of(Warning::that(sprintf($warning, mb_strtolower($box->class), realpath($box->file)))));
+        ->toEqual(Warnings::of(Warning::noting(sprintf($warning, mb_strtolower($box->class), realpath($box->file)))));
 })->with([
     'a mutant the schema switches' => ['served', true, false, 'The warm worker could not fork, so a mutant ran fresh.'],
     'a mutant pinned by source' => [
@@ -203,7 +203,7 @@ it('starts fresh, and warns of it, a run it could fork no child for', function (
     $finish = Finish::readFrom($at->ended('42-1'));
 
     expect($finish instanceof Finish && $finish->isRefused())->toBeTrue()
-        ->and($warned($at))->toEqual(Warnings::of(Warning::that('The warm worker could not fork, so a mutant ran fresh.')));
+        ->and($warned($at))->toEqual(Warnings::of(Warning::noting('The warm worker could not fork, so a mutant ran fresh.')));
 });
 
 it('starts fresh, and warns of it, a run whose child the system no longer tells of', function () use ($seat, $request, $warned): void {
@@ -225,7 +225,7 @@ it('starts fresh, and warns of it, a run whose child the system no longer tells 
 
     expect($served)->toBe(0)
         ->and($finish instanceof Finish && $finish->isRefused())->toBeTrue()
-        ->and($warned($at))->toEqual(Warnings::of(Warning::that('The warm worker lost track of a child, so its mutant ran fresh.')));
+        ->and($warned($at))->toEqual(Warnings::of(Warning::noting('The warm worker lost track of a child, so its mutant ran fresh.')));
 });
 
 it('boots once it has written its process id, and starts fresh, warning why, every run its boot refused', function () use ($seat, $request, $warned): void {
@@ -242,5 +242,5 @@ it('boots once it has written its process id, and starts fresh, warning why, eve
 
     expect($pid)->toBe((string) getmypid())
         ->and($finish instanceof Finish && $finish->isRefused())->toBeTrue()
-        ->and($warned($at))->toEqual(Warnings::of(Warning::that('The boot left a socket open.')));
+        ->and($warned($at))->toEqual(Warnings::of(Warning::noting('The boot left a socket open.')));
 });

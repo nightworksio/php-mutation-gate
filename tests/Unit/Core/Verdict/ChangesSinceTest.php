@@ -116,8 +116,8 @@ it('warns why no kill proved at a commit carries, where git cannot say what chan
         ->with($commit('followed'), ChangeReach::of(Changes::of(Change::modified(Path::of('docs/guide.md'), Lines::none())), ByPath::none(), ByPath::none(), $none, $roles));
 
     expect($since->warnings())->toEqual(Warnings::of(
-        Warning::that(sprintf('No kill proved at %s carries for a unit the budget never started. The clone is shallow.', $commit('shallow')->name())),
-        Warning::that(sprintf(
+        Warning::noting(sprintf('No kill proved at %s carries for a unit the budget never started. The clone is shallow.', $commit('shallow')->name())),
+        Warning::noting(sprintf(
             'No kill proved at %s carries for a unit the budget never started. `composer.lock` decides how the gate runs, so nothing judged before it stands.',
             $commit('lock')->name(),
         )),

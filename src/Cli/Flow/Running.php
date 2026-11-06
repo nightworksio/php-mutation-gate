@@ -213,7 +213,7 @@ final readonly class Running
         $result = $this->left($result, $outcome);
 
         return $result->withWarnings($result->warnings()->and($history instanceof CannotJudge ? Warnings::of(
-            Warning::that(sprintf(self::UNREAD_HISTORY, $id->number(), $history->why())),
+            Warning::noting(sprintf(self::UNREAD_HISTORY, $id->number(), $history->why())),
         ) : Warnings::none()));
     }
 

@@ -254,6 +254,6 @@ final readonly class Workforce
             $reasons += $reason === '' ? [] : [$reason => $reason];
         }
 
-        return Warnings::of(...array_map(Warning::that(...), $reasons));
+        return Warnings::of(...array_map(Warning::noting(...), $reasons));
     }
 }

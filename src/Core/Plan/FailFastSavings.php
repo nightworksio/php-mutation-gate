@@ -56,7 +56,7 @@ final readonly class FailFastSavings
             $first = [...$first, ...$found];
         }
 
-        return $first === [] || ! $suggests ? Warnings::none() : Warnings::of(Warning::that(sprintf(
+        return $first === [] || ! $suggests ? Warnings::none() : Warnings::of(Warning::noting(sprintf(
             self::SAID,
             Seconds::of(min($first))->text(),
             Seconds::of($stop)->text(),

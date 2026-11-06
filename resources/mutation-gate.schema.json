@@ -2039,6 +2039,7 @@
                                                         "unjudged",
                                                         "ignored",
                                                         "problems",
+                                                        "notes",
                                                         "floors",
                                                         "report",
                                                         "costs"
@@ -2059,6 +2060,7 @@
                                                         "unjudged",
                                                         "ignored",
                                                         "problems",
+                                                        "notes",
                                                         "floors",
                                                         "report",
                                                         "costs"
@@ -2233,6 +2235,7 @@
                                                         "unjudged",
                                                         "ignored",
                                                         "problems",
+                                                        "notes",
                                                         "floors",
                                                         "report",
                                                         "costs"
@@ -2253,6 +2256,7 @@
                                                         "unjudged",
                                                         "ignored",
                                                         "problems",
+                                                        "notes",
                                                         "floors",
                                                         "report",
                                                         "costs"
@@ -2422,6 +2426,7 @@
                                                         "unjudged",
                                                         "ignored",
                                                         "problems",
+                                                        "notes",
                                                         "floors",
                                                         "report",
                                                         "costs"
@@ -2442,6 +2447,7 @@
                                                         "unjudged",
                                                         "ignored",
                                                         "problems",
+                                                        "notes",
                                                         "floors",
                                                         "report",
                                                         "costs"
@@ -2773,6 +2779,7 @@
                             "unjudged",
                             "ignored",
                             "problems",
+                            "notes",
                             "floors",
                             "report",
                             "costs"
@@ -2793,6 +2800,7 @@
                             "unjudged",
                             "ignored",
                             "problems",
+                            "notes",
                             "floors",
                             "report",
                             "costs"
@@ -5285,6 +5293,7 @@
                                                                 "unjudged",
                                                                 "ignored",
                                                                 "problems",
+                                                                "notes",
                                                                 "floors",
                                                                 "report",
                                                                 "costs"
@@ -5305,6 +5314,7 @@
                                                                 "unjudged",
                                                                 "ignored",
                                                                 "problems",
+                                                                "notes",
                                                                 "floors",
                                                                 "report",
                                                                 "costs"
@@ -5479,6 +5489,7 @@
                                                                 "unjudged",
                                                                 "ignored",
                                                                 "problems",
+                                                                "notes",
                                                                 "floors",
                                                                 "report",
                                                                 "costs"
@@ -5499,6 +5510,7 @@
                                                                 "unjudged",
                                                                 "ignored",
                                                                 "problems",
+                                                                "notes",
                                                                 "floors",
                                                                 "report",
                                                                 "costs"
@@ -5668,6 +5680,7 @@
                                                                 "unjudged",
                                                                 "ignored",
                                                                 "problems",
+                                                                "notes",
                                                                 "floors",
                                                                 "report",
                                                                 "costs"
@@ -5688,6 +5701,7 @@
                                                                 "unjudged",
                                                                 "ignored",
                                                                 "problems",
+                                                                "notes",
                                                                 "floors",
                                                                 "report",
                                                                 "costs"
@@ -6008,6 +6022,7 @@
                                     "unjudged",
                                     "ignored",
                                     "problems",
+                                    "notes",
                                     "floors",
                                     "report",
                                     "costs"
@@ -6028,6 +6043,7 @@
                                     "unjudged",
                                     "ignored",
                                     "problems",
+                                    "notes",
                                     "floors",
                                     "report",
                                     "costs"

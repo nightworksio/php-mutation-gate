@@ -150,6 +150,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  *     clusters: list<ClusterEntry>,
  *     reach: list<string>,
  *     warnings: list<string>,
+ *     notes: list<string>,
  *     failures: list<string>,
  *     cannotJudge: list<string>,
  *     failingUnmutated: list<FailingEntry>,
@@ -214,7 +215,14 @@ final readonly class JsonReport
             ),
             'clusters' => self::each($verdict->trees()->clusters(), self::cluster(...)),
             'reach' => self::texts($verdict->reach(), static fn(Cause $reason): string => $reason->text()),
-            'warnings' => self::texts($verdict->warnings(), static fn(Warning $warning): string => $warning->text()),
+            'warnings' => self::texts(
+                $verdict->warnings()->actionable(),
+                static fn(Warning $warning): string => $warning->text(),
+            ),
+            'notes' => self::texts(
+                $verdict->warnings()->notes(),
+                static fn(Warning $warning): string => $warning->text(),
+            ),
             'failures' => self::texts($verdict->failures(), static fn(Failure $failure): string => $failure->text()),
             'cannotJudge' => self::texts($verdict->obstacles(), static fn(CannotJudge $why): string => $why->why()),
             'failingUnmutated' => self::each(

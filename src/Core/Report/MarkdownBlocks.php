@@ -144,7 +144,13 @@ final readonly class MarkdownBlocks
     /** @return list<string> the warnings, as one list; nothing where there are none */
     public static function warnings(Verdict $verdict): array
     {
-        return self::bullets($verdict->warnings());
+        return self::bullets($verdict->warnings()->actionable());
+    }
+
+    /** @return list<string> the notes, as one list; nothing where there are none */
+    public static function notes(Verdict $verdict): array
+    {
+        return self::bullets($verdict->warnings()->notes());
     }
 
     /** @return list<string> the floors that can rise, then how to raise them; nothing where none can */

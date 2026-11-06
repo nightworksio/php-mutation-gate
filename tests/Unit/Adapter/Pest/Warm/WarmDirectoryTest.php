@@ -22,7 +22,7 @@ it('warns of each reason a worker forked a run no child once, and removes the di
     file_put_contents(Seat::at($directory, 2)->warned(), "loaded a\n");
     file_put_contents(Seat::at($directory, 2)->out(), 'printed');
 
-    expect(WarmDirectory::cleared($results))->toEqual(Warnings::of(Warning::that('loaded a'), Warning::that('loaded b')))
+    expect(WarmDirectory::cleared($results))->toEqual(Warnings::of(Warning::noting('loaded a'), Warning::noting('loaded b')))
         ->and(is_dir($directory))->toBeFalse();
 });
 

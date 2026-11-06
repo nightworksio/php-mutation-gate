@@ -64,6 +64,7 @@ final readonly class Details
             self::part('Failures', self::texts($report['failures'])),
             self::part('Cannot judge', self::cannotJudge($report)),
             self::part('Warnings', self::texts($report['warnings'])),
+            self::part('Notes', self::texts($report['notes'])),
             self::part('Reach', self::texts($report['reach'])),
             self::part('Suites', self::suites($report)),
             self::part('Timings', array_key_exists('run', $report) ? self::timings($report['run']) : []),

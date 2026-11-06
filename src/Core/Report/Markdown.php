@@ -98,6 +98,7 @@ final readonly class Markdown
             ...MarkdownBlocks::section('Cannot judge', MarkdownBlocks::obstacles($verdict)),
             ...MarkdownBlocks::section('Failures', MarkdownBlocks::failures($verdict)),
             ...MarkdownBlocks::section('Warnings', MarkdownBlocks::warnings($verdict)),
+            ...MarkdownBlocks::section('Notes', MarkdownBlocks::notes($verdict)),
             ...MarkdownBlocks::section('Floors that can rise', MarkdownBlocks::floors($verdict)),
             $run === '' ? '' : self::runLine($run),
         ];

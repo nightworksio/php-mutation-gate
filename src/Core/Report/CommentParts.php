@@ -82,6 +82,7 @@ final readonly class CommentParts
                 ['Failures', MarkdownBlocks::failures($this->verdict)],
                 ['Warnings', MarkdownBlocks::warnings($this->verdict)],
             ],
+            Section::Notes => [[Section::Notes->title(), MarkdownBlocks::notes($this->verdict)]],
             Section::Floors => [[Section::Floors->title(), MarkdownBlocks::floors($this->verdict)]],
             Section::Report => [['', [Markdown::REPORT_SLOT]]],
             Section::Costs => [['', [CostText::of($this->verdict)]]],

@@ -36,6 +36,7 @@ final readonly class CommentShows
         Section::Unjudged,
         Section::Ignored,
         Section::Problems,
+        Section::Notes,
         Section::Floors,
         Section::Report,
         Section::Costs,

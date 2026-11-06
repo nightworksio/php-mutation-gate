@@ -19,6 +19,7 @@ enum Section: string
     case Unjudged = 'unjudged';
     case Ignored = 'ignored';
     case Problems = 'problems';
+    case Notes = 'notes';
     case Floors = 'floors';
     case Report = 'report';
     case Costs = 'costs';
@@ -36,6 +37,7 @@ enum Section: string
             self::Unjudged => 'Unjudged and flaky',
             self::Ignored => 'Ignored',
             self::Problems => 'Problems',
+            self::Notes => 'Notes',
             self::Floors => 'Floors that can rise',
             self::Report => 'Report',
             self::Costs => 'What the run cost',
