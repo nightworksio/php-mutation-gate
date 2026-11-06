@@ -39,7 +39,7 @@ its detached signature by the release key:
 | Algorithm | ed25519, signing only |
 
 The key signs nothing else, and only the release workflow, in the `release`
-environment that deploys from `v*` tags alone, can use it. The job that holds
+environment that deploys from `vX.Y.Z` tags alone, can use it. The job that holds
 it runs no Composer: it signs the PHAR another job built, holding no secret,
 once the PHAR's SHA-256 is the one that job named. The public key is
 [`resources/action/release-key.asc`](resources/action/release-key.asc). Import
