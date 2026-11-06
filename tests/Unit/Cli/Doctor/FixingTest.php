@@ -165,7 +165,7 @@ it('writes each edit, and refuses one whose file changed after it was read', fun
 
 it('writes a file that is not there yet, read as empty', function (): void {
     $project = Scratch::directory();
-    $fixing = new Fixing($project);
+    $fixing = new Fixing($project, new PackageDirectory());
 
     expect($fixing->edits(Repairs::of(Repair::changing(Slug::WorkspaceNotIgnored, Change::of('.gitignore', static fn(string $text): string => sprintf('%sx', $text))))))
         ->toEqual([Edit::of('.gitignore', '', 'x')])
