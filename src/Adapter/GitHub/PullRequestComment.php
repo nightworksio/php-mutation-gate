@@ -232,7 +232,7 @@ final readonly class PullRequestComment implements Commenting, CommentThread, Co
         $author = $sticky->author($this->identity);
         $existing = $sticky->on($number, $author, $write->marker());
         $others = $write->marker() === Markdown::MARKER ? [] : $sticky->othersOn($number, $author, $write->marker());
-        $why = self::whyNot($existing, $others, $write);
+        $why = $this->whyNot($existing, $others, $write);
 
         if ($why instanceof NotWritten) {
             return $why;
@@ -254,7 +254,7 @@ final readonly class PullRequestComment implements Commenting, CommentThread, Co
      *
      * @param list<Answer> $others the gate's comments of other runs
      */
-    private static function whyNot(Answer|NotGiven $existing, array $others, CommentWrite $write): NotWritten|NotGiven
+    private function whyNot(Answer|NotGiven $existing, array $others, CommentWrite $write): NotWritten|NotGiven
     {
         $planned = $existing instanceof Answer && PlannedMarkdown::isPlanned($existing->text('body'));
 
