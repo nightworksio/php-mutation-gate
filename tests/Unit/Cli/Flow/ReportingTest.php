@@ -166,17 +166,14 @@ it('draws the badge in CI on the default branch, in the colours the config sets'
     )]);
 });
 
-it('draws the badge with the logo the config names, or none', function (bool|string $logo): void {
+it('draws the badge with the logo the config names, or none', function (bool|string $logo, string $options): void {
     $settings = Flows::settings(Badge::logo($logo));
     $chosen = reportersOf($settings, Variables::of(['CI' => 'true']), reportingOnMain());
 
-    expect($chosen)->toEqual([BadgeDirectory::configured(
-        Configs::options(json_encode(['logo' => $logo], JSON_THROW_ON_ERROR)),
-        new SystemClock(),
-    )]);
+    expect($chosen)->toEqual([BadgeDirectory::configured(Configs::options($options), new SystemClock())]);
 })->with([
-    'a file' => ['tests/Fixtures/Badge/logo.svg'],
-    'none' => [false],
+    'a file' => ['tests/Fixtures/Badge/logo.svg', '{"logo": "tests/Fixtures/Badge/logo.svg"}'],
+    'none' => [false, '{"logo": false}'],
 ]);
 
 it('draws the badge into the directory --publish-dir names', function (): void {
