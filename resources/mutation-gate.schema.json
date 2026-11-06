@@ -2625,6 +2625,17 @@
             },
             "additionalProperties": false
         },
+        "digest": {
+            "type": "object",
+            "properties": {
+                "tests": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "default": 5
+                }
+            },
+            "additionalProperties": false
+        },
         "comment": {
             "type": "object",
             "properties": {
@@ -5739,6 +5750,16 @@
                         },
                         "methods": {
                             "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "digest": {
+                    "type": "object",
+                    "properties": {
+                        "tests": {
+                            "type": "integer",
+                            "minimum": 0
                         }
                     },
                     "additionalProperties": false

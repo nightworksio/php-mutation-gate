@@ -97,6 +97,7 @@ it('writes a config that reads back into the same effective config', function (a
             ['use' => 'Acme\\Html\\Reporter', 'path' => 'build/site'],
         ],
         'badge' => ['colors' => ['green' => 95], 'trendKept' => 200],
+        'digest' => ['tests' => 3],
         'owners' => ['floors' => ['@acme/payments' => 90, 'jo@acme.example' => 75.5], 'mention' => 'never'],
         'pest' => ['patch' => true, 'canary' => 'canary'],
         'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon'],

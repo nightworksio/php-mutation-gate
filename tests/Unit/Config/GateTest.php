@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Config\Budget;
 use NightWorksIO\MutationGate\Config\Ci;
 use NightWorksIO\MutationGate\Config\Coverage;
 use NightWorksIO\MutationGate\Config\Dashboard;
+use NightWorksIO\MutationGate\Config\Digest;
 use NightWorksIO\MutationGate\Config\Flaky;
 use NightWorksIO\MutationGate\Config\Floor;
 use NightWorksIO\MutationGate\Config\Gate;
@@ -149,6 +150,7 @@ it('writes every setting of the configuration reference', function (): void {
                 Ignores::allowingNativeMarkers(),
                 Badge::colour('green', 85),
                 Badge::trendKept(200),
+                Digest::tests(3),
                 Owner::floor('@acme/payments', 90),
                 Owner::floor('jo@acme.example', 75.5),
                 Owner::neverMentioned(),
@@ -245,6 +247,7 @@ it('writes every setting of the configuration reference', function (): void {
         'flaky' => ['confirmSurvivors' => false],
         'survivorsFirst' => ['max' => 5],
         'badge' => ['colors' => ['green' => 85], 'trendKept' => 200],
+        'digest' => ['tests' => 3],
         'owners' => ['floors' => ['@acme/payments' => 90, 'jo@acme.example' => 75.5], 'mention' => 'never'],
         'dashboard' => ['topic' => 'mutation-tested', 'repositories' => ['api', 'web']],
         'pest' => ['patch' => true, 'canary' => 'canary', 'bootTail' => true, 'workerOpcache' => true, 'schemata' => true, 'bootMutants' => true],

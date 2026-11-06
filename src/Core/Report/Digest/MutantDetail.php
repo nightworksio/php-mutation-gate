@@ -30,9 +30,6 @@ use function sprintf;
  */
 final readonly class MutantDetail
 {
-    /** How many of the tests that cover a mutant its detail names. */
-    private const int TESTS = 5;
-
     private const string MUTANT = 'mutant %s %s %s %s:%d %s%s';
 
     private const string DIFF = 'diff';
@@ -54,8 +51,13 @@ final readonly class MutantDetail
      *
      * @throws NotInShape
      */
-    public static function of(Node $report, IdPrefix $sought, array $mutants, string $target): string|CannotJudge
-    {
+    public static function of(
+        Node $report,
+        IdPrefix $sought,
+        array $mutants,
+        string $target,
+        int $tests,
+    ): string|CannotJudge {
         $found = [];
 
         foreach ($mutants as $mutant) {
@@ -68,17 +70,17 @@ final readonly class MutantDetail
 
         return match (count($found)) {
             0 => DigestDetail::nothing($target),
-            1 => self::explained($report, $found[0]),
+            1 => self::explained($report, $found[0], $tests),
             default => CannotJudge::because(sprintf(self::SEVERAL, Visible::line($target), count($found))),
         };
     }
 
     /** @throws NotInShape */
-    private static function explained(Node $report, DigestMutant $mutant): string
+    private static function explained(Node $report, DigestMutant $mutant, int $named): string
     {
         $tests = $report->field('tests')->items();
         $covered = $mutant->coveredBy();
-        $more = count($covered) - self::TESTS;
+        $more = count($covered) - $named;
 
         return Digest::lines([
             sprintf(
@@ -95,7 +97,7 @@ final readonly class MutantDetail
             ...self::field('hint', $mutant->hint()),
             ...self::field('reason', $mutant->optional('reason')),
             sprintf(self::COVERED, count($covered)),
-            ...self::tests('test', array_slice($covered, 0, self::TESTS), $tests),
+            ...self::tests('test', array_slice($covered, 0, $named), $tests),
             ...$more > 0 ? [sprintf(self::MORE_TESTS, $more)] : [],
             ...self::tests('killed-by', $mutant->killedBy(), $tests),
             ...self::field('cluster', $mutant->optional('cluster')),

@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Config\Definition\CiKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\CommentKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\ContextsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\CoverageKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\DigestKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\Field;
 use NightWorksIO\MutationGate\Core\Config\Definition\FloorsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\HeatmapKeys;
@@ -156,6 +157,7 @@ final readonly class Definition
             ...ReportsKeys::fields($origin),
             ...SuggestKeys::fields(),
             ...HeatmapKeys::fields(),
+            ...DigestKeys::fields(),
             ...CommentKeys::fields(),
             ...PublishingKeys::fields(),
             ...PestKeys::fields(),

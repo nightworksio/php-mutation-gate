@@ -390,6 +390,8 @@ services:
                     - SLACK # seconds a warm worker may take past its last run, not the ledger's limit
                 'NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan':
                     - TRUSTED_SOURCES # Buildkite's build.source values, not another CI's event names
+                'NightWorksIO\MutationGate\Core\Config\DigestRows':
+                    - TESTS # the covering tests the digest names, not the ranking's top
                 'NightWorksIO\MutationGate\Core\Cost\SavingsWindow':
                     - STANDARD_DAYS # the days what the gate saved is counted over, not a preset's value
                 'NightWorksIO\MutationGate\Core\Dashboard\DashboardPage':
@@ -436,6 +438,7 @@ services:
                 'NightWorksIO\MutationGate\Cli\Command\DigestCommand':
                     - SURVIVORS # digest's option of how many survivors it lists, not a step or a stage
                     - DETAIL # the digest command's option, not a comment key
+                    - TESTS # the digest command's option of how many tests it names, not a reporter or a digest kind
                 'NightWorksIO\MutationGate\Core\Verdict\BaselineState':
                     - Missing # a baseline file holding no floor for a scored set, not a file's missing digest
                 'NightWorksIO\MutationGate\Core\Runner\MemoryUnit':

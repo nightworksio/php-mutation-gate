@@ -30,6 +30,7 @@ final readonly class BuilderClasses
         'Context' => self::BUILDER,
         'Coverage' => self::BUILDER,
         'Dashboard' => self::BUILDER,
+        'Digest' => self::BUILDER,
         'Equivalence' => self::BUILDER,
         'Flaky' => self::BUILDER,
         'Floor' => self::BUILDER,

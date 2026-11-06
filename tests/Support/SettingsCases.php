@@ -157,6 +157,9 @@ final readonly class SettingsCases
             "static": true
         },
         "reports": [],
+        "digest": {
+            "tests": 5
+        },
         "badge": {
             "colors": {
                 "brightgreen": 90,
@@ -265,6 +268,7 @@ final readonly class SettingsCases
             ['use' => 'Acme\\GateSlack\\SlackReporter', 'with' => ['channel' => '#ci']],
         ],
         'badge' => ['colors' => ['green' => 95], 'trendKept' => 200],
+        'digest' => ['tests' => 3],
         'dashboard' => ['topic' => 'mutation-tested', 'repositories' => ['api', 'web']],
         'pest' => ['patch' => true, 'canary' => 'canary', 'bootTail' => true, 'workerOpcache' => false, 'schemata' => false, 'bootMutants' => false],
         'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45, 'before' => true],

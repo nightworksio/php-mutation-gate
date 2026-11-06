@@ -11,8 +11,9 @@ use NightWorksIO\MutationGate\Core\Format\Member;
 
 /**
  * The reports a run writes or sends (ADR-0009): `reports`, which each layer adds to; when `config:suggest`
- * proposes a change (ADR-0076): `suggest`; how much of the heatmap each report shows (ADR-0100): `heatmap`; and
- * what the pull request comment shows and when it is written (ADR-0102): `comment`.
+ * proposes a change (ADR-0076): `suggest`; how much of the heatmap each report shows (ADR-0100): `heatmap`; how
+ * much the digest says of one mutant (ADR-0009): `digest`; and what the pull request comment shows and when it is
+ * written (ADR-0102): `comment`.
  */
 final readonly class Reports implements Part
 {
@@ -22,25 +23,26 @@ final readonly class Reports implements Part
         private Suggest $suggest,
         private HeatmapRows $heatmap,
         private CommentSettings $comment,
+        private DigestRows $digest,
     ) {
     }
 
     /** @param Listed<Report>|Absent $reports */
     public static function of(Listed|Absent $reports): self
     {
-        return new self($reports, Suggest::of(), HeatmapRows::of(), CommentSettings::standard());
+        return new self($reports, Suggest::of(), HeatmapRows::of(), CommentSettings::standard(), DigestRows::of());
     }
 
     /** What a layer sets of when `config:suggest` proposes a change, and of no report. */
     public static function suggesting(Suggest $suggest): self
     {
-        return new self(Absent::setting(), $suggest, HeatmapRows::of(), CommentSettings::standard());
+        return new self(Absent::setting(), $suggest, HeatmapRows::of(), CommentSettings::standard(), DigestRows::of());
     }
 
     /** What a layer sets of how much of the heatmap each report shows, and of no report. */
     public static function heatmapping(HeatmapRows $heatmap): self
     {
-        return new self(Absent::setting(), Suggest::of(), $heatmap, CommentSettings::standard());
+        return new self(Absent::setting(), Suggest::of(), $heatmap, CommentSettings::standard(), DigestRows::of());
     }
 
     public static function none(): self
@@ -50,7 +52,7 @@ final readonly class Reports implements Part
 
     public static function standard(): self
     {
-        return self::of(Listed::of());
+        return self::of(Listed::of())->over(self::digesting(DigestRows::of(DigestRows::TESTS)));
     }
 
     public function over(Part $later): self
@@ -73,6 +75,7 @@ final readonly class Reports implements Part
             $this->suggest->over($later->suggest),
             $this->heatmap->over($later->heatmap),
             $this->comment->over($later->comment),
+            $this->digest->over($later->digest),
         );
     }
 
@@ -95,12 +98,23 @@ final readonly class Reports implements Part
     /** What a layer sets of what the pull request comment shows and when it is written, and of no report. */
     public static function commenting(CommentSettings $comment): self
     {
-        return new self(Absent::setting(), Suggest::of(), HeatmapRows::of(), $comment);
+        return new self(Absent::setting(), Suggest::of(), HeatmapRows::of(), $comment, DigestRows::of());
     }
 
     public function comment(): CommentSettings
     {
         return $this->comment;
+    }
+
+    /** What a layer sets of how much the digest says, and of no report. */
+    public static function digesting(DigestRows $digest): self
+    {
+        return new self(Absent::setting(), Suggest::of(), HeatmapRows::of(), CommentSettings::standard(), $digest);
+    }
+
+    public function digest(): DigestRows
+    {
+        return $this->digest;
     }
 
     public function written(PathOrigin $origin): Json
@@ -116,6 +130,7 @@ final readonly class Reports implements Part
             $this->suggest->written(),
             $this->heatmap->written(),
             $this->comment->written(),
+            $this->digest->written(),
         );
     }
 
@@ -131,6 +146,10 @@ final readonly class Reports implements Part
             )
             : PhpCalls::none();
 
-        return $reports->and($this->suggest->php())->and($this->heatmap->php())->and($this->comment->php());
+        return $reports
+            ->and($this->suggest->php())
+            ->and($this->heatmap->php())
+            ->and($this->comment->php())
+            ->and($this->digest->php());
     }
 }

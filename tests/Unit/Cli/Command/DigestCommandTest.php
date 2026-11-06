@@ -74,6 +74,25 @@ it('lists as many survivors as asked, and refuses a count it cannot read', funct
         ->and($unread->errors)->toContain('--survivors is many; it takes a whole number, or all.');
 });
 
+it('names as many of a mutant\'s covering tests as --tests asks, or digest.tests says, and refuses a count it cannot read', function () use ($composed): void {
+    $project = FlowCommands::project('"digest": {"tests": 0}');
+    FlowCommands::run(RunCommand::command($composed($project)), '--full');
+    $mutants = Node::decode((string) file_get_contents(sprintf('%s/.mutation-gate/report.json', $project)))->field('mutants')->items();
+    $covered = array_values(array_filter($mutants, static fn(Node $mutant): bool => count($mutant->field('coveredBy')->items()) > 0));
+    $id = sprintf('--detail=%s', $covered[0]->field('id')->text());
+    $count = count($covered[0]->field('coveredBy')->items());
+
+    $configured = FlowCommands::run(DigestCommand::command($composed($project)), $id);
+    $asked = FlowCommands::run(DigestCommand::command($composed($project)), sprintf('%s --tests=%d', $id, $count));
+    $unread = FlowCommands::run(DigestCommand::command($composed($project)), sprintf('%s --tests=some', $id));
+
+    expect($configured->code)->toBe(0)
+        ->and($configured->output)->toContain(sprintf("\nmore-tests %d\n", $count))
+        ->and($asked->output)->not->toContain('more-tests')
+        ->and($unread->code)->toBe(2)
+        ->and($unread->errors)->toContain('--tests is some; it takes a whole number.');
+});
+
 it('says no run left a report, that the report is in another format, or where it is not in shape, and exits 2', function () use ($composed): void {
     $project = FlowCommands::project();
     $none = FlowCommands::run(DigestCommand::command($composed($project)));
