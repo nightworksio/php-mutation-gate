@@ -11,7 +11,7 @@ use NightWorksIO\MutationGate\Tests\Support\Tree;
 /** @return list<string> every section the guide heads with `## `, in order */
 function troubleshootingSections(): array
 {
-    preg_match_all('/^## (?<slug>.+)$/mu', (string) file_get_contents(Tree::at('.docs/guide/troubleshooting.md')), $headed);
+    preg_match_all('/^## (?<slug>.+)$/mu', (string) file_get_contents(Tree::at('.docs/using/troubleshooting.md')), $headed);
 
     return $headed['slug'];
 }
@@ -19,11 +19,11 @@ function troubleshootingSections(): array
 it('has a section for every slug', function (): void {
     $slugs = array_map(static fn(Slug $slug): string => $slug->value, Slug::cases());
 
-    expect(array_values(array_diff($slugs, troubleshootingSections())))->toBe([], 'A slug has no section in .docs/guide/troubleshooting.md.');
+    expect(array_values(array_diff($slugs, troubleshootingSections())))->toBe([], 'A slug has no section in .docs/using/troubleshooting.md.');
 });
 
 it('has a slug for every section', function (): void {
     $slugs = array_map(static fn(Slug $slug): string => $slug->value, Slug::cases());
 
-    expect(array_values(array_diff(troubleshootingSections(), $slugs)))->toBe([], 'A section of .docs/guide/troubleshooting.md names no slug.');
+    expect(array_values(array_diff(troubleshootingSections(), $slugs)))->toBe([], 'A section of .docs/using/troubleshooting.md names no slug.');
 });

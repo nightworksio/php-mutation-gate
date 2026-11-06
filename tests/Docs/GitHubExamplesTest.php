@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Tests\Support\WorkflowFile;
 // (ci.check, ADR-0007) and to what the reusable workflow uploads.
 
 /** The page of the guide that shows the action and the reusable workflow. */
-const GITHUB_GUIDE = '.docs/guide/ci/github-actions.md';
+const GITHUB_GUIDE = '.docs/using/ci/github-actions.md';
 
 /** The guide's YAML example that holds a line, read. */
 function guideExample(string $holding): Node

@@ -17,7 +17,7 @@ it('raises a mutant under the rule SARIF reports it by', function (ResultRule $r
 ]);
 
 it('names and describes each rule, linking the guide\'s section on its judgement, with the quality it affects', function (): void {
-    $guide = 'https://nightworksio.github.io/php-mutation-gate/0.1/guide/troubleshooting/';
+    $guide = 'https://nightworksio.github.io/php-mutation-gate/0.1/using/troubleshooting/';
 
     expect(array_map(
         static fn(SonarRule $rule): array => [$rule->value, $rule->title(), $rule->description(Guide::ofInstalled('0.1.0')), $rule->quality()],

@@ -40,8 +40,8 @@ Before each push, run the entries for what you changed:
 | anything | `hygiene/typos` and `hygiene/lines` |
 | PHP, `composer.json`, `phpstan.neon`, `phpstan/layers.neon`, `rector.php` or `pint.json` | `checks` and `rules`, and the tests of the code you changed: `vendor/bin/pest <test files>` |
 | Markdown | `hygiene/markdown` and `hygiene/links` |
-| `ARCHITECTURE.md`, `.docs/reference/`, `.docs/guide/ci/` or `.docs/guide/troubleshooting.md` | the Markdown entries, and `composer test`, because tests read them |
-| `.docs/`, `.site/`, `README.md` or what prints a link into the docs | `site/build` |
+| `ARCHITECTURE.md` or `.docs/using/` | the Markdown entries, and `composer test`, because tests read them |
+| `.docs/`, `.site/`, `README.md`, `CONTRIBUTING.md`, `ARCHITECTURE.md`, `SECURITY.md` or what prints a link into the docs | `site/build` |
 | a workflow | `hygiene/actionlint` and `hygiene/zizmor` |
 | `.github/scripts` or `resources/action` | `scripts` |
 
@@ -53,7 +53,7 @@ files share in a class of `tests/Support`. A test that starts a real process
 goes in `tests/Process` instead, mirroring `src` the same way. Its file holds
 the units its tests kill with a `holds:` group on each test, since the gate's
 own config lists `Process` in `tests.holding`
-([holding tests](.docs/guide/concepts/holding-tests.md)).
+([holding tests](.docs/features/holding-tests.md)).
 
 The whole suite runs locally too, more slowly:
 
@@ -171,7 +171,7 @@ A comment whose first line is one of these runs it:
   a plugin, a package of its own under `plugins/<name>`, as `plugins/default`
   is ([ADR-0021](.docs/decisions/0021-mutators-are-written-once-and-first-party-sets-can-leave.md)).
 
-[Writing an adapter](.docs/guide/extending/writing-an-adapter.md) says how a
+[Writing an adapter](.docs/extending/adapters.md) says how a
 config names an adapter, and how an adapter reads its options.
 
 ## Maintainers and decisions

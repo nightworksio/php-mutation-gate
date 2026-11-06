@@ -218,7 +218,7 @@ it('declares every setting as affecting results, as deciding how the gate runs, 
 });
 
 it('declares every key of the configuration reference, or the entries it lists', function (): void {
-    $from = (string) strstr((string) file_get_contents(Tree::at('.docs/reference/configuration.md')), '## Every key');
+    $from = (string) strstr((string) file_get_contents(Tree::at('.docs/using/configuration.md')), '## Every key');
     $reference = (string) strstr($from, 'In a `composer.json`', before_needle: true);
     preg_match_all('/^\| `([a-zA-Z$.\[\]]+)`(?: \(`[a-z0-9]+`\))? \|/m', $reference, $keys);
 
@@ -232,7 +232,7 @@ it('declares every key of the configuration reference, or the entries it lists',
 });
 
 it('states the default budgets the configuration reference gives watch and pre-push, and the daemon\'s idle time and start', function (): void {
-    $reference = (string) file_get_contents(Tree::at('.docs/reference/configuration.md'));
+    $reference = (string) file_get_contents(Tree::at('.docs/using/configuration.md'));
     $default = static fn(string $key): string => preg_match(
         sprintf('/^\\| `%s` \\| [^|]+ \\| `([^`]+)` \\|/m', preg_quote($key, '/')),
         $reference,
@@ -252,7 +252,7 @@ it('states the default budgets the configuration reference gives watch and pre-p
 });
 
 it('gives runner.memory the default the configuration reference names', function (): void {
-    $reference = (string) file_get_contents(Tree::at('.docs/reference/configuration.md'));
+    $reference = (string) file_get_contents(Tree::at('.docs/using/configuration.md'));
     preg_match('/^\| `runner\.memory` \|.*\| `([^`]+)` \| \[0004\]/m', $reference, $row);
 
     expect($row[1] ?? null)->toBe(MemoryCap::standard()->written());

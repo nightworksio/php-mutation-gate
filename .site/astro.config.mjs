@@ -5,7 +5,7 @@ import { defineConfig } from 'astro/config';
 import { decisionsIndex } from './src/decisions.mjs';
 import { links } from './src/links.mjs';
 import { dropTitle, rewriteLinks } from './src/remark.mjs';
-import { group } from './src/sidebar.mjs';
+import { contributing, group } from './src/sidebar.mjs';
 import { BASE, REPOSITORY, SITE } from './src/where.mjs';
 
 export default defineConfig({
@@ -51,10 +51,12 @@ export default defineConfig({
             ],
             social: [{ icon: 'github', label: 'GitHub', href: REPOSITORY }],
             customCss: ['./src/theme.css'],
+            components: { SocialIcons: './src/components/SocialIcons.astro' },
             sidebar: [
-                group('Guide', 'guide'),
-                group('Reference', 'reference'),
-                group('Design', 'decisions', true),
+                group('Using the gate', 'using'),
+                group('Features', 'features'),
+                group('Extending the gate', 'extending', true),
+                contributing(),
             ],
         }),
         links(BASE),
