@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Recheck\RecheckShare;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
@@ -21,6 +22,22 @@ it('reads back the files it ran, those it did not reach and every mutant it made
         ->and(array_map(static fn(Path $file): string => $file->value(), [...$read->ran()]))->toBe(['src/Money.php'])
         ->and(array_map(static fn(Path $file): string => $file->value(), [...$read->unreached()]))->toBe(['src/Cart.php'])
         ->and($read->mutants())->toEqual([Verdicts::mutant('src/Money.php:7', 'Plus', MutatorFamily::None, '-1+2')]);
+});
+
+it('writes format 1, reads it and refuses the formats either side of it', function () use ($money): void {
+    $text = static fn(int $format): string => sprintf(
+        '{"format": %d, "ran": ["src/Money.php"], "unreached": [], "mutants": []}',
+        $format,
+    );
+    $ran = static fn(string $file): array => array_map(
+        static fn(Path $path): string => $path->value(),
+        [...RecheckShare::decode($file)->ran()],
+    );
+
+    expect(Node::decode($money()->encode())->field('format')->integer())->toBe(1)
+        ->and($ran($text(1)))->toBe(['src/Money.php'])
+        ->and($ran($text(0)))->toBe([])
+        ->and($ran($text(2)))->toBe([]);
 });
 
 it('joins two shares into one that did what both did', function () use ($money): void {
