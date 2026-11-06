@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
-use function array_key_exists;
-
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Core\Config\HeatmapRows;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -56,9 +54,7 @@ final readonly class Heating
 
         $base = Heatmap::of(
             $judge->trees(UnitResults::of(...$results)),
-            fn(Path $file): FunctionSpans => $this->rows->methods() && array_key_exists($file->value(), $spans)
-                ? $spans[$file->value()]
-                : FunctionSpans::none(),
+            static fn(Path $file): FunctionSpans => $spans[$file->value()],
         );
 
         return Heatmap::of($verdicts, $this->onDisk(...))
