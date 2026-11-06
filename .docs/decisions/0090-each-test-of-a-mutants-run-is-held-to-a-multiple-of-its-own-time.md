@@ -43,6 +43,12 @@ a line for each test to the results file of a native run.
    test of the control runs past its own limit too, the control runs out,
    and the timeout is too slow to judge (ADR-0008), never killed. A part
    of a heavy mutant's run, and its control, are held so too.
+4. **A run a test's own limit stopped is controlled by that test alone.**
+   The tests after it never ran with the mutant in place, so a slow one
+   among them says nothing of the stop. The control runs the stopped test
+   alone, selected as the run selects tests, under the same watchdog. Where
+   the run loaded test files with no filter, the runner cannot run one test
+   alone, and the control runs every test the run would.
 
 ### Why a stop at a test's own limit is a timeout and not a guess
 
@@ -55,6 +61,10 @@ a line for each test to the results file of a native run.
   under the same watchdog. A test that is merely slow on the runner runs
   past its own limit in the control too, and the timeout stays too slow to
   judge.
+- **The stopped test alone is the evidence.** Its control tells whether
+  that test, unmutated, finishes within the limit the stop measured it
+  against. It does not catch a test that is slow only after particular
+  other tests have run.
 - **A floor keeps the noise out.** A test the map timed at 0.05 s is
   allowed 3 s, so scheduling and garbage collection on a busy runner do not
   stop it.

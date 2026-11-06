@@ -229,3 +229,20 @@ it('holds each test of a timeout\'s control to the limit of its own its run was,
         ->toEqual([TestWatch::of(PerTestLimit::standard(), TestTimes::of(TestTime::of(TestId::of('LoopTest::a'), Seconds::of(2.0))))])
         ->and(array_map(static fn(Control $control): TestWatch|NotGiven => $control->watch(), $off))->toEqual([NotGiven::value()]);
 });
+
+it('controls a run a test stopped at its own limit by that test alone, and by every test where the run loaded its files unfiltered or the test judges none of it', function (): void {
+    $map = loopMap('LoopTest::a', 'LoopTest::b', 'LoopTest::c');
+    $stopped = hungMutant('stopped')->because(Reason::overran(TestId::of('LoopTest::b'), Seconds::of(3.0)));
+    $elsewhere = hungMutant('elsewhere')->because(Reason::overran(TestId::of('OtherTest::x'), Seconds::of(3.0)));
+    $loaded = hungMutant('loaded')->because(Reason::overran(TestId::of('LoopTest::b'), Seconds::of(3.0)));
+    $unfiltered = UnfilteredRuns::none()->with($loaded->id(), Paths::of(Path::of('tests/LoopTest.php')));
+    $asked = static fn(Mutant $mutant, UnfilteredRuns $runs): array => askedControls(
+        TimeoutControls::of(Mutants::of($mutant), $runs, $map, HeldCovered::none(), new LoadingUnfiltered(), PerTestLimit::off()),
+    );
+
+    expect($asked($stopped, UnfilteredRuns::none()))->toBe([['src/Loop.php', ['LoopTest::b'], 10.0]])
+        ->and($asked($elsewhere, UnfilteredRuns::none()))->toBe([['src/Loop.php', ['LoopTest::a', 'LoopTest::b', 'LoopTest::c'], 10.0]])
+        ->and($asked($loaded, $unfiltered))->toBe([['src/Loop.php', ['LoopTest::a', 'LoopTest::b', 'LoopTest::c'], 10.0]])
+        ->and(Reason::overran(TestId::of('LoopTest::b'), Seconds::of(3.0))->stoppedAt())->toEqual(TestId::of('LoopTest::b'))
+        ->and(Reason::that('anything')->stoppedAt())->toEqual(NotGiven::value());
+});

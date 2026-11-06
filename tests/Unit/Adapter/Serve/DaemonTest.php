@@ -94,8 +94,9 @@ it('stops a child whose client hangs up', function () use ($started, $runRequest
     ServedProjects::entered();
     $forking = InlineForking::holding();
     ServedClients::clients([sprintf('%s%s', $runRequest($started(), 'watch'), ServedClients::HANG_UP)]);
+    $served = ServedProjects::within(4, static fn(): CannotJudge|NotGiven => $daemonOf($forking, 2.0)->served());
 
-    expect($daemonOf($forking, 2.0)->served())->toBeInstanceOf(NotGiven::class)
+    expect($served)->toBeInstanceOf(NotGiven::class)
         ->and($forking->stopped)->toBe([1000]);
 });
 

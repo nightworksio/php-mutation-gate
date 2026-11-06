@@ -8,6 +8,7 @@ use function count;
 
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\OwnTime;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
@@ -16,8 +17,12 @@ use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
 use NightWorksIO\MutationGate\Core\Runner\RunSelection;
+use NightWorksIO\MutationGate\Core\Runner\RunTests;
 use NightWorksIO\MutationGate\Core\Runner\TestWatch;
 use NightWorksIO\MutationGate\Core\Runner\UnfilteredRuns;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
@@ -80,7 +85,9 @@ final readonly class TimeoutControls implements ControlJudge
                 continue;
             }
 
-            $tests = Control::judging($mutant, $map, $held, $run, $unfiltered->of($mutant->id()));
+            $loaded = $unfiltered->of($mutant->id());
+            $judging = Control::judging($mutant, $map, $held, $run, $loaded);
+            $tests = self::stoppedAlone($mutant, $judging, $run, $map, $loaded);
             $controls += count($tests->tests()) > 0
                 ? [$mutant->id()->key() => Control::running($mutant->location()->file(), $tests, $limit)->watched(
                     TestWatch::of($perTest, OwnTime::each($map, $tests->tests())),
@@ -126,5 +133,27 @@ final readonly class TimeoutControls implements ControlJudge
                 Reason::that(sprintf(self::UNRUN, $why instanceof NotGiven ? ControlRuns::NOT_RUN : $why)),
             ),
         };
+    }
+
+    /**
+     * The test whose own limit stopped the mutant's run, alone, selected as
+     * the run selects tests (ADR-0090): the tests after it never ran in the
+     * mutant's run, so they tell nothing of its stop. These tests otherwise,
+     * where its run loaded test files with no filter or no test's own limit
+     * stopped it.
+     */
+    private static function stoppedAlone(
+        Mutant $mutant,
+        RunTests $judging,
+        RunSelection $run,
+        CoverageMap $map,
+        Paths|WholeSuite|NotGiven $loaded,
+    ): RunTests {
+        $reason = $mutant->reason();
+        $stopped = $reason instanceof Reason ? $reason->stoppedAt() : NotGiven::value();
+
+        return $stopped instanceof TestId && $loaded instanceof NotGiven && $judging->tests()->has($stopped)
+            ? $run->of(TestIds::of($stopped), $map, $loaded)
+            : $judging;
     }
 }

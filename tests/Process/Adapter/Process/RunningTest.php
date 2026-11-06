@@ -202,7 +202,7 @@ it('keeps what a program printed before it was seen to end', function () use ($s
 })->group(...$holds);
 
 it('ends at once a program its tree\'s stop missed, whatever other signal it catches', function () use ($started): void {
-    $running = $started('pcntl_async_signals(true); pcntl_signal(8, static function (): void {}); pcntl_signal(10, static function (): void {}); echo "up"; $end = microtime(true) + 5; while (microtime(true) < $end) { usleep(10000); }');
+    $running = $started('pcntl_async_signals(true); pcntl_signal(8, static function (): void {}); pcntl_signal(10, static function (): void {}); echo "up"; $end = microtime(true) + 2; while (microtime(true) < $end) { usleep(10000); }');
     Running::awaitAny(Seconds::of(0.5));
     $path = getenv('PATH');
     putenv('PATH=/nowhere');
@@ -214,7 +214,7 @@ it('ends at once a program its tree\'s stop missed, whatever other signal it cat
         putenv(sprintf('PATH=%s', $path));
     }
 
-    expect((hrtime(as_number: true) - $from) / Seconds::NANOSECONDS)->toBeLessThan(2.0)
+    expect((hrtime(as_number: true) - $from) / Seconds::NANOSECONDS)->toBeLessThan(1.0)
         ->and($ran)->toEqual(Ran::stopped('up', 'up')->took(Seconds::of(100.0)));
 })->skip(fn(): bool => ! function_exists('pcntl_signal'), 'catching a signal takes pcntl')->group(...$holds);
 
