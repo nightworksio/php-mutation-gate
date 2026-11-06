@@ -13,8 +13,6 @@ use NightWorksIO\MutationGate\Core\Runner\Multiple;
  * learned (ADR-0073), and the pace of those kills, which a check before a
  * mutant's tests is weighed by, where `staticCheck.testsTime` is learned
  * (ADR-0077).
- *
- * @internal
  */
 final readonly class KillsLearned
 {

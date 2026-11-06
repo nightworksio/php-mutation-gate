@@ -49,10 +49,10 @@ it('tells every shard the multiple and the pace the plan learned, which its file
         ->and(BriefingRecord::read(Node::decode((string) json_encode(BriefingRecord::of($learning)))))
         ->toEqual($learning);
 })->with([
-    'a multiple' => [KillsLearned::none()->allowing(Multiple::of(4.5)), ['learnedMultiple' => 4.5]],
-    'a pace' => [KillsLearned::none()->pacing(Multiple::of(0.25)), ['learnedPace' => 0.25]],
+    'a multiple' => [fn(): KillsLearned => KillsLearned::none()->allowing(Multiple::of(4.5)), ['learnedMultiple' => 4.5]],
+    'a pace' => [fn(): KillsLearned => KillsLearned::none()->pacing(Multiple::of(0.25)), ['learnedPace' => 0.25]],
     'both' => [
-        KillsLearned::none()->allowing(Multiple::of(4.5))->pacing(Multiple::of(0.25)),
+        fn(): KillsLearned => KillsLearned::none()->allowing(Multiple::of(4.5))->pacing(Multiple::of(0.25)),
         ['learnedMultiple' => 4.5, 'learnedPace' => 0.25],
     ],
 ]);
