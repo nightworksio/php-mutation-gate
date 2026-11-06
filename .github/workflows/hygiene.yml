@@ -1,8 +1,10 @@
-# Workflow lint and audit, spelling, links, Markdown and the line cap, over the
-# whole tree.
-# Called by ci.yml; each tool reads its configuration from the repository
-# root, reports in its structured form into evidence/raw, and the evidence
-# step shows every finding as an annotation (ADR-0019).
+# Workflow lint and audit, spelling, the line cap, links, secrets in the
+# history, known vulnerabilities in what the lock files install, and Markdown,
+# over the whole tree. Called by ci.yml. One job with a step per tool: a step
+# that fails leaves the next ones to run, each tool reads its configuration
+# from the repository root and reports in its structured form into evidence/raw,
+# and the evidence step shows every finding as an annotation (ADR-0019,
+# ADR-0109). The tools that read the tree run before npm installs markdownlint.
 name: hygiene
 
 on:
@@ -12,22 +14,33 @@ permissions:
   contents: read
 
 jobs:
-  # The CLI rather than an action, so it can write JSON: pinned by version and
-  # by the SHA-256 its release lists in actionlint_<version>_checksums.txt.
-  actionlint:
+  tools:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     env:
       ACTIONLINT_VERSION: "1.7.12"
       ACTIONLINT_SHA256: "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
+      ZIZMOR_VERSION: "1.30.1"
+      ZIZMOR_SHA256: "e65324f4430c2717591937edcec90ccbefaf14c174f8ec9415e03ca875b46e1a"
+      TYPOS_VERSION: "1.50.3"
+      TYPOS_SHA256: "aca6b5d546307092b8d0a8e0a89dd80f9da51f2f7617c5e45c5607c1684ffbf2"
+      GITLEAKS_VERSION: "8.30.1"
+      # The SHA-256 of that release's linux_x64 tarball, from its
+      # gitleaks_<version>_checksums.txt. Raise it with the version.
+      GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # gitleaks reads the whole history.
+          fetch-depth: 0
           persist-credentials: false
+      - run: mkdir -p evidence/raw
+      # The CLI rather than an action, so it can write JSON: pinned by version and
+      # by the SHA-256 its release lists in actionlint_<version>_checksums.txt.
       - id: actionlint
+        if: ${{ !cancelled() }}
         run: |
           set -euo pipefail
-          mkdir -p evidence/raw
           url="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
           curl -sSfL --proto '=https' --tlsv1.2 --retry 3 --retry-delay 2 --retry-all-errors \
             -o "${RUNNER_TEMP}/actionlint.tar.gz" "$url"
@@ -36,156 +49,58 @@ jobs:
           # The workflows, and the GitHub definitions init --ci writes, as their snapshots render them.
           "${RUNNER_TEMP}/actionlint" -format '{{json .}}' .github/workflows/*.yml tests/Fixtures/CiTemplates/github/*.yml \
             > evidence/raw/actionlint.json
-      # The job's evidence, whatever the steps above did.
-      - name: evidence
-        if: ${{ !cancelled() }}
-        env:
-          STEPS: ${{ toJSON(steps) }}
-        run: python3 .github/scripts/evidence.py hygiene/actionlint
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: ${{ !cancelled() }}
-        with:
-          name: evidence-hygiene-actionlint
-          path: evidence/hygiene-actionlint*
-          if-no-files-found: error
-          retention-days: 7
-      - name: what failed
-        if: failure()
-        run: python3 .github/scripts/gate_summary.py hygiene/actionlint
-
-  # The workflows and Dependabot's configuration, audited for the ways a
-  # workflow is attacked (ADR-0019). The release binary, pinned by
-  # version and by the SHA-256 GitHub lists for the asset. It runs online with
-  # the job's read-only token, so the audits that ask GitHub about a pinned
-  # action run too.
-  zizmor:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    env:
-      ZIZMOR_VERSION: "1.30.1"
-      ZIZMOR_SHA256: "e65324f4430c2717591937edcec90ccbefaf14c174f8ec9415e03ca875b46e1a"
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+      # The workflows and Dependabot's configuration, audited for the ways a
+      # workflow is attacked (ADR-0019). The release binary, pinned by
+      # version and by the SHA-256 GitHub lists for the asset. It runs online with
+      # the job's read-only token, so the audits that ask GitHub about a pinned
+      # action run too.
       - id: zizmor
+        if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          mkdir -p evidence/raw
           url="https://github.com/zizmorcore/zizmor/releases/download/v${ZIZMOR_VERSION}/zizmor-x86_64-unknown-linux-gnu.tar.gz"
           curl -sSfL --proto '=https' --tlsv1.2 --retry 3 --retry-delay 2 --retry-all-errors \
             -o "${RUNNER_TEMP}/zizmor.tar.gz" "$url"
           sha256sum --check --strict <<<"${ZIZMOR_SHA256}  ${RUNNER_TEMP}/zizmor.tar.gz"
           tar xzf "${RUNNER_TEMP}/zizmor.tar.gz" -C "${RUNNER_TEMP}" zizmor
           "${RUNNER_TEMP}/zizmor" --format=json . tests/Fixtures/CiTemplates/github/*.yml > evidence/raw/zizmor.json
-      - name: evidence
-        if: ${{ !cancelled() }}
-        env:
-          STEPS: ${{ toJSON(steps) }}
-        run: python3 .github/scripts/evidence.py hygiene/zizmor
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: ${{ !cancelled() }}
-        with:
-          name: evidence-hygiene-zizmor
-          path: evidence/hygiene-zizmor*
-          if-no-files-found: error
-          retention-days: 7
-      - name: what failed
-        if: failure()
-        run: python3 .github/scripts/gate_summary.py hygiene/zizmor
-
-  # typos.toml turns hidden files on, so `.docs` and `.github` are read. The
-  # CLI rather than the action, so it can write JSON: typos' releases list no
-  # checksums, so the SHA-256 is the one this repository first downloaded.
-  typos:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    env:
-      TYPOS_VERSION: "1.50.3"
-      TYPOS_SHA256: "aca6b5d546307092b8d0a8e0a89dd80f9da51f2f7617c5e45c5607c1684ffbf2"
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+      # typos.toml turns hidden files on, so `.docs` and `.github` are read. The
+      # CLI rather than the action, so it can write JSON: typos' releases list no
+      # checksums, so the SHA-256 is the one this repository first downloaded.
       - id: typos
+        if: ${{ !cancelled() }}
         run: |
           set -euo pipefail
-          mkdir -p evidence/raw
           url="https://github.com/crate-ci/typos/releases/download/v${TYPOS_VERSION}/typos-v${TYPOS_VERSION}-x86_64-unknown-linux-musl.tar.gz"
           curl -sSfL --proto '=https' --tlsv1.2 --retry 3 --retry-delay 2 --retry-all-errors \
             -o "${RUNNER_TEMP}/typos.tar.gz" "$url"
           sha256sum --check --strict <<<"${TYPOS_SHA256}  ${RUNNER_TEMP}/typos.tar.gz"
           tar xzf "${RUNNER_TEMP}/typos.tar.gz" -C "${RUNNER_TEMP}" ./typos
           "${RUNNER_TEMP}/typos" --format json > evidence/raw/typos.jsonl
-      - name: evidence
-        if: ${{ !cancelled() }}
-        env:
-          STEPS: ${{ toJSON(steps) }}
-        run: python3 .github/scripts/evidence.py hygiene/typos
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: ${{ !cancelled() }}
-        with:
-          name: evidence-hygiene-typos
-          path: evidence/hygiene-typos*
-          if-no-files-found: error
-          retention-days: 7
-      - name: what failed
-        if: failure()
-        run: python3 .github/scripts/gate_summary.py hygiene/typos
-
-  # No tracked file longer than the line cap: lockfiles, images and fonts are
-  # not counted, and a file scripts/generated.py registers is held to the cap
-  # through its sources.
-  lines:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+      # No tracked file longer than the line cap: lockfiles, images and fonts are
+      # not counted, and a file scripts/generated.py registers is held to the cap
+      # through its sources.
       - id: lines
+        if: ${{ !cancelled() }}
         run: |
           set -euo pipefail
-          mkdir -p evidence/raw
           python3 .github/scripts/line_cap.py --root . | tee evidence/raw/lines.txt
-      - name: evidence
-        if: ${{ !cancelled() }}
-        env:
-          STEPS: ${{ toJSON(steps) }}
-        run: python3 .github/scripts/evidence.py hygiene/lines
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: ${{ !cancelled() }}
-        with:
-          name: evidence-hygiene-lines
-          path: evidence/hygiene-lines*
-          if-no-files-found: error
-          retention-days: 7
-      - name: what failed
-        if: failure()
-        run: python3 .github/scripts/gate_summary.py hygiene/lines
-
-  # lychee.toml turns hidden files on and holds the accepted status codes.
-  links:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
       # A run that finds no link fails, because that is how a configuration
       # that reads nothing looks, unless the tree holds no Markdown link at all.
       - id: tree
+        if: ${{ !cancelled() }}
         run: |
-          mkdir -p evidence/raw
           if git grep -qE '\]\(|https?://' -- '*.md'; then
             echo "links=true" >> "$GITHUB_OUTPUT"
           else
             echo "links=false" >> "$GITHUB_OUTPUT"
             echo "No Markdown file holds a link."
           fi
+      # lychee.toml turns hidden files on and holds the accepted status codes.
       - id: lychee
+        if: ${{ !cancelled() }}
         uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
         with:
           args: --no-progress --config lychee.toml .
@@ -193,40 +108,90 @@ jobs:
           output: evidence/raw/lychee.json
           fail: true
           failIfEmpty: ${{ steps.tree.outputs.links }}
-      - name: evidence
+      # The CLI rather than gitleaks' own action, which asks an organisation
+      # for a licence key.
+      - name: gitleaks
+        id: gitleaks
+        if: ${{ !cancelled() }}
+        run: |
+          set -euo pipefail
+          url="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfL --proto '=https' --tlsv1.2 \
+            --retry 3 --retry-delay 2 --retry-all-errors \
+            -o "${RUNNER_TEMP}/gitleaks.tar.gz" "$url"
+          sha256sum --check --strict <<<"${GITLEAKS_SHA256}  ${RUNNER_TEMP}/gitleaks.tar.gz"
+          tar xzf "${RUNNER_TEMP}/gitleaks.tar.gz" -C "${RUNNER_TEMP}" gitleaks
+          "${RUNNER_TEMP}/gitleaks" git --no-banner --redact --exit-code 1 \
+            --report-format json --report-path evidence/raw/gitleaks.json .
+
+      # A pinned scanner applies only the rules it shipped with. A release more
+      # than STALE_DAYS old that this has not taken fails the run; a younger one
+      # is a notice.
+      - name: The pinned gitleaks is not far behind the latest release
+        id: freshness
         if: ${{ !cancelled() }}
         env:
-          STEPS: ${{ toJSON(steps) }}
-        run: python3 .github/scripts/evidence.py hygiene/links
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: ${{ !cancelled() }}
-        with:
-          name: evidence-hygiene-links
-          path: evidence/hygiene-links*
-          if-no-files-found: error
-          retention-days: 7
-      - name: what failed
-        if: failure()
-        run: python3 .github/scripts/gate_summary.py hygiene/links
+          GH_TOKEN: ${{ github.token }}
+          STALE_DAYS: "30"
+        run: |
+          set -euo pipefail
+          tag=""
+          dated=""
+          for attempt in 1 2 3; do
+            answer=$(gh api repos/gitleaks/gitleaks/releases/latest \
+              --jq '"\(.tag_name) \(.published_at)"' 2>/dev/null || true)
+            tag=$(echo "$answer" | cut -d" " -f1)
+            dated=$(echo "$answer" | cut -d" " -f2)
+            if [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] &&
+              [[ "$dated" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]]; then
+              break
+            fi
+            tag=""
+            if [ "$attempt" -lt 3 ]; then
+              sleep "$((attempt * 5))"
+            fi
+          done
 
-  # markdownlint-cli2 matches dot-directories, so `**` reaches `.docs`. It is
-  # the locked release in .github/bot/markdownlint, with the formatter that
-  # writes its evidence; the rules stay in .markdownlint.jsonc.
-  markdown:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+          if [ -z "$tag" ]; then
+            echo "::error::Could not read the latest gitleaks release in three attempts, so this run does not know whether it scanned with a current scanner."
+            exit 1
+          fi
+
+          if [ "$tag" = "v${GITLEAKS_VERSION}" ]; then
+            echo "gitleaks ${GITLEAKS_VERSION} is the current release."
+            exit 0
+          fi
+
+          age=$(( ( $(date -u +%s) - $(date -u -d "$dated" +%s) ) / 86400 ))
+          if [ "$age" -gt "$STALE_DAYS" ]; then
+            echo "::error::This scanned with gitleaks ${GITLEAKS_VERSION}; ${tag} has been out ${age} days. Raise GITLEAKS_VERSION and GITLEAKS_SHA256 in .github/workflows/hygiene.yml."
+            exit 1
+          fi
+          echo "::notice::gitleaks ${tag} is ${age} days old; this scanned with ${GITLEAKS_VERSION}. Raise GITLEAKS_VERSION and GITLEAKS_SHA256 in .github/workflows/hygiene.yml when convenient."
+      - id: osv-scanner
+        if: ${{ !cancelled() }}
+        uses: google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
         with:
-          persist-credentials: false
+          scan-args: |-
+            scan
+            source
+            --recursive
+            --format=json
+            --output=evidence/raw/osv-scanner.json
+            ./
+      # markdownlint-cli2 matches dot-directories, so `**` reaches `.docs`. It is
+      # the locked release in .github/bot/markdownlint, with the formatter that
+      # writes its evidence; the rules stay in .markdownlint.jsonc.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: ${{ !cancelled() }}
         with:
           node-version: 24
       - name: install the locked markdownlint
+        if: ${{ !cancelled() }}
         run: npm ci --ignore-scripts --no-audit --no-fund --prefix .github/bot/markdownlint
       - id: markdownlint
+        if: ${{ !cancelled() }}
         run: |
-          mkdir -p evidence/raw
           node .github/bot/markdownlint/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs \
             --config .github/bot/markdownlint/.markdownlint-cli2.jsonc "**/*.md"
       # The rule table the bot explains markdownlint's findings with is the
@@ -248,25 +213,26 @@ jobs:
       # request as a patch, never pushed (ADR-0019). The --fix run writes the
       # findings file again with what is left, so the first run's is kept.
       - name: compute the mechanical fixes
-        if: failure() && steps.markdownlint.outcome == 'failure'
+        if: steps.markdownlint.outcome == 'failure' && !cancelled()
         run: |
           cp evidence/raw/markdownlint.json "${RUNNER_TEMP}/markdownlint.json"
           node .github/bot/markdownlint/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs \
             --config .github/bot/markdownlint/.markdownlint-cli2.jsonc --fix "**/*.md" || true
           cp "${RUNNER_TEMP}/markdownlint.json" evidence/raw/markdownlint.json
-          git diff > evidence/hygiene-markdown.fix.patch
+          git diff > evidence/hygiene-tools.fix.patch
+      # The job's evidence, whatever the steps above did.
       - name: evidence
         if: ${{ !cancelled() }}
         env:
           STEPS: ${{ toJSON(steps) }}
-        run: python3 .github/scripts/evidence.py hygiene/markdown
+        run: python3 .github/scripts/evidence.py hygiene/tools
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
-          name: evidence-hygiene-markdown
-          path: evidence/hygiene-markdown*
+          name: evidence-hygiene-tools
+          path: evidence/hygiene-tools*
           if-no-files-found: error
           retention-days: 7
       - name: what failed
         if: failure()
-        run: python3 .github/scripts/gate_summary.py hygiene/markdown
+        run: python3 .github/scripts/gate_summary.py hygiene/tools

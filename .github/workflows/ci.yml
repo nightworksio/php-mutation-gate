@@ -101,11 +101,6 @@ jobs:
   hygiene:
     uses: ./.github/workflows/hygiene.yml # zizmor: ignore[self-repository]
 
-  # Secrets in the history, and known vulnerabilities in what the lock file
-  # installs.
-  security:
-    uses: ./.github/workflows/security.yml # zizmor: ignore[self-repository]
-
   # The docs site, built and its links checked, where `scope` lists it: where
   # the docs, the site or what prints a link changed (ADR-0038).
   site:
@@ -558,8 +553,8 @@ jobs:
 
   # ADR-0004's Runner contract suite against the real runners, and ADR-0020's
   # StaticChecker contract suite against the real analysers, at both ends of
-  # the range the package supports: one leg per runner and resolution, each
-  # with its own install and suite, so the legs run side by side. Each fixture
+  # the range the package supports: one job per runner, whose two legs each
+  # have their own install, suite and outcome, one after the other. Each fixture
   # is a project of its own, installed at the highest releases its committed
   # lock holds, which Dependabot moves, and at the lowest its manifest allows,
   # which no new release changes. So a leg reds only for a change in this
@@ -572,16 +567,15 @@ jobs:
     needs: scope
     if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.runners != '[]') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         # The runners whose legs this run reaches, every one where `what
         # changed` could not say.
         runner: ${{ fromJSON(needs.scope.outputs.runners || '["pest", "infection-13", "infection-12", "phpunit", "phpspec", "codeception", "testo", "analysers"]') }}
-        resolution: [highest, lowest]
     env:
-      LEG: ${{ matrix.runner }}-${{ matrix.resolution }}
+      RESOLUTIONS: highest lowest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -635,11 +629,6 @@ jobs:
       #   other package raised again to the highest that allows them, as a
       #   project requiring that analyser installs it: Psalm 6.14.0's lowest
       #   dependencies predate PHP 8.5.
-      - id: fixture
-        name: the runner's fixture
-        env:
-          RUNNER: ${{ matrix.runner }}
-        run: python3 .github/scripts/leg_support.py fixture "${RUNNER}" >> "$GITHUB_OUTPUT"
       # What a leg downloads is cached by the fixtures' manifests and locks,
       # and the root lock, whose php-code-coverage the lowest Pest and PHPUnit
       # resolutions pin.
@@ -649,84 +638,33 @@ jobs:
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.composer-files.outputs.dir }}
-          key: runner-fixture-${{ runner.os }}-${{ matrix.runner }}-${{ matrix.resolution }}-${{ hashFiles('tests/Contract/**/composer.json', 'tests/Contract/**/composer.lock', 'composer.lock') }}
-          restore-keys: runner-fixture-${{ runner.os }}-${{ matrix.runner }}-${{ matrix.resolution }}-
-      - name: install the locked highest releases into the fixture
-        if: matrix.resolution == 'highest'
-        working-directory: ${{ steps.fixture.outputs.dir }}
-        env:
-          PACKAGES: ${{ steps.fixture.outputs.packages }}
-        run: |
-          composer install --no-interaction --no-progress
-          composer show | grep -E "^(${PACKAGES}) "
-      - name: install the lowest supported releases, at the package's php-code-coverage, into the fixture
-        if: matrix.resolution == 'lowest' && steps.fixture.outputs.lowest == 'coverage'
-        working-directory: ${{ steps.fixture.outputs.dir }}
-        env:
-          PACKAGES: ${{ steps.fixture.outputs.packages }}
-        run: |
-          coverage=$(composer --working-dir="${GITHUB_WORKSPACE}" show --locked --format=json phpunit/php-code-coverage | jq -r '.versions[0]')
-          composer update --prefer-lowest --prefer-stable --no-interaction --no-progress --with "phpunit/php-code-coverage:${coverage}"
-          composer show | grep -E "^(${PACKAGES}) "
-      - name: install the lowest supported releases into the fixture
-        if: matrix.resolution == 'lowest' && steps.fixture.outputs.lowest == 'own'
-        working-directory: ${{ steps.fixture.outputs.dir }}
-        env:
-          PACKAGES: ${{ steps.fixture.outputs.packages }}
-        run: |
-          composer update --prefer-lowest --prefer-stable --no-interaction --no-progress
-          composer show | grep -E "^(${PACKAGES}) "
-      - name: install the lowest analysers, and every other package as high as they allow, into the fixture
-        if: matrix.resolution == 'lowest' && steps.fixture.outputs.lowest == 'analysers'
-        working-directory: ${{ steps.fixture.outputs.dir }}
-        env:
-          PACKAGES: ${{ steps.fixture.outputs.packages }}
-        run: |
-          composer update --prefer-lowest --prefer-stable --no-interaction --no-progress
-          locked=$(composer show --locked --name-only)
-          mapfile -t others < <(grep -v -x -E "${PACKAGES}" <<< "${locked}")
-          test "${#others[@]}" -gt 0
-          composer update --no-interaction --no-progress "${others[@]}"
-          composer show | grep -E "^(${PACKAGES}) "
-      # Mago's package downloads its binary the first time it runs, which the
-      # gate itself never does (ADR-0020).
-      - name: download Mago's binary
-        if: matrix.runner == 'analysers'
-        working-directory: ${{ steps.fixture.outputs.dir }}
-        run: vendor/bin/mago --version
+          key: runner-fixture-${{ runner.os }}-${{ matrix.runner }}-${{ hashFiles('tests/Contract/**/composer.json', 'tests/Contract/**/composer.lock', 'composer.lock') }}
+          restore-keys: runner-fixture-${{ runner.os }}-${{ matrix.runner }}-
+      # Each leg in turn, whether or not the one before it passed.
       - id: contract
         env:
-          FILTER: ${{ steps.fixture.outputs.filter }}
-          RUNNER_CONTRACTS: ${{ steps.fixture.outputs.contracts }}
-          ANALYSER_CONTRACTS: ${{ steps.fixture.outputs.analysers }}
+          RUNNER: ${{ matrix.runner }}
         run: |
-          mkdir -p evidence/raw
-          suite=(--testsuite=Contract "--log-junit=evidence/raw/${LEG}.xml")
-          if [ -n "${FILTER}" ]; then
-            suite+=("--filter=${FILTER}")
-          fi
-          vendor/bin/pest "${suite[@]}"
-      # The test support this leg's tests use is the support legs.json lists,
-      # which `what changed` runs the leg for.
-      - name: the leg's test support is listed
+          failed=0
+          for resolution in ${RESOLUTIONS}; do
+            echo "${RUNNER} at its ${resolution} releases"
+            .github/scripts/leg.sh "${RUNNER}" "${resolution}" || failed=1
+          done
+          exit "${failed}"
+      # The test support the legs' tests use is the support legs.json lists,
+      # which `what changed` runs them for.
+      - name: the legs' test support is listed
         if: ${{ !cancelled() }}
         env:
           RUNNER: ${{ matrix.runner }}
         run: python3 .github/scripts/leg_support.py check "${RUNNER}"
-      # The leg's log, and its suite's outcome by the leg's name, which
+      # Each leg's log and its suite's outcome, by the leg's name, which
       # `runner contracts` reads as its evidence.
-      - name: the leg's outcome
-        if: ${{ !cancelled() }}
-        env:
-          OUTCOME: ${{ steps.contract.outcome }}
-        run: |
-          mkdir -p evidence/raw
-          jq -n --arg leg "${LEG}" --arg outcome "${OUTCOME}" '{($leg): {outcome: $outcome}}' > "evidence/raw/${LEG}.outcome.json"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
-          name: runner-contract-${{ matrix.runner }}-${{ matrix.resolution }}
-          path: evidence/raw/${{ matrix.runner }}-${{ matrix.resolution }}.*
+          name: runner-contract-${{ matrix.runner }}
+          path: evidence/raw/${{ matrix.runner }}-*
           if-no-files-found: error
           retention-days: 1
       - name: what failed
@@ -975,7 +913,7 @@ jobs:
   # earlier attempt gathered.
   evidence:
     name: evidence
-    needs: [scope, scripts, alone, hygiene, security, site, rules, guards, checks, tests, lowest, phar, image, runner-contract, runner-contracts, end-to-end, mutation, replay, sonar, gate]
+    needs: [scope, scripts, alone, hygiene, site, rules, guards, checks, tests, lowest, phar, image, runner-contract, runner-contracts, end-to-end, mutation, replay, sonar, gate]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10

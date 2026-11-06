@@ -130,7 +130,7 @@ class Outputs(unittest.TestCase):
             self.assertEqual(found["warm"], "true", path)
 
     def test_runs_every_leg_but_no_warm_workers_for_how_the_legs_run_the_contract_suite(self):
-        for path in ("phpunit.xml", ".github/scripts/legs.json"):
+        for path in ("phpunit.xml", ".github/scripts/legs.json", ".github/scripts/leg.sh"):
             found = pull(path)
             self.assertEqual(legs(found), sorted(scope.RUNNERS), path)
             self.assertEqual(found["warm"], "false", path)
