@@ -49,7 +49,7 @@ below 13.2 for the PHPUnit runner, for example, which selects each mutant's
 tests with `--test-id-filter-file`. Every run reads the releases Composer
 installed before it starts, and refuses these.
 
-Require the releases the [requirements](https://github.com/nightworksio/php-mutation-gate#requirements)
+Require the releases the [requirements](install.md#requirements)
 list for the runner. On PHPUnit 12, require `infection/infection` and mutate
 through Infection, or require `phpunit/phpunit` 13.2 or later.
 

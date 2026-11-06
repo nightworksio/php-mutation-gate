@@ -56,9 +56,10 @@ sentence saying what the tests miss.
   ended the process. Timeouts and memory kills are checked against the
   unmutated tests, and anything the gate cannot judge is reported, never
   passed. [Trust](https://nightworksio.github.io/php-mutation-gate/features/trust/)
-- **Floors that only rise**, per tree, per package of a monorepo, per code
-  owner, for new code and for security mutators, held in a committed
-  baseline. [Floors](https://nightworksio.github.io/php-mutation-gate/features/floors/)
+- **Floors that only rise**, per tree and per package of a monorepo, held in
+  a committed baseline, with floors of their own for new code, for security
+  mutants and for each code owner.
+  [Floors](https://nightworksio.github.io/php-mutation-gate/features/floors/)
 - **Only what a change reaches** is mutated on a pull request, and a
   scheduled full run catches the rest.
   [Reach](https://nightworksio.github.io/php-mutation-gate/features/reach/)
