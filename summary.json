@@ -1,14 +1,14 @@
 {
     "format": 1,
-    "commit": "230a535c8fad93f894320923aa7b14e4374b829d",
-    "time": "2026-11-06T07:47:51Z",
-    "verdict": "failed",
-    "score": 99.99,
+    "commit": "780ddd18e1e94bb4465ccd0a2b99694ed2da3604",
+    "time": "2026-11-06T10:49:45Z",
+    "verdict": "passed",
+    "score": 100.0,
     "trees": [
         {
             "path": "src",
             "floor": 100.0,
-            "score": 99.99
+            "score": 100.0
         },
         {
             "path": "plugins/default/src",
@@ -33,5 +33,67 @@
     ],
     "newCode": {
         "floor": 100.0
-    }
+    },
+    "heatmap": [
+        {
+            "path": "plugins/default/src/Argument.php",
+            "score": 100.0,
+            "base": 100.0,
+            "notKilled": 0
+        },
+        {
+            "path": "plugins/default/src/Arithmetic/BitwiseAndToBitwiseOr.php",
+            "score": 100.0,
+            "base": 100.0,
+            "notKilled": 0
+        },
+        {
+            "path": "plugins/default/src/Arithmetic/BitwiseOrToBitwiseAnd.php",
+            "score": 100.0,
+            "base": 100.0,
+            "notKilled": 0
+        },
+        {
+            "path": "plugins/default/src/Arithmetic/BitwiseXorToBitwiseAnd.php",
+            "score": 100.0,
+            "base": 100.0,
+            "notKilled": 0
+        },
+        {
+            "path": "plugins/default/src/Arithmetic/DivisionToMultiplication.php",
+            "score": 100.0,
+            "base": 100.0,
+            "notKilled": 0
+        },
+        {
+            "path": "plugins/default/src/Arithmetic/MinusToPlus.php",
+            "score": 100.0,
+            "base": 100.0,
+            "notKilled": 0
+        },
+        {
+            "path": "plugins/default/src/Arithmetic/ModulusToMultiplication.php",
+            "score": 100.0,
+            "base": 100.0,
+            "notKilled": 0
+        },
+        {
+            "path": "plugins/default/src/Arithmetic/MultiplicationToDivision.php",
+            "score": 100.0,
+            "base": 100.0,
+            "notKilled": 0
+        },
+        {
+            "path": "plugins/default/src/Arithmetic/PlusToMinus.php",
+            "score": 100.0,
+            "base": 100.0,
+            "notKilled": 0
+        },
+        {
+            "path": "plugins/default/src/Arithmetic/PostDecrementToPostIncrement.php",
+            "score": 100.0,
+            "base": 100.0,
+            "notKilled": 0
+        }
+    ]
 }
