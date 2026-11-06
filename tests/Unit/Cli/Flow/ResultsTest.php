@@ -408,8 +408,10 @@ it('stops nothing where each doomed shard judged on, and says what stopping woul
         ->and($results instanceof Results ? $results->stopped()->doomed() : $results)->toEqual(Undoomed::run())
         ->and($results instanceof Results ? count($results->stopped()->failures()) : $results)->toBe(0)
         ->and($results instanceof Results ? $results->wereCutShort() : $results)->toBeFalse()
-        ->and($results instanceof Results ? $results->warnings() : $results)->toEqual(FailFastSavings::of($shards)->warnings())
-        ->and($results instanceof Results ? count($results->warnings()) : $results)->toBe(1);
+        ->and($results instanceof Results ? $results->savings() : $results)->toEqual(FailFastSavings::of($shards))
+        ->and($results instanceof Results ? count($results->savings()->warnings(suggests: true)) : $results)->toBe(1)
+        ->and($results instanceof Results ? count($results->savings()->warnings(suggests: false)) : $results)->toBe(0)
+        ->and($results instanceof Results ? count($results->warnings()) : $results)->toBe(0);
 });
 
 it('still cannot judge a result that cannot be read, beside a doomed shard', function () use ($left, $makeDoomed): void {

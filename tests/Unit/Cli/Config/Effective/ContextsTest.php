@@ -128,9 +128,9 @@ it('names the contexts a run is in: local outside CI, or those --context names',
     ));
 
     expect([$chain(CommandLine::nothing()), $chain($in(Context::Main)), $chain($named)])
-        ->toBe(['local', 'ci, main', '--context: expected local, ci, pr or main, got "staging"'])
+        ->toBe(['local', 'ci, main', '--context: expected local, ci, github, gitlab, bitbucket, azure, buildkite, jenkins, circleci, pr or main, got "staging"'])
         ->and(Configs::problems($gate->settings($named)))
-        ->toBe(['--context: expected local, ci, pr or main, got "staging"']);
+        ->toBe(['--context: expected local, ci, github, gitlab, bitbucket, azure, buildkite, jenkins, circleci, pr or main, got "staging"']);
 });
 
 it('refuses a block that sets what decides the context, with every other problem, before telling the context', function () use (

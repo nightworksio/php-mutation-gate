@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
+use function is_bool;
+
+use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
@@ -27,15 +30,18 @@ final readonly class SuggestKeys
         $idle = Field::section('idle', self::idle());
         $ignored = Field::section('ignored', self::ignored());
         $timeouts = Field::section('timeouts', self::timeouts());
+        $enabled = Field::optional('enabled', Flag::boolean(), Effect::JudgesOrReportsOnly);
 
         return [Field::section(
             'suggest',
             Section::of(
-                static function (Node $suggest) use ($idle, $ignored, $timeouts): Layer|Invalid {
+                static function (Node $suggest) use ($idle, $ignored, $timeouts, $enabled): Layer|Invalid {
+                    $on = $enabled->read($suggest);
                     $parts = [$idle->read($suggest), $ignored->read($suggest), $timeouts->read($suggest)];
 
-                    return Reading::built(static fn(): Layer => self::laid(...$parts), ...$parts);
+                    return Reading::built(static fn(): Layer => self::laid($on->value(), ...$parts), $on, ...$parts);
                 },
+                $enabled,
                 $idle,
                 $ignored,
                 $timeouts,
@@ -44,9 +50,9 @@ final readonly class SuggestKeys
     }
 
     /** @param Reading<Suggest> ...$parts */
-    private static function laid(Reading ...$parts): Layer
+    private static function laid(object|string|int|float|bool $on, Reading ...$parts): Layer
     {
-        $suggest = Suggest::of();
+        $suggest = Suggest::of(enabled: is_bool($on) ? $on : Absent::setting());
 
         foreach ($parts as $part) {
             $suggest = $suggest->over($part->must());

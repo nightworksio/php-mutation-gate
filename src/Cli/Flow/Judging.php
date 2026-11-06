@@ -301,6 +301,7 @@ final readonly class Judging
             $security,
             $ledgers->unread()
                 ->and($results->warnings())
+                ->and($results->savings()->warnings($this->settings->effective()->reports()->suggest()->enabled()))
                 ->and($results->checks()->warnings())
                 ->and($since->warnings())
                 ->and($ignoring->warnings())

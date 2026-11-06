@@ -12,6 +12,7 @@ use ArrayIterator;
 use function implode;
 
 use IteratorAggregate;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use Traversable;
 
 /**
@@ -29,6 +30,16 @@ final readonly class ContextChain implements IteratorAggregate
     public static function of(Context ...$contexts): self
     {
         return new self(array_values($contexts));
+    }
+
+    /** A run in CI: `ci`, then the CI's own, where it is known, then the kind of run's, where it has one. */
+    public static function inCi(Context|NotGiven $ci, Context|NotGiven $kind): self
+    {
+        return new self([
+            Context::Ci,
+            ...$ci instanceof Context ? [$ci] : [],
+            ...$kind instanceof Context ? [$kind] : [],
+        ]);
     }
 
     /** No context: every layer without its blocks. */

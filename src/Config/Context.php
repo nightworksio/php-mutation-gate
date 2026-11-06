@@ -8,7 +8,7 @@ use NightWorksIO\MutationGate\Core\Config\Context as Contexts;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 
-/** A context block (ADR-0071): `contexts.<context>`, the settings a run in that context lays over the rest. */
+/** A context block (ADR-0071, ADR-0104): `contexts.<context>`, what a run in that context lays over the rest. */
 final readonly class Context implements Setting
 {
     private function __construct(private Json $json)
@@ -31,6 +31,48 @@ final readonly class Context implements Setting
     public static function pullRequest(Gate $block): self
     {
         return self::block(Contexts::PullRequest, $block);
+    }
+
+    /** `contexts.github`: a run in GitHub Actions, over `ci` and under `pr` and `main`. */
+    public static function gitHub(Gate $block): self
+    {
+        return self::block(Contexts::GitHub, $block);
+    }
+
+    /** `contexts.gitlab`: a run in GitLab CI, over `ci` and under `pr` and `main`. */
+    public static function gitLab(Gate $block): self
+    {
+        return self::block(Contexts::GitLab, $block);
+    }
+
+    /** `contexts.bitbucket`: a run in Bitbucket Pipelines, over `ci` and under `pr` and `main`. */
+    public static function bitbucket(Gate $block): self
+    {
+        return self::block(Contexts::Bitbucket, $block);
+    }
+
+    /** `contexts.azure`: a run in Azure Pipelines, over `ci` and under `pr` and `main`. */
+    public static function azure(Gate $block): self
+    {
+        return self::block(Contexts::Azure, $block);
+    }
+
+    /** `contexts.buildkite`: a run in Buildkite, over `ci` and under `pr` and `main`. */
+    public static function buildkite(Gate $block): self
+    {
+        return self::block(Contexts::Buildkite, $block);
+    }
+
+    /** `contexts.jenkins`: a run in Jenkins, over `ci` and under `pr` and `main`. */
+    public static function jenkins(Gate $block): self
+    {
+        return self::block(Contexts::Jenkins, $block);
+    }
+
+    /** `contexts.circleci`: a run in CircleCI, over `ci` and under `pr` and `main`. */
+    public static function circleCi(Gate $block): self
+    {
+        return self::block(Contexts::CircleCi, $block);
     }
 
     /** `contexts.main`: a run in CI on the default branch, over `ci`. */

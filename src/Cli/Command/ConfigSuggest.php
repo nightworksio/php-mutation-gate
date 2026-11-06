@@ -26,12 +26,17 @@ use Symfony\Component\Console\Output\OutputInterface;
  * gives evidence for, each with its evidence, then the config file with them
  * laid over it as a unified diff in its own format (ADR-0076). It proposes
  * and never applies: it writes nothing, and exits 0 whatever it suggests,
- * and 2 where the config or the ledger cannot be read.
+ * and 2 where the config or the ledger cannot be read. Where
+ * `suggest.enabled` is `false` it says suggestions are off and reads no
+ * ledger (ADR-0104).
  *
  * @internal
  */
 final readonly class ConfigSuggest
 {
+    /** What it prints where `suggest.enabled` is `false`. */
+    public const string OFF = "Suggestions are off: suggest.enabled is false, so nothing is proposed.\n";
+
     public static function command(
         Composition $composition,
         Effective $effective,
@@ -46,25 +51,41 @@ final readonly class ConfigSuggest
                 $formats,
                 $project,
             ): int {
-                $given = CommandLine::from($input);
                 $composed = $composition->compose($input);
-                $ledger = $composed instanceof Composed
-                    ? TalliedLedger::read($composed, LedgerOption::given($input))
-                    : $composed;
-                $written = $effective->written($given);
-                $located = ConfigLocation::in($project, $given->config);
+                $suggests = $composed instanceof Composed
+                    && $composed->settings->effective()->reports()->suggest()->enabled();
 
                 return match (true) {
                     ! $composed instanceof Composed => Failed::because($output, $composed),
-                    ! $ledger instanceof Ledger => Failed::because($output, $ledger),
-                    $written instanceof Invalid, $written instanceof CannotJudge => Failed::because($output, $written),
-                    $located instanceof CannotJudge => Failed::because($output, $located),
-                    default => self::printed(
-                        $output,
-                        new SuggestedConfig($composed, $formats, $project)->said($ledger, $written, $located),
-                    ),
+                    ! $suggests => self::printed($output, self::OFF),
+                    default => self::suggested($composed, $effective, $formats, $project, $input, $output),
                 };
             });
+    }
+
+    /** The changes the ledger gives evidence for, as a diff of the config file; or why they cannot be told. */
+    private static function suggested(
+        Composed $composed,
+        Effective $effective,
+        Formats $formats,
+        string $project,
+        InputInterface $input,
+        OutputInterface $output,
+    ): int {
+        $given = CommandLine::from($input);
+        $ledger = TalliedLedger::read($composed, LedgerOption::given($input));
+        $written = $effective->written($given);
+        $located = ConfigLocation::in($project, $given->config);
+
+        return match (true) {
+            ! $ledger instanceof Ledger => Failed::because($output, $ledger),
+            $written instanceof Invalid, $written instanceof CannotJudge => Failed::because($output, $written),
+            $located instanceof CannotJudge => Failed::because($output, $located),
+            default => self::printed(
+                $output,
+                new SuggestedConfig($composed, $formats, $project)->said($ledger, $written, $located),
+            ),
+        };
     }
 
     private static function printed(OutputInterface $output, string $said): int

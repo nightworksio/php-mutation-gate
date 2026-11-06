@@ -12,6 +12,26 @@ use NightWorksIO\MutationGate\Core\Config\Suggest;
 use NightWorksIO\MutationGate\Core\Score\Percentage;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
+it('suggests changes by default, and none where suggest.enabled is false, laying a later layer\'s over an earlier one\'s', function (): void {
+    expect(Layer::standard()->reports()->suggest()->enabled())->toBeTrue()
+        ->and(Configs::valid(['suggest' => ['enabled' => false]])->reports()->suggest()->enabled())->toBeFalse()
+        ->and(Configs::valid(['suggest' => ['enabled' => true]])->reports()->suggest()->enabled())->toBeTrue()
+        ->and(Layer::of(Reports::suggesting(Suggest::of(enabled: false)))->over(Layer::of(Reports::suggesting(Suggest::of(enabled: true))))->reports()->suggest()->enabled())->toBeTrue()
+        ->and(Layer::of(Reports::suggesting(Suggest::of(enabled: false)))->over(Layer::of(Reports::suggesting(Suggest::of(idleJudged: 3))))->reports()->suggest()->enabled())->toBeFalse()
+        ->and(Configs::problems(Configs::layer(['suggest' => ['enabled' => 'no']]))[0] ?? '')->toStartWith('suggest.enabled: ');
+});
+
+it('writes suggest.enabled where a layer sets it, and the builder calls for it, as the builder writes it', function (): void {
+    $off = Layer::of(Reports::suggesting(Suggest::of(enabled: false)));
+    $on = Layer::of(Reports::suggesting(Suggest::of(enabled: true)));
+
+    expect($off->written(ProjectRoot::origin())->line())->toBe('{"suggest":{"enabled":false}}')
+        ->and($off->php(ProjectRoot::origin())->code())->toContain('Suggest::off()')
+        ->and($on->php(ProjectRoot::origin())->code())->toContain('Suggest::on()')
+        ->and(Configs::written(Gate::configure()->with(SuggestBuilder::off())))->toBe(['suggest' => ['enabled' => false]])
+        ->and(Configs::written(Gate::configure()->with(SuggestBuilder::on())))->toBe(['suggest' => ['enabled' => true]]);
+});
+
 it('suggests by default from 500 judged mutants, no survivors and 5% of the time, 80% of 50 mutants ignored, and 3 timeouts', function (): void {
     $suggest = Layer::standard()->reports()->suggest();
 

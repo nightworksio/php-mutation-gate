@@ -7,11 +7,15 @@ namespace NightWorksIO\MutationGate\Core\Config;
 use function array_map;
 use function array_pop;
 use function implode;
+use function in_array;
+
+use NightWorksIO\MutationGate\Core\NotGiven;
+
 use function sprintf;
 
 /**
- * A context a run is in, by the key of its block under `contexts` (ADR-0071): a developer's machine, any CI
- * run, a proposed change and the default branch.
+ * A context a run is in, by the key of its block under `contexts` (ADR-0071, ADR-0104): a developer's machine,
+ * any CI run, the CI it runs in, a proposed change and the default branch.
  */
 enum Context: string
 {
@@ -19,33 +23,66 @@ enum Context: string
 
     case Ci = 'ci';
 
+    case GitHub = BuiltinCiPlan::GitHub->value;
+
+    case GitLab = BuiltinCiPlan::GitLab->value;
+
+    case Bitbucket = BuiltinCiPlan::Bitbucket->value;
+
+    case Azure = BuiltinCiPlan::Azure->value;
+
+    case Buildkite = BuiltinCiPlan::Buildkite->value;
+
+    case Jenkins = BuiltinCiPlan::Jenkins->value;
+
+    case CircleCi = BuiltinCiPlan::CircleCi->value;
+
     case PullRequest = 'pr';
 
     case Main = 'main';
 
-    /** The contexts whose blocks a run in this one lays, in order: `pr` and `main` over `ci`. */
+    /**
+     * The contexts whose blocks a run in this one lays, in order: a CI's, `pr` and `main` over `ci`. A run in a CI
+     * lays its CI's block between `ci` and the kind of run's (see `RunContext`).
+     */
     public function chain(): ContextChain
     {
         return match ($this) {
             self::Local => ContextChain::of(self::Local),
             self::Ci => ContextChain::of(self::Ci),
-            self::PullRequest => ContextChain::of(self::Ci, self::PullRequest),
-            self::Main => ContextChain::of(self::Ci, self::Main),
+            self::PullRequest, self::Main, self::GitHub, self::GitLab, self::Bitbucket, self::Azure, self::Buildkite,
+            self::Jenkins, self::CircleCi => ContextChain::of(self::Ci, $this),
         };
+    }
+
+    /** The CI a run in a job of this CI plan's is in; none for a plan of no CI's own. */
+    public static function ofPlan(string $plan): self|NotGiven
+    {
+        $context = self::tryFrom($plan);
+
+        return $context instanceof self && $context->isCi() ? $context : NotGiven::value();
+    }
+
+    /** Whether this is a CI's own context. */
+    public function isCi(): bool
+    {
+        return ! in_array($this, [self::Local, self::Ci, self::PullRequest, self::Main], strict: true);
     }
 
     /** The method of the PHP builder's `Context` that writes this context's block. */
     public function builder(): string
     {
         return match ($this) {
-            self::Local => 'local',
-            self::Ci => 'ci',
             self::PullRequest => 'pullRequest',
-            self::Main => 'main',
+            self::GitHub => 'gitHub',
+            self::GitLab => 'gitLab',
+            self::CircleCi => 'circleCi',
+            self::Local, self::Ci, self::Main, self::Bitbucket, self::Azure, self::Buildkite, self::Jenkins
+                => $this->value,
         };
     }
 
-    /** Every context's key, as `--context` and `contexts` take them: `local, ci, pr or main`. */
+    /** Every context's key, as `--context` and `contexts` take them, `local, ci, github, ..., pr or main`. */
     public static function words(): string
     {
         $keys = array_map(static fn(self $context): string => $context->value, self::cases());

@@ -21,8 +21,8 @@ use function sprintf;
 
 /**
  * What a verdict warns of beside what it fails: the files most of the suite
- * runs through that nothing holds, or why the kill matrix holds killers
- * alone; each tree held to no floor outside CI; the runner's own ignore
+ * runs through that nothing holds, where the gate suggests changes (ADR-0104),
+ * or why the kill matrix holds killers alone; each tree held to no floor outside CI; the runner's own ignore
  * markers the config lets through; why the tests go by their ids; each
  * mutator set a preset turns on that is not installed; the suites whose
  * tests the gate runs none of, as they serve the application from another
@@ -53,9 +53,11 @@ final readonly class VerdictWarnings
     /** Every warning of a verdict over these trees, from the plan, what the shards warn of, and the map it read. */
     public function of(Plan $plan, TreeVerdicts $verdicts, Warnings $shards, CoverageMap|CannotJudge $map): Warnings
     {
-        $raised = $map instanceof CannotJudge
-            ? $shards->with(Warning::that(sprintf(self::NO_MATRIX, $map->why())))
-            : $this->hotPathsIn($plan, $map, $shards);
+        $raised = match (true) {
+            $map instanceof CannotJudge => $shards->with(Warning::that(sprintf(self::NO_MATRIX, $map->why()))),
+            $this->settings->effective()->reports()->suggest()->enabled() => $this->hotPathsIn($plan, $map, $shards),
+            default => $shards,
+        };
 
         return $this->listed($plan, $verdicts, $raised);
     }

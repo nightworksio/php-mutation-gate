@@ -20,9 +20,10 @@ use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Port\CiPlan;
 
 /**
- * The contexts a run is in (ADR-0071), told from the environment and from what the CI plan the settings choose
- * says of the run: `local` outside CI; in CI, `ci`, with `pr` over it on a pull request or a merge group, and
- * `main` over it on the default branch. A run in CI the plan says nothing of is `ci` alone.
+ * The contexts a run is in (ADR-0071, ADR-0104), told from the environment and from what the CI plan the
+ * settings choose says of the run: `local` outside CI; in CI, `ci`, then the block of the CI the plan is for,
+ * then `pr` on a pull request or a merge group, or `main` on the default branch. A run in CI the plan says
+ * nothing of is `ci` and its CI's alone.
  *
  * @internal
  */
@@ -61,13 +62,15 @@ final readonly class RunContext
             return Context::Local->chain();
         }
 
-        $plan = new Chosen($registry)->ciPlan(ChosenPlan::of($settings, $registry, $this->environment));
+        $chosen = ChosenPlan::of($settings, $registry, $this->environment);
+        $plan = new Chosen($registry)->ciPlan($chosen);
         $run = $plan instanceof CiPlan ? $plan->runOn() : $plan;
+        $ci = Context::ofPlan($chosen->use()->value());
 
-        return $run instanceof RunOn ? $this->onRun($run, $settings)->chain() : Context::Ci->chain();
+        return ContextChain::inCi($ci, $run instanceof RunOn ? $this->onRun($run, $settings) : NotGiven::value());
     }
 
-    private function onRun(RunOn $run, Settings $settings): Context
+    private function onRun(RunOn $run, Settings $settings): Context|NotGiven
     {
         $scope = $run->scope();
         $default = DefaultBranch::of($settings->ci()->defaultBranch(), $run->defaultBranch());
@@ -75,7 +78,7 @@ final readonly class RunContext
         return match (true) {
             $run->isProposed() => Context::PullRequest,
             $scope instanceof Scope && $scope->equals($default) => Context::Main,
-            default => Context::Ci,
+            default => NotGiven::value(),
         };
     }
 }

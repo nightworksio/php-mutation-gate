@@ -33,7 +33,7 @@ $shard = static function (int $id, float $spent, float $doomedAfter = -1.0, bool
     return $doomedAfter < 0 ? $result : $result->withDoomed($doomed->found(Seconds::of($doomedAfter), $stopped));
 };
 
-$said = static fn(FailFastSavings $savings): array => array_map(static fn(Warning $warning): string => $warning->text(), [...$savings->warnings()]);
+$said = static fn(FailFastSavings $savings): array => array_map(static fn(Warning $warning): string => $warning->text(), [...$savings->warnings(suggests: true)]);
 
 it('says what stop and cancel would have saved shards that judged on past the survivor that doomed their run', function () use ($shard, $said): void {
     $savings = FailFastSavings::of([$shard(1, 1800.0, 600.0), $shard(2, 1500.0), $shard(3, 1200.0, 900.0)]);
@@ -51,6 +51,10 @@ it('counts to the second, clamping a shard that ended before the doom it is meas
         'This run could not pass 10s into its shards\' mutating, and they judged on, as run.failFast: mark has them.',
         'run.failFast: stop would have saved about 20s of runner time, and cancel about 35s.',
     ])]);
+});
+
+it('says nothing where the gate suggests nothing', function () use ($shard): void {
+    expect([...FailFastSavings::of([$shard(1, 1800.0, 600.0)])->warnings(suggests: false)])->toBe([]);
 });
 
 it('says nothing where no shard was doomed, or where the doomed shard stopped', function () use ($shard, $said): void {

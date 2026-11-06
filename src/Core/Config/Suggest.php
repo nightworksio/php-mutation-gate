@@ -13,8 +13,9 @@ use NightWorksIO\MutationGate\Core\Score\Percentage;
 use function sprintf;
 
 /**
- * When `config:suggest` proposes a change (ADR-0076): `suggest`, which the
- * `Reports` part holds, as it reports and never runs. A mutator is idle when
+ * Whether the gate suggests changes at all (ADR-0104), and when `config:suggest`
+ * proposes one (ADR-0076): `suggest`, which the `Reports` part holds, as it
+ * reports and never runs. A mutator is idle when
  * enough of its mutants were judged, too few survived and it takes a large
  * enough share of every mutator's time; it is noisy when enough of its
  * mutants were made and most of them were ignored or equivalent; and a
@@ -41,6 +42,7 @@ final readonly class Suggest
         private int|float|Absent $ignoredShare,
         private int|Absent $ignoredMutants,
         private int|Absent $timeoutCluster,
+        private bool|Absent $enabled = new Absent(),
     ) {
     }
 
@@ -51,8 +53,17 @@ final readonly class Suggest
         int|float|Absent $ignoredShare = new Absent(),
         int|Absent $ignoredMutants = new Absent(),
         int|Absent $timeoutCluster = new Absent(),
+        bool|Absent $enabled = new Absent(),
     ): self {
-        return new self($idleJudged, $idleSurvivors, $idleShare, $ignoredShare, $ignoredMutants, $timeoutCluster);
+        return new self(
+            $idleJudged,
+            $idleSurvivors,
+            $idleShare,
+            $ignoredShare,
+            $ignoredMutants,
+            $timeoutCluster,
+            $enabled,
+        );
     }
 
     /** This, with what a later layer sets laid over it, key by key. */
@@ -65,7 +76,17 @@ final readonly class Suggest
             Absent::laid($this->ignoredShare, $later->ignoredShare),
             Absent::laid($this->ignoredMutants, $later->ignoredMutants),
             Absent::laid($this->timeoutCluster, $later->timeoutCluster),
+            Absent::laid($this->enabled, $later->enabled),
         );
+    }
+
+    /**
+     * `suggest.enabled`: whether the gate suggests changes: what `config:suggest` proposes, what stopping a doomed
+     * run would have saved, and the files a holding group would hold; it does by default.
+     */
+    public function enabled(): bool
+    {
+        return $this->enabled !== false;
     }
 
     /** `suggest.idle.judged`: how many of a mutator's mutants must be judged before it can be idle. */
@@ -119,6 +140,7 @@ final readonly class Suggest
         $timeouts = Json::object(Member::of('cluster', $this->timeoutCluster));
 
         $suggest = Json::object(
+            Member::of('enabled', $this->enabled),
             Member::unlessEmpty('idle', $idle),
             Member::unlessEmpty('ignored', $ignored),
             Member::unlessEmpty('timeouts', $timeouts),
@@ -138,7 +160,11 @@ final readonly class Suggest
             'ignoredMutants' => $this->ignoredMutants,
             'timeoutCluster' => $this->timeoutCluster,
         ];
-        $written = [];
+        $written = match ($this->enabled) {
+            true => ['Suggest::on()'],
+            false => ['Suggest::off()'],
+            default => [],
+        };
 
         foreach ($calls as $method => $value) {
             $written = $value instanceof Absent

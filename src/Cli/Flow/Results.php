@@ -190,21 +190,24 @@ final readonly class Results
         );
     }
 
-    /** What every shard warns of, shard by shard, then what stopping would have saved shards that judged on. */
+    /** What every shard warns of, shard by shard. */
     public function warnings(): Warnings
     {
         $warnings = Warnings::none();
-        $results = [];
 
         foreach ($this->read as [, $result]) {
             foreach ($result->warnings() as $warning) {
                 $warnings = $warnings->with($warning);
             }
-
-            $results[] = $result;
         }
 
-        return $warnings->and(FailFastSavings::of($results)->warnings());
+        return $warnings;
+    }
+
+    /** What stopping would have saved the shards that judged on past the survivor that doomed their run (ADR-0103). */
+    public function savings(): FailFastSavings
+    {
+        return FailFastSavings::of(array_map(static fn(array $read): ShardResult => $read[1], $this->read));
     }
 
     /** What static analysis's checks of every shard's survivors came to, together (ADR-0020). */
