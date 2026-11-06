@@ -48,6 +48,7 @@ use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\StaticCheck;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -119,7 +120,7 @@ final readonly class Wiring
         $withheld = $chosen->withheld($settings->ci(), $settings->runner()->withhold(), $settings->reports());
         $changes = $lookup->changeSource($source, $this->sourceOptions($settings, $withheld));
         $repository = $lookup->repository($source, $this->sourceOptions($settings, $withheld));
-        $proofs = $this->kept($settings, $this->configured($settings, $chosen, $ci, $repository));
+        $proofs = $this->kept($settings, $this->configured($settings, $chosen, $ci, $repository), $project->root());
 
         return match (true) {
             ! $suite instanceof TestSuite => $suite,
@@ -321,6 +322,7 @@ final readonly class Wiring
     private function kept(
         Settings $settings,
         ProofStore|Invalid|CannotJudge $configured,
+        Root $project,
     ): ProofStore|Invalid|CannotJudge {
         if (! $configured instanceof ProofStore) {
             return $configured;
@@ -328,9 +330,9 @@ final readonly class Wiring
 
         $proofs = $settings->proofs();
         $local = ! $this->environment->inCi() && ! $proofs->keptOnDisk();
-        $kept = $local ? LocalLedgers::over($configured) : $configured;
+        $kept = $local ? LocalLedgers::over($configured, $project) : $configured;
 
-        return FetchedCopies::over($kept, $proofs->copies())
+        return FetchedCopies::over($kept, $proofs->copies(), $project)
             ->encoding(LedgerCodec::of($proofs->compression(), $proofs->compressionLevel(), ZstdHere::found()));
     }
 

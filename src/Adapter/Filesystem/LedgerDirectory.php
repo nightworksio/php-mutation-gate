@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Doctor\KeptLedgers;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Format\TooLarge;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
@@ -65,6 +66,12 @@ final readonly class LedgerDirectory implements Configurable, EncodesLedgers, Pr
     public static function at(string $path): self
     {
         return new self(ProjectPath::of($path), LedgerLimits::standard(), LedgerCodec::gzipOnly());
+    }
+
+    /** The ledgers under this directory of this project. */
+    public static function in(Root $project, string $path): self
+    {
+        return new self(ProjectPath::in($project, $path), LedgerLimits::standard());
     }
 
     /** Reading and writing ledgers within these limits. */

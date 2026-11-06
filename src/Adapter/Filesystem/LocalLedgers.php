@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Filesystem;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
@@ -32,10 +33,10 @@ final readonly class LocalLedgers implements EncodesLedgers, ProofStore
     {
     }
 
-    /** `.mutation-gate/ledger` over the store the config names. */
-    public static function over(ProofStore $shared): self
+    /** The project's `.mutation-gate/ledger` over the store the config names. */
+    public static function over(ProofStore $shared, Root $project): self
     {
-        return self::of(LedgerDirectory::at(Workspace::ledger()->value()), $shared);
+        return self::of(LedgerDirectory::in($project, Workspace::ledger()->value()), $shared);
     }
 
     /** These local ledgers over this store. */

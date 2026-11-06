@@ -66,6 +66,7 @@ use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -180,10 +181,10 @@ function wiringEveryCi(): Withheld
 }
 
 /** The adapters these settings choose, started in these variables. */
-function wiredOf(Settings $settings, Variables $environment): Adapters
+function wiredOf(Settings $settings, Variables $environment, string $project = ''): Adapters
 {
     $adapters = new Wiring(Wirings::registry(), $environment, Wirings::detected())
-        ->adapters($settings, Directory::at(Flows::project()));
+        ->adapters($settings, Directory::at($project === '' ? Flows::project() : $project));
 
     return $adapters instanceof Adapters ? $adapters : throw new RuntimeException('The adapters could not be wired.');
 }
@@ -225,22 +226,26 @@ it('counts a plan\'s mutants with the default set, where the set is registered',
         ->toEqual($set instanceof MutatorSet ? Enabled::of($set)->engine() : $set);
 })->group(...$holds);
 
-it('keeps a local run\'s proofs on the machine, and a CI run\'s in the store the config names', function (): void {
+it('keeps a local run\'s proofs on the machine, and a CI run\'s in the store the config names, each in the project it gates', function (): void {
     $settings = Flows::settings(Proofs::s3('ledgers'));
     $keys = ['AWS_ACCESS_KEY_ID' => 'AKIA', 'AWS_SECRET_ACCESS_KEY' => 'secret'];
-    $local = Environment::during($keys, static fn(): Adapters => wiredOf($settings, Variables::of([])));
-    $ci = Environment::during($keys, static fn(): Adapters => wiredOf($settings, Variables::of(['CI' => 'true'])));
+    $project = Flows::project();
+    $root = Root::of($project);
+    $local = Environment::during($keys, static fn(): Adapters => wiredOf($settings, Variables::of([]), $project));
+    $ci = Environment::during($keys, static fn(): Adapters => wiredOf($settings, Variables::of(['CI' => 'true']), $project));
 
-    expect($local->proofs)->toEqual(encodedAs(FetchedCopies::over(LocalLedgers::over(keptUnder($ci->proofs)), Copies::Newest)))
-        ->and($ci->proofs)->toEqual(encodedAs(FetchedCopies::over(keptUnder($ci->proofs), Copies::Newest)))
+    expect($local->proofs)->toEqual(encodedAs(FetchedCopies::over(LocalLedgers::over(keptUnder($ci->proofs), $root), Copies::Newest, $root)))
+        ->and($ci->proofs)->toEqual(encodedAs(FetchedCopies::over(keptUnder($ci->proofs), Copies::Newest, $root)))
         ->and(keptUnder($ci->proofs))->toBeInstanceOf(BucketLedger::class)
-        ->and(wiredOf(Flows::settings(Proofs::directory('cache/ledger')), Variables::of([]))->proofs)
-        ->toEqual(encodedAs(FetchedCopies::over(LedgerDirectory::at('cache/ledger'), Copies::Newest)));
+        ->and(wiredOf(Flows::settings(Proofs::directory('cache/ledger')), Variables::of([]), $project)->proofs)
+        ->toEqual(encodedAs(FetchedCopies::over(LedgerDirectory::at('cache/ledger'), Copies::Newest, $root)));
 })->group(...$holds);
 
 it('reads the copy of a ledger fetch wrote beside the one the run keeps, as proofs.copies chooses', function (Proofs $copies, Copies $chosen): void {
-    expect(wiredOf(Flows::settings($copies), Variables::of(['CI' => 'true']))->proofs)
-        ->toEqual(encodedAs(FetchedCopies::over(LedgerDirectory::at('.mutation-gate/ledger'), $chosen)));
+    $project = Flows::project();
+
+    expect(wiredOf(Flows::settings($copies), Variables::of(['CI' => 'true']), $project)->proofs)
+        ->toEqual(encodedAs(FetchedCopies::over(LedgerDirectory::at('.mutation-gate/ledger'), $chosen, Root::of($project))));
 })->with([
     'the newest' => [fn(): Proofs => Proofs::newestCopy(), Copies::Newest],
     'the store\'s, where they move together' => [fn(): Proofs => Proofs::copiesTogether(), Copies::Together],
