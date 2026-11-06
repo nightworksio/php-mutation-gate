@@ -149,7 +149,7 @@ it('marks every hunk it writes, one mark to a hunk, so another version\'s are fo
         MutatePlugin::FILES,
     ));
 
-    expect($marks)->toBe(21);
+    expect($marks)->toBe(22);
 });
 
 it('has each mutant\'s run select exactly the tests that cover it, a row of a data set alone, named whole by the map Pest loaded', function () use ($vendor, $source): void {

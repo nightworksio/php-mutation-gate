@@ -60,11 +60,19 @@ it('says the kill of a mutant the budget left unrun is inferred where a killed m
 it('infers by what a run learned of the file, and from a subsumer left beside it', function (): void {
     $by = Subsumed::killed(Subsumed::diff('a', 'b'), 'T1');
     $of = Subsumed::killed(Subsumed::diff('a', 'c'), 'T1', 'T2');
-    $left = $of->unjudged(OutOfTime::BeforeMutating);
+    $also = Subsumed::killed(Subsumed::diff('a', 'd'), 'T1', 'T3');
+    $left = [$of->unjudged(OutOfTime::BeforeMutating), $also->unjudged(OutOfTime::BeforeMutating)];
 
-    $inferred = Inference::in(inferenceResults($left), Subsumption::learned($by, $of), inferenceResults($by));
+    $inferred = Inference::in(inferenceResults(...$left), Subsumption::learned($by, $of, $also), inferenceResults($by));
+    $cut = Inference::in(
+        inferenceResults($of->unjudged(OutOfTime::BeforeRunning)),
+        Subsumption::learned($by, $of),
+        inferenceResults($by),
+    );
 
-    expect(inferenceReasons($inferred)[$of->id()->value()])->toStartWith(sprintf('Inferred killed: %s ', $by->id()->value()));
+    expect(inferenceReasons($inferred)[$of->id()->value()])->toStartWith(sprintf('Inferred killed: %s ', $by->id()->value()))
+        ->and(inferenceReasons($inferred)[$also->id()->value()])->toStartWith(sprintf('Inferred killed: %s ', $by->id()->value()))
+        ->and(inferenceReasons($cut)[$of->id()->value()])->toStartWith(sprintf('Inferred killed: %s ', $by->id()->value()));
 });
 
 it('infers nothing of a mutant that ran, one whose subsumer was not killed, or one nothing subsumes', function (): void {
@@ -75,6 +83,7 @@ it('infers nothing of a mutant that ran, one whose subsumer was not killed, or o
     $survived = Subsumed::mutant('src/Money.php', 1, Subsumed::diff('return $a < $b;', 'return $a <= $b;'), MutantStatus::Survived);
     $alone = Subsumed::mutant('src/Money.php', 7, Subsumed::diff('x', 'y'))->unjudged(OutOfTime::BeforeMutating);
     $reason = static fn(Mutant $mutant): string => inferenceReasons(inferenceResults($mutant))[$mutant->id()->value()];
+    $unreported = $negated->unjudged(Reason::that('Pest could not select its test.'));
 
     expect(inferenceReasons(Inference::in(inferenceResults($unconfirmed), Subsumption::none(), inferenceResults($loosened))))
         ->toBe([$negated->id()->value() => $reason($unconfirmed)])
@@ -82,5 +91,9 @@ it('infers nothing of a mutant that ran, one whose subsumer was not killed, or o
         ->toBe([$negated->id()->value() => $reason($unrun)])
         ->and(inferenceReasons(Inference::in(inferenceResults($alone), Subsumption::none(), inferenceResults($loosened))))
         ->toBe([$alone->id()->value() => $reason($alone)])
+        ->and(inferenceReasons(Inference::in(inferenceResults($unreported), Subsumption::none(), inferenceResults($loosened))))
+        ->toBe([$negated->id()->value() => 'Pest could not select its test.'])
+        ->and(inferenceReasons(Inference::in(inferenceResults($loosened), Subsumption::none(), inferenceResults($loosened))))
+        ->toBe([$loosened->id()->value() => ''])
         ->and(count(Inference::in(UnitResults::none(), Subsumption::none(), inferenceResults($loosened))))->toBe(0);
 });

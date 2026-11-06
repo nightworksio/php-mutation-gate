@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Subsumption\Inference;
+use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
 
 /**
@@ -20,6 +22,12 @@ final readonly class Inferring
     {
     }
 
+    /** What the run holds subsumed mutants back by: what either ledger learned, where it infers; nothing elsewhere. */
+    public function holding(Ledgers $ledgers): Subsumption|NotGiven
+    {
+        return $this->infers() ? $ledgers->subsumption() : NotGiven::value();
+    }
+
     /**
      * The results the budget left, each mutant it left unrun saying its kill
      * is inferred where a mutant subsuming it was killed, by what either
@@ -27,8 +35,11 @@ final readonly class Inferring
      */
     public function of(UnitResults $left, Ledgers $ledgers, UnitResults $fresh): UnitResults
     {
-        return ! $this->adapters->environment->inCi() && $this->settings->local()->inferSubsumed()
-            ? Inference::in($left, $ledgers->own()->and($ledgers->defaultBranch())->learned()->subsumption(), $fresh)
-            : $left;
+        return $this->infers() ? Inference::in($left, $ledgers->subsumption(), $fresh) : $left;
+    }
+
+    private function infers(): bool
+    {
+        return ! $this->adapters->environment->inCi() && $this->settings->local()->inferSubsumed();
     }
 }

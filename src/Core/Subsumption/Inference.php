@@ -58,8 +58,12 @@ final readonly class Inference
     {
         $reason = $mutant->reason();
 
-        return $reason instanceof Reason && $reason->outOfTime() === OutOfTime::BeforeMutating
-            ? $reason
-            : NotGiven::value();
+        if (! $reason instanceof Reason) {
+            return NotGiven::value();
+        }
+
+        $before = $reason->outOfTime();
+
+        return $before instanceof OutOfTime && $before->isUnrun() ? $reason : NotGiven::value();
     }
 }

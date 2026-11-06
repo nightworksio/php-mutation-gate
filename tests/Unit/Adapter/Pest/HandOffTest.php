@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Bridges;
 use NightWorksIO\MutationGate\Adapter\Pest\Covering;
 use NightWorksIO\MutationGate\Adapter\Pest\HandedOver;
 use NightWorksIO\MutationGate\Adapter\Pest\HandOff;
+use NightWorksIO\MutationGate\Adapter\Pest\Identities;
 use NightWorksIO\MutationGate\Adapter\Pest\Interpretation;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
@@ -14,6 +15,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Verdicts;
+use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -21,12 +23,14 @@ use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\PestCases;
@@ -211,4 +215,46 @@ it('tells no progress of its own, as the mutants Pest has judged tell it', funct
     [$project, $results] = handedProject();
 
     expect(handOff($project, $results, new PreCheckerFake([]))->progress())->toBe('');
+});
+
+it('names the copy of each mutant another subsumes beside the verdicts where the run holds them back, checking none with no pre-checker', function (): void {
+    [$project, $results, $planned] = handedProject();
+    $ids = Identities::of(Root::of($project->root()), $planned);
+    $held = Subsumption::none()
+        ->with(Path::of('src/Money.php'), $ids[2], $ids[0])
+        ->with(Path::of('src/Money.php'), $ids[1], $ids[0])
+        ->with(Path::of('src/Money.php'), $ids[3], $ids[0]);
+    $covered = false;
+    $handOff = new HandOff(
+        $project,
+        $results,
+        new NoPreCheck(),
+        ProcessCount::of(2),
+        static function () use (&$covered): CannotJudge {
+            $covered = true;
+
+            return CannotJudge::because('No map.');
+        },
+        new Bridges(),
+        $held,
+    );
+    handedRecords($results, $planned, made: true);
+
+    $handOff->look();
+
+    expect(file_get_contents(sprintf('%s.held', Verdicts::beside($results))))
+        ->toBe(sprintf("%s\n%s", $planned[2]->mutated()->value(), $planned[3]->mutated()->value()))
+        ->and(file_get_contents(Verdicts::beside($results)))->toBe('')
+        ->and($covered)->toBeFalse()
+        ->and([HandOff::isWanted(new NoPreCheck(), NotGiven::value()), HandOff::isWanted(new NoPreCheck(), $held)])->toBe([false, true])
+        ->and(HandOff::isWanted(new PreCheckerFake([]), NotGiven::value()))->toBeTrue();
+});
+
+it('names no copy beside the verdicts where the run holds none back', function (): void {
+    [$project, $results, $planned] = handedProject();
+    handedRecords($results, $planned, made: true);
+
+    handOff($project, $results, new PreCheckerFake([]))->look();
+
+    expect(file_get_contents(sprintf('%s.held', Verdicts::beside($results))))->toBe('');
 });

@@ -122,6 +122,16 @@ final readonly class Subsumption implements IteratorAggregate
         return new self($files);
     }
 
+    /** This, holding only what it learned of these files. */
+    public function onlyIn(Paths $files): self
+    {
+        return new self(array_filter(
+            $this->files,
+            static fn(string $file): bool => $files->has(Path::of($file)),
+            ARRAY_FILTER_USE_KEY,
+        ));
+    }
+
     /** Whether it holds what a run learned of this file. */
     public function knows(Path $file): bool
     {

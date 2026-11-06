@@ -38,6 +38,7 @@ use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Sample\Sample;
+use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
@@ -256,6 +257,7 @@ final readonly class Planning
                 $map,
                 $at,
                 $ledgers->killers(),
+                new Inferring($this->adapters, $this->settings)->holding($ledgers),
             ),
         };
     }
@@ -341,8 +343,10 @@ final readonly class Planning
         CoverageMap $map,
         MeasuredAt|Unplaced $at,
         KillHistory $history,
+        Subsumption|NotGiven $held,
     ): Plan|CannotJudge {
-        $handed = new Handoff($this->adapters->project, Handoff::limits())->write($plan, $map, $history, $at, $keys);
+        $handed = new Handoff($this->adapters->project, Handoff::limits())
+            ->write($plan, $map, $history, $at, $keys, $held);
 
         return $handed instanceof CannotJudge ? $handed : $plan;
     }

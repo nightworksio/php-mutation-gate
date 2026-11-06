@@ -24,8 +24,11 @@ use NightWorksIO\MutationGate\Core\Format\TooLarge;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\KillHistoryFile;
+use NightWorksIO\MutationGate\Core\Proof\SubsumptionFile;
+use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Written;
 
@@ -69,6 +72,7 @@ final readonly class Handoff
         KillHistory $history,
         MeasuredAt|Unplaced $at,
         EntryKeys|NotGiven $keys = new NotGiven(),
+        Subsumption|NotGiven $held = new NotGiven(),
     ): Written|CannotJudge {
         $written = Written::to(Workspace::coverage()->value());
         $considered = Units::none();
@@ -84,15 +88,7 @@ final readonly class Handoff
 
         foreach ($plan as $shard) {
             $considered = Units::of(...$considered, ...$shard->units());
-            $files = $this->filesOf($shard->units(), $map);
-            $wrote = $this->project->write(
-                $this->fileOf($shard->id()),
-                Contents::of(CoverageMapFile::encode($text->onlyFor($files), Unplaced::map())),
-            );
-            $wrote = $wrote instanceof CannotJudge ? $wrote : $this->project->write(
-                $this->killersOf($shard->id()),
-                Contents::of(KillHistoryFile::encode($history->onlyIn($files))),
-            );
+            $wrote = $this->shardHanded($shard, $this->filesOf($shard->units(), $map), $text, $history, $held);
 
             if ($wrote instanceof CannotJudge) {
                 return $wrote;
@@ -139,6 +135,22 @@ final readonly class Handoff
         };
     }
 
+    /**
+     * Which mutant subsumes which in a shard's files, as it was handed for
+     * its run to hold the subsumed back; nothing where its run holds none
+     * back.
+     */
+    public function subsumption(ShardId $shard): Subsumption|NotGiven|CannotJudge
+    {
+        $contents = $this->project->read($this->subsumptionOf($shard));
+
+        return match (true) {
+            $contents instanceof Contents => SubsumptionFile::decode($contents->text()),
+            $contents instanceof Missing => NotGiven::value(),
+            default => $contents,
+        };
+    }
+
     /** The map a shard was handed. */
     public function read(ShardId $shard): CoverageMap|CannotJudge
     {
@@ -155,6 +167,33 @@ final readonly class Handoff
         };
     }
 
+    /**
+     * What a shard is handed of its files: their map, the history of their
+     * functions, and which mutant subsumes which in them where its run holds
+     * the subsumed back.
+     */
+    private function shardHanded(
+        Shard $shard,
+        Paths $files,
+        MapText $text,
+        KillHistory $history,
+        Subsumption|NotGiven $held,
+    ): Written|CannotJudge {
+        $wrote = $this->project->write(
+            $this->fileOf($shard->id()),
+            Contents::of(CoverageMapFile::encode($text->onlyFor($files), Unplaced::map())),
+        );
+        $wrote = $wrote instanceof CannotJudge ? $wrote : $this->project->write(
+            $this->killersOf($shard->id()),
+            Contents::of(KillHistoryFile::encode($history->onlyIn($files))),
+        );
+
+        return $wrote instanceof CannotJudge || ! $held instanceof Subsumption ? $wrote : $this->project->write(
+            $this->subsumptionOf($shard->id()),
+            Contents::of(SubsumptionFile::encode($held->onlyIn($files))),
+        );
+    }
+
     private function fileOf(ShardId $shard): Path
     {
         return CoverageMapFile::in(Workspace::shardCoverage($shard));
@@ -163,6 +202,11 @@ final readonly class Handoff
     private function killersOf(ShardId $shard): Path
     {
         return KillHistoryFile::in(Workspace::shardCoverage($shard));
+    }
+
+    private function subsumptionOf(ShardId $shard): Path
+    {
+        return SubsumptionFile::in(Workspace::shardCoverage($shard));
     }
 
     /**

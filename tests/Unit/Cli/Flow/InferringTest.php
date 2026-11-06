@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
@@ -77,4 +78,18 @@ it('infers the kills of mutants the budget left unrun outside CI under local.inf
     expect(inferredReason($by, $of, [], []))->toStartWith(sprintf('Inferred killed: %s ', $by->id()->value()))
         ->and(inferredReason($by, $of, [], ['local' => ['inferSubsumed' => false]]))->toBe(OutOfTime::BeforeMutating->reason()->text())
         ->and(inferredReason($by, $of, ['CI' => 'true'], []))->toBe(OutOfTime::BeforeMutating->reason()->text());
+});
+
+it('holds subsumed mutants back by what the ledgers learned where it infers, and holds none back elsewhere', function (): void {
+    $by = Subsumed::killed(Subsumed::diff('a', 'b'), 'T1');
+    $of = Subsumed::killed(Subsumed::diff('a', 'c'), 'T1', 'T2');
+    $ledgers = inferringLedgers($by, $of);
+    $holding = static fn(bool $inCi, bool $infers): Subsumption|NotGiven => new Inferring(
+        Flows::adapters(Scratch::directory(), $inCi ? ['CI' => 'true'] : []),
+        Configs::settings(['runner' => 'pest', 'local' => ['inferSubsumed' => $infers]]),
+    )->holding($ledgers);
+
+    expect($holding(inCi: false, infers: true))->toEqual(Subsumption::learned($by, $of))
+        ->and($holding(inCi: true, infers: true))->toEqual(NotGiven::value())
+        ->and($holding(inCi: false, infers: false))->toEqual(NotGiven::value());
 });

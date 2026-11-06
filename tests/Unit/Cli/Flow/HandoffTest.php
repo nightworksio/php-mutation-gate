@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\Enclosing;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\Kills;
@@ -26,6 +27,8 @@ use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\KillHistoryFile;
+use NightWorksIO\MutationGate\Core\Proof\SubsumptionFile;
+use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -300,4 +303,49 @@ it('reads a handed map within the limits it is given', function (): void {
 
 it('reads a handed map within this process\'s limits', function (): void {
     expect(Handoff::limits())->toEqual(HandoffLimits::under(ini_get('memory_limit')));
+});
+
+it('hands each shard which mutant subsumes which in its own files, where the run holds subsumed mutants back, and nothing else', function () use (
+    $makePlan,
+    $makeMap,
+): void {
+    $money = MutantId::hash(Path::of('src/Money.php'), 'Plus', "-a\n+b\n", 0);
+    $by = MutantId::hash(Path::of('src/Money.php'), 'Plus', "-a\n+c\n", 0);
+    $other = MutantId::hash(Path::of('src/Other.php'), 'Plus', "-a\n+b\n", 0);
+    $held = Subsumption::none()->with(Path::of('src/Money.php'), $money, $by)->with(Path::of('src/Other.php'), $other, $by);
+    $holding = Scratch::directory();
+    $handing = new Handoff(Directory::at($holding), HandedMaps::limits());
+    $handing->write($makePlan(), $makeMap(), KillHistory::none(), Unplaced::map(), held: $held);
+    $free = new Handoff(Directory::at(Scratch::directory()), HandedMaps::limits());
+    $free->write($makePlan(), $makeMap(), KillHistory::none(), Unplaced::map());
+
+    expect($handing->subsumption(ShardId::of(1)))->toEqual(Subsumption::none()->with(Path::of('src/Money.php'), $money, $by))
+        ->and($handing->subsumption(ShardId::of(2)))->toEqual(Subsumption::none())
+        ->and(file_get_contents(sprintf('%s/.mutation-gate/coverage/shard-1/subsumption.json', $holding)))
+        ->toBe(SubsumptionFile::encode($held->onlyIn(Paths::of(Path::of('src/Money.php')))))
+        ->and($free->subsumption(ShardId::of(1)))->toEqual(NotGiven::value());
+});
+
+it('cannot read what subsumes what where it is not that, or not a file, and cannot hand it where it cannot write it', function () use (
+    $makePlan,
+    $makeMap,
+): void {
+    $project = Scratch::directory();
+    Scratch::write($project, '.mutation-gate/coverage/shard-1/subsumption.json', 'not json');
+    Scratch::write($project, '.mutation-gate/coverage/shard-2/subsumption.json/blocked', '');
+    $handoff = new Handoff(Directory::at($project), HandedMaps::limits());
+    $blocked = Scratch::directory();
+    Scratch::write($blocked, '.mutation-gate/coverage/shard-1/subsumption.json/blocked', '');
+
+    expect($handoff->subsumption(ShardId::of(1)))->toBeInstanceOf(CannotJudge::class)
+        ->and($handoff->subsumption(ShardId::of(2)))->toEqual(CannotJudge::because(
+            sprintf('%s/.mutation-gate/coverage/shard-2/subsumption.json could not be read.', $project),
+        ))
+        ->and(new Handoff(Directory::at($blocked), HandedMaps::limits())->write(
+            $makePlan(),
+            $makeMap(),
+            KillHistory::none(),
+            Unplaced::map(),
+            held: Subsumption::none(),
+        ))->toBeInstanceOf(CannotJudge::class);
 });

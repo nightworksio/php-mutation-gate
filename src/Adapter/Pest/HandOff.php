@@ -15,6 +15,7 @@ use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Verdicts;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
+use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
 use NightWorksIO\MutationGate\Core\Analysis\PreCheckable;
 use NightWorksIO\MutationGate\Core\Analysis\PreCheckables;
 use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
@@ -30,6 +31,8 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
+use NightWorksIO\MutationGate\Core\Subsumption\Subsumers;
+use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
@@ -61,7 +64,14 @@ final class HandOff implements ProcessWatch
         private readonly ProcessCount $side,
         private readonly Closure $covering,
         private readonly Bridges $bridges,
+        private readonly Subsumption|NotGiven $held = new NotGiven(),
     ) {
+    }
+
+    /** Whether a run hands its mutants off: to a pre-checker, or to be held back by which subsumes which. */
+    public static function isWanted(PreChecker $checker, Subsumption|NotGiven $held): bool
+    {
+        return ! $checker instanceof NoPreCheck || $held instanceof Subsumption;
     }
 
     public function look(): void
@@ -77,11 +87,13 @@ final class HandOff implements ProcessWatch
         }
 
         $this->handed = true;
+        $held = [];
 
         try {
-            $this->rejected = $this->checked($records);
+            $held = $this->heldBack($records);
+            $this->rejected = $this->checker instanceof NoPreCheck ? [] : $this->checked($records);
         } finally {
-            Verdicts::write(Verdicts::beside($this->results), ...array_keys($this->rejected));
+            Verdicts::write(Verdicts::beside($this->results), array_keys($this->rejected), $held);
         }
     }
 
@@ -145,6 +157,40 @@ final class HandOff implements ProcessWatch
         }
 
         return $rejected;
+    }
+
+    /**
+     * The mutated copy of each planned mutant that is no twin and that
+     * another subsumes, by what the run holds subsumed mutants back by; none
+     * where it holds none back.
+     *
+     * @return list<string>
+     */
+    private function heldBack(Records $records): array
+    {
+        if (! $this->held instanceof Subsumption) {
+            return [];
+        }
+
+        $planned = $records->planned();
+        $ids = Identities::of(Root::of($this->project->root()), $planned);
+        $mutants = [];
+        $copies = [];
+
+        foreach ($planned as $at => $mutant) {
+            $gate = $this->unrun($ids[$at], $mutant);
+            $mutants = $mutant->isTwin() ? $mutants : [...$mutants, $gate];
+            $copies[$gate->id()->key()] = $mutant->mutated()->value();
+        }
+
+        $subsumers = Subsumers::among($this->held, ...$mutants);
+        $held = [];
+
+        foreach ($mutants as $mutant) {
+            $held = $subsumers->holds($mutant->id()) ? [...$held, $copies[$mutant->id()->key()]] : $held;
+        }
+
+        return $held;
     }
 
     /** A planned mutant as the gate names it, before its run: unjudged, unmeasured. */

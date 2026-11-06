@@ -45,6 +45,8 @@ use function sprintf;
  *   (see Twins).
  * - Where the gate checks mutants before their tests, a mutant it rejected is
  *   tested without a run (see Verdicts).
+ * - Where the gate holds subsumed mutants back, each it names runs after the
+ *   others (see Verdicts, ADR-0079).
  * - Where the gate narrows a run, a mutant's own run loads only the test files
  *   its covering tests need (see CoveringFiles), not every test file, and the
  *   files it loads are recorded by the mutant's mutated copy.
@@ -288,6 +290,16 @@ final readonly class Patch
                 }
 
                 // TODO: we should pass the tests to run in another way, maybe via cache, mutation or env variable
+        PHP;
+
+    private const string ORDER_SHIPS = <<<'PHP'
+                $this->runningTests = array_fill(1, $processes, null);
+        PHP;
+
+    private const string ORDER_BECOMES = <<<'PHP'
+                {MARK} the mutants the gate holds back run after the others (see Verdicts).
+                $tests = class_exists(\%1$s::class) ? \%1$s::ordered($tests) : $tests;
+                $this->runningTests = array_fill(1, $processes, null);
         PHP;
 
     private const string ONLY_SHIPS = <<<'PHP'
@@ -551,6 +563,7 @@ final readonly class Patch
                 ),
             ),
             Hunk::in(self::TEST_RUNNER, self::ONLY_SHIPS, sprintf(self::ONLY_BECOMES, PrunedFile::class, Twins::class)),
+            Hunk::in(self::TEST_RUNNER, self::ORDER_SHIPS, sprintf(self::ORDER_BECOMES, Verdicts::class)),
             Hunk::in(
                 self::MUTATE_PLUGIN,
                 self::SERVE_SHIPS,

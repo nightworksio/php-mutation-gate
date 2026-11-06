@@ -72,6 +72,19 @@ final readonly class PreChecked
         return new self($rejected, $left);
     }
 
+    /** A mutant the engine made, before any run: unjudged, in no time. */
+    public static function unrun(MadeMutant $mutant): Mutant
+    {
+        return Mutant::of(
+            $mutant->id(),
+            $mutant->id()->value(),
+            $mutant->location(),
+            $mutant->mutation(),
+            MutantStatus::Unjudged,
+            Seconds::of(0.0),
+        );
+    }
+
     /** A mutant as static analysis is offered it, with its covering tests' own time; none where no test covers it. */
     private static function offer(MadeMutant $mutant, CoverageMap $map): PreCheckable|NotGiven
     {
@@ -83,19 +96,6 @@ final readonly class PreChecked
             self::unrun($mutant),
             Checkable::inPlace($mutant->mutated()),
             $tests instanceof Seconds ? $tests : Seconds::of(0.0),
-        );
-    }
-
-    /** A mutant the engine made, before any run: unjudged, in no time. */
-    private static function unrun(MadeMutant $mutant): Mutant
-    {
-        return Mutant::of(
-            $mutant->id(),
-            $mutant->id()->value(),
-            $mutant->location(),
-            $mutant->mutation(),
-            MutantStatus::Unjudged,
-            Seconds::of(0.0),
         );
     }
 }

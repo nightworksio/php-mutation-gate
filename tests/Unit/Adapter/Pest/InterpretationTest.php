@@ -31,6 +31,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
+use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
@@ -252,7 +253,7 @@ it('says which test of a timed-out mutant\'s run ran past its own limit where th
     ]);
 });
 
-it('keeps what a stopped run judged, with limits, and leaves the rest', function () use ($mutant, $plan, $read): void {
+it('keeps what a stopped run judged, with limits, and leaves the rest unjudged by the deadline that stopped it', function () use ($mutant, $plan, $read): void {
     [$project, $results, $root] = interpretedRun([11 => [0]], []);
     PestRun::write($results, [
         $plan($root, 'n1', 'src/Money.php:11', 'ab'),
@@ -266,7 +267,7 @@ it('keeps what a stopped run judged, with limits, and leaves the rest', function
     expect($read($project, Ran::stopped('half a run'), $results))->toEqual(MutationResult::of(Mutants::of(
         $mutant('n1', 'src/Money.php:11', 'ab', MutantStatus::Killed),
         $mutant('n2', 'src/Money.php:12', 'cd', MutantStatus::TimedOut)->withLimit(Seconds::of(6.0)),
-        $mutant('n3', 'src/Money.php:13', 'ef', MutantStatus::Unjudged),
+        $mutant('n3', 'src/Money.php:13', 'ef', MutantStatus::Unjudged)->unjudged(OutOfTime::BeforeRunning),
     ), 0));
 });
 

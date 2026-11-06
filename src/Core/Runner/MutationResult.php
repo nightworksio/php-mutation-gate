@@ -7,6 +7,9 @@ namespace NightWorksIO\MutationGate\Core\Runner;
 use NightWorksIO\MutationGate\Core\Cost\StepTimes;
 use NightWorksIO\MutationGate\Core\Mutant\Evidences;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
+use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
 /**
@@ -50,6 +53,23 @@ final readonly class MutationResult
         $evidence = $this->evidence->keptFor($this->mutants, $mutants);
 
         return new self($mutants, $this->skipped, $this->warnings, $this->steps, $evidence);
+    }
+
+    /**
+     * This result of a run its deadline stopped: each mutant the run never
+     * told of unjudged by the deadline, before its own run finished.
+     */
+    public function stoppedAtDeadline(): self
+    {
+        $left = [];
+
+        foreach ($this->mutants as $mutant) {
+            $left = $mutant->status() === MutantStatus::Unjudged && $mutant->reason() instanceof Unreported
+                ? [...$left, $mutant->unjudged(OutOfTime::BeforeRunning)]
+                : $left;
+        }
+
+        return $this->withMutants($this->mutants->replacing(Mutants::of(...$left)));
     }
 
     /**

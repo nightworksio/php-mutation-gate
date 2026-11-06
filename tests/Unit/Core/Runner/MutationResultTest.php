@@ -16,7 +16,9 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Prefix;
+use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
@@ -81,4 +83,29 @@ it('keeps the evidence of each mutant it is given again as it was, and none of o
 
 it('skips none of a result of these mutants alone', function (): void {
     expect(MutationResult::skippingNone(Mutants::none()))->toEqual(MutationResult::of(Mutants::none(), 0));
+});
+
+it('leaves each mutant a run stopped at its deadline never told of unjudged by that deadline, and every other as it was', function (): void {
+    $mutant = static fn(string $id, MutantStatus $status): Mutant => Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Plus', sprintf("-a\n+%s\n", $id), 0),
+        $id,
+        Location::of(Path::of('src/Money.php'), Line::of(1), Line::of(1)),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, $id),
+        $status,
+        Seconds::of(1.0),
+    );
+    $untold = $mutant('untold', MutantStatus::Unjudged);
+    $said = $mutant('said', MutantStatus::Unjudged)->because(Reason::that('Pest could not select its test.'));
+    $killed = $mutant('killed', MutantStatus::Killed);
+    $later = $mutant('later', MutantStatus::Unjudged);
+
+    $stopped = MutationResult::of(Mutants::of($untold, $said, $killed, $later), 2)->stoppedAtDeadline();
+
+    expect([...$stopped->mutants()])->toEqual([
+        $untold->unjudged(OutOfTime::BeforeRunning),
+        $said,
+        $killed,
+        $later->unjudged(OutOfTime::BeforeRunning),
+    ])
+        ->and($stopped->skipped())->toBe(2);
 });

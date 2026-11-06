@@ -198,7 +198,7 @@ it('waits for the gate\'s verdicts once every planned mutant is written, where t
     $root = (string) realpath(Scratch::directory());
     Scratch::write($root, 'src/Money.php', '<?php');
     $results = sprintf('%s/verdicted.jsonl', $root);
-    $verdicts = Verdicts::write(Verdicts::beside($results), '/nowhere/rejected');
+    $verdicts = Verdicts::write(Verdicts::beside($results), ['/nowhere/rejected'], []);
     putenv(sprintf('%s=%s', GateVariable::Verdicts->value, $verdicts));
 
     try {
