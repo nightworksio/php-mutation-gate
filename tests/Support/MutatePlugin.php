@@ -21,6 +21,7 @@ final readonly class MutatePlugin
         'Tester/MutationTestRunner.php',
         'Support/StreamWrapper.php',
         'Support/MutationGenerator.php',
+        'Mutation.php',
     ];
 
     /** The files of Pest itself the patch changes, relative to its package. */

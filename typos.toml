@@ -16,3 +16,5 @@ extend-ignore-re = ['"mutant": "[0-9a-f]{12}"']
 [default.extend-identifiers]
 # Pest's own expectation is spelled this way, and the stub mirrors its API.
 toBeInvokable = "toBeInvokable"
+# pest-plugin-mutate's Mutation::create names a variable so, which pest:patch matches and replaces.
+orignalAst = "orignalAst"

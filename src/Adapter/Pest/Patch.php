@@ -77,6 +77,9 @@ use function sprintf;
  *   mutant the schema switches is served the schema in its file's place,
  *   its switch in force, rather than its own copy (see Schemata and
  *   SchemaSwitch, ADR-0091).
+ * - Each file is parsed once while its mutants are made, each attempt at a
+ *   mutant traversing a copy of that parse, and printed once for every
+ *   mutant's diff (see ParsedSource).
  *
  * Applied as a VendorPatch: every anchor checked before anything is written.
  *
@@ -97,6 +100,36 @@ final readonly class Patch
     private const string STREAM_WRAPPER = 'Support/StreamWrapper.php';
 
     private const string GENERATOR = 'Support/MutationGenerator.php';
+
+    private const string MUTATION = 'Mutation.php';
+
+    private const string PARSE_SHIPS = <<<'PHP'
+                            $stmts = $parser->parse($contents);
+        PHP;
+
+    private const string PARSE_BECOMES = <<<'PHP'
+                            {MARK} each attempt at a mutant traverses a copy of the file's one parse.
+                            $stmts = class_exists(\%1$s::class)
+                                ? \%1$s::statements($parser->parse(...), $contents)
+                                : $parser->parse($contents);
+        PHP;
+
+    private const string PRINTED_SHIPS = <<<'PHP'
+                $parser = PhpParserFactory::make();
+                $orignalAst = $parser->parse($file->getContents());
+
+                assert($orignalAst !== null);
+
+                $newlyRenderedOriginalSource = (new Standard)->prettyPrintFile($orignalAst);
+        PHP;
+
+    private const string PRINTED_BECOMES = <<<'PHP'
+                {MARK} the file's code is printed once for every mutant's diff.
+                $parser = PhpParserFactory::make();
+                $newlyRenderedOriginalSource = class_exists(\%1$s::class)
+                    ? \%1$s::printed($parser->parse(...), $file->getContents())
+                    : (new Standard)->prettyPrintFile($parser->parse($file->getContents()) ?? []);
+        PHP;
 
     private const string AFRESH_SHIPS = <<<'PHP'
                     if ($cache->has($file, $contents, $linesToMutate, $mutator)) {
@@ -653,6 +686,8 @@ final readonly class Patch
             Hunk::in(self::GENERATOR, self::AFRESH_SHIPS, sprintf(self::AFRESH_BECOMES, Schemata::class)),
             Hunk::in(self::GENERATOR, self::SITED_SHIPS, sprintf(self::SITED_BECOMES, Schemata::class)),
             Hunk::in(self::GENERATOR, self::COMPILED_SHIPS, sprintf(self::COMPILED_BECOMES, Schemata::class)),
+            Hunk::in(self::GENERATOR, self::PARSE_SHIPS, sprintf(self::PARSE_BECOMES, ParsedSource::class)),
+            Hunk::in(self::MUTATION, self::PRINTED_SHIPS, sprintf(self::PRINTED_BECOMES, ParsedSource::class)),
             Hunk::in(self::MUTATION_TEST, self::SWITCHED_SHIPS, sprintf(self::SWITCHED_BECOMES, Schemata::class)),
         ];
     }
