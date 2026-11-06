@@ -15,6 +15,10 @@ shortcut.
   Cloud Storage or Azure Blob Storage
   ([ADR-0007](../decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md),
   [proofs and trust](../using/proofs.md)).
+- **A pull request's own earlier runs**: a new push stands on the proofs its
+  earlier runs made, and mutates only what they do not prove, unless
+  `proofs.ownScope` is `false`
+  ([ADR-0081](../decisions/0081-a-new-push-mutates-only-what-its-earlier-runs-do-not-prove.md)).
 - **Pruning**: on unchanged code, a mutator that has let no mutant through
   lately is skipped and its last result carried, and the scheduled full run
   audits it
@@ -32,8 +36,11 @@ shortcut.
   ([ADR-0023](../decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md)).
 - **A sampled mode for huge repositories** judges a sample of each tree's
   units and its floor on the confidence interval of the estimate; new code and
-  every tree at a floor of 100 are never sampled
-  ([ADR-0020](../decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md)).
+  every tree at a floor of 100 are never sampled. Under `sampling.auto`, a
+  pull request that reaches more than the threshold beyond its own lines
+  samples by itself, and its plan says why
+  ([ADR-0020](../decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md),
+  [ADR-0086](../decisions/0086-a-pull-request-can-sample-by-itself-above-a-threshold.md)).
 - **Locally, subsumed mutants run last**: the ledger learns which killed
   mutant subsumes which, and a local run under a budget shows a subsumed
   mutant's kill as inferred, never as a proof
@@ -45,8 +52,8 @@ shortcut.
   them killed it before, so a kill comes sooner
   ([ADR-0013](../decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md)).
 - **Limits from each mutant's own tests**: a mutant is allowed a multiple of
-  its covering tests' time, not the whole suite's, and each of its tests a
-  multiple of its own; `timeouts.seconds`, `timeouts.multiple` and
+  its covering tests' time, not the whole suite's, and, under `pest.patch`
+  and the native runners, each of its tests a multiple of its own; `timeouts.seconds`, `timeouts.multiple` and
   `shards.max` can each be learned from earlier runs
   ([ADR-0090](../decisions/0090-each-test-of-a-mutants-run-is-held-to-a-multiple-of-its-own-time.md),
   [ADR-0073](../decisions/0073-a-limit-can-be-learned-from-what-earlier-runs-measured.md)).
@@ -73,8 +80,8 @@ shortcut.
   Bitbucket Pipelines, Azure DevOps, Buildkite, CircleCI and Jenkins, or as
   JSON for any other ([running the gate in CI](../using/ci/README.md)).
 - **Survivors first**: a new push to a pull request runs the last run's
-  survivors again first, in a job of its own, as an early signal before its
-  shards
+  survivors again in a job of its own beside its shards, an early signal the
+  verdict does not judge
   ([ADR-0020](../decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md)).
 - **A doomed pull request stops early**: once a confirmed survivor leaves a
   run no way to pass, `run.failFast` decides whether its shard fails at once

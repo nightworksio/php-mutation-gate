@@ -52,11 +52,15 @@ More in [speed](speed.md).
 | A cost model that learns how long each file takes from earlier shards | [0006](../decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | Sharding on any CI: GitHub Actions, GitLab, Buildkite, CircleCI, Azure DevOps, Bitbucket Pipelines, Jenkins, or a JSON plan | [0006](../decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md), [0024](../decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
 | A proof cache keyed by content, stored in the GitHub cache, a directory, S3/R2, Google Cloud Storage or Azure Blob, with OIDC and a public read path for forks | [0007](../decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md), [0028](../decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) |
+| A new push to a pull request stands on its own earlier runs' proofs, and mutates only what they do not prove, unless `proofs.ownScope` is `false` | [0081](../decisions/0081-a-new-push-mutates-only-what-its-earlier-runs-do-not-prove.md) |
+| A proof is keyed by the gate's code its verdict depends on, so a release that leaves that code alone keeps every proof | [0084](../decisions/0084-the-gate-is-keyed-by-the-code-a-verdict-depends-on.md) |
 | Likely killers first: each mutant's tests ordered by which of them killed it before | [0013](../decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
 | A shard count chosen from a target wall time | [0013](../decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
 | A static analyser (Mago, PHPStan or Psalm) kills the mutants it rejects, before their tests where that saves time | [0020](../decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) |
-| A new push re-checks the previous survivors first, before its shards run | [0020](../decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) |
+| A new push re-checks the previous survivors in a job beside its shards, an early signal | [0020](../decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) |
 | A sampled mode for huge repositories: each tree estimated with a confidence interval, judged on its bounds | [0020](../decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) |
+| A compact ledger, compressed with zstd where it can be, under `proofs.compression` | [0085](../decisions/0085-the-ledger-is-compact-and-compressed-with-zstd-where-it-can-be.md) |
+| A pull request that reaches more than `sampling.auto` beyond its own lines samples by itself, and its plan says why | [0086](../decisions/0086-a-pull-request-can-sample-by-itself-above-a-threshold.md) |
 | Coverage re-measured only for the tests whose inputs moved | [0023](../decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) |
 | Every core of a shard's runner busy, and one warm worker per core for native runners | [0023](../decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) |
 | Mutators that never let a mutant through are pruned on unchanged code, and audited weekly | [0025](../decisions/0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions.md) |

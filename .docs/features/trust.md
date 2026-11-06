@@ -29,8 +29,9 @@ A runner reporting a mutant as killed is not enough
 - **A timeout counts as a kill only where its tests, run unmutated under the
   same limit, finish within it**
   ([ADR-0008](../decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md)).
-  Each mutant is held to a multiple of its own covering tests' time, and each
-  test of its run to a multiple of that test's own
+  Each mutant is held to a multiple of its own covering tests' time, and,
+  under `pest.patch` and the native runners, each test of its run to a
+  multiple of that test's own
   ([ADR-0090](../decisions/0090-each-test-of-a-mutants-run-is-held-to-a-multiple-of-its-own-time.md)).
   Under `timeouts.mode: unjudged`, a timeout is unjudged instead.
 - **A mutant out of the memory cap counts as a kill only where its tests,
@@ -58,7 +59,9 @@ A runner reporting a mutant as killed is not enough
 A proof is a unit's result, kept under a content key: a SHA-256 over
 everything the result could depend on
 ([ADR-0007](../decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md)).
-That is the gate's version, the configuration as it affects results, the
+That is the gate's own code the verdict depends on
+([ADR-0084](../decisions/0084-the-gate-is-keyed-by-the-code-a-verdict-depends-on.md)),
+the configuration as it affects results, the
 runner's identity and the PHP it runs on, what Composer installed, the
 project's files outside its tests, what every test reads, and the unit itself
 with the tests that cover it. A run skips a unit only where its key matches,
