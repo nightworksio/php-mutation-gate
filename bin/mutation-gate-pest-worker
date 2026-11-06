@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Warm\OpcacheBlacklist;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\PestBoot;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Request;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Seat;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\Wake;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Worker;
 use NightWorksIO\MutationGate\Adapter\Runtime\ForkedChild;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -86,6 +87,7 @@ pcntl_signal(SIGALRM, static function () use ($directory, $parent): void {
     pcntl_alarm(1);
 });
 pcntl_alarm(1);
+Wake::heard();
 
 $boot = static function () use ($directory): string {
     $spec = BootSpec::readIn($directory);
@@ -166,6 +168,7 @@ exit(Worker::at($directory, (int) $place, (int) $parent, usleep(...))->booting($
 
         pcntl_alarm(0);
         pcntl_signal(SIGALRM, SIG_DFL);
+        Wake::unheard();
 
         $environment = $request->environment();
 

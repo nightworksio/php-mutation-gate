@@ -11,10 +11,12 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Client;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\GateClasses;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\Wake;
 
 require sprintf('%s/src/Adapter/Pest/Warm/GateClasses.php', dirname(__DIR__));
 
 GateClasses::register(sprintf('%s/src', dirname(__DIR__)));
+Wake::heard();
 
 $given = is_array($_SERVER['argv']) ? $_SERVER['argv'] : [];
 $arguments = [];

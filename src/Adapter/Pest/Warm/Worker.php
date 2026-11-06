@@ -153,9 +153,7 @@ final readonly class Worker
 
         $finish = $this->waited($child, $request->asker());
         $kept = WarmDatabase::after($baseline, $this->seat->report());
-        $finish instanceof Finish
-            ? $finish->writtenTo($this->seat->ended($request->id()))
-            : $this->refused($request, self::LOST);
+        $finish instanceof Finish ? $this->answered($request, $finish) : $this->refused($request, self::LOST);
 
         return $kept;
     }
@@ -165,8 +163,15 @@ final readonly class Worker
     {
         if ($reason !== '') {
             file_put_contents($this->seat->warned(), sprintf("%s\n", $reason), FILE_APPEND);
-            Finish::refused($reason)->writtenTo($this->seat->ended($request->id()));
+            $this->answered($request, Finish::refused($reason));
         }
+    }
+
+    /** How the run ended, or why it had no child, written where its asker reads it, and the asker woken to read it. */
+    private function answered(Request $request, Finish $finish): void
+    {
+        $finish->writtenTo($this->seat->ended($request->id()));
+        Wake::sent($request->asker());
     }
 
     /**

@@ -228,6 +228,25 @@ it('ends by the signal that ended its run, with the code a shell gives it', func
         ->and($caught)->toBe([SIGWINCH]);
 });
 
+it('wakes its worker once it has left its request', function () use ($ran, $standIn, $taking): void {
+    $started = sprintf('%s/started', Scratch::directory());
+    $woken = sprintf('%s/woken', Scratch::directory());
+    $unwoken = sprintf('%s/unwoken', Scratch::directory());
+    Offsets::of(0, 0)->writtenTo($started);
+    Finish::exited(7, Offsets::of(0, 0))->writtenTo($woken);
+    Finish::exited(9, Offsets::of(0, 0))->writtenTo($unwoken);
+    $directory = $standIn(sprintf('%s%s%s', 'trap \'touch "$1/woken"\' URG; touch "$1/listening"' . "\n", $taking, <<<'SH'
+        for _ in $(seq 250); do [ -f "$1/woken" ] && break; sleep 0.02; done
+        cp "$2" "$1/1.$id.started"
+        answer="$4"; [ -f "$1/woken" ] && answer="$3"
+        cp "$answer" "$1/1.$id.writing" && mv "$1/1.$id.writing" "$1/1.$id.ended"
+        sleep 5
+        SH), $started, $woken, $unwoken);
+    new Process(['sh', '-c', 'for _ in $(seq 250); do [ -f "$1" ] && break; sleep 0.02; done', 'sh', sprintf('%s/listening', $directory)])->run();
+
+    expect($ran($directory, sprintf('%s/missing/pest', Scratch::directory()))['code'])->toBe(7);
+});
+
 it('stops no child, and starts the run fresh, where its worker went with no child it forked for the run', function (string $child) use ($ran, $standIn, $taking): void {
     $directory = $standIn(sprintf('%s%s', $taking, 'printf "%s" "$2" > "$1/1.$id.child"; [ -n "$2" ] || rm "$1/1.$id.child"'), $child);
     $answered = $ran($directory, sprintf('%s/missing/pest', Scratch::directory()));
