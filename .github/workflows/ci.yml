@@ -358,6 +358,8 @@ jobs:
         with:
           php-version: ${{ env.PHP_VERSION }}
           coverage: pcov
+          # The zstd extension, so the ledger's zstd is covered both through it and through the program (ADR-0085).
+          extensions: zstd
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
       # Pest's --coverage writes its PHP report to its own path and deletes it
       # once it has printed the summary, so that path is linked to the one
@@ -809,7 +811,10 @@ jobs:
     uses: ./.github/workflows/mutation-gate.yml # zizmor: ignore[self-repository]
     with:
       coverage: mutation-gate-map
+      # The zstd extension, so the ledger's zstd is mutated through it as the tests cover it (ADR-0085).
+      extensions: zstd
       runs-on: ubuntu-24.04-arm
+      mode: ${{ github.event_name == 'schedule' && 'unproven' || 'auto' }}
     secrets:
       MUTATION_GATE_READ_AWS_ACCESS_KEY_ID: ${{ secrets.MUTATION_GATE_READ_AWS_ACCESS_KEY_ID }}
       MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY: ${{ secrets.MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY }}

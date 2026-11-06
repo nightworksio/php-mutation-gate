@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\Reach;
 use NightWorksIO\MutationGate\Core\Config\Sampling;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Sample\AutoSample;
 use NightWorksIO\MutationGate\Core\Sample\Confidence;
+use NightWorksIO\MutationGate\Core\Sample\SampledRun;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
 it('samples by default at 95 percent, for 2 points either side, running at least 30 units, from no seed of its own', function (): void {
@@ -75,4 +79,70 @@ it('refuses a confidence it does not offer, a margin of none or over 10, fewer t
             'sampling.confidence: expected 90, 95 or 99, got "95"',
             'sampling.margin: expected a number above 0 and at most 10, got 10.5',
         ]);
+});
+
+it('samples of its own accord nowhere by default, and would only on a pull request\'s run', function (): void {
+    $sampling = Layer::standard()->reach()->sampling();
+
+    expect($sampling->auto())->toEqual(AutoSample::off())
+        ->and([...$sampling->autoRuns()])->toBe([SampledRun::PullRequests])
+        ->and($sampling->samplesOfItself(SampledRun::PullRequests))->toBeTrue()
+        ->and($sampling->samplesOfItself(SampledRun::MergeGroups))->toBeFalse()
+        ->and($sampling->samplesOfItself(SampledRun::Branches))->toBeFalse()
+        ->and(Sampling::of()->auto())->toEqual(AutoSample::off())
+        ->and(Sampling::of()->samplesOfItself(SampledRun::PullRequests))->toBeTrue();
+});
+
+it('lays sampling.auto and sampling.autoRuns a later layer sets over an earlier one\'s', function (): void {
+    $earlier = Sampling::of(auto: AutoSample::aboveMutants(500), autoRuns: Listed::of(SampledRun::Branches));
+    $later = Sampling::of(auto: AutoSample::aboveRunnerTime(Seconds::of(3600)));
+    $laid = $earlier->over($later);
+
+    expect($laid->auto())->toEqual(AutoSample::aboveRunnerTime(Seconds::of(3600)))
+        ->and($laid->samplesOfItself(SampledRun::Branches))->toBeTrue()
+        ->and($laid->samplesOfItself(SampledRun::PullRequests))->toBeFalse()
+        ->and($earlier->over(Sampling::of())->auto())->toEqual(AutoSample::aboveMutants(500));
+});
+
+it('writes sampling.auto and sampling.autoRuns, and the builder calls for them', function (): void {
+    $count = Layer::of(Reach::of(sampling: Sampling::of(
+        auto: AutoSample::aboveMutants(20000),
+        autoRuns: Listed::of(SampledRun::PullRequests, SampledRun::MergeGroups),
+    )));
+    $duration = Layer::of(Reach::of(sampling: Sampling::of(auto: AutoSample::aboveRunnerTime(Seconds::of(7200)))));
+    $off = Layer::of(Reach::of(sampling: Sampling::of(auto: AutoSample::off(), autoRuns: Listed::of(SampledRun::Branches))));
+    $runs = Layer::of(Reach::of(sampling: Sampling::of(autoRuns: Listed::of(SampledRun::Branches))));
+
+    expect($count->written(ProjectRoot::origin())->line())
+        ->toBe('{"sampling":{"auto":20000,"autoRuns":["pullRequests","mergeGroups"]}}')
+        ->and($count->php(ProjectRoot::origin())->code())->toContain('Sampling::auto(20000)')
+        ->and($count->php(ProjectRoot::origin())->code())->toContain("Sampling::autoRuns('pullRequests', 'mergeGroups')")
+        ->and($duration->written(ProjectRoot::origin())->line())->toBe('{"sampling":{"auto":"2h"}}')
+        ->and($duration->php(ProjectRoot::origin())->code())->toContain("Sampling::auto('2h')")
+        ->and($duration->php(ProjectRoot::origin())->code())->not->toContain('Sampling::autoRuns(')
+        ->and($off->written(ProjectRoot::origin())->line())->toBe('{"sampling":{"auto":"off","autoRuns":["branches"]}}')
+        ->and($off->php(ProjectRoot::origin())->code())->toContain('Sampling::autoOff()')
+        ->and($off->php(ProjectRoot::origin())->code())->toContain("Sampling::autoRuns('branches')")
+        ->and($runs->written(ProjectRoot::origin())->line())->toBe('{"sampling":{"autoRuns":["branches"]}}')
+        ->and($runs->php(ProjectRoot::origin())->code())->toContain("Sampling::autoRuns('branches')")
+        ->and($runs->php(ProjectRoot::origin())->code())->not->toContain('Sampling::auto(');
+});
+
+it('reads sampling.auto and sampling.autoRuns as a config writes them', function (): void {
+    $sampling = Configs::settings([
+        'runner' => 'pest',
+        'sampling' => ['auto' => '90m', 'autoRuns' => ['mergeGroups', 'branches']],
+    ])->reach()->sampling();
+
+    expect($sampling->auto())->toEqual(AutoSample::aboveRunnerTime(Seconds::of(5400)))
+        ->and([...$sampling->autoRuns()])->toBe([SampledRun::MergeGroups, SampledRun::Branches])
+        ->and(Configs::settings(['runner' => 'pest', 'sampling' => ['auto' => 300]])->reach()->sampling()->auto())
+        ->toEqual(AutoSample::aboveMutants(300));
+});
+
+it('refuses a threshold of no mutants, and a kind of run that never samples by itself', function (): void {
+    expect(Configs::problems(Configs::layer(['sampling' => ['auto' => 0, 'autoRuns' => ['defaultBranch']]])))->toBe([
+        'sampling.auto: expected "off", a count of mutants of at least 1, or a duration such as 90s, 15m, 1h30m or 7d, got 0',
+        'sampling.autoRuns[0]: expected "pullRequests", "mergeGroups" or "branches", got "defaultBranch"',
+    ]);
 });

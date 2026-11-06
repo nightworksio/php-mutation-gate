@@ -14,7 +14,9 @@ use NightWorksIO\MutationGate\Core\Http\Token;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
+use NightWorksIO\MutationGate\Core\Proof\Compression;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\ObjectLedger;
@@ -26,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Written;
+use NightWorksIO\MutationGate\Tests\Fakes\ZstandardFake;
 use NightWorksIO\MutationGate\Tests\Support\Cloud;
 use NightWorksIO\MutationGate\Tests\Support\FixedTokens;
 use NightWorksIO\MutationGate\Tests\Support\LedgerRead;
@@ -177,4 +180,17 @@ it('says why it reads and keeps no coverage map where there is no token, or the 
         ->toEqual(NotWritten::because(sprintf('%s could not be written: no token: invalid_grant', $named)))
         ->and($large->companion(objectStoreAt(FixedTokens::of('t')), Scope::branch('main'), Companion::Coverage))
         ->toEqual(CannotJudge::because(sprintf('The kept coverage map at %s could not be read: it is larger than 4200000 bytes.', $named)));
+});
+
+it('writes and reads back a ledger packed as its codec says, and says why it cannot pack one as zstd where zstd is not here', function (): void {
+    $cloud = new Cloud();
+    $store = objectStoreAt(FixedTokens::of('t'));
+    $ledgers = ObjectLedger::under($cloud->exchange(), 'gate')->encoding(LedgerCodec::of(Compression::Zstd, 9, ZstandardFake::here()));
+    $ledgers->write($store, Scope::branch('main'), objectLedgerProved());
+    $absent = ObjectLedger::under(new Cloud()->exchange(), 'gate')->encoding(LedgerCodec::of(Compression::Zstd, 9, ZstandardFake::absent()));
+
+    expect(str_starts_with($cloud->requests[0]['body'], ZstandardFake::MAGIC))->toBeTrue()
+        ->and(count(LedgerRead::ledger($ledgers->read($store, Scope::branch('main')))->proofs()))->toBe(1)
+        ->and(count(LedgerRead::ledger($ledgers->within(LedgerLimits::standard())->read($store, Scope::branch('main')))->proofs()))->toBe(1)
+        ->and($absent->write($store, Scope::branch('main'), objectLedgerProved()))->toEqual(NotWritten::because('fake is not here'));
 });

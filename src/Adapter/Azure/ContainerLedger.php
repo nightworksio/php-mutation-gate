@@ -20,7 +20,9 @@ use NightWorksIO\MutationGate\Core\Http\Tokens;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
+use NightWorksIO\MutationGate\Core\Proof\EncodesLedgers;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\ObjectLedger;
 use NightWorksIO\MutationGate\Core\Proof\ObjectStore;
@@ -42,7 +44,7 @@ use function sprintf;
  *
  * @internal
  */
-final readonly class ContainerLedger implements ObjectStore, ProofStore
+final readonly class ContainerLedger implements EncodesLedgers, ObjectStore, ProofStore
 {
     private const string BLOB = 'https://%s.blob.core.windows.net/%s/%s';
 
@@ -133,6 +135,18 @@ final readonly class ContainerLedger implements ObjectStore, ProofStore
     {
         return new self(
             $this->ledgers->within($limits),
+            $this->account,
+            $this->container,
+            $this->publicContainer,
+            $this->defaultBranch,
+            $this->tokens,
+        );
+    }
+
+    public function encoding(LedgerCodec $codec): static
+    {
+        return new self(
+            $this->ledgers->encoding($codec),
             $this->account,
             $this->container,
             $this->publicContainer,

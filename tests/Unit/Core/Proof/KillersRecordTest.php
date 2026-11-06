@@ -43,6 +43,25 @@ it('writes each ranking as index and kills pairs, most kills first, and reads ba
         ->and(KillersRecord::read(Node::decode('{}'), []))->toEqual(KillHistory::none());
 });
 
+it('places each ranking of a mutant a ledger\'s proofs record where they record it, the newest last, keeps any other by its id, and reads each back', function () use ($makeHistory, $makeMutant): void {
+    $other = MutantId::hash(Path::of('src/Tax.php'), 'Minus', "-a\n+b", 0);
+    $history = $makeHistory()->withMutant($other, Ranking::of(Kills::of(TestId::of('c'), 3)));
+    $placed = KillersRecord::placing($history, ['a' => 0, 'b' => 1, 'c' => 2], [$other->value() => [1, 4]]);
+    $mutant = $makeMutant();
+
+    expect(JsonText::compact($placed))->toBe(JsonText::compact([
+        'placed' => [[1, 4, [[2, 3]]]],
+        'mutants' => [$mutant->value() => [[0, 2], [1, 1]]],
+        'functions' => ['src/Money.php' => ['add' => [[2, 4]]]],
+    ]))
+        ->and(KillersRecord::read(Node::decode(JsonText::compact($placed)), ['a', 'b', 'c'], [1 => ['x', 'y', 'z', 'w', $other->value()]]))
+        ->toEqual(KillHistory::none()
+            ->withMutant($other, Ranking::of(Kills::of(TestId::of('c'), 3)))
+            ->withMutant($mutant, Ranking::of(Kills::of(TestId::of('b'), 1), Kills::of(TestId::of('a'), 2)))
+            ->withFunction(Enclosing::named(Path::of('src/Money.php'), 'add'), Ranking::of(Kills::of(TestId::of('c'), 4))))
+        ->and(JsonText::compact(KillersRecord::placing(KillHistory::none(), [], [])))->toBe('{"mutants":{},"functions":{}}');
+});
+
 it('reads back a mutant, a file and a function whose names read as numbers', function (): void {
     $id = MutantId::parse('123456789012');
     $numeric = ($id instanceof MutantId ? KillHistory::none()->withMutant($id, Ranking::of(Kills::of(TestId::of('a'), 1))) : KillHistory::none())

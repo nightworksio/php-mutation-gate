@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantRecord;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Mutant\RejectionRecord;
 use NightWorksIO\MutationGate\Core\Removal\Removable;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
@@ -152,7 +153,7 @@ final readonly class MutantJson
 
         return match (true) {
             $reason instanceof Reason => ['reason' => $reason->text()],
-            $reason instanceof Rejection => [MutantRecord::REJECTION => MutantRecord::rejection($reason)],
+            $reason instanceof Rejection => [MutantRecord::REJECTION => RejectionRecord::of($reason)],
             default => [],
         };
     }

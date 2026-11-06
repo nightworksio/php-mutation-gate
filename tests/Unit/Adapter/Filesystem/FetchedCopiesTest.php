@@ -10,8 +10,10 @@ use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
+use NightWorksIO\MutationGate\Core\Proof\Compression;
 use NightWorksIO\MutationGate\Core\Proof\Copies;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
@@ -19,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
+use NightWorksIO\MutationGate\Tests\Fakes\ZstandardFake;
 use NightWorksIO\MutationGate\Tests\Support\LedgerRead;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -144,4 +147,18 @@ it('reads the copies fetch writes into .mutation-gate/fetched', function (): voi
     $kept = new ProofStoreFake();
 
     expect(FetchedCopies::over($kept, Copies::Merged))->toEqual(FetchedCopies::of($kept, LedgerDirectory::at('.mutation-gate/fetched'), Copies::Merged));
+});
+
+it('reads the kept store\'s copy and the fetched one, and writes the kept one, as its codec says', function (): void {
+    $codec = LedgerCodec::of(Compression::Zstd, 9, ZstandardFake::here());
+    $keptRoot = Scratch::directory();
+    $fetchedRoot = Scratch::directory();
+    LedgerDirectory::at($fetchedRoot)->encoding($codec)->write(Scope::branch('main'), copyProving('src/Fetched.php', '2026-10-01T10:00:00Z'));
+    $kept = FetchedCopies::of(LedgerDirectory::at($keptRoot), LedgerDirectory::at(Scratch::directory()), Copies::Newest)->encoding($codec);
+    $kept->write(Scope::branch('main'), copyProving('src/Kept.php', '2026-10-01T11:00:00Z'));
+    $fetched = FetchedCopies::of(new ProofStoreFake(), LedgerDirectory::at($fetchedRoot), Copies::Newest)->encoding($codec);
+
+    expect(str_starts_with((string) file_get_contents(sprintf('%s/refs/heads/main/ledger.json.gz', $keptRoot)), ZstandardFake::MAGIC))->toBeTrue()
+        ->and(unitsReadFrom($kept))->toBe(['src/Kept.php'])
+        ->and(unitsReadFrom($fetched))->toBe(['src/Fetched.php']);
 });

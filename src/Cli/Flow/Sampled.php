@@ -64,10 +64,37 @@ final readonly class Sampled
 
         return $baseline instanceof CannotJudge
             ? $baseline
-            : $this->sampleOf($inventory, $toRun, $reached, $newCode, $newest, $base, $baseline);
+            : $this->sampleOf($mode, $inventory, $toRun, $reached, $newCode, $newest, $base, $baseline);
+    }
+
+    /** These units but those of a tree held to 100, which runs whole; or why the committed baseline cannot be read. */
+    public function samplable(Inventory $inventory, Units $units): Units|CannotJudge
+    {
+        $baseline = Baselines::of($this->adapters, $this->settings, $this->setup)->committed();
+
+        return $baseline instanceof CannotJudge ? $baseline : $units->except($this->whole($inventory, $baseline));
+    }
+
+    /** The units of an inventory that hold a line of this new code. */
+    public static function holdingNewCode(Inventory $inventory, Changes $newCode): Units
+    {
+        $lines = Reach::nothing(Packages::of($inventory->trees));
+
+        foreach ($newCode as $change) {
+            $lines = $lines->withLines($change->path(), $change->lines());
+        }
+
+        $holding = Units::none();
+
+        foreach ($inventory->units as $unit) {
+            $holding = $lines->changesLinesOf($unit) ? $holding->with($unit) : $holding;
+        }
+
+        return $holding;
     }
 
     private function sampleOf(
+        Mode $mode,
         Inventory $inventory,
         Units $toRun,
         Reached $reached,
@@ -83,7 +110,7 @@ final readonly class Sampled
             SampleSize::of($sampling->margin(), $sampling->confidence(), $sampling->minUnits()),
         );
         $sample = Sample::drawn($seed, $sampling->confidence(), $sampling->margin());
-        $exact = $this->exact($inventory, $reached, $newCode);
+        $exact = $this->exact($inventory, $reached, $newCode, $mode);
         $estimated = UnitMutants::of($this->adapters, $this->settings, $newest);
 
         foreach ($inventory->trees as $tree) {
@@ -117,6 +144,20 @@ final readonly class Sampled
         return $drawing->into($sample, $unknown, ...$candidates);
     }
 
+    /** The units of the trees held to 100. */
+    private function whole(Inventory $inventory, Baseline $baseline): Units
+    {
+        $whole = Units::none();
+
+        foreach ($inventory->trees as $tree) {
+            $whole = $this->isWhole($tree, $baseline)
+                ? $whole->and($inventory->units->within($this->heldBy($inventory, $tree)))
+                : $whole;
+        }
+
+        return $whole;
+    }
+
     /** The paths of the units a tree holds. */
     private function heldBy(Inventory $inventory, Tree $tree): Paths
     {
@@ -133,20 +174,13 @@ final readonly class Sampled
      * The units known exactly though they run: those of new code, and those
      * a change-scoped run reaches.
      */
-    private function exact(Inventory $inventory, Reached $reached, Changes $newCode): Units
+    private function exact(Inventory $inventory, Reached $reached, Changes $newCode, Mode $mode): Units
     {
-        $lines = Reach::nothing(Packages::of($inventory->trees));
-
-        foreach ($newCode as $change) {
-            $lines = $lines->withLines($change->path(), $change->lines());
-        }
-
-        $scoped = $reached->changed() instanceof Changes;
-        $exact = Units::none();
+        $scoped = $reached->changed() instanceof Changes && ! $mode->samplesReached();
+        $exact = self::holdingNewCode($inventory, $newCode);
 
         foreach ($inventory->units as $unit) {
-            $known = $lines->changesLinesOf($unit) || ($scoped && $reached->reach()->reaches($unit));
-            $exact = $known ? $exact->with($unit) : $exact;
+            $exact = $scoped && $reached->reach()->reaches($unit) ? $exact->with($unit) : $exact;
         }
 
         return $exact;

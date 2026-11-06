@@ -1167,6 +1167,23 @@
                         "merged"
                     ],
                     "default": "newest"
+                },
+                "ownScope": {
+                    "type": "boolean"
+                },
+                "compression": {
+                    "enum": [
+                        "auto",
+                        "gzip",
+                        "zstd"
+                    ],
+                    "default": "auto"
+                },
+                "compressionLevel": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 19,
+                    "default": 9
                 }
             },
             "additionalProperties": false
@@ -2284,6 +2301,35 @@
                 "seed": {
                     "type": "string",
                     "minLength": 1
+                },
+                "auto": {
+                    "anyOf": [
+                        {
+                            "const": "off"
+                        },
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                        }
+                    ],
+                    "default": "off"
+                },
+                "autoRuns": {
+                    "type": "array",
+                    "items": {
+                        "enum": [
+                            "pullRequests",
+                            "mergeGroups",
+                            "branches"
+                        ]
+                    },
+                    "default": [
+                        "pullRequests"
+                    ]
                 }
             },
             "additionalProperties": false
@@ -3527,6 +3573,21 @@
                                 "together",
                                 "merged"
                             ]
+                        },
+                        "ownScope": {
+                            "type": "boolean"
+                        },
+                        "compression": {
+                            "enum": [
+                                "auto",
+                                "gzip",
+                                "zstd"
+                            ]
+                        },
+                        "compressionLevel": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 19
                         }
                     },
                     "additionalProperties": false
@@ -4595,6 +4656,31 @@
                         "seed": {
                             "type": "string",
                             "minLength": 1
+                        },
+                        "auto": {
+                            "anyOf": [
+                                {
+                                    "const": "off"
+                                },
+                                {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                }
+                            ]
+                        },
+                        "autoRuns": {
+                            "type": "array",
+                            "items": {
+                                "enum": [
+                                    "pullRequests",
+                                    "mergeGroups",
+                                    "branches"
+                                ]
+                            }
                         }
                     },
                     "additionalProperties": false

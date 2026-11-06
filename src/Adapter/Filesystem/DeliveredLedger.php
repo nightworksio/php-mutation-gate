@@ -9,7 +9,9 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
+use NightWorksIO\MutationGate\Core\Proof\EncodesLedgers;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Written;
@@ -24,7 +26,7 @@ use function sprintf;
  *
  * @internal
  */
-final readonly class DeliveredLedger implements ProofStore
+final readonly class DeliveredLedger implements EncodesLedgers, ProofStore
 {
     /** What a run says of the ledger it left, so it never reads as one the store holds. */
     private const string LEFT = 'It is not in the store until deliver writes it there for %s.';
@@ -40,6 +42,14 @@ final readonly class DeliveredLedger implements ProofStore
     public static function over(ProofStore $read, DeliveryDirectory $delivery): self
     {
         return new self($read, $delivery);
+    }
+
+    /** Reading as this codec reads; the delivery is written gzipped, as `deliver` reads it. */
+    public function encoding(LedgerCodec $codec): static
+    {
+        $read = $this->read instanceof EncodesLedgers ? $this->read->encoding($codec) : $this->read;
+
+        return new self($read, $this->delivery);
     }
 
     public function read(Scope $scope): Ledger|Unreadable

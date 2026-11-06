@@ -9,6 +9,12 @@ it('holds a duration in seconds', function (): void {
     expect(Seconds::of(12.4)->seconds())->toBe(12.4);
 });
 
+it('says a duration to the millisecond, as a ledger keeps it', function (): void {
+    expect(Seconds::of(0.35933804512)->toTheMillisecond())->toBe(0.359)
+        ->and(Seconds::of(0.0015)->toTheMillisecond())->toBe(0.002)
+        ->and(Seconds::of(12.4)->toTheMillisecond())->toBe(12.4);
+});
+
 it('holds no time at all', function (): void {
     expect(Seconds::none()->seconds())->toBe(0.0);
 });

@@ -29,6 +29,6 @@ it('says how many units it sampled, from which seed, for which margin and confid
 
 it('says that it has nothing to sample where every tree runs whole', function (): void {
     expect(SampleText::planned(Sample::drawn('a1b2c3', Confidence::NinetyFive, 2.0)))->toBe([
-        '--sample has nothing to sample: every tree is held to 100, or each unit it runs is known exactly.',
+        'The run has nothing to sample: every tree is held to 100, or each unit it runs is known exactly.',
     ]);
 });

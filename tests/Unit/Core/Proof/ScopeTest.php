@@ -14,6 +14,13 @@ it('is a branch\'s ref or a pull request\'s', function (): void {
         ->and(Scope::pullRequest(12)->ref())->toBe('refs/pull/12');
 });
 
+it('says whether it is a branch\'s', function (): void {
+    expect(Scope::branch('feat/x')->isBranch())->toBeTrue()
+        ->and(Scope::pullRequest(12)->isBranch())->toBeFalse()
+        ->and(Scope::of('refs/tags/v1.0.0')->isBranch())->toBeFalse()
+        ->and(Scope::of('xrefs/heads/main')->isBranch())->toBeFalse();
+});
+
 it('reads a ref that is a branch\'s or a pull request\'s', function (string $ref): void {
     expect(Scope::parse($ref))->toEqual(Scope::of($ref));
 })->with(['refs/heads/main', 'refs/heads/feat/x', 'refs/heads/v1.2', 'refs/heads/a.b/c', 'refs/heads/@home', 'refs/pull/12']);

@@ -554,12 +554,12 @@ final readonly class Fixtures
                     expect(true)->toBeTrue();
                 })->only();
                 PHP, 'commits no focused test and no unexplained skip'),
-            Fixture::coverage('G7', 'src/Core/Planted/Uncovered.php', <<<'PHP'
+            Fixture::coverage('G7', 'src/Core/Hint/Planted/Uncovered.php', <<<'PHP'
                 <?php
 
                 declare(strict_types=1);
 
-                namespace NightWorksIO\MutationGate\Core\Planted;
+                namespace NightWorksIO\MutationGate\Core\Hint\Planted;
 
                 /**
                  * A class no test reaches.
@@ -573,7 +573,7 @@ final readonly class Fixtures
                         return 'never';
                     }
                 }
-                PHP, 'Core/Planted/Uncovered'),
+                PHP, 'Core/Hint/Planted/Uncovered'),
             Fixture::notDrivable('G8', 'Planting a survivor means running mutation testing over a copy, which runs in CI only, never in this suite.'),
             Fixture::edit('G9', 'phpunit.xml', 'failOnWarning="true"', 'failOnWarning="false"', 'fails the run on every diagnostic', 'failOnWarning is not'),
             Fixture::suite('G10', 'tests/Unit/Core/PlantedLoadTest.php', <<<'PHP'

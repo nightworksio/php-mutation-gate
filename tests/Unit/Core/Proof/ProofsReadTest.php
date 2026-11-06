@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\KilledRecords;
 use NightWorksIO\MutationGate\Core\Proof\InputsTable;
@@ -34,4 +35,14 @@ it('builds each unit and each run once, for every proof of it', function (): voi
         ->and($read->run('github:1/1', $at, $base, $first->securityOnly()))->not->toBe($read->run('github:1/1', $at, $base, $first))
         ->and($read->run('github:1/1', $at, $base, $first->inSuite(SuiteName::of('unit'))))->toEqual(Run::of('github:1/1', $at, $base)->profiled($first->inSuite(SuiteName::of('unit'))))
         ->and([$read->killed(), $read->inputs()])->toBe([$killed, $inputs]);
+});
+
+it('names a base by its index among the ledger\'s bases, and refuses an index past them or at one that is no digest', function (): void {
+    $read = ProofsRead::of(KilledRecords::of([], []), InputsTable::read(Node::decode('{}')), [str_repeat('b', 64), 'not a digest']);
+
+    expect($read->base(Node::decode('0')))->toEqual(Digest::of(str_repeat('b', 64)))
+        ->and(static fn(): Digest => $read->base(Node::decode('1')))->toThrow(NotInShape::class, 'a base')
+        ->and(static fn(): Digest => $read->base(Node::decode('2')))->toThrow(NotInShape::class, 'a base')
+        ->and(static fn(): Digest => ProofsRead::of(KilledRecords::of([], []), InputsTable::read(Node::decode('{}')))->base(Node::decode('0')))
+        ->toThrow(NotInShape::class, 'a base');
 });

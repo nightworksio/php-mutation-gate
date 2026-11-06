@@ -24,7 +24,6 @@ use NightWorksIO\MutationGate\Core\Proof\Key\TestFiles;
 use NightWorksIO\MutationGate\Core\Proof\Key\Tests;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
-use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -122,7 +121,7 @@ function reachKeys(array $changed = [], string $fixture = 'rates', string $platf
     $test = static fn(string $path, string $code): TestFile => TestFile::testCase(Fingerprint::of(Path::of($path), Digest::of($path)), Contents::of($code));
 
     return ContentKeys::of(
-        Version::of('nightworksio/mutation-gate', '1.0.0', 'abc'),
+        Digest::sha256Of('verdict code'),
         '{}',
         Identity::of('phpunit', Versions::none(), Digest::of($platform)),
         NoAnalyser::configured(),

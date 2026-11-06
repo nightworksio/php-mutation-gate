@@ -42,6 +42,7 @@ use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Inputs;
 use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\LimitHistory;
@@ -159,28 +160,42 @@ $data = static function () use ($makeLedger): array {
     return is_array($data) ? $data : [];
 };
 $written = static fn(array $file): string => Gzip::pack(JsonText::compact($file));
+// The same ledger as format 4 wrote it: its tests listed, each base by its digest, and each mutant's ranking by its id.
+$formatFour = static fn(): array => [
+    ...$data(),
+    'format' => 4,
+    'tests' => ['MoneyTest::adds', 'CartTest::totals', 'TaxTest::rounds'],
+    'proofs' => array_map(
+        static fn(mixed $proof): array => [...is_array($proof) ? $proof : [], 'base' => $base],
+        is_array($data()['proofs']) ? $data()['proofs'] : [],
+    ),
+    'killers' => [
+        'mutants' => [$makeKilledId()->value() => [[0, 3], [2, 1]]],
+        'functions' => ['src/Money.php' => ['add' => [[2, 2]]]],
+    ],
+];
 
-it('writes compact JSON, gzipped: the newest proofs first, killed mutants as tuples with their killers, survivors in full, and the kill history', function () use ($makeLedger, $keyA, $keyB, $base, $makeKilledId, $makeMinusId, $makeSurvivedId): void {
+it('writes compact JSON, gzipped: the newest proofs first, at their base\'s index, killed mutants as tuples with their killers, survivors in full, tests under their classes, and the kill history placed where the proofs record it', function () use ($makeLedger, $keyA, $keyB, $base, $makeKilledId, $makeMinusId, $makeSurvivedId): void {
     $ledger = $makeLedger();
     $killedId = $makeKilledId();
     $minusId = $makeMinusId();
     $survivedId = $makeSurvivedId();
 
     expect(Gunzipped::of(LedgerFile::encode($ledger)))->toBe(JsonText::compact([
-        'format' => 4,
+        'format' => 5,
         'bases' => [$base],
         'mutators' => ['Plus', 'Minus'],
-        'tests' => ['MoneyTest::adds', 'CartTest::totals', 'TaxTest::rounds'],
+        'tests' => ['MoneyTest' => ['adds'], 'CartTest' => ['totals'], 'TaxTest' => ['rounds']],
         'inputs' => [
             'mutation' => [str_repeat('2', 64)],
             'tests' => [['tests/MoneyTest.php', str_repeat('3', 64)]],
             'commits' => [str_repeat('4', 40)],
         ],
         'proofs' => [
-            $keyB => ['unit' => 'src/B.php', 'base' => $base, 'at' => '2026-09-29T21:00:00Z', 'run' => 'github:2/1', 'mutants' => []],
+            $keyB => ['unit' => 'src/B.php', 'base' => 0, 'at' => '2026-09-29T21:00:00Z', 'run' => 'github:2/1', 'mutants' => []],
             $keyA => [
                 'unit' => 'src/Money.php',
-                'base' => $base,
+                'base' => 0,
                 'at' => '2026-09-29T20:48:17Z',
                 'run' => 'github:1/1',
                 'mutants' => [
@@ -205,7 +220,8 @@ it('writes compact JSON, gzipped: the newest proofs first, killed mutants as tup
         ],
         'timings' => ['src/Money.php' => ['seconds' => 12.4, 'runner' => 'infection', 'at' => '2026-09-29T20:48:17Z']],
         'killers' => [
-            'mutants' => [$killedId->value() => [[0, 3], [2, 1]]],
+            'placed' => [[1, 0, [[0, 3], [2, 1]]]],
+            'mutants' => new stdClass(),
             'functions' => ['src/Money.php' => ['add' => [[2, 2]]]],
         ],
         'passed' => ['commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', 'check' => 'mutation-gate', 'ownScopeProofs' => 0],
@@ -214,7 +230,7 @@ it('writes compact JSON, gzipped: the newest proofs first, killed mutants as tup
 
 it('writes an empty ledger as empty lists and maps and no passing commit', function (): void {
     expect(Gunzipped::of(LedgerFile::encode(Ledger::empty())))
-        ->toBe('{"format":4,"bases":[],"mutators":[],"tests":[],"inputs":{"mutation":[],"tests":[],"commits":[]},"proofs":{},"timings":{},"killers":{"mutants":{},"functions":{}}}');
+        ->toBe('{"format":5,"bases":[],"mutators":[],"tests":{},"inputs":{"mutation":[],"tests":[],"commits":[]},"proofs":{},"timings":{},"killers":{"mutants":{},"functions":{}}}');
 });
 
 it('reads back the ledger it wrote, each killed mutant as the kill it proves', function () use ($makeLedger, $makeReadBack): void {
@@ -331,11 +347,11 @@ it('says why a file holds no ledger it reads: no whole gzip stream, or another f
     string $file,
     string $why,
 ): void {
-    expect(LedgerFile::read($file, LedgerLimits::standard()))->toEqual(CannotJudge::because($why));
+    expect(LedgerFile::read($file, LedgerLimits::standard(), LedgerCodec::gzipOnly()))->toEqual(CannotJudge::because($why));
 })->with([
     'the first format' => [fn(): string => Gzip::pack('{"format": 1, "proofs": {}}'), 'The ledger is of a format this gate does not read.'],
     'the third format' => [fn(): string => Gzip::pack('{"format": 3, "proofs": {}}'), 'The ledger is of a format this gate does not read.'],
-    'the fifth format' => [fn(): string => Gzip::pack('{"format": 5, "proofs": {}}'), 'The ledger is of a format this gate does not read.'],
+    'the sixth format' => [fn(): string => Gzip::pack('{"format": 6, "proofs": {}}'), 'The ledger is of a format this gate does not read.'],
     'text that is not JSON' => [fn(): string => Gzip::pack('{"format": 4, "passed": '), 'The ledger is of a format this gate does not read.'],
     'not gzipped' => ['{"format": 4, "proofs": {}}', 'The ledger is not a whole gzip stream.'],
 ]);
@@ -346,11 +362,11 @@ it('reads a ledger within the limits, and says one that inflates past them is to
     $bytes = LedgerFile::encode($ledger);
     $inflated = strlen(Gunzipped::of($bytes));
 
-    expect(LedgerFile::read($bytes, LedgerLimits::of(strlen($bytes), $inflated, 60.0)))->toEqual(LedgerFile::decode($bytes))
+    expect(LedgerFile::read($bytes, LedgerLimits::of(strlen($bytes), $inflated, 60.0), LedgerCodec::gzipOnly()))->toEqual(LedgerFile::decode($bytes))
         ->and(LedgerFile::decode($bytes)->proofs())->toHaveCount(count($ledger->proofs()))
-        ->and(LedgerFile::read($bytes, LedgerLimits::of(strlen($bytes), $inflated - 1, 60.0)))
+        ->and(LedgerFile::read($bytes, LedgerLimits::of(strlen($bytes), $inflated - 1, 60.0), LedgerCodec::gzipOnly()))
         ->toEqual(TooLarge::because(sprintf('The ledger inflates to more than %d bytes.', $inflated - 1)))
-        ->and(LedgerFile::read($bytes, LedgerLimits::of(strlen($bytes) - 1, $inflated, 60.0)))
+        ->and(LedgerFile::read($bytes, LedgerLimits::of(strlen($bytes) - 1, $inflated, 60.0), LedgerCodec::gzipOnly()))
         ->toEqual(TooLarge::because(sprintf('it is larger than %d bytes', strlen($bytes) - 1)));
 });
 
@@ -386,9 +402,11 @@ it('drops a proof that is not well formed and keeps the rest', function (Closure
 
     $file = $data();
     $file['proofs'] = $spoil($file['proofs'], $keyA);
+    $read = LedgerFile::decode($written($file));
 
-    expect(LedgerFile::decode($written($file)))->toEqual($ledger->withoutProof(Digest::of($keyA)))
-        ->and(LedgerFile::decode($written($file))->proofs()->has(Digest::of($keyB)))->toBeTrue();
+    expect($read->withLearned(KillHistory::none()))->toEqual($ledger->withoutProof(Digest::of($keyA))->withLearned(KillHistory::none()))
+        ->and($read->proofs()->has(Digest::of($keyB)))->toBeTrue()
+        ->and([...$read->learned()->killers()->functions()])->toEqual([...$ledger->learned()->killers()->functions()]);
 })->with([
     'a key that is not a SHA-256' => [static fn(array $proofs, string $key): array => [...$proofs, strtoupper($key) => $proofs[$key], $key => null]],
     'a unit that is not text' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['unit' => null]])],
@@ -453,8 +471,9 @@ it('reads proofs and timings that are not maps as none, and keeps what else it h
     $ledger = $makeLedger();
 
     $file = [...$data(), 'proofs' => 7, 'timings' => 'none'];
+    $functions = KillHistory::none()->withFunctions(...$ledger->learned()->killers()->functions());
 
-    expect(LedgerFile::decode($written($file)))->toEqual(Ledger::empty()->atBase(Digest::of($base))->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708'), 'mutation-gate', 0)))->withLearned($ledger->learned()->killers()));
+    expect(LedgerFile::decode($written($file)))->toEqual(Ledger::empty()->atBase(Digest::of($base))->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708'), 'mutation-gate', 0)))->withLearned($functions));
 });
 
 it('drops each kill pair that is not well formed, a ranking left with none, and an entry under no name', function () use ($data, $written, $makeKilledId): void {
@@ -636,6 +655,23 @@ function ledgerFileOfKills(int $proofs): Ledger
     return Ledger::empty()->withProofs(Proofs::of(...$held))->atBase($base);
 }
 
+it('reads back the kill history it placed among several proofs\' records, each where the newest proof records it', function (): void {
+    $ledger = ledgerFileOfKills(3);
+    $history = KillHistory::none();
+
+    foreach ($ledger->proofs() as $proof) {
+        foreach ($proof->kills() as $place => $kill) {
+            $history = $place % 3 === 1 ? $history->withMutant($kill->id(), Ranking::of(Kills::of(TestId::of('T001::t1'), max(1, $place)))) : $history;
+        }
+    }
+
+    $read = LedgerFile::decode(LedgerFile::encode($ledger->withLearned($history)));
+
+    expect(iterator_count($history->mutants()))->toBe(9)
+        ->and($read->learned()->killers())->toEqual($history)
+        ->and(Decoded::at(Gunzipped::of(LedgerFile::encode($ledger->withLearned($history))), 'killers', 'mutants'))->toBe([]);
+});
+
 it('shares among its proofs each unit, run, set of killers and line it reads', function (): void {
     $proofs = [...LedgerFile::decode(LedgerFile::encode(ledgerFileOfKills(201)))->proofs()];
     [$first, $again] = array_values(array_filter(
@@ -652,14 +688,14 @@ it('shares among its proofs each unit, run, set of killers and line it reads', f
         ->and(count(array_unique(array_map(static fn(Proof $proof): int => spl_object_id($proof->run()), $proofs))))->toBe(1);
 });
 
-it('reads a ledger at a peak of no more than twelve bytes of memory for each byte of its text', function (): void {
+it('reads a ledger at a peak of no more than fourteen bytes of memory for each byte of its text', function (): void {
     $bytes = LedgerFile::encode(ledgerFileOfKills(2_000));
     $text = Gunzipped::of($bytes);
     $before = memory_get_usage();
     memory_reset_peak_usage();
     $read = LedgerFile::decode($bytes);
 
-    expect(memory_get_peak_usage() - $before)->toBeLessThan(12 * strlen($text))
+    expect(memory_get_peak_usage() - $before)->toBeLessThan(14 * strlen($text))
         ->and($read->proofs())->toHaveCount(2_000);
 });
 
@@ -669,7 +705,7 @@ it('reads a key that reads as a number as text, dropping what is not well formed
     $file = $data();
     $held = $file[$section] ?? [];
     $file[$section] = is_array($held) ? [...$held, ...$entries] : $entries;
-    $read = LedgerFile::read($written($file), LedgerLimits::standard());
+    $read = LedgerFile::read($written($file), LedgerLimits::standard(), LedgerCodec::gzipOnly());
 
     expect($read instanceof Ledger ? LedgerFile::encode($read) : $read)->toBe(LedgerFile::encode($readBack));
 })->with([
@@ -737,7 +773,7 @@ it('writes the holding tests that run a held unit as indices into its tests, and
     $text = $json;
     $read = LedgerFile::decode(LedgerFile::encode($ledger))->proofs()->proofFor(Digest::of(str_repeat('c', 64)));
 
-    expect(Decoded::at($text, 'tests'))->toBe(['HeldTest::doubles', 'HeldTest::halves'])
+    expect(Decoded::at($text, 'tests'))->toBe(['HeldTest' => ['doubles', 'halves']])
         ->and(Decoded::at($text, 'proofs', str_repeat('c', 64), 'judging'))->toBe([0, 1])
         ->and($read instanceof Proof ? $read->judging() : TestIds::none())->toEqual($judging);
 });
@@ -848,19 +884,19 @@ it('writes what the learned limits are read from in their own sections, oldest f
         ->afterRuns(ShardsAtOnce::of(4), ShardsAtOnce::of(6));
     $data = json_decode(Gunzipped::of(LedgerFile::encode($makeLedger()->withLearned($limits))), associative: true);
 
-    expect(is_array($data) ? [$data['format'], $data['kills'], $data['concurrency']] : [])->toBe([4, [1.5, 2.25], [4, 6]])
+    expect(is_array($data) ? [$data['format'], $data['kills'], $data['concurrency']] : [])->toBe([5, [1.5, 2.25], [4, 6]])
         ->and(json_decode(Gunzipped::of(LedgerFile::encode($makeLedger())), associative: true))
         ->not->toHaveKeys(['kills', 'concurrency'])
         ->and(LedgerFile::decode(LedgerFile::encode($makeLedger()->withLearned($limits))))
         ->toEqual($makeReadBack()->withLearned($limits));
 });
 
-it('reads a format 4 ledger written before the learned limits as having learned none of them, its proofs intact', function () use ($data, $written, $makeReadBack): void {
-    $file = $data();
+it('reads a format 4 ledger written before the learned limits as having learned none of them, its proofs and kill history intact', function () use ($formatFour, $written, $makeReadBack): void {
+    $file = $formatFour();
     unset($file['kills'], $file['concurrency']);
     $read = LedgerFile::decode($written($file));
 
-    expect($file['format'])->toBe(4)
+    expect($read)->toEqual($makeReadBack())
         ->and($read->proofs())->toEqual($makeReadBack()->proofs())
         ->and($read->proofs())->not->toHaveCount(0)
         ->and($read->learned()->limits())->toEqual(LimitHistory::none())

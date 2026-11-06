@@ -163,6 +163,10 @@ class Mode(unittest.TestCase):
             action.mode_arguments("full", "main", "pull_request", "refs/pull/12/merge", PULL, "main"), ["--full"]
         )
 
+    def test_unproven_considers_every_unit_and_takes_no_proof(self):
+        self.assertEqual(action.mode_arguments("unproven", "", "pull_request", "refs/pull/12/merge", PULL, "main"), ["--unproven"])
+        self.assertEqual(action.mode_arguments("unproven", "", "schedule", "refs/heads/main", {}, "main"), ["--unproven"])
+
     def test_sampled_considers_what_auto_does_and_samples_it(self):
         self.assertEqual(
             action.mode_arguments("sampled", "", "pull_request", "refs/pull/12/merge", PULL, "main"),

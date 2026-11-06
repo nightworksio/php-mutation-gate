@@ -149,6 +149,11 @@ return new Configuration()
     // the socket only where PHP loads sockets, and run on their own otherwise
     // (ADR-0078); composer.json suggests it.
     ->ignoreErrorsOnExtension('ext-sockets', [ErrorType::DEV_DEPENDENCY_IN_PROD])
+    // A ledger is read and written as zstd through the zstd extension only
+    // where it is loaded, and through the zstd program or as gzip otherwise
+    // (ADR-0085); composer.json suggests it, and a PHP without it declares
+    // none of its functions.
+    ->ignoreUnknownFunctions(['zstd_compress', 'zstd_uncompress_add', 'zstd_uncompress_init'])
     // The tests' stand-in for Laravel's testing declares the classes a warm
     // worker's child reads by name, where a test loads it; the gate requires
     // no Laravel.

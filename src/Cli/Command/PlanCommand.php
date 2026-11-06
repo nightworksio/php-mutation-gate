@@ -129,7 +129,7 @@ final readonly class PlanCommand
 
         self::saidHowMeasured($made, $aside);
         self::saidReach($plan, $aside);
-        $aside->writeln(sprintf('Wrote %s, with %d shards.', Workspace::plan()->value(), count($plan)));
+        self::saidWritten($plan, $aside);
         self::estimated($composed, $plan, $aside);
         self::saidIfUnpatched($composed, count($plan), $aside);
 
@@ -145,6 +145,13 @@ final readonly class PlanCommand
     }
 
     /** Why the plan reaches what it does, what reaches every unit of a package first, before its shards. */
+    private static function saidWritten(Plan $plan, OutputInterface $aside): void
+    {
+        $shards = count($plan);
+        $noun = $shards === 1 ? 'shard' : 'shards';
+        $aside->writeln(sprintf('Wrote %s, with %d %s.', Workspace::plan()->value(), $shards, $noun));
+    }
+
     private static function saidReach(Plan $plan, OutputInterface $aside): void
     {
         $said = [];

@@ -8,6 +8,7 @@ use function array_map;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -31,15 +32,15 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
  * @internal the shape of a proof in the ledger file
  *
  * @phpstan-import-type ProofWritten from DigestsRecord as ProofDigests
- * @phpstan-import-type Full from MutantRecord
+ * @phpstan-import-type Kept from MutantRecord
  *
  * @phpstan-type Written array{
  *     unit: string,
- *     base: string,
+ *     base: int|string,
  *     at: string,
  *     run: string,
  *     matrix?: string,
- *     mutants: list<array{string, int, int, list<int>}|Full>,
+ *     mutants: list<array{string, int, int, list<int>}|Kept>,
  *     digests?: ProofDigests,
  *     judging?: list<int>,
  *     functions?: list<array{string, int, int}>,
@@ -57,17 +58,15 @@ final readonly class ProofRecord
     public const string JUDGING = 'judging';
     private const string BASE = 'base';
 
-    /**
-     * @param  array<string, int> $mutators each mutator's index in the ledger, by its name
-     * @param  array<string, int> $tests    each killing test's index in the ledger, by its id
-     * @param  InputsTable        $inputs   what the digests of the ledger's proofs share
-     * @return Written
-     */
-    public static function of(Proof $proof, array $mutators, array $tests, InputsTable $inputs): array
+    /** @return Written */
+    public static function of(Proof $proof, ProofsShared $shared): array
     {
+        $mutators = $shared->mutators();
+        $tests = $shared->tests();
+
         return [
             'unit' => $proof->unit()->value(),
-            self::BASE => $proof->run()->base()->value(),
+            self::BASE => $shared->base($proof->run()->base()),
             self::AT => $proof->run()->at()->value(),
             'run' => $proof->run()->id(),
             ...RunProfileRecord::of($proof->run()->profile()),
@@ -75,7 +74,7 @@ final readonly class ProofRecord
                 ...array_map(
                     static fn(Mutant $mutant): array => $mutant->status() === MutantStatus::Killed
                         ? MutantRecord::killed($mutant, $mutators, $tests)
-                        : MutantRecord::full($mutant),
+                        : MutantRecord::kept($mutant),
                     [...$proof->reported()],
                 ),
                 ...array_map(
@@ -83,7 +82,7 @@ final readonly class ProofRecord
                     [...$proof->kills()],
                 ),
             ],
-            ...self::digests($proof->inputs(), $inputs),
+            ...self::digests($proof->inputs(), $shared->inputs()),
             ...self::judging($proof->judging(), $tests),
             ...FunctionsRecord::of($proof->functions()),
         ];
@@ -121,13 +120,32 @@ final readonly class ProofRecord
             $read->run(
                 $entry->field('run')->text(),
                 self::instantIn($entry),
-                self::baseIn($entry),
+                self::baseIn($entry, $read),
                 RunProfileRecord::read($entry),
             ),
         )
             ->withInputs($inputs)
             ->judgedBy(self::judgingIn($entry->field(self::JUDGING), $read))
             ->withFunctions(FunctionsRecord::read($entry->field(FunctionsRecord::FIELD)));
+    }
+
+    /**
+     * The id of each mutant an entry records, in the order it records them.
+     *
+     * @return list<string>
+     *
+     * @throws NotInShape
+     */
+    public static function idsIn(Node $entry): array
+    {
+        $ids = [];
+
+        foreach ($entry->field('mutants')->items() as $record) {
+            $fields = MutantRecord::isFull($record) ? [$record->field(MutantRecord::ID)] : $record->items();
+            $ids[] = $fields !== [] ? $fields[0]->text() : throw NotInShape::at($record->at(), 'a mutant\'s id');
+        }
+
+        return $ids;
     }
 
     /**
@@ -171,14 +189,20 @@ final readonly class ProofRecord
             : $mutant;
     }
 
-    /** @throws NotInShape */
-    private static function baseIn(Node $entry): Digest
+    /**
+     * The base a proof points to: by its index among the ledger's bases, or by its digest.
+     *
+     * @throws NotInShape
+     */
+    private static function baseIn(Node $entry, ProofsRead $read): Digest
     {
         $base = $entry->field(self::BASE);
 
-        return Digest::isSha256($base->text())
-            ? Digest::of($base->text())
-            : throw NotInShape::at($base->at(), 'a base');
+        return match (true) {
+            $base->kind() === Kind::Integer => $read->base($base),
+            Digest::isSha256($base->text()) => Digest::of($base->text()),
+            default => throw NotInShape::at($base->at(), 'a base'),
+        };
     }
 
     /** @throws NotInShape */

@@ -32,6 +32,9 @@ final readonly class Seconds
     /** Microseconds in a second. */
     public const int MICROSECONDS = 1_000_000;
 
+    /** How many decimals of a second a millisecond is. */
+    private const int MILLISECOND_DIGITS = 3;
+
     /** Days, hours, minutes and seconds, each optional and in that order: `90s`, `15m`, `1h30m`, `7d`. */
     private const string DURATION = '/^(?:(?<d>\d+)d)?(?:(?<h>\d+)h)?(?:(?<m>\d+)m)?(?:(?<s>\d+)s)?$/D';
 
@@ -103,6 +106,12 @@ final readonly class Seconds
     public function nanoseconds(): int
     {
         return (int) round($this->seconds * self::NANOSECONDS);
+    }
+
+    /** The duration to the millisecond, as a ledger keeps it. */
+    public function toTheMillisecond(): float
+    {
+        return round($this->seconds, self::MILLISECOND_DIGITS);
     }
 
     /** The duration in minutes, as runner time is billed. */

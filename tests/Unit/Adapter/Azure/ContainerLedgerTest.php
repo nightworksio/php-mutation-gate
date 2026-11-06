@@ -11,7 +11,9 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
+use NightWorksIO\MutationGate\Core\Proof\Compression;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
@@ -19,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Written;
+use NightWorksIO\MutationGate\Tests\Fakes\ZstandardFake;
 use NightWorksIO\MutationGate\Tests\Support\Cloud;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\FixedTokens;
@@ -125,4 +128,14 @@ it('keeps the coverage map beside a scope\'s ledger as a block blob, and gets it
         ->and($store->companion(Scope::branch('main'), Companion::Coverage))->toEqual(Contents::of('map'))
         ->and(array_map(static fn(array $request): array => [$request['method'], $request['url']], $cloud->requests))
         ->toBe([['PUT', $blob], ['GET', $blob]]);
+});
+
+it('writes and reads back a ledger packed as its codec says', function (): void {
+    $cloud = new Cloud();
+    $store = ContainerLedger::of($cloud->exchange(), 'acme', 'ledgers', 'gate', FixedTokens::of('t'))
+        ->encoding(LedgerCodec::of(Compression::Zstd, 9, ZstandardFake::here()));
+    $store->write(Scope::branch('main'), azureProved());
+
+    expect(str_starts_with($cloud->requests[0]['body'], ZstandardFake::MAGIC))->toBeTrue()
+        ->and(count(LedgerRead::ledger($store->read(Scope::branch('main')))->proofs()))->toBe(1);
 });

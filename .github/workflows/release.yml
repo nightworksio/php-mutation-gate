@@ -195,7 +195,7 @@ jobs:
       id-token: write
     uses: ./.github/workflows/mutation-gate.yml # zizmor: ignore[self-repository]
     with:
-      mode: full
+      mode: unproven
       runs-on: ubuntu-24.04-arm
 
   # The PHAR (ADR-0022), built as composer phar builds it from the commit

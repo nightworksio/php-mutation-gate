@@ -20,7 +20,9 @@ use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
+use NightWorksIO\MutationGate\Core\Proof\Compression;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
@@ -29,6 +31,7 @@ use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Written;
+use NightWorksIO\MutationGate\Tests\Fakes\ZstandardFake;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\LedgerRead;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -228,4 +231,16 @@ it('says why it reads no coverage map past its limit, or one it cannot read', fu
     )))
         ->and($read instanceof CannotJudge ? $read->why() : '')
         ->toStartWith(sprintf('The kept coverage map at %s/refs/heads/next/coverage.json.gz could not be read: ', $root));
+});
+
+it('writes and reads back a ledger packed as its codec says, and says why it cannot pack one as zstd where zstd is not here', function () use ($proved): void {
+    $root = Scratch::directory();
+    $store = LedgerDirectory::at($root)->encoding(LedgerCodec::of(Compression::Zstd, 9, ZstandardFake::here()));
+    $store->write(Scope::branch('main'), $proved());
+
+    expect(str_starts_with((string) file_get_contents(sprintf('%s/refs/heads/main/ledger.json.gz', $root)), ZstandardFake::MAGIC))->toBeTrue()
+        ->and(count(LedgerRead::ledger($store->read(Scope::branch('main')))->proofs()))->toBe(1)
+        ->and(count(LedgerRead::ledger($store->within(LedgerLimits::standard())->read(Scope::branch('main')))->proofs()))->toBe(1)
+        ->and(LedgerDirectory::at(Scratch::directory())->encoding(LedgerCodec::of(Compression::Zstd, 9, ZstandardFake::absent()))->write(Scope::branch('main'), $proved()))
+        ->toEqual(NotWritten::because('fake is not here'));
 });

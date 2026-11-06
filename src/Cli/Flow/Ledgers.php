@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Records;
 use NightWorksIO\MutationGate\Core\Proof\RunProfile;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\TakenProofs;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Proof\Undigested;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
@@ -59,7 +60,7 @@ final readonly class Ledgers
     ) {
     }
 
-    public static function read(ProofStore $store, Standing $standing, Writing $writing): self
+    public static function read(ProofStore $store, Standing $standing, Writing $writing, TakenProofs $taken): self
     {
         $scope = $standing->runOn()->scope();
         $default = $standing->defaultBranch();
@@ -67,13 +68,15 @@ final readonly class Ledgers
 
         $defaultBranch = $store->read($default);
         $own = $ownScope ? $store->read($scope) : Ledger::empty();
+        $defaultBranchRead = $defaultBranch instanceof Unreadable ? $defaultBranch->ledger() : $defaultBranch;
+        $ownRead = $own instanceof Unreadable ? $own->ledger() : $own;
 
         return new self(
             $scope,
             $default,
             Access::of($scope, $default, $writing),
-            $defaultBranch instanceof Unreadable ? $defaultBranch->ledger() : $defaultBranch,
-            $own instanceof Unreadable ? $own->ledger() : $own,
+            $taken === TakenProofs::None ? self::withoutProofs($defaultBranchRead) : $defaultBranchRead,
+            $taken === TakenProofs::Every ? $ownRead : self::withoutProofs($ownRead),
             self::unreadIn($defaultBranch, $own),
         );
     }
@@ -247,6 +250,19 @@ final readonly class Ledgers
             $this->readsOwnScope() => $this->own->runs()->passed(),
             default => $this->defaultBranch->runs()->passed(),
         };
+    }
+
+    /** A ledger without its proofs, keeping all else it learned. */
+    private static function withoutProofs(Ledger $ledger): Ledger
+    {
+        return Ledger::empty()
+            ->withTimings($ledger->timings())
+            ->withBases($ledger->bases())
+            ->withRuns($ledger->runs())
+            ->withLearned($ledger->killers())
+            ->withLearned($ledger->analysers())
+            ->withLearned($ledger->survival())
+            ->withLearned($ledger->limits());
     }
 
     private static function unreadIn(Ledger|Unreadable ...$read): Warnings

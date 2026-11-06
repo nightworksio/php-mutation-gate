@@ -13,6 +13,8 @@ use function inflate_init;
 use InflateContext;
 
 use function is_string;
+use function max;
+use function min;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 
@@ -32,21 +34,32 @@ use function str_starts_with;
  */
 final readonly class Gzip
 {
+    /** Why a stream cannot be unpacked: it inflates past the most it may. */
+    public const string PAST = '%s inflates to more than %d bytes.';
+
+    /** How many compressed bytes are inflated at a time, which bounds how far past a limit one step can reach. */
+    public const int STEP = 4_096;
+
+    /** The highest level gzip packs at. */
+    public const int MOST = 9;
     /** How every gzip stream begins. */
     private const string MAGIC = "\x1f\x8b";
 
     /** Why bytes that are not a whole gzip stream cannot be unpacked. */
     private const string NOT_GZIP = '%s is not a whole gzip stream.';
 
-    private const string PAST = '%s inflates to more than %d bytes.';
-
-    /** How many compressed bytes are inflated at a time, which bounds how far past a limit one step can reach. */
-    private const int STEP = 4_096;
-
     /** Text packed; gzencode answers false only for a level or an encoding it is not given here. */
     public static function pack(string $text): string
     {
         $packed = gzencode($text);
+
+        return is_string($packed) ? $packed : throw FormatFault::gzip();
+    }
+
+    /** Text packed at this level, or at the nearest one gzip has; gzencode answers false only as for pack(). */
+    public static function packAt(string $text, int $level): string
+    {
+        $packed = gzencode($text, max(1, min($level, self::MOST)));
 
         return is_string($packed) ? $packed : throw FormatFault::gzip();
     }

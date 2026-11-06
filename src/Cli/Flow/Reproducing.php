@@ -42,7 +42,12 @@ final readonly class Reproducing
             return $inventory;
         }
 
-        $ledgers = Ledgers::read($this->adapters->proofs, $inventory->standing, Writing::Never);
+        $ledgers = Ledgers::read(
+            $this->adapters->proofs,
+            $inventory->standing,
+            Writing::Never,
+            $this->settings->proofs()->taken(),
+        );
         $newest = $ledgers->records($sought)->newest();
 
         return $newest instanceof Recorded ? $this->again($newest, $inventory) : $newest;

@@ -10,7 +10,9 @@ use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
+use NightWorksIO\MutationGate\Core\Proof\Compression;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
@@ -18,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
+use NightWorksIO\MutationGate\Tests\Fakes\ZstandardFake;
 use NightWorksIO\MutationGate\Tests\Support\LedgerRead;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -120,4 +123,20 @@ it('keeps an object beside the local ledger alone, never the shared store\'s', f
 
     expect($local->companion(Scope::branch('main'), Companion::Coverage))->toEqual(Contents::of('map'))
         ->and($shared->companion(Scope::branch('main'), Companion::Coverage))->toBeInstanceOf(Missing::class);
+});
+
+it('writes the local ledger, and reads it and a shared store that encodes, as its codec says', function (): void {
+    $codec = LedgerCodec::of(Compression::Zstd, 9, ZstandardFake::here());
+    $root = Scratch::directory();
+    $shared = LedgerDirectory::at(Scratch::directory())->encoding($codec);
+    $shared->write(Scope::branch('main'), ledgerProving('src/Shared.php', 9));
+    $ledgers = LocalLedgers::of(LedgerDirectory::at($root), $shared)->encoding($codec);
+    $ledgers->write(Scope::branch('main'), ledgerProving('src/Local.php', 10));
+    $read = LedgerRead::ledger($ledgers->read(Scope::branch('main')));
+    $plain = LedgerRead::ledger(LocalLedgers::of(LedgerDirectory::at($root), new ProofStoreFake())->encoding($codec)->read(Scope::branch('main')));
+
+    expect(str_starts_with((string) file_get_contents(sprintf('%s/refs/heads/main/ledger.json.gz', $root)), ZstandardFake::MAGIC))->toBeTrue()
+        ->and($read->proofs()->has(Digest::sha256Of('src/Local.php')))->toBeTrue()
+        ->and($read->proofs()->has(Digest::sha256Of('src/Shared.php')))->toBeTrue()
+        ->and($plain->proofs()->has(Digest::sha256Of('src/Local.php')))->toBeTrue();
 });

@@ -17,9 +17,11 @@ use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\ConfigReads;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Proof\Key\InstalledPackages;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Runner\Version;
@@ -106,7 +108,7 @@ function compositionInput(array $options): ArrayInput
 it('composes the settings, the adapters they choose, the gate\'s setup and the reporting', function (): void {
     $composed = compositionOf([
         'mutation-gate.json' => '{"runner": "fake"}',
-        'vendor/composer/installed.json' => '{"packages": []}',
+        'vendor/composer/installed.json' => '{"packages": [{"name": "acme/clock", "version": "1.0.0"}]}',
     ], Variables::of([]), fake: true)->compose(compositionInput([]));
 
     expect($composed)->toBeInstanceOf(Composed::class)
@@ -115,7 +117,7 @@ it('composes the settings, the adapters they choose, the gate\'s setup and the r
         ->and($composed instanceof Composed ? $composed->setup->configFile : $composed)
         ->toEqual(Path::of('mutation-gate.json'))
         ->and($composed instanceof Composed ? $composed->setup->installed : $composed)
-        ->toEqual(Digest::sha256Of('{"packages": []}'))
+        ->toEqual(InstalledPackages::digestOf(Contents::of('{"packages": [{"name": "acme/clock", "version": "1.0.0"}]}')))
         ->and($composed instanceof Composed ? $composed->setup->gate : $composed)->toEqual(Version::of(
             ThisPackage::COMPOSER,
             (string) InstalledVersions::getPrettyVersion(ThisPackage::COMPOSER),

@@ -147,7 +147,7 @@ A comment whose first line is one of these runs it:
   gate judges its own mutants by `Unit` and `Plugins`. `Process` and
   `Contract` judge only the units they hold.
 - **The reusable workflow is generated.** Edit its template,
-  `scripts/workflows/mutation-gate.yml`, and run
+  `scripts/workflows/mutation-gate/`, and run
   `python3 scripts/workflows/generate.py`, which writes
   `.github/workflows/mutation-gate.yml` with every download retried once
   (ADR-0072). The `scripts` job fails where the two differ. Every file

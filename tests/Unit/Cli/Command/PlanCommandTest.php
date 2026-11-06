@@ -138,7 +138,7 @@ it('cuts shards by the config\'s size where no count is asked for', function () 
     $planned = $plan(FlowCommands::project(), '', ScriptedRunner::fixture(), Flows::ci());
 
     expect($planned->code)->toBe(0)
-        ->and($planned->errors)->toStartWith("Coverage: there is no kept map, so every test was measured.\nReach\n  No commit of this scope has passed yet, so the run considers every unit.\nWrote .mutation-gate/plan.json, with 1 shards.\nShard 1 (src): about");
+        ->and($planned->errors)->toStartWith("Coverage: there is no kept map, so every test was measured.\nReach\n  No commit of this scope has passed yet, so the run considers every unit.\nWrote .mutation-gate/plan.json, with 1 shard.\nShard 1 (src): about");
 });
 
 it('warns where shards.max stops the plan meeting shards.target', function () use ($plan): void {
@@ -146,7 +146,7 @@ it('warns where shards.max stops the plan meeting shards.target', function () us
 
     expect($planned->code)->toBe(0)
         ->and($planned->errors)->toEndWith(<<<'SAID'
-            shards.target is 30s, and at shards.max of 1 shards the longest is expected to take 1m.
+            shards.target is 30s, and at shards.max of 1 the longest is expected to take 1m.
             Raise shards.max, or shards.target, to meet it.
 
             SAID);
@@ -235,7 +235,7 @@ it('says nothing of the patch where the plan has one shard, or no shard pays its
 ) use ($plan): void {
     $planned = $plan(FlowCommands::project(), sprintf('--shards=%s', $shards), $runner, Flows::ci());
 
-    expect($planned->errors)->toStartWith(sprintf("Coverage: there is no kept map, so every test was measured.\nReach\n  No commit of this scope has passed yet, so the run considers every unit.\nWrote .mutation-gate/plan.json, with %s shards.\n", $shards))
+    expect($planned->errors)->toStartWith(sprintf("Coverage: there is no kept map, so every test was measured.\nReach\n  No commit of this scope has passed yet, so the run considers every unit.\nWrote .mutation-gate/plan.json, with %s.\n", $shards === '1' ? '1 shard' : sprintf('%s shards', $shards)))
         ->and($planned->errors)->not->toContain('opening run under coverage');
 })->with([
     'Pest with the patch' => ['2', fn(): ScriptedRunner => ScriptedRunner::fixture()->likePatchedPest(Group::named('mutation-canary'))],
@@ -307,7 +307,7 @@ it('says what its sample drew where --sample asks, and nothing of a sample other
     $whole = $plan(FlowCommands::project(), '--full', ScriptedRunner::fixture(), Flows::ci());
 
     expect($sampled->code)->toBe(0)
-        ->and($sampled->errors)->toContain('--sample has nothing to sample: every tree is held to 100, or each unit it runs is known exactly.')
+        ->and($sampled->errors)->toContain('The run has nothing to sample: every tree is held to 100, or each unit it runs is known exactly.')
         ->and($whole->errors)->not->toContain('--sample');
 });
 

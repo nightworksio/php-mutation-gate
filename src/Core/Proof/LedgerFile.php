@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Proof;
 
+use function array_key_exists;
 use function array_keys;
 use function array_map;
 use function array_merge;
@@ -12,6 +13,8 @@ use function is_string;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Bytes;
+use NightWorksIO\MutationGate\Core\Format\FormatFault;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Format\TooLarge;
@@ -22,19 +25,24 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use function sprintf;
 
 /**
- * A ledger as its file holds it: `"format": 4`, compact JSON, gzipped. A
- * proof that records no digests of its inputs carries for no unit a budget
- * ran out before.
+ * A ledger as its file holds it: `"format": 5`, compact JSON, compressed as
+ * its codec says ({@see LedgerCodec}). A proof that records no digests of its
+ * inputs carries for no unit a budget ran out before.
  *
  * Writing keeps what {@see LedgerRetention::standard()} keeps: the bases its
  * runs saw most recently, the proofs established at them, and the kill
  * history of their mutants and of the most recent functions; and no more
- * than the limits a run reads to ({@see EncodedLedger}). Each mutant
- * that was not killed keeps its full record, and each killed one is
+ * than the limits a run reads to ({@see EncodedLedger}). A proof names its
+ * base by its index among the `bases`. Each mutant that was not killed keeps
+ * its full record, less the diff and all but the analyser and code of its
+ * rejection where static analysis killed it, and each killed one is
  * `[id, line, mutator, killers]`, the mutator an index into the ledger's
- * `mutators` and the killers indices into its `tests`. The `killers` section
- * points into `tests` too ({@see KillersRecord}), and each proof's digests
- * point into its `inputs` ({@see InputsTable}).
+ * `mutators` and the killers indices into its `tests` ({@see TestsTable}). The
+ * `killers` section points into `tests` too, and places each ranking among
+ * the proofs' records ({@see KillersRecord}, {@see PlacedRankings}); each
+ * proof's digests point into its `inputs` ({@see InputsTable}). A ledger of
+ * format 4, which lists its tests, names its bases by digest and keys every
+ * ranking by its mutant's id, reads as well (ADR-0085).
  *
  * Reading keeps each well-formed entry and drops anything else, never
  * repairing it, so an unreadable ledger, one of another format among them,
@@ -52,7 +60,7 @@ final readonly class LedgerFile
     /** The list a ledger's killed mutants and its kill history point into by index. */
     public const string TESTS = 'tests';
 
-    public const int FORMAT = 4;
+    public const int FORMAT = 5;
 
     public const string SECONDS = 'seconds';
 
@@ -71,22 +79,27 @@ final readonly class LedgerFile
 
     public const string PROOFS = 'proofs';
 
+    /** The earlier format a ledger may still be read in, until each scope's next run writes it anew. */
+    private const int EARLIER = self::FORMAT - 1;
+
     /** What a message calls the file. */
     private const string NAMED = 'The ledger';
 
     private const string OTHER_FORMAT = 'The ledger is of a format this gate does not read.';
 
 
-    /** A ledger's file, within the limits a run reads to: {@see EncodedLedger::within()}. */
+    /** A ledger's file, gzipped, within the limits a run reads to: {@see EncodedLedger::within()}. */
     public static function encode(Ledger $ledger): string
     {
-        return EncodedLedger::within($ledger, LedgerLimits::standard())->bytes();
+        $encoded = EncodedLedger::within($ledger, LedgerLimits::standard(), LedgerCodec::gzipOnly());
+
+        return $encoded instanceof EncodedLedger ? $encoded->bytes() : throw FormatFault::gzip();
     }
 
-    /** The ledger these bytes hold; empty where they hold none this gate reads. */
+    /** The ledger these gzipped bytes hold; empty where they hold none this gate reads. */
     public static function decode(string $bytes): Ledger
     {
-        $read = self::read($bytes, LedgerLimits::standard());
+        $read = self::read($bytes, LedgerLimits::standard(), LedgerCodec::gzipOnly());
 
         return $read instanceof Ledger ? $read : Ledger::empty();
     }
@@ -97,9 +110,11 @@ final readonly class LedgerFile
      * Each proof's entry is let go once its proof is read, so the decoded file and the ledger read from it are
      * not both held whole.
      */
-    public static function read(string $bytes, LedgerLimits $limits): Ledger|CannotJudge|TooLarge
+    public static function read(string $bytes, LedgerLimits $limits, LedgerCodec $codec): Ledger|CannotJudge|TooLarge
     {
-        $json = $limits->inflated($bytes, self::NAMED);
+        $json = $limits->admitsPacked(Bytes::length($bytes))
+            ? $codec->unpackAtMost($bytes, self::NAMED, $limits->unpacked())
+            : TooLarge::because($limits->pastPacked());
 
         if (! is_string($json)) {
             return $json;
@@ -112,27 +127,53 @@ final readonly class LedgerFile
             return CannotJudge::because(self::OTHER_FORMAT);
         }
 
+        $tests = TestsTable::read($file->field(self::TESTS));
+        $killers = $file->field(KillersRecord::SECTION);
+        $placed = PlacedRankings::proofsIn($killers->field(KillersRecord::PLACED));
         $ledger = self::ledgerIn($file);
-        $read = self::proofsRead($file);
+        $read = self::proofsRead($file, $tests);
         $entries = self::entriesOf($file->field(self::PROOFS));
         unset($file);
         $proofs = [];
+        $records = [];
 
-        foreach (array_keys($entries) as $key) {
+        foreach (array_keys($entries) as $index => $key) {
             $proofs[] = self::proofsIn(sprintf('%s', $key), $entries[$key], $read);
+
+            if (array_key_exists($index, $placed)) {
+                $records[$index] = self::idsIn($entries[$key]);
+            }
+
             unset($entries[$key]);
         }
 
-        return $ledger->withProofs(Proofs::of(...array_merge(...$proofs)));
+        return $ledger
+            ->withProofs(Proofs::of(...array_merge(...$proofs)))
+            ->withLearned(KillersRecord::read($killers, $tests, $records));
     }
 
-    /** What a file's proofs point into and share. */
-    private static function proofsRead(Node $file): ProofsRead
+    /**
+     * What a file's proofs point into and share.
+     *
+     * @param list<string> $tests the file's test ids, each at its index
+     */
+    private static function proofsRead(Node $file, array $tests): ProofsRead
     {
         return ProofsRead::of(
-            KilledRecords::of(self::namesIn($file, self::MUTATORS), self::namesIn($file, self::TESTS)),
+            KilledRecords::of(self::namesIn($file, self::MUTATORS), $tests),
             InputsTable::read($file->field(InputsTable::SECTION)),
+            self::namesIn($file, self::BASES),
         );
+    }
+
+    /** @return list<string> the ids an entry records, in its order; none where it is malformed */
+    private static function idsIn(Node $entry): array
+    {
+        try {
+            return ProofRecord::idsIn($entry);
+        } catch (NotInShape) {
+            return [];
+        }
     }
 
     /** What a file holds besides its proofs. */
@@ -151,7 +192,6 @@ final readonly class LedgerFile
             ->withRuns($lastRun instanceof LastRun ? $runs->lastRunAt($lastRun) : $runs)
             ->withBases(self::basesIn($file))
             ->withTimings(Timings::of(...array_merge(...$timings)))
-            ->withLearned(KillersRecord::read($file->field(KillersRecord::SECTION), self::namesIn($file, self::TESTS)))
             ->withLearned(AnalysersRecord::read($file->field(AnalysersRecord::SECTION)))
             ->withLearned(SurvivalRecord::read($file->field(SurvivalRecord::SECTION)))
             ->withLearned(TallyRecord::read($file->field(TallyRecord::SECTION)))
@@ -167,7 +207,7 @@ final readonly class LedgerFile
         try {
             $format = $file->field('format')->integer();
 
-            return $format === self::FORMAT;
+            return $format === self::FORMAT || $format === self::EARLIER;
         } catch (NotInShape) {
             return false;
         }

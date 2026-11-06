@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """The reusable workflow, written from its template with every download retried once (ADR-0072).
 
+The template is the parts in `TEMPLATE`, by what each holds: the trigger,
+with the workflow's inputs and secrets, then the jobs that plan, those that
+run the shards, and those that judge and deliver, in that order.
+
 Usage:
   python3 scripts/workflows/generate.py           write .github/workflows/mutation-gate.yml
   python3 scripts/workflows/generate.py --check   exit 1 where the written file is not what the template gives
@@ -25,7 +29,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-TEMPLATE = Path("scripts/workflows/mutation-gate.yml")
+TEMPLATE = Path("scripts/workflows/mutation-gate")
+PARTS = ("trigger.yml", "planning.yml", "shards.yml", "verdict.yml")
 WORKFLOW = Path(".github/workflows/mutation-gate.yml")
 RECIPE = "python3 scripts/workflows/generate.py"
 
@@ -51,7 +56,7 @@ class Unnamed(ValueError):
 
 def header() -> list[str]:
     return [
-        f"# Generated from {TEMPLATE.as_posix()} by `{RECIPE}`: edit the template and run it again.",
+        f"# Generated from {TEMPLATE.as_posix()}/ by `{RECIPE}`: edit the template and run it again.",
         "",
     ]
 
@@ -107,12 +112,17 @@ def generated(template: str) -> str:
     return "\n".join(out)
 
 
+def template() -> str:
+    """The template's text: its parts, in order."""
+    return "".join((ROOT / TEMPLATE / part).read_text(encoding="utf-8") for part in PARTS)
+
+
 def main(argv: list[str]) -> int:
     if argv not in ([], ["--check"]):
         print(__doc__, file=sys.stderr)
         return 2
     try:
-        written = generated((ROOT / TEMPLATE).read_text(encoding="utf-8"))
+        written = generated(template())
     except Unnamed as unnamed:
         print(unnamed, file=sys.stderr)
         return 1

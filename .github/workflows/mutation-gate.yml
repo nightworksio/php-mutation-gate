@@ -1,4 +1,4 @@
-# Generated from scripts/workflows/mutation-gate.yml by `python3 scripts/workflows/generate.py`: edit the template and run it again.
+# Generated from scripts/workflows/mutation-gate/ by `python3 scripts/workflows/generate.py`: edit the template and run it again.
 
 name: mutation-gate
 
@@ -40,12 +40,16 @@ on:
         description: The PHP version to set up.
         type: string
         default: '8.5'
+      extensions:
+        description: 'PHP extensions to set up besides the defaults, as setup-php takes them, such as "zstd, intl".'
+        type: string
+        default: ''
       runner:
         description: pest, infection, phpunit, phpspec, codeception, testo or a registered runner's name; the config's, or zero-config's, where empty.
         type: string
         default: ''
       mode:
-        description: auto, full, changed or sampled.
+        description: auto, full, changed, sampled or unproven.
         type: string
         default: auto
       changed-since:
@@ -194,6 +198,7 @@ jobs:
       - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php-version: ${{ inputs.php-version }}
+          extensions: ${{ inputs.extensions }}
           coverage: none
       - name: Install the gate
         run: bash "${GATE_ACTION}/resources/action/install.sh" "${GATE_ACTION}"
@@ -271,6 +276,7 @@ jobs:
       - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php-version: ${{ inputs.php-version }}
+          extensions: ${{ inputs.extensions }}
           coverage: pcov
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
         env:
@@ -418,6 +424,7 @@ jobs:
       - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php-version: ${{ inputs.php-version }}
+          extensions: ${{ inputs.extensions }}
           coverage: none
       - name: Install the gate
         run: bash "${GATE_ACTION}/resources/action/install.sh" "${GATE_ACTION}"
@@ -505,6 +512,7 @@ jobs:
         with:
           config: ${{ inputs.config }}
           php-version: ${{ inputs.php-version }}
+          extensions: ${{ inputs.extensions }}
           runner: ${{ inputs.runner }}
           shard: ${{ matrix.shard.id }}
           mode: ${{ inputs.mode }}
@@ -561,6 +569,7 @@ jobs:
       - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php-version: ${{ inputs.php-version }}
+          extensions: ${{ inputs.extensions }}
           coverage: pcov
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
         env:
@@ -697,6 +706,7 @@ jobs:
       - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php-version: ${{ inputs.php-version }}
+          extensions: ${{ inputs.extensions }}
           coverage: none
       - name: Install the gate
         run: bash "${GATE_ACTION}/resources/action/install.sh" "${GATE_ACTION}"
@@ -794,6 +804,7 @@ jobs:
       - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php-version: ${{ inputs.php-version }}
+          extensions: ${{ inputs.extensions }}
           coverage: none
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
         env:
@@ -1051,6 +1062,7 @@ jobs:
       - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php-version: ${{ inputs.php-version }}
+          extensions: ${{ inputs.extensions }}
           coverage: none
       - name: Install the gate
         run: bash "${GATE_ACTION}/resources/action/install.sh" "${GATE_ACTION}"

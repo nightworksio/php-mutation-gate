@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LimitHistory;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\TakenProofs;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Runner\Multiple;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -33,7 +34,7 @@ function learnedLedgers(LimitHistory $own, LimitHistory $main): Ledgers
     $standing = Standing::of($ci, RepositoryFake::onMain(Revision::ref('head')), Absent::setting());
 
     return $standing instanceof Standing
-        ? Ledgers::read($store, $standing, Writing::Auto)
+        ? Ledgers::read($store, $standing, Writing::Auto, TakenProofs::Every)
         : throw new RuntimeException($standing->why());
 }
 

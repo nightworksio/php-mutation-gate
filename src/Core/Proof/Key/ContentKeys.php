@@ -28,7 +28,6 @@ use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
-use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
@@ -44,14 +43,17 @@ use function sprintf;
  *
  * 1. The key's format, {@see FORMAT}, which changes whenever what a key means
  *    changes, so an older proof is never read as a newer one.
- * 2. The gate's installed version and source reference.
+ * 2. The gate's code a result depends on: {@see VerdictCode::SEMANTICS}, and
+ *    the digest of the sets of {@see VerdictCode} its runner reads, with its
+ *    mutator packages (ADR-0084).
  * 3. The configuration as it affects results, serialised canonically.
  * 4. The runner's identity: its name, the version and reference of every
  *    package it drives, and the digest of the PHP it runs on; and the
  *    identity of the static analyser that checks its mutants, its name,
  *    version and config's digest, of the configuration it resolves with every
  *    file that references, or that none does (ADR-0020).
- * 5. The digest of `vendor/composer/installed.json`.
+ * 5. The digest of what Composer installed, less the gate's own packages,
+ *    which item 2 reads.
  * 6. Every file outside the test directories, by its digest, less the
  *    exceptions and less the PHP files the coverage map shows some test
  *    executed, which item 11 reads unit by unit (see SourceReach). So a file
@@ -81,7 +83,7 @@ use function sprintf;
  */
 final readonly class ContentKeys
 {
-    public const string FORMAT = 'mutation-gate proof 8';
+    public const string FORMAT = 'mutation-gate proof 9';
 
     private function __construct(
         private HashContext $everyKey,
@@ -95,7 +97,7 @@ final readonly class ContentKeys
 
     /** @param string $config the settings that affect results, as their canonical form writes them (ADR-0007) */
     public static function of(
-        Version $gate,
+        Digest $gate,
         string $config,
         Identity $runner,
         AnalyserIdentity|NoAnalyser $analyser,
@@ -133,7 +135,7 @@ final readonly class ContentKeys
      * @param string $config the settings that affect results, as their canonical form writes them (ADR-0007)
      */
     public static function coverageBaseOf(
-        Version $gate,
+        Digest $gate,
         string $config,
         Identity $runner,
         AnalyserIdentity|NoAnalyser $analyser,
@@ -260,14 +262,14 @@ final readonly class ContentKeys
     /** The first five inputs, which decide a unit's mutant set besides its source. */
     private static function hashMutationReads(
         HashContext $context,
-        Version $gate,
+        Digest $gate,
         string $config,
         Identity $runner,
         AnalyserIdentity|NoAnalyser $analyser,
         Digest $installed,
     ): void {
-        hash_update($context, self::framed(self::FORMAT, 'gate', $gate->package(), $gate->version()));
-        hash_update($context, self::framed($gate->reference()));
+        $semantics = sprintf('%d', VerdictCode::SEMANTICS);
+        hash_update($context, self::framed(self::FORMAT, 'gate', $semantics, $gate->value()));
         hash_update($context, self::framed('config', $config, 'runner', $runner->runner()));
         self::hashVersionsIn($context, $runner);
         hash_update($context, self::framed($runner->platform()->value()));

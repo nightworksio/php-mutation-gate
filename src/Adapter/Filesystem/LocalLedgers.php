@@ -10,7 +10,9 @@ use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
+use NightWorksIO\MutationGate\Core\Proof\EncodesLedgers;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Written;
@@ -24,7 +26,7 @@ use NightWorksIO\MutationGate\Port\ProofStore;
  *
  * @internal
  */
-final readonly class LocalLedgers implements ProofStore
+final readonly class LocalLedgers implements EncodesLedgers, ProofStore
 {
     private function __construct(private LedgerDirectory $local, private ProofStore $shared)
     {
@@ -37,6 +39,14 @@ final readonly class LocalLedgers implements ProofStore
     }
 
     /** These local ledgers over this store. */
+    public function encoding(LedgerCodec $codec): static
+    {
+        return new self(
+            $this->local->encoding($codec),
+            $this->shared instanceof EncodesLedgers ? $this->shared->encoding($codec) : $this->shared,
+        );
+    }
+
     public static function of(LedgerDirectory $local, ProofStore $shared): self
     {
         return new self($local, $shared);

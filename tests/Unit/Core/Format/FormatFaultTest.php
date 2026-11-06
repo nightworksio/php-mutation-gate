@@ -9,6 +9,6 @@ it('says which step of Format failed, as a mistake in the code rather than in wh
         ->and($fault->getMessage())->toBe($said);
 })->with([
     'PCRE' => [fn(): FormatFault => FormatFault::pcre(), 'PCRE could not apply a fixed pattern to text that is valid UTF-8.'],
-    'gzip' => [fn(): FormatFault => FormatFault::gzip(), 'zlib could not pack text at its default level.'],
+    'gzip' => [fn(): FormatFault => FormatFault::gzip(), 'zlib could not pack text at a level it has.'],
     'a JSON key' => [fn(): FormatFault => FormatFault::jsonKey(), 'A key of text already read as JSON did not decode to a string.'],
 ]);

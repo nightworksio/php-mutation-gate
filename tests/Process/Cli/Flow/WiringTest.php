@@ -29,6 +29,7 @@ use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Adapter\Process\Saying;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
+use NightWorksIO\MutationGate\Adapter\Zstd\ZstdHere;
 use NightWorksIO\MutationGate\Cli\ComposerVendor;
 use NightWorksIO\MutationGate\Cli\Flow\Adapters;
 use NightWorksIO\MutationGate\Cli\Flow\Cores;
@@ -74,6 +75,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Proof\Compression;
 use NightWorksIO\MutationGate\Core\Proof\Copies;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Inputs;
@@ -85,13 +87,13 @@ use NightWorksIO\MutationGate\Core\Proof\Key\Source;
 use NightWorksIO\MutationGate\Core\Proof\Key\SourceReach;
 use NightWorksIO\MutationGate\Core\Proof\Key\TestFiles;
 use NightWorksIO\MutationGate\Core\Proof\Key\Tests;
+use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
-use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -186,6 +188,12 @@ function wiredOf(Settings $settings, Variables $environment): Adapters
     return $adapters instanceof Adapters ? $adapters : throw new RuntimeException('The adapters could not be wired.');
 }
 
+/** A store as a run wires it: writing ledgers as `proofs.compression` says, at `proofs.compressionLevel`. */
+function encodedAs(FetchedCopies $copies, Compression $compression = Compression::Auto, int $level = LedgerCodec::LEVEL): FetchedCopies
+{
+    return $copies->encoding(LedgerCodec::of($compression, $level, ZstdHere::found()));
+}
+
 /** The store a wired run keeps its ledgers in, under the copies fetch writes beside it. */
 function keptUnder(ProofStore $wired): ProofStore
 {
@@ -223,21 +231,28 @@ it('keeps a local run\'s proofs on the machine, and a CI run\'s in the store the
     $local = Environment::during($keys, static fn(): Adapters => wiredOf($settings, Variables::of([])));
     $ci = Environment::during($keys, static fn(): Adapters => wiredOf($settings, Variables::of(['CI' => 'true'])));
 
-    expect($local->proofs)->toEqual(FetchedCopies::over(LocalLedgers::over(keptUnder($ci->proofs)), Copies::Newest))
-        ->and($ci->proofs)->toEqual(FetchedCopies::over(keptUnder($ci->proofs), Copies::Newest))
+    expect($local->proofs)->toEqual(encodedAs(FetchedCopies::over(LocalLedgers::over(keptUnder($ci->proofs)), Copies::Newest)))
+        ->and($ci->proofs)->toEqual(encodedAs(FetchedCopies::over(keptUnder($ci->proofs), Copies::Newest)))
         ->and(keptUnder($ci->proofs))->toBeInstanceOf(BucketLedger::class)
         ->and(wiredOf(Flows::settings(Proofs::directory('cache/ledger')), Variables::of([]))->proofs)
-        ->toEqual(FetchedCopies::over(LedgerDirectory::at('cache/ledger'), Copies::Newest));
+        ->toEqual(encodedAs(FetchedCopies::over(LedgerDirectory::at('cache/ledger'), Copies::Newest)));
 })->group(...$holds);
 
 it('reads the copy of a ledger fetch wrote beside the one the run keeps, as proofs.copies chooses', function (Proofs $copies, Copies $chosen): void {
     expect(wiredOf(Flows::settings($copies), Variables::of(['CI' => 'true']))->proofs)
-        ->toEqual(FetchedCopies::over(LedgerDirectory::at('.mutation-gate/ledger'), $chosen));
+        ->toEqual(encodedAs(FetchedCopies::over(LedgerDirectory::at('.mutation-gate/ledger'), $chosen)));
 })->with([
     'the newest' => [fn(): Proofs => Proofs::newestCopy(), Copies::Newest],
     'the store\'s, where they move together' => [fn(): Proofs => Proofs::copiesTogether(), Copies::Together],
     'both, merged' => [fn(): Proofs => Proofs::mergedCopies(), Copies::Merged],
 ])->group(...$holds);
+
+it('writes and reads every ledger as proofs.compression and proofs.compressionLevel say, zstd where it is here by default', function (): void {
+    expect(wiredOf(Flows::settings(Proofs::compression('gzip'), Proofs::compressionLevel(3)), Variables::of(['CI' => 'true']))->proofs)
+        ->toEqual(encodedAs(FetchedCopies::over(LedgerDirectory::at('.mutation-gate/ledger'), Copies::Newest), Compression::Gzip, 3))
+        ->and(wiredOf(Flows::settings(), Variables::of(['CI' => 'true']))->proofs)
+        ->not->toEqual(FetchedCopies::over(LedgerDirectory::at('.mutation-gate/ledger'), Copies::Newest));
+})->group(...$holds);
 
 /**
  * What runs in a new git repository whose origin names this default branch, or none where it is empty.
@@ -284,7 +299,8 @@ it('opens the store read-only for a CI job without its credentials, reading the 
 
     expect(keptUnder($ci->proofs))->toEqual(
         PublicLedger::at(HttpClient::create(), 'https://ledgers.example.com', 'mutation-gate')
-            ->onlyReading(Scope::branch($branch)),
+            ->onlyReading(Scope::branch($branch))
+            ->encoding(LedgerCodec::of(Compression::Auto, LedgerCodec::LEVEL, ZstdHere::found())),
     );
 })->with([
     'the branch the config names' => [
@@ -551,7 +567,7 @@ function wiredAnalyserIn(string $project): AnalyserIdentity|NoAnalyser|CannotJud
 function wiringDigestsWith(AnalyserIdentity|NoAnalyser|CannotJudge $analyser): Digests
 {
     return ContentKeys::of(
-        Version::of('nightworksio/mutation-gate', '1.0.0', 'abc123'),
+        Digest::sha256Of('verdict code'),
         '{}',
         Identity::of('pest', Versions::none(), Digest::of('platform')),
         $analyser instanceof AnalyserIdentity ? $analyser : NoAnalyser::configured(),
@@ -686,7 +702,9 @@ it('tells an Azure store which scope is the default branch\'s, which its public 
         HttpExchange::over(HttpClient::create()),
     ));
 
-    expect(keptUnder($wired->proofs))->toEqual($expected instanceof ContainerLedger ? $expected->forDefaultBranch(Scope::branch('trunk')) : $expected);
+    expect(keptUnder($wired->proofs))->toEqual($expected instanceof ContainerLedger
+        ? $expected->forDefaultBranch(Scope::branch('trunk'))->encoding(LedgerCodec::of(Compression::Auto, LedgerCodec::LEVEL, ZstdHere::found()))
+        : $expected);
 })->group(...$holds);
 
 it('tells the PHPUnit runner the bounds of each mutant\'s limit, timeouts.seconds and timeouts.most, and the mutators of the default set', function (): void {

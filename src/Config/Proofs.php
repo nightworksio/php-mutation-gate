@@ -121,6 +121,30 @@ final readonly class Proofs implements Setting
         return new self(Json::at('proofs.copies', Copies::Merged->value));
     }
 
+    /** A unit whose key still matches a proof its own scope's earlier runs left stands on it. */
+    public static function ownScope(): self
+    {
+        return new self(Json::at('proofs.ownScope', value: true));
+    }
+
+    /** A run reads no proof of its own scope, so a new push to a pull request runs every unit it reaches again. */
+    public static function defaultBranchOnly(): self
+    {
+        return new self(Json::at('proofs.ownScope', value: false));
+    }
+
+    /** `proofs.compression`: `auto`, zstd where this machine offers it and gzip where not; `gzip`; or `zstd`. */
+    public static function compression(string $compression): self
+    {
+        return new self(Json::at('proofs.compression', $compression));
+    }
+
+    /** `proofs.compressionLevel`: the level a ledger is packed at, 1 to 19; gzip packs at 9 at most. */
+    public static function compressionLevel(int $level): self
+    {
+        return new self(Json::at('proofs.compressionLevel', $level));
+    }
+
     public function written(): Json
     {
         return $this->json;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\InstalledVerdictCode;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -70,7 +71,7 @@ final readonly class Keying
         return $identity instanceof Identity && $definitions instanceof CiDefinitions
             ? new self(
                 ContentKeys::of(
-                    $setup->gate,
+                    InstalledVerdictCode::installed()->of($identity->runner()),
                     self::config($settings, $adapters->narrowing),
                     $identity,
                     self::analyser($adapters),
@@ -106,7 +107,7 @@ final readonly class Keying
             $identity instanceof CannotJudge => $identity,
             $definitions instanceof CannotJudge => $definitions,
             default => ContentKeys::coverageBaseOf(
-                $setup->gate,
+                InstalledVerdictCode::installed()->of($identity->runner()),
                 self::config($settings, $adapters->narrowing),
                 $identity,
                 self::analyser($adapters),

@@ -58,7 +58,6 @@
             "src/Adapter/Pest/Patch.php",
             "src/Adapter/Pest/Patching.php",
             "src/Cli/PestPlugin.php",
-            "src/Adapter/Native/MutantFile.php",
             "src/Adapter/Runtime/ForkedChild.php",
             "bin/mutation-gate-pest-client",
             "bin/mutation-gate-pest-worker",

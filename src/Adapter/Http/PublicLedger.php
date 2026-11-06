@@ -15,7 +15,9 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\CompanionRead;
+use NightWorksIO\MutationGate\Core\Proof\EncodesLedgers;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\LedgerObject;
@@ -41,7 +43,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  *
  * @internal
  */
-final readonly class PublicLedger implements ProofStore
+final readonly class PublicLedger implements EncodesLedgers, ProofStore
 {
     private const string READ_ONLY = 'read-only: no credentials; this run\'s proofs are not kept. %s';
 
@@ -56,6 +58,7 @@ final readonly class PublicLedger implements ProofStore
         private LedgerObject $objects,
         private LedgerLimits $limits,
         private Scope|NotGiven $readable,
+        private LedgerCodec $codec,
     ) {
     }
 
@@ -68,6 +71,7 @@ final readonly class PublicLedger implements ProofStore
             LedgerObject::under($prefix),
             LedgerLimits::standard(),
             NotGiven::value(),
+            LedgerCodec::gzipOnly(),
         );
     }
 
@@ -80,19 +84,26 @@ final readonly class PublicLedger implements ProofStore
             LedgerObject::top(),
             LedgerLimits::standard(),
             NotGiven::value(),
+            LedgerCodec::gzipOnly(),
         );
     }
 
     /** Reading within these limits. */
     public function within(LedgerLimits $limits): self
     {
-        return new self($this->exchange, $this->url, $this->objects, $limits, $this->readable);
+        return new self($this->exchange, $this->url, $this->objects, $limits, $this->readable, $this->codec);
+    }
+
+    /** Reading ledgers as this codec reads them. */
+    public function encoding(LedgerCodec $codec): static
+    {
+        return new self($this->exchange, $this->url, $this->objects, $this->limits, $this->readable, $codec);
     }
 
     /** Reading this scope's ledger alone, the default branch's, the only one a public URL serves. */
     public function onlyReading(Scope $scope): self
     {
-        return new self($this->exchange, $this->url, $this->objects, $this->limits, $scope);
+        return new self($this->exchange, $this->url, $this->objects, $this->limits, $scope, $this->codec);
     }
 
     public function read(Scope $scope): Ledger|Unreadable
@@ -106,7 +117,7 @@ final readonly class PublicLedger implements ProofStore
 
         $url = sprintf('%s/%s', $this->url, $path);
         $fetched = $this->exchange->fetch(Request::get($url), $this->limits, $url);
-        $read = is_string($fetched) ? LedgerFile::read($fetched, $this->limits) : $fetched;
+        $read = is_string($fetched) ? LedgerFile::read($fetched, $this->limits, $this->codec) : $fetched;
 
         return $read instanceof Ledger || $read instanceof Unreadable ? $read : Unreadable::notRead($url, $read);
     }

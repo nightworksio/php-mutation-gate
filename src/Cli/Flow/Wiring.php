@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Adapter\Opcache\Prover;
 use NightWorksIO\MutationGate\Adapter\Pest\PestOptions;
 use NightWorksIO\MutationGate\Adapter\Project\SuiteConfig;
 use NightWorksIO\MutationGate\Adapter\Project\TestSuite;
+use NightWorksIO\MutationGate\Adapter\Zstd\ZstdHere;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\Config\ChosenPlan;
 use NightWorksIO\MutationGate\Cli\Config\DeclaredTrees;
@@ -50,6 +51,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -313,7 +315,8 @@ final readonly class Wiring
      * Where a run keeps its proofs (ADR-0010): in CI, and in a
      * directory store the config names, there; elsewhere, in the local
      * ledgers over the store the config names; read beside the copy `fetch`
-     * wrote, as `proofs.copies` says.
+     * wrote, as `proofs.copies` says; each ledger written as `proofs.compression` says, and read as it was written
+     * (ADR-0085).
      */
     private function kept(
         Settings $settings,
@@ -323,12 +326,12 @@ final readonly class Wiring
             return $configured;
         }
 
-        $local = ! $this->environment->inCi() && ! $settings->proofs()->keptOnDisk();
+        $proofs = $settings->proofs();
+        $local = ! $this->environment->inCi() && ! $proofs->keptOnDisk();
+        $kept = $local ? LocalLedgers::over($configured) : $configured;
 
-        return FetchedCopies::over(
-            $local ? LocalLedgers::over($configured) : $configured,
-            $settings->proofs()->copies(),
-        );
+        return FetchedCopies::over($kept, $proofs->copies())
+            ->encoding(LedgerCodec::of($proofs->compression(), $proofs->compressionLevel(), ZstdHere::found()));
     }
 
     /**

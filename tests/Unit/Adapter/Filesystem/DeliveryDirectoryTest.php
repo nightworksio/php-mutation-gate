@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\DeliveredLedger;
 use NightWorksIO\MutationGate\Adapter\Filesystem\DeliveredReport;
 use NightWorksIO\MutationGate\Adapter\Filesystem\DeliveryDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
 use NightWorksIO\MutationGate\Core\Delivery\AlertPost;
@@ -19,13 +20,17 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
+use NightWorksIO\MutationGate\Core\Proof\Compression;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
+use NightWorksIO\MutationGate\Tests\Fakes\ZstandardFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
@@ -113,7 +118,7 @@ it('writes the ledger beside the delivery, within the limits a run reads, and na
     $file = sprintf('%s/.mutation-gate/delivery/verdict/ledger.json.gz', $project);
 
     expect($written)->toEqual(Written::to($file))
-        ->and(LedgerFile::read((string) file_get_contents($file), LedgerLimits::standard()))->toEqual(deliveredLedger())
+        ->and(LedgerFile::read((string) file_get_contents($file), LedgerLimits::standard(), LedgerCodec::gzipOnly()))->toEqual(deliveredLedger())
         ->and(deliveredIn($project, Stage::Verdict))->toEqual(Delivery::none()->withLedger(LedgerPost::to(Scope::branch('main'))));
 });
 
@@ -190,4 +195,21 @@ it('adds what a reporter would send to the delivery, rather than send it', funct
         ->and(deliveredIn($project, Stage::Verdict))->toEqual(Delivery::none()->withComment(Verdicts::passing()->judgement()->value))
         ->and(DeliveredReport::of($commenting, DeliveryDirectory::of(Directory::at($unread), Stage::Verdict))->report(Verdicts::passing()))
         ->toEqual(NotWritten::because('The delivery cannot be read, so deliver sends nothing: delivery.format is missing.'));
+});
+
+it('reads from the store as its codec reads, and writes beside the delivery gzipped, as deliver reads it', function (): void {
+    $project = Scratch::directory();
+    $keptRoot = Scratch::directory();
+    $codec = LedgerCodec::of(Compression::Zstd, 9, ZstandardFake::here());
+    LedgerDirectory::at($keptRoot)->encoding($codec)->write(Scope::branch('main'), deliveredLedger());
+    $ledgers = DeliveredLedger::over(LedgerDirectory::at($keptRoot), DeliveryDirectory::of(Directory::at($project), Stage::Verdict))
+        ->encoding($codec);
+    $ledgers->write(Scope::branch('main'), deliveredLedger());
+    $unencoded = DeliveredLedger::over(new ProofStoreFake(), DeliveryDirectory::of(Directory::at($project), Stage::Verdict))
+        ->encoding($codec);
+
+    expect($ledgers->read(Scope::branch('main')))->toEqual(LedgerDirectory::at($keptRoot)->encoding($codec)->read(Scope::branch('main')))
+        ->and(LedgerDirectory::at($keptRoot)->read(Scope::branch('main')))->toBeInstanceOf(Unreadable::class)
+        ->and(str_starts_with((string) file_get_contents(sprintf('%s/.mutation-gate/delivery/verdict/ledger.json.gz', $project)), "\x1f\x8b"))->toBeTrue()
+        ->and($unencoded->read(Scope::branch('main')))->toEqual(Ledger::empty());
 });

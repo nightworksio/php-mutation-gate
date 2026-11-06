@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Format\TooLarge;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\EncodedLedger;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
@@ -81,22 +82,14 @@ final readonly class DeliveryDirectory
     }
 
     /**
-     * The delivery, with this ledger beside it for this scope, which `deliver` writes to the store for it: written as
-     * a store writes it, within the limits a run reads a ledger to, saying where and what it dropped to stay within.
+     * The delivery, with this ledger beside it for this scope, which `deliver` writes to the store for it: gzipped,
+     * within the limits a run reads a ledger to, saying where and what it dropped to stay within.
      */
     public function ledger(Scope $scope, Ledger $ledger): Written|CannotJudge
     {
-        $encoded = EncodedLedger::within($ledger, LedgerLimits::standard());
-        $file = $this->directory->write(Path::of(LedgerFile::NAME), Contents::of($encoded->bytes()));
-        $post = LedgerPost::to($scope);
+        $encoded = EncodedLedger::within($ledger, LedgerLimits::standard(), LedgerCodec::gzipOnly());
 
-        if ($file instanceof CannotJudge) {
-            return $file;
-        }
-
-        $added = $this->adding(static fn(Delivery $delivery): Delivery => $delivery->withLedger($post));
-
-        return $added instanceof Written ? $encoded->written($file) : $added;
+        return $encoded instanceof EncodedLedger ? $this->ledgerWritten($scope, $encoded) : $encoded;
     }
 
     /**
@@ -120,5 +113,20 @@ final readonly class DeliveryDirectory
     private function written(Delivery $delivery): Written|CannotJudge
     {
         return $this->directory->write(Path::of(DeliveryFile::NAME), Contents::of(DeliveryFile::encode($delivery)));
+    }
+
+    /** The delivery, with this encoded ledger beside it for this scope. */
+    private function ledgerWritten(Scope $scope, EncodedLedger $encoded): Written|CannotJudge
+    {
+        $file = $this->directory->write(Path::of(LedgerFile::NAME), Contents::of($encoded->bytes()));
+        $post = LedgerPost::to($scope);
+
+        if ($file instanceof CannotJudge) {
+            return $file;
+        }
+
+        $added = $this->adding(static fn(Delivery $delivery): Delivery => $delivery->withLedger($post));
+
+        return $added instanceof Written ? $encoded->written($file) : $added;
     }
 }

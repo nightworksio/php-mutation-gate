@@ -87,6 +87,7 @@ final readonly class UnchangedVerdict
             $this->adapters->proofs,
             Standing::planned($plan),
             Writing::from($this->settings->proofs()->write()->value),
+            $this->settings->proofs()->taken(),
         );
         $recorded = new Recorded($this->adapters, $this->settings)->passing(
             $ledgers,
