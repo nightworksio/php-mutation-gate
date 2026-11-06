@@ -17,12 +17,15 @@ $definition = static fn(string $commit): string => implode("\n", [
     '',
 ]);
 
-it('names each pin of the gate that is not the installed release, as it is written', function () use ($old, $new, $release, $definition): void {
-    expect(GatePins::stale($definition($old), $release($new)))->toBe([
+it('names each pin of the gate that is not the installed release once, as it is written', function () use ($old, $new, $release, $definition): void {
+    $stale = [
         sprintf('nightworksio/php-mutation-gate@%s # v0.3.0', $old),
         sprintf('nightworksio/php-mutation-gate/.github/workflows/mutation-gate.yml@%s', $old),
         'ghcr.io/nightworksio/mutation-gate:0.3.0',
-    ]);
+    ];
+
+    expect(GatePins::stale($definition($old), $release($new)))->toBe($stale)
+        ->and(GatePins::stale(str_repeat($definition($old), 2), $release($new)))->toBe($stale);
 });
 
 it('names none where every pin is the installed release, or the release is not known', function () use ($new, $release, $definition): void {

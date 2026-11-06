@@ -27,6 +27,10 @@ it('includes each directory its source does not, wherever its source stands', fu
         "<phpunit>\n    <source>\n    </source>\n</phpunit>\n",
         "<phpunit>\n    <source>\n        <include>\n            <directory>src</directory>\n            <directory>app</directory>\n        </include>\n    </source>\n</phpunit>\n",
     ],
+    'a source holding only spaces' => [
+        "<phpunit>\n    <source>  </source>\n</phpunit>\n",
+        "<phpunit>\n    <source>\n        <include>\n            <directory>src</directory>\n            <directory>app</directory>\n        </include>\n    </source>\n</phpunit>\n",
+    ],
     'a closed source' => [
         "<phpunit>\n    <source/>\n</phpunit>\n",
         "<phpunit>\n    <source>\n        <include>\n            <directory>src</directory>\n            <directory>app</directory>\n        </include>\n    </source>\n</phpunit>\n",
