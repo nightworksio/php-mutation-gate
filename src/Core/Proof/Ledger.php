@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Pruning\Survival;
+use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
 
 /**
  * What one scope has proved: its proofs, how long each unit took, the bases
@@ -129,10 +130,11 @@ final readonly class Ledger
      * This ledger, with what a run learned, replacing what it held of that
      * kind: the kill history, what the static analysers came to, what each
      * mutator's newest mutants came to, what each mutator's mutants cost
-     * and found, or what the learned limits are read from.
+     * and found, what the learned limits are read from, or which mutant
+     * subsumes which.
      */
     public function withLearned(
-        KillHistory|AnalyserHistories|Survival|MutatorTallies|LimitHistory $learned,
+        KillHistory|AnalyserHistories|Survival|MutatorTallies|LimitHistory|Subsumption $learned,
     ): self {
         return new self(
             $this->proofs,

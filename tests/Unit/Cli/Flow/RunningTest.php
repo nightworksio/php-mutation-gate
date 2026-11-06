@@ -63,6 +63,7 @@ use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
+use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\Suites;
@@ -198,6 +199,28 @@ it('stops at the first shard whose result cannot be written', function (): void 
 
     expect($written)->toBeInstanceOf(CannotJudge::class)
         ->and(is_file(sprintf('%s/.mutation-gate/results/2.json', $project)))->toBeFalse();
+});
+
+it('holds back what its shard was handed of which mutant subsumes which, and nothing where it was handed none', function (): void {
+    $held = Subsumption::none()->with(
+        Path::of('src/Money.php'),
+        MutantId::hash(Path::of('src/Money.php'), 'Plus', "-a\n+b\n", 0),
+        MutantId::hash(Path::of('src/Money.php'), 'Plus', "-a\n+c\n", 0),
+    );
+    $holding = Flows::project();
+    $handed = ScriptedRunner::fixture();
+    new Handoff(Directory::at($holding), HandedMaps::limits())
+        ->write(Planned::oneShard(), Flows::map(), KillHistory::none(), Unplaced::map(), held: $held);
+    $free = Flows::project();
+    $unhanded = ScriptedRunner::fixture();
+
+    new Running(Flows::adapters($holding, [], $handed), Flows::settings(), Flows::setup())
+        ->run(Planned::oneShard(), ShardId::of(1), Workspace::results());
+    new Running(Flows::adapters($free, [], $unhanded), Flows::settings(), Flows::setup())
+        ->run(Planned::handedIn($free, Planned::oneShard()), ShardId::of(1), Workspace::results());
+
+    expect($handed->requests()[0]->search()->held())->toEqual($held)
+        ->and($unhanded->requests()[0]->search()->held())->toEqual(NotGiven::value());
 });
 
 it('asks a runner that runs a mutant per core for every core the machine has', function (): void {

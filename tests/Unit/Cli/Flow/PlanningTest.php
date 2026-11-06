@@ -173,6 +173,19 @@ it('plans every unit of a full run into shards, on the commit HEAD is at', funct
         ->and($planned instanceof Plan ? $planned->considered()->carried() : $planned)->toEqual(Units::none());
 });
 
+it('hands each shard which mutant subsumes which in its files where the run infers subsumed kills, and nothing in CI', function () use ($coverage): void {
+    $planned = static function (bool $inCi) use ($coverage): bool {
+        $project = Flows::project();
+        new Planning(Flows::adapters($project, $inCi ? ['CI' => 'true'] : []), Flows::settings(), Flows::setup())
+            ->plan(Mode::full(), $coverage(), Cut::exactly(1), MatrixKind::FirstKiller);
+
+        return is_file(sprintf('%s/.mutation-gate/coverage/shard-1/subsumption.json', $project));
+    };
+
+    expect($planned(inCi: false))->toBeTrue()
+        ->and($planned(inCi: true))->toBeFalse();
+});
+
 /** A plan under a 512M cap, where the suite's coverage run held this much and the runner reads this config. */
 $cappedPlan = static function (
     MemoryCap|NotGiven $peak,

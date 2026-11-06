@@ -365,18 +365,23 @@ final readonly class MutationRun
 
     /**
      * The hand-off of the run's mutants to static analysis before their
-     * tests, where pest-plugin-mutate is patched and a pre-checker is given;
-     * none otherwise, and Pest runs every mutant.
+     * tests, and of those it holds back until the others ran, where
+     * pest-plugin-mutate is patched and a pre-checker is given or the run
+     * holds subsumed mutants back; none otherwise, and Pest runs every
+     * mutant in its own order.
      */
     private function handOff(MutationRequest $request, string $results, CoverageMap|Unshared $shared): HandOff|NotGiven
     {
-        return $this->patching->isOn() && ! $this->preChecker instanceof NoPreCheck ? new HandOff(
+        $held = $request->search()->held();
+
+        return $this->patching->isOn() && HandOff::isWanted($this->preChecker, $held) ? new HandOff(
             $this->project,
             $results,
             $this->preChecker,
             $request->pool()->processes(),
             fn(): Covering|CannotJudge => $this->coveringOf($shared, $results),
             $this->bridges,
+            $held,
         ) : NotGiven::value();
     }
 

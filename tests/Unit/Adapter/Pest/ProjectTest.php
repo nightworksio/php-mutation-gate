@@ -65,7 +65,7 @@ it('makes a directory where it is not there, and leaves one that is', function (
         ->and(is_dir($made))->toBeTrue();
 });
 
-it('names a results file with no earlier run\'s results, map, list of mutants, log of events, verdicts, pruned list, mutated copies, error logs, killer files or replays left beside it', function () use ($project): void {
+it('names a results file with no earlier run\'s results, map, list of mutants, log of events, verdicts, held list, pruned list, mutated copies, error logs, killer files or replays left beside it', function () use ($project): void {
     $at = $project();
     $results = sprintf('%s/.mutation-gate/pest/results.jsonl', $at->root());
     mkdir(dirname($results), recursive: true);
@@ -74,6 +74,7 @@ it('names a results file with no earlier run\'s results, map, list of mutants, l
     file_put_contents(sprintf('%s.only', $results), 'earlier');
     file_put_contents(sprintf('%s.events', $results), 'earlier');
     file_put_contents(Verdicts::beside($results), 'earlier');
+    file_put_contents(Verdicts::heldBeside(Verdicts::beside($results)), 'earlier');
     file_put_contents(PrunedList::beside($results), 'earlier');
     mkdir(sprintf('%s/mutants', dirname($results)));
     file_put_contents(sprintf('%s/mutants/n1.php', dirname($results)), 'earlier');
@@ -87,6 +88,7 @@ it('names a results file with no earlier run\'s results, map, list of mutants, l
         ->and(is_file(sprintf('%s.only', $results)))->toBeFalse()
         ->and(is_file(sprintf('%s.events', $results)))->toBeFalse()
         ->and(is_file(Verdicts::beside($results)))->toBeFalse()
+        ->and(is_file(Verdicts::heldBeside(Verdicts::beside($results))))->toBeFalse()
         ->and(is_file(PrunedList::beside($results)))->toBeFalse()
         ->and(is_file(sprintf('%s/mutants/n1.php', dirname($results))))->toBeFalse()
         ->and(is_file(Recorder::errorsBeside($results, '/tmp/mutations/n1.php')))->toBeFalse()

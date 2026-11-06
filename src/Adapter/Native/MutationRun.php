@@ -108,7 +108,7 @@ final readonly class MutationRun
 
         $twins = Twins::of($made);
         $checked = PreChecked::of($twins->first(), $map, $preChecker, $request->pool()->processes());
-        $queue = $this->queued($checked->left, $request, $map, $bounds, $end);
+        $queue = $this->queued(HeldLast::of($checked->left, $request->search()->held()), $request, $map, $bounds, $end);
         $preparing = $this->laps->lap(Step::Preparing, $from, count($made));
         $from = $this->laps->now();
         $judged = $queue instanceof CannotJudge ? $queue : $this->judgedAll($queue, $request, $end);

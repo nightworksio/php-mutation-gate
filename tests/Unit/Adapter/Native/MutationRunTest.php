@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\Native\Command;
 use NightWorksIO\MutationGate\Core\Native\Variable;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Order\KillSearch;
 use NightWorksIO\MutationGate\Core\Pruning\MutatorNames;
 use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
@@ -42,6 +43,7 @@ use NightWorksIO\MutationGate\Core\Runner\TestWatch;
 use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlot;
+use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestTime;
 use NightWorksIO\MutationGate\Core\Test\TestTimes;
@@ -128,6 +130,22 @@ it('makes every mutant of every PHP file a directory holds, judging each by its 
     ])
         ->and($result instanceof MutationResult ? $result->skipped() : -1)->toBe(0)
         ->and($shell->commands())->toHaveCount(2);
+});
+
+it('starts each mutant another subsumes after the others, where the run holds subsumed mutants back', function () use ($makeCovered): void {
+    $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests());
+    $bounds = LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0));
+    [$run] = killingRun(library());
+    $unheld = $run->of($request, $makeCovered(), $bounds);
+    [$echo, $plus] = $unheld instanceof MutationResult ? [...$unheld->mutants()] : [];
+    $held = Subsumption::none()->with(Path::of('src/Money.php'), $echo->id(), $plus->id());
+    [$again] = killingRun(library());
+
+    expect(judgedMutants($again->of($request->searching(KillSearch::standard()->holdingBack($held)), $makeCovered(), $bounds)))->toBe([
+        ['src/Money.php', 'acme/PlusToMinus', 'killed'],
+        ['src/Tax.php', 'acme/PlusToMinus', 'uncovered'],
+        ['src/Money.php', 'acme/RemoveEcho', 'killed'],
+    ]);
 });
 
 it('runs one of the mutants that leave a file alike, and judges the rest as it, in no time', function () use ($makeCovered): void {

@@ -10,7 +10,7 @@ it('reads the lines a diff removed and added, past its header', function (): voi
 
     expect($change->removed())->toBe('if ($amount < $limit) {')
         ->and($change->added())->toBe('if ($amount <= $limit) {')
-        ->and($change->changed())->toBe(['<'])
+        ->and($change->tokens()->changed())->toBe(['<'])
         ->and($change->original())->toBe('<');
 });
 
@@ -79,7 +79,7 @@ it('takes a diff without a header whole, and one that only removes', function ()
     expect($change->removed())->toBe('$this->save($order);')
         ->and($change->added())->toBe('')
         ->and($change->original())->toBe('$this->save($order);')
-        ->and($change->changed())->toBe(['$this', '->', 'save', '(', '$order', ')', ';']);
+        ->and($change->tokens()->changed())->toBe(['$this', '->', 'save', '(', '$order', ')', ';']);
 });
 
 it('reads a literal that changed, and the whole line where nothing differs', function (): void {

@@ -195,6 +195,7 @@ it('declares every setting as affecting results, as deciding how the gate runs, 
         'local.serveIdle' => $judges,
         'local.serveStart' => $judges,
         'local.serveStartWait' => $judges,
+        'local.inferSubsumed' => $judges,
         'coverage.incremental' => $decides,
         'paths[].glob' => $matching,
         'paths[].mutators.sets' => $matching,
@@ -234,7 +235,11 @@ it('states the default budgets the configuration reference gives watch and pre-p
         ->and([$default('local.serveIdle'), $default('local.serveStart'), $default('local.serveStartWait')])
         ->toBe([Local::none()->serveIdle()->written(), Local::none()->serveStart()->value, '10s'])
         ->and(Local::none()->serveStartWait()->written())->toBe('10s')
-        ->and(Local::of(serveStartWait: Seconds::of(3.0))->over(Local::none())->serveStartWait()->written())->toBe('3s');
+        ->and(Local::of(serveStartWait: Seconds::of(3.0))->over(Local::none())->serveStartWait()->written())->toBe('3s')
+        ->and($default('local.inferSubsumed'))->toBe('true')
+        ->and([Local::none()->inferSubsumed(), Local::of(inferSubsumed: false)->inferSubsumed()])->toBe([true, false])
+        ->and(Local::of(inferSubsumed: false)->over(Local::none())->inferSubsumed())->toBeFalse()
+        ->and(Local::none()->over(Local::of(inferSubsumed: false))->inferSubsumed())->toBeFalse();
 });
 
 it('gives runner.memory the default the configuration reference names', function (): void {

@@ -266,12 +266,13 @@ final readonly class Judging
         $since = new Since($this->adapters, $this->settings)->of(...$commits);
         $counted = Carrying::against($plan->digests(), $plan->base(), $plan->names(), $map, $since);
         $unjudged = LeftUnjudged::of($results->unjudged(), $newest, $counted);
+        $left = new Inferring($this->adapters, $this->settings)->of($unjudged->results(), $ledgers, $fresh);
         $doomed = $stop->doomed();
         $stopped = $doomed instanceof Doomed
             ? LeftUnjudged::stoppedBy($doomed, $stop->units(), $newest, $counted)->results()
             : UnitResults::none();
         $matrix = $this->matrixOf($plan, $map);
-        $judged = $fresh->and($proving->proved())->and($carrying->carried())->and($unjudged->results())->and($stopped);
+        $judged = $fresh->and($proving->proved())->and($carrying->carried())->and($left)->and($stopped);
         $equivalents = new StaticEquivalence($this->adapters, $this->settings)->among($judged);
         $verdicts = $this->read($matrix, $judge->judging($matrix)->proving($equivalents->proven)->trees($judged));
         $security = new NarrowRunHolding($this->adapters)->security(
@@ -293,7 +294,7 @@ final readonly class Judging
             $plan,
             Lowering::against($committed, $baseline, $trees),
             $unrun
-                ->and(Unfinished::failures($fresh->and($unjudged->results()), $this->setup->command))
+                ->and(Unfinished::failures($fresh->and($left), $this->setup->command))
                 ->and($refused ? $this->unfloored($baseline, $verdicts, $security) : Failures::none())
                 ->and($ignoring->stale($verdicts, $unrun, $this->adapters->narrowing->mutators())),
             $judge,

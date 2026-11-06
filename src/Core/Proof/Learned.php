@@ -9,12 +9,14 @@ use NightWorksIO\MutationGate\Core\Cost\MutatorTallies;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Pruning\Survival;
+use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
 
 /**
  * What a scope's runs learned beside its proofs: which tests killed its
  * mutants first, what each static analyser came to, what each mutator's
- * newest mutants came to, what each mutator's mutants cost and found, and
- * what the limits a config has the gate learn are read from.
+ * newest mutants came to, what each mutator's mutants cost and found, what
+ * the limits a config has the gate learn are read from, and which mutant
+ * subsumes which (ADR-0079).
  * Losing any of it costs a run speed or a report, never a verdict.
  */
 final readonly class Learned
@@ -25,6 +27,7 @@ final readonly class Learned
         private Survival $survival,
         private MutatorTallies $tallies,
         private LimitHistory $limits,
+        private Subsumption $subsumption,
     ) {
     }
 
@@ -36,18 +39,21 @@ final readonly class Learned
             Survival::none(),
             MutatorTallies::none(),
             LimitHistory::none(),
+            Subsumption::none(),
         );
     }
 
     /** This, with what a run learned of one kind, replacing what it held of that kind. */
-    public function with(KillHistory|AnalyserHistories|Survival|MutatorTallies|LimitHistory $learned): self
-    {
+    public function with(
+        KillHistory|AnalyserHistories|Survival|MutatorTallies|LimitHistory|Subsumption $learned,
+    ): self {
         return new self(
             $learned instanceof KillHistory ? $learned : $this->killers,
             $learned instanceof AnalyserHistories ? $learned : $this->analysers,
             $learned instanceof Survival ? $learned : $this->survival,
             $learned instanceof MutatorTallies ? $learned : $this->tallies,
             $learned instanceof LimitHistory ? $learned : $this->limits,
+            $learned instanceof Subsumption ? $learned : $this->subsumption,
         );
     }
 
@@ -60,6 +66,7 @@ final readonly class Learned
             $this->survival->and($other->survival),
             $this->tallies->and($other->tallies),
             $this->limits->and($other->limits),
+            $this->subsumption->and($other->subsumption),
         );
     }
 
@@ -72,6 +79,7 @@ final readonly class Learned
             $this->survival,
             $this->tallies,
             $this->limits,
+            $this->subsumption,
         );
     }
 
@@ -103,5 +111,11 @@ final readonly class Learned
     public function limits(): LimitHistory
     {
         return $this->limits;
+    }
+
+    /** Which mutant subsumes which in each file a run learned of (ADR-0079). */
+    public function subsumption(): Subsumption
+    {
+        return $this->subsumption;
     }
 }

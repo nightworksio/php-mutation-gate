@@ -32,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\Version;
+use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
@@ -115,6 +116,12 @@ final readonly class Ledgers
     public function killers(): KillHistory
     {
         return $this->own->learned()->killers()->and($this->defaultBranch->learned()->killers());
+    }
+
+    /** Which mutant subsumes which, as either ledger learned it, this scope's first (ADR-0079). */
+    public function subsumption(): Subsumption
+    {
+        return $this->own->and($this->defaultBranch)->learned()->subsumption();
     }
 
     /** Each unit's newest result that stands for a run of this kind, in any ledger read. */

@@ -7,7 +7,10 @@ namespace NightWorksIO\MutationGate\Config;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Serve\ServeStart;
 
-/** The budgets of the local modes (ADR-0010), and how their daemon serves them (ADR-0078): `local`. */
+/**
+ * The budgets of the local modes (ADR-0010), how their daemon serves them
+ * (ADR-0078), and whether they infer subsumed kills (ADR-0079): `local`.
+ */
 final readonly class Local implements Setting
 {
     private function __construct(private Json $json)
@@ -42,6 +45,18 @@ final readonly class Local implements Setting
     public static function serveStarting(ServeStart $start): self
     {
         return new self(Json::at('local.serveStart', $start->value));
+    }
+
+    /** `local.inferSubsumed`, as by default: a run outside CI runs subsumed mutants last and infers their kills. */
+    public static function inferringSubsumed(): self
+    {
+        return new self(Json::at('local.inferSubsumed', value: true));
+    }
+
+    /** `local.inferSubsumed` off: a run outside CI runs every mutant in its turn and infers nothing. */
+    public static function runningSubsumed(): self
+    {
+        return new self(Json::at('local.inferSubsumed', value: false));
     }
 
     public function written(): Json

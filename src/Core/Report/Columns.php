@@ -156,7 +156,7 @@ final readonly class Columns
     private function placed(Mutant|ProvedKill $mutant): array
     {
         [$first, $last] = $this->linesOf($mutant);
-        $changed = $mutant instanceof Mutant ? Change::of($mutant->mutation()->diff())->changed() : [];
+        $changed = $mutant instanceof Mutant ? Change::of($mutant->mutation()->diff())->tokens()->changed() : [];
         $window = array_keys(array_filter(
             $this->tokens,
             static fn(array $token): bool => $token['line'] >= $first && $token['line'] <= $last,

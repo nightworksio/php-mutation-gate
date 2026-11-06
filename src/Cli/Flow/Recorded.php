@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Cost\RunTimings;
 use NightWorksIO\MutationGate\Core\Cost\Untimed;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Order\Lesson;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -79,7 +80,13 @@ final readonly class Recorded
         $recordings = Recordings::of($plan, $fresh, $run, $this->adapters->project);
         $proved = $this->proved($written, $plan, $recordings);
         $learned = $this->adapters->narrowing->isNone()
-            ? $this->learned($this->survived($proved, $fresh), $results, $judged, $ledgers->timings(), $plan)
+            ? $this->learned(
+                $this->subsumed($this->survived($proved, $fresh), $fresh, $plan),
+                $results,
+                $judged,
+                $ledgers->timings(),
+                $plan,
+            )
             : $proved;
         $ledger = $this->taught($learned, $fresh);
         $ledger = $ledger instanceof Ledger ? $this->paced($ledger, $timings) : $ledger;
@@ -146,6 +153,18 @@ final readonly class Recorded
         $runner = $this->settings->runner()->name();
 
         return $ledger->withLearned($ledger->learned()->survival()->after($runner, $window, ...Outcomes::of($fresh)));
+    }
+
+    /**
+     * The ledger, having learned which mutant subsumes which in each file
+     * the run judged every mutant of with every test that killed it, in
+     * place of what it held of those files (ADR-0079).
+     */
+    private function subsumed(Ledger $ledger, UnitResults $fresh, Plan $plan): Ledger
+    {
+        return $plan->briefing()->matrix() === MatrixKind::Full
+            ? $ledger->withLearned($ledger->learned()->subsumption()->afterRun($fresh))
+            : $ledger;
     }
 
     /** Each unit the shards ran, with the mutants a proof under its key in either ledger disagrees on flaky. */

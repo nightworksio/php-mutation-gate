@@ -42,6 +42,7 @@ use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
+use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Deadline;
 use NightWorksIO\MutationGate\Core\Time\Instant;
@@ -191,7 +192,9 @@ final readonly class Running
             $this->settings->triage()->order(),
             $history instanceof KillHistory ? $history : KillHistory::none(),
         );
+        $held = new Handoff($this->adapters->project, Handoff::limits())->subsumption($id);
         $search = KillSearch::of($ordering, $plan->briefing()->matrix());
+        $search = $held instanceof Subsumption ? $search->holdingBack($held) : $search;
         $outcome = $map instanceof CoverageMap
             ? $this->mutated($plan, $shard, $map, $search, $deadline, $stopwatch)
             : $map;

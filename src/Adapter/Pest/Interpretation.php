@@ -73,11 +73,13 @@ final readonly class Interpretation
     {
         $records = new RunRecords($this->cap, $this->opening)->of($ran, $results);
 
-        return match (true) {
+        $result = match (true) {
             $records instanceof CannotJudge => $records,
             $coverage instanceof CannotJudge => $coverage,
             default => $this->mutants($records, $coverage),
         };
+
+        return $result instanceof MutationResult && $ran->wasStopped() ? $result->stoppedAtDeadline() : $result;
     }
 
     /** A mutant the gate made before, now unjudged, saying why. */

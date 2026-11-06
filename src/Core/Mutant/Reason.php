@@ -48,6 +48,13 @@ final readonly class Reason
      */
     private const string OVERRAN = 'Its test %s ran past %s, its own limit, so its run was stopped.';
 
+    /**
+     * What a local run that left a mutant unjudged says of it where a mutant
+     * that subsumes it was killed (ADR-0079): its kill is inferred, which is
+     * no proof, before why it was left.
+     */
+    private const string INFERRED = 'Inferred killed: %s subsumes it and was killed, which proves nothing of it. %s';
+
     private function __construct(
         private string $text,
         private OutOfTime|Unreported $outOfTime,
@@ -82,6 +89,12 @@ final readonly class Reason
     public static function overran(TestId $test, Seconds $limit): self
     {
         return new self(sprintf(self::OVERRAN, $test->value(), $limit->text()), Unreported::reason(), $test);
+    }
+
+    /** This reason, saying first that the mutant's kill is inferred from that of this mutant, which subsumes it. */
+    public function inferredFrom(MutantId $subsumer): self
+    {
+        return new self(sprintf(self::INFERRED, $subsumer->value(), $this->text), $this->outOfTime, $this->stoppedAt);
     }
 
     /** Whether it says the mutated file was loaded before the mutant was in place, as the ledger keeps it. */

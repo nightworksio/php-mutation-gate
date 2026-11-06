@@ -141,6 +141,7 @@ final readonly class Project
             PrunedList::beside($results),
             OpeningIssues::beside($results),
             Verdicts::beside($results),
+            Verdicts::heldBeside(Verdicts::beside($results)),
         ];
         $beside = [...$beside, ...(is_array($copies) ? $copies : []), ...(is_array($logs) ? $logs : [])];
         $beside = [...$beside, ...(is_array($replays) ? $replays : []), ...(is_array($killers) ? $killers : [])];

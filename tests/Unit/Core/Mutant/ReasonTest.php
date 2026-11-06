@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
@@ -45,4 +46,13 @@ it('says no test of a mutant\'s run finished for its silence limit, so its run w
 it('says which test of a mutant\'s run ran past its own limit, so its run was stopped', function (): void {
     expect(Reason::overran(TestId::of('MoneyTest::adds'), Seconds::of(3.0))->text())
         ->toBe('Its test MoneyTest::adds ran past 3s, its own limit, so its run was stopped.');
+});
+
+it('says first that a mutant\'s kill is inferred from the subsumer that was killed, keeping what its time ran out before', function (): void {
+    $subsumer = MutantId::firstOf(Path::of('src/Money.php'), 'Pest/IncrementInteger', '-1 +2');
+    $inferred = Reason::ranOutOf(OutOfTime::BeforeRunning, 'The time budget ran out.')->inferredFrom($subsumer);
+
+    expect($inferred->text())
+        ->toBe(sprintf('Inferred killed: %s subsumes it and was killed, which proves nothing of it. The time budget ran out.', $subsumer->value()))
+        ->and($inferred->outOfTime())->toBe(OutOfTime::BeforeRunning);
 });
