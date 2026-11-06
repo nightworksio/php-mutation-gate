@@ -28,13 +28,15 @@ it('names the function a line is in, a closure\'s line its function\'s, and none
         ->and($spans->at(Line::of(8)))->toEqual(Nameless::code());
 });
 
-it('names the narrowest function that holds a line, in whichever order they are held', function (): void {
+it('names the narrowest function that holds a line, in whichever order they are held, the first of two as narrow', function (): void {
     $outer = FunctionSpan::of('outer', Line::of(1), Line::of(10));
     $inner = FunctionSpan::of('inner', Line::of(3), Line::of(5));
+    $twin = FunctionSpan::of('twin', Line::of(3), Line::of(5));
 
     expect(FunctionSpans::of($outer, $inner)->at(Line::of(4)))->toBe('inner')
         ->and(FunctionSpans::of($inner, $outer)->at(Line::of(4)))->toBe('inner')
         ->and(FunctionSpans::of($inner, $outer)->at(Line::of(2)))->toBe('outer')
+        ->and(FunctionSpans::of($inner, $twin)->at(Line::of(4)))->toBe('inner')
         ->and($inner->width())->toBe(2);
 });
 

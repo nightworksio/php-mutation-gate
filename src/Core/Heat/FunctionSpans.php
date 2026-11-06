@@ -64,7 +64,7 @@ final readonly class FunctionSpans implements IteratorAggregate
         return new self($held);
     }
 
-    /** The name of the narrowest function that holds a line; nameless where none does. */
+    /** The name of the narrowest function that holds a line, the first of two as narrow; nameless where none does. */
     public function at(Line $line): string|Nameless
     {
         $found = Nameless::code();
