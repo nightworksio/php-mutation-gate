@@ -52,4 +52,3 @@ an adapter to it: [runners](runners.md), [reporters](reporters.md),
 
 To add an adapter to this package itself rather than to a package of your own,
 see [contributing](../../CONTRIBUTING.md#adding-an-adapter-a-preset-or-an-extension).
-

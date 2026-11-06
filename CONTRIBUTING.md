@@ -146,6 +146,9 @@ A comment whose first line is one of these runs it:
   suite enforces, and `tests/Docs` holds the documentation to the code. The
   gate judges its own mutants by `Unit` and `Plugins`. `Process` and
   `Contract` judge only the units they hold.
+- **CI, the docs and releases** each have a page of their own:
+  [how CI works](.docs/contributing/ci.md), [the docs](.docs/contributing/docs.md)
+  and [releasing](.docs/contributing/releasing.md).
 - **The reusable workflow is generated.** Edit its template,
   `scripts/workflows/mutation-gate/`, and run
   `python3 scripts/workflows/generate.py`, which writes
@@ -171,7 +174,8 @@ A comment whose first line is one of these runs it:
   a plugin, a package of its own under `plugins/<name>`, as `plugins/default`
   is ([ADR-0021](.docs/decisions/0021-mutators-are-written-once-and-first-party-sets-can-leave.md)).
 
-[Writing an adapter](.docs/extending/adapters.md) says how a
+[Extending the gate](.docs/extending/README.md) lists every extension point
+with its contract, and [adapters](.docs/extending/adapters.md) says how a
 config names an adapter, and how an adapter reads its options.
 
 ## Maintainers and decisions
