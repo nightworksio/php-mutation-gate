@@ -37,6 +37,7 @@ use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\StandsBecause;
 use NightWorksIO\MutationGate\Core\Plan\Unchanged;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
+use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
@@ -136,7 +137,7 @@ $plan = static function (
         ->withProof($proof(Planned::money(), 'main', $resultsAt))
         ->withProof($proof(Planned::held(), 'main', $resultsAt))
         ->withRuns(ScopeRuns::none()->passing(
-            Passed::of(Revision::ref(REACHED_NOTHING_BASE), 'mutation / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(REACHED_NOTHING_PASSED_AT))),
+            Passed::of(Revision::ref(REACHED_NOTHING_BASE), 'mutation / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(REACHED_NOTHING_PASSED_AT)))->judgedBy(GateRelease::of(Flows::setup()->gate)),
         )));
     $store->write(Scope::pullRequest(516), match ($own) {
         'result' => Ledger::empty()->withProof($proof(Planned::money(), 'pr', '2026-11-02T13:00:00Z')),

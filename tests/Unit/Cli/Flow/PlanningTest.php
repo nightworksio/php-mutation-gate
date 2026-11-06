@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Ignores;
 use NightWorksIO\MutationGate\Config\Runner as ConfiguredRunner;
+use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Change;
@@ -55,7 +56,9 @@ use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Inputs;
+use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\LimitHistory;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
@@ -68,6 +71,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
+use NightWorksIO\MutationGate\Core\Runner\Multiple;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -340,6 +344,26 @@ it('hands each shard the kill history the ledgers learned, which enters no key a
         ->toEqual($cold instanceof Plan ? $cold->digest() : $cold)
         ->and($learned instanceof Plan ? $learned->keys() : $learned)
         ->toEqual($cold instanceof Plan ? $cold->keys() : $cold);
+});
+
+it('keys every unit by the whole timeouts.multiple it learned, where the config learns one', function () use ($coverage): void {
+    $keys = static function (float $kill) use ($coverage): Keys|CannotJudge {
+        $store = new ProofStoreFake();
+        $store->write(Scope::branch('main'), Ledger::empty()->withLearned(
+            LimitHistory::none()->afterKills(Multiple::of($kill)),
+        ));
+        $planned = Planned::from(new Planning(
+            Flows::adapters(Flows::project(), [], $store),
+            Flows::settings(Timeouts::learnedMultiple()),
+            Flows::setup(),
+        )->plan(Mode::full(), $coverage(), Cut::exactly(2), MatrixKind::FirstKiller));
+
+        return $planned instanceof Plan ? $planned->keys() : $planned;
+    };
+
+    expect($keys(4.2))->toBeInstanceOf(Keys::class)
+        ->and($keys(4.2))->toEqual($keys(4.9))
+        ->and($keys(4.2))->not->toEqual($keys(5.1));
 });
 
 it('names the coverage map\'s tests once, withholding what every process withholds, outside keys and digest', function () use (

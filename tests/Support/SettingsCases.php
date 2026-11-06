@@ -162,6 +162,7 @@ final readonly class SettingsCases
         },
         "timeouts": {
             "mode": "confirm",
+            "headroom": 0.1,
             "seconds": 10,
             "most": 300,
             "multiple": 3,

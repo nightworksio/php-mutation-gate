@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\SuiteLists;
 use NightWorksIO\MutationGate\Core\Config\SurvivorsFirst;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
+use NightWorksIO\MutationGate\Core\Config\TimeoutHeadroom;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\Format\Node;
@@ -46,6 +47,7 @@ final readonly class TriageKeys
         $judges = Effect::JudgesOrReportsOnly;
         $results = Effect::AffectsResults;
         $mode = Field::optional('mode', Enumerated::of(TimeoutMode::cases()), $judges);
+        $headroom = Field::optional('headroom', Number::between(0, TimeoutHeadroom::MOST), $judges);
         $seconds = Field::optional('seconds', OrLearned::of(Integer::atLeast(1)), $results);
         $atMost = Field::optional('most', Integer::atLeast(1), $results);
         $multiple = Field::optional('multiple', OrLearned::of(Number::atLeast(1)), $results);
@@ -72,6 +74,7 @@ final readonly class TriageKeys
                 Section::of(
                     static function (Node $timeouts) use (
                         $mode,
+                        $headroom,
                         $seconds,
                         $atMost,
                         $multiple,
@@ -85,6 +88,7 @@ final readonly class TriageKeys
                         $heavyParts,
                     ): Layer|Invalid {
                         $timedOut = $mode->read($timeouts);
+                        $unused = $headroom->read($timeouts);
                         $limit = $seconds->read($timeouts);
                         $upper = $atMost->read($timeouts);
                         $times = $multiple->read($timeouts);
@@ -111,8 +115,10 @@ final readonly class TriageKeys
                                 learned: $bounds->value(),
                                 heavyFill: $fills->value(),
                                 heavyParts: $cap->value(),
+                                headroom: $unused->value(),
                             )),
                             $timedOut,
+                            $unused,
                             $limit,
                             $upper,
                             $times,
@@ -127,6 +133,7 @@ final readonly class TriageKeys
                         );
                     },
                     $mode,
+                    $headroom,
                     $seconds,
                     $atMost,
                     $multiple,

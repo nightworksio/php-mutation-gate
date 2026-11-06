@@ -4,16 +4,19 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Verdict;
 
+use NightWorksIO\MutationGate\Core\Config\TimeoutHeadroom;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
  * Timeout triage (ADR-0008): a timed-out mutant whose judging
  * tests, run unmutated under the same limit and served as it was, finished
- * within that limit broke something, and is killed by timeout; any other,
- * and one whose tests never ran so, is too slow to judge. The time of that
+ * within that limit, leaving `timeouts.headroom` of it unused (ADR-0108),
+ * broke something, and is killed by timeout; any other, and one whose tests
+ * never ran so, is too slow to judge. The time of that
  * run is a trial's own run of its tests on their own, or the unmutated
  * control of the mutant (see TimeoutControls). Under `timeouts.mode:
  * unjudged` every timeout is too slow to judge.
@@ -22,13 +25,13 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  */
 final readonly class TimeoutTriage
 {
-    private function __construct(private TimeoutMode $mode)
+    private function __construct(private TimeoutMode $mode, private TimeoutHeadroom $headroom)
     {
     }
 
-    public static function under(TimeoutMode $mode): self
+    public static function under(TimeoutMode $mode, TimeoutHeadroom|NotGiven $headroom = new NotGiven()): self
     {
-        return new self($mode);
+        return new self($mode, $headroom instanceof TimeoutHeadroom ? $headroom : TimeoutHeadroom::standard());
     }
 
     /** What a mutant comes to: as its status reports it, and a timeout as triage judges it. */
@@ -41,7 +44,7 @@ final readonly class TimeoutTriage
             && $this->mode === TimeoutMode::Confirm
             && $limit instanceof Seconds
             && $time instanceof Seconds
-            && $time->seconds() <= $limit->seconds()
+            && $this->headroom->isLeftBy($time, $limit)
             ? MutantJudgement::KilledByTimeout
             : MutantJudgement::reported($mutant->status());
     }

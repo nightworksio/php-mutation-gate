@@ -367,6 +367,7 @@ services:
                 'NightWorksIO\MutationGate\Core\Runner\Polling':
                     - MOMENT # seconds a closing process is given to be seen to end, not a check's least limit
                 'NightWorksIO\MutationGate\Core\Proof\PassedRecord':
+                    - GATE # a record's field, not the static analyser Infection names
                     - COMMIT # a field of a passed commit's record, not of a proof's digests
                     - CHECK # a field of a passed commit's record, not of the last run's
                 'NightWorksIO\MutationGate\Core\Native\Command':
@@ -776,6 +777,8 @@ services:
                     - SHARDS # the jobs a re-check is shared among by default, not a mutant's status code
                 'NightWorksIO\MutationGate\Core\Recheck\RecheckJobs':
                     - SETUP_MINUTES # the minutes a re-check job takes to set up, not shipped presets
+                'NightWorksIO\MutationGate\Core\Config\TimeoutHeadroom':
+                    - MOST # the most of a limit timeouts.headroom may keep unused, not a timing's newest weight
                 'NightWorksIO\MutationGate\Core\Recheck\RecheckShare':
                     - RAN # a share's files run again, not a recorded event
                     - MUTANTS # a share's mutants made, not the kill history's section

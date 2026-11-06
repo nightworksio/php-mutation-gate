@@ -258,6 +258,16 @@ Enable a disabled workflow again, with `gh workflow enable` or in the Actions
 tab. Otherwise run the gate on a schedule, such as
 `on: schedule: [{cron: '0 3 * * 1'}]` in its workflow.
 
+## no-scheduled-run
+
+`doctor` found GitHub workflows that run the gate, and no `schedule` trigger in
+any of them. A full run on a schedule reaches the units no change reaches, and
+judges them with the gate of the day, including a release that moved under a
+tag.
+
+Run the gate on a schedule, such as `on: schedule: [{cron: '0 3 * * 1'}]` in
+its workflow.
+
 ## online-unread
 
 GitHub did not show `doctor --online` one of the settings it reads, which is

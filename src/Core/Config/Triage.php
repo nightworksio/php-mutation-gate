@@ -56,6 +56,7 @@ final readonly class Triage implements Part
         private Seconds|Absent $startUp,
         private LearnedBounds $learned,
         private HeavySetting $heavy,
+        private int|float|Absent $headroom,
     ) {
     }
 
@@ -77,6 +78,7 @@ final readonly class Triage implements Part
         LearnedBounds|Absent $learned = new Absent(),
         bool|Absent $heavyFill = new Absent(),
         int|Absent $heavyParts = new Absent(),
+        int|float|Absent $headroom = new Absent(),
     ): self {
         return new self(
             $budget,
@@ -94,6 +96,7 @@ final readonly class Triage implements Part
             $startUp,
             LearnedBounds::orNone($learned),
             HeavySetting::of($heavyFill, $heavyParts),
+            $headroom,
         );
     }
 
@@ -120,6 +123,7 @@ final readonly class Triage implements Part
             startUp: Seconds::of(MutantLimit::START_UP),
             learned: LearnedBounds::standard(),
             heavyFill: $none->heavy()->fills(),
+            headroom: TimeoutHeadroom::STANDARD,
         );
     }
 
@@ -142,6 +146,7 @@ final readonly class Triage implements Part
                 Absent::laid($this->startUp, $later->startUp),
                 $this->learned->over($later->learned),
                 $this->heavy->over($later->heavy),
+                Absent::laid($this->headroom, $later->headroom),
             )
             : $this;
     }
@@ -156,6 +161,12 @@ final readonly class Triage implements Part
     public function timeouts(): TimeoutMode
     {
         return $this->mode instanceof TimeoutMode ? $this->mode : TimeoutMode::Confirm;
+    }
+
+    /** `timeouts.headroom` */
+    public function headroom(): TimeoutHeadroom
+    {
+        return $this->headroom instanceof Absent ? TimeoutHeadroom::standard() : TimeoutHeadroom::of($this->headroom);
     }
 
     /**
@@ -277,6 +288,7 @@ final readonly class Triage implements Part
                 'timeouts',
                 $this->heavy->written(Json::object(
                     Member::of('mode', $this->mode instanceof TimeoutMode ? $this->mode->value : $this->mode),
+                    Member::of('headroom', $this->headroom),
                     Member::of('seconds', LimitCalls::secondsWritten($this->limit)),
                     Member::of('most', WholeSeconds::written($this->most)),
                     Member::of('multiple', LimitCalls::multipleWritten($this->multiple)),
@@ -305,6 +317,7 @@ final readonly class Triage implements Part
         return PhpCalls::inWith(...[
             ...LimitCalls::writtenSeconds('Budget::of', $this->budget),
             ...$this->mode instanceof TimeoutMode ? [$this->mode->php()] : [],
+            ...LimitCalls::headroom($this->headroom),
             ...LimitCalls::seconds($this->limit),
             ...LimitCalls::multiple($this->multiple),
             ...LimitCalls::writtenSeconds('Timeouts::startUp', $this->startUp),

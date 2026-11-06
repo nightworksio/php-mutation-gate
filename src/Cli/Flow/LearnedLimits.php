@@ -20,7 +20,6 @@ use NightWorksIO\MutationGate\Core\Proof\LimitHistory;
 use NightWorksIO\MutationGate\Core\Runner\Multiple;
 use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
 
-use function round;
 use function sprintf;
 
 /**
@@ -39,7 +38,7 @@ use function sprintf;
 final readonly class LearnedLimits
 {
     private const string MULTIPLE
-        = 'timeouts.multiple learned: %s, what %s in 100 of %d kills took over their tests\' time, in place of %d.';
+        = 'timeouts.multiple learned: %s, rounded up from what %s in 100 of %d kills took over their tests\' time, in place of %d.';
 
     private const string MULTIPLE_COLD = 'timeouts.multiple learned: %d, the fixed one: the ledger holds no kill yet.';
 
@@ -102,6 +101,12 @@ final readonly class LearnedLimits
         $kills = $this->multiple instanceof NotGiven ? $none : $none->allowing($this->multiple);
 
         return $briefing->learning($this->pace instanceof NotGiven ? $kills : $kills->pacing($this->pace));
+    }
+
+    /** The multiple learned, which every key holds; none where the config has none learned. */
+    public function multiple(): Multiple|NotGiven
+    {
+        return $this->multiple;
     }
 
     /** The cut, at most the shards learned, where they were. */

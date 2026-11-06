@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Doctor\Check\PestUnpatched;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Php;
 use NightWorksIO\MutationGate\Core\Doctor\Check\PublicContainer;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Runners;
+use NightWorksIO\MutationGate\Core\Doctor\Check\ScheduledRun;
 use NightWorksIO\MutationGate\Core\Doctor\Check\ScheduleRunning;
 use NightWorksIO\MutationGate\Core\Doctor\Check\ShallowClone;
 use NightWorksIO\MutationGate\Core\Doctor\Check\SonarDrops;
@@ -79,6 +80,7 @@ final readonly class Diagnosis
             ForkApprovalPolicy::in($observed),
             PublicContainer::in($observed),
             ScheduleRunning::in($observed),
+            ScheduledRun::in($observed),
             ShallowClone::in($observed),
             WarmBoot::in($observed),
             WorkflowPin::in($observed),

@@ -69,11 +69,14 @@ final readonly class Unchanged
     /**
      * The commit the plan was made on, recorded as passed at this instant
      * under the check the commit it stands on passed under, which is the
-     * run's own, using what of its scope that commit used.
+     * run's own, by the release that judged that commit, which is the run's
+     * own too, using what of its scope that commit used.
      */
     public function passing(Revision $head, Instant $at): Passed
     {
-        $passed = Passed::of($head, $this->base->check(), $this->base->ownScopeProofs())->passedAt($at);
+        $passed = Passed::of($head, $this->base->check(), $this->base->ownScopeProofs())
+            ->passedAt($at)
+            ->judgedBy($this->base->gate());
 
         return $this->base->measuredOnOwnScope() ? $passed->onOwnScopeCoverage() : $passed;
     }

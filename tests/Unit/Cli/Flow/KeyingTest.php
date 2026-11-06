@@ -34,6 +34,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
+use NightWorksIO\MutationGate\Core\Runner\Multiple;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Version;
@@ -165,6 +166,13 @@ it('keys a run narrowed to some mutators apart from one of every mutator, and ap
     expect($secured)->not->toEqual(keyedNarrowedTo(Mutators::all()))
         ->and($secured)->not->toEqual(keyedNarrowedTo(Mutators::named('default/Plus')))
         ->and($secured)->toEqual(keyedNarrowedTo(Mutators::named('security/HashEqualsToTrue')));
+});
+
+it('keys a run by the timeouts.multiple its plan learned, which its mutants run under', function (): void {
+    expect(keyedLearning(Multiple::of(4.0)))->not->toEqual(keyedLearning(Multiple::of(5.0)))
+        ->and(keyedLearning(Multiple::of(4.0)))->not->toEqual(keyedLearning(NotGiven::value()))
+        ->and(keyedLearning(Multiple::of(4.0)))->toEqual(keyedLearning(Multiple::of(4.0)))
+        ->and(keyedLearning(NotGiven::value()))->toEqual(keyedLearning(NotGiven::value()));
 });
 
 it('keys a narrowed run by its config too', function (): void {
@@ -466,6 +474,22 @@ it('keys a unit apart by what the paths entries matching it set, leaving the bas
         ->and($ruled->keysOf($units)->keyOf(Path::of('src/Other.php')))->toEqual($plain->keysOf($units)->keyOf(Path::of('src/Other.php')))
         ->and($judged->keysOf($units)->keyOf(Path::of('src/Money.php')))->toEqual($plain->keysOf($units)->keyOf(Path::of('src/Money.php')));
 });
+
+/** The base of a run whose plan learned this `timeouts.multiple`. */
+function keyedLearning(Multiple|NotGiven $learned): Digest
+{
+    $adapters = Flows::adapters(Flows::project(), [], keyingRunner('fake'));
+    $keying = Keying::of(
+        $adapters,
+        Flows::settings(),
+        Flows::setup(),
+        keyingSuite('1'),
+        MapJudges::of($adapters->runner, keyingMap()),
+        learned: $learned,
+    );
+
+    return $keying instanceof Keying ? $keying->base() : throw new RuntimeException($keying->why());
+}
 
 /** The keying of a run against this map, its judges asked of the adapters' runner. */
 function keyingAgainst(Adapters $adapters, Settings $settings, Setup $setup, Suite $suite, CoverageMap $map): Keying|CannotJudge

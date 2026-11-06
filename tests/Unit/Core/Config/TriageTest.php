@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\PhpCalls;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
+use NightWorksIO\MutationGate\Core\Config\TimeoutHeadroom;
 use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\PerTestLimit;
@@ -15,6 +16,15 @@ use NightWorksIO\MutationGate\Tests\Support\Configs;
 it('writes the seconds a mutant may run and the most any may as the PHP config calls them', function (): void {
     expect(Triage::of(limit: Seconds::of(30), most: Seconds::of(600))->php(ProjectRoot::origin()))
         ->toEqual(PhpCalls::inWith('Timeouts::seconds(30)', 'Timeouts::most(600)'));
+});
+
+it('writes the headroom as the PHP config and the config file write it, and the standard where none is', function (): void {
+    expect(Triage::of(headroom: 0.25)->php(ProjectRoot::origin()))->toEqual(PhpCalls::inWith('Timeouts::headroom(0.25)'))
+        ->and(Triage::of(headroom: 0.25)->headroom())->toEqual(TimeoutHeadroom::of(0.25))
+        ->and(Triage::of()->headroom())->toEqual(TimeoutHeadroom::of(0.1))
+        ->and(Triage::standard()->headroom())->toEqual(TimeoutHeadroom::of(0.1))
+        ->and(Triage::of()->over(Triage::of(headroom: 0))->headroom())->toEqual(TimeoutHeadroom::of(0))
+        ->and(Triage::of(headroom: 0.25)->over(Triage::of())->headroom())->toEqual(TimeoutHeadroom::of(0.25));
 });
 
 it('writes each test\'s own limit as the PHP config and the config file write it, and its absence as nothing', function (): void {

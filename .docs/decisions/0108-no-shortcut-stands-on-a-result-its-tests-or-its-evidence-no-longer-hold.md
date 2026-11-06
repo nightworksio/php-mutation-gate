@@ -6,12 +6,13 @@
 **Amends:** [0062](0062-a-change-that-reaches-no-unit-keeps-the-verdict-it-is-read-since.md): when a verdict stands for a plan that runs no unit
 **Amends:** [0014](0014-every-test-is-judged-by-what-it-kills.md): rule 17, for a run that fails before any test
 **Amends:** [0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): which mutants are judged in parts, and that their survivors are screened
-**Amends:** [0005](0005-what-a-change-reaches-is-what-is-mutated.md): rule 7, how modules are found
+**Amends:** [0005](0005-what-a-change-reaches-is-what-is-mutated.md): rule 7, how modules are found; rule 12, which release a standing verdict was judged by
+**Amends:** [0073](0073-a-limit-can-be-learned-from-what-earlier-runs-measured.md): item 3, a learned multiple is rounded up and keyed
 
 ## Context
 
-Four shortcuts could let a change through that the gate would otherwise
-catch, and one could fail a run that passes.
+Shortcuts could let a change through that the gate would otherwise catch, and
+one could fail a run that passes.
 
 - **Pruning checked only a unit's source and mutant set** (ADR-0025). A pull
   request that weakened or deleted the test that killed a mutant carried the
@@ -34,6 +35,13 @@ catch, and one could fail a run that passes.
   could doom a run that static analysis would have passed. A mutant was also
   judged in parts where its silence limit or a test's own limit had stopped
   it, which no part judges sooner.
+- **A verdict stood for any release.** A project on a moving tag kept an
+  older patch's verdict on every change no tree holds, however long, and
+  nothing advised the scheduled full run that catches up.
+- **A learned `timeouts.multiple` changed results and moved no key** (ADR-0073),
+  so a mutant could be carried from a run under a longer limit than this one's.
+- **Timeout triage kept no margin.** A control that took 9.8 s of a 10 s limit
+  made a timeout a kill.
 
 ## Decision
 
@@ -66,6 +74,25 @@ catch, and one could fail a run that passes.
    second time, each step passing over the mutants already settled. A
    mutant is judged in parts only where `timeouts.most` stopped it, not its
    silence limit or a test's own limit.
+
+6. **A verdict stands only for the release that judged it.** `Passed` records
+   the release of the gate, as its version spells it, and a plan that runs
+   nothing stands on it only where the release that runs now is that one, or
+   both are builds of a branch: moving such a build changes the gate's PHP or
+   the project's lock, either of which refuses the verdict by itself. A ledger
+   that does not say which release passed stands for nothing.
+7. **`doctor` advises a schedule.** A GitHub workflow runs the gate and none
+   has a `schedule` trigger: a full run on a schedule is what reaches the units
+   no change does (`no-scheduled-run`).
+8. **A learned `timeouts.multiple` is in the key.** It is rounded up to a whole
+   number, and the plan hands every shard that number and keys every unit with
+   it. A result is keyed by the limit it ran under, and a key moves only when
+   the 99th percentile crosses a whole number, not with each kill the ledger
+   learns.
+9. **A timeout is a kill only with headroom.** `timeouts.headroom`, a tenth of
+   the limit unless written, is the share of a timed-out mutant's limit its
+   tests must leave unused when run unmutated. Tests that take 9.8 s of a 10 s
+   limit may time out by chance, so the mutant is too slow to judge.
 
 ## Alternatives considered
 

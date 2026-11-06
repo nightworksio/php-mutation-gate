@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Plan\ReachingNothing;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Plan\Unchanged;
+use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\RunProfile;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
@@ -112,6 +113,7 @@ final readonly class NothingReached
             $this->settings->floors()->baseline(),
             $this->configFiles(),
             $this->settings->ci()->check(),
+            GateRelease::of($this->setup->gate),
         )
             ->stands(
                 $passed,

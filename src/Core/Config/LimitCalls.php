@@ -107,4 +107,10 @@ final readonly class LimitCalls
             ...$statistic instanceof LearnedStatistic ? [$statistic->php()] : [],
         ];
     }
+
+    /** @return list<string> the builder's call that sets `timeouts.headroom`; none where no layer set it */
+    public static function headroom(int|float|Absent $headroom): array
+    {
+        return $headroom instanceof Absent ? [] : [sprintf('Timeouts::headroom(%s)', PhpCalls::literal($headroom))];
+    }
 }

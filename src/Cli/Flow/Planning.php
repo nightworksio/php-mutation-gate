@@ -145,7 +145,15 @@ final readonly class Planning
 
         $judges = MapJudges::of($this->adapters->runner, $map);
         $learned = LearnedLimits::of($this->settings, $ledgers);
-        $keying = Keying::of($this->adapters, $this->settings, $this->setup, $inventory->suite, $judges, $names);
+        $keying = Keying::of(
+            $this->adapters,
+            $this->settings,
+            $this->setup,
+            $inventory->suite,
+            $judges,
+            $names,
+            $learned->multiple(),
+        );
         $at = Measuring::of($this->adapters, $request);
         $planned = $keying instanceof Keying
             ? $this->planned(
@@ -338,7 +346,7 @@ final readonly class Planning
         $order = RiskOrder::of(
             $reached->changed() instanceof Changes ? $reached->reach() : Reach::nothing(Packages::of($trees)),
             $newest,
-            MutantTriage::under($this->settings->triage()->timeouts()),
+            MutantTriage::under($this->settings->triage()->timeouts(), $this->settings->triage()->headroom()),
         );
         $changed = $this->adapters->changes->lastChanged($order->least($units));
 

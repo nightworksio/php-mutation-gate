@@ -1650,6 +1650,12 @@
                     ],
                     "default": "confirm"
                 },
+                "headroom": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 0.9,
+                    "default": 0.1
+                },
                 "seconds": {
                     "anyOf": [
                         {
@@ -5782,6 +5788,11 @@
                                 "confirm",
                                 "unjudged"
                             ]
+                        },
+                        "headroom": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 0.9
                         },
                         "seconds": {
                             "anyOf": [

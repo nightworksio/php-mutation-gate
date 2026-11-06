@@ -33,6 +33,7 @@ use NightWorksIO\MutationGate\Core\Plan\OwnOnly;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Proving;
 use NightWorksIO\MutationGate\Core\Proof\Agreement;
+use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
@@ -259,6 +260,7 @@ final readonly class Judging
             $uncovered,
             $this->settings->triage()->timeouts(),
             $ignoring,
+            $this->settings->triage()->headroom(),
         );
         $judge = $this->adapters->isSecurityOnly() ? $judge->onlyMadeBy($this->adapters->security) : $judge;
         $sample = $plan->considered()->sample();
@@ -553,17 +555,17 @@ final readonly class Judging
         $at = Instant::at($this->setup->clock->now());
         $run = RunName::of($this->adapters->environment, $at, $plan->base())->profiled($plan->briefing()->profile());
         $unjudged = $verdict->trees()->mutants()->counts()->number(MutantJudgement::Unjudged);
+        $passing = Passed::of($plan->commit(), $this->settings->ci()->check(), $ownScopeProofs)
+            ->passedAt($at)
+            ->judgedBy(GateRelease::of($this->setup->gate));
         $passed = match (true) {
             $verdict->judgement() !== Judgement::Passed => CannotTell::because(self::FAILED),
             $unjudged > 0 => CannotTell::because(self::UNJUDGED),
             $verdict->trees()->sample()->isDrawn() => CannotTell::because(self::SAMPLED),
             $this->adapters->isSecurityOnly() => CannotTell::because(self::SECURITY_ONLY),
             $this->adapters->isSuiteOnly() => CannotTell::because(self::SUITE_ONLY),
-            $plan->briefing()->isOnOwnScopeCoverage()
-                => Passed::of($plan->commit(), $this->settings->ci()->check(), $ownScopeProofs)
-                    ->passedAt($at)
-                    ->onOwnScopeCoverage(),
-            default => Passed::of($plan->commit(), $this->settings->ci()->check(), $ownScopeProofs)->passedAt($at),
+            $plan->briefing()->isOnOwnScopeCoverage() => $passing->onOwnScopeCoverage(),
+            default => $passing,
         };
         $lastRun = $judged instanceof JudgedCommit
             ? LastRun::of($judged, $this->settings->ci()->check(), $plan->briefing()->profile())
