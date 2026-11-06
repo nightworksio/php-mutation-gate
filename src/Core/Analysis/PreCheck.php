@@ -17,10 +17,10 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  * - A mutator is checked before the tests until its history, with the checks
  *   this run already makes of it before their tests, holds this many checks
  *   of it, which is how its rate is learned.
- * - Then a mutator the analyser never rejected is checked only after them.
- * - Any other is checked before them where its rejection rate times its
+ * - Then it is checked before them where its rejection rate times its
  *   judging tests' time is greater than one check's time: a check saves the
- *   tests' time for the mutants it rejects.
+ *   tests' time for the mutants it rejects, so a mutator the analyser never
+ *   rejected is checked only after them.
  *
  * Placement only judges: a mutant is killed whether the tests or the
  * analyser caught it, so no placement moves a score.
@@ -58,7 +58,6 @@ final readonly class PreCheck
         return match (true) {
             $tests->seconds() <= $check->seconds() => false,
             $rate->checks() < $this->learning => $rate->checks() + $pending < $this->learning,
-            $rate->rejections() === 0 => false,
             default => $rate->saving($tests)->seconds() > $check->seconds(),
         };
     }
