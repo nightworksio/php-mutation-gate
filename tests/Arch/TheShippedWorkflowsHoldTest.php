@@ -551,5 +551,5 @@ it('signs, attests and pushes only the PHAR whose SHA-256 build named', function
         ->and(Lenient::text($check->field('run')))->toContain('echo "${DIGEST}  build/mutation-gate.phar" | sha256sum --check --strict');
 })->with([
     'the release' => ['publish', 'actions/attest-build-provenance@'],
-    'the image' => ['image', 'docker/build-push-action@'],
+    'the image' => ['image-build', 'docker/build-push-action@'],
 ]);
