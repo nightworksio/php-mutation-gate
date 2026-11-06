@@ -4,20 +4,14 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Native\Warm;
 
-use function fclose;
-use function fopen;
-use function fseek;
+use function file_get_contents;
 use function is_file;
-use function is_resource;
 
 use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Overrun;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Runner\TestLog;
-
-use function sprintf;
-use function stream_get_contents;
 
 /**
  * A child's results file, read as it grows, for the watchdog that holds
@@ -57,15 +51,7 @@ final class TestEventsTail
 
     private function added(): string
     {
-        $handle = is_file($this->file) ? fopen($this->file, 'rb') : false;
-
-        if (! is_resource($handle)) {
-            return '';
-        }
-
-        fseek($handle, $this->read);
-        $added = sprintf('%s', stream_get_contents($handle));
-        fclose($handle);
+        $added = is_file($this->file) ? (string) file_get_contents($this->file, offset: $this->read) : '';
         $this->read += Bytes::length($added);
 
         return $added;

@@ -51,16 +51,19 @@ it('reads each byte once, as the file grows, a start line written in two parts r
     ]))->toBe(['-', '-', '-', GrowingEvents::TEST]);
 });
 
-it('reads nothing of a file not yet written, and the whole file once it is', function (): void {
+it('reads nothing of a file not yet written, warning of nothing, and the whole file once it is', function (): void {
     $directory = Scratch::directory();
     $events = GrowingEvents::at($directory);
     $reader = TestEventsFile::of($events->watched());
+    error_clear_last();
     $before = $reader instanceof TestEventsFile ? $reader->overrun(100.0) : $reader;
+    $warned = error_get_last();
     $events->grown(sprintf("%s\n", GrowingEvents::started(GrowingEvents::TEST)));
 
     $later = $reader instanceof TestEventsFile ? [$reader->overrun(101.0), $reader->overrun(105.0)] : [];
 
     expect($before)->toEqual(NotGiven::value())
+        ->and($warned)->toBeNull()
         ->and($later)->toEqual([NotGiven::value(), Overrun::of(TestId::of(GrowingEvents::TEST), Seconds::of(3.0))]);
 });
 
