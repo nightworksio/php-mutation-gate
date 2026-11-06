@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Hint;
 
-use function array_map;
 use function array_slice;
 use function array_values;
 use function implode;
@@ -78,6 +77,6 @@ final readonly class Operands
     /** @param list<PhpToken> $tokens */
     private static function text(array $tokens): string
     {
-        return trim(implode('', array_map(static fn(PhpToken $token): string => $token->text, $tokens)));
+        return trim(implode('', $tokens));
     }
 }

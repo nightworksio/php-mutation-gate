@@ -41,9 +41,6 @@ final readonly class Statements
 
     private const string ASSERTED = 'assert `%s` is `%s`.';
 
-    /** What declares a class-like whose constants and cases a test reads by its name. */
-    private const array CLASSES = [T_CLASS, T_ENUM, T_INTERFACE, T_TRAIT];
-
     public static function constant(Change $change, Mutant $mutant, Contents|Missing $source): Attempt|NotGiven
     {
         $removed = $change->removed();
@@ -93,15 +90,20 @@ final readonly class Statements
         };
     }
 
-    /** The short name of the last class-like declared on or before a line; nothing where none is. */
+    /**
+     * The short name of the last class-like declared on or before a line, whose
+     * constants and cases a test reads by that name; nothing where none is, or
+     * it is a trait, whose constants no test reads by its name.
+     */
     private static function classAt(Contents $source, int $line): string
     {
         $tokens = Tokens::in($source);
         $class = '';
 
-        foreach ($tokens->indicesOf(...self::CLASSES) as $declaring) {
+        foreach ($tokens->indicesOf(...Tokens::CLASS_LIKE) as $declaring) {
             $named = $tokens->is($declaring + 1, T_STRING) && $tokens->line($declaring) <= $line;
-            $class = $named ? $tokens->text($declaring + 1) : $class;
+            $readable = $tokens->is($declaring, T_TRAIT) ? '' : $tokens->text($declaring + 1);
+            $class = $named ? $readable : $class;
         }
 
         return $class;

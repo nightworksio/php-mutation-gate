@@ -115,14 +115,21 @@ it('tries a logical operator between two variables with exactly one of them true
         ->and(attempted(MutatorFamily::Logical, 'return ready();', 'return !ready();'))->toBe([]);
 });
 
-it('asserts a class constant or a backed case by its name, as its file declares it', function (): void {
+it('asserts a class constant or a backed case by its name, as its file declares it, and no trait\'s', function (): void {
     expect(attempted(MutatorFamily::Literal, 'private const int LIMIT = 10;', 'private const int LIMIT = 11;', 5))
         ->toBe(['assert `Cart::LIMIT` is `10`.', []])
         ->and(attempted(MutatorFamily::Literal, "case Active = 'active';", "case Active = '';", 5, ATTEMPTED_STATUS))
         ->toBe(['assert `Status::Active->value` is `\'active\'`.', []])
         ->and(attempted(MutatorFamily::Literal, 'private const int LIMIT = 10;', 'private const int LIMIT = 11;', 5, ''))->toBe([])
         ->and(attempted(MutatorFamily::Literal, 'return 10;', 'return 11;'))->toBe([])
-        ->and(attempted(MutatorFamily::Literal, 'private const int LIMIT = 10;', 'private const int LIMIT = 11;', 1))->toBe([]);
+        ->and(attempted(MutatorFamily::Literal, 'private const int LIMIT = 10;', 'private const int LIMIT = 11;', 1))->toBe([])
+        ->and(attempted(MutatorFamily::Literal, "case Active = 'active';", "case Active = '';", 5, ''))->toBe([])
+        ->and(attempted(MutatorFamily::Literal, 'case Small = 1;', 'case Small = 2;', 2, "<?php\nenum Size: int { case Small = 1; }\n"))
+        ->toBe(['assert `Size::Small->value` is `1`.', []])
+        ->and(attempted(MutatorFamily::Literal, 'const int MAX = 10;', 'const int MAX = 11;', 4, "<?php\ninterface Limits\n{\n    const int MAX = 10;\n}\n"))
+        ->toBe(['assert `Limits::MAX` is `10`.', []])
+        ->and(attempted(MutatorFamily::Literal, 'const int MAX = 5;', 'const int MAX = 6;', 4, "<?php\nfinal class Cart {}\ntrait Capped\n{\n    const int MAX = 5;\n}\n"))
+        ->toBe([]);
 });
 
 it('expects the call to return a literal it returned, in a function it can read', function (): void {
