@@ -5,8 +5,8 @@ Usage:
   bench_publish.py collect <artifacts directory> <version> <run URL> <result file>
   bench_publish.py readme <results directory> <README>
 
-`collect` is run by `bench.yml` once every project's jobs have ended, on
-the directory it downloaded their result files into: `<project>.json` from
+`collect` is run by `bench.yml` once the jobs it ran have ended, on the
+directory it downloaded their result files into: `<project>.json` from
 its arms, `<project>-sharded.json` from its sharded arm and
 `<project>-scenarios.json` from its scenarios. It writes them into one
 file, `bench/results/<version>.json`, with the run that measured them.

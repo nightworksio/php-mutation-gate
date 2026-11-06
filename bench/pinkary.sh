@@ -12,7 +12,8 @@ composer config allow-plugins.laravel/vet false
 composer install --no-interaction --no-progress
 # Without scripts: its post-update hook runs laravel/boost, whose commands
 # exist only once the .env this script makes later says the app is local.
-bench_resolve require --dev --no-interaction --no-progress --no-scripts 'nightworksio/mutation-gate:@dev'
+# With every dependency: its lock holds packages older than the gate requires.
+bench_resolve require --dev --no-interaction --no-progress --no-scripts --with-all-dependencies 'nightworksio/mutation-gate:@dev'
 bench_versions pestphp/pest pestphp/pest-plugin-mutate phpunit/phpunit nightworksio/mutation-gate
 npm install --no-audit --no-fund
 npm run build

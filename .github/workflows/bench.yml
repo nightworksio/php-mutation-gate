@@ -5,9 +5,10 @@
 # of their own; and the gate sharded, a machine for each shard. Then one
 # file of every result, bench/results/<version>.json, and the README rendered
 # from it, which reach the repository through a pull request. On demand and
-# monthly, never on pull requests. On demand, the runners suite instead times
-# the gate's own shards on each runner its reusable workflow's `runs-on` may
-# name.
+# monthly, never on pull requests. On demand, `projects` and `arms` narrow the
+# run, and publish collects what ran; Pest's start-up runs only in a whole
+# run. On demand, the runners suite instead times the gate's own shards on
+# each runner its reusable workflow's `runs-on` may name.
 name: bench
 
 on:
@@ -20,6 +21,14 @@ on:
         type: choice
         options: [projects, runners]
         default: projects
+      projects:
+        description: the projects to run, by their file names in bench/, comma-separated without spaces; or all.
+        type: string
+        default: all
+      arms:
+        description: what each project runs, of cold, scenarios and sharded, comma-separated without spaces; or all.
+        type: string
+        default: all
 
 permissions: {}
 
@@ -38,12 +47,15 @@ jobs:
   # first two make the same mutants, so they are reconciled one by one.
   jwt:
     name: lcobucci/jwt
-    if: inputs.suite != 'runners'
+    if: >-
+      inputs.suite != 'runners'
+      && (inputs.projects == '' || inputs.projects == 'all' || contains(format(',{0},', inputs.projects), ',jwt,'))
     permissions:
       contents: read
     uses: ./.github/workflows/bench-project.yml # zizmor: ignore[self-repository]
     with:
       project: jwt
+      arms: ${{ inputs.arms || 'all' }}
       # The library's archive holds no version for Composer to read.
       root-version: "5.6.0"
       # jwt's tests expect assertions to run, as a development PHP has them.
@@ -55,12 +67,15 @@ jobs:
   # alone, so its PR replay runs the gate arm only.
   pinkary:
     name: pinkary.com
-    if: inputs.suite != 'runners'
+    if: >-
+      inputs.suite != 'runners'
+      && (inputs.projects == '' || inputs.projects == 'all' || contains(format(',{0},', inputs.projects), ',pinkary,'))
     permissions:
       contents: read
     uses: ./.github/workflows/bench-project.yml # zizmor: ignore[self-repository]
     with:
       project: pinkary
+      arms: ${{ inputs.arms || 'all' }}
       extensions: pcntl, sodium, pdo_mysql
       mysql: true
 
@@ -68,12 +83,15 @@ jobs:
   # as lcobucci/jwt's arms run it, on the PHP its own Infection job sets up.
   betterreflection:
     name: Roave/BetterReflection
-    if: inputs.suite != 'runners'
+    if: >-
+      inputs.suite != 'runners'
+      && (inputs.projects == '' || inputs.projects == 'all' || contains(format(',{0},', inputs.projects), ',betterreflection,'))
     permissions:
       contents: read
     uses: ./.github/workflows/bench-project.yml # zizmor: ignore[self-repository]
     with:
       project: betterreflection
+      arms: ${{ inputs.arms || 'all' }}
       extensions: pcntl, sodium, intl
       ini-values: memory_limit=-1, zend.assertions=1
 
@@ -81,12 +99,15 @@ jobs:
   # locks, with an Infection config of its src, as lcobucci/jwt's arms run it.
   symfony-demo:
     name: symfony/demo
-    if: inputs.suite != 'runners'
+    if: >-
+      inputs.suite != 'runners'
+      && (inputs.projects == '' || inputs.projects == 'all' || contains(format(',{0},', inputs.projects), ',symfony-demo,'))
     permissions:
       contents: read
     uses: ./.github/workflows/bench-project.yml # zizmor: ignore[self-repository]
     with:
       project: symfony-demo
+      arms: ${{ inputs.arms || 'all' }}
       # The extensions its own test workflow sets up, and pcntl for the gate's workers.
       extensions: pcntl, intl, mbstring, pdo_sqlite, zip
 
@@ -131,7 +152,10 @@ jobs:
   # mutants under Pest pays it once, so it is the floor of a mutant's time.
   pest-start-up:
     name: Pest start-up
-    if: inputs.suite != 'runners'
+    if: >-
+      inputs.suite != 'runners'
+      && (inputs.projects == '' || inputs.projects == 'all')
+      && (inputs.arms == '' || inputs.arms == 'all')
     runs-on: ubuntu-latest
     permissions:
       contents: read

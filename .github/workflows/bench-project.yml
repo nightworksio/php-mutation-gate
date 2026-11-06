@@ -13,6 +13,8 @@
 #   plan on a machine of its own three times, and each round judged. The
 #   shards and the verdict install the packages the plan's job resolved,
 #   from the lock it keeps, so each prepares the commit it planned on.
+#
+# `arms` names which of the three run.
 name: bench project
 
 on:
@@ -38,6 +40,10 @@ on:
         description: whether the project's suite runs on the MySQL its own CI tests against.
         type: boolean
         default: false
+      arms:
+        description: the jobs to run, of cold, scenarios and sharded, comma-separated without spaces; or all.
+        type: string
+        default: all
 
 permissions: {}
 
@@ -49,6 +55,7 @@ env:
 jobs:
   cold:
     name: cold
+    if: inputs.arms == 'all' || contains(format(',{0},', inputs.arms), ',cold,')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -102,6 +109,7 @@ jobs:
   # The parts the scenarios run in, each a job of its own (see bench_scenarios.py).
   scenario-parts:
     name: scenario parts
+    if: inputs.arms == 'all' || contains(format(',{0},', inputs.arms), ',scenarios,')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -168,7 +176,7 @@ jobs:
   scenarios-report:
     name: scenarios
     needs: scenarios
-    if: ${{ always() }}
+    if: ${{ always() && (inputs.arms == 'all' || contains(format(',{0},', inputs.arms), ',scenarios,')) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -197,6 +205,7 @@ jobs:
   # The plan, from a cold start, and the coverage it measured, for the shards.
   sharded-plan:
     name: sharded / plan
+    if: inputs.arms == 'all' || contains(format(',{0},', inputs.arms), ',sharded,')
     runs-on: ubuntu-latest
     permissions:
       contents: read
