@@ -53,13 +53,13 @@ job's `GITHUB_TOKEN`, and an App of the repository's own,
    - **What is relayed.** The relay runs on `workflow_run` (completed) for
      `ci` and `pr`, the workflows `.github/bot/config.json` lists. It skips
      Dependabot's runs, which get no secrets there.
-   - **The relay's edit.** As the App, it sets the sticky comment to its
-     explaining state, or opens the comment where there is none. The edit
+   - **The relay's write.** As the App, it sets the sticky comment to its
+     explaining state, or opens the comment where there is none. Either write
      carries `<!-- mutation-gate-bot: run=<id> sha=<sha> -->`.
-   - **When the explainer acts.** It runs on `issue_comment` (edited), only
-     where a bot edited a bot's comment that starts with
+   - **When the explainer acts.** It runs on `issue_comment` (created or
+     edited), only where a bot wrote a bot's comment that starts with
      `<!-- mutation-gate-bot -->` and carries that mark. It writes with the
-     job's own token, so its edit starts nothing.
+     job's own token, so its write starts nothing.
    - **What the explainer reads.** It reads only the runs on the head that
      GitHub lists for this pull request, or, for a fork's, for none.
    - **The suggestions.** The explainer posts the fix's suggested changes

@@ -109,6 +109,18 @@ class Config(unittest.TestCase):
 
         self.assertEqual(sorted(names), sorted(self.tables.config["relay"]["workflows"]))
 
+    def test_the_markdown_fix_keeps_the_findings_the_explainer_reads(self):
+        hygiene = (ROOT / ".github" / "workflows" / "hygiene.yml").read_text(encoding="utf-8")
+        step = hygiene[hygiene.index("compute the mechanical fixes"):]
+
+        self.assertLess(step.index('cp evidence/raw/markdownlint.json "${RUNNER_TEMP}/'), step.index("--fix"))
+        self.assertLess(step.index("--fix"), step.index('" evidence/raw/markdownlint.json'))
+
+    def test_the_explainer_starts_on_the_comment_the_relay_opens_and_the_one_it_edits(self):
+        explain = (ROOT / ".github" / "workflows" / "bot-explain.yml").read_text(encoding="utf-8")
+
+        self.assertIn("types: [created, edited]", explain)
+
     def test_the_gates_the_comment_and_the_fix_name_exist(self):
         self.assertIn(self.tables.config["comment"]["verdict_gate"], self.tables.gates)
         for gate in self.tables.config["fix"]["beyond_the_diff"]:

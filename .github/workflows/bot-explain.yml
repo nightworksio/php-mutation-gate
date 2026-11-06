@@ -4,13 +4,14 @@
 # the pull request only as data: its title, body, files and runs through the
 # API, its CI's evidence as hostile bytes, and the files a fix changes as the
 # head's blobs. It checks nothing out but main, and installs nothing. It acts
-# only on a bot's edit of the bot's own comment that carries the relay's mark,
+# only where a bot wrote the bot's own comment carrying the relay's mark, whether
+# the relay opened the comment or edited it,
 # and writes with the job's token, whose edit starts no workflow.
 name: bot explain
 
 on:
   issue_comment:
-    types: [edited]
+    types: [created, edited]
 
 permissions: {}
 

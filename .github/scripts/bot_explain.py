@@ -3,7 +3,7 @@
 
 Usage: bot_explain.py explain|checklist
 
-- `explain` runs on `issue_comment` (edited) where the App's relay set the
+- `explain` runs on `issue_comment` (created, edited) where the App's relay set the
   sticky comment to its explaining state. It reads the relay's mark from
   COMMENT_BODY, checks it names a relayed run of the pull request's head, and
   writes the comment over it.

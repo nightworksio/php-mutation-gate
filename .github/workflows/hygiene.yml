@@ -245,12 +245,15 @@ jobs:
         if: ${{ !cancelled() }}
         run: python3 .github/scripts/decisions_index.py validate
       # The fix is mechanical, so it is computed here and offered to the pull
-      # request as a patch, never pushed (ADR-0019).
+      # request as a patch, never pushed (ADR-0019). The --fix run writes the
+      # findings file again with what is left, so the first run's is kept.
       - name: compute the mechanical fixes
         if: failure() && steps.markdownlint.outcome == 'failure'
         run: |
+          cp evidence/raw/markdownlint.json "${RUNNER_TEMP}/markdownlint.json"
           node .github/bot/markdownlint/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs \
             --config .github/bot/markdownlint/.markdownlint-cli2.jsonc --fix "**/*.md" || true
+          cp "${RUNNER_TEMP}/markdownlint.json" evidence/raw/markdownlint.json
           git diff > evidence/hygiene-markdown.fix.patch
       - name: evidence
         if: ${{ !cancelled() }}
