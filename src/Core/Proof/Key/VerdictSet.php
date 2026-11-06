@@ -112,6 +112,7 @@ enum VerdictSet
                 'src/Cli/Flow/Unbatched.php',
                 'src/Cli/Flow/DoomWatch.php',
                 'src/Cli/Flow/Checked.php',
+                'src/Cli/Flow/LeftSurvivors.php',
                 'src/Cli/Flow/CheckRoom.php',
                 'src/Cli/Flow/Cores.php',
                 'src/Cli/Flow/ProjectMemoryLimit.php',
