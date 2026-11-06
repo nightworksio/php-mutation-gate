@@ -1,14 +1,14 @@
 {
     "format": 1,
-    "commit": "1ae913cf09516dd08e97d39f46ed5fdc4db973a8",
-    "time": "2026-11-05T22:58:16Z",
-    "verdict": "passed",
-    "score": 100.0,
+    "commit": "230a535c8fad93f894320923aa7b14e4374b829d",
+    "time": "2026-11-06T07:47:51Z",
+    "verdict": "failed",
+    "score": 99.99,
     "trees": [
         {
             "path": "src",
             "floor": 100.0,
-            "score": 100.0
+            "score": 99.99
         },
         {
             "path": "plugins/default/src",
