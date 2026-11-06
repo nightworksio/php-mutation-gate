@@ -55,7 +55,7 @@ describe('Settings', function (): void {
 
         expect(iterator_to_array($colors->publishing()->colors(), preserve_keys: true))->toBe(['green' => 95])
             ->and(Configs::shown($colors, 'badge', 'colors'))->toBe(['green' => 95])
-            ->and(iterator_to_array($costs->shards()->secondsPerLine(), preserve_keys: true))->toBe(['' => 0.2, 'src' => 1.0])
+            ->and(iterator_to_array($costs->shards()->costs()->secondsPerLine(), preserve_keys: true))->toBe(['' => 0.2, 'src' => 1.0])
             ->and(Configs::shown($costs, 'costs', 'secondsPerLine'))->toBe(['' => 0.2, 'src' => 1]);
     });
 
@@ -79,7 +79,7 @@ describe('Settings', function (): void {
             ->and($settings->reach()->hotPaths()->share())->toBe(0.8)
             ->and($settings->shards()->seconds())->toEqual(Seconds::of(600))
             ->and($settings->shards()->max())->toBe(20)
-            ->and(iterator_to_array($settings->shards()->secondsPerLine(), preserve_keys: true))->toBe(['' => 0.2])
+            ->and(iterator_to_array($settings->shards()->costs()->secondsPerLine(), preserve_keys: true))->toBe(['' => 0.2])
             ->and($settings->ci()->plan())->toEqual(Absent::setting())
             ->and($settings->ci()->defaultBranch())->toEqual(Absent::setting())
             ->and($settings->ci()->check())->toBe('mutation / verdict')
@@ -150,7 +150,7 @@ describe('Settings', function (): void {
             ->and($settings->reach()->hotPaths()->share())->toBe(1.0)
             ->and($settings->shards()->seconds())->toEqual(Seconds::of(900))
             ->and($settings->shards()->max())->toBe(8)
-            ->and(iterator_to_array($settings->shards()->secondsPerLine(), preserve_keys: true))->toBe(['' => 0.25, 'src/Legacy' => 2.0])
+            ->and(iterator_to_array($settings->shards()->costs()->secondsPerLine(), preserve_keys: true))->toBe(['' => 0.25, 'src/Legacy' => 2.0])
             ->and($ci->plan() instanceof Choice ? $ci->plan()->options()->written()->line() : $ci->plan())
             ->toBe('{"template":".gitlab/gate.yml"}')
             ->and($ci->defaultBranch())->toBe('trunk')

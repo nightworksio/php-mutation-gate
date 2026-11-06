@@ -36,7 +36,6 @@ use NightWorksIO\MutationGate\Core\Ci\DefaultBranch;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\BoundsOptions;
-use NightWorksIO\MutationGate\Core\Config\BuiltinCostModel;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\BuiltinVersionControl;
 use NightWorksIO\MutationGate\Core\Config\Choice;
@@ -97,17 +96,15 @@ final readonly class Wiring
         $runner = BuiltinRunner::tryFrom($settings->runner()->choice()->use()->value());
         $mutators = EnabledMutators::in($lookup, $settings->mutators(), $runner ?? NotGiven::value());
 
-        return $mutators instanceof EnabledMutators ? $this->built($settings, $project, $lookup, $mutators) : $mutators;
+        return $mutators instanceof EnabledMutators ? $this->built($settings, $project, $mutators) : $mutators;
     }
 
     private function built(
         Settings $settings,
         Directory $project,
-        Lookup $lookup,
         EnabledMutators $mutators,
     ): Adapters|Invalid|CannotJudge {
         $chosen = new Chosen($this->extensions);
-        $source = BuiltinVersionControl::in($this->environment)->named();
         $checker = $this->checker($settings->staticCheck(), $chosen);
         $suite = Suite::configured($project, SuiteConfig::ofRunner($settings->runner()->choice()->use()->value()));
         $runner = $suite instanceof TestSuite
@@ -115,11 +112,12 @@ final readonly class Wiring
             : $suite;
         $found = $chosen->treeSource($settings->treeSource());
         $trees = $found instanceof TreeSource ? new DeclaredTrees($found, $settings->floors()->trees()) : $found;
-        $costs = $lookup->costModel(BuiltinCostModel::Learned->named(), $settings->shards()->costOptions());
+        $costs = $chosen->costModel($settings->shards()->costs()->model());
         $ci = $chosen->ciPlan(ChosenPlan::of($settings, $this->extensions, $this->environment));
         $withheld = $chosen->withheld($settings->ci(), $settings->runner()->withhold(), $settings->reports());
-        $changes = $lookup->changeSource($source, $this->sourceOptions($settings, $withheld));
-        $repository = $lookup->repository($source, $this->sourceOptions($settings, $withheld));
+        $source = $this->versionControl($settings)->over($this->sourceOptions($settings, $withheld));
+        $changes = $chosen->changeSource($source);
+        $repository = $chosen->repository($source);
         $proofs = $this->kept($settings, $this->configured($settings, $chosen, $ci, $repository), $project->root());
 
         return match (true) {
@@ -362,11 +360,21 @@ final readonly class Wiring
      * The version control source's options: the check-run the verdict reports
      * under, which GitHub's verifies, and what git's own children may not see.
      */
-    private function sourceOptions(Settings $settings, Withheld $withheld): Options
+    /** `versionControl`, or where no layer chooses one, the one the job's CI calls for. */
+    private function versionControl(Settings $settings): Choice
     {
-        return Options::of(Json::object(
+        $chosen = $settings->reach()->versionControl();
+
+        return $chosen instanceof Choice
+            ? $chosen
+            : Choice::of(BuiltinVersionControl::in($this->environment)->value, Options::none());
+    }
+
+    private function sourceOptions(Settings $settings, Withheld $withheld): Json
+    {
+        return Json::object(
             Member::of('check', $settings->ci()->check()),
             Member::of('withhold', Json::items(...$withheld)),
-        ));
+        );
     }
 }

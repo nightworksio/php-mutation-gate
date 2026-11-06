@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\Analysis\Unchecked;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\ChangedTests;
+use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\FailFast;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -55,6 +56,14 @@ final readonly class ReachKeys
         );
 
         return [
+            Field::optional(
+                Reach::VERSION_CONTROL,
+                Into::of(
+                    Adapter::choosing(Builtins::versionControls($origin)),
+                    static fn(Choice $chosen): Layer => Layer::of(Reach::of(versionControl: $chosen)),
+                ),
+                Effect::DecidesHowTheGateRuns,
+            ),
             Field::optional(
                 'packages',
                 Into::of(

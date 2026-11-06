@@ -36,6 +36,7 @@ final readonly class ShardsKeys
         $perLine = Field::optional(SecondsPerLine::KEY, NumberMap::byPrefix(Number::atLeast(0), $origin), $judges);
         $perMinute = Field::optional('perRunnerMinute', self::price(), $judges);
         $window = Field::optional(SavingsWindow::KEY, Duration::written(), $judges);
+        $model = Field::optional('model', Adapter::choosing(Builtins::costModels($origin)), $judges);
 
         return [
             Field::section(
@@ -73,25 +74,29 @@ final readonly class ShardsKeys
             Field::section(
                 'costs',
                 Section::of(
-                    static function (Node $costs) use ($perLine, $perMinute, $window): Layer|Invalid {
+                    static function (Node $costs) use ($perLine, $perMinute, $window, $model): Layer|Invalid {
                         $lines = $perLine->read($costs);
                         $minutes = $perMinute->read($costs);
                         $back = $window->read($costs);
+                        $chosen = $model->read($costs);
 
                         return Reading::built(
                             static fn(): Layer => Layer::of(Shards::of(
                                 secondsPerLine: $lines->value(),
                                 perRunnerMinute: $minutes->value(),
                                 savingsWindow: $back->value(),
+                                costModel: $chosen->value(),
                             )),
                             $lines,
                             $minutes,
                             $back,
+                            $chosen,
                         );
                     },
                     $perLine,
                     $perMinute,
                     $window,
+                    $model,
                 ),
             ),
         ];

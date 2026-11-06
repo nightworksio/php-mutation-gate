@@ -195,7 +195,7 @@ it('reads the working directory at the seconds a line costs that costs.secondsPe
     };
 
     expect($lines)->toBeGreaterThan(0)
-        ->and($cost(Shards::none()->costOptions()))->toEqual(Seconds::of($lines * 0.2))
+        ->and($cost(Shards::none()->costs()->model()->options()))->toEqual(Seconds::of($lines * 0.2))
         ->and($cost(Configs::options('{"secondsPerLine": {"": 2.0, "src/Core": 3}}')))->toEqual(Seconds::of($lines * 3.0))
         ->and($cost(Configs::options('{"secondsPerLine": {}}')))->toEqual(Seconds::of(0.0));
 });

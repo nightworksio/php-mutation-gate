@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Config\Baseline;
 use NightWorksIO\MutationGate\Config\Budget;
 use NightWorksIO\MutationGate\Config\Ci;
 use NightWorksIO\MutationGate\Config\Comment;
+use NightWorksIO\MutationGate\Config\CostModel;
 use NightWorksIO\MutationGate\Config\Coverage;
 use NightWorksIO\MutationGate\Config\Dashboard;
 use NightWorksIO\MutationGate\Config\Digest;
@@ -36,6 +37,7 @@ use NightWorksIO\MutationGate\Config\Tests;
 use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Config\Tree;
 use NightWorksIO\MutationGate\Config\Uncovered;
+use NightWorksIO\MutationGate\Config\VersionControl;
 use NightWorksIO\MutationGate\Core\Comment\Cap;
 use NightWorksIO\MutationGate\Core\Comment\Detail;
 use NightWorksIO\MutationGate\Core\Comment\Lines;
@@ -137,6 +139,8 @@ it('writes every setting of the configuration reference', function (): void {
                 Shards::secondsPerLine('', 0.3),
                 Shards::secondsPerLine('src', 1),
                 Shards::savingsWindow('14d'),
+                CostModel::uses('acme', Option::of('rate', 2)),
+                VersionControl::uses('hg', Option::of('branch', 'tip')),
                 Ci::gitlab(),
                 Ci::defaultBranch('trunk'),
                 Pipeline::gitlabTemplate('ci.yml'),
@@ -240,7 +244,8 @@ it('writes every setting of the configuration reference', function (): void {
         'reach' => ['everything' => ['config/**'], 'lockPackages' => ['pestphp/*'], 'changedTests' => 'file', 'fixtures' => ['tests/fixtures/*']],
         'holds' => ['hotPath' => 0.5],
         'shards' => ['seconds' => 900, 'max' => 8],
-        'costs' => ['secondsPerLine' => ['' => 0.3, 'src' => 1], 'savingsWindow' => '14d'],
+        'costs' => ['secondsPerLine' => ['' => 0.3, 'src' => 1], 'savingsWindow' => '14d', 'model' => ['use' => 'acme', 'with' => ['rate' => 2]]],
+        'versionControl' => ['use' => 'hg', 'with' => ['branch' => 'tip']],
         'ci' => [
             'plan' => 'gitlab',
             'defaultBranch' => 'trunk',

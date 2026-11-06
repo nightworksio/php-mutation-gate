@@ -32,6 +32,12 @@ use function sprintf;
  */
 final readonly class Reach implements Part
 {
+    /** The key that chooses the change source and the repository. */
+    public const string VERSION_CONTROL = 'versionControl';
+
+    /** The choices the builder's `VersionControl` writes by name. */
+    private const array NAMED_CONTROLS = [BuiltinVersionControl::Git->value, BuiltinVersionControl::GitHub->value];
+
     /**
      * @param Listed<Glob>|Absent   $packages
      * @param Listed<Glob>|Absent   $everything
@@ -49,6 +55,7 @@ final readonly class Reach implements Part
         private FailingFast $failingFast,
         private ChangedTests|Absent $changedTests,
         private Listed|Absent $fixtures,
+        private Choice|Absent $versionControl,
     ) {
     }
 
@@ -71,6 +78,7 @@ final readonly class Reach implements Part
         ChangedTests|Absent $changedTests = new Absent(),
         Listed|Absent $fixtures = new Absent(),
         Listed|Absent $failFastWaits = new Absent(),
+        Choice|Absent $versionControl = new Absent(),
     ): self {
         $set = $pruning instanceof Pruning ? $pruning : Pruning::of();
         $failing = FailingFast::of($failFast, $failFastWaits);
@@ -87,6 +95,7 @@ final readonly class Reach implements Part
             $failing,
             $changedTests,
             $fixtures,
+            $versionControl,
         );
     }
 
@@ -136,6 +145,7 @@ final readonly class Reach implements Part
                 $this->failingFast->over($later->failingFast),
                 Absent::laid($this->changedTests, $later->changedTests),
                 $this->joined($this->fixtures, $later->fixtures),
+                Absent::laid($this->versionControl, $later->versionControl),
             )
             : $this;
     }
@@ -192,6 +202,12 @@ final readonly class Reach implements Part
     public function isFullByDefault(): bool
     {
         return $this->full === true;
+    }
+
+    /** `versionControl`: where a run learns what changed and what the repository holds, where a layer chooses it. */
+    public function versionControl(): Choice|Absent
+    {
+        return $this->versionControl;
     }
 
     /** `run.failFast` and `run.failFastWaits`: what a pull request's shard does once it cannot pass (ADR-0103). */
@@ -253,6 +269,10 @@ final readonly class Reach implements Part
                 'run',
                 Json::object(Member::of('full', $this->full))->merged($this->failingFast->written()),
             ),
+            Member::of(
+                self::VERSION_CONTROL,
+                $this->versionControl instanceof Choice ? $this->versionControl->written() : $this->versionControl,
+            ),
             $this->pruning->written(),
             $this->sampling->written(),
         );
@@ -295,6 +315,9 @@ final readonly class Reach implements Part
             ...$fixtures,
             ...$hotPath,
             ...$full,
+            ...$this->versionControl instanceof Choice
+                ? [PhpCalls::chosen($this->versionControl, AdapterBuilder::VersionControl, ...self::NAMED_CONTROLS)]
+                : [],
         );
 
         return $calls->and($this->failingFast->php())->and($this->pruning->php())->and($this->sampling->php());

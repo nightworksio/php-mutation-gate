@@ -14,10 +14,12 @@ use NightWorksIO\MutationGate\Core\Alert\PostLimits;
 use NightWorksIO\MutationGate\Core\Config\AlertOption;
 use NightWorksIO\MutationGate\Core\Config\BuiltinAnalyser;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
+use NightWorksIO\MutationGate\Core\Config\BuiltinCostModel;
 use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\BuiltinStore;
 use NightWorksIO\MutationGate\Core\Config\BuiltinTreeSource;
+use NightWorksIO\MutationGate\Core\Config\BuiltinVersionControl;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\CommentOption;
 use NightWorksIO\MutationGate\Core\Config\CommentSettings;
@@ -98,6 +100,21 @@ final readonly class Builtins
             ),
             BuiltinTreeSource::Composer->value => Section::options(Json::object()),
         ], $origin);
+    }
+
+    /** The change sources and repositories `versionControl` chooses, which take no options of their own. */
+    public static function versionControls(PathOrigin $origin): self
+    {
+        return self::of([
+            BuiltinVersionControl::Git->value => Section::options(Json::object()),
+            BuiltinVersionControl::GitHub->value => Section::options(Json::object()),
+        ], $origin);
+    }
+
+    /** The cost models `costs.model` chooses; `learned` reads `costs.secondsPerLine`, and no option of its own. */
+    public static function costModels(PathOrigin $origin): self
+    {
+        return self::of([BuiltinCostModel::Learned->value => Section::options(Json::object())], $origin);
     }
 
     /** The proof stores, whose paths are named from the layer's origin. */

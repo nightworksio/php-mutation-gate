@@ -537,6 +537,68 @@
             },
             "additionalProperties": false
         },
+        "versionControl": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "minLength": 1
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "use": {
+                            "const": "git"
+                        },
+                        "with": {
+                            "type": "object",
+                            "additionalProperties": false
+                        }
+                    },
+                    "required": [
+                        "use"
+                    ],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "use": {
+                            "const": "github"
+                        },
+                        "with": {
+                            "type": "object",
+                            "additionalProperties": false
+                        }
+                    },
+                    "required": [
+                        "use"
+                    ],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "use": {
+                            "type": "string",
+                            "minLength": 1,
+                            "not": {
+                                "enum": [
+                                    "git",
+                                    "github"
+                                ]
+                            }
+                        },
+                        "with": {
+                            "type": "object"
+                        }
+                    },
+                    "required": [
+                        "use"
+                    ],
+                    "additionalProperties": false
+                }
+            ]
+        },
         "packages": {
             "type": "array",
             "items": {
@@ -712,6 +774,51 @@
                     "type": "string",
                     "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
                     "default": "30d"
+                },
+                "model": {
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "use": {
+                                    "const": "learned"
+                                },
+                                "with": {
+                                    "type": "object",
+                                    "additionalProperties": false
+                                }
+                            },
+                            "required": [
+                                "use"
+                            ],
+                            "additionalProperties": false
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "use": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "not": {
+                                        "enum": [
+                                            "learned"
+                                        ]
+                                    }
+                                },
+                                "with": {
+                                    "type": "object"
+                                }
+                            },
+                            "required": [
+                                "use"
+                            ],
+                            "additionalProperties": false
+                        }
+                    ]
                 }
             },
             "additionalProperties": false
@@ -3890,6 +3997,68 @@
                     },
                     "additionalProperties": false
                 },
+                "versionControl": {
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "use": {
+                                    "const": "git"
+                                },
+                                "with": {
+                                    "type": "object",
+                                    "additionalProperties": false
+                                }
+                            },
+                            "required": [
+                                "use"
+                            ],
+                            "additionalProperties": false
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "use": {
+                                    "const": "github"
+                                },
+                                "with": {
+                                    "type": "object",
+                                    "additionalProperties": false
+                                }
+                            },
+                            "required": [
+                                "use"
+                            ],
+                            "additionalProperties": false
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "use": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "not": {
+                                        "enum": [
+                                            "git",
+                                            "github"
+                                        ]
+                                    }
+                                },
+                                "with": {
+                                    "type": "object"
+                                }
+                            },
+                            "required": [
+                                "use"
+                            ],
+                            "additionalProperties": false
+                        }
+                    ]
+                },
                 "packages": {
                     "type": "array",
                     "items": {
@@ -4047,6 +4216,51 @@
                         "savingsWindow": {
                             "type": "string",
                             "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                        },
+                        "model": {
+                            "anyOf": [
+                                {
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "use": {
+                                            "const": "learned"
+                                        },
+                                        "with": {
+                                            "type": "object",
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": [
+                                        "use"
+                                    ],
+                                    "additionalProperties": false
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "use": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "not": {
+                                                "enum": [
+                                                    "learned"
+                                                ]
+                                            }
+                                        },
+                                        "with": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "required": [
+                                        "use"
+                                    ],
+                                    "additionalProperties": false
+                                }
+                            ]
                         }
                     },
                     "additionalProperties": false

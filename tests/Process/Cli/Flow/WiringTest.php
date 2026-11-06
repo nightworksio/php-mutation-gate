@@ -36,21 +36,25 @@ use NightWorksIO\MutationGate\Cli\Flow\Cores;
 use NightWorksIO\MutationGate\Cli\Flow\Wiring;
 use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Config\Ci;
+use NightWorksIO\MutationGate\Config\CostModel;
 use NightWorksIO\MutationGate\Config\Mutators;
 use NightWorksIO\MutationGate\Config\Option;
 use NightWorksIO\MutationGate\Config\Pest;
 use NightWorksIO\MutationGate\Config\Pipeline;
 use NightWorksIO\MutationGate\Config\Proofs;
 use NightWorksIO\MutationGate\Config\Runner;
+use NightWorksIO\MutationGate\Config\Setting;
 use NightWorksIO\MutationGate\Config\Shards;
 use NightWorksIO\MutationGate\Config\StaticCheck;
 use NightWorksIO\MutationGate\Config\Tests as TestsSetting;
 use NightWorksIO\MutationGate\Config\Timeouts;
+use NightWorksIO\MutationGate\Config\VersionControl;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\Finding;
 use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -103,6 +107,7 @@ use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
@@ -114,6 +119,9 @@ use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Port\ProofStore;
+use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
+use NightWorksIO\MutationGate\Tests\Fakes\CostModelFake;
+use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
@@ -405,6 +413,52 @@ it('hands git what a run withholds, so no process git starts sees a CI token eit
     expect($adapters->changes)->toEqual($wired)
         ->and($adapters->repository)->toEqual($wired)
         ->and($adapters->changes)->not->toEqual($plain);
+})->group(...$holds);
+
+it('takes the cost model and the version control an extension registers where the config names them, handing each its options', function (): void {
+    $costs = new CostModelFake(Seconds::of(1.0));
+    $repository = RepositoryFake::onMain(Revision::ref('abc'));
+    $changes = Flows::checkout();
+    $handed = [];
+    $registry = Wirings::registry()
+        ->withCostModel(Name::of('acme'), static function (Options $options) use ($costs, &$handed): CostModelFake {
+            $handed['costs'] = $options->written()->line();
+
+            return $costs;
+        })
+        ->withChangeSource(Name::of('hg'), static function (Options $options) use ($changes, &$handed): ChangeSourceFake {
+            $handed['changes'] = $options->written()->line();
+
+            return $changes;
+        })
+        ->withRepository(Name::of('hg'), static fn(): RepositoryFake => $repository);
+    $settings = Flows::settings(CostModel::uses('acme', Option::of('rate', 2)), VersionControl::uses('hg', Option::of('branch', 'tip')));
+    $adapters = new Wiring($registry, Variables::of([]), Wirings::detected())->adapters($settings, Directory::at(Flows::project()));
+
+    expect($adapters instanceof Adapters ? $adapters->costs : $adapters)->toBe($costs)
+        ->and($adapters instanceof Adapters ? $adapters->changes : $adapters)->toBe($changes)
+        ->and($adapters instanceof Adapters ? $adapters->repository : $adapters)->toBe($repository)
+        ->and($handed['costs'])->toBe('{"secondsPerLine":{"":0.2},"rate":2}')
+        ->and($handed['changes'])->toContain('"check":"mutation / verdict"')
+        ->and($handed['changes'])->toContain('"branch":"tip"');
+})->group(...$holds);
+
+it('reads changes through git where the config names it, under GitHub Actions too, and through GitHub where it names that, anywhere', function (): void {
+    $actions = Variables::of(['GITHUB_ACTIONS' => 'true', 'CI' => 'true']);
+    $variables = ['GITHUB_REPOSITORY' => 'octo/gate', 'GITHUB_SHA' => 'head'];
+    $git = Environment::during($variables, static fn(): Adapters => wiredOf(Flows::settings(VersionControl::git()), $actions));
+    $github = Environment::during($variables, static fn(): Adapters => wiredOf(Flows::settings(VersionControl::github()), Variables::of([])));
+
+    expect($git->changes)->toBeInstanceOf(Git::class)
+        ->and($github->changes)->not->toBeInstanceOf(Git::class);
+})->group(...$holds);
+
+it('says which key names a cost model or a version control nothing registers', function (): void {
+    $wired = static fn(Setting $setting): Adapters|Invalid|CannotJudge => new Wiring(Wirings::registry(), Variables::of([]), Wirings::detected())
+        ->adapters(Flows::settings($setting), Directory::at(Flows::project()));
+
+    expect($wired(CostModel::uses('nothing')))->toBeInstanceOf(CannotJudge::class)
+        ->and($wired(VersionControl::uses('nothing')))->toBeInstanceOf(CannotJudge::class);
 })->group(...$holds);
 
 it('withholds the tokens of the CI the job runs on, whichever plan the config names', function (): void {

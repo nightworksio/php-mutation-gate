@@ -45,14 +45,14 @@ describe('Settings sections', function (): void {
             'equivalence' => ['static' => false],
         ]);
         $trees = $settings->floors()->trees();
-        $price = $settings->shards()->perRunnerMinute();
+        $price = $settings->shards()->costs()->perRunnerMinute();
 
         expect($trees instanceof Absent ? [] : [...[...$trees][0]->exclude()])
             ->toEqual([Glob::of('src/Legacy/**'), Glob::of('src/Generated/*.php')])
             ->and($settings->shards()->target())->toEqual(Seconds::of(1200))
             ->and($settings->shards()->setup())->toEqual(Seconds::of(180))
             ->and($price instanceof Price ? [$price->amount(), $price->currency()] : [])->toBe([0.008, 'USD'])
-            ->and($settings->shards()->savingsWindow())->toEqual(SavingsWindow::of(Seconds::days(7)))
+            ->and($settings->shards()->costs()->savingsWindow())->toEqual(SavingsWindow::of(Seconds::days(7)))
             ->and(Configs::shown($settings, 'costs', 'savingsWindow'))->toBe('7d')
             ->and(Configs::shown($settings, 'proofs', 'store', 'with', 'publicUrl'))->toBe('https://proofs.example.com')
             ->and($settings->triage()->order())->toBe(TestOrder::Runner)
@@ -71,8 +71,8 @@ describe('Settings sections', function (): void {
         expect($trees instanceof Absent ? ['no trees'] : [...[...$trees][0]->exclude()])->toBe([])
             ->and($settings->shards()->target())->toEqual(Absent::setting())
             ->and($settings->shards()->setup())->toEqual(Seconds::of(60))
-            ->and($settings->shards()->perRunnerMinute())->toEqual(Absent::setting())
-            ->and($settings->shards()->savingsWindow())->toEqual(SavingsWindow::standard())
+            ->and($settings->shards()->costs()->perRunnerMinute())->toEqual(Absent::setting())
+            ->and($settings->shards()->costs()->savingsWindow())->toEqual(SavingsWindow::standard())
             ->and($settings->triage()->order())->toBe(TestOrder::KillersFirst)
             ->and($settings->triage()->suites())->toEqual(JudgingSuites::every())
             ->and(Configs::settings(['runner' => 'pest', 'tests' => ['holding' => ['Process']]])->triage()->suites())
@@ -285,10 +285,10 @@ describe('Settings sections', function (): void {
         $settings = Configs::settings($json);
         $php = Configs::valid($json)->php(ProjectRoot::origin())->code();
 
-        $options = $settings->shards()->costOptions()->object(Key::of('secondsPerLine'));
+        $options = $settings->shards()->costs()->model()->options()->object(Key::of('secondsPerLine'));
 
         expect($options instanceof Options ? $options->number(Key::of('12')) : $options)->toBe(2.0)
-            ->and($settings->shards()->secondsPerLine()->forPath(Path::of('12/Money.php')))->toEqual(Seconds::of(2.0))
+            ->and($settings->shards()->costs()->secondsPerLine()->forPath(Path::of('12/Money.php')))->toEqual(Seconds::of(2.0))
             ->and($php)->toContain("Shards::secondsPerLine('12', 2)")
             ->and($php)->toContain("Badge::colour('12', 50)")
             ->and($php)->toContain("Option::nested('colors', Option::of('12', 50))");

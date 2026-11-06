@@ -123,7 +123,11 @@ it('writes a config that reads back into the same effective config', function (a
         'treeSource' => ['use' => 'Acme\\Trees', 'with' => ['depth' => 2]],
         'ci' => ['plan' => ['use' => 'teamcity', 'with' => ['label' => 'php']]],
         'proofs' => ['store' => ['use' => 'redis', 'with' => ['dsn' => 'redis://cache']]],
+        'costs' => ['model' => ['use' => 'acme', 'with' => ['rate' => 2]]],
+        'versionControl' => ['use' => 'hg', 'with' => ['branch' => 'tip']],
     ]],
+    'the cost model and the version control built in' => [['runner' => 'pest', 'costs' => ['model' => 'learned'], 'versionControl' => 'git']],
+    'github, chosen by name' => [['runner' => 'pest', 'versionControl' => 'github']],
     'the settings ADR-0013 to ADR-0016 declare' => [[
         'runner' => ['use' => 'pest', 'withhold' => ['DEPLOY_*', 'COMPOSER_AUTH']],
         'trees' => [['path' => 'src', 'exclude' => ['src/Legacy/**', 'src/Generated/*.php']]],

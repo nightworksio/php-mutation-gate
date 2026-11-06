@@ -288,7 +288,7 @@ final readonly class Reporting
     /** A reporter's choice, with what the run's settings tell the summary and the badge laid beneath its options. */
     private function laid(Choice $choice, Settings $settings): Choice
     {
-        $windowed = $settings->shards()->savingsWindow()->under($choice);
+        $windowed = $settings->shards()->costs()->savingsWindow()->under($choice);
 
         return $settings->publishing()->under($windowed, $settings->floors()->newCode());
     }
