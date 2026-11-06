@@ -34,6 +34,15 @@ enum Unchecked: string
     /** The time budget ran out before the survivor's check. */
     case OutOfTime = 'out-of-time';
 
+    /**
+     * Whether a survivor left for this reason stays one for this run: a check
+     * that ran out of time, or could not run, may yet kill it (ADR-0103).
+     */
+    public function settles(): bool
+    {
+        return $this !== self::OutOfTime && $this !== self::Failed;
+    }
+
     /** Why these survivors were left unchecked, as the run's warning says it. */
     public function because(): string
     {

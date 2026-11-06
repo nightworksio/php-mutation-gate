@@ -65,7 +65,7 @@ final readonly class SurvivorChecking
         $checker = $this->adapters->checker;
         $from = $this->stopwatch->now();
         $checked = $checker instanceof NoAnalyser || $survivors->count() === 0
-            ? new Checked($mutants, SurvivorChecks::none(), $survivors)
+            ? new Checked($mutants, SurvivorChecks::none(), $survivors, MutantIds::none())
             : $this->warmedUp($checker, $mutants, $survivors);
         $this->stopwatch->handled(Step::StaticCheck, $from, $survivors->count());
 

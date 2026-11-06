@@ -18,7 +18,6 @@ use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
 use NightWorksIO\MutationGate\Core\Analysis\MutantChecks;
 use NightWorksIO\MutationGate\Core\Analysis\OutOfScope;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
-use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
 use NightWorksIO\MutationGate\Core\Analysis\Unchecked;
 use NightWorksIO\MutationGate\Core\Analysis\UncheckedSurvivor;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -58,7 +57,7 @@ final readonly class SurvivorBatch
      */
     public function checked(WarmedUp $warm, Mutants $mutants, Mutants $survivors): Checked
     {
-        $checks = SurvivorChecks::none();
+        $left = LeftSurvivors::none();
         $offered = [];
 
         foreach ($survivors as $survivor) {
@@ -70,16 +69,19 @@ final readonly class SurvivorBatch
                 continue;
             }
 
-            $checks = $checks->leaving(UncheckedSurvivor::of(Unchecked::NoMutant, $survivor->location()->file()));
+            $left = $left->leaving(
+                UncheckedSurvivor::of(Unchecked::NoMutant, $survivor->location()->file()),
+                $survivor->id(),
+            );
         }
 
         $fitting = new CheckRoom($this->deadline, $this->clock, $this->adapters->cores)->fitting($offered, $warm->took);
 
-        foreach (array_slice($offered, count($fitting)) as $left) {
-            $checks = $checks->leaving($this->left(Unchecked::OutOfTime, $left));
+        foreach (array_slice($offered, count($fitting)) as $unfitting) {
+            $left = $left->leaving($this->left(Unchecked::OutOfTime, $unfitting), $unfitting->mutant()->id());
         }
 
-        return $this->batched($warm, $mutants, $survivors, $fitting, $checks);
+        return $this->batched($warm, $mutants, $survivors, $fitting, $left);
     }
 
     /**
@@ -94,9 +96,9 @@ final readonly class SurvivorBatch
         Mutants $mutants,
         Mutants $survivors,
         array $fitting,
-        SurvivorChecks $checks,
+        LeftSurvivors $left,
     ): Checked {
-        [$planned, $judged, $checks] = $this->planned($warm, $fitting, $checks);
+        [$planned, $judged, $left] = $this->planned($warm, $fitting, $left);
         $started = $this->clock->now();
         $batch = MutantChecks::of(...$planned);
         $answers = $planned === [] ? [] : [...$warm->checker->checks($batch, $this->adapters->cores)->padded($batch)];
@@ -106,7 +108,7 @@ final readonly class SurvivorBatch
             $this->adapters->project->remove($check->mutant());
         }
 
-        $timed = $checks->timing($this->timed($warm, $took, count($judged)));
+        $timed = $left->timing($this->timed($warm, $took, count($judged)));
 
         return $this->answered($warm, $mutants, $survivors, $judged, $answers, $timed);
     }
@@ -117,9 +119,9 @@ final readonly class SurvivorBatch
      * left, with why.
      *
      * @param  list<CheckableSurvivor>                                                            $fitting
-     * @return array{list<MutantCheck>, list<array{CheckableSurvivor, Findings}>, SurvivorChecks}
+     * @return array{list<MutantCheck>, list<array{CheckableSurvivor, Findings}>, LeftSurvivors}
      */
-    private function planned(WarmedUp $warm, array $fitting, SurvivorChecks $checks): array
+    private function planned(WarmedUp $warm, array $fitting, LeftSurvivors $left): array
     {
         $baselines = new PrintBaselines($this->adapters, $warm, $this->perCheck)->of($fitting, $this->adapters->cores);
         $planned = [];
@@ -128,7 +130,9 @@ final readonly class SurvivorBatch
         foreach ($fitting as $survivor) {
             $baseline = $baselines->baseline($survivor);
             $check = $baseline instanceof Findings ? $this->written($warm, $survivor) : $baseline;
-            $checks = $check instanceof MutantCheck ? $checks : $checks->leaving($this->left($check, $survivor));
+            $left = $check instanceof MutantCheck
+                ? $left
+                : $left->leaving($this->left($check, $survivor), $survivor->mutant()->id());
 
             if ($check instanceof MutantCheck) {
                 $planned[] = $check;
@@ -136,7 +140,7 @@ final readonly class SurvivorBatch
             }
         }
 
-        return [$planned, $judged, $checks];
+        return [$planned, $judged, $left];
     }
 
     /** What the checks taught of the analyser: how many it made, and the time the cores spent on them together. */
@@ -160,7 +164,7 @@ final readonly class SurvivorBatch
         Mutants $survivors,
         array $judged,
         array $answers,
-        SurvivorChecks $checks,
+        LeftSurvivors $left,
     ): Checked {
         $rejected = Mutants::none();
 
@@ -168,7 +172,7 @@ final readonly class SurvivorBatch
             $answer = $answers[$at];
 
             if (! $answer instanceof Findings) {
-                $checks = $checks->leaving($this->left($answer, $survivor));
+                $left = $left->leaving($this->left($answer, $survivor), $survivor->mutant()->id());
 
                 continue;
             }
@@ -182,7 +186,7 @@ final readonly class SurvivorBatch
             }
         }
 
-        return new Checked($mutants->replacing($rejected), $checks, $survivors);
+        return new Checked($mutants->replacing($rejected), $left->checks, $survivors, $left->unsettled);
     }
 
     /**
