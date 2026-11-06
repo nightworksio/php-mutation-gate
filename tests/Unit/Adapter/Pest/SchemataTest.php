@@ -28,6 +28,10 @@ use Symfony\Component\Finder\SplFileInfo;
 
 beforeEach(function (): void {
     GateEnvironment::clear();
+
+    foreach (new ReflectionClass(Schemata::class)->getProperties(ReflectionProperty::IS_STATIC) as $property) {
+        $property->setValue(null, $property->getDefaultValue());
+    }
 });
 
 afterEach(function (): void {

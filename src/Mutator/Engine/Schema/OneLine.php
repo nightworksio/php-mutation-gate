@@ -56,7 +56,7 @@ final readonly class OneLine
     /** An array's item as it is written between the brackets. */
     private static function item(Standard $printer, ArrayItem $item): string
     {
-        $array = $printer->prettyPrintExpr(new Array_([$item], ['kind' => Array_::KIND_SHORT]));
+        $array = $printer->prettyPrintExpr(new Array_([$item]));
 
         return Bytes::slice($array, 1, Bytes::length($array) - 2);
     }

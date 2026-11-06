@@ -115,7 +115,8 @@ it('switches an item of an array by a spread, keeping the keys and order of the 
     expect(Schemata::returned($schema, 0))->toBe(exported([['a', 'b', 'c'], ['x' => 1, 'y' => 2], [5 => 'f', 6 => 'g']]))
         ->and(Schemata::returned($schema, 1))->toBe(exported([['a', 'c'], ['x' => 1, 'y' => 2], [5 => 'f', 6 => 'g']]))
         ->and(Schemata::returned($schema, 2))->toBe(exported([['a', 'b', 'c'], ['y' => 2], [5 => 'f', 6 => 'g']]))
-        ->and(Schemata::returned($schema, 3))->toBe(exported([['a', 'b', 'c'], ['x' => 1, 'y' => 2], [5 => 'f']]));
+        ->and(Schemata::returned($schema, 3))->toBe(exported([['a', 'b', 'c'], ['x' => 1, 'y' => 2], [5 => 'f']]))
+        ->and([$schema->switches(1), $schema->switches(2), $schema->switches(3)])->toBe([true, true, true]);
 });
 
 it('keeps every line where it stood, the mutant printed on one line and its comments left out', function (): void {
@@ -189,6 +190,8 @@ it('switches no site where a ternary, an if or a spread could not stand, and kee
     'an if that declares a class' => ["<?php\n\nif (\$a) { class A {} }\n", static fn(Nodes $nodes): Site => Site::of($nodes->nth(If_::class), NodeVisitor::REMOVE_NODE, 1)],
     'an if that holds a label' => ["<?php\n\nif (\$a) { a: \$b = 1; }\n", static fn(Nodes $nodes): Site => Site::of($nodes->nth(If_::class), NodeVisitor::REMOVE_NODE, 1)],
     'a statement replaced by one PHP cannot read inside an if' => ["<?php\n\n\$a = 1;\n", static fn(Nodes $nodes): Site => Site::of($nodes->nth(Expression::class), new Namespace_(new Name('A')), 1)],
+    'an item replaced by an expression' => ["<?php\n\nreturn ['a'];\n", static fn(Nodes $nodes): Site => Site::of($nodes->nth(ArrayItem::class), new Int_(5), 1)],
+    'an if that declares a function, replaced by one that does not' => ["<?php\n\nif (\$a) { function f() {} }\n", static fn(Nodes $nodes): Site => Site::of($nodes->nth(If_::class), new Nop(), 1)],
     'a statement replaced by one that declares a function' => ["<?php\n\n\$a = 1;\n", static fn(Nodes $nodes): Site => Site::of($nodes->nth(Expression::class), new Function_('f'), 1)],
 ]);
 
@@ -221,15 +224,19 @@ it('switches each kind of statement an if can stand in place of', function (stri
     'a continue' => ["<?php\n\nforeach (\$a as \$b) { continue; }\n", static fn(Nodes $nodes): Node => $nodes->nth(Continue_::class)],
 ]);
 
-it('switches the sites that can stand beside one that cannot, which would leave the schema unread as PHP', function (): void {
-    $code = "<?php\n\nclass A { public function f() { return 1 + 2; } }\n";
+it('switches the sites that can stand beside one that cannot, which would leave the schema unread as PHP', function (Closure $cannot): void {
+    $code = "<?php\n\nclass A { public function f() { \$b = 3 * 4; return 1 + 2; } }\n";
     $schema = Schemata::of($code, static fn(Nodes $nodes): array => [
         Site::of($nodes->nth(Plus::class), minusOf($nodes->nth(Plus::class)), 1),
-        Site::of($nodes->nth(ClassMethod::class), NodeVisitor::REMOVE_NODE, 2),
+        siteBy($cannot, $nodes),
     ]);
 
     expect([$schema->switches(1), $schema->switches(2)])->toBe([true, false]);
-});
+})->with([
+    'a class\'s method' => [static fn(Nodes $nodes): Site => Site::of($nodes->nth(ClassMethod::class), NodeVisitor::REMOVE_NODE, 2)],
+    'an expression replaced by a statement' => [static fn(Nodes $nodes): Site => Site::of($nodes->nth(Mul::class), new Nop(), 2)],
+    'a statement replaced by an expression' => [static fn(Nodes $nodes): Site => Site::of($nodes->nth(Return_::class), new Int_(2), 2)],
+]);
 
 it('switches an item of an array replaced by another item', function (): void {
     $code = "<?php\n\nreturn ['a', 'b'];\n";
