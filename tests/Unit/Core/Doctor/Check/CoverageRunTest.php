@@ -25,7 +25,7 @@ use NightWorksIO\MutationGate\Tests\Support\Configs;
  * src/Kernel.php and src/Boot.php, and one runs src/Money.php.
  */
 $suite = static function (): CoverageMap {
-    $map = CoverageMap::empty();
+    $map = CoverageMap::of();
 
     foreach (range(1, 20) as $number) {
         $test = TestId::of(sprintf('Tests\\KernelTest::test%d', $number));
@@ -54,7 +54,7 @@ it('finds that measuring the suite failed, with why', function () use ($measured
 });
 
 it('finds a coverage run that covered nothing', function () use ($measured): void {
-    expect(CoverageRun::in($measured(CoverageMap::empty(), Units::none(), Timings::none())))->toEqual(Findings::of(Finding::of(
+    expect(CoverageRun::in($measured(CoverageMap::of(), Units::none(), Timings::none())))->toEqual(Findings::of(Finding::of(
         Slug::CoverageEmpty,
         Severity::WillFail,
         'The suite\'s coverage run passed, and covered no line of any file.',

@@ -224,7 +224,7 @@ final readonly class RunnerFake implements Runner
     /** The runner over the contract suite's fixture library, which knows each change's mutant. */
     public static function ofTheFixture(): self
     {
-        $map = CoverageMap::empty()
+        $map = CoverageMap::of()
             ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds'))
             ->covered(Path::of('src/Money.php'), Line::of(27), TestId::of('MoneyTest::adds'))
             ->covered(Path::of('src/Held.php'), Line::of(11), TestId::of('HeldTest::doubles'))

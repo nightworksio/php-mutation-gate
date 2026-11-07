@@ -305,7 +305,7 @@ it('drops the entries of a gone test file, measuring nothing for it', function (
     ))
         ->and($runner->asked())->toBe([])
         ->and(keptWritten($project))->toEqual(
-            Remeasured::over(Flows::map(), TestIds::of(TestId::of('HeldTest::doubles')), CoverageMap::empty()),
+            Remeasured::over(Flows::map(), TestIds::of(TestId::of('HeldTest::doubles')), CoverageMap::of()),
         );
 });
 
@@ -421,7 +421,7 @@ it('measures every test where the one test file there is moved', function (): vo
         static fn(string $path): bool => $path !== 'tests/HeldTest.php',
         ARRAY_FILTER_USE_KEY,
     );
-    $map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds'));
+    $map = CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds'));
 
     expect(keptMeasured($files, new CoverageAsked(ScriptedRunner::fixture(), $map), keptMap($map, keptAt())))->toEqual([
         KeptCoverage::built(),
@@ -431,9 +431,9 @@ it('measures every test where the one test file there is moved', function (): vo
 
 it('measures nothing in a project of no test file, where the kept map holds no test', function (): void {
     $files = array_filter(keptFiles(), static fn(string $path): bool => ! str_starts_with($path, 'tests/'), ARRAY_FILTER_USE_KEY);
-    $runner = new CoverageAsked(ScriptedRunner::fixture(), CoverageMap::empty());
+    $runner = new CoverageAsked(ScriptedRunner::fixture(), CoverageMap::of());
 
-    expect(keptMeasured($files, $runner, keptMap(CoverageMap::empty(), keptAt())))->toEqual([
+    expect(keptMeasured($files, $runner, keptMap(CoverageMap::of(), keptAt())))->toEqual([
         CoverageRead::from(Workspace::coverage()),
         "Coverage: measured 0 of 0 test files again; kept the rest from the default branch's map.",
     ])

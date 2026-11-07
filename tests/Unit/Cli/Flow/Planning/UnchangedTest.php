@@ -64,7 +64,7 @@ it('plans nothing, before any coverage run, where only files that do not matter 
     $at,
 ): void {
     $project = Flows::project();
-    $runner = new CoverageAsked(RunnerFake::ofTheFixture(), CoverageMap::empty());
+    $runner = new CoverageAsked(RunnerFake::ofTheFixture(), CoverageMap::of());
     $made = $plan($project, 'README.md', Mode::since(Mode::LAST_PASSED), $runner);
 
     expect($made instanceof Plan ? [...$made] : $made)->toBe([])

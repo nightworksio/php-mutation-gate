@@ -64,7 +64,7 @@ it('says why it names no useless test where the verdict holds no coverage', func
 });
 
 it('names no removable test, under a blank line, where a full matrix finds none', function (): void {
-    expect(TestsText::of(Verdicts::failing()->withMatrix(KillMatrix::of(MatrixKind::Full, CoverageMap::empty()))))->toBe(<<<'TEXT'
+    expect(TestsText::of(Verdicts::failing()->withMatrix(KillMatrix::of(MatrixKind::Full, CoverageMap::of()))))->toBe(<<<'TEXT'
         Tests mutation cannot see
         This judges mutation kills only, and never fails anything.
 

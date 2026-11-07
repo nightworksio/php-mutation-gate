@@ -26,6 +26,10 @@ final readonly class ToldChildren
         $poll = $settings->runner()->poll()->seconds();
         $kept = $settings->proofs()->retained();
 
+        self::told(
+            ChildVariable::RecordsLoads,
+            $settings->reach()->lockPackages()->narrowsByLoads() ? '1' : new Absent(),
+        );
         self::told(ChildVariable::Poll, $poll === Polling::INTERVAL ? new Absent() : sprintf('%F', $poll));
         self::told(
             ChildVariable::HandoffPacked,

@@ -73,7 +73,7 @@ function measuredMoneyRun(): FirstRun
     $test = TestId::of('MoneyTest::adds');
 
     return FirstRun::of(
-        CoverageMap::empty()->covered($money, Line::of(3), $test)->timed($test, Seconds::of(0.5)),
+        CoverageMap::of()->covered($money, Line::of(3), $test)->timed($test, Seconds::of(0.5)),
         MutantSites::inFile($money, Line::of(3), Line::of(3)),
         Seconds::of(1.5),
         ProcessCount::of(2),
@@ -177,9 +177,9 @@ it('learns each unit\'s share of a shard\'s time from its mutants', function () 
     $mutants = Mutants::of($mutant('src/Money.php', 3.0), $mutant('src/Limit.php', 1.0));
     $measured = Measurement::of(Seconds::of(40.0), 'pest', $at());
     $model = MeasuredCosts::at(Root::of('.'), SecondsPerLine::standard());
-    $learned = $model->learn($units, $mutants, CoverageMap::empty(), $measured);
+    $learned = $model->learn($units, $mutants, CoverageMap::of(), $measured);
 
-    expect($learned)->toEqual(Shares::of($units, $mutants, CoverageMap::empty(), $measured))
+    expect($learned)->toEqual(Shares::of($units, $mutants, CoverageMap::of(), $measured))
         ->and($learned->secondsFor(Path::of('src/Money.php')))->toEqual(Seconds::of(30.0));
 });
 

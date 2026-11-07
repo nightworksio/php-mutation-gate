@@ -62,7 +62,7 @@ it('costs any unit nothing or more, measured or not', function (CostModel $model
 
     $money = Path::of('src/Money.php');
     $firstRun = FirstRun::of(
-        CoverageMap::empty()->covered($money, Line::of(3), TestId::of('MoneyTest::adds')),
+        CoverageMap::of()->covered($money, Line::of(3), TestId::of('MoneyTest::adds')),
         MutantSites::inFile($money, Line::of(3)),
         Seconds::of(1.5),
         ProcessCount::single(),
@@ -80,7 +80,7 @@ it('learns a timing for every unit of a shard, together no more than the shard s
 ): void {
     $units = Units::of(Unit::file(Path::of('src/Money.php')), Unit::file(Path::of('src/Limit.php')));
     $mutants = Mutants::of($mutantOf('src/Money.php', 1), $mutantOf('src/Money.php', 2), $mutantOf('src/Limit.php', 1));
-    $timings = $model->learn($units, $mutants, CoverageMap::empty(), Measurement::of(Seconds::of(60.0), 'pest', $at()));
+    $timings = $model->learn($units, $mutants, CoverageMap::of(), Measurement::of(Seconds::of(60.0), 'pest', $at()));
     $seconds = array_map(static fn(Timing $timing): float => $timing->seconds()->seconds(), iterator_to_array($timings, preserve_keys: true));
 
     expect(array_map(static fn(Timing $timing): string => $timing->unit()->value(), iterator_to_array($timings, preserve_keys: true)))->toEqualCanonicalizing(['src/Money.php', 'src/Limit.php'])

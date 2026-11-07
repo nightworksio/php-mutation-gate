@@ -280,7 +280,7 @@ it('names the first five tests that cover a mutant and counts the rest', functio
         $tests[] = TestId::of(sprintf('MoneyTest::fits%d', $each));
     }
 
-    $matrix = KillMatrix::of(MatrixKind::FirstKiller, CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(7), ...$tests));
+    $matrix = KillMatrix::of(MatrixKind::FirstKiller, CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(7), ...$tests));
     $lines = digestDetailLines(Verdicts::failing()->withMatrix($matrix), Verdicts::survivor()->mutant()->id()->value());
 
     expect(digestOpened($lines, 'test'))->toBe(['test MoneyTest::fits1', 'test MoneyTest::fits2', 'test MoneyTest::fits3', 'test MoneyTest::fits4', 'test MoneyTest::fits5'])

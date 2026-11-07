@@ -50,7 +50,7 @@ afterEach(function (): void {
 $listing = static fn(Groups|CannotJudge $groups): RunnerFake => RunnerFake::of(
     Identity::of('fake', Versions::none(), Digest::of('php')),
     $groups,
-    CoverageMap::empty(),
+    CoverageMap::of(),
     Mutants::none(),
     Paths::none(),
     Paths::none(),
@@ -190,7 +190,7 @@ $underPest = static function (
     $pest = RunnerFake::of(
         Identity::of('pest', Versions::none(), Digest::of('php')),
         $groups,
-        CoverageMap::empty(),
+        CoverageMap::of(),
         Mutants::none(),
         Paths::none(),
         Paths::of(Path::of('tests/Pest.php')),
@@ -278,7 +278,7 @@ $heldClass = static function (RunnerBehaviour $behaviour): Inventory|CannotJudge
     $runner = RunnerFake::of(
         Identity::of('native', Versions::none(), Digest::of('php')),
         Groups::of(Group::named('holds:src/Held.php')),
-        CoverageMap::empty(),
+        CoverageMap::of(),
         Mutants::none(),
         Paths::none(),
         Paths::none(),
@@ -333,7 +333,7 @@ function inventoryHeldFromProcess(
     RunnerBehaviour|NotGiven $behaviour = new NotGiven(),
     array $more = [],
 ): Inventory|CannotJudge {
-    $runner = HoldingSuites::runner($unit, $process, CoverageMap::empty())
+    $runner = HoldingSuites::runner($unit, $process, CoverageMap::of())
         ->behaving($behaviour instanceof RunnerBehaviour ? $behaviour : RunnerBehaviour::standard())
         ->definedBy(Paths::of(Path::of('tests/Arch/Bootstrap.php')));
 
@@ -397,7 +397,7 @@ it('cannot find the units where the runner opens each shard on its own coverage 
 });
 
 it('cannot find the units where the runner cannot list the holding suites\' tests', function (): void {
-    $runner = HoldingSuites::runner(TestListing::none(), TestListing::none(), CoverageMap::empty())
+    $runner = HoldingSuites::runner(TestListing::none(), TestListing::none(), CoverageMap::of())
         ->listingIn(Suites::listed('Process'), CannotJudge::because('Pest cannot list Process.'));
 
     expect(Inventory::of(HoldingSuites::adapters(HoldingSuites::project(), HoldingSuites::checkout(), $runner), Flows::settings()))
@@ -444,7 +444,7 @@ it('reads under Pest the #[Holds] of the files Pest loads first, whatever suite 
 
 it('lists the holding suites\' tests only once the judging suites\' are listed', function (): void {
     $runner = ScriptedRunner::fixture()->listingGroups(
-        HoldingSuites::runner(TestListing::none(), TestListing::none(), CoverageMap::empty())
+        HoldingSuites::runner(TestListing::none(), TestListing::none(), CoverageMap::of())
             ->listingIn(Suites::listed('Unit'), CannotJudge::because('Pest cannot list Unit.')),
     );
 

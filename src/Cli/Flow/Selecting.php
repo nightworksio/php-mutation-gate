@@ -83,7 +83,7 @@ final readonly class Selecting
         }
 
         $read = $this->mapIn($coverage, $inventory);
-        $map = $read instanceof Read ? $read->map : CoverageMap::empty();
+        $map = $read instanceof Read ? $read->map : CoverageMap::of();
         $places = TestsOfTheSuite::placed($this->adapters, $inventory->suite, $map);
         $measured = $read instanceof Read ? $read->at : NotGiven::value();
 

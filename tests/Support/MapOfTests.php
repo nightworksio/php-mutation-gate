@@ -14,7 +14,7 @@ final readonly class MapOfTests
 {
     public static function of(TestIds $tests): CoverageMap
     {
-        $map = CoverageMap::empty();
+        $map = CoverageMap::of();
 
         foreach ($tests as $test) {
             $map = $map->covered(Path::of('src/Covered.php'), Line::of(1), $test);

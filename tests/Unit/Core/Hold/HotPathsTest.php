@@ -21,7 +21,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Warnings;
  */
 function suiteRunning(int $tests, array $runs): CoverageMap
 {
-    $map = CoverageMap::empty();
+    $map = CoverageMap::of();
 
     for ($test = 1; $test <= $tests; ++$test) {
         $map = $map->timed(TestId::of(sprintf('Test%d', $test)), Seconds::of(0.1));

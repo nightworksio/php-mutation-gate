@@ -30,7 +30,7 @@ use function sprintf;
 final readonly class GateEntry
 {
     /** Where Composer keeps what other tools read from a manifest. */
-    private const string EXTRA = 'extra';
+    public const string EXTRA = 'extra';
 
     /** The gate's own key under it. */
     private const string KEY = ThisPackage::NAME;

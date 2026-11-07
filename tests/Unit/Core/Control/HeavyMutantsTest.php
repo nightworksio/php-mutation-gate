@@ -43,7 +43,7 @@ function heavyMutant(string $file, MutantStatus $status, float $limit): Mutant
 /** A map in which tests a, b and c of 1.5 seconds each cover line 3 of each of these files, and test d alone line 3 of src/Light.php. */
 function heavyMap(): CoverageMap
 {
-    $map = CoverageMap::empty();
+    $map = CoverageMap::of();
 
     foreach (['src/Heavy.php', 'src/Gone.php', 'src/Slow.php'] as $file) {
         $map = $map->covered(Path::of($file), Line::of(3), TestId::of('a'), TestId::of('b'), TestId::of('c'));

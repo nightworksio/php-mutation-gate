@@ -6,7 +6,10 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
 use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethod;
 use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethods;
+use NightWorksIO\MutationGate\Core\Coverage\LoadedPackages;
+use NightWorksIO\MutationGate\Core\Coverage\ProcessLoads;
 use NightWorksIO\MutationGate\Core\Coverage\Remeasured;
+use NightWorksIO\MutationGate\Core\Coverage\TestLoad;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -26,7 +29,7 @@ function linesOfMap(CoverageMap $map): array
 }
 
 it('replaces the entries of the tests measured again, keeps every other test\'s lines and time, and misses a line none of them runs', function (): void {
-    $kept = CoverageMap::empty()
+    $kept = CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds'))
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('HeldTest::doubles'))
         ->covered(Path::of('src/Money.php'), Line::of(12), TestId::of('MoneyTest::adds'))
@@ -35,7 +38,7 @@ it('replaces the entries of the tests measured again, keeps every other test\'s 
         ->timed(TestId::of('HeldTest::doubles'), Seconds::of(0.25))
         ->timed(TestId::of('GoneTest::goes'), Seconds::of(1.0))
         ->executing(Path::of('src/Money.php'), ExecutedMethod::of('add', 10, 13));
-    $measured = CoverageMap::empty()
+    $measured = CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(13), TestId::of('MoneyTest::adds'))
         ->covered(Path::of('src/Price.php'), Line::of(5), TestId::of('MoneyTest::prices'))
         ->timed(TestId::of('MoneyTest::adds'), Seconds::of(0.75))
@@ -63,11 +66,11 @@ it('replaces the entries of the tests measured again, keeps every other test\'s 
 });
 
 it('keeps the map as it was where no test is measured again and the new measure holds nothing', function (): void {
-    $kept = CoverageMap::empty()
+    $kept = CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds'))
         ->timed(TestId::of('MoneyTest::adds'), Seconds::of(0.5));
 
-    expect(Remeasured::over($kept, TestIds::none(), CoverageMap::empty()))->toEqual($kept);
+    expect(Remeasured::over($kept, TestIds::none(), CoverageMap::of()))->toEqual($kept);
 });
 
 it('takes none of the lines the new measure missed, which ran some tests alone', function (): void {
@@ -88,12 +91,12 @@ it('takes none of the lines the new measure missed, which ran some tests alone',
 });
 
 it('keeps the lines a test measured again ran in a file unchanged since the kept map, as boot code a warm cache skips, and none in a changed file or of a test the new measure no longer holds', function (Paths|NotGiven $changed, array $lines): void {
-    $kept = CoverageMap::empty()
+    $kept = CoverageMap::of()
         ->covered(Path::of('src/Kernel.php'), Line::of(20), TestId::of('CommandTest::adds'))
         ->covered(Path::of('src/Kernel.php'), Line::of(21), TestId::of('GoneTest::goes'))
         ->covered(Path::of('src/Validator.php'), Line::of(8), TestId::of('CommandTest::adds'))
         ->covered(Path::of('src/Validator.php'), Line::of(9), TestId::of('CommandTest::adds'));
-    $measured = CoverageMap::empty()
+    $measured = CoverageMap::of()
         ->covered(Path::of('src/Validator.php'), Line::of(9), TestId::of('CommandTest::adds'));
 
     $merged = Remeasured::over(
@@ -133,3 +136,15 @@ it('keeps the lines a test measured again ran in a file unchanged since the kept
         ],
     ],
 ]);
+
+it('keeps what both runs recorded their tests loaded', function (): void {
+    $kept = ProcessLoads::of(TestLoad::of('A::a', 'acme/one'));
+    $again = ProcessLoads::of(TestLoad::of('B::a', 'acme/two'));
+    $merged = Remeasured::over(
+        CoverageMap::of()->loading(LoadedPackages::of($kept)),
+        TestIds::none(),
+        CoverageMap::of()->loading(LoadedPackages::of($again)),
+    );
+
+    expect($merged->loaded())->toEqual(LoadedPackages::of($kept, $again));
+});

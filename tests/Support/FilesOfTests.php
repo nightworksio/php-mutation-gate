@@ -45,6 +45,6 @@ final readonly class FilesOfTests
             $others = $held->has($test) ? $others : $others->with($test);
         }
 
-        return Remeasured::over($map, $others, CoverageMap::empty());
+        return Remeasured::over($map, $others, CoverageMap::of());
     }
 }

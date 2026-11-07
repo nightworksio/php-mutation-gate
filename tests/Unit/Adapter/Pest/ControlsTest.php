@@ -72,7 +72,7 @@ function controlledCovering(string ...$tests): Covering
 
         public function map(Project $project): CoverageMap
         {
-            return CoverageMap::empty();
+            return CoverageMap::of();
         }
 
         public function tests(): TestIds
@@ -214,7 +214,7 @@ it('controls a mutant over several lines by the tests that cover any of them, it
 
         public function map(Project $project): CoverageMap
         {
-            return CoverageMap::empty();
+            return CoverageMap::of();
         }
 
         public function tests(): TestIds

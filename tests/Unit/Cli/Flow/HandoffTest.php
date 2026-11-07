@@ -63,7 +63,7 @@ $makePlan = static fn(): Plan => Plan::of(Revision::ref('head'), Digest::sha256O
 ));
 
 /** A map of the files of both shards, and of two no shard mutates. */
-$makeMap = static fn(): CoverageMap => CoverageMap::empty()
+$makeMap = static fn(): CoverageMap => CoverageMap::of()
     ->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'))
     ->covered(Path::of('src/Held/A.php'), Line::of(4), TestId::of('HeldTest::a'))
     ->covered(Path::of('src/Held/B.php'), Line::of(5), TestId::of('HeldTest::b'))

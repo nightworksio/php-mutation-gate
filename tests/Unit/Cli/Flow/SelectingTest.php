@@ -39,7 +39,7 @@ const SELECTED_AT = '0123456789abcdef0123456789abcdef01234567';
 const SELECTING_FILES = [...Flows::FILES, 'tests/Support/Builds.php' => "<?php\n\nnamespace Tests\\Support;\n\nfinal class Builds {}\n"];
 
 /** What the fixture's suite runs: `tests/MoneyTest.php`'s one test runs Money's line 11. */
-$map = static fn(): CoverageMap => CoverageMap::empty()
+$map = static fn(): CoverageMap => CoverageMap::of()
     ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds'));
 
 /**
@@ -147,19 +147,19 @@ it('lists every test, saying why, where the map cannot say what the change reach
         'The coverage map is not one this gate writes, so no line of it can be read. So every test is listed.',
     ],
     'a map that does not say where it was measured' => [
-        fn(): string => CoverageMapFile::encode(CoverageMap::empty(), Unplaced::map()),
+        fn(): string => CoverageMapFile::encode(CoverageMap::of(), Unplaced::map()),
         fn(): ChangeSourceFake => selectingCheckout(),
         '',
         'The coverage map does not say where it was measured, so every test is listed.',
     ],
     'a map measured in a dirty tree' => [
-        fn(): string => CoverageMapFile::encode(CoverageMap::empty(), MeasuredAt::of(Revision::ref(SELECTED_AT), dirty: true)),
+        fn(): string => CoverageMapFile::encode(CoverageMap::of(), MeasuredAt::of(Revision::ref(SELECTED_AT), dirty: true)),
         fn(): ChangeSourceFake => selectingCheckout(),
         '',
         'The coverage map was measured in a dirty working tree, so every test is listed.',
     ],
     'a map whose commit the checkout does not have' => [
-        fn(): string => CoverageMapFile::encode(CoverageMap::empty(), MeasuredAt::of(Revision::ref('89abcdef0123456789abcdef0123456789abcdef'), dirty: false)),
+        fn(): string => CoverageMapFile::encode(CoverageMap::of(), MeasuredAt::of(Revision::ref('89abcdef0123456789abcdef0123456789abcdef'), dirty: false)),
         fn(): ChangeSourceFake => selectingCheckout(),
         '',
         'What changed since 89abcdef0123456789abcdef0123456789abcdef, where the coverage map was measured, cannot be told. 89abcdef0123456789abcdef0123456789abcdef is not a revision this repository has. So every test is listed.',

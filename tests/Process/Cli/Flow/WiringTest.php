@@ -664,7 +664,7 @@ function wiringCarriesStaticKill(AnalyserIdentity|NoAnalyser|CannotJudge $then, 
         ProvedKills::none(),
         Run::of('main', Moment::at('2026-09-29T10:00:00Z'), Digest::sha256Of('base')),
     )->withInputs(Inputs::of($source instanceof Digest ? $source : Digest::of('none'), $recorded->mutation()));
-    $carrying = Carrying::against(wiringDigestsWith($now), Digest::sha256Of('base'), TestNames::none(), CoverageMap::empty(), ChangesSince::none());
+    $carrying = Carrying::against(wiringDigestsWith($now), Digest::sha256Of('base'), TestNames::none(), CoverageMap::of(), ChangesSince::none());
     $counted = $carrying->counted($proof);
 
     return $counted instanceof Proof ? $carrying->carry($counted, $rejected) : $counted;

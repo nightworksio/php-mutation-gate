@@ -66,7 +66,7 @@ afterEach(function (): void {
 /** The map every keying test reads: the canary's test covers `src/Money.php`. */
 function keyingMap(): CoverageMap
 {
-    return CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('CanaryTest::runs'));
+    return CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('CanaryTest::runs'));
 }
 
 /** A runner of this name, which says the canary's test file judges every covered file. */
@@ -75,7 +75,7 @@ function keyingRunner(string $name): RunnerFake
     return RunnerFake::of(
         Identity::of($name, Versions::of(Version::of('fake/runner', '1.0.0', 'abc')), Digest::of('php')),
         Groups::of(),
-        CoverageMap::empty(),
+        CoverageMap::of(),
         Mutants::none(),
         Paths::of(Path::of('tests/CanaryTest.php')),
         Paths::of(Path::of('phpunit.xml')),
@@ -118,7 +118,7 @@ function keyedBase(string $definition): Digest
         Flows::settings(),
         Flows::setup(),
         keyingSuite('1'),
-        CoverageMap::empty(),
+        CoverageMap::of(),
     );
 
     return $keying instanceof Keying ? $keying->base() : throw new RuntimeException($keying->why());
@@ -219,7 +219,7 @@ it('cannot key a run whose runner cannot say what it is, or whose CI definition 
     $unnamed = RunnerFake::of(
         CannotJudge::because('The runner is not installed.'),
         Groups::of(),
-        CoverageMap::empty(),
+        CoverageMap::of(),
         Mutants::none(),
         Paths::none(),
         Paths::none(),
@@ -311,14 +311,14 @@ function keyingColocated(string $clock): Digest|Unkeyed
     $runner = RunnerFake::of(
         Identity::of('fake', Versions::of(Version::of('fake/runner', '1.0.0', 'abc')), Digest::of('php')),
         Groups::of(),
-        CoverageMap::empty(),
+        CoverageMap::of(),
         Mutants::none(),
         Paths::of(Path::of('src/MoneyTest.php')),
         Paths::of(Path::of('phpunit.xml')),
         TestNames::none(),
         Paths::none(),
     );
-    $map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(2), TestId::of('MoneyTest::adds'));
+    $map = CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(2), TestId::of('MoneyTest::adds'));
     $keying = $suite instanceof Suite
         ? keyingAgainst(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup(), $suite, $map)
         : $suite;
@@ -417,7 +417,7 @@ function keyingReached(string $money, string $ledger, bool $unreadable = false):
     }
 
     $suite = ReadSuite::of(Flows::trees(), $fingerprints, Directory::at($project));
-    $map = CoverageMap::empty()
+    $map = CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(2), TestId::of('MoneyTest::adds'))
         ->covered(Path::of('src/Ledger.php'), Line::of(2), TestId::of('LedgerTest::books'));
     $keying = $suite instanceof Suite

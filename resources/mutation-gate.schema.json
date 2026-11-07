@@ -736,6 +736,14 @@
                         "pattern": "^[^/\\s]+/[^/\\s]+$"
                     }
                 },
+                "lockMoves": {
+                    "enum": [
+                        "everything",
+                        "named",
+                        "loaded"
+                    ],
+                    "default": "everything"
+                },
                 "changedTests": {
                     "enum": [
                         "narrow",
@@ -4932,6 +4940,13 @@
                                 "minLength": 1,
                                 "pattern": "^[^/\\s]+/[^/\\s]+$"
                             }
+                        },
+                        "lockMoves": {
+                            "enum": [
+                                "everything",
+                                "named",
+                                "loaded"
+                            ]
                         },
                         "changedTests": {
                             "enum": [

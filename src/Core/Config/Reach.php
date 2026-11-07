@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-use function array_map;
-
 use NightWorksIO\MutationGate\Core\Analysis\Unchecked;
 use NightWorksIO\MutationGate\Core\Composer\DecidingPackages;
 use NightWorksIO\MutationGate\Core\File\Glob;
@@ -41,7 +39,6 @@ final readonly class Reach implements Part
     /**
      * @param Listed<Glob>|Absent   $packages
      * @param Listed<Glob>|Absent   $everything
-     * @param Listed<string>|Absent $lockPackages
      * @param Listed<Glob>|Absent   $fixtures
      */
     private function __construct(
@@ -50,7 +47,7 @@ final readonly class Reach implements Part
         private int|float|Absent $hotPath,
         private bool|Absent $full,
         private Pruning $pruning,
-        private Listed|Absent $lockPackages,
+        private LockReach $lock,
         private Sampling $sampling,
         private FailingFast $failingFast,
         private ChangedTests|Absent $changedTests,
@@ -79,6 +76,7 @@ final readonly class Reach implements Part
         Listed|Absent $fixtures = new Absent(),
         Listed|Absent $failFastWaits = new Absent(),
         Choice|Absent $versionControl = new Absent(),
+        LockMoveReach|Absent $lockMoves = new Absent(),
     ): self {
         $set = $pruning instanceof Pruning ? $pruning : Pruning::of();
         $failing = FailingFast::of($failFast, $failFastWaits);
@@ -90,7 +88,7 @@ final readonly class Reach implements Part
             $hotPath,
             $full,
             $set,
-            $lockPackages,
+            LockReach::of($lockPackages, $lockMoves),
             $drawn,
             $failing,
             $changedTests,
@@ -128,6 +126,7 @@ final readonly class Reach implements Part
             changedTests: $none->changedTests(),
             fixtures: $none->fixtures(),
             failFastWaits: $none->failingFast()->waits(),
+            lockMoves: LockMoveReach::Everything,
         );
     }
 
@@ -140,7 +139,7 @@ final readonly class Reach implements Part
                 Absent::laid($this->hotPath, $later->hotPath),
                 Absent::laid($this->full, $later->full),
                 $this->pruning->over($later->pruning),
-                $this->joinedNames($this->lockPackages, $later->lockPackages),
+                $this->lock->over($later->lock),
                 $this->sampling->over($later->sampling),
                 $this->failingFast->over($later->failingFast),
                 Absent::laid($this->changedTests, $later->changedTests),
@@ -168,15 +167,10 @@ final readonly class Reach implements Part
         return $this->fixtures instanceof Listed ? $this->fixtures : Listed::of();
     }
 
-    /**
-     * The packages whose move in a `composer.lock` decides how the gate runs:
-     * those `reach.lockPackages` names, every package where it names none.
-     */
+    /** What a package's move in a `composer.lock` decides, as `reach.lockMoves` and `reach.lockPackages` say. */
     public function lockPackages(): DecidingPackages
     {
-        return $this->lockPackages instanceof Listed
-            ? DecidingPackages::named(...array_map(Glob::of(...), [...$this->lockPackages]))
-            : DecidingPackages::every();
+        return $this->lock->deciding();
     }
 
     /**
@@ -247,12 +241,6 @@ final readonly class Reach implements Part
                             : $this->everything,
                     ),
                     Member::of(
-                        'lockPackages',
-                        $this->lockPackages instanceof Listed
-                            ? Json::items(...$this->lockPackages)
-                            : $this->lockPackages,
-                    ),
-                    Member::of(
                         'changedTests',
                         $this->changedTests instanceof ChangedTests ? $this->changedTests->value : $this->changedTests,
                     ),
@@ -262,6 +250,7 @@ final readonly class Reach implements Part
                             ? Json::items(...WrittenPaths::globs($origin, $this->fixtures))
                             : $this->fixtures,
                     ),
+                    ...$this->lock->members(),
                 ),
             ),
             Member::unlessEmpty('holds', Json::object(Member::of('hotPath', $this->hotPath))),
@@ -289,9 +278,6 @@ final readonly class Reach implements Part
                 PhpCalls::literals(...WrittenPaths::globs($origin, $this->everything)),
             )]
             : [];
-        $lockPackages = $this->lockPackages instanceof Listed
-            ? [sprintf('Reach::lockPackages(%s)', PhpCalls::literals(...$this->lockPackages))]
-            : [];
         $changedTests = $this->changedTests instanceof ChangedTests ? [$this->changedTests->php()] : [];
         $fixtures = $this->fixtures instanceof Listed
             ? [sprintf('Reach::fixtures(%s)', PhpCalls::literals(...WrittenPaths::globs($origin, $this->fixtures)))]
@@ -307,10 +293,11 @@ final readonly class Reach implements Part
         };
 
 
+        $lock = $this->lock->php();
         $calls = PhpCalls::inWith(
             ...$packages,
             ...$everything,
-            ...$lockPackages,
+            ...$lock,
             ...$changedTests,
             ...$fixtures,
             ...$hotPath,
@@ -321,20 +308,6 @@ final readonly class Reach implements Part
         );
 
         return $calls->and($this->failingFast->php())->and($this->pruning->php())->and($this->sampling->php());
-    }
-
-    /**
-     * @param  Listed<string>|Absent $earlier
-     * @param  Listed<string>|Absent $later
-     * @return Listed<string>|Absent
-     */
-    private function joinedNames(Listed|Absent $earlier, Listed|Absent $later): Listed|Absent
-    {
-        return match (true) {
-            $later instanceof Absent => $earlier,
-            $earlier instanceof Absent => $later,
-            default => $earlier->and($later, static fn(string $name): string => $name),
-        };
     }
 
     /**

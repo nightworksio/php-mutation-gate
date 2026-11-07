@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Config\FailFast;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
+use NightWorksIO\MutationGate\Core\Config\LockMoveReach;
 use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\Config\Reach;
 use NightWorksIO\MutationGate\Core\Format\Node;
@@ -38,6 +39,11 @@ final readonly class ReachKeys
         $lockPackages = Field::optional(
             'lockPackages',
             Items::of(Text::matching(self::PACKAGE, self::PACKAGE_PATTERN)),
+            Effect::DecidesHowTheGateRuns,
+        );
+        $lockMoves = Field::optional(
+            'lockMoves',
+            Enumerated::of(LockMoveReach::cases()),
             Effect::DecidesHowTheGateRuns,
         );
         $changedTests = Field::optional(
@@ -78,11 +84,13 @@ final readonly class ReachKeys
                     static function (Node $reach) use (
                         $everything,
                         $lockPackages,
+                        $lockMoves,
                         $changedTests,
                         $fixtures,
                     ): Layer|Invalid {
                         $files = $everything->read($reach);
                         $packages = $lockPackages->read($reach);
+                        $moves = $lockMoves->read($reach);
                         $tests = $changedTests->read($reach);
                         $projects = $fixtures->read($reach);
 
@@ -92,15 +100,18 @@ final readonly class ReachKeys
                                 lockPackages: $packages->value(),
                                 changedTests: $tests->value(),
                                 fixtures: $projects->value(),
+                                lockMoves: $moves->value(),
                             )),
                             $files,
                             $packages,
+                            $moves,
                             $tests,
                             $projects,
                         );
                     },
                     $everything,
                     $lockPackages,
+                    $lockMoves,
                     $changedTests,
                     $fixtures,
                 ),

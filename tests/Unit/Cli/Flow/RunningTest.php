@@ -574,7 +574,7 @@ it('mutates no held unit whose holding tests miss lines of it, and leaves why', 
     $project = Flows::project();
     new Handoff(Directory::at($project), HandedMaps::limits())->write(Planned::oneShard(), Flows::map(), KillHistory::none(), Unplaced::map());
     $scripted = ScriptedRunner::fixture();
-    $runner = new CoverageAsked($scripted, CoverageMap::empty());
+    $runner = new CoverageAsked($scripted, CoverageMap::of());
     $adapters = Flows::adapters($project, [], $runner);
 
     new Running($adapters, Flows::settings(), Flows::setup())
@@ -621,7 +621,7 @@ it('mutates a unit the whole suite judges, though the map reaches none of it, an
     $resultIn = $makeResultIn();
 
     $project = Flows::project();
-    new Handoff(Directory::at($project), HandedMaps::limits())->write(Planned::oneShard(), CoverageMap::empty(), KillHistory::none(), Unplaced::map());
+    new Handoff(Directory::at($project), HandedMaps::limits())->write(Planned::oneShard(), CoverageMap::of(), KillHistory::none(), Unplaced::map());
     $scripted = ScriptedRunner::fixture();
     $runner = new CoverageAsked($scripted, Flows::map());
     $adapters = Flows::adapters($project, [], $runner);

@@ -48,7 +48,8 @@ final readonly class SettingsCases
         "reach": {
             "everything": [],
             "changedTests": "narrow",
-            "fixtures": []
+            "fixtures": [],
+            "lockMoves": "everything"
         },
         "holds": {
             "hotPath": 0.8
@@ -298,6 +299,7 @@ final readonly class SettingsCases
         'packages' => ['packages/*'],
         'reach' => [
             'everything' => ['config/**', 'routes/**'],
+            'lockMoves' => 'named',
             'lockPackages' => ['pestphp/*', 'phpunit/phpunit'],
             'changedTests' => 'file',
             'fixtures' => ['tests/fixtures/*'],

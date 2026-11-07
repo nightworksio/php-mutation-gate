@@ -122,6 +122,12 @@ final readonly class Reaching
      */
     private function alike(Reach $reach, Path $config, Sources $sources): Reach
     {
+        $loads = $sources->loadsMoved($config);
+
+        if ($loads instanceof LockLoads) {
+            return $loads->reach($reach, $config);
+        }
+
         $moved = $sources->movedRules($config);
         $globs = implode(', ', array_map(static fn(Glob $glob): string => sprintf('`%s`', $glob->value()), $moved));
 

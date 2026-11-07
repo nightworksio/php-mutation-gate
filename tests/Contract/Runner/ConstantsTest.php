@@ -43,7 +43,7 @@ it('kills the items of a constant array a test reads through its class, running 
         $map = $runner->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/constants')));
         file_put_contents(
             Tree::at(sprintf('%s/%s', Library::DIRECTORY, CoverageMapFile::in(Path::of('.mutation-gate/constants'))->value())),
-            CoverageMapFile::encode($map instanceof CoverageMap ? $map : CoverageMap::empty(), Unplaced::map()),
+            CoverageMapFile::encode($map instanceof CoverageMap ? $map : CoverageMap::of(), Unplaced::map()),
         );
         $result = $runner->mutate(MutationRequest::of($codes, WholeSuite::tests())
             ->narrowedTo($codes, Narrowing::none()->toMutators(Mutators::named(RemoveArrayItem::class)))

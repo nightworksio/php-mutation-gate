@@ -92,7 +92,7 @@ it('scans each mutated file, though the map covers no line of it', function (): 
     CoverageMaps::write(Recorder::coverageBeside($results), sprintf('%s/', $at->root()), ['src/Other.php' => [1 => [0]]], [$reads], [$reads => 0.1]);
     $money = Path::of('src/Money.php');
 
-    $read = Selector::over($at, selectorMap($results), Paths::of($money), TestCases::unknown())->readCoverage(Paths::of($money), CoverageMap::empty());
+    $read = Selector::over($at, selectorMap($results), Paths::of($money), TestCases::unknown())->readCoverage(Paths::of($money), CoverageMap::of());
 
     expect(array_map(static fn(TestId $test): string => $test->value(), [...$read->testsCovering($money, Line::of(5), Line::of(5))]))
         ->toBe([$reads]);
@@ -124,7 +124,7 @@ it('judges a mutant of a statement\'s first line by the tests that run its other
 
 it('covers the lines of each value one run can judge with the tests of the files that read it and of its fallback, each timed, and leaves the rest as they were', function (): void {
     $money = Path::of('src/Money.php');
-    $onto = CoverageMap::empty()->covered($money, Line::of(10), TestId::of('P\Tests\InternalSpec::__pest_evaluable_it_runs'))
+    $onto = CoverageMap::of()->covered($money, Line::of(10), TestId::of('P\Tests\InternalSpec::__pest_evaluable_it_runs'))
         ->timed(TestId::of('P\Tests\InternalSpec::__pest_evaluable_it_runs'), Seconds::of(9.0));
     $read = selectorOver(Unexecutables::project())->readCoverage(Paths::of($money), $onto);
     $tests = static fn(int $line): array => array_map(
@@ -150,7 +150,7 @@ it('covers each line of a match\'s arms with the tests of the arms after it too,
     $at = MatchHeads::project();
     $band = Path::of('src/Band.php');
     $selector = Selector::over($at, selectorMap(MatchHeads::run($at)), Paths::of($band), TestCases::unknown());
-    $onto = CoverageMap::empty()
+    $onto = CoverageMap::of()
         ->covered($band, Line::of(8), TestId::of('high'))
         ->covered($band, Line::of(9), TestId::of('low'))
         ->covered($band, Line::of(21), TestId::of('down'));

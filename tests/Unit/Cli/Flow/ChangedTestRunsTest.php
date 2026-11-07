@@ -30,7 +30,7 @@ use NightWorksIO\MutationGate\Tests\Support\Flows;
 /** What the tests a fake runner places in each changed test file cover, by a map of money and clock tests. */
 function changedTestRuns(Changes|CannotTell $changes, ChangedTests $mode = ChangedTests::Narrow): TestRuns
 {
-    $map = CoverageMap::empty()
+    $map = CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'))
         ->covered(Path::of('src/Money.php'), Line::of(4), TestId::of('ClockTest::ticks'))
         ->covered(Path::of('src/Held.php'), Line::of(2), TestId::of('ClockTest::ticks'), TestId::of('HeldTest::holds'));

@@ -142,7 +142,7 @@ it('says in every form why it names no useless test where the verdict holds no c
 });
 
 it('judges tests by what they kill where the coverage map holds a single test', function (): void {
-    $coverage = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(1), TestId::of('MoneyTest::adds'));
+    $coverage = CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(1), TestId::of('MoneyTest::adds'));
 
     expect(TestsReport::hasCoverage(Verdicts::failing()->withMatrix(KillMatrix::of(MatrixKind::Full, $coverage))))->toBeTrue();
 });

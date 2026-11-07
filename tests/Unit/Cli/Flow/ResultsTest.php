@@ -208,7 +208,7 @@ it('takes as run every unit of a shard after one it did not run', function (): v
     $project = Flows::project();
     $units = Units::of(Planned::held(), Planned::money());
     $plan = Planned::handedIn($project, Planned::of(Shard::of(ShardId::of(1), Package::at(Path::root()), $units, Seconds::of(3.0), 'held first')));
-    $runner = new CoverageAsked(ScriptedRunner::fixture(), CoverageMap::empty());
+    $runner = new CoverageAsked(ScriptedRunner::fixture(), CoverageMap::of());
     new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())->runAll($plan, Workspace::results());
     $results = Results::read($plan, Workspace::results(), Directory::at($project));
 

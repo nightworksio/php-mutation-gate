@@ -153,7 +153,7 @@ afterEach(function (): void {
 });
 
 /** The map the plan hands every shard. */
-$map = static fn(): CoverageMap => CoverageMap::empty()
+$map = static fn(): CoverageMap => CoverageMap::of()
     ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds'))
     ->timed(TestId::of('MoneyTest::adds'), Seconds::of(0.5));
 
@@ -199,7 +199,7 @@ function recordedRanWith(
 function recordedRanMissing(Plan $plan, string $project, CoverageMap $map): Results
 {
     new Handoff(Directory::at($project), HandedMaps::limits())->write($plan, $map, KillHistory::none(), Unplaced::map());
-    $adapters = Flows::adapters($project, [], new CoverageAsked(ScriptedRunner::fixture(), CoverageMap::empty()));
+    $adapters = Flows::adapters($project, [], new CoverageAsked(ScriptedRunner::fixture(), CoverageMap::of()));
     new Running($adapters, Flows::settings(), Flows::setup())->runAll($plan, Workspace::results());
     $results = Results::read($plan, Workspace::results(), Directory::at($project));
 

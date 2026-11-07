@@ -137,7 +137,7 @@ final class Affected
     /** What the tests run: Money's line 11 by both of MoneyTest's tests, its line 9 by RateTest's, Price's line 7 by PriceTest's. */
     public static function map(): CoverageMap
     {
-        return CoverageMap::empty()
+        return CoverageMap::of()
             ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds'))
             ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds nothing'))
             ->covered(Path::of('src/Price.php'), Line::of(7), TestId::of('PriceTest::totals'))

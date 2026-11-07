@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Config;
 
 use NightWorksIO\MutationGate\Core\Config\ChangedTests;
 use NightWorksIO\MutationGate\Core\Config\FailFast;
+use NightWorksIO\MutationGate\Core\Config\LockMoveReach;
 use NightWorksIO\MutationGate\Core\Format\Json;
 
 /**
@@ -37,6 +38,27 @@ final readonly class Reach implements Setting
     public static function lockPackages(string ...$patterns): self
     {
         return new self(Json::at('reach.lockPackages', Json::items(...$patterns)));
+    }
+
+    /** `reach.lockMoves: everything`: a lock's move reaches every unit, the default. */
+    public static function lockMovesReachEverything(): self
+    {
+        return new self(Json::at('reach.lockMoves', LockMoveReach::Everything->value));
+    }
+
+    /** `reach.lockMoves: named`: a lock's move reaches every unit only where it moved what `lockPackages` names. */
+    public static function lockMovesReachByName(): self
+    {
+        return new self(Json::at('reach.lockMoves', LockMoveReach::Named->value));
+    }
+
+    /**
+     * `reach.lockMoves: loaded`: a lock's move reaches the units run by the tests that loaded a moved package. A
+     * package loaded only in a worker no test started is not seen.
+     */
+    public static function lockMovesReachWhatLoadedThem(): self
+    {
+        return new self(Json::at('reach.lockMoves', LockMoveReach::Loaded->value));
     }
 
     /**

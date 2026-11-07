@@ -284,7 +284,7 @@ final readonly class KeptCoverage
             ? $suites->measured($moving->moved())
             : TestPaths::of($moving->moved());
         $measured = count($moved->files()) === 0
-            ? CoverageMap::empty()
+            ? CoverageMap::of()
             : $this->adapters->runner->coverage(
                 $this->adapters->covering(CoverageRun::of($moved, Workspace::remeasuredCoverage())),
             );

@@ -25,7 +25,7 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-$makeOwn = static fn(): CoverageMap => CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'));
+$makeOwn = static fn(): CoverageMap => CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'));
 $makeWhole = static fn(): CoverageMap => $makeOwn()->covered(Path::of('src/Ledger.php'), Line::of(9), TestId::of('LedgerTest::sums'));
 $makeHanded = static fn(): MutationRequest => MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
     ->reusingCoverage(Handed::maps(Path::of('own'), Path::of('whole')));
@@ -103,13 +103,13 @@ it('cannot find the tests that read a value where the shard was handed no whole 
 
 it('scans the codebase once for the whole map and a run\'s files, and afresh for a run that opened on its own map', function (): void {
     $at = Unexecutables::project();
-    $reading = new HandedOver(CoverageMap::empty(), $at);
+    $reading = new HandedOver(CoverageMap::of(), $at);
     $whole = new WholeMap($at, new Remembered());
     $money = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
         ->reusingCoverage(Handed::maps(Path::of('own'), Path::of('whole')));
     $other = MutationRequest::of(Paths::of(Path::of('src/Other.php')), WholeSuite::tests())
         ->reusingCoverage(Handed::maps(Path::of('own'), Path::of('whole')));
-    $shared = CoverageMap::empty();
+    $shared = CoverageMap::of();
 
     expect($whole->selector($money, $reading, $shared))->toBe($whole->selector($money, $reading, $shared))
         ->and($whole->selector($other, $reading, $shared))->not->toBe($whole->selector($money, $reading, $shared))

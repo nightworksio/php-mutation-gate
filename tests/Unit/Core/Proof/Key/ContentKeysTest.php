@@ -123,7 +123,7 @@ function contentKeyOf(
         $outside = $outside->with(Fingerprint::of(Path::of($path), Digest::of($digest)));
     }
 
-    $coverage = CoverageMap::empty();
+    $coverage = CoverageMap::of();
 
     foreach ($covered as $cover) {
         $coverage = $coverage->covered(Path::of($unit), Line::of($cover[0]), TestId::of($cover[1]));
@@ -389,7 +389,7 @@ $bare = static fn(): ContentKeys => ContentKeys::of(
 it('writes what holds a unit, by its name', function (Unit $unit, string $heldBy) use ($bare, $frame, $framed): void {
     $keys = $bare();
 
-    expect($keys->keyOf($unit, Paths::none(), CoverageMap::empty()))->toEqual($framed(
+    expect($keys->keyOf($unit, Paths::none(), CoverageMap::of()))->toEqual($framed(
         'mutation-gate proof 9',
         $keys->base()->value(),
         hash('sha256', $frame('tests', '0')),
@@ -407,10 +407,10 @@ it('writes what holds a unit, by its name', function (Unit $unit, string $heldBy
 
 it('keys one unit after another alike', function () use ($bare): void {
     $keys = $bare();
-    $first = $keys->keyOf(Unit::file(Path::of('src/A.php')), Paths::none(), CoverageMap::empty());
-    $keys->keyOf(Unit::file(Path::of('src/B.php')), Paths::none(), CoverageMap::empty());
+    $first = $keys->keyOf(Unit::file(Path::of('src/A.php')), Paths::none(), CoverageMap::of());
+    $keys->keyOf(Unit::file(Path::of('src/B.php')), Paths::none(), CoverageMap::of());
 
-    expect($keys->keyOf(Unit::file(Path::of('src/A.php')), Paths::none(), CoverageMap::empty()))->toEqual($first);
+    expect($keys->keyOf(Unit::file(Path::of('src/A.php')), Paths::none(), CoverageMap::of()))->toEqual($first);
 });
 
 /**
@@ -461,7 +461,7 @@ function contentKeysPinned(CoverageMap $observed): ContentKeys
 }
 
 it('keys each unit of a fixture with the bytes its format gives it, whatever order its judges come in', function (Unit $unit, Paths $judges, string $key): void {
-    $coverage = CoverageMap::empty();
+    $coverage = CoverageMap::of();
 
     foreach ([[3, 'b::t'], [3, 'a::t'], [1, 'c::t'], [3, '10'], [3, '9'], [7, 'a::t']] as [$line, $test]) {
         $coverage = $coverage->covered(Path::of('src/A.php'), Line::of($line), TestId::of($test));
@@ -482,11 +482,11 @@ it('keys each unit of a fixture with the bytes its format gives it, whatever ord
 ]);
 
 it('keys a unit alike whatever order packages, files or judges that read as numbers come in', function () use ($makeKeyOf): void {
-    $keys = contentKeysPinned(CoverageMap::empty());
+    $keys = contentKeysPinned(CoverageMap::of());
     $orders = [['3.0', '1e2', '2x'], ['3.0', '2x', '1e2'], ['1e2', '3.0', '2x'], ['1e2', '2x', '3.0'], ['2x', '3.0', '1e2'], ['2x', '1e2', '3.0']];
     $text = static fn(Digest|Unkeyed $key): string => $key instanceof Digest ? $key->value() : $key->why();
     $judged = array_map(
-        static fn(array $order): string => $text($keys->keyOf(Unit::file(Path::of('src/A.php')), Paths::of(...array_map(Path::of(...), $order)), CoverageMap::empty())),
+        static fn(array $order): string => $text($keys->keyOf(Unit::file(Path::of('src/A.php')), Paths::of(...array_map(Path::of(...), $order)), CoverageMap::of())),
         $orders,
     );
     $driven = array_map(
@@ -502,7 +502,7 @@ it('keys a unit alike whatever order packages, files or judges that read as numb
 });
 
 it('keys many units at once as it keys each alone, reading a set of judging files once', function (): void {
-    $coverage = CoverageMap::empty()
+    $coverage = CoverageMap::of()
         ->covered(Path::of('src/A.php'), Line::of(3), TestId::of('b::t'))
         ->covered(Path::of('src/B.php'), Line::of(2), TestId::of('a::t'));
     $paths = static fn(string ...$paths): Paths => Paths::of(...array_map(Path::of(...), $paths));
@@ -513,7 +513,7 @@ it('keys many units at once as it keys each alone, reading a set of judging file
         Judging::of(Unit::held(Path::of('src/D.php'), Group::named('holds:src/D.php')), $paths('tests/9')),
         Judging::of(Unit::file(Path::of('src/E.php')), $paths('tests/9')),
     ];
-    $keys = contentKeysPinned(CoverageMap::empty());
+    $keys = contentKeysPinned(CoverageMap::of());
     $alone = Keys::none();
 
     foreach ($units as $unit) {
@@ -551,12 +551,12 @@ it('keys units in time linear in the test files that judge them', function (): v
             range(1, 50),
         );
 
-        return [$keys, $judges, static fn(): Keys => $keys->keysOf(CoverageMap::empty(), ...$units)];
+        return [$keys, $judges, static fn(): Keys => $keys->keysOf(CoverageMap::of(), ...$units)];
     };
     [$keys, $judges, $keyed] = $keying(10);
 
     expect($keyed())->toHaveCount(50)
-        ->and($keyed()->keyOf(Path::of('src/F1.php')))->toEqual($keys->keyOf(Unit::file(Path::of('src/F1.php')), Paths::of(...$judges), CoverageMap::empty()))
+        ->and($keyed()->keyOf(Path::of('src/F1.php')))->toEqual($keys->keyOf(Unit::file(Path::of('src/F1.php')), Paths::of(...$judges), CoverageMap::of()))
         ->and(Growth::of(250, static fn(int $size): Closure => $keying($size)[2]))->toBeLessThan(Growth::LINEAR);
 });
 
@@ -585,8 +585,8 @@ it('names the base every key of a run is built on: the digest of what every key 
         'always',
         '0',
     ))
-        ->and($keys->keyOf(Unit::file(Path::of('src/A.php')), Paths::none(), CoverageMap::empty()))
-        ->toEqual($bare()->keyOf(Unit::file(Path::of('src/A.php')), Paths::none(), CoverageMap::empty()));
+        ->and($keys->keyOf(Unit::file(Path::of('src/A.php')), Paths::none(), CoverageMap::of()))
+        ->toEqual($bare()->keyOf(Unit::file(Path::of('src/A.php')), Paths::none(), CoverageMap::of()));
 });
 
 /**
@@ -727,9 +727,9 @@ it('keys every coverage entry on what each reads, and leaves a PHP source and th
 });
 
 it('keys a unit apart by what the paths entries matching it set, and as it always was where they set nothing', function (): void {
-    $coverage = CoverageMap::empty()->covered(Path::of('src/A.php'), Line::of(3), TestId::of('a::t'));
+    $coverage = CoverageMap::of()->covered(Path::of('src/A.php'), Line::of(3), TestId::of('a::t'));
     $judging = Judging::of(Unit::file(Path::of('src/A.php')), Paths::of(Path::of('tests/10')));
-    $keys = contentKeysPinned(CoverageMap::empty());
+    $keys = contentKeysPinned(CoverageMap::of());
     $key = static fn(Judging $judging): Digest|Unkeyed => $keys->keysOf($coverage, $judging)->keyOf(Path::of('src/A.php'));
 
     expect($key($judging->ruledBy('')))->toEqual($key($judging))

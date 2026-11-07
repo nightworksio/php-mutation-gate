@@ -135,7 +135,7 @@ it('shows the trees it does not hold, and fails on its new code and the failures
 it('carries a kill matrix, one of first killers with no coverage until the run gives one', function () use ($makePassed): void {
     $passed = $makePassed();
 
-    $matrix = KillMatrix::of(MatrixKind::Full, CoverageMap::empty());
+    $matrix = KillMatrix::of(MatrixKind::Full, CoverageMap::of());
     $verdict = Verdict::of(TreeVerdicts::of($passed));
 
     expect($verdict->matrix())->toEqual(KillMatrix::none())

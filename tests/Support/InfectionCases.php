@@ -139,7 +139,7 @@ final readonly class InfectionCases
     /** The gate's own map another job handed on in a directory of a project: Money's line 11, which MoneyTest ran. */
     public static function handedOn(Project $at, string $directory): CoverageMap
     {
-        $map = CoverageMap::empty()
+        $map = CoverageMap::of()
             ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\MoneyTest::adds'))
             ->timed(TestId::of('Tests\MoneyTest::adds'), Seconds::of(0.5))
             ->executing(Path::of('src/Money.php'), ExecutedMethod::of('add', 9, 12));

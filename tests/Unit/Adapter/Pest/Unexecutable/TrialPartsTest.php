@@ -28,7 +28,7 @@ afterEach(function (): void {
 function trialPartsOf(array $specs, string ...$files): array
 {
     $root = (string) realpath(Scratch::directory());
-    $map = CoverageMap::empty();
+    $map = CoverageMap::of();
 
     foreach ($files as $file) {
         Scratch::write($root, sprintf('tests/%s.php', $file), '<?php');

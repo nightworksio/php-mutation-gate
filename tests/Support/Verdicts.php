@@ -216,7 +216,7 @@ final class Verdicts
         $fits = TestId::of('MoneyTest::fits');
         $refuses = TestId::of('MoneyTest::refuses');
         $adds = TestId::of('PriceTest::adds');
-        $coverage = CoverageMap::empty()
+        $coverage = CoverageMap::of()
             ->covered($money, Line::of(7), $fits)
             ->covered($money, Line::of(7), $refuses)
             ->covered($money, Line::of(7), $adds)
