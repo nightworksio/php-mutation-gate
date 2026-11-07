@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Bitbucket\CommentMarkdown;
 use NightWorksIO\MutationGate\Adapter\Bitbucket\PullRequestComment;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Comment\Toggle;
@@ -17,6 +16,7 @@ use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\Markdown;
 use NightWorksIO\MutationGate\Core\Report\PlannedMarkdown;
 use NightWorksIO\MutationGate\Core\Report\RecheckedMarkdown;
+use NightWorksIO\MutationGate\Core\Report\UnfoldedMarkdown;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Cloud;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
@@ -75,7 +75,7 @@ function bitbucketWritten(int $id): string
 /** A comment holding the Bitbucket marker. */
 function bitbucketMarked(string $after = ''): string
 {
-    return sprintf("%s\n\n%s", CommentMarkdown::MARKER, $after);
+    return sprintf("%s\n\n%s", UnfoldedMarkdown::MARKER, $after);
 }
 
 it('posts a new comment where none holds the marker, with the token, linking the pipeline', function (): void {
@@ -95,8 +95,8 @@ it('posts a new comment where none holds the marker, with the token, linking the
         ->and(array_column($cloud->requests, 'method'))->toBe(['GET', 'POST'])
         ->and($posted['url'])->toBe(BITBUCKET_COMMENTS)
         ->and($posted['headers']['authorization'] ?? '')->toBe('Bearer bb-secret')
-        ->and(Decoded::at($posted['body'], 'content', 'raw'))->toBe(CommentMarkdown::of(Markdown::comment(Verdicts::failing(), CommentShows::of()), BITBUCKET_PIPELINE))
-        ->and(Decoded::at($posted['body'], 'content', 'raw'))->toStartWith(CommentMarkdown::MARKER);
+        ->and(Decoded::at($posted['body'], 'content', 'raw'))->toBe(UnfoldedMarkdown::of(Markdown::comment(Verdicts::failing(), CommentShows::of()), BITBUCKET_PIPELINE))
+        ->and(Decoded::at($posted['body'], 'content', 'raw'))->toStartWith(UnfoldedMarkdown::MARKER);
 });
 
 it('puts its own comment in place, passing over one holding the marker that Bitbucket will not let the token edit', function (int $refused): void {
@@ -186,12 +186,12 @@ it('writes its planned state into the comment the verdict later replaces', funct
 
     expect($answer)->toEqual(Written::to('https://bitbucket.org/acme/shop/pull-requests/7#comment-5'))
         ->and(Decoded::at($cloud->requests[1]['body'], 'content', 'raw'))
-        ->toBe(CommentMarkdown::of(PlannedMarkdown::comment(ShardedPlan::planned(2), BITBUCKET_PIPELINE), BITBUCKET_PIPELINE));
+        ->toBe(UnfoldedMarkdown::of(PlannedMarkdown::comment(ShardedPlan::planned(2), BITBUCKET_PIPELINE), BITBUCKET_PIPELINE));
 });
 
 it('writes the re-checked survivors over its own planned state, and puts back as it was its own comment past it', function (): void {
-    $planned = CommentMarkdown::of(PlannedMarkdown::comment(ShardedPlan::planned(2), ''), '');
-    $judged = CommentMarkdown::of(Markdown::comment(Verdicts::failing(), CommentShows::of()), '');
+    $planned = UnfoldedMarkdown::of(PlannedMarkdown::comment(ShardedPlan::planned(2), ''), '');
+    $judged = UnfoldedMarkdown::of(Markdown::comment(Verdicts::failing(), CommentShows::of()), '');
     $comments = static fn(string $own): Cloud => new Cloud()
         ->answering(bitbucketPage(1), 200, (string) json_encode(['values' => [bitbucketComment(3, $planned), bitbucketComment(5, $own)]]))
         ->answering(sprintf('%s/3', BITBUCKET_COMMENTS), 403, '{}')
@@ -208,13 +208,13 @@ it('writes the re-checked survivors over its own planned state, and puts back as
     expect($comment($overPlanned)->rechecked(Rechecks::mixed()))
         ->toEqual(Written::to('https://bitbucket.org/acme/shop/pull-requests/7#comment-5'))
         ->and(Decoded::at($overPlanned->requests[2]['body'], 'content', 'raw'))
-        ->toBe(CommentMarkdown::of(RecheckedMarkdown::comment(Rechecks::mixed(), BITBUCKET_PIPELINE, CommentShows::of()), BITBUCKET_PIPELINE))
+        ->toBe(UnfoldedMarkdown::of(RecheckedMarkdown::comment(Rechecks::mixed(), BITBUCKET_PIPELINE, CommentShows::of()), BITBUCKET_PIPELINE))
         ->and($comment($overJudged)->rechecked(Rechecks::mixed()))->toEqual(NotWritten::because(CommentStates::NOT_PLANNED))
         ->and(Decoded::at($overJudged->requests[2]['body'], 'content', 'raw'))->toBe($judged);
 });
 
 it('says why, and leaves the comment, where Bitbucket fails to put back a comment past its planned state', function (): void {
-    $judged = CommentMarkdown::of(Markdown::comment(Verdicts::failing(), CommentShows::of()), '');
+    $judged = UnfoldedMarkdown::of(Markdown::comment(Verdicts::failing(), CommentShows::of()), '');
     $cloud = new Cloud()
         ->answering(bitbucketPage(1), 200, (string) json_encode(['values' => [bitbucketComment(5, $judged)]]))
         ->answering(sprintf('%s/5', BITBUCKET_COMMENTS), 500, '{"error": {"message": "down"}}');

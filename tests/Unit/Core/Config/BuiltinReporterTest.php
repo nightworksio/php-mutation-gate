@@ -38,6 +38,9 @@ it('says whether an entry of each reporter names a path', function (BuiltinRepor
     [BuiltinReporter::GitLabComment, EntryPath::Refused],
     [BuiltinReporter::BitbucketComment, EntryPath::Refused],
     [BuiltinReporter::BitbucketInsights, EntryPath::Refused],
+    [BuiltinReporter::AzureComment, EntryPath::Refused],
+    [BuiltinReporter::AzureSummary, EntryPath::Refused],
+    [BuiltinReporter::BuildkiteAnnotation, EntryPath::Refused],
 ]);
 
 it('says which reporters send an alert', function (): void {
@@ -55,5 +58,5 @@ it('names the variable each comment that needs a token reads it from, and none f
         $tokens = $token instanceof GateSecret ? [...$tokens, $reporter->value => $token] : $tokens;
     }
 
-    expect($tokens)->toBe(['gitlab-comment' => GateSecret::GitLabComment, 'bitbucket-comment' => GateSecret::BitbucketComment]);
+    expect($tokens)->toBe(['gitlab-comment' => GateSecret::GitLabComment, 'bitbucket-comment' => GateSecret::BitbucketComment, 'azure-comment' => GateSecret::AzureComment]);
 });

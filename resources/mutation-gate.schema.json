@@ -2049,6 +2049,22 @@
                         "type": "object",
                         "properties": {
                             "use": {
+                                "const": "azure-summary"
+                            },
+                            "with": {
+                                "type": "object",
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
                                 "const": "slack"
                             },
                             "with": {
@@ -2644,6 +2660,389 @@
                         "type": "object",
                         "properties": {
                             "use": {
+                                "const": "azure-comment"
+                            },
+                            "with": {
+                                "type": "object",
+                                "properties": {
+                                    "tokenEnv": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "default": "SYSTEM_ACCESSTOKEN"
+                                    },
+                                    "token": {
+                                        "not": {},
+                                        "description": "expected no token: a token is a credential; set SYSTEM_ACCESSTOKEN, or name another variable in tokenEnv"
+                                    },
+                                    "comment": {
+                                        "type": "object",
+                                        "properties": {
+                                            "sections": {
+                                                "type": "array",
+                                                "items": {
+                                                    "enum": [
+                                                        "verdict",
+                                                        "security",
+                                                        "trees",
+                                                        "sets",
+                                                        "heatmap",
+                                                        "survivors",
+                                                        "unjudged",
+                                                        "ignored",
+                                                        "problems",
+                                                        "notes",
+                                                        "floors",
+                                                        "report",
+                                                        "costs"
+                                                    ]
+                                                },
+                                                "minItems": 1
+                                            },
+                                            "open": {
+                                                "type": "array",
+                                                "items": {
+                                                    "enum": [
+                                                        "verdict",
+                                                        "security",
+                                                        "trees",
+                                                        "sets",
+                                                        "heatmap",
+                                                        "survivors",
+                                                        "unjudged",
+                                                        "ignored",
+                                                        "problems",
+                                                        "notes",
+                                                        "floors",
+                                                        "report",
+                                                        "costs"
+                                                    ]
+                                                }
+                                            },
+                                            "states": {
+                                                "type": "array",
+                                                "items": {
+                                                    "enum": [
+                                                        "planned",
+                                                        "rechecked",
+                                                        "verdict"
+                                                    ]
+                                                },
+                                                "minItems": 1
+                                            },
+                                            "on": {
+                                                "type": "array",
+                                                "items": {
+                                                    "enum": [
+                                                        "pull-request",
+                                                        "default-branch"
+                                                    ]
+                                                },
+                                                "minItems": 1
+                                            },
+                                            "mode": {
+                                                "enum": [
+                                                    "sticky",
+                                                    "new",
+                                                    "new-hiding-old"
+                                                ]
+                                            },
+                                            "passing": {
+                                                "enum": [
+                                                    "update",
+                                                    "always",
+                                                    "never"
+                                                ]
+                                            },
+                                            "try": {
+                                                "type": "boolean"
+                                            },
+                                            "reproduce": {
+                                                "type": "boolean"
+                                            },
+                                            "drafts": {
+                                                "type": "boolean"
+                                            },
+                                            "sampled": {
+                                                "type": "boolean"
+                                            },
+                                            "cutShort": {
+                                                "type": "boolean"
+                                            },
+                                            "survivors": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "most": {
+                                                        "type": "integer",
+                                                        "minimum": 0
+                                                    },
+                                                    "lines": {
+                                                        "enum": [
+                                                            "changed",
+                                                            "all"
+                                                        ]
+                                                    },
+                                                    "detail": {
+                                                        "enum": [
+                                                            "full",
+                                                            "row"
+                                                        ]
+                                                    }
+                                                },
+                                                "additionalProperties": false
+                                            },
+                                            "security": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "most": {
+                                                        "type": "integer",
+                                                        "minimum": 0
+                                                    }
+                                                },
+                                                "additionalProperties": false
+                                            },
+                                            "unjudged": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "most": {
+                                                        "type": "integer",
+                                                        "minimum": 0
+                                                    }
+                                                },
+                                                "additionalProperties": false
+                                            },
+                                            "ignored": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "most": {
+                                                        "type": "integer",
+                                                        "minimum": 0
+                                                    }
+                                                },
+                                                "additionalProperties": false
+                                            },
+                                            "heatmap": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "most": {
+                                                        "type": "integer",
+                                                        "minimum": 0
+                                                    }
+                                                },
+                                                "additionalProperties": false
+                                            },
+                                            "text": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "most": {
+                                                        "type": "integer",
+                                                        "minimum": 1
+                                                    }
+                                                },
+                                                "additionalProperties": false
+                                            }
+                                        },
+                                        "additionalProperties": false
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
+                                "const": "buildkite-annotation"
+                            },
+                            "with": {
+                                "type": "object",
+                                "properties": {
+                                    "comment": {
+                                        "type": "object",
+                                        "properties": {
+                                            "sections": {
+                                                "type": "array",
+                                                "items": {
+                                                    "enum": [
+                                                        "verdict",
+                                                        "security",
+                                                        "trees",
+                                                        "sets",
+                                                        "heatmap",
+                                                        "survivors",
+                                                        "unjudged",
+                                                        "ignored",
+                                                        "problems",
+                                                        "notes",
+                                                        "floors",
+                                                        "report",
+                                                        "costs"
+                                                    ]
+                                                },
+                                                "minItems": 1
+                                            },
+                                            "open": {
+                                                "type": "array",
+                                                "items": {
+                                                    "enum": [
+                                                        "verdict",
+                                                        "security",
+                                                        "trees",
+                                                        "sets",
+                                                        "heatmap",
+                                                        "survivors",
+                                                        "unjudged",
+                                                        "ignored",
+                                                        "problems",
+                                                        "notes",
+                                                        "floors",
+                                                        "report",
+                                                        "costs"
+                                                    ]
+                                                }
+                                            },
+                                            "states": {
+                                                "type": "array",
+                                                "items": {
+                                                    "enum": [
+                                                        "planned",
+                                                        "rechecked",
+                                                        "verdict"
+                                                    ]
+                                                },
+                                                "minItems": 1
+                                            },
+                                            "on": {
+                                                "type": "array",
+                                                "items": {
+                                                    "enum": [
+                                                        "pull-request",
+                                                        "default-branch"
+                                                    ]
+                                                },
+                                                "minItems": 1
+                                            },
+                                            "mode": {
+                                                "enum": [
+                                                    "sticky",
+                                                    "new",
+                                                    "new-hiding-old"
+                                                ]
+                                            },
+                                            "passing": {
+                                                "enum": [
+                                                    "update",
+                                                    "always",
+                                                    "never"
+                                                ]
+                                            },
+                                            "try": {
+                                                "type": "boolean"
+                                            },
+                                            "reproduce": {
+                                                "type": "boolean"
+                                            },
+                                            "drafts": {
+                                                "type": "boolean"
+                                            },
+                                            "sampled": {
+                                                "type": "boolean"
+                                            },
+                                            "cutShort": {
+                                                "type": "boolean"
+                                            },
+                                            "survivors": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "most": {
+                                                        "type": "integer",
+                                                        "minimum": 0
+                                                    },
+                                                    "lines": {
+                                                        "enum": [
+                                                            "changed",
+                                                            "all"
+                                                        ]
+                                                    },
+                                                    "detail": {
+                                                        "enum": [
+                                                            "full",
+                                                            "row"
+                                                        ]
+                                                    }
+                                                },
+                                                "additionalProperties": false
+                                            },
+                                            "security": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "most": {
+                                                        "type": "integer",
+                                                        "minimum": 0
+                                                    }
+                                                },
+                                                "additionalProperties": false
+                                            },
+                                            "unjudged": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "most": {
+                                                        "type": "integer",
+                                                        "minimum": 0
+                                                    }
+                                                },
+                                                "additionalProperties": false
+                                            },
+                                            "ignored": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "most": {
+                                                        "type": "integer",
+                                                        "minimum": 0
+                                                    }
+                                                },
+                                                "additionalProperties": false
+                                            },
+                                            "heatmap": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "most": {
+                                                        "type": "integer",
+                                                        "minimum": 0
+                                                    }
+                                                },
+                                                "additionalProperties": false
+                                            },
+                                            "text": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "most": {
+                                                        "type": "integer",
+                                                        "minimum": 1
+                                                    }
+                                                },
+                                                "additionalProperties": false
+                                            }
+                                        },
+                                        "additionalProperties": false
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
                                 "const": "github-comment"
                             },
                             "with": {
@@ -2890,6 +3289,7 @@
                                         "gitlab",
                                         "sonar",
                                         "bitbucket-insights",
+                                        "azure-summary",
                                         "slack",
                                         "discord",
                                         "webhook",
@@ -2898,6 +3298,8 @@
                                         "problems",
                                         "gitlab-comment",
                                         "bitbucket-comment",
+                                        "azure-comment",
+                                        "buildkite-annotation",
                                         "github-comment",
                                         "badge"
                                     ]
@@ -5605,6 +6007,22 @@
                                 "type": "object",
                                 "properties": {
                                     "use": {
+                                        "const": "azure-summary"
+                                    },
+                                    "with": {
+                                        "type": "object",
+                                        "additionalProperties": false
+                                    }
+                                },
+                                "required": [
+                                    "use"
+                                ],
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "use": {
                                         "const": "slack"
                                     },
                                     "with": {
@@ -6200,6 +6618,389 @@
                                 "type": "object",
                                 "properties": {
                                     "use": {
+                                        "const": "azure-comment"
+                                    },
+                                    "with": {
+                                        "type": "object",
+                                        "properties": {
+                                            "tokenEnv": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "default": "SYSTEM_ACCESSTOKEN"
+                                            },
+                                            "token": {
+                                                "not": {},
+                                                "description": "expected no token: a token is a credential; set SYSTEM_ACCESSTOKEN, or name another variable in tokenEnv"
+                                            },
+                                            "comment": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "sections": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "enum": [
+                                                                "verdict",
+                                                                "security",
+                                                                "trees",
+                                                                "sets",
+                                                                "heatmap",
+                                                                "survivors",
+                                                                "unjudged",
+                                                                "ignored",
+                                                                "problems",
+                                                                "notes",
+                                                                "floors",
+                                                                "report",
+                                                                "costs"
+                                                            ]
+                                                        },
+                                                        "minItems": 1
+                                                    },
+                                                    "open": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "enum": [
+                                                                "verdict",
+                                                                "security",
+                                                                "trees",
+                                                                "sets",
+                                                                "heatmap",
+                                                                "survivors",
+                                                                "unjudged",
+                                                                "ignored",
+                                                                "problems",
+                                                                "notes",
+                                                                "floors",
+                                                                "report",
+                                                                "costs"
+                                                            ]
+                                                        }
+                                                    },
+                                                    "states": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "enum": [
+                                                                "planned",
+                                                                "rechecked",
+                                                                "verdict"
+                                                            ]
+                                                        },
+                                                        "minItems": 1
+                                                    },
+                                                    "on": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "enum": [
+                                                                "pull-request",
+                                                                "default-branch"
+                                                            ]
+                                                        },
+                                                        "minItems": 1
+                                                    },
+                                                    "mode": {
+                                                        "enum": [
+                                                            "sticky",
+                                                            "new",
+                                                            "new-hiding-old"
+                                                        ]
+                                                    },
+                                                    "passing": {
+                                                        "enum": [
+                                                            "update",
+                                                            "always",
+                                                            "never"
+                                                        ]
+                                                    },
+                                                    "try": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "reproduce": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "drafts": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "sampled": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "cutShort": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "survivors": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "most": {
+                                                                "type": "integer",
+                                                                "minimum": 0
+                                                            },
+                                                            "lines": {
+                                                                "enum": [
+                                                                    "changed",
+                                                                    "all"
+                                                                ]
+                                                            },
+                                                            "detail": {
+                                                                "enum": [
+                                                                    "full",
+                                                                    "row"
+                                                                ]
+                                                            }
+                                                        },
+                                                        "additionalProperties": false
+                                                    },
+                                                    "security": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "most": {
+                                                                "type": "integer",
+                                                                "minimum": 0
+                                                            }
+                                                        },
+                                                        "additionalProperties": false
+                                                    },
+                                                    "unjudged": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "most": {
+                                                                "type": "integer",
+                                                                "minimum": 0
+                                                            }
+                                                        },
+                                                        "additionalProperties": false
+                                                    },
+                                                    "ignored": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "most": {
+                                                                "type": "integer",
+                                                                "minimum": 0
+                                                            }
+                                                        },
+                                                        "additionalProperties": false
+                                                    },
+                                                    "heatmap": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "most": {
+                                                                "type": "integer",
+                                                                "minimum": 0
+                                                            }
+                                                        },
+                                                        "additionalProperties": false
+                                                    },
+                                                    "text": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "most": {
+                                                                "type": "integer",
+                                                                "minimum": 1
+                                                            }
+                                                        },
+                                                        "additionalProperties": false
+                                                    }
+                                                },
+                                                "additionalProperties": false
+                                            }
+                                        },
+                                        "additionalProperties": false
+                                    }
+                                },
+                                "required": [
+                                    "use"
+                                ],
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "use": {
+                                        "const": "buildkite-annotation"
+                                    },
+                                    "with": {
+                                        "type": "object",
+                                        "properties": {
+                                            "comment": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "sections": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "enum": [
+                                                                "verdict",
+                                                                "security",
+                                                                "trees",
+                                                                "sets",
+                                                                "heatmap",
+                                                                "survivors",
+                                                                "unjudged",
+                                                                "ignored",
+                                                                "problems",
+                                                                "notes",
+                                                                "floors",
+                                                                "report",
+                                                                "costs"
+                                                            ]
+                                                        },
+                                                        "minItems": 1
+                                                    },
+                                                    "open": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "enum": [
+                                                                "verdict",
+                                                                "security",
+                                                                "trees",
+                                                                "sets",
+                                                                "heatmap",
+                                                                "survivors",
+                                                                "unjudged",
+                                                                "ignored",
+                                                                "problems",
+                                                                "notes",
+                                                                "floors",
+                                                                "report",
+                                                                "costs"
+                                                            ]
+                                                        }
+                                                    },
+                                                    "states": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "enum": [
+                                                                "planned",
+                                                                "rechecked",
+                                                                "verdict"
+                                                            ]
+                                                        },
+                                                        "minItems": 1
+                                                    },
+                                                    "on": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "enum": [
+                                                                "pull-request",
+                                                                "default-branch"
+                                                            ]
+                                                        },
+                                                        "minItems": 1
+                                                    },
+                                                    "mode": {
+                                                        "enum": [
+                                                            "sticky",
+                                                            "new",
+                                                            "new-hiding-old"
+                                                        ]
+                                                    },
+                                                    "passing": {
+                                                        "enum": [
+                                                            "update",
+                                                            "always",
+                                                            "never"
+                                                        ]
+                                                    },
+                                                    "try": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "reproduce": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "drafts": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "sampled": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "cutShort": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "survivors": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "most": {
+                                                                "type": "integer",
+                                                                "minimum": 0
+                                                            },
+                                                            "lines": {
+                                                                "enum": [
+                                                                    "changed",
+                                                                    "all"
+                                                                ]
+                                                            },
+                                                            "detail": {
+                                                                "enum": [
+                                                                    "full",
+                                                                    "row"
+                                                                ]
+                                                            }
+                                                        },
+                                                        "additionalProperties": false
+                                                    },
+                                                    "security": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "most": {
+                                                                "type": "integer",
+                                                                "minimum": 0
+                                                            }
+                                                        },
+                                                        "additionalProperties": false
+                                                    },
+                                                    "unjudged": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "most": {
+                                                                "type": "integer",
+                                                                "minimum": 0
+                                                            }
+                                                        },
+                                                        "additionalProperties": false
+                                                    },
+                                                    "ignored": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "most": {
+                                                                "type": "integer",
+                                                                "minimum": 0
+                                                            }
+                                                        },
+                                                        "additionalProperties": false
+                                                    },
+                                                    "heatmap": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "most": {
+                                                                "type": "integer",
+                                                                "minimum": 0
+                                                            }
+                                                        },
+                                                        "additionalProperties": false
+                                                    },
+                                                    "text": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "most": {
+                                                                "type": "integer",
+                                                                "minimum": 1
+                                                            }
+                                                        },
+                                                        "additionalProperties": false
+                                                    }
+                                                },
+                                                "additionalProperties": false
+                                            }
+                                        },
+                                        "additionalProperties": false
+                                    }
+                                },
+                                "required": [
+                                    "use"
+                                ],
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "use": {
                                         "const": "github-comment"
                                     },
                                     "with": {
@@ -6446,6 +7247,7 @@
                                                 "gitlab",
                                                 "sonar",
                                                 "bitbucket-insights",
+                                                "azure-summary",
                                                 "slack",
                                                 "discord",
                                                 "webhook",
@@ -6454,6 +7256,8 @@
                                                 "problems",
                                                 "gitlab-comment",
                                                 "bitbucket-comment",
+                                                "azure-comment",
+                                                "buildkite-annotation",
                                                 "github-comment",
                                                 "badge"
                                             ]

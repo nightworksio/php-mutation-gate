@@ -463,6 +463,12 @@ services:
                 'NightWorksIO\MutationGate\Adapter\GitLab\MergeRequestThread':
                     - PAGE # notes a page
                     - PAGES # pages read
+                'NightWorksIO\MutationGate\Adapter\Azure\PullRequestThread':
+                    - TRIES # threads tried
+                'NightWorksIO\MutationGate\Adapter\Azure\ThreadStatus':
+                    - Closed # Azure Repos' number for a closed thread
+                'NightWorksIO\MutationGate\Adapter\Buildkite\BuildAnnotation':
+                    - NOT_A_PULL_REQUEST # what Buildkite says of a build no pull request began
                 'NightWorksIO\MutationGate\Adapter\Bitbucket\PullRequestThread':
                     - PAGE # comments a page
                     - PAGES # pages read

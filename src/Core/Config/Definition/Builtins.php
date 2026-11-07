@@ -207,6 +207,7 @@ final readonly class Builtins
                 BuiltinReporter::GitLab,
                 BuiltinReporter::Sonar,
                 BuiltinReporter::BitbucketInsights,
+                BuiltinReporter::AzureSummary,
             ),
             BuiltinReporter::Slack->value => $chat(GateSecret::SlackUrl->value, Json::object(), ...$lined),
             BuiltinReporter::Discord->value => $chat(GateSecret::DiscordUrl->value, Json::object(), ...$lined),
@@ -230,6 +231,8 @@ final readonly class Builtins
             ),
             BuiltinReporter::GitLabComment->value => $comment(GateSecret::GitLabComment->value),
             BuiltinReporter::BitbucketComment->value => $comment(GateSecret::BitbucketComment->value),
+            BuiltinReporter::AzureComment->value => $comment(GateSecret::AzureComment->value),
+            BuiltinReporter::BuildkiteAnnotation->value => Section::options(Json::object(), $shaped),
             BuiltinReporter::GitHubComment->value => Section::options(
                 Json::object(),
                 Field::optional('identity', Text::of('an account name'), $judges),

@@ -26,6 +26,7 @@ it('names the variable a comment reads its token from, its own where its options
     'named' => ['gitlab-comment', '{"tokenEnv": "GATE_NOTES"}', 'GATE_NOTES'],
     'GitLab\'s own' => ['gitlab-comment', '{}', 'MUTATION_GATE_GITLAB_TOKEN'],
     'Bitbucket\'s own' => ['bitbucket-comment', '{"tokenEnv": 3}', 'MUTATION_GATE_BITBUCKET_TOKEN'],
+    'Azure\'s own' => ['azure-comment', '{}', 'SYSTEM_ACCESSTOKEN'],
 ]);
 
 it('names none for a reporter that sends no alert, whatever its options hold', function (string $reporter): void {

@@ -45,9 +45,15 @@ final readonly class CommentStates implements Commenting
     public const string NOT_THERE
         = 'The run passed and the gate has not commented before, so comment.passing: update writes nothing.';
 
+    /** Why a comment's forge took none, with what it said. */
+    public const string UNWRITTEN = 'The pull request comment could not be written (%s).';
+
+    /** Why a reporter has no token to comment with, with the variable it reads. */
+    public const string NO_TOKEN = '%s is not set, so no comment is written.';
+
     private const string LEFT_OUT = 'comment.states leaves out the %s state, so it is not written.';
 
-    private const string NOT_ON = 'comment.on leaves out pull requests, so no comment is written.';
+    private const string NOT_ON = 'comment.on leaves out %s, so no comment is written.';
 
     private const string KEPT = 'The run passed and comment.passing is never, so the comment is left as it is.';
 
@@ -59,12 +65,18 @@ final readonly class CommentStates implements Commenting
         private bool $commentsHere,
         private CommentSettings $settings,
         private bool $draft,
+        private Occasion $occasion,
+        /** @var Listed<Occasion> */
+        private Listed $standardOccasions,
     ) {
     }
 
     /**
      * The states of the comment in this thread, linking the run at this URL, left in a delivery only where the run
-     * comments here: it is a pull request's or a merge request's, a draft or not.
+     * comments here: it is a pull request's or a merge request's, a draft or not. It is the given occasion, and
+     * `comment.on` left out says these occasions, pull requests alone where none is said.
+     *
+     * @param Listed<Occasion>|NotGiven $standardOccasions
      */
     public static function in(
         CommentThread $thread,
@@ -72,8 +84,18 @@ final readonly class CommentStates implements Commenting
         bool $commentsHere,
         CommentSettings $settings,
         bool $draft = false,
+        Occasion $occasion = Occasion::PullRequest,
+        Listed|NotGiven $standardOccasions = new NotGiven(),
     ): self {
-        return new self($thread, $run, $commentsHere, $settings, $draft);
+        return new self(
+            $thread,
+            $run,
+            $commentsHere,
+            $settings,
+            $draft,
+            $occasion,
+            $standardOccasions instanceof Listed ? $standardOccasions : Listed::of(Occasion::PullRequest),
+        );
     }
 
     /** The comment holding the verdict, written now; or why it is not. */
@@ -173,8 +195,10 @@ final readonly class CommentStates implements Commenting
         $passed = $verdict instanceof Verdict && $verdict->judgement() === Judgement::Passed;
 
         return match (true) {
-            ! $writes->commentsOn(Occasion::PullRequest, Listed::of(Occasion::PullRequest))
-                => NotWritten::because(self::NOT_ON),
+            ! $writes->commentsOn($this->occasion, $this->standardOccasions) => NotWritten::because(sprintf(
+                self::NOT_ON,
+                $this->occasion === Occasion::PullRequest ? 'pull requests' : 'the default branch',
+            )),
             ! $writes->writes($state) => NotWritten::because(sprintf(self::LEFT_OUT, $state->value)),
             $this->draft && ! $writes->allows(Toggle::Drafts) => $this->notLet(Toggle::Drafts),
             $verdict instanceof Verdict => $this->whyNotOf($verdict, $passed),

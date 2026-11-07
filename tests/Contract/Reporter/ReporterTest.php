@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Alert\AlertReporter;
 use NightWorksIO\MutationGate\Adapter\Alert\Channel;
 use NightWorksIO\MutationGate\Adapter\Alert\Delivery;
 use NightWorksIO\MutationGate\Adapter\Alert\Pause;
+use NightWorksIO\MutationGate\Adapter\Azure\PullRequestComment as AzureComment;
 use NightWorksIO\MutationGate\Adapter\Bitbucket\CodeInsights;
 use NightWorksIO\MutationGate\Adapter\Bitbucket\PullRequestComment as BitbucketComment;
 use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
@@ -54,7 +55,7 @@ use Symfony\Component\HttpClient\Response\MockResponse;
 $holds = [
     'holds:src/Adapter/Alert',
     'holds:src/Adapter/Bitbucket/CodeInsights.php',
-    'holds:src/Adapter/Bitbucket/CommentMarkdown.php',
+    'holds:src/Core/Report/UnfoldedMarkdown.php',
     'holds:src/Adapter/Bitbucket/InsightAnnotation.php',
     'holds:src/Adapter/Bitbucket/PullRequestComment.php',
     'holds:src/Adapter/Bitbucket/PullRequestThread.php',
@@ -209,6 +210,15 @@ $reporters = [
             ->answering('https://api.bitbucket.org/2.0/repositories/acme/shop/pullrequests/7/comments', 201, '{"links": {"html": {"href": "https://bitbucket.org/acme/shop/pull-requests/7#comment-3"}}}')
             ->exchange(),
         'MUTATION_GATE_BITBUCKET_TOKEN',
+        CommentSettings::standard(),
+    ),
+    'the Azure pull request comment' => fn(): Reporter => AzureComment::inEnvironment(
+        Variables::of(['TF_BUILD' => 'True', 'SYSTEM_COLLECTIONURI' => 'https://dev.azure.com/acme/', 'SYSTEM_TEAMPROJECT' => 'shop', 'BUILD_REPOSITORY_ID' => 'r', 'SYSTEM_PULLREQUEST_PULLREQUESTID' => '7', 'SYSTEM_ACCESSTOKEN' => 'secret']),
+        new Cloud()
+            ->answeringTo('GET', 'https://dev.azure.com/acme/shop/_apis/git/repositories/r/pullRequests/7/threads?api-version=7.1', 200, '{"value": []}')
+            ->answeringTo('POST', 'https://dev.azure.com/acme/shop/_apis/git/repositories/r/pullRequests/7/threads?api-version=7.1', 200, '{"id": 3}')
+            ->exchange(),
+        'SYSTEM_ACCESSTOKEN',
         CommentSettings::standard(),
     ),
     'Code Insights' => fn(): Reporter => CodeInsights::inEnvironment(

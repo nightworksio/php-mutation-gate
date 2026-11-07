@@ -37,8 +37,9 @@ enum Channel
             BuiltinReporter::Tests, BuiltinReporter::KillMatrix, BuiltinReporter::GitLab, BuiltinReporter::Sonar,
             BuiltinReporter::Badge, BuiltinReporter::Console, BuiltinReporter::Problems, BuiltinReporter::Otlp,
             BuiltinReporter::GitHubAnnotations, BuiltinReporter::GitHubSummary, BuiltinReporter::GitHubComment,
-            BuiltinReporter::GitLabComment, BuiltinReporter::BitbucketComment,
-            BuiltinReporter::BitbucketInsights => NotGiven::value(),
+            BuiltinReporter::GitLabComment, BuiltinReporter::BitbucketComment, BuiltinReporter::BitbucketInsights,
+            BuiltinReporter::AzureComment, BuiltinReporter::AzureSummary,
+            BuiltinReporter::BuildkiteAnnotation => NotGiven::value(),
         };
     }
 

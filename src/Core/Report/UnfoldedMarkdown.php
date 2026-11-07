@@ -2,16 +2,12 @@
 
 declare(strict_types=1);
 
-namespace NightWorksIO\MutationGate\Adapter\Bitbucket;
+namespace NightWorksIO\MutationGate\Core\Report;
 
 use function array_map;
 use function html_entity_decode;
 use function max;
 use function mb_strlen;
-
-use NightWorksIO\MutationGate\Core\Report\CommentDocument;
-use NightWorksIO\MutationGate\Core\Report\Markdown;
-
 use function preg_match_all;
 use function preg_replace;
 use function preg_replace_callback;
@@ -20,21 +16,21 @@ use function str_repeat;
 use function strtr;
 
 /**
- * The sticky comment's markdown as a Bitbucket Cloud comment holds it (ADR-0048). Bitbucket shows raw HTML as
- * text, so the hidden marker is a link reference definition, which shows nothing; a folded block is its summary in
- * bold, with everything under it shown; and inline code is a code span, its text as the escaping showed it,
- * fenced by more backticks than any run inside it. Every other entity stays one, which Bitbucket shows as its
- * character and reads as no mention. The line that links the HTML report links the pipeline, which keeps it
- * among its artifacts.
+ * The sticky comment's markdown as a forge that shows raw HTML as text holds it, as Bitbucket Cloud (ADR-0048) and
+ * Azure Repos do: the hidden marker is a link reference definition, which shows nothing; a folded block is its
+ * summary in bold, with everything under it shown; and inline code is a code span, its text as the escaping showed
+ * it, fenced by more backticks than any run inside it. Every other entity stays one, which the forge shows as its
+ * character and reads as no mention. The line that links the HTML report links the pipeline, which keeps it among
+ * its artifacts.
  *
  * @internal
  */
-final readonly class CommentMarkdown
+final readonly class UnfoldedMarkdown
 {
-    /** The marker the sticky comment is found by, which Bitbucket shows as nothing. */
+    /** The marker the sticky comment is found by, which the forge shows as nothing. */
     public const string MARKER = '[//]: # (mutation-gate)';
 
-    /** The marker of the run whose own comment it is, where each run writes its own, as Bitbucket shows nothing of. */
+    /** The marker of the run whose own comment it is, where each run writes its own, as the forge shows nothing of. */
     private const string RUN = '#<!-- mutation-gate run: (.*?) -->#';
 
     private const string RUN_SHOWN = '[//]: # (mutation-gate run: $1)';
@@ -47,7 +43,7 @@ final readonly class CommentMarkdown
 
     private const string BACKTICKS = '/`+/';
 
-    /** The comment as Bitbucket holds it, linking the pipeline at this URL. */
+    /** The comment as the forge holds it, linking the pipeline at this URL. */
     public static function of(string $markdown, string $pipeline): string
     {
         $marked = strtr($markdown, [

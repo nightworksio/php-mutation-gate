@@ -15,6 +15,7 @@ use function getenv;
 use NightWorksIO\MutationGate\Adapter\Alert\AlertReporter;
 use NightWorksIO\MutationGate\Adapter\Alert\Channel;
 use NightWorksIO\MutationGate\Adapter\Alert\Delivery as AlertDelivery;
+use NightWorksIO\MutationGate\Adapter\Azure\PullRequestComment as AzureComment;
 use NightWorksIO\MutationGate\Adapter\Bitbucket\PullRequestComment as BitbucketComment;
 use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
 use NightWorksIO\MutationGate\Adapter\GitLab\MergeRequestNote;
@@ -279,8 +280,8 @@ final readonly class Sending
 
     /**
      * The comment written as the delivery says, on the forge its own CI
-     * keeps: a merge request's note under GitLab CI, a pull request's comment under Bitbucket Pipelines, and a
-     * pull request's comment on GitHub otherwise, each with the token in its default variable.
+     * keeps: a merge request's note under GitLab CI, a pull request's comment under Bitbucket Pipelines or Azure
+     * Pipelines, and a pull request's comment on GitHub otherwise, each with the token in its default variable.
      */
     private function commented(string $markdown, CommentWrite $write): Written|NotWritten
     {
@@ -297,6 +298,12 @@ final readonly class Sending
                 $environment,
                 $exchange,
                 GateSecret::BitbucketComment->value,
+                CommentSettings::standard(),
+            ),
+            $environment->has(Variables::TF_BUILD) => AzureComment::inEnvironment(
+                $environment,
+                $exchange,
+                GateSecret::AzureComment->value,
                 CommentSettings::standard(),
             ),
             default => PullRequestComment::fromEnvironment(

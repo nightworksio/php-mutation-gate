@@ -58,6 +58,12 @@ enum BuiltinReporter: string
 
     case BitbucketInsights = 'bitbucket-insights';
 
+    case AzureComment = 'azure-comment';
+
+    case AzureSummary = 'azure-summary';
+
+    case BuildkiteAnnotation = 'buildkite-annotation';
+
     case Badge = 'badge';
 
     public function named(): Name
@@ -74,7 +80,8 @@ enum BuiltinReporter: string
             self::Badge => EntryPath::Optional,
             self::Console, self::Problems, self::Slack, self::Discord, self::Webhook, self::Otlp,
             self::GitHubAnnotations, self::GitHubSummary, self::GitHubComment, self::GitLabComment,
-            self::BitbucketComment, self::BitbucketInsights => EntryPath::Refused,
+            self::BitbucketComment, self::BitbucketInsights, self::AzureComment, self::AzureSummary,
+            self::BuildkiteAnnotation => EntryPath::Refused,
         };
     }
 
@@ -86,7 +93,8 @@ enum BuiltinReporter: string
             self::Json, self::JUnit, self::Sarif, self::Html, self::Stryker, self::Digest, self::Tests,
             self::KillMatrix, self::GitLab, self::Sonar, self::Badge, self::Console, self::Problems, self::Otlp,
             self::GitHubAnnotations, self::GitHubSummary, self::GitHubComment, self::GitLabComment,
-            self::BitbucketComment, self::BitbucketInsights => false,
+            self::BitbucketComment, self::BitbucketInsights, self::AzureComment, self::AzureSummary,
+            self::BuildkiteAnnotation => false,
         };
     }
 
@@ -99,10 +107,12 @@ enum BuiltinReporter: string
         return match ($this) {
             self::GitLabComment => GateSecret::GitLabComment,
             self::BitbucketComment => GateSecret::BitbucketComment,
+            self::AzureComment => GateSecret::AzureComment,
             self::Json, self::JUnit, self::Sarif, self::Html, self::Stryker, self::Digest, self::Tests,
             self::KillMatrix, self::GitLab, self::Sonar, self::Badge, self::Console, self::Problems, self::Slack,
             self::Discord, self::Webhook, self::Otlp, self::GitHubAnnotations, self::GitHubSummary,
-            self::GitHubComment, self::BitbucketInsights => NotGiven::value(),
+            self::GitHubComment, self::BitbucketInsights, self::AzureSummary,
+            self::BuildkiteAnnotation => NotGiven::value(),
         };
     }
 
@@ -110,11 +120,11 @@ enum BuiltinReporter: string
     public function countsSavings(): bool
     {
         return match ($this) {
-            self::GitHubSummary, self::Badge => true,
+            self::GitHubSummary, self::Badge, self::AzureSummary => true,
             self::Json, self::JUnit, self::Sarif, self::Html, self::Stryker, self::Digest, self::Tests,
             self::KillMatrix, self::GitLab, self::Sonar, self::Console, self::Problems, self::Slack, self::Discord,
             self::Webhook, self::Otlp, self::GitHubAnnotations, self::GitHubComment, self::GitLabComment,
-            self::BitbucketComment, self::BitbucketInsights => false,
+            self::BitbucketComment, self::BitbucketInsights, self::AzureComment, self::BuildkiteAnnotation => false,
         };
     }
 
@@ -122,11 +132,12 @@ enum BuiltinReporter: string
     public function comments(): bool
     {
         return match ($this) {
-            self::GitHubComment, self::GitLabComment, self::BitbucketComment => true,
+            self::GitHubComment, self::GitLabComment, self::BitbucketComment, self::AzureComment,
+            self::BuildkiteAnnotation => true,
             self::Json, self::JUnit, self::Sarif, self::Html, self::Stryker, self::Digest, self::Tests,
             self::KillMatrix, self::GitLab, self::Sonar, self::Badge, self::Console, self::Problems, self::Slack,
             self::Discord, self::Webhook, self::Otlp, self::GitHubAnnotations, self::GitHubSummary,
-            self::BitbucketInsights => false,
+            self::BitbucketInsights, self::AzureSummary => false,
         };
     }
 }

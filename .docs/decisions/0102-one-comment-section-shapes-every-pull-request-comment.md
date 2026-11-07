@@ -62,6 +62,16 @@ everything. And the GitHub, GitLab and Bitbucket comments could not differ.
    `detail()`, `most()`, `with()` and `without()`, over the enums of
    `Core\Comment`.
 
+9. **Azure Repos and Buildkite take the comment too.** `azure-comment` writes
+   one thread on the pull request through Azure Repos' REST API, with
+   `SYSTEM_ACCESSTOKEN`, and passes over a thread the token cannot edit, as
+   `bitbucket-comment` passes over a comment. `buildkite-annotation` writes the
+   build's one annotation through `buildkite-agent annotate`, by its context,
+   on pull requests and on any other build, since an annotation sits on the
+   build rather than on a conversation. `azure-summary` attaches the verdict to
+   the build's summary, as `github-summary` writes the step's. A config names
+   each under `reports`; none is chosen for a run.
+
 ## Alternatives considered
 
 - **A setting per reporter only.** Three reporters would each need the same

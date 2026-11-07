@@ -98,8 +98,8 @@ final readonly class Outputs
             'outputs',
             Json::object(
                 Member::of('verdictOnly', $this->verdictOnly),
-                Member::of('automatic', self::names($this->automatic)),
-                Member::of('actionReports', self::names($this->actionReports)),
+                Member::of('automatic', $this->names($this->automatic)),
+                Member::of('actionReports', $this->names($this->actionReports)),
                 Member::of('costs', $this->costs),
             ),
         );
@@ -113,8 +113,8 @@ final readonly class Outputs
                 false => ['Outputs::everyOutput()'],
                 default => [],
             },
-            ...self::called('Outputs::automatic(%s)', $this->automatic),
-            ...self::called('Outputs::actionReports(%s)', $this->actionReports),
+            ...$this->called('Outputs::automatic(%s)', $this->automatic),
+            ...$this->called('Outputs::actionReports(%s)', $this->actionReports),
             ...match ($this->costs) {
                 true => ['Outputs::withCosts()'],
                 false => ['Outputs::withoutCosts()'],
@@ -127,7 +127,7 @@ final readonly class Outputs
      * @param  Listed<BuiltinReporter>|Absent $reporters
      * @return list<string>
      */
-    private static function called(string $call, Listed|Absent $reporters): array
+    private function called(string $call, Listed|Absent $reporters): array
     {
         $names = $reporters instanceof Absent ? [] : array_map(
             static fn(BuiltinReporter $reporter): string => $reporter->value,
@@ -138,7 +138,7 @@ final readonly class Outputs
     }
 
     /** @param Listed<BuiltinReporter>|Absent $reporters */
-    private static function names(Listed|Absent $reporters): Json|Absent
+    private function names(Listed|Absent $reporters): Json|Absent
     {
         return $reporters instanceof Absent ? $reporters : Json::items(...array_map(
             static fn(BuiltinReporter $reporter): string => $reporter->value,

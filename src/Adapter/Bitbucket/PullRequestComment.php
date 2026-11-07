@@ -45,8 +45,6 @@ final readonly class PullRequestComment implements Commenting, Deferring, Report
     /** Bitbucket Cloud's API. */
     public const string API = 'https://api.bitbucket.org/2.0';
 
-    private const string NO_TOKEN = '%s is not set, so no comment is written.';
-
     private function __construct(private CommentStates $states)
     {
     }
@@ -71,7 +69,7 @@ final readonly class PullRequestComment implements Commenting, Deferring, Report
             $environment->valueOf('BITBUCKET_REPO_SLUG'),
             match (true) {
                 ! $number instanceof PullRequestNumber => NotWritten::because(CommentStates::NOT_A_PULL_REQUEST),
-                $token === '' => NotWritten::because(sprintf(self::NO_TOKEN, $tokenEnv)),
+                $token === '' => NotWritten::because(sprintf(CommentStates::NO_TOKEN, $tokenEnv)),
                 default => $number,
             },
             $pipeline,

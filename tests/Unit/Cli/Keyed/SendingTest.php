@@ -77,20 +77,32 @@ function sendingOf(array $environment, ArrayObject $built, ProofStoreFake $store
  */
 function sendingOnForge(string $forge): array
 {
-    return $forge === 'gitlab' ? [
-        'GITLAB_CI' => 'true',
-        'CI_API_V4_URL' => 'https://gitlab.example/api/v4',
-        'CI_PROJECT_ID' => '42',
-        'CI_PROJECT_URL' => 'https://gitlab.example/acme/shop',
-        'CI_MERGE_REQUEST_IID' => '7',
-        'MUTATION_GATE_GITLAB_TOKEN' => 'forge-token',
-    ] : [
-        'BITBUCKET_BUILD_NUMBER' => '9',
-        'BITBUCKET_WORKSPACE' => 'acme',
-        'BITBUCKET_REPO_SLUG' => 'shop',
-        'BITBUCKET_PR_ID' => '7',
-        'MUTATION_GATE_BITBUCKET_TOKEN' => 'forge-token',
-    ];
+    return match ($forge) {
+        'gitlab' => [
+            'GITLAB_CI' => 'true',
+            'CI_API_V4_URL' => 'https://gitlab.example/api/v4',
+            'CI_PROJECT_ID' => '42',
+            'CI_PROJECT_URL' => 'https://gitlab.example/acme/shop',
+            'CI_MERGE_REQUEST_IID' => '7',
+            'MUTATION_GATE_GITLAB_TOKEN' => 'forge-token',
+        ],
+        'azure' => [
+            'TF_BUILD' => 'True',
+            'SYSTEM_COLLECTIONURI' => 'https://dev.azure.com/acme/',
+            'SYSTEM_TEAMPROJECT' => 'shop',
+            'BUILD_REPOSITORY_ID' => 'r',
+            'BUILD_REPOSITORY_NAME' => 'shop',
+            'SYSTEM_PULLREQUEST_PULLREQUESTID' => '7',
+            'SYSTEM_ACCESSTOKEN' => 'forge-token',
+        ],
+        default => [
+            'BITBUCKET_BUILD_NUMBER' => '9',
+            'BITBUCKET_WORKSPACE' => 'acme',
+            'BITBUCKET_REPO_SLUG' => 'shop',
+            'BITBUCKET_PR_ID' => '7',
+            'MUTATION_GATE_BITBUCKET_TOKEN' => 'forge-token',
+        ],
+    };
 }
 
 /** A delivery that holds a ledger for this scope. */
@@ -366,7 +378,11 @@ it('writes the comment on the forge its own CI keeps, with the token in that for
     $listed = new MockResponse('[]');
     $comments = new MockResponse('{"values": []}');
     $posted = new MockResponse('{"id": 3, "links": {"html": {"href": "https://bitbucket.org/acme/shop/pull-requests/7#comment-3"}}}', ['http_code' => 201]);
-    $answers = $forge === 'gitlab' ? [$user, $listed, $posted] : [$comments, $posted];
+    $answers = match ($forge) {
+        'gitlab' => [$user, $listed, $posted],
+        'azure' => [new MockResponse('{"value": []}'), $posted],
+        default => [$comments, $posted],
+    };
     $sent = sendingOf(sendingOnForge($forge), new ArrayObject(), new ProofStoreFake(), $answers)
         ->sent(Delivery::none()->withComment(sprintf("%s\n\n## Passed", Markdown::MARKER), CommentWrite::sticky()), NotWritten::because('untrusted'), static fn(): Ledger => Ledger::empty());
 
@@ -384,6 +400,11 @@ it('writes the comment on the forge its own CI keeps, with the token in that for
         'bitbucket',
         'https://api.bitbucket.org/2.0/repositories/acme/shop/pullrequests/7/comments',
         'Wrote https://bitbucket.org/acme/shop/pull-requests/7#comment-3.',
+    ],
+    'a pull request\'s thread under Azure Pipelines' => [
+        'azure',
+        'https://dev.azure.com/acme/shop/_apis/git/repositories/r/pullRequests/7/threads?api-version=7.1',
+        'Wrote https://dev.azure.com/acme/shop/_git/shop/pullrequest/7?discussionId=3.',
     ],
 ]);
 

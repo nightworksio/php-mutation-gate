@@ -16,10 +16,13 @@ use function is_string;
 use NightWorksIO\MutationGate\Adapter\Alert\AlertReporter;
 use NightWorksIO\MutationGate\Adapter\Alert\Channel;
 use NightWorksIO\MutationGate\Adapter\Azure\AzurePlan;
+use NightWorksIO\MutationGate\Adapter\Azure\BuildSummary;
 use NightWorksIO\MutationGate\Adapter\Azure\ContainerLedger;
+use NightWorksIO\MutationGate\Adapter\Azure\PullRequestComment as AzureComment;
 use NightWorksIO\MutationGate\Adapter\Bitbucket\BitbucketPlan;
 use NightWorksIO\MutationGate\Adapter\Bitbucket\CodeInsights;
 use NightWorksIO\MutationGate\Adapter\Bitbucket\PullRequestComment as BitbucketComment;
+use NightWorksIO\MutationGate\Adapter\Buildkite\BuildAnnotation;
 use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
 use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
 use NightWorksIO\MutationGate\Adapter\Codeception\CodeceptionFramework;
@@ -244,6 +247,27 @@ final readonly class FirstParty implements Extension
                 static fn(): Reporter => CodeInsights::inEnvironment(
                     $environment,
                     HttpExchange::over(HttpClient::create(CodeInsights::CLIENT)),
+                ),
+            )
+            ->withReporter(
+                BuiltinReporter::AzureComment->named(),
+                static fn(Options $options): Reporter => AzureComment::configured(
+                    $options,
+                    $environment,
+                    HttpExchange::over(HttpClient::create()),
+                ),
+            )
+            ->withReporter(
+                BuiltinReporter::AzureSummary->named(),
+                static fn(Options $options): Reporter => BuildSummary::configured($options, $environment, $clock),
+            )
+            ->withReporter(
+                BuiltinReporter::BuildkiteAnnotation->named(),
+                static fn(Options $options): Reporter => BuildAnnotation::configured(
+                    $options,
+                    $environment,
+                    $processes,
+                    self::HERE,
                 ),
             )
             ->withReporter(
