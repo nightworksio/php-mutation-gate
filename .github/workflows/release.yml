@@ -198,10 +198,11 @@ jobs:
   # release published. GitHub refuses a call whose grant is below what any
   # called job asks for, whether or not that job runs, so this grant covers
   # publish's contents: write and the deliver jobs' pull-requests: write. On a
-  # tag those jobs do not run, and a job that runs gets a token holding only
-  # what it asks for itself: plan, shards and verdict read, and fetch adds
-  # id-token: write. It runs on the runner ci.yml's gate does, so its proofs
-  # are keyed alike.
+  # tag publish does not run, and a job that runs gets a token holding only
+  # what it asks for itself: plan, shards and verdict read, fetch adds
+  # id-token: write, and the deliver jobs, which run none of the project's
+  # code, add pull-requests: write. It runs on the runner ci.yml's gate does,
+  # so its proofs are keyed alike.
   gate:
     name: mutation
     needs: verify
