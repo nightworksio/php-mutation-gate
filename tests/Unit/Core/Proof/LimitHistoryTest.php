@@ -29,8 +29,17 @@ it('learns the multiple 99 in 100 kills took over their tests\' own time, kept b
     'kills slower than ten times their tests' => [fn(): array => [12.0, 40.0], 10.0],
 ]);
 
-it('learns no multiple from no kill, and no most shards from no run', function (): void {
+it('learns the pace of kills as the median of their multiples, unbounded', function (array $kills, float $pace) use ($killed): void {
+    expect($killed(...array_values(array_filter($kills, is_float(...))))->pace())->toEqual(Multiple::of($pace));
+})->with([
+    'a single kill' => [[0.25], 0.25],
+    'an odd count' => [[12.0, 0.5, 0.3], 0.5],
+    'an even count' => [[0.75, 0.25, 0.5, 30.0], 0.625],
+]);
+
+it('learns no multiple and no pace from no kill, and no most shards from no run', function (): void {
     expect(LimitHistory::none()->multiple())->toBeInstanceOf(NotGiven::class)
+        ->and(LimitHistory::none()->pace())->toBeInstanceOf(NotGiven::class)
         ->and(LimitHistory::none()->shards(LearnedStatistic::Max))->toBeInstanceOf(NotGiven::class);
 });
 

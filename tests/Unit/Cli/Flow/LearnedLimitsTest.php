@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Cost\ShardsAtOnce;
 use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
+use NightWorksIO\MutationGate\Core\Plan\KillsLearned;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LimitHistory;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
@@ -57,13 +58,14 @@ it('learns the multiple from its own scope\'s kills, and the most shards from th
         ),
     );
 
-    expect($learned->briefing(Briefing::standard())->multiple())->toEqual(Multiple::of(4.5))
+    expect($learned->briefing(Briefing::standard())->learned())->toEqual(KillsLearned::none()->allowing(Multiple::of(4.5))->pacing(Multiple::of(4.5)))
         ->and($learned->cut(Cut::bySize(600, Seconds::of(60.0), 20)))->toEqual(Cut::bySize(600, Seconds::of(60.0), 7))
         ->and($learned->cut(Cut::exactly(12)))->toEqual(Cut::exactly(12))
         ->and($learned->lines())->toBe([
             'timeouts.seconds learned: 3 times each shard\'s start-up, at least 1 s; 10 s where none is measured.',
             'timeouts.multiple learned: 4.5, what 99 in 100 of 1 kills took over their tests\' time, in place of 3.',
             'shards.max learned: 7, the most shards the last 2 runs ran at once, in place of 20.',
+            'staticCheck.testsTime learned: 4.5 times their tests\' own time, the median of 1 kills.',
         ]);
 });
 
@@ -76,13 +78,14 @@ it('reads the default branch\'s kills where its own scope holds none, the median
             'timeouts.seconds learned: 3 times each shard\'s start-up, at least 1 s; 10 s where none is measured.',
             'timeouts.multiple learned: 2, what 99 in 100 of 1 kills took over their tests\' time, in place of 3.',
             'shards.max learned: 20, the median of the shards the last 3 runs ran at once, in place of 20.',
+            'staticCheck.testsTime learned: 1.2 times their tests\' own time, the median of 1 kills.',
         ]);
 });
 
 it('takes the fixed limits from a cold ledger, and says so', function (): void {
     $learned = LearnedLimits::of(learningSettings(), learnedLedgers(LimitHistory::none(), LimitHistory::none()));
 
-    expect($learned->briefing(Briefing::standard())->multiple())->toEqual(Multiple::of(3.0))
+    expect($learned->briefing(Briefing::standard())->learned())->toEqual(KillsLearned::none()->allowing(Multiple::of(3.0)))
         ->and($learned->cut(Cut::bySize(600, Seconds::of(60.0), 20)))->toEqual(Cut::bySize(600, Seconds::of(60.0), 20))
         ->and($learned->lines())->toBe([
             'timeouts.seconds learned: 3 times each shard\'s start-up, at least 1 s; 10 s where none is measured.',
@@ -93,7 +96,7 @@ it('takes the fixed limits from a cold ledger, and says so', function (): void {
 
 it('learns nothing and says nothing where the config writes every limit', function (): void {
     $learned = LearnedLimits::of(
-        Configs::settings(['runner' => 'pest']),
+        Configs::settings(['runner' => 'pest', 'staticCheck' => ['testsTime' => 'covering']]),
         learnedLedgers(LimitHistory::none()->afterKills(Multiple::of(5.0)), LimitHistory::none()->afterRuns(ShardsAtOnce::of(3))),
     );
 
@@ -113,5 +116,26 @@ it('says the learned multiple to two places, and learns a single shard from runs
             'timeouts.seconds learned: 3 times each shard\'s start-up, at least 1 s; 10 s where none is measured.',
             'timeouts.multiple learned: 4.26, what 99 in 100 of 1 kills took over their tests\' time, in place of 3.',
             'shards.max learned: 1, the most shards the last 1 runs ran at once, in place of 20.',
+            'staticCheck.testsTime learned: 4.26 times their tests\' own time, the median of 1 kills.',
         ]);
+});
+
+it('learns no pace, and says none, where no analyser checks before the tests', function (array $staticCheck): void {
+    $learned = LearnedLimits::of(
+        Configs::settings(['runner' => 'pest', 'staticCheck' => $staticCheck]),
+        learnedLedgers(LimitHistory::none()->afterKills(Multiple::of(0.5)), LimitHistory::none()),
+    );
+
+    expect($learned->lines())->toBe([])
+        ->and($learned->briefing(Briefing::standard()))->toEqual(Briefing::standard());
+})->with([
+    'checks after the tests alone' => [['before' => false]],
+    'no analyser' => [['tool' => 'none']],
+]);
+
+it('says nothing of a pace while the ledger holds no kill', function (): void {
+    $learned = LearnedLimits::of(Configs::settings(['runner' => 'pest']), learnedLedgers(LimitHistory::none(), LimitHistory::none()));
+
+    expect($learned->lines())->toBe([])
+        ->and($learned->briefing(Briefing::standard()))->toEqual(Briefing::standard());
 });

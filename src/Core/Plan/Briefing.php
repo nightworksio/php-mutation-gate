@@ -8,7 +8,6 @@ use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\RunProfile;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
-use NightWorksIO\MutationGate\Core\Runner\Multiple;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 
 /**
@@ -19,8 +18,8 @@ use NightWorksIO\MutationGate\Core\Test\SuiteName;
  * it is ({@see RunProfile}), whether its coverage map was measured against
  * the map its own scope keeps (ADR-0023), and, for a plan that
  * runs nothing because nothing the gate judges changed, the commit whose
- * verdict stands ({@see Unchanged}), and the `timeouts.multiple` it learned
- * from the ledger's kills, where the config has it learned (ADR-0073).
+ * verdict stands ({@see Unchanged}), and what it learned from the ledgers'
+ * kills ({@see KillsLearned}).
  */
 final readonly class Briefing
 {
@@ -29,7 +28,7 @@ final readonly class Briefing
         private RunProfile $kind,
         private bool $ownScopeCoverage,
         private Unchanged|NotGiven $unchanged,
-        private Multiple|NotGiven $multiple,
+        private KillsLearned $kills,
     ) {
     }
 
@@ -44,20 +43,20 @@ final readonly class Briefing
             RunProfile::standard(),
             ownScopeCoverage: false,
             unchanged: NotGiven::value(),
-            multiple: NotGiven::value(),
+            kills: KillsLearned::none(),
         );
     }
 
     /** This briefing, with the most memory the unmutated suite's largest process held, or none measured. */
     public function weighing(MemoryCap|NotGiven $peak): self
     {
-        return new self($peak, $this->kind, $this->ownScopeCoverage, $this->unchanged, $this->multiple);
+        return new self($peak, $this->kind, $this->ownScopeCoverage, $this->unchanged, $this->kills);
     }
 
     /** This briefing, for a run of this kind. */
     public function ofKind(RunProfile $kind): self
     {
-        return new self($this->peak, $kind, $this->ownScopeCoverage, $this->unchanged, $this->multiple);
+        return new self($this->peak, $kind, $this->ownScopeCoverage, $this->unchanged, $this->kills);
     }
 
     /** This briefing, recording this much of the kill matrix. */
@@ -68,7 +67,7 @@ final readonly class Briefing
             $this->kind->recording($matrix),
             $this->ownScopeCoverage,
             $this->unchanged,
-            $this->multiple,
+            $this->kills,
         );
     }
 
@@ -80,7 +79,7 @@ final readonly class Briefing
             $this->kind->securityOnly(),
             $this->ownScopeCoverage,
             $this->unchanged,
-            $this->multiple,
+            $this->kills,
         );
     }
 
@@ -92,7 +91,7 @@ final readonly class Briefing
             $this->kind->inSuite($suite),
             $this->ownScopeCoverage,
             $this->unchanged,
-            $this->multiple,
+            $this->kills,
         );
     }
 
@@ -108,26 +107,26 @@ final readonly class Briefing
             $this->kind,
             ownScopeCoverage: true,
             unchanged: $this->unchanged,
-            multiple: $this->multiple,
+            kills: $this->kills,
         );
     }
 
-    /** This briefing, its shards allowing each mutant this learned multiple of its covering tests' own time. */
-    public function learning(Multiple $multiple): self
+    /** This briefing, telling its shards what the plan learned from the ledgers' kills. */
+    public function learning(KillsLearned $kills): self
     {
-        return new self($this->peak, $this->kind, $this->ownScopeCoverage, $this->unchanged, $multiple);
+        return new self($this->peak, $this->kind, $this->ownScopeCoverage, $this->unchanged, $kills);
     }
 
-    /** The learned `timeouts.multiple` the plan read from the ledger's kills; none where it learned none. */
-    public function multiple(): Multiple|NotGiven
+    /** What the plan learned from the ledgers' kills: the `timeouts.multiple` and the pace, where it learned each. */
+    public function learned(): KillsLearned
     {
-        return $this->multiple;
+        return $this->kills;
     }
 
     /** This briefing, for a plan that runs nothing because the verdict of a commit that passed stands. */
     public function unchangedSince(Unchanged $unchanged): self
     {
-        return new self($this->peak, $this->kind, $this->ownScopeCoverage, $unchanged, $this->multiple);
+        return new self($this->peak, $this->kind, $this->ownScopeCoverage, $unchanged, $this->kills);
     }
 
     /** This briefing, with the commit whose verdict stands for the plan that one names, where it names one. */

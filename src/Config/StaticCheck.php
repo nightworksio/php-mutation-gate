@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Config;
 
 use NightWorksIO\MutationGate\Core\Config\BuiltinAnalyser;
 use NightWorksIO\MutationGate\Core\Config\StaticCheck as CoreStaticCheck;
+use NightWorksIO\MutationGate\Core\Config\TestsTime;
 use NightWorksIO\MutationGate\Core\Format\Json;
 
 /**
@@ -73,6 +74,18 @@ final readonly class StaticCheck implements Setting
     public static function afterTests(): self
     {
         return new self(Json::at('staticCheck.before', value: false));
+    }
+
+    /** `staticCheck.testsTime`, as by default: a check is weighed against what the ledgers learned judging costs. */
+    public static function learnedTestsTime(): self
+    {
+        return new self(Json::at('staticCheck.testsTime', TestsTime::Learned->value));
+    }
+
+    /** `staticCheck.testsTime: covering`: a check is weighed against every covering test's own time. */
+    public static function coveringTestsTime(): self
+    {
+        return new self(Json::at('staticCheck.testsTime', TestsTime::Covering->value));
     }
 
     public function written(): Json

@@ -131,6 +131,24 @@ final readonly class LimitHistory
         return $sorted[$at]->within(Multiple::of(self::LEAST_MULTIPLE), Multiple::of(self::MOST_MULTIPLE));
     }
 
+    /**
+     * The median of the kills' multiples: how many times its covering tests'
+     * own time judging a mutant a test kills takes; none where nothing was
+     * killed.
+     */
+    public function pace(): Multiple|NotGiven
+    {
+        if ($this->kills === []) {
+            return NotGiven::value();
+        }
+
+        $times = array_map(static fn(Multiple $kill): float => $kill->times(), $this->kills);
+        sort($times);
+        $middle = intdiv(count($times), 2);
+
+        return Multiple::of(count($times) % 2 === 1 ? $times[$middle] : ($times[$middle - 1] + $times[$middle]) / 2);
+    }
+
     /** How many shards the runs ran at once, read by this statistic; none where no run was learned. */
     public function shards(LearnedStatistic $statistic): int|NotGiven
     {

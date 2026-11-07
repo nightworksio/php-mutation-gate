@@ -292,7 +292,7 @@ final readonly class Running
         $startUp = new StartUpTiming($this->adapters, StartUpSamples::standard())->of($map, $kept->units());
         $pool = Pool::of($this->adapters->processes(), $this->settings->runner()->workers())
             ->startingIn($startUp)
-            ->learning($plan->briefing()->multiple());
+            ->learning($plan->briefing()->learned()->multiple());
         $warmUp = new AnalyserWarmUp();
         $analyser = $this->adapters->analyser;
         $preChecking = $this->settings->staticCheck()->before() && $analyser instanceof AnalyserIdentity
@@ -304,7 +304,7 @@ final readonly class Running
                 $this->known($plan, $analyser),
                 $warmUp,
                 $stopwatch,
-                PreCheck::standard(),
+                PreCheck::briefed($plan->briefing()),
             )
             : new NoPreCheck();
         $checking = new SurvivorChecking(
