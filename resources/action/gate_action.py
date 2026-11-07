@@ -139,6 +139,11 @@ UNSUPPORTED_RELEASE = 1
 # The section of a shard's result that names the survivor it stopped on once
 # its run could not pass (ADR-0008), and the fields it names it by.
 MARK = "mark"
+ACTION_REPORTS = {
+    "json": "json:.mutation-gate/action/report.json",
+    "html": "html:.mutation-gate/action/html",
+    "digest": "digest:.mutation-gate/action/mutation-gate-digest.txt",
+}
 
 # A shard job's name as GitHub lists it, which holds the shard's number: the
 # reusable workflow names it `shard <number> (<label>)`, after the calling
@@ -593,6 +598,14 @@ def _resolve() -> dict[str, str]:
     return {"gate": gate, "options": json.dumps(options), "plan_options": json.dumps(options + arguments), **kept}
 
 
+def action_reports(config: dict) -> list[str]:
+    """Each --report the verdict step writes, as `outputs.actionReports` and `outputs.verdictOnly` say."""
+    outputs = config.get("outputs", {})
+    if outputs.get("verdictOnly") is True:
+        return []
+    return [f"--report={ACTION_REPORTS[name]}" for name in outputs.get("actionReports", ACTION_REPORTS)]
+
+
 def _config() -> dict[str, str]:
     config = json.load(sys.stdin)
     refused = phar_refusal(config, os.environ.get("INSTALLED_BY", COMPOSER))
@@ -610,6 +623,7 @@ def _config() -> dict[str, str]:
         "pest_patch": "true" if patches_pest(config) else "false",
         "infection_patch": "true" if patches_infection(config) else "false",
         "fail_fast": fail_fast(config),
+        "action_reports": json.dumps(action_reports(config)),
     }
 
 

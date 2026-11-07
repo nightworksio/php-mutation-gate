@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Reporting;
 use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Config\Badge;
 use NightWorksIO\MutationGate\Config\Option;
+use NightWorksIO\MutationGate\Config\Outputs;
 use NightWorksIO\MutationGate\Config\Report;
 use NightWorksIO\MutationGate\Config\Shards;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -484,4 +485,22 @@ it('writes no re-checked survivors where the run chooses neither, and says why w
             Reporter::class,
             Configurable::class,
         )]);
+});
+
+it('writes only what outputs.automatic lists of what a run writes because of where it is, and none under outputs.verdictOnly', function (Settings $settings, array $expected): void {
+    $environment = Variables::of(['GITHUB_ACTIONS' => 'true', 'GITHUB_EVENT_NAME' => 'pull_request_target', 'GITHUB_TOKEN' => 'secret']);
+    $pullRequest = RunOn::at(Scope::pullRequest(7), Scope::branch('main'));
+
+    expect(reporterClasses(reportersOf($settings, $environment, $pullRequest)))->toBe($expected);
+})->with([
+    'the annotations alone' => [fn(): Settings => Flows::settings(Outputs::automatic('github-annotations')), [Annotations::class]],
+    'the summary alone' => [fn(): Settings => Flows::settings(Outputs::automatic('github-summary')), [StepSummary::class]],
+    'the comment alone' => [fn(): Settings => Flows::settings(Outputs::automatic('github-comment')), [PullRequestComment::class]],
+    'none listed' => [fn(): Settings => Flows::settings(Outputs::automatic()), []],
+    'the verdict alone' => [fn(): Settings => Flows::settings(Outputs::verdictOnly()), []],
+    'every output' => [fn(): Settings => Flows::settings(Outputs::everyOutput()), [Annotations::class, StepSummary::class, PullRequestComment::class]],
+]);
+
+it('draws no badge outputs.automatic leaves out', function (): void {
+    expect(reportersOf(Flows::settings(Outputs::automatic('github-summary')), Variables::of(['CI' => 'true']), reportingOnMain()))->toBe([]);
 });

@@ -325,14 +325,14 @@ runs:
       env:
         GATE: ${{ steps.resolve.outputs.gate }}
         OPTIONS: ${{ steps.resolve.outputs.options }}
+        ACTION_REPORTS: ${{ steps.config.outputs.action_reports }}
       run: |
         set -uo pipefail
         code=0
         mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
+        mapfile -t reports < <(jq -r '.[]' <<< "${ACTION_REPORTS}")
         "${GATE}" verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results \
-          --report=json:.mutation-gate/action/report.json --report=html:.mutation-gate/action/html \
-          --report=digest:.mutation-gate/action/mutation-gate-digest.txt \
-          --deliver-later "${arguments[@]}" || code=$?
+          "${reports[@]}" --deliver-later "${arguments[@]}" || code=$?
         echo "code=${code}" >> "${GITHUB_OUTPUT}"
 
     # The result cache the run's warm-up left, kept where it differs from the

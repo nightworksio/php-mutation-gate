@@ -217,6 +217,21 @@ final readonly class SettingsCases
         "digest": {
             "tests": 5
         },
+        "outputs": {
+            "verdictOnly": false,
+            "automatic": [
+                "github-annotations",
+                "github-summary",
+                "github-comment",
+                "badge"
+            ],
+            "actionReports": [
+                "json",
+                "html",
+                "digest"
+            ],
+            "costs": true
+        },
         "badge": {
             "colors": {
                 "brightgreen": 90,

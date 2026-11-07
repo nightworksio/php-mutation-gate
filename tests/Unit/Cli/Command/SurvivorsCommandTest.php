@@ -6,7 +6,9 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Command\PlanCommand;
 use NightWorksIO\MutationGate\Cli\Command\SurvivorsCommand;
 use NightWorksIO\MutationGate\Cli\Flow\LastRun;
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\Delivery\DeliveryFile;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -19,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
+use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
 use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
@@ -81,6 +84,32 @@ it('says after the survivors what each report it is configured with made of the 
     expect($ran->output)->toEndWith(sprintf("95e61bd8bf62\nWrote %s.\n", $summary))
         ->and(file_get_contents($summary))->toContain('49e02fb39669');
 });
+
+it('re-checks none in CI where nothing reads the re-checked state, and exits 0', function (string $config) use ($store, $feature): void {
+    $project = FlowCommands::project($config);
+    $runner = ScriptedRunner::fixture();
+    $composition = FlowCommands::reading(
+        Flows::trees(),
+        $project,
+        $runner,
+        $store(),
+        $feature(),
+        Variables::of(['CI' => 'true']),
+        RepositoryFake::onMain(Revision::ref(Flows::HEAD)),
+        Flows::checkout(),
+    );
+    FlowCommands::run(PlanCommand::command($composition), '--shards=1');
+    $requests = count($runner->requests());
+
+    $ran = FlowCommands::run(SurvivorsCommand::command($composition), '--plan=.mutation-gate/plan.json');
+
+    expect([$ran->code, $ran->errors])->toBe([0, ''])
+        ->and($ran->output)->toContain('Nothing reads the re-checked state')
+        ->and(count($runner->requests()))->toBe($requests);
+})->with([
+    'no report writes it' => [''],
+    'the comment leaves it out' => ['"comment": {"states": ["verdict"]}'],
+]);
 
 it('says why it re-checks none on the default branch, and exits 0', function () use ($store): void {
     $project = FlowCommands::project();

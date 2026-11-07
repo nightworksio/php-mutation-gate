@@ -282,6 +282,17 @@ class PestPatch(unittest.TestCase):
 
 
 class InfectionPatch(unittest.TestCase):
+    def test_writes_the_reports_the_config_asks_of_the_verdict_step_and_none_of_a_verdict_alone(self):
+        every = [
+            "--report=json:.mutation-gate/action/report.json",
+            "--report=html:.mutation-gate/action/html",
+            "--report=digest:.mutation-gate/action/mutation-gate-digest.txt",
+        ]
+        self.assertEqual(action.action_reports({}), every)
+        self.assertEqual(action.action_reports({"outputs": {"actionReports": ["json"]}}), every[:1])
+        self.assertEqual(action.action_reports({"outputs": {"actionReports": []}}), [])
+        self.assertEqual(action.action_reports({"outputs": {"verdictOnly": True}}), [])
+
     def test_reads_what_a_doomed_shard_does_and_marks_where_the_config_names_nothing(self):
         self.assertEqual(action.fail_fast({"run": {"failFast": "cancel"}}), "cancel")
         self.assertEqual(action.fail_fast({"run": {"full": True}}), "mark")

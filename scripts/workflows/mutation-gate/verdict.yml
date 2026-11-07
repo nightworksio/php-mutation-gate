@@ -156,14 +156,14 @@
         env:
           GATE: ${{ steps.resolve.outputs.gate }}
           OPTIONS: ${{ steps.resolve.outputs.options }}
+          ACTION_REPORTS: ${{ steps.config.outputs.action_reports }}
         run: |
           set -uo pipefail
           code=0
           mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
+          mapfile -t reports < <(jq -r '.[]' <<< "${ACTION_REPORTS}")
           "${GATE}" verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results \
-            --report=json:.mutation-gate/action/report.json --report=html:.mutation-gate/action/html \
-            --report=digest:.mutation-gate/action/mutation-gate-digest.txt \
-            --deliver-later "${arguments[@]}" || code=$?
+            "${reports[@]}" --deliver-later "${arguments[@]}" || code=$?
           echo "code=${code}" >> "${GITHUB_OUTPUT}"
       # The verdict leaves this scope's ledger and kept coverage map in its
       # delivery; the directory store is this cache, which needs no key, so

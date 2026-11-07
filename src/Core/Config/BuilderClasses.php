@@ -44,6 +44,7 @@ final readonly class BuilderClasses
         'Local' => self::BUILDER,
         'Mutators' => self::BUILDER,
         'Option' => self::BUILDER,
+        'Outputs' => self::BUILDER,
         'Owner' => self::BUILDER,
         'Pace' => self::BUILDER,
         'PathRule' => self::BUILDER,

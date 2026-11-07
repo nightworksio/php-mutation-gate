@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Command;
 
+use function array_any;
 use function is_array;
 
+use NightWorksIO\MutationGate\Adapter\GitHub\StepSummary;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
@@ -13,6 +15,8 @@ use NightWorksIO\MutationGate\Cli\Flow\PlanMade;
 use NightWorksIO\MutationGate\Cli\Flow\Rechecking;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Comment\State;
+use NightWorksIO\MutationGate\Core\Delivery\Commenting;
 use NightWorksIO\MutationGate\Core\Delivery\Stage;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Recheck\NoRecheck;
@@ -40,6 +44,9 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 final readonly class SurvivorsCommand
 {
+    private const string UNREAD
+        = 'Nothing reads the re-checked state, as comment.states and outputs.automatic say, so none is re-checked.';
+
     private const string SECURITY_WITH_PLAN = <<<'SAID'
         survivors --plan re-checks what its plan was made for, so it takes no --security. Give it to plan.
         SAID;
@@ -93,6 +100,10 @@ final readonly class SurvivorsCommand
      */
     public static function rechecked(Composed $composed, Plan $plan): array|CannotJudge
     {
+        if (! self::isRead($composed, $plan)) {
+            return [self::UNREAD];
+        }
+
         $rechecked = new Rechecking($composed->adapters, $composed->settings, $composed->setup)->recheck($plan);
 
         return $rechecked instanceof CannotJudge ? $rechecked : self::reported($composed, $plan, $rechecked);
@@ -107,6 +118,10 @@ final readonly class SurvivorsCommand
      */
     public static function noted(Composed $composed, Plan $plan): array
     {
+        if (! self::isRead($composed, $plan)) {
+            return [];
+        }
+
         $rechecked = new Rechecking($composed->adapters, $composed->settings, $composed->setup)->recheck($plan);
 
         return match (true) {
@@ -114,6 +129,24 @@ final readonly class SurvivorsCommand
             $rechecked instanceof NoRecheck && ! $rechecked->wasExpected() => [],
             default => self::reported($composed, $plan, $rechecked),
         };
+    }
+
+    /**
+     * Whether anything reads the re-checked state: outside CI whoever ran this, and in CI a comment or a summary, as
+     * `comment.states` lets it.
+     */
+    private static function isRead(Composed $composed, Plan $plan): bool
+    {
+        $reporters = $composed->reporting->chosenReporters($composed->settings, $plan->runOn());
+
+        return ! $composed->adapters->environment->inCi()
+            || $composed->settings->effective()->reports()->comment()->writes()->writes(State::Rechecked)
+            && is_array($reporters)
+            && array_any(
+                $reporters,
+                static fn(object $reporter): bool => $reporter instanceof StepSummary
+                    || $reporter instanceof Commenting,
+            );
     }
 
     /**

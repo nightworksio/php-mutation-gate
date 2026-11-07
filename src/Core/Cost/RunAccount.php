@@ -87,6 +87,21 @@ final readonly class RunAccount
         );
     }
 
+    /** This account, saying nothing of what the run cost: `outputs.costs: false`. */
+    public function uncosted(): self
+    {
+        return new self(
+            Untimed::run(),
+            Untimed::run(),
+            NoHistory::yet(),
+            $this->previous,
+            $this->pruning,
+            $this->provenance,
+            $this->tallies,
+            $this->heatmap,
+        );
+    }
+
     public function withCost(Cost $cost): self
     {
         return new self(

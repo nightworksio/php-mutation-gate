@@ -172,6 +172,7 @@ final readonly class Judging
             return $recorded;
         }
 
+        $verdict = $verdict->withAccount($this->settings->effective()->reports()->outputs()->said($verdict->account()));
         $report = EncodedReport::of($verdict);
         $reported = new Judged(
             $verdict,

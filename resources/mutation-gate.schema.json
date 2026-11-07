@@ -3006,6 +3006,52 @@
             },
             "additionalProperties": false
         },
+        "outputs": {
+            "type": "object",
+            "properties": {
+                "verdictOnly": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "automatic": {
+                    "type": "array",
+                    "items": {
+                        "enum": [
+                            "github-annotations",
+                            "github-summary",
+                            "github-comment",
+                            "badge"
+                        ]
+                    },
+                    "default": [
+                        "github-annotations",
+                        "github-summary",
+                        "github-comment",
+                        "badge"
+                    ]
+                },
+                "actionReports": {
+                    "type": "array",
+                    "items": {
+                        "enum": [
+                            "json",
+                            "html",
+                            "digest"
+                        ]
+                    },
+                    "default": [
+                        "json",
+                        "html",
+                        "digest"
+                    ]
+                },
+                "costs": {
+                    "type": "boolean",
+                    "default": true
+                }
+            },
+            "additionalProperties": false
+        },
         "comment": {
             "type": "object",
             "properties": {
@@ -6501,6 +6547,39 @@
                         "tests": {
                             "type": "integer",
                             "minimum": 0
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "outputs": {
+                    "type": "object",
+                    "properties": {
+                        "verdictOnly": {
+                            "type": "boolean"
+                        },
+                        "automatic": {
+                            "type": "array",
+                            "items": {
+                                "enum": [
+                                    "github-annotations",
+                                    "github-summary",
+                                    "github-comment",
+                                    "badge"
+                                ]
+                            }
+                        },
+                        "actionReports": {
+                            "type": "array",
+                            "items": {
+                                "enum": [
+                                    "json",
+                                    "html",
+                                    "digest"
+                                ]
+                            }
+                        },
+                        "costs": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false
