@@ -52,6 +52,15 @@ final readonly class Timeouts implements Setting
         return new self(Json::at('timeouts.multiple', Learned::Learned->value));
     }
 
+    /**
+     * `timeouts.controlMost`: the most a kill's unmutated control may run, in
+     * seconds, at least `timeouts.most` (ADR-0014).
+     */
+    public static function controlMost(int $seconds): self
+    {
+        return new self(Json::at('timeouts.controlMost', $seconds));
+    }
+
     /** `timeouts.most` */
     public static function most(int $seconds): self
     {

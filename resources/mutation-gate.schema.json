@@ -1283,6 +1283,10 @@
                     "type": "integer",
                     "minimum": 1,
                     "default": 3
+                },
+                "controlMost": {
+                    "type": "integer",
+                    "minimum": 1
                 }
             },
             "additionalProperties": false
@@ -3676,6 +3680,10 @@
                             ]
                         },
                         "testFloor": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "controlMost": {
                             "type": "integer",
                             "minimum": 1
                         }

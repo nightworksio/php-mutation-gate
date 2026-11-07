@@ -51,6 +51,7 @@ final readonly class TriageKeys
         $tighter = Field::section('tighter', self::tighter($results));
         $perTest = Field::optional('perTest', MultipleOrOff::atLeast(1), $results);
         $testFloor = Field::optional('testFloor', Integer::atLeast(1), $results);
+        $controlMost = Field::optional('controlMost', Integer::atLeast(1), $results);
 
         return [
             Field::optional(
@@ -72,6 +73,7 @@ final readonly class TriageKeys
                         $tighter,
                         $perTest,
                         $testFloor,
+                        $controlMost,
                     ): Layer|Invalid {
                         $timedOut = $mode->read($timeouts);
                         $limit = $seconds->read($timeouts);
@@ -80,6 +82,7 @@ final readonly class TriageKeys
                         $lower = $tighter->read($timeouts);
                         $eachTest = $perTest->read($timeouts);
                         $least = $testFloor->read($timeouts);
+                        $controls = $controlMost->read($timeouts);
 
                         return Reading::built(
                             static fn(): Layer => Layer::of(Triage::of(
@@ -90,6 +93,7 @@ final readonly class TriageKeys
                                 multiple: $times->value(),
                                 perTest: $eachTest->value(),
                                 testFloor: self::seconds($least->value()),
+                                controlMost: self::seconds($controls->value()),
                             )),
                             $timedOut,
                             $limit,
@@ -98,6 +102,7 @@ final readonly class TriageKeys
                             $lower,
                             $eachTest,
                             $least,
+                            $controls,
                         );
                     },
                     $mode,
@@ -107,6 +112,7 @@ final readonly class TriageKeys
                     $tighter,
                     $perTest,
                     $testFloor,
+                    $controlMost,
                 ),
             ),
             Field::section(

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\PhpCalls;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\Triage;
@@ -32,4 +34,19 @@ it('takes each test\'s own limit from a later layer, and keeps the earlier where
     expect($earlier->over(Triage::of(perTest: false))->bounds()->perTest())->toEqual(PerTestLimit::off())
         ->and($earlier->over(Triage::of())->bounds()->perTest())->toEqual(PerTestLimit::of(4, Seconds::of(2)))
         ->and($earlier->over(Triage::of(testFloor: Seconds::of(7)))->bounds()->perTest())->toEqual(PerTestLimit::of(4, Seconds::of(7)));
+});
+
+it('allows a kill\'s control 900 seconds unless set, or timeouts.most where longer, writes it as set, and refuses one under the most', function (): void {
+    $set = Triage::of(controlMost: Seconds::of(1200.0));
+    $refused = Triage::of(most: Seconds::of(400.0), controlMost: Seconds::of(350.0))->refusal();
+
+    expect(Triage::none()->controlMost())->toEqual(Seconds::of(900.0))
+        ->and(Triage::of(most: Seconds::of(1500.0))->controlMost())->toEqual(Seconds::of(1500.0))
+        ->and(Triage::of(most: Seconds::of(1500.0))->refusal())->toEqual(Absent::setting())
+        ->and(Triage::standard()->written(ProjectRoot::origin())->line())->not->toContain('controlMost')
+        ->and($set->controlMost())->toEqual(Seconds::of(1200.0))
+        ->and($set->php(ProjectRoot::origin()))->toEqual(PhpCalls::inWith('Timeouts::controlMost(1200)'))
+        ->and(Triage::of(most: Seconds::of(60.0))->over($set)->controlMost())->toEqual(Seconds::of(1200.0))
+        ->and($refused instanceof Invalid ? $refused->said() : '')
+        ->toBe('timeouts.controlMost: expected at least timeouts.most, 400, got 350');
 });

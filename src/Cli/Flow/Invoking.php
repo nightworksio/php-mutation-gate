@@ -239,9 +239,10 @@ final readonly class Invoking
             $run,
             $bounds->perTest(),
         );
-        $kills = KillControls::of($mutants, $evidence, $this->map, $run, $bounds);
+        $controls = $bounds->upToInstead($this->settings->triage()->controlMost());
+        $kills = KillControls::of($mutants, $evidence, $this->map, $run, $controls);
         $memory = MemoryControls::of($mutants, $unfiltered, $this->map, $this->held, $run, $bounds);
-        $unnamed = UnnamedKillControls::of($mutants, $evidence, $this->map, $this->held, $run, $bounds);
+        $unnamed = UnnamedKillControls::of($mutants, $evidence, $this->map, $this->held, $run, $controls);
         $asked = [...Controls::of(...[
             ...$timeouts->asked(),
             ...$kills->asked(),
