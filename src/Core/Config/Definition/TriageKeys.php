@@ -51,6 +51,7 @@ final readonly class TriageKeys
         $tighter = Field::section('tighter', self::tighter($results));
         $perTest = Field::optional('perTest', MultipleOrOff::atLeast(1), $results);
         $testFloor = Field::optional('testFloor', Integer::atLeast(1), $results);
+        $controlMost = Field::optional('controlMost', Integer::atLeast(1), $results);
 
         return [
             Field::optional(
@@ -72,6 +73,7 @@ final readonly class TriageKeys
                         $tighter,
                         $perTest,
                         $testFloor,
+                        $controlMost,
                     ): Layer|Invalid {
                         $timedOut = $mode->read($timeouts);
                         $limit = $seconds->read($timeouts);
@@ -80,6 +82,7 @@ final readonly class TriageKeys
                         $lower = $tighter->read($timeouts);
                         $eachTest = $perTest->read($timeouts);
                         $least = $testFloor->read($timeouts);
+                        $controls = $controlMost->read($timeouts);
 
                         return Reading::built(
                             static fn(): Layer => Layer::of(Triage::of(
@@ -90,6 +93,7 @@ final readonly class TriageKeys
                                 multiple: $times->value(),
                                 perTest: $eachTest->value(),
                                 testFloor: self::seconds($least->value()),
+                                controlMost: self::seconds($controls->value()),
                             )),
                             $timedOut,
                             $limit,
@@ -98,6 +102,7 @@ final readonly class TriageKeys
                             $lower,
                             $eachTest,
                             $least,
+                            $controls,
                         );
                     },
                     $mode,
@@ -107,6 +112,7 @@ final readonly class TriageKeys
                     $tighter,
                     $perTest,
                     $testFloor,
+                    $controlMost,
                 ),
             ),
             Field::section(
@@ -117,16 +123,41 @@ final readonly class TriageKeys
                 ),
             ),
             Field::section('tests', self::tests($results)),
-            Field::section(
-                'survivorsFirst',
-                Section::single(
-                    Field::optional('max', Integer::atLeast(0), $judges),
-                    static fn(int|Absent $most): Layer => Layer::of(Triage::of(
-                        survivorsFirst: $most instanceof Absent ? $most : SurvivorsFirst::atMost($most),
-                    )),
-                ),
-            ),
+            Field::section('survivorsFirst', self::survivorsFirst($judges)),
         ];
+    }
+
+    /**
+     * `survivorsFirst`: how many of the last run's survivors a pull request's
+     * run re-checks first, within what time, across how many jobs (ADR-0106).
+     *
+     * @return Section<Layer>
+     */
+    private static function survivorsFirst(Effect $judges): Section
+    {
+        $max = Field::optional('max', Integer::atLeast(0), $judges);
+        $budget = Field::optional('budget', Duration::written(), $judges);
+        $shards = Field::optional('shards', Integer::between(1, SurvivorsFirst::MOST_SHARDS), $judges);
+
+        return Section::of(
+            static function (Node $first) use ($max, $budget, $shards): Layer|Invalid {
+                $most = $max->read($first);
+                $within = $budget->read($first);
+                $across = $shards->read($first);
+
+                return Reading::built(
+                    static fn(): Layer => Layer::of(Triage::of(
+                        survivorsFirst: SurvivorsFirst::of($most->value(), $within->value(), $across->value()),
+                    )),
+                    $most,
+                    $within,
+                    $across,
+                );
+            },
+            $max,
+            $budget,
+            $shards,
+        );
     }
 
     /**

@@ -19,6 +19,9 @@ const RUNS_MUTANTS = '"${GATE}" run ';
 /** How a step's `run` starts the re-check of the last run's survivors, which runs mutants too. */
 const RECHECKS = '"${GATE}" survivors ';
 
+/** How a step's `run` starts one share of that re-check; sharing it out and reporting the shares run no mutant. */
+const RECHECKS_A_SHARE = '"${GATE}" survivors --plan=.mutation-gate/plan.json --share=';
+
 it('patches Pest after installing and before running a mutant, where the config turns the patches on', function (): void {
     $steps = WorkflowFile::at('action.yml')->field('runs')->field('steps');
     $install = WorkflowFile::stepsWhere($steps, 'uses', static fn(string $uses): bool => str_starts_with($uses, 'ramsey/composer-install@'));
@@ -50,7 +53,7 @@ it('runs mutants in the reusable workflow through the action, and in the survivo
     foreach ($jobs as $id => $job) {
         $steps = $job->field('steps');
         $mutating = [...$mutating, ...WorkflowFile::stepsWhere($steps, 'run', static fn(string $run): bool => str_contains($run, RUNS_MUTANTS))];
-        $rechecking[$id] = WorkflowFile::stepsWhere($steps, 'run', static fn(string $run): bool => str_contains($run, RECHECKS));
+        $rechecking[$id] = WorkflowFile::stepsWhere($steps, 'run', static fn(string $run): bool => str_contains($run, RECHECKS_A_SHARE));
         $throughTheAction[$id] = WorkflowFile::stepsWhere($steps, 'uses', static fn(string $uses): bool => $uses === './.mutation-gate/workflow');
     }
 
@@ -58,7 +61,7 @@ it('runs mutants in the reusable workflow through the action, and in the survivo
     $install = WorkflowFile::stepsWhere($survivors, 'uses', static fn(string $uses): bool => str_starts_with($uses, 'ramsey/composer-install@'));
     $patch = WorkflowFile::stepsWhere($survivors, 'run', static fn(string $run): bool => $run === '"${GATE}" pest:patch');
 
-    expect(array_keys($jobs))->toBe(['fetch', 'plan', 'deliver-plan', 'shard', 'survivors', 'deliver-survivors', 'verdict', 'deliver', 'publish'])
+    expect(array_keys($jobs))->toBe(['fetch', 'plan', 'deliver-plan', 'shard', 'survivors', 'survivors-report', 'deliver-survivors', 'verdict', 'deliver', 'publish'])
         ->and($mutating)->toBe([])
         ->and(array_keys(array_filter($throughTheAction)))->toBe(['shard'])
         ->and(array_keys(array_filter($rechecking)))->toBe(['survivors'])
@@ -103,7 +106,7 @@ it('patches Infection in the survivors job before it re-checks, where the config
     $survivors = Lenient::entries(WorkflowFile::at('.github/workflows/mutation-gate.yml')->field('jobs'))['survivors']->field('steps');
     $install = WorkflowFile::stepsWhere($survivors, 'uses', static fn(string $uses): bool => str_starts_with($uses, 'ramsey/composer-install@'));
     $patch = WorkflowFile::stepsWhere($survivors, 'run', static fn(string $run): bool => str_contains($run, INFECTION_PATCH));
-    $rechecking = WorkflowFile::stepsWhere($survivors, 'run', static fn(string $run): bool => str_contains($run, RECHECKS));
+    $rechecking = WorkflowFile::stepsWhere($survivors, 'run', static fn(string $run): bool => str_contains($run, RECHECKS_A_SHARE));
 
     expect($patch)->toHaveCount(1)
         ->and(Lenient::text(Lenient::items($survivors)[$patch[0]]->field('if')))->toBe("steps.config.outputs.infection_patch == 'true'")

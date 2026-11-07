@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Format\Inert;
 use NightWorksIO\MutationGate\Core\Recheck\Gone;
 use NightWorksIO\MutationGate\Core\Recheck\Recheck;
 use NightWorksIO\MutationGate\Core\Recheck\Rechecked;
+use NightWorksIO\MutationGate\Core\Recheck\Unreached;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 
@@ -18,8 +19,9 @@ use function sprintf;
 
 /**
  * The last run's survivors run again first, as the log shows them: how many
- * still survive, then one line each, in the order they were taken, with its
- * place, its mutator and its id (ADR-0020). What a ledger holds
+ * of those reached still survive and how many were not reached, then one line
+ * each, in the order they were taken, with its place, its mutator and its id
+ * (ADR-0020, ADR-0106). What a ledger holds
  * is text from outside, so each line is plain and starts no CI command.
  *
  * @internal
@@ -32,6 +34,8 @@ final readonly class RecheckedText
 
     private const string GONE = ' %d gone: the run made no mutant with their id again.';
 
+    private const string UNREACHED = ' %d not re-checked: no job ran their files within its budget.';
+
     private const string LINE = '  %s: %s:%d, %s, %s';
 
     /** The headline, as the comment and the log give it. */
@@ -40,12 +44,19 @@ final readonly class RecheckedText
         $surviving = count($rechecked->surviving());
         $killed = $rechecked->killed();
         $gone = count($rechecked->gone());
+        $unreached = count($rechecked->unreached());
 
         return sprintf(
-            '%s%s%s',
-            sprintf(self::HEADLINE, $surviving, count($rechecked), $surviving === 1 ? 'survives' : 'survive'),
+            '%s%s%s%s',
+            sprintf(
+                self::HEADLINE,
+                $surviving,
+                count($rechecked) - $unreached,
+                $surviving === 1 ? 'survives' : 'survive',
+            ),
             $killed === 0 ? '' : sprintf(self::KILLED, $killed),
             $gone === 0 ? '' : sprintf(self::GONE, $gone),
+            $unreached === 0 ? '' : sprintf(self::UNREACHED, $unreached),
         );
     }
 
@@ -67,6 +78,10 @@ final readonly class RecheckedText
 
         if ($now instanceof Gone) {
             return self::line('gone', $recheck->before());
+        }
+
+        if ($now instanceof Unreached) {
+            return self::line('not re-checked', $recheck->before());
         }
 
         return self::line(

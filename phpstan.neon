@@ -747,6 +747,17 @@ services:
                 'NightWorksIO\MutationGate\Extension\Checks\RunnerCoverage':
                     - AT_ONCE # test files measured again at once, not an argument's place or an exit code
             # Constants still to refer to their value's one home, by the builder whose area holds them.
+                'NightWorksIO\MutationGate\Cli\Command\SharedRecheck':
+                    - SHARE # survivors' option naming its share of the re-check, not a suggestion's share of time
+                'NightWorksIO\MutationGate\Core\Config\SurvivorsFirst':
+                    - BUDGET_MINUTES # the minutes a re-check spends by default, not a proving range's commits
+                    - MOST_SHARDS # the most jobs a re-check is shared among, not its default budget
+                    - SHARDS # the jobs a re-check is shared among by default, not a mutant's status code
+                'NightWorksIO\MutationGate\Core\Recheck\RecheckJobs':
+                    - SETUP_MINUTES # the minutes a re-check job takes to set up, not shipped presets
+                'NightWorksIO\MutationGate\Core\Recheck\RecheckShare':
+                    - RAN # a share's files run again, not a recorded event
+                    - MUTANTS # a share's mutants made, not the kill history's section
             awaiting:
                 'NightWorksIO\MutationGate\Core\Proof\Key\Exceptions':
                     - OWN # owner: flows (Workspace::root())

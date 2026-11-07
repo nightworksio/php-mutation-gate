@@ -6,7 +6,11 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Command\PlanCommand;
 use NightWorksIO\MutationGate\Cli\Command\SurvivorsCommand;
 use NightWorksIO\MutationGate\Cli\Flow\LastRun;
+use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\Delivery\DeliveryFile;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -17,8 +21,11 @@ use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
+use NightWorksIO\MutationGate\Port\TreeSource;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
+use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
+use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
 use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
@@ -139,4 +146,125 @@ it('begins the survivors stage\'s delivery under --deliver-later, emptying what 
     expect([$ran->code, $ran->errors])->toBe([0, ''])
         ->and(DeliveryFile::decode((string) file_get_contents(sprintf('%s/.mutation-gate/delivery/survivors/delivery.json', $project))))
         ->toEqual(Delivery::none());
+});
+
+it('prints the jobs a CI shares the re-check among, one per file of the survivors taken, and runs none of them', function () use ($store, $feature): void {
+    $project = FlowCommands::project();
+    $runner = ScriptedRunner::fixture();
+    $composition = FlowCommands::composition($project, $runner, $store(), $feature());
+    FlowCommands::run(PlanCommand::command($composition), '--shards=1');
+    $before = count($runner->requests());
+
+    $ran = FlowCommands::run(SurvivorsCommand::command($composition), '--plan=.mutation-gate/plan.json --jobs');
+    $main = FlowCommands::run(
+        SurvivorsCommand::command(FlowCommands::composition($project, ScriptedRunner::fixture(), $store(), Flows::ci())),
+        '--jobs',
+    );
+
+    expect([$ran->code, $ran->output, $ran->errors])->toBe([0, "{\"shares\":[1],\"minutes\":30}\n", ''])
+        ->and(count($runner->requests()))->toBe($before)
+        ->and([$main->code, $main->output])->toBe([0, "{\"shares\":[],\"minutes\":30}\n"]);
+});
+
+it('prints one job, and says aside why, where it cannot tell which survivors the re-check takes', function () use ($store, $feature): void {
+    $project = FlowCommands::project();
+    FlowCommands::run(PlanCommand::command(FlowCommands::composition($project, ScriptedRunner::fixture(), $store(), $feature())), '--shards=1');
+    $unread = FlowCommands::registered(
+        FlowCommands::registry(Flows::trees(), ScriptedRunner::fixture(), $store(), $feature(), RepositoryFake::onMain(Revision::ref(Flows::HEAD)), Flows::checkout())
+            ->withTreeSource(Name::of('phpunit'), static fn(): TreeSource => new TreeSourceFake(CannotJudge::because('No tree is declared.'))),
+        $project,
+        Variables::of([]),
+    );
+
+    $ran = FlowCommands::run(SurvivorsCommand::command($unread), '--plan=.mutation-gate/plan.json --jobs');
+
+    expect([$ran->code, $ran->output, $ran->errors])->toBe([
+        0,
+        "{\"shares\":[1],\"minutes\":30}\n",
+        "The last run's survivors could not be re-checked first: No tree is declared.\n",
+    ]);
+});
+
+it('re-checks one share and leaves what it made, then reports the shares as one re-check, a share that left nothing not reached', function () use ($store, $feature): void {
+    $project = FlowCommands::project();
+    $composition = FlowCommands::composition($project, ScriptedRunner::fixture(), $store(), $feature());
+    FlowCommands::run(PlanCommand::command($composition), '--shards=1');
+
+    $first = FlowCommands::run(SurvivorsCommand::command($composition), '--plan=.mutation-gate/plan.json --share=1 --of=2');
+    $second = FlowCommands::run(SurvivorsCommand::command($composition), '--plan=.mutation-gate/plan.json --share=2 --of=2');
+    $combined = FlowCommands::run(SurvivorsCommand::command($composition), '--plan=.mutation-gate/plan.json --from=.mutation-gate/survivors --of=2');
+    $none = FlowCommands::run(SurvivorsCommand::command($composition), '--plan=.mutation-gate/plan.json --from=nowhere --of=2');
+
+    expect([$first->code, $first->output, $first->errors])
+        ->toBe([0, "Share 1 of the re-check: files run again 1, not reached 0. Wrote .mutation-gate/survivors/1.json.\n", ''])
+        ->and([$second->code, $second->output])->toBe([0, "Share 2 of the re-check: files run again 0, not reached 0. Wrote .mutation-gate/survivors/2.json.\n"])
+        ->and(is_file(sprintf('%s/.mutation-gate/survivors/1.json', $project)))->toBeTrue()
+        ->and([$combined->code, $combined->output])->toBe([0, implode("\n", [
+            'Survivors re-checked: 2 of 2 still survive.',
+            '  still survives: src/Money.php:16, GreaterThan, 49e02fb39669',
+            '  still survives: src/Money.php:21, Minus, 95e61bd8bf62',
+            '',
+        ])])
+        ->and([$none->code, $none->output])->toBe([0, implode("\n", [
+            'Survivors re-checked: 0 of 0 still survive. 2 not re-checked: no job ran their files within its budget.',
+            '  not re-checked: src/Money.php:16, GreaterThan, 49e02fb39669',
+            '  not re-checked: src/Money.php:21, Minus, 95e61bd8bf62',
+            '',
+        ])]);
+});
+
+it('cannot share a re-check among jobs that name no share', function (string $options, string $why) use ($store, $feature): void {
+    $project = FlowCommands::project();
+    $composition = FlowCommands::composition($project, ScriptedRunner::fixture(), $store(), $feature());
+    FlowCommands::run(PlanCommand::command($composition), '--shards=1');
+
+    $ran = FlowCommands::run(SurvivorsCommand::command($composition), sprintf('--plan=.mutation-gate/plan.json %s', $options));
+
+    expect([$ran->code, $ran->output, $ran->errors])->toBe([2, '', $why]);
+})->with([
+    'a share past the jobs' => ['--share=3 --of=2', "--share=3 --of=2 names no share: give whole numbers, the share at most --of.\n"],
+    'a share of no jobs' => ['--share=1', "--share=1 --of= names no share: give whole numbers, the share at most --of.\n"],
+    'shares of no jobs' => ['--from=.mutation-gate/survivors', "--of= names no number of jobs: give a whole number of 1 or more.\n"],
+]);
+
+it('counts the files a share had no time left for, and leaves no share where it re-checks none', function () use ($store, $feature): void {
+    $project = FlowCommands::project('"survivorsFirst": {"budget": "0s"}');
+    $composition = FlowCommands::composition($project, ScriptedRunner::fixture(), $store(), $feature());
+    FlowCommands::run(PlanCommand::command($composition), '--shards=1');
+
+    $late = FlowCommands::run(SurvivorsCommand::command($composition), '--plan=.mutation-gate/plan.json --share=1 --of=1');
+    $main = FlowCommands::run(
+        SurvivorsCommand::command(FlowCommands::composition(FlowCommands::project(), ScriptedRunner::fixture(), $store(), Flows::ci())),
+        '--share=1 --of=1',
+    );
+
+    expect([$late->code, $late->output])->toBe([0, "Share 1 of the re-check: files run again 0, not reached 1. Wrote .mutation-gate/survivors/1.json.\n"])
+        ->and([$main->code, $main->output])->toBe([0, "A run of the default branch re-checks no survivors first.\n"]);
+});
+
+it('cannot re-check a share it cannot leave what it made of', function () use ($store, $feature): void {
+    $project = FlowCommands::project();
+    $composition = FlowCommands::composition($project, ScriptedRunner::fixture(), $store(), $feature());
+    FlowCommands::run(PlanCommand::command($composition), '--shards=1');
+    Scratch::write($project, '.mutation-gate/survivors', 'a file where the shares\' directory goes');
+
+    $ran = FlowCommands::run(SurvivorsCommand::command($composition), '--plan=.mutation-gate/plan.json --share=1 --of=1');
+
+    expect([$ran->code, $ran->output])->toBe([2, ''])
+        ->and($ran->errors)->toContain('.mutation-gate/survivors/1.json');
+});
+
+it('cannot report the shares where it cannot tell which survivors they were taken for', function () use ($store, $feature): void {
+    $project = FlowCommands::project();
+    FlowCommands::run(PlanCommand::command(FlowCommands::composition($project, ScriptedRunner::fixture(), $store(), $feature())), '--shards=1');
+    $unread = FlowCommands::registered(
+        FlowCommands::registry(Flows::trees(), ScriptedRunner::fixture(), $store(), $feature(), RepositoryFake::onMain(Revision::ref(Flows::HEAD)), Flows::checkout())
+            ->withTreeSource(Name::of('phpunit'), static fn(): TreeSource => new TreeSourceFake(CannotJudge::because('No tree is declared.'))),
+        $project,
+        Variables::of([]),
+    );
+
+    $ran = FlowCommands::run(SurvivorsCommand::command($unread), '--plan=.mutation-gate/plan.json --from=.mutation-gate/survivors --of=1');
+
+    expect([$ran->code, $ran->output, $ran->errors])->toBe([2, '', "No tree is declared.\n"]);
 });

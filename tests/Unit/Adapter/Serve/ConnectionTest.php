@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\Waiting;
 use NightWorksIO\MutationGate\Adapter\Serve\Connection;
 use NightWorksIO\MutationGate\Adapter\Serve\FramedOutput;
 use NightWorksIO\MutationGate\Adapter\Serve\Listener;
@@ -9,6 +10,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Serve\ServeFrame;
 use NightWorksIO\MutationGate\Core\Serve\ServeStream;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ServedProjects;
 
@@ -53,6 +55,48 @@ it('tells a client still connected has not ended, and the listener ready once a 
     expect(Listener::ready($listener, [], 1_000_000))->toBe([true, []])
         ->and(Listener::ready(NotGiven::value(), [], 1000))->toBe([false, []])
         ->and($second)->toBeInstanceOf(Connection::class);
+});
+
+it('puts the socket at its name only once it listens, leaving nothing under the name it was bound by', function (): void {
+    ServedProjects::entered();
+    $listener = Listener::boundTo(ServedProjects::SOCKET);
+    $aside = sprintf('%s.binding-%d', ServedProjects::SOCKET, getmypid());
+    $unbound = Listener::boundTo('missing/serve.sock');
+
+    expect($listener)->toBeInstanceOf(Listener::class)
+        ->and(Connection::to(ServedProjects::SOCKET))->toBeInstanceOf(Connection::class)
+        ->and(file_exists($aside))->toBeFalse()
+        ->and($unbound)->toBeInstanceOf(CannotJudge::class)
+        ->and(file_exists(sprintf('missing/serve.sock.binding-%d', getmypid())))->toBeFalse();
+});
+
+// A client looking every 50 microseconds connects the moment the socket's file
+// is there, which a socket bound at its own name refuses one time in seven,
+// before it listens.
+it('never refuses a client that connects the moment the socket is there', function (): void {
+    ServedProjects::entered();
+    $found = [];
+
+    foreach (range(1, 50) as $round) {
+        $kept = sprintf('%s/connected-%d', (string) getcwd(), $round);
+        $child = ServedProjects::aside(static function () use ($kept): void {
+            $look = Waiting::every(Seconds::of(0.000_05));
+
+            for ($looked = 0; $looked < 40_000 && ! ServedProjects::socket()->isThere(); $looked++) {
+                $look();
+            }
+
+            file_put_contents($kept, Connection::to(ServedProjects::SOCKET) instanceof Connection ? 'connected' : 'refused');
+        });
+        Waiting::every(Seconds::of(0.002))();
+        $listener = Listener::boundTo(ServedProjects::SOCKET);
+        ServedProjects::waitedFor($child);
+        $found[] = (string) file_get_contents($kept);
+        unset($listener);
+        ServedProjects::socket()->removed();
+    }
+
+    expect(array_values(array_unique($found)))->toBe(['connected']);
 });
 
 it('connects to nothing where nothing listens, and binds nothing where the directory is missing', function (): void {

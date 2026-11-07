@@ -317,15 +317,22 @@
       "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
     },
     "mutation/survivors": {
-      "check": "mutation / survivors",
-      "checks": "G3: on a pull request, the last run's survivors run again beside the shards, a signal the verdict does not judge.",
-      "reproduce": "bin/mutation-gate survivors --plan=.mutation-gate/plan.json",
+      "check": "mutation / survivors ${{ matrix.share }}",
+      "checks": "G3: on a pull request, one share of the last run's survivors run again beside the shards, within survivorsFirst.budget, a signal the verdict does not judge.",
+      "reproduce": "bin/mutation-gate survivors --plan=.mutation-gate/plan.json --share=<i> --of=<n>",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
+    "mutation/survivors-report": {
+      "check": "mutation / survivors report",
+      "checks": "G3: what the survivors' shares made, paired with the survivors they were taken for, a share that left nothing read as not reached, and the comment's survivors re-checked state left for deliver-survivors.",
+      "reproduce": "bin/mutation-gate survivors --plan=.mutation-gate/plan.json --from=.mutation-gate/survivors --of=<n>",
       "evidence": "none",
       "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
     },
     "mutation/deliver-survivors": {
       "check": "mutation / deliver survivors",
-      "checks": "The pull request comment's survivors re-checked state the survivors job left, written over its planned state alone, from the gate's own installation.",
+      "checks": "The pull request comment's survivors re-checked state the survivors report left, written over its planned state alone, from the gate's own installation.",
       "reproduce": "bin/mutation-gate deliver --from=.mutation-gate/delivery/survivors",
       "evidence": "none",
       "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."

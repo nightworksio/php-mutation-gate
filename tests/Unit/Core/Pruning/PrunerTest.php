@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Config\Pruning;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Undigested;
 use NightWorksIO\MutationGate\Core\Pruning\MutatorNames;
@@ -71,6 +72,21 @@ it('prunes in no unit whose result is of another mutant set', function () use ($
 
     expect(prunedOver($pruner(), $proofs))->toBe([[], ['Plus']]);
 });
+
+it('prunes in no unit whose result let a mutant through, and in one whose result killed every mutant', function (MutantStatus $status, array $files) use ($pruner): void {
+    $proofs = Proofs::of(PruningCases::proof('src/A.php', '2026-10-05T00:00:00Z', 'a', Mutants::of(
+        PruningCases::mutant('src/A.php', 'Plus', 1),
+        PruningCases::mutant('src/A.php', 'Plus', 2, $status),
+    )));
+
+    expect(prunedOver($pruner(), $proofs))->toBe([$files, ['Plus']]);
+})->with([
+    'a survivor' => [MutantStatus::Survived, []],
+    'an uncovered mutant' => [MutantStatus::Uncovered, []],
+    'an unjudged mutant' => [MutantStatus::Unjudged, []],
+    'a kill by static analysis' => [MutantStatus::KilledByStaticAnalysis, ['src/A.php']],
+    'a timeout' => [MutantStatus::TimedOut, ['src/A.php']],
+]);
 
 it('carries a result made at the audit\'s very start', function () use ($pruner): void {
     $proofs = Proofs::of(PruningCases::proof('src/A.php', '2026-10-01T00:00:00Z', 'a', Mutants::none()));

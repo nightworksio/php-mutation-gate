@@ -8,20 +8,26 @@ use function array_key_exists;
 use function count;
 
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Mutant\Evidences;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\RunSelection;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 
 /**
  * The unmutated control of each kill a test is named for (ADR-0014):
  * the tests that killed it, run with its file served unmutated as its
  * mutant was, allowed the standard mutant limit of their time as the
- * coverage map timed them. A file's kills are first controlled
- * together, by one control of every test that killed any of them, and
- * where it passes every one of them stands (ADR-0033). Where it does
- * not, each kill is controlled on its own, once for each file and set
+ * coverage map timed them. A kill whose own run left its filter out, as
+ * too long to pass, is controlled as that run selected its tests, by the
+ * test files it loaded, its limit that of those files' tests. A file's other
+ * kills are first controlled together, by one control of every test that
+ * killed any of them, and where it passes every one of them stands
+ * (ADR-0033). Where it does not, each kill is controlled on its own, once for each file and set
  * of killers, and stands only where its own passes; where that fails,
  * runs out of the limit or never runs, nothing tells the mutant from
  * its original, and it is unjudged, saying why. A kill no test is named
@@ -56,33 +62,22 @@ final readonly class KillControls implements ControlJudge
     }
 
     /** The controls of each of these mutants killed by a test named, each limit within these bounds. */
-    public static function of(Mutants $mutants, CoverageMap $map, LimitBounds $bounds): self
-    {
+    public static function of(
+        Mutants $mutants,
+        Evidences $evidence,
+        CoverageMap $map,
+        RunSelection $run,
+        LimitBounds $bounds,
+    ): self {
         $kills = [];
-        $byFile = [];
 
         foreach ($mutants as $mutant) {
-            $killers = $mutant->killers();
-
-            if ($mutant->status() !== MutantStatus::Killed || count($killers) === 0) {
-                continue;
+            if ($mutant->status() === MutantStatus::Killed && count($mutant->killers()) > 0) {
+                $kills[$mutant->id()->key()] = self::ownOf($mutant, $evidence, $map, $run, $bounds);
             }
-
-            $file = $mutant->location()->file();
-            $kills[$mutant->id()->key()] = Control::standard($file, $killers, $map, $bounds);
-            $byFile[$file->value()] = array_key_exists($file->value(), $byFile)
-                ? $byFile[$file->value()]->and($killers)
-                : $killers;
         }
 
-        $files = [];
-
-        foreach ($kills as $key => $own) {
-            $file = $own->file();
-            $files[$key] = Control::standard($file, $byFile[$file->value()], $map, $bounds);
-        }
-
-        return new self($files, $kills);
+        return new self(self::forFiles($kills, $map, $bounds), $kills);
     }
 
     /** The control of each file, every test that killed one of its mutants at once, each asked for once. */
@@ -140,6 +135,49 @@ final readonly class KillControls implements ControlJudge
     {
         return KillReasons::of(self::FAILS_UNMUTATED, self::OUT_OF_MEMORY, self::RAN_OUT, self::UNRUN)
             ->judged($mutant, $run, $control->tests());
+    }
+
+    /** A kill's own control: its killers, or as its run selected them where that run left its filter out. */
+    private static function ownOf(
+        Mutant $mutant,
+        Evidences $evidence,
+        CoverageMap $map,
+        RunSelection $run,
+        LimitBounds $bounds,
+    ): Control {
+        $killers = $mutant->killers();
+        $unfiltered = $evidence->of($mutant->id())->unfiltered();
+        $tests = $unfiltered instanceof NotGiven ? $killers : $run->of($killers, $map, $unfiltered);
+
+        return Control::standard($mutant->location()->file(), $tests, $map, $bounds);
+    }
+
+    /**
+     * What vouches for each kill at once: every killer of its file's kills
+     * chosen by their tests alone, and a kill selected otherwise by itself.
+     *
+     * @param  array<string, Control> $kills by the mutant's gate id
+     * @return array<string, Control>
+     */
+    private static function forFiles(array $kills, CoverageMap $map, LimitBounds $bounds): array
+    {
+        $byFile = [];
+
+        foreach ($kills as $own) {
+            $named = $own->file()->value();
+            $known = array_key_exists($named, $byFile) ? $byFile[$named] : TestIds::none();
+            $byFile[$named] = $own->selected() instanceof NotGiven ? $known->and($own->tests()) : $known;
+        }
+
+        $files = [];
+
+        foreach ($kills as $key => $own) {
+            $files[$key] = $own->selected() instanceof NotGiven
+                ? Control::standard($own->file(), $byFile[$own->file()->value()], $map, $bounds)
+                : $own;
+        }
+
+        return $files;
     }
 
 }

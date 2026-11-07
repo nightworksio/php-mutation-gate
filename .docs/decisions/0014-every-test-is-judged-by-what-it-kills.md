@@ -448,7 +448,12 @@ running it: why is this mutant here, and has it always been?
       every test they depend on through PHPUnit's `#[Depends]` attributes
       (PHPUnit skips a test whose dependency did not run before it), run with its file served unmutated by the means the
       runner serves a mutant's file, under the request's memory cap, allowed the
-      standard mutant limit of their time as the coverage map timed them. Two
+      standard mutant limit of their time as the coverage map timed them, up to
+      `timeouts.controlMost`, unless set 900 s or `timeouts.most` where that is
+      longer, rather than `timeouts.most`:
+      a kill whose own run left its filter out is controlled by every test of
+      the files that run loaded, which can take far longer than the tests that
+      failed fast on the mutant. Two
       kills of the same file and killers share it, as does a timeout's
       control of the same tests and limit. ADR-0033 first controls a file's kills
       together, and controls each on its own only where that does not pass.

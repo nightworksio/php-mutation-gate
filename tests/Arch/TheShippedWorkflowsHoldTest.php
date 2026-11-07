@@ -162,7 +162,7 @@ it('hands the install credentials to the steps that install the project\'s depen
     $shard = jobSteps($jobs['shard']);
     $action = $shard[WorkflowFile::stepsWhere($jobs['shard']->field('steps'), 'uses', static fn(string $uses): bool => str_starts_with($uses, './'))[0]];
 
-    expect(array_column($installing, 0))->toBe(['plan', 'survivors', 'verdict'])
+    expect(array_column($installing, 0))->toBe(['plan', 'survivors', 'survivors-report', 'verdict'])
         ->and(array_map(static fn(array $one): array => array_map(Lenient::text(...), $one[1]), $installing))
         ->each->toBe([INSTALL_CREDENTIALS => sprintf('${{ secrets.%s }}', INSTALL_CREDENTIALS)])
         ->and(Lenient::text($action->field('with')->field('composer-auth')))->toBe(sprintf('${{ secrets.%s }}', INSTALL_CREDENTIALS));

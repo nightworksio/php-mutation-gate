@@ -78,6 +78,8 @@ use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
 
 use const PHP_BINARY;
 
+use Psr\Clock\ClockInterface;
+
 /**
  * A project the flows run over, and the adapters they run through: the fake
  * runner's library in `src`, one tree over it held to a floor of 50, a
@@ -106,11 +108,17 @@ final readonly class Flows
     /** The gate's setup, with no config file, at the instant every test runs at. */
     public static function setup(): Setup
     {
+        return self::setupAt(new StoppedClock(Configs::NOW));
+    }
+
+    /** The gate's setup, with no config file, on this clock. */
+    public static function setupAt(ClockInterface $clock): Setup
+    {
         return new Setup(
             Absent::setting(),
             Version::of('nightworksio/mutation-gate', '1.0.0', 'gate'),
             Digest::sha256Of('installed'),
-            new StoppedClock(Configs::NOW),
+            $clock,
             new PeakMemoryFake(NotGiven::value()),
             DecidingConfig::unread(),
             GateCommand::installed(),

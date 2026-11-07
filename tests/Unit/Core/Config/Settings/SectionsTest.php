@@ -234,6 +234,8 @@ describe('Settings sections', function (): void {
             ->toContain('StaticCheck::seconds(45)')
             ->toContain('StaticCheck::beforeTests()')
             ->toContain('Survivors::firstAtMost(5)')
+            ->toContain("Survivors::firstWithin('45m')")
+            ->toContain('Survivors::firstAcross(6)')
             ->toContain("Tests::suites('Unit', 'Plugins')")
             ->toContain("Tests::holding('Process')");
     });

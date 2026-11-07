@@ -31,6 +31,18 @@ it('says how many still survive, how many were killed and how many are gone, the
     ]);
 });
 
+it('counts only the survivors it reached as re-checked, and says how many it had no time for and which', function (): void {
+    $reached = Rechecks::judged('src/Money.php:1', MutantJudgement::Survived);
+    $late = Rechecks::judged('src/Price.php:9', MutantJudgement::Survived);
+
+    expect(RecheckedText::lines(Rechecked::of(Uncovered::Count, Recheck::found($reached, $reached), Recheck::unreached($late), Recheck::unreached($late))))->toBe([
+        'Survivors re-checked: 1 of 1 still survives. 2 not re-checked: no job ran their files within its budget.',
+        sprintf('  still survives: src/Money.php:1, Plus, %s', $reached->mutant()->id()->value()),
+        sprintf('  not re-checked: src/Price.php:9, Plus, %s', $late->mutant()->id()->value()),
+        sprintf('  not re-checked: src/Price.php:9, Plus, %s', $late->mutant()->id()->value()),
+    ]);
+});
+
 it('counts many survivors in the plural, and leaves out a count of none', function (): void {
     $first = Rechecks::judged('src/Money.php:1', MutantJudgement::Survived);
     $second = Rechecks::judged('src/Money.php:2', MutantJudgement::Uncovered);

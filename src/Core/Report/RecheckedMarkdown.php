@@ -17,9 +17,10 @@ use function sprintf;
 
 /**
  * The PR comment while the last run's survivors are re-checked, between its
- * planned state and the verdict (ADR-0020): how many still
- * survive, each that does with its diff, hint and reproduce command, and
- * each the run made no mutant for again, each list as long as the verdict's.
+ * planned state and the verdict (ADR-0020, ADR-0106): how many still
+ * survive, each that does with its diff, hint and reproduce command, each
+ * the run made no mutant for again, and each no job reached, each list as
+ * long as the verdict's.
  *
  * @internal
  */
@@ -29,11 +30,14 @@ final readonly class RecheckedMarkdown
 
     private const string GONE = '### Gone (%d)';
 
+    private const string UNREACHED = '### Not re-checked (%d)';
+
     /** The comment, with its marker, and a link to the run where there is one. */
     public static function comment(Rechecked $rechecked, string $run): string
     {
         $surviving = $rechecked->surviving();
         $gone = $rechecked->gone();
+        $unreached = $rechecked->unreached();
         $blocks = [
             Markdown::MARKER,
             '## mutation-gate: survivors re-checked',
@@ -46,7 +50,8 @@ final readonly class RecheckedMarkdown
                     $rechecked->gate(),
                 ),
             ],
-            ...$gone === [] ? [] : [sprintf(self::GONE, count($gone)), self::gone($gone)],
+            ...$gone === [] ? [] : [sprintf(self::GONE, count($gone)), self::listed($gone)],
+            ...$unreached === [] ? [] : [sprintf(self::UNREACHED, count($unreached)), self::listed($unreached)],
             $run === '' ? '' : sprintf(PlannedMarkdown::RUN, $run),
         ];
 
@@ -54,11 +59,11 @@ final readonly class RecheckedMarkdown
     }
 
     /**
-     * The survivors made again by no mutant, one line each: place, mutator and id.
+     * Survivors as the last run left them, one line each: place, mutator and id.
      *
      * @param list<JudgedMutant> $gone
      */
-    private static function gone(array $gone): string
+    private static function listed(array $gone): string
     {
         $lines = [];
 

@@ -28,6 +28,21 @@ it('writes the comment between planned and the verdict: how many still survive, 
     ]));
 });
 
+it('lists after those gone the survivors no job reached', function (): void {
+    $gone = Rechecks::judged('src/Cart.php:4', MutantJudgement::Survived);
+    $late = Rechecks::judged('src/Price.php:9', MutantJudgement::Survived);
+
+    expect(RecheckedMarkdown::comment(Rechecked::of(Uncovered::Count, Recheck::unreached($late), Recheck::gone($gone)), ''))->toBe(implode("\n\n", [
+        Markdown::MARKER,
+        '## mutation-gate: survivors re-checked',
+        'Survivors re-checked: 0 of 1 still survive. 1 gone: the run made no mutant with their id again. 1 not re-checked: no job ran their files within its budget.',
+        '### Gone (1)',
+        sprintf('- <code>src/Cart.php:4</code> Plus <code>%s</code>', $gone->mutant()->id()->value()),
+        '### Not re-checked (1)',
+        sprintf("- <code>src/Price.php:9</code> Plus <code>%s</code>\n", $late->mutant()->id()->value()),
+    ]));
+});
+
 it('leaves out the lists it has nothing for, and the run where there is none', function (): void {
     $killed = Rechecks::judged('src/Price.php:9', MutantJudgement::Survived);
     $rechecked = Rechecked::of(Uncovered::Count, Recheck::found($killed, Rechecks::judged('src/Price.php:9', MutantJudgement::Killed)));
