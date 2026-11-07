@@ -109,7 +109,8 @@ it('says why it cannot listen where it cannot move the socket into place, leavin
     expect($unplaced instanceof CannotJudge ? $unplaced->why() : '')
         ->toStartWith('The daemon could not listen on .mutation-gate/serve.sock: rename(')
         ->and(file_exists(sprintf('%s.binding-%d', ServedProjects::SOCKET, getmypid())))->toBeFalse()
-        ->and(error_get_last())->toBeNull();
+        ->and(error_get_last())->toBeNull()
+        ->and(Listener::boundTo(sprintf('%s.binding-%d', ServedProjects::SOCKET, getmypid())))->toBeInstanceOf(Listener::class);
 });
 
 it('connects to nothing where nothing listens, and binds nothing where the directory is missing', function (): void {
@@ -239,6 +240,7 @@ it('makes a missing directory with the ones above it, and raises no warning wher
     expect([$made, $blocked, is_dir('deep/er/inner')])->toBe([true, false, true])
         ->and($unbound instanceof CannotJudge ? $unbound->why() : '')
         ->toMatch('/^The daemon could not listen on missing\/serve\.sock: stream_socket_server\(\): \S/')
+        ->and($unbound instanceof CannotJudge ? $unbound->why() : 'rename(')->not->toContain('rename(')
         ->and(umask($mask))->toBe(0o002)
         ->and($accepted)->toBe([])
         ->and($waited)->toBeLessThan(0.5)

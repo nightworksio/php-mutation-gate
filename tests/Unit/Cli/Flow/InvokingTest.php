@@ -120,8 +120,9 @@ it('runs only the controls that fit in the time left, at the longest limit among
     'none, the longer not fitting' => [2.0, 20.0, []],
 ]);
 
-it('allows a kill\'s control the standard limit of its killers\' time up to timeouts.controlMost, past timeouts.most', function (): void {
-    $killed = invokedMutant('src/Money.php', 'a', MutantStatus::Killed)->killedBy(TestIds::of(TestId::of('MoneyTest::runs')));
+it('allows a kill\'s control, named or not, the standard limit of its tests\' time up to timeouts.controlMost, past timeouts.most', function (bool $named): void {
+    $killed = invokedMutant('src/Money.php', 'a', MutantStatus::Killed);
+    $killed = $named ? $killed->killedBy(TestIds::of(TestId::of('MoneyTest::runs'))) : $killed;
     $map = CoverageMap::empty()
         ->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::runs'))
         ->timed(TestId::of('MoneyTest::runs'), Seconds::of(150.0));
@@ -135,4 +136,4 @@ it('allows a kill\'s control the standard limit of its killers\' time up to time
     }
 
     expect(max([0.0, ...$limits]))->toBeGreaterThan(300.0)->toBeLessThanOrEqual(900.0);
-});
+})->with(['named' => [true], 'unnamed' => [false]]);

@@ -83,13 +83,13 @@ final readonly class Listener
 
         try {
             $stream = stream_socket_server(sprintf(Connection::SCHEME, $aside));
-            $placed = is_resource($stream) && rename($aside, $path);
+            $placed = is_resource($stream) && rename($aside, $path) ? $stream : false;
         } finally {
             restore_error_handler();
             umask($mask);
         }
 
-        return $placed && is_resource($stream) ? new self($stream) : self::unplaced($stream, $aside, $why);
+        return is_resource($placed) ? new self($placed) : self::unplaced($aside, $why);
     }
 
     /**
@@ -175,18 +175,9 @@ final readonly class Listener
         return [count($connections) < count($ready), $connections];
     }
 
-    /**
-     * Why the socket does not listen at its path, the socket bound aside
-     * closed and its file removed.
-     *
-     * @param resource|false $stream
-     */
-    private static function unplaced(mixed $stream, string $aside, string $why): CannotJudge
+    /** Why the socket does not listen at its path, the file of the socket bound aside removed. */
+    private static function unplaced(string $aside, string $why): CannotJudge
     {
-        if (is_resource($stream)) {
-            fclose($stream);
-        }
-
         if (file_exists($aside)) {
             unlink($aside);
         }
