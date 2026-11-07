@@ -28,9 +28,10 @@ use function sprintf;
  * wall time, as `shards.target` asks (ADR-0013), the count is the
  * smallest whose shards each fit their overhead, the opening run and
  * `shards.setup`, and their share of the cost into the target, and the cut
- * within it is by size. Either way, no package is cut into shards whose
- * share of its cost is below `shards.cutAt` times their overhead, twice by
- * default (ADR-0013).
+ * within it is by size. Either way, no shard is cut past the limit its job
+ * has, `shards.jobLimit`, while `shards.max` leaves room, and no package is
+ * cut into shards whose share of its cost is below `shards.cutAt` times
+ * their overhead, twice by default (ADR-0013, ADR-0114).
  * Exactly, as `--shards=<n>` asks, there are n shards,
  * and those the units do not fill are empty and say so. Packages never share a shard, because a shard runs in
  * one package's directory; floors may, because the verdict adds up each
@@ -54,6 +55,7 @@ final readonly class Cut
         private Seconds|Absent $target,
         private Seconds $overhead,
         private float $workPerOverhead = self::WORK_PER_OVERHEAD,
+        private Seconds|Absent $jobLimit = new Absent(),
     ) {
     }
 
@@ -80,13 +82,45 @@ final readonly class Cut
     {
         return $this->exact
             ? $this
-            : new self($this->size, $most, $this->exact, $this->target, $this->overhead, $this->workPerOverhead);
+            : new self(
+                $this->size,
+                $most,
+                $this->exact,
+                $this->target,
+                $this->overhead,
+                $this->workPerOverhead,
+                $this->jobLimit,
+            );
     }
 
     /** This cut, making no shard whose share of the cost is below this many times its overhead: `shards.cutAt`. */
     public function cuttingAt(float $times): self
     {
-        return new self($this->size, $this->most, $this->exact, $this->target, $this->overhead, $times);
+        return new self(
+            $this->size,
+            $this->most,
+            $this->exact,
+            $this->target,
+            $this->overhead,
+            $times,
+            $this->jobLimit,
+        );
+    }
+
+    /** This cut, its shards no longer than this while the most there may be leaves room; a count asked for as asked. */
+    public function withinJobLimit(Seconds $limit): self
+    {
+        return $this->exact
+            ? $this
+            : new self(
+                $this->size,
+                $this->most,
+                $this->exact,
+                $this->target,
+                $this->overhead,
+                $this->workPerOverhead,
+                $limit,
+            );
     }
 
     /** This cut, where each shard's runner first spends this long on its opening run. */
@@ -99,6 +133,7 @@ final readonly class Cut
             $this->target,
             Seconds::of($this->overhead->seconds() + $run->seconds()),
             $this->workPerOverhead,
+            $this->jobLimit,
         );
     }
 
@@ -141,6 +176,7 @@ final readonly class Cut
             $this->target instanceof Seconds => $this->sizeToFit($this->target, $this->costOf($packages)),
             default => $this->costOf($packages) / $this->most,
         };
+        $size = $this->withinTheLimit($size);
         $counts = $this->countsAt($packages, $size);
 
         while (array_sum($counts) > max($this->most, count($packages))) {
@@ -149,6 +185,14 @@ final readonly class Cut
         }
 
         return $this->exact ? $counts : $this->worthCutting($packages, $counts);
+    }
+
+    /** This size, no more than a shard's job can spend on its share of the cost once its overhead is paid. */
+    private function withinTheLimit(float $size): float
+    {
+        $room = $this->jobLimit instanceof Seconds ? $this->jobLimit->seconds() - $this->overhead->seconds() : 0.0;
+
+        return $room > 0.0 ? min($size, $room) : $size;
     }
 
     /**

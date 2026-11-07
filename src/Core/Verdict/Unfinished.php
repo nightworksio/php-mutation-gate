@@ -21,8 +21,8 @@ use function sprintf;
 final readonly class Unfinished
 {
     private const string SAID = <<<'SAID'
-        The time budget left %2$d of the mutants of %1$s unjudged, so this run cannot pass it.
-        More time judges them: %3$s
+        The run's time left %2$d of the mutants of %1$s unjudged, so this run cannot pass it.
+        More time judges them: %3$s, or a higher shards.jobLimit where a shard stopped at it.
         SAID;
 
     /** Why each unit with a mutant a time budget left unjudged fails the verdict. */

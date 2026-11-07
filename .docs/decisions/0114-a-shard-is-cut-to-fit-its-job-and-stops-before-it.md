@@ -1,0 +1,46 @@
+# ADR-0114: A shard is cut to fit its job, and stops before it
+
+**Status:** Accepted
+**Date:** 2026-11-07
+**Amends:** [0006](0006-shards-are-cut-by-learned-cost-and-planned-once.md): how a package's units are cut; [0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): what bounds a shard
+
+## Context
+
+A hosted GitHub Actions job is cancelled at 360 minutes, and a cancelled shard
+leaves no result, so everything it judged is lost. Three things let a shard get
+there:
+
+- The cut filled every run up to the costliest unit's cost, so one unit's
+  estimate sized every shard of its package, and fewer shards were cut than
+  `shards.max` allows. `shards.seconds`, `shards.target` and `--shards` all
+  reach the cut through that bound.
+- A plan expected past a job's limit printed the figure and nothing else.
+- A shard had no deadline unless `budget` set one.
+
+## Decision
+
+1. **A unit bounds its own run alone.** A unit that costs more than the bound
+   takes a run by itself, and the bound falls until the units fill the count
+   asked for. The costliest run costs what it did, and the other shards share
+   the rest evenly. A unit that costs nothing starts no run.
+2. **`shards.jobLimit` says how long a shard's job can run**, `5h40m` unless
+   given, under a hosted job's 360 minutes by the time a job needs to set up
+   and to keep what it judged.
+3. **The cut keeps each shard inside the limit** while `shards.max` leaves
+   room. A count asked for with `--shards` is cut as asked.
+4. **The plan says where the longest shard cannot fit**, with what to change.
+5. **A CI shard stops at the limit**, or at `budget` where that comes first.
+   The runner stops as it does at a budget: the shard keeps what it judged, what
+   it left is unjudged, and the verdict cannot pass on it. Each unit it finished
+   keeps its proof, so the next run does not run it again.
+6. **The limit turns no unit away on its estimate.** A budget starts nothing its
+   estimate says will not fit; the limit starts every unit and stops the runner,
+   because an estimate can be far past what the unit takes.
+
+## Consequences
+
+- A shard runs under a deadline even where no budget is set, and runs its units
+  as it does with none, in one invocation.
+- A run on one machine, with no shard named, has no such deadline: it has no
+  job to outlive.
+- A CI whose jobs are cancelled sooner sets `shards.jobLimit` below that.

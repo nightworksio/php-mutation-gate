@@ -858,6 +858,10 @@
                     "type": "number",
                     "minimum": 0,
                     "default": 2.0
+                },
+                "jobLimit": {
+                    "type": "string",
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
                 }
             },
             "additionalProperties": false,
@@ -5134,6 +5138,10 @@
                         "cutAt": {
                             "type": "number",
                             "minimum": 0
+                        },
+                        "jobLimit": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
                         }
                     },
                     "additionalProperties": false,

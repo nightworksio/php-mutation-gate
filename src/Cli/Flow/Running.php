@@ -121,7 +121,7 @@ final readonly class Running
         $result = match (true) {
             $followed instanceof CannotJudge => $followed,
             $id instanceof CannotJudge => $id,
-            default => $this->resultOf($followed, $id, $this->deadline()),
+            default => $this->resultOf($followed, $id, ShardDeadline::of($this->settings, $this->setup->clock->now())),
         };
 
         return ShardLeft::after($result, $this->written($result, $results));
@@ -236,7 +236,8 @@ final readonly class Running
      * unit but the held ones whose holding tests miss lines of them; or the
      * first cannot judge. A shard handed no map cannot judge at all. Under a
      * budget the units run in batches that fit the time left, and those the
-     * time ran out before are unjudged. A shard that stops once its run
+     * time ran out before are unjudged; a shard's job limit starts every unit
+     * and stops the runner (ADR-0114). A shard that stops once its run
      * cannot pass runs in chunks, and the units after the chunk that doomed
      * it are unjudged too, and static analysis checks each chunk's survivors
      * before its doom is judged. Each kill with no evidence is unjudged
@@ -330,7 +331,15 @@ final readonly class Running
         );
         $doom = new Dooming($this->adapters, $this->settings, $this->setup)->of($plan);
         $stops = $this->settings->reach()->failingFast()->mode()->stops();
-        $batched = new Batched($invoking, $this->setup->clock, $deadline, $this->interruption, $doom, $stops);
+        $batched = new Batched(
+            $invoking,
+            $this->setup->clock,
+            $deadline,
+            ShardDeadline::fittedTo($this->settings, $deadline),
+            $this->interruption,
+            $doom,
+            $stops,
+        );
         $batching = Batching::opening($map->suiteDuration());
         $pruned = $plan->considered()->pruned();
         $requestFor = fn(Units $units): MutationRequest => $this->requestFor(
@@ -346,8 +355,9 @@ final readonly class Running
                 $batching->inChunksOf($this->settings->shards()->planning()->chunk()),
                 $requestFor,
             ),
-            $deadline instanceof Deadline => $batched->spent($this->weighed($kept, $plan), $batching, $requestFor),
-            default => new Unbatched($invoking, $this->setup->clock, $doom)->spent($kept, $requestFor),
+            $this->settings->triage()->budget() instanceof Seconds
+                => $batched->spent($this->weighed($kept, $plan), $batching, $requestFor),
+            default => new Unbatched($invoking, $this->setup->clock, $doom, $deadline)->spent($kept, $requestFor),
         };
 
         if ($spent instanceof CannotJudge) {

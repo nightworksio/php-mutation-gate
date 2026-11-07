@@ -29,6 +29,9 @@ final readonly class Shards implements Part
     /** The minutes each shard's CI setup takes before the gate starts, where the config does not say. */
     private const int SETUP_MINUTES = 1;
 
+    /** The minutes a shard is cut to fit and stops at, where the config does not say: under a hosted job's 360. */
+    private const int JOB_LIMIT_MINUTES = 340;
+
     private function __construct(
         private Seconds|Absent $seconds,
         private int|Learned|Absent $max,
@@ -37,6 +40,7 @@ final readonly class Shards implements Part
         private Costs $costs,
         private LearnedStatistic|Absent $learnedFrom,
         private Planning $planning,
+        private Seconds|Absent $jobLimit,
     ) {
     }
 
@@ -57,6 +61,7 @@ final readonly class Shards implements Part
         Seconds|Absent $savingsWindow = new Absent(),
         Choice|Absent $costModel = new Absent(),
         Planning|Absent $planning = new Absent(),
+        Seconds|Absent $jobLimit = new Absent(),
     ): self {
         return new self(
             $seconds,
@@ -66,6 +71,7 @@ final readonly class Shards implements Part
             Costs::of($secondsPerLine, $perRunnerMinute, $savingsWindow, $costModel),
             $learnedFrom,
             $planning instanceof Planning ? $planning : Planning::of(),
+            $jobLimit,
         );
     }
 
@@ -86,6 +92,7 @@ final readonly class Shards implements Part
             Costs::standard(),
             LearnedStatistic::Max,
             Planning::standard(),
+            $none->jobLimit(),
         );
     }
 
@@ -110,6 +117,7 @@ final readonly class Shards implements Part
             $this->costs->over($later->costs),
             Absent::laid($this->learnedFrom, $later->learnedFrom),
             $this->planning->over($later->planning),
+            Absent::laid($this->jobLimit, $later->jobLimit),
         );
     }
 
@@ -148,6 +156,12 @@ final readonly class Shards implements Part
     public function planning(): Planning
     {
         return $this->planning;
+    }
+
+    /** `shards.jobLimit`: how long a shard's job can run: it is cut to fit it, and stops at it with what it judged. */
+    public function jobLimit(): Seconds
+    {
+        return $this->jobLimit instanceof Seconds ? $this->jobLimit : Seconds::minutes(self::JOB_LIMIT_MINUTES);
     }
 
     /** `shards.target`: the wall time the count is cut to fit, in place of `shards.seconds` (ADR-0013). */

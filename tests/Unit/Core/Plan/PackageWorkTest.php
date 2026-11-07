@@ -65,6 +65,20 @@ it('cuts no more runs than asked, leaves none empty, and gives a unit costlier t
         ->and(pathsOfRuns($work->runs(9)))->toBe([['A'], ['B'], ['C', 'D']]);
 });
 
+it('lets one unit\'s cost bound its own run alone, so a bad estimate leaves the others their even share', function () use ($weighed): void {
+    $work = PackageWork::of(
+        $weighed('A', 1000.0),
+        $weighed('B', 1000.0),
+        $weighed('C', 28949.0),
+        $weighed('D', 1000.0),
+        $weighed('E', 1000.0),
+    );
+    $costs = array_map(static fn(Run $run): float => $run->cost()->seconds(), $work->runs(4));
+
+    expect(pathsOfRuns($work->runs(5)))->toBe([['A'], ['B'], ['C'], ['D'], ['E']])
+        ->and($costs)->toBe([2000.0, 28949.0, 2000.0]);
+});
+
 it('cuts units of 900, 900, 100, 900 and 100 seconds into three runs, the costliest 1000 seconds', function () use ($weighed): void {
     $work = PackageWork::of($weighed('A', 900.0), $weighed('B', 900.0), $weighed('C', 100.0), $weighed('D', 900.0), $weighed('E', 100.0));
     $costs = array_map(static fn(Run $run): float => $run->cost()->seconds(), $work->runs(3));

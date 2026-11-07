@@ -89,6 +89,7 @@ enum VerdictSet
             ],
             self::Running => [
                 'src/Cli/Flow/Running.php',
+                'src/Cli/Flow/ShardDeadline.php',
                 'src/Cli/Flow/PartitionedRuns.php',
                 'src/Cli/Flow/PathGroup.php',
                 'src/Cli/Flow/PathGroups.php',

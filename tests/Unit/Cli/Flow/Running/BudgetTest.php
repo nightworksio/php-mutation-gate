@@ -10,8 +10,10 @@ use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Budget;
+use NightWorksIO\MutationGate\Config\Shards as ConfiguredShards;
 use NightWorksIO\MutationGate\Config\Tests;
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTime;
@@ -39,6 +41,7 @@ use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
@@ -245,6 +248,42 @@ it('starts nothing a budget has no room for, and leaves every unit unjudged', fu
     expect($runner->requests())->toBe([])
         ->and($unjudged($result))->toBe(['src/Money.php', 'src/Held.php'])
         ->and($statuses($result))->toBe([]);
+});
+
+it('asks the runner to stop a shard named at shards.jobLimit, or a budget that comes first, starting a unit whatever its estimate', function (Settings $settings, float $seconds): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture();
+
+    new Running(Flows::adapters($project, [], $runner), $settings, Flows::setup())
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+
+    expect($runner->requests()[0]->deadline())->toEqual(Seconds::of($seconds));
+})->with([
+    'the limit' => [fn(): Settings => Flows::settings(ConfiguredShards::jobLimit('1h')), 3600.0],
+    'the limit before a later budget' => [fn(): Settings => Flows::settings(ConfiguredShards::jobLimit('1h'), Budget::of('2h')), 3600.0],
+    'a limit with no room for its first unit' => [fn(): Settings => Flows::settings(ConfiguredShards::jobLimit('1s')), 1.0],
+    'the default' => [fn(): Settings => Flows::settings(), 20400.0],
+]);
+
+it('leaves what a runner that could not judge had left, past shards.jobLimit, and cannot judge one before it', function (string $limit, bool $judged): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture()->refusing('The runner stopped.');
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(ConfiguredShards::jobLimit($limit)), RunningCases::tickingBy(60))
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+    $result = RunningCases::resultIn($project, 1);
+
+    expect($result instanceof ShardResult && $result->outcome() instanceof MutationResult)->toBe($judged);
+})->with([
+    'past it' => ['1s', true],
+    'before it' => ['5h', false],
+]);
+
+it('sets a run with no shard named no deadline from shards.jobLimit', function (): void {
+    $project = Flows::project();
+    $running = new Running(Flows::adapters($project, [], ScriptedRunner::fixture()), Flows::settings(ConfiguredShards::jobLimit('1s')), Flows::setup());
+
+    expect($running->deadline())->toBeInstanceOf(Unlimited::class);
 });
 
 it('stops before the batch after the one an interruption arrived in, leaving the units no batch took unjudged', function () use (

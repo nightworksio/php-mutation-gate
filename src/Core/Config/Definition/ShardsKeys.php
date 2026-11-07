@@ -35,6 +35,7 @@ final readonly class ShardsKeys
         $target = Field::optional('target', Duration::written(), $judges);
         $setup = Field::optional('setup', Duration::written(), $judges);
         $cutAt = Field::optional('cutAt', Number::atLeast(0), $judges);
+        $jobLimit = Field::optional('jobLimit', Duration::written(), $judges);
         $perLine = Field::optional(SecondsPerLine::KEY, NumberMap::byPrefix(Number::atLeast(0), $origin), $judges);
         $perMinute = Field::optional('perRunnerMinute', self::price(), $judges);
         $window = Field::optional(SavingsWindow::KEY, Duration::written(), $judges);
@@ -51,6 +52,7 @@ final readonly class ShardsKeys
                         $target,
                         $setup,
                         $cutAt,
+                        $jobLimit,
                     ): Layer|Invalid {
                         $cut = $seconds->read($shards);
                         $most = $max->read($shards);
@@ -58,6 +60,7 @@ final readonly class ShardsKeys
                         $fit = $target->read($shards);
                         $before = $setup->read($shards);
                         $cuts = $cutAt->read($shards);
+                        $limit = $jobLimit->read($shards);
 
                         return Reading::built(
                             static fn(): Layer => Layer::of(Shards::of(
@@ -67,6 +70,7 @@ final readonly class ShardsKeys
                                 setup: $before->value(),
                                 learnedFrom: $statistic->value(),
                                 planning: Planning::of(cutAt: $cuts->value()),
+                                jobLimit: $limit->value(),
                             )),
                             $cut,
                             $most,
@@ -74,6 +78,7 @@ final readonly class ShardsKeys
                             $fit,
                             $before,
                             $cuts,
+                            $limit,
                         );
                     },
                     $seconds,
@@ -82,6 +87,7 @@ final readonly class ShardsKeys
                     $target,
                     $setup,
                     $cutAt,
+                    $jobLimit,
                 )->atMostOne(['seconds', 'target']),
             ),
             Field::section('plan', self::plan()),

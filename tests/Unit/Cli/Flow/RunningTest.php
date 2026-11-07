@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\Shards as ConfiguredShards;
 use NightWorksIO\MutationGate\Core\Control\ControlRun;
 use NightWorksIO\MutationGate\Core\Control\UnnamedKillControls;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -119,11 +120,11 @@ it('runs the shard it is named, on the commit its plan was made on, and leaves i
         ->toEqual(Keys::none()->with(Path::of('src/Money.php'), Digest::sha256Of('money')))
         ->and($statuses($result))
         ->toBe(['Plus-11 killed', 'GreaterThan-16 survived', 'Minus-21 uncovered', 'Decrement-27 timed-out'])
-        ->and($result instanceof ShardResult ? $result->measured()->spent() : $result)->toEqual(Seconds::of(33.0))
+        ->and($result instanceof ShardResult ? $result->measured()->spent() : $result)->toEqual(Seconds::of(48.0))
         ->and($result instanceof ShardResult ? $result->measured()->runner() : $result)->toBe('fake')
         ->and($result instanceof ShardResult ? $result->measured()->gate() : $result)->toEqual(GateRelease::of(Flows::setup()->gate))
         ->and($result instanceof ShardResult ? $result->measured()->at() : $result)
-        ->toEqual(Moment::at('2026-09-30T12:00:33Z'))
+        ->toEqual(Moment::at('2026-09-30T12:00:51Z'))
         ->and(is_file(sprintf('%s/.mutation-gate/results/2.json', $project)))->toBeFalse();
 });
 
@@ -467,8 +468,8 @@ it('runs survivors again within what the budget has left, not what the invocatio
     expect($again)->toHaveCount(2)
         ->and($again[0])->toBeLessThan($first)->toBeGreaterThan(0.0)
         ->and($again[1])->toBeLessThan($again[0])
-        ->and(array_map(static fn(array $retry): Seconds|Unlimited => $retry[4]->deadline(), $unbudgeted->retries()))
-        ->toEqual([Unlimited::time(), Unlimited::time()]);
+        ->and(array_map(static fn(array $retry): bool => $retry[4]->deadline() instanceof Seconds && $retry[4]->deadline()->seconds() < ConfiguredShards::standard()->jobLimit()->seconds(), $unbudgeted->retries()))
+        ->toBe([true, true]);
 });
 
 it('runs survivors again with the most the config sets', function (): void {

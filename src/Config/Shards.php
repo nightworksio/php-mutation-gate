@@ -70,6 +70,12 @@ final readonly class Shards implements Setting
         return new self(Json::object(Member::of('shards', Json::object(Member::of('target', $duration)))));
     }
 
+    /** `shards.jobLimit`: how long a shard's job can run, such as `50m`: it is cut to fit it, and stops at it. */
+    public static function jobLimit(string $duration): self
+    {
+        return new self(Json::object(Member::of('shards', Json::object(Member::of('jobLimit', $duration)))));
+    }
+
     /** `costs.perRunnerMinute`: what a minute of a CI runner costs, such as `0.008` `USD`. */
     public static function perRunnerMinute(int|float $amount, string $currency): self
     {
