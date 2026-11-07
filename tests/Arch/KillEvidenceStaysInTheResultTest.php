@@ -40,6 +40,7 @@ const EVIDENCE_HOLDERS = [
     'src/Cli/Flow/Hidden.php',
     'src/Cli/Flow/Invoking.php',
     'src/Cli/Flow/Spent.php',
+    'src/Core/Control/KillControls.php',
     'src/Core/Control/UnnamedKillControls.php',
     'src/Core/Mutant/Ended.php',
     'src/Core/Mutant/Evidence.php',
