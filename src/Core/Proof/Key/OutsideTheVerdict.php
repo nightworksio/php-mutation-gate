@@ -122,6 +122,7 @@ final readonly class OutsideTheVerdict
             'src/Cli/Flow/Stopped.php',
             'src/Cli/Flow/Stopwatch.php',
             'src/Cli/Flow/StoredCoverage.php',
+            'src/Cli/Flow/ToldChildren.php',
             'src/Cli/Flow/Stubbing.php',
             'src/Cli/Flow/SuiteNames.php',
             'src/Cli/Flow/SupportPlaces.php',

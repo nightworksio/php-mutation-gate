@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Proof\Copies;
 use NightWorksIO\MutationGate\Core\Proof\EncodesLedgers;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
+use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Written;
@@ -46,6 +47,15 @@ final readonly class FetchedCopies implements EncodesLedgers, ProofStore
         return new self(
             $this->kept instanceof EncodesLedgers ? $this->kept->encoding($codec) : $this->kept,
             $this->fetched->encoding($codec),
+            $this->copies,
+        );
+    }
+
+    public function limitedTo(LedgerLimits $limits): static
+    {
+        return new self(
+            $this->kept instanceof EncodesLedgers ? $this->kept->limitedTo($limits) : $this->kept,
+            $this->fetched->limitedTo($limits),
             $this->copies,
         );
     }

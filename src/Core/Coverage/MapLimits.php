@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Coverage;
 
+use NightWorksIO\MutationGate\Core\Config\Retained;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 
@@ -19,10 +20,10 @@ use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 final readonly class MapLimits
 {
     /** Twice the 2,058,884 bytes that map measures gzipped. */
-    private const int PACKED = 4_200_000;
+    public const int PACKED = 4_200_000;
 
     /** Twice the 42,415,890 bytes it measures decompressed. */
-    private const int UNPACKED = 85_000_000;
+    public const int UNPACKED = 85_000_000;
 
     private function __construct(private int $packed, private int $unpacked)
     {
@@ -36,6 +37,12 @@ final readonly class MapLimits
     public static function of(int $packed, int $unpacked): self
     {
         return new self($packed, $unpacked);
+    }
+
+    /** What `proofs.limits.map` says. */
+    public static function kept(Retained $kept): self
+    {
+        return new self($kept->mapPacked(), $kept->mapUnpacked());
     }
 
     /** Whether a map written as this text, gzipped to these bytes, is one a store keeps. */

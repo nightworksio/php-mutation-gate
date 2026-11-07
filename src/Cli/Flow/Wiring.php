@@ -52,12 +52,10 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
+use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
-use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
-use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
@@ -71,9 +69,6 @@ use NightWorksIO\MutationGate\Port\StaticChecker;
 use NightWorksIO\MutationGate\Port\TreeSource;
 
 use const PHP_BINARY;
-
-use function putenv;
-use function sprintf;
 
 /**
  * The adapters the settings choose, built from the registry: the runner, the
@@ -98,20 +93,12 @@ final readonly class Wiring
 
     public function adapters(Settings $settings, Directory $project): Adapters|Invalid|CannotJudge
     {
-        $this->tellPoll($settings->runner()->poll());
+        ToldChildren::by($settings);
         $lookup = Lookup::in($this->extensions);
         $runner = BuiltinRunner::tryFrom($settings->runner()->choice()->use()->value());
         $mutators = EnabledMutators::in($lookup, $settings->mutators(), $runner ?? NotGiven::value());
 
         return $mutators instanceof EnabledMutators ? $this->built($settings, $project, $mutators) : $mutators;
-    }
-
-    /** Tells this process and those it starts to wait this long between looks; nothing where it is the standard. */
-    private function tellPoll(Seconds $poll): void
-    {
-        putenv($poll->seconds() === Polling::INTERVAL
-            ? ChildVariable::Poll->value
-            : sprintf('%s=%F', ChildVariable::Poll->value, $poll->seconds()));
     }
 
     private function built(
@@ -348,7 +335,8 @@ final readonly class Wiring
         $kept = $local ? LocalLedgers::over($configured, $project) : $configured;
 
         return FetchedCopies::over($kept, $proofs->copies(), $project)
-            ->encoding(LedgerCodec::of($proofs->compression(), $proofs->compressionLevel(), ZstdHere::found()));
+            ->encoding(LedgerCodec::of($proofs->compression(), $proofs->compressionLevel(), ZstdHere::found()))
+            ->limitedTo(LedgerLimits::kept($proofs->retained()));
     }
 
     /**

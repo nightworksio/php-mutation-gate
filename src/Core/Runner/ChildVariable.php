@@ -34,6 +34,12 @@ enum ChildVariable: string
     /** How long a run gets to start where nothing measured its start-up, `timeouts.startUp` (see StartUpVariable). */
     case UnmeasuredStartUp = 'MUTATION_GATE_UNMEASURED_START_UP';
 
+    /** The most compressed bytes of a handed coverage map, `proofs.limits.handoff.packed` (see HandoffLimits). */
+    case HandoffPacked = 'MUTATION_GATE_HANDOFF_PACKED';
+
+    /** The most decompressed bytes of a handed coverage map, `proofs.limits.handoff.unpacked` (see HandoffLimits). */
+    case HandoffUnpacked = 'MUTATION_GATE_HANDOFF_UNPACKED';
+
     /** How long to wait between looks at a process, `runner.poll`, where the config sets it (see Polling). */
     case Poll = 'MUTATION_GATE_POLL';
 

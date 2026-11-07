@@ -85,6 +85,11 @@ final readonly class LedgerDirectory implements Configurable, EncodesLedgers, Pr
         return new self($this->path, $this->limits, $codec);
     }
 
+    public function limitedTo(LedgerLimits $limits): static
+    {
+        return new self($this->path, $limits, $this->codec);
+    }
+
     public static function fromOptions(Options $options): self|Invalid
     {
         $path = $options->text(Key::of('path'));
@@ -160,8 +165,10 @@ final readonly class LedgerDirectory implements Configurable, EncodesLedgers, Pr
 
         $size = is_file($file->value()) ? filesize($file->value()) : null;
 
-        return is_int($size) && ! CompanionRead::limitsOf($companion)->admitsPacked($size)
-            ? CompanionRead::unread($companion, $file->value(), CompanionRead::limitsOf($companion)->pastPacked())
+        $limits = CompanionRead::limitsOf($companion, $this->limits);
+
+        return is_int($size) && ! $limits->admitsPacked($size)
+            ? CompanionRead::unread($companion, $file->value(), $limits->pastPacked())
             : $this->companionIn($file, $companion);
     }
 

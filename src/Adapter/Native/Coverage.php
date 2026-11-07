@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Native;
 
 use function file_exists;
 use function file_get_contents;
+use function getenv;
 use function ini_get;
 use function is_file;
 use function is_string;
@@ -23,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Native\Framework;
 use NightWorksIO\MutationGate\Core\Native\Shell;
 use NightWorksIO\MutationGate\Core\Native\TestTimes;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
 use NightWorksIO\MutationGate\Core\Runner\CoverageFailure;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
@@ -62,7 +64,11 @@ final readonly class Coverage
     private function handedOver(CoverageRead $request): CoverageMap|CannotJudge
     {
         $file = $this->project->absolute(CoverageMapFile::in($request->directory()));
-        $limits = HandoffLimits::under(ini_get('memory_limit'));
+        $limits = HandoffLimits::under(
+            ini_get('memory_limit'),
+            getenv(ChildVariable::HandoffPacked->value),
+            getenv(ChildVariable::HandoffUnpacked->value),
+        );
         $bytes = is_file($file) ? file_get_contents($file, length: $limits->readable()) : NotGiven::value();
 
         return is_string($bytes) ? CoverageMapFile::decode($bytes, $limits) : CoverageMapFile::missingAt($file);

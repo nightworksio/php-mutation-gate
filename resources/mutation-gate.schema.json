@@ -1463,6 +1463,94 @@
                     "minimum": 1,
                     "maximum": 19,
                     "default": 9
+                },
+                "keep": {
+                    "type": "object",
+                    "properties": {
+                        "killers": {
+                            "anyOf": [
+                                {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                {
+                                    "enum": [
+                                        "all"
+                                    ]
+                                }
+                            ],
+                            "default": "all"
+                        },
+                        "bases": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "default": 5
+                        },
+                        "proofs": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "default": 20000
+                        },
+                        "functions": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "default": 5000
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "limits": {
+                    "type": "object",
+                    "properties": {
+                        "ledger": {
+                            "type": "object",
+                            "properties": {
+                                "packed": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "default": 11000000
+                                },
+                                "unpacked": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "default": 38000000
+                                }
+                            },
+                            "additionalProperties": false
+                        },
+                        "map": {
+                            "type": "object",
+                            "properties": {
+                                "packed": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "default": 4200000
+                                },
+                                "unpacked": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "default": 85000000
+                                }
+                            },
+                            "additionalProperties": false
+                        },
+                        "handoff": {
+                            "type": "object",
+                            "properties": {
+                                "packed": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "default": 256000000
+                                },
+                                "unpacked": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                }
+                            },
+                            "additionalProperties": false
+                        }
+                    },
+                    "additionalProperties": false
                 }
             },
             "additionalProperties": false
@@ -4923,6 +5011,85 @@
                             "type": "integer",
                             "minimum": 1,
                             "maximum": 19
+                        },
+                        "keep": {
+                            "type": "object",
+                            "properties": {
+                                "killers": {
+                                    "anyOf": [
+                                        {
+                                            "type": "integer",
+                                            "minimum": 1
+                                        },
+                                        {
+                                            "enum": [
+                                                "all"
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "bases": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "proofs": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "functions": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                }
+                            },
+                            "additionalProperties": false
+                        },
+                        "limits": {
+                            "type": "object",
+                            "properties": {
+                                "ledger": {
+                                    "type": "object",
+                                    "properties": {
+                                        "packed": {
+                                            "type": "integer",
+                                            "minimum": 1
+                                        },
+                                        "unpacked": {
+                                            "type": "integer",
+                                            "minimum": 1
+                                        }
+                                    },
+                                    "additionalProperties": false
+                                },
+                                "map": {
+                                    "type": "object",
+                                    "properties": {
+                                        "packed": {
+                                            "type": "integer",
+                                            "minimum": 1
+                                        },
+                                        "unpacked": {
+                                            "type": "integer",
+                                            "minimum": 1
+                                        }
+                                    },
+                                    "additionalProperties": false
+                                },
+                                "handoff": {
+                                    "type": "object",
+                                    "properties": {
+                                        "packed": {
+                                            "type": "integer",
+                                            "minimum": 1
+                                        },
+                                        "unpacked": {
+                                            "type": "integer",
+                                            "minimum": 1
+                                        }
+                                    },
+                                    "additionalProperties": false
+                                }
+                            },
+                            "additionalProperties": false
                         }
                     },
                     "additionalProperties": false

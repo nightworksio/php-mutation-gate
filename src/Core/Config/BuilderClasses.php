@@ -55,6 +55,7 @@ final readonly class BuilderClasses
         'Pruning' => self::BUILDER,
         'Reach' => self::BUILDER,
         'Report' => self::BUILDER,
+        'Retention' => self::BUILDER,
         'Runner' => self::BUILDER,
         'Sampling' => self::BUILDER,
         'Shards' => self::BUILDER,

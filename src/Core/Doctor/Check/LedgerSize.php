@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Doctor\Check;
 
 use function implode;
 
+use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Doctor\Finding;
 use NightWorksIO\MutationGate\Core\Doctor\Findings;
 use NightWorksIO\MutationGate\Core\Doctor\KeptLedgers;
@@ -38,7 +39,10 @@ final readonly class LedgerSize
     public static function in(Observations $observed): Findings
     {
         $ledgers = $observed->ledgers();
-        $limits = LedgerLimits::standard();
+        $settings = $observed->settings();
+        $limits = $settings instanceof Settings
+            ? LedgerLimits::kept($settings->proofs()->retained())
+            : LedgerLimits::standard();
         $large = [];
 
         foreach ($ledgers instanceof KeptLedgers ? $ledgers : [] as $ledger) {

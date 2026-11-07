@@ -123,7 +123,7 @@ final readonly class ObjectLedger
         }
 
         $request = $store->reading($scope, LedgerObject::encoded($key), $token);
-        $fetched = $this->exchange->fetch($request, CompanionRead::limitsOf($companion), $at);
+        $fetched = $this->exchange->fetch($request, CompanionRead::limitsOf($companion, $this->limits), $at);
 
         return match (true) {
             is_string($fetched) => Contents::of($fetched),
@@ -150,7 +150,7 @@ final readonly class ObjectLedger
 
         $request = $store->writing($scope, LedgerObject::encoded($key), $token, $bytes->text());
 
-        return $this->exchange->put($request, CompanionRead::limitsOf($companion), $at);
+        return $this->exchange->put($request, CompanionRead::limitsOf($companion, $this->limits), $at);
     }
 
     /** Put an encoded ledger with this request, saying where it went and what it dropped, or why it did not. */

@@ -6,11 +6,15 @@ namespace NightWorksIO\MutationGate\Core\Proof;
 
 use function array_merge;
 use function array_slice;
+use function max;
 use function min;
 
+use NightWorksIO\MutationGate\Core\Config\Retained;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Order\Bound;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
+
+use const PHP_INT_MAX;
 
 use function usort;
 
@@ -20,23 +24,24 @@ use function usort;
  * bases its runs saw most recently, and of those, the newest, up to a cap
  * that bounds the file whatever the runs do. Its kill history keeps the
  * mutants those proofs hold, and of those and of its functions the ones that
- * most recently learned a killer, each up to a cap of its own.
+ * most recently learned a killer, up to `proofs.keep.killers` and
+ * `proofs.keep.functions`.
  *
  * @internal
  */
 final readonly class LedgerRetention
 {
     /** How many of the most recently seen bases keep their proofs. */
-    private const int BASES = 5;
+    public const int BASES = 5;
 
     /** How many proofs are kept at most, the newest. */
-    private const int PROOFS = 20_000;
-
-    /** How many mutants keep their killers at most, the ones that learned one most recently. */
-    private const int KILLED = 20_000;
+    public const int PROOFS = 20_000;
 
     /** How many functions keep their killers at most, the ones that learned one most recently. */
-    private const int FUNCTIONS = 5_000;
+    public const int FUNCTIONS = 5_000;
+
+    /** How many mutants keep their killers at most: the byte limits alone cap them. */
+    private const int KILLED = PHP_INT_MAX;
 
     /**
      * @param positive-int $killed
@@ -46,10 +51,16 @@ final readonly class LedgerRetention
     {
     }
 
-    /** The one retention every ledger is written with. */
+    /** What every ledger is written with where the config says nothing. */
     public static function standard(): self
     {
         return new self(self::BASES, self::PROOFS, self::KILLED, self::FUNCTIONS);
+    }
+
+    /** What `proofs.keep` says. */
+    public static function kept(Retained $kept): self
+    {
+        return new self($kept->bases(), $kept->proofs(), max(1, $kept->killers()), max(1, $kept->functions()));
     }
 
     /** This retention, keeping no more than so many proofs, the newest. */

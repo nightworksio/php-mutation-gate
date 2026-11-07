@@ -2,10 +2,15 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Local;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
+use NightWorksIO\MutationGate\Core\Config\Retained;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Cost\StartUpSamples;
+use NightWorksIO\MutationGate\Core\Coverage\MapLimits;
+use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
+use NightWorksIO\MutationGate\Core\Proof\LedgerRetention;
 use NightWorksIO\MutationGate\Core\Proof\TimingWeight;
 use NightWorksIO\MutationGate\Core\Runner\RunnerPace;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -68,6 +73,40 @@ it('reads the remaining keys that tune a run, each at its default where no layer
         ->and($set->local()->triageFewest())->toBe(3);
 });
 
+it('reads what a ledger keeps and how large what the gate reads may be, each at its default where no layer sets it', function () use ($settings): void {
+    $standard = $settings()->proofs()->retained();
+    $set = $settings(['proofs' => [
+        'keep' => ['killers' => 100, 'bases' => 2, 'proofs' => 30, 'functions' => 40],
+        'limits' => [
+            'ledger' => ['packed' => 11, 'unpacked' => 12],
+            'map' => ['packed' => 13, 'unpacked' => 14],
+            'handoff' => ['packed' => 15, 'unpacked' => 16],
+        ],
+    ]])->proofs()->retained();
+
+    expect([$standard->killers(), $standard->bases(), $standard->proofs(), $standard->functions()])->toBe([PHP_INT_MAX, 5, 20000, 5000])
+        ->and([$standard->ledgerPacked(), $standard->ledgerUnpacked()])->toBe([11000000, 38000000])
+        ->and([$standard->mapPacked(), $standard->mapUnpacked()])->toBe([4200000, 85000000])
+        ->and($standard->handoffPacked())->toBe(256000000)
+        ->and($standard->handoffUnpacked())->toBeInstanceOf(Absent::class)
+        ->and([$set->killers(), $set->bases(), $set->proofs(), $set->functions()])->toBe([100, 2, 30, 40])
+        ->and([$set->ledgerPacked(), $set->ledgerUnpacked()])->toBe([11, 12])
+        ->and([$set->mapPacked(), $set->mapUnpacked()])->toBe([13, 14])
+        ->and([$set->handoffPacked(), $set->handoffUnpacked()])->toBe([15, 16])
+        ->and($settings(['proofs' => ['keep' => ['killers' => 'all']]])->proofs()->retained()->killers())->toBe(PHP_INT_MAX);
+});
+
+it('lays what a ledger keeps through the limits a store is given, and each store keeps to them', function (): void {
+    $retained = Retained::of(killers: 3, bases: 1, proofs: 2, functions: 4, ledgerPacked: 5, ledgerUnpacked: 6, mapPacked: 7, mapUnpacked: 8);
+    $limits = LedgerLimits::kept($retained);
+
+    expect($limits->retention())->toEqual(LedgerRetention::kept($retained))
+        ->and([$limits->packed(), $limits->unpacked()])->toBe([5, 6])
+        ->and($limits->map())->toEqual(MapLimits::of(7, 8))
+        ->and(MapLimits::kept($retained))->toEqual(MapLimits::of(7, 8))
+        ->and(LedgerLimits::standard()->keeping(LedgerRetention::kept($retained))->retention())->toEqual(LedgerRetention::kept($retained));
+});
+
 it('lays a later layer\'s tuning over an earlier one, key by key', function (): void {
     $laid = Configs::valid(['plan' => ['chunkMinutes' => 30, 'provingRange' => 5], 'timing' => ['newest' => 0.5], 'runner' => ['recycleAfter' => 8, 'poll' => 0.05]])
         ->over(Configs::valid(['plan' => ['provingRange' => 6], 'timing' => ['startUpSamples' => 7], 'shards' => ['cutAt' => 1], 'runner' => ['warmSlack' => '2m', 'poll' => 0.1]]));
@@ -92,6 +131,17 @@ it('writes each key into a config written as PHP, through the builder that reads
     'staticCheck.opcache.batch' => [['staticCheck' => ['opcache' => ['batch' => 50]]], 'StaticCheck::opcacheBatch(50)'],
     'staticCheck.opcache.limit' => [['staticCheck' => ['opcache' => ['limit' => '30s']]], "StaticCheck::opcacheLimit('30s')"],
     'ignores.notice' => [['ignores' => ['notice' => 7]], 'Ignores::notice(7)'],
+    'proofs.keep.killers' => [['proofs' => ['keep' => ['killers' => 3]]], 'Retention::killers(3)'],
+    'proofs.keep.killers all' => [['proofs' => ['keep' => ['killers' => 'all']]], 'Retention::allKillers()'],
+    'proofs.keep.bases' => [['proofs' => ['keep' => ['bases' => 2]]], 'Retention::bases(2)'],
+    'proofs.keep.proofs' => [['proofs' => ['keep' => ['proofs' => 2]]], 'Retention::proofs(2)'],
+    'proofs.keep.functions' => [['proofs' => ['keep' => ['functions' => 2]]], 'Retention::functions(2)'],
+    'proofs.limits.ledger.packed' => [['proofs' => ['limits' => ['ledger' => ['packed' => 2]]]], 'Retention::ledgerPacked(2)'],
+    'proofs.limits.ledger.unpacked' => [['proofs' => ['limits' => ['ledger' => ['unpacked' => 2]]]], 'Retention::ledgerUnpacked(2)'],
+    'proofs.limits.map.packed' => [['proofs' => ['limits' => ['map' => ['packed' => 2]]]], 'Retention::mapPacked(2)'],
+    'proofs.limits.map.unpacked' => [['proofs' => ['limits' => ['map' => ['unpacked' => 2]]]], 'Retention::mapUnpacked(2)'],
+    'proofs.limits.handoff.packed' => [['proofs' => ['limits' => ['handoff' => ['packed' => 2]]]], 'Retention::handoffPacked(2)'],
+    'proofs.limits.handoff.unpacked' => [['proofs' => ['limits' => ['handoff' => ['unpacked' => 2]]]], 'Retention::handoffUnpacked(2)'],
     'local.watchPoll' => [['local' => ['watchPoll' => '5s']], "Local::watchPoll('5s')"],
     'triage.fewest' => [['triage' => ['fewest' => 3]], 'Local::triageFewest(3)'],
 ]);
@@ -120,6 +170,9 @@ it('refuses a tuning key out of its range', function (array $config, string $pro
     'a newest weight past one' => [['timing' => ['newest' => 1.5]], 'timing.newest: expected a number above 0 and at most 1, got 1.5'],
     'no start-up samples' => [['timing' => ['startUpSamples' => 0]], 'timing.startUpSamples: expected an integer of at least 1, got 0'],
     'no programs a child' => [['staticCheck' => ['opcache' => ['batch' => 0]]], 'staticCheck.opcache.batch: expected an integer of at least 1, got 0'],
+    'no bases kept' => [['proofs' => ['keep' => ['bases' => 0]]], 'proofs.keep.bases: expected an integer of at least 1, got 0'],
+    'killers neither a count nor all' => [['proofs' => ['keep' => ['killers' => 'most']]], 'proofs.keep.killers: expected an integer of at least 1, or "all", got "most"'],
+    'no bytes of a ledger' => [['proofs' => ['limits' => ['ledger' => ['packed' => 0]]]], 'proofs.limits.ledger.packed: expected an integer of at least 1, got 0'],
     'one run that cannot disagree' => [['triage' => ['fewest' => 1]], 'triage.fewest: expected an integer of at least 2, got 1'],
     'a notice below none' => [['ignores' => ['notice' => -1]], 'ignores.notice: expected an integer of at least 0, got -1'],
     'a pace of no runs' => [['runner' => ['use' => 'pest', 'recycleAfter' => 0]], 'runner.recycleAfter: expected an integer of at least 1, got 0'],

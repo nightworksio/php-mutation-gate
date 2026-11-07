@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\EncodesLedgers;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
+use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Written;
@@ -45,6 +46,14 @@ final readonly class LocalLedgers implements EncodesLedgers, ProofStore
         return new self(
             $this->local->encoding($codec),
             $this->shared instanceof EncodesLedgers ? $this->shared->encoding($codec) : $this->shared,
+        );
+    }
+
+    public function limitedTo(LedgerLimits $limits): static
+    {
+        return new self(
+            $this->local->limitedTo($limits),
+            $this->shared instanceof EncodesLedgers ? $this->shared->limitedTo($limits) : $this->shared,
         );
     }
 

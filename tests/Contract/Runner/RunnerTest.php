@@ -362,7 +362,7 @@ it('keeps its map beside a pull request\'s ledger, and reads it back first, from
     $store = new ProofStoreFake();
     $store->keep(Scope::branch('main'), Companion::Coverage, Contents::of(CoverageMapFile::encode(CoverageMap::empty(), Unplaced::map())));
     $store->keep(Scope::pullRequest(7), Companion::Coverage, Contents::of(is_string($bytes) ? $bytes : ''));
-    $read = StoredCoverage::in($store, Access::of(Scope::pullRequest(7), Scope::branch('main'), Writing::Auto));
+    $read = StoredCoverage::in($store, Access::of(Scope::pullRequest(7), Scope::branch('main'), Writing::Auto), MapLimits::standard());
     $kept = $read->map();
 
     expect($map)->toBeInstanceOf(CoverageMap::class)

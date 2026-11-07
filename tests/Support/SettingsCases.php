@@ -127,7 +127,26 @@ final readonly class SettingsCases
             "write": "auto",
             "copies": "newest",
             "compression": "auto",
-            "compressionLevel": 9
+            "compressionLevel": 9,
+            "keep": {
+                "killers": "all",
+                "bases": 5,
+                "proofs": 20000,
+                "functions": 5000
+            },
+            "limits": {
+                "ledger": {
+                    "packed": 11000000,
+                    "unpacked": 38000000
+                },
+                "map": {
+                    "packed": 4200000,
+                    "unpacked": 85000000
+                },
+                "handoff": {
+                    "packed": 256000000
+                }
+            }
         },
         "coverage": {
             "incremental": true
