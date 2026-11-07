@@ -499,6 +499,8 @@ jobs:
     if: ${{ !cancelled() && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'phar')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      SEGMENT_DOWNLOAD_TIMEOUT_MINS: 2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -507,8 +509,13 @@ jobs:
         with:
           php-version: ${{ env.PHP_VERSION }}
           coverage: pcov
+      # An install takes seconds, so one that stalls fails here instead of
+      # holding the job to its limit, and a stalled cache download gives way to
+      # installing from the network.
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+        timeout-minutes: 5
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+        timeout-minutes: 5
         with:
           working-directory: tests/Fixtures/Archive
       - id: build
