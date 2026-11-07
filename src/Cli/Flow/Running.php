@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use NightWorksIO\MutationGate\Adapter\Process\ErrorOutputLog;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistory;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
@@ -40,7 +41,9 @@ use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\NoProcessLog;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
+use NightWorksIO\MutationGate\Core\Runner\ProcessLog;
 use NightWorksIO\MutationGate\Core\Subsumption\Subsumption;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Deadline;
@@ -87,19 +90,26 @@ final readonly class Running
         private Setup $setup,
         private Interruption $interruption = new Interruption(),
         private Ruling $ruling = new Ruling(),
+        private ProcessLog $log = new NoProcessLog(),
     ) {
     }
 
     /** The shards a composed flow runs, each group of units `paths` entries match with a runner of its own. */
     public static function composed(Composed $composed): self
     {
-        return new self($composed->adapters, $composed->settings, $composed->setup, ruling: $composed->ruling);
+        return new self(
+            $composed->adapters,
+            $composed->settings,
+            $composed->setup,
+            ruling: $composed->ruling,
+            log: ErrorOutputLog::onErrorOutput(),
+        );
     }
 
     /** The same, stopping before its next batch once this says so, as at its deadline. */
     public function interrupted(Interruption $interruption): self
     {
-        return new self($this->adapters, $this->settings, $this->setup, $interruption, $this->ruling);
+        return new self($this->adapters, $this->settings, $this->setup, $interruption, $this->ruling, $this->log);
     }
 
     /** The plan, where the checkout is the commit it was made on, as every shard and the verdict need. */
@@ -275,6 +285,7 @@ final readonly class Running
                     $this->setup,
                     $this->interruption,
                     $this->ruling,
+                    $this->log,
                 )->mutatedKept($plan, $part, $map, $held, $search, $deadline, $stopwatch),
             );
     }
@@ -326,7 +337,7 @@ final readonly class Running
             $map,
             $held->covered(),
             $checking,
-            new PartedRuns($this->adapters, $this->settings, $map, $held->covered()),
+            new PartedRuns($this->adapters, $this->settings, $map, $held->covered(), $this->log),
             $preChecking,
         );
         $doom = new Dooming($this->adapters, $this->settings, $this->setup)->of($plan);

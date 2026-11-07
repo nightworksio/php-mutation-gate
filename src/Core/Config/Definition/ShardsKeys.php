@@ -40,6 +40,9 @@ final readonly class ShardsKeys
         $perMinute = Field::optional('perRunnerMinute', self::price(), $judges);
         $window = Field::optional(SavingsWindow::KEY, Duration::written(), $judges);
         $model = Field::optional('model', Adapter::choosing(Builtins::costModels($origin)), $judges);
+        $beforeAKill = Field::optional('testsBeforeAKill', Integer::atLeast(1), $judges);
+        $surviving = Field::optional('surviving', Number::between(0, 1), $judges);
+        $overhead = Field::optional('shardOverhead', Number::atLeast(1), $judges);
 
         return [
             Field::section(
@@ -95,11 +98,22 @@ final readonly class ShardsKeys
             Field::section(
                 'costs',
                 Section::of(
-                    static function (Node $costs) use ($perLine, $perMinute, $window, $model): Layer|Invalid {
+                    static function (Node $costs) use (
+                        $perLine,
+                        $perMinute,
+                        $window,
+                        $model,
+                        $beforeAKill,
+                        $surviving,
+                        $overhead,
+                    ): Layer|Invalid {
                         $lines = $perLine->read($costs);
                         $minutes = $perMinute->read($costs);
                         $back = $window->read($costs);
                         $chosen = $model->read($costs);
+                        $kill = $beforeAKill->read($costs);
+                        $share = $surviving->read($costs);
+                        $times = $overhead->read($costs);
 
                         return Reading::built(
                             static fn(): Layer => Layer::of(Shards::of(
@@ -107,17 +121,26 @@ final readonly class ShardsKeys
                                 perRunnerMinute: $minutes->value(),
                                 savingsWindow: $back->value(),
                                 costModel: $chosen->value(),
+                                testsBeforeAKill: $kill->value(),
+                                surviving: $share->value(),
+                                shardOverhead: $times->value(),
                             )),
                             $lines,
                             $minutes,
                             $back,
                             $chosen,
+                            $kill,
+                            $share,
+                            $times,
                         );
                     },
                     $perLine,
                     $perMinute,
                     $window,
                     $model,
+                    $beforeAKill,
+                    $surviving,
+                    $overhead,
                 ),
             ),
         ];

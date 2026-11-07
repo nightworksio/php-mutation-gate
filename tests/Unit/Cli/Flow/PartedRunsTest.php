@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Runner\ExactRun;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\ProcessLog;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -47,6 +48,43 @@ function partedRunsMap(): CoverageMap
         ->timed(TestId::of('a'), Seconds::of(1.5))
         ->timed(TestId::of('b'), Seconds::of(1.5));
 }
+
+it('names in the log what each round runs, and says nothing of a mutant once judged', function (): void {
+    $adapters = Flows::adapters(Flows::project(), [], RunnerFake::ofTheFixture());
+    $log = new class implements ProcessLog {
+        /** @var list<string> */
+        public private(set) array $lines = [];
+
+        public function say(string $line): void
+        {
+            $this->lines[] = $line;
+        }
+    };
+    $parted = new PartedRuns($adapters, Flows::settings(), partedRunsMap(), HeldCovered::none(), $log);
+    $heavy = $parted->among(
+        Mutants::of(partedRunsHeavy()),
+        new ExactRun(),
+        LimitBounds::between(Seconds::of(1.0), Seconds::of(6.0))->startingIn(Seconds::of(0.1)),
+    );
+    $rounds = 0;
+
+    $parted->judged(Mutants::of(partedRunsHeavy()), $heavy, static function (array $asked) use (&$rounds): array {
+        $rounds++;
+        $runs = ControlRuns::none();
+
+        foreach ($asked as $control) {
+            $runs = $runs->with($control, $rounds === 1 ? ControlRun::passed(Seconds::of(1.5)) : ControlRun::failed(TestIds::of(TestId::of('b'))));
+        }
+
+        return [$runs, Controls::none()];
+    });
+    $id = partedRunsHeavy()->id()->key();
+    $location = partedRunsHeavy()->location();
+
+    expect($log->lines)->toHaveCount($rounds)
+        ->and($log->lines[0])->toContain(sprintf('mutation-gate: heavy mutant %s, %s:%d: part 1 of', $id, $location->file()->value(), $location->start()->number()))
+        ->and($log->lines[1])->toContain('part 2 of');
+});
 
 it('serves each heavy mutant as its runner gives it to a static analyser, and judges it round after round', function (): void {
     $adapters = Flows::adapters(Flows::project(), [], RunnerFake::ofTheFixture());

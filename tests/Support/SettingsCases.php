@@ -82,13 +82,17 @@ final readonly class SettingsCases
             "max": 20,
             "learnedFrom": "max",
             "setup": "1m",
-            "cutAt": 2.0
+            "cutAt": 2.0,
+            "jobLimit": "5h40m"
         },
         "costs": {
             "secondsPerLine": {
                 "": 0.2
             },
-            "savingsWindow": "30d"
+            "savingsWindow": "30d",
+            "testsBeforeAKill": 5,
+            "surviving": 0.02,
+            "shardOverhead": 2.5
         },
         "plan": {
             "chunkMinutes": 15,

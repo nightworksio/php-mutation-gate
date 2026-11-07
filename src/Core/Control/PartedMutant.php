@@ -53,6 +53,11 @@ final readonly class PartedMutant
 
     /** Why a heavy mutant is unjudged where a part could not run. */
     public const string UNRUN = 'Part %d of %d of its tests could not run: %s';
+    /** What a log says of the run a heavy mutant waits on. */
+    private const string PROGRESS = 'heavy mutant %s, %s:%d: part %d of %d, %d left%s';
+
+    /** What that says where the run is a part's control. */
+    private const string ITS_CONTROL = ', its control';
 
     /**
      * @param list<Control> $parts       each part, served the mutant, in order
@@ -106,6 +111,23 @@ final readonly class PartedMutant
     public function after(ControlRun $run): self
     {
         return $this->controlling ? $this->controlled($run) : $this->ran($run);
+    }
+
+    /** What it waits on, said in a log: the mutant, the part at hand and how many parts remain; none once judged. */
+    public function progress(): string|NotGiven
+    {
+        $location = $this->mutant->location();
+
+        return $this->judged instanceof Mutant ? NotGiven::value() : sprintf(
+            self::PROGRESS,
+            $this->mutant->id()->key(),
+            $location->file()->value(),
+            $location->start()->number(),
+            $this->at + 1,
+            count($this->parts),
+            count($this->parts) - $this->at - 1,
+            $this->controlling ? self::ITS_CONTROL : '',
+        );
     }
 
     /** It, unjudged, the time budget having run out before its run at hand. */

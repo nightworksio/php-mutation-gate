@@ -402,8 +402,8 @@ it('estimates a unit no shard timed by what it measured of the first run, counti
         $planned instanceof Plan ? [...$planned] : [],
     );
 
-    // The fake runner starts a run of no test in 1.5 s and runs one mutant at a time.
-    expect($estimates)->toEqual([[Seconds::of(0.0), Seconds::of(1.7), Seconds::of(0.0)]]);
+    // The fake runner starts a run of no test in 1.5 s and runs one mutant at a time; a shard takes 2.5 times that.
+    expect($estimates)->toEqual([[Seconds::of(0.0), Seconds::of(4.25), Seconds::of(0.0)]]);
 });
 
 it('counts nothing and starts no run of no test where every unit to run is timed', function () use ($plan): void {
@@ -442,7 +442,7 @@ it('learns nothing from a timing another release of the gate measured, or one no
     $estimate = $planned instanceof Plan ? [...$planned][0]->estimate() : null;
 
     expect($estimate?->part(CostBasis::Learned))->toEqual(Seconds::of(0.0))
-        ->and($estimate?->part(CostBasis::Measured))->toEqual(Seconds::of(1.7))
+        ->and($estimate?->part(CostBasis::Measured))->toEqual(Seconds::of(4.25))
         ->and($runner->startedUp())->not->toBe([]);
 });
 

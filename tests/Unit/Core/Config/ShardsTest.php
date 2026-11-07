@@ -69,6 +69,10 @@ describe('Shards', function (): void {
             secondsPerLine: Table::row('', 0.25)->merged(Table::row('src/Legacy', 2)),
             perRunnerMinute: Price::of(0.008, 'USD'),
             savingsWindow: Seconds::days(7),
+            jobLimit: Seconds::minutes(50),
+            testsBeforeAKill: 3,
+            surviving: 0.05,
+            shardOverhead: 2,
         );
 
         expect($shards->php(ProjectRoot::origin()))->toEqual(PhpCalls::inWith(
@@ -76,10 +80,14 @@ describe('Shards', function (): void {
             'Shards::max(3)',
             "Shards::target('30m')",
             "Shards::setup('3m')",
+            "Shards::jobLimit('50m')",
             "Shards::secondsPerLine('', 0.25)",
             "Shards::secondsPerLine('src/Legacy', 2)",
             "Shards::perRunnerMinute(0.008, 'USD')",
             "Shards::savingsWindow('7d')",
+            'Shards::testsBeforeAKill(3)',
+            'Shards::surviving(0.05)',
+            'Shards::shardOverhead(2)',
         ));
     });
 

@@ -19,24 +19,33 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Reach\TestPlaces;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\NoProcessLog;
+use NightWorksIO\MutationGate\Core\Runner\ProcessLog;
 use NightWorksIO\MutationGate\Core\Runner\RunSelection;
+
+use function sprintf;
 
 /**
  * The heavy mutants of an invocation judged in parts (see HeavyMutants):
  * each served as its runner gives it to a static analyser, its parts run
  * one round after another, every heavy mutant's next run side by side in a
- * round, until each is judged. The file each test is in is read from the
- * suite only where a mutant is heavy.
+ * round, until each is judged, each round naming in the log what it runs, so
+ * a slow phase can be read even from the log of a job that was cancelled. The
+ * file each test is in is read from the suite only where a mutant is heavy.
  *
  * @internal
  */
 final readonly class PartedRuns
 {
+    /** A line of the log, naming what each round of a heavy mutant's parts runs. */
+    private const string SAID = 'mutation-gate: %s';
+
     public function __construct(
         private Adapters $adapters,
         private Settings $settings,
         private CoverageMap $map,
         private HeldCovered $held,
+        private ProcessLog $log = new NoProcessLog(),
     ) {
     }
 
@@ -68,6 +77,10 @@ final readonly class PartedRuns
         $asked = [...$heavy->asked()];
 
         while ($asked !== []) {
+            foreach ($heavy->progress() as $progress) {
+                $this->log->say(sprintf(self::SAID, $progress));
+            }
+
             [$runs, $left] = $ran($asked);
 
             if ($runs instanceof CannotJudge) {

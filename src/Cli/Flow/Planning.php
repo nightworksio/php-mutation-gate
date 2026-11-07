@@ -227,7 +227,11 @@ final readonly class Planning
         $pruned = new PrunedUnits($this->adapters, $this->settings, $this->setup)
             ->of($base, $ledgers, $ledgers->newest($kind), $toRun, $keying);
         $opening = $map->suiteDuration();
-        $firstRun = new FirstRuns($this->adapters, $this->settings->shards()->planning()->startUpSamples())
+        $firstRun = new FirstRuns(
+            $this->adapters,
+            $this->settings->shards()->planning()->startUpSamples(),
+            $this->settings->shards()->costs()->firstRunShape(),
+        )
             ->measured($map, $ledgers->untimed($toRun, $this->setup->gate));
         $shards = $this->shardsOf(
             $toRun,

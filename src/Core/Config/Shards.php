@@ -62,13 +62,24 @@ final readonly class Shards implements Part
         Choice|Absent $costModel = new Absent(),
         Planning|Absent $planning = new Absent(),
         Seconds|Absent $jobLimit = new Absent(),
+        int|Absent $testsBeforeAKill = new Absent(),
+        int|float|Absent $surviving = new Absent(),
+        int|float|Absent $shardOverhead = new Absent(),
     ): self {
         return new self(
             $seconds,
             $max,
             $target,
             $setup,
-            Costs::of($secondsPerLine, $perRunnerMinute, $savingsWindow, $costModel),
+            Costs::of(
+                $secondsPerLine,
+                $perRunnerMinute,
+                $savingsWindow,
+                $costModel,
+                $testsBeforeAKill,
+                $surviving,
+                $shardOverhead,
+            ),
             $learnedFrom,
             $planning instanceof Planning ? $planning : Planning::of(),
             $jobLimit,
@@ -182,6 +193,10 @@ final readonly class Shards implements Part
                     Member::of('target', $this->target instanceof Seconds ? $this->target->written() : $this->target),
                     Member::of('setup', $this->setup instanceof Seconds ? $this->setup->written() : $this->setup),
                     $this->planning->cutAtWritten(),
+                    Member::of(
+                        'jobLimit',
+                        $this->jobLimit instanceof Seconds ? $this->jobLimit->written() : $this->jobLimit,
+                    ),
                 ),
             ),
             $this->costs->written($origin),
@@ -200,6 +215,9 @@ final readonly class Shards implements Part
                 : [],
             ...$this->setup instanceof Seconds
                 ? [sprintf('Shards::setup(%s)', PhpCalls::literal($this->setup->written()))]
+                : [],
+            ...$this->jobLimit instanceof Seconds
+                ? [sprintf('Shards::jobLimit(%s)', PhpCalls::literal($this->jobLimit->written()))]
                 : [],
         ];
 

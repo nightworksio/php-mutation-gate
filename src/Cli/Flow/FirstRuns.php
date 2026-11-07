@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\FirstRun;
+use NightWorksIO\MutationGate\Core\Cost\FirstRunShape;
 use NightWorksIO\MutationGate\Core\Cost\MutantSites;
 use NightWorksIO\MutationGate\Core\Cost\StartUpSamples;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -30,8 +31,11 @@ use NightWorksIO\MutationGate\Mutator\Engine\Engine;
  */
 final readonly class FirstRuns
 {
-    public function __construct(private Adapters $adapters, private StartUpSamples $samples)
-    {
+    public function __construct(
+        private Adapters $adapters,
+        private StartUpSamples $samples,
+        private FirstRunShape $shape = new FirstRunShape(),
+    ) {
     }
 
     public function measured(CoverageMap $map, Units $units): FirstRun
@@ -51,7 +55,7 @@ final readonly class FirstRuns
 
         return $startUp instanceof CannotJudge
             ? FirstRun::unmeasured()
-            : FirstRun::of($map, $sites, $startUp, $this->adapters->processes());
+            : FirstRun::of($map, $sites, $startUp, $this->adapters->processes(), $this->shape);
     }
 
     /** Where the engine makes the mutants of each of these files it can read and parse. */

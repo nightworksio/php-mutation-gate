@@ -861,7 +861,8 @@
                 },
                 "jobLimit": {
                     "type": "string",
-                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
+                    "default": "5h40m"
                 }
             },
             "additionalProperties": false,
@@ -985,6 +986,22 @@
                             "additionalProperties": false
                         }
                     ]
+                },
+                "testsBeforeAKill": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 5
+                },
+                "surviving": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "default": 0.02
+                },
+                "shardOverhead": {
+                    "type": "number",
+                    "minimum": 1,
+                    "default": 2.5
                 }
             },
             "additionalProperties": false
@@ -5257,6 +5274,19 @@
                                     "additionalProperties": false
                                 }
                             ]
+                        },
+                        "testsBeforeAKill": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "surviving": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                        },
+                        "shardOverhead": {
+                            "type": "number",
+                            "minimum": 1
                         }
                     },
                     "additionalProperties": false

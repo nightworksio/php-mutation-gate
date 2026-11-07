@@ -260,6 +260,8 @@ services:
         arguments:
             # Constants whose value only coincides with another's, meaning something else.
             coincidences:
+                'NightWorksIO\MutationGate\Core\Cost\FirstRunShape':
+                    - TESTS_BEFORE_A_KILL # tests a first estimate expects a killed mutant to run, not a ranking's top
                 'NightWorksIO\MutationGate\Core\Runner\RunnerPace':
                     - RECYCLE_AFTER # runs a batch holds for each place, not a span id's length
                     - WARM_SLACK # how long a warm worker runs past the end, not a network read's limit

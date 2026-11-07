@@ -37,13 +37,20 @@ there:
    estimate says will not fit; the limit starts every unit and stops the runner,
    because an estimate can be far past what the unit takes.
 
-7. **A first estimate expects a kill, not every test.** A run stops at the first
-   test that kills, so a mutant is expected to spend its start-up, five of its
-   covering tests at their average time, and a 2% share of all of them for those
-   that survive. Across 10,597 mutants of one companion run a mutant took 3 to 5
-   seconds whatever its covering tests' time, and a unit the whole suite covers
-   was estimated at 28,949 seconds against 655 measured; this estimate puts it
-   at 776 to 894, by a start-up of 2 to 3.5 seconds.
+7. **A first estimate expects a kill, not every test, and a shard's other
+   work.** A run stops at the first test that kills, so a mutant is expected to
+   spend its start-up, `costs.testsBeforeAKill` of its covering tests at their
+   average time, and a `costs.surviving` share of all of them for those that
+   survive. A shard is expected to take `costs.shardOverhead` times its mutants'
+   own runs, for its controls, baselines and static checks. The defaults, 5,
+   0.02 and 2.5, are fitted to one companion run and one of this gate's, whose
+   mutants' own runs were 53% and 51% of their shards and which have few
+   survivors; another project sets its own, and each applies only until a shard
+   has timed the unit.
+8. **A round of a heavy mutant's parts names what it runs in the log**: the
+   mutant, its file and line, the part and how many remain, so a slow phase can
+   be read even from a cancelled job. A shard's result times those rounds as
+   their own step.
 
 ## Consequences
 

@@ -57,6 +57,9 @@ enum Step: string
     /** The unmutated control of each timed-out mutant's tests, under its limit (ADR-0008). */
     case Controls = 'controls';
 
+    /** The runs of heavy mutants' parts and of those parts' controls, round after round (ADR-0008). */
+    case HeavyParts = 'heavy parts';
+
     /** Static analysis's checks of the shard's survivors. */
     case StaticCheck = 'static check';
 }

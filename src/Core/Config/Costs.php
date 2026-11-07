@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
+use NightWorksIO\MutationGate\Core\Cost\FirstRunShape;
 use NightWorksIO\MutationGate\Core\Cost\LineRate;
 use NightWorksIO\MutationGate\Core\Cost\SavingsWindow;
 use NightWorksIO\MutationGate\Core\Cost\SecondsPerLine;
@@ -17,8 +18,9 @@ use function sprintf;
 /**
  * What the gate's work costs and how it says so (ADR-0006, ADR-0016): `costs`,
  * which the `Shards` part holds: the cost model that plans the work, what a line
- * costs before anything was measured, the price of a runner's minute, and how far
- * back what the gate saved is counted.
+ * costs before anything was measured, the price of a runner's minute, how far
+ * back what the gate saved is counted, and what a first estimate takes a shard
+ * to be made of (ADR-0114).
  */
 final readonly class Costs
 {
@@ -29,6 +31,9 @@ final readonly class Costs
         private Price|Absent $perRunnerMinute,
         private Seconds|Absent $savingsWindow,
         private Choice|Absent $model,
+        private int|Absent $testsBeforeAKill,
+        private int|float|Absent $surviving,
+        private int|float|Absent $shardOverhead,
     ) {
     }
 
@@ -37,8 +42,19 @@ final readonly class Costs
         Price|Absent $perRunnerMinute = new Absent(),
         Seconds|Absent $savingsWindow = new Absent(),
         Choice|Absent $model = new Absent(),
+        int|Absent $testsBeforeAKill = new Absent(),
+        int|float|Absent $surviving = new Absent(),
+        int|float|Absent $shardOverhead = new Absent(),
     ): self {
-        return new self($secondsPerLine, $perRunnerMinute, $savingsWindow, $model);
+        return new self(
+            $secondsPerLine,
+            $perRunnerMinute,
+            $savingsWindow,
+            $model,
+            $testsBeforeAKill,
+            $surviving,
+            $shardOverhead,
+        );
     }
 
     /** Every key at the value it takes where every layer leaves it out. */
@@ -47,6 +63,9 @@ final readonly class Costs
         return self::of(
             self::table(SecondsPerLine::standard()),
             savingsWindow: SavingsWindow::standard()->length(),
+            testsBeforeAKill: FirstRunShape::TESTS_BEFORE_A_KILL,
+            surviving: FirstRunShape::SURVIVING,
+            shardOverhead: FirstRunShape::SHARD_OVERHEAD,
         );
     }
 
@@ -62,6 +81,9 @@ final readonly class Costs
             Absent::laid($this->perRunnerMinute, $later->perRunnerMinute),
             Absent::laid($this->savingsWindow, $later->savingsWindow),
             Absent::laid($this->model, $later->model),
+            Absent::laid($this->testsBeforeAKill, $later->testsBeforeAKill),
+            Absent::laid($this->surviving, $later->surviving),
+            Absent::laid($this->shardOverhead, $later->shardOverhead),
         );
     }
 
@@ -93,6 +115,15 @@ final readonly class Costs
         return $this->savingsWindow instanceof Seconds
             ? SavingsWindow::of($this->savingsWindow)
             : SavingsWindow::standard();
+    }
+
+    /**
+     * `costs.testsBeforeAKill`, `costs.surviving` and `costs.shardOverhead`:
+     * what a first estimate takes a shard to be made of.
+     */
+    public function firstRunShape(): FirstRunShape
+    {
+        return FirstRunShape::of($this->testsBeforeAKill, $this->surviving, $this->shardOverhead);
     }
 
     /**
@@ -137,6 +168,9 @@ final readonly class Costs
                     SavingsWindow::KEY,
                     $this->savingsWindow instanceof Seconds ? $this->savingsWindow->written() : $this->savingsWindow,
                 ),
+                Member::of('testsBeforeAKill', $this->testsBeforeAKill),
+                Member::of('surviving', $this->surviving),
+                Member::of('shardOverhead', $this->shardOverhead),
             ),
         );
     }
@@ -168,7 +202,28 @@ final readonly class Costs
             ...$this->model instanceof Choice
                 ? [PhpCalls::chosen($this->model, AdapterBuilder::CostModel, BuiltinCostModel::Learned->value)]
                 : [],
+            ...$this->firstRunCalls(),
         );
+    }
+
+    /** @return list<string> the builder's calls for the keys of a first estimate a layer sets */
+    private function firstRunCalls(): array
+    {
+        $calls = [];
+
+        foreach (
+            [
+                'testsBeforeAKill' => $this->testsBeforeAKill,
+                'surviving' => $this->surviving,
+                'shardOverhead' => $this->shardOverhead,
+            ] as $method => $value
+        ) {
+            $calls = $value instanceof Absent
+                ? $calls
+                : [...$calls, sprintf('Shards::%s(%s)', $method, PhpCalls::literal($value))];
+        }
+
+        return $calls;
     }
 
     /** Seconds per line by path prefix, as a table of them. */

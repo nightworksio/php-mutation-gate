@@ -293,7 +293,7 @@ final readonly class Invoking
         $mutants = $this->parted->judged(
             $controlled->mutants,
             $heavy,
-            fn(array $asked): array => $this->ranOf($asked, $request),
+            fn(array $asked): array => $this->ranOf($asked, $request, Step::HeavyParts),
         );
 
         return $mutants instanceof CannotJudge ? $mutants : new Controlled($mutants, $controlled->evidence);
@@ -314,13 +314,13 @@ final readonly class Invoking
 
     /**
      * What these controls found, those that fit in the time left run side by
-     * side in the request's pool and timed as the controls step, and those
-     * the time left had no room for.
+     * side in the request's pool and timed as this step, and those the time
+     * left had no room for.
      *
      * @param  non-empty-list<Control>          $asked
      * @return array{ControlRuns|CannotJudge, Controls}
      */
-    private function ranOf(array $asked, MutationRequest $request): array
+    private function ranOf(array $asked, MutationRequest $request, Step $step = Step::Controls): array
     {
         $longest = max(array_map(static fn(Control $control): float => $control->limit()->seconds(), $asked));
         $fitting = $this->fitting(count($asked), Seconds::of($longest));
@@ -332,7 +332,7 @@ final readonly class Invoking
                 Controls::of(...array_slice($asked, 0, $fitting)),
             );
 
-        $this->stopwatch->handled(Step::Controls, $from, $fitting);
+        $this->stopwatch->handled($step, $from, $fitting);
 
         return [$runs, Controls::of(...array_slice($asked, $fitting))];
     }

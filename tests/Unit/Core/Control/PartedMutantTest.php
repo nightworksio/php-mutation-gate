@@ -104,6 +104,20 @@ it('runs its parts served the mutant one after another, and is killed by the tes
         ->toEqual([MutantStatus::Killed, [TestId::of('LoopTest::b')], Seconds::of(120.0)]);
 });
 
+it('says in a log which mutant waits on which part and how many remain, and that a run is a part\'s control, and nothing once judged', function (): void {
+    $id = partedHeavy()->id()->key();
+    $parted = PartedMutant::of(partedHeavy(), partedRuns(TestPlaces::none()), partedParts());
+    $second = $parted->after(ControlRun::passed(Seconds::of(30.0)));
+    $controlling = $second->after(ControlRun::ranOut());
+    $killed = partedAfter(ControlRun::passed(Seconds::of(30.0)), ControlRun::failed(TestIds::of(TestId::of('LoopTest::b'))));
+    $parts = count(partedParts());
+
+    expect($parted->progress())->toBe(sprintf('heavy mutant %s, src/Loop.php:3: part 1 of %d, %d left', $id, $parts, $parts - 1))
+        ->and($second->progress())->toBe(sprintf('heavy mutant %s, src/Loop.php:3: part 2 of %d, %d left', $id, $parts, $parts - 2))
+        ->and($controlling->progress())->toBe(sprintf('heavy mutant %s, src/Loop.php:3: part 2 of %d, %d left, its control', $id, $parts, $parts - 2))
+        ->and($killed->progress())->toEqual(NotGiven::value());
+});
+
 it('survives where every part passes with the mutant served', function (): void {
     expect(partedAfter(ControlRun::passed(Seconds::of(30.0)), ControlRun::passed(Seconds::of(40.0)))->judged()->status())
         ->toBe(MutantStatus::Survived);

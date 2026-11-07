@@ -11,6 +11,7 @@ use function array_map;
 use Closure;
 
 use function count;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -99,6 +100,23 @@ final readonly class HeavyMutants
         }
 
         return $asked;
+    }
+
+    /**
+     * What each heavy mutant not yet judged waits on, said in a log.
+     *
+     * @return list<string>
+     */
+    public function progress(): array
+    {
+        $said = [];
+
+        foreach ($this->parted as $parted) {
+            $progress = $parted->progress();
+            $said = is_string($progress) ? [...$said, $progress] : $said;
+        }
+
+        return $said;
     }
 
     /** These, each judged as far as what its run found takes it, or unjudged where the time left had no room for it. */
