@@ -22,7 +22,10 @@ use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Config\Improvement;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Price;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Cost\Rate;
+use NightWorksIO\MutationGate\Core\Cost\Savings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
@@ -31,6 +34,7 @@ use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\Considering;
 use NightWorksIO\MutationGate\Core\Plan\OwnOnly;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\PlanSavings;
 use NightWorksIO\MutationGate\Core\Plan\Proving;
 use NightWorksIO\MutationGate\Core\Proof\Agreement;
 use NightWorksIO\MutationGate\Core\Proof\GateRelease;
@@ -162,8 +166,16 @@ final readonly class Judging
         $setup = VerdictTimings::setupOn($this->adapters->environment, $this->settings->shards()->setup());
         $timings = VerdictTimings::of($run, $results, $began, $now, $setup);
         $judged = $this->adapters->changes->judged($plan->commit());
+        $saving = PlanSavings::of($plan, $assessed->ledgers->timings(), $this->settings->shards()->setup());
+        $cost = $saving->cost($timings->spent());
+        $price = $this->settings->shards()->perRunnerMinute();
+        $saved = $saving->saved($timings->spent());
+        $accounted = $assessed->verdict->account()
+            ->withCost(
+                $price instanceof Price ? $cost->pricedAt(Rate::perMinute($price->amount(), $price->currency())) : $cost,
+            );
         $verdict = $assessed->verdict->withAccount(
-            $assessed->verdict->account()
+            ($saved instanceof Savings ? $accounted->withSavings($saved) : $accounted)
                 ->withTimings($timings)
                 ->withProvenance(VerdictProvenance::of($this->adapters, $this->setup, $this->settings, $judged)),
         );
