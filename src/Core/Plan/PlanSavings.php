@@ -33,6 +33,8 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  * and is measured where a ledger timed it. A unit no ledger timed and no shard
  * ran is estimated by the cost model, and lowers the share said to be measured.
  * A run with no timings has no history to say anything from.
+ *
+ * @internal
  */
 final readonly class PlanSavings
 {
