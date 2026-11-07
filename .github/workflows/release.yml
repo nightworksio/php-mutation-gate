@@ -160,6 +160,7 @@ jobs:
       contents: read
     outputs:
       line: ${{ steps.line.outputs.line }}
+      version: ${{ steps.line.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -218,6 +219,12 @@ jobs:
       # mutated through it as the tests cover it (ADR-0085).
       extensions: zstd
       runs-on: ubuntu-24.04-arm
+    # The key that reads main's ledger, which fetch signs in with where the
+    # repository names a store. A release writes no ledger, so it passes no
+    # key that writes one.
+    secrets:
+      MUTATION_GATE_READ_AWS_ACCESS_KEY_ID: ${{ secrets.MUTATION_GATE_READ_AWS_ACCESS_KEY_ID }}
+      MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY: ${{ secrets.MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY }}
 
   # The PHAR (ADR-0022), built as composer phar builds it from the commit
   # verify and the gate judged, once both passed. The build installs the whole
@@ -231,6 +238,10 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
+    # The version the tag names, which the gate says it is and init --ci pins.
+    # Composer writes it into the install, and the archive takes it from there.
+    env:
+      COMPOSER_ROOT_VERSION: ${{ needs.verify.outputs.version }}
     outputs:
       digest: ${{ steps.digest.outputs.digest }}
       attempt: ${{ github.run_attempt }}
@@ -246,12 +257,16 @@ jobs:
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
         with:
           ignore-cache: true
-      # Composer gives the archive the version the tag names, which the gate
-      # says it is and init --ci pins.
       - name: Build the PHAR
-        env:
-          TAG: ${{ github.ref_name }}
-        run: COMPOSER_ROOT_VERSION="${TAG#v}" composer phar
+        run: composer phar
+      - name: Check the PHAR says the tag's version
+        run: |
+          set -euo pipefail
+          said="$(cd "${RUNNER_TEMP}" && php "${GITHUB_WORKSPACE}/build/mutation-gate.phar" --version)"
+          if [ "${said}" != "mutation-gate ${COMPOSER_ROOT_VERSION}" ]; then
+            echo "::error::The PHAR says \"${said}\", and the tag names ${COMPOSER_ROOT_VERSION}."
+            exit 1
+          fi
       - name: Name the PHAR's SHA-256
         id: digest
         run: echo "digest=$(sha256sum build/mutation-gate.phar | cut -d' ' -f1)" >> "${GITHUB_OUTPUT}"

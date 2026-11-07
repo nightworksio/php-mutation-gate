@@ -85,6 +85,11 @@ class Line(unittest.TestCase):
         with self.assertRaises(release.Refused):
             release.line("v0.1")
 
+    def test_a_release_tag_names_its_version_without_the_v(self):
+        self.assertEqual(release.version_of("v0.1.3"), "0.1.3")
+        with self.assertRaises(release.Refused):
+            release.version_of("v0.1")
+
     def test_a_tag_of_the_actions_line_passes_and_another_is_refused(self):
         self.assertIsNone(release.line_refusal("v0.1.0", "0.1"))
         self.assertIsNone(release.line_refusal("v0.1.3", "0.1"))

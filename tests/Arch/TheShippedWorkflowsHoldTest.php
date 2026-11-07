@@ -536,6 +536,29 @@ it('builds the PHAR in a job that holds no secret and may write nothing, and sig
         ->and($holding)->toBe([]);
 });
 
+it('builds a release only once its gate has passed, and nothing turns the gate off', function (): void {
+    $jobs = WorkflowFile::at(RELEASE)->field('jobs');
+
+    expect($jobs->field('gate')->field('if')->isPresent())->toBeFalse()
+        ->and($jobs->field('build')->field('if')->isPresent())->toBeFalse()
+        ->and(array_map(Lenient::text(...), Lenient::items($jobs->field('build')->field('needs'))))->toContain('gate')
+        ->and(array_map(Lenient::text(...), Lenient::items($jobs->field('publish')->field('needs'))))->toContain('build');
+});
+
+it('hands a release\'s gate the key that reads the ledger, and none that writes it', function (): void {
+    $secrets = array_map(strval(...), array_keys(Lenient::entries(WorkflowFile::at(RELEASE)->field('jobs')->field('gate')->field('secrets'))));
+
+    expect($secrets)->toBe(['MUTATION_GATE_READ_AWS_ACCESS_KEY_ID', 'MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY']);
+});
+
+it('installs and builds a release under the version its tag names, and checks the PHAR says it', function (): void {
+    $build = WorkflowFile::at(RELEASE)->field('jobs')->field('build');
+    $checks = WorkflowFile::stepsWhere($build->field('steps'), 'name', static fn(string $name): bool => $name === 'Check the PHAR says the tag\'s version');
+
+    expect(Lenient::text($build->field('env')->field('COMPOSER_ROOT_VERSION')))->toBe('${{ needs.verify.outputs.version }}')
+        ->and($checks)->toHaveCount(1);
+});
+
 it('sets up the extensions on a release\'s gate that the package\'s own gate has', function (): void {
     $of = static fn(string $workflow, string $job): string => Lenient::text(WorkflowFile::at($workflow)->field('jobs')->field($job)->field('with')->field('extensions'));
 

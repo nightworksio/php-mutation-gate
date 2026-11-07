@@ -15,7 +15,8 @@ Usage:
   release.py prepend    puts the section on stdin at the top of CHANGELOG.md
   release.py notes      prints TAG's section of CHANGELOG.md
   release.py check-tag  refuses TAG where its release line is not
-                        gate_action.py's, and writes line= to $GITHUB_OUTPUT
+                        gate_action.py's, and writes line= and version= to
+                        $GITHUB_OUTPUT
   release.py verify-signature
                         refuses PHAR where PHAR.asc is not a good signature by
                         the key the action pins, read as the action reads it:
@@ -201,6 +202,11 @@ def line(version: str) -> str:
     return gate_action.line_of("{}.{}.{}".format(*parse(version)))
 
 
+def version_of(tag: str) -> str:
+    """The version a release tag names, without its v."""
+    return "{}.{}.{}".format(*parse(tag))
+
+
 def line_refusal(tag: str, current: str) -> str | None:
     """Why a tag is not a release of the action's line, or nothing where it is."""
     found = line(tag)
@@ -287,7 +293,7 @@ def _check_tag() -> None:
     why = line_refusal(os.environ["TAG"], gate_action.LINE)
     if why is not None:
         raise Refused(why)
-    _write_outputs({"line": gate_action.LINE})
+    _write_outputs({"line": gate_action.LINE, "version": version_of(os.environ["TAG"])})
 
 
 def signature_refusal(status: str) -> str | None:
