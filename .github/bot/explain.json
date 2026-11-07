@@ -17,6 +17,7 @@
     "outside": "- Findings in files this pull request does not change: {count}. See the job's annotations.",
     "cut": "- Findings left out of this comment: {count}. See the job's annotations.",
     "no-evidence": "- The job left no evidence the bot could read. See [the job]({job}).",
+    "evidence-pending": "- The run has not finished, so the job's evidence cannot be read yet.",
     "reproduce": "Reproduce: `{command}`",
     "fix-here": "Fix: `{command}`, or comment `/fix` and the bot commits the fix CI computed.",
     "fix-fork": "Fix: `{command}`, or commit the suggested changes on the diff.",

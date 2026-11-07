@@ -230,7 +230,8 @@ def gate_section(gate: str, job_url: str, state: State, tables: bot_tables.Table
         return "\n".join([*out, "", verdict])
     findings = explained(gate, state, tables, most)
     if not findings and bot_tables.producers(entry):
-        findings = [tables.say("no-evidence", job=job_url)]
+        finished = all(run is None or run.status == "completed" for run in state.runs.values())
+        findings = [tables.say("no-evidence", job=job_url) if finished else tables.say("evidence-pending")]
     if findings:
         out += ["", *findings]
     out += ["", tables.say("reproduce", command=entry["reproduce"])]

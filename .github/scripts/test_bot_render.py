@@ -170,6 +170,14 @@ class Failures(unittest.TestCase):
         self.assertIn(f"Reproduce: `{TABLES.gates['checks']['reproduce']}`", section)
         self.assertIn("comment `/fix`", section)
 
+    def test_a_failed_job_of_a_run_still_going_has_evidence_to_come(self):
+        going = state(runs={"ci": run("ci", "in_progress", ""), "pr": run("pr")})
+
+        section = bot_render.gate_section("checks", JOB, going, TABLES, 30)
+
+        self.assertIn("cannot be read yet", section)
+        self.assertNotIn("left no evidence", section)
+
     def test_a_fork_is_pointed_at_the_suggestions_and_a_gate_with_no_fix_says_so(self):
         self.assertIn("suggested changes", bot_render.gate_section("checks", JOB, state(pull=pull(same_repo=False)), TABLES, 30))
         self.assertIn("not mechanical", bot_render.gate_section("rules", JOB, state(), TABLES, 30))
