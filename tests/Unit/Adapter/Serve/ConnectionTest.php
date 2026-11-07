@@ -99,6 +99,19 @@ it('never refuses a client that connects the moment the socket is there', functi
     expect(array_values(array_unique($found)))->toBe(['connected']);
 });
 
+it('says why it cannot listen where it cannot move the socket into place, leaving nothing bound aside', function (): void {
+    ServedProjects::entered();
+    mkdir(ServedProjects::SOCKET);
+    touch(sprintf('%s/held', ServedProjects::SOCKET));
+    error_clear_last();
+    $unplaced = Listener::boundTo(ServedProjects::SOCKET);
+
+    expect($unplaced instanceof CannotJudge ? $unplaced->why() : '')
+        ->toStartWith('The daemon could not listen on .mutation-gate/serve.sock: rename(')
+        ->and(file_exists(sprintf('%s.binding-%d', ServedProjects::SOCKET, getmypid())))->toBeFalse()
+        ->and(error_get_last())->toBeNull();
+});
+
 it('connects to nothing where nothing listens, and binds nothing where the directory is missing', function (): void {
     ServedProjects::entered();
 
