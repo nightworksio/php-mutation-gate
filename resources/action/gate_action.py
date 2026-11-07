@@ -10,9 +10,9 @@ Usage:
                            and its attestation, and names it as `gate`
   gate_action.py resolve   the run's scope, ledger cache, gate binary and options:
                            `plan_options` adds the mode's to `options`
-  gate_action.py run-times writes what the run's jobs took to RUN_TIMES, as the
-                           GitHub API says, for the verdict to read; where the API
-                           cannot say it writes nothing, and the verdict estimates
+  gate_action.py run-times writes what the jobs JOBS lists took to RUN_TIMES, for
+                           the verdict to read; where it lists none it writes
+                           nothing, and the verdict estimates
   gate_action.py config    from the effective config on stdin: whether it keeps
                            its ledger in the default directory, which copy of a
                            ledger it reads, whether deliver keeps the ledger in
@@ -694,21 +694,23 @@ def _phar() -> dict[str, str]:
 
 
 def _run_times() -> dict[str, str]:
-    repository = os.environ.get("GITHUB_REPOSITORY", "")
-    run = os.environ.get("GITHUB_RUN_ID", "")
-    attempt = os.environ.get("GITHUB_RUN_ATTEMPT", "")
-    path = f"repos/{repository}/actions/runs/{run}/attempts/{attempt}/jobs?per_page=100"
-    asked = subprocess.run(["gh", "api", "--paginate", path, "--jq", ".jobs[]"], capture_output=True, text=True, check=False, timeout=120)
-    jobs = [json.loads(line) for line in asked.stdout.splitlines() if line.startswith("{")] if asked.returncode == 0 else []
+    jobs = _json_list(os.environ.get("JOBS", ""))
     times = run_times(jobs, datetime.now(timezone.utc))
     if times is None:
-        print("::notice::The API said nothing of this run's jobs, so the verdict estimates what they took.", file=sys.stderr)
+        print("::notice::The list of this run's jobs says nothing of what they took, so the verdict estimates it.", file=sys.stderr)
         return {}
-    target = os.environ.get("RUN_TIMES", "")
-    os.makedirs(os.path.dirname(target), exist_ok=True)
-    with open(target, "w", encoding="utf-8") as file:
+    with open(os.environ.get("RUN_TIMES", ""), "w", encoding="utf-8") as file:
         json.dump(times, file)
     return {}
+
+
+def _json_list(path: str) -> list[dict]:
+    """The objects of a JSON list in a file; none where there is no such file."""
+    if not os.path.isfile(path):
+        return []
+    with open(path, encoding="utf-8") as file:
+        loaded = json.load(file)
+    return [item for item in loaded if isinstance(item, dict)] if isinstance(loaded, list) else []
 
 
 def _resolve() -> dict[str, str]:

@@ -519,6 +519,24 @@ class Outputs(unittest.TestCase):
         self.assertIn("\n{\n}\n", written)
 
 
+class RunTimesStep(unittest.TestCase):
+    def test_writes_what_the_listed_jobs_took_and_nothing_where_it_lists_none(self):
+        with tempfile.TemporaryDirectory() as directory:
+            jobs = os.path.join(directory, "jobs.json")
+            times = os.path.join(directory, "times.json")
+            with open(jobs, "w", encoding="utf-8") as file:
+                json.dump([{"started_at": "2026-11-07T11:00:00Z", "completed_at": "2026-11-07T11:00:30Z"}], file)
+            environment = {**os.environ, "JOBS": jobs, "RUN_TIMES": times, "GITHUB_OUTPUT": os.path.join(directory, "outputs")}
+
+            ran = subprocess.run([sys.executable, action_script.PATH, "run-times"], env=environment, capture_output=True, text=True, check=False)
+            written = os.path.isfile(times)
+            os.remove(times)
+            none = subprocess.run([sys.executable, action_script.PATH, "run-times"], env={**environment, "JOBS": os.path.join(directory, "gone.json")}, capture_output=True, text=True, check=False)
+
+            self.assertEqual((0, True), (ran.returncode, written), ran.stderr)
+            self.assertEqual((0, False), (none.returncode, os.path.isfile(times)), none.stderr)
+
+
 class RunTimes(unittest.TestCase):
     NOW = datetime(2026, 11, 7, 12, 0, 0, tzinfo=timezone.utc)
 

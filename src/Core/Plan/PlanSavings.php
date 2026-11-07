@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Plan;
 
+use Closure;
+
 use function count;
 use function max;
 use function min;
@@ -11,6 +13,7 @@ use function min;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Price;
 use NightWorksIO\MutationGate\Core\Cost\Cost;
+use NightWorksIO\MutationGate\Core\Cost\Estimated;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\Cost\Rate;
 use NightWorksIO\MutationGate\Core\Cost\RunAccount;
@@ -19,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Cost\Savings;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Score\Percentage;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
 /**
@@ -27,19 +31,29 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  * saved of the units the change did not reach, and proofs of the reached units
  * whose key matched. A unit the plan ran counts what the plan expected of it,
  * and is measured where a ledger timed it. A unit no ledger timed and no shard
- * ran counts nothing, and lowers the share said to be measured. A run with no
- * timings has no history to say anything from.
+ * ran is estimated by the cost model, and lowers the share said to be measured.
+ * A run with no timings has no history to say anything from.
  */
 final readonly class PlanSavings
 {
-    private function __construct(private Plan $plan, private Timings $timings, private Seconds $setup)
-    {
+    /** @param Closure(Unit): Estimated $estimate what the cost model expects of a unit */
+    private function __construct(
+        private Plan $plan,
+        private Timings $timings,
+        private Closure $estimate,
+        private Seconds $setup,
+    ) {
     }
 
-    /** The savings of a plan with these timings, whose every job first spends this long on its setup. */
-    public static function of(Plan $plan, Timings $timings, Seconds $setup): self
+    /**
+     * The savings of a plan with these timings, a unit's cost as the cost model
+     * expects it, whose every job first spends this long on its setup.
+     *
+     * @param Closure(Unit): Estimated $estimate
+     */
+    public static function of(Plan $plan, Timings $timings, Closure $estimate, Seconds $setup): self
     {
-        return new self($plan, $timings, $setup);
+        return new self($plan, $timings, $estimate, $setup);
     }
 
     /** This account, with what the run cost, priced where a price is given, and what it saved, having spent this. */
@@ -74,8 +88,8 @@ final readonly class PlanSavings
     private function savedBy(RunTime $spent): Savings
     {
         $considered = $this->plan->considered();
-        $reach = $this->timedOf($considered->carried());
-        $proofs = $this->timedOf($considered->proved());
+        $reach = $this->costOf($considered->carried());
+        $proofs = $this->costOf($considered->proved());
         $opening = $this->opening();
         $ran = 0.0;
         $timedRun = 0.0;
@@ -88,12 +102,10 @@ final readonly class PlanSavings
         }
 
         $units = $reach + $proofs + $ran;
+        $timed = $this->timedOf($considered->carried()) + $this->timedOf($considered->proved()) + $timedRun;
         $full = $this->setup->seconds() + $opening + $units;
         $measured = $units > 0.0
-            ? Percentage::share(
-                Seconds::of($reach + $proofs + $timedRun)->microseconds(),
-                Seconds::of($units)->microseconds(),
-            )
+            ? Percentage::share(Seconds::of($timed)->microseconds(), Seconds::of($units)->microseconds())
             : Percentage::none();
         $savings = Savings::of(
             Seconds::of($full),
@@ -113,7 +125,19 @@ final readonly class PlanSavings
     {
         $considered = $this->plan->considered();
 
-        return $this->timedOf($considered->carried()) + $this->timedOf($considered->proved());
+        return $this->costOf($considered->carried()) + $this->costOf($considered->proved());
+    }
+
+    /** What the cost model expects of these units, together. */
+    private function costOf(Units $units): float
+    {
+        $seconds = 0.0;
+
+        foreach ($units as $unit) {
+            $seconds += ($this->estimate)($unit)->seconds()->seconds();
+        }
+
+        return $seconds;
     }
 
     /** The timings of those of these units a ledger timed, together. */

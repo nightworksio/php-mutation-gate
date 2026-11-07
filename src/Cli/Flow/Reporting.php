@@ -11,6 +11,7 @@ use Closure;
 
 use function is_array;
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\BadgeDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\DeliveredReport;
 use NightWorksIO\MutationGate\Adapter\Filesystem\DeliveryDirectory;
 use NightWorksIO\MutationGate\Adapter\GitHub\StepSummary;
@@ -64,6 +65,7 @@ final readonly class Reporting
         private Variables $environment,
         private DeliveryDirectory|NotGiven $later = new NotGiven(),
         private array $publishing = [],
+        private string $publishedIn = BadgeDirectory::PATH,
     ) {
     }
 
@@ -74,13 +76,25 @@ final readonly class Reporting
      */
     public function deliveringLater(DeliveryDirectory $delivery): self
     {
-        return new self($this->chosen, $this->environment, $delivery, $this->publishing);
+        return new self($this->chosen, $this->environment, $delivery, $this->publishing, $this->publishedIn);
     }
 
     /** The same, the badge and trend written into this directory, as `--publish-dir` asks (ADR-0009). */
     public function publishingInto(Path $directory): self
     {
-        return new self($this->chosen, $this->environment, $this->later, [Member::of('path', $directory->value())]);
+        return new self(
+            $this->chosen,
+            $this->environment,
+            $this->later,
+            [Member::of('path', $directory->value())],
+            $directory->value(),
+        );
+    }
+
+    /** Where the badge and trend are published, as `--publish-dir` says or else where they always are. */
+    public function publishedIn(): Path
+    {
+        return Path::of($this->publishedIn);
     }
 
     /** Whether the run leaves what needs a credential for `deliver`, as `--deliver-later` asks. */

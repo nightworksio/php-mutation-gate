@@ -23,6 +23,10 @@ use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Config\Improvement;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Cost\Estimated;
+use NightWorksIO\MutationGate\Core\Cost\FirstRun;
+use NightWorksIO\MutationGate\Core\Cost\RunAccount;
+use NightWorksIO\MutationGate\Core\Cost\RunTime;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
@@ -49,6 +53,7 @@ use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
+use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Verdict\Carrying;
 use NightWorksIO\MutationGate\Core\Verdict\ChangesSince;
 use NightWorksIO\MutationGate\Core\Verdict\Doomed;
@@ -171,8 +176,7 @@ final readonly class Judging
         );
         $judged = $this->adapters->changes->judged($plan->commit());
         $verdict = $assessed->verdict->withAccount(
-            PlanSavings::of($plan, $assessed->ledgers->timings(), $this->settings->shards()->setup())
-                ->into($assessed->verdict->account(), $timings->spent(), $this->settings->shards()->perRunnerMinute())
+            $this->accounted($plan, $assessed, $timings->spent())
                 ->withTimings($timings)
                 ->withProvenance(VerdictProvenance::of($this->adapters, $this->setup, $this->settings, $judged)),
         );
@@ -597,5 +601,24 @@ final readonly class Judging
             $written instanceof CannotJudge => $written,
             default => $written->why(),
         };
+    }
+
+    /** The account of a verdict, with what the run cost and saved, and on the default branch the trend before it. */
+    private function accounted(Plan $plan, Assessed $assessed, RunTime $spent): RunAccount
+    {
+        $timings = $assessed->ledgers->timings();
+        $costs = $this->adapters->costs;
+
+        return TrendBefore::on(
+            PlanSavings::of(
+                $plan,
+                $timings,
+                static fn(Unit $unit): Estimated => $costs->cost($unit, $timings, FirstRun::unmeasured()),
+                $this->settings->shards()->setup(),
+            )->into($assessed->verdict->account(), $spent, $this->settings->shards()->perRunnerMinute()),
+            $plan->runOn(),
+            $this->adapters->project,
+            $this->reporting->publishedIn(),
+        );
     }
 }

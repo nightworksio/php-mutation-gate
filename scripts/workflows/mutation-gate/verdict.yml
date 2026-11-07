@@ -167,11 +167,10 @@
           pattern: mutation-gate-fetched-${{ needs.fetch.outputs.attempt }}
           path: ${{ env.FETCHED }}
           merge-multiple: true
-      # What the run's jobs took, exactly, from the API (ADR-0017). The token stays
-      # in this step, which runs none of the project's code.
+      # What the run's jobs took, from the list the first step read (ADR-0017).
       - name: Read what the run's jobs took
         env:
-          GH_TOKEN: ${{ github.token }}
+          JOBS: .mutation-gate/jobs.json
           RUN_TIMES: .mutation-gate/run-times.json
         run: python3 "${GATE_ACTION}/resources/action/gate_action.py" run-times
       # The comment, the ledger, the alerts and the trace go into the delivery,
