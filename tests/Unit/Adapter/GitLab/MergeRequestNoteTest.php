@@ -200,22 +200,22 @@ it('updates only where the gate has noted before, an earlier run\'s note being o
 })->with([
     'an earlier run\'s note, under a mode of its own' => [
         fn(): CommentWrite => CommentWrite::of(Mode::New, 'run')->existingOnly(),
-        [gitlabNote(5, 'project_42_bot', Markdown::MARKER)],
+        fn(): array => [gitlabNote(5, 'project_42_bot', Markdown::MARKER)],
         'POST',
     ],
     'none, under a mode of its own' => [
         fn(): CommentWrite => CommentWrite::of(Mode::New, 'run')->existingOnly(),
-        [gitlabNote(5, 'someone', Markdown::MARKER)],
+        fn(): array => [gitlabNote(5, 'someone', Markdown::MARKER)],
         '',
     ],
     'its own, the one note' => [
         fn(): CommentWrite => CommentWrite::sticky()->existingOnly(),
-        [gitlabNote(5, 'project_42_bot', Markdown::MARKER)],
+        fn(): array => [gitlabNote(5, 'project_42_bot', Markdown::MARKER)],
         'PUT',
     ],
     'none, the one note' => [
         fn(): CommentWrite => CommentWrite::sticky()->existingOnly(),
-        [gitlabNote(5, 'someone', Markdown::MARKER)],
+        fn(): array => [gitlabNote(5, 'someone', Markdown::MARKER)],
         '',
     ],
 ]);
