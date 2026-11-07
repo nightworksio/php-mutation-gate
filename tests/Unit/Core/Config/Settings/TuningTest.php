@@ -184,3 +184,36 @@ it('holds the values no config can write to what they must be', function (): voi
         ->and(RunnerPace::of(0, Seconds::of(1.0))->recycleAfter())->toBe(1)
         ->and(Local::of(triageFewest: 1)->triageFewest())->toBe(2);
 });
+
+it('reads how a learned timeout multiple is read from the kills', function (): void {
+    $learned = Configs::settings(['runner' => 'pest', 'timeouts' => ['learned' => ['percentile' => 0.9, 'least' => 3, 'most' => 8]]])->triage()->learned();
+    $standard = Configs::settings(['runner' => 'pest'])->triage()->learned();
+
+    expect([$learned->percentile(), $learned->least(), $learned->most(), $learned->inAHundred()])->toBe([0.9, 3.0, 8.0, 90.0])
+        ->and([$standard->percentile(), $standard->least(), $standard->most(), $standard->inAHundred()])->toBe([0.99, 2.0, 10.0, 99.0]);
+});
+
+it('reads how much of its limits a ledger keeps, and how long a read of one may take', function (): void {
+    $kept = Configs::settings(['runner' => 'pest', 'proofs' => ['keep' => ['kills' => 50, 'runs' => 3], 'limits' => ['read' => '90s']]])->proofs()->retained();
+    $standard = Configs::settings(['runner' => 'pest'])->proofs()->retained();
+
+    expect([$kept->kills(), $kept->runs(), $kept->read()->seconds()])->toBe([50, 3, 90.0])
+        ->and(LedgerLimits::kept($kept)->seconds())->toBe(90.0)
+        ->and([$standard->kills(), $standard->runs(), $standard->read()->seconds()])->toBe([2000, 10, 60.0]);
+});
+
+it('reads what an analyser reads and when a mutator\'s rate decides', function (): void {
+    $set = Configs::settings(['runner' => 'pest', 'staticCheck' => ['dependents' => 3, 'preCheckAfter' => 7]])->staticCheck();
+    $standard = Configs::settings(['runner' => 'pest'])->staticCheck();
+
+    expect([$set->dependents(), $set->preCheckAfter()])->toBe([3, 7])
+        ->and([$standard->dependents(), $standard->preCheckAfter()])->toBe([25, 50]);
+});
+
+it('reads how large a suite may name a hot path, the memory doctor wants, and a daemon\'s wait for a request', function (): void {
+    $set = Configs::settings(['runner' => 'pest', 'local' => ['memoryHeadroom' => 3, 'serveRequest' => '9s']])->local();
+    $standard = Configs::settings(['runner' => 'pest'])->local();
+
+    expect([$set->memoryHeadroom(), $set->serveRequest()->seconds()])->toBe([3, 9.0])
+        ->and([$standard->memoryHeadroom(), $standard->serveRequest()->seconds()])->toBe([2, 5.0]);
+});

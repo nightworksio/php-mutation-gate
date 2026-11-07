@@ -30,6 +30,8 @@ final readonly class LocalKeys
         $startWait = Field::optional('serveStartWait', Duration::written(), $judges);
         $infer = Field::optional('inferSubsumed', Flag::boolean(), $judges);
         $poll = Field::optional('watchPoll', Duration::written(), $judges);
+        $headroom = Field::optional('memoryHeadroom', Integer::atLeast(1), $judges);
+        $request = Field::optional('serveRequest', Duration::written(), $judges);
 
         return [Field::section(
             'triage',
@@ -48,6 +50,8 @@ final readonly class LocalKeys
                     $startWait,
                     $infer,
                     $poll,
+                    $headroom,
+                    $request,
                 ): Layer|Invalid {
                     $watching = $watch->read($local);
                     $pushing = $prePush->read($local);
@@ -56,6 +60,8 @@ final readonly class LocalKeys
                     $waiting = $startWait->read($local);
                     $inferring = $infer->read($local);
                     $polling = $poll->read($local);
+                    $room = $headroom->read($local);
+                    $requesting = $request->read($local);
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Local::of(
@@ -66,6 +72,8 @@ final readonly class LocalKeys
                             $waiting->value(),
                             $inferring->value(),
                             $polling->value(),
+                            memoryHeadroom: $room->value(),
+                            serveRequest: $requesting->value(),
                         )),
                         $watching,
                         $pushing,
@@ -74,6 +82,8 @@ final readonly class LocalKeys
                         $waiting,
                         $inferring,
                         $polling,
+                        $room,
+                        $requesting,
                     );
                 },
                 $watch,
@@ -83,6 +93,8 @@ final readonly class LocalKeys
                 $startWait,
                 $infer,
                 $poll,
+                $headroom,
+                $request,
             ),
         )];
     }

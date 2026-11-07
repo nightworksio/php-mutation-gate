@@ -53,6 +53,7 @@ final readonly class Reach implements Part
         private ChangedTests|Absent $changedTests,
         private Listed|Absent $fixtures,
         private Choice|Absent $versionControl,
+        private int|Absent $hotPathFewest,
     ) {
     }
 
@@ -77,6 +78,7 @@ final readonly class Reach implements Part
         Listed|Absent $failFastWaits = new Absent(),
         Choice|Absent $versionControl = new Absent(),
         LockMoveReach|Absent $lockMoves = new Absent(),
+        int|Absent $hotPathFewest = new Absent(),
     ): self {
         $set = $pruning instanceof Pruning ? $pruning : Pruning::of();
         $failing = FailingFast::of($failFast, $failFastWaits);
@@ -94,6 +96,7 @@ final readonly class Reach implements Part
             $changedTests,
             $fixtures,
             $versionControl,
+            $hotPathFewest,
         );
     }
 
@@ -127,6 +130,7 @@ final readonly class Reach implements Part
             fixtures: $none->fixtures(),
             failFastWaits: $none->failingFast()->waits(),
             lockMoves: LockMoveReach::Everything,
+            hotPathFewest: HotPaths::SMALLEST_SUITE,
         );
     }
 
@@ -145,6 +149,7 @@ final readonly class Reach implements Part
                 Absent::laid($this->changedTests, $later->changedTests),
                 $this->joined($this->fixtures, $later->fixtures),
                 Absent::laid($this->versionControl, $later->versionControl),
+                Absent::laid($this->hotPathFewest, $later->hotPathFewest),
             )
             : $this;
     }
@@ -186,7 +191,10 @@ final readonly class Reach implements Part
     /** The files most of the suite runs through that nothing holds, past `holds.hotPath` of it. */
     public function hotPaths(): HotPaths
     {
-        return $this->hotPath instanceof Absent ? HotPaths::standard() : HotPaths::atShare($this->hotPath);
+        return HotPaths::atShareOfAtLeast(
+            $this->hotPath instanceof Absent ? HotPaths::STANDARD : $this->hotPath,
+            $this->hotPathFewest instanceof Absent ? HotPaths::SMALLEST_SUITE : $this->hotPathFewest,
+        );
     }
 
     /**
@@ -253,7 +261,13 @@ final readonly class Reach implements Part
                     ...$this->lock->members(),
                 ),
             ),
-            Member::unlessEmpty('holds', Json::object(Member::of('hotPath', $this->hotPath))),
+            Member::unlessEmpty(
+                'holds',
+                Json::object(
+                    Member::of('hotPath', $this->hotPath),
+                    Member::of('fewestTests', $this->hotPathFewest),
+                ),
+            ),
             Member::unlessEmpty(
                 'run',
                 Json::object(Member::of('full', $this->full))->merged($this->failingFast->written()),
@@ -301,6 +315,9 @@ final readonly class Reach implements Part
             ...$changedTests,
             ...$fixtures,
             ...$hotPath,
+            ...$this->hotPathFewest instanceof Absent
+                ? []
+                : [sprintf('Reach::hotPathFewestTests(%d)', $this->hotPathFewest)],
             ...$full,
             ...$this->versionControl instanceof Choice
                 ? [PhpCalls::chosen($this->versionControl, AdapterBuilder::VersionControl, ...self::NAMED_CONTROLS)]

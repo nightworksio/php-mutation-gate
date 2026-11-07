@@ -45,6 +45,7 @@ $daemonOf = static fn(InlineForking $forking, float $idle): Daemon => new Daemon
         return 4;
     },
     $forking,
+    Seconds::of(5.0),
 );
 
 it('runs each request in a child, which answers with what it wrote and its exit code, and stops once it idles', function () use ($started, $runRequest, $daemonOf): void {

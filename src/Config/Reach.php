@@ -40,25 +40,13 @@ final readonly class Reach implements Setting
         return new self(Json::at('reach.lockPackages', Json::items(...$patterns)));
     }
 
-    /** `reach.lockMoves: everything`: a lock's move reaches every unit, the default. */
-    public static function lockMovesReachEverything(): self
-    {
-        return new self(Json::at('reach.lockMoves', LockMoveReach::Everything->value));
-    }
-
-    /** `reach.lockMoves: named`: a lock's move reaches every unit only where it moved what `lockPackages` names. */
-    public static function lockMovesReachByName(): self
-    {
-        return new self(Json::at('reach.lockMoves', LockMoveReach::Named->value));
-    }
-
     /**
-     * `reach.lockMoves: loaded`: a lock's move reaches the units run by the tests that loaded a moved package. A
-     * package loaded only in a worker no test started is not seen.
+     * `reach.lockMoves`: what a package's move in a lock reaches. `Loaded` can miss a package loaded only in a process
+     * no test started (ADR-0113).
      */
-    public static function lockMovesReachWhatLoadedThem(): self
+    public static function lockMoves(LockMoveReach $reach): self
     {
-        return new self(Json::at('reach.lockMoves', LockMoveReach::Loaded->value));
+        return new self(Json::at('reach.lockMoves', $reach->value));
     }
 
     /**
@@ -89,6 +77,12 @@ final readonly class Reach implements Setting
     public static function hotPath(int|float $share): self
     {
         return new self(Json::at('holds.hotPath', $share));
+    }
+
+    /** `holds.fewestTests`: the fewest tests a suite holds for a file to read as hot, 20 by default. */
+    public static function hotPathFewestTests(int $tests): self
+    {
+        return new self(Json::at('holds.fewestTests', $tests));
     }
 
     /** `run.full`, `true`: a run given neither `--full` nor `--changed-since` considers every unit. */

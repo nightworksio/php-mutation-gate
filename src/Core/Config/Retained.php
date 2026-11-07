@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\LedgerRetention;
+use NightWorksIO\MutationGate\Core\Proof\LimitHistory;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use const PHP_INT_MAX;
 
@@ -35,6 +37,9 @@ final readonly class Retained
         private int|Absent $mapUnpacked,
         private int|Absent $handoffPacked,
         private int|Absent $handoffUnpacked,
+        private int|Absent $kills,
+        private int|Absent $runs,
+        private Seconds|Absent $read,
     ) {
     }
 
@@ -49,6 +54,9 @@ final readonly class Retained
         int|Absent $mapUnpacked = new Absent(),
         int|Absent $handoffPacked = new Absent(),
         int|Absent $handoffUnpacked = new Absent(),
+        int|Absent $kills = new Absent(),
+        int|Absent $runs = new Absent(),
+        Seconds|Absent $read = new Absent(),
     ): self {
         return new self(
             $killers,
@@ -61,6 +69,9 @@ final readonly class Retained
             $mapUnpacked,
             $handoffPacked,
             $handoffUnpacked,
+            $kills,
+            $runs,
+            $read,
         );
     }
 
@@ -77,6 +88,9 @@ final readonly class Retained
             MapLimits::PACKED,
             MapLimits::UNPACKED,
             HandoffLimits::PACKED,
+            kills: LimitHistory::KILLS,
+            runs: LimitHistory::RUNS,
+            read: Seconds::of(LedgerLimits::SECONDS),
         );
     }
 
@@ -93,6 +107,9 @@ final readonly class Retained
             Absent::laid($this->mapUnpacked, $later->mapUnpacked),
             Absent::laid($this->handoffPacked, $later->handoffPacked),
             Absent::laid($this->handoffUnpacked, $later->handoffUnpacked),
+            Absent::laid($this->kills, $later->kills),
+            Absent::laid($this->runs, $later->runs),
+            Absent::laid($this->read, $later->read),
         );
     }
 
@@ -149,6 +166,24 @@ final readonly class Retained
         return $this->handoffUnpacked;
     }
 
+    /** `proofs.keep.kills`: how many kills the learned timeout multiple is read from, the newest. */
+    public function kills(): int
+    {
+        return $this->kills instanceof Absent ? LimitHistory::KILLS : $this->kills;
+    }
+
+    /** `proofs.keep.runs`: how many runs the learned shard count is read from, the newest. */
+    public function runs(): int
+    {
+        return $this->runs instanceof Absent ? LimitHistory::RUNS : $this->runs;
+    }
+
+    /** `proofs.limits.read`: the longest a read of a ledger over a network may take. */
+    public function read(): Seconds
+    {
+        return $this->read instanceof Seconds ? $this->read : Seconds::of(LedgerLimits::SECONDS);
+    }
+
     /** The `proofs` section with `keep` and `limits` in it. */
     public function into(Json $proofs): Json
     {
@@ -160,6 +195,8 @@ final readonly class Retained
                     Member::of('bases', $this->bases),
                     Member::of('proofs', $this->proofs),
                     Member::of('functions', $this->functions),
+                    Member::of('kills', $this->kills),
+                    Member::of('runs', $this->runs),
                 ),
             ))
             ->with(Member::unlessEmpty(
@@ -168,6 +205,7 @@ final readonly class Retained
                     $this->bytes('ledger', $this->ledgerPacked, $this->ledgerUnpacked),
                     $this->bytes('map', $this->mapPacked, $this->mapUnpacked),
                     $this->bytes('handoff', $this->handoffPacked, $this->handoffUnpacked),
+                    Member::of('read', WholeSeconds::duration($this->read)),
                 ),
             ));
     }
@@ -175,21 +213,30 @@ final readonly class Retained
     /** The builder's calls that set these keys, where a layer sets them. */
     public function php(): PhpCalls
     {
+        $called = static fn(string $call, int|Absent $value): array => $value instanceof Absent
+            ? []
+            : [sprintf($call, $value)];
+
         return PhpCalls::inWith(...[
             ...match (true) {
                 $this->killers instanceof AllKept => ['Retention::allKillers()'],
                 $this->killers instanceof Absent => [],
                 default => [sprintf('Retention::killers(%d)', $this->killers)],
             },
-            ...$this->called('Retention::bases(%d)', $this->bases),
-            ...$this->called('Retention::proofs(%d)', $this->proofs),
-            ...$this->called('Retention::functions(%d)', $this->functions),
-            ...$this->called('Retention::ledgerPacked(%d)', $this->ledgerPacked),
-            ...$this->called('Retention::ledgerUnpacked(%d)', $this->ledgerUnpacked),
-            ...$this->called('Retention::mapPacked(%d)', $this->mapPacked),
-            ...$this->called('Retention::mapUnpacked(%d)', $this->mapUnpacked),
-            ...$this->called('Retention::handoffPacked(%d)', $this->handoffPacked),
-            ...$this->called('Retention::handoffUnpacked(%d)', $this->handoffUnpacked),
+            ...$called('Retention::bases(%d)', $this->bases),
+            ...$called('Retention::proofs(%d)', $this->proofs),
+            ...$called('Retention::functions(%d)', $this->functions),
+            ...$called('Retention::ledgerPacked(%d)', $this->ledgerPacked),
+            ...$called('Retention::ledgerUnpacked(%d)', $this->ledgerUnpacked),
+            ...$called('Retention::mapPacked(%d)', $this->mapPacked),
+            ...$called('Retention::mapUnpacked(%d)', $this->mapUnpacked),
+            ...$called('Retention::handoffPacked(%d)', $this->handoffPacked),
+            ...$called('Retention::handoffUnpacked(%d)', $this->handoffUnpacked),
+            ...$called('Retention::kills(%d)', $this->kills),
+            ...$called('Retention::runs(%d)', $this->runs),
+            ...$this->read instanceof Seconds
+                ? [sprintf('Retention::read(%s)', PhpCalls::literal($this->read->written()))]
+                : [],
         ]);
     }
 
@@ -199,11 +246,5 @@ final readonly class Retained
             $key,
             Json::object(Member::of('packed', $packed), Member::of('unpacked', $unpacked)),
         );
-    }
-
-    /** @return list<string> */
-    private function called(string $call, int|Absent $value): array
-    {
-        return $value instanceof Absent ? [] : [sprintf($call, $value)];
     }
 }

@@ -79,7 +79,9 @@ final readonly class LockReach
     public function php(): array
     {
         return [
-            ...($this->moves instanceof LockMoveReach ? [$this->moves->php()] : []),
+            ...($this->moves instanceof LockMoveReach
+                ? [sprintf('Reach::lockMoves(LockMoveReach::%s)', $this->moves->name)]
+                : []),
             ...($this->packages instanceof Listed
                 ? [sprintf('Reach::lockPackages(%s)', PhpCalls::literals(...$this->packages))]
                 : []),

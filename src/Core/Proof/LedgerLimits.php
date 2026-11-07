@@ -35,7 +35,7 @@ final readonly class LedgerLimits
     public const int UNPACKED = 38_000_000;
 
     /** The longest one read over a network may take, in seconds. */
-    private const float SECONDS = 60.0;
+    public const float SECONDS = 60.0;
 
     private function __construct(
         private int $packed,
@@ -62,7 +62,7 @@ final readonly class LedgerLimits
         return new self(
             $kept->ledgerPacked(),
             $kept->ledgerUnpacked(),
-            self::SECONDS,
+            $kept->read()->seconds(),
             LedgerRetention::kept($kept),
             MapLimits::kept($kept),
         );

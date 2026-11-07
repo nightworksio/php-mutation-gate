@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
 use NightWorksIO\MutationGate\Core\Analysis\Unchecked;
-use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\ChangedTests;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Effect;
@@ -53,6 +52,7 @@ final readonly class ReachKeys
         );
         $fixtures = Field::optional('fixtures', Items::of(Pattern::glob($origin)), Effect::DecidesHowTheGateRuns);
         $hotPath = Field::optional('hotPath', Number::between(0, 1), $judges);
+        $fewest = Field::optional('fewestTests', Integer::atLeast(1), $judges);
         $full = Field::optional('full', Flag::boolean(), Effect::DecidesHowTheGateRuns);
         $failFast = Field::optional('failFast', Enumerated::of(FailFast::cases()), $judges);
         $waits = Field::optional(
@@ -118,9 +118,22 @@ final readonly class ReachKeys
             ),
             Field::section(
                 'holds',
-                Section::single(
+                Section::of(
+                    static function (Node $holds) use ($hotPath, $fewest): Layer|Invalid {
+                        $share = $hotPath->read($holds);
+                        $tests = $fewest->read($holds);
+
+                        return Reading::built(
+                            static fn(): Layer => Layer::of(Reach::of(
+                                hotPath: $share->value(),
+                                hotPathFewest: $tests->value(),
+                            )),
+                            $share,
+                            $tests,
+                        );
+                    },
                     $hotPath,
-                    static fn(int|float|Absent $share): Layer => Layer::of(Reach::of(hotPath: $share)),
+                    $fewest,
                 ),
             ),
             Field::section(

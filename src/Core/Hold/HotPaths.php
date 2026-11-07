@@ -22,11 +22,10 @@ use function sprintf;
  */
 final readonly class HotPaths
 {
-    /** The share of the suite's tests that makes a file hot, unless `holds.hotPath` says otherwise. */
-    private const float STANDARD = 0.8;
-
     /** The fewest tests a suite has before a share of them says anything. */
-    private const int SMALLEST_SUITE = 20;
+    public const int SMALLEST_SUITE = 20;
+    /** The share of the suite's tests that makes a file hot, unless `holds.hotPath` says otherwise. */
+    public const float STANDARD = 0.8;
 
     /** What the warning says. */
     private const string SAID = <<<'SAID'
@@ -36,19 +35,25 @@ final readonly class HotPaths
     /** How a hot path stops being one. */
     private const string HOLD = 'Hold it with the tests that assert what it does: #[Holds(\'%s\')] on them.';
 
-    private function __construct(private float $share)
+    private function __construct(private float $share, private int $fewest)
     {
     }
 
     public static function standard(): self
     {
-        return new self(self::STANDARD);
+        return new self(self::STANDARD, self::SMALLEST_SUITE);
     }
 
     /** Hot at this share of the suite's tests, a fraction from 0 to 1. */
     public static function atShare(float $share): self
     {
-        return new self($share);
+        return new self($share, self::SMALLEST_SUITE);
+    }
+
+    /** Hot at this share of a suite of at least so many tests, as `holds.hotPath` and `holds.fewestTests` say. */
+    public static function atShareOfAtLeast(float $share, int $fewest): self
+    {
+        return new self($share, $fewest);
     }
 
     /** The share of the suite's tests that makes a file hot, as `holds.hotPath` writes it. */
@@ -87,7 +92,7 @@ final readonly class HotPaths
         $tests = count($suite->tests());
         $hot = Paths::none();
 
-        foreach ($tests < self::SMALLEST_SUITE ? [] : $suite->files() as $file) {
+        foreach ($tests < $this->fewest ? [] : $suite->files() as $file) {
             $running = count($suite->testsCoveringFile($file));
             $hot = $running / $tests >= $this->share && ! $this->isHeld($file, $held) ? $hot->with($file) : $hot;
         }

@@ -46,27 +46,62 @@ final readonly class LedgerRetention
     /**
      * @param positive-int $killed
      * @param positive-int $functions
+     * @param positive-int $kills
+     * @param positive-int $runs
      */
-    private function __construct(private int $bases, private int $proofs, private int $killed, private int $functions)
-    {
+    private function __construct(
+        private int $bases,
+        private int $proofs,
+        private int $killed,
+        private int $functions,
+        private int $kills,
+        private int $runs,
+    ) {
     }
 
     /** What every ledger is written with where the config says nothing. */
     public static function standard(): self
     {
-        return new self(self::BASES, self::PROOFS, self::KILLED, self::FUNCTIONS);
+        return new self(
+            self::BASES,
+            self::PROOFS,
+            self::KILLED,
+            self::FUNCTIONS,
+            LimitHistory::KILLS,
+            LimitHistory::RUNS,
+        );
     }
 
     /** What `proofs.keep` says. */
     public static function kept(Retained $kept): self
     {
-        return new self($kept->bases(), $kept->proofs(), max(1, $kept->killers()), max(1, $kept->functions()));
+        return new self(
+            $kept->bases(),
+            $kept->proofs(),
+            max(1, $kept->killers()),
+            max(1, $kept->functions()),
+            max(1, $kept->kills()),
+            max(1, $kept->runs()),
+        );
     }
 
     /** This retention, keeping no more than so many proofs, the newest. */
     public function keepingAtMost(int $proofs): self
     {
-        return new self($this->bases, min($proofs, $this->proofs), $this->killed, $this->functions);
+        return new self(
+            $this->bases,
+            min($proofs, $this->proofs),
+            $this->killed,
+            $this->functions,
+            $this->kills,
+            $this->runs,
+        );
+    }
+
+    /** What a ledger keeps of the kills and the runs its limits are learned from: the newest of each. */
+    public function limitsOf(Ledger $ledger): LimitHistory
+    {
+        return $ledger->learned()->limits()->keepingLast(Bound::atMost($this->kills), Bound::atMost($this->runs));
     }
 
     /** The bases whose proofs a ledger keeps: the ones its runs saw most recently. */

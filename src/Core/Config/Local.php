@@ -8,6 +8,7 @@ use function max;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Runner\Headroom;
 use NightWorksIO\MutationGate\Core\Serve\ServeStart;
 use NightWorksIO\MutationGate\Core\Time\Budgets;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -27,6 +28,9 @@ final readonly class Local implements Part
     /** How long `watch` waits for a daemon it starts to listen, by default, in seconds. */
     private const float SERVE_START_WAIT = 10.0;
 
+    /** How long a client may take to send its request, by default, in seconds. */
+    private const float SERVE_REQUEST = 5.0;
+
     /** The fewest runs that can disagree. */
     private const int TRIAGE_FEWEST = 2;
 
@@ -39,6 +43,8 @@ final readonly class Local implements Part
         private bool|Absent $inferSubsumed = new Absent(),
         private Seconds|Absent $watchPoll = new Absent(),
         private int|Absent $triageFewest = new Absent(),
+        private int|Absent $memoryHeadroom = new Absent(),
+        private Seconds|Absent $serveRequest = new Absent(),
     ) {
     }
 
@@ -51,6 +57,8 @@ final readonly class Local implements Part
         bool|Absent $inferSubsumed = new Absent(),
         Seconds|Absent $watchPoll = new Absent(),
         int|Absent $triageFewest = new Absent(),
+        int|Absent $memoryHeadroom = new Absent(),
+        Seconds|Absent $serveRequest = new Absent(),
     ): self {
         return new self(
             $watchBudget,
@@ -61,6 +69,8 @@ final readonly class Local implements Part
             $inferSubsumed,
             $watchPoll,
             $triageFewest,
+            $memoryHeadroom,
+            $serveRequest,
         );
     }
 
@@ -82,6 +92,8 @@ final readonly class Local implements Part
             $none->inferSubsumed(),
             $none->watchPoll(),
             $none->triageFewest(),
+            $none->memoryHeadroom(),
+            $none->serveRequest(),
         );
     }
 
@@ -97,6 +109,8 @@ final readonly class Local implements Part
                 Absent::laid($this->inferSubsumed, $later->inferSubsumed),
                 Absent::laid($this->watchPoll, $later->watchPoll),
                 Absent::laid($this->triageFewest, $later->triageFewest),
+                Absent::laid($this->memoryHeadroom, $later->memoryHeadroom),
+                Absent::laid($this->serveRequest, $later->serveRequest),
             )
             : $this;
     }
@@ -115,6 +129,18 @@ final readonly class Local implements Part
     public function serveIdle(): Seconds
     {
         return $this->serveIdle instanceof Seconds ? $this->serveIdle : Seconds::minutes(self::SERVE_IDLE_MINUTES);
+    }
+
+    /** `local.serveRequest`: how long a client may take to send a daemon its request. */
+    public function serveRequest(): Seconds
+    {
+        return $this->serveRequest instanceof Seconds ? $this->serveRequest : Seconds::of(self::SERVE_REQUEST);
+    }
+
+    /** `local.memoryHeadroom`: how many times the suite's peak `doctor` wants a memory cap to hold. */
+    public function memoryHeadroom(): int
+    {
+        return $this->memoryHeadroom instanceof Absent ? Headroom::TIMES : $this->memoryHeadroom;
     }
 
     /** `local.serveStartWait`: how long `watch` waits for a daemon it starts to listen. */
@@ -175,6 +201,8 @@ final readonly class Local implements Part
                     Member::of('serveStartWait', WholeSeconds::duration($this->serveStartWait)),
                     Member::of('inferSubsumed', $this->inferSubsumed),
                     Member::of('watchPoll', WholeSeconds::duration($this->watchPoll)),
+                    Member::of('memoryHeadroom', $this->memoryHeadroom),
+                    Member::of('serveRequest', WholeSeconds::duration($this->serveRequest)),
                 ),
             ),
         );
@@ -206,9 +234,23 @@ final readonly class Local implements Part
             ...$this->watchPoll instanceof Seconds
                 ? [sprintf('Local::watchPoll(%s)', PhpCalls::literal($this->watchPoll->written()))]
                 : [],
+            ...$this->roomPhp(),
             ...$this->triageFewest instanceof Absent
                 ? []
                 : [sprintf('Local::triageFewest(%d)', $this->triageFewest)],
         ]);
+    }
+
+    /** @return list<string> the builder's calls for `local.memoryHeadroom` and `local.serveRequest` */
+    private function roomPhp(): array
+    {
+        return [
+            ...$this->memoryHeadroom instanceof Absent
+                ? []
+                : [sprintf('Local::memoryHeadroom(%d)', $this->memoryHeadroom)],
+            ...$this->serveRequest instanceof Seconds
+                ? [sprintf('Local::serveRequest(%s)', PhpCalls::literal($this->serveRequest->written()))]
+                : [],
+        ];
     }
 }

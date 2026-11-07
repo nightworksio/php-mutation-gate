@@ -52,7 +52,8 @@ final readonly class SettingsCases
             "lockMoves": "everything"
         },
         "holds": {
-            "hotPath": 0.8
+            "hotPath": 0.8,
+            "fewestTests": 20
         },
         "run": {
             "full": false,
@@ -133,7 +134,9 @@ final readonly class SettingsCases
                 "killers": "all",
                 "bases": 5,
                 "proofs": 20000,
-                "functions": 5000
+                "functions": 5000,
+                "kills": 2000,
+                "runs": 10
             },
             "limits": {
                 "ledger": {
@@ -146,7 +149,8 @@ final readonly class SettingsCases
                 },
                 "handoff": {
                     "packed": 256000000
-                }
+                },
+                "read": "1m"
             }
         },
         "coverage": {
@@ -174,6 +178,11 @@ final readonly class SettingsCases
                     "Ternary"
                 ],
                 "floor": 7
+            },
+            "learned": {
+                "percentile": 0.99,
+                "least": 2.0,
+                "most": 10.0
             },
             "perTest": 3,
             "testFloor": 3
@@ -257,6 +266,8 @@ final readonly class SettingsCases
             "tool": "auto",
             "seconds": 60,
             "before": true,
+            "dependents": 25,
+            "preCheckAfter": 50,
             "opcache": {
                 "batch": 100,
                 "limit": "1m"
@@ -272,7 +283,9 @@ final readonly class SettingsCases
             "serveStart": "watch",
             "serveStartWait": "10s",
             "inferSubsumed": true,
-            "watchPoll": "1s"
+            "watchPoll": "1s",
+            "memoryHeadroom": 2,
+            "serveRequest": "5s"
         }
     }
     JSON;
@@ -304,7 +317,7 @@ final readonly class SettingsCases
             'changedTests' => 'file',
             'fixtures' => ['tests/fixtures/*'],
         ],
-        'holds' => ['hotPath' => 1],
+        'holds' => ['hotPath' => 1, 'fewestTests' => 5],
         'shards' => ['seconds' => 900, 'max' => 8, 'cutAt' => 3.5],
         'plan' => ['chunkMinutes' => 30, 'provingRange' => 5],
         'timing' => ['newest' => 0.5, 'startUpSamples' => 7],
@@ -331,7 +344,7 @@ final readonly class SettingsCases
         ],
         'coverage' => ['incremental' => false],
         'budget' => '1h30m',
-        'timeouts' => ['mode' => 'unjudged', 'seconds' => 30, 'most' => 120, 'perTest' => false, 'testFloor' => 2, 'startUp' => '9s'],
+        'timeouts' => ['learned' => ['percentile' => 0.9, 'least' => 3, 'most' => 8], 'mode' => 'unjudged', 'seconds' => 30, 'most' => 120, 'perTest' => false, 'testFloor' => 2, 'startUp' => '9s'],
         'flaky' => ['confirmSurvivors' => false],
         'tests' => ['suites' => ['Unit', 'Plugins', 'Unit'], 'holding' => ['Process']],
         'survivorsFirst' => ['max' => 5],
@@ -369,7 +382,7 @@ final readonly class SettingsCases
         ],
         'dashboard' => ['topic' => 'mutation-tested', 'repositories' => ['api', 'web']],
         'pest' => ['patch' => true, 'canary' => 'canary', 'bootTail' => true, 'workerOpcache' => false, 'schemata' => false, 'bootMutants' => false],
-        'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45, 'before' => true, 'opcache' => ['batch' => 50, 'limit' => '30s']],
+        'staticCheck' => ['dependents' => 9, 'preCheckAfter' => 7, 'tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45, 'before' => true, 'opcache' => ['batch' => 50, 'limit' => '30s']],
         'pruning' => ['enabled' => false, 'window' => 200, 'audit' => '3d'],
         'sampling' => [
             'confidence' => 99,
@@ -379,6 +392,6 @@ final readonly class SettingsCases
             'auto' => '2h',
             'autoRuns' => ['pullRequests', 'mergeGroups'],
         ],
-        'local' => ['watchBudget' => '2m', 'prePushBudget' => '90s', 'serveIdle' => '10m', 'serveStart' => 'never', 'inferSubsumed' => false, 'watchPoll' => '5s'],
+        'local' => ['memoryHeadroom' => 3, 'serveRequest' => '9s', 'watchBudget' => '2m', 'prePushBudget' => '90s', 'serveIdle' => '10m', 'serveStart' => 'never', 'inferSubsumed' => false, 'watchPoll' => '5s'],
     ];
 }

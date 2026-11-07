@@ -770,6 +770,11 @@
                     "minimum": 0,
                     "maximum": 1,
                     "default": 0.8
+                },
+                "fewestTests": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 20
                 }
             },
             "additionalProperties": false
@@ -1503,6 +1508,16 @@
                             "type": "integer",
                             "minimum": 1,
                             "default": 5000
+                        },
+                        "kills": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "default": 2000
+                        },
+                        "runs": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "default": 10
                         }
                     },
                     "additionalProperties": false
@@ -1556,6 +1571,11 @@
                                 }
                             },
                             "additionalProperties": false
+                        },
+                        "read": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
+                            "default": "1m"
                         }
                     },
                     "additionalProperties": false
@@ -1664,6 +1684,28 @@
                     "type": "string",
                     "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
                     "default": "5s"
+                },
+                "learned": {
+                    "type": "object",
+                    "properties": {
+                        "percentile": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1,
+                            "default": 0.99
+                        },
+                        "least": {
+                            "type": "number",
+                            "minimum": 1,
+                            "default": 2.0
+                        },
+                        "most": {
+                            "type": "number",
+                            "minimum": 1,
+                            "default": 10.0
+                        }
+                    },
+                    "additionalProperties": false
                 }
             },
             "additionalProperties": false
@@ -3853,6 +3895,16 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "dependents": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "default": 25
+                },
+                "preCheckAfter": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "default": 50
                 }
             },
             "additionalProperties": false
@@ -4011,6 +4063,16 @@
                     "type": "string",
                     "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
                     "default": "1s"
+                },
+                "memoryHeadroom": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 2
+                },
+                "serveRequest": {
+                    "type": "string",
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
+                    "default": "5s"
                 }
             },
             "additionalProperties": false
@@ -4971,6 +5033,10 @@
                             "type": "number",
                             "minimum": 0,
                             "maximum": 1
+                        },
+                        "fewestTests": {
+                            "type": "integer",
+                            "minimum": 1
                         }
                     },
                     "additionalProperties": false
@@ -5502,6 +5568,14 @@
                                 "functions": {
                                     "type": "integer",
                                     "minimum": 1
+                                },
+                                "kills": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "runs": {
+                                    "type": "integer",
+                                    "minimum": 1
                                 }
                             },
                             "additionalProperties": false
@@ -5550,6 +5624,10 @@
                                         }
                                     },
                                     "additionalProperties": false
+                                },
+                                "read": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
                                 }
                             },
                             "additionalProperties": false
@@ -5636,6 +5714,25 @@
                         "startUp": {
                             "type": "string",
                             "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                        },
+                        "learned": {
+                            "type": "object",
+                            "properties": {
+                                "percentile": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                },
+                                "least": {
+                                    "type": "number",
+                                    "minimum": 1
+                                },
+                                "most": {
+                                    "type": "number",
+                                    "minimum": 1
+                                }
+                            },
+                            "additionalProperties": false
                         }
                     },
                     "additionalProperties": false
@@ -7775,6 +7872,14 @@
                                 }
                             },
                             "additionalProperties": false
+                        },
+                        "dependents": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "preCheckAfter": {
+                            "type": "integer",
+                            "minimum": 0
                         }
                     },
                     "additionalProperties": false
@@ -7911,6 +8016,14 @@
                             "type": "boolean"
                         },
                         "watchPoll": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                        },
+                        "memoryHeadroom": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "serveRequest": {
                             "type": "string",
                             "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
                         }

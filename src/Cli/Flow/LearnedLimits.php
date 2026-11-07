@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function min;
 
+use NightWorksIO\MutationGate\Core\Config\LearnedBounds;
 use NightWorksIO\MutationGate\Core\Config\LearnedStatistic;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\Shards;
@@ -33,7 +34,7 @@ use function sprintf;
 final readonly class LearnedLimits
 {
     private const string MULTIPLE
-        = 'timeouts.multiple learned: %s, what 99 in 100 of %d kills took over their tests\' time, in place of %d.';
+        = 'timeouts.multiple learned: %s, what %s in 100 of %d kills took over their tests\' time, in place of %d.';
 
     private const string MULTIPLE_COLD = 'timeouts.multiple learned: %d, the fixed one: the ledger holds no kill yet.';
 
@@ -62,7 +63,8 @@ final readonly class LearnedLimits
         $kills = $ledgers->own()->learned()->limits()->and($ledgers->defaultBranch()->learned()->limits());
         $runs = $ledgers->defaultBranch()->learned()->limits();
         $statistic = $settings->shards()->learnedFrom();
-        $multiple = $bounds->learnsMultiple() ? self::multipleOf($kills) : NotGiven::value();
+        $read = $settings->triage()->learned();
+        $multiple = $bounds->learnsMultiple() ? self::multipleOf($kills, $read) : NotGiven::value();
         $shards = $statistic instanceof LearnedStatistic ? self::shardsOf($runs, $statistic) : NotGiven::value();
         $floor = $settings->triage()->limit()->seconds();
 
@@ -70,7 +72,7 @@ final readonly class LearnedLimits
             ...$bounds->learnsFloor()
                 ? [sprintf(self::FLOOR, MutantLimit::FACTOR, $floor)]
                 : [],
-            ...$bounds->learnsMultiple() ? [self::multipleSaid($kills)] : [],
+            ...$bounds->learnsMultiple() ? [self::multipleSaid($kills, $read)] : [],
             ...$statistic instanceof LearnedStatistic ? [self::shardsSaid($runs, $statistic)] : [],
         ]);
     }
@@ -93,9 +95,9 @@ final readonly class LearnedLimits
         return $this->lines;
     }
 
-    private static function multipleOf(LimitHistory $kills): Multiple
+    private static function multipleOf(LimitHistory $kills, LearnedBounds $bounds): Multiple
     {
-        $learned = $kills->multiple();
+        $learned = $kills->multiple($bounds);
 
         return $learned instanceof NotGiven ? Multiple::standard() : $learned;
     }
@@ -108,13 +110,19 @@ final readonly class LearnedLimits
         return $learned instanceof NotGiven ? $most : min($learned, $most);
     }
 
-    private static function multipleSaid(LimitHistory $kills): string
+    private static function multipleSaid(LimitHistory $kills, LearnedBounds $bounds): string
     {
-        $learned = $kills->multiple();
+        $learned = $kills->multiple($bounds);
 
         return $learned instanceof NotGiven
             ? sprintf(self::MULTIPLE_COLD, MutantLimit::FACTOR)
-            : sprintf(self::MULTIPLE, round($learned->times(), 2), $kills->killCount(), MutantLimit::FACTOR);
+            : sprintf(
+                self::MULTIPLE,
+                round($learned->times(), 2),
+                $bounds->inAHundred(),
+                $kills->killCount(),
+                MutantLimit::FACTOR,
+            );
     }
 
     private static function shardsSaid(LimitHistory $runs, LearnedStatistic $statistic): string

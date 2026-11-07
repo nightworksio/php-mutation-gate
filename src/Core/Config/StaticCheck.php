@@ -7,6 +7,8 @@ namespace NightWorksIO\MutationGate\Core\Config;
 use function array_map;
 use function intval;
 
+use NightWorksIO\MutationGate\Core\Analysis\DependentCap;
+use NightWorksIO\MutationGate\Core\Analysis\PreCheck;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
@@ -45,6 +47,8 @@ final readonly class StaticCheck implements Part
         private bool|Absent $before,
         private int|Absent $opcacheBatch,
         private Seconds|Absent $opcacheLimit,
+        private int|Absent $dependents,
+        private int|Absent $preCheckAfter,
     ) {
     }
 
@@ -55,8 +59,10 @@ final readonly class StaticCheck implements Part
         bool|Absent $before = new Absent(),
         int|Absent $opcacheBatch = new Absent(),
         Seconds|Absent $opcacheLimit = new Absent(),
+        int|Absent $dependents = new Absent(),
+        int|Absent $preCheckAfter = new Absent(),
     ): self {
-        return new self($tool, $config, $seconds, $before, $opcacheBatch, $opcacheLimit);
+        return new self($tool, $config, $seconds, $before, $opcacheBatch, $opcacheLimit, $dependents, $preCheckAfter);
     }
 
     public static function none(): self
@@ -74,6 +80,8 @@ final readonly class StaticCheck implements Part
             before: $none->before(),
             opcacheBatch: $none->opcacheBatch(),
             opcacheLimit: $none->opcacheLimit(),
+            dependents: $none->dependents(),
+            preCheckAfter: $none->preCheckAfter(),
         );
     }
 
@@ -88,6 +96,8 @@ final readonly class StaticCheck implements Part
                 Absent::laid($this->before, $later->before),
                 Absent::laid($this->opcacheBatch, $later->opcacheBatch),
                 Absent::laid($this->opcacheLimit, $later->opcacheLimit),
+                Absent::laid($this->dependents, $later->dependents),
+                Absent::laid($this->preCheckAfter, $later->preCheckAfter),
             )
             : $this;
     }
@@ -134,6 +144,18 @@ final readonly class StaticCheck implements Part
         return $this->opcacheLimit instanceof Seconds ? $this->opcacheLimit : Seconds::of(self::OPCACHE_LIMIT);
     }
 
+    /** `staticCheck.dependents`: how many dependents of a changed file an analyser reads at most. */
+    public function dependents(): int
+    {
+        return $this->dependents instanceof Absent ? DependentCap::STANDARD : $this->dependents;
+    }
+
+    /** `staticCheck.preCheckAfter`: how many checks of a mutator are made before its rate decides where it goes. */
+    public function preCheckAfter(): int
+    {
+        return $this->preCheckAfter instanceof Absent ? PreCheck::STANDARD : $this->preCheckAfter;
+    }
+
     public function written(PathOrigin $origin): Json
     {
         return Json::object(Member::unlessEmpty(
@@ -143,6 +165,8 @@ final readonly class StaticCheck implements Part
                 Member::of('config', $this->config instanceof Path ? $origin->written($this->config) : $this->config),
                 Member::of('seconds', WholeSeconds::written($this->seconds)),
                 Member::of('before', $this->before),
+                Member::of('dependents', $this->dependents),
+                Member::of('preCheckAfter', $this->preCheckAfter),
                 Member::unlessEmpty(
                     'opcache',
                     Json::object(
@@ -168,6 +192,7 @@ final readonly class StaticCheck implements Part
                 : [],
             ...$this->before === true ? ['StaticCheck::beforeTests()'] : [],
             ...$this->before === false ? ['StaticCheck::afterTests()'] : [],
+            ...$this->learningPhp(),
             ...$this->opcacheBatch instanceof Absent
                 ? []
                 : [sprintf('StaticCheck::opcacheBatch(%d)', $this->opcacheBatch)],
@@ -175,6 +200,19 @@ final readonly class StaticCheck implements Part
                 ? [sprintf('StaticCheck::opcacheLimit(%s)', PhpCalls::literal($this->opcacheLimit->written()))]
                 : [],
         ]);
+    }
+
+    /** @return list<string> the builder's calls for `staticCheck.dependents` and `staticCheck.preCheckAfter` */
+    private function learningPhp(): array
+    {
+        return [
+            ...$this->dependents instanceof Absent
+                ? []
+                : [sprintf('StaticCheck::dependents(%d)', $this->dependents)],
+            ...$this->preCheckAfter instanceof Absent
+                ? []
+                : [sprintf('StaticCheck::preCheckAfter(%d)', $this->preCheckAfter)],
+        ];
     }
 
     /** @return list<string> `auto`, `none` and the analysers built in, each with a builder method of its own */

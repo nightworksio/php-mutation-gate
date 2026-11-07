@@ -80,6 +80,24 @@ final readonly class Retention implements Setting
         return new self(Json::at('proofs.limits.handoff.unpacked', $bytes));
     }
 
+    /** `proofs.keep.kills`: how many kills the learned timeout multiple is read from, the newest. */
+    public static function kills(int $kills): self
+    {
+        return new self(Json::at('proofs.keep.kills', $kills));
+    }
+
+    /** `proofs.keep.runs`: how many runs the learned shard count is read from, the newest. */
+    public static function runs(int $runs): self
+    {
+        return new self(Json::at('proofs.keep.runs', $runs));
+    }
+
+    /** `proofs.limits.read`: the longest a read of a ledger over a network may take. */
+    public static function read(string $duration): self
+    {
+        return new self(Json::at('proofs.limits.read', $duration));
+    }
+
     public function written(): Json
     {
         return $this->json;

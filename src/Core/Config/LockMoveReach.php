@@ -15,14 +15,4 @@ enum LockMoveReach: string
 
     /** The units run by the tests that loaded a moved package. */
     case Loaded = 'loaded';
-
-    /** The builder's call that sets it. */
-    public function php(): string
-    {
-        return match ($this) {
-            self::Everything => 'Reach::lockMovesReachEverything()',
-            self::Named => 'Reach::lockMovesReachByName()',
-            self::Loaded => 'Reach::lockMovesReachWhatLoadedThem()',
-        };
-    }
 }

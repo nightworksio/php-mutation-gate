@@ -106,13 +106,17 @@ final readonly class ProofsKeys
         $bases = Field::optional('bases', Integer::atLeast(1), $judges);
         $proofs = Field::optional('proofs', Integer::atLeast(1), $judges);
         $functions = Field::optional('functions', Integer::atLeast(1), $judges);
+        $kills = Field::optional('kills', Integer::atLeast(1), $judges);
+        $runs = Field::optional('runs', Integer::atLeast(1), $judges);
 
         return Section::of(
-            static function (Node $keep) use ($killers, $bases, $proofs, $functions): Retained|Invalid {
+            static function (Node $keep) use ($killers, $bases, $proofs, $functions, $kills, $runs): Retained|Invalid {
                 $mutants = $killers->read($keep);
                 $seen = $bases->read($keep);
                 $newest = $proofs->read($keep);
                 $learned = $functions->read($keep);
+                $killed = $kills->read($keep);
+                $ran = $runs->read($keep);
 
                 return Reading::built(
                     static fn(): Retained => Retained::of(
@@ -120,17 +124,23 @@ final readonly class ProofsKeys
                         $seen->value(),
                         $newest->value(),
                         $learned->value(),
+                        kills: $killed->value(),
+                        runs: $ran->value(),
                     ),
                     $mutants,
                     $seen,
                     $newest,
                     $learned,
+                    $killed,
+                    $ran,
                 );
             },
             $killers,
             $bases,
             $proofs,
             $functions,
+            $kills,
+            $runs,
         );
     }
 
@@ -140,12 +150,14 @@ final readonly class ProofsKeys
         $ledger = Field::section('ledger', self::bytes());
         $map = Field::section('map', self::bytes());
         $handoff = Field::section('handoff', self::bytes());
+        $read = Field::optional('read', Duration::written(), Effect::JudgesOrReportsOnly);
 
         return Section::of(
-            static function (Node $limits) use ($ledger, $map, $handoff): Retained|Invalid {
+            static function (Node $limits) use ($ledger, $map, $handoff, $read): Retained|Invalid {
                 $ledgers = $ledger->read($limits);
                 $maps = $map->read($limits);
                 $handed = $handoff->read($limits);
+                $reading = $read->read($limits);
 
                 return Reading::built(
                     static fn(): Retained => Retained::of(
@@ -155,15 +167,18 @@ final readonly class ProofsKeys
                         mapUnpacked: $maps->must()->unpacked(),
                         handoffPacked: $handed->must()->packed(),
                         handoffUnpacked: $handed->must()->unpacked(),
+                        read: $reading->value(),
                     ),
                     $ledgers,
                     $maps,
                     $handed,
+                    $reading,
                 );
             },
             $ledger,
             $map,
             $handoff,
+            $read,
         );
     }
 

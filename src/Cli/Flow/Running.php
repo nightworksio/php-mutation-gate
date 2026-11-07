@@ -294,7 +294,7 @@ final readonly class Running
             ->pacedBy($this->settings->runner()->pace())
             ->startingIn($startUp)
             ->learning($plan->briefing()->multiple());
-        $warmUp = new AnalyserWarmUp();
+        $warmUp = new AnalyserWarmUp($this->settings->staticCheck()->dependents());
         $analyser = $this->adapters->analyser;
         $preChecking = $this->settings->staticCheck()->before() && $analyser instanceof AnalyserIdentity
             ? new PreChecking(
@@ -305,7 +305,7 @@ final readonly class Running
                 $this->known($plan, $analyser),
                 $warmUp,
                 $stopwatch,
-                PreCheck::standard(),
+                PreCheck::after($this->settings->staticCheck()->preCheckAfter()),
             )
             : new NoPreCheck();
         $checking = new SurvivorChecking(

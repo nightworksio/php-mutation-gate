@@ -32,16 +32,29 @@ final readonly class StaticCheckKeys
         $seconds = Field::optional('seconds', Integer::atLeast(1), $results);
         $before = Field::optional('before', Flag::boolean(), Effect::JudgesOrReportsOnly);
         $opcache = Field::section('opcache', self::opcache());
+        $judges = Effect::JudgesOrReportsOnly;
+        $dependents = Field::optional('dependents', Integer::atLeast(0), $judges);
+        $preCheckAfter = Field::optional('preCheckAfter', Integer::atLeast(0), $judges);
 
         return [Field::section(
             'staticCheck',
             Section::of(
-                static function (Node $staticCheck) use ($tool, $config, $seconds, $before, $opcache): Layer|Invalid {
+                static function (Node $staticCheck) use (
+                    $tool,
+                    $config,
+                    $seconds,
+                    $before,
+                    $opcache,
+                    $dependents,
+                    $preCheckAfter,
+                ): Layer|Invalid {
                     $chosen = $tool->read($staticCheck);
                     $read = $config->read($staticCheck);
                     $limit = $seconds->read($staticCheck);
                     $placed = $before->read($staticCheck);
                     $compiled = $opcache->read($staticCheck);
+                    $following = $dependents->read($staticCheck);
+                    $learning = $preCheckAfter->read($staticCheck);
                     $cap = $limit->value();
 
                     return Reading::built(
@@ -50,12 +63,16 @@ final readonly class StaticCheckKeys
                             $read->value(),
                             $cap instanceof Absent ? $cap : Seconds::of($cap),
                             $placed->value(),
+                            dependents: $following->value(),
+                            preCheckAfter: $learning->value(),
                         )->over($compiled->must())),
                         $chosen,
                         $read,
                         $limit,
                         $placed,
                         $compiled,
+                        $following,
+                        $learning,
                     );
                 },
                 $tool,
@@ -63,6 +80,8 @@ final readonly class StaticCheckKeys
                 $seconds,
                 $before,
                 $opcache,
+                $dependents,
+                $preCheckAfter,
             ),
         )];
     }

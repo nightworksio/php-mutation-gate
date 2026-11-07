@@ -85,8 +85,8 @@ final readonly class BoundsOptions
                 ? Member::of(self::LEARNS_MULTIPLE, value: true)
                 : Member::of(self::MULTIPLE, $bounds->multiple()->times()),
             ...$bounds->learnsFloor() ? [Member::of(self::LEARNS_FLOOR, value: true)] : [],
-            TighterOptions::floor($triage->tighter()),
-            TighterOptions::mutators($triage->tighter()),
+            TighterOptions::floor($triage->bounds()->tighter()),
+            TighterOptions::mutators($triage->bounds()->tighter()),
             ...PerTestOptions::of($triage->bounds()->perTest()),
         ];
     }

@@ -87,6 +87,18 @@ final readonly class StaticCheck implements Setting
         return new self(Json::at('staticCheck.opcache.limit', $duration));
     }
 
+    /** `staticCheck.dependents`: how many dependents of a changed file an analyser reads at most, 25 by default. */
+    public static function dependents(int $files): self
+    {
+        return new self(Json::at('staticCheck.dependents', $files));
+    }
+
+    /** `staticCheck.preCheckAfter`: how many checks of a mutator come before its rate decides, 50 by default. */
+    public static function preCheckAfter(int $checks): self
+    {
+        return new self(Json::at('staticCheck.preCheckAfter', $checks));
+    }
+
     public function written(): Json
     {
         return $this->json;

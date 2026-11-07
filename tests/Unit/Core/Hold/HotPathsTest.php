@@ -73,3 +73,16 @@ it('writes its share as holds.hotPath does', function (): void {
     expect(HotPaths::standard()->share())->toBe(0.8)
         ->and(HotPaths::atShare(0.5)->share())->toBe(0.5);
 });
+
+it('names a file hot only in a suite of at least the tests holds.fewestTests says', function (): void {
+    $map = CoverageMap::of()
+        ->covered(Path::of('src/Hot.php'), Line::of(1), TestId::of('A::a'))
+        ->covered(Path::of('src/Hot.php'), Line::of(1), TestId::of('A::b'));
+    $hot = static fn(int $fewest): array => array_map(
+        static fn(Path $file): string => $file->value(),
+        [...HotPaths::atShareOfAtLeast(0.5, $fewest)->hot($map, Units::of())],
+    );
+
+    expect($hot(2))->toBe(['src/Hot.php'])
+        ->and($hot(3))->toBe([]);
+});
