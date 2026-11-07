@@ -72,6 +72,16 @@ on:
         description: Keep the proof ledger in the Actions cache.
         type: boolean
         default: true
+      merged-records:
+        description: >-
+          Keep each pull request's pass as an artifact, and read it on the push that merged it, so that
+          ci.trustMergedPullRequests finds it where the Actions cache keeps ledgers (ADR-0139).
+        type: boolean
+        default: false
+      merged-records-days:
+        description: How many days a pull request's pass stays readable; a merge later than that is judged again.
+        type: number
+        default: 30
       coverage:
         description: >-
           An artifact of this run that holds map.json.gz, the map `mutation-gate coverage --into` wrote in the job
@@ -201,6 +211,8 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      actions: read # lists and reads the artifacts of the pull requests merged, under merged-records
+      pull-requests: read # names the pull request each commit merged, under merged-records
     outputs:
       attempt: ${{ github.run_attempt }}
     steps:
@@ -248,6 +260,12 @@ jobs:
           MUTATION_GATE_GCS_PROVIDER: ${{ vars.MUTATION_GATE_GCS_PROVIDER }}
           MUTATION_GATE_GCS_SERVICE_ACCOUNT: ${{ vars.MUTATION_GATE_GCS_SERVICE_ACCOUNT }}
         run: php "${GATE_ACTION}/bin/mutation-gate" fetch --to="${FETCHED}"
+      - name: Read what the pull requests merged passed
+        if: inputs.merged-records && github.event_name == 'push' && github.ref_name == steps.default.outputs.name
+        env:
+          DEFAULT_BRANCH: ${{ steps.default.outputs.name }}
+          GH_TOKEN: ${{ github.token }}
+        run: python3 "${GATE_ACTION}/resources/action/gate_action.py" merged-records
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: mutation-gate-fetched-${{ github.run_attempt }}
@@ -1143,6 +1161,19 @@ jobs:
           directory: ${{ steps.resolve.outputs.own_dir }}
           prefix: ${{ steps.resolve.outputs.own_prefix }}
           matched: ${{ steps.own.outputs.cache-matched-key }}
+      # The pass alone, which the push that merges this pull request reads where
+      # this run's cache cannot reach it. A fork's run keeps nothing (ADR-0139).
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: >-
+          inputs.merged-records && github.event_name == 'pull_request' && steps.verdict.outputs.code == '0'
+          && steps.resolve.outputs.save == 'true'
+        with:
+          name: mutation-gate-passed
+          path: ${{ env.DELIVERY }}/verdict/passed.ledger.json.gz
+          include-hidden-files: true
+          if-no-files-found: ignore
+          overwrite: true
+          retention-days: ${{ inputs.merged-records-days }}
       - name: Say what the gate decided
         id: outputs
         env:

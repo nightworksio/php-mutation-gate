@@ -4,6 +4,9 @@
         "use": "pest",
         "memory": "2G"
     },
+    "ci": {
+        "trustMergedPullRequests": true
+    },
     "trees": [
         {
             "path": "src",

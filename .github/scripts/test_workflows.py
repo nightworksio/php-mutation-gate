@@ -633,7 +633,7 @@ class Attempts(unittest.TestCase):
         keyed_by = {}
         for name, lines in found.items():
             for written in artifacts(lines, "upload"):
-                if not written.startswith("mutation-gate-") or written == "mutation-gate-reports":
+                if not written.startswith("mutation-gate-") or written in ("mutation-gate-reports", "mutation-gate-passed"):
                     continue
                 key = KEYED.match(written)
                 with self.subTest(job=name, artifact=written):

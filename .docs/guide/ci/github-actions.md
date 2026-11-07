@@ -84,6 +84,8 @@ jobs:
 | `budget` | none |
 | `reports` | none; `<name>:<path>` lines, such as `sarif:build/mutation.sarif` |
 | `cache` | `true`: keep the ledger in the Actions cache |
+| `merged-records` | `false`: `true` keeps a passing pull request's pass as an artifact and reads it on the push that merged it, which `ci.trustMergedPullRequests` needs where the Actions cache keeps the ledgers; the job needs `actions: read` and `pull-requests: read` |
+| `merged-records-days` | `30`: how many days that pass stays readable; a merge later than that is judged again |
 | `deliver` | `false`; `true` in a job of its own, after the run's, to send what the run left |
 | `install` | `auto`: the project's own copy where its `composer.json` requires `nightworksio/mutation-gate`, the release's PHAR where it does not; or `composer`, or `phar` |
 | `composer-auth` | none; the credentials Composer installs the project's dependencies with, as `COMPOSER_AUTH` holds them, for a private repository. Pass a secret: only the install step reads it, and that step runs the project's Composer scripts and plugins, which can read it |

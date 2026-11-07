@@ -57,6 +57,9 @@ final readonly class LedgerFile
     /** The ledger's name, in whatever directory or bucket keeps it. */
     public const string NAME = 'ledger.json.gz';
 
+    /** The file a passing run of a pull request leaves beside its ledger, holding nothing but that pass. */
+    public const string PASSED_FILE = 'passed.ledger.json.gz';
+
     /** The list a ledger's killed mutants and its kill history point into by index. */
     public const string TESTS = 'tests';
 

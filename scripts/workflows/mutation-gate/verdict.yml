@@ -204,6 +204,19 @@
           directory: ${{ steps.resolve.outputs.own_dir }}
           prefix: ${{ steps.resolve.outputs.own_prefix }}
           matched: ${{ steps.own.outputs.cache-matched-key }}
+      # The pass alone, which the push that merges this pull request reads where
+      # this run's cache cannot reach it. A fork's run keeps nothing (ADR-0139).
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: >-
+          inputs.merged-records && github.event_name == 'pull_request' && steps.verdict.outputs.code == '0'
+          && steps.resolve.outputs.save == 'true'
+        with:
+          name: mutation-gate-passed
+          path: ${{ env.DELIVERY }}/verdict/passed.ledger.json.gz
+          include-hidden-files: true
+          if-no-files-found: ignore
+          overwrite: true
+          retention-days: ${{ inputs.merged-records-days }}
       - name: Say what the gate decided
         id: outputs
         env:

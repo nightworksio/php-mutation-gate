@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\DeliveryDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
 use NightWorksIO\MutationGate\Core\Delivery\AlertPost;
 use NightWorksIO\MutationGate\Core\Delivery\CommentWrite;
@@ -26,7 +27,9 @@ use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
+use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\ScopeRuns;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
@@ -62,6 +65,45 @@ function deliveredLedger(): Ledger
 it('keeps each stage in its own directory under .mutation-gate/delivery', function (): void {
     expect(array_map(static fn(Stage $stage): string => $stage->directory()->value(), Stage::cases()))
         ->toBe(['.mutation-gate/delivery/planned', '.mutation-gate/delivery/survivors', '.mutation-gate/delivery/verdict']);
+});
+
+it('leaves beside a pull request\'s ledger that holds a pass a ledger of that pass alone, and beside any other none', function (Scope $scope, bool $passes, bool $left): void {
+    $project = Scratch::directory();
+    $passed = Passed::of(Revision::ref(str_repeat('e7', 20)), 'mutation / verdict', 2)->onOwnScopeCoverage();
+    $runs = $passes ? ScopeRuns::none()->passing($passed) : ScopeRuns::none();
+
+    DeliveryDirectory::of(Directory::at($project), Stage::Verdict)->ledger(
+        $scope,
+        Ledger::empty()->atBase(Digest::sha256Of('base'))->withRuns($runs),
+    );
+
+    $file = sprintf('%s/%s/%s', $project, Stage::Verdict->directory()->value(), LedgerFile::PASSED_FILE);
+    expect(is_file($file))->toBe($left);
+
+    if ($left) {
+        $read = LedgerFile::decode((string) file_get_contents($file));
+        $held = $read->runs()->passed();
+
+        expect(count([...$read->proofs()]))->toBe(0)
+            ->and($held instanceof Passed ? [$held->commit()->name(), $held->check(), $held->ownScopeProofs(), $held->measuredOnOwnScope()] : $held)
+            ->toBe([str_repeat('e7', 20), 'mutation / verdict', 2, true]);
+    }
+})->with([
+    'a pull request that passed' => [fn(): Scope => Scope::pullRequest(7), true, true],
+    'a pull request that did not' => [fn(): Scope => Scope::pullRequest(7), false, false],
+    'a branch that passed' => [fn(): Scope => Scope::branch('main'), true, false],
+]);
+
+it('begins with no pass beside it, whatever an earlier run left', function (): void {
+    $project = Scratch::directory();
+    $delivery = DeliveryDirectory::of(Directory::at($project), Stage::Verdict);
+    $delivery->ledger(Scope::pullRequest(7), Ledger::empty()->withRuns(
+        ScopeRuns::none()->passing(Passed::of(Revision::ref(str_repeat('e7', 20)), 'mutation / verdict', 0)),
+    ));
+
+    $delivery->begun();
+
+    expect(is_file(sprintf('%s/%s/%s', $project, Stage::Verdict->directory()->value(), LedgerFile::PASSED_FILE)))->toBeFalse();
 });
 
 it('begins empty, with no ledger beside it, whatever an earlier run left', function (): void {

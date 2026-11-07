@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\TooLarge;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\EncodedLedger;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
@@ -24,14 +25,18 @@ use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\LedgerRetention;
+use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\ScopeRuns;
 use NightWorksIO\MutationGate\Core\Written;
 
 /**
  * The delivery a command under `--deliver-later` leaves for `deliver`, in its stage's directory under
  * `.mutation-gate/delivery` (ADR-0007): `delivery.json`, begun empty so nothing an earlier run left there
  * is sent again and added to as the run goes, and the ledger, `ledger.json.gz`, and each object a store keeps
- * beside a ledger, such as the coverage map, `coverage.json.gz`, beside it.
+ * beside a ledger, such as the coverage map, `coverage.json.gz`, beside it. Beside the ledger of a pull request
+ * whose verdict passed, `passed.ledger.json.gz` holds a ledger of that pass alone, for the run of the default
+ * branch that merged it to read (ADR-0139).
  *
  * @internal
  */
@@ -63,7 +68,7 @@ final readonly class DeliveryDirectory
     public function begun(): Written|CannotJudge
     {
         $kept = array_map(static fn(Companion $companion): string => $companion->value, Companion::cases());
-        $names = [LedgerFile::NAME, ...$kept];
+        $names = [LedgerFile::NAME, LedgerFile::PASSED_FILE, ...$kept];
 
         foreach ($names as $name) {
             $removed = $this->directory->remove(Path::of($name));
@@ -102,8 +107,14 @@ final readonly class DeliveryDirectory
     {
         $limits = LedgerLimits::standard()->keeping($this->retention);
         $encoded = EncodedLedger::within($ledger, $limits, LedgerCodec::gzipOnly());
+        $passed = $ledger->runs()->passed();
+        $record = ! $scope->isBranch() && $passed instanceof Passed ? $this->passedWritten($passed) : NotGiven::value();
 
-        return $encoded instanceof EncodedLedger ? $this->ledgerWritten($scope, $encoded) : $encoded;
+        return match (true) {
+            $record instanceof CannotJudge => $record,
+            $encoded instanceof EncodedLedger => $this->ledgerWritten($scope, $encoded),
+            default => $encoded,
+        };
     }
 
     /**
@@ -127,6 +138,20 @@ final readonly class DeliveryDirectory
     private function written(Delivery $delivery): Written|CannotJudge
     {
         return $this->directory->write(Path::of(DeliveryFile::NAME), Contents::of(DeliveryFile::encode($delivery)));
+    }
+
+    /** A ledger of this pass alone, beside the delivery; `deliver` sends nothing of it. */
+    private function passedWritten(Passed $passed): Written|CannotJudge
+    {
+        $encoded = EncodedLedger::within(
+            Ledger::empty()->withRuns(ScopeRuns::none()->passing($passed)),
+            LedgerLimits::standard(),
+            LedgerCodec::gzipOnly(),
+        );
+
+        return $encoded instanceof EncodedLedger
+            ? $this->directory->write(Path::of(LedgerFile::PASSED_FILE), Contents::of($encoded->bytes()))
+            : $encoded;
     }
 
     /** The delivery, with this encoded ledger beside it for this scope. */

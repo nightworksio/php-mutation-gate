@@ -801,6 +801,7 @@ jobs:
       extensions: zstd
       runs-on: ubuntu-24.04-arm
       mode: ${{ github.event_name == 'schedule' && 'unproven' || 'auto' }}
+      merged-records: true
     secrets:
       MUTATION_GATE_READ_AWS_ACCESS_KEY_ID: ${{ secrets.MUTATION_GATE_READ_AWS_ACCESS_KEY_ID }}
       MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY: ${{ secrets.MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY }}

@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
 use NightWorksIO\MutationGate\Adapter\GitHub\TrustedEvent;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace as Results;
+use NightWorksIO\MutationGate\Core\Change\ProvingRange;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
@@ -184,4 +185,23 @@ it('reads this package\'s effective config of a pull request as the gate prints 
     new Process(['python3', 'resources/action/gate_action.py', 'config'], Tree::root(), $variables, $shown->getOutput())->mustRun();
 
     expect((string) file_get_contents($output))->toBe("default_store=true\ncopies=newest\nafter_store=false\npest_patch=true\ninfection_patch=false\nfail_fast=cancel\naction_reports=[\"--report=json:.mutation-gate/action/report.json\", \"--report=html:.mutation-gate/action/html\", \"--report=digest:.mutation-gate/action/mutation-gate-digest.txt\"]\n");
+});
+
+it('names the files of a pull request\'s pass as the gate does, and looks back as far as the gate proves', function (): void {
+    expect(scriptText('PASSED_FILE'))->toBe(LedgerFile::PASSED_FILE)
+        ->and(scriptText('LEDGER_FILE'))->toBe(LedgerFile::NAME)
+        ->and(preg_match('/^PROVING_RANGE = (?<value>\d+)$/mu', actionScript(), $found) === 1 ? (int) $found['value'] : 0)
+        ->toBe(ProvingRange::standard()->farthest());
+});
+
+it('keeps a pull request\'s pass under the name the script reads it by, and hands the action\'s record to where the gate reads a copy', function (string $file): void {
+    $workflow = (string) file_get_contents(Tree::at($file));
+
+    expect($workflow)->toContain(sprintf('name: %s', scriptText('PASSED_ARTIFACT')))
+        ->and($workflow)->toContain(sprintf('/verdict/%s', LedgerFile::PASSED_FILE));
+})->with(['the action' => ['action.yml'], 'the reusable workflow' => ['.github/workflows/mutation-gate.yml']]);
+
+it('reads a pull request\'s pass in the action into the directory the gate reads a copy from', function (): void {
+    expect((string) file_get_contents(Tree::at('action.yml')))
+        ->toContain(sprintf('FETCHED: %s', Workspace::fetched()->value()));
 });

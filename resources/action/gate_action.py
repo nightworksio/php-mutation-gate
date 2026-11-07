@@ -19,6 +19,10 @@ Usage:
                            the cache after the store, from STORE and ON_DEFAULT,
                            whether it runs Pest with the optional patches, and
                            whether it runs Infection
+  gate_action.py merged-records  on a push to the default branch, into FETCHED, the
+                           pass each pull request merged into the last commits
+                           recorded, read from its run's artifact: `records`,
+                           how many it read; what it cannot read costs a run
   gate_action.py infection what `infection:patch` exited with, CODE, and said,
                            in the file SAID: a warning where the release runs
                            unpatched, a refusal where it could not be patched
@@ -47,6 +51,7 @@ the ones above decide from what they read. The deciding half is what
 """
 from datetime import datetime, timezone
 import hashlib
+import io
 import json
 import os
 import re
@@ -54,6 +59,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import zipfile
 
 # Each value below that the gate also holds is tied to the gate's own by
 # tests/Arch/TheActionScriptAgreesWithTheGateTest.php.
@@ -152,6 +158,16 @@ ACTION_REPORTS = {
     "html": "html:.mutation-gate/action/html",
     "digest": "digest:.mutation-gate/action/mutation-gate-digest.txt",
 }
+# The artifact a passing pull request's verdict leaves, and the file it holds:
+# a ledger of that pass alone (ADR-0139).
+PASSED_ARTIFACT = "mutation-gate-passed"
+PASSED_FILE = "passed.ledger.json.gz"
+# The name a ledger file has, under its scope's directory.
+LEDGER_FILE = "ledger.json.gz"
+# The commits a run looks back over: as far as the gate's proving range reads.
+PROVING_RANGE = 20
+# A ledger of one pass takes far less; a larger file is no such ledger.
+MOST_PASSED_BYTES = 1048576
 
 # A shard job's name as GitHub lists it, which holds the shard's number: the
 # reusable workflow names it `shard <number> (<label>)`, after the calling
@@ -295,6 +311,39 @@ def ledgers(event: str, ref: str, payload: dict, default_branch: str, cache: boo
         "default_prefix": cache_prefix(default) if restores_default else "",
         "save": "true" if kept and event in TRUSTED | {"pull_request"} else "false",
     }
+
+
+def passed_artifacts(listed: list[dict], repository_id: int) -> dict[str, int]:
+    """The newest artifact of each commit, by its run's head, from the listing newest first: this repository's alone."""
+    found: dict[str, int] = {}
+    for artifact in listed:
+        run = artifact.get("workflow_run") or {}
+        head = run.get("head_sha", "")
+        same_repository = run.get("head_repository_id") == repository_id
+        if head and same_repository and not artifact.get("expired", True):
+            found.setdefault(head, artifact["id"])
+    return found
+
+
+def merged_heads(pulls: list[dict], repository: str, default_branch: str) -> list[tuple[int, str]]:
+    """Each pull request of this repository merged into its default branch, with its head."""
+    return [
+        (pull["number"], pull["head"]["sha"])
+        for pull in pulls
+        if pull.get("merged_at")
+        and pull["base"]["ref"] == default_branch
+        and (pull["head"].get("repo") or {}).get("full_name") == repository
+    ]
+
+
+def passed_ledger(archive: bytes) -> bytes | None:
+    """The ledger an artifact's archive holds; none where it holds none, or one too large to be of one pass."""
+    try:
+        with zipfile.ZipFile(io.BytesIO(archive)) as opened:
+            held = opened.getinfo(PASSED_FILE)
+            return opened.read(held) if held.file_size <= MOST_PASSED_BYTES else None
+    except (KeyError, zipfile.BadZipFile):
+        return None
 
 
 def kept_key(prefix: str, kept: dict[str, bytes]) -> str:
@@ -635,6 +684,7 @@ def main(argv: list[str]) -> int:
         "outputs": _outputs,
         "keep": _keep,
         "run-times": _run_times,
+        "merged-records": _merged_records,
     }
     if len(argv) == 2 and argv[1] == "stale":
         return _stale()
@@ -827,6 +877,50 @@ def _keep() -> dict[str, str]:
             with open(os.path.join(own, name), "rb") as file:
                 kept[name] = file.read()
     return {"key": kept_key(os.environ["PREFIX"], kept)}
+
+
+def _merged_records() -> dict[str, str]:
+    repository, into = os.environ["GITHUB_REPOSITORY"], os.environ["FETCHED"]
+    default_branch = os.environ["DEFAULT_BRANCH"]
+    try:
+        records = _read_records(repository, default_branch, into)
+    except (Refused, subprocess.TimeoutExpired, ValueError, KeyError, TypeError) as unread:
+        print(f"::warning::No pull request's pass was read, so this push is judged without any: {unread}")
+        records = 0
+    return {"records": str(records)}
+
+
+def _read_records(repository: str, default_branch: str, into: str) -> int:
+    asked = f"repos/{repository}"
+    identity = _api_json(asked)["id"]
+    listed = _api_json(f"{asked}/actions/artifacts?name={PASSED_ARTIFACT}&per_page=100")["artifacts"]
+    artifacts = passed_artifacts(listed, identity)
+    commits = _api_json(f"{asked}/commits?sha={os.environ['GITHUB_SHA']}&per_page={PROVING_RANGE}")
+    records = 0
+    for commit in commits:
+        pulls = _api_json(f"{asked}/commits/{commit['sha']}/pulls")
+        for number, head in merged_heads(pulls, repository, default_branch):
+            if head in artifacts:
+                records += _kept_record(asked, artifacts[head], number, into)
+    return records
+
+
+def _kept_record(asked: str, artifact: int, number: int, into: str) -> int:
+    fetched = subprocess.run(
+        ["gh", "api", f"{asked}/actions/artifacts/{artifact}/zip"], capture_output=True, check=False, timeout=120
+    )
+    ledger = passed_ledger(fetched.stdout) if fetched.returncode == 0 else None
+    if ledger is None:
+        return 0
+    directory = f"{into}/refs/pull/{number}"
+    os.makedirs(directory, exist_ok=True)
+    with open(f"{directory}/{LEDGER_FILE}", "wb") as file:
+        file.write(ledger)
+    return 1
+
+
+def _api_json(path: str) -> dict | list:
+    return json.loads(_ran(["gh", "api", path], "GitHub did not answer"))
 
 
 def _attempt(path: str) -> int:

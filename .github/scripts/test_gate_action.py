@@ -2,12 +2,15 @@
 gh and gpg so no test reaches a real release: python3 -m unittest discover .github/scripts"""
 import hashlib
 from datetime import datetime, timezone
+import io
 import json
 import os
 import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
+from unittest import mock
 
 import action_script  # puts the action's script on the import path
 import gate_action as action
@@ -29,6 +32,97 @@ FORK = {
     },
     "repository": {"full_name": "octo/gate"},
 }
+
+
+class MergedRecords(unittest.TestCase):
+    def test_takes_the_newest_artifact_of_each_head_of_this_repository_alone(self):
+        def listed(identity, head, repository=7, expired=False):
+            run = {"head_sha": head, "head_repository_id": repository}
+            return {"id": identity, "workflow_run": run, "expired": expired}
+
+        found = action.passed_artifacts(
+            [listed(3, "a"), listed(2, "a"), listed(4, "b", expired=True), listed(5, "c", repository=8), listed(1, "d")],
+            7,
+        )
+
+        self.assertEqual(found, {"a": 3, "d": 1})
+
+    def test_names_only_what_this_repository_merged_into_its_default_branch(self):
+        def pull(number, merged="2026-11-07T10:00:00Z", base="main", repository="octo/gate"):
+            head = {"sha": f"h{number}", "repo": {"full_name": repository}}
+            return {"number": number, "merged_at": merged, "base": {"ref": base}, "head": head}
+
+        pulls = [pull(1), pull(2, merged=None), pull(3, base="next"), pull(4, repository="someone/gate")]
+
+        self.assertEqual(action.merged_heads(pulls, "octo/gate", "main"), [(1, "h1")])
+
+    def test_reads_no_head_from_a_repository_since_deleted(self):
+        gone = {"number": 1, "merged_at": "now", "base": {"ref": "main"}, "head": {"sha": "h", "repo": None}}
+
+        self.assertEqual(action.merged_heads([gone], "octo/gate", "main"), [])
+
+    def test_reads_the_ledger_an_archive_holds_up_to_what_one_pass_can_take(self):
+        def archive(name, size):
+            held = io.BytesIO()
+            with zipfile.ZipFile(held, "w") as opened:
+                opened.writestr(name, b"x" * size)
+            return held.getvalue()
+
+        self.assertEqual(action.passed_ledger(archive(action.PASSED_FILE, 3)), b"xxx")
+        self.assertIsNone(action.passed_ledger(archive(action.PASSED_FILE, action.MOST_PASSED_BYTES + 1)))
+        self.assertIsNone(action.passed_ledger(archive("other", 3)))
+        self.assertIsNone(action.passed_ledger(b"not an archive"))
+
+    def test_keeps_what_it_read_where_a_run_reads_a_pull_requests_ledger(self):
+        answers = {
+            "repos/octo/gate": {"id": 7},
+            f"repos/octo/gate/actions/artifacts?name={action.PASSED_ARTIFACT}&per_page=100": {"artifacts": [
+                {"id": 9, "expired": False, "workflow_run": {"head_sha": "h1", "head_repository_id": 7}},
+            ]},
+            f"repos/octo/gate/commits?sha=tip&per_page={action.PROVING_RANGE}": [{"sha": "tip"}, {"sha": "old"}],
+            "repos/octo/gate/commits/tip/pulls": [{
+                "number": 12,
+                "merged_at": "now",
+                "base": {"ref": "main"},
+                "head": {"sha": "h1", "repo": {"full_name": "octo/gate"}},
+            }],
+            "repos/octo/gate/commits/old/pulls": [],
+        }
+        held = io.BytesIO()
+        with zipfile.ZipFile(held, "w") as opened:
+            opened.writestr(action.PASSED_FILE, b"the pass")
+
+        def ran(command, **_):
+            path = command[2]
+            if path.endswith("/zip"):
+                return subprocess.CompletedProcess(command, 0, held.getvalue(), b"")
+            if path not in answers:
+                return subprocess.CompletedProcess(command, 1, "", "Not Found")
+            return subprocess.CompletedProcess(command, 0, json.dumps(answers[path]), "")
+
+        with tempfile.TemporaryDirectory() as into, mock.patch.object(action.subprocess, "run", ran), mock.patch.dict(
+            os.environ,
+            {"GITHUB_REPOSITORY": "octo/gate", "GITHUB_SHA": "tip", "FETCHED": into, "DEFAULT_BRANCH": "main"},
+        ):
+            said = action._merged_records()
+            with open(f"{into}/refs/pull/12/ledger.json.gz", "rb") as file:
+                kept = file.read()
+
+        self.assertEqual(said, {"records": "1"})
+        self.assertEqual(kept, b"the pass")
+
+    def test_warns_and_reads_none_where_github_does_not_answer(self):
+        def ran(command, **_):
+            return subprocess.CompletedProcess(command, 1, "", "Bad credentials")
+
+        with tempfile.TemporaryDirectory() as into, mock.patch.object(action.subprocess, "run", ran), mock.patch.dict(
+            os.environ,
+            {"GITHUB_REPOSITORY": "octo/gate", "GITHUB_SHA": "tip", "FETCHED": into, "DEFAULT_BRANCH": "main"},
+        ), mock.patch("builtins.print") as printed:
+            said = action._merged_records()
+
+        self.assertEqual(said, {"records": "0"})
+        self.assertIn("::warning::", printed.call_args.args[0])
 
 
 class Refusal(unittest.TestCase):

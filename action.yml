@@ -53,6 +53,17 @@ inputs:
     description: 'true to keep the proof ledger in the Actions cache.'
     required: false
     default: 'true'
+  merged-records:
+    description: >-
+      true to keep each pull request's pass as an artifact, and read it on the push that merged it, so that
+      ci.trustMergedPullRequests finds it where the Actions cache keeps ledgers (ADR-0139). The job needs actions: read
+      and pull-requests: read.
+    required: false
+    default: 'false'
+  merged-records-days:
+    description: How many days a pull request's pass stays readable; a merge later than that is judged again.
+    required: false
+    default: '30'
   deliver:
     description: >-
       true to send what a run of the action left: the pull request comment, and a store's ledger where the job's
@@ -122,6 +133,17 @@ runs:
           NAMED="$(gh api "repos/${GITHUB_REPOSITORY}" --jq .default_branch)"
         fi
         echo "name=${NAMED}" >> "${GITHUB_OUTPUT}"
+
+    - name: Read what the pull requests merged passed
+      if: >-
+        inputs.deliver != 'true' && inputs.merged-records == 'true' && github.event_name == 'push'
+        && github.ref_name == steps.default.outputs.name
+      shell: bash
+      env:
+        DEFAULT_BRANCH: ${{ steps.default.outputs.name }}
+        FETCHED: .mutation-gate/fetched
+        GH_TOKEN: ${{ github.token }}
+      run: python3 "${GITHUB_ACTION_PATH}/resources/action/gate_action.py" merged-records
 
     # ADR-0051: the project's copy where it requires the gate, the release's
     # PHAR where it does not, which these two steps fetch and verify before the
@@ -385,6 +407,22 @@ runs:
       with:
         path: ${{ steps.resolve.outputs.own_dir }}
         key: ${{ steps.resolve.outputs.own_prefix }}${{ hashFiles(format('{0}/ledger.json.gz', steps.resolve.outputs.own_dir), format('{0}/coverage.json.gz', steps.resolve.outputs.own_dir)) }}
+
+    # The pass alone, which the push that merges this pull request reads where
+    # this run's cache cannot reach it. A fork's run keeps nothing (ADR-0139).
+    - name: Keep what this pull request passed
+      if: >-
+        inputs.merged-records == 'true' && inputs.deliver != 'true' && inputs.shard == ''
+        && github.event_name == 'pull_request' && steps.verdict.outputs.code == '0'
+        && steps.resolve.outputs.save == 'true'
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: mutation-gate-passed
+        path: .mutation-gate/delivery/verdict/passed.ledger.json.gz
+        include-hidden-files: true
+        if-no-files-found: ignore
+        overwrite: true
+        retention-days: ${{ inputs.merged-records-days }}
 
     # The HTML report, unarchived under the name the comment's link finds it
     # by, so the link opens the page itself, uploaded before the job that
