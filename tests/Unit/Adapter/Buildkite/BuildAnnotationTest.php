@@ -71,7 +71,7 @@ it('says what the agent said where it could not annotate, and removes the file',
     $agent = buildkiteAgent(new ArrayObject(), succeeds: false);
 
     expect(BuildAnnotation::configured(Configs::options('{}'), buildkiteBuild(), $agent, '/project')->report(Verdicts::failing()))
-        ->toEqual(NotWritten::because('The pull request comment could not be written (no agent token).'))
+        ->toEqual(NotWritten::because('The build annotation could not be written (no agent token).'))
         ->and(file_exists([...$agent->ran()[0]->arguments()][5]))->toBeFalse();
 });
 

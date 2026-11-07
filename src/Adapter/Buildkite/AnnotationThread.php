@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Adapter\Buildkite;
 
 use function file_put_contents;
 
-use NightWorksIO\MutationGate\Core\Delivery\CommentStates;
 use NightWorksIO\MutationGate\Core\Delivery\CommentThread;
 use NightWorksIO\MutationGate\Core\Delivery\CommentWrite;
 use NightWorksIO\MutationGate\Core\NotWritten;
@@ -32,6 +31,8 @@ final readonly class AnnotationThread implements CommentThread
     private const string ANNOTATE = 'exec buildkite-agent annotate --context "$1" < "$2"';
 
     private const string WRITTEN = 'the annotation of %s';
+
+    private const string UNWRITTEN = 'The build annotation could not be written (%s).';
 
     private const string NO_FILE = 'its body could not be written to a file';
 
@@ -60,7 +61,7 @@ final readonly class AnnotationThread implements CommentThread
         $file = tempnam(sys_get_temp_dir(), ThisPackage::NAME);
 
         if ($file === false || file_put_contents($file, $markdown) === false) {
-            return NotWritten::because(sprintf(CommentStates::UNWRITTEN, self::NO_FILE));
+            return NotWritten::because(sprintf(self::UNWRITTEN, self::NO_FILE));
         }
 
         $ran = $this->processes->run(
@@ -70,6 +71,6 @@ final readonly class AnnotationThread implements CommentThread
 
         return $ran->succeeded()
             ? Written::to(sprintf(self::WRITTEN, $this->build))
-            : NotWritten::because(sprintf(CommentStates::UNWRITTEN, trim($ran->output())));
+            : NotWritten::because(sprintf(self::UNWRITTEN, trim($ran->output())));
     }
 }

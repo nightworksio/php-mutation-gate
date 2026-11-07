@@ -47,3 +47,15 @@ it('reaches no file where no test loaded what moved', function (): void {
 
     expect($reach->reaches(Unit::file(Path::of('src/Two.php'))))->toBeFalse();
 });
+
+it('reaches the files a test that started a process ran, though it loaded nothing that moved', function (): void {
+    $map = CoverageMap::of()
+        ->covered(Path::of('src/Spawns.php'), Line::of(3), TestId::of('A::a'))
+        ->covered(Path::of('src/Plain.php'), Line::of(4), TestId::of('A::b'))
+        ->loading(LoadedPackages::of(ProcessLoads::of(TestLoad::of('A::a')->startingProcesses(), TestLoad::of('A::b'))));
+    $reach = LockLoads::of(Listed::of('acme/one'), $map)
+        ->reach(Reach::nothing(Packages::of(Flows::trees())), Path::of('composer.lock'));
+
+    expect($reach->reaches(Unit::file(Path::of('src/Spawns.php'))))->toBeTrue()
+        ->and($reach->reaches(Unit::file(Path::of('src/Plain.php'))))->toBeFalse();
+});

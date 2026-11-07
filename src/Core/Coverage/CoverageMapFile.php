@@ -49,7 +49,7 @@ final readonly class CoverageMapFile
     /** The field that lists each file's executed methods. */
     public const string METHODS = 'methods';
 
-    /** The field that holds what each process's tests loaded (ADR-0113), where the run recorded it. */
+    /** The field that holds what each process's tests loaded (ADR-0115), where the run recorded it. */
     public const string LOADS = 'loads';
 
     /** The format a map's file is written in. */

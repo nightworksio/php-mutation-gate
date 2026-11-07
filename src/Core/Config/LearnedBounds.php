@@ -26,6 +26,8 @@ final readonly class LearnedBounds
     /** The most it is learned as, where the config does not say. */
     private const float MOST = 10.0;
 
+    private const string PAST_THE_MOST = 'expected at most timeouts.learned.most, %s, got %s';
+
     private function __construct(
         private int|float|Absent $percentile,
         private int|float|Absent $least,
@@ -75,6 +77,17 @@ final readonly class LearnedBounds
     public function most(): float
     {
         return $this->most instanceof Absent ? self::MOST : (float) $this->most;
+    }
+
+    /** Why these bounds cannot hold, where the least is past the most. */
+    public function refusal(): Invalid|Absent
+    {
+        return $this->least() > $this->most()
+            ? Invalid::because(Problem::at(
+                'timeouts.learned.least',
+                sprintf(self::PAST_THE_MOST, $this->most(), $this->least()),
+            ))
+            : Absent::setting();
     }
 
     /** How many in a hundred kills the multiple covers, as a line says it. */

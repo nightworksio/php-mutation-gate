@@ -108,9 +108,10 @@ final readonly class MapText
 
             foreach ($process->tests() as $test) {
                 $id = $test->test()->value();
-                $tests = array_key_exists($id, $places)
-                    ? [...$tests, [$places[$id], [...$test->packages()], $test->startsProcesses()]]
-                    : $tests;
+
+                if (array_key_exists($id, $places)) {
+                    $tests[] = [$places[$id], [...$test->packages()], $test->startsProcesses()];
+                }
             }
 
             $loads[] = $tests;

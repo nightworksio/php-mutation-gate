@@ -33,7 +33,7 @@ final readonly class Sources
      * @param ByPath<Listed<Glob>>     $moved  each such config's globs whose files run otherwise than at the base,
      *                                         as the `paths` entries it moved match them (ADR-0074)
      * @param ByPath<LockLoads>        $loads  each such lock's moved packages, and the files of the tests that
-     *                                         loaded them (ADR-0113)
+     *                                         loaded them (ADR-0115)
      */
     private function __construct(
         private ByPath $now,
@@ -95,7 +95,7 @@ final readonly class Sources
     }
 
     /**
-     * These, where a lock deciding alike moved packages that some tests loaded (ADR-0113).
+     * These, where a lock deciding alike moved packages that some tests loaded (ADR-0115).
      */
     public function movingPackages(Path $path, LockLoads $moved): self
     {

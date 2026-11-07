@@ -26,7 +26,7 @@ use function realpath;
 use function strval;
 
 /**
- * What a process of a coverage run loaded and started as its tests ran (ADR-0113): the Composer packages whose files it
+ * What a process of a coverage run loaded and started as its tests ran (ADR-0115): the Composer packages whose files it
  * first loaded since it was last asked, mapped through what Composer installed, and whether a process it started has
  * ended since. `getrusage()` of the children counts every process waited for, whatever program it ran.
  *

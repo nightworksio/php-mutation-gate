@@ -361,10 +361,6 @@ final readonly class Wiring
             : $source;
     }
 
-    /**
-     * The version control source's options: the check-run the verdict reports
-     * under, which GitHub's verifies, and what git's own children may not see.
-     */
     /** `versionControl`, or where no layer chooses one, the one the job's CI calls for. */
     private function versionControl(Settings $settings): Choice
     {
@@ -375,6 +371,10 @@ final readonly class Wiring
             : Choice::of(BuiltinVersionControl::in($this->environment)->value, Options::none());
     }
 
+    /**
+     * The version control source's options: the check-run the verdict reports
+     * under, which GitHub's verifies, and what git's own children may not see.
+     */
     private function sourceOptions(Settings $settings, Withheld $withheld): Json
     {
         return Json::object(

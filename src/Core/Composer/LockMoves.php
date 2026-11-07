@@ -78,7 +78,7 @@ final readonly class LockMoves
 
     /**
      * Whether a package was added or removed, or moved its `autoload.files`, its `extra` or its `type`, which reach
-     * every test whatever each loaded (ADR-0113).
+     * every test whatever each loaded (ADR-0115).
      */
     public function isWide(): bool
     {

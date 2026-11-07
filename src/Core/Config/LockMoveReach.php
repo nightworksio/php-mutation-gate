@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-/** `reach.lockMoves`: what a package's move in a `composer.lock` reaches (ADR-0030, ADR-0113). */
+/** `reach.lockMoves`: what a package's move in a `composer.lock` reaches (ADR-0030, ADR-0115). */
 enum LockMoveReach: string
 {
     /** Every unit. */

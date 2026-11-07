@@ -67,7 +67,10 @@ final readonly class MapFileRead
 
             foreach (self::itemsOf($process) as $test) {
                 $place = Lenient::integer($test->field('0'));
-                $read = array_key_exists($place, $tests) ? [...$read, self::loadIn($test, $tests[$place])] : $read;
+
+                if (array_key_exists($place, $tests)) {
+                    $read[] = self::loadIn($test, $tests[$place]);
+                }
             }
 
             $processes[] = ProcessLoads::of(...$read);

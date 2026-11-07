@@ -14,7 +14,7 @@ use NightWorksIO\MutationGate\Core\Format\Member;
 use function sprintf;
 
 /**
- * `reach.lockMoves` and `reach.lockPackages`: what a package's move in a `composer.lock` reaches (ADR-0030, ADR-0113).
+ * `reach.lockMoves` and `reach.lockPackages`: what a package's move in a `composer.lock` reaches (ADR-0030, ADR-0115).
  *
  * @internal
  */

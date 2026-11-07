@@ -19,7 +19,7 @@ use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
 /**
- * What a line of `TimedTests` adds where a coverage run records what its tests loaded (ADR-0113): under its third
+ * What a line of `TimedTests` adds where a coverage run records what its tests loaded (ADR-0115): under its third
  * entry, the process that ran the test, the packages it first loaded and whether it started a process.
  *
  * @internal

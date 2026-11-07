@@ -217,3 +217,11 @@ it('reads how large a suite may name a hot path, the memory doctor wants, and a 
     expect([$set->memoryHeadroom(), $set->serveRequest()->seconds()])->toBe([3, 9.0])
         ->and([$standard->memoryHeadroom(), $standard->serveRequest()->seconds()])->toBe([2, 5.0]);
 });
+
+it('refuses a least learned multiple past the most', function (): void {
+    $refused = Configs::validated(['runner' => 'pest', 'timeouts' => ['learned' => ['least' => 9, 'most' => 8]]]);
+    $held = Configs::validated(['runner' => 'pest', 'timeouts' => ['learned' => ['least' => 8, 'most' => 8]]]);
+
+    expect(Configs::problems($refused))->toBe(['timeouts.learned.least: expected at most timeouts.learned.most, 8, got 9'])
+        ->and($held)->toBeInstanceOf(Settings::class);
+});

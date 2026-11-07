@@ -41,7 +41,7 @@ final readonly class DecidingManifests
         return new self($packages, $deciding, CoverageMap::of());
     }
 
-    /** The same, reading what the tests of this map loaded where a lock narrows by it (ADR-0113). */
+    /** The same, reading what the tests of this map loaded where a lock narrows by it (ADR-0115). */
     public function measuredBy(CoverageMap $map): self
     {
         return new self($this->packages, $this->deciding, $map);
@@ -87,7 +87,7 @@ final readonly class DecidingManifests
             : $sources;
     }
 
-    /** These sources, with the packages a lock moved and the files of the tests that loaded them (ADR-0113). */
+    /** These sources, with the packages a lock moved and the files of the tests that loaded them (ADR-0115). */
     private function loading(Sources $sources, Path $path): Sources
     {
         $before = $sources->before($path);

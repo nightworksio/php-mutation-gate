@@ -41,8 +41,8 @@ final readonly class Reach implements Setting
     }
 
     /**
-     * `reach.lockMoves`: what a package's move in a lock reaches. `Loaded` can miss a package loaded only in a process
-     * no test started (ADR-0113).
+     * `reach.lockMoves`: what a package's move in a lock reaches. `Loaded` does not see a child process not yet waited
+     * for when its test ends, or a worker already running, so it can miss what such a test reaches (ADR-0115).
      */
     public static function lockMoves(LockMoveReach $reach): self
     {

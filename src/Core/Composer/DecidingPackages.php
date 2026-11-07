@@ -41,7 +41,7 @@ final readonly class DecidingPackages
 
     /**
      * No package alone: what a lock moved reaches the units run by the tests that loaded it, unless it moved what
-     * reaches every test (ADR-0113).
+     * reaches every test (ADR-0115).
      */
     public static function byLoads(): self
     {

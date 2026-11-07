@@ -15,7 +15,7 @@ use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
 /**
- * The tests one process of a coverage run ran, in their order, and what each loaded (ADR-0113). A process keeps what it
+ * The tests one process of a coverage run ran, in their order, and what each loaded (ADR-0115). A process keeps what it
  * loaded, so a package counts as loaded by the test that first loaded it and by every test after it there. A test that
  * started a process counts as loading every package.
  */
@@ -46,13 +46,15 @@ final readonly class ProcessLoads
     public function testsLoading(Listed $packages): TestIds
     {
         $first = $this->firstLoad($packages);
-        $tests = TestIds::none();
+        $tests = [];
 
         foreach ($this->tests as $at => $test) {
-            $tests = $at >= $first || $test->startsProcesses() ? $tests->with($test->test()) : $tests;
+            if ($at >= $first || $test->startsProcesses()) {
+                $tests[] = $test->test();
+            }
         }
 
-        return $tests;
+        return TestIds::of(...$tests);
     }
 
     /**

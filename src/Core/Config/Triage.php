@@ -195,7 +195,7 @@ final readonly class Triage implements Part
 
         return $most < $floor
             ? Invalid::because(Problem::at('timeouts.most', sprintf(self::UNDER_THE_FLOOR, $floor, $most)))
-            : Absent::setting();
+            : $this->learned->refusal();
     }
 
     /** `flaky.confirmSurvivors`: whether each survivor is run once more before it counts. */

@@ -76,6 +76,7 @@ jobs:
 | `config` | the config file the gate finds |
 | `php-version` | `8.5` |
 | `extensions` | none; PHP extensions to set up besides setup-php's defaults, such as `zstd`, which the gate packs its ledger with where it is loaded (`proofs.compression`), or ones the project's suite needs |
+| `ini-values` | none; PHP ini values to set, as setup-php takes them, such as `memory_limit=2G` |
 | `runner` | the config's, or the one installed |
 | `shard` | none: the whole gate runs |
 | `mode` | `auto`: change-scoped on pull requests, merge groups and pushes, full on schedules, manual runs, releases and tags; or `full`, or `changed`, or `sampled`: what `auto` considers, with the units no run knows exactly sampled, as `--sample` asks |

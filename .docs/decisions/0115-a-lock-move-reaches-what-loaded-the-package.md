@@ -1,4 +1,4 @@
-# ADR-0113: A lock move can reach only what loaded the package
+# ADR-0115: A lock move can reach only what loaded the package
 
 **Status:** Accepted
 **Date:** 2026-11-07
@@ -50,9 +50,10 @@ costs a whole run.
 
 ## Consequences
 
-- A package loaded only in a worker already running, read as data rather than
-  loaded, or preloaded, is not seen. A scheduled full run bounds what that can
-  hide, as it does for `reach.lockPackages`.
+- A child process not yet waited for when its test ends, a worker already
+  running, a package read as data rather than loaded, and a preloaded one are
+  not seen, so `loaded` can miss what such a test reaches. A scheduled full run
+  bounds what that can hide, as it does for `reach.lockPackages`.
 - Coverage maps grow by what the record holds, only where `loaded` is set.
 - Only the Pest runner records. Any other runner's map holds no record, so a
   move reaches every unit, as it does on the first run after setting the key.

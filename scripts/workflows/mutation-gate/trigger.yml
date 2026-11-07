@@ -42,6 +42,10 @@ on:
         description: 'PHP extensions to set up besides the defaults, as setup-php takes them, such as "zstd, intl".'
         type: string
         default: ''
+      ini-values:
+        description: 'PHP ini values to set, as setup-php takes them, such as "memory_limit=2G, opcache.enable_cli=1".'
+        type: string
+        default: ''
       runner:
         description: pest, infection, phpunit, phpspec, codeception, testo or a registered runner's name; the config's, or zero-config's, where empty.
         type: string

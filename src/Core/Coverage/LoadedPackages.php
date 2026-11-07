@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Coverage;
 
+use function array_map;
 use function array_values;
 use function count;
 
@@ -11,7 +12,7 @@ use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
 /**
- * What the tests of a coverage run loaded, process by process, where its runner recorded it (ADR-0113). A package
+ * What the tests of a coverage run loaded, process by process, where its runner recorded it (ADR-0115). A package
  * loaded only in a process no test of the run started, such as a worker already running, is not seen.
  */
 final readonly class LoadedPackages
@@ -57,25 +58,22 @@ final readonly class LoadedPackages
      */
     public function testsLoading(Listed $packages): TestIds
     {
-        $tests = TestIds::none();
-
-        foreach ($this->processes as $process) {
-            $tests = $tests->and($process->testsLoading($packages));
-        }
-
-        return $tests;
+        return TestIds::union(array_map(
+            static fn(ProcessLoads $process): TestIds => $process->testsLoading($packages),
+            $this->processes,
+        ));
     }
 
     private function recorded(): TestIds
     {
-        $tests = TestIds::none();
+        $tests = [];
 
         foreach ($this->processes as $process) {
             foreach ($process->tests() as $test) {
-                $tests = $tests->with($test->test());
+                $tests[] = $test->test();
             }
         }
 
-        return $tests;
+        return TestIds::of(...$tests);
     }
 }

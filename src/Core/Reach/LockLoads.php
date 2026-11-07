@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Reach;
 use function array_any;
 use function array_key_exists;
 use function array_map;
+use function array_values;
 use function count;
 use function implode;
 
@@ -18,7 +19,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use function sprintf;
 
 /**
- * What a change to a lock moved under `reach.lockMoves: loaded` (ADR-0113): each package it moved, and the files of the
+ * What a change to a lock moved under `reach.lockMoves: loaded` (ADR-0115): each package it moved, and the files of the
  * tests that loaded one of them.
  *
  * @internal
@@ -44,17 +45,20 @@ final readonly class LockLoads
         $wanted = [];
 
         foreach ($map->tests() as $place => $test) {
-            $wanted = $tests->has($test) ? $wanted + [$place => true] : $wanted;
+            if ($tests->has($test)) {
+                $wanted[$place] = true;
+            }
         }
 
-        $files = Paths::none();
+        $files = [];
 
         foreach ($map->placedLines() as $line) {
-            $ran = array_any([...$line], static fn(int $place): bool => array_key_exists($place, $wanted));
-            $files = $ran ? $files->with($line->file()) : $files;
+            if (array_any([...$line], static fn(int $place): bool => array_key_exists($place, $wanted))) {
+                $files[$line->file()->value()] = $line->file();
+            }
         }
 
-        return new self($packages, $files);
+        return new self($packages, Paths::of(...array_values($files)));
     }
 
     /** This reach, with the files of the tests that loaded what this lock moved. */

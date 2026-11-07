@@ -43,7 +43,7 @@ enum ChildVariable: string
     /** How long to wait between looks at a process, `runner.poll`, where the config sets it (see Polling). */
     case Poll = 'MUTATION_GATE_POLL';
 
-    /** Set where a coverage run records what its tests loaded, under `reach.lockMoves: loaded` (ADR-0113). */
+    /** Set where a coverage run records what its tests loaded, under `reach.lockMoves: loaded` (ADR-0115). */
     case RecordsLoads = 'MUTATION_GATE_RECORDS_LOADS';
 
     /** The file listing the mutators a patched runner leaves out of the files it prunes them in (ADR-0025). */

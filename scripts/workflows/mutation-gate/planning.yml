@@ -42,6 +42,7 @@
         with:
           php-version: ${{ inputs.php-version }}
           extensions: ${{ inputs.extensions }}
+          ini-values: ${{ inputs.ini-values }}
           coverage: none
       - name: Install the gate
         run: bash "${GATE_ACTION}/resources/action/install.sh" "${GATE_ACTION}"
@@ -120,6 +121,7 @@
         with:
           php-version: ${{ inputs.php-version }}
           extensions: ${{ inputs.extensions }}
+          ini-values: ${{ inputs.ini-values }}
           coverage: ${{ inputs.plan-coverage }}
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
         env:
@@ -247,6 +249,7 @@
         with:
           php-version: ${{ inputs.php-version }}
           extensions: ${{ inputs.extensions }}
+          ini-values: ${{ inputs.ini-values }}
           coverage: none
       - name: Install the gate
         run: bash "${GATE_ACTION}/resources/action/install.sh" "${GATE_ACTION}"

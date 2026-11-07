@@ -10,7 +10,7 @@ use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 
 /**
- * What one test added to what its process had loaded (ADR-0113): the Composer packages whose files first loaded by
+ * What one test added to what its process had loaded (ADR-0115): the Composer packages whose files first loaded by
  * the time it finished, by name, and whether it started another process, whose loads no process of the run sees.
  */
 final readonly class TestLoad
