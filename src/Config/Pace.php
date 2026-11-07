@@ -11,8 +11,9 @@ use NightWorksIO\MutationGate\Core\Format\Member;
 /**
  * How a runner paces its work: `runner.recycleAfter`, how many runs a batch holds for each place, 16;
  * `runner.warmSlack`, how long a warm worker may run past the end and the longest run's limit, such as `1m`; and
- * `runner.poll`, how many seconds the gate waits between looks at a process it waits on, 0.01. `Runner::paced()` takes
- * it for the runner it chooses, and `Gate::with()` for a layer that chooses none.
+ * `runner.poll`, how many seconds the gate waits between looks at a process it waits on, 0.01; and
+ * `runner.processes`, how many mutants it runs at once, one per core. `Runner::paced()` takes it for the runner it
+ * chooses, and `Gate::with()` for a layer that chooses none.
  */
 final readonly class Pace implements Setting
 {
@@ -20,6 +21,7 @@ final readonly class Pace implements Setting
         private int|Absent $recycleAfter,
         private string|Absent $warmSlack,
         private float|Absent $poll,
+        private int|Absent $processes,
     ) {
     }
 
@@ -27,8 +29,9 @@ final readonly class Pace implements Setting
         int|Absent $recycleAfter = new Absent(),
         string|Absent $warmSlack = new Absent(),
         float|Absent $poll = new Absent(),
+        int|Absent $processes = new Absent(),
     ): self {
-        return new self($recycleAfter, $warmSlack, $poll);
+        return new self($recycleAfter, $warmSlack, $poll, $processes);
     }
 
     /** This runner's config, paced so. */
@@ -37,7 +40,8 @@ final readonly class Pace implements Setting
         return $runner
             ->with(Member::of('recycleAfter', $this->recycleAfter))
             ->with(Member::of('warmSlack', $this->warmSlack))
-            ->with(Member::of('poll', $this->poll));
+            ->with(Member::of('poll', $this->poll))
+            ->with(Member::of('processes', $this->processes));
     }
 
     public function written(): Json

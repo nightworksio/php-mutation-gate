@@ -121,6 +121,7 @@ final readonly class Wiring
         $changes = $chosen->changeSource($source);
         $repository = $chosen->repository($source);
         $proofs = $this->kept($settings, $this->configured($settings, $chosen, $ci, $repository), $project->root());
+        $processes = $settings->runner()->processes(Cores::counted());
 
         return match (true) {
             ! $suite instanceof TestSuite => $suite,
@@ -148,7 +149,7 @@ final readonly class Wiring
                 $project,
                 $this->environment,
                 $withheld,
-                Cores::counted(),
+                $processes,
                 $this->counting($mutators->forTheEngine()),
                 $mutators->besideTheRunners(),
                 $mutators->skipped(),
@@ -157,7 +158,7 @@ final readonly class Wiring
                 Prover::of(
                     PHP_BINARY,
                     $project->root()->at(Workspace::equivalence()),
-                    Cores::counted(),
+                    $processes,
                     ini_get('disable_functions'),
                     $settings->staticCheck()->opcacheBatch(),
                     $settings->staticCheck()->opcacheLimit()->seconds(),

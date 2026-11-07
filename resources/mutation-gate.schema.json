@@ -80,6 +80,10 @@
                             "exclusiveMinimum": 0,
                             "maximum": 60
                         },
+                        "processes": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
                         "with": {
                             "type": "object",
                             "additionalProperties": false
@@ -131,6 +135,10 @@
                             "type": "number",
                             "exclusiveMinimum": 0,
                             "maximum": 60
+                        },
+                        "processes": {
+                            "type": "integer",
+                            "minimum": 1
                         },
                         "with": {
                             "type": "object",
@@ -184,6 +192,10 @@
                             "exclusiveMinimum": 0,
                             "maximum": 60
                         },
+                        "processes": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
                         "with": {
                             "type": "object",
                             "additionalProperties": false
@@ -235,6 +247,10 @@
                             "type": "number",
                             "exclusiveMinimum": 0,
                             "maximum": 60
+                        },
+                        "processes": {
+                            "type": "integer",
+                            "minimum": 1
                         },
                         "with": {
                             "type": "object",
@@ -288,6 +304,10 @@
                             "exclusiveMinimum": 0,
                             "maximum": 60
                         },
+                        "processes": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
                         "with": {
                             "type": "object",
                             "additionalProperties": false
@@ -339,6 +359,10 @@
                             "type": "number",
                             "exclusiveMinimum": 0,
                             "maximum": 60
+                        },
+                        "processes": {
+                            "type": "integer",
+                            "minimum": 1
                         },
                         "with": {
                             "type": "object",
@@ -403,6 +427,10 @@
                             "exclusiveMinimum": 0,
                             "maximum": 60
                         },
+                        "processes": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
                         "with": {
                             "type": "object"
                         }
@@ -450,6 +478,10 @@
                             "type": "number",
                             "exclusiveMinimum": 0,
                             "maximum": 60
+                        },
+                        "processes": {
+                            "type": "integer",
+                            "minimum": 1
                         }
                     },
                     "minProperties": 1,
@@ -4424,6 +4456,10 @@
                                     "exclusiveMinimum": 0,
                                     "maximum": 60
                                 },
+                                "processes": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
                                 "with": {
                                     "type": "object",
                                     "additionalProperties": false
@@ -4475,6 +4511,10 @@
                                     "type": "number",
                                     "exclusiveMinimum": 0,
                                     "maximum": 60
+                                },
+                                "processes": {
+                                    "type": "integer",
+                                    "minimum": 1
                                 },
                                 "with": {
                                     "type": "object",
@@ -4528,6 +4568,10 @@
                                     "exclusiveMinimum": 0,
                                     "maximum": 60
                                 },
+                                "processes": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
                                 "with": {
                                     "type": "object",
                                     "additionalProperties": false
@@ -4579,6 +4623,10 @@
                                     "type": "number",
                                     "exclusiveMinimum": 0,
                                     "maximum": 60
+                                },
+                                "processes": {
+                                    "type": "integer",
+                                    "minimum": 1
                                 },
                                 "with": {
                                     "type": "object",
@@ -4632,6 +4680,10 @@
                                     "exclusiveMinimum": 0,
                                     "maximum": 60
                                 },
+                                "processes": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
                                 "with": {
                                     "type": "object",
                                     "additionalProperties": false
@@ -4683,6 +4735,10 @@
                                     "type": "number",
                                     "exclusiveMinimum": 0,
                                     "maximum": 60
+                                },
+                                "processes": {
+                                    "type": "integer",
+                                    "minimum": 1
                                 },
                                 "with": {
                                     "type": "object",
@@ -4747,6 +4803,10 @@
                                     "exclusiveMinimum": 0,
                                     "maximum": 60
                                 },
+                                "processes": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
                                 "with": {
                                     "type": "object"
                                 }
@@ -4794,6 +4854,10 @@
                                     "type": "number",
                                     "exclusiveMinimum": 0,
                                     "maximum": 60
+                                },
+                                "processes": {
+                                    "type": "integer",
+                                    "minimum": 1
                                 }
                             },
                             "minProperties": 1,
