@@ -20,6 +20,13 @@ remember to add the scheduled full run that reach relies on.
    unless the config says. A reusable workflow cannot hold a trigger, so the
    schedule belongs to the workflow that calls it, and `doctor` advises one
    where none exists.
+2. **A push drops the gates its pull request passed on the same tree.** Where
+   the pushed tree is the head of the pull request it merged, each gate that
+   pull request ran on that tree and passed does not run again, since it ran
+   under the same workflow. A gate its scope skipped still runs, and so does
+   each gate whose matrix a pull request narrows, mutation, which judges by its
+   own proofs, and `tests and coverage`, whose map SonarCloud and mutation read. Where GitHub cannot say, every gate runs. The repository
+   variable `PROVEN_PUSH`, on unless it is `false`, sets this.
 
 ## Related
 

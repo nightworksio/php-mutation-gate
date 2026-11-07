@@ -38,8 +38,11 @@ jobs:
     name: what changed
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read # used only by a push, to read which gates its pull request passed
     outputs:
-      jobs: ${{ steps.diff.outputs.jobs }}
+      jobs: ${{ steps.proven.outputs.jobs || steps.diff.outputs.jobs }}
       runners: ${{ steps.diff.outputs.runners }}
       warm: ${{ steps.diff.outputs.warm }}
       hooks: ${{ steps.diff.outputs.hooks }}
@@ -62,6 +65,14 @@ jobs:
           else
             git diff --name-only "${BASE}" HEAD | python3 .github/scripts/scope.py "${EVENT}" | tee -a "$GITHUB_OUTPUT"
           fi
+      # A push drops the gates its pull request passed on this very tree
+      # (ADR-0112). The repository variable PROVEN_PUSH set to false runs them.
+      - id: proven
+        if: github.event_name == 'push' && vars.PROVEN_PUSH != 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOBS: ${{ steps.diff.outputs.jobs }}
+        run: python3 .github/scripts/proven_push.py | tee -a "$GITHUB_OUTPUT"
       - name: what failed
         if: failure()
         run: python3 .github/scripts/gate_summary.py scope
