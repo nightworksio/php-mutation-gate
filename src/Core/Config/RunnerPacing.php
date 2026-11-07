@@ -85,16 +85,16 @@ final readonly class RunnerPacing
             ->with(Member::of('poll', $this->poll));
     }
 
-    /** These calls on a runner the layer chooses, then its pace, where it says any. */
-    public function onRunner(string $called): string
-    {
-        return $this->isUnset() ? $called : sprintf('%s->paced(%s)', $called, $this->php());
-    }
-
     /** These calls of a layer that chooses no runner, then its pace, where it says any. */
     public function onGate(PhpCalls $calls): PhpCalls
     {
         return $this->isUnset() ? $calls : $calls->and(PhpCalls::inWith($this->php()));
+    }
+
+    /** The call on a runner that says its pace; none where it says none. */
+    public function onRunner(): string
+    {
+        return $this->isUnset() ? '' : sprintf('->paced(%s)', $this->php());
     }
 
     /** The builder's `Pace` as PHP writes it. */

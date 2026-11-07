@@ -314,7 +314,7 @@ final readonly class Reporting
      */
     private function written(Outputs $outputs, BuiltinReporter $reporter, bool $here, Closure $built): array
     {
-        return $here && $outputs->writes($reporter) ? [$built()] : [];
+        return $here && $reporter->isAutomaticUnder($outputs) ? [$built()] : [];
     }
 
     /** A reporter's choice, with what the run's settings tell the summary and the badge laid beneath its options. */

@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
+use function array_map;
+
+use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Outputs;
 use NightWorksIO\MutationGate\Core\Config\Reports;
 use NightWorksIO\MutationGate\Core\Format\Node;
@@ -60,8 +64,8 @@ final readonly class OutputsKeys
                     return Reading::built(
                         static fn(): Layer => Layer::of(Reports::outputting(Outputs::of(
                             $only->value(),
-                            $byRun->value(),
-                            $forAction->value(),
+                            self::named($byRun->value()),
+                            self::named($forAction->value()),
                             $said->value(),
                         ))),
                         $only,
@@ -76,5 +80,17 @@ final readonly class OutputsKeys
                 $costs,
             ),
         )];
+    }
+
+    /**
+     * @param  Listed<BuiltinReporter>|Absent $reporters
+     * @return Listed<string>|Absent
+     */
+    private static function named(Listed|Absent $reporters): Listed|Absent
+    {
+        return $reporters instanceof Absent ? $reporters : Listed::of(...array_map(
+            static fn(BuiltinReporter $reporter): string => $reporter->value,
+            [...$reporters],
+        ));
     }
 }

@@ -6,9 +6,11 @@ use NightWorksIO\MutationGate\Adapter\Alert\AlertReporter;
 use NightWorksIO\MutationGate\Adapter\Alert\Channel;
 use NightWorksIO\MutationGate\Adapter\Alert\Delivery;
 use NightWorksIO\MutationGate\Adapter\Alert\Pause;
+use NightWorksIO\MutationGate\Adapter\Azure\BuildSummary;
 use NightWorksIO\MutationGate\Adapter\Azure\PullRequestComment as AzureComment;
 use NightWorksIO\MutationGate\Adapter\Bitbucket\CodeInsights;
 use NightWorksIO\MutationGate\Adapter\Bitbucket\PullRequestComment as BitbucketComment;
+use NightWorksIO\MutationGate\Adapter\Buildkite\BuildAnnotation;
 use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
 use NightWorksIO\MutationGate\Adapter\Console\ProblemsReport;
 use NightWorksIO\MutationGate\Adapter\Filesystem\BadgeDirectory;
@@ -32,16 +34,20 @@ use NightWorksIO\MutationGate\Adapter\GitLab\MergeRequestNote;
 use NightWorksIO\MutationGate\Adapter\Otlp\OtlpReporter;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\CommentSettings;
+use NightWorksIO\MutationGate\Core\Cost\SavingsWindow;
 use NightWorksIO\MutationGate\Core\Delivery\Stage;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Report\BadgeColors;
 use NightWorksIO\MutationGate\Core\Report\ProblemsShown;
 use NightWorksIO\MutationGate\Core\Runner\GateSecret;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\Reporter;
+use NightWorksIO\MutationGate\Tests\Fakes\ProcessesFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ReporterFake;
 use NightWorksIO\MutationGate\Tests\Support\Cloud;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Previous;
 use NightWorksIO\MutationGate\Tests\Support\Schema;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -57,8 +63,13 @@ $holds = [
     'holds:src/Adapter/Bitbucket/CodeInsights.php',
     'holds:src/Core/Report/UnfoldedMarkdown.php',
     'holds:src/Adapter/Bitbucket/InsightAnnotation.php',
+    'holds:src/Adapter/Azure/BuildSummary.php',
+    'holds:src/Adapter/Azure/PullRequestComment.php',
+    'holds:src/Adapter/Azure/PullRequestThread.php',
     'holds:src/Adapter/Bitbucket/PullRequestComment.php',
     'holds:src/Adapter/Bitbucket/PullRequestThread.php',
+    'holds:src/Adapter/Buildkite/AnnotationThread.php',
+    'holds:src/Adapter/Buildkite/BuildAnnotation.php',
     'holds:src/Adapter/Console',
     'holds:src/Adapter/Filesystem/BadgeDirectory.php',
     'holds:src/Adapter/Filesystem/DeliveredReport.php',
@@ -220,6 +231,19 @@ $reporters = [
             ->exchange(),
         'SYSTEM_ACCESSTOKEN',
         CommentSettings::standard(),
+    ),
+    'the Azure build summary' => fn(): Reporter => BuildSummary::printingTo(
+        sprintf('%s/commands', Scratch::directory()),
+        Scratch::directory(),
+        '',
+        new StoppedClock('2026-09-30T12:00:00Z'),
+        SavingsWindow::standard(),
+    ),
+    'the Buildkite annotation' => fn(): Reporter => BuildAnnotation::configured(
+        Configs::options('{}'),
+        Variables::of(['BUILDKITE' => 'true', 'BUILDKITE_BUILD_URL' => 'https://buildkite.com/acme/shop/builds/9', 'BUILDKITE_BUILD_ID' => '9']),
+        new ProcessesFake(static fn(): Ran => Ran::finished(succeeded: true, output: '')),
+        '/project',
     ),
     'Code Insights' => fn(): Reporter => CodeInsights::inEnvironment(
         Variables::of(['BITBUCKET_BUILD_NUMBER' => '9', 'BITBUCKET_WORKSPACE' => 'acme', 'BITBUCKET_REPO_SLUG' => 'shop', 'BITBUCKET_COMMIT' => '5eeca8f']),

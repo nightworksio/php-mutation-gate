@@ -144,7 +144,7 @@ final readonly class RunnerLayer
             $called = $this->pathRules instanceof PathRuleMode
                 ? sprintf('%s->applyingPathRules(%s)', $called, $this->pathRulesPhp($this->pathRules))
                 : $called;
-            $called = $this->pacing->onRunner($called);
+            $called = sprintf('%s%s', $called, $this->pacing->onRunner());
 
             return PhpCalls::onGate(
                 GateMethod::Runner,

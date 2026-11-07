@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
+use function in_array;
+
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\GateSecret;
 
@@ -126,6 +128,12 @@ enum BuiltinReporter: string
             self::Webhook, self::Otlp, self::GitHubAnnotations, self::GitHubComment, self::GitLabComment,
             self::BitbucketComment, self::BitbucketInsights, self::AzureComment, self::BuildkiteAnnotation => false,
         };
+    }
+
+    /** Whether a run writes this reporter because of where it is, as these outputs say. */
+    public function isAutomaticUnder(Outputs $outputs): bool
+    {
+        return in_array($this->value, [...$outputs->automatic()], strict: true);
     }
 
     /** Whether this reporter writes the pull request comment, which `comment` shapes (ADR-0102). */

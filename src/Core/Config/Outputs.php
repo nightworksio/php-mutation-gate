@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-use function array_map;
-use function in_array;
-
 use NightWorksIO\MutationGate\Core\Cost\RunAccount;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
@@ -22,18 +19,22 @@ final readonly class Outputs
 {
     /** The reporters a run writes because of where it is, where the config does not say. */
     private const array AUTOMATIC = [
-        BuiltinReporter::GitHubAnnotations,
-        BuiltinReporter::GitHubSummary,
-        BuiltinReporter::GitHubComment,
-        BuiltinReporter::Badge,
+        BuiltinReporter::GitHubAnnotations->value,
+        BuiltinReporter::GitHubSummary->value,
+        BuiltinReporter::GitHubComment->value,
+        BuiltinReporter::Badge->value,
     ];
 
     /** The reports the action asks of the verdict, where the config does not say. */
-    private const array ACTION_REPORTS = [BuiltinReporter::Json, BuiltinReporter::Html, BuiltinReporter::Digest];
+    private const array ACTION_REPORTS = [
+        BuiltinReporter::Json->value,
+        BuiltinReporter::Html->value,
+        BuiltinReporter::Digest->value,
+    ];
 
     /**
-     * @param Listed<BuiltinReporter>|Absent $automatic
-     * @param Listed<BuiltinReporter>|Absent $actionReports
+     * @param Listed<string>|Absent $automatic
+     * @param Listed<string>|Absent $actionReports
      */
     private function __construct(
         private bool|Absent $verdictOnly,
@@ -44,8 +45,8 @@ final readonly class Outputs
     }
 
     /**
-     * @param Listed<BuiltinReporter>|Absent $automatic
-     * @param Listed<BuiltinReporter>|Absent $actionReports
+     * @param Listed<string>|Absent $automatic
+     * @param Listed<string>|Absent $actionReports
      */
     public static function of(
         bool|Absent $verdictOnly = new Absent(),
@@ -77,12 +78,18 @@ final readonly class Outputs
         );
     }
 
-    /** Whether a run writes this reporter because of where it is. */
-    public function writes(BuiltinReporter $reporter): bool
+    /**
+     * The names of the reporters a run writes because of where it is: none under `outputs.verdictOnly`.
+     *
+     * @return Listed<string>
+     */
+    public function automatic(): Listed
     {
-        $automatic = $this->automatic instanceof Listed ? [...$this->automatic] : self::AUTOMATIC;
-
-        return $this->verdictOnly !== true && in_array($reporter, $automatic, strict: true);
+        return match (true) {
+            $this->verdictOnly === true => Listed::of(),
+            $this->automatic instanceof Listed => $this->automatic,
+            default => Listed::of(...self::AUTOMATIC),
+        };
     }
 
     /** What a run's account says in its reports: nothing of what it cost, under `outputs.costs: false`. */
@@ -124,25 +131,17 @@ final readonly class Outputs
     }
 
     /**
-     * @param  Listed<BuiltinReporter>|Absent $reporters
+     * @param  Listed<string>|Absent $reporters
      * @return list<string>
      */
     private function called(string $call, Listed|Absent $reporters): array
     {
-        $names = $reporters instanceof Absent ? [] : array_map(
-            static fn(BuiltinReporter $reporter): string => $reporter->value,
-            [...$reporters],
-        );
-
-        return $reporters instanceof Absent ? [] : [sprintf($call, PhpCalls::literals(...$names))];
+        return $reporters instanceof Absent ? [] : [sprintf($call, PhpCalls::literals(...$reporters))];
     }
 
-    /** @param Listed<BuiltinReporter>|Absent $reporters */
+    /** @param Listed<string>|Absent $reporters */
     private function names(Listed|Absent $reporters): Json|Absent
     {
-        return $reporters instanceof Absent ? $reporters : Json::items(...array_map(
-            static fn(BuiltinReporter $reporter): string => $reporter->value,
-            [...$reporters],
-        ));
+        return $reporters instanceof Absent ? $reporters : Json::items(...$reporters);
     }
 }

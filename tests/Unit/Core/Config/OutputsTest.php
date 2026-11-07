@@ -12,13 +12,13 @@ use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
 it('writes each automatic reporter where no layer lists them, and only those a layer lists, and none of a verdict alone', function (): void {
-    expect(Outputs::of()->writes(BuiltinReporter::GitHubComment))->toBeTrue()
-        ->and(Outputs::standard()->writes(BuiltinReporter::Badge))->toBeTrue()
-        ->and(Outputs::standard()->writes(BuiltinReporter::Json))->toBeFalse()
-        ->and(Outputs::of(automatic: Listed::of(BuiltinReporter::Badge))->writes(BuiltinReporter::Badge))->toBeTrue()
-        ->and(Outputs::of(automatic: Listed::of(BuiltinReporter::Badge))->writes(BuiltinReporter::GitHubSummary))->toBeFalse()
-        ->and(Outputs::of(verdictOnly: true)->writes(BuiltinReporter::Badge))->toBeFalse()
-        ->and(Outputs::of(verdictOnly: false)->writes(BuiltinReporter::Badge))->toBeTrue();
+    expect(BuiltinReporter::GitHubComment->isAutomaticUnder(Outputs::of()))->toBeTrue()
+        ->and(BuiltinReporter::Badge->isAutomaticUnder(Outputs::standard()))->toBeTrue()
+        ->and(BuiltinReporter::Json->isAutomaticUnder(Outputs::standard()))->toBeFalse()
+        ->and(BuiltinReporter::Badge->isAutomaticUnder(Outputs::of(automatic: Listed::of(BuiltinReporter::Badge->value))))->toBeTrue()
+        ->and(BuiltinReporter::GitHubSummary->isAutomaticUnder(Outputs::of(automatic: Listed::of(BuiltinReporter::Badge->value))))->toBeFalse()
+        ->and(BuiltinReporter::Badge->isAutomaticUnder(Outputs::of(verdictOnly: true)))->toBeFalse()
+        ->and(BuiltinReporter::Badge->isAutomaticUnder(Outputs::of(verdictOnly: false)))->toBeTrue();
 });
 
 it('says what a run cost, unless outputs.costs is false', function (): void {

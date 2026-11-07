@@ -169,5 +169,5 @@ it('reads this package\'s effective config of a pull request as the gate prints 
     $variables = ['GITHUB_OUTPUT' => $output, 'CACHE' => 'true'];
     new Process(['python3', 'resources/action/gate_action.py', 'config'], Tree::root(), $variables, $shown->getOutput())->mustRun();
 
-    expect((string) file_get_contents($output))->toBe("default_store=true\ncopies=newest\nafter_store=false\npest_patch=true\ninfection_patch=false\nfail_fast=cancel\n");
+    expect((string) file_get_contents($output))->toBe("default_store=true\ncopies=newest\nafter_store=false\npest_patch=true\ninfection_patch=false\nfail_fast=cancel\naction_reports=[\"--report=json:.mutation-gate/action/report.json\", \"--report=html:.mutation-gate/action/html\", \"--report=digest:.mutation-gate/action/mutation-gate-digest.txt\"]\n");
 });
