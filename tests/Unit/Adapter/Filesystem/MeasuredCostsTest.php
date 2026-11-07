@@ -78,7 +78,7 @@ function measuredMoneyRun(): FirstRun
         MutantSites::inFile($money, Line::of(3), Line::of(3)),
         Seconds::of(1.5),
         ProcessCount::of(2),
-        new FirstRunShape(shardOverhead: 1.0),
+        FirstRunShape::of(overhead: 1.0),
     );
 }
 

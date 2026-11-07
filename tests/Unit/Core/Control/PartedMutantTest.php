@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Control\Control;
+use NightWorksIO\MutationGate\Core\Control\ControlEnd;
 use NightWorksIO\MutationGate\Core\Control\ControlRun;
+use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Control\PartControls;
 use NightWorksIO\MutationGate\Core\Control\PartedMutant;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -112,10 +114,10 @@ it('says in a log which mutant waits on which part and how many remain, and that
     $killed = partedAfter(ControlRun::passed(Seconds::of(30.0)), ControlRun::failed(TestIds::of(TestId::of('LoopTest::b'))));
     $parts = count(partedParts());
 
-    expect($parted->progress())->toBe(sprintf('heavy mutant %s, src/Loop.php:3: part 1 of %d, %d left', $id, $parts, $parts - 1))
-        ->and($second->progress())->toBe(sprintf('heavy mutant %s, src/Loop.php:3: part 2 of %d, %d left', $id, $parts, $parts - 2))
-        ->and($controlling->progress())->toBe(sprintf('heavy mutant %s, src/Loop.php:3: part 2 of %d, %d left, its control', $id, $parts, $parts - 2))
-        ->and($killed->progress())->toEqual(NotGiven::value());
+    expect($parted->progress(0))->toBe(sprintf('heavy mutant %s, src/Loop.php:3: part 1 of %d, %d left', $id, $parts, $parts - 1))
+        ->and($second->progress(0))->toBe(sprintf('heavy mutant %s, src/Loop.php:3: part 2 of %d, %d left', $id, $parts, $parts - 2))
+        ->and($controlling->progress(0))->toBe(sprintf('heavy mutant %s, src/Loop.php:3: part 2 of %d, %d left, its control', $id, $parts, $parts - 2))
+        ->and($killed->progress(0))->toEqual(NotGiven::value());
 });
 
 it('survives where every part passes with the mutant served', function (): void {
@@ -228,4 +230,127 @@ it('holds each test of a part to the limit of its own the bounds give it, timed 
 
     expect($part->watch())->toEqual(TestWatch::of(PerTestLimit::standard(), TestTimes::of(TestTime::of(TestId::of('LoopTest::a'), Seconds::of(30.0)))))
         ->and(partedControls()[0]->watch())->toEqual(NotGiven::value());
+});
+
+/**
+ * The four parts of the heavy mutant, a test each.
+ *
+ * @return non-empty-list<RunTests>
+ */
+function partedFour(): array
+{
+    return array_map(
+        static fn(string $test): RunTests => RunTests::of(TestIds::of(TestId::of($test))),
+        ['LoopTest::a', 'LoopTest::b', 'LoopTest::c', 'LoopTest::d'],
+    );
+}
+
+/** The heavy mutant of four parts, judged by this many at most. */
+function partedCapped(int|NotGiven $atMost): PartedMutant
+{
+    return PartedMutant::of(partedHeavy(), partedRuns(TestPlaces::none()), partedFour())->atMost($atMost);
+}
+
+/**
+ * @param  list<Control> $parts
+ * @return list<string>
+ */
+function partedTests(array $parts): array
+{
+    return array_map(static fn(Control $part): string => [...$part->tests()][0]->value(), $parts);
+}
+
+/** The run of a part of the heavy mutant by this one test, served the mutant. */
+function partedPartBy(string $test): Control
+{
+    return partedRuns(TestPlaces::none())->serving(RunTests::of(TestIds::of(TestId::of($test))));
+}
+
+it('offers the parts after the one at hand, none it has a run of, none past one a test failed in, and none once judged', function (): void {
+    $parted = partedCapped(NotGiven::value());
+    $passed = ControlRuns::none()->with(partedPartBy('LoopTest::c'), ControlRun::passed(Seconds::of(1.0)));
+    $failed = ControlRuns::none()->with(partedPartBy('LoopTest::c'), ControlRun::failed(TestIds::of(TestId::of('LoopTest::c'))));
+    $killed = $parted->after(ControlRun::failed(TestIds::of(TestId::of('LoopTest::a'))));
+
+    expect(partedTests($parted->ahead(ControlRuns::none())))->toBe(['LoopTest::b', 'LoopTest::c', 'LoopTest::d'])
+        ->and(partedTests($parted->ahead($passed)))->toBe(['LoopTest::b', 'LoopTest::d'])
+        ->and(partedTests($parted->ahead($failed)))->toBe(['LoopTest::b'])
+        ->and($killed->ahead(ControlRuns::none()))->toBe([]);
+});
+
+it('offers no part past its cap, and offers the parts ahead while a part\'s control runs', function (): void {
+    $controlling = partedCapped(NotGiven::value())->after(ControlRun::ranOut());
+
+    expect(partedTests(partedCapped(2)->ahead(ControlRuns::none())))->toBe(['LoopTest::b'])
+        ->and(partedCapped(1)->ahead(ControlRuns::none()))->toBe([])
+        ->and(partedTests($controlling->ahead(ControlRuns::none())))->toBe(['LoopTest::b', 'LoopTest::c', 'LoopTest::d']);
+});
+
+it('reads what parts ahead found in the order of its parts, so it comes to what one part after another comes to', function (ControlRuns $found, MutantStatus $status): void {
+    $serial = partedCapped(NotGiven::value());
+
+    foreach (['LoopTest::a', 'LoopTest::b', 'LoopTest::c', 'LoopTest::d'] as $test) {
+        $run = $found->of(partedPartBy($test));
+
+        if ($serial->judged()->status() !== partedHeavy()->status() || $run->end() === ControlEnd::Unrun) {
+            break;
+        }
+
+        $serial = $serial->after($run);
+    }
+
+    expect(partedCapped(NotGiven::value())->past($found)->judged())->toEqual($serial->judged())
+        ->and(partedCapped(NotGiven::value())->past($found)->judged()->status())->toBe($status);
+})->with([
+    'every part passes' => [fn(): ControlRuns => ControlRuns::none()
+        ->with(partedPartBy('LoopTest::d'), ControlRun::passed(Seconds::of(1.0)))
+        ->with(partedPartBy('LoopTest::b'), ControlRun::passed(Seconds::of(1.0)))
+        ->with(partedPartBy('LoopTest::a'), ControlRun::passed(Seconds::of(1.0)))
+        ->with(partedPartBy('LoopTest::c'), ControlRun::passed(Seconds::of(1.0))), MutantStatus::Survived],
+    'the third part kills, the fourth having passed' => [fn(): ControlRuns => ControlRuns::none()
+        ->with(partedPartBy('LoopTest::d'), ControlRun::passed(Seconds::of(1.0)))
+        ->with(partedPartBy('LoopTest::a'), ControlRun::passed(Seconds::of(1.0)))
+        ->with(partedPartBy('LoopTest::b'), ControlRun::passed(Seconds::of(1.0)))
+        ->with(partedPartBy('LoopTest::c'), ControlRun::failed(TestIds::of(TestId::of('LoopTest::c')))), MutantStatus::Killed],
+]);
+
+it('waits at a part no run has found, and on the control of a part that ran out before one found to kill', function (): void {
+    $gap = ControlRuns::none()
+        ->with(partedPartBy('LoopTest::a'), ControlRun::passed(Seconds::of(1.0)))
+        ->with(partedPartBy('LoopTest::c'), ControlRun::failed(TestIds::of(TestId::of('LoopTest::c'))));
+    $ranOut = ControlRuns::none()
+        ->with(partedPartBy('LoopTest::a'), ControlRun::ranOut())
+        ->with(partedPartBy('LoopTest::b'), ControlRun::failed(TestIds::of(TestId::of('LoopTest::b'))));
+    $waiting = partedCapped(NotGiven::value())->past($gap);
+    $controlling = partedCapped(NotGiven::value())->past($ranOut);
+    $next = $controlling->next();
+
+    expect($waiting->next())->toEqual(partedPartBy('LoopTest::b'))
+        ->and($waiting->judged()->status())->toBe(MutantStatus::TimedOut)
+        ->and($next)->toEqual(partedPartBy('LoopTest::a')->unmutated())
+        ->and($controlling->after(ControlRun::passed(Seconds::of(1.0)))->judged()->status())->toBe(MutantStatus::TimedOut);
+});
+
+it('is unjudged, never survived or killed, where its cap comes before its last part and no part settled it', function (): void {
+    $passed = ControlRun::passed(Seconds::of(1.0));
+    $capped = partedCapped(2)->after($passed)->after($passed);
+    $reason = $capped->judged()->reason();
+
+    expect($capped->judged()->status())->toBe(MutantStatus::Unjudged)
+        ->and($reason instanceof Reason && $reason->isAtThePartCap())->toBeTrue()
+        ->and($reason instanceof Reason ? $reason->text() : '')->toBe('timeouts.heavyParts stopped it at part 2 of 4 of its tests, no part settling it.')
+        ->and($capped->next())->toEqual(NotGiven::value());
+});
+
+it('is killed by a part within its cap, and judged by its last part where its cap is no sooner', function (): void {
+    $passed = ControlRun::passed(Seconds::of(1.0));
+    $byFirst = partedCapped(1)->after(ControlRun::failed(TestIds::of(TestId::of('LoopTest::a'))));
+    $whole = partedCapped(4)->after($passed)->after($passed)->after($passed)->after($passed);
+
+    expect($byFirst->judged()->status())->toBe(MutantStatus::Killed)
+        ->and($whole->judged()->status())->toBe(MutantStatus::Survived);
+});
+
+it('says in a log how many parts run ahead beside the one it waits on', function (): void {
+    expect(partedCapped(NotGiven::value())->progress(2))->toEndWith('part 1 of 4, 3 left, 2 ahead beside it');
 });

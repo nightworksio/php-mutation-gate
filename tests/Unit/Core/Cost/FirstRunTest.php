@@ -32,7 +32,7 @@ function measuredMoney(): FirstRun
     $sites = MutantSites::inFile($money, Line::of(3), Line::of(3), Line::of(7), Line::of(9))
         ->and(MutantSites::inFile(Path::of('src/Empty.php')));
 
-    return FirstRun::of($map, $sites, Seconds::of(2.0), ProcessCount::of(2), new FirstRunShape(shardOverhead: 1.0));
+    return FirstRun::of($map, $sites, Seconds::of(2.0), ProcessCount::of(2), FirstRunShape::of(overhead: 1.0));
 }
 
 it('costs each covered mutant a start-up and its covering tests, spread over the processes', function (): void {
@@ -55,7 +55,7 @@ it('leaves unmeasured a unit none of whose files the engine counted', function (
 it('counts a covering test the map did not time as taking nothing', function (): void {
     $money = Path::of('src/Money.php');
     $untimed = CoverageMap::of()->covered($money, Line::of(3), TestId::of('MoneyTest::untimed'));
-    $run = FirstRun::of($untimed, MutantSites::inFile($money, Line::of(3)), Seconds::of(2.0), ProcessCount::single(), new FirstRunShape(shardOverhead: 1.0));
+    $run = FirstRun::of($untimed, MutantSites::inFile($money, Line::of(3)), Seconds::of(2.0), ProcessCount::single(), FirstRunShape::of(overhead: 1.0));
 
     expect($run->seconds(Unit::file($money)))->toEqual(Seconds::of(2.0));
 });
@@ -82,7 +82,7 @@ it('costs every file unit of a plan in time that grows with the plan, not with i
             $units[] = Unit::file($file);
         }
 
-        $run = FirstRun::of(CoverageMap::of(), $sites, Seconds::of(1.0), ProcessCount::single());
+        $run = FirstRun::of(CoverageMap::of(), $sites, Seconds::of(1.0), ProcessCount::single(), FirstRunShape::standard());
 
         return static function () use ($run, $units): int {
             $measured = 0;
@@ -113,7 +113,7 @@ function firstRunMap(int $tests, float $seconds): CoverageMap
 }
 
 /** What a first run expects of src/Money.php: this many mutants on line 3, a second to start each, of this shape. */
-function firstRunSeconds(CoverageMap $map, int $mutants, ProcessCount $processes, FirstRunShape $shape = new FirstRunShape(shardOverhead: 1.0)): float
+function firstRunSeconds(CoverageMap $map, int $mutants, ProcessCount $processes, FirstRunShape $shape): float
 {
     $money = Path::of('src/Money.php');
     $run = FirstRun::of($map, MutantSites::inFile($money, ...array_fill(0, $mutants, Line::of(3))), Seconds::of(1.0), $processes, $shape);
@@ -123,16 +123,16 @@ function firstRunSeconds(CoverageMap $map, int $mutants, ProcessCount $processes
 }
 
 it('expects a mutant to spend its start-up, five covering tests at their average and a share of all of them for those that survive', function (): void {
-    expect(firstRunSeconds(firstRunMap(100, 1.0), 10, ProcessCount::of(1)))->toEqualWithDelta(10 * (1.0 + 0.98 * 5.0 + 0.02 * 100.0), 0.001);
+    expect(firstRunSeconds(firstRunMap(100, 1.0), 10, ProcessCount::of(1), FirstRunShape::of(overhead: 1.0)))->toEqualWithDelta(10 * (1.0 + 0.98 * 5.0 + 0.02 * 100.0), 0.001);
 });
 
 it('expects no more of a killed mutant than its covering tests take', function (): void {
-    expect(firstRunSeconds(firstRunMap(2, 1.0), 1, ProcessCount::of(1)))->toEqualWithDelta(1.0 + 0.98 * 2.0 + 0.02 * 2.0, 0.001);
+    expect(firstRunSeconds(firstRunMap(2, 1.0), 1, ProcessCount::of(1), FirstRunShape::of(overhead: 1.0)))->toEqualWithDelta(1.0 + 0.98 * 2.0 + 0.02 * 2.0, 0.001);
 });
 
 it('expects nothing of a mutant no test covers', function (): void {
     $money = Path::of('src/Money.php');
-    $run = FirstRun::of(CoverageMap::of(), MutantSites::inFile($money, Line::of(3)), Seconds::of(1.0), ProcessCount::of(1));
+    $run = FirstRun::of(CoverageMap::of(), MutantSites::inFile($money, Line::of(3)), Seconds::of(1.0), ProcessCount::of(1), FirstRunShape::standard());
 
     expect($run->seconds(Unit::file($money)))->toEqual(Seconds::of(0.0));
 });
@@ -141,15 +141,15 @@ it('takes its tests before a kill, the share that survive and a shard\'s overhea
     $map = firstRunMap(100, 1.0);
     $at = static fn(FirstRunShape $shape): float => firstRunSeconds($map, 1, ProcessCount::of(1), $shape);
 
-    expect($at(new FirstRunShape(testsBeforeAKill: 10, surviving: 0.0, shardOverhead: 1.0)))->toEqualWithDelta(11.0, 0.001)
-        ->and($at(new FirstRunShape(testsBeforeAKill: 5, surviving: 0.5, shardOverhead: 1.0)))->toEqualWithDelta(1.0 + 2.5 + 50.0, 0.001)
-        ->and($at(new FirstRunShape(testsBeforeAKill: 5, surviving: 0.0, shardOverhead: 3.0)))->toEqualWithDelta(18.0, 0.001)
-        ->and(FirstRunShape::of(new Absent(), new Absent(), new Absent()))->toEqual(new FirstRunShape(5, 0.02, 2.5))
-        ->and(FirstRunShape::of(7, 0.1, 1.5))->toEqual(new FirstRunShape(7, 0.1, 1.5));
+    expect($at(FirstRunShape::of(10, 0.0, 1.0)))->toEqualWithDelta(11.0, 0.001)
+        ->and($at(FirstRunShape::of(5, 0.5, 1.0)))->toEqualWithDelta(1.0 + 2.5 + 50.0, 0.001)
+        ->and($at(FirstRunShape::of(5, 0.0, 3.0)))->toEqualWithDelta(18.0, 0.001)
+        ->and(FirstRunShape::of(new Absent(), new Absent(), new Absent()))->toEqual(FirstRunShape::standard())
+        ->and(FirstRunShape::of(7, 0.1, 1.5)->shard(Seconds::of(2.0)))->toEqual(Seconds::of(3.0));
 });
 
 it('expects a shard to take a unit the whole suite covers past what such a unit measured, by much less than every test counted', function (): void {
-    $estimate = firstRunSeconds(firstRunMap(2000, 340.0 / 2000), 342, ProcessCount::of(4), new FirstRunShape());
+    $estimate = firstRunSeconds(firstRunMap(2000, 340.0 / 2000), 342, ProcessCount::of(4), FirstRunShape::standard());
 
     expect($estimate)->toBeGreaterThan(655.0)->toBeLessThan(655.0 * 3.5);
 });

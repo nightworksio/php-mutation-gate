@@ -55,6 +55,8 @@ final readonly class TriageKeys
         $controlMost = Field::optional('controlMost', Integer::atLeast(1), $results);
         $startUp = Field::optional('startUp', Duration::written(), $results);
         $learned = Field::section('learned', self::learned());
+        $heavyFill = Field::optional('heavyFill', Flag::boolean(), $judges);
+        $heavyParts = Field::optional('heavyParts', Integer::atLeast(1), $results);
 
         return [
             Field::optional(
@@ -79,6 +81,8 @@ final readonly class TriageKeys
                         $controlMost,
                         $startUp,
                         $learned,
+                        $heavyFill,
+                        $heavyParts,
                     ): Layer|Invalid {
                         $timedOut = $mode->read($timeouts);
                         $limit = $seconds->read($timeouts);
@@ -90,6 +94,8 @@ final readonly class TriageKeys
                         $controls = $controlMost->read($timeouts);
                         $starts = $startUp->read($timeouts);
                         $bounds = $learned->read($timeouts);
+                        $fills = $heavyFill->read($timeouts);
+                        $cap = $heavyParts->read($timeouts);
 
                         return Reading::built(
                             static fn(): Layer => Layer::of(Triage::of(
@@ -103,6 +109,8 @@ final readonly class TriageKeys
                                 controlMost: self::seconds($controls->value()),
                                 startUp: $starts->value(),
                                 learned: $bounds->value(),
+                                heavyFill: $fills->value(),
+                                heavyParts: $cap->value(),
                             )),
                             $timedOut,
                             $limit,
@@ -114,6 +122,8 @@ final readonly class TriageKeys
                             $controls,
                             $starts,
                             $bounds,
+                            $fills,
+                            $cap,
                         );
                     },
                     $mode,
@@ -126,6 +136,8 @@ final readonly class TriageKeys
                     $controlMost,
                     $startUp,
                     $learned,
+                    $heavyFill,
+                    $heavyParts,
                 ),
             ),
             Field::section(

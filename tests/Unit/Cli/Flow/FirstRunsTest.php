@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Cli\Flow\FirstRuns;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\FirstRun;
+use NightWorksIO\MutationGate\Core\Cost\FirstRunShape;
 use NightWorksIO\MutationGate\Core\Cost\MutantSites;
 use NightWorksIO\MutationGate\Core\Cost\StartUpSamples;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -54,7 +55,7 @@ it('measures where the engine makes each unit\'s mutants, the fastest run of no 
         ->startingUpIn(Seconds::of(2.5), Seconds::of(1.25), Seconds::of(3.0));
     $adapters = Flows::adapters(measuredProject(), [], $runner, Engine::with(new PlusToMinus()));
     $held = Unit::held(Path::of('src/Kernel'), Group::named('holds:src/Kernel'));
-    $measured = new FirstRuns($adapters, StartUpSamples::standard())
+    $measured = new FirstRuns($adapters, StartUpSamples::standard(), FirstRunShape::standard())
         ->measured(measuredMap(), Units::of(Unit::file(Path::of('src/Money.php')), $held));
 
     expect($measured)->toEqual(FirstRun::of(
@@ -63,6 +64,7 @@ it('measures where the engine makes each unit\'s mutants, the fastest run of no 
             ->and(MutantSites::inFile(Path::of('src/Kernel/Rates.php'), Line::of(3), Line::of(3))),
         Seconds::of(1.25),
         ProcessCount::of(2),
+        FirstRunShape::standard(),
     ))->and($runner->startedUp())->toEqual(array_fill(0, 3, [Path::of('src/Money.php'), $adapters->withheld]));
 });
 
@@ -71,9 +73,9 @@ it('measures nothing where no engine counts, or no file of the units is there to
     $counting = Flows::adapters(measuredProject(), [], $runner, Engine::with(new PlusToMinus()));
     $units = Units::of(Unit::file(Path::of('src/Money.php')));
 
-    expect(new FirstRuns(Flows::adapters(measuredProject(), [], $runner), StartUpSamples::standard())->measured(measuredMap(), $units))
+    expect(new FirstRuns(Flows::adapters(measuredProject(), [], $runner), StartUpSamples::standard(), FirstRunShape::standard())->measured(measuredMap(), $units))
         ->toEqual(FirstRun::unmeasured())
-        ->and(new FirstRuns($counting, StartUpSamples::standard())->measured(CoverageMap::of(), Units::of(Unit::file(Path::of('src/Gone.php')))))
+        ->and(new FirstRuns($counting, StartUpSamples::standard(), FirstRunShape::standard())->measured(CoverageMap::of(), Units::of(Unit::file(Path::of('src/Gone.php')))))
         ->toEqual(FirstRun::unmeasured())
         ->and($runner->startedUp())->toBe([]);
 });
@@ -86,6 +88,7 @@ it('measures nothing where a run of no test cannot run, the first or a later one
     $firstRuns = static fn(ScriptedRunner $runner): FirstRuns => new FirstRuns(
         Flows::adapters(measuredProject(), [], $runner, Engine::with(new PlusToMinus())),
         StartUpSamples::standard(),
+        FirstRunShape::standard(),
     );
 
     expect($firstRuns($first)->measured(measuredMap(), $units))->toEqual(FirstRun::unmeasured())

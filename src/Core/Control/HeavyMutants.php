@@ -7,11 +7,15 @@ namespace NightWorksIO\MutationGate\Core\Control;
 use function array_filter;
 use function array_key_exists;
 use function array_map;
+use function array_merge;
+use function array_slice;
+use function array_values;
 
 use Closure;
 
 use function count;
 use function is_string;
+use function max;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -23,9 +27,12 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Reach\TestPlaces;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\RunSelection;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+
+use function usort;
 
 /**
  * The mutants whose judging tests are too many to run in one run under
@@ -35,14 +42,20 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  * allowed the standard limit of its own tests and stopped where no test
  * finishes for the silence limit of its slowest, so a line many tests cover
  * is judged by every one of them, and a mutant whose text the runner cannot
- * give is left to its control.
+ * give is left to its control. A round runs what each waits on, and fills the
+ * rest of its pool with their parts ahead (ADR-0114): what a part ahead finds
+ * is kept until its turn, so the pool's width changes when each is judged and
+ * never how.
  *
  * @internal
  */
 final readonly class HeavyMutants
 {
-    /** @param array<string, PartedMutant> $parted each heavy mutant, by its id's key */
-    private function __construct(private array $parted)
+    /**
+     * @param array<string, PartedMutant> $parted each heavy mutant, by its id's key
+     * @param ControlRuns                 $found  what the rounds so far found of them
+     */
+    private function __construct(private array $parted, private ControlRuns $found)
     {
     }
 
@@ -77,7 +90,16 @@ final readonly class HeavyMutants
                 : [];
         }
 
-        return new self($parted);
+        return new self($parted, ControlRuns::none());
+    }
+
+    /** These, each judged by this many parts at most; by all of them where none is given. */
+    public function judgedByAtMost(int|NotGiven $parts): self
+    {
+        return new self(
+            array_map(static fn(PartedMutant $parted): PartedMutant => $parted->atMost($parts), $this->parted),
+            $this->found,
+        );
     }
 
     /** Those of these mutants that are not heavy, which their own controls judge. */
@@ -103,16 +125,29 @@ final readonly class HeavyMutants
     }
 
     /**
-     * What each heavy mutant not yet judged waits on, said in a log.
+     * The parts ahead that run beside what they wait on, in a pool this wide:
+     * as many as it has room for, each mutant's next part ahead in turn.
+     *
+     * @return list<Control>
+     */
+    public function ahead(ProcessCount $slots): array
+    {
+        return array_merge(...array_values($this->filling($slots)));
+    }
+
+    /**
+     * What each heavy mutant not yet judged waits on, and the parts ahead
+     * beside it in a pool this wide, said in a log.
      *
      * @return list<string>
      */
-    public function progress(): array
+    public function progress(ProcessCount $slots): array
     {
+        $filling = $this->filling($slots);
         $said = [];
 
-        foreach ($this->parted as $parted) {
-            $progress = $parted->progress();
+        foreach ($this->parted as $key => $parted) {
+            $progress = $parted->progress(count($filling[$key]));
             $said = is_string($progress) ? [...$said, $progress] : $said;
         }
 
@@ -122,6 +157,7 @@ final readonly class HeavyMutants
     /** These, each judged as far as what its run found takes it, or unjudged where the time left had no room for it. */
     public function after(ControlRuns $runs, Controls $left): self
     {
+        $found = $this->found->and($runs);
         $after = [];
 
         foreach ($this->parted as $key => $parted) {
@@ -129,11 +165,11 @@ final readonly class HeavyMutants
             $after[$key] = match (true) {
                 ! $next instanceof Control => $parted,
                 $left->has($next) => $parted->outOfTime(),
-                default => $parted->after($runs->of($next)),
+                default => $parted->after($runs->of($next))->past($found),
             };
         }
 
-        return new self($after);
+        return new self($after, $found);
     }
 
     /** These mutants, each heavy one as its parts judged it. */
@@ -143,6 +179,31 @@ final readonly class HeavyMutants
             static fn(PartedMutant $parted): Mutant => $parted->judged(),
             $this->parted,
         )));
+    }
+
+    /**
+     * The parts ahead a pool this wide has room for, by each mutant's key.
+     *
+     * @return array<string, list<Control>>
+     */
+    private function filling(ProcessCount $slots): array
+    {
+        $queue = [];
+
+        foreach ($this->parted as $key => $parted) {
+            foreach ($parted->ahead($this->found) as $depth => $part) {
+                $queue[] = [$depth, $key, $part];
+            }
+        }
+
+        usort($queue, static fn(array $one, array $other): int => $one[0] <=> $other[0]);
+        $filling = array_map(static fn(): array => [], $this->parted);
+
+        foreach (array_slice($queue, 0, max(0, $slots->count() - count($this->asked()))) as [, $key, $part]) {
+            $filling[$key][] = $part;
+        }
+
+        return $filling;
     }
 
     /**

@@ -1731,6 +1731,14 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "heavyFill": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "heavyParts": {
+                    "type": "integer",
+                    "minimum": 1
                 }
             },
             "additionalProperties": false
@@ -5800,6 +5808,13 @@
                                 }
                             },
                             "additionalProperties": false
+                        },
+                        "heavyFill": {
+                            "type": "boolean"
+                        },
+                        "heavyParts": {
+                            "type": "integer",
+                            "minimum": 1
                         }
                     },
                     "additionalProperties": false

@@ -44,7 +44,7 @@ final readonly class FirstRun
             Seconds::of(0.0),
             ProcessCount::single(),
             [],
-            new FirstRunShape(),
+            FirstRunShape::standard(),
         );
     }
 
@@ -53,7 +53,7 @@ final readonly class FirstRun
         MutantSites $sites,
         Seconds $startUp,
         ProcessCount $processes,
-        FirstRunShape $shape = new FirstRunShape(),
+        FirstRunShape $shape,
     ): self {
         $perFile = [];
 
@@ -79,7 +79,7 @@ final readonly class FirstRun
 
         return $counted instanceof Unmeasured
             ? $counted
-            : Seconds::of($counted * $this->shape->shardOverhead / $this->processes->count());
+            : Seconds::of($this->shape->shard(Seconds::of($counted))->seconds() / $this->processes->count());
     }
 
     public function map(): CoverageMap
@@ -162,6 +162,8 @@ final readonly class FirstRun
             $every += $duration instanceof Seconds ? $duration->seconds() : 0.0;
         }
 
-        return count($tests) === 0 ? 0.0 : $startUp->seconds() + $shape->covering(count($tests), $every);
+        return count($tests) === 0
+            ? 0.0
+            : $startUp->seconds() + $shape->covering($tests, Seconds::of($every))->seconds();
     }
 }

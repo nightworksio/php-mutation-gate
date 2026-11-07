@@ -7,9 +7,12 @@ use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Control\Control;
 use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Control\HeavyMutants;
+use NightWorksIO\MutationGate\Core\Control\MutantParts;
+use NightWorksIO\MutationGate\Core\Control\PartControls;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
@@ -28,6 +31,9 @@ use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
+use NightWorksIO\MutationGate\Core\Runner\Pool;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
+use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -146,6 +152,101 @@ it('kills a mutant whose tests run past the most only together, by its last part
         ->and($judged)->toBe([
             [MutantStatus::Killed->value, ['P\Tests\HeavySpec::__pest_evaluable_it_weighs_a_kilogram_light']],
         ]);
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
+
+/**
+ * How the Heavy fixture's parts of its one mutant end, run one after another and at once in a pool of four, what fails
+ * in them at once, and how long each took. The parts are cut under these bounds and each is allowed far more, so a
+ * loaded machine decides nothing.
+ *
+ * @return array{list<string>, list<string>, list<list<string>>, int|float, int|float}
+ */
+function heavyPartsAtOnce(Runner $runner, LimitBounds $bounds): array
+{
+    $heavy = Paths::of(Path::of('src/Heavy.php'));
+    $directory = Path::of('.mutation-gate/heavy');
+    $measured = $runner->coverage(CoverageRun::of(WholeSuite::tests(), $directory));
+    $map = $measured instanceof CoverageMap ? $measured : Assert::fail('The coverage run fails.');
+    file_put_contents(
+        Tree::at(sprintf('%s/%s', Library::DIRECTORY, CoverageMapFile::in($directory)->value())),
+        CoverageMapFile::encode($map, Unplaced::map()),
+    );
+    $request = MutationRequest::of($heavy, WholeSuite::tests())
+        ->narrowedTo($heavy, Narrowing::none()->toMutators(Mutators::named(GreaterToGreaterOrEqual::class)))
+        ->reusingCoverage(Handed::maps($directory, $directory))
+        ->across(Pool::of(ProcessCount::of(4), Workers::Fresh));
+    $result = $runner->mutate($request);
+    $mutants = $result instanceof MutationResult ? $result->mutants() : Assert::fail('The run cannot judge.');
+    $mutant = [...$mutants][0];
+    $checkable = $runner->checkable($mutant);
+    $text = $checkable instanceof Checkable ? $checkable->mutant() : Assert::fail('The mutant has no text.');
+    $tests = $runner->testsIn(Paths::of(Path::of('tests/HeavySpec.php')), $map);
+    $held = $tests instanceof TestIds ? $tests : Assert::fail('The spec lists no test.');
+    $places = TestPlaces::none()->placing(Path::of('tests/HeavySpec.php'), $held);
+    $generous = LimitBounds::between(Seconds::of(60.0), Seconds::of(120.0))->startingIn(Seconds::of(0.1));
+    $parts = array_map(
+        PartControls::of($mutant, $text, $map, $generous, $places)->serving(...),
+        MutantParts::under($map, $bounds)->of($mutant->location()->file(), $held, $places),
+    );
+    $alone = ControlRuns::none();
+    $from = hrtime(as_number: true);
+
+    foreach ($parts as $part) {
+        $ran = $runner->controls($request, Controls::of($part));
+        $alone = $alone->and($ran instanceof ControlRuns ? $ran : Assert::fail('A part cannot run alone.'));
+    }
+
+    $oneAfterAnother = hrtime(as_number: true) - $from;
+    $from = hrtime(as_number: true);
+    $ran = $runner->controls($request, Controls::of(...$parts));
+    $atOnce = hrtime(as_number: true) - $from;
+    $together = $ran instanceof ControlRuns ? $ran : Assert::fail('The parts cannot run at once.');
+    $ends = static fn(ControlRuns $runs): array => array_map(
+        static fn(Control $part): string => $runs->of($part)->end()->name,
+        $parts,
+    );
+
+    return [
+        $ends($alone),
+        $ends($together),
+        array_values(array_filter(array_map(
+            static fn(Control $part): array => array_map(
+                static fn(TestId $test): string => $test->value(),
+                [...$together->of($part)->failing()],
+            ),
+            $parts,
+        ))),
+        $oneAfterAnother,
+        $atOnce,
+    ];
+}
+
+// The same mutant's parts run side by side: each part its own process with the
+// mutant served, each ending as it does alone, the part holding the slowest
+// test killing it and the others passing, in less time than one after another.
+it('judges the parts of one mutant at once as it does one after another, with patched Pest', function (): void {
+    $copied = ['src/Heavy.php', 'tests/HeavySpec.php'];
+
+    foreach ($copied as $file) {
+        copy(Tree::at(sprintf('tests/Contract/Runner/heavy/%s', $file)), Tree::at(sprintf('%s/%s', Library::DIRECTORY, $file)));
+    }
+
+    Patch::applyIn(Library::vendor(), new PackageDirectory());
+    $bounds = LimitBounds::between(Seconds::of(1.0), Seconds::of(6.0))->startingIn(Seconds::of(0.1));
+    $runner = Library::pestWithin(Patching::on(Library::canary()), $bounds, 'pest patched, heavy at once')->runner();
+
+    try {
+        [$alone, $together, $failing, $oneAfterAnother, $atOnce] = heavyPartsAtOnce($runner, $bounds);
+    } finally {
+        foreach ($copied as $file) {
+            unlink(Tree::at(sprintf('%s/%s', Library::DIRECTORY, $file)));
+        }
+    }
+
+    expect(count($alone))->toBeGreaterThan(1)
+        ->and($together)->toBe($alone)
+        ->and($failing)->toBe([['P\\Tests\\HeavySpec::__pest_evaluable_it_weighs_a_kilogram_light']])
+        ->and($atOnce)->toBeLessThan($oneAfterAnother);
 })->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 // Two spec files whose set-up takes two seconds each, which no test's own

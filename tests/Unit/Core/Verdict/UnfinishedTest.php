@@ -57,3 +57,19 @@ it('fails each unit with a mutant or a kill a time budget left unjudged, countin
         Failure::that("The run's time left 1 of the mutants of src/Tax.php unjudged, so this run cannot pass it.\nMore time judges them: vendor/bin/mutation-gate run --budget=<duration>, or a higher shards.jobLimit where a shard stopped at it."),
     ));
 });
+
+it('fails each unit with a mutant the part cap left unjudged, where a mutant a runner left unjudged only counts against the score', function () use ($mutant): void {
+    $results = UnitResults::of(
+        UnitResult::of(Unit::file(Path::of('src/Money.php')), Origin::Run, Mutants::of(
+            $mutant('src/Money.php', 1, MutantStatus::TimedOut)->unjudged(Reason::atThePartCap(10, 40)),
+            $mutant('src/Money.php', 2, MutantStatus::Killed),
+        )),
+        UnitResult::of(Unit::file(Path::of('src/Rate.php')), Origin::Run, Mutants::of(
+            $mutant('src/Rate.php', 1, MutantStatus::TimedOut)->unjudged(Reason::that('No test could be named.')),
+        )),
+    );
+
+    expect(Unfinished::failures($results, GateCommand::installed()))->toEqual(Failures::of(
+        Failure::that("timeouts.heavyParts left 1 of the mutants of src/Money.php unjudged, so this run cannot pass it.\nA higher timeouts.heavyParts judges them."),
+    ));
+});

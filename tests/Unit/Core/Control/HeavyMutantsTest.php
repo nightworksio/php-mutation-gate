@@ -20,9 +20,11 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Reach\TestPlaces;
 use NightWorksIO\MutationGate\Core\Runner\ExactRun;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -111,4 +113,117 @@ it('judges each heavy mutant part after part, and unjudges one whose run the tim
         ->toBe([MutantStatus::Killed])
         ->and(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), [...$left->applied(Mutants::of($heavy))]))
         ->toBe([MutantStatus::Unjudged]);
+});
+
+/**
+ * What each of a pool's rounds asks of heavy mutants, by each run's test, until each is judged, and how they end.
+ *
+ * @param  Closure(Control): ControlRun            $finds what each run finds
+ * @return array{list<list<string>>, HeavyMutants}
+ */
+function heavyRounds(HeavyMutants $parted, ProcessCount $pool, Closure $finds): array
+{
+    $rounds = [];
+
+    for ($asked = [...$parted->asked()]; $asked !== []; $asked = [...$parted->asked()]) {
+        $round = [...$asked, ...$parted->ahead($pool)];
+        $rounds[] = array_map(static fn(Control $control): string => [...$control->tests()][0]->value(), $round);
+        $runs = ControlRuns::none();
+
+        foreach ($round as $control) {
+            $runs = $runs->with($control, $finds($control));
+        }
+
+        $parted = $parted->after($runs, Controls::none());
+    }
+
+    return [$rounds, $parted];
+}
+
+it('fills a round\'s pool after what each mutant waits on, each mutant\'s next part ahead in turn, and keeps what they found', function (): void {
+    $mutants = Mutants::of(
+        heavyMutant('src/Heavy.php', MutantStatus::TimedOut, 6.0),
+        heavyMutant('src/Slow.php', MutantStatus::TimedOut, 6.0),
+    );
+    $parted = heavyAmong($mutants);
+    $passed = static fn(): ControlRun => ControlRun::passed(Seconds::of(1.5));
+
+    [$narrow] = heavyRounds($parted, ProcessCount::single(), $passed);
+    [$rounds, $judged] = heavyRounds($parted, ProcessCount::of(5), $passed);
+
+    expect($narrow)->toBe([['a', 'a'], ['b', 'b'], ['c', 'c']])
+        ->and($rounds)->toBe([['a', 'a', 'b', 'c', 'b'], ['c']])
+        ->and(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), [...$judged->applied($mutants)]))
+        ->toBe([MutantStatus::Survived, MutantStatus::Survived]);
+});
+
+it('judges a mutant the same in a pool of any width, and runs no part past one found to kill', function (ProcessCount $slots, array $rounds): void {
+    $mutants = Mutants::of(heavyMutant('src/Heavy.php', MutantStatus::TimedOut, 6.0));
+    $finds = static fn(Control $control): ControlRun => [...$control->tests()][0]->value() === 'b'
+        ? ControlRun::failed(TestIds::of(TestId::of('b')))
+        : ControlRun::passed(Seconds::of(1.5));
+    [$asked, $judged] = heavyRounds(heavyAmong($mutants), $slots, $finds);
+    $mutant = [...$judged->applied($mutants)][0];
+
+    expect($asked)->toBe($rounds)
+        ->and($mutant->status())->toBe(MutantStatus::Killed)
+        ->and(array_map(static fn(TestId $test): string => $test->value(), [...$mutant->killers()]))->toBe(['b']);
+})->with([
+    'one at a time' => [fn(): ProcessCount => ProcessCount::single(), [['a'], ['b']]],
+    'two at a time' => [fn(): ProcessCount => ProcessCount::of(2), [['a', 'b']]],
+    'room for all' => [fn(): ProcessCount => ProcessCount::of(8), [['a', 'b', 'c']]],
+]);
+
+it('unjudges a mutant whose next the time left had no room for, and asks again for a part ahead it had none for', function (): void {
+    $mutants = Mutants::of(heavyMutant('src/Heavy.php', MutantStatus::TimedOut, 6.0));
+    $parted = heavyAmong($mutants);
+    $first = [...$parted->asked()][0];
+    [$second, $third] = $parted->ahead(ProcessCount::of(3));
+    $outOfTime = $parted->after(ControlRuns::none(), Controls::of($first, $second, $third));
+    $aheadLeft = $parted->after(ControlRuns::none()->with($first, ControlRun::passed(Seconds::of(1.5))), Controls::of($second, $third));
+
+    expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), [...$outOfTime->applied($mutants)]))
+        ->toBe([MutantStatus::Unjudged])
+        ->and([...$aheadLeft->asked()])->toEqual([$second])
+        ->and(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), [...$aheadLeft->applied($mutants)]))
+        ->toBe([MutantStatus::TimedOut]);
+});
+
+it('fills nothing where what mutants wait on takes the pool, and says what runs ahead in the log', function (): void {
+    $parted = heavyAmong(Mutants::of(
+        heavyMutant('src/Heavy.php', MutantStatus::TimedOut, 6.0),
+        heavyMutant('src/Slow.php', MutantStatus::TimedOut, 6.0),
+    ));
+
+    expect($parted->ahead(ProcessCount::of(2)))->toBe([])
+        ->and($parted->ahead(ProcessCount::single()))->toBe([])
+        ->and($parted->progress(ProcessCount::of(3))[0])->toContain('1 ahead beside it')
+        ->and($parted->progress(ProcessCount::of(3))[1])->not->toContain('ahead');
+});
+
+it('holds every mutant to the parts it is given, and none where it is given none', function (): void {
+    $mutants = Mutants::of(heavyMutant('src/Heavy.php', MutantStatus::TimedOut, 6.0));
+    $passed = static fn(): ControlRun => ControlRun::passed(Seconds::of(1.5));
+    [$rounds, $capped] = heavyRounds(heavyAmong($mutants)->judgedByAtMost(2), ProcessCount::of(8), $passed);
+    [$all, $whole] = heavyRounds(heavyAmong($mutants)->judgedByAtMost(NotGiven::value()), ProcessCount::of(8), $passed);
+
+    expect($rounds)->toBe([['a', 'b']])
+        ->and(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), [...$capped->applied($mutants)]))->toBe([MutantStatus::Unjudged])
+        ->and($all)->toBe([['a', 'b', 'c']])
+        ->and(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), [...$whole->applied($mutants)]))->toBe([MutantStatus::Survived]);
+});
+
+it('asks again for a part ahead that was never run, and judges it by what it finds in its turn', function (): void {
+    $mutants = Mutants::of(heavyMutant('src/Heavy.php', MutantStatus::TimedOut, 6.0));
+    $parted = heavyAmong($mutants);
+    $first = [...$parted->asked()][0];
+    [$second] = $parted->ahead(ProcessCount::of(2));
+    $after = $parted->after(
+        ControlRuns::none()->with($first, ControlRun::passed(Seconds::of(1.5)))->with($second, ControlRun::unrun('no room')),
+        Controls::none(),
+    );
+
+    expect([...$after->asked()])->toEqual([$second])
+        ->and(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), [...$after->applied($mutants)]))
+        ->toBe([MutantStatus::TimedOut]);
 });

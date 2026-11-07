@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Cost;
 
+use function count;
 use function min;
 
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
  * What a first estimate takes a shard to be made of, before any shard has
@@ -26,16 +29,22 @@ final readonly class FirstRunShape
     /** How many times its mutants' own runs a shard takes, where the config does not say. */
     public const float SHARD_OVERHEAD = 2.5;
 
-    public function __construct(
-        public int $testsBeforeAKill = self::TESTS_BEFORE_A_KILL,
-        public float $surviving = self::SURVIVING,
-        public float $shardOverhead = self::SHARD_OVERHEAD,
-    ) {
+    private function __construct(private int $testsBeforeAKill, private float $surviving, private float $shardOverhead)
+    {
     }
 
-    /** These, each where the config says it. */
-    public static function of(int|Absent $tests, int|float|Absent $surviving, int|float|Absent $overhead): self
+    /** Each part as the config does not say it. */
+    public static function standard(): self
     {
+        return new self(self::TESTS_BEFORE_A_KILL, self::SURVIVING, self::SHARD_OVERHEAD);
+    }
+
+    /** These, each where the config says it, and as standard where it does not. */
+    public static function of(
+        int|Absent $tests = new Absent(),
+        int|float|Absent $surviving = new Absent(),
+        int|float|Absent $overhead = new Absent(),
+    ): self {
         return new self(
             $tests instanceof Absent ? self::TESTS_BEFORE_A_KILL : $tests,
             $surviving instanceof Absent ? self::SURVIVING : $surviving,
@@ -43,11 +52,18 @@ final readonly class FirstRunShape
         );
     }
 
-    /** What one mutant's covering tests are expected to spend: this many, this long in all. */
-    public function covering(int $tests, float $seconds): float
+    /** What one mutant's covering tests are expected to spend, these tests taking this long in all. */
+    public function covering(TestIds $tests, Seconds $every): Seconds
     {
-        $killed = $tests === 0 ? 0.0 : min($seconds, $this->testsBeforeAKill * $seconds / $tests);
+        $all = $every->seconds();
+        $killed = count($tests) === 0 ? 0.0 : min($all, $this->testsBeforeAKill * $all / count($tests));
 
-        return (1.0 - $this->surviving) * $killed + $this->surviving * $seconds;
+        return Seconds::of((1.0 - $this->surviving) * $killed + $this->surviving * $all);
+    }
+
+    /** What a shard is expected to take, its mutants' own runs taking this long. */
+    public function shard(Seconds $own): Seconds
+    {
+        return Seconds::of($own->seconds() * $this->shardOverhead);
     }
 }

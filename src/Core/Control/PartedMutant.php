@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Control;
 
 use function array_map;
+use function array_slice;
 use function array_splice;
 use function count;
+use function max;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -31,7 +33,11 @@ use function sprintf;
  * one file's tests; where one file's run out too, or they fail, that part
  * cannot judge it, and the next runs. Where every part passes, it
  * survived; where none killed it and some part could not judge it, it is
- * too slow to judge, or unjudged where a part fails unmutated.
+ * too slow to judge, or unjudged where a part fails unmutated. Parts may run
+ * ahead of the one at hand (ADR-0114): what they found is read in the order of
+ * the parts, so it is judged as it is one part after another. Where
+ * `timeouts.heavyParts` holds it to fewer parts than it has and they settle
+ * nothing, it is unjudged.
  *
  * @internal
  */
@@ -53,17 +59,22 @@ final readonly class PartedMutant
 
     /** Why a heavy mutant is unjudged where a part could not run. */
     public const string UNRUN = 'Part %d of %d of its tests could not run: %s';
+
     /** What a log says of the run a heavy mutant waits on. */
-    private const string PROGRESS = 'heavy mutant %s, %s:%d: part %d of %d, %d left%s';
+    private const string PROGRESS = 'heavy mutant %s, %s:%d: part %d of %d, %d left%s%s';
 
     /** What that says where the run is a part's control. */
     private const string ITS_CONTROL = ', its control';
+
+    /** What that says of the parts ahead that run beside it. */
+    private const string AHEAD = ', %d ahead beside it';
 
     /**
      * @param list<Control> $parts       each part, served the mutant, in order
      * @param PartControls  $runs        the runs of its parts, which split a part that runs out unmutated
      * @param bool          $controlling whether the part at hand runs next unmutated, as the control of a
      *                                   part that ran out
+     * @param int|NotGiven  $atMost      the parts it is judged by at most, none where it runs all of them
      */
     private function __construct(
         private Mutant $mutant,
@@ -73,6 +84,7 @@ final readonly class PartedMutant
         private bool $controlling,
         private Reason|UnmutatedFailure|NotGiven $unjudged,
         private Mutant|NotGiven $judged,
+        private int|NotGiven $atMost,
     ) {
     }
 
@@ -87,6 +99,22 @@ final readonly class PartedMutant
             controlling: false,
             unjudged: NotGiven::value(),
             judged: NotGiven::value(),
+            atMost: NotGiven::value(),
+        );
+    }
+
+    /** It, judged by this many parts at most; by all of them where none is given. */
+    public function atMost(int|NotGiven $parts): self
+    {
+        return new self(
+            $this->mutant,
+            $this->runs,
+            $this->parts,
+            $this->at,
+            controlling: $this->controlling,
+            unjudged: $this->unjudged,
+            judged: $this->judged,
+            atMost: $parts,
         );
     }
 
@@ -107,14 +135,48 @@ final readonly class PartedMutant
         };
     }
 
+    /**
+     * The parts after the one at hand that could still judge it and have not
+     * run, in order: none past one these runs found a test fails in, which
+     * ends it if the parts before it let it get there, nor past its cap.
+     *
+     * @return list<Control>
+     */
+    public function ahead(ControlRuns $found): array
+    {
+        $room = $this->atMost instanceof NotGiven ? count($this->parts) : max(0, $this->atMost - $this->at - 1);
+        $ahead = [];
+
+        foreach ($this->judged instanceof Mutant ? [] : array_slice($this->parts, $this->at + 1, $room) as $part) {
+            if ($found->of($part)->end() === ControlEnd::Failed) {
+                break;
+            }
+
+            $ahead = $found->holds($part) ? $ahead : [...$ahead, $part];
+        }
+
+        return $ahead;
+    }
+
     /** It, judged as far as what its run at hand found takes it. */
     public function after(ControlRun $run): self
     {
         return $this->controlling ? $this->controlled($run) : $this->ran($run);
     }
 
-    /** What it waits on, said in a log: the mutant, the part at hand and how many parts remain; none once judged. */
-    public function progress(): string|NotGiven
+    /** It, judged as far as what these found of the runs it waits on, each in turn, takes it. */
+    public function past(ControlRuns $found): self
+    {
+        $next = $this->next();
+
+        return $next instanceof Control && $found->holds($next) ? $this->after($found->of($next))->past($found) : $this;
+    }
+
+    /**
+     * What it waits on, said in a log: the mutant, the part at hand, how many
+     * parts remain, and how many run ahead beside it; none once judged.
+     */
+    public function progress(int $ahead): string|NotGiven
     {
         $location = $this->mutant->location();
 
@@ -127,6 +189,7 @@ final readonly class PartedMutant
             count($this->parts),
             count($this->parts) - $this->at - 1,
             $this->controlling ? self::ITS_CONTROL : '',
+            $ahead > 0 ? sprintf(self::AHEAD, $ahead) : '',
         );
     }
 
@@ -160,6 +223,7 @@ final readonly class PartedMutant
                 controlling: true,
                 unjudged: $this->unjudged,
                 judged: $this->judged,
+                atMost: $this->atMost,
             ),
             ControlEnd::OutOfMemory => $this->ending($this->mutant->unjudged($this->said(self::OUT_OF_MEMORY))),
             ControlEnd::Unrun => $this->ending($this->mutant->unjudged($this->unrun($run))),
@@ -197,8 +261,16 @@ final readonly class PartedMutant
             ? $unjudged
             : $this->unjudged;
 
-        return $this->at + 1 < count($this->parts)
-            ? new self(
+        return match (true) {
+            $this->at + 1 === count($this->parts) => $this->ending(match (true) {
+                $kept instanceof NotGiven => $this->as(MutantStatus::Survived),
+                $kept instanceof UnmutatedFailure => $this->mutant->unjudged($kept),
+                default => $this->mutant->because($kept),
+            }),
+            $this->at + 1 === $this->atMost => $this->ending(
+                $this->mutant->unjudged(Reason::atThePartCap($this->at + 1, count($this->parts))),
+            ),
+            default => new self(
                 $this->mutant,
                 $this->runs,
                 $this->parts,
@@ -206,12 +278,9 @@ final readonly class PartedMutant
                 controlling: false,
                 unjudged: $kept,
                 judged: $this->judged,
-            )
-            : $this->ending(match (true) {
-                $kept instanceof NotGiven => $this->as(MutantStatus::Survived),
-                $kept instanceof UnmutatedFailure => $this->mutant->unjudged($kept),
-                default => $this->mutant->because($kept),
-            });
+                atMost: $this->atMost,
+            ),
+        };
     }
 
     /**
@@ -236,6 +305,7 @@ final readonly class PartedMutant
                 controlling: false,
                 unjudged: $this->unjudged,
                 judged: $this->judged,
+                atMost: $this->atMost,
             ),
             $file instanceof Path => $this->onward($this->said(self::FILE_RAN_OUT, $file->value())),
             default => $this->onward($this->said(self::RAN_OUT)),
@@ -252,6 +322,7 @@ final readonly class PartedMutant
             controlling: $this->controlling,
             unjudged: $this->unjudged,
             judged: $judged,
+            atMost: $this->atMost,
         );
     }
 

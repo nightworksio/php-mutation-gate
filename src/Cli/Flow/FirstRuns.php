@@ -34,7 +34,7 @@ final readonly class FirstRuns
     public function __construct(
         private Adapters $adapters,
         private StartUpSamples $samples,
-        private FirstRunShape $shape = new FirstRunShape(),
+        private FirstRunShape $shape,
     ) {
     }
 

@@ -189,7 +189,8 @@ final readonly class SettingsCases
                 "most": 10.0
             },
             "perTest": 3,
-            "testFloor": 3
+            "testFloor": 3,
+            "heavyFill": true
         },
         "flaky": {
             "confirmSurvivors": true

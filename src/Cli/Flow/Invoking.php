@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use function array_filter;
 use function array_map;
 use function array_slice;
+use function array_values;
 
 use Closure;
 
@@ -293,7 +294,8 @@ final readonly class Invoking
         $mutants = $this->parted->judged(
             $controlled->mutants,
             $heavy,
-            fn(array $asked): array => $this->ranOf($asked, $request, Step::HeavyParts),
+            $request->pool()->processes(),
+            fn(array $asked, array $ahead): array => $this->ranOf($asked, $request, Step::HeavyParts, $ahead),
         );
 
         return $mutants instanceof CannotJudge ? $mutants : new Controlled($mutants, $controlled->evidence);
@@ -315,24 +317,34 @@ final readonly class Invoking
     /**
      * What these controls found, those that fit in the time left run side by
      * side in the request's pool and timed as this step, and those the time
-     * left had no room for.
+     * left had no room for. Where they all fit, those beside them that fit in
+     * the time left run too, in the pool's spare room.
      *
-     * @param  non-empty-list<Control>          $asked
+     * @param  non-empty-list<Control>                  $asked
+     * @param  list<Control>                            $beside
      * @return array{ControlRuns|CannotJudge, Controls}
      */
-    private function ranOf(array $asked, MutationRequest $request, Step $step = Step::Controls): array
-    {
+    private function ranOf(
+        array $asked,
+        MutationRequest $request,
+        Step $step = Step::Controls,
+        array $beside = [],
+    ): array {
         $longest = max(array_map(static fn(Control $control): float => $control->limit()->seconds(), $asked));
         $fitting = $this->fitting(count($asked), Seconds::of($longest));
+        $room = $fitting === count($asked) ? array_values(array_filter(
+            $beside,
+            fn(Control $control): bool => $this->fitting(1, $control->limit()) === 1,
+        )) : [];
         $from = $this->stopwatch->now();
         $runs = $fitting === 0
             ? ControlRuns::none()
             : $this->adapters->runner->controls(
                 $this->retimed($request),
-                Controls::of(...array_slice($asked, 0, $fitting)),
+                Controls::of(...array_slice($asked, 0, $fitting), ...$room),
             );
 
-        $this->stopwatch->handled($step, $from, $fitting);
+        $this->stopwatch->handled($step, $from, $fitting + count($room));
 
         return [$runs, Controls::of(...array_slice($asked, $fitting))];
     }

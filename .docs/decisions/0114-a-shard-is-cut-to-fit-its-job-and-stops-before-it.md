@@ -51,6 +51,23 @@ there:
    mutant, its file and line, the part and how many remain, so a slow phase can
    be read even from a cancelled job. A shard's result times those rounds as
    their own step.
+9. **A round fills its pool with parts ahead**, under `timeouts.heavyFill`, on
+   unless turned off. It runs what each heavy mutant waits on, then each one's
+   next part ahead in turn while the pool has a free slot and the part fits in
+   the time left. Two parts of one mutant can run at once on every runner: each
+   is its own process with its own files, served the same text. What a part
+   ahead finds is kept until its turn and read in the order of the parts, so a
+   mutant is judged as it is one part after another. No part runs past one
+   found to fail; a part already running when one before it fails is spent, in a
+   slot that was idle.
+10. **`timeouts.heavyParts` caps a heavy mutant's parts, off unless set.** A
+    heavy mutant no part has settled by the cap is unjudged, which fails the
+    verdict: a test that was never run proves nothing either way. A timeout is
+    not counted as a kill to avoid this. The cap trades a red verdict for the
+    minutes the later parts take, so a project that sets it accepts that a run
+    stays red until a higher cap judges those mutants. A unit with a capped
+    mutant keeps no proof, so it runs again on every run. The cap is in a proof's
+    key, since it changes what a mutant comes to.
 
 ## Consequences
 
@@ -59,3 +76,6 @@ there:
 - A run on one machine, with no shard named, has no such deadline: it has no
   job to outlive.
 - A CI whose jobs are cancelled sooner sets `shards.jobLimit` below that.
+- A round's slowest part sets how long it takes, so a part ahead with a longer
+  limit than those waited on can lengthen the round; that part's run is spent
+  either way unless a part before it kills the mutant.

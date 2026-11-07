@@ -88,7 +88,7 @@ it('finds the preset and the runner of a project with no config', function () us
         'runner' => ['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app']]],
         'reach' => ['everything' => ['bootstrap/**', 'config/**', 'routes/**', '.env.testing'], 'lockMoves' => 'everything', 'changedTests' => 'narrow', 'fixtures' => []],
-        'timeouts' => ['mode' => 'confirm', 'seconds' => 30, 'most' => 300, 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'multiple' => 3, 'startUp' => '5s', 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR, 'learned' => ['percentile' => 0.99, 'least' => 2, 'most' => 10]],
+        'timeouts' => ['mode' => 'confirm', 'seconds' => 30, 'most' => 300, 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'multiple' => 3, 'startUp' => '5s', 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR, 'learned' => ['percentile' => 0.99, 'least' => 2, 'most' => 10], 'heavyFill' => true],
     ]);
 });
 
@@ -106,7 +106,7 @@ it('lays the config file over its presets, and the command line over both', func
         'trees' => [['path' => 'src/Domain', 'floor' => 100]],
         'reach' => ['everything' => ['config/**', '.env.test', 'tests/bootstrap.php', 'migrations/**'], 'lockMoves' => 'everything', 'changedTests' => 'narrow', 'fixtures' => []],
         'budget' => '5m',
-        'timeouts' => ['mode' => 'confirm', 'seconds' => 30, 'most' => 300, 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'multiple' => 3, 'startUp' => '5s', 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR, 'learned' => ['percentile' => 0.99, 'least' => 2, 'most' => 10]],
+        'timeouts' => ['mode' => 'confirm', 'seconds' => 30, 'most' => 300, 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'multiple' => 3, 'startUp' => '5s', 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR, 'learned' => ['percentile' => 0.99, 'least' => 2, 'most' => 10], 'heavyFill' => true],
         'reports' => [
             ['use' => 'sarif', 'path' => 'build/mutation.sarif'],
             ['use' => 'json', 'path' => 'build/mutation.json'],
@@ -177,10 +177,10 @@ it('gives a library listed after a framework its own timeout and floor', functio
 
     expect($shown($effective($project)->settings($nothing())))->toMatchArray([
         'newCode' => ['floor' => 100],
-        'timeouts' => ['seconds' => 10, 'most' => 300, 'mode' => 'confirm', 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'multiple' => 3, 'startUp' => '5s', 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR, 'learned' => ['percentile' => 0.99, 'least' => 2, 'most' => 10]],
+        'timeouts' => ['seconds' => 10, 'most' => 300, 'mode' => 'confirm', 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'multiple' => 3, 'startUp' => '5s', 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR, 'learned' => ['percentile' => 0.99, 'least' => 2, 'most' => 10], 'heavyFill' => true],
     ])->and($shown($effective($project)->settings($framework)))->toMatchArray([
         'newCode' => ['floor' => 100],
-        'timeouts' => ['seconds' => 30, 'most' => 300, 'mode' => 'confirm', 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'multiple' => 3, 'startUp' => '5s', 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR, 'learned' => ['percentile' => 0.99, 'least' => 2, 'most' => 10]],
+        'timeouts' => ['seconds' => 30, 'most' => 300, 'mode' => 'confirm', 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'multiple' => 3, 'startUp' => '5s', 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR, 'learned' => ['percentile' => 0.99, 'least' => 2, 'most' => 10], 'heavyFill' => true],
     ]);
 });
 
@@ -196,7 +196,7 @@ it('chooses the library preset for a project without composer.json', function ()
         'preset' => 'library',
         'runner' => ['use' => 'infection', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => []]],
-        'timeouts' => ['mode' => 'confirm', 'seconds' => 10, 'most' => 300, 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'multiple' => 3, 'startUp' => '5s', 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR, 'learned' => ['percentile' => 0.99, 'least' => 2, 'most' => 10]],
+        'timeouts' => ['mode' => 'confirm', 'seconds' => 10, 'most' => 300, 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR], 'multiple' => 3, 'startUp' => '5s', 'perTest' => PerTestLimit::MULTIPLE, 'testFloor' => PerTestLimit::FLOOR, 'learned' => ['percentile' => 0.99, 'least' => 2, 'most' => 10], 'heavyFill' => true],
     ]);
 });
 

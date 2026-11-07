@@ -55,6 +55,7 @@ final readonly class Triage implements Part
         private Seconds|Absent $controlMost,
         private Seconds|Absent $startUp,
         private LearnedBounds $learned,
+        private HeavySetting $heavy,
     ) {
     }
 
@@ -74,6 +75,8 @@ final readonly class Triage implements Part
         Seconds|Absent $controlMost = new Absent(),
         Seconds|Absent $startUp = new Absent(),
         LearnedBounds|Absent $learned = new Absent(),
+        bool|Absent $heavyFill = new Absent(),
+        int|Absent $heavyParts = new Absent(),
     ): self {
         return new self(
             $budget,
@@ -90,6 +93,7 @@ final readonly class Triage implements Part
             $controlMost,
             $startUp,
             LearnedBounds::orNone($learned),
+            HeavySetting::of($heavyFill, $heavyParts),
         );
     }
 
@@ -115,6 +119,7 @@ final readonly class Triage implements Part
             testFloor: Seconds::of(PerTestLimit::FLOOR),
             startUp: Seconds::of(MutantLimit::START_UP),
             learned: LearnedBounds::standard(),
+            heavyFill: $none->heavy()->fills(),
         );
     }
 
@@ -136,6 +141,7 @@ final readonly class Triage implements Part
                 Absent::laid($this->controlMost, $later->controlMost),
                 Absent::laid($this->startUp, $later->startUp),
                 $this->learned->over($later->learned),
+                $this->heavy->over($later->heavy),
             )
             : $this;
     }
@@ -211,6 +217,12 @@ final readonly class Triage implements Part
         return $this->limit instanceof Learned ? $bounds->learningFloor() : $bounds;
     }
 
+    /** `timeouts.heavyFill` and `timeouts.heavyParts`: how heavy mutants' parts run (ADR-0114). */
+    public function heavy(): HeavySetting
+    {
+        return $this->heavy;
+    }
+
     /** Why the timeouts cannot be laid, a most under the floor or a control's most under the most; or nothing. */
     public function refusal(): Invalid|Absent
     {
@@ -263,7 +275,7 @@ final readonly class Triage implements Part
             Member::of('budget', WholeSeconds::duration($this->budget)),
             Member::unlessEmpty(
                 'timeouts',
-                Json::object(
+                $this->heavy->written(Json::object(
                     Member::of('mode', $this->mode instanceof TimeoutMode ? $this->mode->value : $this->mode),
                     Member::of('seconds', LimitCalls::secondsWritten($this->limit)),
                     Member::of('most', WholeSeconds::written($this->most)),
@@ -273,7 +285,7 @@ final readonly class Triage implements Part
                     Member::of('controlMost', WholeSeconds::written($this->controlMost)),
                     $this->learned->written(),
                     ...$this->perTest->written(),
-                ),
+                )),
             ),
             Member::unlessEmpty('flaky', Json::object(Member::of('confirmSurvivors', $this->confirmSurvivors))),
             Member::unlessEmpty(
@@ -303,22 +315,15 @@ final readonly class Triage implements Part
             ...$this->most instanceof Seconds ? [sprintf('Timeouts::most(%d)', intval($this->most->seconds()))] : [],
             ...LimitCalls::tighter($this->tighter),
             ...$this->perTest->calls(),
-            ...$this->controlMost instanceof Seconds
-                ? [sprintf('Timeouts::controlMost(%d)', intval($this->controlMost->seconds()))]
-                : [],
+            ...LimitCalls::controlMost($this->controlMost),
             ...$this->confirmSurvivors instanceof Absent ? [] : [
                 $this->confirmSurvivors ? 'Flaky::confirmingSurvivors()' : 'Flaky::notConfirmingSurvivors()',
             ],
-            ...$this->orderCalls(),
-        ])->and($this->survivorsFirst->calls())->and($this->lists->calls())->and($this->learned->php());
-    }
-
-    /** @return list<string> the builder's call for the order of each mutant's tests */
-    private function orderCalls(): array
-    {
-        return $this->order instanceof TestOrder ? [match ($this->order) {
-            TestOrder::KillersFirst => 'Tests::killersFirst()',
-            TestOrder::Runner => 'Tests::inRunnerOrder()',
-        }] : [];
+            ...$this->order instanceof TestOrder ? [$this->order->php()] : [],
+        ])
+            ->and($this->heavy->calls())
+            ->and($this->survivorsFirst->calls())
+            ->and($this->lists->calls())
+            ->and($this->learned->php());
     }
 }
