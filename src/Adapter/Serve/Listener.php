@@ -89,7 +89,7 @@ final readonly class Listener
             umask($mask);
         }
 
-        return is_resource($placed) ? new self($placed) : self::unplaced($aside, $why);
+        return $placed === false ? self::unplaced($aside, $why) : new self($placed);
     }
 
     /**

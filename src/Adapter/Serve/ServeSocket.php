@@ -83,7 +83,7 @@ final readonly class ServeSocket
     /**
      * The socket listening, in its directory, made where it is not there and
      * kept to its owner alone where it is the owner's, where no daemon
-     * answers on it; a file no daemon answers on removed first. Or why it
+     * answers on it; a file no daemon answers on is replaced. Or why it
      * cannot listen: a daemon answers, the directory or the socket is not
      * the owner's own, or no peer can be told here.
      */
@@ -103,7 +103,7 @@ final readonly class ServeSocket
         return match (true) {
             $other instanceof Connection => CannotJudge::because(sprintf(self::TAKEN, $this->path)),
             $other instanceof ServeRefusal => CannotJudge::because($other->why()),
-            default => $this->bound(),
+            default => Listener::boundTo($this->path),
         };
     }
 
@@ -169,14 +169,6 @@ final readonly class ServeSocket
         if ($this->isThere()) {
             unlink($this->path);
         }
-    }
-
-    /** The socket bound, a file no daemon answered on removed first. */
-    private function bound(): Listener|CannotJudge
-    {
-        $this->removed();
-
-        return Listener::boundTo($this->path);
     }
 
     /** Why the socket or its directory may be another user's; nothing where both are the owner's own. */
