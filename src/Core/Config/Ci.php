@@ -24,6 +24,9 @@ final readonly class Ci implements Part
 
     private const string BUILDKITE_DEFINITION = '.buildkite/pipeline.yml';
 
+    /** Monday, at three. */
+    private const string WEEKLY = '0 3 * * 1';
+
     private function __construct(
         private Choice|Absent $plan,
         private string|Absent $defaultBranch,
@@ -35,6 +38,7 @@ final readonly class Ci implements Part
         private Path|Absent $azureDefinition,
         private Path|Absent $bitbucketDefinition,
         private Path|Absent $jenkinsDefinition,
+        private string|Absent $schedule,
     ) {
     }
 
@@ -49,6 +53,7 @@ final readonly class Ci implements Part
         Path|Absent $azureDefinition = new Absent(),
         Path|Absent $bitbucketDefinition = new Absent(),
         Path|Absent $jenkinsDefinition = new Absent(),
+        string|Absent $schedule = new Absent(),
     ): self {
         return new self(
             $plan,
@@ -61,6 +66,7 @@ final readonly class Ci implements Part
             $azureDefinition,
             $bitbucketDefinition,
             $jenkinsDefinition,
+            $schedule,
         );
     }
 
@@ -82,6 +88,7 @@ final readonly class Ci implements Part
             azureDefinition: $none->azureDefinition(),
             bitbucketDefinition: $none->bitbucketDefinition(),
             jenkinsDefinition: $none->jenkinsDefinition(),
+            schedule: $none->schedule(),
         );
     }
 
@@ -103,6 +110,7 @@ final readonly class Ci implements Part
                 Absent::laid($this->azureDefinition, $later->azureDefinition),
                 Absent::laid($this->bitbucketDefinition, $later->bitbucketDefinition),
                 Absent::laid($this->jenkinsDefinition, $later->jenkinsDefinition),
+                Absent::laid($this->schedule, $later->schedule),
             )
             : $this;
     }
@@ -134,6 +142,16 @@ final readonly class Ci implements Part
     public function check(): string
     {
         return $this->check instanceof Absent ? self::CHECK : $this->check;
+    }
+
+    /**
+     * `ci.schedule`: the cron schedule `init --ci` writes for the full run,
+     * which reaches the units no change does; weekly unless the config says.
+     * A workflow's triggers are its own, so a reusable workflow cannot hold it.
+     */
+    public function schedule(): string
+    {
+        return $this->schedule instanceof Absent ? self::WEEKLY : $this->schedule;
     }
 
     /**
@@ -206,10 +224,11 @@ final readonly class Ci implements Part
                 Member::of('plan', $this->plan instanceof Choice ? $this->plan->written() : $this->plan),
                 Member::of('defaultBranch', $this->defaultBranch),
                 Member::of('check', $this->check),
+                Member::of('schedule', $this->schedule),
                 Member::of('trustMergedPullRequests', $this->trustMergedPullRequests),
                 Member::unlessEmpty(
                     'gitlab',
-                    Json::object(Member::of('template', $this->path($origin, $this->gitlabTemplate))),
+                    Json::object(Member::of('template', CiCalls::path($origin, $this->gitlabTemplate))),
                 ),
                 Member::unlessEmpty(
                     'buildkite',
@@ -220,20 +239,20 @@ final readonly class Ci implements Part
                                 ? $this->buildkiteStep->json()
                                 : $this->buildkiteStep,
                         ),
-                        Member::of(CiJob::DEFINITION, $this->path($origin, $this->buildkiteDefinition)),
+                        Member::of(CiJob::DEFINITION, CiCalls::path($origin, $this->buildkiteDefinition)),
                     ),
                 ),
                 Member::unlessEmpty(
                     'azure',
-                    Json::object(Member::of(CiJob::DEFINITION, $this->path($origin, $this->azureDefinition))),
+                    Json::object(Member::of(CiJob::DEFINITION, CiCalls::path($origin, $this->azureDefinition))),
                 ),
                 Member::unlessEmpty(
                     'bitbucket',
-                    Json::object(Member::of(CiJob::DEFINITION, $this->path($origin, $this->bitbucketDefinition))),
+                    Json::object(Member::of(CiJob::DEFINITION, CiCalls::path($origin, $this->bitbucketDefinition))),
                 ),
                 Member::unlessEmpty(
                     'jenkins',
-                    Json::object(Member::of(CiJob::DEFINITION, $this->path($origin, $this->jenkinsDefinition))),
+                    Json::object(Member::of(CiJob::DEFINITION, CiCalls::path($origin, $this->jenkinsDefinition))),
                 ),
             ),
         ));
@@ -245,15 +264,10 @@ final readonly class Ci implements Part
             ...$this->plan instanceof Choice
                 ? [PhpCalls::chosen($this->plan, AdapterBuilder::Ci, ...BuiltinCiPlan::names())]
                 : [],
-            ...$this->defaultBranch instanceof Absent
-                ? []
-                : [sprintf('Ci::defaultBranch(%s)', PhpCalls::literal($this->defaultBranch))],
-            ...$this->check instanceof Absent ? [] : [sprintf('Ci::check(%s)', PhpCalls::literal($this->check))],
-            ...$this->trustMergedPullRequests instanceof Absent ? [] : [
-                $this->trustMergedPullRequests
-                    ? 'Ci::trustingMergedPullRequests()'
-                    : 'Ci::notTrustingMergedPullRequests()',
-            ],
+            ...CiCalls::named('Ci::defaultBranch(%s)', $this->defaultBranch),
+            ...CiCalls::named('Ci::check(%s)', $this->check),
+            ...CiCalls::named('Ci::schedule(%s)', $this->schedule),
+            ...CiCalls::trust($this->trustMergedPullRequests),
             ...$this->gitlabTemplate instanceof Path
                 ? [sprintf('Pipeline::gitlabTemplate(%s)', PhpCalls::literal($origin->written($this->gitlabTemplate)))]
                 : [],
@@ -312,11 +326,6 @@ final readonly class Ci implements Part
         }
 
         return $calls;
-    }
-
-    private function path(PathOrigin $origin, Path|Absent $path): string|Absent
-    {
-        return $path instanceof Path ? $origin->written($path) : $path;
     }
 
 }

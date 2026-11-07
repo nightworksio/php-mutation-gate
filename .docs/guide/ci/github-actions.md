@@ -27,7 +27,7 @@ on:
   push:
     branches: [main] # your default branch
   schedule:
-    - cron: '0 3 * * 1,4'
+    - cron: '0 3 * * 1'
 
 permissions:
   contents: read
@@ -152,7 +152,7 @@ on:
   push:
     branches: [main] # your default branch
   schedule:
-    - cron: '0 3 * * 1,4'
+    - cron: '0 3 * * 1'
 
 permissions:
   contents: read
@@ -403,7 +403,7 @@ when the plan could not judge, or when any planned shard left no result. The
 reusable workflow's verdict then names how each such shard's job ended: its
 runner shut down or lost, cancelled once another shard failed, past its time
 limit, or failed.
-Run it on a schedule as well: the full run, twice a week in the examples.
+Run it on a schedule as well: the full run, weekly in the examples, which `ci.schedule` sets for `init --ci`. A reusable workflow cannot hold a trigger, so the schedule goes in the workflow that calls it.
 
 ## Merge queues
 

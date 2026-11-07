@@ -79,6 +79,12 @@ final readonly class Ci implements Setting
         return new self(Json::object(Member::of('ci', Json::object(Member::of('check', $name)))));
     }
 
+    /** `ci.schedule`: the cron schedule of the full run `init --ci` writes, weekly unless this says. */
+    public static function schedule(string $cron): self
+    {
+        return new self(Json::at('ci.schedule', $cron));
+    }
+
     /**
      * `ci.trustMergedPullRequests`: the default branch takes a merged pull request's own recorded pass as proof of
      * its tree, which trusts that pull request's run.

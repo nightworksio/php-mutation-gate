@@ -24,6 +24,11 @@ use NightWorksIO\MutationGate\Core\Format\Node;
  */
 final readonly class CiKeys
 {
+    /** Five cron fields, of digits and `*`, `,`, `/` and `-`. */
+    private const string CRON_FIELDS = 'a cron schedule of five fields';
+
+    private const string CRON = '^[0-9*,/-]+( [0-9*,/-]+){4}$';
+
     /** @return list<Field<Layer>> */
     public static function fields(PathOrigin $origin, Placement $placement): array
     {
@@ -32,6 +37,11 @@ final readonly class CiKeys
         $branch = $placement->admitting(Field::optional('defaultBranch', Text::of('a branch name'), $decides));
         $check = Field::optional('check', Text::of('a check-run name'), $decides);
         $trust = Field::optional('trustMergedPullRequests', Flag::boolean(), $decides);
+        $schedule = Field::optional(
+            'schedule',
+            Text::matching(self::CRON_FIELDS, self::CRON),
+            Effect::JudgesOrReportsOnly,
+        );
         $results = Effect::AffectsResults;
         $template = Field::optional('template', Location::path($origin), $results);
         $step = Field::optional('step', StepTemplate::buildkite(), $results);
@@ -79,6 +89,7 @@ final readonly class CiKeys
             'ci',
             Section::of(
                 static function (Node $ci) use (
+                    $schedule,
                     $plan,
                     $branch,
                     $check,
@@ -97,6 +108,7 @@ final readonly class CiKeys
                         $bitbucket->read($ci),
                         $jenkins->read($ci),
                     ];
+                    $scheduled = $schedule->read($ci);
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(self::laid(
@@ -105,9 +117,11 @@ final readonly class CiKeys
                                 defaultBranch: $readings[1]->value(),
                                 check: $readings[2]->value(),
                                 trustMergedPullRequests: $readings[3]->value(),
+                                schedule: $scheduled->value(),
                             ),
                             ...$inner,
                         )),
+                        $scheduled,
                         ...$readings,
                         ...$inner,
                     );
@@ -116,6 +130,7 @@ final readonly class CiKeys
                 $branch,
                 $check,
                 $trust,
+                $schedule,
                 $gitlab,
                 $buildkite,
                 $azure,

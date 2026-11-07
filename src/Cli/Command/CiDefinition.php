@@ -222,6 +222,7 @@ final readonly class CiDefinition
             $settings->runner()->choice()->use()->value(),
             $settings->ci()->check(),
             CiTemplate::included($plan, $settings->ci()),
+            $settings->ci()->schedule(),
         );
     }
 

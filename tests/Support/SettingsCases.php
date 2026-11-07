@@ -104,6 +104,7 @@ final readonly class SettingsCases
         },
         "ci": {
             "check": "mutation / verdict",
+            "schedule": "0 3 * * 1",
             "trustMergedPullRequests": false,
             "gitlab": {
                 "template": ".gitlab/mutation-gate.yml"
