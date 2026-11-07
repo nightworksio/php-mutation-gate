@@ -50,9 +50,20 @@ $holds = [
 ];
 
 /**
- * The heavy mutants of a result, judged part after part by a runner's controls, as a run's flow judges them.
+ * What a fixture's parts are judged within: limits a loaded machine has room to finish in, each laid on a start-up of
+ * five seconds, and a most that one test's limit fits and no two tests' do. Each mutant's own run keeps the tight
+ * bounds its runner was given, which a loaded machine only times out sooner.
+ */
+function heavyJudging(float $most): LimitBounds
+{
+    return LimitBounds::between(Seconds::of(1.0), Seconds::of($most))->startingIn(Seconds::of(5.0));
+}
+
+/**
+ * The heavy mutants of a result, judged part after part by a runner's controls, as a run's flow judges them, and how
+ * many tests each run held.
  *
- * @return list<array{string, list<string>}>
+ * @return array{list<array{string, list<string>}>, list<int>}
  */
 function heavyJudged(
     Runner $runner,
@@ -83,28 +94,35 @@ function heavyJudged(
         static fn(): TestPlaces => $places,
     );
 
+    $rounds = [];
+
     for ($asked = $heavy->asked(); count($asked) > 0; $asked = $heavy->asked()) {
+        $rounds = [...$rounds, ...array_map(static fn(Control $control): int => count($control->tests()), [...$asked])];
         $runs = $runner->controls($request, $asked);
         $heavy = $heavy->after($runs instanceof ControlRuns ? $runs : Assert::fail('The controls cannot run.'), Controls::none());
     }
 
-    return array_map(
-        static fn(Mutant $mutant): array => [
-            $mutant->status()->value,
-            array_map(static fn(TestId $test): string => $test->value(), [...$mutant->killers()]),
-        ],
-        [...$heavy->applied($mutants)],
-    );
+    return [
+        array_map(
+            static fn(Mutant $mutant): array => [
+                $mutant->status()->value,
+                array_map(static fn(TestId $test): string => $test->value(), [...$mutant->killers()]),
+            ],
+            [...$heavy->applied($mutants)],
+        ),
+        $rounds,
+    ];
 }
 
 /**
  * A fixture file's mutants of a mutator as the runner's run of them found them, on the map of a coverage run of the
- * fixture, and as their parts judged them, the files of these specs placing their tests.
+ * fixture, and as their parts judged them within these bounds, each mutant taken to have run out at their most, the
+ * files of these specs placing their tests, with how many tests each run of them held.
  *
- * @param  class-string                                         $mutator
- * @return array{Mutants, list<array{string, list<string>}>}
+ * @param  class-string                                                      $mutator
+ * @return array{Mutants, list<array{string, list<string>}>, list<int>}
  */
-function heavyRun(Runner $runner, LimitBounds $bounds, string $file, string $mutator, string ...$specs): array
+function heavyRun(Runner $runner, LimitBounds $judging, string $file, string $mutator, string ...$specs): array
 {
     $heavy = Paths::of(Path::of($file));
     $directory = Path::of('.mutation-gate/heavy');
@@ -120,15 +138,19 @@ function heavyRun(Runner $runner, LimitBounds $bounds, string $file, string $mut
     $result = $runner->mutate($request);
     $mutants = $result instanceof MutationResult ? $result->mutants() : Assert::fail('The run cannot judge.');
 
-    return [$mutants, heavyJudged($runner, $request, $mutants, $map, $bounds, ...$specs)];
+    $atTheMost = Mutants::of(...array_map(
+        static fn(Mutant $mutant): Mutant => $mutant->withLimit($judging->most()),
+        [...$mutants],
+    ));
+
+    return [$mutants, ...heavyJudged($runner, $request, $atTheMost, $map, $judging, ...$specs)];
 }
 
 // Four tests of most of two seconds each judge the comparison in
 // src/Heavy.php: together they run past the most of six seconds a mutant is
-// allowed, and one alone fits in it. Only the slowest, which runs last,
-// kills the mutant that weighs a kilogram heavy. The mutant's own run times
-// out at the most, and judged part after part, each part a test, it is
-// killed by that test in the last part.
+// allowed. Only the slowest, which runs last, kills the mutant that weighs a
+// kilogram heavy. The mutant's own run times out at the most, and judged part
+// after part, each part a test, it is killed by that test.
 it('kills a mutant whose tests run past the most only together, by its last part, with patched Pest', function (): void {
     $copied = ['src/Heavy.php', 'tests/HeavySpec.php'];
 
@@ -140,7 +162,7 @@ it('kills a mutant whose tests run past the most only together, by its last part
     $bounds = LimitBounds::between(Seconds::of(1.0), Seconds::of(6.0))->startingIn(Seconds::of(0.1));
     $runner = Library::pestWithin(Patching::on(Library::canary()), $bounds, 'pest patched, heavy')->runner();
     try {
-        [$mutants, $judged] = heavyRun($runner, $bounds, 'src/Heavy.php', GreaterToGreaterOrEqual::class, 'tests/HeavySpec.php');
+        [$mutants, $judged, $rounds] = heavyRun($runner, heavyJudging(24.0), 'src/Heavy.php', GreaterToGreaterOrEqual::class, 'tests/HeavySpec.php');
     } finally {
         foreach ($copied as $file) {
             unlink(Tree::at(sprintf('%s/%s', Library::DIRECTORY, $file)));
@@ -151,17 +173,17 @@ it('kills a mutant whose tests run past the most only together, by its last part
         ->toBe([MutantStatus::TimedOut->value])
         ->and($judged)->toBe([
             [MutantStatus::Killed->value, ['P\Tests\HeavySpec::__pest_evaluable_it_weighs_a_kilogram_light']],
-        ]);
+        ])
+        ->and(array_unique($rounds))->toBe([1]);
 })->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 /**
  * How the Heavy fixture's parts of its one mutant end, run one after another and at once in a pool of four, what fails
- * in them at once, and how long each took. The parts are cut under these bounds and each is allowed far more, so a
- * loaded machine decides nothing.
+ * in them at once, and how long each took.
  *
  * @return array{list<string>, list<string>, list<list<string>>, int|float, int|float}
  */
-function heavyPartsAtOnce(Runner $runner, LimitBounds $bounds): array
+function heavyPartsAtOnce(Runner $runner, LimitBounds $judging): array
 {
     $heavy = Paths::of(Path::of('src/Heavy.php'));
     $directory = Path::of('.mutation-gate/heavy');
@@ -183,10 +205,9 @@ function heavyPartsAtOnce(Runner $runner, LimitBounds $bounds): array
     $tests = $runner->testsIn(Paths::of(Path::of('tests/HeavySpec.php')), $map);
     $held = $tests instanceof TestIds ? $tests : Assert::fail('The spec lists no test.');
     $places = TestPlaces::none()->placing(Path::of('tests/HeavySpec.php'), $held);
-    $generous = LimitBounds::between(Seconds::of(60.0), Seconds::of(120.0))->startingIn(Seconds::of(0.1));
     $parts = array_map(
-        PartControls::of($mutant, $text, $map, $generous, $places)->serving(...),
-        MutantParts::under($map, $bounds)->of($mutant->location()->file(), $held, $places),
+        PartControls::of($mutant, $text, $map, $judging, $places)->serving(...),
+        MutantParts::under($map, $judging)->of($mutant->location()->file(), $held, $places),
     );
     $alone = ControlRuns::none();
     $from = hrtime(as_number: true);
@@ -236,7 +257,7 @@ it('judges the parts of one mutant at once as it does one after another, with pa
     $runner = Library::pestWithin(Patching::on(Library::canary()), $bounds, 'pest patched, heavy at once')->runner();
 
     try {
-        [$alone, $together, $failing, $oneAfterAnother, $atOnce] = heavyPartsAtOnce($runner, $bounds);
+        [$alone, $together, $failing, $oneAfterAnother, $atOnce] = heavyPartsAtOnce($runner, heavyJudging(24.0));
     } finally {
         foreach ($copied as $file) {
             unlink(Tree::at(sprintf('%s/%s', Library::DIRECTORY, $file)));
@@ -249,12 +270,13 @@ it('judges the parts of one mutant at once as it does one after another, with pa
         ->and($atOnce)->toBeLessThan($oneAfterAnother);
 })->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
-// Two spec files whose set-up takes two seconds each, which no test's own
-// time holds, judge the comparison in src/Split.php with a slower third:
-// together they run past the most of six seconds a mutant is allowed. The
-// two quick files make the first part, whose limit of four seconds their
-// set-ups overrun with the file unmutated too. Split in two by its files,
-// each half fits, and the second kills the mutant that counts three few.
+// Two quick spec files and a slower third judge the comparison in
+// src/Split.php. Under mutation the second set-up in one process outlasts any
+// limit here, which no test's own time holds. The mutant's own run times out
+// at the most, and the two quick files make its first part, which runs out
+// with the file unmutated too. Split in two by its files, each half fits, and
+// the half of the file that tells kills the mutant that counts three few before
+// the third file runs.
 it('splits a part that runs out unmutated too by its files, and kills by the half that tells, with patched Pest', function (): void {
     $copied = ['src/Split.php', 'tests/SplitASpec.php', 'tests/SplitBSpec.php', 'tests/SplitCSpec.php'];
 
@@ -266,9 +288,9 @@ it('splits a part that runs out unmutated too by its files, and kills by the hal
     $bounds = LimitBounds::between(Seconds::of(4.0), Seconds::of(6.0))->startingIn(Seconds::of(0.1));
     $runner = Library::pestWithin(Patching::on(Library::canary()), $bounds, 'pest patched, split')->runner();
     try {
-        [$mutants, $judged] = heavyRun(
+        [$mutants, $judged, $rounds] = heavyRun(
             $runner,
-            $bounds,
+            heavyJudging(21.0),
             'src/Split.php',
             GreaterOrEqualToGreater::class,
             'tests/SplitASpec.php',
@@ -285,5 +307,7 @@ it('splits a part that runs out unmutated too by its files, and kills by the hal
         ->toBe([MutantStatus::TimedOut->value])
         ->and($judged)->toBe([
             [MutantStatus::Killed->value, ['P\Tests\SplitCSpec::__pest_evaluable_it_counts_three_many']],
-        ]);
+        ])
+        ->and(array_slice($rounds, 0, 2))->toBe([2, 2])
+        ->and(array_unique(array_slice($rounds, 2)))->toBe([1]);
 })->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
