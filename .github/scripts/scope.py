@@ -29,9 +29,6 @@ What each job reads (INPUTS):
 - `tests` and `alone`: the program and what the suites read beside it, the
   documents CODE_DOCS lists, the action and the reusable workflow. `tests`
   also reads SonarCloud's settings, since `sonarcloud` analyses its coverage.
-- `mutation`: the program, the action and the reusable workflow, which the
-  self-gate runs. The gate's own plan then decides what the change reaches
-  (ADR-0005), so a test-only change is judged as the gate judges one.
 - `site`: the docs, the site and what prints a link into it (ADR-0038).
 - `replay`: what decides what a change reaches and how a plan carries and
   cuts (REPLAY), which it plans the newest pull requests again with. A push
@@ -76,7 +73,7 @@ LEG_TABLE = json.loads(Path(__file__).resolve().with_name("legs.json").read_text
 RUNNERS = tuple(LEG_TABLE)
 
 # The jobs of ci.yml this script gates, in the workflow's order.
-GATED = ("site", "alone", "guards", "checks", "tests", "lowest", "phar", "image", "runner-contracts", "end-to-end", "mutation", "replay")
+GATED = ("site", "alone", "guards", "checks", "tests", "lowest", "phar", "image", "runner-contracts", "end-to-end", "replay")
 
 # The job that runs the legs, the end-to-end workflow's jobs by the input that
 # runs each, and the job that decides every output.
@@ -316,7 +313,6 @@ INPUTS: dict[str, Callable[[str], bool]] = {
     "lowest": is_program,
     "phar": is_program,
     "image": lambda path: path in IMAGE,
-    "mutation": lambda path: is_program(path) or under(path, SHIPPED_CI),
     "replay": lambda path: under(path, REPLAY),
 }
 
