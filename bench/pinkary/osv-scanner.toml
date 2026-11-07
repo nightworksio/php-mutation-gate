@@ -1,0 +1,7 @@
+# The front end of pinkary.com at the commit bench/pinkary.json pins, which
+# the benchmark builds and never serves. Its @tailwindcss/typography 0.5.20
+# requires postcss-selector-parser 6.0.10 exactly, below the release that
+# fixes this advisory, so no lock of that commit holds a fixed one.
+[[IgnoredVulns]]
+id = "GHSA-rj75-hqrm-r3gf"
+reason = "A build-time dependency of the benchmark's third-party fixture at its pinned commit, which pins the vulnerable release exactly; the gate never ships or runs it."

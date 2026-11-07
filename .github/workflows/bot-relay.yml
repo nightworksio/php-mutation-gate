@@ -1,0 +1,82 @@
+# The relay of numbers out of a finished ci or pr run, and the re-run of
+# infrastructure failures (ADR-0019).
+# workflow_run writes the cache main's ledger is restored from, so its jobs
+# handle numbers alone: the run's id, and what GitHub answers about it. They
+# check out only main's scripts and tables, download no artifact and install
+# nothing. The App's edit of the sticky comment starts the explainer, on
+# issue_comment, whose cache is read-only.
+name: bot relay
+
+# The trigger is ADR-0019's: its jobs handle numbers alone, and the test of
+# V5 holds them to that.
+on: # zizmor: ignore[dangerous-triggers]
+  workflow_run:
+    workflows: [ci, pr]
+    types: [completed]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+  cancel-in-progress: false
+
+jobs:
+  # The failed jobs of the head's first run, re-run once where every one of
+  # them failed at the infrastructure.
+  rerun:
+    name: rerun
+    # A Dependabot run's workflow_run gets no secrets and a read-only token.
+    if: ${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.actor.login != 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write # to re-run the failed jobs
+      contents: read # to check out main's scripts
+    timeout-minutes: 5
+    outputs:
+      reran: ${{ steps.rerun.outputs.reran }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github
+            .docs
+      - id: rerun
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: python3 .github/scripts/bot_relay.py rerun
+
+  # The sticky comment, set as the App to its explaining state.
+  relay:
+    name: relay
+    needs: rerun
+    if: ${{ !cancelled() && github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.actor.login != 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    # The App's private key lives in this environment, whose deployment-branch
+    # policy allows main and the release tags only (ADR-0019).
+    environment: bot
+    permissions:
+      actions: read # to read the run
+      contents: read # to check out main's scripts
+      pull-requests: read # to find the pull request and its sticky comment
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github
+            .docs
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        id: app
+        with:
+          client-id: ${{ vars.MUTATION_GATE_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.MUTATION_GATE_BOT_PRIVATE_KEY }}
+          permission-pull-requests: write
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          APP_TOKEN: ${{ steps.app.outputs.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RERAN: ${{ needs.rerun.outputs.reran }}
+        run: python3 .github/scripts/bot_relay.py relay

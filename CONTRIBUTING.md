@@ -118,6 +118,17 @@ CI on a pull request from someone who is neither a member of the organisation
 nor a collaborator on this repository starts once a maintainer approves the
 run. The pull request template holds the checklist.
 
+### The bot's comment
+
+Each pull request gets one comment from the bot, which follows it. It says
+which gates failed and why, at the file and line, in words from
+`.github/gates.json` and `.github/bot/`, with the command that reproduces each
+one and the one that fixes it where a fix is mechanical. A mechanical fix
+inside the diff is also posted as suggested changes, which you can commit from
+the pull request. The comment also holds a checklist, the line the changelog
+will take from the title, and, where the title or the `Spec:` line is
+missing, a suggestion for it.
+
 ### Commands in comments
 
 A comment whose first line is one of these runs it:
@@ -127,6 +138,7 @@ A comment whose first line is one of these runs it:
 | `/update` | GitHub merges the base branch into the pull request's branch, and signs the merge commit, which the squash leaves out of `main` | someone with write access, or the pull request's author |
 | `/rebase` | the same as `/update`, because GitHub cannot sign rebased commits | someone with write access, or the pull request's author |
 | `/retest` | re-runs the failed jobs of the latest CI run on the pull request's head, at most three times per head | someone with write access, or the pull request's author |
+| `/fix` | commits the fix the pull request's own latest CI run computed (Pint, Rector, `composer normalize`, markdownlint) to its branch, where the branch is in this repository and neither its base nor a protected branch | someone with write access, or the pull request's author |
 | `/docs <words>` | replies with at most three links to headings under `.docs` that match the words | anyone, on an issue or a pull request |
 
 ## Finding your way

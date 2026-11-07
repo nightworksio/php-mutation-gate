@@ -1,0 +1,36 @@
+# Duplicate issues, matched by the message slugs their bodies name
+# (ADR-0019).
+# issues runs main's workflow with a token that can write, so the body reaches
+# the stdlib script through env alone, and only main is checked out.
+name: bot issues
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions: {}
+
+jobs:
+  duplicates:
+    name: duplicates
+    if: ${{ github.event.issue.user.type != 'Bot' }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: bot-issues-${{ github.event.issue.number }}
+      cancel-in-progress: true
+    permissions:
+      contents: read # to check out main's troubleshooting guide
+      issues: write # to reply
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github
+            .docs
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.issue.number }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: python3 .github/scripts/bot_issues.py

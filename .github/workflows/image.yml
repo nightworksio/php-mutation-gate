@@ -1,0 +1,49 @@
+# The gate's image (ADR-0022), built for each platform a release pushes, on a
+# runner of that platform, from a PHAR built as a release builds it, and run
+# once. It pushes nothing. Called by ci.yml on a pull request that changes the
+# Dockerfile or how the PHAR is built, and on the nightly run, so a release
+# never builds an image for the first time.
+name: image
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  PHP_VERSION: '8.5'
+
+jobs:
+  build:
+    name: build (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      - id: phar
+        run: composer phar
+      - id: build
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: docker build --platform "${PLATFORM}" --tag mutation-gate:ci .
+      - id: run
+        run: docker run --rm mutation-gate:ci --version
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py image/build

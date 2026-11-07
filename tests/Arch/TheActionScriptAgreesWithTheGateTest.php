@@ -145,7 +145,7 @@ it('publishes each JSON Schema of the gate at its release line\'s tag, under its
 
     expect(ThisPackage::SCHEMA)->toContain(sprintf('/php-mutation-gate/v%s/', scriptText('LINE')))
         ->and(Decoded::at($schema, '$id'))->toBe(sprintf(ThisPackage::SCHEMA, $name));
-})->with(['mutation-gate', 'report', 'tests', 'doctor', 'webhook', 'explain', 'summary']);
+})->with(['mutation-gate', 'report', 'tests', 'doctor', 'webhook', 'explain', 'summary', 'mutators']);
 
 it('trusts the events the GitHub plan trusts to write a branch\'s ledger', function (): void {
     expect(scriptSet('TRUSTED'))->toBe(sortedCopy(array_map(static fn(TrustedEvent $event): string => $event->value, TrustedEvent::cases())));

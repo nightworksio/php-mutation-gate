@@ -16,6 +16,19 @@
     "retest-green": "[The CI run]({run}) on this head has no failed job.",
     "retest-spent": "[The CI run]({run}) on this head has been re-run {limit} times. Push a commit to run CI again, or ask a maintainer.",
     "docs-found": "{links}",
-    "docs-none": "No heading of [the documentation]({docs}) matches what was asked."
+    "docs-none": "No heading of [the documentation]({docs}) matches what was asked.",
+    "fix-committed": "Committed the fix [the CI run]({run}) computed: {commit}.",
+    "fix-nothing": "[The CI run]({run}) on this head computed no fix.",
+    "fix-fork": "This branch is in a fork, which the bot cannot push to. Commit the suggested changes on the diff instead.",
+    "fix-running": "CI has not finished on this head, so there is no fix to commit yet.",
+    "fix-refused": "The fix [the CI run]({run}) computed cannot be committed: {why}. Run `{command}` locally and push.",
+    "fix-moved": "The branch moved while the bot read it. Comment `/fix` again on the new head.",
+    "fix-protected": "The bot commits only to a pull request's own branch, and this one is its base, the default branch, or a protected branch.",
+    "fix-unmatched": "The latest CI run on this head is not this pull request's own, so the bot commits nothing from it.",
+    "fix-commit-body": "The fixes {run} computed on {sha}.",
+    "why-not-in-diff": "it changes a file this pull request does not",
+    "why-never": "it changes a workflow",
+    "why-too-large": "it is larger than the bot commits",
+    "why-stale": "a hunk does not match this head, which the base has moved under"
   }
 }

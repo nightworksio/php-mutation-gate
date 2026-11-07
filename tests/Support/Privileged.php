@@ -25,8 +25,11 @@ use Symfony\Component\Yaml\Yaml;
  */
 final readonly class Privileged
 {
-    /** The events that run main's workflow with a token that can write, and secrets. */
+    /** The events that run main's workflow with a token that can write, and secrets, over content a pull request supplies. */
     public const array EVENTS = ['issue_comment', 'pull_request_target', 'workflow_run'];
+
+    /** Those events, and the others the bot runs on that run main's workflow with a token that can write. */
+    public const array WRITING = [...self::EVENTS, 'issues'];
 
     /** Where the workflows live. */
     private const string WORKFLOWS = '.github/workflows';
@@ -60,7 +63,7 @@ final readonly class Privileged
             $events[] = is_string($key) ? $key : Lenient::text($value);
         }
 
-        return array_intersect($events, self::EVENTS) !== [];
+        return array_intersect($events, self::WRITING) !== [];
     }
 
     /** @return Workflow */

@@ -6,8 +6,8 @@ use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Tests\Support\Privileged;
 
-// V5: a workflow that issue_comment, pull_request_target or workflow_run
-// starts runs main's copy with a token that can write, so it runs nothing a
+// V5: a workflow that issue_comment, issues, pull_request_target or
+// workflow_run starts runs main's copy with a token that can write, so it runs nothing a
 // pull request brings (ADR-0019). Its jobs check out main and run
 // the stdlib scripts, and a comment's or a pull request's text reaches those
 // only through env.
@@ -73,11 +73,17 @@ it('runs no pull request content where it can write', function (): void {
     expect($wrong)->toBe([], sprintf(
         "These workflows run with a token that can write, and could run what a pull request brings:\n  %s\n\nA job started by %s holds only the permissions it names, and runs only a checkout of main, the stdlib scripts and the pinned token action, with no expression in a run (V5).",
         implode("\n  ", $wrong),
-        implode(', ', Privileged::EVENTS),
+        implode(', ', Privileged::WRITING),
     ));
 });
 
 it('finds the workflows the bot runs with a token that can write', function (): void {
-    expect(array_keys(Privileged::workflows()))->toContain('.github/workflows/bot-commands.yml')
+    expect(array_keys(Privileged::workflows()))->toContain(
+        '.github/workflows/bot-commands.yml',
+        '.github/workflows/bot-relay.yml',
+        '.github/workflows/bot-explain.yml',
+        '.github/workflows/bot-checklist.yml',
+        '.github/workflows/bot-issues.yml',
+    )
         ->and(array_keys(Privileged::workflows()))->not->toContain('.github/workflows/ci.yml', '.github/workflows/pr.yml');
 });
