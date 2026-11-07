@@ -216,6 +216,7 @@ class Publish(unittest.TestCase):
             environment = {
                 **os.environ,
                 **declared,
+                "PUBLISHED": "the-trend",
                 "PATH": f"{gh}{os.pathsep}{os.environ['PATH']}",
                 "GITHUB_REPOSITORY": "octo/gate",
                 "RUNNER_TEMP": directory,
@@ -238,7 +239,8 @@ class Publish(unittest.TestCase):
             with open(body, encoding="utf-8") as file:
                 put = json.load(file)
             self.assertEqual(trend, base64.b64decode(put["content"]).decode())
-            self.assertEqual(declared["PUBLISHED"], put["branch"])
+            self.assertEqual("the-trend", put["branch"])
+            self.assertIn("PUBLISHED: ${{ inputs.publish-branch }}", [line.strip() for line in lines_of(WORKFLOW)])
             self.assertEqual(declared["MESSAGE"], put["message"])
             self.assertEqual("f", put["sha"])
 

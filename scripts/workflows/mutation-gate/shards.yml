@@ -3,7 +3,7 @@
     needs: plan
     if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.shards != '[]' }}
     runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
-    timeout-minutes: 360
+    timeout-minutes: ${{ inputs.shard-timeout }}
     permissions:
       contents: read
     # ADR-0103: a doomed shard fails as `run.failFast` says; under `cancel`

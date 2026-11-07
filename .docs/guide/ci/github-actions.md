@@ -178,8 +178,11 @@ jobs:
       AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
 ```
 
-It takes the action's inputs less `shard`, `deliver` and `composer-auth`, and
-three of its own, `coverage`, `runs-on` and `keyed-runs-on`. Its outputs are
+It takes the action's inputs less `shard`, `deliver`, `install` and
+`composer-auth`, and its own: `coverage`, `runs-on`, `keyed-runs-on`,
+`plan-timeout` (60), `shard-timeout` (360), `verdict-timeout` (30), each in
+minutes, `plan-coverage` (`pcov`), the driver the plan sets up, and
+`publish-branch` (`mutation-gate`), where publish writes the badge and trend. Its outputs are
 `verdict`, `scores` and `plan`, and it uploads the reports as the artifact
 `mutation-gate-reports`.
 

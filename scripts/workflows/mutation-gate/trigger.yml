@@ -72,6 +72,26 @@ on:
           that ran the suite under coverage; where empty, the plan runs the suite under coverage itself.
         type: string
         default: ''
+      plan-timeout:
+        description: How many minutes the plan job may take, which runs the suite under coverage.
+        type: number
+        default: 60
+      shard-timeout:
+        description: How many minutes each shard job may take.
+        type: number
+        default: 360
+      verdict-timeout:
+        description: How many minutes the verdict job may take.
+        type: number
+        default: 30
+      plan-coverage:
+        description: The coverage driver the plan sets up, as setup-php takes it, such as pcov or xdebug.
+        type: string
+        default: pcov
+      publish-branch:
+        description: The branch publish writes the badge and the trend to, and the verdict reads the last trend from.
+        type: string
+        default: mutation-gate
       runs-on:
         description: 'The runner the plan, the shards, the survivors and the verdict run on: a label, such as ubuntu-24.04-arm, or a JSON list of labels a runner must all have, such as ["self-hosted", "linux"].'
         type: string
@@ -141,7 +161,7 @@ env:
   # out of every change and every proof key.
   GATE_ACTION: .mutation-gate/workflow
   # The branch publish writes the badge and the trend to, and the verdict reads the last trend from.
-  PUBLISHED: mutation-gate
+  PUBLISHED: ${{ inputs.publish-branch }}
   # Where the directory store keeps every scope's ledger: the Actions cache.
   LEDGERS: .mutation-gate/ledger
   # Where fetch writes the store's copy of the default branch's ledger, which

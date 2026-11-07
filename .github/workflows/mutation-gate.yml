@@ -74,6 +74,26 @@ on:
           that ran the suite under coverage; where empty, the plan runs the suite under coverage itself.
         type: string
         default: ''
+      plan-timeout:
+        description: How many minutes the plan job may take, which runs the suite under coverage.
+        type: number
+        default: 60
+      shard-timeout:
+        description: How many minutes each shard job may take.
+        type: number
+        default: 360
+      verdict-timeout:
+        description: How many minutes the verdict job may take.
+        type: number
+        default: 30
+      plan-coverage:
+        description: The coverage driver the plan sets up, as setup-php takes it, such as pcov or xdebug.
+        type: string
+        default: pcov
+      publish-branch:
+        description: The branch publish writes the badge and the trend to, and the verdict reads the last trend from.
+        type: string
+        default: mutation-gate
       runs-on:
         description: 'The runner the plan, the shards, the survivors and the verdict run on: a label, such as ubuntu-24.04-arm, or a JSON list of labels a runner must all have, such as ["self-hosted", "linux"].'
         type: string
@@ -143,7 +163,7 @@ env:
   # out of every change and every proof key.
   GATE_ACTION: .mutation-gate/workflow
   # The branch publish writes the badge and the trend to, and the verdict reads the last trend from.
-  PUBLISHED: mutation-gate
+  PUBLISHED: ${{ inputs.publish-branch }}
   # Where the directory store keeps every scope's ledger: the Actions cache.
   LEDGERS: .mutation-gate/ledger
   # Where fetch writes the store's copy of the default branch's ledger, which
@@ -236,7 +256,7 @@ jobs:
     needs: fetch
     if: ${{ !cancelled() && needs.fetch.result != 'cancelled' }}
     runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
-    timeout-minutes: 60
+    timeout-minutes: ${{ inputs.plan-timeout }}
     # The comment's planned state goes to deliver-plan.
     permissions:
       contents: read
@@ -277,7 +297,7 @@ jobs:
         with:
           php-version: ${{ inputs.php-version }}
           extensions: ${{ inputs.extensions }}
-          coverage: pcov
+          coverage: ${{ inputs.plan-coverage }}
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
         env:
           COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
@@ -453,7 +473,7 @@ jobs:
     needs: plan
     if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.shards != '[]' }}
     runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
-    timeout-minutes: 360
+    timeout-minutes: ${{ inputs.shard-timeout }}
     permissions:
       contents: read
     # ADR-0103: a doomed shard fails as `run.failFast` says; under `cancel`
@@ -734,7 +754,7 @@ jobs:
     needs: [fetch, plan, shard, survivors]
     if: ${{ !cancelled() && needs.plan.result != 'skipped' }}
     runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
-    timeout-minutes: 30
+    timeout-minutes: ${{ inputs.verdict-timeout }}
     permissions:
       contents: read
       actions: read
