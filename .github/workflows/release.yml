@@ -214,6 +214,9 @@ jobs:
     uses: ./.github/workflows/mutation-gate.yml # zizmor: ignore[self-repository]
     with:
       mode: unproven
+      # The zstd extension, as ci.yml's gate has it, so the ledger's zstd is
+      # mutated through it as the tests cover it (ADR-0085).
+      extensions: zstd
       runs-on: ubuntu-24.04-arm
 
   # The PHAR (ADR-0022), built as composer phar builds it from the commit

@@ -536,6 +536,13 @@ it('builds the PHAR in a job that holds no secret and may write nothing, and sig
         ->and($holding)->toBe([]);
 });
 
+it('sets up the extensions on a release\'s gate that the package\'s own gate has', function (): void {
+    $of = static fn(string $workflow, string $job): string => Lenient::text(WorkflowFile::at($workflow)->field('jobs')->field($job)->field('with')->field('extensions'));
+
+    expect($of('.github/workflows/ci.yml', 'mutation'))->not->toBe('')
+        ->and($of(RELEASE, 'gate'))->toBe($of('.github/workflows/ci.yml', 'mutation'));
+});
+
 it('signs, attests and pushes only the PHAR whose SHA-256 build named', function (string $id, string $using): void {
     $steps = WorkflowFile::at(RELEASE)->field('jobs')->field($id)->field('steps');
     $checked = WorkflowFile::stepsWhere($steps, 'name', static fn(string $name): bool => $name === 'Check the PHAR is the one build made');
