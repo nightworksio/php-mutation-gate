@@ -196,3 +196,13 @@ it('applies nothing when there are no entries', function (): void {
         ->and(Ignoring::none()->warnings())->toHaveCount(0)
         ->and(Ignoring::none()->stale(verdictsOver($mutant), Failures::none(), Mutators::all()))->toHaveCount(0);
 });
+
+it('names an entry in advance from as many days before as it is told', function (string $expires, int $named): void {
+    $mutant = Judged::mutant('a', MutantJudgement::Survived);
+    $ignoring = Ignoring::of(Listed::of(ignoreOf($mutant, expires: $expires)), new DateTimeImmutable(Configs::NOW), 3);
+
+    expect(count($ignoring->warnings()))->toBe($named);
+})->with([
+    'within the notice' => ['2026-10-03', 1],
+    'past the notice' => ['2026-10-04', 0],
+]);

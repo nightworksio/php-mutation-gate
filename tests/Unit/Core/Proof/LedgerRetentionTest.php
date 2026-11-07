@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Config\Retained;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -146,9 +147,10 @@ it('keeps the killers of at most the twenty thousand mutants and five thousand f
         ->withLearned(learnedInTurn(0, 20_000, static fn(int $made): KillHistory => KillHistory::none()->withMutant($id($made), $ranking))
             ->and(learnedInTurn(0, 5_000, static fn(int $made): KillHistory => KillHistory::none()
                 ->withFunction(Enclosing::named(Path::of('src/A.php'), sprintf('f%d', $made)), $ranking))));
-    $kept = LedgerRetention::standard()->killersOf($ledger);
+    $kept = LedgerRetention::kept(Retained::of(killers: 20_000))->killersOf($ledger);
 
-    expect(iterator_count($kept->mutants()))->toBe(20_000)
+    expect(iterator_count(LedgerRetention::standard()->killersOf($ledger)->mutants()))->toBe(20_001)
+        ->and(iterator_count($kept->mutants()))->toBe(20_000)
         ->and(iterator_count($kept->functions()))->toBe(5_000)
         ->and($kept->likelyKillers($id(0), Nameless::code())->count())->toBe(0)
         ->and($kept->likelyKillers($id(20_000), Nameless::code())->count())->toBe(1);

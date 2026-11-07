@@ -21,7 +21,7 @@ function measuredMoney(): FirstRun
     $money = Path::of('src/Money.php');
     $a = TestId::of('MoneyTest::a');
     $b = TestId::of('MoneyTest::b');
-    $map = CoverageMap::empty()
+    $map = CoverageMap::of()
         ->covered($money, Line::of(3), $a)
         ->covered($money, Line::of(3), $b)
         ->covered($money, Line::of(7), $a)
@@ -52,7 +52,7 @@ it('leaves unmeasured a unit none of whose files the engine counted', function (
 
 it('counts a covering test the map did not time as taking nothing', function (): void {
     $money = Path::of('src/Money.php');
-    $untimed = CoverageMap::empty()->covered($money, Line::of(3), TestId::of('MoneyTest::untimed'));
+    $untimed = CoverageMap::of()->covered($money, Line::of(3), TestId::of('MoneyTest::untimed'));
     $run = FirstRun::of($untimed, MutantSites::inFile($money, Line::of(3)), Seconds::of(2.0), ProcessCount::single());
 
     expect($run->seconds(Unit::file($money)))->toEqual(Seconds::of(2.0));
@@ -80,7 +80,7 @@ it('costs every file unit of a plan in time that grows with the plan, not with i
             $units[] = Unit::file($file);
         }
 
-        $run = FirstRun::of(CoverageMap::empty(), $sites, Seconds::of(1.0), ProcessCount::single());
+        $run = FirstRun::of(CoverageMap::of(), $sites, Seconds::of(1.0), ProcessCount::single());
 
         return static function () use ($run, $units): int {
             $measured = 0;

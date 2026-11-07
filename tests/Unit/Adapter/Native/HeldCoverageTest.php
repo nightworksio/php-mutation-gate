@@ -24,7 +24,7 @@ function countedReading(ArrayObject $reads, CoverageMap|CannotJudge $answer): Cl
     };
 }
 
-$makeMap = static fn(): CoverageMap => CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('T::adds'));
+$makeMap = static fn(): CoverageMap => CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('T::adds'));
 
 it('reads a map once for every read of the same, and afresh for another or once forgotten', function () use ($makeMap): void {
     $map = $makeMap();
@@ -33,13 +33,13 @@ it('reads a map once for every read of the same, and afresh for another or once 
     $reads = new ArrayObject();
 
     $first = $held->readFrom('whole suite', countedReading($reads, $map));
-    $again = $held->readFrom('whole suite', countedReading($reads, CoverageMap::empty()));
-    $other = $held->readFrom('a group', countedReading($reads, CoverageMap::empty()));
-    $back = $held->readFrom('whole suite', countedReading($reads, CoverageMap::empty()));
+    $again = $held->readFrom('whole suite', countedReading($reads, CoverageMap::of()));
+    $other = $held->readFrom('a group', countedReading($reads, CoverageMap::of()));
+    $back = $held->readFrom('whole suite', countedReading($reads, CoverageMap::of()));
     $held->forget();
     $forgotten = $held->readFrom('a group', countedReading($reads, $map));
 
-    expect([$first, $again, $other, $back, $forgotten])->toEqual([$map, $map, CoverageMap::empty(), CoverageMap::empty(), $map])
+    expect([$first, $again, $other, $back, $forgotten])->toEqual([$map, $map, CoverageMap::of(), CoverageMap::of(), $map])
         ->and(count($reads))->toBe(4);
 });
 

@@ -109,7 +109,7 @@ final class Killings
             JudgedMutants::of(JudgedMutant::of($mutant, MutantJudgement::Survived)->judgedBy(self::ids('A'))),
             Uncovered::Count,
         );
-        $coverage = CoverageMap::empty()->covered($log, Line::of(1), self::id('C'))->covered($log, Line::of(1), self::id('A'));
+        $coverage = CoverageMap::of()->covered($log, Line::of(1), self::id('C'))->covered($log, Line::of(1), self::id('A'));
 
         return Verdict::of(TreeVerdicts::of($tree))->withMatrix(
             KillMatrix::of(MatrixKind::Full, $coverage)->named(
@@ -127,7 +127,7 @@ final class Killings
     public static function tiedVerdict(): Verdict
     {
         $money = Path::of('src/Money.php');
-        $coverage = CoverageMap::empty();
+        $coverage = CoverageMap::of();
         $names = TestNames::none();
 
         foreach (['F', 'G', 'H'] as $test) {
@@ -162,7 +162,7 @@ final class Killings
     public static function untimedVerdict(): Verdict
     {
         $money = Path::of('src/Money.php');
-        $coverage = CoverageMap::empty()
+        $coverage = CoverageMap::of()
             ->covered($money, Line::of(1), self::id('A'))
             ->covered($money, Line::of(1), self::id('D'))
             ->covered($money, Line::of(2), self::id('E'))
@@ -199,7 +199,7 @@ final class Killings
     public static function sharedVerdict(): Verdict
     {
         $money = Path::of('src/Money.php');
-        $coverage = CoverageMap::empty()
+        $coverage = CoverageMap::of()
             ->covered($money, Line::of(1), self::id('A'))
             ->covered($money, Line::of(2), self::id('E'))
             ->covered($money, Line::of(3), self::id('A'))
@@ -291,7 +291,7 @@ final class Killings
     private static function matrix(MatrixKind $kind): KillMatrix
     {
         $money = Path::of('src/Money.php');
-        $coverage = CoverageMap::empty()
+        $coverage = CoverageMap::of()
             ->covered($money, Line::of(1), self::id('A'))
             ->covered($money, Line::of(1), self::id('B0'))
             ->covered($money, Line::of(2), self::id('A'))

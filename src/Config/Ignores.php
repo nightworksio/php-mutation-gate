@@ -32,6 +32,12 @@ final readonly class Ignores implements Setting
         return new self(Json::at('ignores.native', NativeMarkers::Refuse->value));
     }
 
+    /** `ignores.notice`: how many days ahead an ignore's end is named; 14. */
+    public static function notice(int $days): self
+    {
+        return new self(Json::at('ignores.notice', $days));
+    }
+
     public function written(): Json
     {
         return $this->json;

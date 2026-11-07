@@ -50,6 +50,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Doomed;
 use NightWorksIO\MutationGate\Core\Verdict\DoomedBy;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
+use NightWorksIO\MutationGate\Tests\Support\Decoded;
 
 $makeMeasured = static fn(): Measurement => Measurement::of(Seconds::of(42.5), 'pest', Instant::at(new DateTimeImmutable('2026-09-29T20:48:17Z')));
 
@@ -144,6 +145,16 @@ it('reads back a finished shard it wrote', function () use ($finished, $makeSurv
     $result = $finished($survivor, $measured);
 
     expect(ShardResultFile::decode(ShardResultFile::encode($result)))->toEqual($result);
+});
+
+it('reads back what a shard warns of and what it notes, each as what it is', function () use ($finished, $makeSurvivor, $makeMeasured): void {
+    $result = $finished($makeSurvivor(), $makeMeasured())
+        ->withWarnings(Warnings::of(Warning::that('act on it'), Warning::noting('worth knowing')));
+    $read = ShardResultFile::decode(ShardResultFile::encode($result));
+
+    expect(Decoded::at(ShardResultFile::encode($result), 'warnings'))->toBe(['act on it'])
+        ->and(Decoded::at(ShardResultFile::encode($result), 'notes'))->toBe(['worth knowing'])
+        ->and($read)->toEqual($result);
 });
 
 it('writes the gate that measured a shard, and reads it back, and reads none from a result that names none', function () use ($finished, $makeSurvivor, $makeMeasured): void {

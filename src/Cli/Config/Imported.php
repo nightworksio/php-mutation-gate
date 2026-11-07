@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Cli\Config;
 
 use DateTimeImmutable;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Infection\Import\Ignores;
 use NightWorksIO\MutationGate\Adapter\Infection\Importable;
 use NightWorksIO\MutationGate\Adapter\Infection\Project;
 use NightWorksIO\MutationGate\Adapter\Project\PhpUnitTrees;
@@ -49,6 +50,7 @@ final readonly class Imported
         Layer $found,
         Listed $trees,
         DateTimeImmutable $now,
+        int $ignoresFor = Ignores::DAYS,
     ): Import|CannotJudge {
         $text = Directory::at($project)->read($file);
         $importable = $text instanceof Contents ? Importable::read($file->value(), $text->text()) : $text;
@@ -63,6 +65,7 @@ final readonly class Imported
             Project::at(Root::of($project), Paths::none(), Workspace::root()),
             $trees,
             $now,
+            $ignoresFor,
         ));
         $included = PhpUnitTrees::in($project, Paths::none())->included();
 

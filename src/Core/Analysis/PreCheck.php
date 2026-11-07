@@ -29,7 +29,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  */
 final readonly class PreCheck
 {
-    private const int STANDARD = 50;
+    public const int STANDARD = 50;
 
     private function __construct(private int $learning)
     {
@@ -39,6 +39,12 @@ final readonly class PreCheck
     public static function standard(): self
     {
         return new self(self::STANDARD);
+    }
+
+    /** So many checks of a mutator before its rate is read, as `staticCheck.preCheckAfter` says. */
+    public static function after(int $checks): self
+    {
+        return new self($checks);
     }
 
     /**

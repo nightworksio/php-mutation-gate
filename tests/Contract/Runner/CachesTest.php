@@ -101,7 +101,7 @@ function keysOfSources(string $root): array
 
     foreach ($files as $file) {
         if ($file->path()->within(Path::of('src'))) {
-            $key = $keys->keyOf(Unit::file($file->path()), Paths::none(), CoverageMap::empty());
+            $key = $keys->keyOf(Unit::file($file->path()), Paths::none(), CoverageMap::of());
             $byUnit[$file->path()->value()] = $key instanceof Digest ? $key->value() : '';
         }
     }

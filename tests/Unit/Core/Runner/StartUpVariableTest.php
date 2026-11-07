@@ -28,3 +28,12 @@ it('reads none where a process was told nothing, or no positive number of second
     'no time' => ['0'],
     'less than none' => ['-1.5'],
 ]);
+
+it('tells a patched runner\'s process what a run gets to start in unmeasured only where it is no standard, and reads it back', function (): void {
+    $told = StartUpVariable::of(LimitBounds::between(Seconds::of(10.0), Seconds::of(300.0), 7.5));
+
+    expect($told)->toBe([ChildVariable::UnmeasuredStartUp->value => '7.500000'])
+        ->and(StartUpVariable::unmeasured($told[ChildVariable::UnmeasuredStartUp->value]))->toBe(7.5)
+        ->and(StartUpVariable::of(LimitBounds::between(Seconds::of(10.0), Seconds::of(300.0))))->toBe([])
+        ->and(StartUpVariable::unmeasured(told: false))->toBe(5.0);
+});

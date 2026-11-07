@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
+use NightWorksIO\MutationGate\Core\Proof\TimingWeight;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -89,6 +90,13 @@ it('builds, merges and trims timings in time linear in their number', function (
     expect($kept(10)())->toHaveCount(10)
         ->and($kept(10)()->secondsFor(Path::of('src/F1.php')))->toEqual(Seconds::of(2.0))
         ->and(Growth::of(625, $kept))->toBeLessThan(Growth::LINEAR);
+});
+
+it('weighs the newest measurement as it is told', function () use ($timing, $seconds): void {
+    $held = Timings::of($timing('src/A.php', 10.0));
+    $measured = Timings::of($timing('src/A.php', 2.0, '2026-09-29T21:00:00Z'));
+
+    expect($seconds($measured->smoothedOver($held, TimingWeight::of(0.5))))->toEqualWithDelta([6.0], 1e-9);
 });
 
 it('smooths each new measurement over the held timing of its unit by the same runner, the newest weighing nine tenths', function () use ($timing, $seconds): void {

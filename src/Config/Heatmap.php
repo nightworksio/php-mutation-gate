@@ -19,11 +19,6 @@ final readonly class Heatmap implements Setting
         return new self(Json::at('heatmap.files', $files));
     }
 
-    /** `heatmap.comment`: how many files that fell the pull request comment lists, 0 for none; 5. */
-    public static function comment(int $files): self
-    {
-        return new self(Json::at('heatmap.comment', $files));
-    }
 
     /** `heatmap.methods`: the heatmap scores each function of a file too, as by default. */
     public static function withMethods(): self

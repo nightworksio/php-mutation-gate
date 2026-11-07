@@ -120,7 +120,7 @@ it('judges a mutant on a method\'s signature by the map the planning job handed 
     $planned = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), $handedOver));
     file_put_contents(
         Tree::at(sprintf('%s/%s', Library::INFECTION_DIRECTORY, CoverageMapFile::in($handedOver)->value())),
-        CoverageMapFile::encode($planned instanceof CoverageMap ? $planned : CoverageMap::empty(), Unplaced::map()),
+        CoverageMapFile::encode($planned instanceof CoverageMap ? $planned : CoverageMap::of(), Unplaced::map()),
     );
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
         ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators(Mutators::named('PublicVisibility')));

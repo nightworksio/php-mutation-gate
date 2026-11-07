@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Coverage;
 
+use function array_keys;
+use function array_map;
 use function count;
 
 use Countable;
@@ -11,6 +13,7 @@ use Countable;
 use function iterator_to_array;
 
 use IteratorAggregate;
+use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use Traversable;
@@ -34,6 +37,12 @@ final readonly class LineSets implements Countable, IteratorAggregate
     public static function of(LineTests $map, Traversable $covered, Lines $missed): self
     {
         return new self($map, iterator_to_array($covered, preserve_keys: true), $missed);
+    }
+
+    /** The executable lines some test ran. */
+    public function lines(): Lines
+    {
+        return Lines::of(...array_map(Line::of(...), array_keys($this->covered)));
     }
 
     /** The executable lines no test ran. */

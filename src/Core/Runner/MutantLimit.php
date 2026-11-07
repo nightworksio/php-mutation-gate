@@ -20,7 +20,7 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  */
 final readonly class MutantLimit
 {
-    /** What a limit allows a run to start in where no start-up was measured, and what Infection's own allows. */
+    /** What a limit allows a run to start in where none was measured, or `timeouts.startUp`, and Infection's. */
     public const float START_UP = 5.0;
 
     /**
@@ -73,8 +73,10 @@ final readonly class MutantLimit
     {
         $measured = $bounds->startUp();
 
-        return $this->isTheGates && $measured instanceof Seconds
-            ? $this->factor * $measured->seconds()
-            : self::START_UP;
+        return match (true) {
+            ! $this->isTheGates => self::START_UP,
+            $measured instanceof Seconds => $this->factor * $measured->seconds(),
+            default => $bounds->unmeasuredStartUp()->seconds(),
+        };
     }
 }

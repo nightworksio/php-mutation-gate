@@ -8,6 +8,7 @@ use function in_array;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cluster\ClusterId;
+use NightWorksIO\MutationGate\Core\Config\DigestRows;
 use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
@@ -36,9 +37,17 @@ final readonly class DigestDetail
         cluster id or legend.
         TEXT;
 
-    /** @throws NotInShape */
-    public static function of(Node $report, string $target, GateCommand $gate): string|CannotJudge
-    {
+    /**
+     * The detail of this target, naming as many of a mutant's covering tests as `digest.tests` says.
+     *
+     * @throws NotInShape
+     */
+    public static function of(
+        Node $report,
+        string $target,
+        GateCommand $gate,
+        int $tests = DigestRows::TESTS,
+    ): string|CannotJudge {
         if ($target === self::LEGEND) {
             return Digest::legend();
         }
@@ -55,7 +64,7 @@ final readonly class DigestDetail
         return match (true) {
             in_array($target, $files, strict: true) => FileDetail::of($report, $target, $mutants),
             $sought instanceof ClusterId => ClusterDetail::of($report, $sought, $mutants, $gate),
-            $sought instanceof IdPrefix => MutantDetail::of($report, $sought, $mutants, $target),
+            $sought instanceof IdPrefix => MutantDetail::of($report, $sought, $mutants, $target, $tests),
             default => self::nothing($target),
         };
     }

@@ -70,11 +70,19 @@ final readonly class Setup implements Part
         Workers|Absent $workers = new Absent(),
         PathRuleMode|Absent $pathRules = new Absent(),
         PathRules|Absent $paths = new Absent(),
+        RunnerPacing|Absent $pacing = new Absent(),
     ): self {
         return new self(
             $extensions,
             $presets,
-            RunnerLayer::of($runner, $withhold, $memory, $workers, $pathRules),
+            RunnerLayer::of(
+                $runner,
+                $withhold,
+                $memory,
+                $workers,
+                $pathRules,
+                $pacing instanceof RunnerPacing ? $pacing : RunnerPacing::of(),
+            ),
             $treeSource,
             $mutators instanceof Mutators ? $mutators : Mutators::none(),
             $paths instanceof PathRules ? $paths : PathRules::none(),
@@ -92,10 +100,14 @@ final readonly class Setup implements Part
 
         return self::of(
             extensions: $none->extensions(),
+            withhold: $none->runnerLayer()->withhold(),
             treeSource: $none->treeSource(),
             memory: $none->runnerLayer()->memory(),
             mutators: Mutators::standard(),
+            workers: $none->runnerLayer()->workers(),
+            pathRules: $none->runnerLayer()->pathRules(),
             paths: PathRules::standard(),
+            pacing: RunnerPacing::standard(),
         );
     }
 

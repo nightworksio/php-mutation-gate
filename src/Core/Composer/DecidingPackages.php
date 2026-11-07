@@ -23,20 +23,35 @@ use NightWorksIO\MutationGate\Core\Registry\FirstPartyPackage;
  */
 final readonly class DecidingPackages
 {
-    private function __construct(private Globs|NotGiven $named)
+    private function __construct(private Globs|NotGiven $named, private bool $byLoads)
     {
     }
 
     /** Every package: any move in a lock decides how the gate runs. */
     public static function every(): self
     {
-        return new self(NotGiven::value());
+        return new self(NotGiven::value(), byLoads: false);
     }
 
     /** The packages these patterns of names match. */
     public static function named(Glob ...$patterns): self
     {
-        return new self(Globs::of(...$patterns));
+        return new self(Globs::of(...$patterns), byLoads: false);
+    }
+
+    /**
+     * No package alone: what a lock moved reaches the units run by the tests that loaded it, unless it moved what
+     * reaches every test (ADR-0115).
+     */
+    public static function byLoads(): self
+    {
+        return new self(Globs::of(), byLoads: true);
+    }
+
+    /** Whether what a lock moved reaches the units run by the tests that loaded it, where it decides nothing. */
+    public function narrowsByLoads(): bool
+    {
+        return $this->byLoads;
     }
 
     /**
@@ -52,7 +67,10 @@ final readonly class DecidingPackages
 
         $moves = LockMoves::between($before, $now);
 
-        return ! $moves instanceof LockMoves || $moves->beyondPackages() || $this->moves($moves->packages());
+        return ! $moves instanceof LockMoves
+            || $moves->beyondPackages()
+            || ($this->byLoads && $moves->isWide())
+            || $this->moves($moves->packages());
     }
 
     /**

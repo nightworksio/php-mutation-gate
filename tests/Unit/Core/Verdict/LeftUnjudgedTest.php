@@ -94,7 +94,7 @@ $makeCarrying = static fn(): Carrying => Carrying::against(
     TestNames::none()
         ->with(TestId::of('MoneyTest::adds'), TestName::in(Path::of('tests/MoneyTest.php'), 'adds'))
         ->with(TestId::of('TaxTest::rounds'), TestName::in(Path::of('tests/TaxTest.php'), 'rounds')),
-    CoverageMap::empty(),
+    CoverageMap::of(),
     ChangesSince::none(),
 );
 $makeUnits = static fn(): Units => Units::of(Unit::file(Path::of('src/Money.php')), Unit::file(Path::of('src/Tax.php')), Unit::file(Path::of('src/New.php')));

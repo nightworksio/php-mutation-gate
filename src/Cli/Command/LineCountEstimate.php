@@ -42,7 +42,7 @@ final readonly class LineCountEstimate
             return $trees;
         }
 
-        $costs = MeasuredCosts::at(Root::of($project), $settings->shards()->secondsPerLine());
+        $costs = MeasuredCosts::at(Root::of($project), $settings->shards()->costs()->secondsPerLine());
         $seconds = 0.0;
 
         foreach ($trees as $tree) {

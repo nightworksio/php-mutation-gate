@@ -172,6 +172,7 @@ final readonly class Judging
             return $recorded;
         }
 
+        $verdict = $verdict->withAccount($this->settings->effective()->reports()->outputs()->said($verdict->account()));
         $report = EncodedReport::of($verdict);
         $reported = new Judged(
             $verdict,
@@ -246,7 +247,11 @@ final readonly class Judging
             $plan->digests(),
         );
         $uncovered = $this->uncovered();
-        $ignoring = Ignoring::of($this->settings->ignores()->entries(), $this->setup->clock->now());
+        $ignoring = Ignoring::of(
+            $this->settings->ignores()->entries(),
+            $this->setup->clock->now(),
+            $this->settings->ignores()->notice(),
+        );
         $judge = Judge::of(
             $trees,
             $baseline,
@@ -313,7 +318,7 @@ final readonly class Judging
                 ->and($ignoring->warnings())
                 ->and($equivalents->warnings)
                 ->and($ignoring->redundant($verdicts, $equivalents->proven))
-                ->and($this->settings->reach()->failFast()->warnings(
+                ->and($this->settings->reach()->failingFast()->mode()->warnings(
                     $plan->runOn()->isProposed(),
                     $this->adapters->environment->onGitHubActions(),
                 )),
@@ -529,7 +534,7 @@ final readonly class Judging
     private function matrixOf(Plan $plan, CoverageMap|CannotJudge $map): KillMatrix
     {
         $names = $plan->names();
-        $matrix = KillMatrix::of($plan->briefing()->matrix(), $map instanceof CoverageMap ? $map : CoverageMap::empty())
+        $matrix = KillMatrix::of($plan->briefing()->matrix(), $map instanceof CoverageMap ? $map : CoverageMap::of())
             ->cannotBeFull($this->adapters->runner->behaviour()->whyNotFull())
             ->grouping($this->adapters->suite->suites());
 

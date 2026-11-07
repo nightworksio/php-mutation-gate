@@ -288,7 +288,7 @@ it('briefs every shard and the verdict that a run narrowed to the security mutat
 it('briefs every shard and the verdict that a run narrowed to one suite runs its tests alone, and covers that suite alone', function () use (
     $plan,
 ): void {
-    $runner = new CoverageAsked(RunnerFake::ofTheFixture(), CoverageMap::empty());
+    $runner = new CoverageAsked(RunnerFake::ofTheFixture(), CoverageMap::of());
     $suited = $plan(Flows::project(), Mode::full(), Cut::exactly(2), $runner, Narrowing::none()->toSuite(SuiteName::of('unit')));
     $whole = $plan(Flows::project(), Mode::full(), Cut::exactly(2));
 
@@ -305,7 +305,7 @@ it('plans a map another job wrote, whatever this job\'s processes held', functio
 
 it('hands each shard the map of its own files', function () use ($plan): void {
     $project = Flows::project();
-    $map = CoverageMap::empty()
+    $map = CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'))
         ->covered(Path::of('src/Held.php'), Line::of(4), TestId::of('HeldTest::doubles'));
     $plan($project, Mode::full(), Cut::exactly(2), new CoverageAsked(RunnerFake::ofTheFixture(), $map));
@@ -469,7 +469,7 @@ it('leaves the whole map, in CI and out, where every shard and a later local com
 ): void {
     $local = Flows::project();
     $ci = Flows::project();
-    $map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'));
+    $map = CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'));
     $plan($local, Mode::full(), Cut::exactly(1), new CoverageAsked(RunnerFake::ofTheFixture(), $map));
     new Planning(
         Flows::adapters($ci, ['CI' => 'true'], new CoverageAsked(RunnerFake::ofTheFixture(), $map)),
@@ -494,7 +494,7 @@ it('leaves the whole map saying where it was measured: where another job measure
     $read = Flows::project();
     $dirty = Flows::project();
     $elsewhere = MeasuredAt::of(Revision::ref('0123456789abcdef0123456789abcdef01234567'), dirty: false);
-    $map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'));
+    $map = CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'));
     Scratch::write($read, 'handed/map.json.gz', CoverageMapFile::encode($map, $elsewhere));
     new Planning(Flows::adapters($read), Flows::settings(), Flows::setup())
         ->plan(Mode::full(), CoverageRead::from(Path::of('handed')), Cut::exactly(1), MatrixKind::FirstKiller);
@@ -522,7 +522,7 @@ it('cannot plan where it cannot leave the whole map', function () use ($plan): v
 it('asks for coverage withholding what every process that runs the project\'s code withholds', function () use (
     $plan,
 ): void {
-    $runner = new CoverageAsked(RunnerFake::ofTheFixture(), CoverageMap::empty());
+    $runner = new CoverageAsked(RunnerFake::ofTheFixture(), CoverageMap::of());
     $plan(Flows::project(), Mode::full(), Cut::exactly(1), $runner);
 
     expect($runner->asked())->toHaveCount(1)
@@ -666,7 +666,7 @@ it('cannot plan where the units cannot be found, the coverage taken or the run k
         fn(): RunnerFake => RunnerFake::of(
             CannotJudge::because('The runner is not installed.'),
             Groups::of(),
-            CoverageMap::empty(),
+            CoverageMap::of(),
             Mutants::none(),
             Paths::none(),
             Paths::none(),

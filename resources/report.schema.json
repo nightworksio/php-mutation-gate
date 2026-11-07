@@ -1224,6 +1224,12 @@
                 "type": "string"
             }
         },
+        "notes": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
         "failures": {
             "type": "array",
             "items": {
@@ -1885,6 +1891,7 @@
         "clusters",
         "reach",
         "warnings",
+        "notes",
         "failures",
         "cannotJudge",
         "failingUnmutated",

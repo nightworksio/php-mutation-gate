@@ -102,6 +102,14 @@ final readonly class Runner
         return new self($runner->with(Member::of('pathRules', $mode->value)));
     }
 
+    /** This runner, paced so: `runner.recycleAfter`, `runner.warmSlack` and `runner.poll`. */
+    public function paced(Pace $pace): self
+    {
+        $runner = $this->json instanceof Json ? $this->json : Json::object(Member::of('use', $this->json));
+
+        return new self($pace->in($runner));
+    }
+
     public function written(): Json|string
     {
         return $this->json;

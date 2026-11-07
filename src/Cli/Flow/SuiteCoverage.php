@@ -175,7 +175,7 @@ final readonly class SuiteCoverage
             $kept = $kept->executing($file, ...$methods);
         }
 
-        return $kept;
+        return $kept->loading($map->loaded());
     }
 
     /**

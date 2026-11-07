@@ -38,3 +38,11 @@ it('waits not at all where no interval fits in the wait, or the wait is already 
 
     expect($pauses->getArrayCopy())->toBe([]);
 });
+
+it('reads the wait it was told, and the standard where it was told none or no time', function (string|false $told, Seconds $wait): void {
+    expect(Polling::told($told))->toEqual($wait);
+})->with([
+    'told' => ['0.250000', fn(): Seconds => Seconds::of(0.25)],
+    'told nothing' => [fn(): false => false, fn(): Seconds => Seconds::of(0.01)],
+    'told no time' => ['0', fn(): Seconds => Seconds::of(0.01)],
+]);

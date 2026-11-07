@@ -6,8 +6,11 @@ use NightWorksIO\MutationGate\Config\Badge;
 use NightWorksIO\MutationGate\Config\Baseline;
 use NightWorksIO\MutationGate\Config\Budget;
 use NightWorksIO\MutationGate\Config\Ci;
+use NightWorksIO\MutationGate\Config\Comment;
+use NightWorksIO\MutationGate\Config\CostModel;
 use NightWorksIO\MutationGate\Config\Coverage;
 use NightWorksIO\MutationGate\Config\Dashboard;
+use NightWorksIO\MutationGate\Config\Digest;
 use NightWorksIO\MutationGate\Config\Flaky;
 use NightWorksIO\MutationGate\Config\Floor;
 use NightWorksIO\MutationGate\Config\Gate;
@@ -34,6 +37,16 @@ use NightWorksIO\MutationGate\Config\Tests;
 use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Config\Tree;
 use NightWorksIO\MutationGate\Config\Uncovered;
+use NightWorksIO\MutationGate\Config\VersionControl;
+use NightWorksIO\MutationGate\Core\Comment\Cap;
+use NightWorksIO\MutationGate\Core\Comment\Detail;
+use NightWorksIO\MutationGate\Core\Comment\Lines;
+use NightWorksIO\MutationGate\Core\Comment\Mode;
+use NightWorksIO\MutationGate\Core\Comment\Occasion;
+use NightWorksIO\MutationGate\Core\Comment\Passing;
+use NightWorksIO\MutationGate\Core\Comment\Section;
+use NightWorksIO\MutationGate\Core\Comment\State;
+use NightWorksIO\MutationGate\Core\Comment\Toggle;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
@@ -125,6 +138,9 @@ it('writes every setting of the configuration reference', function (): void {
                 Shards::max(8),
                 Shards::secondsPerLine('', 0.3),
                 Shards::secondsPerLine('src', 1),
+                Shards::savingsWindow('14d'),
+                CostModel::uses('acme', Option::of('rate', 2)),
+                VersionControl::uses('hg', Option::of('branch', 'tip')),
                 Ci::gitlab(),
                 Ci::defaultBranch('trunk'),
                 Pipeline::gitlabTemplate('ci.yml'),
@@ -147,6 +163,21 @@ it('writes every setting of the configuration reference', function (): void {
                 Ignores::within(30),
                 Ignores::allowingNativeMarkers(),
                 Badge::colour('green', 85),
+                Badge::trendKept(200),
+                Digest::tests(3),
+                Comment::sections(Section::Verdict, Section::Survivors, Section::Trees),
+                Comment::open(Section::Verdict, Section::Survivors),
+                Comment::states(State::Verdict),
+                Comment::on(Occasion::PullRequest, Occasion::DefaultBranch),
+                Comment::mode(Mode::New),
+                Comment::passing(Passing::Always),
+                Comment::without(Toggle::Try),
+                Comment::with(Toggle::Reproduce),
+                Comment::without(Toggle::Drafts),
+                Comment::most(Cap::Survivors, 10),
+                Comment::lines(Lines::All),
+                Comment::detail(Detail::Row),
+                Comment::most(Cap::Text, 900),
                 Owner::floor('@acme/payments', 90),
                 Owner::floor('jo@acme.example', 75.5),
                 Owner::neverMentioned(),
@@ -213,7 +244,8 @@ it('writes every setting of the configuration reference', function (): void {
         'reach' => ['everything' => ['config/**'], 'lockPackages' => ['pestphp/*'], 'changedTests' => 'file', 'fixtures' => ['tests/fixtures/*']],
         'holds' => ['hotPath' => 0.5],
         'shards' => ['seconds' => 900, 'max' => 8],
-        'costs' => ['secondsPerLine' => ['' => 0.3, 'src' => 1]],
+        'costs' => ['secondsPerLine' => ['' => 0.3, 'src' => 1], 'savingsWindow' => '14d', 'model' => ['use' => 'acme', 'with' => ['rate' => 2]]],
+        'versionControl' => ['use' => 'hg', 'with' => ['branch' => 'tip']],
         'ci' => [
             'plan' => 'gitlab',
             'defaultBranch' => 'trunk',
@@ -242,7 +274,21 @@ it('writes every setting of the configuration reference', function (): void {
         ],
         'flaky' => ['confirmSurvivors' => false],
         'survivorsFirst' => ['max' => 5],
-        'badge' => ['colors' => ['green' => 85]],
+        'badge' => ['colors' => ['green' => 85], 'trendKept' => 200],
+        'digest' => ['tests' => 3],
+        'comment' => [
+            'sections' => ['verdict', 'survivors', 'trees'],
+            'open' => ['verdict', 'survivors'],
+            'states' => ['verdict'],
+            'on' => ['pull-request', 'default-branch'],
+            'mode' => 'new',
+            'passing' => 'always',
+            'try' => false,
+            'reproduce' => true,
+            'drafts' => false,
+            'survivors' => ['most' => 10, 'lines' => 'all', 'detail' => 'row'],
+            'text' => ['most' => 900],
+        ],
         'owners' => ['floors' => ['@acme/payments' => 90, 'jo@acme.example' => 75.5], 'mention' => 'never'],
         'dashboard' => ['topic' => 'mutation-tested', 'repositories' => ['api', 'web']],
         'pest' => ['patch' => true, 'canary' => 'canary', 'bootTail' => true, 'workerOpcache' => true, 'schemata' => true, 'bootMutants' => true],

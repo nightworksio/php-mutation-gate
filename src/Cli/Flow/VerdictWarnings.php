@@ -20,13 +20,14 @@ use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use function sprintf;
 
 /**
- * What a verdict warns of beside what it fails: the files most of the suite
- * runs through that nothing holds, where the gate suggests changes (ADR-0104),
- * or why the kill matrix holds killers alone; each tree held to no floor outside CI; the runner's own ignore
- * markers the config lets through; why the tests go by their ids; each
- * mutator set a preset turns on that is not installed; the suites whose
- * tests the gate runs none of, as they serve the application from another
- * process; and what the shards warn of.
+ * What a verdict warns of beside what it fails: each tree held to no floor
+ * outside CI, the runner's own ignore markers the config lets through, each
+ * mutator set a preset turns on that is not installed, and what the shards warn
+ * of; and what it notes (ADR-0111): the files most of the suite runs through
+ * that nothing holds, where the gate suggests changes (ADR-0104), or why the
+ * kill matrix holds killers alone; why the tests go by their ids; and the suites
+ * whose tests the gate runs none of, as they serve the application from another
+ * process.
  *
  * @internal
  */
@@ -54,7 +55,7 @@ final readonly class VerdictWarnings
     public function of(Plan $plan, TreeVerdicts $verdicts, Warnings $shards, CoverageMap|CannotJudge $map): Warnings
     {
         $raised = match (true) {
-            $map instanceof CannotJudge => $shards->with(Warning::that(sprintf(self::NO_MATRIX, $map->why()))),
+            $map instanceof CannotJudge => $shards->with(Warning::noting(sprintf(self::NO_MATRIX, $map->why()))),
             $this->settings->effective()->reports()->suggest()->enabled() => $this->hotPathsIn($plan, $map, $shards),
             default => $shards,
         };
@@ -92,10 +93,10 @@ final readonly class VerdictWarnings
         $elsewhere = $this->adapters->suite->elsewhere();
         $warnings = $elsewhere === []
             ? $warnings
-            : $warnings->with(Warning::that(sprintf(self::ELSEWHERE, implode(', ', $elsewhere))));
+            : $warnings->with(Warning::noting(sprintf(self::ELSEWHERE, implode(', ', $elsewhere))));
         $names = $plan->names();
         $warnings = $names instanceof CannotJudge
-            ? $warnings->with(Warning::that(sprintf(self::UNNAMED, $names->why())))
+            ? $warnings->with(Warning::noting(sprintf(self::UNNAMED, $names->why())))
             : $warnings;
 
         foreach ($shards as $warning) {

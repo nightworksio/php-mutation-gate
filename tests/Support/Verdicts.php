@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
+use DateTimeImmutable;
+
 use function explode;
 
 use NightWorksIO\MutationGate\Core\Analysis\Finding;
@@ -214,7 +216,7 @@ final class Verdicts
         $fits = TestId::of('MoneyTest::fits');
         $refuses = TestId::of('MoneyTest::refuses');
         $adds = TestId::of('PriceTest::adds');
-        $coverage = CoverageMap::empty()
+        $coverage = CoverageMap::of()
             ->covered($money, Line::of(7), $fits)
             ->covered($money, Line::of(7), $refuses)
             ->covered($money, Line::of(7), $adds)
@@ -307,10 +309,10 @@ final class Verdicts
         )));
     }
 
-    /** 30 days before the stopped clock the reporters' tests read, 2026-09-30T12:00:00Z. */
-    public static function monthAgo(): Instant
+    /** The moment of the stopped clock the reporters' tests read, 30 days after 2026-08-31T12:00:00Z. */
+    public static function clockNow(): DateTimeImmutable
     {
-        return Moment::at('2026-08-31T12:00:00Z');
+        return new DateTimeImmutable('2026-09-30T12:00:00Z');
     }
 
     /**

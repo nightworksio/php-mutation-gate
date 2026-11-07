@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Delivery\CommentStates;
 use NightWorksIO\MutationGate\Core\Delivery\CommentThread;
+use NightWorksIO\MutationGate\Core\Delivery\CommentWrite;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Member;
@@ -70,7 +71,7 @@ final readonly class MergeRequestThread implements CommentThread
         return new self($api, $project, $projectUrl, $mergeRequest, $pipeline);
     }
 
-    public function written(string $markdown, bool $overPlanned): Written|NotWritten
+    public function written(string $markdown, CommentWrite $write): Written|NotWritten
     {
         $number = $this->mergeRequest;
 
@@ -78,13 +79,23 @@ final readonly class MergeRequestThread implements CommentThread
             return $number;
         }
 
-        $existing = $this->sticky($number);
+        $existing = $this->sticky($number, $write->marker());
 
         return match (true) {
             $existing instanceof CannotJudge => NotWritten::because(sprintf(self::UNWRITTEN, $existing->why())),
-            $overPlanned && ! $this->isPlanned($existing) => NotWritten::because(CommentStates::NOT_PLANNED),
+            $write->isOverPlanned() && ! $this->isPlanned($existing) => NotWritten::because(CommentStates::NOT_PLANNED),
+            $write->isExistingOnly() && ! $this->isThere($number, $existing, $write) => NotWritten::because(
+                CommentStates::NOT_THERE,
+            ),
             default => $this->sent($number, $existing, NoteMarkdown::of($markdown, $this->pipeline)),
         };
+    }
+
+    /** Whether the gate has noted on the merge request before: this note, or, where each run writes its own, any. */
+    private function isThere(PullRequestNumber $number, Node|NotGiven $existing, CommentWrite $write): bool
+    {
+        return $existing instanceof Node
+            || ($write->marker() !== Markdown::MARKER && $this->sticky($number, Markdown::MARKER) instanceof Node);
     }
 
     /** This body, posted as a new note, or put in place of the sticky one where there is one. */
@@ -112,18 +123,20 @@ final readonly class MergeRequestThread implements CommentThread
     }
 
     /**
-     * The sticky note the token's own user, as `/user` names it, wrote on the merge request; none where there is
-     * none; or why the user or the notes cannot be read.
+     * The note holding this marker the token's own user, as `/user` names it, wrote on the merge request; none where
+     * there is none; or why the user or the notes cannot be read.
      */
-    private function sticky(PullRequestNumber $number): Node|NotGiven|CannotJudge
+    private function sticky(PullRequestNumber $number, string $marker): Node|NotGiven|CannotJudge
     {
         $user = $this->api->json($this->api->get('/user'));
 
-        return $user instanceof CannotJudge ? $user : $this->stickyBy(Lenient::text($user->field('username')), $number);
+        return $user instanceof CannotJudge
+            ? $user
+            : $this->stickyBy(Lenient::text($user->field('username')), $number, $marker);
     }
 
-    /** The sticky note this author wrote, read page by page, oldest first, and up to the most pages read. */
-    private function stickyBy(string $author, PullRequestNumber $number): Node|NotGiven|CannotJudge
+    /** The note holding this marker this author wrote, read page by page, oldest first, up to the most pages read. */
+    private function stickyBy(string $author, PullRequestNumber $number, string $marker): Node|NotGiven|CannotJudge
     {
         $notes = $this->notes($number);
         $found = NotGiven::value();
@@ -132,7 +145,7 @@ final readonly class MergeRequestThread implements CommentThread
         for ($page = 1; $found instanceof NotGiven && $full && $page <= self::PAGES; ++$page) {
             $read = $this->api->json($this->api->get(sprintf(self::PAGES_OF_NOTES, $notes, self::PAGE, $page)));
             $items = $read instanceof Node ? Lenient::items($read) : [];
-            $found = $read instanceof CannotJudge ? $read : $this->among($items, $author);
+            $found = $read instanceof CannotJudge ? $read : $this->among($items, $author, $marker);
             $full = count($items) === self::PAGE;
         }
 
@@ -144,10 +157,10 @@ final readonly class MergeRequestThread implements CommentThread
      *
      * @param list<Node> $notes
      */
-    private function among(array $notes, string $author): Node|NotGiven
+    private function among(array $notes, string $author, string $marker): Node|NotGiven
     {
         foreach ($notes as $note) {
-            if ($this->isSticky($note, $author)) {
+            if ($this->isSticky($note, $author, $marker)) {
                 return $note;
             }
         }
@@ -161,11 +174,11 @@ final readonly class MergeRequestThread implements CommentThread
         return $note instanceof Node && PlannedMarkdown::isPlanned(Lenient::text($note->field('body')));
     }
 
-    /** Whether a note is the sticky one this author wrote: no system note, and holding the marker. */
-    private function isSticky(Node $note, string $author): bool
+    /** Whether a note is one this author wrote holding this marker: no system note. */
+    private function isSticky(Node $note, string $author, string $marker): bool
     {
         return ! Lenient::boolean($note->field('system'), otherwise: false)
             && Lenient::text($note->field('author')->field('username')) === $author
-            && str_contains(Lenient::text($note->field('body')), Markdown::MARKER);
+            && str_contains(Lenient::text($note->field('body')), $marker);
     }
 }

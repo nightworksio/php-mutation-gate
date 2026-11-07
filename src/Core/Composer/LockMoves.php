@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Composer;
 
 use function array_diff_assoc;
+use function array_key_exists;
 use function array_keys;
 use function in_array;
 use function ksort;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 
@@ -38,8 +40,11 @@ final readonly class LockMoves
 
     private const string UNREADABLE = 'A composer.lock, at the base or now, is not a lock Composer writes.';
 
+    /** What a lock says of a package that changes what every test may load, not only what the package holds. */
+    private const array WIDE = ['type', GateEntry::EXTRA];
+
     /** @param list<string> $packages */
-    private function __construct(private array $packages, private bool $beyond)
+    private function __construct(private array $packages, private bool $beyond, private bool $wide)
     {
     }
 
@@ -56,7 +61,7 @@ final readonly class LockMoves
         $moved = array_keys(array_diff_assoc($then, $after) + array_diff_assoc($after, $then));
         sort($moved, SORT_STRING);
 
-        return new self($moved, $thenRest !== $afterRest);
+        return new self($moved, $thenRest !== $afterRest, self::isWideMove($moved, $then, $after));
     }
 
     /** @return list<string> each package whose pin moved, by name, in byte order */
@@ -69,6 +74,55 @@ final readonly class LockMoves
     public function beyondPackages(): bool
     {
         return $this->beyond;
+    }
+
+    /**
+     * Whether a package was added or removed, or moved its `autoload.files`, its `extra` or its `type`, which reach
+     * every test whatever each loaded (ADR-0115).
+     */
+    public function isWide(): bool
+    {
+        return $this->wide;
+    }
+
+    /**
+     * @param list<string>          $moved
+     * @param array<string, string> $then
+     * @param array<string, string> $after
+     *
+     * @throws NotInShape
+     */
+    private static function isWideMove(array $moved, array $then, array $after): bool
+    {
+        foreach ($moved as $name) {
+            $was = array_key_exists($name, $then) ? self::shapeOf($then[$name]) : null;
+            $is = array_key_exists($name, $after) ? self::shapeOf($after[$name]) : null;
+
+            if ($was === null || $was !== $is) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * What of an entry reaches every test, as JSON, by the key.
+     *
+     * @return array<string, string>
+     *
+     * @throws NotInShape
+     */
+    private static function shapeOf(string $entry): array
+    {
+        $read = Node::decode($entry);
+        $shape = ['files' => Lenient::json($read->field('autoload')->field('files'))];
+
+        foreach (self::WIDE as $key) {
+            $shape[$key] = Lenient::json($read->field($key));
+        }
+
+        return $shape;
     }
 
     /**

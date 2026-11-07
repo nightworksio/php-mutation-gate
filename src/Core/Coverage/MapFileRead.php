@@ -13,6 +13,7 @@ use function count;
 use function intval;
 
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -49,7 +50,40 @@ final readonly class MapFileRead
             $map = $map->executing(Path::of(strval($path)), ...$listed);
         }
 
-        return $map;
+        return $map->loading(self::loadedIn($file->field(CoverageMapFile::LOADS), $tests));
+    }
+
+    /**
+     * What each process's tests loaded, each test read by its place in the map's tests; nothing of an entry past them.
+     *
+     * @param list<TestId> $tests
+     */
+    private static function loadedIn(Node $loads, array $tests): LoadedPackages
+    {
+        $processes = [];
+
+        foreach (self::itemsOf($loads) as $process) {
+            $read = [];
+
+            foreach (self::itemsOf($process) as $test) {
+                $place = Lenient::integer($test->field('0'));
+
+                if (array_key_exists($place, $tests)) {
+                    $read[] = self::loadIn($test, $tests[$place]);
+                }
+            }
+
+            $processes[] = ProcessLoads::of(...$read);
+        }
+
+        return $processes === [] ? LoadedPackages::unrecorded() : LoadedPackages::of(...$processes);
+    }
+
+    private static function loadIn(Node $test, TestId $id): TestLoad
+    {
+        $load = TestLoad::of($id->value(), ...array_map(Lenient::text(...), self::itemsOf($test->field('1'))));
+
+        return Lenient::boolean($test->field('2'), otherwise: true) ? $load->startingProcesses() : $load;
     }
 
     /**

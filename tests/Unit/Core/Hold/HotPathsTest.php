@@ -21,7 +21,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Warnings;
  */
 function suiteRunning(int $tests, array $runs): CoverageMap
 {
-    $map = CoverageMap::empty();
+    $map = CoverageMap::of();
 
     for ($test = 1; $test <= $tests; ++$test) {
         $map = $map->timed(TestId::of(sprintf('Test%d', $test)), Seconds::of(0.1));
@@ -39,7 +39,7 @@ function suiteRunning(int $tests, array $runs): CoverageMap
 it('names a file the given share of a suite of twenty tests runs, and no file fewer run', function (): void {
     $map = suiteRunning(20, ['src/Kernel.php' => 16, 'src/Money.php' => 15]);
 
-    expect(HotPaths::standard()->in($map, Units::none()))->toEqual(Warnings::of(Warning::that(
+    expect(HotPaths::standard()->in($map, Units::none()))->toEqual(Warnings::of(Warning::noting(
         '`src/Kernel.php` is run by 16 of 20 tests and nothing holds it; each of its mutants runs most of the suite.',
     )));
 });
@@ -56,7 +56,7 @@ it('names no file a held unit holds, whether it is the unit or inside it', funct
         Unit::file(Path::of('src/Money.php')),
     );
 
-    expect(HotPaths::standard()->in($map, $units))->toEqual(Warnings::of(Warning::that(
+    expect(HotPaths::standard()->in($map, $units))->toEqual(Warnings::of(Warning::noting(
         '`src/Money.php` is run by 20 of 20 tests and nothing holds it; each of its mutants runs most of the suite.',
     )));
 });
@@ -64,7 +64,7 @@ it('names no file a held unit holds, whether it is the unit or inside it', funct
 it('takes the share of the suite that makes a file hot', function (): void {
     $map = suiteRunning(40, ['src/Kernel.php' => 20, 'src/Money.php' => 19]);
 
-    expect(HotPaths::atShare(0.5)->in($map, Units::none()))->toEqual(Warnings::of(Warning::that(
+    expect(HotPaths::atShare(0.5)->in($map, Units::none()))->toEqual(Warnings::of(Warning::noting(
         '`src/Kernel.php` is run by 20 of 40 tests and nothing holds it; each of its mutants runs most of the suite.',
     )));
 });
@@ -72,4 +72,17 @@ it('takes the share of the suite that makes a file hot', function (): void {
 it('writes its share as holds.hotPath does', function (): void {
     expect(HotPaths::standard()->share())->toBe(0.8)
         ->and(HotPaths::atShare(0.5)->share())->toBe(0.5);
+});
+
+it('names a file hot only in a suite of at least the tests holds.fewestTests says', function (): void {
+    $map = CoverageMap::of()
+        ->covered(Path::of('src/Hot.php'), Line::of(1), TestId::of('A::a'))
+        ->covered(Path::of('src/Hot.php'), Line::of(1), TestId::of('A::b'));
+    $hot = static fn(int $fewest): array => array_map(
+        static fn(Path $file): string => $file->value(),
+        [...HotPaths::atShareOfAtLeast(0.5, $fewest)->hot($map, Units::of())],
+    );
+
+    expect($hot(2))->toBe(['src/Hot.php'])
+        ->and($hot(3))->toBe([]);
 });

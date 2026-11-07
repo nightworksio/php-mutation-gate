@@ -66,6 +66,20 @@ final readonly class Suggest
         );
     }
 
+    /** Every key at the value it takes where every layer leaves it out. */
+    public static function standard(): self
+    {
+        return self::of(
+            self::IDLE_JUDGED,
+            self::IDLE_SURVIVORS,
+            self::IDLE_SHARE,
+            self::IGNORED_SHARE,
+            self::IGNORED_MUTANTS,
+            self::TIMEOUT_CLUSTER,
+            enabled: true,
+        );
+    }
+
     /** This, with what a later layer sets laid over it, key by key. */
     public function over(self $later): self
     {

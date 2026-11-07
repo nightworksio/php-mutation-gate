@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\EncodesLedgers;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
+use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Written;
@@ -48,6 +49,13 @@ final readonly class DeliveredLedger implements EncodesLedgers, ProofStore
     public function encoding(LedgerCodec $codec): static
     {
         $read = $this->read instanceof EncodesLedgers ? $this->read->encoding($codec) : $this->read;
+
+        return new self($read, $this->delivery);
+    }
+
+    public function limitedTo(LedgerLimits $limits): static
+    {
+        $read = $this->read instanceof EncodesLedgers ? $this->read->limitedTo($limits) : $this->read;
 
         return new self($read, $this->delivery);
     }

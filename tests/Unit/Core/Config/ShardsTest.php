@@ -43,7 +43,7 @@ describe('Shards', function (): void {
     ]);
 
     it('costs a line what the gate assumes before anything is measured, where no layer sets a cost', function (): void {
-        expect(iterator_to_array(Shards::none()->secondsPerLine(), preserve_keys: true))->toBe(['' => 0.2]);
+        expect(iterator_to_array(Shards::none()->costs()->secondsPerLine(), preserve_keys: true))->toBe(['' => 0.2]);
     });
 
     it('lets a later target replace the seconds a shard is cut to, a later seconds replace the target, and keeps both a part sets', function (Shards $earlier, Shards $later, Shards $laid): void {
@@ -67,6 +67,7 @@ describe('Shards', function (): void {
             setup: Seconds::of(180),
             secondsPerLine: Table::row('', 0.25)->merged(Table::row('src/Legacy', 2)),
             perRunnerMinute: Price::of(0.008, 'USD'),
+            savingsWindow: Seconds::days(7),
         );
 
         expect($shards->php(ProjectRoot::origin()))->toEqual(PhpCalls::inWith(
@@ -77,6 +78,7 @@ describe('Shards', function (): void {
             "Shards::secondsPerLine('', 0.25)",
             "Shards::secondsPerLine('src/Legacy', 2)",
             "Shards::perRunnerMinute(0.008, 'USD')",
+            "Shards::savingsWindow('7d')",
         ));
     });
 

@@ -6,12 +6,15 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Flow\Adapters;
 use NightWorksIO\MutationGate\Cli\Flow\Wiring;
 use NightWorksIO\MutationGate\Config\Mutators;
+use NightWorksIO\MutationGate\Config\Pace;
 use NightWorksIO\MutationGate\Config\Proofs;
+use NightWorksIO\MutationGate\Config\Retention;
 use NightWorksIO\MutationGate\Config\Runner;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
@@ -40,6 +43,25 @@ it('cannot wire a proof store nobody registered, whatever its copies say', funct
 
     expect($adapters)->toBeInstanceOf(CannotJudge::class)
         ->and($adapters instanceof CannotJudge ? $adapters->why() : '')->toStartWith('No proof store is registered as "acme-store".');
+});
+
+it('tells the processes it starts runner.poll and proofs.limits.handoff, and nothing where the config sets neither', function (): void {
+    $wiring = new Wiring(Wirings::registry(), Variables::of([]), Wirings::detected());
+    $wiring->adapters(
+        Flows::settings(Runner::pest()->paced(Pace::of(poll: 0.25)), Retention::handoffPacked(10), Retention::handoffUnpacked(20)),
+        Directory::at(Flows::project()),
+    );
+    $told = [
+        getenv(ChildVariable::Poll->value),
+        getenv(ChildVariable::HandoffPacked->value),
+        getenv(ChildVariable::HandoffUnpacked->value),
+    ];
+    $wiring->adapters(Flows::settings(), Directory::at(Flows::project()));
+
+    expect($told)->toBe(['0.250000', '10', '20'])
+        ->and(getenv(ChildVariable::Poll->value))->toBeFalse()
+        ->and(getenv(ChildVariable::HandoffPacked->value))->toBeFalse()
+        ->and(getenv(ChildVariable::HandoffUnpacked->value))->toBeFalse();
 });
 
 it('counts a plan\'s mutants with an engine of even one mutator, and with none of no mutator', function (bool $acme): void {

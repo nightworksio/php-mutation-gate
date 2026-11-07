@@ -42,7 +42,7 @@ $judged = static function (MutantStatus $status, TestIds $killers, int $end = 7)
     return JudgedMutant::of($mutant, MutantJudgement::reported($status));
 };
 
-$coverage = static fn(): CoverageMap => CoverageMap::empty()
+$coverage = static fn(): CoverageMap => CoverageMap::of()
     ->covered(Path::of('src/Money.php'), Line::of(7), $makeFirst())
     ->covered(Path::of('src/Money.php'), Line::of(7), $makeSecond())
     ->covered(Path::of('src/Money.php'), Line::of(8), $makeThird())

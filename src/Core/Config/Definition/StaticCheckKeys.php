@@ -15,8 +15,9 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
  * How the keys a config writes are read into its `StaticCheck` part
- * (ADR-0002). All three affect results: a mutant the analyser rejects is
- * killed, and a check stopped at its deadline rejects none.
+ * (ADR-0002). The tool, its config and its seconds affect results: a mutant
+ * the analyser rejects is killed, and a check stopped at its deadline rejects
+ * none.
  *
  * @internal
  */
@@ -30,15 +31,30 @@ final readonly class StaticCheckKeys
         $config = Field::optional('config', Location::path($origin), $results);
         $seconds = Field::optional('seconds', Integer::atLeast(1), $results);
         $before = Field::optional('before', Flag::boolean(), Effect::JudgesOrReportsOnly);
+        $opcache = Field::section('opcache', self::opcache());
+        $judges = Effect::JudgesOrReportsOnly;
+        $dependents = Field::optional('dependents', Integer::atLeast(0), $judges);
+        $preCheckAfter = Field::optional('preCheckAfter', Integer::atLeast(0), $judges);
 
         return [Field::section(
             'staticCheck',
             Section::of(
-                static function (Node $staticCheck) use ($tool, $config, $seconds, $before): Layer|Invalid {
+                static function (Node $staticCheck) use (
+                    $tool,
+                    $config,
+                    $seconds,
+                    $before,
+                    $opcache,
+                    $dependents,
+                    $preCheckAfter,
+                ): Layer|Invalid {
                     $chosen = $tool->read($staticCheck);
                     $read = $config->read($staticCheck);
                     $limit = $seconds->read($staticCheck);
                     $placed = $before->read($staticCheck);
+                    $compiled = $opcache->read($staticCheck);
+                    $following = $dependents->read($staticCheck);
+                    $learning = $preCheckAfter->read($staticCheck);
                     $cap = $limit->value();
 
                     return Reading::built(
@@ -47,18 +63,52 @@ final readonly class StaticCheckKeys
                             $read->value(),
                             $cap instanceof Absent ? $cap : Seconds::of($cap),
                             $placed->value(),
-                        )),
+                            dependents: $following->value(),
+                            preCheckAfter: $learning->value(),
+                        )->over($compiled->must())),
                         $chosen,
                         $read,
                         $limit,
                         $placed,
+                        $compiled,
+                        $following,
+                        $learning,
                     );
                 },
                 $tool,
                 $config,
                 $seconds,
                 $before,
+                $opcache,
+                $dependents,
+                $preCheckAfter,
             ),
         )];
+    }
+
+    /** @return Section<StaticCheck> */
+    private static function opcache(): Section
+    {
+        $judges = Effect::JudgesOrReportsOnly;
+        $batch = Field::optional('batch', Integer::atLeast(1), $judges);
+        $limit = Field::optional('limit', Duration::written(), $judges);
+
+        return Section::of(
+            static function (Node $at) use ($batch, $limit): StaticCheck|Invalid {
+                $programs = $batch->read($at);
+                $seconds = $limit->read($at);
+
+                return Reading::built(
+                    static fn(): StaticCheck => StaticCheck::of(
+                        opcacheBatch: $programs->value(),
+                        opcacheLimit: $seconds->value(),
+                    ),
+                    $programs,
+                    $seconds,
+                );
+            },
+            $batch,
+            $limit,
+        );
     }
 }

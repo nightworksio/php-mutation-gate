@@ -102,7 +102,7 @@ it('selects its tests as its mutant\'s run did: by a filter, by test files, by e
 });
 
 it('gives the run that judges a mutant the test files its run loaded with no filter', function (): void {
-    $map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(1), TestId::of('MoneyTest::a'));
+    $map = CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(1), TestId::of('MoneyTest::a'));
     $mutant = Verdicts::mutant('src/Money.php:1', 'Plus', MutatorFamily::Arithmetic, '-');
     $files = Paths::of(Path::of('tests/MoneyTest.php'));
     $echo = new LoadingUnfiltered();

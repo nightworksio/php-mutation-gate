@@ -136,7 +136,7 @@ it('registers the directory and the bucket proof stores, the bucket read-only in
 });
 
 it('registers the cost model that learns from every shard', function () use ($registry): void {
-    expect(Lookup::in($registry())->costModel(Name::of('learned'), Shards::none()->costOptions()))
+    expect(Lookup::in($registry())->costModel(Name::of('learned'), Shards::none()->costs()->model()->options()))
         ->toBeInstanceOf(MeasuredCosts::class);
 });
 

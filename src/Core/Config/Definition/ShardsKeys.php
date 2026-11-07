@@ -10,8 +10,10 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\LearnedStatistic;
 use NightWorksIO\MutationGate\Core\Config\PathOrigin;
+use NightWorksIO\MutationGate\Core\Config\Planning;
 use NightWorksIO\MutationGate\Core\Config\Price;
 use NightWorksIO\MutationGate\Core\Config\Shards;
+use NightWorksIO\MutationGate\Core\Cost\SavingsWindow;
 use NightWorksIO\MutationGate\Core\Cost\SecondsPerLine;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -32,19 +34,30 @@ final readonly class ShardsKeys
         $learnedFrom = Field::optional('learnedFrom', Enumerated::of(LearnedStatistic::cases()), $judges);
         $target = Field::optional('target', Duration::written(), $judges);
         $setup = Field::optional('setup', Duration::written(), $judges);
+        $cutAt = Field::optional('cutAt', Number::atLeast(0), $judges);
         $perLine = Field::optional(SecondsPerLine::KEY, NumberMap::byPrefix(Number::atLeast(0), $origin), $judges);
         $perMinute = Field::optional('perRunnerMinute', self::price(), $judges);
+        $window = Field::optional(SavingsWindow::KEY, Duration::written(), $judges);
+        $model = Field::optional('model', Adapter::choosing(Builtins::costModels($origin)), $judges);
 
         return [
             Field::section(
                 'shards',
                 Section::of(
-                    static function (Node $shards) use ($seconds, $max, $learnedFrom, $target, $setup): Layer|Invalid {
+                    static function (Node $shards) use (
+                        $seconds,
+                        $max,
+                        $learnedFrom,
+                        $target,
+                        $setup,
+                        $cutAt,
+                    ): Layer|Invalid {
                         $cut = $seconds->read($shards);
                         $most = $max->read($shards);
                         $statistic = $learnedFrom->read($shards);
                         $fit = $target->read($shards);
                         $before = $setup->read($shards);
+                        $cuts = $cutAt->read($shards);
 
                         return Reading::built(
                             static fn(): Layer => Layer::of(Shards::of(
@@ -53,12 +66,14 @@ final readonly class ShardsKeys
                                 target: $fit->value(),
                                 setup: $before->value(),
                                 learnedFrom: $statistic->value(),
+                                planning: Planning::of(cutAt: $cuts->value()),
                             )),
                             $cut,
                             $most,
                             $statistic,
                             $fit,
                             $before,
+                            $cuts,
                         );
                     },
                     $seconds,
@@ -66,29 +81,89 @@ final readonly class ShardsKeys
                     $learnedFrom,
                     $target,
                     $setup,
+                    $cutAt,
                 )->atMostOne(['seconds', 'target']),
             ),
+            Field::section('plan', self::plan()),
+            Field::section('timing', self::timing()),
             Field::section(
                 'costs',
                 Section::of(
-                    static function (Node $costs) use ($perLine, $perMinute): Layer|Invalid {
+                    static function (Node $costs) use ($perLine, $perMinute, $window, $model): Layer|Invalid {
                         $lines = $perLine->read($costs);
                         $minutes = $perMinute->read($costs);
+                        $back = $window->read($costs);
+                        $chosen = $model->read($costs);
 
                         return Reading::built(
                             static fn(): Layer => Layer::of(Shards::of(
                                 secondsPerLine: $lines->value(),
                                 perRunnerMinute: $minutes->value(),
+                                savingsWindow: $back->value(),
+                                costModel: $chosen->value(),
                             )),
                             $lines,
                             $minutes,
+                            $back,
+                            $chosen,
                         );
                     },
                     $perLine,
                     $perMinute,
+                    $window,
+                    $model,
                 ),
             ),
         ];
+    }
+
+    /** @return Section<Layer> */
+    private static function plan(): Section
+    {
+        $chunk = Field::optional('chunkMinutes', Integer::atLeast(1), Effect::JudgesOrReportsOnly);
+        $range = Field::optional('provingRange', Integer::atLeast(0), Effect::DecidesHowTheGateRuns);
+
+        return Section::of(
+            static function (Node $plan) use ($chunk, $range): Layer|Invalid {
+                $minutes = $chunk->read($plan);
+                $commits = $range->read($plan);
+
+                return Reading::built(
+                    static fn(): Layer => Layer::of(Shards::of(
+                        planning: Planning::of($minutes->value(), $commits->value()),
+                    )),
+                    $minutes,
+                    $commits,
+                );
+            },
+            $chunk,
+            $range,
+        );
+    }
+
+    /** @return Section<Layer> */
+    private static function timing(): Section
+    {
+        $judges = Effect::JudgesOrReportsOnly;
+        $newest = Field::optional('newest', Number::aboveAndAtMost(0, 1), $judges);
+        $samples = Field::optional('startUpSamples', Integer::atLeast(1), $judges);
+
+        return Section::of(
+            static function (Node $timing) use ($newest, $samples): Layer|Invalid {
+                $weight = $newest->read($timing);
+                $runs = $samples->read($timing);
+
+                return Reading::built(
+                    static fn(): Layer => Layer::of(Shards::of(
+                        planning: Planning::of(newest: $weight->value(), startUpSamples: $runs->value()),
+                    )),
+                    $weight,
+                    $runs,
+                );
+            },
+            $newest,
+            $samples,
+        );
     }
 
     private static function secondsOf(int|Absent $seconds): Seconds|Absent

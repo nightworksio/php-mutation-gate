@@ -10,7 +10,6 @@ use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Cost\FirstRun;
-use NightWorksIO\MutationGate\Core\Cost\StartUpSamples;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\EntryKeys;
 use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
@@ -228,7 +227,7 @@ final readonly class Planning
         $pruned = new PrunedUnits($this->adapters, $this->settings, $this->setup)
             ->of($base, $ledgers, $ledgers->newest($kind), $toRun, $keying);
         $opening = $map->suiteDuration();
-        $firstRun = new FirstRuns($this->adapters, StartUpSamples::standard())
+        $firstRun = new FirstRuns($this->adapters, $this->settings->shards()->planning()->startUpSamples())
             ->measured($map, $ledgers->untimed($toRun, $this->setup->gate));
         $shards = $this->shardsOf(
             $toRun,

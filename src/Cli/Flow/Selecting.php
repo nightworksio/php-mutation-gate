@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\KeptMap;
+use NightWorksIO\MutationGate\Core\Coverage\MapLimits;
 use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -82,7 +83,7 @@ final readonly class Selecting
         }
 
         $read = $this->mapIn($coverage, $inventory);
-        $map = $read instanceof Read ? $read->map : CoverageMap::empty();
+        $map = $read instanceof Read ? $read->map : CoverageMap::of();
         $places = TestsOfTheSuite::placed($this->adapters, $inventory->suite, $map);
         $measured = $read instanceof Read ? $read->at : NotGiven::value();
 
@@ -140,7 +141,8 @@ final readonly class Selecting
     {
         $standing = $inventory->standing;
         $access = Access::of($standing->runOn()->scope(), $standing->defaultBranch(), Writing::Never);
-        $kept = StoredCoverage::in($this->adapters->proofs, $access)->map();
+        $mapLimits = MapLimits::kept($this->settings->proofs()->retained());
+        $kept = StoredCoverage::in($this->adapters->proofs, $access, $mapLimits)->map();
 
         return match (true) {
             $kept instanceof KeptMap => Read::of($kept->map(), $kept->measuredAt()),

@@ -79,6 +79,9 @@ final readonly class Limits
 
         return $this->state === PatchState::Applied
             ? MutantLimit::standard()->of(Seconds::of($time), $this->bounds)
-            : MutantLimit::infections()->of(Seconds::of($time), LimitBounds::upTo($this->bounds->most()));
+            : MutantLimit::infections()->of(
+                Seconds::of($time),
+                LimitBounds::between(Seconds::of(0.0), $this->bounds->most()),
+            );
     }
 }

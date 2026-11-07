@@ -29,7 +29,7 @@ use NightWorksIO\MutationGate\Tests\Support\Configs;
  * src/Kernel.php and src/Boot.php, and one runs src/Money.php.
  */
 $suite = static function (): CoverageMap {
-    $map = CoverageMap::empty();
+    $map = CoverageMap::of();
 
     foreach (range(1, 20) as $number) {
         $test = TestId::of(sprintf('Tests\\KernelTest::test%d', $number));

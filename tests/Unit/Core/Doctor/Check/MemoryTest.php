@@ -29,7 +29,7 @@ $lifting = static fn(Observations $observed, MemoryCap $limit): Observations => 
     ->withFiles(ProjectFiles::none()->withRunnerConfig(RunnerConfig::none()->withPhpUnitMemory(PhpUnitMemory::of(Path::of('phpunit.xml.dist'), $limit))));
 
 $peaking = static fn(Observations $observed, MemoryCap $peak): Observations => $observed->withAsked(
-    Asked::nothing()->withMeasurement(Measurement::of(CoverageMap::empty(), Units::none(), Timings::none())->peakingAt($peak)),
+    Asked::nothing()->withMeasurement(Measurement::of(CoverageMap::of(), Units::none(), Timings::none())->peakingAt($peak)),
 );
 
 it('advises a cap where runner.memory sets none', function () use ($capped): void {

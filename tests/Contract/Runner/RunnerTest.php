@@ -319,7 +319,7 @@ it('reads back the gate\'s own map of what it ran, and cannot judge a map that i
     Library $library,
 ): void {
     $ran = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage')));
-    $written = CoverageMapFile::encode($ran instanceof CoverageMap ? $ran : CoverageMap::empty(), Unplaced::map());
+    $written = CoverageMapFile::encode($ran instanceof CoverageMap ? $ran : CoverageMap::of(), Unplaced::map());
     $handed = Path::of('.mutation-gate/handed');
     $file = sprintf('%s/%s', $library->root(), CoverageMapFile::in($handed)->value());
     if (!is_dir(dirname($file))) {
@@ -357,12 +357,12 @@ it('names a test file in a testsuite directory the config gives as a glob as one
 
 it('keeps its map beside a pull request\'s ledger, and reads it back first, from that scope, as a full run\'s', function (Library $library): void {
     $map = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage')));
-    $full = $map instanceof CoverageMap ? $map : CoverageMap::empty();
+    $full = $map instanceof CoverageMap ? $map : CoverageMap::of();
     $bytes = CoverageMapFile::keeping(KeptMap::of($full, MeasuredAt::of(Revision::ref('HEAD'), dirty: false), EntryKeys::none()), MapLimits::standard());
     $store = new ProofStoreFake();
-    $store->keep(Scope::branch('main'), Companion::Coverage, Contents::of(CoverageMapFile::encode(CoverageMap::empty(), Unplaced::map())));
+    $store->keep(Scope::branch('main'), Companion::Coverage, Contents::of(CoverageMapFile::encode(CoverageMap::of(), Unplaced::map())));
     $store->keep(Scope::pullRequest(7), Companion::Coverage, Contents::of(is_string($bytes) ? $bytes : ''));
-    $read = StoredCoverage::in($store, Access::of(Scope::pullRequest(7), Scope::branch('main'), Writing::Auto));
+    $read = StoredCoverage::in($store, Access::of(Scope::pullRequest(7), Scope::branch('main'), Writing::Auto), MapLimits::standard());
     $kept = $read->map();
 
     expect($map)->toBeInstanceOf(CoverageMap::class)

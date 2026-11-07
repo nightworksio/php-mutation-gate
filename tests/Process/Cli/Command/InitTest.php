@@ -285,7 +285,7 @@ it('reads the config it wrote at --config back into the preset and runner, the t
 
     $effective = json_decode($shown->output, associative: true);
 
-    expect($effective)->toMatchArray(['preset' => 'laravel', 'runner' => ['use' => 'pest', 'memory' => '1G']])
+    expect($effective)->toMatchArray(['preset' => 'laravel', 'runner' => ['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01]])
         ->and(is_array($effective) && array_key_exists('trees', $effective))->toBeFalse();
 })->group(...$holds);
 
@@ -329,6 +329,20 @@ it('starts the config from an Infection config with --from, and says what became
             'runner' => 'infection',
             'trees' => [['path' => 'src', 'floor' => 80]],
         ]);
+})->group(...$holds);
+
+it('ends each ignore it imports as many days on as --ignores-for says, and refuses what is no number of days', function () use ($init, $file): void {
+    $project = Scratch::copy('tests/Fixtures/Projects/TwoRunners');
+    Scratch::write($project, '.gitignore', ".mutation-gate/\n");
+    Scratch::write($project, 'composer.json', '{"autoload": {"psr-4": {"Acme\\\\": "src/"}}}');
+    Scratch::write($project, 'src/Money.php', '<?php');
+    Scratch::write($project, 'infection.json5', '{mutators: {Plus: {ignore: ["Acme\\\\Money"]}}}');
+    $refused = $init($project, ['--from' => null, '--format' => 'json', '--ignores-for' => 'soon']);
+    $ran = $init($project, ['--from' => null, '--format' => 'json', '--ignores-for' => '10']);
+
+    expect([$refused->code, $refused->errors])->toBe([2, "--ignores-for takes a whole number of days, not \"soon\".\n"])
+        ->and([$ran->code, $ran->errors])->toBe([0, ''])
+        ->and($file($project, 'mutation-gate.json'))->toContain('"expires": "2026-10-10"');
 })->group(...$holds);
 
 it('gives the trees zero-config found the floor an Infection config imports, and writes them, listing none', function () use ($init, $file): void {

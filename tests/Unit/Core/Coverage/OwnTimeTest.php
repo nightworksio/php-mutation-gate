@@ -10,7 +10,7 @@ use NightWorksIO\MutationGate\Core\Test\TestTime;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
-$makeMap = static fn(): CoverageMap => CoverageMap::empty()
+$makeMap = static fn(): CoverageMap => CoverageMap::of()
     ->timed(TestId::of('T::adds'), Seconds::of(0.25))
     ->timed(TestId::of('T::subtracts'), Seconds::of(0.5));
 

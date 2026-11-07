@@ -9,6 +9,7 @@ use function array_map;
 use function hash;
 use function in_array;
 
+use NightWorksIO\MutationGate\Core\Config\StaticCheck;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -33,9 +34,6 @@ final readonly class Prover
 
     private const string MUTANT = 'mutant:%s';
 
-    /** How long one child may take to compile its programs, in seconds; one that takes longer proves none. */
-    private const float CHILD_LIMIT = 60.0;
-
     /** The setting that disables in a child what the tests' PHP disables. */
     private const string DISABLED = 'disable_functions=%s';
 
@@ -45,13 +43,27 @@ final readonly class Prover
 
     /**
      * The prover that compiles with this PHP, in this directory, which the gate owns, this many children at once,
-     * with the functions the PHP the tests ran on disables, as its `disable_functions` says them, disabled too.
+     * with the functions the PHP the tests ran on disables, as its `disable_functions` says them, disabled too;
+     * each child compiling this many programs at most, within this many seconds, as it proves none past them.
      */
-    public static function of(string $binary, DiskPath $directory, ProcessCount $parallel, string|false $disabled): self
-    {
+    public static function of(
+        string $binary,
+        DiskPath $directory,
+        ProcessCount $parallel,
+        string|false $disabled,
+        int $batch = StaticCheck::OPCACHE_BATCH,
+        float $limit = StaticCheck::OPCACHE_LIMIT,
+    ): self {
         $besides = [sprintf(self::DISABLED, $disabled)];
 
-        return new self(new Compiler($binary, $directory->value(), self::CHILD_LIMIT, $parallel->count(), $besides));
+        return new self(new Compiler(
+            $binary,
+            $directory->value(),
+            $limit,
+            $parallel->count(),
+            $besides,
+            perChild: $batch,
+        ));
     }
 
     /**

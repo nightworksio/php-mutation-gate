@@ -282,6 +282,17 @@ class PestPatch(unittest.TestCase):
 
 
 class InfectionPatch(unittest.TestCase):
+    def test_writes_the_reports_the_config_asks_of_the_verdict_step_and_none_of_a_verdict_alone(self):
+        every = [
+            "--report=json:.mutation-gate/action/report.json",
+            "--report=html:.mutation-gate/action/html",
+            "--report=digest:.mutation-gate/action/mutation-gate-digest.txt",
+        ]
+        self.assertEqual(action.action_reports({}), every)
+        self.assertEqual(action.action_reports({"outputs": {"actionReports": ["json"]}}), every[:1])
+        self.assertEqual(action.action_reports({"outputs": {"actionReports": []}}), [])
+        self.assertEqual(action.action_reports({"outputs": {"verdictOnly": True}}), [])
+
     def test_reads_what_a_doomed_shard_does_and_marks_where_the_config_names_nothing(self):
         self.assertEqual(action.fail_fast({"run": {"failFast": "cancel"}}), "cancel")
         self.assertEqual(action.fail_fast({"run": {"full": True}}), "mark")
@@ -311,29 +322,6 @@ class InfectionPatch(unittest.TestCase):
             action.infection_patched(2, "infection:patch patched nothing: the lines it rewrites have moved in x.")
         with self.assertRaisesRegex(action.Refused, "exited 127"):
             action.infection_patched(127, "")
-
-
-class Doomed(unittest.TestCase):
-    def test_names_the_survivor_a_doomed_shard_stopped_on(self):
-        result = {"doomed": {"unit": "src/Money.php", "mutant": "a1b2c3d4e5f6", "tree": "src", "floor": "100%", "why": "tree", "stopped": True}}
-
-        why = action.doomed(result)
-
-        self.assertIsNotNone(why)
-        self.assertTrue(why.startswith("Shard stopped: survivor a1b2c3d4e5f6 in src/Money.php"))
-        self.assertIn("src below its floor of 100%", why)
-
-    def test_says_a_marking_shard_judged_every_unit_before_it_fails(self):
-        result = {"doomed": {"unit": "src/Money.php", "mutant": "a1b2c3d4e5f6", "tree": "src", "floor": "100%", "why": "tree", "stopped": False}}
-
-        self.assertTrue(action.doomed(result).startswith("Shard judged every unit, and fails: survivor a1b2c3d4e5f6"))
-
-    def test_names_nothing_where_the_shard_ran_to_its_end(self):
-        self.assertIsNone(action.doomed({"shard": 1, "mutants": []}))
-        self.assertIsNone(action.doomed({"doomed": "a1b2c3d4e5f6"}))
-
-    def test_fails_the_job_with_the_gates_exit_code_for_a_failed_verdict(self):
-        self.assertEqual(action.EXIT_CODES[action.FAILED], "failed")
 
 
 class Stale(unittest.TestCase):

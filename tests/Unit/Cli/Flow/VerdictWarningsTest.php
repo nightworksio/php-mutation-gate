@@ -34,7 +34,7 @@ function heldWarned(string $path): Unit
 }
 
 it('names no file every test runs through that a unit of the plan holds, proved, carried or in any shard', function (): void {
-    $map = CoverageMap::empty();
+    $map = CoverageMap::of();
 
     foreach (range(1, 20) as $test) {
         foreach (['src/Proved.php', 'src/Carried.php', 'src/First.php', 'src/Last.php', 'src/Loose.php'] as $file) {

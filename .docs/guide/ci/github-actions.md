@@ -76,6 +76,7 @@ jobs:
 | `config` | the config file the gate finds |
 | `php-version` | `8.5` |
 | `extensions` | none; PHP extensions to set up besides setup-php's defaults, such as `zstd`, which the gate packs its ledger with where it is loaded (`proofs.compression`), or ones the project's suite needs |
+| `ini-values` | none; PHP ini values to set, as setup-php takes them, such as `memory_limit=2G` |
 | `runner` | the config's, or the one installed |
 | `shard` | none: the whole gate runs |
 | `mode` | `auto`: change-scoped on pull requests, merge groups and pushes, full on schedules, manual runs, releases and tags; or `full`, or `changed`, or `sampled`: what `auto` considers, with the units no run knows exactly sampled, as `--sample` asks |
@@ -178,8 +179,11 @@ jobs:
       AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
 ```
 
-It takes the action's inputs less `shard`, `deliver` and `composer-auth`, and
-three of its own, `coverage`, `runs-on` and `keyed-runs-on`. Its outputs are
+It takes the action's inputs less `shard`, `deliver`, `install` and
+`composer-auth`, and its own: `coverage`, `runs-on`, `keyed-runs-on`,
+`plan-timeout` (60), `shard-timeout` (360), `verdict-timeout` (30), each in
+minutes, `plan-coverage` (`pcov`), the driver the plan sets up, and
+`publish-branch` (`mutation-gate`), where publish writes the badge and trend. Its outputs are
 `verdict`, `scores` and `plan`, and it uploads the reports as the artifact
 `mutation-gate-reports`.
 
@@ -430,7 +434,7 @@ request wrote for itself is read.
 `mutation-gate dashboard --org=<org> --out=<dir>` builds one page of every
 repository of an organisation that published a summary, with its verdict,
 score and trend, the trees below their floors, the time the gate saved
-it over 30 days, and, collapsed under its row, the ten mutators that cost
+it in its `costs.savingsWindow`, 30 days by default, and, collapsed under its row, the ten mutators that cost
 it the most ([ADR-0076](../../decisions/0076-a-ledger-tallies-what-each-mutator-costs-and-finds-and-config-suggest-proposes-changes.md))
 and its lowest-scoring files, each with its change against the base
 ([ADR-0100](../../decisions/0100-a-heatmap-scores-every-file-and-function-against-the-base.md)),

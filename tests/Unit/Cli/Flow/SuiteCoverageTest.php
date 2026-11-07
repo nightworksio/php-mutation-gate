@@ -12,6 +12,9 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
 use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethod;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
+use NightWorksIO\MutationGate\Core\Coverage\LoadedPackages;
+use NightWorksIO\MutationGate\Core\Coverage\ProcessLoads;
+use NightWorksIO\MutationGate\Core\Coverage\TestLoad;
 use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -198,4 +201,12 @@ it('keeps no test of a suite no list names where no suite holds tests to judge o
             TimedTest::of(HoldingSuites::ADDS, 0.1),
             TimedTest::of(HoldingSuites::STARTS, 2.0),
         )->executing(Path::of('src/Held.php'), ExecutedMethod::of('start', 3, 5)));
+});
+
+it('keeps what the tests of the map recorded loading', function (): void {
+    [$suites] = suiteCoverage(everySuitesMap());
+    $loaded = LoadedPackages::of(ProcessLoads::of(TestLoad::of(HoldingSuites::ADDS, 'acme/one')));
+    $admitted = $suites->admitted(everySuitesMap()->loading($loaded));
+
+    expect($admitted instanceof CoverageMap ? $admitted->loaded() : $admitted)->toEqual($loaded);
 });

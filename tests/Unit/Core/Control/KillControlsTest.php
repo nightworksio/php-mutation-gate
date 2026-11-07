@@ -42,7 +42,7 @@ function killedBy(string $file, string $nativeId, MutantStatus $status, string .
 /** A map that times LoopTest::a at two seconds, and LoopTest::b not at all. */
 function killersMap(): CoverageMap
 {
-    return CoverageMap::empty()
+    return CoverageMap::of()
         ->covered(Path::of('src/Loop.php'), Line::of(3), TestId::of('LoopTest::a'))
         ->timed(TestId::of('LoopTest::a'), Seconds::of(2.0));
 }

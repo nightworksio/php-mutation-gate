@@ -7,9 +7,6 @@ namespace NightWorksIO\MutationGate\Core\Config;
 use function intval;
 use function is_int;
 
-use NightWorksIO\MutationGate\Core\Cost\LineRate;
-use NightWorksIO\MutationGate\Core\Cost\SecondsPerLine;
-use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -37,9 +34,9 @@ final readonly class Shards implements Part
         private int|Learned|Absent $max,
         private Seconds|Absent $target,
         private Seconds|Absent $setup,
-        private Table|Absent $secondsPerLine,
-        private Price|Absent $perRunnerMinute,
+        private Costs $costs,
         private LearnedStatistic|Absent $learnedFrom,
+        private Planning $planning,
     ) {
     }
 
@@ -57,8 +54,19 @@ final readonly class Shards implements Part
         Table|Absent $secondsPerLine = new Absent(),
         Price|Absent $perRunnerMinute = new Absent(),
         LearnedStatistic|Absent $learnedFrom = new Absent(),
+        Seconds|Absent $savingsWindow = new Absent(),
+        Choice|Absent $costModel = new Absent(),
+        Planning|Absent $planning = new Absent(),
     ): self {
-        return new self($seconds, $max, $target, $setup, $secondsPerLine, $perRunnerMinute, $learnedFrom);
+        return new self(
+            $seconds,
+            $max,
+            $target,
+            $setup,
+            Costs::of($secondsPerLine, $perRunnerMinute, $savingsWindow, $costModel),
+            $learnedFrom,
+            $planning instanceof Planning ? $planning : Planning::of(),
+        );
     }
 
     public static function none(): self
@@ -70,11 +78,14 @@ final readonly class Shards implements Part
     {
         $none = self::none();
 
-        return self::of(
-            seconds: $none->seconds(),
-            max: $none->max(),
-            setup: $none->setup(),
-            secondsPerLine: self::table(SecondsPerLine::standard()),
+        return new self(
+            $none->seconds(),
+            $none->max(),
+            new Absent(),
+            $none->setup(),
+            Costs::standard(),
+            LearnedStatistic::Max,
+            Planning::standard(),
         );
     }
 
@@ -96,13 +107,9 @@ final readonly class Shards implements Part
             Absent::laid($this->max, $later->max),
             $cutBySeconds ? new Absent() : Absent::laid($this->target, $later->target),
             Absent::laid($this->setup, $later->setup),
-            match (true) {
-                $later->secondsPerLine instanceof Absent => $this->secondsPerLine,
-                $this->secondsPerLine instanceof Absent => $later->secondsPerLine,
-                default => $this->secondsPerLine->merged($later->secondsPerLine),
-            },
-            Absent::laid($this->perRunnerMinute, $later->perRunnerMinute),
+            $this->costs->over($later->costs),
             Absent::laid($this->learnedFrom, $later->learnedFrom),
+            $this->planning->over($later->planning),
         );
     }
 
@@ -131,32 +138,16 @@ final readonly class Shards implements Part
         };
     }
 
-    /** What a line costs before anything was measured, by path prefix. */
-    public function secondsPerLine(): SecondsPerLine
+    /** `costs`: what the gate's work costs and how it says so. */
+    public function costs(): Costs
     {
-        if (! $this->secondsPerLine instanceof Table) {
-            return SecondsPerLine::standard();
-        }
-
-        $rates = [];
-
-        foreach ($this->secondsPerLine as $prefix => $seconds) {
-            $rates[] = LineRate::of($prefix, Seconds::of($seconds));
-        }
-
-        return SecondsPerLine::of(...$rates);
+        return $this->costs;
     }
 
-    /** The options the gate hands the cost model it builds in, `learned`: the seconds a line costs, by prefix. */
-    public function costOptions(): Options
+    /** `plan`, `timing` and `shards.cutAt`: how a run plans its work and learns what it costs. */
+    public function planning(): Planning
     {
-        $perLine = Json::object();
-
-        foreach ($this->secondsPerLine() as $prefix => $seconds) {
-            $perLine = $perLine->with(Member::of($prefix, $seconds));
-        }
-
-        return Options::of(Json::object(Member::of(SecondsPerLine::KEY, $perLine)));
+        return $this->planning;
     }
 
     /** `shards.target`: the wall time the count is cut to fit, in place of `shards.seconds` (ADR-0013). */
@@ -165,15 +156,9 @@ final readonly class Shards implements Part
         return $this->target;
     }
 
-    /** `costs.perRunnerMinute`: what a runner-minute costs, where the team gives a rate (ADR-0016). */
-    public function perRunnerMinute(): Price|Absent
-    {
-        return $this->perRunnerMinute;
-    }
-
     public function written(PathOrigin $origin): Json
     {
-        return Json::object(
+        return $this->planning->written(Json::object(
             Member::unlessEmpty(
                 'shards',
                 Json::object(
@@ -182,26 +167,11 @@ final readonly class Shards implements Part
                     Member::of('learnedFrom', LimitCalls::statisticWritten($this->learnedFrom)),
                     Member::of('target', $this->target instanceof Seconds ? $this->target->written() : $this->target),
                     Member::of('setup', $this->setup instanceof Seconds ? $this->setup->written() : $this->setup),
+                    $this->planning->cutAtWritten(),
                 ),
             ),
-            Member::unlessEmpty(
-                'costs',
-                Json::object(
-                    Member::of(
-                        SecondsPerLine::KEY,
-                        $this->secondsPerLine instanceof Table
-                            ? $this->perLineFrom($this->secondsPerLine, $origin)->written()
-                            : $this->secondsPerLine,
-                    ),
-                    Member::of(
-                        'perRunnerMinute',
-                        $this->perRunnerMinute instanceof Price
-                            ? $this->perRunnerMinute->written()
-                            : $this->perRunnerMinute,
-                    ),
-                ),
-            ),
-        );
+            $this->costs->written($origin),
+        ));
     }
 
     public function php(PathOrigin $origin): PhpCalls
@@ -219,55 +189,6 @@ final readonly class Shards implements Part
                 : [],
         ];
 
-        return PhpCalls::inWith(...$settings, ...$this->costs($origin));
-    }
-
-    /** @return list<string> */
-    private function costs(PathOrigin $origin): array
-    {
-        $calls = [];
-
-        $rates = $this->secondsPerLine instanceof Table ? $this->perLineFrom($this->secondsPerLine, $origin) : [];
-
-        foreach ($rates as $prefix => $seconds) {
-            $calls[] = sprintf(
-                'Shards::secondsPerLine(%s, %s)',
-                PhpCalls::literal($prefix),
-                PhpCalls::literal($seconds),
-            );
-        }
-
-        return $this->perRunnerMinute instanceof Price ? [...$calls, sprintf(
-            'Shards::perRunnerMinute(%s, %s)',
-            PhpCalls::literal($this->perRunnerMinute->amount()),
-            PhpCalls::literal($this->perRunnerMinute->currency()),
-        )] : $calls;
-    }
-
-    /** Seconds per line by path prefix, as a table of them. */
-    private static function table(SecondsPerLine $rates): Table
-    {
-        $table = Table::none();
-
-        foreach ($rates as $prefix => $seconds) {
-            $table = $table->merged(Table::row($prefix, $seconds));
-        }
-
-        return $table;
-    }
-
-    /** `costs.secondsPerLine` as a layer at this origin writes it: each prefix but `""`, every path, named from it. */
-    private function perLineFrom(Table $rates, PathOrigin $origin): Table
-    {
-        $from = Table::none();
-
-        foreach ($rates as $prefix => $seconds) {
-            $key = $prefix;
-            $from = $from->merged(
-                Table::row($key === LineRate::EVERYWHERE ? $key : $origin->written(Path::of($key)), $seconds),
-            );
-        }
-
-        return $from;
+        return PhpCalls::inWith(...$settings)->and($this->costs->php($origin))->and($this->planning->php());
     }
 }

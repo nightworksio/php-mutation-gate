@@ -7,7 +7,7 @@
     needs: [fetch, plan, shard, survivors]
     if: ${{ !cancelled() && needs.plan.result != 'skipped' }}
     runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
-    timeout-minutes: 30
+    timeout-minutes: ${{ inputs.verdict-timeout }}
     permissions:
       contents: read
       actions: read
@@ -73,6 +73,7 @@
         with:
           php-version: ${{ inputs.php-version }}
           extensions: ${{ inputs.extensions }}
+          ini-values: ${{ inputs.ini-values }}
           coverage: none
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
         env:
@@ -156,14 +157,14 @@
         env:
           GATE: ${{ steps.resolve.outputs.gate }}
           OPTIONS: ${{ steps.resolve.outputs.options }}
+          ACTION_REPORTS: ${{ steps.config.outputs.action_reports }}
         run: |
           set -uo pipefail
           code=0
           mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
+          mapfile -t reports < <(jq -r '.[]' <<< "${ACTION_REPORTS}")
           "${GATE}" verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results \
-            --report=json:.mutation-gate/action/report.json --report=html:.mutation-gate/action/html \
-            --report=digest:.mutation-gate/action/mutation-gate-digest.txt \
-            --deliver-later "${arguments[@]}" || code=$?
+            "${reports[@]}" --deliver-later "${arguments[@]}" || code=$?
           echo "code=${code}" >> "${GITHUB_OUTPUT}"
       # The verdict leaves this scope's ledger and kept coverage map in its
       # delivery; the directory store is this cache, which needs no key, so
@@ -288,6 +289,7 @@
         with:
           php-version: ${{ inputs.php-version }}
           extensions: ${{ inputs.extensions }}
+          ini-values: ${{ inputs.ini-values }}
           coverage: none
       - name: Install the gate
         run: bash "${GATE_ACTION}/resources/action/install.sh" "${GATE_ACTION}"

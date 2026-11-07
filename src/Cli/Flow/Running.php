@@ -15,7 +15,6 @@ use NightWorksIO\MutationGate\Core\Ci\WhichShard;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Cost\FirstRun;
-use NightWorksIO\MutationGate\Core\Cost\StartUpSamples;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
@@ -114,7 +113,7 @@ final readonly class Running
     }
 
     /** The shard `--shard` names, or, where it names none, the one the environment's variables name (WhichShard). */
-    public function run(Plan $plan, ShardId|Absent $named, Path $results): Written|CannotJudge
+    public function run(Plan $plan, ShardId|Absent $named, Path $results): ShardLeft|CannotJudge
     {
         $followed = self::followed($plan, $this->adapters->repository);
         $id = $named instanceof ShardId ? $named : WhichShard::in($this->adapters->environment, $plan);
@@ -125,7 +124,7 @@ final readonly class Running
             default => $this->resultOf($followed, $id, $this->deadline()),
         };
 
-        return $this->written($result, $results);
+        return ShardLeft::after($result, $this->written($result, $results));
     }
 
     /** Every shard of a plan, one after another in this process, each leaving its result. */
@@ -213,7 +212,7 @@ final readonly class Running
         $result = $this->left($result, $outcome);
 
         return $result->withWarnings($result->warnings()->and($history instanceof CannotJudge ? Warnings::of(
-            Warning::that(sprintf(self::UNREAD_HISTORY, $id->number(), $history->why())),
+            Warning::noting(sprintf(self::UNREAD_HISTORY, $id->number(), $history->why())),
         ) : Warnings::none()));
     }
 
@@ -289,11 +288,13 @@ final readonly class Running
         Deadline|Unlimited $deadline,
         Stopwatch $stopwatch,
     ): Mutated|CannotJudge {
-        $startUp = new StartUpTiming($this->adapters, StartUpSamples::standard())->of($map, $kept->units());
+        $samples = $this->settings->shards()->planning()->startUpSamples();
+        $startUp = new StartUpTiming($this->adapters, $samples)->of($map, $kept->units());
         $pool = Pool::of($this->adapters->processes(), $this->settings->runner()->workers())
+            ->pacedBy($this->settings->runner()->pace())
             ->startingIn($startUp)
             ->learning($plan->briefing()->multiple());
-        $warmUp = new AnalyserWarmUp();
+        $warmUp = new AnalyserWarmUp($this->settings->staticCheck()->dependents());
         $analyser = $this->adapters->analyser;
         $preChecking = $this->settings->staticCheck()->before() && $analyser instanceof AnalyserIdentity
             ? new PreChecking(
@@ -304,7 +305,7 @@ final readonly class Running
                 $this->known($plan, $analyser),
                 $warmUp,
                 $stopwatch,
-                PreCheck::standard(),
+                PreCheck::after($this->settings->staticCheck()->preCheckAfter()),
             )
             : new NoPreCheck();
         $checking = new SurvivorChecking(
@@ -328,7 +329,7 @@ final readonly class Running
             $preChecking,
         );
         $doom = new Dooming($this->adapters, $this->settings, $this->setup)->of($plan);
-        $stops = $this->settings->reach()->failFast()->stops();
+        $stops = $this->settings->reach()->failingFast()->mode()->stops();
         $batched = new Batched($invoking, $this->setup->clock, $deadline, $this->interruption, $doom, $stops);
         $batching = Batching::opening($map->suiteDuration());
         $pruned = $plan->considered()->pruned();
@@ -342,7 +343,7 @@ final readonly class Running
         $spent = match (true) {
             $doom instanceof Doom && $stops => $batched->spent(
                 $this->weighed($kept, $plan),
-                $batching->inChunksOf(Batching::chunk()),
+                $batching->inChunksOf($this->settings->shards()->planning()->chunk()),
                 $requestFor,
             ),
             $deadline instanceof Deadline => $batched->spent($this->weighed($kept, $plan), $batching, $requestFor),

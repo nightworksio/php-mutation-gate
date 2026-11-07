@@ -27,6 +27,7 @@ use function mb_strlen;
 use function min;
 use function mkdir;
 
+use NightWorksIO\MutationGate\Core\Config\StaticCheck;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
@@ -60,9 +61,6 @@ use function usleep;
  */
 final readonly class Compiler
 {
-    /** The programs one child compiles, few enough that opcache's memory never fills. */
-    private const int PER_CHILD = 100;
-
     /** Each program's name in its directory. */
     private const string PROGRAM = 'program.php';
 
@@ -118,6 +116,7 @@ final readonly class Compiler
         private int $parallel,
         private array $besides = [],
         private Closure|NotGiven $pause = new NotGiven(),
+        private int $perChild = StaticCheck::OPCACHE_BATCH,
     ) {
     }
 
@@ -133,7 +132,7 @@ final readonly class Compiler
     {
         $directory = sprintf('%s/%d', $this->directory, getmypid());
         $paths = $this->written($programs, $directory);
-        $each = max(1, min(self::PER_CHILD, (int) ceil(count($paths) / $this->parallel)));
+        $each = max(1, min($this->perChild, (int) ceil(count($paths) / $this->parallel)));
         $shared = $this->waves(array_chunk($paths, $each, preserve_keys: true));
         $failed = array_filter($shared, static fn(Opcodes|Uncompiled $one): bool => $one === Uncompiled::Failed);
         $alone = $each > 1 ? array_chunk(array_intersect_key($paths, $failed), 1, preserve_keys: true) : [];

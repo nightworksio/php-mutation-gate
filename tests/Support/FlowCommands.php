@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
-use function chdir;
 use function explode;
-use function getcwd;
-use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
@@ -241,24 +238,6 @@ final readonly class FlowCommands
     public static function run(Command $command, string $options = ''): self
     {
         return self::handed($command, '', $options);
-    }
-
-    /**
-     * A command run as {@see run()} runs it, from inside this project, as the
-     * gate runs from the project it gates: what it reads of the workspace,
-     * a fetched copy of a ledger among it, is the project's, never the one
-     * the suite runs in.
-     */
-    public static function within(string $project, Command $command, string $options = ''): self
-    {
-        $before = getcwd();
-        chdir($project);
-
-        try {
-            return self::run($command, $options);
-        } finally {
-            chdir(is_string($before) ? $before : '/');
-        }
     }
 
     /** A command run as {@see run()} runs it, handed this text on standard input, as git hands a hook its refs. */

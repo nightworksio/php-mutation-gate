@@ -8,10 +8,14 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\CiRun;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Comment\Toggle;
 use NightWorksIO\MutationGate\Core\Config\CommentOption;
+use NightWorksIO\MutationGate\Core\Config\CommentSettings;
+use NightWorksIO\MutationGate\Core\Config\Definition\CommentKeys;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Delivery\Commenting;
 use NightWorksIO\MutationGate\Core\Delivery\CommentStates;
+use NightWorksIO\MutationGate\Core\Delivery\CommentWrite;
 use NightWorksIO\MutationGate\Core\Delivery\Deferring;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\Http\Exchange;
@@ -41,18 +45,20 @@ final readonly class PullRequestComment implements Commenting, Deferring, Report
     /** Bitbucket Cloud's API. */
     public const string API = 'https://api.bitbucket.org/2.0';
 
-    private const string NO_TOKEN = '%s is not set, so no comment is written.';
-
     private function __construct(private CommentStates $states)
     {
     }
 
     /**
      * The comment of the pull request the step these variables describe runs for, written with the token in this
-     * variable; one that says why it cannot be written where they describe none.
+     * variable, shaped as `comment` says; one that says why it cannot be written where they describe none.
      */
-    public static function inEnvironment(Variables $environment, Exchange $exchange, string $tokenEnv): self
-    {
+    public static function inEnvironment(
+        Variables $environment,
+        Exchange $exchange,
+        string $tokenEnv,
+        CommentSettings $settings,
+    ): self {
         $number = PullRequestNumber::parse($environment->valueOf(Variables::BITBUCKET_PR_ID));
         $token = $environment->valueOf($tokenEnv);
         $run = CiRun::read($environment);
@@ -63,22 +69,29 @@ final readonly class PullRequestComment implements Commenting, Deferring, Report
             $environment->valueOf('BITBUCKET_REPO_SLUG'),
             match (true) {
                 ! $number instanceof PullRequestNumber => NotWritten::because(CommentStates::NOT_A_PULL_REQUEST),
-                $token === '' => NotWritten::because(sprintf(self::NO_TOKEN, $tokenEnv)),
+                $token === '' => NotWritten::because(sprintf(CommentStates::NO_TOKEN, $tokenEnv)),
                 default => $number,
             },
             $pipeline,
         );
 
-        return new self(CommentStates::in($thread, $pipeline, commentsHere: $number instanceof PullRequestNumber));
+        return new self(CommentStates::in(
+            $thread,
+            $pipeline,
+            commentsHere: $number instanceof PullRequestNumber,
+            settings: $settings,
+            draft: ! $settings->writes()->allows(Toggle::Drafts) && $thread->isDraft(),
+        ));
     }
 
-    /** From the step's own variables, reading the token from the variable `tokenEnv` names. */
+    /** From the step's own variables, the token read from the variable `tokenEnv` names, shaped by `with.comment`. */
     public static function configured(Options $options, Variables $environment, Exchange $exchange): self
     {
         return self::inEnvironment(
             $environment,
             $exchange,
             CommentOption::tokenEnv($options, GateSecret::BitbucketComment->value),
+            CommentKeys::settingsIn($options),
         );
     }
 
@@ -113,13 +126,8 @@ final readonly class PullRequestComment implements Commenting, Deferring, Report
         return $this->states->recheckedLater($rechecked, $delivery);
     }
 
-    public function write(string $markdown): Written|NotWritten
+    public function writeAs(string $markdown, CommentWrite $write): Written|NotWritten
     {
-        return $this->states->write($markdown);
-    }
-
-    public function writeOverPlanned(string $markdown): Written|NotWritten
-    {
-        return $this->states->writeOverPlanned($markdown);
+        return $this->states->writeAs($markdown, $write);
     }
 }

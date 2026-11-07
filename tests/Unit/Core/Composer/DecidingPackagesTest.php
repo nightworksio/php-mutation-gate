@@ -133,3 +133,27 @@ it('decides on a manifest only where it moved a package line it decides by or a 
 it('decides on a manifest it cannot read', function (): void {
     expect(DecidingPackages::named(Glob::of('pestphp/*'))->decideManifest(Contents::of('{}'), Contents::of('[')))->toBeTrue();
 });
+
+it('leaves a move to what loaded it, unless it is wide, moves the gate, or moves more than packages', function (Contents $was, Contents $is, bool $decides): void {
+    $deciding = DecidingPackages::byLoads();
+
+    expect($deciding->decide($was, $is))->toBe($decides)
+        ->and($deciding->narrowsByLoads())->toBeTrue();
+})->with([
+    'a new version' => [fn(): Contents => Locks::of(['acme/one' => '1.0.0']), fn(): Contents => Locks::of(['acme/one' => '1.0.1']), false],
+    'a package added' => [fn(): Contents => Locks::of(['acme/one' => '1.0.0']), fn(): Contents => Locks::of(['acme/one' => '1.0.0', 'acme/two' => '1.0.0']), true],
+    'the gate' => [fn(): Contents => Locks::of(['nightworksio/mutation-gate-default' => '1.0.0']), fn(): Contents => Locks::of(['nightworksio/mutation-gate-default' => '1.0.1']), true],
+    'not a lock' => [fn(): Contents => Contents::of('not json'), fn(): Contents => Locks::of(['acme/one' => '1.0.1']), true],
+]);
+
+it('narrows by loads only where asked', function (): void {
+    expect(DecidingPackages::every()->narrowsByLoads())->toBeFalse()
+        ->and(DecidingPackages::named()->narrowsByLoads())->toBeFalse();
+});
+
+it('leaves a manifest\'s moved package lines to the lock where it narrows by loads', function (): void {
+    $manifest = static fn(string $constraint): Contents => Contents::of((string) json_encode(['require' => ['acme/one' => $constraint]]));
+
+    expect(DecidingPackages::byLoads()->decideManifest($manifest('^1.0'), $manifest('^2.0')))->toBeFalse()
+        ->and(DecidingPackages::byLoads()->decideManifest($manifest('^1.0'), Contents::of('{"autoload":{"psr-4":{}}}')))->toBeTrue();
+});

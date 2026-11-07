@@ -6,19 +6,19 @@ namespace NightWorksIO\MutationGate\Core\Report;
 
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
+use NightWorksIO\MutationGate\Core\Cost\SavedLately;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Time\Instant;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 
 /**
  * `summary.json`, `"format": 1`: what an organisation's dashboard reads of a
  * repository's latest verdict on its default branch (ADR-0024): the commit
  * and time, the verdict, the project's score, each tree's floor and score,
- * the floor for new code, the mutation time saved over the last 30 days in
- * seconds, the ten costliest mutators the default branch's ledger
+ * the floor for new code, the mutation time saved in the savings window in
+ * seconds with the window as `costs.savingsWindow` writes it, the ten costliest mutators the default branch's ledger
  * tallies (ADR-0076), and the lowest-scoring files, as many as `heatmap.files`
  * says (ADR-0100). A set with nothing to mutate has no score, a tree held
  * to no floor no floor, a run with no history of what it saved no savings,
@@ -36,7 +36,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
  *     score?: float,
  *     trees: list<TreeSummary>,
  *     newCode: array{floor: float},
- *     savings?: array{last30Days: float},
+ *     savings?: array{seconds: float, window: string},
  *     mutators?: list<Costly>,
  *     heatmap?: list<LowEntry>,
  * }
@@ -56,7 +56,7 @@ final readonly class Summary
         Revision $commit,
         Instant $time,
         Floor $newCode,
-        Seconds|NoHistory $saved,
+        SavedLately|NoHistory $saved,
     ): array {
         $score = Overview::of($verdict)->score();
         $mutators = MutatorReport::costliest($verdict->account()->tallies());
@@ -80,7 +80,10 @@ final readonly class Summary
             ...$score instanceof Score ? ['score' => $score->percent()] : [],
             'trees' => $trees,
             'newCode' => ['floor' => $newCode->percent()],
-            ...$saved instanceof Seconds ? ['savings' => ['last30Days' => $saved->seconds()]] : [],
+            ...$saved instanceof SavedLately ? ['savings' => [
+                'seconds' => $saved->saved()->seconds(),
+                'window' => $saved->window()->length()->written(),
+            ]] : [],
             ...$mutators === [] ? [] : ['mutators' => $mutators],
             ...HeatmapJson::summary($verdict->account()->heatmap()),
         ];
@@ -91,7 +94,7 @@ final readonly class Summary
         Revision $commit,
         Instant $time,
         Floor $newCode,
-        Seconds|NoHistory $saved,
+        SavedLately|NoHistory $saved,
     ): string {
         return JsonText::encode(self::of($verdict, $commit, $time, $newCode, $saved));
     }

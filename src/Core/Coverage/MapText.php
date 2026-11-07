@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Coverage;
 
 use function array_intersect_key;
+use function array_key_exists;
 
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
@@ -30,9 +31,15 @@ final readonly class MapText
      * @param list<TestRecord>                     $tests
      * @param array<string, array<int, list<int>>> $files
      * @param array<string, list<MethodRecord>>    $methods
+     * @param list<list<array{int, list<string>, bool}>> $loads each process's tests, each its place, its packages
+     *                                                           and whether it started a process
      */
-    private function __construct(private array $tests, private array $files, private array $methods)
-    {
+    private function __construct(
+        private array $tests,
+        private array $files,
+        private array $methods,
+        private array $loads,
+    ) {
     }
 
     public static function of(CoverageMap $map): self
@@ -49,7 +56,7 @@ final readonly class MapText
             $files[$line->file()->value()][$line->line()] = [...$line];
         }
 
-        return new self($tests, $files, self::methodsOf($map));
+        return new self($tests, $files, self::methodsOf($map), self::loadsOf($map));
     }
 
     /** These tables as the map `onlyFor()` these files writes them: every test, and these files' lines and methods. */
@@ -65,6 +72,7 @@ final readonly class MapText
             $this->tests,
             array_intersect_key($this->files, $kept),
             array_intersect_key($this->methods, $kept),
+            $this->loads,
         );
     }
 
@@ -79,8 +87,37 @@ final readonly class MapText
             'tests' => $this->tests,
             'files' => $this->files === [] ? new stdClass() : $this->files,
             ...($this->methods === [] ? [] : [CoverageMapFile::METHODS => $this->methods]),
+            ...($this->loads === [] ? [] : [CoverageMapFile::LOADS => $this->loads]),
             ...($keys instanceof EntryKeys ? [EntryKeys::FIELD => $keyed === [] ? new stdClass() : $keyed] : []),
         ]);
+    }
+
+    /** @return list<list<array{int, list<string>, bool}>> what each process's tests loaded, by their places */
+    private static function loadsOf(CoverageMap $map): array
+    {
+        $places = [];
+
+        foreach ($map->tests() as $place => $test) {
+            $places[$test->value()] = $place;
+        }
+
+        $loads = [];
+
+        foreach ($map->loaded()->processes() as $process) {
+            $tests = [];
+
+            foreach ($process->tests() as $test) {
+                $id = $test->test()->value();
+
+                if (array_key_exists($id, $places)) {
+                    $tests[] = [$places[$id], [...$test->packages()], $test->startsProcesses()];
+                }
+            }
+
+            $loads[] = $tests;
+        }
+
+        return $loads;
     }
 
     /** @return array<string, list<MethodRecord>> each file's executed methods, by path */

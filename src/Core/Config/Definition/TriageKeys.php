@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Learned;
+use NightWorksIO\MutationGate\Core\Config\LearnedBounds;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\SuiteLists;
@@ -51,6 +52,8 @@ final readonly class TriageKeys
         $tighter = Field::section('tighter', self::tighter($results));
         $perTest = Field::optional('perTest', MultipleOrOff::atLeast(1), $results);
         $testFloor = Field::optional('testFloor', Integer::atLeast(1), $results);
+        $startUp = Field::optional('startUp', Duration::written(), $results);
+        $learned = Field::section('learned', self::learned());
 
         return [
             Field::optional(
@@ -72,6 +75,8 @@ final readonly class TriageKeys
                         $tighter,
                         $perTest,
                         $testFloor,
+                        $startUp,
+                        $learned,
                     ): Layer|Invalid {
                         $timedOut = $mode->read($timeouts);
                         $limit = $seconds->read($timeouts);
@@ -80,6 +85,8 @@ final readonly class TriageKeys
                         $lower = $tighter->read($timeouts);
                         $eachTest = $perTest->read($timeouts);
                         $least = $testFloor->read($timeouts);
+                        $starts = $startUp->read($timeouts);
+                        $bounds = $learned->read($timeouts);
 
                         return Reading::built(
                             static fn(): Layer => Layer::of(Triage::of(
@@ -90,6 +97,8 @@ final readonly class TriageKeys
                                 multiple: $times->value(),
                                 perTest: $eachTest->value(),
                                 testFloor: self::seconds($least->value()),
+                                startUp: $starts->value(),
+                                learned: $bounds->value(),
                             )),
                             $timedOut,
                             $limit,
@@ -98,6 +107,8 @@ final readonly class TriageKeys
                             $lower,
                             $eachTest,
                             $least,
+                            $starts,
+                            $bounds,
                         );
                     },
                     $mode,
@@ -107,6 +118,8 @@ final readonly class TriageKeys
                     $tighter,
                     $perTest,
                     $testFloor,
+                    $startUp,
+                    $learned,
                 ),
             ),
             Field::section(
@@ -127,6 +140,33 @@ final readonly class TriageKeys
                 ),
             ),
         ];
+    }
+
+    /** @return Section<LearnedBounds> */
+    private static function learned(): Section
+    {
+        $judges = Effect::AffectsResults;
+        $percentile = Field::optional('percentile', Number::between(0, 1), $judges);
+        $least = Field::optional('least', Number::atLeast(1), $judges);
+        $most = Field::optional('most', Number::atLeast(1), $judges);
+
+        return Section::of(
+            static function (Node $learned) use ($percentile, $least, $most): LearnedBounds|Invalid {
+                $share = $percentile->read($learned);
+                $lower = $least->read($learned);
+                $upper = $most->read($learned);
+
+                return Reading::built(
+                    static fn(): LearnedBounds => LearnedBounds::of($share->value(), $lower->value(), $upper->value()),
+                    $share,
+                    $lower,
+                    $upper,
+                );
+            },
+            $percentile,
+            $least,
+            $most,
+        );
     }
 
     /**

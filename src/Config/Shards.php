@@ -22,6 +22,12 @@ final readonly class Shards implements Setting
         return new self(Json::object(Member::of('shards', Json::object(Member::of('setup', $duration)))));
     }
 
+    /** `shards.cutAt`: how many times its overhead a shard's share of the cost must be at least; 2.0. */
+    public static function cutAt(float $times): self
+    {
+        return new self(Json::at('shards.cutAt', $times));
+    }
+
     /** `shards.seconds` */
     public static function seconds(int $seconds): self
     {
@@ -78,6 +84,12 @@ final readonly class Shards implements Setting
                 ),
             ),
         ));
+    }
+
+    /** `costs.savingsWindow`: how far back the summary and the badge count what the gate saved, such as `30d`. */
+    public static function savingsWindow(string $duration): self
+    {
+        return new self(Json::object(Member::of('costs', Json::object(Member::of('savingsWindow', $duration)))));
     }
 
     public function written(): Json

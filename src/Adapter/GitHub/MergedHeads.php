@@ -46,11 +46,12 @@ final readonly class MergedHeads
         private string $check,
         private ProofStore|NoLedgers $ledgers,
         private PullRequestNumber|NotGiven $group,
+        private ProvingRange $range,
     ) {
     }
 
     /** The heads a repository merged, asked through its API, up to this head, under this check-run. */
-    public static function of(Api $api, string $repository, string $head, string $check): self
+    public static function of(Api $api, string $repository, string $head, string $check, ProvingRange $range): self
     {
         return new self(
             $api,
@@ -60,6 +61,7 @@ final readonly class MergedHeads
             $check,
             NoLedgers::none(),
             NotGiven::value(),
+            $range,
         );
     }
 
@@ -74,6 +76,7 @@ final readonly class MergedHeads
             $this->check,
             $ledgers,
             $this->group,
+            $this->range,
         );
     }
 
@@ -88,6 +91,7 @@ final readonly class MergedHeads
             $this->check,
             $this->ledgers,
             $pullRequest,
+            $this->range,
         );
     }
 
@@ -130,7 +134,7 @@ final readonly class MergedHeads
 
         $commits = $comparison->items('commits');
 
-        return count($commits) <= ProvingRange::standard()->farthest()
+        return count($commits) <= $this->range->farthest()
             && count($commits) === $comparison->number('total_commits')
             && $this->provesAll($commits, $ledgers);
     }

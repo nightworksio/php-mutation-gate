@@ -25,12 +25,12 @@ final readonly class SlackMessage
     /** The most characters a section's text holds. */
     private const int SECTION = 3_000;
 
-    public static function json(Alert $alert, CiRun $run): string
+    public static function json(Alert $alert, CiRun $run, AlertShape $shape): string
     {
         $title = AlertTitle::of($alert, $run);
         $blocks = [['type' => 'header', 'text' => self::text('plain_text', Fit::line($title, self::HEADER))]];
 
-        foreach (AlertLines::of($alert, Chat::Slack) as [$heading, $lines]) {
+        foreach (AlertLines::of($alert, Chat::Slack, $shape) as [$heading, $lines]) {
             $blocks[] = self::section(Fit::lines([Chat::Slack->heading($heading), ...$lines], self::SECTION));
         }
 

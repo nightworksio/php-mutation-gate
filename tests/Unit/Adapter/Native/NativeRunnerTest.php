@@ -237,7 +237,7 @@ it('measures coverage, reads a map handed on, and names the test files that judg
 
 it('names the tests of a map whose classes a test file declares, or that its gone file held', function (): void {
     $project = phpUnitRunnerProject();
-    $map = CoverageMap::empty()
+    $map = CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(5), TestId::of('Tests\MoneyTest::testAdds'))
         ->covered(Path::of('src/Money.php'), Line::of(5), TestId::of('Tests\GoneTest::testGoes'))
         ->covered(Path::of('src/Money.php'), Line::of(5), TestId::of('Tests\TaxTest::testTaxes'));

@@ -17,7 +17,7 @@ use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Tests\Support\Growth;
 
 $map = static function (string ...$lines): CoverageMap {
-    $map = CoverageMap::empty();
+    $map = CoverageMap::of();
 
     foreach ($lines as $covered) {
         [$file, $line] = explode(':', $covered);
@@ -36,7 +36,7 @@ it('lets the group judge what it holds when it covers every line the suite cover
 
 it('keeps the tests of the group that run any file inside what it holds, and no other', function (): void {
     $http = Unit::held(Path::of('src/Http'), Group::named('holds:src/Http'));
-    $suite = CoverageMap::empty()->covered(Path::of('src/Http/Controller.php'), Line::of(3), TestId::of('HttpTest::serves'));
+    $suite = CoverageMap::of()->covered(Path::of('src/Http/Controller.php'), Line::of(3), TestId::of('HttpTest::serves'));
     $group = $suite
         ->covered(Path::of('src/Http/Middleware.php'), Line::of(5), TestId::of('MiddlewareTest::guards'))
         ->covered(Path::of('src/Kernel.php'), Line::of(10), TestId::of('KernelTest::boots'));
@@ -70,7 +70,7 @@ it('finds a held path unreached as a whole when the group runs none of it', func
         $kernel(),
         "holds:src/Kernel.php does not cover src/Kernel.php, so its mutants cannot be judged by it.\nNot reached: src/Kernel.php, all of it\nAdd the test that runs them to the group.",
     ))
-        ->and(GroupCoverage::of($kernel(), CoverageMap::empty(), CoverageMap::empty()))->toEqual(NotCovered::because(
+        ->and(GroupCoverage::of($kernel(), CoverageMap::of(), CoverageMap::of()))->toEqual(NotCovered::because(
             $kernel(),
             "holds:src/Kernel.php does not cover src/Kernel.php, so its mutants cannot be judged by it.\nNot reached: src/Kernel.php, all of it\nAdd the test that runs them to the group.",
         ));

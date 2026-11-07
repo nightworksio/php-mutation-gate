@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Compression;
@@ -97,10 +98,11 @@ it('says why for each, where neither can be read, the shared store\'s first', fu
         ->and($said[1]->text())->toContain(sprintf('%s/refs/heads/main/ledger.json.gz', $root));
 });
 
-it('keeps its own ledgers in .mutation-gate/ledger', function (): void {
+it('keeps its own ledgers in the project\'s .mutation-gate/ledger', function (): void {
     $shared = new ProofStoreFake();
+    $project = Root::of(Scratch::directory());
 
-    expect(LocalLedgers::over($shared))->toEqual(LocalLedgers::of(LedgerDirectory::at('.mutation-gate/ledger'), $shared));
+    expect(LocalLedgers::over($shared, $project))->toEqual(LocalLedgers::of(LedgerDirectory::in($project, '.mutation-gate/ledger'), $shared));
 });
 
 it('reads an object beside the local ledger, or the shared store\'s where there is none locally', function (): void {

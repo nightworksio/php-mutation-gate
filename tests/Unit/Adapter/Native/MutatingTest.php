@@ -178,7 +178,7 @@ it('reads the map another job handed on, for a request judged by the whole suite
 
     $project = mutatingProject();
     $adds = TestId::of('Tests\MoneyTest::testAdds');
-    $map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(5), $adds)->timed($adds, Seconds::of(0.5));
+    $map = CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(5), $adds)->timed($adds, Seconds::of(0.5));
     Scratch::write($project->root(), CoverageMapFile::in(Path::of('.mutation-gate/handed'))->value(), CoverageMapFile::encode($map, Unplaced::map()));
     $shell = mutatingPhpUnit($project);
     $result = mutating($project, $shell)->result($whole->reusingCoverage(Handed::maps(Path::of('.mutation-gate/handed'), Path::of('.mutation-gate/handed'))), LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)), NotGiven::value());

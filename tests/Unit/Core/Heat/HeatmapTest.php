@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Comment\Cap;
+use NightWorksIO\MutationGate\Core\Config\CommentCaps;
+use NightWorksIO\MutationGate\Core\Config\CommentShows;
 use NightWorksIO\MutationGate\Core\Config\HeatmapRows;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Heat\FileHeat;
@@ -48,8 +51,8 @@ it('lists the lowest-scoring files it is told to, leaving out one with nothing t
     ]);
     $heatmap = Heatmap::of($ignored, Heatmaps::spans(...));
 
-    expect(heatmapPaths($heatmap->listing(HeatmapRows::of(files: 5, comment: 0))->lowest()))->toBe(['src/Cart.php'])
-        ->and(heatmapPaths(Heatmaps::fallen()->listing(HeatmapRows::of(files: 1, comment: 0))->lowest()))->toBe(['src/Cart.php'])
+    expect(heatmapPaths($heatmap->listing(HeatmapRows::of(files: 5))->lowest()))->toBe(['src/Cart.php'])
+        ->and(heatmapPaths(Heatmaps::fallen()->listing(HeatmapRows::of(files: 1))->lowest()))->toBe(['src/Cart.php'])
         ->and(heatmapPaths($heatmap->lowest()))->toBe([]);
 });
 
@@ -57,10 +60,10 @@ it('lists the touched files that fell most, then those below their floor, and no
     $untouched = Heatmaps::tree(0, [['src/Money.php:6', MutantJudgement::Survived, false]]);
     $killed = Heatmaps::tree(0, [['src/Money.php:6', MutantJudgement::Killed, false]]);
 
-    expect(heatmapPaths(Heatmaps::fallen()->fallen()))->toBe(['src/Money.php', 'src/Cart.php'])
-        ->and(heatmapPaths(Heatmaps::fallen()->listing(HeatmapRows::of(files: 10, comment: 0))->fallen()))->toBe([])
-        ->and(heatmapPaths(Heatmap::of($untouched, Heatmaps::spans(...))->comparedWith(Heatmap::of($killed, Heatmaps::spans(...)))->listing(HeatmapRows::of(files: 1, comment: 1))->fallen()))->toBe([])
-        ->and([...Heatmap::none()->fallen()])->toBe([]);
+    expect(heatmapPaths(Heatmaps::fallen()->fallen(CommentShows::of())))->toBe(['src/Money.php', 'src/Cart.php'])
+        ->and(heatmapPaths(Heatmaps::fallen()->fallen(CommentShows::of(caps: CommentCaps::capping(Cap::Heatmap, 0)))))->toBe([])
+        ->and(heatmapPaths(Heatmap::of($untouched, Heatmaps::spans(...))->comparedWith(Heatmap::of($killed, Heatmaps::spans(...)))->listing(HeatmapRows::of(files: 1))->fallen(CommentShows::of(caps: CommentCaps::capping(Cap::Heatmap, 1)))))->toBe([])
+        ->and([...Heatmap::none()->fallen(CommentShows::of())])->toBe([]);
 });
 
 it('lists at most as many fallen files as it is told, the one that fell most first', function (): void {
@@ -80,8 +83,8 @@ it('lists at most as many fallen files as it is told, the one that fell most fir
     ]);
     $heatmap = Heatmap::of($now, Heatmaps::spans(...))->comparedWith(Heatmap::of($base, Heatmaps::spans(...)));
 
-    expect(heatmapPaths($heatmap->listing(HeatmapRows::of(files: 0, comment: 2))->fallen()))->toBe(['src/Money.php', 'src/Cart.php'])
-        ->and(heatmapPaths($heatmap->listing(HeatmapRows::of(files: 0, comment: 1))->fallen()))->toBe(['src/Money.php']);
+    expect(heatmapPaths($heatmap->listing(HeatmapRows::of(files: 0))->fallen(CommentShows::of(caps: CommentCaps::capping(Cap::Heatmap, 2)))))->toBe(['src/Money.php', 'src/Cart.php'])
+        ->and(heatmapPaths($heatmap->listing(HeatmapRows::of(files: 0))->fallen(CommentShows::of(caps: CommentCaps::capping(Cap::Heatmap, 1)))))->toBe(['src/Money.php']);
 });
 
 it('says a file is below its tree\'s floor only where it scores under it', function (): void {
@@ -97,7 +100,7 @@ it('says a file is below its tree\'s floor only where it scores under it', funct
         ->and([...$exact][0]->isTouched())->toBeFalse();
 });
 
-it('scores the files of every tree, and lists none before it is told how many', function (): void {
+it('scores the files of every tree, lists none before it is told how many, and as many fallen as the comment shows', function (): void {
     $cart = Heatmaps::tree(0, [['src/Cart.php:3', MutantJudgement::Survived, true]]);
     $money = Heatmaps::tree(0, [['src/Money.php:6', MutantJudgement::Killed, true], ['src/Money.php:7', MutantJudgement::Survived, true]]);
     $heatmap = Heatmap::of(TreeVerdicts::of(...[...$cart], ...[...$money]), Heatmaps::spans(...));
@@ -106,8 +109,8 @@ it('scores the files of every tree, and lists none before it is told how many', 
 
     expect(heatmapPaths(Listed::of(...$heatmap)))->toBe(['src/Cart.php', 'src/Money.php'])
         ->and(heatmapPaths($heatmap->lowest()))->toBe([])
-        ->and(heatmapPaths($unlisted->fallen()))->toBe([])
-        ->and(heatmapPaths($unlisted->listing(HeatmapRows::of(files: 0, comment: 2))->fallen()))->toBe(['src/Cart.php', 'src/Money.php']);
+        ->and(heatmapPaths($unlisted->fallen(CommentShows::of(caps: CommentCaps::capping(Cap::Heatmap, 2)))))->toBe(['src/Cart.php', 'src/Money.php'])
+        ->and(heatmapPaths($unlisted->fallen(CommentShows::of(caps: CommentCaps::capping(Cap::Heatmap, 1)))))->toBe(['src/Cart.php']);
 });
 
 it('lists a touched file that fell by a hundredth of a percent, and none that held', function (): void {
@@ -115,13 +118,13 @@ it('lists a touched file that fell by a hundredth of a percent, and none that he
         static fn(int $at): array => [sprintf('src/Cart.php:%d', $at), $at <= $killed ? MutantJudgement::Killed : MutantJudgement::Survived, $at === 1],
         range(1, $all),
     );
-    $rows = HeatmapRows::of(files: 1, comment: 1);
+    $shows = CommentShows::of(caps: CommentCaps::capping(Cap::Heatmap, 1));
     $fell = Heatmap::of(Heatmaps::tree(0, $mutants(33, 80)), Heatmaps::spans(...))
         ->comparedWith(Heatmap::of(Heatmaps::tree(0, $mutants(26, 63)), Heatmaps::spans(...)));
     $held = Heatmap::of(Heatmaps::tree(0, $mutants(26, 63)), Heatmaps::spans(...))
         ->comparedWith(Heatmap::of(Heatmaps::tree(0, $mutants(26, 63)), Heatmaps::spans(...)));
 
     expect([...$fell][0]->heat()->drop())->toBe(1)
-        ->and(heatmapPaths($fell->listing($rows)->fallen()))->toBe(['src/Cart.php'])
-        ->and(heatmapPaths($held->listing($rows)->fallen()))->toBe([]);
+        ->and(heatmapPaths($fell->fallen($shows)))->toBe(['src/Cart.php'])
+        ->and(heatmapPaths($held->fallen($shows)))->toBe([]);
 });

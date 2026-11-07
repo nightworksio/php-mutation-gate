@@ -49,7 +49,7 @@ final readonly class KillMatrix
     /** A matrix of first killers with no coverage, which knows only the killers each mutant's record names. */
     public static function none(): self
     {
-        return self::of(MatrixKind::FirstKiller, CoverageMap::empty());
+        return self::of(MatrixKind::FirstKiller, CoverageMap::of());
     }
 
     /** A matrix of this kind over the run's coverage map. */

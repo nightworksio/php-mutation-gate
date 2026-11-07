@@ -22,14 +22,14 @@ enum Expiry
     case Expiring;
     case Expired;
 
-    /** How many days ahead an ignore's end is named, as the PR comment names it in advance. */
+    /** How many days ahead an ignore's end is named, where the config does not say: `ignores.notice`. */
     public const int NOTICE = 14;
 
-    public static function of(Day $expires, DateTimeImmutable $now): self
+    public static function of(Day $expires, DateTimeImmutable $now, int $notice = self::NOTICE): self
     {
         return match (true) {
             $expires->isBefore(Day::on($now)) => self::Expired,
-            Day::on($now->modify(sprintf('+%d days', self::NOTICE)))->isBefore($expires) => self::Lasting,
+            Day::on($now->modify(sprintf('+%d days', $notice)))->isBefore($expires) => self::Lasting,
             default => self::Expiring,
         };
     }

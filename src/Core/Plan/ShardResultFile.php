@@ -45,8 +45,8 @@ use function sprintf;
  * answers where there are any, `missed` each held unit whose holding tests
  * miss lines of it, with why, where there are any, `covered` each held unit
  * whose holding tests cover it, with those of them that run it as `judging`,
- * where there are any, `warnings` what the shard warns of, where it warns of
- * anything, `unjudged` the units its budget ran out before or its doom left,
+ * where there are any, `warnings` what the shard warns of and `notes` what it
+ * notes, each where it says anything, `unjudged` the units its budget ran out before or its doom left,
  * where there are any, `staticChecks` what static analysis's checks of its
  * survivors came to, where they came to anything (see SurvivorChecksRecord),
  * and `doomed` the survivor it stopped on once its run could not pass, where
@@ -81,6 +81,8 @@ final readonly class ShardResultFile
     private const string COVERED = 'covered';
 
     private const string WARNINGS = 'warnings';
+
+    private const string NOTES = 'notes';
 
     private const string UNJUDGED = 'unjudged';
 
@@ -136,10 +138,8 @@ final readonly class ShardResultFile
                     ],
                     [...$result->held()->covered()],
                 ),
-                self::WARNINGS => array_map(
-                    static fn(Warning $warning): string => $warning->text(),
-                    [...$result->warnings()],
-                ),
+                self::WARNINGS => self::texts($result->warnings()->actionable()),
+                self::NOTES => self::texts($result->warnings()->notes()),
                 self::UNJUDGED => UnitRecord::all($result->unjudged()),
                 SurvivorChecksRecord::SECTION => $checks,
                 DoomedRecord::SECTION => $doomed,
@@ -174,7 +174,7 @@ final readonly class ShardResultFile
         )
             ->withFlaky(self::flakyIn($file->field(self::FLAKY)))
             ->withHeld(self::heldIn($file->field(self::MISSED), $file->field(self::COVERED)))
-            ->withWarnings(self::warningsIn($file->field(self::WARNINGS)))
+            ->withWarnings(self::warningsIn($file->field(self::WARNINGS), $file->field(self::NOTES)))
             ->withUnjudged(self::unjudgedIn($file->field(self::UNJUDGED)))
             ->withChecks(SurvivorChecksRecord::read($file->field(SurvivorChecksRecord::SECTION)))
             ->withDoomed(DoomedRecord::read($file->field(DoomedRecord::SECTION)));
@@ -187,7 +187,7 @@ final readonly class ShardResultFile
     }
 
     /** @throws NotInShape */
-    private static function warningsIn(Node $warnings): Warnings
+    private static function warningsIn(Node $warnings, Node $notes): Warnings
     {
         $read = Warnings::none();
 
@@ -195,7 +195,17 @@ final readonly class ShardResultFile
             $read = $read->with(Warning::that($warning->text()));
         }
 
+        foreach ($notes->isPresent() ? $notes->items() : [] as $note) {
+            $read = $read->with(Warning::noting($note->text()));
+        }
+
         return $read;
+    }
+
+    /** @return list<string> each of these, as the result writes it */
+    private static function texts(Warnings $warnings): array
+    {
+        return array_map(static fn(Warning $warning): string => $warning->text(), [...$warnings]);
     }
 
     /** @throws NotInShape */

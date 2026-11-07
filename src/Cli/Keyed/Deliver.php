@@ -118,7 +118,10 @@ final readonly class Deliver
     /** An object to keep beside the ledger, read from beside the delivery within the limits a store reads it to. */
     private static function keptIn(Directory $from, Companion $companion): Contents|CannotJudge|TooLarge
     {
-        $read = $from->readAtMost(Path::of($companion->value), CompanionRead::limitsOf($companion)->packed());
+        $read = $from->readAtMost(
+            Path::of($companion->value),
+            CompanionRead::limitsOf($companion, LedgerLimits::standard())->packed(),
+        );
 
         return $read instanceof Missing ? CannotJudge::because(sprintf(Sending::MISSING, $companion->value)) : $read;
     }
