@@ -71,9 +71,10 @@ it('writes none of the toggles of a run', function (string $name): void {
     'cut short' => ['cutShort'],
 ]);
 
-it('writes each cap where a layer sets it, and calls the builder for it', function (Cap $cap): void {
+it('writes each cap where a layer sets it, and calls the builder for it', function (string $name): void {
+    $cap = Cap::from($name);
     $set = CommentShows::of(caps: CommentCaps::capping($cap, 2));
 
     expect(Decoded::at($set->json()->line(), $cap->value, 'most'))->toBe(2)
         ->and($set->php()->code())->toContain('Comment::');
-})->with(fn(): array => array_map(static fn(Cap $cap): array => [$cap], Cap::cases()));
+})->with(['survivors', 'security', 'unjudged', 'ignored', 'heatmap', 'text']);
