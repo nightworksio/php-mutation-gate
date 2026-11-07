@@ -102,7 +102,8 @@ it('prints the effective config in the format --format names', function () use (
         ->and($php)->toContain(
             "    ->preset(Preset::symfony())\n"
             . "    ->runner(Runner::infection()->cappedAt(MemoryCap::of(1, MemoryUnit::Gigabytes))"
-            . "->inWorkers(Workers::Fork)->applyingPathRules(PathRuleMode::Partitioned))\n",
+            . "->inWorkers(Workers::Fork)->applyingPathRules(PathRuleMode::Partitioned)"
+            . "->paced(Pace::of(recycleAfter: 16, warmSlack: '1m', poll: 0.01)))\n",
         );
 });
 

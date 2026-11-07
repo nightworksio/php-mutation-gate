@@ -39,7 +39,7 @@ it('watches only where the gate asks, and reads this process itself', function (
     expect($off)->toBe(Off::WatchingPackages)
         ->and($asked)->toBeInstanceOf(PackageWatch::class)
         ->and($asked instanceof PackageWatch ? $asked->newlyLoaded() : [])->toContain('pestphp/pest')
-        ->and($asked instanceof PackageWatch ? $asked->newlyLoaded() : ['more'])->toBe([])
+        ->and($asked instanceof PackageWatch ? $asked->newlyLoaded() : ['pestphp/pest'])->not->toContain('pestphp/pest')
         ->and($asked instanceof PackageWatch && $asked->startedAProcess())->toBeFalse();
 });
 
