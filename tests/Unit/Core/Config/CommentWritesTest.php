@@ -32,21 +32,23 @@ it('lays a later layer over an earlier one key by key, and keeps what the later 
         ->and($laid->commentsOn(Occasion::PullRequest, Listed::of(...$standard)))->toBeTrue();
 });
 
-it('writes each toggle of a run and calls the builder for it, where a layer sets it', function (Toggle $toggle): void {
+it('writes each toggle of a run and calls the builder for it, where a layer sets it', function (string $name): void {
+    $toggle = Toggle::from($name);
     $set = CommentWrites::of(toggles: CommentToggles::off($toggle));
 
     expect(Decoded::at($set->json()->line(), $toggle->value))->toBeFalse()
         ->and($set->php()->code())->toContain('Comment::')
         ->and($set->allows($toggle))->toBeFalse();
 })->with([
-    'drafts' => [Toggle::Drafts],
-    'sampled' => [Toggle::Sampled],
-    'cut short' => [Toggle::CutShort],
+    'drafts' => ['drafts'],
+    'sampled' => ['sampled'],
+    'cut short' => ['cutShort'],
 ]);
 
-it('writes none of the toggles a comment\'s text says', function (Toggle $toggle): void {
+it('writes none of the toggles a comment\'s text says', function (string $name): void {
+    $toggle = Toggle::from($name);
     expect(CommentWrites::of(toggles: CommentToggles::off($toggle))->json()->line())->toBe('{}');
 })->with([
-    'try' => [Toggle::Try],
-    'reproduce' => [Toggle::Reproduce],
+    'try' => ['try'],
+    'reproduce' => ['reproduce'],
 ]);

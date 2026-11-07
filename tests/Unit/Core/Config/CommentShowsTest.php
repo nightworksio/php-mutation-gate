@@ -51,22 +51,24 @@ it('lays a later layer over an earlier one key by key, and keeps what the later 
         ->and($laid->detail())->toBe(Detail::Full);
 });
 
-it('writes each toggle of a comment\'s text and calls the builder for it, where a layer sets it', function (Toggle $toggle): void {
+it('writes each toggle of a comment\'s text and calls the builder for it, where a layer sets it', function (string $name): void {
+    $toggle = Toggle::from($name);
     $set = CommentShows::of(toggles: CommentToggles::off($toggle));
 
     expect(Decoded::at($set->json()->line(), $toggle->value))->toBeFalse()
         ->and($set->php()->code())->toContain('Comment::');
 })->with([
-    'try' => [Toggle::Try],
-    'reproduce' => [Toggle::Reproduce],
+    'try' => ['try'],
+    'reproduce' => ['reproduce'],
 ]);
 
-it('writes none of the toggles of a run', function (Toggle $toggle): void {
+it('writes none of the toggles of a run', function (string $name): void {
+    $toggle = Toggle::from($name);
     expect(CommentShows::of(toggles: CommentToggles::off($toggle))->json()->line())->toBe('{}');
 })->with([
-    'drafts' => [Toggle::Drafts],
-    'sampled' => [Toggle::Sampled],
-    'cut short' => [Toggle::CutShort],
+    'drafts' => ['drafts'],
+    'sampled' => ['sampled'],
+    'cut short' => ['cutShort'],
 ]);
 
 it('writes each cap where a layer sets it, and calls the builder for it', function (Cap $cap): void {
