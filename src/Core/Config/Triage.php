@@ -46,6 +46,7 @@ final readonly class Triage implements Part
         private SurvivorsFirst|Absent $survivorsFirst,
         private SuiteLists $lists,
         private PerTestSetting $perTest,
+        private Seconds|Absent $startUp,
     ) {
     }
 
@@ -62,6 +63,7 @@ final readonly class Triage implements Part
         int|float|Learned|Absent $multiple = new Absent(),
         int|false|Absent $perTest = new Absent(),
         Seconds|Absent $testFloor = new Absent(),
+        Seconds|Absent $startUp = new Absent(),
     ): self {
         return new self(
             $budget,
@@ -75,6 +77,7 @@ final readonly class Triage implements Part
             $survivorsFirst,
             $lists instanceof SuiteLists ? $lists : SuiteLists::of(),
             PerTestSetting::of($perTest, $testFloor),
+            $startUp,
         );
     }
 
@@ -98,6 +101,7 @@ final readonly class Triage implements Part
             multiple: MutantLimit::FACTOR,
             perTest: PerTestLimit::MULTIPLE,
             testFloor: Seconds::of(PerTestLimit::FLOOR),
+            startUp: Seconds::of(MutantLimit::START_UP),
         );
     }
 
@@ -116,6 +120,7 @@ final readonly class Triage implements Part
                 Absent::laid($this->survivorsFirst, $later->survivorsFirst),
                 $this->lists->over($later->lists),
                 $this->perTest->over($later->perTest),
+                Absent::laid($this->startUp, $later->startUp),
             )
             : $this;
     }
@@ -167,7 +172,8 @@ final readonly class Triage implements Part
      */
     public function bounds(): LimitBounds
     {
-        $bounds = LimitBounds::between($this->limit(), $this->most())
+        $startUp = $this->startUp instanceof Seconds ? $this->startUp->seconds() : MutantLimit::START_UP;
+        $bounds = LimitBounds::between($this->limit(), $this->most(), $startUp)
             ->tighterFor($this->tighter())
             ->multipliedBy(match (true) {
                 $this->multiple instanceof Absent => Multiple::standard(),
@@ -221,7 +227,7 @@ final readonly class Triage implements Part
     public function written(PathOrigin $origin): Json
     {
         return Json::object(
-            Member::of('budget', $this->budget instanceof Seconds ? $this->budget->written() : $this->budget),
+            Member::of('budget', WholeSeconds::duration($this->budget)),
             Member::unlessEmpty(
                 'timeouts',
                 Json::object(
@@ -229,6 +235,7 @@ final readonly class Triage implements Part
                     Member::of('seconds', LimitCalls::secondsWritten($this->limit)),
                     Member::of('most', WholeSeconds::written($this->most)),
                     Member::of('multiple', LimitCalls::multipleWritten($this->multiple)),
+                    Member::of('startUp', WholeSeconds::duration($this->startUp)),
                     Member::of('tighter', $this->tighterWritten()),
                     ...$this->perTest->written(),
                 ),
@@ -263,6 +270,9 @@ final readonly class Triage implements Part
             ...$this->mode instanceof TimeoutMode ? [$this->mode->php()] : [],
             ...LimitCalls::seconds($this->limit),
             ...LimitCalls::multiple($this->multiple),
+            ...$this->startUp instanceof Seconds
+                ? [sprintf('Timeouts::startUp(%s)', PhpCalls::literal($this->startUp->written()))]
+                : [],
             ...$this->most instanceof Seconds ? [sprintf('Timeouts::most(%d)', intval($this->most->seconds()))] : [],
             ...$this->tighter instanceof TighterSilence ? [sprintf(
                 'Timeouts::tighter(%s)',

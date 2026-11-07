@@ -23,7 +23,7 @@ use function sprintf;
  * What a verdict warns of beside what it fails: each tree held to no floor
  * outside CI, the runner's own ignore markers the config lets through, each
  * mutator set a preset turns on that is not installed, and what the shards warn
- * of; and what it notes (ADR-0105): the files most of the suite runs through
+ * of; and what it notes (ADR-0111): the files most of the suite runs through
  * that nothing holds, where the gate suggests changes (ADR-0104), or why the
  * kill matrix holds killers alone; why the tests go by their ids; and the suites
  * whose tests the gate runs none of, as they serve the application from another

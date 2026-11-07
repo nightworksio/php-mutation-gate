@@ -59,6 +59,18 @@ final readonly class Local implements Setting
         return new self(Json::at('local.inferSubsumed', value: false));
     }
 
+    /** `local.watchPoll`: how long `watch` waits between two looks at the files it polls, such as `1s`. */
+    public static function watchPoll(string $duration): self
+    {
+        return new self(Json::at('local.watchPoll', $duration));
+    }
+
+    /** `triage.fewest`: the fewest runs `triage --repeat` takes; 2. */
+    public static function triageFewest(int $runs): self
+    {
+        return new self(Json::at('triage.fewest', $runs));
+    }
+
     public function written(): Json
     {
         return $this->json;

@@ -71,3 +71,10 @@ it('proves no mutant whose code stands on other lines than its original\'s, sinc
         "<?php\n\nfunction made(): Closure\n{\n\n    \$made = fn (): int => 1;\n    return \$made;\n}\n",
     ],
 ]);
+
+it('gives each child as many programs and as long as it is told', function (): void {
+    $directory = Root::of(Scratch::directory())->at(Path::of('equivalence'));
+
+    expect(Prover::of(PHP_BINARY, $directory, ProcessCount::of(3), disabled: false, batch: 7, limit: 2.5))
+        ->toEqual(new Prover(new Compiler(PHP_BINARY, $directory->value(), 2.5, 3, ['disable_functions='], perChild: 7)));
+});

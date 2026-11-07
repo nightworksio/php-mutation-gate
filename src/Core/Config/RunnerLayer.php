@@ -33,6 +33,7 @@ final readonly class RunnerLayer
         private MemoryCap|Absent $memory,
         private Workers|Absent $workers,
         private PathRuleMode|Absent $pathRules,
+        private RunnerPacing $pacing,
     ) {
     }
 
@@ -42,6 +43,7 @@ final readonly class RunnerLayer
         MemoryCap|Absent $memory,
         Workers|Absent $workers,
         PathRuleMode|Absent $pathRules,
+        RunnerPacing $pacing,
     ): self {
         return new self(
             $runner,
@@ -49,6 +51,7 @@ final readonly class RunnerLayer
             $memory,
             $workers,
             $pathRules,
+            $pacing,
         );
     }
 
@@ -63,6 +66,7 @@ final readonly class RunnerLayer
             Absent::laid($this->memory, $later->memory),
             Absent::laid($this->workers, $later->workers),
             Absent::laid($this->pathRules, $later->pathRules),
+            $this->pacing->over($later->pacing),
         );
     }
 
@@ -95,13 +99,19 @@ final readonly class RunnerLayer
         return $this->pathRules instanceof PathRuleMode ? $this->pathRules : PathRuleMode::Partitioned;
     }
 
+    /** `runner.recycleAfter`, `runner.warmSlack` and `runner.poll`: how the runner paces its work. */
+    public function pacing(): RunnerPacing
+    {
+        return $this->pacing;
+    }
+
     /** The config with the runner in it: by itself as the adapter it chooses, or as an object with the rest. */
     public function written(Json $written): Json
     {
         $chosen = $this->runner instanceof Choice ? $this->runner->written() : Json::object();
         $also = $this->alsoWritten();
 
-        if ($also === []) {
+        if ($also === [] && $this->pacing->isUnset()) {
             return $this->runner instanceof Choice ? $written->with(Member::of('runner', $chosen)) : $written;
         }
 
@@ -111,7 +121,7 @@ final readonly class RunnerLayer
             $runner = $runner->with($member);
         }
 
-        return $written->with(Member::of('runner', $runner));
+        return $written->with(Member::of('runner', $this->pacing->written($runner)));
     }
 
     /**
@@ -134,6 +144,7 @@ final readonly class RunnerLayer
             $called = $this->pathRules instanceof PathRuleMode
                 ? sprintf('%s->applyingPathRules(%s)', $called, $this->pathRulesPhp($this->pathRules))
                 : $called;
+            $called = $this->pacing->onRunner($called);
 
             return PhpCalls::onGate(
                 GateMethod::Runner,
@@ -149,7 +160,7 @@ final readonly class RunnerLayer
             $calls = $calls->and(PhpCalls::onGate($method, $argument));
         }
 
-        return $calls;
+        return $this->pacing->onGate($calls);
     }
 
     /** @return list<string> what the layer withholds */

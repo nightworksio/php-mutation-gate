@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
+use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
@@ -28,17 +29,33 @@ final readonly class LocalKeys
         $start = Field::optional('serveStart', Enumerated::of(ServeStart::cases()), $judges);
         $startWait = Field::optional('serveStartWait', Duration::written(), $judges);
         $infer = Field::optional('inferSubsumed', Flag::boolean(), $judges);
+        $poll = Field::optional('watchPoll', Duration::written(), $judges);
 
         return [Field::section(
+            'triage',
+            Section::single(
+                Field::optional('fewest', Integer::atLeast(2), $judges),
+                static fn(int|Absent $fewest): Layer => Layer::of(Local::of(triageFewest: $fewest)),
+            ),
+        ), Field::section(
             'local',
             Section::of(
-                static function (Node $local) use ($watch, $prePush, $idle, $start, $startWait, $infer): Layer|Invalid {
+                static function (Node $local) use (
+                    $watch,
+                    $prePush,
+                    $idle,
+                    $start,
+                    $startWait,
+                    $infer,
+                    $poll,
+                ): Layer|Invalid {
                     $watching = $watch->read($local);
                     $pushing = $prePush->read($local);
                     $idling = $idle->read($local);
                     $starting = $start->read($local);
                     $waiting = $startWait->read($local);
                     $inferring = $infer->read($local);
+                    $polling = $poll->read($local);
 
                     return Reading::built(
                         static fn(): Layer => Layer::of(Local::of(
@@ -48,6 +65,7 @@ final readonly class LocalKeys
                             $starting->value(),
                             $waiting->value(),
                             $inferring->value(),
+                            $polling->value(),
                         )),
                         $watching,
                         $pushing,
@@ -55,6 +73,7 @@ final readonly class LocalKeys
                         $starting,
                         $waiting,
                         $inferring,
+                        $polling,
                     );
                 },
                 $watch,
@@ -63,6 +82,7 @@ final readonly class LocalKeys
                 $start,
                 $startWait,
                 $infer,
+                $poll,
             ),
         )];
     }

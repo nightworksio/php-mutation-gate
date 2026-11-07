@@ -21,7 +21,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 final readonly class Polling
 {
     /** The wait between looks, in seconds, short beside the shortest mutant's run: about a hundred looks a second. */
-    private const float INTERVAL = 0.01;
+    public const float INTERVAL = 0.01;
 
     /**
      * The wait for a process that has closed its pipes to be seen to end, as it does on its way out, and between
@@ -32,6 +32,14 @@ final readonly class Polling
     public static function interval(): Seconds
     {
         return Seconds::of(self::INTERVAL);
+    }
+
+    /** The wait this process was told in `ChildVariable::Poll`: `runner.poll`, or the standard. */
+    public static function told(string|false $told): Seconds
+    {
+        $seconds = ToldSeconds::read($told);
+
+        return $seconds instanceof Seconds ? $seconds : self::interval();
     }
 
     public static function moment(): Seconds

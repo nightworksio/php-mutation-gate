@@ -143,7 +143,7 @@ it('waits up to five seconds for a client to send its request', function () use 
         $connection = ServedProjects::socket()->connected();
 
         if ($connection instanceof Connection) {
-            Waiting::every(Seconds::of(4.5))();
+            Waiting::between(Seconds::of(4.5));
             $connection->sent($request);
             file_put_contents($kept, ServedProjects::lineOf($connection->waitingAtMost(5)));
         }
@@ -166,7 +166,7 @@ it('refuses a request its client takes longer than five seconds to send', functi
         $connection = ServedProjects::socket()->connected();
 
         if ($connection instanceof Connection) {
-            Waiting::every(Seconds::of(5.6))();
+            Waiting::between(Seconds::of(5.6));
             $connection->sent($request);
             file_put_contents($kept, ServedProjects::lineOf($connection->waitingAtMost(5)));
         }

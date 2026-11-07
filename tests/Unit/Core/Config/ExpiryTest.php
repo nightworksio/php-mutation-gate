@@ -16,3 +16,12 @@ it('says where an ignore that ends stands on the day of a run', function (string
     'its day is the last of the notice' => ['2026-10-14', Expiry::Expiring],
     'its day is past the notice' => ['2026-10-15', Expiry::Lasting],
 ]);
+
+it('names an ignore in advance as far ahead as it is told', function (string $expires, Expiry $expiry): void {
+    $day = Day::of($expires);
+
+    expect($day instanceof Day ? Expiry::of($day, new DateTimeImmutable(Configs::NOW), 3) : $day)->toBe($expiry);
+})->with([
+    'its day is the last of the notice' => ['2026-10-03', Expiry::Expiring],
+    'its day is past the notice' => ['2026-10-04', Expiry::Lasting],
+]);

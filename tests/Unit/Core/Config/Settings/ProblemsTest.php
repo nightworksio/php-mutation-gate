@@ -336,6 +336,9 @@ it('leaves the options of a class or another extension\'s adapter to it', functi
             'memory' => '1G',
             'workers' => 'fork',
             'pathRules' => 'partitioned',
+            'recycleAfter' => 16,
+            'warmSlack' => '1m',
+            'poll' => 0.01,
         ]);
 });
 

@@ -16,7 +16,10 @@ final readonly class SettingsCases
             "withhold": [],
             "memory": "1G",
             "workers": "fork",
-            "pathRules": "partitioned"
+            "pathRules": "partitioned",
+            "recycleAfter": 16,
+            "warmSlack": "1m",
+            "poll": 0.01
         },
         "mutators": {
             "sets": [],
@@ -76,13 +79,22 @@ final readonly class SettingsCases
             "seconds": 600,
             "max": 20,
             "learnedFrom": "max",
-            "setup": "1m"
+            "setup": "1m",
+            "cutAt": 2.0
         },
         "costs": {
             "secondsPerLine": {
                 "": 0.2
             },
             "savingsWindow": "30d"
+        },
+        "plan": {
+            "chunkMinutes": 15,
+            "provingRange": 20
+        },
+        "timing": {
+            "newest": 0.9,
+            "startUpSamples": 3
         },
         "ci": {
             "check": "mutation / verdict",
@@ -125,6 +137,7 @@ final readonly class SettingsCases
             "seconds": 10,
             "most": 300,
             "multiple": 3,
+            "startUp": "5s",
             "tighter": {
                 "mutators": [
                     "RemoveArrayItem",
@@ -156,7 +169,8 @@ final readonly class SettingsCases
         },
         "ignores": {
             "entries": [],
-            "native": "refuse"
+            "native": "refuse",
+            "notice": 14
         },
         "equivalence": {
             "static": true
@@ -207,7 +221,14 @@ final readonly class SettingsCases
         "staticCheck": {
             "tool": "auto",
             "seconds": 60,
-            "before": true
+            "before": true,
+            "opcache": {
+                "batch": 100,
+                "limit": "1m"
+            }
+        },
+        "triage": {
+            "fewest": 2
         },
         "local": {
             "watchBudget": "1m",
@@ -215,7 +236,8 @@ final readonly class SettingsCases
             "serveIdle": "30m",
             "serveStart": "watch",
             "serveStartWait": "10s",
-            "inferSubsumed": true
+            "inferSubsumed": true,
+            "watchPoll": "1s"
         }
     }
     JSON;
@@ -225,7 +247,7 @@ final readonly class SettingsCases
         '$schema' => 'resources/mutation-gate.schema.json',
         'extensions' => ['Acme\\GateSlack\\SlackExtension'],
         'preset' => ['laravel', 'acme'],
-        'runner' => ['use' => 'infection', 'with' => [], 'withhold' => ['DEPLOY_*', 'COMPOSER_AUTH'], 'memory' => '512m', 'workers' => 'fresh'],
+        'runner' => ['use' => 'infection', 'with' => [], 'withhold' => ['DEPLOY_*', 'COMPOSER_AUTH'], 'memory' => '512m', 'workers' => 'fresh', 'recycleAfter' => 8, 'warmSlack' => '2m', 'poll' => 0.05],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app', 'lib']]],
         'mutators' => ['sets' => ['acme', 'acme-auth'], 'except' => ['acme/RemoveAudit']],
         'trees' => [
@@ -247,7 +269,10 @@ final readonly class SettingsCases
             'fixtures' => ['tests/fixtures/*'],
         ],
         'holds' => ['hotPath' => 1],
-        'shards' => ['seconds' => 900, 'max' => 8],
+        'shards' => ['seconds' => 900, 'max' => 8, 'cutAt' => 3.5],
+        'plan' => ['chunkMinutes' => 30, 'provingRange' => 5],
+        'timing' => ['newest' => 0.5, 'startUpSamples' => 7],
+        'triage' => ['fewest' => 3],
         'costs' => ['secondsPerLine' => ['' => 0.25, 'src/Legacy' => 2], 'savingsWindow' => '14d'],
         'ci' => [
             'plan' => 'gitlab',
@@ -270,7 +295,7 @@ final readonly class SettingsCases
         ],
         'coverage' => ['incremental' => false],
         'budget' => '1h30m',
-        'timeouts' => ['mode' => 'unjudged', 'seconds' => 30, 'most' => 120, 'perTest' => false, 'testFloor' => 2],
+        'timeouts' => ['mode' => 'unjudged', 'seconds' => 30, 'most' => 120, 'perTest' => false, 'testFloor' => 2, 'startUp' => '9s'],
         'flaky' => ['confirmSurvivors' => false],
         'tests' => ['suites' => ['Unit', 'Plugins', 'Unit'], 'holding' => ['Process']],
         'survivorsFirst' => ['max' => 5],
@@ -308,7 +333,7 @@ final readonly class SettingsCases
         ],
         'dashboard' => ['topic' => 'mutation-tested', 'repositories' => ['api', 'web']],
         'pest' => ['patch' => true, 'canary' => 'canary', 'bootTail' => true, 'workerOpcache' => false, 'schemata' => false, 'bootMutants' => false],
-        'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45, 'before' => true],
+        'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45, 'before' => true, 'opcache' => ['batch' => 50, 'limit' => '30s']],
         'pruning' => ['enabled' => false, 'window' => 200, 'audit' => '3d'],
         'sampling' => [
             'confidence' => 99,
@@ -318,6 +343,6 @@ final readonly class SettingsCases
             'auto' => '2h',
             'autoRuns' => ['pullRequests', 'mergeGroups'],
         ],
-        'local' => ['watchBudget' => '2m', 'prePushBudget' => '90s', 'serveIdle' => '10m', 'serveStart' => 'never', 'inferSubsumed' => false],
+        'local' => ['watchBudget' => '2m', 'prePushBudget' => '90s', 'serveIdle' => '10m', 'serveStart' => 'never', 'inferSubsumed' => false, 'watchPoll' => '5s'],
     ];
 }

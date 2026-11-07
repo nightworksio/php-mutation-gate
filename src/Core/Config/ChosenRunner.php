@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Config;
 
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\RunnerPace;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
  * The runner a config chooses, the environment variables it adds to those
@@ -23,12 +25,18 @@ final readonly class ChosenRunner
         private Withheld $withhold,
         private MemoryCap $memory,
         private Workers $workers,
+        private RunnerPacing $pacing,
     ) {
     }
 
-    public static function of(Choice $choice, Withheld $withhold, MemoryCap $memory, Workers $workers): self
-    {
-        return new self($choice, $withhold, $memory, $workers);
+    public static function of(
+        Choice $choice,
+        Withheld $withhold,
+        MemoryCap $memory,
+        Workers $workers,
+        RunnerPacing $pacing,
+    ): self {
+        return new self($choice, $withhold, $memory, $workers, $pacing);
     }
 
     public function choice(): Choice
@@ -63,5 +71,17 @@ final readonly class ChosenRunner
     public function workers(): Workers
     {
         return $this->workers;
+    }
+
+    /** `runner.recycleAfter` and `runner.warmSlack`: how the runner paces its work. */
+    public function pace(): RunnerPace
+    {
+        return $this->pacing->pace();
+    }
+
+    /** `runner.poll`: how long the gate waits between looks at a process it waits on. */
+    public function poll(): Seconds
+    {
+        return $this->pacing->poll();
     }
 }

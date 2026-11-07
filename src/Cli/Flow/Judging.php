@@ -246,7 +246,11 @@ final readonly class Judging
             $plan->digests(),
         );
         $uncovered = $this->uncovered();
-        $ignoring = Ignoring::of($this->settings->ignores()->entries(), $this->setup->clock->now());
+        $ignoring = Ignoring::of(
+            $this->settings->ignores()->entries(),
+            $this->setup->clock->now(),
+            $this->settings->ignores()->notice(),
+        );
         $judge = Judge::of(
             $trees,
             $baseline,

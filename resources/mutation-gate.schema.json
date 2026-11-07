@@ -67,6 +67,19 @@
                                 "partitioned"
                             ]
                         },
+                        "recycleAfter": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "warmSlack": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                        },
+                        "poll": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 60
+                        },
                         "with": {
                             "type": "object",
                             "additionalProperties": false
@@ -105,6 +118,19 @@
                             "enum": [
                                 "partitioned"
                             ]
+                        },
+                        "recycleAfter": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "warmSlack": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                        },
+                        "poll": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 60
                         },
                         "with": {
                             "type": "object",
@@ -145,6 +171,19 @@
                                 "partitioned"
                             ]
                         },
+                        "recycleAfter": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "warmSlack": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                        },
+                        "poll": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 60
+                        },
                         "with": {
                             "type": "object",
                             "additionalProperties": false
@@ -183,6 +222,19 @@
                             "enum": [
                                 "partitioned"
                             ]
+                        },
+                        "recycleAfter": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "warmSlack": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                        },
+                        "poll": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 60
                         },
                         "with": {
                             "type": "object",
@@ -223,6 +275,19 @@
                                 "partitioned"
                             ]
                         },
+                        "recycleAfter": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "warmSlack": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                        },
+                        "poll": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 60
+                        },
                         "with": {
                             "type": "object",
                             "additionalProperties": false
@@ -261,6 +326,19 @@
                             "enum": [
                                 "partitioned"
                             ]
+                        },
+                        "recycleAfter": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "warmSlack": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                        },
+                        "poll": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 60
                         },
                         "with": {
                             "type": "object",
@@ -312,6 +390,19 @@
                                 "partitioned"
                             ]
                         },
+                        "recycleAfter": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "warmSlack": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                        },
+                        "poll": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 60
+                        },
                         "with": {
                             "type": "object"
                         }
@@ -346,6 +437,19 @@
                             "enum": [
                                 "partitioned"
                             ]
+                        },
+                        "recycleAfter": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "warmSlack": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                        },
+                        "poll": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 60
                         }
                     },
                     "minProperties": 1,
@@ -356,7 +460,10 @@
                 "withhold": [],
                 "memory": "1G",
                 "workers": "fork",
-                "pathRules": "partitioned"
+                "pathRules": "partitioned",
+                "recycleAfter": 16,
+                "warmSlack": "1m",
+                "poll": 0.01
             }
         },
         "treeSource": {
@@ -733,6 +840,11 @@
                     "type": "string",
                     "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
                     "default": "1m"
+                },
+                "cutAt": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 2.0
                 }
             },
             "additionalProperties": false,
@@ -742,6 +854,39 @@
                     "target"
                 ]
             }
+        },
+        "plan": {
+            "type": "object",
+            "properties": {
+                "chunkMinutes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 15
+                },
+                "provingRange": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "default": 20
+                }
+            },
+            "additionalProperties": false
+        },
+        "timing": {
+            "type": "object",
+            "properties": {
+                "newest": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 1,
+                    "default": 0.9
+                },
+                "startUpSamples": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 3
+                }
+            },
+            "additionalProperties": false
         },
         "costs": {
             "type": "object",
@@ -1418,6 +1563,11 @@
                     "type": "integer",
                     "minimum": 1,
                     "default": 3
+                },
+                "startUp": {
+                    "type": "string",
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
+                    "default": "5s"
                 }
             },
             "additionalProperties": false
@@ -1531,6 +1681,11 @@
                         "allow"
                     ],
                     "default": "refuse"
+                },
+                "notice": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "default": 14
                 }
             },
             "additionalProperties": false
@@ -3138,6 +3293,22 @@
                 "before": {
                     "type": "boolean",
                     "default": true
+                },
+                "opcache": {
+                    "type": "object",
+                    "properties": {
+                        "batch": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "default": 100
+                        },
+                        "limit": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
+                            "default": "1m"
+                        }
+                    },
+                    "additionalProperties": false
                 }
             },
             "additionalProperties": false
@@ -3247,6 +3418,17 @@
             },
             "additionalProperties": false
         },
+        "triage": {
+            "type": "object",
+            "properties": {
+                "fewest": {
+                    "type": "integer",
+                    "minimum": 2,
+                    "default": 2
+                }
+            },
+            "additionalProperties": false
+        },
         "local": {
             "type": "object",
             "properties": {
@@ -3280,6 +3462,11 @@
                 "inferSubsumed": {
                     "type": "boolean",
                     "default": true
+                },
+                "watchPoll": {
+                    "type": "string",
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
+                    "default": "1s"
                 }
             },
             "additionalProperties": false
@@ -3564,6 +3751,19 @@
                                         "partitioned"
                                     ]
                                 },
+                                "recycleAfter": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "warmSlack": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                },
+                                "poll": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 60
+                                },
                                 "with": {
                                     "type": "object",
                                     "additionalProperties": false
@@ -3602,6 +3802,19 @@
                                     "enum": [
                                         "partitioned"
                                     ]
+                                },
+                                "recycleAfter": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "warmSlack": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                },
+                                "poll": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 60
                                 },
                                 "with": {
                                     "type": "object",
@@ -3642,6 +3855,19 @@
                                         "partitioned"
                                     ]
                                 },
+                                "recycleAfter": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "warmSlack": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                },
+                                "poll": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 60
+                                },
                                 "with": {
                                     "type": "object",
                                     "additionalProperties": false
@@ -3680,6 +3906,19 @@
                                     "enum": [
                                         "partitioned"
                                     ]
+                                },
+                                "recycleAfter": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "warmSlack": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                },
+                                "poll": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 60
                                 },
                                 "with": {
                                     "type": "object",
@@ -3720,6 +3959,19 @@
                                         "partitioned"
                                     ]
                                 },
+                                "recycleAfter": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "warmSlack": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                },
+                                "poll": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 60
+                                },
                                 "with": {
                                     "type": "object",
                                     "additionalProperties": false
@@ -3758,6 +4010,19 @@
                                     "enum": [
                                         "partitioned"
                                     ]
+                                },
+                                "recycleAfter": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "warmSlack": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                },
+                                "poll": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 60
                                 },
                                 "with": {
                                     "type": "object",
@@ -3809,6 +4074,19 @@
                                         "partitioned"
                                     ]
                                 },
+                                "recycleAfter": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "warmSlack": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                },
+                                "poll": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 60
+                                },
                                 "with": {
                                     "type": "object"
                                 }
@@ -3843,6 +4121,19 @@
                                     "enum": [
                                         "partitioned"
                                     ]
+                                },
+                                "recycleAfter": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "warmSlack": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                },
+                                "poll": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 60
                                 }
                             },
                             "minProperties": 1,
@@ -4197,6 +4488,10 @@
                         "setup": {
                             "type": "string",
                             "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                        },
+                        "cutAt": {
+                            "type": "number",
+                            "minimum": 0
                         }
                     },
                     "additionalProperties": false,
@@ -4206,6 +4501,35 @@
                             "target"
                         ]
                     }
+                },
+                "plan": {
+                    "type": "object",
+                    "properties": {
+                        "chunkMinutes": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "provingRange": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "timing": {
+                    "type": "object",
+                    "properties": {
+                        "newest": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 1
+                        },
+                        "startUpSamples": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    "additionalProperties": false
                 },
                 "costs": {
                     "type": "object",
@@ -4678,6 +5002,10 @@
                         "testFloor": {
                             "type": "integer",
                             "minimum": 1
+                        },
+                        "startUp": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
                         }
                     },
                     "additionalProperties": false
@@ -4786,6 +5114,10 @@
                                 "refuse",
                                 "allow"
                             ]
+                        },
+                        "notice": {
+                            "type": "integer",
+                            "minimum": 0
                         }
                     },
                     "additionalProperties": false
@@ -6364,6 +6696,20 @@
                         },
                         "before": {
                             "type": "boolean"
+                        },
+                        "opcache": {
+                            "type": "object",
+                            "properties": {
+                                "batch": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "limit": {
+                                    "type": "string",
+                                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                                }
+                            },
+                            "additionalProperties": false
                         }
                     },
                     "additionalProperties": false
@@ -6461,6 +6807,16 @@
                     },
                     "additionalProperties": false
                 },
+                "triage": {
+                    "type": "object",
+                    "properties": {
+                        "fewest": {
+                            "type": "integer",
+                            "minimum": 2
+                        }
+                    },
+                    "additionalProperties": false
+                },
                 "local": {
                     "type": "object",
                     "properties": {
@@ -6488,6 +6844,10 @@
                         },
                         "inferSubsumed": {
                             "type": "boolean"
+                        },
+                        "watchPoll": {
+                            "type": "string",
+                            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
                         }
                     },
                     "additionalProperties": false

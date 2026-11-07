@@ -107,7 +107,11 @@ final readonly class Rechecking
      */
     private function survivorsAmong(array $mutants, Reach $reach): Survivors
     {
-        $ignoring = Ignoring::of($this->settings->ignores()->entries(), $this->setup->clock->now());
+        $ignoring = Ignoring::of(
+            $this->settings->ignores()->entries(),
+            $this->setup->clock->now(),
+            $this->settings->ignores()->notice(),
+        );
         $triage = MutantTriage::under($this->settings->triage()->timeouts());
         $judged = [];
 
@@ -172,7 +176,10 @@ final readonly class Rechecking
         $names = array_map(static fn(JudgedMutant $survivor): string => $survivor->mutant()->mutator(), $survivors);
         $judgedBy = $units[$file->value()]->judgedBy();
         $request = RunRequest::of($this->adapters, $this->settings, Paths::of($file), $judgedBy)
-            ->across(Pool::of($this->adapters->processes(), $this->settings->runner()->workers()))
+            ->across(
+                Pool::of($this->adapters->processes(), $this->settings->runner()->workers())
+                    ->pacedBy($this->settings->runner()->pace()),
+            )
             ->reusingCoverage(Handed::maps(Workspace::verdictCoverage(), Workspace::coverage()));
         $result = $this->adapters->runner->mutate($request->narrowedTo(
             Paths::of($file),

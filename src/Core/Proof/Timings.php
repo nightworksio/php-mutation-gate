@@ -16,6 +16,7 @@ use Countable;
 use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use Traversable;
@@ -64,7 +65,7 @@ final readonly class Timings implements Countable, IteratorAggregate
      * unit with none held, or one another runner or gate measured or measured
      * later, takes its newest measurement as it is.
      */
-    public function smoothedOver(self $held): self
+    public function smoothedOver(self $held, TimingWeight|NotGiven $newest = new NotGiven()): self
     {
         $smoothed = [];
 
@@ -73,7 +74,7 @@ final readonly class Timings implements Countable, IteratorAggregate
             $blends = $before->runner() === $timing->runner()
                 && $before->gate()->costsAs($timing->gate())
                 && $timing->at()->isAfter($before->at());
-            $smoothed[] = $blends ? $timing->smoothedOver($before) : $timing;
+            $smoothed[] = $blends ? $timing->smoothedOver($before, $newest) : $timing;
         }
 
         return self::of(...$smoothed);

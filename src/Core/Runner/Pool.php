@@ -21,25 +21,33 @@ final readonly class Pool
         private Workers $workers,
         private Seconds|Unmeasured $startUp,
         private Multiple $multiple,
-        private bool $tail = false,
+        private bool $tail,
+        private RunnerPace $pace,
     ) {
     }
 
     public static function of(ProcessCount $processes, Workers $workers): self
     {
-        return new self($processes, $workers, Unmeasured::duration(), Multiple::standard());
+        return new self(
+            $processes,
+            $workers,
+            Unmeasured::duration(),
+            Multiple::standard(),
+            tail: false,
+            pace: RunnerPace::standard(),
+        );
     }
 
     /** One mutant at a time, each in a fresh process. */
     public static function single(): self
     {
-        return new self(ProcessCount::single(), Workers::Fresh, Unmeasured::duration(), Multiple::standard());
+        return self::of(ProcessCount::single(), Workers::Fresh);
     }
 
     /** This pool, a run of no test having taken this long to start in it. */
     public function startingIn(Seconds|Unmeasured $startUp): self
     {
-        return new self($this->processes, $this->workers, $startUp, $this->multiple, $this->tail);
+        return new self($this->processes, $this->workers, $startUp, $this->multiple, $this->tail, $this->pace);
     }
 
     /**
@@ -49,7 +57,7 @@ final readonly class Pool
     public function learning(Multiple|NotGiven $multiple): self
     {
         return $multiple instanceof Multiple
-            ? new self($this->processes, $this->workers, $this->startUp, $multiple, $this->tail)
+            ? new self($this->processes, $this->workers, $this->startUp, $multiple, $this->tail, $this->pace)
             : $this;
     }
 
@@ -66,7 +74,20 @@ final readonly class Pool
             $this->startUp,
             $this->multiple,
             tail: true,
+            pace: $this->pace,
         );
+    }
+
+    /** This pool, its runner paced as `runner.recycleAfter` and `runner.warmSlack` say. */
+    public function pacedBy(RunnerPace $pace): self
+    {
+        return new self($this->processes, $this->workers, $this->startUp, $this->multiple, $this->tail, $pace);
+    }
+
+    /** How its runner paces its work. */
+    public function pace(): RunnerPace
+    {
+        return $this->pace;
     }
 
     /** Whether the verification tail runs in it, rather than mutants' own runs (see tail). */

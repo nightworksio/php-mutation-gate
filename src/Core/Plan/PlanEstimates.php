@@ -43,7 +43,8 @@ final readonly class PlanEstimates
 
     private const string UNSPLIT = <<<'SAID'
         shards.target is %s, and at %d %s the longest is expected to take %s.
-        More shards would each cost less than twice their opening run and setup, or split a unit, which no cut does.
+        More shards would each cost less than shards.cutAt times their opening run and setup,
+        or split a unit, which no cut does.
         Raise shards.target to meet it.
         SAID;
 

@@ -24,8 +24,8 @@ it('has no floor up to a most, and keeps its floor when a retry raises its most'
     $bounds = LimitBounds::between(Seconds::of(10.0), Seconds::of(300.0))->upToInstead(Seconds::of(600.0));
 
     expect([$bounds->floor(), $bounds->most()])->toEqual([Seconds::of(10.0), Seconds::of(600.0)])
-        ->and(LimitBounds::upTo(Seconds::of(30.0))->kept(Seconds::of(0.5)))->toEqual(Seconds::of(0.5))
-        ->and(LimitBounds::upTo(Seconds::of(30.0))->floor())->toEqual(Seconds::of(0.0));
+        ->and(LimitBounds::between(Seconds::of(0.0), Seconds::of(30.0))->kept(Seconds::of(0.5)))->toEqual(Seconds::of(0.5))
+        ->and(LimitBounds::between(Seconds::of(0.0), Seconds::of(30.0))->floor())->toEqual(Seconds::of(0.0));
 });
 
 it('keeps the silence limit of a mutator timeouts.tighter lists above the lower of the two floors, and any other above its own', function (): void {
@@ -50,7 +50,7 @@ it('measures no start-up until one is laid on it, and keeps one through every ot
         ->silenceOf(RunnerMutatorName::of('RemoveArrayItem'));
 
     expect($bounds->startUp())->toBeInstanceOf(Unmeasured::class)
-        ->and(LimitBounds::upTo(Seconds::of(30.0))->startUp())->toBeInstanceOf(Unmeasured::class)
+        ->and(LimitBounds::between(Seconds::of(0.0), Seconds::of(30.0))->startUp())->toBeInstanceOf(Unmeasured::class)
         ->and($measured->startUp())->toEqual(Seconds::of(2.5))
         ->and([$measured->floor(), $measured->most()])->toEqual([Seconds::of(7.0), Seconds::of(600.0)]);
 });

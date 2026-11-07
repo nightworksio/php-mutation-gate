@@ -70,6 +70,12 @@ final readonly class Timeouts implements Setting
         return new self(Json::at('timeouts.perTest', value: false));
     }
 
+    /** `timeouts.startUp`: what a run gets to start in where nothing measured its start-up, such as `5s`. */
+    public static function startUp(string $duration): self
+    {
+        return new self(Json::at('timeouts.startUp', $duration));
+    }
+
     /** `timeouts.testFloor`: the least each test of a run may run, in seconds, where `timeouts.perTest` holds it. */
     public static function testFloor(int $seconds): self
     {

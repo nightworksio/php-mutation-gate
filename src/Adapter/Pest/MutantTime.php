@@ -125,7 +125,11 @@ final class MutantTime
         $most = ToldSeconds::read(getenv(GateVariable::MutantCap->value));
 
         return $floor instanceof Seconds && $most instanceof Seconds
-            ? LimitBounds::between($floor, $most)->tighterFor(
+            ? LimitBounds::between(
+                $floor,
+                $most,
+                StartUpVariable::unmeasured(getenv(GateVariable::UnmeasuredStartUp->value)),
+            )->tighterFor(
                 TighterVariables::read(
                     getenv(GateVariable::TighterFloor->value),
                     getenv(GateVariable::TighterMutators->value),

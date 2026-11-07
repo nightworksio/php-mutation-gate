@@ -1,4 +1,4 @@
-# ADR-0105: Warnings ask for action, and notes never block
+# ADR-0111: Warnings ask for action, and notes never block
 
 **Status:** Accepted
 **Date:** 2026-11-07

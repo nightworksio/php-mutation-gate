@@ -36,6 +36,7 @@ final readonly class Shards implements Part
         private Seconds|Absent $setup,
         private Costs $costs,
         private LearnedStatistic|Absent $learnedFrom,
+        private Planning $planning,
     ) {
     }
 
@@ -55,6 +56,7 @@ final readonly class Shards implements Part
         LearnedStatistic|Absent $learnedFrom = new Absent(),
         Seconds|Absent $savingsWindow = new Absent(),
         Choice|Absent $costModel = new Absent(),
+        Planning|Absent $planning = new Absent(),
     ): self {
         return new self(
             $seconds,
@@ -63,6 +65,7 @@ final readonly class Shards implements Part
             $setup,
             Costs::of($secondsPerLine, $perRunnerMinute, $savingsWindow, $costModel),
             $learnedFrom,
+            $planning instanceof Planning ? $planning : Planning::of(),
         );
     }
 
@@ -82,6 +85,7 @@ final readonly class Shards implements Part
             $none->setup(),
             Costs::standard(),
             LearnedStatistic::Max,
+            Planning::standard(),
         );
     }
 
@@ -105,6 +109,7 @@ final readonly class Shards implements Part
             Absent::laid($this->setup, $later->setup),
             $this->costs->over($later->costs),
             Absent::laid($this->learnedFrom, $later->learnedFrom),
+            $this->planning->over($later->planning),
         );
     }
 
@@ -139,6 +144,12 @@ final readonly class Shards implements Part
         return $this->costs;
     }
 
+    /** `plan`, `timing` and `shards.cutAt`: how a run plans its work and learns what it costs. */
+    public function planning(): Planning
+    {
+        return $this->planning;
+    }
+
     /** `shards.target`: the wall time the count is cut to fit, in place of `shards.seconds` (ADR-0013). */
     public function target(): Seconds|Absent
     {
@@ -147,7 +158,7 @@ final readonly class Shards implements Part
 
     public function written(PathOrigin $origin): Json
     {
-        return Json::object(
+        return $this->planning->written(Json::object(
             Member::unlessEmpty(
                 'shards',
                 Json::object(
@@ -156,10 +167,11 @@ final readonly class Shards implements Part
                     Member::of('learnedFrom', LimitCalls::statisticWritten($this->learnedFrom)),
                     Member::of('target', $this->target instanceof Seconds ? $this->target->written() : $this->target),
                     Member::of('setup', $this->setup instanceof Seconds ? $this->setup->written() : $this->setup),
+                    $this->planning->cutAtWritten(),
                 ),
             ),
             $this->costs->written($origin),
-        );
+        ));
     }
 
     public function php(PathOrigin $origin): PhpCalls
@@ -177,6 +189,6 @@ final readonly class Shards implements Part
                 : [],
         ];
 
-        return PhpCalls::inWith(...$settings)->and($this->costs->php($origin));
+        return PhpCalls::inWith(...$settings)->and($this->costs->php($origin))->and($this->planning->php());
     }
 }

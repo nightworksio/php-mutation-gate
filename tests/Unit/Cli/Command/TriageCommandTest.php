@@ -75,6 +75,14 @@ it('refuses a number of runs that is not a whole number of 2 or more, and runs n
         ->and($runner->requests())->toBe([]);
 })->with(['1', '0', '-3', '2.5', 'many']);
 
+it('refuses fewer runs than triage.fewest', function () use ($triage): void {
+    $runner = ScriptedRunner::fixture();
+    $triaged = $triage($runner, 'path=src/Money.php --repeat=2', '"triage": {"fewest": 3}');
+
+    expect([$triaged->code, $triaged->errors])->toBe([2, "--repeat takes a whole number of 3 or more, not \"2\".\n"])
+        ->and($runner->requests())->toBe([]);
+});
+
 it('runs each mutant\'s tests in the order --order asks', function (string $order, bool $first) use (
     $triage,
     $killersFirst,

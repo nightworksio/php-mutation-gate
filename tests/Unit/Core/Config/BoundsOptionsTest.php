@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\Config\Learned;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
@@ -23,11 +24,19 @@ it('reads back the bounds the flows write, and the standard where they write non
         ->and(BoundsOptions::read(Configs::options('{}')))->toEqual(Triage::standard()->bounds());
 });
 
+it('reads back what a run gets to start in where nothing measured it', function (): void {
+    $written = Json::object(...BoundsOptions::of(Triage::of(startUp: Seconds::of(9.0))));
+    $read = BoundsOptions::read(Configs::options($written->line()));
+
+    expect($read instanceof LimitBounds ? $read->unmeasuredStartUp() : $read)->toEqual(Seconds::of(9.0));
+});
+
 it('says why where a bound is no number or the tighter mutators no list of text', function (string $options): void {
     expect(BoundsOptions::read(Configs::options($options)))->toBeInstanceOf(Problem::class);
 })->with([
     'a timeout that is text' => ['{"timeout": "seven"}'],
     'a most that is text' => ['{"most": "ninety"}'],
+    'a start-up that is text' => ['{"startUp": "soon"}'],
     'tighter mutators that are text' => ['{"tighterMutators": "Foreach_"}'],
 ]);
 

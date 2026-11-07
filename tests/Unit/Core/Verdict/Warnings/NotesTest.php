@@ -57,7 +57,7 @@ it('prints a Notes section only where a run notes something, apart from its warn
         ->and($both)->toContain('Notes')
         ->and($both)->toContain('act on it')
         ->and($both)->toContain('worth knowing')
-        ->and(strpos($both, 'act on it'))->toBeLessThan(strpos($both, 'worth knowing'))
+        ->and((int) strpos($both, 'act on it'))->toBeLessThan((int) strpos($both, 'worth knowing'))
         ->and($warned)->not->toContain('Notes');
 })->with(['comment', 'summary', 'html', 'console']);
 

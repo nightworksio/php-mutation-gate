@@ -276,7 +276,7 @@ final readonly class Recorded
                 $mutated->mutants(),
                 $map,
                 $result->measured(),
-            )->smoothedOver($held));
+            )->smoothedOver($held, $this->settings->shards()->planning()->newest()));
             $paces = KillPace::ofAll($mutated->mutants(), $map);
             $ledger = $ledger->withLearned($ledger->learned()->limits()->afterKills(...$paces));
         }

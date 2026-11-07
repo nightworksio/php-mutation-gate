@@ -15,7 +15,6 @@ use NightWorksIO\MutationGate\Core\Ci\WhichShard;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Cost\FirstRun;
-use NightWorksIO\MutationGate\Core\Cost\StartUpSamples;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
@@ -289,8 +288,10 @@ final readonly class Running
         Deadline|Unlimited $deadline,
         Stopwatch $stopwatch,
     ): Mutated|CannotJudge {
-        $startUp = new StartUpTiming($this->adapters, StartUpSamples::standard())->of($map, $kept->units());
+        $samples = $this->settings->shards()->planning()->startUpSamples();
+        $startUp = new StartUpTiming($this->adapters, $samples)->of($map, $kept->units());
         $pool = Pool::of($this->adapters->processes(), $this->settings->runner()->workers())
+            ->pacedBy($this->settings->runner()->pace())
             ->startingIn($startUp)
             ->learning($plan->briefing()->multiple());
         $warmUp = new AnalyserWarmUp();
@@ -342,7 +343,7 @@ final readonly class Running
         $spent = match (true) {
             $doom instanceof Doom && $stops => $batched->spent(
                 $this->weighed($kept, $plan),
-                $batching->inChunksOf(Batching::chunk()),
+                $batching->inChunksOf($this->settings->shards()->planning()->chunk()),
                 $requestFor,
             ),
             $deadline instanceof Deadline => $batched->spent($this->weighed($kept, $plan), $batching, $requestFor),

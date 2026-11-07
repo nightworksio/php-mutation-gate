@@ -10,6 +10,7 @@ use Closure;
 
 use function getcwd;
 use function getenv;
+use function is_int;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Alert\AlertReporter;
@@ -72,6 +73,7 @@ use NightWorksIO\MutationGate\Adapter\Testo\TestoFramework;
 use NightWorksIO\MutationGate\Cli\Config\KeyedStore;
 use NightWorksIO\MutationGate\Cli\Config\PublicBucket;
 use NightWorksIO\MutationGate\Cli\Config\Registered;
+use NightWorksIO\MutationGate\Core\Change\ProvingRange;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\BuiltinAnalyser;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
@@ -419,12 +421,14 @@ final readonly class FirstParty implements Extension
     private static function github(Options $options): ChangeSource&Repository
     {
         $check = $options->text(Key::of('check'));
+        $range = $options->integer(Key::of('provingRange'));
 
         return PassedPullRequests::over(
             self::git($options),
             HttpClient::create(),
             getenv(),
             is_string($check) ? $check : '',
+            is_int($range) ? $range : ProvingRange::STANDARD,
         );
     }
 

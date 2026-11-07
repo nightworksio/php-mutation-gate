@@ -215,13 +215,13 @@ describe('Settings', function (): void {
     it('shows what the runner withholds, its memory cap, how workers start and how it applies paths', function (): void {
         $withholding = Configs::settings(['runner' => ['use' => 'pest', 'withhold' => ['DEPLOY_*']]]);
 
-        expect(Configs::shown($withholding, 'runner'))->toBe(['use' => 'pest', 'withhold' => ['DEPLOY_*'], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned'])
+        expect(Configs::shown($withholding, 'runner'))->toBe(['use' => 'pest', 'withhold' => ['DEPLOY_*'], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01])
             ->and(Configs::shown(Configs::settings(['runner' => ['use' => 'pest']]), 'runner'))
-            ->toBe(['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned'])
+            ->toBe(['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01])
             ->and(Configs::shown(Configs::settings(['runner' => ['use' => 'pest', 'memory' => '-1']]), 'runner'))
-            ->toBe(['use' => 'pest', 'withhold' => [], 'memory' => '-1', 'workers' => 'fork', 'pathRules' => 'partitioned'])
+            ->toBe(['use' => 'pest', 'withhold' => [], 'memory' => '-1', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01])
             ->and(Configs::shown(Configs::settings(SettingsCases::EVERYTHING), 'runner'))
-            ->toBe(['use' => 'infection', 'withhold' => ['DEPLOY_*', 'COMPOSER_AUTH'], 'memory' => '512M', 'workers' => 'fresh', 'pathRules' => 'partitioned']);
+            ->toBe(['use' => 'infection', 'withhold' => ['DEPLOY_*', 'COMPOSER_AUTH'], 'memory' => '512M', 'workers' => 'fresh', 'pathRules' => 'partitioned', 'recycleAfter' => 8, 'warmSlack' => '2m', 'poll' => 0.05]);
     });
 
     it('refuses a runner that withholds without naming the runner, or withholds anything but names', function (
@@ -263,7 +263,7 @@ describe('Settings', function (): void {
             . '"extensions":[],"flaky":{"confirmSurvivors":true},"mutators":{"except":[],"sets":[]},"packages":[],'
             . '"pest":{"bootMutants":true,"bootTail":false,"canary":"mutation-canary","patch":false,"schemata":true,"workerOpcache":true},"pruning":{"enabled":true,"window":500},'
             . '"runner":{"memory":"1G","pathRules":"partitioned","use":"pest","withhold":[],"workers":"fork"},"staticCheck":{"seconds":60,"tool":"auto"},"tests":{"order":"killers-first"},'
-            . '"timeouts":{"most":300,"multiple":3,"perTest":3,"seconds":10,"testFloor":3,"tighter":{"floor":7,"mutators":["RemoveArrayItem","DecrementInteger","IncrementInteger","ForeachEmptyIterable","UnwrapArrayValues","InstanceOfToTrue","InstanceOfToFalse","TernaryNegated","ArrayItemRemoval","Foreach_","InstanceOf_","Ternary"]}},"treeSource":{"use":"phpunit","with":{"fallback":[]}}}',
+            . '"timeouts":{"most":300,"multiple":3,"perTest":3,"seconds":10,"startUp":"5s","testFloor":3,"tighter":{"floor":7,"mutators":["RemoveArrayItem","DecrementInteger","IncrementInteger","ForeachEmptyIterable","UnwrapArrayValues","InstanceOfToTrue","InstanceOfToFalse","TernaryNegated","ArrayItemRemoval","Foreach_","InstanceOf_","Ternary"]}},"treeSource":{"use":"phpunit","with":{"fallback":[]}}}',
         )->and(Configs::settings(SettingsCases::EVERYTHING)->canonical())->toBe(
             '{"ci":{"azure":{"definition":"ci/azure.yml"},"bitbucket":{"definition":"ci/bitbucket.yml"},'
             . '"buildkite":{"definition":".buildkite/mutation.yml","step":{"agents":{"queue":"mutation"}}},'
@@ -273,7 +273,7 @@ describe('Settings', function (): void {
             . '"pest":{"bootMutants":false,"bootTail":true,"canary":"canary","patch":true,"schemata":false,"workerOpcache":false},"pruning":{"enabled":false,"window":200},'
             . '"runner":{"memory":"512M","pathRules":"partitioned","use":"infection","withhold":["DEPLOY_*","COMPOSER_AUTH"],"workers":"fresh"},'
             . '"staticCheck":{"config":"phpstan.dist.neon","seconds":45,"tool":"phpstan"},'
-            . '"tests":{"holding":["Process"],"order":"killers-first","suites":["Unit","Plugins"]},"timeouts":{"most":120,"multiple":3,"perTest":false,"seconds":30,"testFloor":2,"tighter":{"floor":7,"mutators":["RemoveArrayItem","DecrementInteger","IncrementInteger","ForeachEmptyIterable","UnwrapArrayValues","InstanceOfToTrue","InstanceOfToFalse","TernaryNegated","ArrayItemRemoval","Foreach_","InstanceOf_","Ternary"]}},'
+            . '"tests":{"holding":["Process"],"order":"killers-first","suites":["Unit","Plugins"]},"timeouts":{"most":120,"multiple":3,"perTest":false,"seconds":30,"startUp":"9s","testFloor":2,"tighter":{"floor":7,"mutators":["RemoveArrayItem","DecrementInteger","IncrementInteger","ForeachEmptyIterable","UnwrapArrayValues","InstanceOfToTrue","InstanceOfToFalse","TernaryNegated","ArrayItemRemoval","Foreach_","InstanceOf_","Ternary"]}},'
             . '"treeSource":{"use":"phpunit","with":{"fallback":["app","lib"]}},'
             . '"trees":[{"path":"app/Domain"},{"path":"app/Http"},'
             . '{"path":"app/Generated"},{"path":"app/Legacy"}]}',
@@ -293,7 +293,7 @@ describe('Settings', function (): void {
     it('keys a default written out the same as the default left unset, and reads its own effective config back', function (): void {
         $default = Configs::settings(['runner' => 'pest']);
         $written = Configs::settings([
-            'runner' => ['use' => 'pest', 'withhold' => [], 'workers' => 'fork', 'pathRules' => 'partitioned'],
+            'runner' => ['use' => 'pest', 'withhold' => [], 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01],
             'timeouts' => ['multiple' => 3],
             'shards' => ['learnedFrom' => 'max'],
         ]);

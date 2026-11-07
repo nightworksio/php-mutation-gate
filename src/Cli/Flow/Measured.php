@@ -80,7 +80,7 @@ final readonly class Measured
             Reach::nothing(Packages::of($inventory->trees)),
             Uncovered::from($settings->floors()->uncovered()->value),
             $settings->triage()->timeouts(),
-            Ignoring::of($settings->ignores()->entries(), $now),
+            Ignoring::of($settings->ignores()->entries(), $now, $settings->ignores()->notice()),
         );
 
         $trees = $judge->trees($newest->carried());

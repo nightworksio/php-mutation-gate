@@ -304,9 +304,11 @@ final readonly class FlowOptions
         $shards = $settings->shards();
         $target = $shards->target();
 
-        return $target instanceof Seconds
+        $cut = $target instanceof Seconds
             ? Cut::toTarget($target, $shards->setup(), $shards->max())
             : Cut::bySize((int) $shards->seconds()->seconds(), $shards->setup(), $shards->max());
+
+        return $cut->cuttingAt($shards->planning()->cutAt());
     }
 
     /** The shard `--shard` names, or none, when the CI's environment names it. */

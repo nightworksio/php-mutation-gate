@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
+use function max;
+
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Serve\ServeStart;
 use NightWorksIO\MutationGate\Core\Time\Budgets;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Watch\Poll;
 
 use function sprintf;
 
@@ -24,6 +27,9 @@ final readonly class Local implements Part
     /** How long `watch` waits for a daemon it starts to listen, by default, in seconds. */
     private const float SERVE_START_WAIT = 10.0;
 
+    /** The fewest runs that can disagree. */
+    private const int TRIAGE_FEWEST = 2;
+
     private function __construct(
         private Seconds|Absent $watchBudget,
         private Seconds|Absent $prePushBudget,
@@ -31,6 +37,8 @@ final readonly class Local implements Part
         private ServeStart|Absent $serveStart,
         private Seconds|Absent $serveStartWait = new Absent(),
         private bool|Absent $inferSubsumed = new Absent(),
+        private Seconds|Absent $watchPoll = new Absent(),
+        private int|Absent $triageFewest = new Absent(),
     ) {
     }
 
@@ -41,8 +49,19 @@ final readonly class Local implements Part
         ServeStart|Absent $serveStart = new Absent(),
         Seconds|Absent $serveStartWait = new Absent(),
         bool|Absent $inferSubsumed = new Absent(),
+        Seconds|Absent $watchPoll = new Absent(),
+        int|Absent $triageFewest = new Absent(),
     ): self {
-        return new self($watchBudget, $prePushBudget, $serveIdle, $serveStart, $serveStartWait, $inferSubsumed);
+        return new self(
+            $watchBudget,
+            $prePushBudget,
+            $serveIdle,
+            $serveStart,
+            $serveStartWait,
+            $inferSubsumed,
+            $watchPoll,
+            $triageFewest,
+        );
     }
 
     public static function none(): self
@@ -61,6 +80,8 @@ final readonly class Local implements Part
             $none->serveStart(),
             $none->serveStartWait(),
             $none->inferSubsumed(),
+            $none->watchPoll(),
+            $none->triageFewest(),
         );
     }
 
@@ -74,6 +95,8 @@ final readonly class Local implements Part
                 Absent::laid($this->serveStart, $later->serveStart),
                 Absent::laid($this->serveStartWait, $later->serveStartWait),
                 Absent::laid($this->inferSubsumed, $later->inferSubsumed),
+                Absent::laid($this->watchPoll, $later->watchPoll),
+                Absent::laid($this->triageFewest, $later->triageFewest),
             )
             : $this;
     }
@@ -117,34 +140,44 @@ final readonly class Local implements Part
         return $this->inferSubsumed instanceof Absent || $this->inferSubsumed;
     }
 
+    /** `local.watchPoll`: how long `watch` waits between two looks at the files it polls. */
+    public function watchPoll(): Seconds
+    {
+        return $this->watchPoll instanceof Seconds ? $this->watchPoll : Poll::interval();
+    }
+
+    /**
+     * `triage.fewest`: the fewest runs `triage --repeat` takes.
+     *
+     * @return int<2, max>
+     */
+    public function triageFewest(): int
+    {
+        return $this->triageFewest instanceof Absent
+            ? self::TRIAGE_FEWEST
+            : max(self::TRIAGE_FEWEST, $this->triageFewest);
+    }
+
     public function written(PathOrigin $origin): Json
     {
-        return Json::object(Member::unlessEmpty(
-            'local',
-            Json::object(
-                Member::of(
-                    'watchBudget',
-                    $this->watchBudget instanceof Seconds ? $this->watchBudget->written() : $this->watchBudget,
+        return Json::object(
+            Member::unlessEmpty('triage', Json::object(Member::of('fewest', $this->triageFewest))),
+            Member::unlessEmpty(
+                'local',
+                Json::object(
+                    Member::of('watchBudget', WholeSeconds::duration($this->watchBudget)),
+                    Member::of('prePushBudget', WholeSeconds::duration($this->prePushBudget)),
+                    Member::of('serveIdle', WholeSeconds::duration($this->serveIdle)),
+                    Member::of(
+                        'serveStart',
+                        $this->serveStart instanceof ServeStart ? $this->serveStart->value : $this->serveStart,
+                    ),
+                    Member::of('serveStartWait', WholeSeconds::duration($this->serveStartWait)),
+                    Member::of('inferSubsumed', $this->inferSubsumed),
+                    Member::of('watchPoll', WholeSeconds::duration($this->watchPoll)),
                 ),
-                Member::of(
-                    'prePushBudget',
-                    $this->prePushBudget instanceof Seconds ? $this->prePushBudget->written() : $this->prePushBudget,
-                ),
-                Member::of(
-                    'serveIdle',
-                    $this->serveIdle instanceof Seconds ? $this->serveIdle->written() : $this->serveIdle,
-                ),
-                Member::of(
-                    'serveStart',
-                    $this->serveStart instanceof ServeStart ? $this->serveStart->value : $this->serveStart,
-                ),
-                Member::of(
-                    'serveStartWait',
-                    $this->serveStartWait instanceof Seconds ? $this->serveStartWait->written() : $this->serveStartWait,
-                ),
-                Member::of('inferSubsumed', $this->inferSubsumed),
             ),
-        ));
+        );
     }
 
     public function php(PathOrigin $origin): PhpCalls
@@ -170,6 +203,12 @@ final readonly class Local implements Part
                 false => ['Local::runningSubsumed()'],
                 default => [],
             },
+            ...$this->watchPoll instanceof Seconds
+                ? [sprintf('Local::watchPoll(%s)', PhpCalls::literal($this->watchPoll->written()))]
+                : [],
+            ...$this->triageFewest instanceof Absent
+                ? []
+                : [sprintf('Local::triageFewest(%d)', $this->triageFewest)],
         ]);
     }
 }

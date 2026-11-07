@@ -34,30 +34,35 @@ final readonly class IgnoresKeys
         $entries = Field::optional('entries', Items::of(self::entry($origin)), $judges);
         $maxDays = Field::optional('maxDays', Integer::atLeast(1), $judges);
         $native = Field::optional('native', Enumerated::of(NativeMarkers::cases()), $judges);
+        $notice = Field::optional('notice', Integer::atLeast(0), $judges);
 
         return [
             Field::section(
                 'ignores',
                 Section::of(
-                    static function (Node $ignores) use ($entries, $maxDays, $native): Layer|Invalid {
+                    static function (Node $ignores) use ($entries, $maxDays, $native, $notice): Layer|Invalid {
                         $ignored = $entries->read($ignores);
                         $days = $maxDays->read($ignores);
                         $markers = $native->read($ignores);
+                        $ahead = $notice->read($ignores);
 
                         return Reading::built(
                             static fn(): Layer => Layer::of(Ignores::of(
                                 $ignored->value(),
                                 $days->value(),
                                 $markers->value(),
+                                notice: $ahead->value(),
                             )),
                             $ignored,
                             $days,
                             $markers,
+                            $ahead,
                         );
                     },
                     $entries,
                     $maxDays,
                     $native,
+                    $notice,
                 ),
             ),
             Field::section(

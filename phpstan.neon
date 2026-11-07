@@ -260,8 +260,9 @@ services:
         arguments:
             # Constants whose value only coincides with another's, meaning something else.
             coincidences:
-                'NightWorksIO\MutationGate\Core\Plan\ShardResultFile':
-                    - NOTES # a shard result's section, not the comment's
+                'NightWorksIO\MutationGate\Core\Runner\RunnerPace':
+                    - RECYCLE_AFTER # runs a batch holds for each place, not a span id's length
+                    - WARM_SLACK # how long a warm worker runs past the end, not a network read's limit
                 'NightWorksIO\MutationGate\Core\Proof\LimitHistory':
                     - KILLS # the newest kills a learned multiple is read from, not a message's length
                     - RUNS # the newest runs a learned most shards is read from, not a count of presets
@@ -344,6 +345,7 @@ services:
                 'NightWorksIO\MutationGate\Core\Runner\Workers':
                     - Mutants # runner.workers forking only the mutants, not a record's mutants
                 'NightWorksIO\MutationGate\Core\Config\Local':
+                    - TRIAGE_FEWEST # the fewest runs that can disagree, not an exit code or an argument
                     - SERVE_IDLE_MINUTES # how long a daemon idles, not how many presets ship
                 'NightWorksIO\MutationGate\Adapter\Serve\Connection':
                     - PEER_PROCESS # the levels and options of the platforms' sockets, not exit codes
@@ -360,8 +362,6 @@ services:
                 'NightWorksIO\MutationGate\Core\Delivery\DeliveryFile':
                     - LEDGER_KEY # a key of the delivery, not the workspace's directory
                     - OTLP # a key of the delivery, not the reporter's name
-                'NightWorksIO\MutationGate\Adapter\Native\MutationRun':
-                    - RUNS_PER_PLACE # mutant runs a place queues per batch, not a span id's length
                 'NightWorksIO\MutationGate\Adapter\Process\Running':
                     - DESCRIPTORS # proc_open's descriptor kinds, not a record's field
                     - ERRORS # the standard error stream's file number, not an argument's place or an exit code
@@ -387,8 +387,6 @@ services:
                     - FORGIVING # Eloquent's method that forgives a missing row, not when the comment mentions an owner
                 'NightWorksIO\MutationGate\Core\ThisPackage':
                     - OWN # directories from this file up to the package's own, not an exit code
-                'NightWorksIO\MutationGate\Adapter\Native\Warm\Workforce':
-                    - SLACK # seconds a warm worker may take past its last run, not the ledger's limit
                 'NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan':
                     - TRUSTED_SOURCES # Buildkite's build.source values, not another CI's event names
                 'NightWorksIO\MutationGate\Core\Verdict\Doomed':
@@ -453,10 +451,6 @@ services:
                     - STDERR # PHP's number for display_errors=stderr
                 'NightWorksIO\MutationGate\Core\Troubleshooting\Guide':
                     - UNRELEASED # the package's own branch, in a link to its guide
-                'NightWorksIO\MutationGate\Adapter\Opcache\Compiler':
-                    - PER_CHILD # programs one opcache child compiles, not a percentage
-                'NightWorksIO\MutationGate\Adapter\Opcache\Prover':
-                    - CHILD_LIMIT # seconds an opcache child may take, not the ledger's limit
                 'NightWorksIO\MutationGate\Core\Matrix\MatrixRecord':
                     - FIELD # the plan's and a proof's field, not Azure's output variable
                 'NightWorksIO\MutationGate\Core\Php\OwnMember':
@@ -505,6 +499,8 @@ services:
                 'NightWorksIO\MutationGate\Core\Config\Proofs':
                     - PATH # the directory store's option
                 'NightWorksIO\MutationGate\Core\Config\StaticCheck':
+                    - OPCACHE_BATCH # programs one opcache child compiles, not a percentage
+                    - OPCACHE_LIMIT # one opcache child's limit, not a network read's
                     - AUTO # the analyser zero-config finds, not a proof-writing mode
                     - NONE # no analyser, not a mutator family or a Pest status
                 'NightWorksIO\MutationGate\Core\Format\Bytes':
@@ -734,7 +730,6 @@ services:
                     - PLAN # an option of the gate's commands, not the plan command
                 'NightWorksIO\MutationGate\Cli\Command\TriageCommand':
                     - ORDER # an option of triage, not the Pest plugin's directory of orders
-                    - FEWEST # the fewest runs that can disagree, not an exit code
                 'NightWorksIO\MutationGate\Core\Ci\DefaultBranch':
                     - FALLBACK # the project's default branch when none is configured or detected
                 'NightWorksIO\MutationGate\Core\Plan\PlanFile':
@@ -745,6 +740,7 @@ services:
                     - UNTESTED # a field of the plan, not Pest's status of the same name
                     - DIGEST # a field of the plan, not the digest command
                 'NightWorksIO\MutationGate\Core\Plan\ShardResultFile':
+                    - NOTES # a shard result's section, not the comment's
                     - FLAKY # a field of a shard result
                     - UNJUDGED # a field of a shard result
                     - MEASURED # a field of a shard result

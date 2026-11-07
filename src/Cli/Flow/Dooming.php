@@ -47,7 +47,11 @@ final readonly class Dooming
             $baseline,
             $plan->considered()->lines(Packages::of($trees)),
             $this->settings->floors()->newCode(),
-            Ignoring::of($this->settings->ignores()->entries(), $this->setup->clock->now()),
+            Ignoring::of(
+                $this->settings->ignores()->entries(),
+                $this->setup->clock->now(),
+                $this->settings->ignores()->notice(),
+            ),
             ...$this->settings->reach()->failingFast()->waits(),
         );
     }

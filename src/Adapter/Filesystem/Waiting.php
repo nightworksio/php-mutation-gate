@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Filesystem;
 
-use Closure;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function usleep;
@@ -19,15 +18,11 @@ final readonly class Waiting
     /**
      * A wait this long, which then says to go on watching: the command is
      * stopped from outside it, with Ctrl-C.
-     *
-     * @return Closure(): bool
      */
-    public static function every(Seconds $interval): Closure
+    public static function between(Seconds $interval): bool
     {
-        return static function () use ($interval): bool {
-            usleep($interval->microseconds());
+        usleep($interval->microseconds());
 
-            return true;
-        };
+        return true;
     }
 }

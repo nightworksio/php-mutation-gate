@@ -70,7 +70,7 @@ it('lays the command line over the config file', function () use ($show, $decode
     $shown = $show('Configured', ['--runner' => 'pest', '--report' => ['json:build/mutation.json']]);
 
     expect($decoded($shown->output))->toMatchArray([
-        'runner' => ['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned'],
+        'runner' => ['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01],
         'reports' => [
             ['use' => 'sarif', 'path' => 'build/mutation.sarif'],
             ['use' => 'json', 'path' => 'build/mutation.json'],
@@ -81,7 +81,7 @@ it('lays the command line over the config file', function () use ($show, $decode
 it('shows zero-config where there is no config file', function () use ($show, $decoded): void {
     expect($decoded($show('Laravel')->output))->toMatchArray([
         'preset' => 'laravel',
-        'runner' => ['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned'],
+        'runner' => ['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app']]],
     ]);
 });
