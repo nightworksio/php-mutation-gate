@@ -37,6 +37,14 @@ there:
    estimate says will not fit; the limit starts every unit and stops the runner,
    because an estimate can be far past what the unit takes.
 
+7. **A first estimate expects a kill, not every test.** A run stops at the first
+   test that kills, so a mutant is expected to spend its start-up, five of its
+   covering tests at their average time, and a 2% share of all of them for those
+   that survive. Across 10,597 mutants of one companion run a mutant took 3 to 5
+   seconds whatever its covering tests' time, and a unit the whole suite covers
+   was estimated at 28,949 seconds against 655 measured; this estimate puts it
+   at 776 to 894, by a start-up of 2 to 3.5 seconds.
+
 ## Consequences
 
 - A shard runs under a deadline even where no budget is set, and runs its units

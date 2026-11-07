@@ -96,3 +96,47 @@ it('costs every file unit of a plan in time that grows with the plan, not with i
     expect($costing(10)())->toBe(10)
         ->and(Growth::of(250, $costing))->toBeLessThan(Growth::LINEAR);
 });
+
+/** A map where this many tests of this many seconds each cover line 3 of src/Money.php. */
+function firstRunMap(int $tests, float $seconds): CoverageMap
+{
+    $map = CoverageMap::empty();
+
+    foreach (range(1, $tests) as $at) {
+        $id = TestId::of(sprintf('MoneyTest::test%d', $at));
+        $map = $map->covered(Path::of('src/Money.php'), Line::of(3), $id)->timed($id, Seconds::of($seconds));
+    }
+
+    return $map;
+}
+
+/** What a first run expects of src/Money.php: this many mutants on line 3, a second to start each, over these processes. */
+function firstRunSeconds(CoverageMap $map, int $mutants, ProcessCount $processes): float
+{
+    $money = Path::of('src/Money.php');
+    $run = FirstRun::of($map, MutantSites::inFile($money, ...array_fill(0, $mutants, Line::of(3))), Seconds::of(1.0), $processes);
+    $seconds = $run->seconds(Unit::file($money));
+
+    return $seconds instanceof Seconds ? $seconds->seconds() : -1.0;
+}
+
+it('expects a mutant to spend its start-up, five covering tests at their average and a share of all of them for those that survive', function (): void {
+    expect(firstRunSeconds(firstRunMap(100, 1.0), 10, ProcessCount::of(1)))->toEqualWithDelta(10 * (1.0 + 0.98 * 5.0 + 0.02 * 100.0), 0.001);
+});
+
+it('expects no more of a killed mutant than its covering tests take', function (): void {
+    expect(firstRunSeconds(firstRunMap(2, 1.0), 1, ProcessCount::of(1)))->toEqualWithDelta(1.0 + 0.98 * 2.0 + 0.02 * 2.0, 0.001);
+});
+
+it('expects nothing of a mutant no test covers', function (): void {
+    $money = Path::of('src/Money.php');
+    $run = FirstRun::of(CoverageMap::empty(), MutantSites::inFile($money, Line::of(3)), Seconds::of(1.0), ProcessCount::of(1));
+
+    expect($run->seconds(Unit::file($money)))->toEqual(Seconds::of(0.0));
+});
+
+it('puts a unit the whole suite covers near what such a unit measured, where every test counted gave 44 times that', function (): void {
+    $estimate = firstRunSeconds(firstRunMap(2000, 340.0 / 2000), 342, ProcessCount::of(4));
+
+    expect($estimate)->toBeGreaterThan(655.0 / 2)->toBeLessThan(655.0 * 2);
+});
