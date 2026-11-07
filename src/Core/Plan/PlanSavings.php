@@ -8,8 +8,12 @@ use function count;
 use function max;
 use function min;
 
+use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\Price;
 use NightWorksIO\MutationGate\Core\Cost\Cost;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
+use NightWorksIO\MutationGate\Core\Cost\Rate;
+use NightWorksIO\MutationGate\Core\Cost\RunAccount;
 use NightWorksIO\MutationGate\Core\Cost\RunTime;
 use NightWorksIO\MutationGate\Core\Cost\Savings;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
@@ -36,6 +40,18 @@ final readonly class PlanSavings
     public static function of(Plan $plan, Timings $timings, Seconds $setup): self
     {
         return new self($plan, $timings, $setup);
+    }
+
+    /** This account, with what the run cost, priced where a price is given, and what it saved, having spent this. */
+    public function into(RunAccount $account, RunTime $spent, Price|Absent $price): RunAccount
+    {
+        $cost = $this->cost($spent);
+        $saved = $this->saved($spent);
+        $costed = $account->withCost(
+            $price instanceof Price ? $cost->pricedAt(Rate::perMinute($price->amount(), $price->currency())) : $cost,
+        );
+
+        return $saved instanceof Savings ? $costed->withSavings($saved) : $costed;
     }
 
     /** What the run saved, having spent this. */
@@ -74,7 +90,10 @@ final readonly class PlanSavings
         $units = $reach + $proofs + $ran;
         $full = $this->setup->seconds() + $opening + $units;
         $measured = $units > 0.0
-            ? Percentage::share(Seconds::of($reach + $proofs + $timedRun)->microseconds(), Seconds::of($units)->microseconds())
+            ? Percentage::share(
+                Seconds::of($reach + $proofs + $timedRun)->microseconds(),
+                Seconds::of($units)->microseconds(),
+            )
             : Percentage::none();
         $savings = Savings::of(
             Seconds::of($full),

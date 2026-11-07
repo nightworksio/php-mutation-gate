@@ -136,6 +136,7 @@ final readonly class OutsideTheVerdict
             'src/Cli/Flow/UnitMutants.php',
             'src/Cli/Flow/Unsplit.php',
             'src/Cli/Flow/VerdictProvenance.php',
+            'src/Cli/Flow/RunTimes.php',
             'src/Cli/Flow/VerdictTimings.php',
             'src/Cli/Flow/VerdictWarnings.php',
             'src/Cli/Flow/Workspace.php',

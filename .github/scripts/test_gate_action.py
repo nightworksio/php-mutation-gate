@@ -1,6 +1,7 @@
 """gate_action.py: its deciding half, and the steps that fetch and verify the PHAR, run against fakes of git,
 gh and gpg so no test reaches a real release: python3 -m unittest discover .github/scripts"""
 import hashlib
+from datetime import datetime, timezone
 import json
 import os
 import subprocess
@@ -516,6 +517,43 @@ class Outputs(unittest.TestCase):
         written = action.output_lines({"plan": "{\n}"})
         self.assertTrue(written.startswith("plan<<EOF_"))
         self.assertIn("\n{\n}\n", written)
+
+
+class RunTimes(unittest.TestCase):
+    NOW = datetime(2026, 11, 7, 12, 0, 0, tzinfo=timezone.utc)
+
+    def test_sums_each_job_and_spans_the_run_counting_a_running_job_up_to_now(self):
+        jobs = [
+            {"started_at": "2026-11-07T11:00:00Z", "completed_at": "2026-11-07T11:10:00Z"},
+            {"started_at": "2026-11-07T11:05:00Z", "completed_at": "2026-11-07T11:20:00Z"},
+            {"started_at": "2026-11-07T11:59:00Z", "completed_at": None},
+        ]
+
+        self.assertEqual(
+            {"wallSeconds": 3600.0, "runnerSeconds": 600.0 + 900.0 + 60.0},
+            action.run_times(jobs, self.NOW),
+        )
+
+    def test_says_when_the_plan_s_job_began_and_what_it_took(self):
+        jobs = [
+            {"name": "mutation / plan", "started_at": "2026-11-07T11:00:00Z", "completed_at": "2026-11-07T11:02:00Z"},
+            {"name": "mutation / explain the plan", "started_at": "2026-11-07T11:01:00Z", "completed_at": "2026-11-07T11:02:00Z"},
+        ]
+
+        self.assertEqual(
+            {"at": "2026-11-07T11:00:00Z", "seconds": 120.0},
+            action.run_times(jobs, self.NOW)["plan"],
+        )
+
+    def test_leaves_out_a_job_that_never_started_and_says_nothing_of_a_run_with_none(self):
+        started = {"started_at": "2026-11-07T11:00:00Z", "completed_at": "2026-11-07T11:00:30Z"}
+
+        self.assertEqual(
+            {"wallSeconds": 30.0, "runnerSeconds": 30.0},
+            action.run_times([started, {"started_at": None}, {"started_at": "not a time"}], self.NOW),
+        )
+        self.assertIsNone(action.run_times([{"started_at": None}], self.NOW))
+        self.assertIsNone(action.run_times([], self.NOW))
 
 
 if __name__ == "__main__":

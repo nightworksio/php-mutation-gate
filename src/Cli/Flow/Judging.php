@@ -22,10 +22,7 @@ use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Config\Improvement;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
-use NightWorksIO\MutationGate\Core\Config\Price;
 use NightWorksIO\MutationGate\Core\Config\Settings;
-use NightWorksIO\MutationGate\Core\Cost\Rate;
-use NightWorksIO\MutationGate\Core\Cost\Savings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
@@ -164,18 +161,18 @@ final readonly class Judging
         $now = $this->setup->clock->now();
         $run = RunName::of($this->adapters->environment, Instant::at($now), $plan->base())->id();
         $setup = VerdictTimings::setupOn($this->adapters->environment, $this->settings->shards()->setup());
-        $timings = VerdictTimings::of($run, $results, $began, $now, $setup);
+        $timings = VerdictTimings::of(
+            $run,
+            $results,
+            $began,
+            $now,
+            $setup,
+            RunTimes::read($this->adapters->project->read(RunTimes::file())),
+        );
         $judged = $this->adapters->changes->judged($plan->commit());
-        $saving = PlanSavings::of($plan, $assessed->ledgers->timings(), $this->settings->shards()->setup());
-        $cost = $saving->cost($timings->spent());
-        $price = $this->settings->shards()->perRunnerMinute();
-        $saved = $saving->saved($timings->spent());
-        $accounted = $assessed->verdict->account()
-            ->withCost(
-                $price instanceof Price ? $cost->pricedAt(Rate::perMinute($price->amount(), $price->currency())) : $cost,
-            );
         $verdict = $assessed->verdict->withAccount(
-            ($saved instanceof Savings ? $accounted->withSavings($saved) : $accounted)
+            PlanSavings::of($plan, $assessed->ledgers->timings(), $this->settings->shards()->setup())
+                ->into($assessed->verdict->account(), $timings->spent(), $this->settings->shards()->perRunnerMinute())
                 ->withTimings($timings)
                 ->withProvenance(VerdictProvenance::of($this->adapters, $this->setup, $this->settings, $judged)),
         );

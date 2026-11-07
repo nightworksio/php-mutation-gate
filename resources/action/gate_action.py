@@ -10,6 +10,9 @@ Usage:
                            and its attestation, and names it as `gate`
   gate_action.py resolve   the run's scope, ledger cache, gate binary and options:
                            `plan_options` adds the mode's to `options`
+  gate_action.py run-times writes what the run's jobs took to RUN_TIMES, as the
+                           GitHub API says, for the verdict to read; where the API
+                           cannot say it writes nothing, and the verdict estimates
   gate_action.py config    from the effective config on stdin: whether it keeps
                            its ledger in the default directory, which copy of a
                            ledger it reads, whether deliver keeps the ledger in
@@ -42,6 +45,7 @@ Two halves: the functions below `main` read the environment and files, and
 the ones above decide from what they read. The deciding half is what
 .github/scripts/test_gate_action.py tests.
 """
+from datetime import datetime, timezone
 import hashlib
 import json
 import os
@@ -392,6 +396,38 @@ def signed_by(status: str, fingerprint: str) -> bool:
     )
 
 
+def run_times(jobs: list[dict], now: datetime) -> dict | None:
+    """The wall and runner seconds of a run's jobs, a job still running counted up to now, and when the plan's job
+    began and what it took; none of a run with no job that started. Runner seconds are each job's own, not what
+    GitHub bills, which rounds each up to a minute."""
+    spans = []
+    plan = {}
+    for job in jobs:
+        started = _instant(job.get("started_at"))
+        if started is None:
+            continue
+        end = _instant(job.get("completed_at")) or now
+        spans.append((started, end))
+        if job.get("name") == "plan" or str(job.get("name", "")).endswith(" / plan"):
+            at = started.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            plan = {"plan": {"at": at, "seconds": (end - started).total_seconds()}}
+    if not spans:
+        return None
+    wall = max(end for _, end in spans) - min(start for start, _ in spans)
+    runner = sum(((end - start).total_seconds() for start, end in spans), 0.0)
+    return {"wallSeconds": wall.total_seconds(), "runnerSeconds": runner, **plan}
+
+
+def _instant(text: object) -> datetime | None:
+    """The instant an API timestamp names; none where it names none."""
+    if not isinstance(text, str) or text == "":
+        return None
+    try:
+        return datetime.fromisoformat(text)
+    except ValueError:
+        return None
+
+
 def phar_refusal(config: dict, installed_by: str) -> str | None:
     """Why the PHAR cannot run the effective config's runner, or nothing where it can (ADR-0022)."""
     if installed_by == PHAR_INSTALL and (config.get("runner") or {}).get("use") == PEST:
@@ -598,6 +634,7 @@ def main(argv: list[str]) -> int:
         "infection": _infection,
         "outputs": _outputs,
         "keep": _keep,
+        "run-times": _run_times,
     }
     if len(argv) == 2 and argv[1] == "stale":
         return _stale()
@@ -654,6 +691,24 @@ def _phar() -> dict[str, str]:
     _ran([*attested, "--source-ref", f"{TAGS}{tag}"], unattested)
     os.chmod(phar, 0o755)
     return {"gate": phar}
+
+
+def _run_times() -> dict[str, str]:
+    repository = os.environ.get("GITHUB_REPOSITORY", "")
+    run = os.environ.get("GITHUB_RUN_ID", "")
+    attempt = os.environ.get("GITHUB_RUN_ATTEMPT", "")
+    path = f"repos/{repository}/actions/runs/{run}/attempts/{attempt}/jobs?per_page=100"
+    asked = subprocess.run(["gh", "api", "--paginate", path, "--jq", ".jobs[]"], capture_output=True, text=True, check=False, timeout=120)
+    jobs = [json.loads(line) for line in asked.stdout.splitlines() if line.startswith("{")] if asked.returncode == 0 else []
+    times = run_times(jobs, datetime.now(timezone.utc))
+    if times is None:
+        print("::notice::The API said nothing of this run's jobs, so the verdict estimates what they took.", file=sys.stderr)
+        return {}
+    target = os.environ.get("RUN_TIMES", "")
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    with open(target, "w", encoding="utf-8") as file:
+        json.dump(times, file)
+    return {}
 
 
 def _resolve() -> dict[str, str]:

@@ -3,9 +3,15 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\Price;
+use NightWorksIO\MutationGate\Core\Cost\Cost;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
+use NightWorksIO\MutationGate\Core\Cost\Rate;
+use NightWorksIO\MutationGate\Core\Cost\RunAccount;
 use NightWorksIO\MutationGate\Core\Cost\RunTime;
 use NightWorksIO\MutationGate\Core\Cost\Savings;
+use NightWorksIO\MutationGate\Core\Cost\Unpriced;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Considered;
@@ -52,4 +58,18 @@ it('says what reach and proofs spared in what the run cost', function () use ($p
     expect($cost->spared()->seconds())->toBe(120.0)
         ->and($cost->measured())->toEqual($spent())
         ->and($cost->setup()->seconds())->toBe(60.0);
+});
+
+it('puts what the run cost, priced, and what it saved into the account', function () use ($plan, $timing, $spent): void {
+    $saving = PlanSavings::of($plan(), Timings::of($timing('src/Far.php', 100.0)), Seconds::of(60.0));
+    $priced = $saving->into(RunAccount::none(), $spent(), Price::of(0.008, 'USD'));
+    $unpriced = $saving->into(RunAccount::none(), $spent(), Absent::setting());
+    $cold = PlanSavings::of($plan(), Timings::none(), Seconds::of(60.0))->into(RunAccount::none(), $spent(), Absent::setting());
+
+    $priceOf = static fn(RunAccount $account): mixed => ($cost = $account->cost()) instanceof Cost ? $cost->price() : $cost;
+
+    expect($priceOf($priced))->toEqual(Rate::perMinute(0.008, 'USD'))
+        ->and($priced->savings())->toBeInstanceOf(Savings::class)
+        ->and($priceOf($unpriced))->toEqual(Unpriced::time())
+        ->and($cold->savings())->toBeInstanceOf(NoHistory::class);
 });
