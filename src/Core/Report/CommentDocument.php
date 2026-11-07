@@ -43,7 +43,7 @@ final readonly class CommentDocument
         $largest = max(array_map($shows->most(...), self::LISTS));
         $document = static function (int $count) use ($parts, $shows, $largest): string {
             $blocks = [Markdown::MARKER];
-            $shown = static fn(Cap $cap): int => $largest === 0 ? 0 : intdiv($shows->most($cap) * $count, $largest);
+            $shown = static fn(Cap $cap): int => intdiv($shows->most($cap) * $count, $largest);
 
             foreach ($shows->sections() as $section) {
                 $blocks = self::isLeftOut($section, $shows)

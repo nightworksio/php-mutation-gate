@@ -40,6 +40,7 @@ use NightWorksIO\MutationGate\Core\Report\ItemShown;
 use NightWorksIO\MutationGate\Core\Report\Markdown;
 use NightWorksIO\MutationGate\Core\Report\MarkdownItems;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
+use NightWorksIO\MutationGate\Core\Report\Overview;
 use NightWorksIO\MutationGate\Core\Report\SavingsText;
 use NightWorksIO\MutationGate\Core\Report\SetText;
 use NightWorksIO\MutationGate\Core\Report\Trend;
@@ -720,4 +721,82 @@ it('leaves out a list comment.<cap>.most sets to 0, and shows the survivors as t
     expect($none)->not->toContain('Survivors on changed lines')
         ->and($rows)->toContain('| Mutant | Mutator | Judgement | What the tests miss | Command |')
         ->and($quiet)->toContain("| Mutant | Mutator | Judgement | What the tests miss |\n|---|---|---|---|\n");
+});
+
+it('shows a list alone at its own comment.<cap>.most where every other list is left out, whichever list it is', function (Cap $cap, string $verdict, string $shown, string $not): void {
+    $caps = CommentCaps::none();
+
+    foreach ([Cap::Survivors, Cap::Security, Cap::Unjudged, Cap::Ignored] as $each) {
+        $caps = $caps->over(CommentCaps::capping($each, $each === $cap ? 1 : 0));
+    }
+
+    $comment = Markdown::comment(Verdicts::named($verdict), CommentShows::unfolded()->over(CommentShows::of(caps: $caps)));
+
+    expect($comment)->toContain($shown)
+        ->and($comment)->not->toContain($not);
+})->with([
+    'the survivors' => [Cap::Survivors, 'failing', '### Survivors on changed lines (1)', '### Ignored (2)'],
+    'the security survivors' => [Cap::Security, 'secured', '<code>src/Auth.php:3</code>', '### Ignored (2)'],
+    'the unjudged' => [Cap::Unjudged, 'failing', '<code>src/Order.php:3</code>', '### Ignored (2)'],
+    'the ignored' => [Cap::Ignored, 'failing', '<code>src/Log.php:4</code>', '### Unjudged and flaky (2)'],
+]);
+
+it('shows no list where every comment.<cap>.most is 0', function (): void {
+    $caps = CommentCaps::none();
+
+    foreach ([Cap::Survivors, Cap::Security, Cap::Unjudged, Cap::Ignored] as $each) {
+        $caps = $caps->over(CommentCaps::capping($each, 0));
+    }
+
+    $comment = Markdown::comment(Verdicts::failing(), CommentShows::unfolded()->over(CommentShows::of(caps: $caps)));
+
+    expect($comment)->toContain('## mutation-gate: failed')
+        ->and($comment)->not->toContain('### Survivors on changed lines')
+        ->and($comment)->not->toContain('### Unjudged and flaky')
+        ->and($comment)->not->toContain('### Ignored');
+});
+
+it('says what the run cost under no heading of its own where it is open, and folded under its title where it is not', function (): void {
+    $verdict = Verdicts::named('accounted');
+    $sections = Listed::of(Section::Costs);
+
+    expect(Markdown::comment($verdict, CommentShows::unfolded()->over(CommentShows::of(sections: $sections))))
+        ->toBe(sprintf("%s\n\n%s\n", Markdown::MARKER, CostText::of($verdict)))
+        ->and(Markdown::comment($verdict, CommentShows::of(sections: $sections, open: Listed::of(Section::Verdict))))
+        ->toBe(sprintf("%s\n\n<details><summary>What the run cost</summary>\n\n%s\n\n</details>\n", Markdown::MARKER, CostText::of($verdict)));
+});
+
+it('says why the run cannot judge under the verdict only where comment.sections leaves out the problems', function (): void {
+    $verdict = Verdicts::named('cannot judge');
+    $alone = Markdown::comment($verdict, CommentShows::unfolded()->over(CommentShows::of(sections: Listed::of(Section::Verdict))));
+    $both = Markdown::comment($verdict, CommentShows::unfolded()->over(CommentShows::of(sections: Listed::of(Section::Verdict, Section::Problems))));
+
+    expect($alone)->toStartWith(sprintf("%s\n\n## mutation-gate: cannot-judge\n", Markdown::MARKER))
+        ->and($alone)->toEndWith(sprintf("### Cannot judge\n\n- %s\n", Verdicts::UNJUDGED))
+        ->and(substr_count($both, '### Cannot judge'))->toBe(1)
+        ->and($both)->toContain(sprintf("### Cannot judge\n\n- %s\n\n### Failures", Verdicts::UNJUDGED));
+});
+
+it('writes the trees and everything that went wrong in the step summary, in order', function () use ($run): void {
+    $summary = Markdown::summary(Verdicts::named('cannot judge'), $run, SavingsWindow::standard(), Verdicts::clockNow());
+
+    expect($summary)->toContain('| Tree | Floor | Score | Against the base | Result |')
+        ->and($summary)->toContain(sprintf("### Cannot judge\n\n- %s\n\n### Failures\n\n- The ignore of 3f9a1c2b7d04 matched no mutant. Remove it.", Verdicts::UNJUDGED))
+        ->and($summary)->toContain('### Warnings');
+});
+
+it('writes the floors that can rise in the step summary, and nothing of a run with no obstacle', function () use ($run): void {
+    $summary = Markdown::summary(Verdicts::passing(), $run, SavingsWindow::standard(), Verdicts::clockNow());
+
+    expect($summary)->toContain("### Floors that can rise\n\n- <code>src</code> to 100.00%")
+        ->and($summary)->not->toContain('### Cannot judge')
+        ->and($summary)->not->toContain('### Failures')
+        ->and($summary)->not->toContain('### Warnings');
+});
+
+it('says what to try under a survivor wherever every part of an entry shows', function (): void {
+    $survivors = [...Overview::of(attemptedCommentVerdict())->survivors()];
+
+    expect(implode("\n", MarkdownItems::details($survivors, 1, GateCommand::installed(), ItemShown::standard())))
+        ->toContain('Try: use <code>$a</code> at 3.');
 });

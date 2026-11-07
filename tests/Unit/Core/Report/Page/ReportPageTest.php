@@ -573,3 +573,9 @@ it('lists as many files and survivors up front as the html reporter says, and sa
         ->and($files($none))->not->toContain('file-list')
         ->and($files($none))->not->toContain('No file has a survivor.');
 });
+
+it('lists no file, and says nothing of them being clean, where the page shows none', function (): void {
+    $page = ReportPage::html(JsonReport::of(Verdicts::failing()), '', '', PageShows::of(0, PageShows::standard()->survivors()));
+
+    expect($page)->toMatch('#<p class="aside">[^<]*changed line[^<]*</p>\n\n</section>#');
+});
