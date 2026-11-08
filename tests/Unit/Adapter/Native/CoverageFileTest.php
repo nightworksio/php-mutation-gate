@@ -48,15 +48,19 @@ it('reads which tests ran each executable line of each file of the project, the 
         ->timed($large, Seconds::of(1.5)));
 });
 
-it('cannot judge without a map, or with one cut off or not a map', function (): void {
+it('cannot judge without a map, or with one cut off, unreadable or not a map', function (): void {
     $project = coverageFileProject();
     $file = sprintf('%s/coverage.php', $project->root());
     $missing = CoverageFile::read($project, $file);
     file_put_contents($file, '<?php return [];');
     $cutOff = CoverageFile::read($project, $file);
+    chmod($file, 0o000);
+    $unreadable = CoverageFile::read($project, $file);
+    chmod($file, 0o644);
     file_put_contents($file, "<?php return [];\nEND_OF_COVERAGE_SERIALIZATION\n);\n");
 
     expect($missing)->toEqual(CannotJudge::because(sprintf('There is no coverage map at %s, so no test runs any line.', $file)))
+        ->and($unreadable)->toEqual($missing)
         ->and($cutOff)->toEqual(CannotJudge::because(sprintf('%s cannot be read as a coverage map: it ends before the map does.', $file)))
         ->and(CoverageFile::read($project, $file))->toEqual(CannotJudge::because(sprintf(
             '%s cannot be read as a coverage map: File does not contain phpunit/php-code-coverage serialization format information: %s',

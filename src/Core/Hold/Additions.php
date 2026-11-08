@@ -16,7 +16,7 @@ use Countable;
 use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
-use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
+use NightWorksIO\MutationGate\Core\Coverage\PlacedLine;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -84,16 +84,17 @@ final readonly class Additions implements Countable, IteratorAggregate
     public function unrunIn(CoverageMap $map): CannotJudge|NotGiven
     {
         $unrun = $this->additions;
+        $tests = [...$map->tests()];
         $holding = [];
 
-        foreach ($map->lines() as $line) {
+        foreach ($map->placedLines() as $line) {
             $file = $line->file()->value();
 
             if (! array_key_exists($file, $holding)) {
                 $holding[$file] = $this->indicesOn($line->file());
             }
 
-            $unrun = $this->unrunAfter($unrun, $holding[$file], $line);
+            $unrun = $this->unrunAfter($unrun, $holding[$file], $line, $tests);
         }
 
         $first = array_key_first($unrun);
@@ -149,12 +150,13 @@ final readonly class Additions implements Countable, IteratorAggregate
     /**
      * @param  array<int, Addition> $unrun   the holds no line has been found run for yet, by their place
      * @param  list<int>            $holding the places of the holds that hold the line's file
+     * @param  list<TestId>         $tests   the map's tests, by their place
      * @return array<int, Addition> those of them this line does not run either
      */
-    private function unrunAfter(array $unrun, array $holding, CoveredLine $line): array
+    private function unrunAfter(array $unrun, array $holding, PlacedLine $line, array $tests): array
     {
         foreach ($holding as $at) {
-            if (array_key_exists($at, $unrun) && $this->runsOn($unrun[$at], $line)) {
+            if (array_key_exists($at, $unrun) && $this->runsOn($unrun[$at], $line, $tests)) {
                 unset($unrun[$at]);
             }
         }
@@ -162,11 +164,15 @@ final readonly class Additions implements Countable, IteratorAggregate
         return $unrun;
     }
 
-    /** Whether one of a hold's tests runs a line, of a file it holds. */
-    private function runsOn(Addition $addition, CoveredLine $line): bool
+    /**
+     * Whether one of a hold's tests runs a line, of a file it holds.
+     *
+     * @param list<TestId> $tests the map's tests, by their place
+     */
+    private function runsOn(Addition $addition, PlacedLine $line, array $tests): bool
     {
-        foreach ($line as $test) {
-            if ($addition->adds(TestId::of($test), $line->file())) {
+        foreach ($line as $place) {
+            if ($addition->adds($tests[$place], $line->file())) {
                 return true;
             }
         }

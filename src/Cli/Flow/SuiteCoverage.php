@@ -5,17 +5,16 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_any;
-use function array_flip;
-use function array_key_exists;
-use function array_map;
+
+use Closure;
+
 use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Coverage\Admission;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
-use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
-use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -29,7 +28,6 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
  * What of a coverage map the suites the config lists may judge (ADR-0002,
@@ -146,76 +144,22 @@ final readonly class SuiteCoverage
         return array_any([...$files], fn(Path $file): bool => $this->additions->holds($file));
     }
 
-    /**
-     * The map, less these tests but on the lines of what one holds: each
-     * test it keeps on some line, and each it never named, keeps its time.
-     */
+    /** The map, less these tests but on the lines of what one holds (see Admission). */
     private function kept(CoverageMap $map, TestIds $leaving): CoverageMap
     {
-        $lines = [];
-        $onLines = [];
-        $holding = [];
-        $leavingIds = array_flip(array_map(static fn(TestId $test): string => $test->value(), [...$leaving]));
-
-        foreach ($map->lines() as $line) {
-            $file = $line->file()->value();
-
-            if (! array_key_exists($file, $holding)) {
-                $holding[$file] = $this->additions->on($line->file());
-            }
-
-            $staying = $this->staying($line, $leavingIds, $holding[$file]);
-            $lines[] = CoveredLine::of($line->file(), $line->line(), ...$staying);
-            $onLines += array_flip($staying);
-        }
-
-        $kept = CoverageMap::of(...$lines)->timedEach(...$this->timed($map, $leaving, $onLines));
-
-        foreach ($map->methods() as $file => $methods) {
-            $kept = $kept->executing($file, ...$methods);
-        }
-
-        return $kept->loading($map->loaded());
+        return Admission::of($leaving, $this->staysOn(...))->applied($map);
     }
 
     /**
-     * @param  array<string, int> $leaving the tests leaving, by id
-     * @return list<string>       the tests of a line that stay: those not leaving, and those that hold what they run
+     * Whether a test leaving stays on the lines of a file: where one of the
+     * holds that hold the file adds it to the file's judges.
+     *
+     * @return Closure(TestId): bool
      */
-    private function staying(CoveredLine $line, array $leaving, Additions $holding): array
+    private function staysOn(Path $file): Closure
     {
-        $staying = [];
+        $holding = $this->additions->on($file);
 
-        foreach ($line as $test) {
-            if (array_key_exists($test, $leaving) && ! $holding->adds(TestId::of($test), $line->file())) {
-                continue;
-            }
-
-            $staying[] = $test;
-        }
-
-        return $staying;
-    }
-
-    /**
-     * @param  array<array-key, int> $onLines the tests kept on some line, by id
-     * @return list<TimedTest>       how long each test that stays took, where the map timed it
-     */
-    private function timed(CoverageMap $map, TestIds $leaving, array $onLines): array
-    {
-        $timed = [];
-
-        foreach ($map->tests() as $test) {
-            $duration = $map->durationOf($test);
-            $stays = ! $leaving->has($test) || array_key_exists($test->value(), $onLines);
-
-            if (! $stays || ! $duration instanceof Seconds) {
-                continue;
-            }
-
-            $timed[] = TimedTest::of($test->value(), $duration->seconds());
-        }
-
-        return $timed;
+        return static fn(TestId $test): bool => $holding->adds($test, $file);
     }
 }

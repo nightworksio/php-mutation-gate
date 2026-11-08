@@ -35,7 +35,7 @@ final readonly class Addition
     /** Whether this test holds the path, on a line of this file. */
     public function adds(TestId $test, Path $file): bool
     {
-        return $file->within($this->path) && $this->tests->has($test);
+        return $this->tests->has($test) && $file->within($this->path);
     }
 
     /** The declaration as its author wrote it, to name it in a message. */
