@@ -73,7 +73,14 @@ class Outputs(unittest.TestCase):
             self.assertEqual(pull(path), {**NOTHING, "jobs": '["outbreak"]', "builds": "true"}, path)
 
     def test_runs_outbreak_s_boundary_beside_the_php_gates_for_the_php_the_binary_talks_to(self):
-        for path in ("src/Port/MapEngine.php", "src/Adapter/Outbreak/Outbreak.php", "src/Core/Coverage/VouchedRead.php", "tests/Contract/MapEngine/MapEngineTest.php"):
+        for path in (
+            "src/Port/MapEngine.php",
+            "src/Adapter/Outbreak/Outbreak.php",
+            "src/Core/Coverage/VouchedRead.php",
+            "src/Core/Runner/RanReport.php",
+            "tests/Contract/MapEngine/MapEngineTest.php",
+            "tests/Fixtures/CoverageReports/timed/coverage.php",
+        ):
             found = pull(path)
             self.assertIn("outbreak", ran(found), path)
             self.assertEqual(found["builds"], "false", path)

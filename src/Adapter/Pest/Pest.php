@@ -32,19 +32,17 @@ use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
-use NightWorksIO\MutationGate\Core\Runner\CoverageFailure;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
+use NightWorksIO\MutationGate\Core\Runner\LeavesPhpReport;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
-use NightWorksIO\MutationGate\Core\Runner\PcovReach;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
-use NightWorksIO\MutationGate\Core\Runner\Program;
-use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\RanReport;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Runner\Reproduction;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
@@ -59,6 +57,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Port\MapEngine;
 use NightWorksIO\MutationGate\Port\Processes;
 use NightWorksIO\MutationGate\Port\Runner;
+use SebastianBergmann\CodeCoverage\Serialization\Serializer;
 
 use function sprintf;
 
@@ -69,7 +68,7 @@ use function sprintf;
  *
  * @internal
  */
-final readonly class Pest implements Runner
+final readonly class Pest implements LeavesPhpReport, Runner
 {
     private const string ARCHIVED
         = 'Pest runs the gate\'s plugin, which only the Composer package installs: composer require --dev %s -W';
@@ -79,8 +78,6 @@ final readonly class Pest implements Runner
 
     /** The file Pest loads before any test, in the test directory it runs with, which the gate leaves at `tests`. */
     private const string BOOT_FILE = 'tests/Pest.php';
-
-    private const string STALE_MAP = 'An earlier run left %s or its JUnit log, and the gate cannot remove them.';
 
     private const string NO_PROJECT = '%s holds no project Pest can run: Pest is not installed in its %s.';
 
@@ -211,12 +208,30 @@ final readonly class Pest implements Runner
         $directory = $request instanceof CoverageRun
             ? $this->project->directory($request->directory())
             : $this->project->absolute($request->directory());
-        $ran = $request instanceof CoverageRun ? $this->measured($request, $directory) : $request;
+        $ran = $request instanceof CoverageRun
+            ? new CoverageRunning($this->project, $this->shell)->into($request, $directory)
+            : $request;
         $file = $ran instanceof CannotJudge ? $ran : CoverageFile::at(sprintf('%s/%s', $directory, Invocation::MAP));
 
         return $file instanceof CannotJudge
             ? $file
             : TimedTests::onto($file->map($this->project), sprintf('%s/%s', $directory, Invocation::TIMED));
+    }
+
+    /**
+     * The report a run the project started in this job left in a directory,
+     * with the tests the run timed beside it and what they loaded.
+     */
+    public function report(CoverageRan $ran): RanReport
+    {
+        $directory = $this->project->absolute($ran->directory());
+
+        return RanReport::at(
+            sprintf('%s/%s', $directory, Invocation::MAP),
+            Serializer::SERIALIZATION_FORMAT,
+            TimedTests::beside(sprintf('%s/%s', $directory, Invocation::TIMED)),
+            $this->project->relative(...),
+        );
     }
 
     /** The map's tests of the classes Pest declares for these test files, or that they declare themselves. */
@@ -377,23 +392,6 @@ final readonly class Pest implements Runner
                 $this->bridges,
             )
             : CannotJudge::because(sprintf(self::NO_PROJECT, $package->value(), $project->vendor()->value()));
-    }
-
-    /** A clean coverage run into a directory, with no earlier run's map or log left there. */
-    private function measured(CoverageRun $request, string $directory): Ran|CannotJudge
-    {
-        $map = sprintf('%s/%s', $directory, Invocation::MAP);
-
-        $junit = sprintf('%s/%s', $directory, Invocation::JUNIT);
-
-        if (! $this->project->without($map, $junit, sprintf('%s/%s', $directory, Invocation::TIMED))) {
-            return CannotJudge::because(sprintf(self::STALE_MAP, $map));
-        }
-
-        $ran = $this->shell->run(Invocation::of($this->project)
-            ->coverage($request, $directory, PcovReach::under($this->project->root(), $this->project->vendor())));
-
-        return $ran->succeeded() ? $ran : CoverageFailure::said(Program::Pest, $ran->output());
     }
 
     /** A mutation run of this project, through this shell. */

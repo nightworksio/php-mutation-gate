@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Hold;
 
+use NightWorksIO\MutationGate\Core\Coverage\MapOutline;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -35,7 +36,27 @@ final readonly class Addition
     /** Whether this test holds the path, on a line of this file. */
     public function adds(TestId $test, Path $file): bool
     {
-        return $this->tests->has($test) && $file->within($this->path);
+        return $this->isHeldBy($test) && $file->within($this->path);
+    }
+
+    /** Whether this test holds the path. */
+    public function isHeldBy(TestId $test): bool
+    {
+        return $this->tests->has($test);
+    }
+
+    /** Whether one of its tests runs a line of what it holds, by an outline of a map. */
+    public function runsIn(MapOutline $outline): bool
+    {
+        foreach ($this->tests as $test) {
+            foreach ($outline->ran($test) as $file) {
+                if ($file->within($this->path)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /** The declaration as its author wrote it, to name it in a message. */

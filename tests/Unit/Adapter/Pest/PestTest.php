@@ -230,6 +230,18 @@ it('reads the map a coverage run this job started itself left in a directory, ru
         ->and(sprintf('%s/build/none', $at->root()))->not->toBeDirectory();
 });
 
+it('names the report a coverage run this job started left in a directory, in the format it reads, with what it timed beside it', function (): void {
+    $at = PestCases::project();
+    Scratch::write($at->root(), 'build/suite/timed-tests.jsonl', '["P\\\\Tests\\\\MoneyTest::adds",0.5,{"process":1,"firstLoaded":[],"startedProcesses":false}]');
+    $report = new Pest($at, ShellFake::answering(Ran::finished(succeeded: false, output: 'not run')), Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())
+        ->report(CoverageRan::in(Path::of('build/suite')));
+
+    expect($report->file())->toBe(sprintf('%s/build/suite/coverage.php', $at->root()))
+        ->and($report->format())->toBe(4)
+        ->and($report->recorded()->timed())->toEqual([TimedTest::of('P\Tests\MoneyTest::adds', 0.5)])
+        ->and($report->relative(sprintf('%s/src/Money.php', $at->root())))->toEqual(Path::of('src/Money.php'));
+});
+
 it('cannot judge a coverage run that failed, with what Pest said', function (): void {
     $request = CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));
     $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'No code coverage driver'));

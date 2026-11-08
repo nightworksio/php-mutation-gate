@@ -127,15 +127,22 @@ OTHER_GATES = (
 OUTBREAK = ("outbreak/", ".github/workflows/outbreak.yml")
 OUTBREAK_CALLER = "outbreak"
 
-# The PHP the binary talks to, which `outbreak` checks against it: the port,
-# the adapter, the maps the binary reads and writes, and their tests.
+# The PHP the binary talks to, which `outbreak` checks against it: the port
+# and the interface it converts reports through, the adapter, the maps the
+# binary reads and writes, the runner's report it reads (ADR-0119), and their
+# tests and the reports they read.
 OUTBREAK_BOUNDARY = (
     "src/Port/MapEngine.php",
     "src/Adapter/Outbreak/",
     "src/Core/Coverage/",
+    "src/Core/Runner/ConvertsPhpReports.php",
+    "src/Core/Runner/RanReport.php",
     "tests/Contract/MapEngine/",
     "tests/Process/Adapter/Outbreak/",
     "tests/Fakes/MapEngineFake.php",
+    "tests/Fixtures/CoverageReports/",
+    "tests/Fixtures/DeclinedReports/",
+    "tests/Support/CoverageReports.php",
 )
 
 # The suites, which no project the gate is installed into loads.

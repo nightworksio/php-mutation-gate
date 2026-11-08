@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_any;
-
-use Closure;
-
 use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -15,16 +12,17 @@ use NightWorksIO\MutationGate\Core\Coverage\Admission;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
+use NightWorksIO\MutationGate\Core\Coverage\MapOutline;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Hold\Additions;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Test\Role;
 use NightWorksIO\MutationGate\Core\Test\Suites;
-use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -85,17 +83,34 @@ final readonly class SuiteCoverage
      */
     public function admitted(CoverageMap $map): CoverageMap|CannotJudge
     {
-        $others = $this->testFiles->without($this->judging($this->testFiles));
+        $admission = count($this->others()) === 0 ? NotGiven::value() : $this->admission(MapOutline::of($map));
+
+        return match (true) {
+            $admission instanceof Admission => $admission->applied($map),
+            $admission instanceof CannotJudge => $admission,
+            default => $map,
+        };
+    }
+
+    /**
+     * What of a map the listed suites admit, by its outline: the tests of
+     * the test files no suite that judges every unit holds leave it, each
+     * staying on the files a hold from the holding suites holds; none where
+     * every test file is in such a suite, and the map is admitted whole; or
+     * why it cannot be judged.
+     */
+    public function admission(MapOutline $outline): Admission|CannotJudge|NotGiven
+    {
+        $others = $this->others();
 
         if (count($others) === 0) {
-            return $map;
+            return NotGiven::value();
         }
 
-        $leaving = $this->adapters->runner->testsIn($others, $map);
-        $admitted = $leaving instanceof TestIds ? $this->kept($map, $leaving) : $leaving;
-        $unrun = $admitted instanceof CoverageMap ? $this->additions->unrunIn($admitted) : $admitted;
+        $leaving = $this->adapters->runner->testsIn($others, $outline->map());
+        $unrun = $leaving instanceof TestIds ? $this->additions->unrunBy($outline) : $leaving;
 
-        return $unrun instanceof CannotJudge ? $unrun : $admitted;
+        return $unrun instanceof CannotJudge ? $unrun : Admission::of($this->additions->staying($leaving, $outline));
     }
 
     /**
@@ -125,6 +140,12 @@ final readonly class SuiteCoverage
             : $request->reusingCoverage(Handed::maps(Workspace::admittedCoverage(), Workspace::admittedCoverage()));
     }
 
+    /** The test files no suite that judges every unit holds. */
+    private function others(): Paths
+    {
+        return $this->testFiles->without($this->judging($this->testFiles));
+    }
+
     /** Of some test files, those a suite whose tests judge every unit holds. */
     private function judging(Paths $files): Paths
     {
@@ -142,24 +163,5 @@ final readonly class SuiteCoverage
     private function holdsAny(Paths $files): bool
     {
         return array_any([...$files], fn(Path $file): bool => $this->additions->holds($file));
-    }
-
-    /** The map, less these tests but on the lines of what one holds (see Admission). */
-    private function kept(CoverageMap $map, TestIds $leaving): CoverageMap
-    {
-        return Admission::of($leaving, $this->staysOn(...))->applied($map);
-    }
-
-    /**
-     * Whether a test leaving stays on the lines of a file: where one of the
-     * holds that hold the file adds it to the file's judges.
-     *
-     * @return Closure(TestId): bool
-     */
-    private function staysOn(Path $file): Closure
-    {
-        $holding = $this->additions->on($file);
-
-        return static fn(TestId $test): bool => $holding->adds($test, $file);
     }
 }

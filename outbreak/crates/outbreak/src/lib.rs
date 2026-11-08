@@ -9,12 +9,19 @@
 //! - `outbreak map split [--threads <n>]` reads a split request on its input,
 //!   and writes each slice of the whole map it names, as the gate writes it,
 //!   or declines where the whole map is not one the gate wrote.
+//! - `outbreak report outline` reads a report request on its input, and
+//!   answers the outline of the map of php-code-coverage's PHP report it
+//!   names: each file, and the files each test ran a line of.
+//! - `outbreak report convert` reads a report request on its input, and writes
+//!   the map of the report it names as the gate writes it, or declines a
+//!   report it does not read.
 //!
 //! An answer is always one line of JSON with `"outbreak": 1`. A command that
 //! cannot run, for its arguments or for a file it cannot read or write, says
 //! why on its error stream and ends with a code other than nought, and the gate
 //! does the work itself.
 
+mod report;
 mod split;
 
 use std::fmt;
@@ -56,8 +63,7 @@ impl fmt::Display for Failure {
 }
 
 /// How to run it, as it says where its arguments name no command.
-const USAGE: &str =
-    "usage: outbreak contract | outbreak map vouch | outbreak map split [--threads <n>]";
+const USAGE: &str = "usage: outbreak contract | outbreak map vouch | outbreak map split [--threads <n>] | outbreak report outline | outbreak report convert";
 
 /// Runs the command the arguments name, reading its input and writing its answer.
 ///
@@ -81,6 +87,8 @@ pub fn run(
         ["map", "split", "--threads", threads] => {
             split::run(&read_all(input)?, threads_of(threads)?)?
         }
+        ["report", "outline"] => report::outline(&read_all(input)?)?,
+        ["report", "convert"] => report::convert(&read_all(input)?)?,
         _ => return Err(Failure::Usage(USAGE.to_owned())),
     };
 
@@ -183,6 +191,18 @@ mod tests {
             ran(&["map", "vouch"], "[]").unwrap(),
             "{\"outbreak\":1,\"vouched\":false,\"why\":\"expected an object at byte 0\"}\n"
         );
+    }
+
+    #[test]
+    fn runs_each_report_command_on_its_input() {
+        assert!(matches!(
+            ran(&["report", "outline"], "[]").unwrap_err(),
+            Failure::Usage(why) if why.starts_with("the report request is not one")
+        ));
+        assert!(matches!(
+            ran(&["report", "convert"], "[]").unwrap_err(),
+            Failure::Usage(why) if why.starts_with("the report request is not one")
+        ));
     }
 
     #[test]

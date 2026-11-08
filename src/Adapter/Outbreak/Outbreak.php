@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Outbreak as OutbreakSettings;
+use NightWorksIO\MutationGate\Core\Coverage\Conversion;
+use NightWorksIO\MutationGate\Core\Coverage\MapOutline;
 use NightWorksIO\MutationGate\Core\Coverage\MapSlice;
 use NightWorksIO\MutationGate\Core\Coverage\MapSlices;
 use NightWorksIO\MutationGate\Core\Coverage\MapVouch;
@@ -26,6 +28,8 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Runner\ConvertsPhpReports;
+use NightWorksIO\MutationGate\Core\Runner\RanReport;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\MapEngine;
@@ -40,16 +44,17 @@ use function tmpfile;
 use function trim;
 
 /**
- * Outbreak's core, the `outbreak` binary, as the gate's map engine (ADR-0118):
- * each answer is one run of the binary, its input handed on its standard input
- * and its answer read as one line of JSON in contract 1. Where there is no
- * binary, or a run fails, ends with another code, runs past its time or
- * answers otherwise, the engine vouches for nothing and splits nothing, and
- * the gate does the work itself.
+ * Outbreak's core, the `outbreak` binary, as the gate's map engine (ADR-0118),
+ * which converts a run's PHP report too (ADR-0119): each answer is one run of
+ * the binary, its input handed on its standard input and its answer read as
+ * one line of JSON in contract 1. Where there is no binary, or a run fails,
+ * ends with another code, runs past its time or answers otherwise, the engine
+ * vouches for nothing, splits nothing and converts nothing, and the gate does
+ * the work itself.
  *
  * @internal
  */
-final readonly class Outbreak implements MapEngine
+final readonly class Outbreak implements ConvertsPhpReports, MapEngine
 {
     /** The contract every answer is written in, as `outbreak contract` says it. */
     private const int CONTRACT = 1;
@@ -63,6 +68,8 @@ final readonly class Outbreak implements MapEngine
     private const string ANSWERED = 'it answered %s';
 
     private const string WROTE = 'Outbreak wrote %d coverage maps from %s.';
+
+    private const string UNREAD = 'Outbreak did not read the report: %s';
 
     /** What a message calls the binary's answer. */
     private const string ANSWER = 'Outbreak\'s answer';
@@ -156,6 +163,21 @@ final readonly class Outbreak implements MapEngine
         return $said instanceof Node && $this->flag($said, 'vouched') ? MapVouch::Vouched : MapVouch::Unvouched;
     }
 
+    public function outline(RanReport $report): MapOutline|NotWritten
+    {
+        $said = $this->asking(Command::Outline, ReportAsked::outline($report));
+
+        return $said instanceof Node ? ReportAnswer::outline($said, $report) : $said;
+    }
+
+    public function convert(RanReport $report, Conversion $conversion, Path $into): Written|NotWritten
+    {
+        $map = $this->absolute($into);
+        $said = $this->asking(Command::Convert, ReportAsked::conversion($report, $conversion, $map));
+
+        return $said instanceof Node ? ReportAnswer::written($said, $map) : $said;
+    }
+
     public function split(Path $whole, MapSlices $slices): Written|NotWritten
     {
         if ($this->binary instanceof NotGiven) {
@@ -187,6 +209,18 @@ final readonly class Outbreak implements MapEngine
         } catch (NotInShape) {
             return NotWritten::because(sprintf(self::FAILED, sprintf(self::ANSWERED, $said->json())));
         }
+    }
+
+    /** What the binary answered a command of a report, handed this input; why it did not, or that there is none. */
+    private function asking(Command $command, string $input): Node|NotWritten
+    {
+        if ($this->binary instanceof NotGiven) {
+            return NotWritten::because(self::NO_BINARY);
+        }
+
+        $said = self::ran($this->binary, $command->words(), $input, $this->settings->timeout());
+
+        return $said instanceof Node ? $said : NotWritten::because(sprintf(self::UNREAD, $said->why()));
     }
 
     /** @return array{into: string, files: list<string>} */

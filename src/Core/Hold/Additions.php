@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Hold;
 
 use function array_any;
-use function array_key_exists;
-use function array_key_first;
+use function array_filter;
 
 use ArrayIterator;
 
@@ -15,12 +14,12 @@ use function count;
 use Countable;
 use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
-use NightWorksIO\MutationGate\Core\Coverage\PlacedLine;
+use NightWorksIO\MutationGate\Core\Coverage\MapOutline;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 
 use function sprintf;
 
@@ -78,42 +77,41 @@ final readonly class Additions implements Countable, IteratorAggregate
     }
 
     /**
-     * Why a map cannot be judged by these: the first of them whose tests run
-     * no line of the path it holds there; none where each runs one.
+     * Why a map cannot be judged by these, by its outline: the first of them
+     * whose tests run no line of the path it holds there; none where each
+     * runs one.
      */
-    public function unrunIn(CoverageMap $map): CannotJudge|NotGiven
+    public function unrunBy(MapOutline $outline): CannotJudge|NotGiven
     {
-        $unrun = $this->additions;
-        $tests = [...$map->tests()];
-        $holding = [];
-
-        foreach ($map->placedLines() as $line) {
-            $file = $line->file()->value();
-
-            if (! array_key_exists($file, $holding)) {
-                $holding[$file] = $this->indicesOn($line->file());
+        foreach ($this->additions as $addition) {
+            if (! $addition->runsIn($outline)) {
+                return CannotJudge::because(sprintf(self::UNRUN, $addition->written(), $addition->path()->value()));
             }
-
-            $unrun = $this->unrunAfter($unrun, $holding[$file], $line, $tests);
         }
 
-        $first = array_key_first($unrun);
-
-        return $first === null
-            ? NotGiven::value()
-            : CannotJudge::because(sprintf(self::UNRUN, $unrun[$first]->written(), $unrun[$first]->path()->value()));
+        return NotGiven::value();
     }
 
-    /** Those of them that hold a file. */
-    public function on(Path $file): self
+    /**
+     * The files each of these tests, leaving a map, stays on: of the files
+     * it runs a line of by the map's outline, those one of them holds that
+     * it holds them from.
+     *
+     * @return array<string, array<string, true>> the files' paths, by the test's id
+     */
+    public function staying(TestIds $leaving, MapOutline $outline): array
     {
-        $on = [];
+        $staying = [];
 
-        foreach ($this->indicesOn($file) as $at) {
-            $on[] = $this->additions[$at];
+        foreach ($leaving as $test) {
+            $holding = array_filter(
+                $this->additions,
+                static fn(Addition $addition): bool => $addition->isHeldBy($test),
+            );
+            $staying[$test->value()] = $this->held($holding, $outline->ran($test));
         }
 
-        return new self($on);
+        return $staying;
     }
 
     public function count(): int
@@ -133,50 +131,20 @@ final readonly class Additions implements Countable, IteratorAggregate
         return array_any($this->additions, static fn(Addition $addition): bool => $addition->adds($test, $file));
     }
 
-    /** @return list<int> the place of each of them that holds a file */
-    private function indicesOn(Path $file): array
-    {
-        $at = [];
-
-        foreach ($this->additions as $index => $addition) {
-            if ($file->within($addition->path())) {
-                $at[] = $index;
-            }
-        }
-
-        return $at;
-    }
-
     /**
-     * @param  array<int, Addition> $unrun   the holds no line has been found run for yet, by their place
-     * @param  list<int>            $holding the places of the holds that hold the line's file
-     * @param  list<TestId>         $tests   the map's tests, by their place
-     * @return array<int, Addition> those of them this line does not run either
+     * @param  array<int, Addition> $holding
+     * @return array<string, true>  the paths of those of the files one of these holds
      */
-    private function unrunAfter(array $unrun, array $holding, PlacedLine $line, array $tests): array
+    private function held(array $holding, Paths $files): array
     {
-        foreach ($holding as $at) {
-            if (array_key_exists($at, $unrun) && $this->runsOn($unrun[$at], $line, $tests)) {
-                unset($unrun[$at]);
+        $held = [];
+
+        foreach ($holding === [] ? [] : $files as $file) {
+            if (array_any($holding, static fn(Addition $addition): bool => $file->within($addition->path()))) {
+                $held[$file->value()] = true;
             }
         }
 
-        return $unrun;
-    }
-
-    /**
-     * Whether one of a hold's tests runs a line, of a file it holds.
-     *
-     * @param list<TestId> $tests the map's tests, by their place
-     */
-    private function runsOn(Addition $addition, PlacedLine $line, array $tests): bool
-    {
-        foreach ($line as $place) {
-            if ($addition->adds($tests[$place], $line->file())) {
-                return true;
-            }
-        }
-
-        return false;
+        return $held;
     }
 }

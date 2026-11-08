@@ -15,6 +15,7 @@ publish = false
 [workspace.dependencies]
 flate2 = { version = "1", default-features = false, features = ["zlib-rs"] }
 outbreak-map = { path = "crates/outbreak-map" }
+outbreak-report = { path = "crates/outbreak-report" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

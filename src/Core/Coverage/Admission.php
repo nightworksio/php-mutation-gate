@@ -10,8 +10,6 @@ use function array_intersect_key;
 use function array_key_exists;
 use function array_keys;
 
-use Closure;
-use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -22,21 +20,38 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  * stays on, as a hold from the holding suites keeps its tests on the lines of
  * what it holds. Each test it keeps on some line, and each it never named,
  * keeps its time, and the tests are placed anew where its lines first name
- * them, as `CoverageMap::of()` places them.
+ * them, as `CoverageMap::of()` places them. The gate decides it from the
+ * map's outline; the gate or an engine applies it (ADR-0119).
  *
  * @internal
  */
 final readonly class Admission
 {
-    /** @param Closure(Path): (Closure(TestId): bool) $staysOn whether a test leaving stays on the lines of a file */
-    private function __construct(private TestIds $leaving, private Closure $staysOn)
+    /** @param array<string, array<string, true>> $staying the paths of the files each test leaving stays on, by id */
+    private function __construct(private array $staying)
     {
     }
 
-    /** @param Closure(Path): (Closure(TestId): bool) $staysOn whether a test leaving stays on the lines of a file */
-    public static function of(TestIds $leaving, Closure $staysOn): self
+    /** @param array<string, array<string, true>> $staying the paths of the files each test leaving stays on, by id */
+    public static function of(array $staying): self
     {
-        return new self($leaving, $staysOn);
+        return new self($staying);
+    }
+
+    /**
+     * The tests leaving, each with the paths of the files it stays on.
+     *
+     * @return array<string, array<string, true>> by the test's id
+     */
+    public function staying(): array
+    {
+        return $this->staying;
+    }
+
+    /** A map's outline, as this admits the map. */
+    public function outlined(MapOutline $outline): MapOutline
+    {
+        return $outline->leaving($this->staying);
     }
 
     /** The map as these suites admit it. */
@@ -46,7 +61,7 @@ final readonly class Admission
         $leaving = [];
 
         foreach ($tests as $place => $test) {
-            if ($this->leaving->has($test)) {
+            if (array_key_exists($test->value(), $this->staying)) {
                 $leaving[$place] = true;
             }
         }
@@ -76,7 +91,7 @@ final readonly class Admission
         $first = [];
 
         foreach ($map->placedLines() as $line) {
-            $first += array_flip($this->staying($line, $dropped));
+            $first += array_flip($this->stayingOn($line, $dropped));
         }
 
         $anew = array_flip(array_keys($first));
@@ -84,7 +99,7 @@ final readonly class Admission
         $kept = [];
 
         foreach ($map->placedLines() as $line) {
-            $placed[] = Tally::placing($line->file(), $line->line(), $this->staying($line, $dropped), $anew);
+            $placed[] = Tally::placing($line->file(), $line->line(), $this->stayingOn($line, $dropped), $anew);
         }
 
         foreach (array_keys($anew) as $place) {
@@ -96,8 +111,7 @@ final readonly class Admission
 
     /**
      * The places of the tests that leave the lines of each file: each test
-     * leaving that runs a line of it and does not stay on it, asked once for
-     * each test and file.
+     * leaving that runs a line of it and does not stay on it.
      *
      * @param  list<TestId>                    $tests
      * @param  array<int, true>                $leaving
@@ -107,42 +121,21 @@ final readonly class Admission
     {
         $dropped = [];
 
-        foreach ($leaving === [] ? [] : $this->running($map) as $file => [$path, $places]) {
-            $here = array_keys(array_intersect_key($places, $leaving));
-            $leaves = $here === [] ? [] : $this->leaving($path, $here, $tests);
-            $dropped += $leaves === [] ? [] : [$file => $leaves];
+        foreach ($leaving === [] ? [] : $this->running($map) as $file => $places) {
+            foreach (array_keys(array_intersect_key($places, $leaving)) as $place) {
+                if (! array_key_exists($file, $this->staying[$tests[$place]->value()])) {
+                    $dropped[$file][$place] = true;
+                }
+            }
         }
 
         return $dropped;
     }
 
     /**
-     * Of the tests leaving that run a line of a file, the places of those
-     * that do not stay on it.
+     * The places of the tests that run a line of each file of the map, by its path.
      *
-     * @param  list<int>        $here
-     * @param  list<TestId>     $tests
-     * @return array<int, true>
-     */
-    private function leaving(Path $file, array $here, array $tests): array
-    {
-        $stays = ($this->staysOn)($file);
-        $leaves = [];
-
-        foreach ($here as $place) {
-            if (! $stays($tests[$place])) {
-                $leaves[$place] = true;
-            }
-        }
-
-        return $leaves;
-    }
-
-    /**
-     * Each file of the map, with the places of the tests that run a line of
-     * it, by its path.
-     *
-     * @return array<string, array{Path, array<int, int>}>
+     * @return array<string, array<int, int>>
      */
     private function running(CoverageMap $map): array
     {
@@ -150,8 +143,8 @@ final readonly class Admission
 
         foreach ($map->placedLines() as $line) {
             $file = $line->file()->value();
-            $running[$file] = array_key_exists($file, $running) ? $running[$file] : [$line->file(), []];
-            $running[$file][1] += array_flip([...$line]);
+            $running[$file] = array_key_exists($file, $running) ? $running[$file] : [];
+            $running[$file] += array_flip([...$line]);
         }
 
         return $running;
@@ -164,7 +157,7 @@ final readonly class Admission
      * @param  array<string, array<int, true>> $dropped
      * @return list<int>
      */
-    private function staying(PlacedLine $line, array $dropped): array
+    private function stayingOn(PlacedLine $line, array $dropped): array
     {
         $places = [...$line];
         $file = $line->file()->value();

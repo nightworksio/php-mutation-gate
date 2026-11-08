@@ -13,8 +13,9 @@ use function sprintf;
 
 /**
  * Whether Outbreak's core, the `outbreak` binary, takes the bulk of the
- * coverage maps a plan hands its shards off the gate's PHP, which binary, how
- * long one run of it may take and on how many threads it writes (ADR-0118):
+ * coverage maps a plan hands its shards, and of the map a run's report is
+ * converted into, off the gate's PHP, which binary, how long one run of it
+ * may take and on how many threads it writes (ADR-0118, ADR-0119):
  * `outbreak`, which the `Shards` part holds. None changes a result, since the
  * binary's output is the gate's own, so none is in a proof's key or decides
  * how the gate runs.

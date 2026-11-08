@@ -104,21 +104,24 @@ fn work(whole: &Slicer<'_>, slices: &[Slice], next: &AtomicUsize) -> Vec<Failure
 }
 
 fn write(whole: &Slicer<'_>, slice: &Slice) -> Result<(), Failure> {
-    let failed =
-        |error: std::io::Error| Failure::Io(format!("cannot write {}: {error}", slice.into));
-    let into = Path::new(&slice.into);
-    let partial = into.with_extension(PARTIAL);
+    packed(&slice.into, &whole.slice(&slice.files))
+}
 
-    into.parent()
+/// A text written gzipped beside its place and moved into it, so none is ever seen half written.
+pub fn packed(into: &str, text: &[u8]) -> Result<(), Failure> {
+    let failed = |error: std::io::Error| Failure::Io(format!("cannot write {into}: {error}"));
+    let place = Path::new(into);
+    let partial = place.with_extension(PARTIAL);
+
+    place
+        .parent()
         .map_or(Ok(()), fs::create_dir_all)
         .map_err(failed)?;
 
     let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-    encoder
-        .write_all(&whole.slice(&slice.files))
-        .map_err(failed)?;
+    encoder.write_all(text).map_err(failed)?;
     fs::write(&partial, encoder.finish().map_err(failed)?).map_err(failed)?;
-    fs::rename(&partial, into).map_err(failed)
+    fs::rename(&partial, place).map_err(failed)
 }
 
 #[cfg(test)]

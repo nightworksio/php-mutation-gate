@@ -17,11 +17,19 @@ version = "0.1.0"
 dependencies = [
  "flate2",
  "outbreak-map",
+ "outbreak-report",
 ]
 
 [[package]]
 name = "outbreak-map"
 version = "0.1.0"
+
+[[package]]
+name = "outbreak-report"
+version = "0.1.0"
+dependencies = [
+ "outbreak-map",
+]
 
 [[package]]
 name = "zlib-rs"

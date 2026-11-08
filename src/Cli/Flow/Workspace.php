@@ -69,6 +69,15 @@ final readonly class Workspace
         return Path::of(sprintf('%s/coverage/admitted', GateDirectory::root()->value()));
     }
 
+    /**
+     * The directory the map engine writes the map of a run's report into,
+     * which the gate then writes where it was asked (ADR-0119).
+     */
+    public static function convertedCoverage(): Path
+    {
+        return Path::of(sprintf('%s/converted', GateDirectory::root()->value()));
+    }
+
     /** Where the tests that hold a shard's units leave the map of their run on their own. */
     public static function heldCoverage(ShardId $shard): Path
     {
