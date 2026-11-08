@@ -120,7 +120,7 @@
     "contexts": {
         "pr": {
             "run": {
-                "failFast": "cancel"
+                "failFast": "mark"
             }
         }
     }
