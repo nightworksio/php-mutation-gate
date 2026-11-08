@@ -244,7 +244,7 @@ final readonly class Outbreak implements MapEngine
             return NotWritten::because($failure->getMessage());
         }
 
-        $answer = Node::decode(trim($process->getOutput()), self::ANSWER);
+        $answer = Node::decode($process->getOutput(), self::ANSWER);
 
         return $process->isSuccessful() && self::isContract($answer)
             ? $answer

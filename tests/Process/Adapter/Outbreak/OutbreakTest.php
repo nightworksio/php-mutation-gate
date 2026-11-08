@@ -49,6 +49,14 @@ it('vouches for nothing where the binary ends badly or answers in another contra
         ->and($other->vouches(Contents::of('{}')))->toBe(MapVouch::Unvouched);
 })->group(...$holds);
 
+it('asks a binary its contract with nothing on its input', function (): void {
+    $asked = OutbreakStandIn::answering('{"outbreak":1}');
+    Outbreak::at($asked->binary(), '/project');
+
+    expect($asked->arguments())->toBe('contract')
+        ->and($asked->read())->toBe('');
+})->group(...$holds);
+
 it('uses no binary that speaks another contract, cannot say which, or cannot start', function (): void {
     expect(Outbreak::at(OutbreakStandIn::answering('', contract: '{"outbreak":2}')->binary(), '/p')->isInUse())->toBeFalse()
         ->and(Outbreak::at(OutbreakStandIn::answering('', contract: 'nothing')->binary(), '/p')->isInUse())->toBeFalse()
