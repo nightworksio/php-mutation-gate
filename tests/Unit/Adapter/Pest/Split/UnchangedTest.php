@@ -15,10 +15,16 @@ it('is unchanged where the mutated code gives the original value, and changed wh
     ])->toBe([true, false, false]);
 });
 
+/** @return array<string, int> values by key, of which the test reads one that is not there */
+function unchangedValues(): array
+{
+    return ['a' => 1];
+}
+
 it('is changed where the mutated code throws or errs, and keeps its error from the run', function (): void {
     $zero = 0;
-    $values = ['a' => 1];
-    $key = str_repeat('b', random_int(1, 1));
+    $values = unchangedValues();
+    $key = 'b';
 
     expect([
         Unchanged::by(0, static fn(): int => intdiv(1, $zero)),

@@ -78,7 +78,7 @@ final class Stream
      */
     public static function from(string $file): bool
     {
-        $plan = function_exists('pcntl_fork') && function_exists('posix_kill') ? StreamPlan::read($file) : false;
+        $plan = function_exists('pcntl_fork') && function_exists('posix_kill') ? StreamPlanFile::read($file) : false;
 
         if ($plan === false) {
             return false;

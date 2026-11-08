@@ -110,18 +110,17 @@ it('lets a mutant survive every covering test the parent passed and its children
         ->and($verdicts->decides('m', ['T::one', 'T::two']))->toBeFalse();
 });
 
-/** @param list<string> $covering */
-it('leaves a mutant for its own run where a covering test forked nothing, or never ran', function (array $covering): void {
+it('leaves a mutant for its own run where a covering test forked nothing, or never ran', function (string $other): void {
     $verdicts = streamResults(
         StreamLine::parent('T::one', passed: true, seconds: 0.1),
         StreamLine::parent('T::two', passed: true, seconds: 0.1),
         StreamLine::fallback('T::two'),
     );
 
-    expect(streamGiven($verdicts, $covering))->toBe([MutationTestResult::None, '']);
+    expect(streamGiven($verdicts, ['T::one', $other]))->toBe([MutationTestResult::None, '']);
 })->with([
-    'a test that forked nothing' => [['T::one', 'T::two']],
-    'a test no stream ran' => [['T::one', 'T::three']],
+    'a test that forked nothing' => ['T::two'],
+    'a test no stream ran' => ['T::three'],
 ]);
 
 it('reads no results where a stream wrote none, and skips what is no line of its own', function (): void {
