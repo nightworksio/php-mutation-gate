@@ -226,20 +226,18 @@ final readonly class Outbreak implements MapEngine
         $process = new Process([$binary, ...$arguments], timeout: $timeout->seconds());
         $given = tmpfile();
 
-        return $given === false ? NotWritten::because(self::NO_INPUT) : self::answered($process, $given, $input);
+        if ($given !== false) {
+            fwrite($given, $input);
+            rewind($given);
+            $process->setInput($given);
+        }
+
+        return $given === false ? NotWritten::because(self::NO_INPUT) : self::answered($process);
     }
 
-    /**
-     * What a run of the binary answered, given this input as a file.
-     *
-     * @param resource $given
-     */
-    private static function answered(Process $process, $given, string $input): Node|NotWritten
+    /** What a run of the binary answered, its input handed to it. */
+    private static function answered(Process $process): Node|NotWritten
     {
-        fwrite($given, $input);
-        rewind($given);
-        $process->setInput($given);
-
         try {
             $process->run();
         } catch (ExceptionInterface $failure) {
