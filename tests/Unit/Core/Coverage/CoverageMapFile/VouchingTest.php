@@ -60,6 +60,18 @@ it('reads a kept map into the same map, measured where it was, whether the engin
         ->and([...$asked])->toBe([$json]);
 });
 
+it('reads a text the engine does not vouch for carefully, dropping what the careful reading drops', function () use ($asking, $written): void {
+    foreach (VouchedMaps::dropping() as $name => [$json]) {
+        /** @var ArrayObject<int, string> $asked */
+        $asked = new ArrayObject();
+        $decoded = CoverageMapFile::decode(Gzip::pack($json), HandedMaps::limits(), $asking(MapVouch::Unvouched, $asked));
+        $kept = CoverageMapFile::kept(Gzip::pack($json), MapLimits::standard(), $asking(MapVouch::Unvouched, $asked));
+
+        expect($written($decoded))->toBe($written(CoverageMapFile::decode(Gzip::pack($json), HandedMaps::limits())), $name)
+            ->and($written($kept))->toBe($written(CoverageMapFile::kept(Gzip::pack($json), MapLimits::standard())), $name);
+    }
+});
+
 it('asks no engine of bytes that are no map, and cannot judge by them', function () use ($asking): void {
     /** @var ArrayObject<int, string> $asked */
     $asked = new ArrayObject();
