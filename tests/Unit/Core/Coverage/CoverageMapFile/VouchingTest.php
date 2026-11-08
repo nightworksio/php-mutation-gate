@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\KeptMap;
 use NightWorksIO\MutationGate\Core\Coverage\MapLimits;
 use NightWorksIO\MutationGate\Core\Coverage\MapVouch;
+use NightWorksIO\MutationGate\Core\Coverage\VouchedRead;
 use NightWorksIO\MutationGate\Core\Format\Gzip;
 use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
 use NightWorksIO\MutationGate\Tests\Support\VouchedMaps;
@@ -70,6 +71,19 @@ it('reads a text the engine does not vouch for carefully, dropping what the care
         expect($written($decoded))->toBe($written(CoverageMapFile::decode(Gzip::pack($json), HandedMaps::limits())), $name)
             ->and($written($kept))->toBe($written(CoverageMapFile::kept(Gzip::pack($json), MapLimits::standard())), $name);
     }
+});
+
+it('trusts the engine\'s vouch, building a vouched text straight from it, where the careful reading would read it otherwise', function () use ($asking, $written): void {
+    $json = VouchedMaps::dropping()['seconds below none'][0];
+    /** @var ArrayObject<int, string> $asked */
+    $asked = new ArrayObject();
+    $straight = VouchedMaps::written(VouchedRead::read($json));
+
+    expect($written(CoverageMapFile::decode(Gzip::pack($json), HandedMaps::limits(), $asking(MapVouch::Vouched, $asked))))
+        ->toBe($straight)
+        ->and($written(CoverageMapFile::kept(Gzip::pack($json), MapLimits::standard(), $asking(MapVouch::Vouched, $asked))))
+        ->toBe($straight)
+        ->and($straight)->not->toBe(VouchedMaps::carefully($json));
 });
 
 it('asks no engine of bytes that are no map, and cannot judge by them', function () use ($asking): void {

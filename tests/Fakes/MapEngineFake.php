@@ -15,11 +15,14 @@ use NightWorksIO\MutationGate\Port\MapEngine;
 
 /**
  * An engine that vouches for the texts it was told to and splits nothing, saying why, and remembers each
- * split it was asked for.
+ * text it was asked to vouch for and each split it was asked for.
  */
 final class MapEngineFake implements MapEngine
 {
     private const string DECLINED = 'The fake engine splits nothing.';
+
+    /** @var list<string> */
+    public private(set) array $asked = [];
 
     /** @var list<array{Path, MapSlices}> */
     public private(set) array $splits = [];
@@ -31,6 +34,8 @@ final class MapEngineFake implements MapEngine
 
     public function vouches(Contents $text): MapVouch
     {
+        $this->asked[] = $text->text();
+
         return in_array($text->text(), $this->vouchedFor, strict: true) ? MapVouch::Vouched : MapVouch::Unvouched;
     }
 

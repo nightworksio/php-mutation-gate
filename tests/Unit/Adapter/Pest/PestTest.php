@@ -295,7 +295,8 @@ it('reads a handed map with the engine it was given, which may vouch for it, int
     $engine = new MapEngineFake([$text]);
     $pest = new Pest($at, ShellFake::answering(Ran::finished(succeeded: false, output: '')), Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds(), maps: $engine);
 
-    expect($pest->coverage(CoverageRead::from(Path::of('planned'))))->toEqual($map);
+    expect($pest->coverage(CoverageRead::from(Path::of('planned'))))->toEqual($map)
+        ->and($engine->asked)->toBe([$text]);
 });
 
 it('never reads a runner\'s map another job wrote, which is PHP that reading runs', function (): void {
