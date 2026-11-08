@@ -126,7 +126,7 @@ enum GateVariable: string
     /** The most children a split stream holds at once: `splitStream.children` (see Split\StreamSettings). */
     case SplitChildren = 'MUTATION_GATE_SPLIT_CHILDREN';
 
-    /** Set where a split stream forks a pure expression's mutant only where it changes its value (see Split\StreamSettings). */
+    /** Set where a split stream forks a pure expression's mutant only where it changes the value (StreamSettings). */
     case SplitChangeCheck = 'MUTATION_GATE_SPLIT_CHANGE_CHECK';
 
     /** Set where a split stream forks each mutant first at its likely killer (see Split\StreamSettings). */

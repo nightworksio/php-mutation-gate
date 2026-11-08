@@ -11,8 +11,11 @@ use const FILE_APPEND;
 
 use function file_put_contents;
 use function hrtime;
+use function is_int;
 
 use const LOCK_EX;
+
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function pcntl_fork;
 use function pcntl_waitpid;
@@ -42,10 +45,7 @@ final class Children
     /** How long the parent sleeps between looks at children it waits for, in microseconds. */
     private const int WAIT = 500;
 
-    /** Nanoseconds in a second. */
-    private const float NANOSECONDS = 1e9;
-
-    /** @var array<int, array{string, string, float, float}> each running child's mutant, test, start and deadline, by pid */
+    /** @var array<int, array{string, string, float, float}> each running child's mutant, test, start and end, by pid */
     private array $running = [];
 
     /** @var list<array{string, string}> the children that failed or ended in their test while the parent forked */
@@ -107,11 +107,7 @@ final class Children
 
         do {
             $before = count($this->running);
-
-            while (($pid = pcntl_waitpid(-1, $status, WNOHANG)) > 0) {
-                $failed = [...$failed, ...$this->endedOf($pid, $status)];
-            }
-
+            $failed = [...$failed, ...$this->drained()];
             $this->stopLate();
             $done = ! $blocking || count($this->running) < $before || $this->running === [];
 
@@ -127,6 +123,22 @@ final class Children
     public function areRunning(): bool
     {
         return $this->running !== [];
+    }
+
+    /**
+     * Takes every child that has ended, without waiting.
+     *
+     * @return list<array{string, string}> each that failed or ended in its test: its mutant, and the test
+     */
+    private function drained(): array
+    {
+        $failed = [];
+
+        while (($pid = pcntl_waitpid(-1, $status, WNOHANG)) > 0) {
+            $failed = [...$failed, ...$this->endedOf($pid, is_int($status) ? $status : 0)];
+        }
+
+        return $failed;
     }
 
     /**
@@ -147,11 +159,18 @@ final class Children
         $signal = pcntl_wifsignaled($status) ? pcntl_wtermsig($status) : 0;
 
         if ($signal !== SIGKILL && $signal !== SIGUSR1) {
-            $code = pcntl_wifexited($status) ? pcntl_wexitstatus($status) : -1;
-            $this->write(StreamLine::endedChild($mutant, $test, $code === false ? -1 : $code));
+            $this->write(StreamLine::endedChild($mutant, $test, self::exitCode($status)));
         }
 
         return $signal === SIGKILL ? [] : [[$mutant, $test]];
+    }
+
+    /** The code a child exited with, or -1 where a signal ended it. */
+    private static function exitCode(int $status): int
+    {
+        $code = pcntl_wifexited($status) ? pcntl_wexitstatus($status) : false;
+
+        return is_int($code) ? $code : -1;
     }
 
     /** Stops each child past its limit. */
@@ -176,6 +195,6 @@ final class Children
 
     private static function now(): float
     {
-        return hrtime(as_number: true) / self::NANOSECONDS;
+        return hrtime(as_number: true) / Seconds::NANOSECONDS;
     }
 }

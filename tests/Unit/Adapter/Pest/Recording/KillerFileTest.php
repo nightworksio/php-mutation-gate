@@ -48,7 +48,7 @@ it('takes the record of every line, the preload, each test and the count, in the
     ));
 
     expect(KillerFile::taken($file, '/m/a.php'))->toBe([
-        RecordLine::preloaded('/m/a.php'),
+        RecordLine::marked('/m/a.php', RecordEvent::Preloaded),
         RecordLine::errored('/m/a.php', 'P\Tests\MoneySpec::first', secondPlace()),
         RecordLine::killed('/m/a.php', "Tests\\LegacySpec::testAdds#(1)\na", Placed::unplaced(7)),
         RecordLine::ran('/m/a.php', 12),
@@ -69,7 +69,7 @@ it('takes no record from a last line with no line break after it, as a process s
     file_put_contents($whole, sprintf('%s%s', KillerFile::preloaded(), mb_rtrim(KillerFile::ran(3))));
 
     expect(KillerFile::taken($file, '/m/a.php'))->toBe([RecordLine::killed('/m/a.php', 'P\Tests\MoneySpec::first', secondPlace())])
-        ->and(KillerFile::taken($whole, '/m/a.php'))->toBe([RecordLine::preloaded('/m/a.php')]);
+        ->and(KillerFile::taken($whole, '/m/a.php'))->toBe([RecordLine::marked('/m/a.php', RecordEvent::Preloaded)]);
 });
 
 it('takes no record where there is no file', function (): void {

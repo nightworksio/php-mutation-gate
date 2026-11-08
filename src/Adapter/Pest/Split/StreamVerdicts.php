@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
 use function array_key_exists;
+
+use Closure;
+
 use function explode;
 
 use const FILE_APPEND;
@@ -84,13 +87,9 @@ final class StreamVerdicts
      */
     public function decides(string $mutant, array $covering): bool
     {
-        foreach ($covering as $covered) {
-            if ($this->passes($covered) && $this->endOf($mutant, $covered) !== ChildEnd::Passed) {
-                return true;
-            }
-        }
+        $decided = static fn(ChildEnd $end): bool => $end !== ChildEnd::Passed;
 
-        return false;
+        return $this->firstEnding($mutant, $covering, $decided) !== '';
     }
 
     /**
@@ -99,9 +98,10 @@ final class StreamVerdicts
      *
      * @param list<string> $covering the tests that cover it, by their ids
      */
-    public function give(string $mutant, MutationTest $test, array $covering, Facade $events): void
+    public function give(string $mutant, MutationTest $test, array $covering): void
     {
-        $killer = $this->killerOf($mutant, $covering);
+        $events = Facade::instance();
+        $killer = $this->firstEnding($mutant, $covering, static fn(ChildEnd $end): bool => $end->kills());
 
         if ($killer !== '') {
             $this->note($test, KillerFile::line(RecordEvent::Killed, $killer, Placed::unplaced(0)));
@@ -111,7 +111,10 @@ final class StreamVerdicts
             return;
         }
 
-        if ($this->timesOut($mutant, $covering)) {
+        $overran = static fn(ChildEnd $end): bool => $end === ChildEnd::TimedOut;
+        $timedOut = $this->firstEnding($mutant, $covering, $overran);
+
+        if ($timedOut !== '') {
             $this->note($test, '');
             $test->updateResult(MutationTestResult::Timeout);
             $events->emitter()->mutationTimedOut($test);
@@ -126,28 +129,22 @@ final class StreamVerdicts
         }
     }
 
-    /** @param list<string> $covering */
-    private function killerOf(string $mutant, array $covering): string
+    /**
+     * The first covering test the parent passed in which a child of the
+     * mutant came out as asked; '' where none did.
+     *
+     * @param list<string>             $covering
+     * @param Closure(ChildEnd): bool $asked
+     */
+    private function firstEnding(string $mutant, array $covering, Closure $asked): string
     {
         foreach ($covering as $covered) {
-            if ($this->passes($covered) && $this->endOf($mutant, $covered)->kills()) {
+            if ($this->passes($covered) && $asked($this->endOf($mutant, $covered))) {
                 return $covered;
             }
         }
 
         return '';
-    }
-
-    /** @param list<string> $covering */
-    private function timesOut(string $mutant, array $covering): bool
-    {
-        foreach ($covering as $covered) {
-            if ($this->passes($covered) && $this->endOf($mutant, $covered) === ChildEnd::TimedOut) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /** @param list<string> $covering */
@@ -183,7 +180,8 @@ final class StreamVerdicts
         $end = $read->childEnd();
 
         if ($read->kind === StreamLine::PARENT) {
-            $this->passed[$read->test] = $read->passed && (! array_key_exists($read->test, $this->passed) || $this->passed[$read->test]);
+            $earlier = ! array_key_exists($read->test, $this->passed) || $this->passed[$read->test];
+            $this->passed[$read->test] = $read->passed && $earlier;
         }
 
         if ($read->kind === StreamLine::FALLBACK) {

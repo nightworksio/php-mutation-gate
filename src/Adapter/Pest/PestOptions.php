@@ -128,7 +128,7 @@ final readonly class PestOptions
             : Patching::off();
     }
 
-    /** `splitStream`: whether, and how, a patched run judges its mutants in split streams (ADR-0117); off where unset. */
+    /** `splitStream`: whether, and how, a patched run judges its mutants in split streams (ADR-0117). */
     private static function streamsOf(Options $options): StreamSettings|Problem
     {
         $split = $options->object(Key::of(SplitStream::SECTION));

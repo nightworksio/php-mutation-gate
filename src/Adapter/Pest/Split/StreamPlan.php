@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
 use function array_key_exists;
 use function file_get_contents;
+use function in_array;
 use function is_array;
 use function is_file;
 use function is_float;
@@ -66,6 +67,28 @@ final readonly class StreamPlan
         );
     }
 
+    /**
+     * The mutants of each schema whose source file this process loaded, as
+     * these files say it did, before the schema could be served in its place.
+     *
+     * @param  list<string> $loaded
+     * @return list<string>
+     */
+    public function unservedIn(array $loaded): array
+    {
+        $unserved = [];
+
+        foreach ($this->paths as $key => $path) {
+            $sites = in_array($path, $loaded, strict: true) && array_key_exists($key, $this->sites) ? $this->sites[$key] : [];
+
+            foreach ($sites as [$mutant]) {
+                $unserved[] = $mutant;
+            }
+        }
+
+        return $unserved;
+    }
+
     /** @param array<mixed> $read */
     private static function holds(array $read, string $key): bool
     {
@@ -98,17 +121,43 @@ final readonly class StreamPlan
         $read = [];
 
         foreach ($sites as $file => $switches) {
-            foreach (is_array($switches) ? $switches : [] as $id => $site) {
-                $mutant = is_array($site) && array_key_exists(0, $site) ? $site[0] : null;
-                $killer = is_array($site) && array_key_exists(1, $site) ? $site[1] : null;
+            $read[(string) $file] = is_array($switches) ? self::switchesOf($switches) : [];
+        }
 
-                if (is_string($mutant) && is_string($killer)) {
-                    $read[(string) $file][(int) $id] = [$mutant, $killer, self::textsOf(self::listed($site, '2'))];
-                }
+        return $read;
+    }
+
+    /**
+     * @param  array<mixed>                                                $switches
+     * @return array<int, array{string, string, array<string, string>}>
+     */
+    private static function switchesOf(array $switches): array
+    {
+        $read = [];
+
+        foreach ($switches as $id => $site) {
+            $planned = is_array($site) ? self::siteOf($site) : false;
+
+            if ($planned !== false) {
+                $read[(int) $id] = $planned;
             }
         }
 
         return $read;
+    }
+
+    /**
+     * @param  array<mixed>                                      $site
+     * @return array{string, string, array<string, string>}|false
+     */
+    private static function siteOf(array $site): array|false
+    {
+        $mutant = array_key_exists(0, $site) ? $site[0] : null;
+        $killer = array_key_exists(1, $site) ? $site[1] : null;
+
+        return is_string($mutant) && is_string($killer)
+            ? [$mutant, $killer, self::textsOf(self::listed($site, '2'))]
+            : false;
     }
 
     /**

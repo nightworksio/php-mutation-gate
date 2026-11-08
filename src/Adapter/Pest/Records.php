@@ -162,7 +162,7 @@ final class Records
     /** Whether a split stream judged this mutant, against its own unmutated stream (ADR-0117). */
     public function isStreamed(PlannedMutant $mutant): bool
     {
-        return $this->runs->isStreamed($mutant->mutated()->value());
+        return $this->runs->isMarked($mutant->mutated()->value(), RecordEvent::Streamed);
     }
 
     public function runOf(PlannedMutant $mutant): OwnRun
@@ -260,30 +260,32 @@ final class Records
         }
 
         $record = Node::decode($line, named: self::RECORD);
-        $event = $record->field(RecordField::Event->value);
+        $field = $record->field(RecordField::Event->value);
+        $event = RecordEvent::tryFrom($field->text());
 
-        match (RecordEvent::tryFrom($event->text())) {
+        match ($event) {
             RecordEvent::Planned, RecordEvent::Twin => $this->withPlanned($record),
             RecordEvent::Made => $this->withMade($record),
-            RecordEvent::Outcome => $this->withOutcome($record),
+            RecordEvent::Outcome => $this->outcomes[$record->field(RecordField::Id->value)->text()][]
+                = $this->statusIn($record),
             RecordEvent::Finished => $this->withFinished($record),
             RecordEvent::Killed => $this->runs->killed($record),
             RecordEvent::Errored => $this->runs->errored($record),
             RecordEvent::Exhausted => $this->runs->exhausted($record),
             RecordEvent::Fatal => $this->runs->fatal($record),
-            RecordEvent::Preloaded => $this->runs->preloaded($record),
-            RecordEvent::Streamed => $this->runs->streamed($record),
+            RecordEvent::Preloaded,
+            RecordEvent::Unfiltered,
+            RecordEvent::Streamed => $this->runs->marked($record, $event),
             RecordEvent::Narrowed => $this->runs->narrowed($record),
             RecordEvent::Limited => $this->runs->limited($record),
-            RecordEvent::Unfiltered => $this->runs->unfiltered($record),
             RecordEvent::Silent => $this->runs->silent($record),
             RecordEvent::Ran => $this->runs->ran($record),
             RecordEvent::Arguments => $this->runs->startedWith($record),
             RecordEvent::Ordered => $this->orders->ordered($record),
-            RecordEvent::Stopped => throw NotInShape::at($event->at(), 'an event of a mutation run, not a replay\'s'),
+            RecordEvent::Stopped => throw NotInShape::at($field->at(), 'an event of a mutation run, not a replay\'s'),
             RecordEvent::Ended => $this->runs->ended($record),
             RecordEvent::End => $this->ended = true,
-            null => throw NotInShape::at($event->at(), 'an event the plugin writes'),
+            null => throw NotInShape::at($field->at(), 'an event the plugin writes'),
         };
     }
 
@@ -360,12 +362,6 @@ final class Records
         $opening = $record->field(RecordField::Opening->value);
         $this->opening = $opening->isPresent() ? Seconds::of($opening->number()) : Unmeasured::duration();
         $this->made = $record->field(RecordField::Count->value)->integer() === count($this->planned);
-    }
-
-    /** @throws NotInShape */
-    private function withOutcome(Node $record): void
-    {
-        $this->outcomes[$record->field(RecordField::Id->value)->text()][] = $this->statusIn($record);
     }
 
     /** @throws NotInShape */

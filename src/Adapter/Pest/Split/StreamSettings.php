@@ -37,7 +37,7 @@ final readonly class StreamSettings
 
     public static function off(): self
     {
-        return new self(false, 1, true, true);
+        return new self(enabled: false, children: 1, changeCheck: true, killersFirst: true);
     }
 
     public static function of(bool $enabled, int $children, bool $changeCheck, bool $killersFirst): self

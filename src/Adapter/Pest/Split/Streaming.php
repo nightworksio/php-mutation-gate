@@ -6,11 +6,11 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
 use function array_fill;
 use function array_filter;
+use function array_key_exists;
 use function array_map;
 use function array_sum;
 use function array_unique;
 use function array_values;
-use function arsort;
 use function asort;
 use function count;
 use function file_put_contents;
@@ -42,6 +42,8 @@ use function sprintf;
 use function str_starts_with;
 
 use Symfony\Component\Process\Process;
+
+use function uksort;
 
 /**
  * One run's passes of split streams (ADR-0117): each pass streams the test
@@ -94,7 +96,9 @@ final readonly class Streaming
         $times = self::times();
         $streams = [];
 
-        foreach (self::parts(CoveringFiles::streamed(array_values(array_unique($tests))), $times, $this->processes) as $at => $files) {
+        $units = CoveringFiles::streamed(array_values(array_unique($tests)));
+
+        foreach (self::parts($units, $times, $this->processes) as $at => $files) {
             $results = sprintf(self::RESULTS, $this->directory, $pass, $at);
             $streams[] = [$this->started($pass, $at, $results, $planned, $times, $files), $results];
         }
@@ -122,17 +126,23 @@ final readonly class Streaming
         $seconds = [];
 
         foreach ($units as $file => $unit) {
-            $seconds[$file] = array_sum(array_map(static fn(string $test): float => $times[$test] ?? 0.0, $unit['tests']));
+            $seconds[$file] = array_sum(array_map(
+                static fn(string $test): float => array_key_exists($test, $times) ? $times[$test] : 0.0,
+                $unit['tests'],
+            ));
         }
 
-        arsort($seconds);
+        uksort(
+            $seconds,
+            static fn(string $one, string $two): int => [$seconds[$two], $one] <=> [$seconds[$one], $two],
+        );
         $loads = array_fill(0, $count, 0.0);
         $parts = array_fill(0, $count, []);
 
         foreach ($seconds as $file => $time) {
             asort($loads);
             reset($loads);
-            $least = (int) key($loads);
+            $least = key($loads);
             $loads[$least] += $time;
             $parts[$least] = [...$parts[$least], ...$units[$file]['files']];
         }
@@ -156,9 +166,12 @@ final readonly class Streaming
     private function started(int $pass, int $at, string $results, array $planned, array $times, array $files): Process
     {
         $plan = sprintf(self::PLAN, $this->directory, $pass, $at);
-        $perTest = PerTestVariables::read(getenv(GateVariable::TestMultiple->value), getenv(GateVariable::TestFloor->value));
+        $perTest = PerTestVariables::read(
+            getenv(GateVariable::TestMultiple->value),
+            getenv(GateVariable::TestFloor->value),
+        );
         $most = ToldSeconds::read(getenv(GateVariable::MutantCap->value));
-        file_put_contents($plan, json_encode([
+        $fields = [
             'results' => $results,
             'sites' => $planned,
             'paths' => $this->paths,
@@ -167,7 +180,8 @@ final readonly class Streaming
             'multiple' => $perTest->isOn() ? $perTest->multiple() : 0,
             'floor' => $perTest->floor()->seconds(),
             'longest' => ($most instanceof Seconds ? $most : Triage::none()->most())->seconds(),
-        ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+        ];
+        file_put_contents($plan, json_encode($fields, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
         $process = new Process(
             [PHP_BINARY, ...self::runArguments($this->arguments), ...$files],
             env: [

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
 use function array_key_exists;
-use function array_map;
 
 use Closure;
 
@@ -15,11 +14,11 @@ use function file_put_contents;
 use function function_exists;
 use function get_included_files;
 use function hrtime;
-use function in_array;
 
 use const LOCK_EX;
 
 use NightWorksIO\MutationGate\Adapter\Pest\SchemaSwitch;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function pcntl_signal;
 use function posix_getpid;
@@ -46,9 +45,6 @@ use function sprintf;
  */
 final class Stream
 {
-    /** Nanoseconds in a second. */
-    private const float NANOSECONDS = 1e9;
-
     private static ?self $stream = null;
 
     private string $test = '';
@@ -67,17 +63,12 @@ final class Stream
     /** @var array<string, true> the sites forked in the current test, by file key and switch id */
     private array $forked = [];
 
-    /** @var array<string, true> the mutants a child killed in a test the parent passed, by id */
-    private array $killed = [];
-
-    /** @var array<string, bool> whether the parent passed each test it ended, by the test's id */
-    private array $passed = [];
-
-    /** @var array<string, list<string>> the mutants a child failed, by the test the parent is still in */
-    private array $pending = [];
-
-    private function __construct(private readonly StreamPlan $plan, private readonly Children $children, private int $sockets)
-    {
+    private function __construct(
+        private readonly StreamPlan $plan,
+        private readonly Children $children,
+        private readonly Kills $kills,
+        private readonly int $sockets,
+    ) {
     }
 
     /**
@@ -93,8 +84,12 @@ final class Stream
             return false;
         }
 
-        self::$stream = new self($plan, new Children($plan), Sockets::open());
-        self::$stream->unserved(get_included_files());
+        self::$stream = new self($plan, new Children($plan), new Kills(), Sockets::open());
+
+        foreach ($plan->unservedIn(get_included_files()) as $mutant) {
+            self::$stream->write(StreamLine::unserved($mutant));
+        }
+
         SchemaSwitch::splitting(self::$stream->reached(...), self::$stream->changed(...));
 
         return true;
@@ -140,24 +135,10 @@ final class Stream
         }
 
         while ($stream->children->areRunning()) {
-            $stream->killedBy($stream->children->reaped(blocking: true));
+            $stream->kills->failedIn($stream->children->reaped(blocking: true));
         }
 
-        SchemaSwitch::splitting(null);
-    }
-
-    /** @param list<string> $loaded */
-    private function unserved(array $loaded): void
-    {
-        foreach ($this->plan->paths as $key => $path) {
-            if (! in_array($path, $loaded, strict: true) || ! array_key_exists($key, $this->plan->sites)) {
-                continue;
-            }
-
-            foreach ($this->plan->sites[$key] as [$mutant]) {
-                $this->write(StreamLine::unserved($mutant));
-            }
-        }
+        SchemaSwitch::unsplit();
     }
 
     private function begin(string $test): void
@@ -188,7 +169,7 @@ final class Stream
             return;
         }
 
-        $seconds = ((int) hrtime(as_number: true) - $this->started) / self::NANOSECONDS;
+        $seconds = ((int) hrtime(as_number: true) - $this->started) / Seconds::NANOSECONDS;
 
         if ($this->mutant !== '') {
             $this->write(StreamLine::child($this->mutant, $this->test, $this->failed, $seconds));
@@ -197,14 +178,10 @@ final class Stream
         }
 
         $this->write(StreamLine::parent($this->test, ! $this->failed, $seconds));
-        $this->passed[$this->test] = ! $this->failed;
-        $pending = array_key_exists($this->test, $this->pending) ? $this->pending[$this->test] : [];
-        unset($this->pending[$this->test]);
-        $test = $this->test;
-        $this->killedBy(array_map(static fn(string $mutant): array => [$mutant, $test], $pending));
+        $this->kills->ended($this->test, ! $this->failed);
         $this->children->ended($this->test, $seconds);
         $this->test = '';
-        $this->killedBy($this->children->reaped(blocking: false));
+        $this->kills->failedIn($this->children->reaped(blocking: false));
     }
 
     /** Whether this execution of a site runs its mutant: in a child forked here, yes; in the parent, never. */
@@ -230,13 +207,22 @@ final class Stream
     /** Whether the stream forks a site's mutant at this execution. */
     private function forks(string $file, int $id): bool
     {
-        $site = ! $this->deciding && $this->test !== '' && $this->forkable && array_key_exists($file, $this->plan->sites)
-            && ! array_key_exists(sprintf('%s:%d', $file, $id), $this->forked)
-            && array_key_exists($id, $this->plan->sites[$file]) ? $this->plan->sites[$file][$id] : false;
+        $site = $this->isForkable($file, $id) ? $this->plan->sites[$file][$id] : false;
 
         return $site !== false
-            && ! array_key_exists($site[0], $this->killed)
+            && ! $this->kills->has($site[0])
             && ($site[1] === '' || $site[1] === $this->test);
+    }
+
+    /** Whether the stream may fork at a site of the plan this execution reaches, not yet forked in this test. */
+    private function isForkable(string $file, int $id): bool
+    {
+        return ! $this->deciding
+            && $this->test !== ''
+            && $this->forkable
+            && array_key_exists($file, $this->plan->sites)
+            && array_key_exists($id, $this->plan->sites[$file])
+            && ! array_key_exists(sprintf('%s:%d', $file, $id), $this->forked);
     }
 
     /** Forks a site's mutant: true in the child, which runs it, false in the parent. */
@@ -253,7 +239,7 @@ final class Stream
         }
 
         $this->mutant = $mutant;
-        SchemaSwitch::splitting(null);
+        SchemaSwitch::unsplit();
         SchemaSwitch::on($file, $id);
 
         foreach ($variables as $name => $value) {
@@ -261,27 +247,6 @@ final class Stream
         }
 
         return true;
-    }
-
-    /**
-     * Children failed or ended in these tests: each mutant is killed where the
-     * parent passed its test, or once the parent does.
-     *
-     * @param list<array{string, string}> $failed
-     */
-    private function killedBy(array $failed): void
-    {
-        foreach ($failed as [$mutant, $test]) {
-            if (! array_key_exists($test, $this->passed)) {
-                $this->pending[$test][] = $mutant;
-
-                continue;
-            }
-
-            if ($this->passed[$test]) {
-                $this->killed[$mutant] = true;
-            }
-        }
     }
 
     private function write(string $line): void

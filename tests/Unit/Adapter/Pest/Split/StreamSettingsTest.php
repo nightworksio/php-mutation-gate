@@ -13,16 +13,16 @@ afterEach(function (): void {
 
 it('tells a run nothing where it does not split its streams', function (): void {
     expect(StreamSettings::off()->variables())->toBe([])
-        ->and(StreamSettings::of(false, 3, true, true)->variables())->toBe([]);
+        ->and(StreamSettings::of(enabled: false, children: 3, changeCheck: true, killersFirst: true)->variables())->toBe([]);
 });
 
 it('tells a run that splits its streams how, at least one child at once', function (): void {
-    expect(StreamSettings::of(true, 3, false, true)->variables())->toBe([
+    expect(StreamSettings::of(enabled: true, children: 3, changeCheck: false, killersFirst: true)->variables())->toBe([
         'MUTATION_GATE_SPLIT' => '1',
         'MUTATION_GATE_SPLIT_CHILDREN' => '3',
         'MUTATION_GATE_SPLIT_CHANGE_CHECK' => '0',
         'MUTATION_GATE_SPLIT_KILLERS_FIRST' => '1',
-    ])->and(StreamSettings::of(true, 0, true, false)->variables())->toBe([
+    ])->and(StreamSettings::of(enabled: true, children: 0, changeCheck: true, killersFirst: false)->variables())->toBe([
         'MUTATION_GATE_SPLIT' => '1',
         'MUTATION_GATE_SPLIT_CHILDREN' => '1',
         'MUTATION_GATE_SPLIT_CHANGE_CHECK' => '1',
@@ -31,7 +31,7 @@ it('tells a run that splits its streams how, at least one child at once', functi
 });
 
 it('reads back what it told a run', function (): void {
-    foreach (StreamSettings::of(true, 4, false, false)->variables() as $name => $value) {
+    foreach (StreamSettings::of(enabled: true, children: 4, changeCheck: false, killersFirst: false)->variables() as $name => $value) {
         putenv(sprintf('%s=%s', $name, $value));
     }
 

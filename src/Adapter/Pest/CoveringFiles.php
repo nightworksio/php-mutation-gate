@@ -80,7 +80,7 @@ final class CoveringFiles
      * needs, as a narrowed run would load them, with the tests it declares;
      * none where a test's class is not loaded.
      *
-     * @param  list<string>                                          $tests the tests, by their ids as Pest's coverage map names them
+     * @param  list<string>                                          $tests by their ids in Pest's coverage map
      * @return array<string, array{files: list<string>, tests: list<string>}>
      */
     public static function streamed(array $tests): array

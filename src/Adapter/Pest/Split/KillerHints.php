@@ -63,7 +63,7 @@ final readonly class KillerHints
     public function killerOf(string $mutant, array $covering): string
     {
         foreach (array_key_exists($mutant, $this->killers) ? $this->killers[$mutant] : [] as $test) {
-            if (in_array($test->value(), $covering, true)) {
+            if (in_array($test->value(), $covering, strict: true)) {
                 return $test->value();
             }
         }

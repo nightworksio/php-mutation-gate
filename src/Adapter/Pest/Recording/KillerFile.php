@@ -180,8 +180,8 @@ final readonly class KillerFile
         return match (RecordEvent::tryFrom($fields[0])) {
             RecordEvent::Killed => $where instanceof Placed ? [RecordLine::killed($mutated, $named, $where)] : [],
             RecordEvent::Errored => $where instanceof Placed ? [RecordLine::errored($mutated, $named, $where)] : [],
-            RecordEvent::Preloaded => [RecordLine::preloaded($mutated)],
-            RecordEvent::Streamed => [RecordLine::streamed($mutated)],
+            RecordEvent::Preloaded => [RecordLine::marked($mutated, RecordEvent::Preloaded)],
+            RecordEvent::Streamed => [RecordLine::marked($mutated, RecordEvent::Streamed)],
             RecordEvent::Ran => WholeNumber::isDigits($test) ? [RecordLine::ran($mutated, (int) $test)] : [],
             RecordEvent::Arguments => self::startedWith($mutated, $named),
             RecordEvent::Ordered => self::orderedOf($mutated, $test, implode(self::SEPARATOR, array_slice($fields, 2))),

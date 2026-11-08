@@ -29,8 +29,9 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 final readonly class RecordedKills
 {
     /**
-     * @param array<string, array{OwnRun, string, Seconds|Unmeasured}> $runs      by native id
-     * @param array<string, true>                                      $judgedElsewhere each native id a trial or a split stream judged
+     * @param array<string, array{OwnRun, string, Seconds|Unmeasured}> $runs            by native id
+     * @param array<string, true>                                      $judgedElsewhere by native id: each a trial or
+     *                                                                                  a split stream judged
      */
     private function __construct(private array $runs, private array $judgedElsewhere)
     {

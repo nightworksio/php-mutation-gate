@@ -394,7 +394,7 @@ describe('Settings', function (): void {
 
         expect(array_map(
             static fn(array $config): array => [
-                Configs::settings($config)->splitsStreams(),
+                Configs::settings($config)->effective()->pest()->splits(Configs::settings($config)->runner()->choice()),
                 Configs::settings($config)->staticCheck()->before(),
             ],
             [$split, $checked, $unsplit, $infection],

@@ -76,6 +76,8 @@ final readonly class StreamLine
     /** @param array<string, string|bool|float|int> $fields */
     private static function line(array $fields): string
     {
-        return sprintf("%s\n", json_encode($fields, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $flags = JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
+
+        return sprintf("%s\n", json_encode($fields, $flags));
     }
 }

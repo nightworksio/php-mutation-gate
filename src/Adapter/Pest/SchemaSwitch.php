@@ -86,16 +86,23 @@ final class SchemaSwitch
     }
 
     /**
-     * Has a split stream decide each site of a file no mutant is in force in;
-     * none decides where it is given none (ADR-0117).
+     * Has a split stream decide each site of a file no mutant is in force in
+     * (ADR-0117).
      *
-     * @param (Closure(string, int): bool)|null                     $split   at a site its switch decides
-     * @param (Closure(string, int, mixed, Closure(): mixed): mixed)|null $changed at a pure expression's site
+     * @param Closure(string, int): bool                     $split   at a site its switch decides
+     * @param Closure(string, int, mixed, Closure(): mixed): mixed $changed at a pure expression's site
      */
-    public static function splitting(?Closure $split, ?Closure $changed = null): void
+    public static function splitting(Closure $split, Closure $changed): void
     {
         self::$split = $split;
         self::$changed = $changed;
+    }
+
+    /** Has no split stream decide any site. */
+    public static function unsplit(): void
+    {
+        self::$split = null;
+        self::$changed = null;
     }
 
     /**

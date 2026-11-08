@@ -62,7 +62,13 @@ final readonly class Evidence
     /** This evidence, with an unmutated control of the mutant's tests that passed. */
     public function vouched(): self
     {
-        return new self($this->prefix, $this->ended, vouched: true, unfiltered: $this->unfiltered, streamed: $this->streamed);
+        return new self(
+            $this->prefix,
+            $this->ended,
+            vouched: true,
+            unfiltered: $this->unfiltered,
+            streamed: $this->streamed,
+        );
     }
 
     /**

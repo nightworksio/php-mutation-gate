@@ -95,13 +95,19 @@ final readonly class SplitStream
         return is_int($this->children) ? $this->children : self::CHILDREN_AT_ONCE;
     }
 
-    /** `splitStream.changeCheck`: whether a stream forks a pure expression's mutant only where it changes its value; true by default. */
+    /**
+     * `splitStream.changeCheck`: whether a stream forks a pure expression's
+     * mutant only where it changes the value; true by default.
+     */
     public function changeCheck(): bool
     {
         return $this->changeCheck !== false;
     }
 
-    /** `splitStream.killersFirst`: whether a stream forks each mutant first at the test the ledger last saw kill it; true by default. */
+    /**
+     * `splitStream.killersFirst`: whether a stream forks each mutant first at
+     * the test the ledger last saw kill it; true by default.
+     */
     public function killersFirst(): bool
     {
         return $this->killersFirst !== false;
@@ -116,35 +122,58 @@ final readonly class SplitStream
     /** The Pest runner's `splitStream` option: every key at the value it takes. */
     public function option(): Member
     {
-        return Member::of(self::SECTION, Json::object(
+        $option = Json::object(
             Member::of(self::ENABLED, $this->enabled()),
             Member::of(self::CHILDREN, $this->children()),
             Member::of(self::CHANGE_CHECK, $this->changeCheck()),
             Member::of(self::KILLERS_FIRST, $this->killersFirst()),
-        ));
+        );
+
+        return Member::of(self::SECTION, $option);
     }
 
     /** The `splitStream` member a config writes; nothing where no key is set. */
     public function written(): Member
     {
-        return Member::unlessEmpty(self::SECTION, Json::object(
+        $sharding = $this->sharding instanceof StreamSharding ? $this->sharding->value : $this->sharding;
+        $written = Json::object(
             Member::of(self::ENABLED, $this->enabled),
             Member::of(self::CHILDREN, $this->children),
             Member::of(self::CHANGE_CHECK, $this->changeCheck),
             Member::of(self::KILLERS_FIRST, $this->killersFirst),
-            Member::of(self::SHARDING, $this->sharding instanceof StreamSharding ? $this->sharding->value : $this->sharding),
-        ));
+            Member::of(self::SHARDING, $sharding),
+        );
+
+        return Member::unlessEmpty(self::SECTION, $written);
     }
 
     /** The PHP builder's calls for the keys set. */
     public function php(): PhpCalls
     {
         return PhpCalls::inWith(
-            ...PhpCalls::switched($this->enabled, 'SplitStream::on()', 'SplitStream::off()'),
+            ...self::switched($this->enabled, 'SplitStream::on()', 'SplitStream::off()'),
             ...is_int($this->children) ? [sprintf('SplitStream::children(%d)', $this->children)] : [],
-            ...PhpCalls::switched($this->changeCheck, 'SplitStream::checkingChanges()', 'SplitStream::forkingUnchecked()'),
-            ...PhpCalls::switched($this->killersFirst, 'SplitStream::killersFirst()', 'SplitStream::everyTestAlike()'),
+            ...self::switched(
+                $this->changeCheck,
+                'SplitStream::checkingChanges()',
+                'SplitStream::forkingUnchecked()',
+            ),
+            ...self::switched($this->killersFirst, 'SplitStream::killersFirst()', 'SplitStream::everyTestAlike()'),
             ...$this->sharding instanceof StreamSharding ? [$this->sharding->php()] : [],
         );
+    }
+
+    /**
+     * The call that sets a switch as a layer sets it, on or off; none where the layer leaves it.
+     *
+     * @return list<string>
+     */
+    private static function switched(bool|Absent $value, string $on, string $off): array
+    {
+        return match ($value) {
+            true => [$on],
+            false => [$off],
+            default => [],
+        };
     }
 }

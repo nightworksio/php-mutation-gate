@@ -358,7 +358,7 @@ it('reports the same records for every mutant Pest makes of the library\'s files
             ->across(Pool::of(ProcessCount::of(2), Workers::Fork)),
     );
     $own = $run(StreamSettings::off());
-    $split = $run(StreamSettings::of(true, 1, $changeCheck, $killersFirst));
+    $split = $run(StreamSettings::of(enabled: true, children: 1, changeCheck: $changeCheck, killersFirst: $killersFirst));
     $streamed = $split instanceof MutationResult
         ? array_filter(
             iterator_to_array($split->mutants(), preserve_keys: false),

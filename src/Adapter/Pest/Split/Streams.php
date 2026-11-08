@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
+use function array_key_exists;
 use function array_unique;
 use function array_values;
 
@@ -11,6 +12,7 @@ use FilesystemIterator;
 
 use function getcwd;
 use function getenv;
+use function getmypid;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
@@ -18,7 +20,6 @@ use NightWorksIO\MutationGate\Adapter\Pest\Schemata;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Forking;
-use Pest\Mutate\Event\Facade;
 use Pest\Mutate\MutationSuite;
 use Pest\Mutate\MutationTest;
 use Pest\Mutate\Plugins\Mutate;
@@ -31,7 +32,6 @@ use SplFileInfo;
 
 use function sprintf;
 use function sys_get_temp_dir;
-use function uniqid;
 use function unlink;
 
 /**
@@ -46,6 +46,9 @@ use function unlink;
  */
 final readonly class Streams
 {
+    /** The directory a run's streams plan and record in, in the system's temporary one, by Pest's own process id. */
+    private const string DIRECTORY = '%s/mutation-gate-split-%d';
+
     /** Whether the gate asks this run to split its streams, and PHP can fork. */
     public static function areOn(): bool
     {
@@ -61,18 +64,53 @@ final readonly class Streams
      * undecided, at every covering test (ADR-0117).
      *
      * @param array<string, array<int, array<int, string>>> $coveredLines
-     * @param list<string>                                    $arguments the arguments a mutant's own run is started with
+     * @param list<string>                                    $arguments a mutant's own run's arguments
      */
     public static function judge(MutationSuite $suite, array $coveredLines, array $arguments, int $processes): void
+    {
+        $settings = StreamSettings::fromEnvironment();
+        $hints = $settings->killersFirst()
+            ? KillerHints::of($suite, getenv(GateVariable::Order->value), Root::of(sprintf('%s', getcwd())))
+            : KillerHints::none();
+        [$sites, $paths, $covering, $byId] = self::planned($suite, $coveredLines, $hints);
+
+        if ($byId === []) {
+            return;
+        }
+
+        $directory = sprintf(self::DIRECTORY, sys_get_temp_dir(), getmypid());
+        mkdir($directory, recursive: true);
+        Schemata::leftIn($directory);
+        $streaming = new Streaming($directory, $paths, $covering, $arguments, $processes, $settings->children());
+        $verdicts = $streaming->pass(1, $sites, StreamVerdicts::none());
+        $again = self::undecided($sites, $covering, $verdicts);
+        $verdicts = $again === [] ? $verdicts : $streaming->pass(2, $again, $verdicts);
+
+        foreach ($byId as $mutant => $test) {
+            $verdicts->give($mutant, $test, $covering[$mutant]);
+        }
+
+        self::removed($directory);
+    }
+
+    /**
+     * Each mutant a stream can judge: its site, by Pest's id, the source file
+     * of each schema, by its key, the tests that cover each, and each mutant.
+     *
+     * @param  array<string, array<int, array<int, string>>> $coveredLines
+     * @return array{
+     *     array<string, array{string, int, string, array<string, string>}>,
+     *     array<string, string>,
+     *     array<string, list<string>>,
+     *     array<string, MutationTest>,
+     * }
+     */
+    private static function planned(MutationSuite $suite, array $coveredLines, KillerHints $hints): array
     {
         $sites = [];
         $paths = [];
         $covering = [];
         $byId = [];
-        $settings = StreamSettings::fromEnvironment();
-        $hints = $settings->killersFirst()
-            ? KillerHints::of($suite, getenv(GateVariable::Order->value), Root::of(sprintf('%s', getcwd())))
-            : KillerHints::none();
 
         foreach ($suite->repository->all() as $collection) {
             foreach ($collection->tests() as $test) {
@@ -91,15 +129,19 @@ final readonly class Streams
             }
         }
 
-        if ($byId === []) {
-            return;
-        }
+        return [$sites, $paths, $covering, $byId];
+    }
 
-        $directory = sprintf('%s/mutation-gate-split-%s', sys_get_temp_dir(), uniqid());
-        mkdir($directory, recursive: true);
-        Schemata::leftIn($directory);
-        $streaming = new Streaming($directory, $paths, $covering, $arguments, $processes, $settings->children());
-        $verdicts = $streaming->pass(1, $sites, StreamVerdicts::none());
+    /**
+     * The sites of the mutants forked first at a likely killer that the first
+     * pass left undecided, to fork at every covering test.
+     *
+     * @param  array<string, array{string, int, string, array<string, string>}> $sites
+     * @param  array<string, list<string>>                                       $covering
+     * @return array<string, array{string, int, string, array<string, string>}>
+     */
+    private static function undecided(array $sites, array $covering, StreamVerdicts $verdicts): array
+    {
         $again = [];
 
         foreach ($sites as $mutant => [$key, $id, $hint, $variables]) {
@@ -108,15 +150,7 @@ final readonly class Streams
             }
         }
 
-        $verdicts = $again === []
-            ? $verdicts
-            : $streaming->pass(2, $again, $verdicts);
-
-        foreach ($byId as $mutant => $test) {
-            $verdicts->give($mutant, $test, $covering[$mutant], Facade::instance());
-        }
-
-        self::removed($directory);
+        return $again;
     }
 
     /** The directory removed, with everything in it. */
@@ -128,11 +162,8 @@ final readonly class Streams
         );
 
         foreach ($entries as $entry) {
-            if ($entry instanceof SplFileInfo && $entry->isDir()) {
-                rmdir($entry->getPathname());
-            } else {
-                unlink((string) $entry);
-            }
+            $path = $entry instanceof SplFileInfo ? $entry->getPathname() : '';
+            $removed = $entry instanceof SplFileInfo && $entry->isDir() ? rmdir($path) : unlink($path);
         }
 
         rmdir($directory);
@@ -150,9 +181,10 @@ final readonly class Streams
         $file = (string) $test->mutation->file->getRealPath();
 
         for ($line = $test->mutation->startLine; $line <= $test->mutation->endLine; $line++) {
-            foreach ($coveredLines[$file][$line] ?? [] as $covered) {
-                $covering[] = $covered;
-            }
+            $tests = array_key_exists($file, $coveredLines) && array_key_exists($line, $coveredLines[$file])
+                ? $coveredLines[$file][$line]
+                : [];
+            $covering = [...$covering, ...$tests];
         }
 
         return array_values(array_unique($covering));

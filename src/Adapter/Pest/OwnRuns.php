@@ -9,6 +9,7 @@ use function array_map;
 use function array_sum;
 use function count;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordField;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
@@ -43,11 +44,13 @@ final class OwnRuns
     /** @var array<string, MemoryCap> the memory limit a mutant's own process ran out of, by the copy it ran on */
     private array $exhausted = [];
 
-    /** @var array<string, true> each own run that loaded the original before the mutant was in place, by its copy */
-    private array $preloaded = [];
-
-    /** @var array<string, true> each mutant a split stream judged, by its copy (ADR-0117) */
-    private array $streamed = [];
+    /**
+     * @var array<string, array<string, true>> what the plugin marked of each mutated copy, by the event, of: that
+     *                                         an own run loaded the original before the mutant was in place, that
+     *                                         its own runs a patched run left the filter out of, or that a split
+     *                                         stream judged its mutant (ADR-0117)
+     */
+    private array $marked = [];
 
     /** @var array<string, list<string>> the test files each narrowed own run loaded, by the mutated copy it ran on */
     private array $narrowed = [];
@@ -55,8 +58,6 @@ final class OwnRuns
     /** @var array<string, float> the seconds a patched run allowed each own run, by the mutated copy it ran on */
     private array $limited = [];
 
-    /** @var array<string, true> each mutated copy whose own runs a patched run left the filter out of */
-    private array $unfiltered = [];
 
     /**
      * @var array<string, Seconds|Overrun> the silence limit each own run was stopped at, or the test that ran past
@@ -87,14 +88,14 @@ final class OwnRuns
             array_key_exists($mutated, $this->errored) ? $this->errored[$mutated] : [],
             array_key_exists($mutated, $this->narrowed) ? $this->narrowed[$mutated] : [],
             array_key_exists($mutated, $this->exhausted) ? $this->exhausted[$mutated] : NotGiven::value(),
-            array_key_exists($mutated, $this->preloaded),
+            $this->isMarked($mutated, RecordEvent::Preloaded),
             array_key_exists($mutated, $this->ran) ? array_sum($this->ran[$mutated]) : NotGiven::value(),
         )->withEvidence(
             array_key_exists($mutated, $this->places) ? $this->places[$mutated] : Places::none(),
             $this->endingOf($mutated),
         )->startedWith($this->argumentsOf($mutated));
 
-        return array_key_exists($mutated, $this->unfiltered) ? $run->unfiltered() : $run;
+        return $this->isMarked($mutated, RecordEvent::Unfiltered) ? $run->unfiltered() : $run;
     }
 
     /** The seconds a patched run allowed the own runs on this mutated copy, where it recorded them. */
@@ -180,28 +181,21 @@ final class OwnRuns
             : $seconds;
     }
 
-    /** @throws NotInShape */
-    public function preloaded(Node $record): void
+    /**
+     * Marks the mutated copy a record names with its event.
+     *
+     * @throws NotInShape
+     */
+    public function marked(Node $record, RecordEvent $event): void
     {
-        $this->preloaded[$this->mutatedIn($record)] = true;
+        $this->marked[$event->value][$this->mutatedIn($record)] = true;
     }
 
-    /** @throws NotInShape */
-    public function streamed(Node $record): void
+    /** Whether the plugin marked this mutated copy with this event. */
+    public function isMarked(string $mutated, RecordEvent $event): bool
     {
-        $this->streamed[$this->mutatedIn($record)] = true;
-    }
-
-    /** Whether a split stream judged the mutant this mutated copy serves (ADR-0117). */
-    public function isStreamed(string $mutated): bool
-    {
-        return array_key_exists($mutated, $this->streamed);
-    }
-
-    /** @throws NotInShape */
-    public function unfiltered(Node $record): void
-    {
-        $this->unfiltered[$this->mutatedIn($record)] = true;
+        return array_key_exists($event->value, $this->marked)
+            && array_key_exists($mutated, $this->marked[$event->value]);
     }
 
     /** @throws NotInShape */

@@ -111,7 +111,7 @@ it('selects exactly a mutant\'s covering rows where the patch is on, and every r
 });
 
 it('splits its streams where it is on, compiles schemata and is told to, keeping its other settings as they were', function (): void {
-    $splitting = StreamSettings::of(true, 2, true, true);
+    $splitting = StreamSettings::of(enabled: true, children: 2, changeCheck: true, killersFirst: true);
     $on = Patching::on(Group::named('canary'))->bootingTail(boots: true)->splitting($splitting);
 
     expect([

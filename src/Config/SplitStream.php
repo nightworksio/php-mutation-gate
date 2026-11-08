@@ -31,7 +31,10 @@ final readonly class SplitStream implements Setting
         return new self(Json::at('splitStream.children', $most));
     }
 
-    /** `splitStream.changeCheck`, as by default: a stream forks a pure expression's mutant only where it changes its value. */
+    /**
+     * `splitStream.changeCheck`, as by default: a stream forks a pure
+     * expression's mutant only where it changes the value.
+     */
     public static function checkingChanges(): self
     {
         return new self(Json::at('splitStream.changeCheck', value: true));
@@ -43,7 +46,7 @@ final readonly class SplitStream implements Setting
         return new self(Json::at('splitStream.changeCheck', value: false));
     }
 
-    /** `splitStream.killersFirst`, as by default: a stream forks each mutant first at the test the ledger last saw kill it. */
+    /** `splitStream.killersFirst`, as by default: a stream forks each mutant first at the test that last killed it. */
     public static function killersFirst(): self
     {
         return new self(Json::at('splitStream.killersFirst', value: true));

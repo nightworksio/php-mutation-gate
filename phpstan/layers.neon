@@ -277,9 +277,10 @@ parameters:
                 # A client of `mutation-gate serve`, and its daemon, ask whether the process at the other end of the
                 # socket is one this user may signal, with signal 0, which tells and sends nothing (ADR-0078).
                 - src/Adapter/Serve/ServeSocket.php
-                # A split stream's child ends itself by the signal that says how its test ended, and the stream stops a
-                # child past its limit (ADR-0117).
+                # A split stream's child ends itself by the signal that says how its test ended (ADR-0117).
                 - src/Adapter/Pest/Split/Stream.php
+                # A split stream stops a child that runs past its limit (ADR-0117).
+                - src/Adapter/Pest/Split/Children.php
 
         # --- base64 of what holds no secret ------------------------------------------
         # The extension keys each entry by its call, so this entry replaces the timing-safe set's own for

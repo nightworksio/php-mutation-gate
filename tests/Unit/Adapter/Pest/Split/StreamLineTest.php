@@ -6,8 +6,8 @@ use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamLine;
 
 it('writes each line a stream records as one line of JSON', function (): void {
     expect([
-        StreamLine::parent('T::one', true, 0.5),
-        StreamLine::child('m', 'T::one', false, 0.25),
+        StreamLine::parent('T::one', passed: true, seconds: 0.5),
+        StreamLine::child('m', 'T::one', failed: false, seconds: 0.25),
         StreamLine::endedChild('m', 'T::one', -1),
         StreamLine::timedOut('m', 'T::ä/b'),
         StreamLine::fallback('T::one'),

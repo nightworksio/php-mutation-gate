@@ -39,7 +39,6 @@ use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Pruning\Pruned;
-use NightWorksIO\MutationGate\Core\Runner\Forking;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
@@ -82,8 +81,6 @@ final readonly class Running
     private const string NO_HEAD = 'The commit HEAD is at cannot be read, so the plan cannot be checked against it. %s';
 
     private const string UNREAD_HISTORY = 'Shard %d ran its tests without the kill history the plan handed it. %s';
-
-    private const string UNSPLIT = 'Shard %d ran each mutant on its own: splitStream.enabled needs PHP\'s pcntl and posix extensions, which this PHP lacks.';
 
     public function __construct(
         private Adapters $adapters,
@@ -215,14 +212,9 @@ final readonly class Running
         );
         $result = $this->left($result, $outcome);
 
-        return $result->withWarnings($result->warnings()->and(Warnings::of(
-            ...$history instanceof CannotJudge
-                ? [Warning::that(sprintf(self::UNREAD_HISTORY, $id->number(), $history->why()))]
-                : [],
-            ...$this->settings->splitsStreams() && ! Forking::isAvailable()
-                ? [Warning::that(sprintf(self::UNSPLIT, $id->number()))]
-                : [],
-        )));
+        return $result->withWarnings($result->warnings()->and($history instanceof CannotJudge ? Warnings::of(
+            Warning::that(sprintf(self::UNREAD_HISTORY, $id->number(), $history->why())),
+        ) : Warnings::none())->and(Unsplit::warnings($this->settings, $id)));
     }
 
     /** The result with what the shard's mutating left beside its mutants, warnings too: none where it cannot judge. */

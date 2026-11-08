@@ -142,16 +142,6 @@ final readonly class Settings
         return $this->layer->setup()->mutators();
     }
 
-    /**
-     * Whether a run judges its mutants in split streams: under the Pest
-     * runner, patched and compiling schemata, where `splitStream.enabled`
-     * says so (ADR-0117).
-     */
-    public function splitsStreams(): bool
-    {
-        return $this->layer->pest()->splits($this->runner->choice());
-    }
-
     public function local(): Local
     {
         return $this->layer->local();

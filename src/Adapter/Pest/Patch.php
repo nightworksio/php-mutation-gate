@@ -408,7 +408,12 @@ final readonly class Patch
 
                 {MARK} the mutants split streams can judge are judged first, before any runs on its own (ADR-0117).
                 if (class_exists(\%1$s::class) && \%1$s::areOn()) {
-                    \%1$s::judge($mutationSuite, $coveredLines, $this->originalArguments, $this->getConfiguration()->processes);
+                    \%1$s::judge(
+                        $mutationSuite,
+                        $coveredLines,
+                        $this->originalArguments,
+                        $this->getConfiguration()->processes,
+                    );
                 }
         PHP;
 

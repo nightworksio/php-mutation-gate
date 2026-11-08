@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Mutator\Engine\Schema;
 
-use function array_all;
 use function array_any;
+use function array_filter;
 use function in_array;
 use function is_string;
 
@@ -45,50 +45,35 @@ final readonly class PureExpression
     /** The variables a closure of the expression cannot read as the expression does. */
     private const array NOT_READ = ['this', 'GLOBALS'];
 
-    /** The operators that run nothing of their own on what they take. */
-    private const array OPERATORS = [
-        Expr\BooleanNot::class,
-        Expr\UnaryMinus::class,
-        Expr\UnaryPlus::class,
-        Expr\BitwiseNot::class,
-        Expr\Ternary::class,
-        Expr\Instanceof_::class,
-        Cast\Int_::class,
-        Cast\Double::class,
-        Cast\Bool_::class,
-    ];
-
     public static function is(Node $node): bool
     {
         return match (true) {
             array_any(self::LEAVES, static fn(string $leaf): bool => $node instanceof $leaf) => true,
-            $node instanceof Expr\Variable => is_string($node->name) && ! in_array($node->name, self::NOT_READ, strict: true),
+            $node instanceof Expr\Variable => is_string($node->name)
+                && ! in_array($node->name, self::NOT_READ, strict: true),
             $node instanceof Expr\ClassConstFetch => $node->class instanceof Name && $node->name instanceof Identifier,
             $node instanceof BinaryOp => ! $node instanceof BinaryOp\Concat && self::all($node->left, $node->right),
-            array_any(self::OPERATORS, static fn(string $operator): bool => $node instanceof $operator)
-                => self::all(...$node->getSubNodeNames() === [] ? [] : self::children($node)),
+            $node instanceof Expr\Ternary => self::all(...array_filter([$node->cond, $node->if, $node->else])),
+            $node instanceof Expr\Instanceof_ => self::all($node->expr, $node->class),
+            $node instanceof Expr\BooleanNot => self::is($node->expr),
+            $node instanceof Expr\UnaryMinus => self::is($node->expr),
+            $node instanceof Expr\UnaryPlus => self::is($node->expr),
+            $node instanceof Expr\BitwiseNot => self::is($node->expr),
+            $node instanceof Cast\Int_ => self::is($node->expr),
+            $node instanceof Cast\Double => self::is($node->expr),
+            $node instanceof Cast\Bool_ => self::is($node->expr),
             default => false,
         };
     }
 
-    /** @return list<Node> */
-    private static function children(Node $node): array
+    private static function all(Node ...$nodes): bool
     {
-        $children = [];
-
-        foreach ($node->getSubNodeNames() as $name) {
-            $child = $node->{$name};
-
-            if ($child instanceof Node) {
-                $children[] = $child;
+        foreach ($nodes as $node) {
+            if (! self::is($node)) {
+                return false;
             }
         }
 
-        return $children;
-    }
-
-    private static function all(Node ...$nodes): bool
-    {
-        return array_all($nodes, self::is(...));
+        return true;
     }
 }

@@ -7,6 +7,9 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 use Closure;
 
 use function count;
+
+use Error;
+
 use function is_array;
 use function is_object;
 
@@ -14,8 +17,6 @@ use ReflectionFunction;
 
 use function restore_error_handler;
 use function set_error_handler;
-
-use Throwable;
 
 /**
  * Whether a pure expression's mutated code gives this execution's original
@@ -49,7 +50,7 @@ final readonly class Unchanged
 
         try {
             $value = $mutated();
-        } catch (Throwable) {
+        } catch (Error) {
             return false;
         } finally {
             restore_error_handler();
@@ -60,19 +61,18 @@ final readonly class Unchanged
 
     private static function holdsNoObject(mixed $value): bool
     {
-        if (is_object($value)) {
-            return false;
-        }
+        return match (true) {
+            is_object($value) => false,
+            ! is_array($value) => true,
+            count($value) > self::ITEMS => false,
+            default => self::noneHoldsAnObject($value),
+        };
+    }
 
-        if (! is_array($value)) {
-            return true;
-        }
-
-        if (count($value) > self::ITEMS) {
-            return false;
-        }
-
-        foreach ($value as $item) {
+    /** @param array<mixed> $items */
+    private static function noneHoldsAnObject(array $items): bool
+    {
+        foreach ($items as $item) {
             if (! self::holdsNoObject($item)) {
                 return false;
             }

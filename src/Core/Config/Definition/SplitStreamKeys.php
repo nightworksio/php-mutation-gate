@@ -33,7 +33,13 @@ final readonly class SplitStreamKeys
         return [Field::section(
             SplitStream::SECTION,
             Section::of(
-                static function (Node $split) use ($enabled, $children, $changeCheck, $killersFirst, $sharding): Layer|Invalid {
+                static function (Node $split) use (
+                    $enabled,
+                    $children,
+                    $changeCheck,
+                    $killersFirst,
+                    $sharding,
+                ): Layer|Invalid {
                     $on = $enabled->read($split);
                     $most = $children->read($split);
                     $checked = $changeCheck->read($split);
