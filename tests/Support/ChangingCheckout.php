@@ -112,7 +112,7 @@ final class ChangingCheckout implements ChangeSource
         return $this->now()->unstaged();
     }
 
-    public function lastChanged(Paths $paths): ByPath
+    public function lastChanged(Paths $paths): ByPath|CannotTell
     {
         return $this->now()->lastChanged($paths);
     }

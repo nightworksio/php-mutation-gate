@@ -42,7 +42,7 @@ final readonly class ChangeSourceFake implements ChangeSource
 {
     /**
      * @param array<string, array<string, string>> $files     what each file holds, by revision name and path
-     * @param array<string, string>                $changedAt when each committed file last changed, by its path
+     * @param array<string, string>|CannotTell     $changedAt when each committed file last changed, by its path, or why git cannot say
      * @param list<string>                         $unchanged the revisions nothing changed since, by name
      * @param list<string>                         $alike     the revisions the same changed since as since the base, by name
      * @param array<string, Changes|CannotTell>    $from      what changed from each revision itself, or why not, by name
@@ -54,7 +54,7 @@ final readonly class ChangeSourceFake implements ChangeSource
         private Revision $base,
         private Changes $changes,
         private array $files,
-        private array $changedAt = [],
+        private array|CannotTell $changedAt = [],
         private array $unchanged = [],
         private array $alike = [],
         private array $from = [],
@@ -243,9 +243,13 @@ final readonly class ChangeSourceFake implements ChangeSource
         return $unstaged;
     }
 
-    /** @return ByPath<Instant> */
-    public function lastChanged(Paths $paths): ByPath
+    /** @return ByPath<Instant>|CannotTell */
+    public function lastChanged(Paths $paths): ByPath|CannotTell
     {
+        if ($this->changedAt instanceof CannotTell) {
+            return $this->changedAt;
+        }
+
         $changed = ByPath::none();
 
         foreach ($paths as $path) {
