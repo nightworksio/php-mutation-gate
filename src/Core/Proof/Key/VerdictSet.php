@@ -16,7 +16,10 @@ use NightWorksIO\MutationGate\Core\File\Glob;
  */
 enum VerdictSet
 {
-    /** What a run records of each mutant, and the values it records them in. */
+    /**
+     * What a run records of each mutant, and the values it records them in;
+     * with the map engine, whose vouch decides how a coverage map is read.
+     */
     case Records;
     /** The engine that makes mutants for a native runner and registered mutators, and the opening it reads after. */
     case Mutators;
@@ -72,6 +75,9 @@ enum VerdictSet
                 'src/Port/Runner.php',
                 'src/Port/Processes.php',
                 'src/Port/StaticChecker.php',
+                'src/Port/MapEngine.php',
+                'src/Adapter/Outbreak/**',
+                'src/Cli/Flow/Vouching.php',
             ],
             self::Mutators => [
                 'src/Mutator/**',
