@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Format;
 
-use function array_shift;
+use function count;
 use function gzencode;
+use function implode;
 use function inflate_add;
 use function inflate_get_status;
 use function inflate_init;
@@ -79,7 +80,8 @@ final readonly class Gzip
 
     /**
      * The text a gzip stream inflates to, a step at a time, stopping once it is past the most it may be or the
-     * stream has ended, wherever in a step it ends.
+     * stream has ended, wherever in a step it ends. Each step's text is kept apart and joined once at the end, so
+     * inflating takes time in proportion to the text, never to its square.
      */
     private static function inflated(
         InflateContext $inflating,
@@ -88,23 +90,28 @@ final readonly class Gzip
         int $most,
     ): string|CannotJudge|TooLarge {
         $whole = true;
-        $text = '';
+        $parts = [];
+        $length = 0;
         $steps = Bytes::chunks($bytes, self::STEP);
+        $next = 0;
 
         while (
             $whole
-            && $steps !== []
-            && Bytes::length($text) <= $most
+            && $next < count($steps)
+            && $length <= $most
             && inflate_get_status($inflating) !== ZLIB_STREAM_END
         ) {
-            $step = self::added($inflating, array_shift($steps));
+            $step = self::added($inflating, $steps[$next]);
+            $next++;
             $whole = is_string($step);
-            $text = is_string($step) ? sprintf('%s%s', $text, $step) : $text;
+            $text = $whole ? $step : '';
+            $parts[] = $text;
+            $length += Bytes::length($text);
         }
 
         return match (true) {
-            $whole && Bytes::length($text) > $most => TooLarge::because(sprintf(self::PAST, $named, $most)),
-            $whole && inflate_get_status($inflating) === ZLIB_STREAM_END => $text,
+            $whole && $length > $most => TooLarge::because(sprintf(self::PAST, $named, $most)),
+            $whole && inflate_get_status($inflating) === ZLIB_STREAM_END => implode('', $parts),
             default => CannotJudge::because(sprintf(self::NOT_GZIP, $named)),
         };
     }
