@@ -108,6 +108,9 @@ parameters:
             # A setting read as a type its definition does not make is a
             # mistake in the code that asked.
             - NightWorksIO\MutationGate\Core\Config\Definition\MisreadSetting
+            # A split stream's directory the gate cannot make as its own, which
+            # another local user may have planted, ends the run: nobody answers it.
+            - NightWorksIO\MutationGate\Adapter\Pest\Split\UnmadeDirectory
             # An option read that the command does not define is a mistake in the
             # code that reads it, never something a caller can answer.
             - Symfony\Component\Console\Exception\InvalidArgumentException

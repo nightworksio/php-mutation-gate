@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
+use function array_all;
+
 use Closure;
 
 use function count;
@@ -72,12 +74,6 @@ final readonly class Unchanged
     /** @param array<mixed> $items */
     private static function noneHoldsAnObject(array $items): bool
     {
-        foreach ($items as $item) {
-            if (! self::holdsNoObject($item)) {
-                return false;
-            }
-        }
-
-        return true;
+        return array_all($items, static fn(mixed $item): bool => self::holdsNoObject($item));
     }
 }

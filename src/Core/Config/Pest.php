@@ -212,14 +212,14 @@ final readonly class Pest implements Part
     public function php(PathOrigin $origin): PhpCalls
     {
         $pest = PhpCalls::inWith(...[
-            ...self::switched($this->patch, 'Pest::patched()', 'Pest::unpatched()'),
+            ...$this->switched($this->patch, 'Pest::patched()', 'Pest::unpatched()'),
             ...$this->canary instanceof Group
                 ? [sprintf('Pest::canary(%s)', PhpCalls::literal($this->canary->name()))]
                 : [],
-            ...self::switched($this->bootTail, 'Pest::bootingTail()', 'Pest::tailUnbooted()'),
-            ...self::switched($this->workerOpcache, 'Pest::cachingInWorkers()', 'Pest::uncachedInWorkers()'),
-            ...self::switched($this->schemata, 'Pest::compilingSchemata()', 'Pest::withoutSchemata()'),
-            ...self::switched($this->bootMutants, 'Pest::bootingMutants()', 'Pest::mutantsUnbooted()'),
+            ...$this->switched($this->bootTail, 'Pest::bootingTail()', 'Pest::tailUnbooted()'),
+            ...$this->switched($this->workerOpcache, 'Pest::cachingInWorkers()', 'Pest::uncachedInWorkers()'),
+            ...$this->switched($this->schemata, 'Pest::compilingSchemata()', 'Pest::withoutSchemata()'),
+            ...$this->switched($this->bootMutants, 'Pest::bootingMutants()', 'Pest::mutantsUnbooted()'),
         ]);
 
         return $pest->and($this->splitStream->php());
@@ -230,7 +230,7 @@ final readonly class Pest implements Part
      *
      * @return list<string>
      */
-    private static function switched(bool|Absent $value, string $on, string $off): array
+    private function switched(bool|Absent $value, string $on, string $off): array
     {
         return match ($value) {
             true => [$on],

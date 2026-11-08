@@ -27,7 +27,7 @@ final readonly class Unsplit
     {
         $splits = $settings->effective()->pest()->splits($settings->runner()->choice());
 
-        return $splits && ! ($forks && Forking::isAvailable())
+        return $splits && (!$forks || !Forking::isAvailable())
             ? Warnings::of(Warning::that(sprintf(self::SAID, $id->number())))
             : Warnings::none();
     }

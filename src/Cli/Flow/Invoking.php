@@ -229,7 +229,7 @@ final readonly class Invoking
         $run = $this->adapters->runner->behaviour()->selection();
         $unfiltered = $this->unfilteredIn($mutants, $evidence);
         $bounds = $request->pool()->bounding($this->settings->triage()->bounds());
-        $controllable = self::unstreamed($mutants, $evidence);
+        $controllable = $this->unstreamed($mutants, $evidence);
         $timed = $this->settings->triage()->timeouts() === TimeoutMode::Unjudged ? Mutants::none() : $controllable;
         $heavy = $this->parted->among($timed, $run, $bounds);
         $timeouts = TimeoutControls::of(
@@ -286,7 +286,7 @@ final readonly class Invoking
     }
 
     /** The mutants no split stream judged: a stream's verdicts need no control (ADR-0117). */
-    private static function unstreamed(Mutants $mutants, Evidences $evidence): Mutants
+    private function unstreamed(Mutants $mutants, Evidences $evidence): Mutants
     {
         $controllable = [];
 

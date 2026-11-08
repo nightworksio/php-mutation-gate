@@ -7,13 +7,8 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 use function array_key_exists;
 use function array_unique;
 use function array_values;
-
-use FilesystemIterator;
-
 use function getcwd;
 use function getenv;
-use function getmypid;
-use function mkdir;
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Schemata;
@@ -23,16 +18,8 @@ use NightWorksIO\MutationGate\Core\Runner\Forking;
 use Pest\Mutate\MutationSuite;
 use Pest\Mutate\MutationTest;
 use Pest\Mutate\Plugins\Mutate;
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
-
-use function rmdir;
-
-use SplFileInfo;
 
 use function sprintf;
-use function sys_get_temp_dir;
-use function unlink;
 
 /**
  * The split streams of a patched Pest mutation run (ADR-0117): in Pest's
@@ -46,9 +33,6 @@ use function unlink;
  */
 final readonly class Streams
 {
-    /** The directory a run's streams plan and record in, in the system's temporary one, by Pest's own process id. */
-    private const string DIRECTORY = '%s/mutation-gate-split-%d';
-
     /** Whether the gate asks this run to split its streams, and PHP can fork. */
     public static function areOn(): bool
     {
@@ -65,6 +49,8 @@ final readonly class Streams
      *
      * @param array<string, array<int, array<int, string>>> $coveredLines
      * @param list<string>                                    $arguments a mutant's own run's arguments
+     *
+     * @throws UnmadeDirectory
      */
     public static function judge(MutationSuite $suite, array $coveredLines, array $arguments, int $processes): void
     {
@@ -78,8 +64,7 @@ final readonly class Streams
             return;
         }
 
-        $directory = sprintf(self::DIRECTORY, sys_get_temp_dir(), getmypid());
-        mkdir($directory, recursive: true);
+        $directory = StreamDirectory::made();
         Schemata::leftIn($directory);
         $streaming = new Streaming($directory, $paths, $covering, $arguments, $processes, $settings->children());
         $verdicts = $streaming->pass(1, $sites, StreamVerdicts::none());
@@ -90,7 +75,7 @@ final readonly class Streams
             $verdicts->give($mutant, $test, $covering[$mutant]);
         }
 
-        self::removed($directory);
+        StreamDirectory::removed($directory);
     }
 
     /**
@@ -151,22 +136,6 @@ final readonly class Streams
         }
 
         return $again;
-    }
-
-    /** The directory removed, with everything in it. */
-    private static function removed(string $directory): void
-    {
-        $entries = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::CHILD_FIRST,
-        );
-
-        foreach ($entries as $entry) {
-            $path = $entry instanceof SplFileInfo ? $entry->getPathname() : '';
-            $removed = $entry instanceof SplFileInfo && $entry->isDir() ? rmdir($path) : unlink($path);
-        }
-
-        rmdir($directory);
     }
 
     /**

@@ -151,14 +151,10 @@ final readonly class SplitStream
     public function php(): PhpCalls
     {
         return PhpCalls::inWith(
-            ...self::switched($this->enabled, 'SplitStream::on()', 'SplitStream::off()'),
+            ...$this->switched($this->enabled, 'SplitStream::on()', 'SplitStream::off()'),
             ...is_int($this->children) ? [sprintf('SplitStream::children(%d)', $this->children)] : [],
-            ...self::switched(
-                $this->changeCheck,
-                'SplitStream::checkingChanges()',
-                'SplitStream::forkingUnchecked()',
-            ),
-            ...self::switched($this->killersFirst, 'SplitStream::killersFirst()', 'SplitStream::everyTestAlike()'),
+            ...$this->switched($this->changeCheck, 'SplitStream::checkingChanges()', 'SplitStream::forkingUnchecked()'),
+            ...$this->switched($this->killersFirst, 'SplitStream::killersFirst()', 'SplitStream::everyTestAlike()'),
             ...$this->sharding instanceof StreamSharding ? [$this->sharding->php()] : [],
         );
     }
@@ -168,7 +164,7 @@ final readonly class SplitStream
      *
      * @return list<string>
      */
-    private static function switched(bool|Absent $value, string $on, string $off): array
+    private function switched(bool|Absent $value, string $on, string $off): array
     {
         return match ($value) {
             true => [$on],

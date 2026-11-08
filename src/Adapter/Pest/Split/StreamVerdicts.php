@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
+use function array_any;
 use function array_key_exists;
 
 use Closure;
@@ -154,13 +155,10 @@ final class StreamVerdicts
             return true;
         }
 
-        foreach ($covering as $covered) {
-            if (! $this->passes($covered) || array_key_exists($covered, $this->fallback)) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any(
+            $covering,
+            fn(string $covered): bool => ! $this->passes($covered) || array_key_exists($covered, $this->fallback),
+        );
     }
 
     private function passes(string $test): bool

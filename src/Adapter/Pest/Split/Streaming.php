@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 use function array_fill;
 use function array_filter;
 use function array_key_exists;
+use function array_key_first;
 use function array_map;
 use function array_sum;
 use function array_unique;
@@ -20,7 +21,6 @@ use function json_encode;
 use const JSON_THROW_ON_ERROR;
 use const JSON_UNESCAPED_SLASHES;
 
-use function key;
 use function max;
 use function min;
 
@@ -36,7 +36,6 @@ use Pest\Mutate\Plugins\Mutate;
 
 use const PHP_BINARY;
 
-use function reset;
 use function sort;
 use function sprintf;
 use function str_starts_with;
@@ -93,7 +92,7 @@ final readonly class Streaming
             $planned[$key][$id] = [$mutant, $killer, $variables];
         }
 
-        $times = self::times();
+        $times = $this->times();
         $streams = [];
 
         $units = CoveringFiles::streamed(array_values(array_unique($tests)));
@@ -141,8 +140,7 @@ final readonly class Streaming
 
         foreach ($seconds as $file => $time) {
             asort($loads);
-            reset($loads);
-            $least = key($loads);
+            $least = array_key_first($loads);
             $loads[$least] += $time;
             $parts[$least] = [...$parts[$least], ...$units[$file]['files']];
         }
@@ -183,7 +181,7 @@ final readonly class Streaming
         ];
         file_put_contents($plan, json_encode($fields, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
         $process = new Process(
-            [PHP_BINARY, ...self::runArguments($this->arguments), ...$files],
+            [PHP_BINARY, ...$this->runArguments($this->arguments), ...$files],
             env: [
                 GateVariable::SplitPlan->value => $plan,
                 Mutate::ENV_MUTATION_TESTING => false,
@@ -198,7 +196,7 @@ final readonly class Streaming
     }
 
     /** @return array<string, float> each test's own time as the coverage map measured it */
-    private static function times(): array
+    private function times(): array
     {
         $times = [];
 
@@ -220,7 +218,7 @@ final readonly class Streaming
      * @param  list<string> $arguments
      * @return list<string>
      */
-    private static function runArguments(array $arguments): array
+    private function runArguments(array $arguments): array
     {
         return array_values(array_filter(
             $arguments,

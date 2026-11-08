@@ -50,6 +50,9 @@ parameters:
             message: "B2 — randomness is a hidden input, and a plan cut from it differs between two runners that must cut the same shards. Nothing in src draws a random number (B2)."
             allowIn:
                 - tests/*
+                # A split stream's directory is named so no other local user can guess it and plant a directory or a
+                # link there first; the name reaches nothing a plan is cut from (ADR-0117).
+                - src/Adapter/Pest/Split/StreamDirectory.php
         -
             function:
                 - 'random_int()'

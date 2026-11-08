@@ -108,12 +108,18 @@ final readonly class StreamPlanFile
      */
     private static function siteOf(array $site): array|false
     {
-        $mutant = array_key_exists(0, $site) ? $site[0] : null;
-        $killer = array_key_exists(1, $site) ? $site[1] : null;
+        $mutant = self::textAt($site, 0);
+        $killer = self::textAt($site, 1);
 
-        return is_string($mutant) && is_string($killer)
+        return $mutant !== false && $killer !== false
             ? [$mutant, $killer, self::textsOf(self::listed($site, '2'))]
             : false;
+    }
+
+    /** @param array<mixed> $read */
+    private static function textAt(array $read, int $at): string|false
+    {
+        return array_key_exists($at, $read) && is_string($read[$at]) ? $read[$at] : false;
     }
 
     /**

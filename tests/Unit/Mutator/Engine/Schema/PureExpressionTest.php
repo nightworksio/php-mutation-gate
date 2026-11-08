@@ -3,11 +3,12 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Mutator\Engine\Schema\PureExpression;
+use PhpParser\Node\Expr;
 use PhpParser\Node\Stmt\Expression;
 use PhpParser\ParserFactory;
 
 /** The expression a line of PHP holds. */
-function pureCandidate(string $code): PhpParser\Node\Expr
+function pureCandidate(string $code): Expr
 {
     $statement = new ParserFactory()->createForNewestSupportedVersion()->parse(sprintf('<?php %s;', $code))[0] ?? null;
 

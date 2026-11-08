@@ -76,7 +76,7 @@ final class Children
         }
 
         if ($pid > 0) {
-            $started = self::now();
+            $started = $this->now();
             $own = array_key_exists($test, $this->plan->times) ? $this->plan->times[$test] : false;
             $this->running[$pid] = [$mutant, $test, $started, $started + $this->plan->limit->of($own)];
         }
@@ -159,14 +159,14 @@ final class Children
         $signal = pcntl_wifsignaled($status) ? pcntl_wtermsig($status) : 0;
 
         if ($signal !== SIGKILL && $signal !== SIGUSR1) {
-            $this->write(StreamLine::endedChild($mutant, $test, self::exitCode($status)));
+            $this->write(StreamLine::endedChild($mutant, $test, $this->exitCode($status)));
         }
 
         return $signal === SIGKILL ? [] : [[$mutant, $test]];
     }
 
     /** The code a child exited with, or -1 where a signal ended it. */
-    private static function exitCode(int $status): int
+    private function exitCode(int $status): int
     {
         $code = pcntl_wifexited($status) ? pcntl_wexitstatus($status) : false;
 
@@ -176,7 +176,7 @@ final class Children
     /** Stops each child past its limit. */
     private function stopLate(): void
     {
-        $now = self::now();
+        $now = $this->now();
 
         foreach ($this->running as $pid => [$mutant, $test, , $deadline]) {
             if ($now > $deadline) {
@@ -193,7 +193,7 @@ final class Children
         file_put_contents($this->plan->results, $line, FILE_APPEND | LOCK_EX);
     }
 
-    private static function now(): float
+    private function now(): float
     {
         return hrtime(as_number: true) / Seconds::NANOSECONDS;
     }
