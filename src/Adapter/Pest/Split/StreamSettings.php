@@ -5,19 +5,25 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
 use function getenv;
+use function is_array;
+use function is_int;
 use function is_numeric;
+use function is_string;
 use function max;
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
+use NightWorksIO\MutationGate\Core\Test\TestPart;
 
 use function sprintf;
+use function sscanf;
 
 /**
  * What `splitStream` asks of a patched Pest run (ADR-0117), as the gate
  * tells Pest's own process: whether it splits its streams, the most children
  * a stream holds at once, whether a stream checks a pure expression's mutant
- * changes its value before it forks, and whether it forks first at each
- * mutant's likely killer.
+ * changes its value before it forks, whether it forks first at each
+ * mutant's likely killer, and the part of the test files whose tests judge
+ * its mutants, every test file unless a run cuts them across its shards.
  *
  * @internal
  */
@@ -27,22 +33,39 @@ final readonly class StreamSettings
 
     private const string OFF = '0';
 
+    /** A part of the test files, as the gate tells it: its number, then how many parts there are. */
+    private const string PART = '%d/%d';
+
     private function __construct(
         private bool $enabled,
         private int $children,
         private bool $changeCheck,
         private bool $killersFirst,
+        private TestPart $part,
     ) {
     }
 
     public static function off(): self
     {
-        return new self(enabled: false, children: 1, changeCheck: true, killersFirst: true);
+        return new self(enabled: false, children: 1, changeCheck: true, killersFirst: true, part: TestPart::whole());
     }
 
     public static function of(bool $enabled, int $children, bool $changeCheck, bool $killersFirst): self
     {
-        return new self($enabled, max(1, $children), $changeCheck, $killersFirst);
+        return new self($enabled, max(1, $children), $changeCheck, $killersFirst, TestPart::whole());
+    }
+
+    /**
+     * What a run tells Pest's own process of the part of the test files whose
+     * tests judge its mutants: nothing of every test file.
+     *
+     * @return array<string, string>
+     */
+    public static function parting(TestPart $part): array
+    {
+        return $part->isWhole()
+            ? []
+            : [GateVariable::SplitPart->value => sprintf(self::PART, $part->number(), $part->parts())];
     }
 
     /** What the gate told this process. */
@@ -55,6 +78,7 @@ final readonly class StreamSettings
             is_numeric($children) ? max(1, (int) $children) : 1,
             getenv(GateVariable::SplitChangeCheck->value) !== self::OFF,
             getenv(GateVariable::SplitKillersFirst->value) !== self::OFF,
+            self::partIn(getenv(GateVariable::SplitPart->value)),
         );
     }
 
@@ -78,6 +102,12 @@ final readonly class StreamSettings
         return $this->killersFirst;
     }
 
+    /** The part of the test files whose tests judge the run's mutants: every test file, unless it was told one. */
+    public function part(): TestPart
+    {
+        return $this->part;
+    }
+
     /**
      * What a patched run is started with to split its streams so; nothing
      * where it does not.
@@ -94,5 +124,16 @@ final readonly class StreamSettings
                 GateVariable::SplitKillersFirst->value => $this->killersFirst ? self::ON : self::OFF,
             ]
             : [];
+    }
+
+    /** The part a variable names, as the gate writes it; every test file where it names none there is. */
+    private static function partIn(string|false $told): TestPart
+    {
+        $read = is_string($told) ? sscanf($told, self::PART) : null;
+        [$number, $parts] = is_array($read) ? $read + [0, 0] : [0, 0];
+
+        return is_int($number) && is_int($parts) && $number >= 1 && $number <= $parts
+            ? TestPart::of($number, $parts)
+            : TestPart::whole();
     }
 }

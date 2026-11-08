@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function array_filter;
 use function array_key_exists;
 use function array_keys;
 
@@ -54,6 +55,12 @@ final class LoadedMap
     public static function tests(): array
     {
         return array_keys(self::$seconds);
+    }
+
+    /** @return array<string, float> each test's own seconds, by its id, of every test the map timed at any */
+    public static function timed(): array
+    {
+        return array_filter(self::$seconds, static fn(float $seconds): bool => $seconds > 0.0);
     }
 
     /** The own time of each test the map timed, read once. */

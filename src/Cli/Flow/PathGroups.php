@@ -47,7 +47,7 @@ final readonly class PathGroups implements IteratorAggregate
         foreach ($ordered as $group => $held) {
             $groups[] = PathGroup::of(
                 $matched[$group],
-                Shard::of($shard->id(), $shard->package(), $held, $shard->cost(), $shard->label()),
+                $shard->holding($held),
             );
         }
 

@@ -295,7 +295,7 @@ final readonly class ReportSchema
     {
         $listed = self::listOf(self::TEXT);
         $record = self::object([
-            'status' => self::oneOf(...MutantStatus::cases()),
+            'status' => self::oneOf(...MutantStatus::final()),
             'run' => self::TEXT,
             'scope' => self::TEXT,
             'at' => self::INSTANT,
@@ -480,7 +480,7 @@ final readonly class ReportSchema
             'mutator' => self::TEXT,
             'family' => self::oneOf(...MutatorFamily::cases()),
             'diff' => self::TEXT,
-            'status' => self::oneOf(...MutantStatus::cases()),
+            'status' => self::oneOf(...MutantStatus::final()),
             'judgement' => self::oneOf(...MutantJudgement::cases()),
             'reason' => self::TEXT,
             MutantRecord::REJECTION => self::object([

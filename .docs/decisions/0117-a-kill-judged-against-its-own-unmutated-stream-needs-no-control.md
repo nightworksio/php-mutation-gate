@@ -75,13 +75,36 @@ switch (ADR-0091), so the stream's program holds every site.
    such test forks at every covering test. A mutant its killer did not kill
    runs in a second pass of streams of the test files that cover it, forking
    at every covering test.
-9. **`splitStream.sharding` says what a shard's streams run**: `tests`, the
-   default, cuts the test files into parts of about the same time by the
-   coverage map, each shard streaming one part and every mutant it reaches,
-   a kill in any part deciding the mutant and a survivor surviving in every
-   part; `source` keeps the shards' parts of the source, each streaming the
-   test files that cover its own mutants. Within a shard, the test files are
-   cut the same way into a stream for each process.
+9. **`splitStream.sharding` says what a shard's streams run.** `source`
+   keeps the shards' parts of the source, each streaming the test files that
+   cover its own mutants. `tests`, the default, cuts the test files into one
+   part for each of a package's shards: each test file, by the file that
+   declares a test's class, goes, longest first by the times of the
+   coverage map the plan handed every shard and files of equal time by path,
+   to the part with the least time so far, of those the fewest files, of
+   those the lowest, so every shard cuts alike; where a test of the map is
+   declared in no test file the shard loaded, the first part holds every
+   test. Each shard takes every unit of its package and its own part, which
+   the plan names, and streams the files of that part. In a shard:
+   - a mutant no test of its part covers, whose first covering test another
+     part holds, is not reached: a shard's own outcome, never a mutant's
+     status;
+   - a mutant no stream can judge runs its own run, by every covering test,
+     in the one shard whose part holds its first covering test;
+   - a mutant its part's streams leave for its own run runs it by the
+     covering tests of that part alone, in that shard;
+   - a survivor of the covering tests of its part alone dooms no run
+     (ADR-0008), and only the shard whose part holds its first covering test
+     checks it by static analysis or proves it equivalent.
+   The verdict merges each mutant across the shards that hold its unit: a
+   kill in any part wins, then a timeout; an own run's other answer stands
+   over a survivor; a mutant survives where every part that reached it let it
+   survive; a status every part gives alike merges to one; a mutant no part
+   reached, or shards that hold other mutants than each other, cannot be
+   judged. A unit counts as run where every shard that holds it ran it, and
+   each shard's time of it adds up into its learned cost. With one shard,
+   the one part is every test file. Within a shard, its test files are cut
+   the same way into a stream for each process.
 10. **`staticCheck.before` is `false` by default where a run splits its
    streams** (ADR-0077): a kill in a stream costs less than a check. A
    config that sets it keeps what it sets.

@@ -13,14 +13,19 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
+use NightWorksIO\MutationGate\Core\Mutant\Evidence;
+use NightWorksIO\MutationGate\Core\Mutant\Evidences;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\TestShare;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -137,3 +142,20 @@ it('allows a kill\'s control, named or not, the standard limit of its tests\' ti
 
     expect(max([0.0, ...$limits]))->toBeGreaterThan(300.0)->toBeLessThanOrEqual(900.0);
 })->with(['named' => [true], 'unnamed' => [false]]);
+
+it('passes over, for the run\'s doom, the survivors its runner judged by the shard\'s part of the test files alone', function (): void {
+    $whole = invokedMutant('src/Money.php', 'whole', MutantStatus::Survived);
+    $owned = invokedMutant('src/Money.php', 'owned', MutantStatus::Survived);
+    $other = invokedMutant('src/Money.php', 'other', MutantStatus::Survived);
+    $runner = ScriptedRunner::fixture()->answeringInTurn(
+        MutationResult::skippingNone(Mutants::of($whole, $owned, $other))->withEvidence(Evidences::none()
+            ->with($owned->id(), Evidence::none()->streamed()->sharing(TestShare::OwnedPart))
+            ->with($other->id(), Evidence::none()->streamed()->sharing(TestShare::OtherPart))),
+    );
+
+    $invoked = invokedWithin($runner, Seconds::of(600.0), CoverageMap::empty());
+
+    expect($invoked->parted)->toEqual(MutantIds::of($owned->id(), $other->id()))
+        ->and($invoked->passedOver()->has($whole->id()))->toBeFalse()
+        ->and($invoked->passedOver()->has($other->id()))->toBeTrue();
+});

@@ -334,7 +334,7 @@ final readonly class Running
         $pruned = $plan->considered()->pruned();
         $requestFor = fn(Units $units): MutationRequest => $this->requestFor(
             $units,
-            $kept->id(),
+            $kept,
             $search,
             $pool,
             $pruned,
@@ -390,8 +390,8 @@ final readonly class Running
 
     /**
      * The shard's units in order, each weighed by what the cost model expects
-     * of it, with what the ledgers the plan reads learned; a shard measures
-     * no first run of its own.
+     * of it, with what the ledgers the plan reads learned, at its share of the
+     * shard's part of the test files; a shard measures no first run of its own.
      *
      * @return list<Weighed>
      */
@@ -407,7 +407,7 @@ final readonly class Running
 
         foreach ($shard->units() as $unit) {
             $estimated = $ledgers->estimated($this->adapters->costs, $unit, FirstRun::unmeasured(), $this->setup->gate);
-            $weighed[] = Weighed::of($unit, $shard->package(), $estimated);
+            $weighed[] = Weighed::of($unit, $shard->package(), $estimated)->sharedAmong($shard->testPart());
         }
 
         return $weighed;
@@ -417,11 +417,12 @@ final readonly class Running
      * One invocation: a held unit alone by the tests that hold it, or files
      * by the whole suite, reading the maps the plan handed the shard, each
      * mutant's killers looked for as asked, leaving the mutators the plan
-     * prunes out of the files it prunes them in.
+     * prunes out of the files it prunes them in, its mutants judged by the
+     * shard's part of the test files (ADR-0117).
      */
     private function requestFor(
         Units $units,
-        ShardId $shard,
+        Shard $shard,
         KillSearch $search,
         Pool $pool,
         Pruned $pruned,
@@ -436,9 +437,9 @@ final readonly class Running
 
         $request = RunRequest::of($this->adapters, $this->settings, $files, $judgedBy);
 
-        return $request->narrowedTo($files, $request->narrowing()->pruning($pruned))
+        return $request->narrowedTo($files, $request->narrowing()->pruning($pruned)->inTestPart($shard->testPart()))
             ->across($pool)
-            ->reusingCoverage(Handed::maps(Workspace::shardCoverage($shard), Workspace::coverage()))
+            ->reusingCoverage(Handed::maps(Workspace::shardCoverage($shard->id()), Workspace::coverage()))
             ->searching($search);
     }
 }

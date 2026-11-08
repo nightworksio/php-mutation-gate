@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Test\TestPart;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
@@ -68,4 +69,18 @@ it('takes its units in a risk order, keeping the rest of it', function (): void 
         ->and($shard->id()->number())->toBe(2)
         ->and($shard->cost())->toEqual(Seconds::of(9.0))
         ->and($shard->label())->toBe('src');
+});
+
+it('is judged by every test file unless it is put in a part, which it keeps however its units are cut or ordered', function (): void {
+    $units = Units::of(Unit::file(Path::of('src/A.php')), Unit::file(Path::of('src/B.php')));
+    $shard = Shard::of(ShardId::of(2), Package::at(Path::root()), $units, Seconds::of(6.0), 'src, part 2 of 3');
+    $parted = $shard->inPart(TestPart::of(2, 3));
+    $held = $parted->holding(Units::of(Unit::file(Path::of('src/B.php'))));
+
+    expect($shard->testPart())->toEqual(TestPart::whole())
+        ->and($parted->testPart())->toEqual(TestPart::of(2, 3))
+        ->and($held->testPart())->toEqual(TestPart::of(2, 3))
+        ->and(iterator_to_array($held->units(), preserve_keys: false))->toEqual([Unit::file(Path::of('src/B.php'))])
+        ->and([$held->id(), $held->label(), $held->cost()])->toEqual([ShardId::of(2), 'src, part 2 of 3', Seconds::of(6.0)])
+        ->and($parted->estimated($parted->estimate())->testPart())->toEqual(TestPart::of(2, 3));
 });

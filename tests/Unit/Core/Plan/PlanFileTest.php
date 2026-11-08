@@ -43,6 +43,7 @@ use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestName;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
+use NightWorksIO\MutationGate\Core\Test\TestPart;
 use NightWorksIO\MutationGate\Core\Test\TestRow;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -233,6 +234,30 @@ it('reads back the plan it wrote', function () use ($planWith): void {
     $plan = $planWith('src, part 2 of 2');
 
     expect(PlanFile::decode(PlanFile::encode($plan)))->toEqual($plan);
+});
+
+it('writes each shard\'s part of the test files where the run cuts them, and reads it back', function (): void {
+    $shard = static fn(int $number): Shard => Shard::of(
+        ShardId::of($number),
+        Package::at(Path::root()),
+        Units::of(Unit::file(Path::of('src/A.php'))),
+        Seconds::of(5.0),
+        sprintf('src, part %d of 2', $number),
+    )->inPart(TestPart::of($number, 2));
+    $plan = Plan::of(
+        Revision::ref(planFileCommit()),
+        Digest::sha256Of('base'),
+        Keys::none()->with(Path::of('src/A.php'), Digest::of('aaa')),
+        Shards::of($shard(1), $shard(2)),
+    )->on(RunOn::at(Scope::pullRequest(12), Scope::branch('main')));
+    $read = PlanFile::decode(PlanFile::encode($plan));
+
+    expect(PlanFile::encode($plan))->toContain('"testPart": 1,')
+        ->and(PlanFile::encode($plan))->toContain('"testPart": 2,')
+        ->and(PlanFile::encode($plan))->toContain('"testParts": 2')
+        ->and($read)->toEqual($plan)
+        ->and($read instanceof Plan ? $read->digest() : $read)->toEqual($plan->digest())
+        ->and(PlanFile::encode(planFileEmpty()))->not->toContain('testPart');
 });
 
 it('reads back a plan for a detached HEAD, with or without a default branch', function (RunOn $runOn): void {

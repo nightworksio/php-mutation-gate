@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_any;
-use function array_filter;
 use function array_map;
 use function count;
 use function implode;
@@ -16,7 +15,6 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
-use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Plan\FailFastSavings;
@@ -25,10 +23,7 @@ use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
 use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
-use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
-use NightWorksIO\MutationGate\Core\Verdict\Origin;
-use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
@@ -43,7 +38,9 @@ use function sprintf;
  * are stopped, as the units the doomed shard did not run are, since the
  * verdict fails whatever they come to. Nor can it judge a shard whose
  * runner skipped mutants it kept no record of: they are unjudged, and
- * belong to no unit.
+ * belong to no unit. Where a run cuts its test files across its shards,
+ * each unit's mutants are merged across the shards that hold it (see
+ * MergedUnits, ADR-0117).
  *
  * @internal
  */
@@ -87,8 +84,9 @@ final readonly class Results
     /**
      * @param list<array{Shard, ShardResult, MutationResult}> $read    each shard, with its result and its mutants
      * @param Stopped                                         $stopped how they stopped once the run could not pass
+     * @param UnitResults                                     $units   each unit the shards ran, with its mutants
      */
-    private function __construct(private array $read, private Stopped $stopped)
+    private function __construct(private array $read, private Stopped $stopped, private UnitResults $units)
     {
     }
 
@@ -116,34 +114,19 @@ final readonly class Results
 
         $stopped = Stopped::among($read, array_map(static fn(array $left): Shard => $left[0], $missing));
         $why = [...$unjudged, ...$stopped->isDoomed() ? [] : self::leftNone($missing, $directory)];
+        $units = $why === [] ? MergedUnits::of($plan, $read) : CannotJudge::because(implode("\n", $why));
 
-        return $why === [] ? new self($read, $stopped) : CannotJudge::because(implode("\n", $why));
+        return $units instanceof CannotJudge ? $units : new self($read, $stopped, $units);
     }
 
     /**
      * Each unit a shard ran, with the mutants of it and those of them that
      * were flaky; a held unit its holding tests miss lines of did not run,
-     * nor did a unit the shard's time budget ran out before.
+     * nor did a unit the shard's time budget ran out before (see MergedUnits).
      */
     public function units(): UnitResults
     {
-        $results = UnitResults::none();
-
-        foreach ($this->read as [$shard, $result, $mutated]) {
-            foreach ($shard->units() as $unit) {
-                if ($result->held()->misses()->misses($unit->path()) || $result->unjudged()->has($unit->path())) {
-                    continue;
-                }
-
-                $results = $results->with(
-                    UnitResult::of($unit, Origin::Run, $this->mutantsOf($unit, $mutated->mutants()))
-                        ->withFlaky($result->flaky())
-                        ->judgedBy($result->held()->covered()->testsOf($unit->path())),
-                );
-            }
-        }
-
-        return $results;
+        return $this->units;
     }
 
     /** Every shard's held units whose holding tests miss lines of them. */
@@ -158,7 +141,7 @@ final readonly class Results
         return $misses;
     }
 
-    /** Every shard's units its time budget ran out before (ADR-0008), but a doomed shard's. */
+    /** Every shard's units its time budget ran out before (ADR-0008), each once, but a doomed shard's. */
     public function unjudged(): Units
     {
         $unjudged = Units::none();
@@ -167,7 +150,7 @@ final readonly class Results
             $unjudged = $unjudged->and($result->unjudged());
         }
 
-        return $unjudged->except($this->stopped->units());
+        return $unjudged->except($this->stopped->units())->distinct();
     }
 
     /** How the shards stopped once the run could not pass, where one did (ADR-0008). */
@@ -282,14 +265,5 @@ final readonly class Results
     private function leftAny(Mutants $mutants): bool
     {
         return array_any([...$mutants], OutOfTime::left(...));
-    }
-
-    /** The mutants of a unit: those of its file, or of the files inside its held path. */
-    private function mutantsOf(Unit $unit, Mutants $mutants): Mutants
-    {
-        return Mutants::of(...array_filter(
-            [...$mutants],
-            static fn(Mutant $mutant): bool => $mutant->location()->file()->within($unit->path()),
-        ));
     }
 }

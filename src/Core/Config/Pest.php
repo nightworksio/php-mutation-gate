@@ -163,6 +163,16 @@ final readonly class Pest implements Part
             && $this->splitStream->enabled();
     }
 
+    /**
+     * Whether a run under this runner splits its streams and cuts its test
+     * files across its shards, as `splitStream.sharding: tests` asks
+     * (ADR-0117).
+     */
+    public function splitsByTests(Choice $runner): bool
+    {
+        return $this->splits($runner) && $this->splitStream->sharding() === StreamSharding::Tests;
+    }
+
     /** The group of tests that shows the patches work. */
     public function canary(): Group
     {

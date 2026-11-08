@@ -12,14 +12,17 @@ use NightWorksIO\MutationGate\Core\Cost\ShardEstimate;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Order\RiskOrder;
 use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
+use NightWorksIO\MutationGate\Core\Test\TestPart;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
 /**
  * The units one CI job mutates, all of one package, what they are expected
- * to cost, and the label the job is shown with. A shard of a fixed count may
- * be empty, and says so.
+ * to cost, the label the job is shown with, and the part of the test files
+ * whose tests judge them: every test file, or one part of them where the run
+ * cuts its test files across its shards (ADR-0117). A shard of a fixed count
+ * may be empty, and says so.
  */
 final readonly class Shard
 {
@@ -29,6 +32,7 @@ final readonly class Shard
         private Units $units,
         private ShardEstimate $estimate,
         private string $label,
+        private TestPart $part,
     ) {
     }
 
@@ -41,19 +45,42 @@ final readonly class Shard
             $units,
             ShardEstimate::none()->with(Estimated::of($cost, CostBasis::Guessed)),
             $label,
+            TestPart::whole(),
         );
     }
 
     /** A shard with nothing to mutate, which passes having run nothing. */
     public static function empty(ShardId $id): self
     {
-        return new self($id, Package::at(Path::root()), Units::none(), ShardEstimate::none(), NothingToMutate::SAID);
+        return new self(
+            $id,
+            Package::at(Path::root()),
+            Units::none(),
+            ShardEstimate::none(),
+            NothingToMutate::SAID,
+            TestPart::whole(),
+        );
     }
 
     /** This shard, expected to take what this estimate says, which says what it rests on. */
     public function estimated(ShardEstimate $estimate): self
     {
-        return new self($this->id, $this->package, $this->units, $estimate, $this->label);
+        return new self($this->id, $this->package, $this->units, $estimate, $this->label, $this->part);
+    }
+
+    /** This shard, its units judged by the tests of this part of the test files alone (ADR-0117). */
+    public function inPart(TestPart $part): self
+    {
+        return new self($this->id, $this->package, $this->units, $this->estimate, $this->label, $part);
+    }
+
+    /**
+     * The same shard, with these of its units alone, expected to cost what it
+     * was, on no measurement, in the same part of the test files.
+     */
+    public function holding(Units $units): self
+    {
+        return self::of($this->id, $this->package, $units, $this->cost(), $this->label)->inPart($this->part);
     }
 
     public function id(): ShardId
@@ -90,10 +117,23 @@ final readonly class Shard
         return $this->label;
     }
 
+    /** The part of the test files whose tests judge its units: every test file, unless the run cuts them. */
+    public function testPart(): TestPart
+    {
+        return $this->part;
+    }
+
     /** The shard with its units in this order, the riskiest first (ADR-0008). */
     public function ordered(RiskOrder $order): self
     {
-        return new self($this->id, $this->package, $order->ordered($this->units), $this->estimate, $this->label);
+        return new self(
+            $this->id,
+            $this->package,
+            $order->ordered($this->units),
+            $this->estimate,
+            $this->label,
+            $this->part,
+        );
     }
 
     public function isEmpty(): bool

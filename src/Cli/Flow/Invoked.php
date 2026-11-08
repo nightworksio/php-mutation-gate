@@ -11,8 +11,9 @@ use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 /**
  * What one invocation of a shard came to: its mutants, the survivors a
  * second run killed, those proven equivalent, what static analysis's checks
- * of its survivors came to, the survivors they took up, and those a check
- * that never ran may yet kill.
+ * of its survivors came to, the survivors they took up, those a check that
+ * never ran may yet kill, and those judged by one part of the test files
+ * alone (ADR-0117).
  *
  * @internal
  */
@@ -25,12 +26,17 @@ final readonly class Invoked
         public SurvivorChecks $checks,
         public MutantIds $checked,
         public MutantIds $unsettled,
+        public MutantIds $parted,
     ) {
     }
 
-    /** The survivors that doom no run: those proven equivalent, and those a check that never ran may yet kill. */
+    /**
+     * The survivors that doom no run: those proven equivalent, those a check
+     * that never ran may yet kill, and those judged by one part of the test
+     * files alone, which another part may yet kill (ADR-0117).
+     */
     public function passedOver(): MutantIds
     {
-        return $this->equivalent->and($this->unsettled);
+        return $this->equivalent->and($this->unsettled)->and($this->parted);
     }
 }

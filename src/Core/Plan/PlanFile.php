@@ -40,7 +40,9 @@ use stdClass;
 /**
  * A plan as `.mutation-gate/plan.json` holds it, `"format": 1`: the full id of
  * the commit it was made on, the base its keys are built on, every considered
- * unit's key, and the shards, with the units it proved or carried, the
+ * unit's key, and the shards, each with the part of the test files whose
+ * tests judge its units where the run cuts them (see TestPartRecord), with
+ * the units it proved or carried, the
  * lines a change added or modified, `untested`, those of them no test runs,
  * where there are any, and why it reached what it did, the
  * digests of the run's inputs each proof records its share of, `peak`, the
@@ -247,6 +249,7 @@ final readonly class PlanFile
             ...EstimateRecord::of($shard->estimate()),
             'package' => $shard->package()->path()->value(),
             'units' => UnitRecord::all($shard->units()),
+            ...TestPartRecord::of($shard->testPart()),
         ];
     }
 
@@ -387,6 +390,6 @@ final readonly class PlanFile
             $shard->field('label')->text(),
         );
 
-        return $read->estimated(EstimateRecord::read($shard, $read->cost()));
+        return $read->estimated(EstimateRecord::read($shard, $read->cost()))->inPart(TestPartRecord::read($shard));
     }
 }

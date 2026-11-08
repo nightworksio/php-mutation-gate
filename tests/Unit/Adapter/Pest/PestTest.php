@@ -80,6 +80,7 @@ use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestListing;
+use NightWorksIO\MutationGate\Core\Test\TestPart;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -431,6 +432,18 @@ it('hands the patched plugin the mutators the request leaves out of its unchange
     expect($shell->commands())->toEqual([
         PestCases::invocation($at)->mutation($request, WholeSuite::tests(), PestCases::results($at))->with([GateVariable::Pruned->value => $list]),
     ])->and(PrunedFile::leavesOut($list, sprintf('%s/src/Money.php', $at->root()), PestCases::RUN_PLUS))->toBeTrue();
+});
+
+it('tells the plugin the part of the test files whose tests judge the request\'s mutants, and nothing of every test file', function (): void {
+    $at = PestCases::project();
+    $shell = new ShellFake(static fn(Command $command): Ran => PestCases::killed($command, $at));
+    $request = PestCases::money()->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->inTestPart(TestPart::of(2, 3)));
+
+    new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate($request);
+
+    expect($shell->commands())->toEqual([
+        PestCases::invocation($at)->mutation($request, WholeSuite::tests(), PestCases::results($at))->with([GateVariable::SplitPart->value => '2/3']),
+    ]);
 });
 
 it('hands a patched plugin\'s mutants to static analysis before their tests, where the gate checks them so, and never an unpatched one\'s', function (): void {

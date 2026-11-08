@@ -9,13 +9,15 @@ use function ceil;
 use function count;
 use function max;
 
+use NightWorksIO\MutationGate\Core\Test\TestPart;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function usort;
 
 /**
- * The units of one package, in path order, which its shards take in turn.
- * Packages never share a shard.
+ * The units of one package, in path order, which its shards take in turn,
+ * or each take whole, one part of the test files apiece, where the run cuts
+ * its test files across its shards (ADR-0117). Packages never share a shard.
  *
  * @internal
  */
@@ -49,6 +51,23 @@ final readonly class PackageWork
         $cost = $this->cost()->seconds();
 
         return $cost > 0.0 && $size > 0.0 ? (int) ceil($cost / $size) : 1;
+    }
+
+    /**
+     * Every unit, in path order, in as many runs as asked, each judged by its
+     * own part of the test files and weighed at its share of the cost.
+     *
+     * @return list<Run>
+     */
+    public function parts(int $count): array
+    {
+        $parts = [];
+
+        for ($number = 1; $this->units !== [] && $number <= $count; $number++) {
+            $parts[] = Run::inPart(TestPart::of($number, $count), ...$this->units);
+        }
+
+        return $parts;
     }
 
     /**

@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\SchemaSwitch;
 use NightWorksIO\MutationGate\Adapter\Pest\Schemata;
 use NightWorksIO\MutationGate\Adapter\Pest\Selection;
 use NightWorksIO\MutationGate\Adapter\Pest\ServedClasses;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\OwnCovering;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Pool;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
@@ -152,7 +153,7 @@ it('marks every hunk it writes, one mark to a hunk, so another version\'s are fo
         MutatePlugin::FILES,
     ));
 
-    expect($marks)->toBe(30);
+    expect($marks)->toBe(31);
 });
 
 it('compiles each file\'s mutants into a schema and serves a switched mutant the schema, its switch in force, where the gate asks for schemata', function () use ($vendor, $source): void {
@@ -195,6 +196,23 @@ it('has each mutant\'s run select exactly the tests that cover it, a row of a da
     expect($source($at, 'MutationTest.php'))->toContain(sprintf('? \\%s::covering($covering, \\%s::suite())->argument()', Selection::class, LoadedMap::class))
         ->and($source($at, 'MutationTest.php'))->toContain(sprintf('\\%s::of($covering, $this->mutation->modifiedSourcePath, $this->calculateTimeout(), $filter)', MutantTime::class))
         ->and($source($at, 'Tester/MutationTestRunner.php'))->toContain(sprintf('\\%s::remember($loadedCoverage)', LoadedMap::class));
+});
+
+it('narrows a mutant\'s own run to the covering tests its shard\'s part of the test files holds, after Pest built its filter', function () use ($vendor, $source): void {
+    $at = $vendor();
+    Patch::applyIn($at, new PackageDirectory());
+    $test = $source($at, 'MutationTest.php');
+    $narrowed = sprintf('$covering = class_exists(\\%1$s::class) ? \\%1$s::of($this->mutation, $covering) : $covering;', OwnCovering::class);
+
+    $inPlace = sprintf(
+        '/%s.*%s.*%s/s',
+        preg_quote('$filters = array_unique($filters);', '/'),
+        preg_quote($narrowed, '/'),
+        preg_quote('CoveringFiles::of($covering', '/'),
+    );
+
+    expect($test)->toContain($narrowed)
+        ->and(preg_match($inPlace, $test))->toBe(1);
 });
 
 it('asks each mutant\'s run of its place\'s warm worker, where the run has one', function () use ($vendor, $source): void {

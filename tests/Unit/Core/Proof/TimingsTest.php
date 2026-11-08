@@ -159,3 +159,13 @@ it('keeps the timings any build of a branch measured for another, and smooths ov
     expect($seconds($held->measuredBy(GateRelease::spelt('dev-main 6cb0bffc'))))->toBe([10.0])
         ->and($seconds($newer->smoothedOver($held)))->toBe([19.0, 20.0]);
 });
+
+it('adds up a unit\'s timings from shards that each judge it by a part of the test files, at the later instant', function () use ($timing, $seconds): void {
+    $summed = Timings::of($timing('src/A.php', 1.0), $timing('src/B.php', 2.0))
+        ->plus(Timings::of($timing('src/A.php', 3.0, '2026-09-29T21:00:00Z'), $timing('src/C.php', 4.0)));
+
+    expect($seconds($summed))->toBe([4.0, 2.0, 4.0])
+        ->and(iterator_to_array($summed, preserve_keys: false)[0]->at())->toEqual(Moment::at('2026-09-29T21:00:00Z'))
+        ->and($timing('src/A.php', 3.0, '2026-09-29T21:00:00Z')->plus($timing('src/A.php', 1.0))->at())->toEqual(Moment::at('2026-09-29T21:00:00Z'))
+        ->and($seconds(Timings::none()->plus(Timings::of($timing('src/A.php', 1.0)))))->toBe([1.0]);
+});

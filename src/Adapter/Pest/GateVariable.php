@@ -132,6 +132,13 @@ enum GateVariable: string
     /** Set where a split stream forks each mutant first at its likely killer (see Split\StreamSettings). */
     case SplitKillersFirst = 'MUTATION_GATE_SPLIT_KILLERS_FIRST';
 
+    /**
+     * The part of the test files whose tests judge a patched run's mutants,
+     * and of how many, as `<part>/<parts>`, where a run cuts its test files
+     * across its shards (see Split\StreamSettings).
+     */
+    case SplitPart = 'MUTATION_GATE_SPLIT_PART';
+
     /** The plan a split stream's own Pest run reads, unset in every other run (see Split\Stream). */
     case SplitPlan = 'MUTATION_GATE_SPLIT_PLAN';
 }

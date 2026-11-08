@@ -237,7 +237,8 @@ final readonly class KillMatrix
             MutantStatus::Uncovered,
             MutantStatus::Unjudged,
             MutantStatus::IgnoredByMarker,
-            MutantStatus::Skipped => Outcome::NotRun,
+            MutantStatus::Skipped,
+            MutantStatus::NotReached => Outcome::NotRun,
         };
     }
 

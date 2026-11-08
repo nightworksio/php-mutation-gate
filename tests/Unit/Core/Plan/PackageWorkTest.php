@@ -123,3 +123,11 @@ it('cuts its units in time near linear in their number', function () use ($weigh
     expect($cutting(16)())->toBe(7)
         ->and(Growth::of(400, $cutting))->toBeLessThan(Growth::LINEAR);
 });
+
+it('gives every part of the test files every unit, in path order, each at its share of the cost', function () use ($weighed): void {
+    $parts = PackageWork::of($weighed('B', 30.0), $weighed('A', 60.0))->parts(3);
+
+    expect(pathsOfRuns($parts))->toBe([['A', 'B'], ['A', 'B'], ['A', 'B']])
+        ->and(array_map(static fn(Run $run): float => $run->cost()->seconds(), $parts))->toBe([30.0, 30.0, 30.0])
+        ->and(PackageWork::of()->parts(3))->toBe([]);
+});

@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -200,4 +201,16 @@ it('refuses an output it does not print, and --only where it cannot apply', func
     'another choice of results' => [['--output' => 'problems', '--only' => 'all'], '--only takes changed, not "all".'],
     'changed lines without problems' => [['--only' => 'changed'], '--only=changed limits the problems output. Add --output=problems.'],
     'changed lines of the console' => [['--output' => 'console', '--only' => 'changed'], '--only=changed limits the problems output. Add --output=problems.'],
+]);
+
+it('cuts the test files across its shards where the run splits its streams by tests, and its source otherwise', function (string $config, bool $parts) use ($given): void {
+    $settings = Configs::settings($config);
+    $expected = static fn(Cut|CannotJudge $cut): Cut|CannotJudge => $parts && $cut instanceof Cut ? $cut->cuttingTestFiles() : $cut;
+
+    expect(FlowOptions::cut($given([]), $settings))->toEqual($expected(FlowOptions::cut($given([]), Configs::settings('{"runner": "pest"}'))))
+        ->and(FlowOptions::cut($given(['--shards' => '3']), $settings))->toEqual($expected(Cut::exactly(3)));
+})->with([
+    'split by tests' => ['{"runner": "pest", "pest": {"patch": true}, "splitStream": {"enabled": true}}', true],
+    'split by source' => ['{"runner": "pest", "pest": {"patch": true}, "splitStream": {"enabled": true, "sharding": "source"}}', false],
+    'not split' => ['{"runner": "pest", "pest": {"patch": true}}', false],
 ]);

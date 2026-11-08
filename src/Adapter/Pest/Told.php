@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Verdicts;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
 use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Pruning\PrunedList;
@@ -17,7 +18,8 @@ use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
  * makes (see OnlyList), the mutators it prunes (see PrunedFile), whether each
  * mutant's own run is narrowed (see CoveringFiles), where it waits for the
  * gate's verdicts (see Verdicts), where its warm workers share their files
- * (see Warm\Pool), and the bounds of each mutant's limits.
+ * (see Warm\Pool), the bounds of each mutant's limits, and the part of
+ * the test files whose tests judge its mutants (see Split\StreamSettings).
  *
  * @internal
  */
@@ -52,6 +54,7 @@ final readonly class Told
             ...$this->forks($request) ? [GateVariable::Warm->value => WarmDirectory::beside($results)] : [],
             ...$this->patching->bounding($bounds),
             ...$this->patching->schemata(),
+            ...StreamSettings::parting($request->narrowing()->testPart()),
         ];
     }
 

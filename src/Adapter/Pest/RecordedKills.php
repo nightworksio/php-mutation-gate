@@ -9,6 +9,7 @@ use function array_key_exists;
 use function array_values;
 use function count;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
@@ -53,7 +54,9 @@ final readonly class RecordedKills
                 $records->limitOf($planned),
             ];
 
-            if ($records->statusOf($planned) === PestStatus::Uncovered || $records->isStreamed($planned)) {
+            $streamed = $records->isMarked($planned, RecordEvent::Streamed);
+
+            if ($records->statusOf($planned) === PestStatus::Uncovered || $streamed) {
                 $judgedElsewhere[$planned->id()] = true;
             }
         }

@@ -10,20 +10,11 @@ use function array_key_exists;
 use Closure;
 
 use function explode;
-
-use const FILE_APPEND;
-
 use function file_get_contents;
-use function file_put_contents;
-use function getenv;
 use function is_array;
 use function is_file;
-use function is_string;
 use function json_decode;
 
-use const LOCK_EX;
-
-use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\KillerFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Placed;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
@@ -198,14 +189,6 @@ final class StreamVerdicts
     /** Writes that a stream judged the mutant, and this line, to its killer file, which Pest's own process takes. */
     private function note(MutationTest $test, string $line): void
     {
-        $results = getenv(GateVariable::Results->value);
-
-        if (is_string($results) && $results !== '') {
-            file_put_contents(
-                KillerFile::beside($results, $test->mutation->modifiedSourcePath),
-                sprintf('%s%s', KillerFile::streamed(), $line),
-                FILE_APPEND | LOCK_EX,
-            );
-        }
+        Noted::of($test, sprintf('%s%s', KillerFile::streamed(), $line));
     }
 }

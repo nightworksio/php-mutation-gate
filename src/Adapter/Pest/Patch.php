@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Twins;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Verdicts;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\OwnCovering;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\Streams;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Booted;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Pool;
@@ -78,6 +79,10 @@ use function sprintf;
  *   mutant the schema switches is served the schema in its file's place,
  *   its switch in force, rather than its own copy (see Schemata and
  *   SchemaSwitch, ADR-0091).
+ * - Where a run splits its streams, the mutants they can judge are judged
+ *   first, and where it cuts its test files across its shards, a mutant a
+ *   shard's part streams runs on its own, should a stream leave it, by the
+ *   covering tests of that part alone (see Split\Streams, ADR-0117).
  * - Each file is parsed once while its mutants are made, each attempt at a
  *   mutant traversing a copy of that parse, and printed once for every
  *   mutant's diff (see ParsedSource).
@@ -487,6 +492,17 @@ final readonly class Patch
                         $covering[] = $test;
         PHP;
 
+    private const string NARROWED_SHIPS = <<<'PHP'
+                $filters = array_unique($filters);
+        PHP;
+
+    private const string NARROWED_BECOMES = <<<'PHP'
+                $filters = array_unique($filters);
+
+                {MARK} a mutant a shard's part of the test files streams runs on its own by that part's tests.
+                $covering = class_exists(\%1$s::class) ? \%1$s::of($this->mutation, $covering) : $covering;
+        PHP;
+
     private const string PATHS_SHIPS = <<<'PHP'
                 $envs = [
                     Mutate::ENV_MUTATION_TESTING => $this->mutation->file->getRealPath(),
@@ -654,6 +670,7 @@ final readonly class Patch
             ),
             Hunk::in(self::MUTATION_TEST, self::START_SHIPS, sprintf(self::START_BECOMES, Verdicts::class)),
             Hunk::in(self::MUTATION_TEST, self::COVERING_SHIPS, self::COVERING_BECOMES),
+            Hunk::in(self::MUTATION_TEST, self::NARROWED_SHIPS, sprintf(self::NARROWED_BECOMES, OwnCovering::class)),
             Hunk::in(self::MUTATION_TEST, self::PATHS_SHIPS, sprintf(self::PATHS_BECOMES, CoveringFiles::class)),
             Hunk::in(self::MUTATION_TEST, self::LIMIT_SHIPS, sprintf(self::LIMIT_BECOMES, MutantTime::class)),
             Hunk::in(self::MUTATION_TEST, self::WATCH_SHIPS, sprintf(self::WATCH_BECOMES, Silence::class)),

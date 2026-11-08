@@ -55,6 +55,14 @@ it('takes the record of every line, the preload, each test and the count, in the
     ])->and(is_file($file))->toBeFalse();
 });
 
+it('takes each mark a run notes of a mutant alone, of a split stream and of its shard\'s part of the test files, as its record', function (RecordEvent $event): void {
+    $file = sprintf('%s/results.jsonl.abc.killers', Scratch::directory());
+    file_put_contents($file, KillerFile::marked($event));
+
+    expect(KillerFile::marked($event))->toBe(sprintf("%s\n", $event->value))
+        ->and(KillerFile::taken($file, '/m/a.php'))->toBe([RecordLine::marked('/m/a.php', $event)]);
+})->with([RecordEvent::Streamed, RecordEvent::Preloaded, RecordEvent::Unreached, RecordEvent::OwnedPart, RecordEvent::OtherPart]);
+
 it('takes no record from a line that names no test as failed or errored, nor no place it writes, nor from a count that is no whole number', function (): void {
     $file = sprintf('%s/results.jsonl.abc.killers', Scratch::directory());
     file_put_contents($file, "{\"mutated\":\"/m/a.php\"}\n\nplanned P%5CTests\nran\nran -1\nran 2x\nkilled\nkilled T 7\nkilled T x - -\nkilled T 7 2 -\nkilled T 7 - abc\nkilled  7 - -\nerrored T 7\nerrored T x - -\n");

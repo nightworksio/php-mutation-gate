@@ -6,7 +6,12 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 
 it('spells each status as the reports and the ledger write it', function (): void {
     expect(array_map(static fn(MutantStatus $status): string => $status->value, MutantStatus::cases()))
-        ->toBe(['killed', 'killed-by-static-analysis', 'survived', 'uncovered', 'timed-out', 'errored', 'unjudged', 'ignored-by-marker', 'skipped', 'out-of-memory', 'fails-unmutated']);
+        ->toBe(['killed', 'killed-by-static-analysis', 'survived', 'uncovered', 'timed-out', 'errored', 'unjudged', 'ignored-by-marker', 'skipped', 'out-of-memory', 'fails-unmutated', 'not-reached']);
+});
+
+it('holds every status but a shard\'s not-reached outcome as one a mutant\'s final record holds', function (): void {
+    expect(MutantStatus::final())->not->toContain(MutantStatus::NotReached)
+        ->and(count(MutantStatus::final()))->toBe(count(MutantStatus::cases()) - 1);
 });
 
 it('knows a mutant whose time ran out: timed out, or skipped for taking as long as its timeout', function (MutantStatus $status, bool $ranOut): void {
@@ -42,4 +47,5 @@ it('knows a mutant that let the change through: it survived, no test covered it,
     'skipped' => [MutantStatus::Skipped, false],
     'out of memory' => [MutantStatus::OutOfMemory, false],
     'failing unmutated' => [MutantStatus::FailsUnmutated, false],
+    'not reached in a shard\'s part' => [MutantStatus::NotReached, false],
 ]);

@@ -6,6 +6,8 @@ use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Pest;
 use NightWorksIO\MutationGate\Core\Config\PhpCalls;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
+use NightWorksIO\MutationGate\Core\Config\SplitStream;
+use NightWorksIO\MutationGate\Core\Config\StreamSharding;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
@@ -89,4 +91,18 @@ it('boots mutants\' workers unless pest.bootMutants turns it off, a later layer 
         ->toEqual(Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": false, "splitStream": {"enabled": false, "children": 1, "changeCheck": true, "killersFirst": true}}')))
         ->and([Pest::of(bootMutants: true)->php(ProjectRoot::origin()), $off->php(ProjectRoot::origin())])
         ->toEqual([PhpCalls::inWith('Pest::bootingMutants()'), PhpCalls::inWith('Pest::mutantsUnbooted()')]);
+});
+
+it('splits its streams under the patched Pest runner compiling schemata where asked, and cuts the test files across shards unless sharding by source', function (): void {
+    $pest = Choice::of('pest', Configs::options('{}'));
+    $infection = Choice::of('infection', Configs::options('{}'));
+    $splitting = static fn(SplitStream $split): Pest => Pest::of(patch: true, schemata: true)->over(Pest::splitting($split));
+
+    expect($splitting(SplitStream::of(enabled: true))->splits($pest))->toBeTrue()
+        ->and($splitting(SplitStream::of(enabled: true))->splitsByTests($pest))->toBeTrue()
+        ->and($splitting(SplitStream::of(enabled: true, sharding: StreamSharding::Source))->splits($pest))->toBeTrue()
+        ->and($splitting(SplitStream::of(enabled: true, sharding: StreamSharding::Source))->splitsByTests($pest))->toBeFalse()
+        ->and($splitting(SplitStream::of(enabled: true))->splitsByTests($infection))->toBeFalse()
+        ->and($splitting(SplitStream::of())->splitsByTests($pest))->toBeFalse()
+        ->and(Pest::of(patch: false, schemata: true)->over(Pest::splitting(SplitStream::of(enabled: true)))->splitsByTests($pest))->toBeFalse();
 });

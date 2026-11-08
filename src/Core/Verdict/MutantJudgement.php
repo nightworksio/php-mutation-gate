@@ -48,7 +48,8 @@ enum MutantJudgement: string
      * The judgement a status comes to before any triage: a timeout, or a
      * mutant skipped as too slow to run, is too slow to judge until timeout
      * triage confirms it a kill, and a mutant out of memory is too heavy to
-     * judge until memory triage does.
+     * judge until memory triage does. A shard's not-reached outcome, which the
+     * verdict merges away before it judges, judges nothing.
      */
     public static function reported(MutantStatus $status): self
     {
@@ -59,7 +60,7 @@ enum MutantJudgement: string
             MutantStatus::Uncovered => self::Uncovered,
             MutantStatus::TimedOut => self::TooSlowToJudge,
             MutantStatus::Errored => self::Errored,
-            MutantStatus::Unjudged => self::Unjudged,
+            MutantStatus::Unjudged, MutantStatus::NotReached => self::Unjudged,
             MutantStatus::IgnoredByMarker => self::IgnoredByMarker,
             MutantStatus::Skipped => self::TooSlowToJudge,
             MutantStatus::OutOfMemory => self::TooHeavyToJudge,

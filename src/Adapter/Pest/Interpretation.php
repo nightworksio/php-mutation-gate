@@ -8,6 +8,7 @@ use function array_map;
 use function count;
 use function implode;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -22,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Mutant\TestShare;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Exhaustion;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
@@ -46,7 +48,9 @@ use function sprintf;
  * a mutant whose own process had loaded its file before the mutant was in
  * place, because its tests ran the original code; and a survivor whose own
  * process said it ran no test, because nothing judged it. Each kill keeps
- * the evidence its own run recorded (ADR-0014).
+ * the evidence its own run recorded (ADR-0014). A mutant the run's part of
+ * the test files left to another part is not reached, and each other keeps
+ * how many of its covering tests that part held (ADR-0117).
  *
  * @internal
  */
@@ -121,12 +125,14 @@ final readonly class Interpretation
 
             $judged = $this->rejected($this->mutant($ids[$at], $mutant, $records, $selection), $mutant);
             $mutants[] = $judged;
-            $evidence = $evidence->with(
-                $judged->id(),
-                $records->isStreamed($mutant)
-                    ? Evidence::none()->streamed()
-                    : $this->unfiltered($this->evidenceOf($judged, $mutant, $records), $mutant, $records),
+            $given = $records->isMarked($mutant, RecordEvent::Streamed)
+                ? Evidence::none()->streamed()
+                : $this->unfiltered($this->evidenceOf($judged, $mutant, $records), $mutant, $records);
+            $share = TestShare::of(
+                owned: $records->isMarked($mutant, RecordEvent::OwnedPart),
+                otherOwned: $records->isMarked($mutant, RecordEvent::OtherPart),
             );
+            $evidence = $evidence->with($judged->id(), $given->sharing($share));
         }
 
         return MutationResult::skippingNone(Mutants::of(...$mutants))->withEvidence($evidence);
@@ -178,10 +184,15 @@ final readonly class Interpretation
      * after its own process recorded a failing test, as one that runs on
      * past its limit after its first failure under a full kill matrix does
      * (ADR-0014); a kill whose process ran out of exactly the
-     * gate's memory cap is out of memory (ADR-0004).
+     * gate's memory cap is out of memory (ADR-0004); one the run's part of
+     * the test files left to another part is not reached (ADR-0117).
      */
     private function statusOf(PlannedMutant $planned, Records $records): MutantStatus
     {
+        if ($records->isMarked($planned, RecordEvent::Unreached)) {
+            return MutantStatus::NotReached;
+        }
+
         $run = $records->runOf($planned);
         $status = $records->statusOf($planned)->status();
         $status = $status === MutantStatus::TimedOut && count($run->killers()) > 0 ? MutantStatus::Killed : $status;

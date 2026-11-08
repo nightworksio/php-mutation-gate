@@ -31,6 +31,31 @@ enum MutantStatus: string
     case FailsUnmutated = 'fails-unmutated';
 
     /**
+     * No test of the shard's part of the test files covers it, and another
+     * part owns it, where a run cuts its test files across its shards
+     * (ADR-0117): a shard's own outcome, which the verdict merges with every
+     * other part's, never a mutant's final status.
+     */
+    case NotReached = 'not-reached';
+
+    /**
+     * Every status a mutant's final record holds: all but a shard's
+     * not-reached outcome, which the verdict merges away.
+     *
+     * @return list<self>
+     */
+    public static function final(): array
+    {
+        $final = [];
+
+        foreach (self::cases() as $status) {
+            $final = $status === self::NotReached ? $final : [...$final, $status];
+        }
+
+        return $final;
+    }
+
+    /**
      * The status as a run's answer about the mutant: a kill by static
      * analysis and a kill by a test as one, since whether the analyser
      * checked a mutant before its tests or after them is the run's placement,
@@ -55,7 +80,8 @@ enum MutantStatus: string
             self::IgnoredByMarker,
             self::Skipped,
             self::OutOfMemory,
-            self::FailsUnmutated => false,
+            self::FailsUnmutated,
+            self::NotReached => false,
         };
     }
 

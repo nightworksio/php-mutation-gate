@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
+use NightWorksIO\MutationGate\Core\Test\TestPart;
 
 afterEach(function (): void {
-    foreach ([GateVariable::Split, GateVariable::SplitChildren, GateVariable::SplitChangeCheck, GateVariable::SplitKillersFirst] as $variable) {
+    foreach ([GateVariable::Split, GateVariable::SplitChildren, GateVariable::SplitChangeCheck, GateVariable::SplitKillersFirst, GateVariable::SplitPart] as $variable) {
         putenv($variable->value);
     }
 });
@@ -53,3 +54,26 @@ it('reads a child count that is no number, or under one, as one', function (stri
 
     expect(StreamSettings::fromEnvironment()->children())->toBe(1);
 })->with(['many', '0', '-2']);
+
+it('tells a run its part of the test files, and nothing of every test file', function (): void {
+    expect(StreamSettings::parting(TestPart::of(2, 3)))->toBe(['MUTATION_GATE_SPLIT_PART' => '2/3'])
+        ->and(StreamSettings::parting(TestPart::whole()))->toBe([]);
+});
+
+it('reads back the part it told a run, and every test file where it told none there is', function (string $told, TestPart $part): void {
+    putenv(sprintf('%s=%s', GateVariable::SplitPart->value, $told));
+
+    expect(StreamSettings::fromEnvironment()->part())->toEqual($part);
+})->with([
+    'a part' => ['2/3', TestPart::of(2, 3)],
+    'the last part' => ['3/3', TestPart::of(3, 3)],
+    'past the last part' => ['4/3', TestPart::whole()],
+    'part nought' => ['0/3', TestPart::whole()],
+    'no count' => ['2', TestPart::whole()],
+    'no number' => ['two/three', TestPart::whole()],
+]);
+
+it('reads a run told no part as judged by every test file', function (): void {
+    expect(StreamSettings::fromEnvironment()->part())->toEqual(TestPart::whole())
+        ->and(StreamSettings::off()->part())->toEqual(TestPart::whole());
+});

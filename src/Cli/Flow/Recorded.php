@@ -244,12 +244,14 @@ final readonly class Recorded
 
     /**
      * The ledger, with what each shard taught the cost model of the units it
-     * ran, timed by the map it was handed, each smoothed over the timing every
-     * ledger read held of it: a unit its budget ran out before took none of
-     * its time; each mutant a test killed, its time over its covering
-     * tests' own time by that map, which a learned `timeouts.multiple` is
-     * read from (ADR-0073); and what each mutator's mutants the shard ran
-     * cost and came to, as the verdict judged them (ADR-0076).
+     * ran, timed by the map it was handed, the shards that each judge a unit
+     * by a part of the test files adding up (ADR-0117), smoothed over the
+     * timing every ledger read held of it: a unit its budget ran out before
+     * took none of its time, and a mutant a shard's part did not reach none of
+     * its time; each mutant a test killed, its time over its covering tests'
+     * own time by that map, which a learned `timeouts.multiple` is read from
+     * (ADR-0073); and what each mutator's mutants the shard ran cost and came
+     * to, as the verdict judged them (ADR-0076).
      */
     private function learned(
         Ledger $ledger,
@@ -261,6 +263,7 @@ final readonly class Recorded
         $pruned = $plan->considered()->pruned()->files();
         $handoff = new Handoff($this->adapters->project, Handoff::limits());
         $times = MutantTimes::none();
+        $timings = Timings::none();
 
         foreach ($results->shards() as [$shard, $result, $mutated]) {
             $map = $handoff->read($shard->id());
@@ -269,21 +272,24 @@ final readonly class Recorded
                 return $map;
             }
 
+            $reached = $mutated->mutants()->reached();
             $ran = $shard->units()->except($result->unjudged());
-            $times = $times->and(MutantTimes::of($mutated->mutants(), $map, $result->measured()->spent()));
-            $ledger = $ledger->withTimings($this->adapters->costs->learn(
+            $times = $times->and(MutantTimes::of($reached, $map, $result->measured()->spent()));
+            $timings = $timings->plus($this->adapters->costs->learn(
                 $ran->except($ran->within($pruned)),
-                $mutated->mutants(),
+                $reached,
                 $map,
                 $result->measured(),
-            )->smoothedOver($held));
-            $paces = KillPace::ofAll($mutated->mutants(), $map);
+            ));
+            $paces = KillPace::ofAll($reached, $map);
             $ledger = $ledger->withLearned($ledger->learned()->limits()->afterKills(...$paces));
         }
 
         $runner = $this->settings->runner()->name();
 
-        return $ledger->withLearned($ledger->learned()->tallies()->after($runner, $judged, $times));
+        return $ledger
+            ->withTimings($timings->smoothedOver($held))
+            ->withLearned($ledger->learned()->tallies()->after($runner, $judged, $times));
     }
 
     /** The ledger, having learned, for a run cut into shards, how many of them ran at once (ADR-0073). */

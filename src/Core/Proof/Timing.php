@@ -45,6 +45,22 @@ final readonly class Timing
     }
 
     /**
+     * This measurement, and another of the same unit in the same run, as
+     * shards that each judge it by a part of the test files measure it
+     * (ADR-0117): their seconds together, at the later of the two.
+     */
+    public function plus(self $other): self
+    {
+        return new self(
+            $this->unit,
+            Seconds::of($this->seconds->seconds() + $other->seconds->seconds()),
+            $this->runner,
+            $other->at->isAfter($this->at) ? $other->at : $this->at,
+            $this->gate,
+        );
+    }
+
+    /**
      * This measurement, smoothed over an earlier timing of the same unit:
      * weighing `NEWEST` itself, and the earlier timing the rest.
      */

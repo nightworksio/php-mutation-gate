@@ -310,3 +310,44 @@ it('cuts no shard to a target where there is no work', function (): void {
     expect(Cut::toTarget(Seconds::of(600.0), Seconds::of(60.0), 20)->cut(Workload::of(), Trees::none()))
         ->toHaveCount(0);
 });
+
+it('gives each shard every unit of its package and its own part of the test files where it cuts the test files', function () use (
+    $weighed,
+    $makeSrc,
+    $shards,
+): void {
+    $cut = Cut::bySize(600, Seconds::of(0.0), 20)->cuttingTestFiles()->cut(
+        Workload::of($weighed('src/B.php', 900.0), $weighed('src/A.php', 900.0)),
+        $makeSrc(),
+    );
+    $parts = $cut instanceof Shards
+        ? array_map(
+            static fn(Shard $shard): array => [$shard->testPart()->number(), $shard->testPart()->parts()],
+            iterator_to_array($cut, preserve_keys: false),
+        )
+        : [];
+
+    expect($shards($cut))->toBe([
+        [1, 'src, part 1 of 3', 600.0, '.', ['src/A.php', 'src/B.php']],
+        [2, 'src, part 2 of 3', 600.0, '.', ['src/A.php', 'src/B.php']],
+        [3, 'src, part 3 of 3', 600.0, '.', ['src/A.php', 'src/B.php']],
+    ])->and($parts)->toBe([[1, 3], [2, 3], [3, 3]]);
+});
+
+it('cuts the test files into as many parts as the shards asked for, and keeps doing so at a learned most', function () use (
+    $weighed,
+    $makeSrc,
+): void {
+    $parts = static fn(Shards|CannotJudge $cut): array => $cut instanceof Shards
+        ? array_map(
+            static fn(Shard $shard): array => [$shard->testPart()->number(), $shard->testPart()->parts()],
+            iterator_to_array($cut, preserve_keys: false),
+        )
+        : [];
+    $work = Workload::of($weighed('src/A.php', 100.0));
+
+    expect($parts(Cut::exactly(2)->cuttingTestFiles()->cut($work, $makeSrc())))->toBe([[1, 2], [2, 2]])
+        ->and($parts(Cut::bySize(10, Seconds::of(0.0), 20)->cuttingTestFiles()->atMost(3)->opening(Seconds::of(0.0))->cut($work, $makeSrc())))
+        ->toBe([[1, 3], [2, 3], [3, 3]])
+        ->and($parts(Cut::bySize(10, Seconds::of(0.0), 20)->cut($work, $makeSrc())))->toBe([[1, 1]]);
+});

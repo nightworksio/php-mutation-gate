@@ -58,6 +58,22 @@ final readonly class Timings implements Countable, IteratorAggregate
     }
 
     /**
+     * These timings and those of another shard of the same run, each unit
+     * both timed taking the time of both, as shards that each judge it by a
+     * part of the test files measure it (ADR-0117).
+     */
+    public function plus(self $other): self
+    {
+        $timings = $this->timings;
+
+        foreach ($other->timings as $unit => $timing) {
+            $timings[$unit] = array_key_exists($unit, $timings) ? $timings[$unit]->plus($timing) : $timing;
+        }
+
+        return new self($timings);
+    }
+
+    /**
      * These timings, as a run measured them, each smoothed over the unit's
      * timing held from an earlier measurement by the same runner and a gate
      * that costs as this one does, as `Timing::smoothedOver()` weighs them. A

@@ -31,9 +31,12 @@ use function sprintf;
  * within it is by size. Either way, no package is cut into shards whose
  * share of its cost is below twice their overhead (ADR-0013).
  * Exactly, as `--shards=<n>` asks, there are n shards,
- * and those the units do not fill are empty and say so. Packages never share a shard, because a shard runs in
- * one package's directory; floors may, because the verdict adds up each
- * mutant itself.
+ * and those the units do not fill are empty and say so. Where a run that
+ * splits its streams shards by tests (ADR-0117), each of a package's shards
+ * takes every unit of it and its own part of the test files, n parts for n
+ * shards, its cost the package's over n. Packages never share a shard,
+ * because a shard runs in one package's directory; floors may, because the
+ * verdict adds up each mutant itself.
  *
  * @internal
  */
@@ -52,6 +55,7 @@ final readonly class Cut
         private bool $exact,
         private Seconds|Absent $target,
         private Seconds $overhead,
+        private bool $testParts = false,
     ) {
     }
 
@@ -76,7 +80,15 @@ final readonly class Cut
     /** This cut, at most this many shards, as a learned `shards.max` gives; a count asked for is cut as asked. */
     public function atMost(int $most): self
     {
-        return $this->exact ? $this : new self($this->size, $most, $this->exact, $this->target, $this->overhead);
+        return $this->exact
+            ? $this
+            : new self($this->size, $most, $this->exact, $this->target, $this->overhead, $this->testParts);
+    }
+
+    /** This cut, each of a package's shards taking every unit of it and its own part of the test files. */
+    public function cuttingTestFiles(): self
+    {
+        return new self($this->size, $this->most, $this->exact, $this->target, $this->overhead, testParts: true);
     }
 
     /** This cut, where each shard's runner first spends this long on its opening run. */
@@ -88,6 +100,7 @@ final readonly class Cut
             $this->exact,
             $this->target,
             Seconds::of($this->overhead->seconds() + $run->seconds()),
+            $this->testParts,
         );
     }
 
@@ -107,7 +120,7 @@ final readonly class Cut
         $runs = [];
 
         foreach ($this->countsFor($packages) as $at => $count) {
-            $runs[] = $packages[$at]->runs($count);
+            $runs[] = $this->testParts ? $packages[$at]->parts($count) : $packages[$at]->runs($count);
         }
 
         $cut = array_merge(...$runs);

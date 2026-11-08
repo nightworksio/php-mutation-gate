@@ -6,13 +6,8 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
 use function array_fill;
 use function array_filter;
-use function array_key_exists;
-use function array_key_first;
-use function array_map;
-use function array_sum;
 use function array_unique;
 use function array_values;
-use function asort;
 use function count;
 use function file_put_contents;
 use function getenv;
@@ -28,7 +23,6 @@ use NightWorksIO\MutationGate\Adapter\Pest\CoveringFiles;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\LoadedMap;
 use NightWorksIO\MutationGate\Core\Config\Triage;
-use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\PerTestVariables;
 use NightWorksIO\MutationGate\Core\Runner\ToldSeconds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -41,8 +35,6 @@ use function sprintf;
 use function str_starts_with;
 
 use Symfony\Component\Process\Process;
-
-use function uksort;
 
 /**
  * One run's passes of split streams (ADR-0117): each pass streams the test
@@ -92,7 +84,7 @@ final readonly class Streaming
             $planned[$key][$id] = [$mutant, $killer, $variables];
         }
 
-        $times = $this->times();
+        $times = LoadedMap::timed();
         $streams = [];
 
         $units = CoveringFiles::streamed(array_values(array_unique($tests)));
@@ -121,28 +113,10 @@ final readonly class Streaming
      */
     public static function parts(array $units, array $times, int $processes): array
     {
-        $count = min(max(1, $processes), max(1, count($units)));
-        $seconds = [];
+        $parts = array_fill(0, min(max(1, $processes), max(1, count($units))), []);
 
-        foreach ($units as $file => $unit) {
-            $seconds[$file] = array_sum(array_map(
-                static fn(string $test): float => array_key_exists($test, $times) ? $times[$test] : 0.0,
-                $unit['tests'],
-            ));
-        }
-
-        uksort(
-            $seconds,
-            static fn(string $one, string $two): int => [$seconds[$two], $one] <=> [$seconds[$one], $two],
-        );
-        $loads = array_fill(0, $count, 0.0);
-        $parts = array_fill(0, $count, []);
-
-        foreach ($seconds as $file => $time) {
-            asort($loads);
-            $least = array_key_first($loads);
-            $loads[$least] += $time;
-            $parts[$least] = [...$parts[$least], ...$units[$file]['files']];
+        foreach (TestParts::assigned($units, $times, $processes) as $file => $at) {
+            $parts[$at] = [...$parts[$at], ...$units[$file]['files']];
         }
 
         $cut = [];
@@ -193,22 +167,6 @@ final readonly class Streaming
         $process->start();
 
         return $process;
-    }
-
-    /** @return array<string, float> each test's own time as the coverage map measured it */
-    private function times(): array
-    {
-        $times = [];
-
-        foreach (LoadedMap::tests() as $test) {
-            $seconds = LoadedMap::secondsOf($test);
-
-            if (! $seconds instanceof NotGiven) {
-                $times[$test] = $seconds;
-            }
-        }
-
-        return $times;
     }
 
     /**
