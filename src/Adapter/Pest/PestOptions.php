@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BoundsOptions;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
@@ -13,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Pest as ConfigPest;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Config\SplitStream;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
@@ -27,7 +29,9 @@ use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
  * tail's workers boot the project (ADR-0075), false by default;
  * `workerOpcache`, whether its warm workers compile through opcache
  * (ADR-0088), true by default; `schemata`, whether each file's mutants are
- * compiled into a schema (ADR-0091), true by default; `tests`, the directories the tests live
+ * compiled into a schema (ADR-0091), true by default; `splitStream`,
+ * whether and how a patched run judges its mutants in split streams
+ * (ADR-0117), off by default; `tests`, the directories the tests live
  * in, which the flows write from the PHPUnit config, `tests` by default;
  * `timeout` and `most`, the floor and the most of each mutant's limit, which
  * the flows write from `timeouts.seconds` and `timeouts.most`; and
@@ -67,6 +71,7 @@ final readonly class PestOptions
         $tests = $options->paths(Key::of(self::TESTS));
         $mutators = $options->texts(Key::of(self::MUTATORS));
         $bounds = BoundsOptions::read($options);
+        $streams = self::streamsOf($options);
 
         return match (true) {
             $patch instanceof Problem => Invalid::because($patch),
@@ -78,12 +83,14 @@ final readonly class PestOptions
             $tests instanceof Problem => Invalid::because($tests),
             $mutators instanceof Problem => Invalid::because($mutators),
             $bounds instanceof Problem => Invalid::because($bounds),
+            $streams instanceof Problem => Invalid::because($streams),
             default => new self(
                 self::patchingOf($patch, $canary)
                     ->bootingTail($bootTail === true)
                     ->cachingInWorkers($opcache !== false)
                     ->compilingSchemata($schemata !== false)
-                    ->bootingMutants($bootMutants !== false),
+                    ->bootingMutants($bootMutants !== false)
+                    ->splitting($streams),
                 $tests instanceof NotGiven ? Paths::of(TestsDirectory::conventional()) : $tests,
                 self::bridgesTo($mutators instanceof Listed ? [...$mutators] : []),
                 $bounds,
@@ -119,6 +126,35 @@ final readonly class PestOptions
         return $patch === true
             ? Patching::on(Group::named($canary instanceof NotGiven ? ConfigPest::none()->canary()->name() : $canary))
             : Patching::off();
+    }
+
+    /** `splitStream`: whether, and how, a patched run judges its mutants in split streams (ADR-0117); off where unset. */
+    private static function streamsOf(Options $options): StreamSettings|Problem
+    {
+        $split = $options->object(Key::of(SplitStream::SECTION));
+
+        if (! $split instanceof Options) {
+            return $split instanceof Problem ? $split : StreamSettings::off();
+        }
+
+        $enabled = $split->flag(Key::of(SplitStream::ENABLED));
+        $children = $split->integer(Key::of(SplitStream::CHILDREN));
+        $changeCheck = $split->flag(Key::of(SplitStream::CHANGE_CHECK));
+        $killersFirst = $split->flag(Key::of(SplitStream::KILLERS_FIRST));
+        $standard = SplitStream::of();
+
+        return match (true) {
+            $enabled instanceof Problem => $enabled,
+            $children instanceof Problem => $children,
+            $changeCheck instanceof Problem => $changeCheck,
+            $killersFirst instanceof Problem => $killersFirst,
+            default => StreamSettings::of(
+                $enabled === true,
+                $children instanceof NotGiven ? $standard->children() : $children,
+                $changeCheck !== false,
+                $killersFirst !== false,
+            ),
+        };
     }
 
     /** @param list<string> $classes */

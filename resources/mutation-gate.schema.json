@@ -2138,6 +2138,36 @@
             },
             "additionalProperties": false
         },
+        "splitStream": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "children": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 1
+                },
+                "changeCheck": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "killersFirst": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "sharding": {
+                    "enum": [
+                        "tests",
+                        "source"
+                    ],
+                    "default": "tests"
+                }
+            },
+            "additionalProperties": false
+        },
         "staticCheck": {
             "type": "object",
             "properties": {
@@ -4518,6 +4548,31 @@
                         },
                         "bootMutants": {
                             "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "splitStream": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "children": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "changeCheck": {
+                            "type": "boolean"
+                        },
+                        "killersFirst": {
+                            "type": "boolean"
+                        },
+                        "sharding": {
+                            "enum": [
+                                "tests",
+                                "source"
+                            ]
                         }
                     },
                     "additionalProperties": false

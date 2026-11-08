@@ -75,6 +75,34 @@ final class CoveringFiles
     }
 
     /**
+     * The test files a split stream of these tests runs (ADR-0117), by the
+     * file that declares each test's class: that file and every file it
+     * needs, as a narrowed run would load them, with the tests it declares;
+     * none where a test's class is not loaded.
+     *
+     * @param  list<string>                                          $tests the tests, by their ids as Pest's coverage map names them
+     * @return array<string, array{files: list<string>, tests: list<string>}>
+     */
+    public static function streamed(array $tests): array
+    {
+        $loaded = self::loaded();
+        $units = [];
+
+        foreach ($tests as $test) {
+            $file = $loaded->fileOf(self::classOf($test));
+
+            if ($file === '') {
+                return [];
+            }
+
+            $units[$file] ??= ['files' => $loaded->needs($file), 'tests' => []];
+            $units[$file]['tests'][] = $test;
+        }
+
+        return $units;
+    }
+
+    /**
      * Those of these tests the run of the mutant with this mutated copy runs
      * where its filter is left out: each whose class a file it loads
      * declares, or every one where it loads every test file.

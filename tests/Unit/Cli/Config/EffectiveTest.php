@@ -130,7 +130,7 @@ it('finds the runner of a config that only says what it withholds', function () 
 
     expect($runner instanceof ChosenRunner ? [$runner->choice(), $runner->withhold()] : $runner)
         ->toEqual([
-            Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": true}')),
+            Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": true, "splitStream": {"enabled": false, "children": 1, "changeCheck": true, "killersFirst": true}}')),
             Withheld::of('DEPLOY_*'),
         ]);
 });

@@ -46,6 +46,9 @@ final class OwnRuns
     /** @var array<string, true> each own run that loaded the original before the mutant was in place, by its copy */
     private array $preloaded = [];
 
+    /** @var array<string, true> each mutant a split stream judged, by its copy (ADR-0117) */
+    private array $streamed = [];
+
     /** @var array<string, list<string>> the test files each narrowed own run loaded, by the mutated copy it ran on */
     private array $narrowed = [];
 
@@ -181,6 +184,18 @@ final class OwnRuns
     public function preloaded(Node $record): void
     {
         $this->preloaded[$this->mutatedIn($record)] = true;
+    }
+
+    /** @throws NotInShape */
+    public function streamed(Node $record): void
+    {
+        $this->streamed[$this->mutatedIn($record)] = true;
+    }
+
+    /** Whether a split stream judged the mutant this mutated copy serves (ADR-0117). */
+    public function isStreamed(string $mutated): bool
+    {
+        return array_key_exists($mutated, $this->streamed);
     }
 
     /** @throws NotInShape */

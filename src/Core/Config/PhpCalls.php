@@ -49,6 +49,20 @@ final readonly class PhpCalls
         return new self([], array_values($settings));
     }
 
+    /**
+     * The call that sets a switch as a layer sets it, on or off; none where the layer leaves it.
+     *
+     * @return list<string>
+     */
+    public static function switched(bool|Absent $value, string $on, string $off): array
+    {
+        return match ($value) {
+            true => [$on],
+            false => [$off],
+            default => [],
+        };
+    }
+
     /** A value as PHP writes it. */
     public static function literal(string|int|float|bool $value): string
     {

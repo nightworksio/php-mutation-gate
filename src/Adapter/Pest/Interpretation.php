@@ -121,10 +121,9 @@ final readonly class Interpretation
 
             $judged = $this->rejected($this->mutant($ids[$at], $mutant, $records, $selection), $mutant);
             $mutants[] = $judged;
-            $evidence = $evidence->with(
-                $judged->id(),
-                $this->unfiltered($this->evidenceOf($judged, $mutant, $records), $mutant, $records),
-            );
+            $evidence = $evidence->with($judged->id(), $records->isStreamed($mutant)
+                ? Evidence::none()->streamed()
+                : $this->unfiltered($this->evidenceOf($judged, $mutant, $records), $mutant, $records));
         }
 
         return MutationResult::skippingNone(Mutants::of(...$mutants))->withEvidence($evidence);

@@ -229,7 +229,8 @@ final readonly class Invoking
         $run = $this->adapters->runner->behaviour()->selection();
         $unfiltered = $this->unfilteredIn($mutants, $evidence);
         $bounds = $request->pool()->bounding($this->settings->triage()->bounds());
-        $timed = $this->settings->triage()->timeouts() === TimeoutMode::Unjudged ? Mutants::none() : $mutants;
+        $controllable = self::unstreamed($mutants, $evidence);
+        $timed = $this->settings->triage()->timeouts() === TimeoutMode::Unjudged ? Mutants::none() : $controllable;
         $heavy = $this->parted->among($timed, $run, $bounds);
         $timeouts = TimeoutControls::of(
             $heavy->without($timed),
@@ -240,9 +241,9 @@ final readonly class Invoking
             $bounds->perTest(),
         );
         $controls = $bounds->upToInstead($this->settings->triage()->controlMost());
-        $kills = KillControls::of($mutants, $evidence, $this->map, $run, $controls);
-        $memory = MemoryControls::of($mutants, $unfiltered, $this->map, $this->held, $run, $bounds);
-        $unnamed = UnnamedKillControls::of($mutants, $evidence, $this->map, $this->held, $run, $controls);
+        $kills = KillControls::of($controllable, $evidence, $this->map, $run, $controls);
+        $memory = MemoryControls::of($controllable, $unfiltered, $this->map, $this->held, $run, $bounds);
+        $unnamed = UnnamedKillControls::of($controllable, $evidence, $this->map, $this->held, $run, $controls);
         $asked = [...Controls::of(...[
             ...$timeouts->asked(),
             ...$kills->asked(),
@@ -282,6 +283,20 @@ final readonly class Invoking
         );
 
         return $this->partedIn($controlled, $heavy, $request);
+    }
+
+    /** The mutants no split stream judged: a stream's verdicts need no control (ADR-0117). */
+    private static function unstreamed(Mutants $mutants, Evidences $evidence): Mutants
+    {
+        $controllable = [];
+
+        foreach ($mutants as $mutant) {
+            if (! $evidence->of($mutant->id())->isStreamed()) {
+                $controllable[] = $mutant;
+            }
+        }
+
+        return Mutants::of(...$controllable);
     }
 
     /** What the controls found, each heavy mutant judged by its parts; or why a part cannot be judged. */

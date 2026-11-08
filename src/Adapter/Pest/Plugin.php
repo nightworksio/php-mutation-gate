@@ -8,6 +8,7 @@ use function array_values;
 
 use Closure;
 
+use function dirname;
 use function get_declared_classes;
 use function get_included_files;
 use function getenv;
@@ -26,6 +27,8 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\ReplayStop;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\StartedWith;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\TimedTests;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\Stream;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamEvents;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Database\WarmDatabase;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\OpcacheBlacklist;
 use NightWorksIO\MutationGate\Core\Runner\Opcache;
@@ -91,6 +94,13 @@ final class Plugin implements Bootable, HandlesArguments
     public function boot(): void
     {
         $loaded = get_included_files();
+        $plan = getenv(GateVariable::SplitPlan->value);
+
+        if (is_string($plan) && $plan !== '' && Stream::from($plan)) {
+            Schemata::servedIn(dirname($plan));
+            StreamEvents::registerIn(Facade::instance());
+        }
+
         WarmDatabase::begun();
         Bridged::load(getenv(GateVariable::Mutators->value));
         HoldsGroups::register(TestSuite::getInstance()->tests);

@@ -80,6 +80,12 @@ final readonly class KillerFile
         return sprintf(self::FILE, $results, '*');
     }
 
+    /** The line that says a split stream judged the mutant, against its own unmutated stream (ADR-0117). */
+    public static function streamed(): string
+    {
+        return sprintf('%s%s', RecordEvent::Streamed->value, self::LINE);
+    }
+
     /** The line that says the process had loaded the original file before the mutant was in place. */
     public static function preloaded(): string
     {
@@ -175,6 +181,7 @@ final readonly class KillerFile
             RecordEvent::Killed => $where instanceof Placed ? [RecordLine::killed($mutated, $named, $where)] : [],
             RecordEvent::Errored => $where instanceof Placed ? [RecordLine::errored($mutated, $named, $where)] : [],
             RecordEvent::Preloaded => [RecordLine::preloaded($mutated)],
+            RecordEvent::Streamed => [RecordLine::streamed($mutated)],
             RecordEvent::Ran => WholeNumber::isDigits($test) ? [RecordLine::ran($mutated, (int) $test)] : [],
             RecordEvent::Arguments => self::startedWith($mutated, $named),
             RecordEvent::Ordered => self::orderedOf($mutated, $test, implode(self::SEPARATOR, array_slice($fields, 2))),

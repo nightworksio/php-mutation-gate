@@ -179,6 +179,14 @@ final readonly class RecordLine
      * That the own process of the mutant Pest serves this mutated copy for had
      * loaded the original file before the mutant was in its place.
      */
+    public static function streamed(string $mutated): string
+    {
+        return self::line([
+            RecordField::Event->value => RecordEvent::Streamed->value,
+            RecordField::Mutated->value => $mutated,
+        ]);
+    }
+
     public static function preloaded(string $mutated): string
     {
         return self::line([

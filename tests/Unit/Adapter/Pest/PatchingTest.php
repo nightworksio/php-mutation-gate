@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Selection;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
 use NightWorksIO\MutationGate\Adapter\Pest\Suite;
 use NightWorksIO\MutationGate\Adapter\Pest\TestFiles;
 use NightWorksIO\MutationGate\Adapter\Pest\Unpatched;
@@ -107,4 +108,22 @@ it('selects exactly a mutant\'s covering rows where the patch is on, and every r
         ->and(Patching::on(Group::named('mutation-canary'))->selection($files))->toEqual(new ExactRows($files))
         ->and(Patching::off()->selecting($covering, Suite::of($covering)))->toEqual(Selection::of($covering))
         ->and(Patching::off()->selection($files))->toEqual(new EveryRow());
+});
+
+it('splits its streams where it is on, compiles schemata and is told to, keeping its other settings as they were', function (): void {
+    $splitting = StreamSettings::of(true, 2, true, true);
+    $on = Patching::on(Group::named('canary'))->bootingTail(boots: true)->splitting($splitting);
+
+    expect([
+        $on->splitsStreams(),
+        $on->bootsTail(),
+        $on->cachingInWorkers(caches: false)->splitsStreams(),
+        $on->compilingSchemata(compiles: false)->splitsStreams(),
+        $on->compilingSchemata(compiles: false)->schemata(),
+        $on->splitting(StreamSettings::off())->splitsStreams(),
+        $on->bootingMutants(boots: false)->bootingTail(boots: false)->splitsStreams(),
+        Patching::off()->splitting($splitting)->splitsStreams(),
+        Patching::off()->splitting($splitting)->schemata(),
+    ])->toBe([true, true, true, false, [], false, true, false, []])
+        ->and($on->schemata())->toBe(['MUTATION_GATE_SCHEMATA' => '1', ...$splitting->variables()]);
 });

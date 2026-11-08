@@ -25,7 +25,7 @@ final readonly class Spliced
     }
 
     /** The code with these sites switched by this switch, and the ids of those switched. */
-    public static function of(string $source, string $switch, Placed ...$placed): self
+    public static function of(string $source, SwitchCall $switch, Placed ...$placed): self
     {
         $sorted = $placed;
         usort($sorted, static fn(Placed $one, Placed $other): int => $one->order() <=> $other->order());

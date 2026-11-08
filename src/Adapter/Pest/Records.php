@@ -159,6 +159,12 @@ final class Records
     }
 
     /** What the plugin recorded of a mutant's own process. */
+    /** Whether a split stream judged this mutant, against its own unmutated stream (ADR-0117). */
+    public function isStreamed(PlannedMutant $mutant): bool
+    {
+        return $this->runs->isStreamed($mutant->mutated()->value());
+    }
+
     public function runOf(PlannedMutant $mutant): OwnRun
     {
         $mutated = $mutant->mutated()->value();
@@ -266,6 +272,7 @@ final class Records
             RecordEvent::Exhausted => $this->runs->exhausted($record),
             RecordEvent::Fatal => $this->runs->fatal($record),
             RecordEvent::Preloaded => $this->runs->preloaded($record),
+            RecordEvent::Streamed => $this->runs->streamed($record),
             RecordEvent::Narrowed => $this->runs->narrowed($record),
             RecordEvent::Limited => $this->runs->limited($record),
             RecordEvent::Unfiltered => $this->runs->unfiltered($record),

@@ -152,7 +152,7 @@ it('marks every hunk it writes, one mark to a hunk, so another version\'s are fo
         MutatePlugin::FILES,
     ));
 
-    expect($marks)->toBe(29);
+    expect($marks)->toBe(30);
 });
 
 it('compiles each file\'s mutants into a schema and serves a switched mutant the schema, its switch in force, where the gate asks for schemata', function () use ($vendor, $source): void {

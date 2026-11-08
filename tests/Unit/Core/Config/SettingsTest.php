@@ -66,7 +66,7 @@ describe('Settings', function (): void {
         expect([...$settings->extensions()])->toBe([])
             ->and([...$settings->presets()])->toBe([])
             ->and($settings->runner()->choice())
-            ->toEqual(Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": true}')))
+            ->toEqual(Choice::of('pest', Configs::options('{"patch": false, "canary": "mutation-canary", "bootTail": false, "workerOpcache": true, "schemata": true, "bootMutants": true, "splitStream": {"enabled": false, "children": 1, "changeCheck": true, "killersFirst": true}}')))
             ->and($settings->treeSource())->toEqual(Choice::of('phpunit', Configs::options('{"fallback":[]}')))
             ->and($floors->trees())->toEqual(Absent::setting())
             ->and($floors->newCode())->toEqual(Floor::of(100))
@@ -262,7 +262,7 @@ describe('Settings', function (): void {
             . '"gitlab":{"template":".gitlab/mutation-gate.yml"},"jenkins":{"definition":"Jenkinsfile"}},'
             . '"extensions":[],"flaky":{"confirmSurvivors":true},"mutators":{"except":[],"sets":[]},"packages":[],'
             . '"pest":{"bootMutants":true,"bootTail":false,"canary":"mutation-canary","patch":false,"schemata":true,"workerOpcache":true},"pruning":{"enabled":true,"window":500},'
-            . '"runner":{"memory":"1G","use":"pest"},"staticCheck":{"seconds":60,"tool":"auto"},"tests":{"order":"killers-first"},'
+            . '"runner":{"memory":"1G","use":"pest"},"splitStream":{"changeCheck":true,"children":1,"enabled":false,"killersFirst":true,"sharding":"tests"},"staticCheck":{"seconds":60,"tool":"auto"},"tests":{"order":"killers-first"},'
             . '"timeouts":{"most":300,"perTest":3,"seconds":10,"testFloor":3,"tighter":{"floor":7,"mutators":["RemoveArrayItem","DecrementInteger","IncrementInteger","ForeachEmptyIterable","UnwrapArrayValues","InstanceOfToTrue","InstanceOfToFalse","TernaryNegated","ArrayItemRemoval","Foreach_","InstanceOf_","Ternary"]}},"treeSource":{"use":"phpunit","with":{"fallback":[]}}}',
         )->and(Configs::settings(SettingsCases::EVERYTHING)->canonical())->toBe(
             '{"ci":{"azure":{"definition":"ci/azure.yml"},"bitbucket":{"definition":"ci/bitbucket.yml"},'
@@ -272,6 +272,7 @@ describe('Settings', function (): void {
             . '"mutators":{"except":["acme/RemoveAudit"],"sets":["acme","acme-auth"]},"packages":["packages/*"],'
             . '"pest":{"bootMutants":false,"bootTail":true,"canary":"canary","patch":true,"schemata":false,"workerOpcache":false},"pruning":{"enabled":false,"window":200},'
             . '"runner":{"memory":"512M","use":"infection","withhold":["DEPLOY_*","COMPOSER_AUTH"],"workers":"fresh"},'
+            . '"splitStream":{"changeCheck":false,"children":2,"enabled":true,"killersFirst":false,"sharding":"source"},'
             . '"staticCheck":{"config":"phpstan.dist.neon","seconds":45,"tool":"phpstan"},'
             . '"tests":{"holding":["Process"],"order":"killers-first","suites":["Unit","Plugins"]},"timeouts":{"most":120,"perTest":false,"seconds":30,"testFloor":2,"tighter":{"floor":7,"mutators":["RemoveArrayItem","DecrementInteger","IncrementInteger","ForeachEmptyIterable","UnwrapArrayValues","InstanceOfToTrue","InstanceOfToFalse","TernaryNegated","ArrayItemRemoval","Foreach_","InstanceOf_","Ternary"]}},'
             . '"treeSource":{"use":"phpunit","with":{"fallback":["app","lib"]}},'
@@ -384,6 +385,21 @@ describe('Settings', function (): void {
 
         expect($chosen(4))->not->toBe($chosen(8));
     })->with(['runner', 'treeSource']);
+
+    it('splits streams under the patched Pest runner where splitStream.enabled says so, checking no mutant before its tests unless told to', function (): void {
+        $split = ['runner' => 'pest', 'pest' => ['patch' => true], 'splitStream' => ['enabled' => true]];
+        $checked = [...$split, 'staticCheck' => ['before' => true]];
+        $unsplit = ['runner' => 'pest', 'pest' => ['patch' => true]];
+        $infection = ['runner' => 'infection', 'pest' => ['patch' => true], 'splitStream' => ['enabled' => true]];
+
+        expect(array_map(
+            static fn(array $config): array => [
+                Configs::settings($config)->splitsStreams(),
+                Configs::settings($config)->staticCheck()->before(),
+            ],
+            [$split, $checked, $unsplit, $infection],
+        ))->toBe([[true, false], [true, true], [false, true], [false, true]]);
+    });
 
     it('keys a tree with no exclude as one with an empty exclude', function (): void {
         $tree = static fn(array $tree): string => Configs::settings(['runner' => 'pest', 'trees' => [$tree]])->canonical();

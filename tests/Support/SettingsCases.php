@@ -173,6 +173,13 @@ final readonly class SettingsCases
             "schemata": true,
             "bootMutants": true
         },
+        "splitStream": {
+            "enabled": false,
+            "children": 1,
+            "changeCheck": true,
+            "killersFirst": true,
+            "sharding": "tests"
+        },
         "staticCheck": {
             "tool": "auto",
             "seconds": 60,
@@ -264,6 +271,7 @@ final readonly class SettingsCases
         'badge' => ['colors' => ['green' => 95]],
         'dashboard' => ['topic' => 'mutation-tested', 'repositories' => ['api', 'web']],
         'pest' => ['patch' => true, 'canary' => 'canary', 'bootTail' => true, 'workerOpcache' => false, 'schemata' => false, 'bootMutants' => false],
+        'splitStream' => ['enabled' => true, 'children' => 2, 'changeCheck' => false, 'killersFirst' => false, 'sharding' => 'source'],
         'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45, 'before' => true],
         'pruning' => ['enabled' => false, 'window' => 200, 'audit' => '3d'],
         'sampling' => [

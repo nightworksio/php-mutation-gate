@@ -20,7 +20,8 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 /**
  * What the records of a run say of its kills: the own run each mutant's
  * process recorded, with its copy and the seconds Pest allowed it, and which
- * mutants Pest left uncovered, whose kills are the trial's (ADR-0004).
+ * mutants Pest left uncovered, whose kills are the trial's (ADR-0004), or a
+ * split stream judged against its own unmutated stream (ADR-0117).
  * Records that cannot be read say nothing of any.
  *
  * @internal
@@ -29,9 +30,9 @@ final readonly class RecordedKills
 {
     /**
      * @param array<string, array{OwnRun, string, Seconds|Unmeasured}> $runs      by native id
-     * @param array<string, true>                                      $uncovered each native id Pest left uncovered
+     * @param array<string, true>                                      $judgedElsewhere each native id a trial or a split stream judged
      */
-    private function __construct(private array $runs, private array $uncovered)
+    private function __construct(private array $runs, private array $judgedElsewhere)
     {
     }
 
@@ -42,7 +43,7 @@ final readonly class RecordedKills
         }
 
         $runs = [];
-        $uncovered = [];
+        $judgedElsewhere = [];
 
         foreach ($records->planned() as $planned) {
             $runs[$planned->id()] = [
@@ -51,12 +52,12 @@ final readonly class RecordedKills
                 $records->limitOf($planned),
             ];
 
-            if ($records->statusOf($planned) === PestStatus::Uncovered) {
-                $uncovered[$planned->id()] = true;
+            if ($records->statusOf($planned) === PestStatus::Uncovered || $records->isStreamed($planned)) {
+                $judgedElsewhere[$planned->id()] = true;
             }
         }
 
-        return new self($runs, $uncovered);
+        return new self($runs, $judgedElsewhere);
     }
 
     /**
@@ -69,7 +70,7 @@ final readonly class RecordedKills
         return array_values(array_filter(
             [...$mutants],
             fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::Killed
-                && ! array_key_exists($mutant->nativeId(), $this->uncovered),
+                && ! array_key_exists($mutant->nativeId(), $this->judgedElsewhere),
         ));
     }
 

@@ -29,7 +29,11 @@ final readonly class Settings
     {
         $runner = $layer->setup()->runner();
         $late = $layer->ignores()->late($now);
-        $settled = Layer::standard()->over($layer);
+        $settled = Layer::standard()->over(
+            $runner instanceof Choice && $layer->pest()->splits($runner)
+                ? Layer::of(StaticCheck::of(before: false))->over($layer)
+                : $layer,
+        );
         $unbounded = $settled->triage()->refusal();
         $paths = $settled->setup()->paths()->unbounded($settled);
         $problems = [
@@ -136,6 +140,16 @@ final readonly class Settings
     public function mutators(): Mutators
     {
         return $this->layer->setup()->mutators();
+    }
+
+    /**
+     * Whether a run judges its mutants in split streams: under the Pest
+     * runner, patched and compiling schemata, where `splitStream.enabled`
+     * says so (ADR-0117).
+     */
+    public function splitsStreams(): bool
+    {
+        return $this->layer->pest()->splits($this->runner->choice());
     }
 
     public function local(): Local

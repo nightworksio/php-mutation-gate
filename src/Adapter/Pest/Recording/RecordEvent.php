@@ -76,6 +76,9 @@ enum RecordEvent: string
     /** How a mutant's own process ended, as Pest's parent process saw it, by its mutated copy (see Ending). */
     case Ended = 'ended';
 
+    /** A split stream judged the mutant whose copy Pest serves for it, against its own unmutated stream (ADR-0117). */
+    case Streamed = 'streamed';
+
     /** The run reached its end. */
     case End = 'end';
 }

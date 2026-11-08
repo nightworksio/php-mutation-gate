@@ -119,4 +119,19 @@ enum GateVariable: string
 
     /** The id of the mutant a schema's switch puts in force in a mutant's own run (see Schemata). */
     case SchemaOn = 'MUTATION_GATE_SCHEMA_ON';
+
+    /** Set where a patched run judges its mutants in split streams (ADR-0117). */
+    case Split = 'MUTATION_GATE_SPLIT';
+
+    /** The most children a split stream holds at once: `splitStream.children` (see Split\StreamSettings). */
+    case SplitChildren = 'MUTATION_GATE_SPLIT_CHILDREN';
+
+    /** Set where a split stream forks a pure expression's mutant only where it changes its value (see Split\StreamSettings). */
+    case SplitChangeCheck = 'MUTATION_GATE_SPLIT_CHANGE_CHECK';
+
+    /** Set where a split stream forks each mutant first at its likely killer (see Split\StreamSettings). */
+    case SplitKillersFirst = 'MUTATION_GATE_SPLIT_KILLERS_FIRST';
+
+    /** The plan a split stream's own Pest run reads, unset in every other run (see Split\Stream). */
+    case SplitPlan = 'MUTATION_GATE_SPLIT_PLAN';
 }

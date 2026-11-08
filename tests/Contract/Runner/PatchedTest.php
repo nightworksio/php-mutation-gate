@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
 use NightWorksIO\MutationGate\Adapter\Pest\Records;
 use NightWorksIO\MutationGate\Adapter\Pest\ReplayRecord;
+use NightWorksIO\MutationGate\Adapter\Pest\Split\StreamSettings;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Package;
@@ -347,6 +348,34 @@ it('reports the same records for every mutant Pest makes of the library\'s files
 })->skip(
     fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
     'the runner contracts job installs the fixture library, and warm workers need a PHP that forks',
+)->group(...$holds);
+
+it('reports the same records for every mutant Pest makes of the library\'s files from split streams as from each mutant\'s own run, the streams judging most', function (bool $changeCheck, bool $killersFirst): void {
+    Patch::applyIn(Library::vendor(), new PackageDirectory());
+    $run = static fn(StreamSettings $streams): MutationResult|CannotJudge => Library::pest(Patching::on(Library::canary())->splitting($streams))->mutate(
+        sprintf('every mutant, split %s', json_encode($streams->variables())),
+        MutationRequest::of(Paths::of(Path::of('src/Money.php'), Path::of('src/Shapes.php')), WholeSuite::tests())
+            ->across(Pool::of(ProcessCount::of(2), Workers::Fork)),
+    );
+    $own = $run(StreamSettings::off());
+    $split = $run(StreamSettings::of(true, 1, $changeCheck, $killersFirst));
+    $streamed = $split instanceof MutationResult
+        ? array_filter(
+            iterator_to_array($split->mutants(), preserve_keys: false),
+            static fn(Mutant $mutant): bool => $split->evidence()->of($mutant->id())->isStreamed(),
+        )
+        : [];
+
+    expect($split instanceof MutationResult ? Library::records($split->mutants()) : [$split])
+        ->toEqualCanonicalizing($own instanceof MutationResult ? Library::records($own->mutants()) : [$own])
+        ->and($own instanceof MutationResult ? count($own->mutants()) : 0)->toBeGreaterThan(4)
+        ->and(count($streamed) * 2)->toBeGreaterThan($own instanceof MutationResult ? count($own->mutants()) : 0);
+})->with([
+    'checking changes, killers first' => [true, true],
+    'forking unchecked, every test alike' => [false, false],
+])->skip(
+    fn(): bool => ! Library::isInstalled() || ! function_exists('pcntl_fork') || ! function_exists('posix_kill'),
+    'the runner contracts job installs the fixture library, and split streams need a PHP that forks',
 )->group(...$holds);
 
 it('reports the same records for every mutant Pest makes of the library\'s files from mutants\' workers that boot the project as from workers that do not', function (): void {

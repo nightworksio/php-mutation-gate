@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_key_exists;
+
+use Closure;
+
 use function is_file;
 use function pathinfo;
 
@@ -23,6 +26,24 @@ final class SchemaSwitch
     /** @var array<string, int> the id of the mutant in force, by the key of the file whose schema switches it */
     private static array $on = [];
 
+    /**
+     * What a split stream decides at a site of a file no mutant is in force
+     * in: whether this execution runs the mutant (ADR-0117); none outside a
+     * split stream, where every such site runs its original.
+     *
+     * @var (Closure(string, int): bool)|null
+     */
+    private static ?Closure $split = null;
+
+    /**
+     * What a split stream gives a pure expression's site whose mutant is not
+     * in force, given its original's value and its mutated code: the value
+     * this execution runs with (ADR-0117).
+     *
+     * @var (Closure(string, int, mixed, Closure(): mixed): mixed)|null
+     */
+    private static ?Closure $changed = null;
+
     /** Puts the mutant this id names in force in the file this key names. */
     public static function on(string $file, int $id): void
     {
@@ -38,7 +59,43 @@ final class SchemaSwitch
     /** Whether the mutant this id names is the one in force in the file this key names. */
     public static function is(string $file, int $id): bool
     {
-        return array_key_exists($file, self::$on) && self::$on[$file] === $id;
+        if (array_key_exists($file, self::$on)) {
+            return self::$on[$file] === $id;
+        }
+
+        return self::$split instanceof Closure && (self::$split)($file, $id);
+    }
+
+    /**
+     * The value of a pure expression's site (ADR-0117): its mutated code's,
+     * where its mutant is in force, and its original's otherwise; in a split
+     * stream, the stream sees both first, and forks where they differ.
+     *
+     * @param Closure(): mixed $original
+     * @param Closure(): mixed $mutated
+     */
+    public static function value(string $file, int $id, Closure $original, Closure $mutated): mixed
+    {
+        if (array_key_exists($file, self::$on)) {
+            return self::$on[$file] === $id ? $mutated() : $original();
+        }
+
+        $value = $original();
+
+        return self::$changed instanceof Closure ? (self::$changed)($file, $id, $value, $mutated) : $value;
+    }
+
+    /**
+     * Has a split stream decide each site of a file no mutant is in force in;
+     * none decides where it is given none (ADR-0117).
+     *
+     * @param (Closure(string, int): bool)|null                     $split   at a site its switch decides
+     * @param (Closure(string, int, mixed, Closure(): mixed): mixed)|null $changed at a pure expression's site
+     */
+    public static function splitting(?Closure $split, ?Closure $changed = null): void
+    {
+        self::$split = $split;
+        self::$changed = $changed;
     }
 
     /**
