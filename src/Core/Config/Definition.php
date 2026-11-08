@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Config\Definition\HeatmapKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\IgnoresKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\LocalKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\MutatorsKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\OutbreakKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\OutputsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\OwnersKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\PathsKeys;
@@ -168,6 +169,7 @@ final readonly class Definition
             ...SamplingKeys::fields(),
             ...MutatorsKeys::fields(),
             ...LocalKeys::fields(),
+            ...OutbreakKeys::fields(),
             ...CoverageKeys::fields(),
             ...PathsKeys::fields($origin),
         ];

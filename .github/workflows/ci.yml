@@ -803,6 +803,16 @@ jobs:
       warm: ${{ needs.scope.result != 'success' || needs.scope.outputs.warm == 'true' }}
       hooks: ${{ needs.scope.result != 'success' || needs.scope.outputs.hooks == 'true' }}
 
+  # Outbreak's core (ADR-0118): its Rust gates and boundary, and its binaries.
+  outbreak:
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'outbreak')) }}
+    uses: ./.github/workflows/outbreak.yml # zizmor: ignore[self-repository]
+  outbreak-build:
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || contains(fromJSON(needs.scope.outputs.jobs || '[]'), 'outbreak-build')) }}
+    uses: ./.github/workflows/outbreak-build.yml # zizmor: ignore[self-repository]
+
   # G8 — every mutant of src is killed, or its tree holds the floor
   # mutation-gate.baseline.json records, which only rises (G11). The package
   # holds its own code there through its own gate: the reusable workflow and
@@ -975,7 +985,7 @@ jobs:
   # earlier attempt gathered.
   evidence:
     name: evidence
-    needs: [scope, scripts, alone, hygiene, security, site, rules, guards, checks, tests, lowest, phar, image, runner-contract, runner-contracts, end-to-end, mutation, replay, sonar, gate]
+    needs: [scope, scripts, alone, hygiene, security, site, rules, guards, checks, tests, lowest, phar, image, runner-contract, runner-contracts, end-to-end, outbreak, outbreak-build, mutation, replay, sonar, gate]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10

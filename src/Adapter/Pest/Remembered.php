@@ -20,11 +20,15 @@ use NightWorksIO\MutationGate\Core\Control\ControlEnd;
 use NightWorksIO\MutationGate\Core\Control\ControlRun;
 use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\MapVouch;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestListing;
+use NightWorksIO\MutationGate\Port\MapEngine;
 
 /**
  * What one Pest runner learns once for every run it starts in a process: the
@@ -34,7 +38,9 @@ use NightWorksIO\MutationGate\Core\Test\TestListing;
  * unmutated code, served as its mutant was (see Control), and what each
  * replay of a kill's own run said (see PrefixReplays). Each is slow to
  * learn, from a process started for it or a map that can reach hundreds of
- * megabytes, and none changes while the gate runs.
+ * megabytes, and none changes while the gate runs. Each map handed over is
+ * read with the engine that vouches for its text, where one does
+ * (ADR-0118).
  *
  * @internal
  */
@@ -63,6 +69,21 @@ final class Remembered
 
     /** @var array<string, Selector> each scan of the codebase for the tests that read a value, by what it read */
     private array $selectors = [];
+
+    /** The engine that vouches for a handed map's text, where one does. */
+    public function __construct(private readonly MapEngine|NotGiven $engine = new NotGiven())
+    {
+    }
+
+    /** @return (Closure(string): MapVouch)|NotGiven what vouches for a handed map's text, where anything does */
+    public function vouching(): Closure|NotGiven
+    {
+        $engine = $this->engine;
+
+        return $engine instanceof MapEngine
+            ? static fn(string $json): MapVouch => $engine->vouches(Contents::of($json))
+            : $engine;
+    }
 
     /** @param Closure(): (TestListing|CannotJudge) $listing */
     public function listing(Withheld $withheld, Suites $suites, Closure $listing): TestListing|CannotJudge

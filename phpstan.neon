@@ -245,6 +245,7 @@ services:
                 - src/Adapter/Infection/OwnConfig.php # infection.json's sections
                 - src/Adapter/Pest/Families.php # Pest's mutator names
                 - src/Core/File/Glob.php # the glob grammar
+                - src/Adapter/Outbreak/Platform.php # PHP's names of OS families and machines
                 - src/Core/Assertion/AssertionTable.php # PHPUnit's assertions and Pest's expectations
             # Closed sets still to become enums, by the builder whose area holds them.
             awaiting: []
@@ -263,6 +264,15 @@ services:
                 'NightWorksIO\MutationGate\Core\Runner\RunnerPace':
                     - RECYCLE_AFTER # runs a batch holds for each place, not a span id's length
                     - WARM_SLACK # how long a warm worker runs past the end, not a network read's limit
+                'NightWorksIO\MutationGate\Core\Config\Outbreak':
+                    - OPTION # the config's and the Pest runner's key, not the resources directory of its binaries
+                    - ENABLED # the key that turns Outbreak's core on, not a hook framework's
+                    - TIMEOUT # the key of how long a run of the binary may take, not a mutant's status
+                    - MINUTES # how long a run of the binary may take by default, not how many entries a ranking shows
+                'NightWorksIO\MutationGate\Adapter\Outbreak\Bundled':
+                    - BETWEEN # what separates a checksum from its file in sha256sum's list, not a report's indent
+                'NightWorksIO\MutationGate\Adapter\Outbreak\Platform':
+                    - NAME # an OS family and a machine, as the binaries' directories are named, not a hook's id
                 'NightWorksIO\MutationGate\Core\Proof\LimitHistory':
                     - KILLS # the newest kills a learned multiple is read from, not a message's length
                     - RUNS # the newest runs a learned most shards is read from, not a count of presets

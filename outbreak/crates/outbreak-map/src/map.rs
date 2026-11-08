@@ -6,8 +6,10 @@
 //! formed. A map is vouched for only where it holds no entry to drop and no
 //! entry two readings could take apart: every test listed once, with an id and
 //! a duration of nought or more where it has one, every line a whole number of
-//! one or more naming listed tests by their place, and every method named,
-//! starting at line one or later and ending no sooner. Anything else, a key no
+//! one or more naming listed tests by their place, every method named,
+//! starting at line one or later and ending no sooner, and every test a process
+//! loaded named by its place, with the packages it loaded and whether it
+//! started processes. Anything else, a key no
 //! map writes or one written twice among them, is not vouched for, and the gate
 //! reads the map carefully, as it would without Outbreak.
 
@@ -42,6 +44,8 @@ pub struct Shape {
     pub files: Vec<Entry>,
     /// Each file's executed methods, in the order the map writes them.
     pub methods: Vec<Entry>,
+    /// Where what each process's tests loaded is written, where the map holds it.
+    pub loads: Option<Range<usize>>,
     /// Whether whitespace stood between any two of its tokens.
     pub spaced: bool,
 }
@@ -60,6 +64,7 @@ pub fn read(text: &[u8]) -> Result<Shape, Unvouched> {
     let mut tests = None;
     let mut files = None;
     let mut methods = Vec::new();
+    let mut loads = None;
     let mut places = Places::default();
 
     while let Some(key) = members.next(&mut json)? {
@@ -71,6 +76,7 @@ pub fn read(text: &[u8]) -> Result<Shape, Unvouched> {
             "tests" => tests = Some(read_tests(&mut json, &mut places)?),
             "files" => files = Some(read_files(&mut json, &mut places)?),
             "methods" => methods = read_methods(&mut json)?,
+            "loads" => loads = Some(read_loads(&mut json, &mut places)?),
             _ => return Err(refused(key.raw.start, "a key a coverage map writes")),
         }
     }
@@ -90,6 +96,7 @@ pub fn read(text: &[u8]) -> Result<Shape, Unvouched> {
         tests,
         files,
         methods,
+        loads,
         spaced: json.spaced(),
     })
 }
@@ -245,6 +252,66 @@ fn read_method(json: &mut Cursor<'_>) -> Result<(), Unvouched> {
     }
 }
 
+/// What each process's tests loaded: a list of processes, each a list of its tests.
+fn read_loads(json: &mut Cursor<'_>, places: &mut Places) -> Result<Range<usize>, Unvouched> {
+    let start = json.value_start();
+    let mut processes = json.array()?;
+
+    while processes.next(json)? {
+        let mut tests = json.array()?;
+
+        while tests.next(json)? {
+            read_load(json, places)?;
+        }
+    }
+
+    Ok(start..json.at())
+}
+
+/// One test a process loaded: its place among the listed tests, the packages it loaded, and
+/// whether it started processes, those three alone.
+fn read_load(json: &mut Cursor<'_>, places: &mut Places) -> Result<(), Unvouched> {
+    let at = json.value_start();
+    let load = || {
+        refused(
+            at,
+            "a test's place, its packages and whether it started processes",
+        )
+    };
+    let mut parts = json.array()?;
+
+    if !parts.next(json)? {
+        return Err(load());
+    }
+
+    let Number::Whole(place) = json.number()? else {
+        return Err(load());
+    };
+    places.largest = places.largest.max(Some(place));
+
+    if !parts.next(json)? {
+        return Err(load());
+    }
+
+    let mut packages = json.array()?;
+
+    while packages.next(json)? {
+        json.string()?;
+    }
+
+    if !parts.next(json)? {
+        return Err(load());
+    }
+
+    json.boolean()?;
+
+    if parts.next(json)? {
+        return Err(load());
+    }
+
+    Ok(())
+}
+
 /// Each entry of an object keyed by path, its value read by `each`.
 fn entries(
     json: &mut Cursor<'_>,
@@ -307,6 +374,7 @@ mod tests {
                     key: 139..150,
                     value: 151..183,
                 }],
+                loads: None,
                 spaced: false,
             }
         );
@@ -421,6 +489,42 @@ mod tests {
             refusal(r#"{"format":1,"tests":[],"files":{"a":{},"a":{}}}"#),
             "each key once"
         );
+    }
+
+    #[test]
+    fn reads_where_what_each_process_loaded_is_written() {
+        let text = r#"{"format":1,"tests":[{"id":"a"},{"id":"b"}],"files":{},"loads":[[[0,["p/q"],true],[1,[],false]],[]]}"#;
+
+        assert_eq!(
+            read(text.as_bytes())
+                .unwrap()
+                .loads
+                .and_then(|loads| text.get(loads)),
+            Some(r#"[[[0,["p/q"],true],[1,[],false]],[]]"#)
+        );
+    }
+
+    #[test]
+    fn vouches_for_no_load_the_careful_reading_drops_or_reads_otherwise() {
+        let map = |loads: &str| {
+            format!(r#"{{"format":1,"tests":[{{"id":"a"}}],"files":{{}},"loads":{loads}}}"#)
+        };
+        let whole = "a test's place, its packages and whether it started processes";
+
+        read(map("[]").as_bytes()).unwrap();
+        read(map(r#"[[[0,["p"],false]]]"#).as_bytes()).unwrap();
+        assert_eq!(refusal(&map(r"[[[1,[],true]]]")), "places of listed tests");
+        assert_eq!(refusal(&map(r"[[[-1,[],true]]]")), whole);
+        assert_eq!(refusal(&map(r"[[[0.0,[],true]]]")), whole);
+        assert_eq!(refusal(&map("[[[]]]")), whole);
+        assert_eq!(refusal(&map("[[[0]]]")), whole);
+        assert_eq!(refusal(&map("[[[0,[]]]]")), whole);
+        assert_eq!(refusal(&map("[[[0,[],true,1]]]")), whole);
+        assert_eq!(refusal(&map("[[[0,[1],true]]]")), "text");
+        assert_eq!(refusal(&map("[[[0,[],1]]]")), "true or false");
+        assert_eq!(refusal(&map("[[[0,{},true]]]")), "a list");
+        assert_eq!(refusal(&map("[{}]")), "a list");
+        assert_eq!(refusal(&map("{}")), "a list");
     }
 
     #[test]

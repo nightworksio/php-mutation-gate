@@ -19,4 +19,7 @@ enum Shipped: string
 
     /** The style and the script of an organisation's dashboard page. */
     case DashboardPage = 'dashboard-page';
+
+    /** Outbreak's core, built for each platform, and the list of their checksums (ADR-0118). */
+    case Outbreak = 'outbreak';
 }

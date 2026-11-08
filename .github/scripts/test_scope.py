@@ -68,6 +68,18 @@ class Outputs(unittest.TestCase):
             self.assertEqual(pull(path), {**NOTHING, "jobs": '["image"]'}, path)
         self.assertEqual(pull("sonar-project.properties"), {**NOTHING, "jobs": '["tests"]'})
 
+    def test_runs_only_outbreak_s_jobs_for_its_rust_tree_and_its_workflows(self):
+        for path in ("outbreak/crates/outbreak-map/src/map.rs", "outbreak/Cargo.lock", "outbreak/fuzz/fuzz_targets/map.rs", ".github/workflows/outbreak.yml", ".github/workflows/outbreak-build.yml"):
+            self.assertEqual(pull(path), {**NOTHING, "jobs": '["outbreak", "outbreak-build"]'}, path)
+
+    def test_runs_outbreak_s_boundary_beside_the_php_gates_for_the_php_the_binary_talks_to(self):
+        for path in ("src/Port/MapEngine.php", "src/Adapter/Outbreak/Outbreak.php", "src/Core/Coverage/VouchedRead.php", "tests/Contract/MapEngine/MapEngineTest.php"):
+            found = ran(pull(path))
+            self.assertIn("outbreak", found, path)
+            self.assertNotIn("outbreak-build", found, path)
+            self.assertIn("tests", found, path)
+        self.assertNotIn("outbreak", ran(pull("src/Core/Report/Overview.php")))
+
     def test_runs_every_program_job_for_the_program_and_the_hook_managers_outside_the_suites(self):
         found = pull("src/Core/Report/Overview.php")
         self.assertEqual(ran(found), [*PROGRAM[:6], "end-to-end", "mutation"])
@@ -272,7 +284,7 @@ class Scripts(unittest.TestCase):
         legs_only = pull(".github/scripts/leg_support.py")
         self.assertEqual((ran(legs_only), legs(legs_only)), (["runner-contracts"], sorted(scope.RUNNERS)))
         evidence = pull(".github/scripts/evidence.py")
-        self.assertEqual(ran(evidence), [job for job in scope.GATED if job not in ("mutation", "image")])
+        self.assertEqual(ran(evidence), [job for job in scope.GATED if job not in ("mutation", "image", "outbreak", "outbreak-build")])
         self.assertEqual((evidence["warm"], evidence["hooks"]), ("true", "true"))
 
 

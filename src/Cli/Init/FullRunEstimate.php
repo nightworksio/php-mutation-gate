@@ -129,7 +129,7 @@ final readonly class FullRunEstimate
             ...$estimates->summary($composed->adapters->processes(), $shards->target(), $shards->max()),
         ];
 
-        $map = new Handoff($composed->adapters->project, Handoff::limits())->forVerdict();
+        $map = new Handoff($composed->adapters->project, Handoff::limits(), $composed->adapters->maps)->forVerdict();
 
         foreach ($map instanceof CoverageMap ? $this->hot($composed, $plan, $map) : [] as $line) {
             $lines[] = $line;

@@ -185,13 +185,14 @@ final readonly class Running
 
         $started = $this->setup->clock->now();
         $stopwatch = new Stopwatch($this->setup->clock, $started);
-        $map = new Handoff($this->adapters->project, Handoff::limits())->read($id);
-        $history = new Handoff($this->adapters->project, Handoff::limits())->history($id);
+        $handoff = new Handoff($this->adapters->project, Handoff::limits(), $this->adapters->maps);
+        $map = $handoff->read($id);
+        $history = $handoff->history($id);
         $ordering = Ordering::of(
             $this->settings->triage()->order(),
             $history instanceof KillHistory ? $history : KillHistory::none(),
         );
-        $held = new Handoff($this->adapters->project, Handoff::limits())->subsumption($id);
+        $held = $handoff->subsumption($id);
         $search = KillSearch::of($ordering, $plan->briefing()->matrix());
         $search = $held instanceof Subsumption ? $search->holdingBack($held) : $search;
         $outcome = $map instanceof CoverageMap

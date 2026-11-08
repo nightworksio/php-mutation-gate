@@ -39,7 +39,9 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\KillMatrixFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
 use NightWorksIO\MutationGate\Adapter\Filesystem\PackageDirectory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\Resources;
 use NightWorksIO\MutationGate\Adapter\Filesystem\SarifReportFile;
+use NightWorksIO\MutationGate\Adapter\Filesystem\Shipped;
 use NightWorksIO\MutationGate\Adapter\Filesystem\SonarReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\StrykerReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\TestsReportFile;
@@ -59,6 +61,7 @@ use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Adapter\Mago\Mago;
 use NightWorksIO\MutationGate\Adapter\Native\NativeRunner;
 use NightWorksIO\MutationGate\Adapter\Otlp\OtlpReporter;
+use NightWorksIO\MutationGate\Adapter\Outbreak\Outbreak;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\PhpSpec\Installation as PhpSpecInstallation;
 use NightWorksIO\MutationGate\Adapter\PhpSpec\PhpSpecFramework;
@@ -205,6 +208,7 @@ final readonly class FirstParty implements Extension
                     new PackageDirectory(),
                     $processes,
                     OwnArchive::running(),
+                    Outbreak::beneath($options, self::root(), Resources::at(Shipped::Outbreak)),
                 ),
             )
             ->withReporter(BuiltinReporter::Console->named(), ConsoleReport::fromOptions(...))

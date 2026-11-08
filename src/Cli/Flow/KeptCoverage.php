@@ -86,7 +86,9 @@ final readonly class KeptCoverage
     {
         $bytes = $this->adapters->project->read(CoverageMapFile::in(Workspace::coverage()));
 
-        return $bytes instanceof Contents ? CoverageMapFile::kept($bytes->text(), $this->limits()) : $bytes;
+        return $bytes instanceof Contents
+            ? CoverageMapFile::kept($bytes->text(), $this->limits(), Vouching::by($this->adapters->maps))
+            : $bytes;
     }
 
     /**
@@ -179,7 +181,7 @@ final readonly class KeptCoverage
         );
         $kept = $ownMap
             ? StoredCoverage::of($this->fromWorkspace(), KeptFrom::LastRound)
-            : StoredCoverage::in($this->adapters->proofs, $access, $this->limits());
+            : StoredCoverage::in($this->adapters->proofs, $access, $this->limits(), $this->adapters->maps);
 
         return $this->measuring($entries, $kept->map(), $kept->from(), $suites);
     }

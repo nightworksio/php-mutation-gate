@@ -1,7 +1,7 @@
 //! A map's slice for some of its files, written as the gate writes the map
-//! `MapText::onlyFor()` keeps: every test, and the lines and methods of these
-//! files alone, in the order the map holds them, with neither where the map was
-//! measured nor its entry keys.
+//! `MapText::onlyFor()` keeps: every test and what each process's tests loaded,
+//! and the lines and methods of these files alone, in the order the map holds
+//! them, with neither where the map was measured nor its entry keys.
 //!
 //! The slice copies the map's own bytes rather than writing them afresh, so it
 //! is the gate's text only where the map is: one the gate wrote, compact, every
@@ -66,6 +66,13 @@ impl Slicer<'_> {
         if !methods.is_empty() {
             text.extend_from_slice(b",\"methods\":");
             self.write(&mut text, &methods, b"");
+        }
+
+        let loads = self.shape.loads.clone().map(|loads| self.bytes(loads));
+
+        if let Some(loads) = loads.filter(|loads| *loads != b"[]") {
+            text.extend_from_slice(b",\"loads\":");
+            text.extend_from_slice(loads);
         }
 
         text.push(b'}');
@@ -162,6 +169,24 @@ mod tests {
         assert_eq!(
             sliced(MAP, &["src/A.php"]),
             r#"{"format":1,"tests":[{"id":"a","seconds":0.5},{"id":"b"}],"files":{"src/A.php":{"3":[0,1],"4":[]}}}"#
+        );
+    }
+
+    #[test]
+    fn keeps_what_every_process_loaded_after_the_methods_and_writes_none_for_none() {
+        let map = r#"{"format":1,"tests":[{"id":"a"}],"files":{"src/A.php":{"1":[0]}},"methods":{"src/A.php":[{"name":"m","start":1,"end":1}]},"loads":[[[0,["p/q"],true]],[]],"keys":{}}"#;
+
+        assert_eq!(
+            sliced(map, &["src/A.php"]),
+            r#"{"format":1,"tests":[{"id":"a"}],"files":{"src/A.php":{"1":[0]}},"methods":{"src/A.php":[{"name":"m","start":1,"end":1}]},"loads":[[[0,["p/q"],true]],[]]}"#
+        );
+        assert_eq!(
+            sliced(map, &[]),
+            r#"{"format":1,"tests":[{"id":"a"}],"files":{},"loads":[[[0,["p/q"],true]],[]]}"#
+        );
+        assert_eq!(
+            sliced(r#"{"format":1,"tests":[],"files":{},"loads":[]}"#, &[]),
+            r#"{"format":1,"tests":[],"files":{}}"#
         );
     }
 

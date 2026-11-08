@@ -364,7 +364,7 @@ final readonly class Planning
         KillHistory $history,
         Subsumption|NotGiven $held,
     ): Plan|CannotJudge {
-        $handed = new Handoff($this->adapters->project, Handoff::limits())
+        $handed = new Handoff($this->adapters->project, Handoff::limits(), $this->adapters->maps)
             ->write($plan, $map, $history, $at, $keys, $held);
 
         return $handed instanceof CannotJudge ? $handed : $plan;

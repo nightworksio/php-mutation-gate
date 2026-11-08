@@ -189,6 +189,21 @@ impl<'a> Cursor<'a> {
         })
     }
 
+    /// `true` or `false`.
+    ///
+    /// # Errors
+    ///
+    /// Refuses anything else.
+    pub fn boolean(&mut self) -> Result<bool, Refused> {
+        self.space();
+
+        match self.peek() {
+            Some(b't') => self.word(b"true").map(|()| true),
+            Some(b'f') => self.word(b"false").map(|()| false),
+            _ => Err(self.refused("true or false")),
+        }
+    }
+
     /// A list of whole numbers, each digits alone, and the largest of them; none where it is
     /// empty.
     ///
@@ -560,6 +575,14 @@ mod tests {
 
         json.skip().unwrap();
         assert_eq!(json.end().unwrap_err(), refusal(3, "the end of the text"));
+    }
+
+    #[test]
+    fn reads_true_or_false_alone() {
+        assert_eq!(cursor(" true").boolean(), Ok(true));
+        assert_eq!(cursor("false").boolean(), Ok(false));
+        assert_eq!(cursor("1").boolean(), Err(refusal(0, "true or false")));
+        assert_eq!(cursor("tree").boolean(), Err(refusal(0, "a value")));
     }
 
     #[test]

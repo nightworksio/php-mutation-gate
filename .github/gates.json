@@ -258,6 +258,84 @@
         "not-run": "A step never ran, because a command before it failed: the step's log says which."
       }
     },
+    "outbreak/fmt": {
+      "check": "outbreak / fmt",
+      "checks": "The formatting of Outbreak's Rust workspace and of its fuzz targets, by rustfmt (ADR-0118).",
+      "reproduce": "cd outbreak && cargo fmt --all --check && cargo fmt --all --check --manifest-path fuzz/Cargo.toml",
+      "fix": "cd outbreak && cargo fmt --all && cargo fmt --all --manifest-path fuzz/Cargo.toml",
+      "evidence": "none",
+      "why": "Cargo's log, which the job shows, names the file and line of each failure, as rustc and its tools write them."
+    },
+    "outbreak/clippy": {
+      "check": "outbreak / clippy",
+      "checks": "Clippy over every target of Outbreak's workspace, pedantic, with unwrap, expect, panic, indexing, todo and unimplemented denied and every warning an error (ADR-0118).",
+      "reproduce": "cd outbreak && cargo clippy --workspace --all-targets --locked -- -D warnings",
+      "evidence": "none",
+      "why": "Cargo's log, which the job shows, names the file and line of each failure, as rustc and its tools write them."
+    },
+    "outbreak/test": {
+      "check": "outbreak / test",
+      "checks": "The suite of Outbreak's workspace, its binary's included (ADR-0118).",
+      "reproduce": "cd outbreak && cargo nextest run --workspace --locked",
+      "evidence": "none",
+      "why": "Cargo's log, which the job shows, names the file and line of each failure, as rustc and its tools write them."
+    },
+    "outbreak/coverage": {
+      "check": "outbreak / coverage",
+      "checks": "Every line of Outbreak's workspace is run by its suite, by llvm-cov (ADR-0118).",
+      "reproduce": "cd outbreak && cargo llvm-cov nextest --workspace --locked --fail-under-lines 100 --show-missing-lines",
+      "evidence": "none",
+      "why": "llvm-cov's report, which the job shows, names each line no test ran."
+    },
+    "outbreak/deny": {
+      "check": "outbreak / deny",
+      "checks": "What Outbreak's workspace and fuzz targets depend on: advisories, licenses, sources, duplicates and banned crates, by cargo-deny (ADR-0118).",
+      "reproduce": "cd outbreak && cargo deny --locked check && cargo deny --locked --manifest-path fuzz/Cargo.toml check",
+      "evidence": "none",
+      "why": "cargo-deny's log, which the job shows, names each crate and the check it fails."
+    },
+    "outbreak/audit": {
+      "check": "outbreak / audit",
+      "checks": "Every crate Outbreak's locks install, against the RustSec advisories, by cargo-audit (ADR-0118).",
+      "reproduce": "cd outbreak && cargo audit --deny warnings && cargo audit --deny warnings --file fuzz/Cargo.lock",
+      "evidence": "none",
+      "why": "cargo-audit's log, which the job shows, names each crate and its advisory."
+    },
+    "outbreak/msrv": {
+      "check": "outbreak / msrv",
+      "checks": "Outbreak's workspace builds and passes on the oldest toolchain its Cargo.toml promises (ADR-0118).",
+      "reproduce": "cd outbreak && RUSTUP_TOOLCHAIN=1.95 cargo test --workspace --locked",
+      "evidence": "none",
+      "why": "Cargo's log, which the job shows, names the file and line of each failure, as rustc and its tools write them."
+    },
+    "outbreak/mutants": {
+      "check": "outbreak / mutants ${{ matrix.shard }}",
+      "checks": "Every mutant cargo-mutants makes of Outbreak's workspace is caught by its suite, in shards: on a pull request those of its diff, elsewhere every one (ADR-0118).",
+      "reproduce": "cd outbreak && cargo mutants --workspace --no-shuffle",
+      "evidence": "none",
+      "why": "cargo-mutants' log, which the job shows, names each missed mutant, and its mutants.out is uploaded where a shard fails."
+    },
+    "outbreak/fuzz": {
+      "check": "outbreak / fuzz ${{ matrix.target }}",
+      "checks": "Each of Outbreak's parsers, fuzzed: a map's text, a split request, and a slice, which must itself be a map it vouches for (ADR-0118).",
+      "reproduce": "cd outbreak/fuzz && cargo +nightly fuzz run <map|request|slice> -- -max_total_time=60 -dict=outbreak.dict",
+      "evidence": "none",
+      "why": "libFuzzer's log, which the job shows, holds the panic, and the input that failed is uploaded as the target's artifact."
+    },
+    "outbreak/boundary": {
+      "check": "outbreak / boundary",
+      "checks": "The map engine's PHP contract suite and the Outbreak adapter's process tests, run against the binary this commit builds: what it answers is what the gate's PHP gives (ADR-0118).",
+      "reproduce": "cd outbreak && cargo build --release --package outbreak && cd .. && OUTBREAK_BINARY=$PWD/outbreak/target/release/outbreak vendor/bin/pest tests/Contract/MapEngine tests/Process/Adapter/Outbreak",
+      "evidence": "none",
+      "why": "Pest's log, which the job shows, names each test that failed and the difference it found."
+    },
+    "outbreak-build/build": {
+      "check": "outbreak-build / build ${{ matrix.platform }}",
+      "checks": "Outbreak's core builds for every platform the package ships it for, and each binary answers its contract (ADR-0118).",
+      "reproduce": "cd outbreak && cargo build --release --locked --package outbreak --target <target> && target/<target>/release/outbreak contract",
+      "evidence": "none",
+      "why": "Each platform's leg runs on a runner of its own, and cargo's log, which the job shows, names what failed to build."
+    },
     "runner-canary": {
       "check": "runner canary",
       "checks": "Every day, ADR-0004's Runner contract suite and ADR-0020's StaticChecker contract suite against the newest releases of Pest, Infection, PHPUnit, PhpSpec, Codeception, Testo, Mago, PHPStan and Psalm, the pinned pest-plugin-mutate, Infection and Testo freed from the package's pin; then that composer.json takes each pinned release that passed, and that doctor counts it as tested (ADR-0017, ADR-0041). It is not required: a new release reds it alone.",

@@ -56,6 +56,7 @@ use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Port\MapEngine;
 use NightWorksIO\MutationGate\Port\Processes;
 use NightWorksIO\MutationGate\Port\Runner;
 
@@ -101,9 +102,10 @@ final readonly class Pest implements Runner
         private LimitBounds $bounds,
         private Clock $clock = new WallClock(),
         private Bridges $bridges = new Bridges(),
+        MapEngine|NotGiven $maps = new NotGiven(),
     ) {
         $this->tests = new TestFiles($project);
-        $this->remembered = new Remembered();
+        $this->remembered = new Remembered($maps);
         $this->suites = new MapSuites();
     }
 
@@ -111,9 +113,10 @@ final readonly class Pest implements Runner
      * Pest in the project the gate runs in, installed in this vendor
      * directory, as the `pest` runner's options configure it, writing its
      * memory cap with these files, reading whether pest:patch is applied
-     * through these package files and running through these processes. The
-     * gate's PHAR refuses it: Pest finds the gate's plugin only among the
-     * project's installed packages (ADR-0022).
+     * through these package files and running through these processes, with
+     * the engine that vouches for each map handed over, where one does
+     * (ADR-0118). The gate's PHAR refuses it: Pest finds the gate's plugin
+     * only among the project's installed packages (ADR-0022).
      */
     public static function fromOptions(
         Options $options,
@@ -122,6 +125,7 @@ final readonly class Pest implements Runner
         PackageFiles $packages,
         Processes $processes,
         OwnArchive|NotGiven $archive,
+        MapEngine|NotGiven $maps = new NotGiven(),
     ): self|Invalid {
         if ($archive instanceof OwnArchive) {
             return Invalid::because(Problem::at('', sprintf(self::ARCHIVED, ThisPackage::COMPOSER)));
@@ -143,6 +147,7 @@ final readonly class Pest implements Runner
             $packages,
             $read->bounds(),
             bridges: $read->bridges(),
+            maps: $maps,
         );
     }
 
@@ -200,7 +205,7 @@ final readonly class Pest implements Runner
     public function coverage(CoverageRun|CoverageRead|CoverageRan $request): CoverageMap|CannotJudge
     {
         if ($request instanceof CoverageRead) {
-            return SharedCoverage::in($this->project, $request->directory());
+            return SharedCoverage::in($this->project, $request->directory(), $this->remembered->vouching());
         }
 
         $directory = $request instanceof CoverageRun

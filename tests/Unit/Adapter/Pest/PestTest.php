@@ -83,7 +83,9 @@ use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
+use NightWorksIO\MutationGate\Tests\Fakes\MapEngineFake;
 use NightWorksIO\MutationGate\Tests\Support\Described;
+use NightWorksIO\MutationGate\Tests\Support\Gunzipped;
 use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
 use NightWorksIO\MutationGate\Tests\Support\PestCases;
 use NightWorksIO\MutationGate\Tests\Support\PreCheckerFake;
@@ -283,6 +285,17 @@ it('reads the gate\'s own map another job handed over, running nothing', functio
 
     expect($pest->coverage(CoverageRead::from(Path::of('planned'))))->toEqual($map)
         ->and($shell->commands())->toBe([]);
+});
+
+it('reads a handed map with the engine it was given, which may vouch for it, into the same map', function (): void {
+    $at = PestCases::project();
+    $map = CoverageMap::of()->covered(Path::of('src/Held.php'), Line::of(5), TestId::of(PestCases::RUN_ADDS));
+    PestCases::handedOver($at, 'planned', $map);
+    $text = Gunzipped::of((string) file_get_contents(sprintf('%s/planned/map.json.gz', $at->root())));
+    $engine = new MapEngineFake([$text]);
+    $pest = new Pest($at, ShellFake::answering(Ran::finished(succeeded: false, output: '')), Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds(), maps: $engine);
+
+    expect($pest->coverage(CoverageRead::from(Path::of('planned'))))->toEqual($map);
 });
 
 it('never reads a runner\'s map another job wrote, which is PHP that reading runs', function (): void {

@@ -36,6 +36,10 @@ What each job reads (INPUTS):
 - `replay`: what decides what a change reaches and how a plan carries and
   cuts (REPLAY), which it plans the newest pull requests again with. A push
   to main runs none: ci.yml's own condition leaves it to the night.
+- `outbreak`: Outbreak's Rust tree and its workflows (OUTBREAK), and the PHP
+  the binary talks to (OUTBREAK_BOUNDARY), which its boundary job runs
+  against the binary. A change to the Rust tree alone runs no PHP gate.
+- `outbreak-build`: Outbreak's Rust tree and its workflows.
 
 A script under .github/scripts reaches each job that runs it, through the
 jobs of a workflow that job calls too, and any script those import. Every
@@ -76,7 +80,7 @@ LEG_TABLE = json.loads(Path(__file__).resolve().with_name("legs.json").read_text
 RUNNERS = tuple(LEG_TABLE)
 
 # The jobs of ci.yml this script gates, in the workflow's order.
-GATED = ("site", "alone", "guards", "checks", "tests", "lowest", "phar", "image", "runner-contracts", "end-to-end", "mutation", "replay")
+GATED = ("site", "alone", "guards", "checks", "tests", "lowest", "phar", "image", "runner-contracts", "end-to-end", "outbreak", "outbreak-build", "mutation", "replay")
 
 # The job that runs the legs, the end-to-end workflow's jobs by the input that
 # runs each, and the job that decides every output.
@@ -102,7 +106,8 @@ CODE_DOCS = (
 SHIPPED_CI = ("action.yml", ".github/workflows/mutation-gate.yml")
 
 # The files of the gates that read no PHP: the spelling, link and markdown
-# checks, the changelog, the image, and the benchmark, which bench.yml runs.
+# checks, the changelog, the image, the benchmark, which bench.yml runs, and
+# Outbreak's Rust tree, which outbreak.yml runs.
 OTHER_GATES = (
     "typos.toml",
     "lychee.toml",
@@ -111,6 +116,22 @@ OTHER_GATES = (
     "Dockerfile",
     ".dockerignore",
     "bench/",
+    "outbreak/",
+)
+
+# Outbreak's core (ADR-0118): its Rust tree, which `outbreak-build` builds for
+# every platform, and the workflows that build and check it.
+OUTBREAK = ("outbreak/", ".github/workflows/outbreak.yml", ".github/workflows/outbreak-build.yml")
+
+# The PHP the binary talks to, which `outbreak` checks against it: the port,
+# the adapter, the maps the binary reads and writes, and their tests.
+OUTBREAK_BOUNDARY = (
+    "src/Port/MapEngine.php",
+    "src/Adapter/Outbreak/",
+    "src/Core/Coverage/",
+    "tests/Contract/MapEngine/",
+    "tests/Process/Adapter/Outbreak/",
+    "tests/Fakes/MapEngineFake.php",
 )
 
 # The suites, which no project the gate is installed into loads.
@@ -318,6 +339,8 @@ INPUTS: dict[str, Callable[[str], bool]] = {
     "image": lambda path: path in IMAGE,
     "mutation": lambda path: is_program(path) or under(path, SHIPPED_CI),
     "replay": lambda path: under(path, REPLAY),
+    "outbreak": lambda path: under(path, OUTBREAK + OUTBREAK_BOUNDARY),
+    "outbreak-build": lambda path: under(path, OUTBREAK),
 }
 
 
