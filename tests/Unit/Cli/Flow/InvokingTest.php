@@ -159,3 +159,23 @@ it('passes over, for the run\'s doom, the survivors its runner judged by the sha
         ->and($invoked->passedOver()->has($whole->id()))->toBeFalse()
         ->and($invoked->passedOver()->has($other->id()))->toBeTrue();
 });
+
+it('leaves a fallback survivor of its part\'s own run out of its doom, and out of its static checks and proofs of equivalence where another part owns it', function (): void {
+    $whole = invokedMutant('src/Money.php', 'whole', MutantStatus::Survived);
+    $owned = invokedMutant('src/Money.php', 'owned', MutantStatus::Survived);
+    $other = invokedMutant('src/Money.php', 'other', MutantStatus::Survived);
+    $runner = ScriptedRunner::fixture()->answeringInTurn(
+        MutationResult::skippingNone(Mutants::of($whole, $owned, $other))->withEvidence(Evidences::none()
+            ->with($owned->id(), Evidence::none()->sharing(TestShare::OwnedPart))
+            ->with($other->id(), Evidence::none()->sharing(TestShare::OtherPart))),
+    );
+
+    $invoked = invokedWithin($runner, Seconds::of(600.0), CoverageMap::empty());
+    $natives = static fn(Mutant ...$mutants): array => array_map(static fn(Mutant $mutant): string => $mutant->nativeId(), $mutants);
+
+    expect([$invoked->passedOver()->has($whole->id()), $invoked->passedOver()->has($owned->id()), $invoked->passedOver()->has($other->id())])
+        ->toBe([false, true, true])
+        ->and([$invoked->checked->has($whole->id()), $invoked->checked->has($owned->id()), $invoked->checked->has($other->id())])
+        ->toBe([true, true, false])
+        ->and($natives(...$runner->checkables()))->toBe(['whole', 'owned']);
+});

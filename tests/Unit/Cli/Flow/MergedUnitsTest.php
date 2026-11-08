@@ -8,6 +8,8 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Mutant\Evidence;
+use NightWorksIO\MutationGate\Core\Mutant\Evidences;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -16,6 +18,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\Prefix;
+use NightWorksIO\MutationGate\Core\Mutant\TestShare;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -24,6 +28,8 @@ use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestPart;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -162,3 +168,57 @@ it('cannot judge a unit whose shards hold other mutants of it, or a mutant none 
             mergedUnitRead($two, Mutants::of(mergedUnitMutant('src/A.php', 3, MutantStatus::NotReached)), Units::none(), MutantIds::none()),
         ]))->toBeInstanceOf(CannotJudge::class);
 });
+
+/**
+ * A shard of two parts whose streams left the mutant on line 3 of src/A.php
+ * for its own run, narrowed to its part's covering tests, which came to this:
+ * its record, with the evidence a fallback own run leaves and its part's share.
+ *
+ * @return array{Shard, ShardResult, MutationResult}
+ */
+function fellBackIn(int $number, Mutant $outcome, Evidence $evidence): array
+{
+    $shard = mergedUnitShard($number, 2, 'src/A.php');
+    $share = $number === 1 ? TestShare::OwnedPart : TestShare::OtherPart;
+    $mutated = MutationResult::skippingNone(Mutants::of($outcome))
+        ->withEvidence(Evidences::none()->with($outcome->id(), $evidence->sharing($share)));
+    $result = ShardResult::of(
+        Digest::sha256Of('plan'),
+        $shard->id(),
+        Keys::none(),
+        $mutated,
+        Measurement::of(Seconds::of(1.0), 'pest', Moment::at('2026-11-08T12:00:00Z')),
+    );
+
+    return [$shard, $result, $mutated];
+}
+
+it('merges two parts\' narrowed own runs of one fallen-back mutant: a kill in either wins, and it survives only where both let it', function (
+    MutantStatus $first,
+    MutantStatus $second,
+    string $merged,
+) use ($plan): void {
+    $outcome = static fn(MutantStatus $status, string $killer): Mutant => $status === MutantStatus::Killed
+        ? mergedUnitMutant('src/A.php', 3, $status)->killedBy(TestIds::of(TestId::of($killer)))
+        : mergedUnitMutant('src/A.php', 3, $status);
+    $evidence = static fn(MutantStatus $status): Evidence => $status === MutantStatus::Killed
+        ? Evidence::none()->withPrefix(Prefix::at(1))
+        : Evidence::none();
+    $units = MergedUnits::of($plan(mergedUnitShard(1, 2, 'src/A.php'), mergedUnitShard(2, 2, 'src/A.php')), [
+        fellBackIn(1, $outcome($first, 'P\Tests\ASpec::one'), $evidence($first)),
+        fellBackIn(2, $outcome($second, 'P\Tests\BSpec::two'), $evidence($second)),
+    ]);
+    $mutant = $units instanceof UnitResults ? [...[...$units][0]->mutants()][0] : null;
+
+    expect(mergedUnitsDescribed($units))->toBe([sprintf('src/A.php: 3 %s', $merged)])
+        ->and($mutant instanceof Mutant ? array_map(static fn(TestId $test): string => $test->value(), [...$mutant->killers()]) : [])
+        ->toBe(match (true) {
+            $merged !== 'killed' => [],
+            $first === MutantStatus::Killed => ['P\Tests\ASpec::one'],
+            default => ['P\Tests\BSpec::two'],
+        });
+})->with([
+    'the owning part kills, the other lets it survive' => [MutantStatus::Killed, MutantStatus::Survived, 'killed'],
+    'the owning part lets it survive, the other kills' => [MutantStatus::Survived, MutantStatus::Killed, 'killed'],
+    'both let it survive' => [MutantStatus::Survived, MutantStatus::Survived, 'survived'],
+]);

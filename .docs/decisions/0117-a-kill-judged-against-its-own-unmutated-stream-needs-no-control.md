@@ -89,17 +89,25 @@ switch (ADR-0091), so the stream's program holds every site.
    - a mutant no test of its part covers, whose first covering test another
      part holds, is not reached: a shard's own outcome, never a mutant's
      status;
-   - a mutant no stream can judge runs its own run, by every covering test,
-     in the one shard whose part holds its first covering test;
-   - a mutant its part's streams leave for its own run runs it by the
-     covering tests of that part alone, in that shard;
+   - a mutant no stream can ever judge, as one its file's schema does not
+     switch, or every mutant without `pcntl` and `posix`, runs one own run,
+     by every covering test, in the one shard whose part holds its first
+     covering test, and every other shard leaves it not reached;
+   - a mutant a stream falls back on in a part (decision 7), which no stream
+     of that part killed or timed out, runs an own run in that part's shard,
+     by that part's covering tests alone; each part that falls back runs one
+     of its own, so the parts judge it by covering tests no other part holds,
+     and together by every covering test;
    - a survivor of the covering tests of its part alone dooms no run
      (ADR-0008), and only the shard whose part holds its first covering test
-     checks it by static analysis or proves it equivalent.
+     checks it by static analysis or proves it equivalent;
+   - `flaky.confirmSurvivors` runs each survivor again in its own shard, by
+     that shard's part of its covering tests, or by every covering test for
+     a mutant no stream can ever judge.
    The verdict merges each mutant across the shards that hold its unit: a
    kill in any part wins, then a timeout; an own run's other answer stands
-   over a survivor; a mutant survives where every part that reached it let it
-   survive; a status every part gives alike merges to one; a mutant no part
+   over a survivor; a mutant survives only where every part that reached it,
+   by its streams or its own run, let it survive; a status every part gives alike merges to one; a mutant no part
    reached, or shards that hold other mutants than each other, cannot be
    judged. A unit counts as run where every shard that holds it ran it, and
    each shard's time of it adds up into its learned cost. With one shard,
