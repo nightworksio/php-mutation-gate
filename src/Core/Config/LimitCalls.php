@@ -54,10 +54,16 @@ final readonly class LimitCalls
         };
     }
 
-    /** @return list<string> the builder's call that sets `timeouts.controlMost`, where a layer sets it */
-    public static function controlMost(Seconds|Absent $most): array
+    /** @return list<string> the builder's `$call` with whole seconds, where a layer sets them */
+    public static function wholeSeconds(string $call, Seconds|Absent $seconds): array
     {
-        return $most instanceof Seconds ? [sprintf('Timeouts::controlMost(%d)', intval($most->seconds()))] : [];
+        return $seconds instanceof Seconds ? [sprintf('%s(%d)', $call, intval($seconds->seconds()))] : [];
+    }
+
+    /** @return list<string> the builder's `$call` with seconds as written, where a layer sets them */
+    public static function writtenSeconds(string $call, Seconds|Absent $seconds): array
+    {
+        return $seconds instanceof Seconds ? [sprintf('%s(%s)', $call, PhpCalls::literal($seconds->written()))] : [];
     }
 
     /** @return list<string> the builder's call that sets `timeouts.tighter`, where a layer sets it */

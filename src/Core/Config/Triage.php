@@ -303,19 +303,15 @@ final readonly class Triage implements Part
     public function php(PathOrigin $origin): PhpCalls
     {
         return PhpCalls::inWith(...[
-            ...$this->budget instanceof Seconds
-                ? [sprintf('Budget::of(%s)', PhpCalls::literal($this->budget->written()))]
-                : [],
+            ...LimitCalls::writtenSeconds('Budget::of', $this->budget),
             ...$this->mode instanceof TimeoutMode ? [$this->mode->php()] : [],
             ...LimitCalls::seconds($this->limit),
             ...LimitCalls::multiple($this->multiple),
-            ...$this->startUp instanceof Seconds
-                ? [sprintf('Timeouts::startUp(%s)', PhpCalls::literal($this->startUp->written()))]
-                : [],
-            ...$this->most instanceof Seconds ? [sprintf('Timeouts::most(%d)', intval($this->most->seconds()))] : [],
+            ...LimitCalls::writtenSeconds('Timeouts::startUp', $this->startUp),
+            ...LimitCalls::wholeSeconds('Timeouts::most', $this->most),
             ...LimitCalls::tighter($this->tighter),
             ...$this->perTest->calls(),
-            ...LimitCalls::controlMost($this->controlMost),
+            ...LimitCalls::wholeSeconds('Timeouts::controlMost', $this->controlMost),
             ...$this->confirmSurvivors instanceof Absent ? [] : [
                 $this->confirmSurvivors ? 'Flaky::confirmingSurvivors()' : 'Flaky::notConfirmingSurvivors()',
             ],
