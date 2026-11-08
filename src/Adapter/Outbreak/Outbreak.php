@@ -218,19 +218,26 @@ final readonly class Outbreak implements MapEngine
      * time and answered in this contract; why not, otherwise. Its input is
      * handed as a file, which it reads as fast as it can, rather than written
      * to it a chunk at a time.
+     *
+     * @param non-empty-list<string> $arguments
      */
-    /** @param non-empty-list<string> $arguments */
     private static function ran(string $binary, array $arguments, string $input, Seconds $timeout): Node|NotWritten
     {
+        $process = new Process([$binary, ...$arguments], timeout: $timeout->seconds());
         $given = tmpfile();
 
-        if ($given === false) {
-            return NotWritten::because(self::NO_INPUT);
-        }
+        return $given === false ? NotWritten::because(self::NO_INPUT) : self::answered($process, $given, $input);
+    }
 
+    /**
+     * What a run of the binary answered, given this input as a file.
+     *
+     * @param resource $given
+     */
+    private static function answered(Process $process, $given, string $input): Node|NotWritten
+    {
         fwrite($given, $input);
         rewind($given);
-        $process = new Process([$binary, ...$arguments], timeout: $timeout->seconds());
         $process->setInput($given);
 
         try {

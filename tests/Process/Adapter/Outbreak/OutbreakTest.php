@@ -103,9 +103,9 @@ it('says why the binary wrote no slice: it declined, failed, answered otherwise,
 it('vouches for and splits nothing where the binary runs past its time', function () use ($slices, $whole): void {
     $root = Scratch::directory();
     $slow = sprintf('%s/slow', $root);
-    file_put_contents($slow, "#!/bin/sh\nif [ \"$1\" = contract ]; then echo '{\"outbreak\":1}'; exit 0; fi\nsleep 5\n");
+    file_put_contents($slow, "#!/bin/sh\nif [ \"$1\" = contract ]; then echo '{\"outbreak\":1}'; exit 0; fi\nsleep 30\n");
     chmod($slow, 0o755);
-    $engine = Outbreak::at($slow, $root, OutbreakSettings::of(timeout: Seconds::of(1)));
+    $engine = Outbreak::at($slow, $root, OutbreakSettings::of(timeout: Seconds::of(3)));
 
     expect($engine->isInUse())->toBeTrue()
         ->and($engine->vouches(Contents::of('{}')))->toBe(MapVouch::Unvouched)
