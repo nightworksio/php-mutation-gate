@@ -456,7 +456,9 @@ running it: why is this mutant here, and has it always been?
       failed fast on the mutant. Two
       kills of the same file and killers share it, as does a timeout's
       control of the same tests and limit. ADR-0033 first controls a file's kills
-      together, and controls each on its own only where that does not pass.
+      together, those whose runs left their filter out by every test file
+      those runs loaded, and controls each on its own only where that does
+      not pass.
     - Every runner is held to it, Pest included: a Pest kill its own run
       already checked on narrowed test files is checked here too.
     - The kill stands where its control passes. Where the control fails, the

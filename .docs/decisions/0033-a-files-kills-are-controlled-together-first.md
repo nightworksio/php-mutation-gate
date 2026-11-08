@@ -24,6 +24,12 @@ failed only while Pest's override served a file.
    every test that killed any mutant of the file, with the file served
    unmutated as its mutants were, allowed the standard mutant limit of their
    time. Where it passes, every kill of the file a test is named for stands.
+   A file's kills whose own runs left their filter out, as too long to pass,
+   are controlled together apart from the others: one control loads every
+   test file any of those runs loaded, selected as those runs selected their
+   tests, allowed the standard mutant limit of those files' tests up to
+   `timeouts.controlMost`. A kill whose run loaded every test file keeps its
+   own control.
 2. **Where it does not pass, each kill is controlled on its own**, as
    ADR-0014 says, once for each set of killers, and stands only
    where its own control passes. A kill whose own control is the file's
@@ -48,8 +54,9 @@ the first control of a kill.
 
 ## Consequences
 
-- A full run starts about one control per file with kills, not one per set of
-  killers. Where tests of a file fail together but pass apart, the per-kill
+- A full run starts about one control per file with kills, and one more per
+  file with kills whose runs left their filter out, not one per set of
+  killers or per set of test files loaded. Where tests of a file fail together but pass apart, the per-kill
   controls still judge each kill as before, at the price of one more run.
 - Every runner is held to it, as ADR-0014 holds them.
 
