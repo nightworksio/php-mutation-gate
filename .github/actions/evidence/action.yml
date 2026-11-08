@@ -1,0 +1,39 @@
+name: Gather the run's evidence
+description: >-
+  Every job's evidence this attempt left, laid over what an earlier attempt of
+  the run gathered, as the one artifact `evidence` the bot reads (ADR-0019), so
+  a job run again speaks for itself and a job not run again keeps what it said.
+runs:
+  using: composite
+  steps:
+    - uses: actions/upload-artifact/merge@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      id: attempt
+      continue-on-error: true
+      with:
+        name: attempt-${{ github.run_attempt }}-evidence
+        pattern: evidence-*
+        delete-merged: true
+        retention-days: 1
+    - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      if: steps.attempt.outcome == 'success'
+      with:
+        name: attempt-${{ github.run_attempt }}-evidence
+        path: ${{ runner.temp }}/evidence/attempt
+    - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      if: github.run_attempt != '1'
+      continue-on-error: true
+      with:
+        name: evidence
+        path: ${{ runner.temp }}/evidence/earlier
+    - name: Lay this attempt's evidence over the earlier attempt's
+      shell: bash
+      run: >-
+        python3 "${GITHUB_ACTION_PATH}/../../scripts/evidence_overlay.py"
+        "${RUNNER_TEMP}/evidence/earlier" "${RUNNER_TEMP}/evidence/attempt" "${RUNNER_TEMP}/evidence/gathered"
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: evidence
+        path: ${{ runner.temp }}/evidence/gathered
+        overwrite: true
+        if-no-files-found: error
+        retention-days: 7

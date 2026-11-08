@@ -8,13 +8,14 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Workspace as GateDirectory;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Recheck\ShareOf;
 
 use function sprintf;
 
 /**
  * Where the gate keeps what one job hands the next: the plan, the coverage
- * map it used, each shard's own map, each shard's result, and the last
- * run's JSON report.
+ * map it used, each shard's own map, each shard's result, what each share of
+ * a re-check of survivors made, and the last run's JSON report.
  *
  * @internal
  */
@@ -120,5 +121,17 @@ final readonly class Workspace
     public static function result(Path $results, ShardId $shard): Path
     {
         return Path::of(sprintf('%s/%d.json', $results->value(), $shard->number()));
+    }
+
+    /** Where each share of a re-check of the last run's survivors leaves what it made (ADR-0106). */
+    public static function survivors(): Path
+    {
+        return Path::of(sprintf('%s/survivors', GateDirectory::root()->value()));
+    }
+
+    /** Where one share of a re-check leaves what it made, in a directory of shares. */
+    public static function survivorShare(Path $shares, ShareOf $share): Path
+    {
+        return Path::of(sprintf('%s/%d.json', $shares->value(), $share->share()));
     }
 }

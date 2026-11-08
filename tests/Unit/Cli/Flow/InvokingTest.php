@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Invoking;
 use NightWorksIO\MutationGate\Cli\Flow\PartedRuns;
 use NightWorksIO\MutationGate\Cli\Flow\Stopwatch;
 use NightWorksIO\MutationGate\Cli\Flow\SurvivorChecking;
+use NightWorksIO\MutationGate\Core\Control\Control;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -21,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Deadline;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -117,3 +119,21 @@ it('runs only the controls that fit in the time left, at the longest limit among
     'one of two alike' => [6.0, 6.0, [1]],
     'none, the longer not fitting' => [2.0, 20.0, []],
 ]);
+
+it('allows a kill\'s control, named or not, the standard limit of its tests\' time up to timeouts.controlMost, past timeouts.most', function (bool $named): void {
+    $killed = invokedMutant('src/Money.php', 'a', MutantStatus::Killed);
+    $killed = $named ? $killed->killedBy(TestIds::of(TestId::of('MoneyTest::runs'))) : $killed;
+    $map = CoverageMap::empty()
+        ->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::runs'))
+        ->timed(TestId::of('MoneyTest::runs'), Seconds::of(150.0));
+    $runner = ScriptedRunner::fixture()->answering(Mutants::of($killed), 0);
+
+    invokedWithin($runner, Seconds::of(10_000.0), $map);
+    $limits = [];
+
+    foreach ($runner->controlled() as [$controls]) {
+        $limits = [...$limits, ...array_map(static fn(Control $control): float => $control->limit()->seconds(), [...$controls])];
+    }
+
+    expect(max([0.0, ...$limits]))->toBeGreaterThan(300.0)->toBeLessThanOrEqual(900.0);
+})->with(['named' => [true], 'unnamed' => [false]]);

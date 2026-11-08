@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Config;
 
 use function intval;
+use function max;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
@@ -31,7 +32,12 @@ final readonly class Triage implements Part
 
     private const int MOST = 300;
 
+    /** The most a kill's unmutated control may run, in seconds, where no layer sets it. */
+    private const int CONTROL_MOST = 900;
+
     private const string UNDER_THE_FLOOR = 'expected at least timeouts.seconds, %d, got %d';
+
+    private const string UNDER_THE_MOST = 'expected at least timeouts.most, %d, got %d';
 
     private function __construct(
         private Seconds|Absent $budget,
@@ -42,9 +48,10 @@ final readonly class Triage implements Part
         private TighterSilence|Absent $tighter,
         private bool|Absent $confirmSurvivors,
         private TestOrder|Absent $order,
-        private SurvivorsFirst|Absent $survivorsFirst,
+        private SurvivorsFirst $survivorsFirst,
         private SuiteLists $lists,
         private PerTestSetting $perTest,
+        private Seconds|Absent $controlMost,
     ) {
     }
 
@@ -61,6 +68,7 @@ final readonly class Triage implements Part
         int|float|Learned|Absent $multiple = new Absent(),
         int|false|Absent $perTest = new Absent(),
         Seconds|Absent $testFloor = new Absent(),
+        Seconds|Absent $controlMost = new Absent(),
     ): self {
         return new self(
             $budget,
@@ -71,9 +79,10 @@ final readonly class Triage implements Part
             $tighter,
             $confirmSurvivors,
             $order,
-            $survivorsFirst,
+            $survivorsFirst instanceof SurvivorsFirst ? $survivorsFirst : SurvivorsFirst::standard(),
             $lists instanceof SuiteLists ? $lists : SuiteLists::of(),
             PerTestSetting::of($perTest, $testFloor),
+            $controlMost,
         );
     }
 
@@ -92,7 +101,7 @@ final readonly class Triage implements Part
             most: $none->most(),
             confirmSurvivors: $none->confirmSurvivors(),
             order: $none->order(),
-            survivorsFirst: $none->survivorsFirst(),
+            survivorsFirst: $none->survivorsFirst()->resolved(),
             tighter: $none->tighter(),
             perTest: PerTestLimit::MULTIPLE,
             testFloor: Seconds::of(PerTestLimit::FLOOR),
@@ -111,9 +120,10 @@ final readonly class Triage implements Part
                 Absent::laid($this->tighter, $later->tighter),
                 Absent::laid($this->confirmSurvivors, $later->confirmSurvivors),
                 Absent::laid($this->order, $later->order),
-                Absent::laid($this->survivorsFirst, $later->survivorsFirst),
+                $this->survivorsFirst->over($later->survivorsFirst),
                 $this->lists->over($later->lists),
                 $this->perTest->over($later->perTest),
+                Absent::laid($this->controlMost, $later->controlMost),
             )
             : $this;
     }
@@ -149,6 +159,20 @@ final readonly class Triage implements Part
     }
 
     /**
+     * `timeouts.controlMost`: the most a kill's unmutated control is allowed
+     * (ADR-0014), which runs the tests its mutant's run selected, and the
+     * selection a run that left its filter out loaded can take far longer
+     * than the tests that failed in it; where no layer sets it, 900 s, or
+     * `timeouts.most` where that is longer.
+     */
+    public function controlMost(): Seconds
+    {
+        return $this->controlMost instanceof Seconds
+            ? $this->controlMost
+            : Seconds::of(max(self::CONTROL_MOST, $this->most()->seconds()));
+    }
+
+    /**
      * `timeouts.tighter`: the mutators, by their short names, whose silence
      * limit has a lower floor, and that floor.
      */
@@ -177,15 +201,22 @@ final readonly class Triage implements Part
         return $this->limit instanceof Learned ? $bounds->learningFloor() : $bounds;
     }
 
-    /** Why the timeouts cannot be laid, a most under the floor; or nothing. */
+    /** Why the timeouts cannot be laid, a most under the floor or a control's most under the most; or nothing. */
     public function refusal(): Invalid|Absent
     {
         $floor = intval($this->limit()->seconds());
         $most = intval($this->most()->seconds());
+        $controls = intval($this->controlMost()->seconds());
 
-        return $most < $floor
-            ? Invalid::because(Problem::at('timeouts.most', sprintf(self::UNDER_THE_FLOOR, $floor, $most)))
-            : Absent::setting();
+        return match (true) {
+            $most < $floor => Invalid::because(
+                Problem::at('timeouts.most', sprintf(self::UNDER_THE_FLOOR, $floor, $most)),
+            ),
+            $controls < $most => Invalid::because(
+                Problem::at('timeouts.controlMost', sprintf(self::UNDER_THE_MOST, $most, $controls)),
+            ),
+            default => Absent::setting(),
+        };
     }
 
     /** `flaky.confirmSurvivors`: whether each survivor is run once more before it counts. */
@@ -210,10 +241,10 @@ final readonly class Triage implements Part
         return $this->lists->suites();
     }
 
-    /** `survivorsFirst.max`: how many of the last run's survivors a pull request's run re-checks first. */
+    /** `survivorsFirst`: how a pull request's run re-checks the last run's survivors first. */
     public function survivorsFirst(): SurvivorsFirst
     {
-        return $this->survivorsFirst instanceof SurvivorsFirst ? $this->survivorsFirst : SurvivorsFirst::standard();
+        return $this->survivorsFirst;
     }
 
     public function written(PathOrigin $origin): Json
@@ -227,7 +258,8 @@ final readonly class Triage implements Part
                     Member::of('seconds', LimitCalls::secondsWritten($this->limit)),
                     Member::of('most', WholeSeconds::written($this->most)),
                     Member::of('multiple', LimitCalls::multipleWritten($this->multiple)),
-                    Member::of('tighter', $this->tighterWritten()),
+                    Member::of('tighter', LimitCalls::tighterWritten($this->tighter)),
+                    Member::of('controlMost', WholeSeconds::written($this->controlMost)),
                     ...$this->perTest->written(),
                 ),
             ),
@@ -240,15 +272,7 @@ final readonly class Triage implements Part
                     $this->lists->holdingWritten(),
                 ),
             ),
-            Member::unlessEmpty(
-                'survivorsFirst',
-                Json::object(Member::of(
-                    'max',
-                    $this->survivorsFirst instanceof SurvivorsFirst
-                        ? $this->survivorsFirst->most()
-                        : $this->survivorsFirst,
-                )),
-            ),
+            Member::unlessEmpty('survivorsFirst', $this->survivorsFirst->written()),
         );
     }
 
@@ -267,35 +291,22 @@ final readonly class Triage implements Part
                 PhpCalls::literals(intval($this->tighter->floor()->seconds()), ...$this->tighter),
             )] : [],
             ...$this->perTest->calls(),
+            ...$this->controlMost instanceof Seconds
+                ? [sprintf('Timeouts::controlMost(%d)', intval($this->controlMost->seconds()))]
+                : [],
             ...$this->confirmSurvivors instanceof Absent ? [] : [
                 $this->confirmSurvivors ? 'Flaky::confirmingSurvivors()' : 'Flaky::notConfirmingSurvivors()',
             ],
             ...$this->orderCalls(),
-        ])->and($this->lists->calls());
+        ])->and($this->survivorsFirst->calls())->and($this->lists->calls());
     }
 
-    /** `timeouts.tighter` as a config writes it; nothing where no layer set it. */
-    private function tighterWritten(): Json|Absent
-    {
-        return $this->tighter instanceof TighterSilence
-            ? Json::object(
-                Member::of('mutators', Json::items(...$this->tighter)),
-                Member::of('floor', intval($this->tighter->floor()->seconds())),
-            )
-            : $this->tighter;
-    }
-
-    /** @return list<string> the builder's calls for the order of each mutant's tests, and of the survivors' re-check */
+    /** @return list<string> the builder's call for the order of each mutant's tests */
     private function orderCalls(): array
     {
-        return [
-            ...$this->order instanceof TestOrder ? [match ($this->order) {
-                TestOrder::KillersFirst => 'Tests::killersFirst()',
-                TestOrder::Runner => 'Tests::inRunnerOrder()',
-            }] : [],
-            ...$this->survivorsFirst instanceof SurvivorsFirst
-                ? [sprintf('Survivors::firstAtMost(%d)', $this->survivorsFirst->most())]
-                : [],
-        ];
+        return $this->order instanceof TestOrder ? [match ($this->order) {
+            TestOrder::KillersFirst => 'Tests::killersFirst()',
+            TestOrder::Runner => 'Tests::inRunnerOrder()',
+        }] : [];
     }
 }

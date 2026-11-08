@@ -453,7 +453,7 @@ final readonly class Judging
     /** How uncovered mutants count in every score, as the config says. */
     private function uncovered(): Uncovered
     {
-        return Uncovered::from($this->settings->floors()->uncovered()->value);
+        return $this->settings->floors()->uncovered();
     }
 
     /** Why each held unit its holding tests miss lines of fails. */

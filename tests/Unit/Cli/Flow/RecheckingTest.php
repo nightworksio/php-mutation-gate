@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Cli\Flow\Adapters;
 use NightWorksIO\MutationGate\Cli\Flow\Mode;
+use NightWorksIO\MutationGate\Cli\Flow\Rechecking;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Ignore;
 use NightWorksIO\MutationGate\Config\Survivors;
@@ -31,21 +33,29 @@ use NightWorksIO\MutationGate\Core\Recheck\Gone;
 use NightWorksIO\MutationGate\Core\Recheck\NoRecheck;
 use NightWorksIO\MutationGate\Core\Recheck\Recheck;
 use NightWorksIO\MutationGate\Core\Recheck\Rechecked;
+use NightWorksIO\MutationGate\Core\Recheck\RecheckJobs;
+use NightWorksIO\MutationGate\Core\Recheck\RecheckShare;
+use NightWorksIO\MutationGate\Core\Recheck\ShareOf;
+use NightWorksIO\MutationGate\Core\Recheck\Unreached;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Rechecks;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\ScriptedClock;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 
 afterEach(function (): void {
@@ -224,4 +234,73 @@ it('cannot re-check where the trees cannot be read, or the runner cannot run the
         ->toEqual(CannotJudge::because('No tree is declared.'))
         ->and(Rechecks::of(Flows::adapters(Flows::project(), [], ...$refused), Flows::settings(), $plan))
         ->toEqual(CannotJudge::because('Pest is not installed.'));
+});
+
+it('runs the files in the order taken until survivorsFirst.budget is spent, each run held to the time left, and reaches no file after', function () use ($store, $outcomes): void {
+    $runner = ScriptedRunner::fixture();
+    $ran = Rechecks::ports('feature', $store('src/Money.php', 'src/Held.php'), $runner);
+    $plan = Rechecks::plan($ran, Flows::settings(), Mode::full());
+    $before = count($runner->requests());
+    $clock = new ScriptedClock(Configs::NOW, 0, 0, 100, 1200);
+
+    $rechecked = $plan instanceof Plan
+        ? new Rechecking(Flows::adapters(Flows::project(), [], ...$ran), Flows::settings(), Flows::setupAt($clock))->recheck($plan)
+        : $plan;
+    $asked = array_slice($runner->requests(), $before);
+
+    expect($outcomes($rechecked))->toEqual([
+        ['8705b7dc7d27', MutantStatus::Survived],
+        ['49e02fb39669', Unreached::value()],
+        ['95e61bd8bf62', Unreached::value()],
+    ])
+        ->and(array_map(static fn(MutationRequest $request): Seconds|Unlimited => $request->deadline(), $asked))
+        ->toEqual([Seconds::of(1100)]);
+});
+
+it('runs each share\'s files alone, and pairs the survivors with what the shares made, a file no share ran not reached', function () use ($store, $outcomes): void {
+    $runner = ScriptedRunner::fixture();
+    $ran = Rechecks::ports('feature', $store('src/Money.php', 'src/Held.php'), $runner);
+    $plan = Rechecks::plan($ran, Flows::settings(), Mode::full());
+    $rechecking = new Rechecking(Flows::adapters(Flows::project(), [], ...$ran), Flows::settings(), Flows::setup());
+    $share = static fn(string $share): RecheckShare|NoRecheck|CannotJudge => $plan instanceof Plan
+        ? $rechecking->share($plan, ShareOf::parse($share, '2') instanceof ShareOf ? ShareOf::parse($share, '2') : ShareOf::whole())
+        : $plan;
+    $files = static fn(RecheckShare|NoRecheck|CannotJudge $ran): array => $ran instanceof RecheckShare
+        ? array_map(static fn(Path $file): string => $file->value(), [...$ran->ran()])
+        : [$ran];
+    $first = $share('1');
+    $second = $share('2');
+    $combined = static fn(RecheckShare $shares): Rechecked|NoRecheck|CannotJudge => $plan instanceof Plan
+        ? $rechecking->combined($plan, $shares)
+        : $plan;
+
+    expect([$files($first), $files($second)])->toBe([['src/Held.php'], ['src/Money.php']])
+        ->and($first instanceof RecheckShare && $second instanceof RecheckShare ? $outcomes($combined($first->and($second))) : null)
+        ->toEqual($plan instanceof Plan ? $outcomes($rechecking->recheck($plan)) : $plan)
+        ->and($second instanceof RecheckShare ? $outcomes($combined($second)) : null)->toEqual([
+            ['8705b7dc7d27', Unreached::value()],
+            ['49e02fb39669', MutantStatus::Survived],
+            ['95e61bd8bf62', MutantStatus::Uncovered],
+        ]);
+});
+
+it('runs a job per file of the survivors taken, at most survivorsFirst.shards, none where it takes none', function () use ($store): void {
+    $ran = Rechecks::ports('feature', $store('src/Money.php', 'src/Held.php'), ScriptedRunner::fixture());
+    $plan = Rechecks::plan($ran, Flows::settings(), Mode::full());
+    $jobs = static function (Settings $settings, Adapters $adapters) use ($plan): int|CannotJudge {
+        $jobs = $plan instanceof Plan ? new Rechecking($adapters, $settings, Flows::setup())->jobs($plan) : $plan;
+
+        return $jobs instanceof RecheckJobs ? $jobs->count() : $jobs;
+    };
+    $adapters = Flows::adapters(Flows::project(), [], ...$ran);
+    $unread = Flows::adapters(Flows::project(), [], ...Rechecks::ports(
+        'feature',
+        $store('src/Money.php'),
+        new TreeSourceFake(CannotJudge::because('No tree is declared.')),
+    ));
+
+    expect($jobs(Flows::settings(), $adapters))->toBe(2)
+        ->and($jobs(Flows::settings(Survivors::firstAcross(1)), $adapters))->toBe(1)
+        ->and($jobs(Flows::settings(Survivors::firstAtMost(0)), $adapters))->toBe(0)
+        ->and($jobs(Flows::settings(), $unread))->toEqual(CannotJudge::because('No tree is declared.'));
 });

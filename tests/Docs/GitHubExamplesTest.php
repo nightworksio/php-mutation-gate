@@ -64,8 +64,12 @@ it('names only artifacts the action and the reusable workflow upload and the env
     foreach ($steps as $step) {
         $uploaded[] = str_starts_with(Lenient::text($step->field('uses')), 'actions/upload-artifact@')
             ? (string) preg_replace(
-                ['/\$\{\{ (github\.run_attempt|needs\.[a-z-]+\.outputs\.attempt) \}\}/u', '/\$\{\{ matrix\.shard\.id \}\}/u'],
-                ['<attempt>', '<shard>'],
+                [
+                    '/\$\{\{ (github\.run_attempt|needs\.[a-z-]+\.outputs\.attempt) \}\}/u',
+                    '/\$\{\{ matrix\.shard\.id \}\}/u',
+                    '/\$\{\{ matrix\.share \}\}/u',
+                ],
+                ['<attempt>', '<shard>', '<share>'],
                 Lenient::text($step->field('with')->field('name')),
             )
             : '';

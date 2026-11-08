@@ -86,6 +86,22 @@ final readonly class Rechecked implements Countable, IteratorAggregate
         return $gone;
     }
 
+    /**
+     * The survivors the re-check did not run again, as the last run left them.
+     *
+     * @return list<JudgedMutant>
+     */
+    public function unreached(): array
+    {
+        $unreached = [];
+
+        foreach ($this->rechecks as $recheck) {
+            $unreached = $recheck->now() instanceof Unreached ? [...$unreached, $recheck->before()] : $unreached;
+        }
+
+        return $unreached;
+    }
+
     /** How uncovered mutants count, as the score counts them. */
     public function uncovered(): Uncovered
     {
@@ -95,7 +111,7 @@ final readonly class Rechecked implements Countable, IteratorAggregate
     /** How many were found again and no longer survive. */
     public function killed(): int
     {
-        return count($this->rechecks) - count($this->surviving()) - count($this->gone());
+        return count($this->rechecks) - count($this->surviving()) - count($this->gone()) - count($this->unreached());
     }
 
     public function count(): int

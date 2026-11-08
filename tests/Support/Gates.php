@@ -49,7 +49,7 @@ final readonly class Gates
     public const string TABLE = '.github/gates.json';
 
     /** The action that gathers a run's evidence into one artifact. */
-    private const string GATHERS = 'actions/upload-artifact/merge@';
+    private const string GATHERS = './.github/actions/evidence';
 
     /** What gates.json says in place of a job's producers where it leaves no evidence. */
     private const string NONE = 'none';

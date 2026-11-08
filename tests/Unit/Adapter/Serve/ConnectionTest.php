@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\Waiting;
 use NightWorksIO\MutationGate\Adapter\Serve\Connection;
 use NightWorksIO\MutationGate\Adapter\Serve\FramedOutput;
 use NightWorksIO\MutationGate\Adapter\Serve\Listener;
@@ -9,6 +10,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Serve\ServeFrame;
 use NightWorksIO\MutationGate\Core\Serve\ServeStream;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ServedProjects;
 
@@ -53,6 +55,62 @@ it('tells a client still connected has not ended, and the listener ready once a 
     expect(Listener::ready($listener, [], 1_000_000))->toBe([true, []])
         ->and(Listener::ready(NotGiven::value(), [], 1000))->toBe([false, []])
         ->and($second)->toBeInstanceOf(Connection::class);
+});
+
+it('puts the socket at its name only once it listens, leaving nothing under the name it was bound by', function (): void {
+    ServedProjects::entered();
+    $listener = Listener::boundTo(ServedProjects::SOCKET);
+    $aside = sprintf('%s.binding-%d', ServedProjects::SOCKET, getmypid());
+    $unbound = Listener::boundTo('missing/serve.sock');
+
+    expect($listener)->toBeInstanceOf(Listener::class)
+        ->and(Connection::to(ServedProjects::SOCKET))->toBeInstanceOf(Connection::class)
+        ->and(file_exists($aside))->toBeFalse()
+        ->and($unbound)->toBeInstanceOf(CannotJudge::class)
+        ->and(file_exists(sprintf('missing/serve.sock.binding-%d', getmypid())))->toBeFalse();
+});
+
+// A client looking every 50 microseconds connects the moment the socket's file
+// is there, which a socket bound at its own name refuses one time in seven,
+// before it listens.
+it('never refuses a client that connects the moment the socket is there', function (): void {
+    ServedProjects::entered();
+    $found = [];
+
+    foreach (range(1, 50) as $round) {
+        $kept = sprintf('%s/connected-%d', (string) getcwd(), $round);
+        $child = ServedProjects::aside(static function () use ($kept): void {
+            $look = Waiting::every(Seconds::of(0.000_05));
+
+            for ($looked = 0; $looked < 40_000 && ! ServedProjects::socket()->isThere(); $looked++) {
+                $look();
+            }
+
+            file_put_contents($kept, Connection::to(ServedProjects::SOCKET) instanceof Connection ? 'connected' : 'refused');
+        });
+        Waiting::every(Seconds::of(0.002))();
+        $listener = Listener::boundTo(ServedProjects::SOCKET);
+        ServedProjects::waitedFor($child);
+        $found[] = (string) file_get_contents($kept);
+        unset($listener);
+        ServedProjects::socket()->removed();
+    }
+
+    expect(array_values(array_unique($found)))->toBe(['connected']);
+});
+
+it('says why it cannot listen where it cannot move the socket into place, leaving nothing bound aside', function (): void {
+    ServedProjects::entered();
+    mkdir(ServedProjects::SOCKET);
+    touch(sprintf('%s/held', ServedProjects::SOCKET));
+    error_clear_last();
+    $unplaced = Listener::boundTo(ServedProjects::SOCKET);
+
+    expect($unplaced instanceof CannotJudge ? $unplaced->why() : '')
+        ->toStartWith('The daemon could not listen on .mutation-gate/serve.sock: rename(')
+        ->and(file_exists(sprintf('%s.binding-%d', ServedProjects::SOCKET, getmypid())))->toBeFalse()
+        ->and(error_get_last())->toBeNull()
+        ->and(Listener::boundTo(sprintf('%s.binding-%d', ServedProjects::SOCKET, getmypid())))->toBeInstanceOf(Listener::class);
 });
 
 it('connects to nothing where nothing listens, and binds nothing where the directory is missing', function (): void {
@@ -182,6 +240,7 @@ it('makes a missing directory with the ones above it, and raises no warning wher
     expect([$made, $blocked, is_dir('deep/er/inner')])->toBe([true, false, true])
         ->and($unbound instanceof CannotJudge ? $unbound->why() : '')
         ->toMatch('/^The daemon could not listen on missing\/serve\.sock: stream_socket_server\(\): \S/')
+        ->and($unbound instanceof CannotJudge ? $unbound->why() : 'rename(')->not->toContain('rename(')
         ->and(umask($mask))->toBe(0o002)
         ->and($accepted)->toBe([])
         ->and($waited)->toBeLessThan(0.5)

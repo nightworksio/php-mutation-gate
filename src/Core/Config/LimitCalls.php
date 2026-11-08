@@ -7,14 +7,17 @@ namespace NightWorksIO\MutationGate\Core\Config;
 use function intval;
 use function is_int;
 
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
 
 /**
  * `timeouts.seconds`, `timeouts.multiple` and `shards.max`, each a number or
- * learned, and `shards.learnedFrom`, as a JSON config and the PHP builder
- * write them.
+ * learned, `timeouts.tighter` and `shards.learnedFrom`, as a JSON config and
+ * the PHP builder write them.
  *
  * @internal
  */
@@ -23,6 +26,17 @@ final readonly class LimitCalls
     public static function secondsWritten(Seconds|Learned|Absent $seconds): int|string|Absent
     {
         return $seconds instanceof Learned ? $seconds->value : WholeSeconds::written($seconds);
+    }
+
+    /** `timeouts.tighter` as a config writes it; nothing where no layer set it. */
+    public static function tighterWritten(TighterSilence|Absent $tighter): Json|Absent
+    {
+        return $tighter instanceof TighterSilence
+            ? Json::object(
+                Member::of('mutators', Json::items(...$tighter)),
+                Member::of('floor', intval($tighter->floor()->seconds())),
+            )
+            : $tighter;
     }
 
     public static function multipleWritten(int|float|Learned|Absent $multiple): int|float|string|Absent

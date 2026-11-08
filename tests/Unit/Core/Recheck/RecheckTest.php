@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Recheck\Gone;
 use NightWorksIO\MutationGate\Core\Recheck\Recheck;
+use NightWorksIO\MutationGate\Core\Recheck\Unreached;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
@@ -22,7 +23,9 @@ it('keeps the survivor as the last run left it, and what running it again found'
 
     expect(Recheck::found($before, $now)->before())->toBe($before)
         ->and(Recheck::found($before, $now)->now())->toBe($now)
-        ->and(Recheck::gone($before)->now())->toEqual(Gone::value());
+        ->and(Recheck::gone($before)->now())->toEqual(Gone::value())
+        ->and(Recheck::unreached($before)->now())->toEqual(Unreached::value())
+        ->and(Recheck::unreached($before)->before())->toBe($before);
 });
 
 it('says a survivor still survives where it was found again and the score counts it as not killed', function (
@@ -40,6 +43,7 @@ it('says a survivor still survives where it was found again and the score counts
     'killed by timeout' => [MutantJudgement::KilledByTimeout, Uncovered::Count, false],
 ]);
 
-it('never says a gone survivor still survives', function () use ($judged): void {
-    expect(Recheck::gone($judged(1, MutantJudgement::Survived))->stillSurvives(Uncovered::Count))->toBeFalse();
+it('never says a gone or unreached survivor still survives', function () use ($judged): void {
+    expect(Recheck::gone($judged(1, MutantJudgement::Survived))->stillSurvives(Uncovered::Count))->toBeFalse()
+        ->and(Recheck::unreached($judged(1, MutantJudgement::Survived))->stillSurvives(Uncovered::Count))->toBeFalse();
 });

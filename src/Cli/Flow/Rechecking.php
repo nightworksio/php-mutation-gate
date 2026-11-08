@@ -4,17 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
-use function array_key_exists;
-use function array_map;
-
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Settings;
-use NightWorksIO\MutationGate\Core\Config\SurvivorsFirst;
-use NightWorksIO\MutationGate\Core\Coverage\Handed;
-use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
-use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
@@ -23,10 +15,10 @@ use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Recheck\NoRecheck;
-use NightWorksIO\MutationGate\Core\Recheck\Recheck;
 use NightWorksIO\MutationGate\Core\Recheck\Rechecked;
-use NightWorksIO\MutationGate\Core\Runner\Pool;
-use NightWorksIO\MutationGate\Core\Runner\Uncovered;
+use NightWorksIO\MutationGate\Core\Recheck\RecheckJobs;
+use NightWorksIO\MutationGate\Core\Recheck\RecheckShare;
+use NightWorksIO\MutationGate\Core\Recheck\ShareOf;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Verdict\Ignoring;
@@ -37,13 +29,13 @@ use NightWorksIO\MutationGate\Core\Verdict\Survivors;
 
 /**
  * The last run's survivors run again first, on a branch of its own
- * (ADR-0020): of the newest proof in the run's own scope
- * of each unit the plan reaches, the mutants the comment lists as not killed,
+ * (ADR-0020, ADR-0106): of the newest proof in the run's own scope of each
+ * unit the plan reaches, the mutants the comment lists as not killed,
  * judged as the verdict judges them, those on the change's lines first, at
- * most `survivorsFirst.max`. Each file's run makes the mutants of their
- * mutators alone, and each survivor is found again by the gate's id, which
- * holds no line, or is gone. The ledgers are only read: the result is a
- * signal, never a proof.
+ * most `survivorsFirst.max`. One job runs them all, or each of
+ * `survivorsFirst.shards` jobs runs its share of their files and one more
+ * pairs what the shares made with the survivors taken again. The ledgers are
+ * only read: the result is a signal, never a proof.
  *
  * @internal
  */
@@ -53,7 +45,50 @@ final readonly class Rechecking
     {
     }
 
+    /** Every survivor taken, run again in this one job. */
     public function recheck(Plan $plan): Rechecked|NoRecheck|CannotJudge
+    {
+        $taken = $this->taken($plan);
+
+        if (! $taken instanceof TakenSurvivors) {
+            return $taken;
+        }
+
+        $ran = $this->runs()->ran($taken, ShareOf::whole());
+
+        return $ran instanceof CannotJudge ? $ran : $this->runs()->rechecked($taken, $ran);
+    }
+
+    /** The jobs a CI shares the re-check among; one, to say why, where the survivors taken cannot be told. */
+    public function jobs(Plan $plan): RecheckJobs|CannotJudge
+    {
+        $taken = $this->taken($plan);
+        $first = $this->settings->triage()->survivorsFirst();
+
+        return match (true) {
+            $taken instanceof TakenSurvivors => RecheckJobs::for($taken->files(), $first),
+            $taken instanceof NoRecheck => RecheckJobs::none($first),
+            default => $taken,
+        };
+    }
+
+    /** What one job's share of the files ran again. */
+    public function share(Plan $plan, ShareOf $share): RecheckShare|NoRecheck|CannotJudge
+    {
+        $taken = $this->taken($plan);
+
+        return $taken instanceof TakenSurvivors ? $this->runs()->ran($taken, $share) : $taken;
+    }
+
+    /** The survivors taken again, each paired with what the shares made of it, or not reached where none ran it. */
+    public function combined(Plan $plan, RecheckShare $shares): Rechecked|NoRecheck|CannotJudge
+    {
+        $taken = $this->taken($plan);
+
+        return $taken instanceof TakenSurvivors ? $this->runs()->rechecked($taken, $shares) : $taken;
+    }
+
+    private function taken(Plan $plan): TakenSurvivors|NoRecheck|CannotJudge
     {
         $survivorsFirst = $this->settings->triage()->survivorsFirst();
         $standing = Standing::planned($plan);
@@ -71,16 +106,12 @@ final readonly class Rechecking
                     Writing::Never,
                     $this->settings->proofs()->taken(),
                 )->own(),
-                $survivorsFirst,
             ),
         };
     }
 
-    private function inOwnScope(
-        Plan $plan,
-        Ledger $own,
-        SurvivorsFirst $survivorsFirst,
-    ): Rechecked|NoRecheck|CannotJudge {
+    private function inOwnScope(Plan $plan, Ledger $own): TakenSurvivors|NoRecheck|CannotJudge
+    {
         $trees = $this->adapters->trees->trees();
 
         if ($trees instanceof CannotJudge) {
@@ -90,12 +121,12 @@ final readonly class Rechecking
         $units = $this->reached($plan);
         $mutants = $this->lastReported($own, $units);
         $reach = $this->reachOf($plan, $trees);
-        $taken = $survivorsFirst->taken($this->survivorsAmong($mutants, $reach));
+        $taken = $this->settings->triage()->survivorsFirst()->taken($this->survivorsAmong($mutants, $reach));
 
         return match (true) {
             $mutants === [] => NoRecheck::noEarlierRun(),
             $taken->count() === 0 => NoRecheck::noneLeft(),
-            default => $this->rerun($taken, $units, $reach),
+            default => TakenSurvivors::of($taken, $units, $reach),
         };
     }
 
@@ -119,94 +150,7 @@ final readonly class Rechecking
         $survivors = JudgedMutants::of(...$judged)->provenEquivalent($equivalent)->within($reach);
         $survivors = $this->adapters->isSecurityOnly() ? $survivors->madeBy($this->adapters->security) : $survivors;
 
-        return $survivors->survivors($this->uncovered());
-    }
-
-    /**
-     * Each file's survivors run again in one run, of their mutators alone,
-     * and each found again by its id.
-     *
-     * @param array<string, Unit> $units
-     */
-    private function rerun(Survivors $taken, array $units, Reach $reach): Rechecked|CannotJudge
-    {
-        $now = [];
-
-        foreach ($this->byFile($taken) as $file => $survivors) {
-            $made = $this->made(Path::of($file), $survivors, $units);
-
-            if ($made instanceof CannotJudge) {
-                return $made;
-            }
-
-            $now += $made;
-        }
-
-        $triage = MutantTriage::under($this->settings->triage()->timeouts());
-        $rechecks = [];
-
-        foreach ($taken as $before) {
-            $key = $before->mutant()->id()->key();
-            $rechecks[] = array_key_exists($key, $now)
-                ? Recheck::found($before, JudgedMutant::of($now[$key], $triage->judged($now[$key]))->within($reach))
-                : Recheck::gone($before);
-        }
-
-        return Rechecked::of($this->uncovered(), ...$rechecks)->startedAs($this->setup->command);
-    }
-
-    /**
-     * The mutants one run of this file makes of these survivors' mutators, by
-     * the gate's id, judged by the tests that judge its unit. As a shard's
-     * run does, it reads the coverage the plan handed on, the verdict's map
-     * of every unit the plan considered as its own, rather than running the
-     * suite under coverage again for each file, and runs a mutant on each
-     * core the runner uses.
-     *
-     * @param  list<JudgedMutant>      $survivors
-     * @param  array<string, Unit>     $units
-     * @return array<string, Mutant>|CannotJudge
-     */
-    private function made(Path $file, array $survivors, array $units): array|CannotJudge
-    {
-        $names = array_map(static fn(JudgedMutant $survivor): string => $survivor->mutant()->mutator(), $survivors);
-        $judgedBy = $units[$file->value()]->judgedBy();
-        $request = RunRequest::of($this->adapters, $this->settings, Paths::of($file), $judgedBy)
-            ->across(Pool::of($this->adapters->processes(), $this->settings->runner()->workers()))
-            ->reusingCoverage(Handed::maps(Workspace::verdictCoverage(), Workspace::coverage()));
-        $result = $this->adapters->runner->mutate($request->narrowedTo(
-            Paths::of($file),
-            $request->narrowing()->toMutators(Mutators::named(...$names)),
-        ));
-
-        if ($result instanceof CannotJudge) {
-            return $result;
-        }
-
-        $made = [];
-
-        foreach ($result->mutants() as $mutant) {
-            $made[$mutant->id()->key()] = $mutant;
-        }
-
-        return $made;
-    }
-
-    private function uncovered(): Uncovered
-    {
-        return Uncovered::from($this->settings->floors()->uncovered()->value);
-    }
-
-    /** @return array<string, list<JudgedMutant>> the survivors by the file they mutate, in the order taken */
-    private function byFile(Survivors $taken): array
-    {
-        $byFile = [];
-
-        foreach ($taken as $survivor) {
-            $byFile[$survivor->mutant()->location()->file()->value()][] = $survivor;
-        }
-
-        return $byFile;
+        return $survivors->survivors($this->settings->floors()->uncovered());
     }
 
     /** @return array<string, Unit> every unit the plan reaches, to run or proved, by its path; none it only carries */
@@ -256,5 +200,10 @@ final readonly class Rechecking
         }
 
         return $reach;
+    }
+
+    private function runs(): RecheckRuns
+    {
+        return new RecheckRuns($this->adapters, $this->settings, $this->setup);
     }
 }

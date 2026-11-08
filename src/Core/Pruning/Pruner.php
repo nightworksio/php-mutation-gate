@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Pruning;
 
+use function array_any;
 use function count;
 
 use NightWorksIO\MutationGate\Core\Config\Name;
@@ -11,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Config\Pruning;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Inputs;
 use NightWorksIO\MutationGate\Core\Proof\NewestProofs;
@@ -24,10 +26,11 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  * Which mutators a run with a base leaves out of which of the units it runs
  * (ADR-0025): the mutators of its runner whose newest
  * judged mutants let nothing through, less those never pruned, in each file
- * whose newest full result is of its code and mutant set as they are now
- * and was made since the audit's start. A run with no base, a held unit, a
- * unit whose result is older or of other code, and every unit where pruning
- * is off, run every mutator.
+ * whose newest full result is of its code and mutant set as they are now,
+ * was made since the audit's start and let nothing through (ADR-0106). A run
+ * with no base, a held unit, a unit whose result is older, of other code or
+ * holds a survivor, an uncovered or an unjudged mutant, and every unit where
+ * pruning is off, run every mutator.
  *
  * @internal
  */
@@ -84,7 +87,16 @@ final readonly class Pruner
             && $now->mutation()->value() === $inputs->mutation()->value();
     }
 
-    /** Whether a unit's newest full result stands for its code as it is now, and is recent enough to carry. */
+    /** Whether a result holds a mutant that let the change through, which a run judges again rather than carry. */
+    private function letThrough(Proof $proof): bool
+    {
+        return array_any([...$proof->reported()], static fn(Mutant $mutant): bool => $mutant->status()->letsThrough());
+    }
+
+    /**
+     * Whether a unit's newest full result stands for its code as it is now, is recent enough to carry, and let
+     * nothing through.
+     */
     private function carries(Unit $unit, NewestProofs $newest, Digests $now): bool
     {
         $proof = $newest->of($unit->path());
@@ -92,6 +104,7 @@ final readonly class Pruner
         return ! $unit->isHeld()
             && $proof instanceof Proof
             && self::stands($proof, $unit->path(), $now)
-            && ! $this->since->isAfter($proof->run()->at());
+            && ! $this->since->isAfter($proof->run()->at())
+            && ! $this->letThrough($proof);
     }
 }

@@ -47,7 +47,7 @@ final readonly class UnitMutants
             $adapters->engine,
             $adapters,
             MutantTriage::under($settings->triage()->timeouts()),
-            Uncovered::from($settings->floors()->uncovered()->value),
+            $settings->floors()->uncovered(),
         );
     }
 

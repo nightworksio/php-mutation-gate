@@ -10,6 +10,8 @@ use function count;
 use const E_WARNING;
 
 use function fclose;
+use function file_exists;
+use function getmypid;
 use function intdiv;
 use function is_dir;
 use function is_int;
@@ -21,6 +23,7 @@ use NightWorksIO\MutationGate\Core\File\FileMode;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
+use function rename;
 use function restore_error_handler;
 use function set_error_handler;
 use function sprintf;
@@ -28,11 +31,14 @@ use function stream_select;
 use function stream_socket_accept;
 use function stream_socket_server;
 use function umask;
+use function unlink;
 
 /**
  * The daemon's end of the project's Unix socket (ADR-0078), readable and
  * writable by its owner alone, and the wait for a client or for word from
- * the clients of running children. PHP raises a socket it cannot bind, a
+ * the clients of running children. The socket is bound under a name of its
+ * own and moved into place once it listens, so a client that finds the file
+ * finds a daemon listening, never one that refuses it while it starts. PHP raises a socket it cannot bind, a
  * directory it cannot make, and a wait a signal cut short, as warnings as
  * well as answering false; they are kept from the output, and the answer is
  * read.
@@ -42,6 +48,9 @@ use function umask;
 final readonly class Listener
 {
     private const string UNBOUND = 'The daemon could not listen on %s: %s';
+
+    /** Where the socket is bound before it is moved into place: its path and the daemon's process id. */
+    private const string ASIDE = '%s.binding-%d';
 
     /** @param resource $stream */
     private function __construct(private mixed $stream)
@@ -63,6 +72,7 @@ final readonly class Listener
     /** The socket at this path bound and listening; or why it is not. */
     public static function boundTo(string $path): self|CannotJudge
     {
+        $aside = sprintf(self::ASIDE, $path, getmypid());
         $mask = umask(FileMode::OTHERS);
         $why = sprintf(self::UNBOUND, $path, '');
         set_error_handler(static function (int $level, string $text) use (&$why): bool {
@@ -72,13 +82,14 @@ final readonly class Listener
         }, E_WARNING);
 
         try {
-            $stream = stream_socket_server(sprintf(Connection::SCHEME, $path));
+            $stream = stream_socket_server(sprintf(Connection::SCHEME, $aside));
+            $placed = is_resource($stream) && rename($aside, $path) ? $stream : false;
         } finally {
             restore_error_handler();
             umask($mask);
         }
 
-        return is_resource($stream) ? new self($stream) : CannotJudge::because($why);
+        return $placed === false ? self::unplaced($aside, $why) : new self($placed);
     }
 
     /**
@@ -162,5 +173,15 @@ final readonly class Listener
         }
 
         return [count($connections) < count($ready), $connections];
+    }
+
+    /** Why the socket does not listen at its path, the file of the socket bound aside removed. */
+    private static function unplaced(string $aside, string $why): CannotJudge
+    {
+        if (file_exists($aside)) {
+            unlink($aside);
+        }
+
+        return CannotJudge::because($why);
     }
 }

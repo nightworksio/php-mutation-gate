@@ -194,8 +194,8 @@ credentials that only read packages
 ([ADR-0029](../../decisions/0029-a-caller-passes-the-store-secrets-by-name.md)).
 With the one-step action, pass it as the input `composer-auth`.
 
-The `plan`, `shard`, `survivors` and `verdict` jobs run on `ubuntu-latest`
-unless `runs-on` names another runner: a label, such as
+The `plan`, `shard`, `survivors`, `survivors-report` and `verdict` jobs run on
+`ubuntu-latest` unless `runs-on` names another runner: a label, such as
 `runs-on: ubuntu-24.04-arm`, or a JSON list of labels a runner must all have,
 such as `runs-on: '["self-hosted", "linux"]'`. They all run on it, because a
 proof's key holds the machine's architecture. Changing the architecture makes
@@ -257,10 +257,15 @@ installation, at the workflow's commit:
 - `deliver-plan` posts the pull request comment's planned state, which the plan
   leaves as the artifact `mutation-gate-delivery-plan-<attempt>`.
 - On a pull request whose plan cuts a shard, `survivors` runs the last run's
-  survivors again beside the shards, and `deliver-survivors` writes the
-  comment's *survivors re-checked* state over its planned one, from the
-  artifact `mutation-gate-delivery-survivors-<attempt>`. The verdict judges
-  nothing it found.
+  survivors again beside the shards, in as many jobs as the plan names: one
+  per file of survivors, at most `survivorsFirst.shards`. Each takes its share
+  of the files within `survivorsFirst.budget` and leaves what it made as the
+  artifact `mutation-gate-survivors-<attempt>-<share>`. `survivors-report`
+  pairs those with the survivors, says which no job reached, and leaves the
+  comment's *survivors re-checked* state as the artifact
+  `mutation-gate-delivery-survivors-<attempt>`, which `deliver-survivors`
+  writes over its planned one. The verdict judges nothing they found
+  ([ADR-0106](../../decisions/0106-carried-survivors-are-judged-again-and-their-re-check-is-bounded-and-shared.md)).
 - `deliver` sends what the verdict leaves as the artifact
   `mutation-gate-delivery-<attempt>`. On every run it posts the comment. A
   trusted run, a push, schedule or dispatch on the default branch, enters the

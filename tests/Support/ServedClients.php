@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function random_bytes;
 use function register_shutdown_function;
+use function rename;
 use function sodium_bin2hex;
 use function sprintf;
 use function str_ends_with;
@@ -46,7 +47,8 @@ final readonly class ServedClients
      * answer's lines; a line ending in
      * HANG_UP is sent and its connection closed at once, unread, and one
      * ending in HOLD is sent and its connection held open, unread, until two
-     * seconds after the answers are kept: the file they keep the answers in.
+     * seconds after the answers are kept: the file they keep the answers in,
+     * which is there only once they are all written.
      *
      * @param list<string> $lines
      */
@@ -64,7 +66,8 @@ final readonly class ServedClients
                 [$answers[], $held[]] = self::asked($line);
             }
 
-            file_put_contents($kept, (string) json_encode($answers));
+            file_put_contents(sprintf('%s.writing', $kept), (string) json_encode($answers));
+            rename(sprintf('%s.writing', $kept), $kept);
             Waiting::every(Seconds::of(array_any($lines, static fn(string $line): bool => str_ends_with($line, self::HOLD)) ? 2.0 : 0.0))();
         });
         register_shutdown_function(static fn() => ServedProjects::waitedFor($child));

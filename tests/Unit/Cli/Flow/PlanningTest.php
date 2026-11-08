@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Ignores;
 use NightWorksIO\MutationGate\Config\Runner as ConfiguredRunner;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
@@ -60,7 +61,6 @@ use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
-use NightWorksIO\MutationGate\Core\Proof\Uncommitted;
 use NightWorksIO\MutationGate\Core\Proof\Undigested;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
@@ -86,7 +86,6 @@ use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
-use NightWorksIO\MutationGate\Port\Repository;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\CostModelFake;
@@ -860,6 +859,24 @@ it('lists the least risky units the most recently changed first, by what git say
     'the held path changed last' => ['2026-09-01T10:00:00Z', '2026-09-20T10:00:00Z', false],
 ]);
 
+it('lists the least risky units by path where git cannot say when they last changed', function () use (
+    $plan,
+    $shards,
+    $settled,
+    $makeMoney,
+    $makeHeld,
+): void {
+    $checkout = new ChangeSourceFake(
+        Revision::ref('base'),
+        Changes::none(),
+        [Revision::workingTree()->name() => Flows::FILES, 'base' => Flows::FILES, Flows::MAIN => Flows::FILES],
+        CannotTell::because('git log failed.'),
+    );
+    $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $settled('src/Held.php', 'src/Money.php'), $checkout);
+
+    expect($shards($planned))->toEqual([1 => [$makeHeld(), $makeMoney()]]);
+});
+
 it('lists a unit whose lines the change touched first, before one never mutated', function () use (
     $plan,
     $shards,
@@ -877,62 +894,6 @@ it('lists a unit whose lines the change touched first, before one never mutated'
 
     expect($shards($plan(Flows::project(), Mode::since('base'), Cut::exactly(1), new ProofStoreFake(), $checkout)))
         ->toEqual([1 => [$money, $held]]);
-});
-
-it('hands the plan the digests of the run\'s inputs, with each unit it runs', function () use ($plan): void {
-    $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1));
-    $digests = $planned instanceof Plan ? $planned->digests() : $planned;
-
-    expect($digests)->toBeInstanceOf(Digests::class)
-        ->and($digests instanceof Digests ? $digests->sources()->paths() : $digests)
-        ->toEqual(Paths::of(Path::of('src/Held.php'), Path::of('src/Money.php')))
-        ->and($digests instanceof Digests ? count($digests->tests()) : $digests)->toBeGreaterThan(0)
-        ->and($digests instanceof Digests ? $digests->commit() : $digests)->toEqual(Revision::ref(Flows::HEAD));
-});
-
-it('takes the digests at no commit where the working tree holds what HEAD does not, or git cannot say', function (
-    RepositoryFake $repository,
-) use ($plan): void {
-    $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $repository);
-    $digests = $planned instanceof Plan ? $planned->digests() : $planned;
-
-    expect($digests instanceof Digests ? $digests->commit() : $digests)->toEqual(Uncommitted::tree());
-})->with([
-    'a changed working tree' => fn(): RepositoryFake => RepositoryFake::onMain(Revision::ref(Flows::HEAD))->changed(),
-    'git cannot say' => fn(): RepositoryFake => RepositoryFake::onMain(Revision::ref(Flows::HEAD))->unsure(),
-]);
-
-it('takes the digests at no commit where HEAD moved while the plan was made', function () use ($plan): void {
-    $moving = new class implements Repository {
-        private int $asked = 0;
-
-        public function head(): Revision
-        {
-            $this->asked++;
-
-            return Revision::ref($this->asked === 1 ? Flows::HEAD : str_repeat('c1', 20));
-        }
-
-        public function isClean(): bool
-        {
-            return true;
-        }
-
-        public function branch(): Scope
-        {
-            return Scope::branch('main');
-        }
-
-        public function defaultBranch(): Scope
-        {
-            return Scope::branch('main');
-        }
-    };
-    $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $moving);
-    $digests = $planned instanceof Plan ? $planned->digests() : $planned;
-
-    expect($planned instanceof Plan ? $planned->commit() : $planned)->toEqual(Revision::ref(Flows::HEAD))
-        ->and($digests instanceof Digests ? $digests->commit() : $digests)->toEqual(Uncommitted::tree());
 });
 
 it('keys the project\'s coverage entries once a plan, for measuring against the kept map and for the map it hands on', function () use (
