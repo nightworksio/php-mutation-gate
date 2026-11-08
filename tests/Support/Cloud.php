@@ -10,6 +10,9 @@ use function is_array;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Http\HttpExchange;
+
+use function sprintf;
+
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 
@@ -60,14 +63,25 @@ final class Cloud
         return $this;
     }
 
+    /** Answer every request of this method to this URL with this status and body, whatever else answers the URL. */
+    public function answeringTo(string $method, string $url, int $status, string $body): self
+    {
+        $this->answers[sprintf('%s %s', $method, $url)] = [$status, $body];
+
+        return $this;
+    }
+
     /** @param array<array-key, mixed> $options */
     private function respond(string $method, string $url, array $options): MockResponse
     {
         $body = is_string($options['body'] ?? null) ? $options['body'] : '';
         $this->requests[] = ['method' => $method, 'url' => $url, 'body' => $body, 'headers' => $this->headers($options)];
 
-        if (array_key_exists($url, $this->answers)) {
-            [$status, $answer] = $this->answers[$url];
+        $asked = sprintf('%s %s', $method, $url);
+        $key = array_key_exists($asked, $this->answers) ? $asked : $url;
+
+        if (array_key_exists($key, $this->answers)) {
+            [$status, $answer] = $this->answers[$key];
 
             return new MockResponse($answer, ['http_code' => $status]);
         }

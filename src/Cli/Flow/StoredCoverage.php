@@ -38,14 +38,14 @@ final readonly class StoredCoverage
      * then the default branch's, where its own scope's cannot be read; none;
      * or why the default branch's cannot be read.
      */
-    public static function in(ProofStore $store, Access $access): self
+    public static function in(ProofStore $store, Access $access, MapLimits $limits): self
     {
         $scopes = [...$access->reads()];
         $read = Missing::at(Path::of(Companion::Coverage->value));
 
         foreach ($scopes as $at => $scope) {
             $bytes = $store->companion($scope, Companion::Coverage);
-            $read = $bytes instanceof Contents ? CoverageMapFile::kept($bytes->text(), MapLimits::standard()) : $bytes;
+            $read = $bytes instanceof Contents ? CoverageMapFile::kept($bytes->text(), $limits) : $bytes;
             $from = $at === count($scopes) - 1 ? KeptFrom::DefaultBranch : KeptFrom::OwnScope;
 
             if ($read instanceof KeptMap) {

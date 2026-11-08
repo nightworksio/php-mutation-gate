@@ -260,13 +260,18 @@ services:
         arguments:
             # Constants whose value only coincides with another's, meaning something else.
             coincidences:
+                'NightWorksIO\MutationGate\Core\Runner\RunnerPace':
+                    - RECYCLE_AFTER # runs a batch holds for each place, not a span id's length
+                    - WARM_SLACK # how long a warm worker runs past the end, not a network read's limit
                 'NightWorksIO\MutationGate\Core\Proof\LimitHistory':
                     - KILLS # the newest kills a learned multiple is read from, not a message's length
                     - RUNS # the newest runs a learned most shards is read from, not a count of presets
-                    - LEAST_MULTIPLE # the least a learned timeouts.multiple is, not work per shard overhead
-                    - MOST_MULTIPLE # the most a learned timeouts.multiple is, not how long a daemon is waited on to listen
                 'NightWorksIO\MutationGate\Cli\Command\ServeCommand':
                     - STOP # serve's --stop option, not run.failFast's stop
+                'NightWorksIO\MutationGate\Core\Report\Page\Headline':
+                    - SAMPLED # the page's word for a sampled run, not a comment toggle
+                'NightWorksIO\MutationGate\Core\Comment\Cap':
+                    - FALLEN # files that fell a comment lists, not the riskiest units ranked
                 'NightWorksIO\MutationGate\Core\Proof\TallyRecord':
                     - MUTANTS # a ledger tally's count of mutants, not the kill history's section
                     - KILLED # a ledger tally's count of kills, not a judgement
@@ -292,7 +297,6 @@ services:
                     - USE_AT # a CI step's action at its commit, not a package at its version
                 'NightWorksIO\MutationGate\Core\Config\HeatmapRows':
                     - FILES # files a dashboard summary lists, not shipped presets
-                    - COMMENT # files a pull request comment lists, not ranked killers
                 'NightWorksIO\MutationGate\Core\Proof\FunctionsRecord':
                     - FIELD # a proof's field naming its unit's functions, not the kill history's section
                     - SPAN # the items of a function's span, not letters per edit
@@ -339,11 +343,11 @@ services:
                 'NightWorksIO\MutationGate\Core\Runner\Workers':
                     - Mutants # runner.workers forking only the mutants, not a record's mutants
                 'NightWorksIO\MutationGate\Core\Config\Local':
+                    - SERVE_REQUEST # seconds a client may take to send its request
+                    - TRIAGE_FEWEST # the fewest runs that can disagree, not an exit code or an argument
                     - SERVE_IDLE_MINUTES # how long a daemon idles, not how many presets ship
                 'NightWorksIO\MutationGate\Adapter\Serve\Connection':
                     - PEER_PROCESS # the levels and options of the platforms' sockets, not exit codes
-                'NightWorksIO\MutationGate\Adapter\Serve\Daemon':
-                    - REQUEST # how long a client may take to send its request, not how many tests a ranking shows
                 'NightWorksIO\MutationGate\Core\Runner\MaxRss':
                     - RECORDED # a warm child's end's field for its memory, not a briefing's peak
                 'NightWorksIO\MutationGate\Core\Config\Pruning':
@@ -355,8 +359,6 @@ services:
                 'NightWorksIO\MutationGate\Core\Delivery\DeliveryFile':
                     - LEDGER_KEY # a key of the delivery, not the workspace's directory
                     - OTLP # a key of the delivery, not the reporter's name
-                'NightWorksIO\MutationGate\Adapter\Native\MutationRun':
-                    - RUNS_PER_PLACE # mutant runs a place queues per batch, not a span id's length
                 'NightWorksIO\MutationGate\Adapter\Process\Running':
                     - DESCRIPTORS # proc_open's descriptor kinds, not a record's field
                     - ERRORS # the standard error stream's file number, not an argument's place or an exit code
@@ -382,10 +384,16 @@ services:
                     - FORGIVING # Eloquent's method that forgives a missing row, not when the comment mentions an owner
                 'NightWorksIO\MutationGate\Core\ThisPackage':
                     - OWN # directories from this file up to the package's own, not an exit code
-                'NightWorksIO\MutationGate\Adapter\Native\Warm\Workforce':
-                    - SLACK # seconds a warm worker may take past its last run, not the ledger's limit
                 'NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan':
                     - TRUSTED_SOURCES # Buildkite's build.source values, not another CI's event names
+                'NightWorksIO\MutationGate\Core\Verdict\Doomed':
+                    - STOPPED # what a shard did once its run could not pass, not a recorded event
+                'NightWorksIO\MutationGate\Core\Config\DigestRows':
+                    - TESTS # the covering tests the digest names, not the ranking's top
+                'NightWorksIO\MutationGate\Core\Cost\SavingsWindow':
+                    - STANDARD_DAYS # the days what the gate saved is counted over, not a preset's value
+                'NightWorksIO\MutationGate\Core\Dashboard\DashboardPage':
+                    - SAVED_IN # the time saved in a window, not the runs a triage gave in a time
                 'NightWorksIO\MutationGate\Core\Cost\StartUpSamples':
                     - STANDARD # runs of no test the plan times
                 'NightWorksIO\MutationGate\Core\Composer\ManifestKey':
@@ -404,8 +412,10 @@ services:
                     - FORMAT # the json report's version, not an exit code or an argument's place
                 'NightWorksIO\MutationGate\Core\Report\Commented':
                     - MOST # entries a list of the pull request comment shows, not commits a range proves
-                'NightWorksIO\MutationGate\Core\Report\Page\Files':
-                    - SHOWN # files the HTML report's overview lists, not a seed's first byte
+                'NightWorksIO\MutationGate\Core\Report\Page\PageShows':
+                    - STANDARD_FILES # files the HTML report's overview lists, not a seed's first byte
+                    - FILES # the html reporter's option, not a record's or a manifest's files
+                    - SURVIVORS # the html reporter's option, not a comment section or a chat's option
                 'NightWorksIO\MutationGate\Core\Report\Page\Survivors':
                     - SHOWN # survivors the HTML report's overview lists, not a dependent's cap
                 'NightWorksIO\MutationGate\Core\Report\Page\Origin':
@@ -414,7 +424,6 @@ services:
                     - Mutant # the guide's section on a mutant, not a doomed record's key
                     - Floor # the guide's section on a floor, not a manifest's key
                 'NightWorksIO\MutationGate\Core\Report\Digest\MutantDetail':
-                    - TESTS # covering tests a mutant's detail names, not a ranking's top
                     - DIFF_LINE # a diff line set in below the digest's, not a found tree's list item
                     - DIFF # the word that opens a mutant's diff in its detail, not a record's field
                 'NightWorksIO\MutationGate\Core\Format\ShortEscape':
@@ -425,6 +434,8 @@ services:
                     - Digest # the digest reporter's name, not a plan file's digest
                 'NightWorksIO\MutationGate\Cli\Command\DigestCommand':
                     - SURVIVORS # digest's option of how many survivors it lists, not a step or a stage
+                    - DETAIL # the digest command's option, not a comment key
+                    - TESTS # the digest command's option of how many tests it names, not a reporter or a digest kind
                 'NightWorksIO\MutationGate\Core\Verdict\BaselineState':
                     - Missing # a baseline file holding no floor for a scored set, not a file's missing digest
                 'NightWorksIO\MutationGate\Core\Runner\MemoryUnit':
@@ -437,10 +448,6 @@ services:
                     - STDERR # PHP's number for display_errors=stderr
                 'NightWorksIO\MutationGate\Core\Troubleshooting\Guide':
                     - UNRELEASED # the package's own branch, in a link to its guide
-                'NightWorksIO\MutationGate\Adapter\Opcache\Compiler':
-                    - PER_CHILD # programs one opcache child compiles, not a percentage
-                'NightWorksIO\MutationGate\Adapter\Opcache\Prover':
-                    - CHILD_LIMIT # seconds an opcache child may take, not the ledger's limit
                 'NightWorksIO\MutationGate\Core\Matrix\MatrixRecord':
                     - FIELD # the plan's and a proof's field, not Azure's output variable
                 'NightWorksIO\MutationGate\Core\Php\OwnMember':
@@ -453,6 +460,15 @@ services:
                 'NightWorksIO\MutationGate\Adapter\GitLab\MergeRequestThread':
                     - PAGE # notes a page
                     - PAGES # pages read
+                'NightWorksIO\MutationGate\Adapter\Azure\PullRequestThread':
+                    - TRIES # threads tried
+                'NightWorksIO\MutationGate\Adapter\Azure\ThreadStatus':
+                    - Closed # Azure Repos' number for a closed thread
+                'NightWorksIO\MutationGate\Adapter\Buildkite\BuildAnnotation':
+                    - NOT_A_PULL_REQUEST # what Buildkite says of a build no pull request began
+                'NightWorksIO\MutationGate\Core\Config\LearnedBounds':
+                    - LEAST # a multiple of a test's own time
+                    - MOST # a multiple of a test's own time
                 'NightWorksIO\MutationGate\Adapter\Bitbucket\PullRequestThread':
                     - PAGE # comments a page
                     - PAGES # pages read
@@ -463,16 +479,18 @@ services:
                 'NightWorksIO\MutationGate\Adapter\Bitbucket\InsightAnnotation':
                     - SUMMARY # characters of a summary
                     - DETAILS # characters of the details
-                'NightWorksIO\MutationGate\Adapter\Alert\Delivery':
-                    - TIMEOUT # seconds a post may take
-                    - LONGEST_WAIT # seconds a Retry-After is waited
+                'NightWorksIO\MutationGate\Core\Alert\PostLimits':
+                    - STANDARD_TIMEOUT # seconds a post may take, not a daemon's start-up wait
+                    - STANDARD_LONGEST_WAIT # seconds a Retry-After is waited, not a probe's limit
+                    - TIMEOUT # a chat reporter's option, not a mutant's outcome
                 'NightWorksIO\MutationGate\Core\Http\Reply':
                     - FORBIDDEN # an HTTP status
                     - SERVER # an HTTP status
                     - REDIRECT # an HTTP status
                     - ANSWER # characters of an answer repeated
-                'NightWorksIO\MutationGate\Core\Alert\AlertLines':
-                    - SURVIVORS # survivors an alert names
+                'NightWorksIO\MutationGate\Core\Alert\AlertShape':
+                    - STANDARD_SURVIVORS # survivors an alert names, not a ranking's top
+                    - SURVIVORS # a chat reporter's option, not a comment section or the html reporter's option
                 'NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks':
                     - MANY # the plural a sentence counts, not the delivery's stage
                 'NightWorksIO\MutationGate\Core\Alert\DiscordMessage':
@@ -487,6 +505,8 @@ services:
                 'NightWorksIO\MutationGate\Core\Config\Proofs':
                     - PATH # the directory store's option
                 'NightWorksIO\MutationGate\Core\Config\StaticCheck':
+                    - OPCACHE_BATCH # programs one opcache child compiles, not a percentage
+                    - OPCACHE_LIMIT # one opcache child's limit, not a network read's
                     - AUTO # the analyser zero-config finds, not a proof-writing mode
                     - NONE # no analyser, not a mutator family or a Pest status
                 'NightWorksIO\MutationGate\Core\Format\Bytes':
@@ -691,6 +711,7 @@ services:
                 'NightWorksIO\MutationGate\Core\Baseline\BaselineFile':
                     - FLOOR # a field of the baseline
                 'NightWorksIO\MutationGate\Core\Test\TestNamesRecord':
+                    - ROW # a test names record's field, not a comment's detail
                     - FILE # a field of the plan's test names
                 'NightWorksIO\MutationGate\Core\Unit\UnitRecord':
                     - PATH # a field of a unit's record
@@ -701,8 +722,6 @@ services:
                 'NightWorksIO\MutationGate\Core\Report\Stryker':
                     - LANGUAGE # Stryker's name for the language
                     - THRESHOLDS # Stryker's own scores in percent
-                'NightWorksIO\MutationGate\Core\Report\SavingsText':
-                    - DAYS # days the savings count
                 'NightWorksIO\MutationGate\Core\Report\AffectedText':
                     - OWN # a listed test file and one of its reasons, not a config problem
                 'NightWorksIO\MutationGate\Core\Coverage\MeasuredAt':
@@ -717,7 +736,6 @@ services:
                     - PLAN # an option of the gate's commands, not the plan command
                 'NightWorksIO\MutationGate\Cli\Command\TriageCommand':
                     - ORDER # an option of triage, not the Pest plugin's directory of orders
-                    - FEWEST # the fewest runs that can disagree, not an exit code
                 'NightWorksIO\MutationGate\Core\Ci\DefaultBranch':
                     - FALLBACK # the project's default branch when none is configured or detected
                 'NightWorksIO\MutationGate\Core\Plan\PlanFile':
@@ -728,6 +746,7 @@ services:
                     - UNTESTED # a field of the plan, not Pest's status of the same name
                     - DIGEST # a field of the plan, not the digest command
                 'NightWorksIO\MutationGate\Core\Plan\ShardResultFile':
+                    - NOTES # a shard result's section, not the comment's
                     - FLAKY # a field of a shard result
                     - UNJUDGED # a field of a shard result
                     - MEASURED # a field of a shard result

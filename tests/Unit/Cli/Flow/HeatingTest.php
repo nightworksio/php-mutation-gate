@@ -5,6 +5,9 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Flow\Heating;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
+use NightWorksIO\MutationGate\Core\Comment\Cap;
+use NightWorksIO\MutationGate\Core\Config\CommentCaps;
+use NightWorksIO\MutationGate\Core\Config\CommentShows;
 use NightWorksIO\MutationGate\Core\Config\HeatmapRows;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -91,14 +94,14 @@ it('scores each function as the file on disk holds it, against the functions the
     $now = UnitResults::of(UnitResult::of($unit, Origin::Run, heatingMutants([6 => MutantStatus::Killed, 12 => MutantStatus::Survived])));
     $proof = Proof::of(Digest::sha256Of('money'), Path::of('src/Money.php'), heatingMutants([6 => MutantStatus::Killed, 12 => MutantStatus::Killed]), $run())
         ->withFunctions(FunctionSpans::in(Contents::of(Heatmaps::MONEY)));
-    $heatmap = new Heating(Directory::at($project), HeatmapRows::of(files: 3, comment: 0))
+    $heatmap = new Heating(Directory::at($project), HeatmapRows::of(files: 3))
         ->of($judge()->trees($now), $now, $judge(), Proofs::of($proof));
     [$money] = [...$heatmap];
 
     expect($functions($money))->toBe([['Money::sub', 0, 10_000], ['Money::add', 10_000, 10_000]])
         ->and($money->heat()->base())->toEqual(Score::ofHundredths(10_000))
         ->and($heatmap->lowest())->toHaveCount(1)
-        ->and([...$heatmap->fallen()])->toBe([]);
+        ->and([...$heatmap->fallen(CommentShows::of(caps: CommentCaps::capping(Cap::Heatmap, 0)))])->toBe([]);
 });
 
 it('scores no function where functions are not scored, the base\'s proof names none, or it never proved the unit', function () use ($judge, $run, $functions): void {

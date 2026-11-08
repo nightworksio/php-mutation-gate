@@ -48,10 +48,10 @@ final class MutantTime
             ? MutantLimit::standard()
                 ->of(
                     $taking,
-                    LimitBounds::between($floor, $most)->startingIn(self::startUp())->multipliedBy(self::multiple()),
+                    self::within($floor, $most)->multipliedBy(self::multiple()),
                 )
                 ->seconds()
-            : MutantLimit::infections()->of($taking, LimitBounds::upTo($most))->seconds();
+            : MutantLimit::infections()->of($taking, LimitBounds::between(Seconds::none(), $most))->seconds();
     }
 
     /**
@@ -78,8 +78,7 @@ final class MutantTime
         return $floor instanceof Seconds && $slowest instanceof Seconds
             ? MutantLimit::standard()->of(
                 $slowest,
-                LimitBounds::between($floor, Seconds::of($timeout))
-                    ->startingIn(self::startUp())
+                self::within($floor, Seconds::of($timeout))
                     ->multipliedBy(self::multiple())
                     ->tighterFor($tighter)
                     ->silenceOf(RunnerMutatorName::of($mutator)),
@@ -114,6 +113,16 @@ final class MutantTime
         }
 
         return $tests === [] ? NotGiven::value() : Seconds::of($slowest);
+    }
+
+    /** Between these, starting as the gate's run told. */
+    private static function within(Seconds $floor, Seconds $most): LimitBounds
+    {
+        return LimitBounds::between(
+            $floor,
+            $most,
+            StartUpVariable::unmeasured(getenv(ChildVariable::UnmeasuredStartUp->value)),
+        )->startingIn(self::startUp());
     }
 
     /** The start-up the gate's run measured, or none. */

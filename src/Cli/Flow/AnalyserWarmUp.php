@@ -27,6 +27,10 @@ final class AnalyserWarmUp
     /** @var list<WarmedUp|Unchecked> the run, once made */
     private array $made = [];
 
+    public function __construct(private readonly int $dependents = DependentCap::STANDARD)
+    {
+    }
+
     public function of(
         StaticChecker $checker,
         AnalyserIdentity $identity,
@@ -44,7 +48,7 @@ final class AnalyserWarmUp
                     $identity,
                     $found,
                     $took,
-                    new Dependents(new NameGraph($adapters), DependentCap::standard()),
+                    new Dependents(new NameGraph($adapters), DependentCap::atMost($this->dependents)),
                 )];
         }
 

@@ -446,7 +446,7 @@ function jsonReportOfSize(int $mutants, int $idLength): string
         static fn(int $at): TestId => TestId::of(str_pad(sprintf('Tests\Case%dTest::', $at), $idLength, 'x')),
         range(1, 50),
     );
-    $coverage = CoverageMap::empty();
+    $coverage = CoverageMap::of();
     $judged = [];
 
     for ($at = 1; $at <= $mutants; $at++) {

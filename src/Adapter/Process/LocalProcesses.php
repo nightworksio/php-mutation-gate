@@ -8,12 +8,14 @@ use function array_key_first;
 use function array_keys;
 use function array_values;
 use function count;
+use function getenv;
 
 use const INF;
 
 use function ksort;
 
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
 use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
@@ -82,7 +84,7 @@ final readonly class LocalProcesses implements Processes
 
             if ($ended === [] && $running !== []) {
                 $watch->look();
-                Running::awaitAny(Polling::interval(), ...$running);
+                Running::awaitAny(Polling::told(getenv(ChildVariable::Poll->value)), ...$running);
             }
         }
 

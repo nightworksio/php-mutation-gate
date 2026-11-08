@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\EncodedReport;
 use NightWorksIO\MutationGate\Core\Report\JsonReport;
+use NightWorksIO\MutationGate\Core\Report\Page\PageShows;
 use NightWorksIO\MutationGate\Core\Report\Page\ReportPage;
 use NightWorksIO\MutationGate\Core\Report\Sources;
 use NightWorksIO\MutationGate\Core\Report\Stryker;
@@ -39,6 +40,7 @@ it('writes the Stryker report and the gate\'s own page of the verdict, its style
             JsonReport::of(Verdicts::failing()),
             (string) file_get_contents(sprintf('%s/page.css', $page)),
             (string) file_get_contents(sprintf('%s/page.js', $page)),
+            PageShows::standard(),
         ));
 });
 
@@ -59,6 +61,8 @@ it('finds the page\'s style and script in the package from its options, and need
     $reporter = HtmlReportDirectory::fromOptions(Configs::commandLine((string) json_encode(['path' => $html])));
 
     expect($reporter)->toEqual(HtmlReportDirectory::at($html, '.', Schema::at('resources/report-page')))
+        ->and(HtmlReportDirectory::fromOptions(Configs::commandLine((string) json_encode(['path' => $html, 'files' => 2, 'survivors' => 0]))))
+        ->toEqual(HtmlReportDirectory::at($html, '.', Schema::at('resources/report-page'), PageShows::of(2, 0)))
         ->and(HtmlReportDirectory::fromOptions(Options::none()))->toEqual(Invalid::because(Problem::at(
             'path',
             'The HTML report is written to a directory, whose `path` the entry names.',
@@ -92,5 +96,6 @@ it('renders the page from the JSON report it is handed, building none of its own
         JsonReport::of(Verdicts::passing()),
         (string) file_get_contents(sprintf('%s/page.css', $page)),
         (string) file_get_contents(sprintf('%s/page.js', $page)),
+        PageShows::standard(),
     ));
 });

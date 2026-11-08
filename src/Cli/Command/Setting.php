@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Command;
 
 use DateTimeImmutable;
+use NightWorksIO\MutationGate\Adapter\Infection\Import\Ignores;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\Formats;
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\GatePin;
 use NightWorksIO\MutationGate\Extension\Extensions;
 
@@ -26,6 +28,7 @@ final readonly class Setting
         public Formats $formats,
         public DateTimeImmutable $now,
         public GatePin $gate,
+        public int|CannotJudge $ignoresFor = Ignores::DAYS,
     ) {
     }
 }

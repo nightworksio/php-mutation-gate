@@ -69,7 +69,7 @@ final readonly class Reached
         $reaching = new Reaching($layout, $trees);
         $judges = $judged->judges();
         $packages = Packages::of($trees);
-        $manifests = DecidingManifests::in($packages, $settings->reach()->lockPackages());
+        $manifests = DecidingManifests::in($packages, $settings->reach()->lockPackages())->measuredBy($map);
         $mode = $settings->reach()->changedTests();
         $reach = $reaching->of(
             $changes,

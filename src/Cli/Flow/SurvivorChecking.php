@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
 use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
 use NightWorksIO\MutationGate\Core\Analysis\Unchecked;
+use NightWorksIO\MutationGate\Core\Analysis\UncheckedIds;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
@@ -65,7 +66,7 @@ final readonly class SurvivorChecking
         $checker = $this->adapters->checker;
         $from = $this->stopwatch->now();
         $checked = $checker instanceof NoAnalyser || $survivors->count() === 0
-            ? new Checked($mutants, SurvivorChecks::none(), $survivors, MutantIds::none())
+            ? new Checked($mutants, SurvivorChecks::none(), $survivors, UncheckedIds::none())
             : $this->warmedUp($checker, $mutants, $survivors);
         $this->stopwatch->handled(Step::StaticCheck, $from, $survivors->count());
 

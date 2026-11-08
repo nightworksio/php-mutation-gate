@@ -163,11 +163,6 @@ final readonly class LineTests
         return Paths::of(...array_map(Path::of(...), array_keys($covered)));
     }
 
-    public function coveredIn(Path $file): Lines
-    {
-        return Lines::of(...array_map(Line::of(...), array_keys(self::kept($this->linesOf($file), missed: false))));
-    }
-
     /** Every test that ran any line of a file from the first to the last, each once, in the order lines name them. */
     public function running(Path $file, Line $first, Line $last): TestIds
     {

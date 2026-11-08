@@ -9,6 +9,8 @@ use function array_slice;
 use function count;
 use function implode;
 
+use NightWorksIO\MutationGate\Core\Comment\Cap;
+use NightWorksIO\MutationGate\Core\Config\CommentShows;
 use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Recheck\Rechecked;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
@@ -32,9 +34,13 @@ final readonly class RecheckedMarkdown
 
     private const string UNREACHED = '### Not re-checked (%d)';
 
-    /** The comment, with its marker, and a link to the run where there is one. */
-    public static function comment(Rechecked $rechecked, string $run): string
+    /**
+     * The comment, with its marker, and a link to the run where there is one, its survivors cut to
+     * `comment.survivors.most`, each shown as `comment` says.
+     */
+    public static function comment(Rechecked $rechecked, string $run, CommentShows $shows): string
     {
+        $most = $shows->most(Cap::Survivors);
         $surviving = $rechecked->surviving();
         $gone = $rechecked->gone();
         $unreached = $rechecked->unreached();
@@ -45,13 +51,14 @@ final readonly class RecheckedMarkdown
             ...$surviving === [] ? [] : [
                 sprintf(self::SURVIVING, count($surviving)),
                 ...MarkdownItems::details(
-                    array_slice($surviving, 0, Commented::MOST),
+                    array_slice($surviving, 0, $most),
                     count($surviving),
                     $rechecked->gate(),
+                    ItemShown::by($shows),
                 ),
             ],
-            ...$gone === [] ? [] : [sprintf(self::GONE, count($gone)), self::listed($gone)],
-            ...$unreached === [] ? [] : [sprintf(self::UNREACHED, count($unreached)), self::listed($unreached)],
+            ...$gone === [] ? [] : [sprintf(self::GONE, count($gone)), self::listed($gone, $most)],
+            ...$unreached === [] ? [] : [sprintf(self::UNREACHED, count($unreached)), self::listed($unreached, $most)],
             $run === '' ? '' : sprintf(PlannedMarkdown::RUN, $run),
         ];
 
@@ -59,15 +66,16 @@ final readonly class RecheckedMarkdown
     }
 
     /**
-     * Survivors as the last run left them, one line each: place, mutator and id.
+     * Survivors as the last run left them, one line each, at most `$most`:
+     * place, mutator and id.
      *
      * @param list<JudgedMutant> $gone
      */
-    private static function listed(array $gone): string
+    private static function listed(array $gone, int $most): string
     {
         $lines = [];
 
-        foreach (array_slice($gone, 0, Commented::MOST) as $judged) {
+        foreach (array_slice($gone, 0, $most) as $judged) {
             $mutant = $judged->mutant();
             $location = $mutant->location();
             $lines[] = sprintf(

@@ -6,11 +6,12 @@ namespace NightWorksIO\MutationGate\Config;
 
 use NightWorksIO\MutationGate\Core\Config\ChangedTests;
 use NightWorksIO\MutationGate\Core\Config\FailFast;
+use NightWorksIO\MutationGate\Core\Config\LockMoveReach;
 use NightWorksIO\MutationGate\Core\Format\Json;
 
 /**
  * What decides what a change reaches (ADR-0005): `packages`, `reach.everything`, `reach.lockPackages`,
- * `reach.changedTests`, `reach.fixtures`, `holds.hotPath`, `run.full`, `run.failFast`.
+ * `reach.changedTests`, `reach.fixtures`, `holds.hotPath`, `run.full`, `run.failFast`, `run.failFastWaits`.
  */
 final readonly class Reach implements Setting
 {
@@ -37,6 +38,15 @@ final readonly class Reach implements Setting
     public static function lockPackages(string ...$patterns): self
     {
         return new self(Json::at('reach.lockPackages', Json::items(...$patterns)));
+    }
+
+    /**
+     * `reach.lockMoves`: what a package's move in a lock reaches. `Loaded` does not see a child process not yet waited
+     * for when its test ends, or a worker already running, so it can miss what such a test reaches (ADR-0115).
+     */
+    public static function lockMoves(LockMoveReach $reach): self
+    {
+        return new self(Json::at('reach.lockMoves', $reach->value));
     }
 
     /**
@@ -67,6 +77,12 @@ final readonly class Reach implements Setting
     public static function hotPath(int|float $share): self
     {
         return new self(Json::at('holds.hotPath', $share));
+    }
+
+    /** `holds.fewestTests`: the fewest tests a suite holds for a file to read as hot, 20 by default. */
+    public static function hotPathFewestTests(int $tests): self
+    {
+        return new self(Json::at('holds.fewestTests', $tests));
     }
 
     /** `run.full`, `true`: a run given neither `--full` nor `--changed-since` considers every unit. */
@@ -103,6 +119,15 @@ final readonly class Reach implements Setting
     public static function failFastCancelling(): self
     {
         return self::failingFast(FailFast::Cancel);
+    }
+
+    /**
+     * `run.failFastWaits`: why static analysis may leave a survivor unchecked that a pull request's shard waits on
+     * rather than counting as a doom, each an outcome its warnings name, `out-of-time` and `failed` by default.
+     */
+    public static function failFastWaitingOn(string ...$outcomes): self
+    {
+        return new self(Json::at('run.failFastWaits', Json::items(...$outcomes)));
     }
 
     public function written(): Json

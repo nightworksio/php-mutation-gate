@@ -8,12 +8,10 @@ namespace NightWorksIO\MutationGate\Core\Change;
  * How many commits since a base a change source asks to have proved, one
  * question each, before it reads the range whole instead. Past that, a full
  * reach is the safe answer.
- *
- * @internal
  */
 final readonly class ProvingRange
 {
-    private const int STANDARD = 20;
+    public const int STANDARD = 20;
 
     private function __construct(private int $farthest)
     {
@@ -23,6 +21,12 @@ final readonly class ProvingRange
     public static function standard(): self
     {
         return new self(self::STANDARD);
+    }
+
+    /** This many commits. */
+    public static function of(int $farthest): self
+    {
+        return new self($farthest);
     }
 
     /** The most commits it asks about. */

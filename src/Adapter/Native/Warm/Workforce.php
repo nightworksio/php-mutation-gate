@@ -61,9 +61,6 @@ final readonly class Workforce
 
     private const string FAILED = 'A warm worker failed, so the mutants it left ran fresh. It said: %s';
 
-    /** How long a worker may run past the end and the longest run's limit: its boot and its writing. */
-    private const float SLACK = 60.0;
-
     public function __construct(
         private Project $project,
         private Shell $shell,
@@ -117,7 +114,7 @@ final readonly class Workforce
 
         $workplace = Workplace::at($this->project->own(sprintf(self::WORKPLACE, getmypid(), hrtime(as_number: true))));
         $ends = $workplace->opened($this->jobOf($end, array_values($runs)))
-            ? $this->worked($workplace, $script, $request, $this->deadlineOf($end, $runs), array_keys($runs))
+            ? $this->worked($workplace, $script, $request, $this->deadlineOf($end, $runs, $request), array_keys($runs))
             : WarmEnds::none();
         $workplace->removed();
 
@@ -220,13 +217,15 @@ final readonly class Workforce
      *
      * @param non-empty-array<int, PreparedRun> $runs
      */
-    private function deadlineOf(int|float $end, array $runs): Seconds|Unlimited
+    private function deadlineOf(int|float $end, array $runs, MutationRequest $request): Seconds|Unlimited
     {
         $longest = max(array_map(static fn(PreparedRun $run): float => $run->limit()->seconds(), $runs));
 
         return $end === PHP_INT_MAX
             ? Unlimited::time()
-            : Seconds::of(max(0.0, $this->secondsTo($end)) + $longest + self::SLACK);
+            : Seconds::of(
+                max(0.0, $this->secondsTo($end)) + $longest + $request->pool()->pace()->warmSlack()->seconds(),
+            );
     }
 
     /** The seconds from now to a reading of `hrtime`. */
@@ -254,6 +253,6 @@ final readonly class Workforce
             $reasons += $reason === '' ? [] : [$reason => $reason];
         }
 
-        return Warnings::of(...array_map(Warning::that(...), $reasons));
+        return Warnings::of(...array_map(Warning::noting(...), $reasons));
     }
 }

@@ -140,6 +140,7 @@ final readonly class ServeCommand
             static fn(ServeRequest $request, Connection $connection): int
                 => self::ran($request, $connection, $root, $vendor),
             $forking,
+            $composed->settings->local()->serveRequest(),
         )->served();
 
         return $ended instanceof CannotJudge ? Failed::because($output, $ended) : ExitCode::Passed->value;

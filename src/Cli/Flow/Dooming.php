@@ -47,7 +47,12 @@ final readonly class Dooming
             $baseline,
             $plan->considered()->lines(Packages::of($trees)),
             $this->settings->floors()->newCode(),
-            Ignoring::of($this->settings->ignores()->entries(), $this->setup->clock->now()),
+            Ignoring::of(
+                $this->settings->ignores()->entries(),
+                $this->setup->clock->now(),
+                $this->settings->ignores()->notice(),
+            ),
+            ...$this->settings->reach()->failingFast()->waits(),
         );
     }
 
@@ -57,7 +62,9 @@ final readonly class Dooming
      */
     private function stops(Plan $plan): bool
     {
-        return $this->settings->reach()->failFast()->marks() && $plan->runOn()->isProposed() && $this->holdsTrees();
+        return $this->settings->reach()->failingFast()->mode()->marks()
+            && $plan->runOn()->isProposed()
+            && $this->holdsTrees();
     }
 
     /** Whether the verdict holds the trees to their floors: no run of the security mutators or one suite alone. */

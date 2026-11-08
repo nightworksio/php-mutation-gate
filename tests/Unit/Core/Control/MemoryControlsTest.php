@@ -60,7 +60,7 @@ function grownMutant(string $nativeId = '1'): Mutant
 /** A map in which GrowTest::a, timed at two seconds, covers line 3 of `src/Grow.php`. */
 function growMap(): CoverageMap
 {
-    return CoverageMap::empty()
+    return CoverageMap::of()
         ->covered(Path::of('src/Grow.php'), Line::of(3), TestId::of('GrowTest::a'))
         ->timed(TestId::of('GrowTest::a'), Seconds::of(2.0));
 }
@@ -97,7 +97,7 @@ it('asks for one control of each mutant out of a memory cap: its covering tests,
 });
 
 it('sizes a control\'s limit from every test its mutant\'s own run ran, every row of a data set where the run ran them all', function (): void {
-    $map = CoverageMap::empty()
+    $map = CoverageMap::of()
         ->covered(Path::of('src/Grow.php'), Line::of(3), TestId::of('GrowTest::a#0'))
         ->covered(Path::of('src/Other.php'), Line::of(1), TestId::of('GrowTest::a#1'))
         ->timed(TestId::of('GrowTest::a#0'), Seconds::of(2.0))

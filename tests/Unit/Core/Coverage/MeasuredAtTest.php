@@ -21,7 +21,7 @@ $commit = '0123456789abcdef0123456789abcdef01234567';
 it('records where a whole map was measured beside its format, and reads it back, the map unchanged', function () use (
     $commit,
 ): void {
-    $map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'));
+    $map = CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'));
     $at = MeasuredAt::of(Revision::ref($commit), dirty: true);
     $bytes = CoverageMapFile::encode($map, $at);
 
@@ -31,7 +31,7 @@ it('records where a whole map was measured beside its format, and reads it back,
 });
 
 it('records nothing for a map that does not say where it was measured', function (): void {
-    $bytes = CoverageMapFile::encode(CoverageMap::empty(), Unplaced::map());
+    $bytes = CoverageMapFile::encode(CoverageMap::of(), Unplaced::map());
 
     expect(Gunzipped::of($bytes))->toBe('{"format":1,"tests":[],"files":{}}')
         ->and(MeasuredAt::recordedIn($bytes, HandedMaps::limits()))->toEqual(Unplaced::map());

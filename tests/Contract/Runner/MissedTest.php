@@ -86,7 +86,7 @@ function missedMutants(string $file, string $mutator): array|string
         $map = $runner->coverage(CoverageRun::of(WholeSuite::tests(), $directory));
         file_put_contents(
             Tree::at(sprintf('%s/%s', Library::DIRECTORY, CoverageMapFile::in($directory)->value())),
-            CoverageMapFile::encode($map instanceof CoverageMap ? missedAsReported($map) : CoverageMap::empty(), Unplaced::map()),
+            CoverageMapFile::encode($map instanceof CoverageMap ? missedAsReported($map) : CoverageMap::of(), Unplaced::map()),
         );
         $result = $runner->mutate(MutationRequest::of($mutated, WholeSuite::tests())
             ->narrowedTo($mutated, Narrowing::none()->toMutators(Mutators::named($mutator))->amongTestCases($specs))

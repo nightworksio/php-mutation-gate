@@ -31,7 +31,7 @@ afterEach(function (): void {
 
 it('cannot judge a run\'s trials where the shard was handed no whole map to find the tests that read a value in', function (): void {
     $at = Project::at(Scratch::directory(), Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of('vendor'));
-    $own = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'));
+    $own = CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'));
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
         ->reusingCoverage(Handed::maps(Path::of('own'), Path::of('whole')));
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));

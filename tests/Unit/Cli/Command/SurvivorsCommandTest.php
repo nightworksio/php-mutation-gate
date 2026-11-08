@@ -89,6 +89,39 @@ it('says after the survivors what each report it is configured with made of the 
         ->and(file_get_contents($summary))->toContain('49e02fb39669');
 });
 
+it('re-checks in CI only where a comment or a summary reads the re-checked state, whole or shared, and exits 0', function (string $config, bool $reads) use ($store, $feature): void {
+    $project = FlowCommands::project($config);
+    $runner = ScriptedRunner::fixture();
+    $composition = FlowCommands::reading(
+        Flows::trees(),
+        $project,
+        $runner,
+        $store(),
+        $feature(),
+        Variables::of(['CI' => 'true']),
+        RepositoryFake::onMain(Revision::ref(Flows::HEAD)),
+        Flows::checkout(),
+    );
+    FlowCommands::run(PlanCommand::command($composition), '--shards=1');
+    $requests = count($runner->requests());
+
+    $ran = FlowCommands::run(SurvivorsCommand::command($composition), '--plan=.mutation-gate/plan.json');
+    $jobs = FlowCommands::run(SurvivorsCommand::command($composition), '--plan=.mutation-gate/plan.json --jobs');
+    $share = FlowCommands::run(SurvivorsCommand::command($composition), '--plan=.mutation-gate/plan.json --share=1 --of=1');
+
+    expect([$ran->code, $ran->errors])->toBe([0, ''])
+        ->and(str_contains($ran->output, 'Nothing reads the re-checked state'))->toBe(! $reads)
+        ->and($jobs->code)->toBe(0)
+        ->and($jobs->output === "{\"shares\":[],\"minutes\":30}\n")->toBe(! $reads)
+        ->and([$share->code, $share->output === sprintf("%s\n", SurvivorsCommand::UNREAD)])->toBe([0, ! $reads])
+        ->and(count($runner->requests()) > $requests)->toBe($reads);
+})->with([
+    'no report writes it' => ['', false],
+    'a report that is no comment or summary' => ['"reports": [{"use": "json", "path": "report.json"}]', false],
+    'the comment leaves it out' => ['"comment": {"states": ["verdict"]}', false],
+    'a comment' => ['"reports": [{"use": "gitlab-comment"}]', true],
+]);
+
 it('says why it re-checks none on the default branch, and exits 0', function () use ($store): void {
     $project = FlowCommands::project();
     $composition = FlowCommands::composition($project, ScriptedRunner::fixture(), $store(), Flows::ci());

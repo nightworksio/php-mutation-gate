@@ -31,9 +31,6 @@ interface Commenting
     /** A delivery, with the comment while the survivors are re-checked, where the run comments. */
     public function recheckedLater(Rechecked $rechecked, Delivery $delivery): Delivery;
 
-    /** The comment, holding this markdown, written or updated in place: what `deliver` writes of a delivery's. */
-    public function write(string $markdown): Written|NotWritten;
-
-    /** The comment, holding this markdown, written only over its planned state. */
-    public function writeOverPlanned(string $markdown): Written|NotWritten;
+    /** The comment, holding this markdown, written as this says: what `deliver` writes of a delivery's. */
+    public function writeAs(string $markdown, CommentWrite $write): Written|NotWritten;
 }

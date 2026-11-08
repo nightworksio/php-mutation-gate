@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Proof;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Coverage\MapLimits;
 
 use function rtrim;
 use function sprintf;
@@ -21,10 +20,10 @@ final readonly class CompanionRead
     private const string UNREAD = 'The kept %s at %s could not be read: %s.';
 
     /** What a store reads and writes of an object at most, and how long a read over a network may take. */
-    public static function limitsOf(Companion $companion): LedgerLimits
+    public static function limitsOf(Companion $companion, LedgerLimits $limits): LedgerLimits
     {
         return match ($companion) {
-            Companion::Coverage => MapLimits::standard()->reading(),
+            Companion::Coverage => $limits->map()->reading(),
         };
     }
 

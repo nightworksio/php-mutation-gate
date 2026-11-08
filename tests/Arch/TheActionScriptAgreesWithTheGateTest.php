@@ -14,8 +14,6 @@ use NightWorksIO\MutationGate\Core\Config\Proofs;
 use NightWorksIO\MutationGate\Core\Config\Reach;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Workspace;
-use NightWorksIO\MutationGate\Core\Plan\DoomedRecord;
-use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Copies;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
@@ -102,17 +100,9 @@ it('reads the exit infection:patch gives a release it does not patch as the one 
     expect(intval($found['code'] ?? '-1'))->toBe(ExitCode::Failed->value);
 });
 
-it('reads a doomed shard\'s survivor where the shard\'s result writes it, and fails its job as a failed verdict does', function (): void {
-    preg_match('/^FAILED = (?<code>\d+)$/mu', actionScript(), $failed);
-
-    expect([scriptText('DOOMED'), scriptText('DOOMED_UNIT'), scriptText('DOOMED_MUTANT'), scriptText('DOOMED_TREE'), scriptText('DOOMED_FLOOR'), scriptText('DOOMED_STOPPED')])
-        ->toBe([DoomedRecord::SECTION, ShardResultFile::UNIT, DoomedRecord::MUTANT, DoomedRecord::TREE, DoomedRecord::FLOOR, DoomedRecord::STOPPED])
-        ->and(intval($failed['code'] ?? '-1'))->toBe(ExitCode::Failed->value);
-});
-
 it('takes a config that names no run.failFast to mark, as the gate does', function (): void {
     expect(scriptText('MARK'))->toBe(FailFast::Mark->value)
-        ->and(Reach::none()->failFast())->toBe(FailFast::Mark);
+        ->and(Reach::none()->failingFast()->mode())->toBe(FailFast::Mark);
 });
 
 it('names the package as Composer does', function (): void {
@@ -179,5 +169,5 @@ it('reads this package\'s effective config of a pull request as the gate prints 
     $variables = ['GITHUB_OUTPUT' => $output, 'CACHE' => 'true'];
     new Process(['python3', 'resources/action/gate_action.py', 'config'], Tree::root(), $variables, $shown->getOutput())->mustRun();
 
-    expect((string) file_get_contents($output))->toBe("default_store=true\ncopies=newest\nafter_store=false\npest_patch=true\ninfection_patch=false\nfail_fast=cancel\n");
+    expect((string) file_get_contents($output))->toBe("default_store=true\ncopies=newest\nafter_store=false\npest_patch=true\ninfection_patch=false\nfail_fast=cancel\naction_reports=[\"--report=json:.mutation-gate/action/report.json\", \"--report=html:.mutation-gate/action/html\", \"--report=digest:.mutation-gate/action/mutation-gate-digest.txt\"]\n");
 });

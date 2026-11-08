@@ -8,6 +8,7 @@ use function implode;
 
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\Cost\RunTimings;
+use NightWorksIO\MutationGate\Core\Cost\SavedLately;
 use NightWorksIO\MutationGate\Core\Cost\Savings;
 use NightWorksIO\MutationGate\Core\Cost\Untimed;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -26,9 +27,6 @@ use function sprintf;
  */
 final readonly class SavingsText
 {
-    /** How many days back the savings a default branch shows are counted. */
-    public const int DAYS = 30;
-
     private const string JUDGED = 'Judged in %s wall, %s runner time%s.';
 
     private const string ESTIMATED = ' (estimated)';
@@ -41,7 +39,7 @@ final readonly class SavingsText
 
     private const string NO_HISTORY = 'No history yet, so nothing saved is shown.';
 
-    private const string LATELY = 'In the last %d days the gate saved %s of runner time.';
+    private const string LATELY = 'In the last %s the gate saved %s of runner time.';
 
     public static function headline(
         RunTimings $timings,
@@ -67,7 +65,7 @@ final readonly class SavingsText
      * where it pruned anything; nothing for an untimed run that pruned
      * nothing.
      */
-    public static function of(Verdict $verdict, Seconds|NoHistory $lately): string
+    public static function of(Verdict $verdict, SavedLately|NoHistory $lately): string
     {
         $timings = $verdict->account()->timings();
         $pruning = $verdict->account()->pruning();
@@ -78,8 +76,8 @@ final readonly class SavingsText
         };
         $lines = [
             ...$headline === '' ? [] : [$headline],
-            ...$headline !== '' && $lately instanceof Seconds
-                ? [sprintf(self::LATELY, self::DAYS, $lately->text())]
+            ...$headline !== '' && $lately instanceof SavedLately
+                ? [sprintf(self::LATELY, $lately->window()->said(), $lately->saved()->text())]
                 : [],
             ...$pruned === '' ? [] : [$pruned],
         ];

@@ -25,7 +25,7 @@ use NightWorksIO\MutationGate\Tests\Support\Verdicts;
  */
 function nearestFor(array $tests): string
 {
-    $map = CoverageMap::empty();
+    $map = CoverageMap::of();
     $names = TestNames::none();
 
     foreach ($tests as $id => $file) {

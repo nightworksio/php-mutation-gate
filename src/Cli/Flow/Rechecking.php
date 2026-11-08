@@ -138,7 +138,11 @@ final readonly class Rechecking
      */
     private function survivorsAmong(array $mutants, Reach $reach): Survivors
     {
-        $ignoring = Ignoring::of($this->settings->ignores()->entries(), $this->setup->clock->now());
+        $ignoring = Ignoring::of(
+            $this->settings->ignores()->entries(),
+            $this->setup->clock->now(),
+            $this->settings->ignores()->notice(),
+        );
         $triage = MutantTriage::under($this->settings->triage()->timeouts());
         $judged = [];
 

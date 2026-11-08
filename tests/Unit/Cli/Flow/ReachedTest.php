@@ -102,7 +102,7 @@ function reachedReading(
 
     $ci = Flows::ci()->runBy(Paths::of(Path::of('.github/workflows/gate.yml')));
     $adapters = Flows::adapters($project, [], $checkout, $ci, $reads, ...$ports);
-    $map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'));
+    $map = CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'));
 
     return Reached::since(
         ChangeBase::since(Revision::ref('base')),
@@ -180,7 +180,7 @@ it('reaches the files a changed test runs, as the runner says which tests judge 
     $runner = RunnerFake::of(
         Identity::of('fake', Versions::none(), Digest::of('php')),
         Groups::of(),
-        CoverageMap::empty(),
+        CoverageMap::of(),
         Mutants::none(),
         Paths::of(Path::of('tests/MoneyTest.php')),
         Paths::of(Path::of('phpunit.xml')),
@@ -206,7 +206,7 @@ it('reaches only what the changed tests of a test file run, by the map\'s ids of
     $runner = RunnerFake::of(
         Identity::of('fake', Versions::none(), Digest::of('php')),
         Groups::of(),
-        CoverageMap::empty(),
+        CoverageMap::of(),
         Mutants::none(),
         Paths::none(),
         Paths::of(Path::of('phpunit.xml')),
@@ -245,7 +245,7 @@ it('tells a changed test by the suffix the PHPUnit config gives the directory it
     $runner = RunnerFake::of(
         Identity::of('fake', Versions::none(), Digest::of('php')),
         Groups::of(),
-        CoverageMap::empty(),
+        CoverageMap::of(),
         Mutants::none(),
         Paths::of(Path::of('spec/MoneySpec.php')),
         Paths::of(Path::of('phpunit.xml')),
@@ -491,7 +491,7 @@ it('reaches everything where git cannot tell what changed, and says why it keeps
         $adapters,
         Flows::settings(),
         reachedSuite($checkout, $adapters),
-        MapJudges::of($adapters->runner, CoverageMap::empty()),
+        MapJudges::of($adapters->runner, CoverageMap::of()),
         DecidingConfig::unread(),
     );
 
@@ -510,7 +510,7 @@ function reachedFrom(ChangeSourceFake $checkout, ChangeBase $base): Reached
         $adapters,
         Flows::settings(),
         reachedSuite($checkout, $adapters),
-        MapJudges::of($adapters->runner, CoverageMap::empty()),
+        MapJudges::of($adapters->runner, CoverageMap::of()),
         DecidingConfig::unread(),
     );
 }

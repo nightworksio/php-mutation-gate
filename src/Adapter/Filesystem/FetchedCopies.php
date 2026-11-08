@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Filesystem;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
@@ -14,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Proof\Copies;
 use NightWorksIO\MutationGate\Core\Proof\EncodesLedgers;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerCodec;
+use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Written;
@@ -33,10 +35,10 @@ final readonly class FetchedCopies implements EncodesLedgers, ProofStore
     {
     }
 
-    /** The copies `fetch` writes into `.mutation-gate/fetched`, beside this store. */
-    public static function over(ProofStore $kept, Copies $copies): self
+    /** The copies `fetch` writes into the project's `.mutation-gate/fetched`, beside this store. */
+    public static function over(ProofStore $kept, Copies $copies, Root $project): self
     {
-        return self::of($kept, LedgerDirectory::at(Workspace::fetched()->value()), $copies);
+        return self::of($kept, LedgerDirectory::in($project, Workspace::fetched()->value()), $copies);
     }
 
     /** The copies under this directory, beside this store. */
@@ -45,6 +47,15 @@ final readonly class FetchedCopies implements EncodesLedgers, ProofStore
         return new self(
             $this->kept instanceof EncodesLedgers ? $this->kept->encoding($codec) : $this->kept,
             $this->fetched->encoding($codec),
+            $this->copies,
+        );
+    }
+
+    public function limitedTo(LedgerLimits $limits): static
+    {
+        return new self(
+            $this->kept instanceof EncodesLedgers ? $this->kept->limitedTo($limits) : $this->kept,
+            $this->fetched->limitedTo($limits),
             $this->copies,
         );
     }

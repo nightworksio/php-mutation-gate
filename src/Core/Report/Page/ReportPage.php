@@ -87,7 +87,7 @@ final readonly class ReportPage
     private const string SOURCE = " '%s'";
 
     /** @param Report $report */
-    public static function html(array $report, string $style, string $script): string
+    public static function html(array $report, string $style, string $script, PageShows $shows): string
     {
         $mutants = Mutants::of($report);
         $glossary = Glossary::of($report);
@@ -106,8 +106,8 @@ final readonly class ReportPage
             $inlineStyle,
             Headline::html($report, $glossary),
             Figures::html($report, $glossary),
-            Survivors::html($mutants),
-            Files::html($mutants),
+            Survivors::html($mutants, $shows->survivors()),
+            Files::html($mutants, $shows->files()),
             Origin::html($report),
             Details::html($report),
             $navigation->index(),

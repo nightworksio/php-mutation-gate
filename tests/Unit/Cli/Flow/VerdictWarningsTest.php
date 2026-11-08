@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Flow\VerdictWarnings;
 use NightWorksIO\MutationGate\Config\Suggest;
+use NightWorksIO\MutationGate\Config\Tests;
+use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -33,8 +35,34 @@ function heldWarned(string $path): Unit
     return Unit::held(Path::of($path), Group::named(sprintf('holds:%s', $path)));
 }
 
+it('notes what an empty tests.holding means where tests.suites names the suites that judge', function (): void {
+    $warned = new VerdictWarnings(Flows::adapters(Scratch::directory()), Flows::settings(Tests::suites('Unit'), Tests::holding()), Flows::setup())
+        ->of(Planned::of(), TreeVerdicts::none(), Warnings::none(), CoverageMap::of());
+
+    expect(array_map(static fn(Warning $warning): string => $warning->text(), [...$warned]))->toBe([<<<'SAID'
+        tests.holding is an empty list, as if it were left out: the tests of each suite tests.suites leaves out
+        judge no mutant, not even of the code they hold with #[Holds] or a holds: group. Name the suites whose
+        tests hold code, or set suggest.emptyHolding to false to keep it so without this note.
+        SAID]);
+});
+
+it('notes nothing of tests.holding where it names a suite, is left out or every suite judges, or a suggest key turns the note off', function (
+    Settings $settings,
+): void {
+    $warned = new VerdictWarnings(Flows::adapters(Scratch::directory()), $settings, Flows::setup())
+        ->of(Planned::of(), TreeVerdicts::none(), Warnings::none(), CoverageMap::of());
+
+    expect([...$warned])->toBe([]);
+})->with([
+    'a holding suite' => fn(): Settings => Flows::settings(Tests::suites('Unit'), Tests::holding('Process')),
+    'no list' => fn(): Settings => Flows::settings(Tests::suites('Unit')),
+    'an empty list and every suite judging' => fn(): Settings => Flows::settings(Tests::holding()),
+    'the note turned off' => fn(): Settings => Flows::settings(Tests::suites('Unit'), Tests::holding(), Suggest::emptyHoldingSilent()),
+    'suggestions turned off' => fn(): Settings => Flows::settings(Tests::suites('Unit'), Tests::holding(), Suggest::off()),
+]);
+
 it('names no file every test runs through that a unit of the plan holds, proved, carried or in any shard', function (): void {
-    $map = CoverageMap::empty();
+    $map = CoverageMap::of();
 
     foreach (range(1, 20) as $test) {
         foreach (['src/Proved.php', 'src/Carried.php', 'src/First.php', 'src/Last.php', 'src/Loose.php'] as $file) {

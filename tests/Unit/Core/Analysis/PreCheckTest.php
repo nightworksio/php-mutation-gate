@@ -61,3 +61,13 @@ it('weighs a check against its tests at the pace the plan learned kills take, an
     'twice tests of 4s saves 1.6s' => [fn(): Briefing => Briefing::standard()->learning(KillsLearned::none()->pacing(Multiple::of(2.0))), 4.0, true],
     'no pace learned, tests of 10s save 2s' => [fn(): Briefing => Briefing::standard()->learning(KillsLearned::none()->allowing(Multiple::of(4.0))), 10.0, true],
 ]);
+
+it('reads a mutator\'s rate after as many checks as it is told, weighed as it was briefed', function () use ($makePlus, $learned): void {
+    $briefed = PreCheck::briefed(Briefing::standard()->learning(KillsLearned::none()->pacing(Multiple::of(0.25))))->after(10);
+    $pays = static fn(AnalyserHistory $history, float $covering): bool => $briefed->pays($history, $makePlus(), Seconds::of($covering), Seconds::of(1.0), 0);
+
+    expect($pays($learned(9, 0), 40.0))->toBeTrue()
+        ->and($pays($learned(10, 0), 40.0))->toBeFalse()
+        ->and($pays($learned(10, 2), 40.0))->toBeTrue()
+        ->and($pays($learned(9, 0), 4.0))->toBeFalse();
+});

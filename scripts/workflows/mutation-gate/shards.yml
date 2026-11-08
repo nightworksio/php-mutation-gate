@@ -3,7 +3,7 @@
     needs: plan
     if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.shards != '[]' }}
     runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
-    timeout-minutes: 360
+    timeout-minutes: ${{ inputs.shard-timeout }}
     permissions:
       contents: read
     # ADR-0103: a doomed shard fails as `run.failFast` says; under `cancel`
@@ -43,6 +43,7 @@
           config: ${{ inputs.config }}
           php-version: ${{ inputs.php-version }}
           extensions: ${{ inputs.extensions }}
+          ini-values: ${{ inputs.ini-values }}
           runner: ${{ inputs.runner }}
           shard: ${{ matrix.shard.id }}
           mode: ${{ inputs.mode }}
@@ -62,11 +63,6 @@
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 1
-      # Reads the result alone and runs none of the project's code.
-      - name: Fail this shard once it cannot pass
-        env:
-          RESULT: .mutation-gate/results/${{ matrix.shard.id }}.json
-        run: python3 "${GATE_ACTION}/resources/action/gate_action.py" doomed
 
   # On a pull request whose plan runs a shard, the last run's survivors run
   # again beside the shards, for a signal within minutes (ADR-0020; ADR-0062),
@@ -102,6 +98,7 @@
         with:
           php-version: ${{ inputs.php-version }}
           extensions: ${{ inputs.extensions }}
+          ini-values: ${{ inputs.ini-values }}
           coverage: pcov
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
         env:
@@ -316,6 +313,7 @@
         with:
           php-version: ${{ inputs.php-version }}
           extensions: ${{ inputs.extensions }}
+          ini-values: ${{ inputs.ini-values }}
           coverage: none
       - name: Install the gate
         run: bash "${GATE_ACTION}/resources/action/install.sh" "${GATE_ACTION}"

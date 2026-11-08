@@ -14,10 +14,13 @@ use ArrayIterator;
 use function ceil;
 use function count;
 use function intdiv;
+use function max;
 
+use NightWorksIO\MutationGate\Core\Config\LearnedBounds;
 use NightWorksIO\MutationGate\Core\Config\LearnedStatistic;
 use NightWorksIO\MutationGate\Core\Cost\ShardsAtOnce;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Order\Bound;
 use NightWorksIO\MutationGate\Core\Runner\Multiple;
 
 use function sort;
@@ -41,14 +44,6 @@ final readonly class LimitHistory
     /** How many of the newest runs a learned most shards is read from. */
     public const int RUNS = 10;
 
-    /** The share of kills a learned multiple allows for. */
-    private const float PERCENTILE = 0.99;
-
-    /** The least and the most a learned multiple is. */
-    private const float LEAST_MULTIPLE = 2.0;
-
-    private const float MOST_MULTIPLE = 10.0;
-
     /**
      * @param list<Multiple>     $kills       each kill's time over its covering tests' own time, oldest first
      * @param list<ShardsAtOnce> $concurrency each run's most shards at once, oldest first
@@ -70,7 +65,7 @@ final readonly class LimitHistory
     {
         $learned = array_values(array_filter($kills, static fn(Multiple $kill): bool => $kill->times() > 0.0));
 
-        return new self(array_slice([...$this->kills, ...$learned], -self::KILLS), $this->concurrency);
+        return new self([...$this->kills, ...$learned], $this->concurrency);
     }
 
     /** This history, and runs that ran these many shards at once after it; a run of no shard is not learned. */
@@ -78,7 +73,13 @@ final readonly class LimitHistory
     {
         $learned = array_values(array_filter($runs, static fn(ShardsAtOnce $run): bool => $run->count() > 0));
 
-        return new self($this->kills, array_slice([...$this->concurrency, ...$learned], -self::RUNS));
+        return new self($this->kills, [...$this->concurrency, ...$learned]);
+    }
+
+    /** This history, with only the newest so many kills and runs. */
+    public function keepingLast(Bound $kills, Bound $runs): self
+    {
+        return new self(array_slice($this->kills, -$kills->count()), array_slice($this->concurrency, -$runs->count()));
     }
 
     /** This history, each part of it the other's where this one learned none of it. */
@@ -115,10 +116,10 @@ final readonly class LimitHistory
     }
 
     /**
-     * The multiple of their covering tests' own time that 99 in 100 of the
-     * kills took no more than, between 2 and 10; none where nothing was killed.
+     * The multiple of their covering tests' own time that these bounds' share of the kills took no more than,
+     * within them; none where nothing was killed.
      */
-    public function multiple(): Multiple|NotGiven
+    public function multiple(LearnedBounds $bounds): Multiple|NotGiven
     {
         if ($this->kills === []) {
             return NotGiven::value();
@@ -126,9 +127,9 @@ final readonly class LimitHistory
 
         $sorted = $this->kills;
         usort($sorted, static fn(Multiple $one, Multiple $other): int => $one->times() <=> $other->times());
-        $at = (int) ceil(self::PERCENTILE * count($sorted)) - 1;
+        $at = max(0, (int) ceil($bounds->percentile() * count($sorted)) - 1);
 
-        return $sorted[$at]->within(Multiple::of(self::LEAST_MULTIPLE), Multiple::of(self::MOST_MULTIPLE));
+        return $sorted[$at]->within(Multiple::of($bounds->least()), Multiple::of($bounds->most()));
     }
 
     /**

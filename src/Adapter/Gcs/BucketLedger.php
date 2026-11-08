@@ -76,6 +76,11 @@ final readonly class BucketLedger implements EncodesLedgers, ObjectStore, ProofS
         return new self($this->ledgers->encoding($codec), $this->bucket, $this->tokens);
     }
 
+    public function limitedTo(LedgerLimits $limits): static
+    {
+        return new self($this->ledgers->within($limits), $this->bucket, $this->tokens);
+    }
+
     public function read(Scope $scope): Ledger|Unreadable
     {
         return $this->ledgers->read($this, $scope);

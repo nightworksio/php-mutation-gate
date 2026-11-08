@@ -110,7 +110,11 @@ final readonly class ScoreChanging
             $reach,
             $this->settings->floors()->uncovered(),
             $this->settings->triage()->timeouts(),
-            Ignoring::of($this->settings->ignores()->entries(), $this->setup->clock->now()),
+            Ignoring::of(
+                $this->settings->ignores()->entries(),
+                $this->setup->clock->now(),
+                $this->settings->ignores()->notice(),
+            ),
         );
         $judged = $proving->proved()->and($considering->carried())->and($completing->carried());
         $proven = $judge->proving(new StaticEquivalence($this->adapters, $this->settings)->among($judged)->proven);

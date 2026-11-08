@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Alert\Alert;
 use NightWorksIO\MutationGate\Core\Alert\AlertEvent;
+use NightWorksIO\MutationGate\Core\Alert\AlertShape;
 use NightWorksIO\MutationGate\Core\Alert\DiscordMessage;
 use NightWorksIO\MutationGate\Core\Ci\CiRun;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -26,7 +27,7 @@ use NightWorksIO\MutationGate\Tests\Support\Previous;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
 it('sends one embed linked to the run, its groups in the description, and lets it mention no one', function (): void {
-    $message = DiscordMessage::json(Alert::of(AlertEvent::Failed, Verdicts::failing(), TrendEntry::none()), Previous::ci());
+    $message = DiscordMessage::json(Alert::of(AlertEvent::Failed, Verdicts::failing(), TrendEntry::none()), Previous::ci(), AlertShape::standard());
 
     expect(Decoded::at($message, 'allowed_mentions'))->toBe(['parse' => []])
         ->and(Decoded::at($message, 'embeds'))->toHaveCount(1)
@@ -41,7 +42,7 @@ it('sends one embed linked to the run, its groups in the description, and lets i
 });
 
 it('is red for a failure, green for a recovery, and grey otherwise', function (AlertEvent $event, int $color): void {
-    $message = DiscordMessage::json(Alert::of($event, Verdicts::passing(), TrendEntry::none()), Previous::ci());
+    $message = DiscordMessage::json(Alert::of($event, Verdicts::passing(), TrendEntry::none()), Previous::ci(), AlertShape::standard());
 
     expect(Decoded::at($message, 'embeds', 0, 'color'))->toBe($color);
 })->with([
@@ -55,6 +56,7 @@ it('leaves out the link and the description where there are none', function (): 
     $message = DiscordMessage::json(
         Alert::of(AlertEvent::FloorLowered, Verdicts::passing(), TrendEntry::none()),
         CiRun::of('octo/gate', 'refs/heads/main', 'c', ''),
+        AlertShape::standard(),
     );
 
     expect(Decoded::at($message, 'embeds', 0))->not->toHaveKeys(['url', 'description']);
@@ -63,7 +65,7 @@ it('leaves out the link and the description where there are none', function (): 
 it('keeps its title and description within what Discord takes, however long the names', function (): void {
     $long = str_repeat('a', 400);
     $run = CiRun::of(sprintf('octo/%s', $long), 'refs/heads/main', 'c', 'https://ci.example/7');
-    $message = DiscordMessage::json(Alert::of(AlertEvent::Failed, Verdicts::crowded(), TrendEntry::none()), $run);
+    $message = DiscordMessage::json(Alert::of(AlertEvent::Failed, Verdicts::crowded(), TrendEntry::none()), $run, AlertShape::standard());
     $title = Decoded::at($message, 'embeds', 0, 'title');
     $description = Decoded::at($message, 'embeds', 0, 'description');
 
@@ -90,7 +92,7 @@ it('keeps a description of exactly Discord\'s two thousand characters whole, and
             );
         }
 
-        $said = Decoded::at(DiscordMessage::json(Alert::of(AlertEvent::Failed, Verdict::of(TreeVerdicts::of(...$trees)), TrendEntry::none()), Previous::ci()), 'embeds', 0, 'description');
+        $said = Decoded::at(DiscordMessage::json(Alert::of(AlertEvent::Failed, Verdict::of(TreeVerdicts::of(...$trees)), TrendEntry::none()), Previous::ci(), AlertShape::standard()), 'embeds', 0, 'description');
 
         return is_string($said) ? $said : '';
     };

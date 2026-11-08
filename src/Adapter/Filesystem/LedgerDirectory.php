@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Doctor\KeptLedgers;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Format\TooLarge;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
@@ -67,6 +68,12 @@ final readonly class LedgerDirectory implements Configurable, EncodesLedgers, Pr
         return new self(ProjectPath::of($path), LedgerLimits::standard(), LedgerCodec::gzipOnly());
     }
 
+    /** The ledgers under this directory of this project. */
+    public static function in(Root $project, string $path): self
+    {
+        return new self(ProjectPath::in($project, $path), LedgerLimits::standard(), LedgerCodec::gzipOnly());
+    }
+
     /** Reading and writing ledgers within these limits. */
     public function within(LedgerLimits $limits): self
     {
@@ -76,6 +83,11 @@ final readonly class LedgerDirectory implements Configurable, EncodesLedgers, Pr
     public function encoding(LedgerCodec $codec): static
     {
         return new self($this->path, $this->limits, $codec);
+    }
+
+    public function limitedTo(LedgerLimits $limits): static
+    {
+        return new self($this->path, $limits, $this->codec);
     }
 
     public static function fromOptions(Options $options): self|Invalid
@@ -153,8 +165,10 @@ final readonly class LedgerDirectory implements Configurable, EncodesLedgers, Pr
 
         $size = is_file($file->value()) ? filesize($file->value()) : null;
 
-        return is_int($size) && ! CompanionRead::limitsOf($companion)->admitsPacked($size)
-            ? CompanionRead::unread($companion, $file->value(), CompanionRead::limitsOf($companion)->pastPacked())
+        $limits = CompanionRead::limitsOf($companion, $this->limits);
+
+        return is_int($size) && ! $limits->admitsPacked($size)
+            ? CompanionRead::unread($companion, $file->value(), $limits->pastPacked())
             : $this->companionIn($file, $companion);
     }
 

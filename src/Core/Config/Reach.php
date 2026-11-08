@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-use function array_map;
-
+use NightWorksIO\MutationGate\Core\Analysis\Unchecked;
 use NightWorksIO\MutationGate\Core\Composer\DecidingPackages;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\Format\Json;
@@ -24,15 +23,22 @@ use function sprintf;
  * `holds.hotPath`, whether a run given no mode considers every unit,
  * `run.full`, rather than what changed since its last passing commit,
  * what a pull request's shard does once it cannot pass, `run.failFast`,
+ * which survivors static analysis left unchecked it waits on rather than
+ * counting, `run.failFastWaits`,
  * which mutators a reached unit whose content is unchanged leaves out,
  * `pruning`, and how a sampled run sizes and draws its sample, `sampling`.
  */
 final readonly class Reach implements Part
 {
+    /** The key that chooses the change source and the repository. */
+    public const string VERSION_CONTROL = 'versionControl';
+
+    /** The choices the builder's `VersionControl` writes by name. */
+    private const array NAMED_CONTROLS = [BuiltinVersionControl::Git->value, BuiltinVersionControl::GitHub->value];
+
     /**
      * @param Listed<Glob>|Absent   $packages
      * @param Listed<Glob>|Absent   $everything
-     * @param Listed<string>|Absent $lockPackages
      * @param Listed<Glob>|Absent   $fixtures
      */
     private function __construct(
@@ -41,11 +47,13 @@ final readonly class Reach implements Part
         private int|float|Absent $hotPath,
         private bool|Absent $full,
         private Pruning $pruning,
-        private Listed|Absent $lockPackages,
+        private LockReach $lock,
         private Sampling $sampling,
-        private FailFast|Absent $failFast,
+        private FailingFast $failingFast,
         private ChangedTests|Absent $changedTests,
         private Listed|Absent $fixtures,
+        private Choice|Absent $versionControl,
+        private int|Absent $hotPathFewest,
     ) {
     }
 
@@ -54,6 +62,7 @@ final readonly class Reach implements Part
      * @param Listed<Glob>|Absent   $everything
      * @param Listed<string>|Absent $lockPackages
      * @param Listed<Glob>|Absent   $fixtures
+     * @param Listed<Unchecked>|Absent $failFastWaits
      */
     public static function of(
         Listed|Absent $packages = new Absent(),
@@ -66,8 +75,13 @@ final readonly class Reach implements Part
         FailFast|Absent $failFast = new Absent(),
         ChangedTests|Absent $changedTests = new Absent(),
         Listed|Absent $fixtures = new Absent(),
+        Listed|Absent $failFastWaits = new Absent(),
+        Choice|Absent $versionControl = new Absent(),
+        LockMoveReach|Absent $lockMoves = new Absent(),
+        int|Absent $hotPathFewest = new Absent(),
     ): self {
         $set = $pruning instanceof Pruning ? $pruning : Pruning::of();
+        $failing = FailingFast::of($failFast, $failFastWaits);
         $drawn = $sampling instanceof Sampling ? $sampling : Sampling::of();
 
         return new self(
@@ -76,11 +90,13 @@ final readonly class Reach implements Part
             $hotPath,
             $full,
             $set,
-            $lockPackages,
+            LockReach::of($lockPackages, $lockMoves),
             $drawn,
-            $failFast,
+            $failing,
             $changedTests,
             $fixtures,
+            $versionControl,
+            $hotPathFewest,
         );
     }
 
@@ -109,9 +125,12 @@ final readonly class Reach implements Part
                 auto: $sampling->auto(),
                 autoRuns: $sampling->autoRuns(),
             ),
-            failFast: $none->failFast(),
+            failFast: $none->failingFast()->mode(),
             changedTests: $none->changedTests(),
             fixtures: $none->fixtures(),
+            failFastWaits: $none->failingFast()->waits(),
+            lockMoves: LockMoveReach::Everything,
+            hotPathFewest: HotPaths::SMALLEST_SUITE,
         );
     }
 
@@ -124,11 +143,13 @@ final readonly class Reach implements Part
                 Absent::laid($this->hotPath, $later->hotPath),
                 Absent::laid($this->full, $later->full),
                 $this->pruning->over($later->pruning),
-                $this->joinedNames($this->lockPackages, $later->lockPackages),
+                $this->lock->over($later->lock),
                 $this->sampling->over($later->sampling),
-                Absent::laid($this->failFast, $later->failFast),
+                $this->failingFast->over($later->failingFast),
                 Absent::laid($this->changedTests, $later->changedTests),
                 $this->joined($this->fixtures, $later->fixtures),
+                Absent::laid($this->versionControl, $later->versionControl),
+                Absent::laid($this->hotPathFewest, $later->hotPathFewest),
             )
             : $this;
     }
@@ -151,15 +172,10 @@ final readonly class Reach implements Part
         return $this->fixtures instanceof Listed ? $this->fixtures : Listed::of();
     }
 
-    /**
-     * The packages whose move in a `composer.lock` decides how the gate runs:
-     * those `reach.lockPackages` names, every package where it names none.
-     */
+    /** What a package's move in a `composer.lock` decides, as `reach.lockMoves` and `reach.lockPackages` say. */
     public function lockPackages(): DecidingPackages
     {
-        return $this->lockPackages instanceof Listed
-            ? DecidingPackages::named(...array_map(Glob::of(...), [...$this->lockPackages]))
-            : DecidingPackages::every();
+        return $this->lock->deciding();
     }
 
     /**
@@ -175,7 +191,10 @@ final readonly class Reach implements Part
     /** The files most of the suite runs through that nothing holds, past `holds.hotPath` of it. */
     public function hotPaths(): HotPaths
     {
-        return $this->hotPath instanceof Absent ? HotPaths::standard() : HotPaths::atShare($this->hotPath);
+        return HotPaths::atShareOfAtLeast(
+            $this->hotPath instanceof Absent ? HotPaths::STANDARD : $this->hotPath,
+            $this->hotPathFewest instanceof Absent ? HotPaths::SMALLEST_SUITE : $this->hotPathFewest,
+        );
     }
 
     /**
@@ -187,13 +206,16 @@ final readonly class Reach implements Part
         return $this->full === true;
     }
 
-    /**
-     * What a pull request's shard does once one of its confirmed survivors leaves it no way to pass: by default it
-     * judges every unit and then fails (ADR-0008, ADR-0103).
-     */
-    public function failFast(): FailFast
+    /** `versionControl`: where a run learns what changed and what the repository holds, where a layer chooses it. */
+    public function versionControl(): Choice|Absent
     {
-        return $this->failFast instanceof FailFast ? $this->failFast : FailFast::Mark;
+        return $this->versionControl;
+    }
+
+    /** `run.failFast` and `run.failFastWaits`: what a pull request's shard does once it cannot pass (ADR-0103). */
+    public function failingFast(): FailingFast
+    {
+        return $this->failingFast;
     }
 
     /** `pruning`: which mutators a reached unit whose content is unchanged leaves out (ADR-0025). */
@@ -227,12 +249,6 @@ final readonly class Reach implements Part
                             : $this->everything,
                     ),
                     Member::of(
-                        'lockPackages',
-                        $this->lockPackages instanceof Listed
-                            ? Json::items(...$this->lockPackages)
-                            : $this->lockPackages,
-                    ),
-                    Member::of(
                         'changedTests',
                         $this->changedTests instanceof ChangedTests ? $this->changedTests->value : $this->changedTests,
                     ),
@@ -242,18 +258,23 @@ final readonly class Reach implements Part
                             ? Json::items(...WrittenPaths::globs($origin, $this->fixtures))
                             : $this->fixtures,
                     ),
+                    ...$this->lock->members(),
                 ),
             ),
-            Member::unlessEmpty('holds', Json::object(Member::of('hotPath', $this->hotPath))),
+            Member::unlessEmpty(
+                'holds',
+                Json::object(
+                    Member::of('hotPath', $this->hotPath),
+                    Member::of('fewestTests', $this->hotPathFewest),
+                ),
+            ),
             Member::unlessEmpty(
                 'run',
-                Json::object(
-                    Member::of('full', $this->full),
-                    Member::of(
-                        'failFast',
-                        $this->failFast instanceof FailFast ? $this->failFast->value : $this->failFast,
-                    ),
-                ),
+                Json::object(Member::of('full', $this->full))->merged($this->failingFast->written()),
+            ),
+            Member::of(
+                self::VERSION_CONTROL,
+                $this->versionControl instanceof Choice ? $this->versionControl->written() : $this->versionControl,
             ),
             $this->pruning->written(),
             $this->sampling->written(),
@@ -271,9 +292,6 @@ final readonly class Reach implements Part
                 PhpCalls::literals(...WrittenPaths::globs($origin, $this->everything)),
             )]
             : [];
-        $lockPackages = $this->lockPackages instanceof Listed
-            ? [sprintf('Reach::lockPackages(%s)', PhpCalls::literals(...$this->lockPackages))]
-            : [];
         $changedTests = $this->changedTests instanceof ChangedTests ? [$this->changedTests->php()] : [];
         $fixtures = $this->fixtures instanceof Listed
             ? [sprintf('Reach::fixtures(%s)', PhpCalls::literals(...WrittenPaths::globs($origin, $this->fixtures)))]
@@ -288,34 +306,25 @@ final readonly class Reach implements Part
             default => [],
         };
 
-        $stopping = $this->failFast instanceof FailFast ? [$this->failFast->php()] : [];
 
+        $lock = $this->lock->php();
         $calls = PhpCalls::inWith(
             ...$packages,
             ...$everything,
-            ...$lockPackages,
+            ...$lock,
             ...$changedTests,
             ...$fixtures,
             ...$hotPath,
+            ...$this->hotPathFewest instanceof Absent
+                ? []
+                : [sprintf('Reach::hotPathFewestTests(%d)', $this->hotPathFewest)],
             ...$full,
-            ...$stopping,
+            ...$this->versionControl instanceof Choice
+                ? [PhpCalls::chosen($this->versionControl, AdapterBuilder::VersionControl, ...self::NAMED_CONTROLS)]
+                : [],
         );
 
-        return $calls->and($this->pruning->php())->and($this->sampling->php());
-    }
-
-    /**
-     * @param  Listed<string>|Absent $earlier
-     * @param  Listed<string>|Absent $later
-     * @return Listed<string>|Absent
-     */
-    private function joinedNames(Listed|Absent $earlier, Listed|Absent $later): Listed|Absent
-    {
-        return match (true) {
-            $later instanceof Absent => $earlier,
-            $earlier instanceof Absent => $later,
-            default => $earlier->and($later, static fn(string $name): string => $name),
-        };
+        return $calls->and($this->failingFast->php())->and($this->pruning->php())->and($this->sampling->php());
     }
 
     /**

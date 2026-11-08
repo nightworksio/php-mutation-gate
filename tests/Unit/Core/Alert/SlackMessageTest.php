@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Alert\Alert;
 use NightWorksIO\MutationGate\Core\Alert\AlertEvent;
+use NightWorksIO\MutationGate\Core\Alert\AlertShape;
 use NightWorksIO\MutationGate\Core\Alert\SlackMessage;
 use NightWorksIO\MutationGate\Core\Ci\CiRun;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -26,7 +27,7 @@ use NightWorksIO\MutationGate\Tests\Support\Previous;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
 it('sends the title as the fallback, then a header, a section per group and the run', function (): void {
-    $message = SlackMessage::json(Alert::of(AlertEvent::Recovered, Verdicts::passing(), TrendEntry::none()), Previous::ci());
+    $message = SlackMessage::json(Alert::of(AlertEvent::Recovered, Verdicts::passing(), TrendEntry::none()), Previous::ci(), AlertShape::standard());
 
     expect(Decoded::at($message))->toBe([
         'text' => 'mutation-gate: recovered on octo/gate main',
@@ -41,7 +42,7 @@ it('sends the title as the fallback, then a header, a section per group and the 
 it('keeps every block within what Slack takes, however long the names', function (): void {
     $long = str_repeat('a', 400);
     $run = CiRun::of(sprintf('octo/%s', $long), sprintf('refs/heads/%s', $long), 'c', 'https://ci.example/7');
-    $message = SlackMessage::json(Alert::of(AlertEvent::Failed, Verdicts::crowded(), TrendEntry::none()), $run);
+    $message = SlackMessage::json(Alert::of(AlertEvent::Failed, Verdicts::crowded(), TrendEntry::none()), $run, AlertShape::standard());
     $blocks = Decoded::at($message, 'blocks');
     $lengths = [];
 
@@ -75,7 +76,7 @@ it('keeps a section of exactly Slack\'s three thousand characters whole, and cut
             );
         }
 
-        $said = Decoded::at(SlackMessage::json(Alert::of(AlertEvent::Failed, Verdict::of(TreeVerdicts::of(...$trees)), TrendEntry::none()), Previous::ci()), 'blocks', 1, 'text', 'text');
+        $said = Decoded::at(SlackMessage::json(Alert::of(AlertEvent::Failed, Verdict::of(TreeVerdicts::of(...$trees)), TrendEntry::none()), Previous::ci(), AlertShape::standard()), 'blocks', 1, 'text', 'text');
 
         return is_string($said) ? $said : '';
     };

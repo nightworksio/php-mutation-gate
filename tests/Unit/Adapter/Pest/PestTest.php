@@ -204,7 +204,7 @@ it('runs the suite under coverage into a directory it makes, with pcov collectin
     $request = CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));
     $directory = sprintf('%s/.mutation-gate/coverage', $at->root());
 
-    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->coverage($request))->toEqual(CoverageMap::empty()
+    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->coverage($request))->toEqual(CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of(PestCases::RUN_ADDS))
         ->timed(TestId::of(PestCases::RUN_ADDS), Seconds::of(0.5))
         ->timed(TestId::of('P\\Tests\\MoneySpec::__pest_evaluable_it_reads_its_rates'), Seconds::of(0.25)))
@@ -219,7 +219,7 @@ it('reads the map a coverage run this job started itself left in a directory, ru
     $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'not run'));
     $pest = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
 
-    expect($pest->coverage(CoverageRan::in(Path::of('build/suite'))))->toEqual(CoverageMap::empty()
+    expect($pest->coverage(CoverageRan::in(Path::of('build/suite'))))->toEqual(CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of(PestCases::RUN_ADDS))
         ->timed(TestId::of(PestCases::RUN_ADDS), Seconds::of(0.5)))
         ->and($pest->coverage(CoverageRan::in(Path::of('build/none'))))
@@ -276,7 +276,7 @@ it('cannot time a run of no test where an earlier copy cannot be removed', funct
 
 it('reads the gate\'s own map another job handed over, running nothing', function (): void {
     $at = PestCases::project();
-    $map = CoverageMap::empty()->covered(Path::of('src/Held.php'), Line::of(5), TestId::of(PestCases::RUN_ADDS));
+    $map = CoverageMap::of()->covered(Path::of('src/Held.php'), Line::of(5), TestId::of(PestCases::RUN_ADDS));
     PestCases::handedOver($at, 'planned', $map);
     $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'not run'));
     $pest = new Pest($at, $shell, Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
@@ -299,7 +299,7 @@ it('never reads a runner\'s map another job wrote, which is PHP that reading run
 it('names the tests of a map that some test files hold, by the class Pest declares for each', function (): void {
     $at = PestCases::project();
     Scratch::write($at->root(), 'tests/MoneySpec.php', '<?php');
-    $map = CoverageMap::empty()
+    $map = CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of(PestCases::RUN_ADDS))
         ->covered(Path::of('src/Money.php'), Line::of(12), TestId::of('P\Tests\HeldSpec::__pest_evaluable_it_holds'));
     $pest = new Pest($at, ShellFake::answering(Ran::stopped('')), Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());
@@ -311,7 +311,7 @@ it('names the test files of a patched run\'s filter, every row it names, a class
     $at = PestCases::project();
     Scratch::write($at->root(), 'tests/MoneySpec.php', '<?php');
     Scratch::write($at->root(), 'tests/HeldSpec.php', '<?php');
-    $whole = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(11), TestId::of(PestCases::RUN_ADDS));
+    $whole = CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(11), TestId::of(PestCases::RUN_ADDS));
 
     foreach (range(1, 2000) as $row) {
         $whole = $whole->covered(Path::of('src/Kernel.php'), Line::of(3), TestId::of(sprintf('P\Tests\HeldSpec::__pest_evaluable_it_holds#dataset "row %d"', $row)));
@@ -332,7 +332,7 @@ it('names the test files a covering test\'s filter selects, or all when it will 
     Scratch::write($at->root(), 'tests/MoneySpec.php', '<?php');
     Scratch::write($at->root(), 'tests/HeldSpec.php', '<?php');
     $long = sprintf('P\Tests\HeldSpec::__pest_evaluable_%s', str_repeat('x', Ceiling::BYTES));
-    $map = CoverageMap::empty()
+    $map = CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of(PestCases::RUN_ADDS))
         ->covered(Path::of('src/Kernel.php'), Line::of(3), TestId::of($long));
     $pest = new Pest($at, ShellFake::answering(Ran::stopped('')), Patching::off(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds());

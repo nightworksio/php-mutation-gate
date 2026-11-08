@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Bitbucket;
 
+use function array_filter;
 use function array_slice;
+use function array_values;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Delivery\CommentStates;
 use NightWorksIO\MutationGate\Core\Delivery\CommentThread;
+use NightWorksIO\MutationGate\Core\Delivery\CommentWrite;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Member;
@@ -19,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Http\RestApi;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\PlannedMarkdown;
+use NightWorksIO\MutationGate\Core\Report\UnfoldedMarkdown;
 use NightWorksIO\MutationGate\Core\Written;
 
 use function rawurlencode;
@@ -41,6 +45,8 @@ final readonly class PullRequestThread implements CommentThread
 
     private const string COMMENTS = '%s/pullrequests/%d/comments';
 
+    private const string PULL_REQUEST = '%s/pullrequests/%d';
+
     private const string PAGES_OF_COMMENTS = '%s?pagelen=%d&page=%d';
 
     private const int PAGE = 50;
@@ -50,8 +56,6 @@ final readonly class PullRequestThread implements CommentThread
 
     /** The most comments holding the marker tried before a new one is posted. */
     private const int TRIES = 10;
-
-    private const string UNWRITTEN = 'The pull request comment could not be written (%s).';
 
     private function __construct(
         private RestApi $api,
@@ -77,7 +81,7 @@ final readonly class PullRequestThread implements CommentThread
         return new self($api, $repository, $pullRequest, $pipeline);
     }
 
-    public function written(string $markdown, bool $overPlanned): Written|NotWritten
+    public function written(string $markdown, CommentWrite $write): Written|NotWritten
     {
         $number = $this->pullRequest;
 
@@ -86,11 +90,37 @@ final readonly class PullRequestThread implements CommentThread
         }
 
         $comments = sprintf(self::COMMENTS, $this->repository, $number->value());
-        $marked = $this->marked($comments);
+        $all = $this->marked($comments);
 
-        return $marked instanceof CannotJudge
-            ? NotWritten::because(sprintf(self::UNWRITTEN, $marked->why()))
-            : $this->sent($comments, $marked, CommentMarkdown::of($markdown, $this->pipeline), $overPlanned);
+        if ($all instanceof CannotJudge) {
+            return NotWritten::because(sprintf(CommentStates::UNWRITTEN, $all->why()));
+        }
+
+        $marker = UnfoldedMarkdown::of($write->marker(), $this->pipeline);
+        $marked = array_values(array_filter(
+            $all,
+            fn(Node $comment): bool => str_contains($this->rawOf($comment), $marker),
+        ));
+
+        return $write->isExistingOnly() && $all === []
+            ? NotWritten::because(CommentStates::NOT_THERE)
+            : $this->sent(
+                $comments,
+                $marked,
+                UnfoldedMarkdown::of($markdown, $this->pipeline),
+                $write->isOverPlanned(),
+            );
+    }
+
+    /** Whether the pull request is a draft; not where Bitbucket does not say. */
+    public function isDraft(): bool
+    {
+        $number = $this->pullRequest;
+        $read = $number instanceof PullRequestNumber
+            ? $this->api->json($this->api->get(sprintf(self::PULL_REQUEST, $this->repository, $number->value())))
+            : NotGiven::value();
+
+        return $read instanceof Node && Lenient::boolean($read->field('draft'), otherwise: false);
     }
 
     /**
@@ -144,7 +174,7 @@ final readonly class PullRequestThread implements CommentThread
         $comment = $this->api->json($reply);
 
         return $comment instanceof CannotJudge
-            ? NotWritten::because(sprintf(self::UNWRITTEN, $comment->why()))
+            ? NotWritten::because(sprintf(CommentStates::UNWRITTEN, $comment->why()))
             : Written::to(Lenient::text($comment->field('links')->field('html')->field('href')));
     }
 
@@ -177,7 +207,7 @@ final readonly class PullRequestThread implements CommentThread
         return ! Lenient::boolean($comment->field('deleted'), otherwise: false)
             && ! $comment->field('parent')->isPresent()
             && ! $comment->field('inline')->isPresent()
-            && str_contains($this->rawOf($comment), CommentMarkdown::MARKER);
+            && str_contains($this->rawOf($comment), UnfoldedMarkdown::MARKER);
     }
 
     private function rawOf(Node $comment): string

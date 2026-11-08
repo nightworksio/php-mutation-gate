@@ -74,7 +74,7 @@ function invokedWithin(ScriptedRunner $runner, Seconds $left, CoverageMap $map):
 /** A map in which one test covers line 3 of each of these files. */
 function invokedMap(string ...$files): CoverageMap
 {
-    $map = CoverageMap::empty();
+    $map = CoverageMap::of();
 
     foreach ($files as $file) {
         $map = $map->covered(Path::of($file), Line::of(3), TestId::of(sprintf('%sTest::runs', basename($file, '.php'))));
@@ -97,7 +97,7 @@ it('runs again only the survivors that fit in the time left, first to last, and 
     $survivors = array_map(static fn(string $id): Mutant => invokedMutant('src/Money.php', $id, MutantStatus::Survived), ['a', 'b', 'c']);
     $runner = ScriptedRunner::fixture()->answering(Mutants::of(...$survivors), 0)->killingAgain();
 
-    $invoked = invokedWithin($runner, Seconds::of(25.0), CoverageMap::empty());
+    $invoked = invokedWithin($runner, Seconds::of(25.0), CoverageMap::of());
 
     expect(array_map(static fn(Mutant $mutant): string => $mutant->nativeId(), [...$runner->retries()[0][0]]))->toBe(['a', 'b'])
         ->and(count($runner->retries()))->toBe(1)
@@ -123,7 +123,7 @@ it('runs only the controls that fit in the time left, at the longest limit among
 it('allows a kill\'s control, named or not, the standard limit of its tests\' time up to timeouts.controlMost, past timeouts.most', function (bool $named): void {
     $killed = invokedMutant('src/Money.php', 'a', MutantStatus::Killed);
     $killed = $named ? $killed->killedBy(TestIds::of(TestId::of('MoneyTest::runs'))) : $killed;
-    $map = CoverageMap::empty()
+    $map = CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::runs'))
         ->timed(TestId::of('MoneyTest::runs'), Seconds::of(150.0));
     $runner = ScriptedRunner::fixture()->answering(Mutants::of($killed), 0);

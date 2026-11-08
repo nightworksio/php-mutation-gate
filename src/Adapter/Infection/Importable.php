@@ -98,12 +98,16 @@ final readonly class Importable
 
     /**
      * The gate's config this one seeds, over the trees zero-config found, and
-     * what became of each key; an imported ignore expires 90 days from now.
+     * what became of each key; an imported ignore expires this many days from now.
      *
      * @param Listed<DeclaredTree>|Absent $found
      */
-    public function imported(Project $project, Listed|Absent $found, DateTimeImmutable $now): Import
-    {
+    public function imported(
+        Project $project,
+        Listed|Absent $found,
+        DateTimeImmutable $now,
+        int $ignoresFor = Ignores::DAYS,
+    ): Import {
         return Import::of(Layer::of(Setup::of(runner: Choices::runner())))
             ->and(Trees::of($this->settings, $project, $found))
             ->and(Floor::imported($this->settings))
@@ -114,6 +118,7 @@ final readonly class Importable
                 ClassFiles::in($project),
                 Profiles::installed(class_exists(...)),
                 $now,
+                $ignoresFor,
             ))
             ->and(Logs::of($this->settings))
             ->and(Remaining::of($this->settings));

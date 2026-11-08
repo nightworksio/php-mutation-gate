@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Report\JsonReport;
 use NightWorksIO\MutationGate\Core\Report\NextSteps;
 use NightWorksIO\MutationGate\Core\Report\Outcome;
 use NightWorksIO\MutationGate\Core\Report\Page\Html;
+use NightWorksIO\MutationGate\Core\Report\Page\PageShows;
 use NightWorksIO\MutationGate\Core\Report\Page\ReportPage;
 use NightWorksIO\MutationGate\Core\Report\Term;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -44,7 +45,7 @@ use Pest\Mutate\Mutators\Arithmetic\MultiplicationToDivision;
 /** The page of a verdict, with a style and a script that stand for the shipped ones. */
 function pageOf(Verdict $verdict): string
 {
-    return ReportPage::html(JsonReport::of($verdict), 'body { color: red; }', 'void 0;');
+    return ReportPage::html(JsonReport::of($verdict), 'body { color: red; }', 'void 0;', PageShows::standard());
 }
 
 /** What the page's navigation reads: the index in its data element, each file's packed mutants inflated into it. */
@@ -437,7 +438,7 @@ it('escapes everything a project writes, in the page and in its data', function 
 });
 
 it('puts its script after the list of files and before every file\'s mutants, so it runs while they arrive', function (): void {
-    $page = ReportPage::html(JsonReport::of(Verdicts::failing()), '', 'const page = 1;');
+    $page = ReportPage::html(JsonReport::of(Verdicts::failing()), '', 'const page = 1;', PageShows::standard());
     $script = (int) strpos($page, '<script>const page = 1;</script>');
 
     expect($script)->toBeGreaterThan((int) strpos($page, '<script type="application/json" id="data">'))
@@ -445,7 +446,7 @@ it('puts its script after the list of files and before every file\'s mutants, so
 });
 
 it('inlines its style and its script, so it loads nothing from a network, neither able to end its element', function (): void {
-    $page = ReportPage::html(JsonReport::of(Verdicts::passing()), 'a::after { content: "</style>"; }', 'const end = "</script>";');
+    $page = ReportPage::html(JsonReport::of(Verdicts::passing()), 'a::after { content: "</style>"; }', 'const end = "</script>";', PageShows::standard());
 
     expect($page)->toContain('<style>a::after { content: "<\/style>"; }</style>')
         ->and($page)->toContain('<script>const end = "<\/script>";</script>')
@@ -454,7 +455,7 @@ it('inlines its style and its script, so it loads nothing from a network, neithe
 });
 
 it('lets the browser run only its own style, the figures\' style attributes and its own script, each named by its hash', function (): void {
-    $page = ReportPage::html(JsonReport::of(Verdicts::secured()), 'a::after { content: "</style>"; }', 'const end = "</script>";');
+    $page = ReportPage::html(JsonReport::of(Verdicts::secured()), 'a::after { content: "</style>"; }', 'const end = "</script>";', PageShows::standard());
     preg_match('~<meta http-equiv="Content-Security-Policy" content="([^"]+)">~', $page, $policy);
     preg_match_all('~ style="([^"]*)"~', $page, $attributes);
     $hashOf = static fn(string $inline): string => sprintf("'%s'", Html::source($inline));
@@ -556,4 +557,25 @@ it('lists under Cannot judge each set of tests that fails without any mutant, li
 
 it('packs what to try with a survivor for the pane, and nothing with a kill', function (): void {
     expect(substr_count(pageData(pageOf(onChangedLines())), '"try":"use `$a` at 3."'))->toBe(3);
+});
+
+it('lists as many files and survivors up front as the html reporter says, and says how many more there are', function (): void {
+    $verdict = JsonReport::of(Verdicts::failing());
+    $all = ReportPage::html($verdict, '', '', PageShows::standard());
+    $none = ReportPage::html($verdict, '', '', PageShows::of(0, 0));
+    $survivors = static fn(string $page): string => pagePart($page, '<section class="card survivors"', '</section>');
+    $files = static fn(string $page): string => pagePart($page, '<section class="card files"', '</section>');
+
+    expect($survivors($all))->toContain('<ol')
+        ->and($survivors($none))->not->toContain('<ol')
+        ->and($survivors($none))->toContain('<p class="aside">And 5 more, each in its file below.</p>')
+        ->and($files($all))->toContain('<ol class="file-list">')
+        ->and($files($none))->not->toContain('file-list')
+        ->and($files($none))->not->toContain('No file has a survivor.');
+});
+
+it('lists no file, and says nothing of them being clean, where the page shows none', function (): void {
+    $page = ReportPage::html(JsonReport::of(Verdicts::failing()), '', '', PageShows::of(0, PageShows::standard()->survivors()));
+
+    expect($page)->toMatch('#<p class="aside">[^<]*changed line[^<]*</p>\n\n</section>#');
 });

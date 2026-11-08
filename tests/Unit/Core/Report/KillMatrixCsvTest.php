@@ -33,7 +33,7 @@ it('writes a header, then a record per mutant and covering test with what the te
 
 it('says whether the unit of each mutant was run, proved or carried, and run where the verdict lists no unit', function (): void {
     $test = TestId::of('OrderTest::saves');
-    $matrix = KillMatrix::of(MatrixKind::FirstKiller, CoverageMap::empty()
+    $matrix = KillMatrix::of(MatrixKind::FirstKiller, CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(7), $test)
         ->covered(Path::of('src/Order.php'), Line::of(3), $test)
         ->covered(Path::of('src/Log.php'), Line::of(4), $test));

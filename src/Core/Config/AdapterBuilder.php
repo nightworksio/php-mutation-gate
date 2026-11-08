@@ -8,9 +8,13 @@ namespace NightWorksIO\MutationGate\Core\Config;
 enum AdapterBuilder: string
 {
     case Ci = 'Ci';
+
+    case CostModel = 'CostModel';
     case Proofs = 'Proofs';
     case Report = 'Report';
     case Runner = 'Runner';
     case Source = 'Source';
     case StaticCheck = 'StaticCheck';
+
+    case VersionControl = 'VersionControl';
 }

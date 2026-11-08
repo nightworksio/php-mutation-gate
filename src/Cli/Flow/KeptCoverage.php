@@ -86,7 +86,7 @@ final readonly class KeptCoverage
     {
         $bytes = $this->adapters->project->read(CoverageMapFile::in(Workspace::coverage()));
 
-        return $bytes instanceof Contents ? CoverageMapFile::kept($bytes->text(), MapLimits::standard()) : $bytes;
+        return $bytes instanceof Contents ? CoverageMapFile::kept($bytes->text(), $this->limits()) : $bytes;
     }
 
     /**
@@ -179,7 +179,7 @@ final readonly class KeptCoverage
         );
         $kept = $ownMap
             ? StoredCoverage::of($this->fromWorkspace(), KeptFrom::LastRound)
-            : StoredCoverage::in($this->adapters->proofs, $access);
+            : StoredCoverage::in($this->adapters->proofs, $access, $this->limits());
 
         return $this->measuring($entries, $kept->map(), $kept->from(), $suites);
     }
@@ -227,11 +227,17 @@ final readonly class KeptCoverage
         };
     }
 
+    /** How large a kept map may be: `proofs.limits.map`. */
+    private function limits(): MapLimits
+    {
+        return MapLimits::kept($this->settings->proofs()->retained());
+    }
+
     /** The whole map the plan handed on, kept in a scope where it is clean and within the limits; or why not. */
     private function keptIn(Scope $scope): Written|NotWritten|ReadsOnly
     {
         $read = $this->fromWorkspace();
-        $bytes = $read instanceof KeptMap ? CoverageMapFile::keeping($read, MapLimits::standard()) : $read;
+        $bytes = $read instanceof KeptMap ? CoverageMapFile::keeping($read, $this->limits()) : $read;
 
         return match (true) {
             $bytes instanceof Missing
@@ -278,7 +284,7 @@ final readonly class KeptCoverage
             ? $suites->measured($moving->moved())
             : TestPaths::of($moving->moved());
         $measured = count($moved->files()) === 0
-            ? CoverageMap::empty()
+            ? CoverageMap::of()
             : $this->adapters->runner->coverage(
                 $this->adapters->covering(CoverageRun::of($moved, Workspace::remeasuredCoverage())),
             );

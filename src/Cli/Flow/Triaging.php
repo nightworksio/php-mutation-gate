@@ -123,7 +123,10 @@ final readonly class Triaging
             ->onlyIn($this->filesOf($unit, $inventory));
 
         return RunRequest::of($this->adapters, $this->settings, Paths::of($unit->path()), $unit->judgedBy())
-            ->across(Pool::of($this->adapters->processes(), $this->settings->runner()->workers()))
+            ->across(
+                Pool::of($this->adapters->processes(), $this->settings->runner()->workers())
+                    ->pacedBy($this->settings->runner()->pace()),
+            )
             ->searching(KillSearch::of(Ordering::of($order, $history), MatrixKind::FirstKiller));
     }
 

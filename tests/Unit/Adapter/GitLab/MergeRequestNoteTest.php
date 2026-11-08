@@ -6,7 +6,14 @@ use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
 use NightWorksIO\MutationGate\Adapter\GitLab\MergeRequestNote;
 use NightWorksIO\MutationGate\Adapter\GitLab\NoteMarkdown;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Comment\Mode;
+use NightWorksIO\MutationGate\Core\Comment\Toggle;
+use NightWorksIO\MutationGate\Core\Config\CommentSettings;
+use NightWorksIO\MutationGate\Core\Config\CommentShows;
+use NightWorksIO\MutationGate\Core\Config\CommentToggles;
+use NightWorksIO\MutationGate\Core\Config\CommentWrites;
 use NightWorksIO\MutationGate\Core\Delivery\CommentStates;
+use NightWorksIO\MutationGate\Core\Delivery\CommentWrite;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\Markdown;
@@ -77,7 +84,7 @@ it('posts a new note where the token\'s user has none, with the token, linking t
         gitlabNote(2, 'project_42_bot', 'no marker'),
         gitlabNote(3, 'project_42_bot', Markdown::MARKER, system: true),
     ]))->answering(GITLAB_NOTES, 201, '{"id": 11}');
-    $answer = MergeRequestNote::inEnvironment(gitlabMergeRequest(), $cloud->exchange(), 'MUTATION_GATE_GITLAB_TOKEN')
+    $answer = MergeRequestNote::inEnvironment(gitlabMergeRequest(), $cloud->exchange(), 'MUTATION_GATE_GITLAB_TOKEN', CommentSettings::standard())
         ->report(Verdicts::failing());
     $posted = $cloud->requests[2];
 
@@ -86,7 +93,7 @@ it('posts a new note where the token\'s user has none, with the token, linking t
         ->and($posted['url'])->toBe(GITLAB_NOTES)
         ->and($posted['headers']['authorization'] ?? '')->toBe('Bearer glpat-secret')
         ->and($posted['headers']['content-type'] ?? '')->toBe('application/json')
-        ->and(Decoded::at($posted['body'], 'body'))->toBe(NoteMarkdown::of(Markdown::comment(Verdicts::failing()), GITLAB_PIPELINE))
+        ->and(Decoded::at($posted['body'], 'body'))->toBe(NoteMarkdown::of(Markdown::comment(Verdicts::failing(), CommentShows::of()), GITLAB_PIPELINE))
         ->and(Decoded::at($posted['body'], 'body'))->toContain(sprintf('[The run](%s)', GITLAB_PIPELINE));
 });
 
@@ -95,7 +102,7 @@ it('puts its own note in place, passing runs included, reading every full page o
     $cloud = gitlabHolding((string) json_encode($full))
         ->answering(gitlabNotesPage(2), 200, (string) json_encode([gitlabNote(101, 'project_42_bot', sprintf("%s\nold", Markdown::MARKER))]))
         ->answering(sprintf('%s/101', GITLAB_NOTES), 200, '{"id": 101}');
-    $answer = MergeRequestNote::inEnvironment(gitlabMergeRequest(), $cloud->exchange(), 'MUTATION_GATE_GITLAB_TOKEN')
+    $answer = MergeRequestNote::inEnvironment(gitlabMergeRequest(), $cloud->exchange(), 'MUTATION_GATE_GITLAB_TOKEN', CommentSettings::standard())
         ->report(Verdicts::passing());
 
     expect($answer)->toEqual(Written::to('https://gitlab.example/acme/shop/-/merge_requests/7#note_101'))
@@ -108,7 +115,7 @@ it('reads no page past the one that holds its own note', function (): void {
     $cloud = gitlabHolding((string) json_encode($full))
         ->answering(gitlabNotesPage(2), 200, '[]')
         ->answering(sprintf('%s/100', GITLAB_NOTES), 200, '{"id": 100}');
-    $answer = MergeRequestNote::inEnvironment(gitlabMergeRequest(), $cloud->exchange(), 'MUTATION_GATE_GITLAB_TOKEN')
+    $answer = MergeRequestNote::inEnvironment(gitlabMergeRequest(), $cloud->exchange(), 'MUTATION_GATE_GITLAB_TOKEN', CommentSettings::standard())
         ->report(Verdicts::passing());
 
     expect($answer)->toEqual(Written::to('https://gitlab.example/acme/shop/-/merge_requests/7#note_100'))
@@ -124,7 +131,7 @@ it('reads thirty full pages of notes for its own, and no more', function (): voi
         $cloud->answering(gitlabNotesPage($page), 200, $full);
     }
 
-    MergeRequestNote::inEnvironment(gitlabMergeRequest(), $cloud->exchange(), 'MUTATION_GATE_GITLAB_TOKEN')->report(Verdicts::passing());
+    MergeRequestNote::inEnvironment(gitlabMergeRequest(), $cloud->exchange(), 'MUTATION_GATE_GITLAB_TOKEN', CommentSettings::standard())->report(Verdicts::failing());
 
     expect(array_column($cloud->requests, 'url'))->not->toContain(gitlabNotesPage(31))
         ->and(array_column($cloud->requests, 'url'))->toContain(gitlabNotesPage(30))
@@ -134,7 +141,7 @@ it('reads thirty full pages of notes for its own, and no more', function (): voi
 it('writes its planned state into the note the verdict later replaces', function (): void {
     $cloud = gitlabHolding((string) json_encode([gitlabNote(5, 'project_42_bot', Markdown::MARKER)]))
         ->answering(sprintf('%s/5', GITLAB_NOTES), 200, '{"id": 5}');
-    $answer = MergeRequestNote::inEnvironment(gitlabMergeRequest(), $cloud->exchange(), 'MUTATION_GATE_GITLAB_TOKEN')
+    $answer = MergeRequestNote::inEnvironment(gitlabMergeRequest(), $cloud->exchange(), 'MUTATION_GATE_GITLAB_TOKEN', CommentSettings::standard())
         ->planned(ShardedPlan::planned(2));
 
     expect($answer)->toEqual(Written::to('https://gitlab.example/acme/shop/-/merge_requests/7#note_5'))
@@ -144,7 +151,7 @@ it('writes its planned state into the note the verdict later replaces', function
 
 it('writes the re-checked survivors over its planned state alone', function (string $notes, bool $written): void {
     $cloud = gitlabHolding($notes)->answering(sprintf('%s/5', GITLAB_NOTES), 200, '{"id": 5}');
-    $answer = MergeRequestNote::inEnvironment(gitlabMergeRequest(), $cloud->exchange(), 'MUTATION_GATE_GITLAB_TOKEN')
+    $answer = MergeRequestNote::inEnvironment(gitlabMergeRequest(), $cloud->exchange(), 'MUTATION_GATE_GITLAB_TOKEN', CommentSettings::standard())
         ->rechecked(Rechecks::mixed());
 
     expect($answer)->toEqual($written
@@ -154,17 +161,68 @@ it('writes the re-checked survivors over its planned state alone', function (str
 
     if ($written) {
         expect(Decoded::at($cloud->requests[2]['body'], 'body'))
-            ->toBe(NoteMarkdown::of(RecheckedMarkdown::comment(Rechecks::mixed(), GITLAB_PIPELINE), GITLAB_PIPELINE));
+            ->toBe(NoteMarkdown::of(RecheckedMarkdown::comment(Rechecks::mixed(), GITLAB_PIPELINE, CommentShows::of()), GITLAB_PIPELINE));
     }
 })->with([
     'its planned state' => [fn(): string => (string) json_encode([gitlabNote(5, 'project_42_bot', PlannedMarkdown::comment(ShardedPlan::planned(2), ''))]), true],
-    'the verdict' => [fn(): string => (string) json_encode([gitlabNote(5, 'project_42_bot', Markdown::comment(Verdicts::failing()))]), false],
+    'the verdict' => [fn(): string => (string) json_encode([gitlabNote(5, 'project_42_bot', Markdown::comment(Verdicts::failing(), CommentShows::of()))]), false],
     'no note of its own' => [fn(): string => (string) json_encode([gitlabNote(5, 'someone', PlannedMarkdown::comment(ShardedPlan::planned(2), ''))]), false],
+]);
+
+it('reads a draft from the title GitLab marks, so comment.drafts can keep it quiet', function (string $title, bool $left): void {
+    $cloud = gitlabHolding('[]')->answering(GITLAB_NOTES, 201, '{"id": 5}');
+    $settings = CommentSettings::of(CommentShows::of(), CommentWrites::of(toggles: CommentToggles::off(Toggle::Drafts)));
+    $answer = MergeRequestNote::inEnvironment(gitlabMergeRequest(['CI_MERGE_REQUEST_TITLE' => $title]), $cloud->exchange(), 'MUTATION_GATE_GITLAB_TOKEN', $settings)
+        ->report(Verdicts::failing());
+
+    expect($answer)->toEqual($left
+        ? NotWritten::because('comment.drafts is false, so this run writes no comment.')
+        : Written::to('https://gitlab.example/acme/shop/-/merge_requests/7#note_5'));
+})->with([
+    'marked a draft' => ['Draft: the fix', true],
+    'marked in brackets' => ['[Draft] the fix', true],
+    'marked in parentheses' => ['(draft) the fix', true],
+    'a draft only in its words' => ['Fix the draft: reader', false],
+]);
+
+it('updates only where the gate has noted before, an earlier run\'s note being one', function (CommentWrite $write, array $notes, string $method): void {
+    $cloud = gitlabHolding((string) json_encode($notes))
+        ->answering(GITLAB_NOTES, 201, '{"id": 6}')
+        ->answering(sprintf('%s/5', GITLAB_NOTES), 200, '{"id": 5}');
+    $answer = MergeRequestNote::inEnvironment(gitlabMergeRequest(), $cloud->exchange(), 'MUTATION_GATE_GITLAB_TOKEN', CommentSettings::standard())
+        ->writeAs('text', $write);
+    $written = array_values(array_filter(array_column($cloud->requests, 'method'), static fn(string $sent): bool => $sent !== 'GET'));
+
+    expect($written)->toBe($method === '' ? [] : [$method])
+        ->and($answer)->toEqual($method === ''
+            ? NotWritten::because(CommentStates::NOT_THERE)
+            : Written::to(sprintf('https://gitlab.example/acme/shop/-/merge_requests/7#note_%d', $method === 'PUT' ? 5 : 6)));
+})->with([
+    'an earlier run\'s note, under a mode of its own' => [
+        fn(): CommentWrite => CommentWrite::of(Mode::New, 'run')->existingOnly(),
+        fn(): array => [gitlabNote(5, 'project_42_bot', Markdown::MARKER)],
+        'POST',
+    ],
+    'none, under a mode of its own' => [
+        fn(): CommentWrite => CommentWrite::of(Mode::New, 'run')->existingOnly(),
+        fn(): array => [gitlabNote(5, 'someone', Markdown::MARKER)],
+        '',
+    ],
+    'its own, the one note' => [
+        fn(): CommentWrite => CommentWrite::sticky()->existingOnly(),
+        fn(): array => [gitlabNote(5, 'project_42_bot', Markdown::MARKER)],
+        'PUT',
+    ],
+    'none, the one note' => [
+        fn(): CommentWrite => CommentWrite::sticky()->existingOnly(),
+        fn(): array => [gitlabNote(5, 'someone', Markdown::MARKER)],
+        '',
+    ],
 ]);
 
 it('writes no note, and says why, where the job cannot write one', function (Variables $environment, string $why): void {
     $cloud = new Cloud();
-    $answer = MergeRequestNote::inEnvironment($environment, $cloud->exchange(), 'MUTATION_GATE_GITLAB_TOKEN')
+    $answer = MergeRequestNote::inEnvironment($environment, $cloud->exchange(), 'MUTATION_GATE_GITLAB_TOKEN', CommentSettings::standard())
         ->report(Verdicts::failing());
 
     expect($answer)->toEqual(NotWritten::because($why))
@@ -182,9 +240,9 @@ it('reads its token from the variable tokenEnv names', function (): void {
     $named = MergeRequestNote::configured(Configs::options('{"tokenEnv": "GATE_NOTES"}'), $environment, $cloud->exchange());
     $standard = MergeRequestNote::configured(Configs::options('{}'), $environment, new Cloud()->exchange());
 
-    expect($named->report(Verdicts::passing()))->toBeInstanceOf(Written::class)
+    expect($named->report(Verdicts::failing()))->toBeInstanceOf(Written::class)
         ->and($cloud->requests[0]['headers']['authorization'] ?? '')->toBe('Bearer glpat-other')
-        ->and($standard->report(Verdicts::passing()))
+        ->and($standard->report(Verdicts::failing()))
         ->toEqual(NotWritten::because('MUTATION_GATE_GITLAB_TOKEN is not set, so no note is written.'));
 });
 
@@ -201,14 +259,14 @@ it('writes the note of the merge request the trigger job hands a child pipeline,
         ->answering(sprintf('%s?sort=asc&order_by=created_at&per_page=100&page=1', $notes), 200, '[]')
         ->answering($notes, 201, '{"id": 4}');
 
-    expect(MergeRequestNote::inEnvironment($environment, $cloud->exchange(), 'MUTATION_GATE_GITLAB_TOKEN')->report(Verdicts::passing()))
+    expect(MergeRequestNote::inEnvironment($environment, $cloud->exchange(), 'MUTATION_GATE_GITLAB_TOKEN', CommentSettings::standard())->report(Verdicts::failing()))
         ->toEqual(Written::to('https://gitlab.com/acme/shop/-/merge_requests/7#note_4'));
 });
 
 it('says why, naming GitLab by its origin alone and never the token, where GitLab refuses', function (string $refused): void {
     $cloud = gitlabHolding('[]')->answering($refused, 403, '{"message": "403 Forbidden"}')->answering(GITLAB_NOTES, 403, '{"message": "403 Forbidden"}');
-    $answer = MergeRequestNote::inEnvironment(gitlabMergeRequest(), $cloud->exchange(), 'MUTATION_GATE_GITLAB_TOKEN')
-        ->report(Verdicts::passing());
+    $answer = MergeRequestNote::inEnvironment(gitlabMergeRequest(), $cloud->exchange(), 'MUTATION_GATE_GITLAB_TOKEN', CommentSettings::standard())
+        ->report(Verdicts::failing());
     $why = $answer instanceof NotWritten ? $answer->why() : '';
 
     expect($why)->toBe('The merge request note could not be written (https://gitlab.example answered 403: {"message": "403 Forbidden"}).')
@@ -225,22 +283,23 @@ it('leaves its note, and its planned state, for deliver on a merge request, toke
         gitlabMergeRequest(['MUTATION_GATE_GITLAB_TOKEN' => $token]),
         $cloud->exchange(),
         'MUTATION_GATE_GITLAB_TOKEN',
+        CommentSettings::standard(),
     );
 
     expect($note->deferred(Verdicts::failing(), Delivery::none()))
-        ->toEqual(Delivery::none()->withComment(Markdown::comment(Verdicts::failing())))
+        ->toEqual(Delivery::none()->withComment(Markdown::comment(Verdicts::failing(), CommentShows::of()), CommentWrite::sticky()))
         ->and($note->plannedLater(ShardedPlan::planned(2), Delivery::none()))
-        ->toEqual(Delivery::none()->withComment(PlannedMarkdown::comment(ShardedPlan::planned(2), GITLAB_PIPELINE)))
+        ->toEqual(Delivery::none()->withComment(PlannedMarkdown::comment(ShardedPlan::planned(2), GITLAB_PIPELINE), CommentWrite::sticky()))
         ->and($note->recheckedLater(Rechecks::mixed(), Delivery::none()))
-        ->toEqual(Delivery::none()->withCommentOverPlanned(RecheckedMarkdown::comment(Rechecks::mixed(), GITLAB_PIPELINE)))
+        ->toEqual(Delivery::none()->withComment(RecheckedMarkdown::comment(Rechecks::mixed(), GITLAB_PIPELINE, CommentShows::of()), CommentWrite::sticky()->overPlanned()))
         ->and($cloud->requests)->toBe([]);
 })->with(['with a token' => ['glpat-secret'], 'with none' => ['']]);
 
 it('links no pipeline in the planned state left for deliver where it names none', function (): void {
-    $note = MergeRequestNote::inEnvironment(Variables::of(['CI_MERGE_REQUEST_IID' => '7']), new Cloud()->exchange(), 'MUTATION_GATE_GITLAB_TOKEN');
+    $note = MergeRequestNote::inEnvironment(Variables::of(['CI_MERGE_REQUEST_IID' => '7']), new Cloud()->exchange(), 'MUTATION_GATE_GITLAB_TOKEN', CommentSettings::standard());
 
     expect($note->plannedLater(ShardedPlan::planned(2), Delivery::none()))
-        ->toEqual(Delivery::none()->withComment(PlannedMarkdown::comment(ShardedPlan::planned(2), '')));
+        ->toEqual(Delivery::none()->withComment(PlannedMarkdown::comment(ShardedPlan::planned(2), ''), CommentWrite::sticky()));
 });
 
 it('writes the note of a merge request whose source project is the one it targets', function (): void {
@@ -249,25 +308,26 @@ it('writes the note of a merge request whose source project is the one it target
         gitlabMergeRequest(['CI_MERGE_REQUEST_SOURCE_PROJECT_ID' => '42']),
         $cloud->exchange(),
         'MUTATION_GATE_GITLAB_TOKEN',
-    )->report(Verdicts::passing());
+        CommentSettings::standard(),
+    )->report(Verdicts::failing());
 
     expect($answer)->toEqual(Written::to('https://gitlab.example/acme/shop/-/merge_requests/7#note_6'));
 });
 
 it('leaves no note for deliver on a pipeline that is no merge request\'s', function (): void {
-    $note = MergeRequestNote::inEnvironment(Variables::of(['GITLAB_CI' => 'true']), new Cloud()->exchange(), 'MUTATION_GATE_GITLAB_TOKEN');
+    $note = MergeRequestNote::inEnvironment(Variables::of(['GITLAB_CI' => 'true']), new Cloud()->exchange(), 'MUTATION_GATE_GITLAB_TOKEN', CommentSettings::standard());
 
     expect($note->deferred(Verdicts::failing(), Delivery::none()))->toEqual(Delivery::none())
         ->and($note->plannedLater(ShardedPlan::planned(1), Delivery::none()))->toEqual(Delivery::none())
         ->and($note->recheckedLater(Rechecks::mixed(), Delivery::none()))->toEqual(Delivery::none())
-        ->and($note->write('text'))->toEqual(NotWritten::because('This run is not for a merge request, so there is no note to write.'))
-        ->and($note->writeOverPlanned('text'))->toEqual(NotWritten::because('This run is not for a merge request, so there is no note to write.'));
+        ->and($note->writeAs('text', CommentWrite::sticky()))->toEqual(NotWritten::because('This run is not for a merge request, so there is no note to write.'))
+        ->and($note->writeAs('text', CommentWrite::sticky()->overPlanned()))->toEqual(NotWritten::because('This run is not for a merge request, so there is no note to write.'));
 });
 
 it('reads the notes of a project encoded where its id holds a reserved character', function (): void {
     $cloud = new Cloud()->answering(sprintf('%s/user', GITLAB_API), 200, '{"username": "project_42_bot"}');
     $job = gitlabMergeRequest(['CI_PROJECT_ID' => 'acme/shop', 'CI_MERGE_REQUEST_PROJECT_ID' => 'acme/shop']);
-    MergeRequestNote::inEnvironment($job, $cloud->exchange(), 'MUTATION_GATE_GITLAB_TOKEN')->report(Verdicts::failing());
+    MergeRequestNote::inEnvironment($job, $cloud->exchange(), 'MUTATION_GATE_GITLAB_TOKEN', CommentSettings::standard())->report(Verdicts::failing());
 
     expect($cloud->requests[1]['url'])
         ->toBe(sprintf('%s/projects/acme%%2Fshop/merge_requests/7/notes?sort=asc&order_by=created_at&per_page=100&page=1', GITLAB_API));

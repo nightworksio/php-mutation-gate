@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verb;
 use NightWorksIO\MutationGate\Core\Verdict\HeldTo;
 use NightWorksIO\MutationGate\Core\Watch\Watched;
@@ -57,7 +58,7 @@ final readonly class WatchCommand
 
     private const string ARRIVED = 'A change arrived, so the round stops and the gate judges again.';
 
-    /** @param Closure(): bool $waited waits once between looks, and says whether to go on watching */
+    /** @param Closure(Seconds): bool $waited waits this long between looks, and says whether to go on watching */
     private function __construct(
         private Composed $composed,
         private Printing $printing,
@@ -66,7 +67,7 @@ final readonly class WatchCommand
     ) {
     }
 
-    /** @param Closure(): bool $waited waits once between looks, and says whether to go on watching */
+    /** @param Closure(Seconds): bool $waited waits once between looks, and says whether to go on watching */
     public static function command(Composition $composition, Closure $waited): Command
     {
         return FlowOptions::editing(new Command(self::NAME))
@@ -179,7 +180,7 @@ final readonly class WatchCommand
     /** The files as they are once one changes, or nothing where the wait says to stop first. */
     private function nextChange(Watched $seen): Watched|CannotJudge|NotGiven
     {
-        while (($this->waited)() === true) {
+        while (($this->waited)($this->composed->settings->local()->watchPoll()) === true) {
             $now = $this->look($seen);
 
             if (! $now instanceof Watched || count($now->changesSince($seen)) > 0) {

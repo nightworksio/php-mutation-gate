@@ -73,7 +73,7 @@ With Premium, a dynamic pipeline sizes the parallel group to the plan instead.
 The plan step runs `plan` without `--shards`, so the cost model picks the
 count, then writes a pipeline with one step per shard of
 `.mutation-gate/plan.json`, each running
-`vendor/bin/mutation-gate run --plan=.mutation-gate/plan.json --shard=<id>`,
+`vendor/bin/mutation-gate run --plan=.mutation-gate/plan.json --shard=<id> || [ $? -eq 1 ]`,
 and the verdict after them, and uploads it with Atlassian's pipe:
 
 ```yaml

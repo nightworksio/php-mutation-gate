@@ -11,10 +11,12 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
+use NightWorksIO\MutationGate\Core\Config\CommentShows;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Delivery\AlertPost;
 use NightWorksIO\MutationGate\Core\Delivery\CommentStates;
+use NightWorksIO\MutationGate\Core\Delivery\CommentWrite;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\Delivery\KeptPost;
 use NightWorksIO\MutationGate\Core\Delivery\LedgerPost;
@@ -75,20 +77,32 @@ function sendingOf(array $environment, ArrayObject $built, ProofStoreFake $store
  */
 function sendingOnForge(string $forge): array
 {
-    return $forge === 'gitlab' ? [
-        'GITLAB_CI' => 'true',
-        'CI_API_V4_URL' => 'https://gitlab.example/api/v4',
-        'CI_PROJECT_ID' => '42',
-        'CI_PROJECT_URL' => 'https://gitlab.example/acme/shop',
-        'CI_MERGE_REQUEST_IID' => '7',
-        'MUTATION_GATE_GITLAB_TOKEN' => 'forge-token',
-    ] : [
-        'BITBUCKET_BUILD_NUMBER' => '9',
-        'BITBUCKET_WORKSPACE' => 'acme',
-        'BITBUCKET_REPO_SLUG' => 'shop',
-        'BITBUCKET_PR_ID' => '7',
-        'MUTATION_GATE_BITBUCKET_TOKEN' => 'forge-token',
-    ];
+    return match ($forge) {
+        'gitlab' => [
+            'GITLAB_CI' => 'true',
+            'CI_API_V4_URL' => 'https://gitlab.example/api/v4',
+            'CI_PROJECT_ID' => '42',
+            'CI_PROJECT_URL' => 'https://gitlab.example/acme/shop',
+            'CI_MERGE_REQUEST_IID' => '7',
+            'MUTATION_GATE_GITLAB_TOKEN' => 'forge-token',
+        ],
+        'azure' => [
+            'TF_BUILD' => 'True',
+            'SYSTEM_COLLECTIONURI' => 'https://dev.azure.com/acme/',
+            'SYSTEM_TEAMPROJECT' => 'shop',
+            'BUILD_REPOSITORY_ID' => 'r',
+            'BUILD_REPOSITORY_NAME' => 'shop',
+            'SYSTEM_PULLREQUEST_PULLREQUESTID' => '7',
+            'SYSTEM_ACCESSTOKEN' => 'forge-token',
+        ],
+        default => [
+            'BITBUCKET_BUILD_NUMBER' => '9',
+            'BITBUCKET_WORKSPACE' => 'acme',
+            'BITBUCKET_REPO_SLUG' => 'shop',
+            'BITBUCKET_PR_ID' => '7',
+            'MUTATION_GATE_BITBUCKET_TOKEN' => 'forge-token',
+        ],
+    };
 }
 
 /** A delivery that holds a ledger for this scope. */
@@ -309,7 +323,7 @@ it('comments on the pull request its own event names, in its own repository', fu
         'GITHUB_API_URL' => 'https://api.github.com',
     ];
     $sent = sendingOf($environment, new ArrayObject(), new ProofStoreFake(), [$user, $listed, $posted])
-        ->sent(Delivery::none()->withComment('## mutation-gate'), NotWritten::because('untrusted'), static fn(): Ledger => Ledger::empty());
+        ->sent(Delivery::none()->withComment('## mutation-gate', CommentWrite::sticky()), NotWritten::because('untrusted'), static fn(): Ledger => Ledger::empty());
 
     expect($posted->getRequestMethod())->toBe('POST')
         ->and($posted->getRequestUrl())->toBe('https://api.github.com/repos/octo/gate/issues/7/comments')
@@ -340,17 +354,17 @@ it('writes a comment left over the planned state only over it, so a verdict alre
 })->with([
     'over the planned state' => [
         fn(): string => PlannedMarkdown::comment(ShardedPlan::planned(2), ''),
-        fn(): Delivery => Delivery::none()->withCommentOverPlanned('## Re-checked'),
+        fn(): Delivery => Delivery::none()->withComment('## Re-checked', CommentWrite::sticky()->overPlanned()),
         'Wrote https://github.com/octo/gate/pull/7#issuecomment-5.',
     ],
     'over a verdict' => [
-        fn(): string => Markdown::comment(Verdicts::failing()),
-        fn(): Delivery => Delivery::none()->withCommentOverPlanned('## Re-checked'),
+        fn(): string => Markdown::comment(Verdicts::failing(), CommentShows::of()),
+        fn(): Delivery => Delivery::none()->withComment('## Re-checked', CommentWrite::sticky()->overPlanned()),
         CommentStates::NOT_PLANNED,
     ],
     'a verdict over a verdict' => [
-        fn(): string => Markdown::comment(Verdicts::failing()),
-        fn(): Delivery => Delivery::none()->withComment('## Passed'),
+        fn(): string => Markdown::comment(Verdicts::failing(), CommentShows::of()),
+        fn(): Delivery => Delivery::none()->withComment('## Passed', CommentWrite::sticky()),
         'Wrote https://github.com/octo/gate/pull/7#issuecomment-5.',
     ],
 ]);
@@ -364,9 +378,13 @@ it('writes the comment on the forge its own CI keeps, with the token in that for
     $listed = new MockResponse('[]');
     $comments = new MockResponse('{"values": []}');
     $posted = new MockResponse('{"id": 3, "links": {"html": {"href": "https://bitbucket.org/acme/shop/pull-requests/7#comment-3"}}}', ['http_code' => 201]);
-    $answers = $forge === 'gitlab' ? [$user, $listed, $posted] : [$comments, $posted];
+    $answers = match ($forge) {
+        'gitlab' => [$user, $listed, $posted],
+        'azure' => [new MockResponse('{"value": []}'), $posted],
+        default => [$comments, $posted],
+    };
     $sent = sendingOf(sendingOnForge($forge), new ArrayObject(), new ProofStoreFake(), $answers)
-        ->sent(Delivery::none()->withComment(sprintf("%s\n\n## Passed", Markdown::MARKER)), NotWritten::because('untrusted'), static fn(): Ledger => Ledger::empty());
+        ->sent(Delivery::none()->withComment(sprintf("%s\n\n## Passed", Markdown::MARKER), CommentWrite::sticky()), NotWritten::because('untrusted'), static fn(): Ledger => Ledger::empty());
 
     expect($posted->getRequestMethod())->toBe('POST')
         ->and($posted->getRequestUrl())->toBe($url)
@@ -382,6 +400,11 @@ it('writes the comment on the forge its own CI keeps, with the token in that for
         'bitbucket',
         'https://api.bitbucket.org/2.0/repositories/acme/shop/pullrequests/7/comments',
         'Wrote https://bitbucket.org/acme/shop/pull-requests/7#comment-3.',
+    ],
+    'a pull request\'s thread under Azure Pipelines' => [
+        'azure',
+        'https://dev.azure.com/acme/shop/_apis/git/repositories/r/pullRequests/7/threads?api-version=7.1',
+        'Wrote https://dev.azure.com/acme/shop/_git/shop/pullrequest/7?discussionId=3.',
     ],
 ]);
 

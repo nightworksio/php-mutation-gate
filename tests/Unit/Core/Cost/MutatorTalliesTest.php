@@ -39,7 +39,7 @@ $mutant = static fn(string $mutator, int $line, Seconds|Unmeasured $duration = n
 it('shares a shard\'s time among its mutants by their durations, and gives none to a mutant it did not run', function () use ($mutant): void {
     $times = MutantTimes::of(
         Mutants::of($mutant('Plus', 1, Seconds::of(1.0)), $mutant('Plus', 2, Seconds::of(3.0))),
-        CoverageMap::empty(),
+        CoverageMap::of(),
         Seconds::of(8.0),
     );
 
@@ -51,7 +51,7 @@ it('shares a shard\'s time among its mutants by their durations, and gives none 
 it('shares by durations that add up to less than a second, too', function () use ($mutant): void {
     $times = MutantTimes::of(
         Mutants::of($mutant('Plus', 1, Seconds::of(0.25)), $mutant('Plus', 2, Seconds::of(0.5))),
-        CoverageMap::empty(),
+        CoverageMap::of(),
         Seconds::of(3.0),
     );
 
@@ -78,8 +78,8 @@ it('gives a mutator its share of a single microsecond', function (): void {
 });
 
 it('joins the times of each shard\'s mutants, and times nothing where it was given none', function () use ($mutant): void {
-    $first = MutantTimes::of(Mutants::of($mutant('Plus', 1, Seconds::of(1.0))), CoverageMap::empty(), Seconds::of(2.0));
-    $second = MutantTimes::of(Mutants::of($mutant('Plus', 2, Seconds::of(1.0))), CoverageMap::empty(), Seconds::of(3.0));
+    $first = MutantTimes::of(Mutants::of($mutant('Plus', 1, Seconds::of(1.0))), CoverageMap::of(), Seconds::of(2.0));
+    $second = MutantTimes::of(Mutants::of($mutant('Plus', 2, Seconds::of(1.0))), CoverageMap::of(), Seconds::of(3.0));
     $joined = MutantTimes::none()->and($first)->and($second);
 
     expect([$joined->took($mutant('Plus', 1)->id()), $joined->took($mutant('Plus', 2)->id())])->toEqual([Seconds::of(2.0), Seconds::of(3.0)])
@@ -87,13 +87,13 @@ it('joins the times of each shard\'s mutants, and times nothing where it was giv
 });
 
 it('weighs a mutant with no duration by the time the tests covering its line took, and shares equally where nothing was timed', function () use ($mutant): void {
-    $coverage = CoverageMap::empty()
+    $coverage = CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(1), TestId::of('MoneyTest::adds'))
         ->timed(TestId::of('MoneyTest::adds'), Seconds::of(3.0))
         ->covered(Path::of('src/Money.php'), Line::of(2), TestId::of('MoneyTest::subtracts'))
         ->timed(TestId::of('MoneyTest::subtracts'), Seconds::of(1.0));
     $covered = MutantTimes::of(Mutants::of($mutant('Plus', 1), $mutant('Plus', 2)), $coverage, Seconds::of(4.0));
-    $untimed = MutantTimes::of(Mutants::of($mutant('Plus', 1), $mutant('Plus', 2)), CoverageMap::empty(), Seconds::of(4.0));
+    $untimed = MutantTimes::of(Mutants::of($mutant('Plus', 1), $mutant('Plus', 2)), CoverageMap::of(), Seconds::of(4.0));
 
     expect($covered->took($mutant('Plus', 1)->id()))->toEqual(Seconds::of(3.0))
         ->and($covered->took($mutant('Plus', 2)->id()))->toEqual(Seconds::of(1.0))
@@ -113,7 +113,7 @@ it('tallies the mutants a shard ran, each once, by its runner and mutator, as th
     $tallies = MutatorTallies::none()->after(
         Name::of('pest'),
         $judged,
-        MutantTimes::of(Mutants::of($plus, $minus), CoverageMap::empty(), Seconds::of(10.0)),
+        MutantTimes::of(Mutants::of($plus, $minus), CoverageMap::of(), Seconds::of(10.0)),
     );
 
     expect($tallies->of(Name::of('pest'), RunnerMutatorName::of('Plus')))->toEqual(MutatorTally::of('pest', 'Plus')->after(MutantJudgement::Killed, Seconds::of(5.0)))
@@ -127,8 +127,8 @@ it('adds what a later shard ran to what it tallied', function () use ($mutant): 
     $second = $mutant('Plus', 2, Seconds::of(1.0));
     $judged = JudgedMutants::of(JudgedMutant::of($first, MutantJudgement::Killed), JudgedMutant::of($second, MutantJudgement::Killed));
     $tallies = MutatorTallies::none()
-        ->after(Name::of('pest'), $judged, MutantTimes::of(Mutants::of($first), CoverageMap::empty(), Seconds::of(2.0)))
-        ->after(Name::of('pest'), $judged, MutantTimes::of(Mutants::of($second), CoverageMap::empty(), Seconds::of(3.0)));
+        ->after(Name::of('pest'), $judged, MutantTimes::of(Mutants::of($first), CoverageMap::of(), Seconds::of(2.0)))
+        ->after(Name::of('pest'), $judged, MutantTimes::of(Mutants::of($second), CoverageMap::of(), Seconds::of(3.0)));
 
     expect([$tallies->of(Name::of('pest'), RunnerMutatorName::of('Plus'))->killed(), $tallies->of(Name::of('pest'), RunnerMutatorName::of('Plus'))->seconds()])->toEqual([2, Seconds::of(5.0)]);
 });

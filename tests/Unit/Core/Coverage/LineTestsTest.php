@@ -62,7 +62,7 @@ describe('LineTests', function (): void {
         );
 
         expect($lines->setsOn($money)->missed())->toEqual(Lines::of(Line::of(5)))
-            ->and($lines->coveredIn($money))->toEqual(Lines::of(Line::of(6)))
+            ->and($lines->setsOn($money)->lines())->toEqual(Lines::of(Line::of(6)))
             ->and(lineTestsRead($lines))->toBe([['src/Money.php', 6, ['A::a']], ['src/Money.php', 5, []]]);
     });
 

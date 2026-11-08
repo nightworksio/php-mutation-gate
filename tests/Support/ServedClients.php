@@ -68,7 +68,7 @@ final readonly class ServedClients
 
             file_put_contents(sprintf('%s.writing', $kept), (string) json_encode($answers));
             rename(sprintf('%s.writing', $kept), $kept);
-            Waiting::every(Seconds::of(array_any($lines, static fn(string $line): bool => str_ends_with($line, self::HOLD)) ? 2.0 : 0.0))();
+            Waiting::between(Seconds::of(array_any($lines, static fn(string $line): bool => str_ends_with($line, self::HOLD)) ? 2.0 : 0.0));
         });
         register_shutdown_function(static fn() => ServedProjects::waitedFor($child));
         ServedProjects::until(static fn(): bool => is_file($ready));
@@ -122,7 +122,7 @@ final readonly class ServedClients
         }
 
         if ($then !== self::HOLD) {
-            Waiting::every(Seconds::of(0.1))();
+            Waiting::between(Seconds::of(0.1));
             $connection->closed();
         }
 

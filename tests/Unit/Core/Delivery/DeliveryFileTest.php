@@ -3,9 +3,12 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Alert\AlertEvent;
+use NightWorksIO\MutationGate\Core\Alert\PostLimits;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Comment\Mode;
 use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
 use NightWorksIO\MutationGate\Core\Delivery\AlertPost;
+use NightWorksIO\MutationGate\Core\Delivery\CommentWrite;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\Delivery\DeliveryFile;
 use NightWorksIO\MutationGate\Core\Delivery\KeptPost;
@@ -14,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Delivery\OtlpPost;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /** A delivery that holds one of everything. */
 function deliveryWhole(): Delivery
@@ -21,7 +25,7 @@ function deliveryWhole(): Delivery
     return Delivery::none()
         ->withLedger(LedgerPost::to(Scope::branch('main')))
         ->withKept(KeptPost::of(Companion::Coverage, Scope::branch('main')))
-        ->withComment("## mutation-gate\n\nPassed.")
+        ->withComment("## mutation-gate\n\nPassed.", CommentWrite::sticky())
         ->withAlert(AlertPost::of(BuiltinReporter::Slack, '{"text": "main fell below its floor"}'))
         ->withAlert(AlertPost::of(BuiltinReporter::Webhook, '{"event": "floor.broken"}'))
         ->withOtlp(OtlpPost::of('{"resourceSpans": []}', '{"resourceMetrics": []}'));
@@ -42,21 +46,38 @@ it('writes nothing it does not hold, and reads back an empty delivery', function
 });
 
 it('reads back a comment written only over its planned state, which a later comment or none leaves written in place', function (): void {
-    $overPlanned = deliveryWhole()->withCommentOverPlanned('## Re-checked');
+    $overPlanned = deliveryWhole()->withComment('## Re-checked', CommentWrite::sticky()->overPlanned());
     $kept = $overPlanned->withLedger(LedgerPost::to(Scope::branch('main')))
         ->withAlert(AlertPost::of(BuiltinReporter::Slack, '{}'))
         ->withOtlp(OtlpPost::of(NotGiven::value(), '{}'))
         ->withKept(KeptPost::of(Companion::Coverage, Scope::branch('main')));
 
     expect(DeliveryFile::decode(DeliveryFile::encode($overPlanned)))->toEqual($overPlanned)
-        ->and(DeliveryFile::encode(Delivery::none()->withCommentOverPlanned('x')))
+        ->and(DeliveryFile::encode(Delivery::none()->withComment('x', CommentWrite::sticky()->overPlanned())))
         ->toBe("{\n    \"format\": 1,\n    \"comment\": \"x\",\n    \"overPlanned\": true\n}")
-        ->and($overPlanned->commentsOverPlanned())->toBeTrue()
-        ->and($kept->commentsOverPlanned())->toBeTrue()
-        ->and($overPlanned->withComment('## Passed')->commentsOverPlanned())->toBeFalse()
-        ->and(deliveryWhole()->commentsOverPlanned())->toBeFalse()
+        ->and($overPlanned->commentWrite()->isOverPlanned())->toBeTrue()
+        ->and($kept->commentWrite()->isOverPlanned())->toBeTrue()
+        ->and($overPlanned->withComment('## Passed', CommentWrite::sticky())->commentWrite()->isOverPlanned())->toBeFalse()
+        ->and(deliveryWhole()->commentWrite()->isOverPlanned())->toBeFalse()
         ->and(DeliveryFile::decode('{"format": 1, "comment": "x", "overPlanned": false}'))
-        ->toEqual(Delivery::none()->withComment('x'));
+        ->toEqual(Delivery::none()->withComment('x', CommentWrite::sticky()));
+});
+
+it('reads back how a comment is written: by each run\'s own marker, hiding the old, or only over one already there', function (): void {
+    $new = CommentWrite::of(Mode::New, 'https://ci.example/7');
+    $hiding = CommentWrite::of(Mode::NewHidingOld, 'https://ci.example/7');
+    $existing = CommentWrite::sticky()->existingOnly();
+    $held = static fn(CommentWrite $write): Delivery => Delivery::none()->withComment('x', $write);
+    $read = static fn(CommentWrite $write): Delivery|CannotJudge => DeliveryFile::decode(DeliveryFile::encode($held($write)));
+
+    expect(DeliveryFile::encode(Delivery::none()->withComment('x', $new)))
+        ->toBe("{\n    \"format\": 1,\n    \"comment\": \"x\",\n    \"commentMode\": \"new\",\n    \"commentRun\": \"https://ci.example/7\"\n}")
+        ->and($read($new))->toEqual($held($new))
+        ->and($read($hiding))->toEqual($held($hiding))
+        ->and($read($existing))->toEqual($held($existing))
+        ->and($read(CommentWrite::of(Mode::Sticky, 'https://ci.example/7')))->toEqual($held(CommentWrite::sticky()))
+        ->and(DeliveryFile::decode('{"format": 1, "comment": "x", "commentMode": "loud", "commentRun": ""}'))
+        ->toBeInstanceOf(CannotJudge::class);
 });
 
 it('reads as many alerts to one channel as a verdict sends, one of each kind', function (): void {
@@ -67,7 +88,12 @@ it('reads as many alerts to one channel as a verdict sends, one of each kind', f
             ->withAlert(AlertPost::of(BuiltinReporter::Webhook, '{}'));
     }
 
-    expect(DeliveryFile::decode(DeliveryFile::encode($alerts)))->toEqual($alerts);
+    $limited = Delivery::none()->withAlert(AlertPost::of(BuiltinReporter::Slack, '{}')->within(PostLimits::of(Seconds::of(3.0), Seconds::of(9.0))));
+
+    expect(DeliveryFile::decode(DeliveryFile::encode($alerts)))->toEqual($alerts)
+        ->and(DeliveryFile::decode(DeliveryFile::encode($limited)))->toEqual($limited)
+        ->and(DeliveryFile::decode('{"format": 1, "alerts": [{"channel": "slack", "body": "{}"}]}'))
+        ->toEqual(Delivery::none()->withAlert(AlertPost::of(BuiltinReporter::Slack, '{}')));
 });
 
 it('refuses a delivery that names where to send, where the store is, or which variable to read, never following it', function (string $json, string $where): void {
@@ -106,6 +132,7 @@ it('refuses a scope that is none, and a channel that sends no alert', function (
         'delivery.alerts[4] is not within the alerts a verdict sends to one channel.',
     ],
     'a reporter that sends no alert' => ['{"format": 1, "alerts": [{"channel": "otlp", "body": "{}"}]}', 'delivery.alerts[0].channel is not an alert channel.'],
+    'an alert that waits less than no time' => ['{"format": 1, "alerts": [{"channel": "slack", "body": "{}", "timeout": -1}]}', 'delivery.alerts[0].timeout is not a number of seconds, none negative.'],
     'another format' => ['{"format": 2}', 'delivery.format is not format 1.'],
     'no format' => ['{}', 'delivery.format is missing.'],
 ]);

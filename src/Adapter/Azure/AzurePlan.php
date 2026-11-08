@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Runner\GateSecret;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Port\CiPlan;
@@ -114,7 +115,7 @@ final readonly class AzurePlan implements CiPlan, Configurable
      */
     public static function withheld(): Withheld
     {
-        return Withheld::of('SYSTEM_ACCESSTOKEN', 'AZURE_DEVOPS_EXT_PAT');
+        return Withheld::of(GateSecret::AzureComment->value, 'AZURE_DEVOPS_EXT_PAT');
     }
 
     /** Azure Pipelines sets `TF_BUILD` in every job, to `True`. */

@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
 use NightWorksIO\MutationGate\Core\Analysis\OutOfScope;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
+use NightWorksIO\MutationGate\Core\Analysis\Unchecked;
+use NightWorksIO\MutationGate\Core\Analysis\UncheckedIds;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
@@ -166,9 +168,9 @@ it('checks nothing where no analyser is configured, or no survivor is left once 
         $mutants,
         SurvivorChecks::none(),
         Mutants::of(checkedSurvivor($mutants, 'src/Money.php'), checkedSurvivor($mutants, 'src/Held.php')),
-        MutantIds::none(),
+        UncheckedIds::none(),
     ))
-        ->and($allFlaky)->toEqual(new Checked($mutants, SurvivorChecks::none(), Mutants::none(), MutantIds::none()))
+        ->and($allFlaky)->toEqual(new Checked($mutants, SurvivorChecks::none(), Mutants::none(), UncheckedIds::none()))
         ->and($checker->warmUps())->toBe([]);
 });
 
@@ -323,8 +325,10 @@ it('leaves a survivor unchecked, and says why, where its runner cannot give it, 
             'Static analysis left 1 survivor unchecked, as the analyser could not check them: src/Held.php. '
             . '.mutation-gate/staticcheck/mutants/8705b7dc7d27.php is no mutant the fake was told about.',
         ])
-        ->and($ungiven->unsettled)->toEqual(MutantIds::none())
-        ->and($unchecked->unsettled)->toEqual(MutantIds::of(checkedSurvivor($mutants, 'src/Held.php')->id()))
+        ->and($ungiven->unchecked->for(Unchecked::NoMutant))->toEqual($ungiven->examinedIds())
+        ->and($ungiven->unchecked->for(Unchecked::OutOfTime, Unchecked::Failed))->toEqual(MutantIds::none())
+        ->and($unchecked->unchecked->for(Unchecked::Failed))->toEqual(MutantIds::of(checkedSurvivor($mutants, 'src/Held.php')->id()))
+        ->and($unchecked->unchecked->for(Unchecked::OutOfScope))->toEqual(MutantIds::of($money->id()))
         ->and($unchecked->mutants)->toEqual($mutants)
         ->and($unchecked->checks->histories()->of(checkedIdentity())->time()->checks())->toBe(2);
 });
@@ -381,7 +385,7 @@ it('runs nothing where the time budget has already run out, and leaves every sur
     ])
         ->and($checker->warmUps())->toBe([])
         ->and($checker->asked())->toBe([])
-        ->and($checked->unsettled)->toEqual($checked->examinedIds());
+        ->and($checked->unchecked->for(Unchecked::OutOfTime))->toEqual($checked->examinedIds());
 });
 
 it('starts as many checks as the time left has room for, each as long as the run over the originals took, the cores sharing them', function (
@@ -410,7 +414,7 @@ it('starts as many checks as the time left has room for, each as long as the run
         static fn(string $file): string => $file === 'money' ? checkedAt($money) : checkedAt($held),
         $named,
     ))
-        ->and($left->unsettled)->toEqual(MutantIds::of(...array_map(
+        ->and($left->unchecked->for(Unchecked::OutOfTime))->toEqual(MutantIds::of(...array_map(
             static fn(string $file): MutantId => $file === 'money' ? $money->id() : $held->id(),
             array_values(array_diff(['money', 'held'], $named)),
         )));

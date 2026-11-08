@@ -50,7 +50,7 @@ final readonly class IgnoresExpiring
         $found = [];
 
         foreach ($settings->ignores()->entries() as $index => $entry) {
-            array_push($found, ...self::noted($index, $entry->expires(), $run->now()));
+            array_push($found, ...self::noted($index, $entry->expires(), $run->now(), $settings->ignores()->notice()));
         }
 
         return $found === []
@@ -65,9 +65,9 @@ final readonly class IgnoresExpiring
     }
 
     /** @return list<string> an entry that expired or expires soon; none for one that lasts, or never expires */
-    private static function noted(int $index, Day|Absent $expires, DateTimeImmutable $now): array
+    private static function noted(int $index, Day|Absent $expires, DateTimeImmutable $now, int $notice): array
     {
-        $expiry = $expires instanceof Day ? Expiry::of($expires, $now) : Expiry::Lasting;
+        $expiry = $expires instanceof Day ? Expiry::of($expires, $now, $notice) : Expiry::Lasting;
 
         return $expiry === Expiry::Lasting ? [] : [sprintf(
             self::ENTRY,

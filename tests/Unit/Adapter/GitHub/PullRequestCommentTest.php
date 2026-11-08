@@ -3,7 +3,14 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
+use NightWorksIO\MutationGate\Core\Comment\Mode;
+use NightWorksIO\MutationGate\Core\Comment\Toggle;
+use NightWorksIO\MutationGate\Core\Config\CommentSettings;
+use NightWorksIO\MutationGate\Core\Config\CommentShows;
+use NightWorksIO\MutationGate\Core\Config\CommentToggles;
+use NightWorksIO\MutationGate\Core\Config\CommentWrites;
 use NightWorksIO\MutationGate\Core\Delivery\CommentStates;
+use NightWorksIO\MutationGate\Core\Delivery\CommentWrite;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\Markdown;
@@ -55,7 +62,7 @@ it('posts a new comment where the token\'s identity has none, linking the run\'s
         $artifacts,
         $post,
     ];
-    $answer = PullRequestComment::inRun($environment, $event(), new MockHttpClient($requests), '')->report(Verdicts::failing());
+    $answer = PullRequestComment::inRun($environment, $event(), new MockHttpClient($requests), '', CommentSettings::standard())->report(Verdicts::failing());
     $body = Decoded::at(is_string($post->getRequestOptions()['body']) ? $post->getRequestOptions()['body'] : '', 'body');
 
     expect($answer)->toEqual(Written::to('https://github.example/octo/gate/pull/12#issuecomment-9'))
@@ -65,9 +72,9 @@ it('posts a new comment where the token\'s identity has none, linking the run\'s
         ->and($body)->toBe(str_replace(
             Markdown::REPORT_SLOT,
             '[The HTML report](https://github.example/octo/gate/actions/runs/7/artifacts/42) of [this run](https://github.example/octo/gate/actions/runs/7).',
-            Markdown::comment(Verdicts::failing()),
+            Markdown::comment(Verdicts::failing(), CommentShows::of()),
         ))
-        ->and($body)->toEndWith("[this run](https://github.example/octo/gate/actions/runs/7).\n");
+        ->and($body)->toEndWith("[this run](https://github.example/octo/gate/actions/runs/7).\n\n</details>\n");
 });
 
 it('updates its own comment in place, passing runs included, reading every page of comments', function () use ($environment, $event, $comment, $report): void {
@@ -75,7 +82,7 @@ it('updates its own comment in place, passing runs included, reading every page 
     $second = new JsonMockResponse([$comment(101, 'github-actions[bot]', sprintf("%s\nold", Markdown::MARKER))]);
     $patch = new JsonMockResponse(['html_url' => 'https://github.example/octo/gate/pull/12#issuecomment-101']);
     $requests = [new MockResponse('{"message": "Resource not accessible by integration"}', ['http_code' => 403]), new JsonMockResponse($firstPage), $second, $report(43), $patch];
-    $answer = PullRequestComment::inRun($environment, $event(), new MockHttpClient($requests), '')->report(Verdicts::passing());
+    $answer = PullRequestComment::inRun($environment, $event(), new MockHttpClient($requests), '', CommentSettings::standard())->report(Verdicts::passing());
 
     expect($answer)->toEqual(Written::to('https://github.example/octo/gate/pull/12#issuecomment-101'))
         ->and(Decoded::at(is_string($patch->getRequestOptions()['body']) ? $patch->getRequestOptions()['body'] : '', 'body'))
@@ -100,7 +107,7 @@ it('reads thirty full pages of comments for its own, and no more', function (int
         };
     });
 
-    PullRequestComment::inRun($environment, $event(), $client, '')->report(Verdicts::failing());
+    PullRequestComment::inRun($environment, $event(), $client, '', CommentSettings::standard())->report(Verdicts::failing());
 
     expect($written)->toBe([$method]);
 })->with([
@@ -111,15 +118,143 @@ it('reads thirty full pages of comments for its own, and no more', function (int
 it('finds its comment by the identity it is given, asking GitHub nothing about the token', function () use ($environment, $event, $comment, $report): void {
     $patch = new JsonMockResponse(['html_url' => 'u']);
     $requests = [new JsonMockResponse([$comment(5, 'gate-bot', Markdown::MARKER), $comment(6, 'other-bot', Markdown::MARKER)]), $report(1), $patch];
-    PullRequestComment::inRun($environment, $event(), new MockHttpClient($requests), 'other-bot')->report(Verdicts::passing());
+    PullRequestComment::inRun($environment, $event(), new MockHttpClient($requests), 'other-bot', CommentSettings::standard())->report(Verdicts::passing());
 
     expect($patch->getRequestUrl())->toBe('https://api.github.example/repos/octo/gate/issues/comments/6');
 });
 
+it('posts each run\'s own comment under comment.mode, leaving the comments before it, or hiding them', function (Mode $mode, int $hidden) use ($environment, $event, $comment, $report): void {
+    $run = 'https://github.example/octo/gate/actions/runs/7';
+    $post = new JsonMockResponse(['html_url' => 'https://github.example/octo/gate/pull/12#issuecomment-9']);
+    $earlier = [
+        $comment(1, 'gate-bot', sprintf("%s\nearlier\n\n<!-- mutation-gate run: https://github.example/octo/gate/actions/runs/6 -->\n", Markdown::MARKER)),
+        $comment(2, 'someone', sprintf("%s\nnot the gate's", Markdown::MARKER)),
+        $comment(3, 'gate-bot', 'no marker'),
+    ];
+    $known = new JsonMockResponse(['data' => ['nodes' => [['id' => 'one', 'isMinimized' => false]]]]);
+    $hide = new JsonMockResponse(['data' => ['minimizeComment' => ['minimizedComment' => ['isMinimized' => true]]]]);
+    $requests = [new JsonMockResponse($earlier), new JsonMockResponse($earlier), $report(42), $post, $known, $hide];
+    $client = new MockHttpClient($requests);
+    $settings = CommentSettings::of(CommentShows::of(), CommentWrites::of(mode: $mode));
+    $answer = PullRequestComment::inRun($environment, $event(), $client, 'gate-bot', $settings)->report(Verdicts::failing());
+    $body = Decoded::at(is_string($post->getRequestOptions()['body']) ? $post->getRequestOptions()['body'] : '', 'body');
+
+    expect($answer)->toEqual(Written::to('https://github.example/octo/gate/pull/12#issuecomment-9'))
+        ->and($post->getRequestMethod())->toBe('POST')
+        ->and($body)->toEndWith(sprintf("\n\n<!-- mutation-gate run: %s -->\n", $run))
+        ->and($client->getRequestsCount())->toBe(4 + $hidden);
+})->with([
+    'a new comment' => [fn(): Mode => Mode::New, 0],
+    'a new comment that hides the one before' => [fn(): Mode => Mode::NewHidingOld, 2],
+]);
+
+it('hides only the comments of other runs this author wrote holding the gate\'s marker, through every page it reads', function (int $pages) use ($environment, $event, $comment): void {
+    $run = 'https://github.example/octo/gate/actions/runs/7';
+    $earlier = static fn(int $id): array => [
+        ...$comment($id, 'gate-bot', sprintf("%s\n<!-- mutation-gate run: https://github.example/octo/gate/actions/runs/%d -->\n", Markdown::MARKER, $id)),
+        'node_id' => sprintf('node-%d', $id),
+    ];
+    $noise = static fn(int $id): array => [...$comment($id, 'someone', 'text'), 'node_id' => sprintf('noise-%d', $id)];
+    $full = array_map($noise, range(4, 100));
+    $page = static fn(int $number): array => match (true) {
+        $number === 1 => [
+            $earlier(1),
+            [...$comment(2, 'someone', sprintf("%s\nnot the gate's", Markdown::MARKER)), 'node_id' => 'theirs'],
+            [...$comment(3, 'gate-bot', 'no marker'), 'node_id' => 'unmarked'],
+            ...$full,
+        ],
+        $number === $pages => [
+            $earlier(200),
+            [...$comment(201, 'gate-bot', sprintf("%s\n%s", Markdown::MARKER, sprintf(CommentWrite::RUN, 'elsewhere'))), 'node_id' => 'node-201'],
+            ...array_map($noise, range(4, 50)),
+        ],
+        default => array_map($noise, range(1, 100)),
+    };
+    $asked = [];
+    $queries = [];
+    $client = new MockHttpClient(static function (string $method, string $url, array $options) use (&$asked, &$queries, $page): JsonMockResponse {
+        $number = preg_match('/[?&]page=(\d+)/', $url, $found) === 1 ? (int) $found[1] : 0;
+
+        return match (true) {
+            str_ends_with($url, '/graphql') => (static function () use (&$queries, $options): JsonMockResponse {
+                $queries[] = Decoded::at(is_string($options['body'] ?? null) ? $options['body'] : '', 'query');
+
+                return new JsonMockResponse(['data' => ['nodes' => []]]);
+            })(),
+            $method === 'POST' => new JsonMockResponse(['html_url' => 'written']),
+            $number > 0 => (static function () use (&$asked, $number, $page): JsonMockResponse {
+                $asked[] = $number;
+
+                return new JsonMockResponse($page($number));
+            })(),
+            default => new JsonMockResponse(['total_count' => 0, 'artifacts' => []]),
+        };
+    });
+    $thread = PullRequestComment::inRun($environment, $event(), $client, 'gate-bot', CommentSettings::of(CommentShows::of(), CommentWrites::of(mode: Mode::NewHidingOld)));
+
+    expect($thread->writeAs('text', CommentWrite::of(Mode::NewHidingOld, $run)))->toEqual(Written::to('written'))
+        ->and($queries)->toBe(['query { nodes(ids: ["node-1", "node-200", "node-201"]) { ... on IssueComment { id isMinimized } } }'])
+        ->and(array_values(array_unique($asked)))->toBe(range(1, $pages));
+})->with([
+    'the first page and the next' => [2],
+    'the last of the thirty pages it reads' => [30],
+]);
+
+it('reads thirty pages of comments of other runs, and no more', function () use ($environment, $event, $comment): void {
+    $asked = [];
+    $client = new MockHttpClient(static function (string $method, string $url) use (&$asked, $comment): JsonMockResponse {
+        if (preg_match('/[?&]page=(\d+)/', $url, $found) === 1) {
+            $asked[] = (int) $found[1];
+
+            return new JsonMockResponse(array_map(static fn(int $id): array => $comment($id, 'someone', 'text'), range(1, 100)));
+        }
+
+        return $method === 'POST' ? new JsonMockResponse(['html_url' => 'written']) : new JsonMockResponse(['total_count' => 0, 'artifacts' => []]);
+    });
+    $thread = PullRequestComment::inRun($environment, $event(), $client, 'gate-bot', CommentSettings::standard());
+
+    expect($thread->writeAs('text', CommentWrite::of(Mode::New, 'run')))->toEqual(Written::to('written'))
+        ->and($asked)->toBe([...range(1, 30), ...range(1, 30)]);
+});
+
+it('updates only where the gate has commented before, an earlier run\'s comment being one', function (string $author, bool $written) use ($environment, $event, $comment): void {
+    $held = [$comment(1, $author, Markdown::MARKER)];
+    $post = new JsonMockResponse(['html_url' => 'written']);
+    $thread = PullRequestComment::inRun(
+        $environment,
+        $event(),
+        new MockHttpClient([new JsonMockResponse($held), new JsonMockResponse($held), $post]),
+        'gate-bot',
+        CommentSettings::standard(),
+    );
+
+    expect($thread->writeAs('text', CommentWrite::of(Mode::New, 'run')->existingOnly()))
+        ->toEqual($written ? Written::to('written') : NotWritten::because(CommentStates::NOT_THERE));
+})->with([
+    'an earlier run\'s comment' => ['gate-bot', true],
+    'none of the gate\'s' => ['someone', false],
+]);
+
+it('reads a draft from the event, so comment.drafts can keep it quiet, and takes a draft it cannot read as none', function (string $draft, bool $left) use ($environment, $report): void {
+    $event = sprintf('{"pull_request": {"number": 12, "draft": %s}}', $draft);
+    $settings = CommentSettings::of(CommentShows::of(), CommentWrites::of(toggles: CommentToggles::off(Toggle::Drafts)));
+    $post = new JsonMockResponse(['html_url' => 'https://github.example/octo/gate/pull/12#issuecomment-9']);
+    $client = new MockHttpClient([new JsonMockResponse([]), $report(1), $post]);
+    $answer = PullRequestComment::inRun($environment, $event, $client, 'gate-bot', $settings)->report(Verdicts::failing());
+
+    expect($answer)->toEqual($left
+        ? NotWritten::because('comment.drafts is false, so this run writes no comment.')
+        : Written::to('https://github.example/octo/gate/pull/12#issuecomment-9'));
+})->with([
+    'a draft' => ['true', true],
+    'no draft' => ['false', false],
+    'a draft it cannot read' => ['"yes"', false],
+]);
+
 it('writes its planned state into the same comment the verdict later replaces', function () use ($environment, $event, $comment): void {
     $patch = new JsonMockResponse(['html_url' => 'https://github.example/octo/gate/pull/12#issuecomment-5']);
     $requests = [new JsonMockResponse([$comment(5, 'gate-bot', Markdown::MARKER)]), $patch];
-    $answer = PullRequestComment::inRun($environment, $event(), new MockHttpClient($requests), 'gate-bot')
+    $answer = PullRequestComment::inRun($environment, $event(), new MockHttpClient($requests), 'gate-bot', CommentSettings::standard())
         ->planned(ShardedPlan::planned(2));
 
     expect($answer)->toEqual(Written::to('https://github.example/octo/gate/pull/12#issuecomment-5'))
@@ -134,7 +269,7 @@ it('writes the re-checked survivors over its planned state alone, so a verdict a
 ) use ($environment, $event, $comment): void {
     $patch = new JsonMockResponse(['html_url' => 'https://github.example/octo/gate/pull/12#issuecomment-5']);
     $requests = [new JsonMockResponse([$comment(5, 'gate-bot', $body)]), $patch];
-    $answer = PullRequestComment::inRun($environment, $event(), new MockHttpClient($requests), 'gate-bot')
+    $answer = PullRequestComment::inRun($environment, $event(), new MockHttpClient($requests), 'gate-bot', CommentSettings::standard())
         ->rechecked(Rechecks::mixed());
 
     expect($answer)->toEqual($written
@@ -147,17 +282,17 @@ it('writes the re-checked survivors over its planned state alone, so a verdict a
         expect($patch->getRequestMethod())->toBe('PATCH')
             ->and($patch->getRequestUrl())->toBe('https://api.github.example/repos/octo/gate/issues/comments/5')
             ->and(Decoded::at(is_string($patch->getRequestOptions()['body']) ? $patch->getRequestOptions()['body'] : '', 'body'))
-            ->toBe(RecheckedMarkdown::comment(Rechecks::mixed(), 'https://github.example/octo/gate/actions/runs/7'));
+            ->toBe(RecheckedMarkdown::comment(Rechecks::mixed(), 'https://github.example/octo/gate/actions/runs/7', CommentShows::of()));
     }
 })->with([
     'planned' => [fn(): string => PlannedMarkdown::comment(ShardedPlan::planned(2), ''), true],
-    'the verdict' => [fn(): string => Markdown::comment(Verdicts::failing()), false],
+    'the verdict' => [fn(): string => Markdown::comment(Verdicts::failing(), CommentShows::of()), false],
     'the heading quoted inside a line' => [fn(): string => sprintf("%s\nnot %s here", Markdown::MARKER, PlannedMarkdown::HEADING), false],
 ]);
 
 it('writes no re-checked survivors where the pull request has no comment of its own yet', function () use ($environment, $event, $comment): void {
     $requests = [new JsonMockResponse([$comment(5, 'someone', PlannedMarkdown::comment(ShardedPlan::planned(2), ''))])];
-    $answer = PullRequestComment::inRun($environment, $event(), new MockHttpClient($requests), 'gate-bot')
+    $answer = PullRequestComment::inRun($environment, $event(), new MockHttpClient($requests), 'gate-bot', CommentSettings::standard())
         ->rechecked(Rechecks::mixed());
 
     expect($answer)->toEqual(NotWritten::because(
@@ -166,7 +301,7 @@ it('writes no re-checked survivors where the pull request has no comment of its 
 });
 
 it('writes no planned state, and says why, where the run cannot comment', function () use ($event): void {
-    $answer = PullRequestComment::inRun(['GITHUB_EVENT_NAME' => 'push'], $event(), new MockHttpClient([]), '')
+    $answer = PullRequestComment::inRun(['GITHUB_EVENT_NAME' => 'push'], $event(), new MockHttpClient([]), '', CommentSettings::standard())
         ->planned(ShardedPlan::planned(1));
 
     expect($answer)->toEqual(NotWritten::because('This run is not for a pull request, so there is no comment to write.'));
@@ -179,7 +314,7 @@ it('says why, and fails nothing, where GitHub refuses the comment', function () 
         $report(1),
         new MockResponse('{"message": "Resource not accessible by integration"}', ['http_code' => 403]),
     ];
-    $answer = PullRequestComment::inRun($environment, $event(), new MockHttpClient($requests), '')->report(Verdicts::passing());
+    $answer = PullRequestComment::inRun($environment, $event(), new MockHttpClient($requests), '', CommentSettings::standard())->report(Verdicts::failing());
 
     expect($answer)->toBeInstanceOf(NotWritten::class)
         ->and($answer instanceof NotWritten ? $answer->why() : '')->toStartWith('The pull request comment could not be written (')
@@ -189,7 +324,7 @@ it('says why, and fails nothing, where GitHub refuses the comment', function () 
 
 it('writes no comment, and says why, where the run cannot comment', function (string $name, string $token, string $event, string $why): void {
     $environment = ['GITHUB_EVENT_NAME' => $name, 'GITHUB_TOKEN' => $token];
-    $answer = PullRequestComment::inRun($environment, $event, new MockHttpClient([]), '')->report(Verdicts::failing());
+    $answer = PullRequestComment::inRun($environment, $event, new MockHttpClient([]), '', CommentSettings::standard())->report(Verdicts::failing());
 
     expect($answer)->toEqual(NotWritten::because($why));
 })->with([
@@ -226,14 +361,14 @@ it('asks GitHub who it is where its options name no identity', function (): void
     );
     $asking = Environment::during(
         $run,
-        static fn(): PullRequestComment => PullRequestComment::fromEnvironment(getenv(), HttpClient::create(), ''),
+        static fn(): PullRequestComment => PullRequestComment::fromEnvironment(getenv(), HttpClient::create(), '', CommentSettings::standard()),
     );
 
     expect($read)->toEqual($asking);
 });
 
 it('reads no event where the environment names no event file', function (): void {
-    $comment = PullRequestComment::fromEnvironment(['GITHUB_EVENT_NAME' => 'pull_request', 'GITHUB_TOKEN' => 'secret'], new MockHttpClient([]), '');
+    $comment = PullRequestComment::fromEnvironment(['GITHUB_EVENT_NAME' => 'pull_request', 'GITHUB_TOKEN' => 'secret'], new MockHttpClient([]), '', CommentSettings::standard());
 
     expect($comment->report(Verdicts::passing()))
         ->toEqual(NotWritten::because('This run is not for a pull request, so there is no comment to write.'));
@@ -242,7 +377,7 @@ it('reads no event where the environment names no event file', function (): void
 it('asks GitHub itself where no API is named', function () use ($event, $report): void {
     $post = new JsonMockResponse(['html_url' => 'u']);
     $environment = ['GITHUB_EVENT_NAME' => 'pull_request_target', 'GITHUB_TOKEN' => 'secret', 'GITHUB_REPOSITORY' => 'octo/gate', 'GITHUB_RUN_ID' => '7'];
-    PullRequestComment::inRun($environment, $event(), new MockHttpClient([new JsonMockResponse([]), $report(5), $post]), 'gate-bot')->report(Verdicts::passing());
+    PullRequestComment::inRun($environment, $event(), new MockHttpClient([new JsonMockResponse([]), $report(5), $post]), 'gate-bot', CommentSettings::standard())->report(Verdicts::failing());
 
     expect($post->getRequestUrl())->toBe('https://api.github.com/repos/octo/gate/issues/12/comments')
         ->and(Decoded::at(is_string($post->getRequestOptions()['body']) ? $post->getRequestOptions()['body'] : '', 'body'))
@@ -251,8 +386,8 @@ it('asks GitHub itself where no API is named', function () use ($event, $report)
 
 it('comments where the event does not say which repositories the pull request joins', function () use ($environment, $report): void {
     $post = new JsonMockResponse(['html_url' => 'u']);
-    $answer = PullRequestComment::inRun($environment, '{"pull_request": {"number": 12}}', new MockHttpClient([new JsonMockResponse([]), $report(1), $post]), 'gate-bot')
-        ->report(Verdicts::passing());
+    $answer = PullRequestComment::inRun($environment, '{"pull_request": {"number": 12}}', new MockHttpClient([new JsonMockResponse([]), $report(1), $post]), 'gate-bot', CommentSettings::standard())
+        ->report(Verdicts::failing());
 
     expect($answer)->toEqual(Written::to('u'))
         ->and($post->getRequestUrl())->toBe('https://api.github.example/repos/octo/gate/issues/12/comments');
@@ -260,15 +395,15 @@ it('comments where the event does not say which repositories the pull request jo
 
 it('leaves its comment, and its planned state, for deliver on a pull request, token or not, fork or not', function (string $token, string $head) use ($environment, $event): void {
     $client = new MockHttpClient([]);
-    $comment = PullRequestComment::inRun([...$environment, 'GITHUB_TOKEN' => $token], $event($head), $client, '');
+    $comment = PullRequestComment::inRun([...$environment, 'GITHUB_TOKEN' => $token], $event($head), $client, '', CommentSettings::standard());
     $run = 'https://github.example/octo/gate/actions/runs/7';
 
     expect($comment->deferred(Verdicts::failing(), Delivery::none()))
-        ->toEqual(Delivery::none()->withComment(Markdown::comment(Verdicts::failing())))
+        ->toEqual(Delivery::none()->withComment(Markdown::comment(Verdicts::failing(), CommentShows::of()), CommentWrite::sticky()))
         ->and($comment->plannedLater(ShardedPlan::planned(2), Delivery::none()))
-        ->toEqual(Delivery::none()->withComment(PlannedMarkdown::comment(ShardedPlan::planned(2), $run)))
+        ->toEqual(Delivery::none()->withComment(PlannedMarkdown::comment(ShardedPlan::planned(2), $run), CommentWrite::sticky()))
         ->and($comment->recheckedLater(Rechecks::mixed(), Delivery::none()))
-        ->toEqual(Delivery::none()->withCommentOverPlanned(RecheckedMarkdown::comment(Rechecks::mixed(), $run)))
+        ->toEqual(Delivery::none()->withComment(RecheckedMarkdown::comment(Rechecks::mixed(), $run, CommentShows::of()), CommentWrite::sticky()->overPlanned()))
         ->and($client->getRequestsCount())->toBe(0);
 })->with([
     'with a token' => ['secret', 'octo/gate'],
@@ -277,9 +412,9 @@ it('leaves its comment, and its planned state, for deliver on a pull request, to
 ]);
 
 it('leaves no comment for deliver on a run that is no pull request\'s', function (string $name, string $event): void {
-    $comment = PullRequestComment::inRun(['GITHUB_EVENT_NAME' => $name], $event, new MockHttpClient([]), '');
+    $comment = PullRequestComment::inRun(['GITHUB_EVENT_NAME' => $name], $event, new MockHttpClient([]), '', CommentSettings::standard());
 
-    expect($comment->deferred(Verdicts::failing(), Delivery::none()->withComment('kept')))->toEqual(Delivery::none()->withComment('kept'))
+    expect($comment->deferred(Verdicts::failing(), Delivery::none()->withComment('kept', CommentWrite::sticky())))->toEqual(Delivery::none()->withComment('kept', CommentWrite::sticky()))
         ->and($comment->plannedLater(ShardedPlan::planned(1), Delivery::none()))->toEqual(Delivery::none())
         ->and($comment->recheckedLater(Rechecks::mixed(), Delivery::none()))->toEqual(Delivery::none());
 })->with([
@@ -290,7 +425,7 @@ it('leaves no comment for deliver on a run that is no pull request\'s', function
 it('mentions each owner group\'s users and teams the first time, as a token that can mention a team', function () use ($environment, $event, $comment, $report): void {
     $patch = new JsonMockResponse(['html_url' => 'u']);
     $requests = [new JsonMockResponse([$comment(5, 'gate-bot', Markdown::MARKER)]), $report(1), $patch];
-    PullRequestComment::inRun($environment, $event(), new MockHttpClient($requests), 'gate-bot')->report(Owners::mentioned());
+    PullRequestComment::inRun($environment, $event(), new MockHttpClient($requests), 'gate-bot', CommentSettings::standard())->report(Owners::mentioned());
     $body = Decoded::at(is_string($patch->getRequestOptions()['body']) ? $patch->getRequestOptions()['body'] : '', 'body');
 
     expect($body)->toContain("\n#### @acme/payments @jo (1)\n")
@@ -305,7 +440,7 @@ it('mentions no team as GitHub Actions\' own bot, and mentions its users', funct
         $report(1),
         $patch,
     ];
-    PullRequestComment::inRun($environment, $event(), new MockHttpClient($requests), '')->report(Owners::mentioned());
+    PullRequestComment::inRun($environment, $event(), new MockHttpClient($requests), '', CommentSettings::standard())->report(Owners::mentioned());
     $body = Decoded::at(is_string($patch->getRequestOptions()['body']) ? $patch->getRequestOptions()['body'] : '', 'body');
 
     expect($body)->toContain("\n#### &#64;acme/payments @jo (1)\n")
@@ -324,7 +459,7 @@ it('names owners its earlier updates mentioned without a mention, and keeps thei
         $report(1),
         $verdict,
     ]);
-    $writer = PullRequestComment::inRun($environment, $event(), $client, 'gate-bot');
+    $writer = PullRequestComment::inRun($environment, $event(), $client, 'gate-bot', CommentSettings::standard());
     $writer->planned(ShardedPlan::planned(2));
     $writer->report(Owners::mentioned());
     $body = Decoded::at(is_string($verdict->getRequestOptions()['body']) ? $verdict->getRequestOptions()['body'] : '', 'body');

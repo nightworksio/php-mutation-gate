@@ -6,8 +6,10 @@ namespace NightWorksIO\MutationGate\Cli\Command;
 
 use DateTimeImmutable;
 
+use function intval;
 use function is_string;
 
+use NightWorksIO\MutationGate\Adapter\Infection\Import\Ignores;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\Formats;
@@ -23,7 +25,11 @@ use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Verb;
+use NightWorksIO\MutationGate\Core\WholeNumber;
 use NightWorksIO\MutationGate\Extension\Extensions;
+
+use function sprintf;
+
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -42,6 +48,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 final readonly class Init
 {
+    private const string IGNORES_FOR = 'ignores-for';
+
     public static function command(
         string $project,
         Extensions $extensions,
@@ -55,7 +63,7 @@ final readonly class Init
     ): Command {
         $command = InitQuestions::options(Additions::options(self::formatted(new Command(Verb::Init->value))));
 
-        return FullRunEstimate::options($command)
+        return self::imported(FullRunEstimate::options($command))
             ->setDescription(
                 'Write a config of what zero-config found; --ci, --editor and --hook set up the CI, editor and hooks',
             )
@@ -78,7 +86,8 @@ final readonly class Init
             ): int {
                 $from = $input->getOption('from');
                 $file = $from === false ? NotGiven::value() : InfectionFile::named(is_string($from) ? $from : '');
-                $setting = new Setting($project, $extensions, $effective, $formats, $now, $gate);
+                $days = self::ignoresFor($input);
+                $setting = new Setting($project, $extensions, $effective, $formats, $now, $gate, $days);
                 $questions = new InitQuestions(Asking::at($input, $output, $environment), $project, $detected);
                 $estimate = new FullRunEstimate($composition, $extensions, $project);
 
@@ -100,7 +109,7 @@ final readonly class Init
         GatePin $gate,
         Composition $composition,
     ): Command {
-        return FullRunEstimate::options(self::formatted(new Command('import')))
+        return self::imported(FullRunEstimate::options(self::formatted(new Command('import'))))
             ->setDescription('Write a config from an Infection config and what zero-config found')
             ->addArgument(
                 Argument::File->value,
@@ -117,7 +126,8 @@ final readonly class Init
                 $gate,
                 $composition,
             ): int {
-                $setting = new Setting($project, $extensions, $effective, $formats, $now, $gate);
+                $days = self::ignoresFor($input);
+                $setting = new Setting($project, $extensions, $effective, $formats, $now, $gate, $days);
 
                 return self::run(
                     $input,
@@ -129,6 +139,27 @@ final readonly class Init
                     new FullRunEstimate($composition, $extensions, $project),
                 );
             });
+    }
+
+    /** A command that imports an Infection config, which it says how long the ignores it writes last. */
+    private static function imported(Command $command): Command
+    {
+        return $command->addOption(
+            self::IGNORES_FOR,
+            mode: InputOption::VALUE_REQUIRED,
+            description: 'How many days each ignore imported from an Infection config lasts',
+            default: (string) Ignores::DAYS,
+        );
+    }
+
+    /** The days `--ignores-for` says, or why they are none. */
+    private static function ignoresFor(InputInterface $input): int|CannotJudge
+    {
+        $days = CommandText::option($input, self::IGNORES_FOR);
+
+        return WholeNumber::isPositive($days)
+            ? intval($days)
+            : CannotJudge::because(sprintf('--ignores-for takes a whole number of days, not "%s".', $days));
     }
 
     private static function formatted(Command $command): Command

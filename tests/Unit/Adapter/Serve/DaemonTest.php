@@ -45,6 +45,7 @@ $daemonOf = static fn(InlineForking $forking, float $idle): Daemon => new Daemon
         return 4;
     },
     $forking,
+    Seconds::of(5.0),
 );
 
 it('runs each request in a child, which answers with what it wrote and its exit code, and stops once it idles', function () use ($started, $runRequest, $daemonOf): void {
@@ -143,7 +144,7 @@ it('waits up to five seconds for a client to send its request', function () use 
         $connection = ServedProjects::socket()->connected();
 
         if ($connection instanceof Connection) {
-            Waiting::every(Seconds::of(4.5))();
+            Waiting::between(Seconds::of(4.5));
             $connection->sent($request);
             file_put_contents($kept, ServedProjects::lineOf($connection->waitingAtMost(5)));
         }
@@ -166,7 +167,7 @@ it('refuses a request its client takes longer than five seconds to send', functi
         $connection = ServedProjects::socket()->connected();
 
         if ($connection instanceof Connection) {
-            Waiting::every(Seconds::of(5.6))();
+            Waiting::between(Seconds::of(5.6));
             $connection->sent($request);
             file_put_contents($kept, ServedProjects::lineOf($connection->waitingAtMost(5)));
         }
@@ -177,4 +178,39 @@ it('refuses a request its client takes longer than five seconds to send', functi
     ServedProjects::waitedFor($client);
 
     expect(file_get_contents($kept))->toBe(ServeFrame::refused('The daemon could not read the request.')->line());
+});
+
+it('waits for a request through a limit shorter than a second', function () use ($started, $runRequest): void {
+    ServedProjects::entered();
+    $kept = sprintf('%s/partial-answer', (string) getcwd());
+    $request = $runRequest($started(), 'pre-commit');
+    $client = ServedProjects::aside(static function () use ($kept, $request): void {
+        ServedProjects::until(static fn(): bool => ServedProjects::socket()->isThere());
+        $connection = ServedProjects::socket()->connected();
+
+        if ($connection instanceof Connection) {
+            Waiting::between(Seconds::of(0.2));
+            $connection->sent($request);
+            file_put_contents($kept, ServedProjects::lineOf($connection->waitingAtMost(5)));
+        }
+    });
+    $daemon = new Daemon(
+        ServedProjects::socket(),
+        $started(),
+        Seconds::of(2.0),
+        static function (ServeRequest $request, Connection $connection): int {
+            $connection->sent(ServeFrame::written(ServeStream::Output, implode(' ', $request->argv()))->line());
+
+            return 4;
+        },
+        new InlineForking(),
+        Seconds::of(0.4),
+    );
+
+    expect($daemon->served())->toBeInstanceOf(NotGiven::class);
+
+    ServedProjects::waitedFor($client);
+    $frame = ServeFrame::readFrom((string) file_get_contents($kept));
+
+    expect($frame instanceof ServeFrame ? $frame->text() : '')->toBe('gate pre-commit');
 });

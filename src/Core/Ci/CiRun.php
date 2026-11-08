@@ -115,6 +115,14 @@ final readonly class CiRun
         return $this->commit;
     }
 
+    /** The link to the run the environment of a job describes; none where it is no CI's the gate names a run on. */
+    public static function urlIn(Variables $variables): string
+    {
+        $run = self::read($variables);
+
+        return $run instanceof self ? $run->url() : '';
+    }
+
     public function url(): string
     {
         return $this->url;

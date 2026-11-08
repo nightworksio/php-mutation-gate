@@ -41,7 +41,7 @@ it('writes dashboard.json: each repository\'s verdict, score, trees below their 
             'verdict' => 'failed',
             'score' => 44.44,
             'belowFloor' => [['path' => 'src', 'floor' => 80.0, 'score' => 44.44]],
-            'savedLast30Days' => 147_600.0,
+            'saved' => ['seconds' => 147_600.0, 'window' => '30d'],
         ])
         ->and(Decoded::at($json, 'repositories', 1))->toBe([
             'name' => 'docs',

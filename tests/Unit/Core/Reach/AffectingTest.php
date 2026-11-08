@@ -42,7 +42,7 @@ it('lists for a changed source file the tests that run its lines, and those that
 it('counts the lines of a changed source file each test file runs, each once however many of its tests run it', function () use (
     $modified,
 ): void {
-    $map = CoverageMap::empty()
+    $map = CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds'))
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds nothing'))
         ->covered(Path::of('src/Money.php'), Line::of(13), TestId::of('MoneyTest::adds nothing'))
@@ -312,7 +312,7 @@ it('reaches the tests that run the body a method\'s parameter default is read fo
         'src/Price.php' => "<?php\n\nnamespace App;\n\nfinal class Price\n{\n    public function total(int \$n = Money::RATE): int\n"
             . "    {\n        return \$n * 2;\n    }\n}\n",
     ];
-    $map = CoverageMap::empty()->covered(Path::of('src/Price.php'), Line::of(9), TestId::of('PriceTest::totals'));
+    $map = CoverageMap::of()->covered(Path::of('src/Price.php'), Line::of(9), TestId::of('PriceTest::totals'));
 
     $affected = Affected::running($map, Changes::of($modified('src/Money.php')), $files);
 

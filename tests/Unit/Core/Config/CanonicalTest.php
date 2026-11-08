@@ -94,10 +94,13 @@ $writing = static function (string $path, string $value): Json {
 
 it('keeps a setting in the comparison of what decides how the gate runs unless it only judges or reports, and in the key only where it affects results', function () use ($writing): void {
     $effects = Definition::effects();
-    $none = Json::object();
 
     foreach ($effects as $setting => $effect) {
         $written = $writing($setting, 'changed');
+        $section = explode('.', $setting)[0];
+        $none = $section !== $setting && array_key_exists($section, $effects)
+            ? Json::object(Member::of($section, Json::object()))
+            : Json::object();
 
         expect(Canonical::deciding($written, $effects) !== Canonical::deciding($none, $effects))
             ->toBe($effect->decides())

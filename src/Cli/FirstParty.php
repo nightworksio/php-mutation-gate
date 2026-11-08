@@ -10,15 +10,19 @@ use Closure;
 
 use function getcwd;
 use function getenv;
+use function is_int;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Alert\AlertReporter;
 use NightWorksIO\MutationGate\Adapter\Alert\Channel;
 use NightWorksIO\MutationGate\Adapter\Azure\AzurePlan;
+use NightWorksIO\MutationGate\Adapter\Azure\BuildSummary;
 use NightWorksIO\MutationGate\Adapter\Azure\ContainerLedger;
+use NightWorksIO\MutationGate\Adapter\Azure\PullRequestComment as AzureComment;
 use NightWorksIO\MutationGate\Adapter\Bitbucket\BitbucketPlan;
 use NightWorksIO\MutationGate\Adapter\Bitbucket\CodeInsights;
 use NightWorksIO\MutationGate\Adapter\Bitbucket\PullRequestComment as BitbucketComment;
+use NightWorksIO\MutationGate\Adapter\Buildkite\BuildAnnotation;
 use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
 use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
 use NightWorksIO\MutationGate\Adapter\Codeception\CodeceptionFramework;
@@ -72,6 +76,7 @@ use NightWorksIO\MutationGate\Adapter\Testo\TestoFramework;
 use NightWorksIO\MutationGate\Cli\Config\KeyedStore;
 use NightWorksIO\MutationGate\Cli\Config\PublicBucket;
 use NightWorksIO\MutationGate\Cli\Config\Registered;
+use NightWorksIO\MutationGate\Core\Change\ProvingRange;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\BuiltinAnalyser;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
@@ -242,6 +247,27 @@ final readonly class FirstParty implements Extension
                 static fn(): Reporter => CodeInsights::inEnvironment(
                     $environment,
                     HttpExchange::over(HttpClient::create(CodeInsights::CLIENT)),
+                ),
+            )
+            ->withReporter(
+                BuiltinReporter::AzureComment->named(),
+                static fn(Options $options): Reporter => AzureComment::configured(
+                    $options,
+                    $environment,
+                    HttpExchange::over(HttpClient::create()),
+                ),
+            )
+            ->withReporter(
+                BuiltinReporter::AzureSummary->named(),
+                static fn(Options $options): Reporter => BuildSummary::configured($options, $environment, $clock),
+            )
+            ->withReporter(
+                BuiltinReporter::BuildkiteAnnotation->named(),
+                static fn(Options $options): Reporter => BuildAnnotation::configured(
+                    $options,
+                    $environment,
+                    $processes,
+                    self::HERE,
                 ),
             )
             ->withReporter(
@@ -419,12 +445,14 @@ final readonly class FirstParty implements Extension
     private static function github(Options $options): ChangeSource&Repository
     {
         $check = $options->text(Key::of('check'));
+        $range = $options->integer(Key::of('provingRange'));
 
         return PassedPullRequests::over(
             self::git($options),
             HttpClient::create(),
             getenv(),
             is_string($check) ? $check : '',
+            is_int($range) ? $range : ProvingRange::STANDARD,
         );
     }
 

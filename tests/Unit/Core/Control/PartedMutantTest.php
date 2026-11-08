@@ -49,7 +49,7 @@ function partedHeavy(): Mutant
  */
 function partedRuns(TestPlaces $places): PartControls
 {
-    $map = CoverageMap::empty();
+    $map = CoverageMap::of();
 
     foreach (['LoopTest::a' => 30.0, 'LoopTest::b' => 40.0, 'LoopTest::c' => 10.0, 'LoopTest::d' => 10.0] as $test => $seconds) {
         $map = $map->timed(TestId::of($test), Seconds::of($seconds));
@@ -208,7 +208,7 @@ it('puts the halves of a split part in its place, between the parts before and a
 });
 
 it('holds each test of a part to the limit of its own the bounds give it, timed by the map', function (): void {
-    $map = CoverageMap::empty()->timed(TestId::of('LoopTest::a'), Seconds::of(30.0));
+    $map = CoverageMap::of()->timed(TestId::of('LoopTest::a'), Seconds::of(30.0));
     $bounds = LimitBounds::between(Seconds::of(1.0), Seconds::of(300.0))->watchingEachTest(PerTestLimit::standard());
     $part = PartControls::of(partedHeavy(), Contents::of('<?php // mutant'), $map, $bounds, TestPlaces::none())->serving(partedParts()[0]);
 

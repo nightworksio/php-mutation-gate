@@ -31,7 +31,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  */
 final readonly class PreCheck
 {
-    private const int STANDARD = 50;
+    public const int STANDARD = 50;
 
     private function __construct(private int $learning, private JudgingTime $judging)
     {
@@ -51,6 +51,12 @@ final readonly class PreCheck
     public static function briefed(Briefing $briefing): self
     {
         return new self(self::STANDARD, JudgingTime::atPace($briefing->learned()->pace()));
+    }
+
+    /** So many checks of a mutator before its rate is read, as `staticCheck.preCheckAfter` says, weighed as this is. */
+    public function after(int $checks): self
+    {
+        return new self($checks, $this->judging);
     }
 
     /**

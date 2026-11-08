@@ -16,8 +16,11 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  */
 final readonly class JudgingSuites
 {
-    private function __construct(private Suites $judging, private Suites|NotGiven $holding)
-    {
+    private function __construct(
+        private Suites $judging,
+        private Suites|NotGiven $holding,
+        private bool $holdsNone = false,
+    ) {
     }
 
     /** Every suite judges every unit, as with neither key written. */
@@ -30,6 +33,15 @@ final readonly class JudgingSuites
     public static function judging(Suites $judging): self
     {
         return new self($judging, NotGiven::value());
+    }
+
+    /**
+     * These suites judge every unit, and none judges only the units it holds,
+     * as `tests.holding` written as an empty list says: as with it left out.
+     */
+    public static function holdingNone(Suites $judging): self
+    {
+        return new self($judging, NotGiven::value(), holdsNone: true);
     }
 
     /** These suites judge every unit, and those judge only the units they hold. */
@@ -48,6 +60,12 @@ final readonly class JudgingSuites
     public function heldUnits(): Suites|NotGiven
     {
         return $this->holding;
+    }
+
+    /** Whether `tests.holding` is written as an empty list, rather than left out or naming a suite. */
+    public function holdsNone(): bool
+    {
+        return $this->holdsNone;
     }
 
     /** Whether either list names a suite, so that the PHPUnit config must declare it. */

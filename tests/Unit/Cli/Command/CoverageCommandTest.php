@@ -144,7 +144,7 @@ it('offers the directory to write the map into', function (): void {
 it('measures again only the test files whose entries moved against the map the default branch keeps', function (): void {
     $project = FlowCommands::project();
     $store = new ProofStoreFake();
-    $money = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds'));
+    $money = CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds'));
     $first = new CoverageAsked(ScriptedRunner::fixture(), $money);
     FlowCommands::run(CoverageCommand::command(FlowCommands::composition($project, $first, $store, Flows::ci())));
     $store->keep(

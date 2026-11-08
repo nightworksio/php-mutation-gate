@@ -94,14 +94,12 @@ final class ServedProjects
     /** Whether the condition holds within five seconds, looked at every 20 ms. */
     public static function until(Closure $holds): bool
     {
-        $wait = Waiting::every(Seconds::of(0.02));
-
         foreach (range(1, 250) as $ignored) {
             if ($holds() === true) {
                 return true;
             }
 
-            $wait();
+            Waiting::between(Seconds::of(0.02));
         }
 
         return $holds() === true;

@@ -8,6 +8,8 @@ use function array_key_exists;
 use function count;
 
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Mutant\Evidences;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
@@ -24,14 +26,16 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
  * mutant was, allowed the standard mutant limit of their time as the
  * coverage map timed them. A kill whose own run left its filter out, as
  * too long to pass, is controlled as that run selected its tests, by the
- * test files it loaded, its limit that of those files' tests. A file's other
- * kills are first controlled together, by one control of every test that
- * killed any of them, and where it passes every one of them stands
- * (ADR-0033). Where it does not, each kill is controlled on its own, once for each file and set
- * of killers, and stands only where its own passes; where that fails,
- * runs out of the limit or never runs, nothing tells the mutant from
- * its original, and it is unjudged, saying why. A kill no test is named
- * for is controlled by its covering tests instead (see UnnamedKillControls).
+ * test files it loaded, its limit that of those files' tests. A file's
+ * kills are first controlled together, and where that control passes every
+ * one of them stands (ADR-0033): those chosen by their tests' names by every
+ * test that killed any of them, and those whose runs left their filter out
+ * by every test file any of those runs loaded. Where it does not, each kill
+ * is controlled on its own, once for each file and set of killers, and
+ * stands only where its own passes; where that fails, runs out of the limit
+ * or never runs, nothing tells the mutant from its original, and it is
+ * unjudged, saying why. A kill no test is named for is controlled by its
+ * covering tests instead (see UnnamedKillControls).
  *
  * @internal
  */
@@ -77,7 +81,7 @@ final readonly class KillControls implements ControlJudge
             }
         }
 
-        return new self(self::forFiles($kills, $map, $bounds), $kills);
+        return new self(self::forFiles($kills, $map, $run, $bounds), $kills);
     }
 
     /** The control of each file, every test that killed one of its mutants at once, each asked for once. */
@@ -154,30 +158,88 @@ final readonly class KillControls implements ControlJudge
 
     /**
      * What vouches for each kill at once: every killer of its file's kills
-     * chosen by their tests alone, and a kill selected otherwise by itself.
+     * chosen by their tests alone; every test file the file's other kills'
+     * runs loaded where they left their filter out, selected as those runs
+     * selected them; and a kill selected otherwise by itself.
      *
      * @param  array<string, Control> $kills by the mutant's gate id
      * @return array<string, Control>
      */
-    private static function forFiles(array $kills, CoverageMap $map, LimitBounds $bounds): array
+    private static function forFiles(array $kills, CoverageMap $map, RunSelection $run, LimitBounds $bounds): array
     {
-        $byFile = [];
-
-        foreach ($kills as $own) {
-            $named = $own->file()->value();
-            $known = array_key_exists($named, $byFile) ? $byFile[$named] : TestIds::none();
-            $byFile[$named] = $own->selected() instanceof NotGiven ? $known->and($own->tests()) : $known;
-        }
-
+        $killers = self::killersByBatch($kills);
+        $loaded = self::loadedByFile($kills);
         $files = [];
 
         foreach ($kills as $key => $own) {
-            $files[$key] = $own->selected() instanceof NotGiven
-                ? Control::standard($own->file(), $byFile[$own->file()->value()], $map, $bounds)
-                : $own;
+            $file = $own->file();
+            $files[$key] = match (true) {
+                $own->selected() instanceof NotGiven
+                    => Control::standard($file, $killers[self::batchOf($own)], $map, $bounds),
+                $own->selected() instanceof Paths => Control::standard(
+                    $file,
+                    $run->of($killers[self::batchOf($own)], $map, $loaded[$file->value()]),
+                    $map,
+                    $bounds,
+                ),
+                default => $own,
+            };
         }
 
         return $files;
     }
 
+    /**
+     * Every test of each batch's kills: a file's kills chosen by their tests'
+     * names, and apart from them its kills whose runs left their filter out.
+     *
+     * @param  array<string, Control> $kills by the mutant's gate id
+     * @return array<string, TestIds> by the batch
+     */
+    private static function killersByBatch(array $kills): array
+    {
+        $killers = [];
+
+        foreach ($kills as $own) {
+            $batch = self::batchOf($own);
+            $killers[$batch] = (array_key_exists($batch, $killers) ? $killers[$batch] : TestIds::none())
+                ->and($own->tests());
+        }
+
+        return $killers;
+    }
+
+    /**
+     * Every test file the runs of each file's kills loaded where they left their filter out.
+     *
+     * @param  array<string, Control> $kills by the mutant's gate id
+     * @return array<string, Paths> by the file's path
+     */
+    private static function loadedByFile(array $kills): array
+    {
+        $loaded = [];
+
+        foreach ($kills as $own) {
+            $file = $own->file()->value();
+            $known = array_key_exists($file, $loaded) ? $loaded[$file] : Paths::none();
+            $selected = $own->selected();
+            $loaded[$file] = $selected instanceof Paths ? $known->and($selected) : $known;
+        }
+
+        return $loaded;
+    }
+
+    /**
+     * The batch a kill's control is first run in: its file's kills chosen by
+     * their tests' names, or its file's kills whose runs left their filter
+     * out; a kill selected otherwise is a batch of its own.
+     */
+    private static function batchOf(Control $own): string
+    {
+        $selected = $own->selected();
+
+        return $selected instanceof NotGiven || $selected instanceof Paths
+            ? JsonText::compact([$own->file()->value(), $selected instanceof Paths])
+            : $own->key();
+    }
 }

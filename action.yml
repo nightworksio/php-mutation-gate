@@ -21,6 +21,10 @@ inputs:
     description: 'PHP extensions to set up besides the defaults, as setup-php takes them, such as "zstd, intl".'
     required: false
     default: ''
+  ini-values:
+    description: 'PHP ini values to set, as setup-php takes them, such as "memory_limit=2G, opcache.enable_cli=1".'
+    required: false
+    default: ''
   runner:
     description: pest, infection, phpunit, phpspec, codeception, testo or a registered runner's name; the config's, or zero-config's, where empty.
     required: false
@@ -100,6 +104,7 @@ runs:
       with:
         php-version: ${{ inputs.php-version }}
         extensions: ${{ inputs.extensions }}
+        ini-values: ${{ inputs.ini-values }}
         coverage: pcov
 
     # Before the project's dependencies install, so none of its code runs
@@ -325,14 +330,14 @@ runs:
       env:
         GATE: ${{ steps.resolve.outputs.gate }}
         OPTIONS: ${{ steps.resolve.outputs.options }}
+        ACTION_REPORTS: ${{ steps.config.outputs.action_reports }}
       run: |
         set -uo pipefail
         code=0
         mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
+        mapfile -t reports < <(jq -r '.[]' <<< "${ACTION_REPORTS}")
         "${GATE}" verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results \
-          --report=json:.mutation-gate/action/report.json --report=html:.mutation-gate/action/html \
-          --report=digest:.mutation-gate/action/mutation-gate-digest.txt \
-          --deliver-later "${arguments[@]}" || code=$?
+          "${reports[@]}" --deliver-later "${arguments[@]}" || code=$?
         echo "code=${code}" >> "${GITHUB_OUTPUT}"
 
     # The result cache the run's warm-up left, kept where it differs from the
@@ -447,6 +452,7 @@ runs:
       with:
         php-version: ${{ inputs.php-version }}
         extensions: ${{ inputs.extensions }}
+        ini-values: ${{ inputs.ini-values }}
         coverage: none
 
     - name: Install the gate's own copy

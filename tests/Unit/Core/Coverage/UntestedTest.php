@@ -27,5 +27,5 @@ it('keeps the changed lines the map holds as executable lines no test ran, and l
 
     expect(Untested::of($changed, $map))->toEqual(Changes::of(Change::modified($money, Lines::of(Line::of(4), Line::of(9)))))
         ->and(Untested::of(Changes::none(), $map))->toEqual(Changes::none())
-        ->and(Untested::of($changed, CoverageMap::empty()))->toEqual(Changes::none());
+        ->and(Untested::of($changed, CoverageMap::of()))->toEqual(Changes::none());
 });

@@ -93,7 +93,7 @@ final readonly class ChangesSince
 
         foreach ($this->since as $commit => $since) {
             $why = $since instanceof CannotTell ? $since->why() : $this->reasons($since);
-            $said = Warning::that(sprintf(self::NOT_CARRIED, $commit, $why));
+            $said = Warning::noting(sprintf(self::NOT_CARRIED, $commit, $why));
             $warnings = $why === '' ? $warnings : $warnings->with($said);
         }
 

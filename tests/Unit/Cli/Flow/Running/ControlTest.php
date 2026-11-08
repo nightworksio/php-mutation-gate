@@ -166,12 +166,12 @@ it('controls a held unit\'s timed-out mutant by its holding tests that run it, n
 
     $project = Flows::project();
     $held = Path::of('src/Held.php');
-    $suite = CoverageMap::empty()
+    $suite = CoverageMap::of()
         ->covered($held, Line::of(11), TestId::of('HeldTest::a'))
         ->covered($held, Line::of(11), TestId::of('SuiteTest::b'))
         ->timed(TestId::of('HeldTest::a'), Seconds::of(0.1))
         ->timed(TestId::of('SuiteTest::b'), Seconds::of(30.0));
-    $group = CoverageMap::empty()->covered($held, Line::of(11), TestId::of('HeldTest::a'))
+    $group = CoverageMap::of()->covered($held, Line::of(11), TestId::of('HeldTest::a'))
         ->timed(TestId::of('HeldTest::a'), Seconds::of(0.1));
     $hung = Mutant::of(
         MutantId::hash($held, 'Plus', '11', 0),

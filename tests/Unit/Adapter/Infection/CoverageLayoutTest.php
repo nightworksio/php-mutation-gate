@@ -48,7 +48,7 @@ function layoutRead(string $file, string $query): string
 
 function layoutMap(): CoverageMap
 {
-    return CoverageMap::empty()
+    return CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\MoneyTest::adds'))
         ->covered(Path::of('src/Money.php'), Line::of(16), TestId::of('Tests\MoneyTest::adds#0'))
         ->covered(Path::of('src/Money.php'), Line::of(16), TestId::of('Tests\MoneyTest::adds#small amounts'))
@@ -160,7 +160,7 @@ it('writes the index, a file\'s report and the JUnit log to the byte, an untimed
 it('writes an index that says a line ran, where the map holds none of this run\'s files', function (): void {
     $project = layoutProject();
     $directory = sprintf('%s/coverage', $project->root());
-    CoverageLayout::write($project, CoverageMap::empty(), DiskPath::of($directory));
+    CoverageLayout::write($project, CoverageMap::of(), DiskPath::of($directory));
     $index = new DOMDocument();
     $index->load(sprintf('%s/coverage-xml/index.xml', $directory));
 

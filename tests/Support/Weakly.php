@@ -92,7 +92,7 @@ final class Weakly
     /** The coverage of the Cart: line 11 by both Pest tests, line 7 by the unnamed test and the weak one, named. */
     public static function matrix(TestId ...$onEleven): KillMatrix
     {
-        $coverage = CoverageMap::empty()
+        $coverage = CoverageMap::of()
             ->covered(Path::of(Clustered::FILE), Line::of(7), self::unnamedTest())
             ->covered(Path::of(Clustered::FILE), Line::of(7), self::weakTest());
 

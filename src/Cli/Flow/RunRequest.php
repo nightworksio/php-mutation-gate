@@ -37,6 +37,8 @@ final readonly class RunRequest
             ->narrowedTo($files, $adapters->narrowing->amongTestCases($adapters->suite->testCases()))
             ->withholding($adapters->withheld)
             ->cappedAt($settings->runner()->memory())
-            ->across(Pool::of(ProcessCount::single(), $settings->runner()->workers()));
+            ->across(
+                Pool::of(ProcessCount::single(), $settings->runner()->workers())->pacedBy($settings->runner()->pace()),
+            );
     }
 }
