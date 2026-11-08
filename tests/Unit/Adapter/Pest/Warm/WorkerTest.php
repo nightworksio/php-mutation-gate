@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Warm\Finish;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Forking;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Request;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Seat;
+use NightWorksIO\MutationGate\Adapter\Pest\Warm\Wake;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\WarmDirectory;
 use NightWorksIO\MutationGate\Adapter\Pest\Warm\Worker;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -63,6 +64,28 @@ it('runs a run in a child it forks, and writes how the child ended where the run
         ->and($paused->lengths())->toBe([Polling::interval()->microseconds()])
         ->and(is_file($at->started('42-1')) && is_file($at->child('42-1')))->toBeTrue();
 });
+
+it('wakes the run\'s asker once it writes how the run ended, or why it forked the run no child', function (string $mutated) use ($seat, $request): void {
+    $at = $seat();
+    $request((int) getmypid(), $mutated)->leftIn($at->request());
+    $woken = 0;
+    pcntl_signal(Wake::SIGNAL, static function () use (&$woken): void {
+        $woken++;
+    });
+
+    try {
+        Worker::at($at->directory(), 1, Passing::for('0.3'), new Pauses()->pausing())->served(ShellForking::running($at, 'exit 3'));
+        pcntl_signal_dispatch();
+    } finally {
+        pcntl_signal(Wake::SIGNAL, SIG_DFL);
+    }
+
+    expect(Finish::readFrom($at->ended('42-1')))->toBeInstanceOf(Finish::class)
+        ->and($woken)->toBe(1);
+})->with([
+    'a run its child ran' => [''],
+    'a run of a mutant of a file it loaded' => [__FILE__],
+]);
 
 it('stops a child, with every process under it, once the run\'s asker is gone', function () use ($seat, $request): void {
     $at = $seat();
