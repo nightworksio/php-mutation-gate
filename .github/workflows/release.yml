@@ -52,7 +52,10 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     permissions:
       contents: read
-    uses: ./.github/workflows/outbreak-build.yml # zizmor: ignore[self-repository]
+    uses: ./.github/workflows/outbreak.yml # zizmor: ignore[self-repository]
+    with:
+      gates: false
+      builds: true
 
   draft:
     name: draft

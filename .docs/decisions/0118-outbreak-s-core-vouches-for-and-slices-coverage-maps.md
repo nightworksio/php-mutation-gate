@@ -143,14 +143,20 @@ ledger is read whole into PHP objects, so decoding it elsewhere saves nothing.
    a text it vouches for is built into the map the careful reading builds, it
    vouches for no text the careful reading drops an entry of, and each slice
    it writes holds the text the gate writes.
-10. **Its jobs run where a change reaches them.** `outbreak` (the Rust gates
-   and the boundary, the contract suite against the built binary) runs where
-   a pull request changes the Rust tree, its workflows or the PHP the binary
-   talks to: the port, the adapter, `Core/Coverage` and their tests.
-   `outbreak-build`, the binary for every platform, runs where the Rust tree
-   or its workflows change. A change to the Rust tree alone runs no PHP gate.
-   Both run on every push to main and every night, and both report where
-   skipped, through `what changed` and an `if:`, as every gated job does.
+10. **Its jobs run where a change reaches them, and one check always
+   reports.** `outbreak.yml` holds Outbreak's gates (the Rust gates and the
+   boundary, the contract suite against the built binary) and its builds
+   (the binary for every platform). ci.yml calls it on every run, with the
+   gates where `what changed` lists `outbreak`, for a pull request that
+   changes the Rust tree, its workflow or the PHP the binary talks to (the
+   port, the adapter, `Core/Coverage` and their tests), and the builds where
+   it says `builds`, for the Rust tree or its workflow. A change to the Rust
+   tree alone runs no PHP gate. Both run on every push to main and every
+   night. Its last job, `outbreak / passed`, passes where every job it was
+   asked for passed and is skipped where it was asked for none, so it reports
+   on every pull request and is the check main requires: the scope decides
+   through inputs and `if:`, never a paths filter, which would leave a
+   required check unreported. release.yml calls it for the builds alone.
 
 ## Consequences
 

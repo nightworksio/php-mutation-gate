@@ -329,12 +329,19 @@
       "evidence": "none",
       "why": "Pest's log, which the job shows, names each test that failed and the difference it found."
     },
-    "outbreak-build/build": {
-      "check": "outbreak-build / build ${{ matrix.platform }}",
+    "outbreak/build": {
+      "check": "outbreak / build ${{ matrix.platform }}",
       "checks": "Outbreak's core builds for every platform the package ships it for, and each binary answers its contract (ADR-0118).",
       "reproduce": "cd outbreak && cargo build --release --locked --package outbreak --target <target> && target/<target>/release/outbreak contract",
       "evidence": "none",
       "why": "Each platform's leg runs on a runner of its own, and cargo's log, which the job shows, names what failed to build."
+    },
+    "outbreak/passed": {
+      "check": "outbreak / passed",
+      "checks": "Every job of Outbreak's core this run was asked for passed: its gates where what changed lists outbreak, its builds where it says builds. Skipped where it was asked for none, so it reports on every pull request and main can require it (ADR-0118).",
+      "reproduce": "Each failed job's own entry: outbreak/fmt, outbreak/clippy, outbreak/test, outbreak/coverage, outbreak/deny, outbreak/audit, outbreak/msrv, outbreak/mutants, outbreak/fuzz, outbreak/boundary or outbreak/build",
+      "evidence": "none",
+      "why": "It reads only the results of the jobs it needs and names each that did not pass; their own logs say why."
     },
     "runner-canary": {
       "check": "runner canary",

@@ -36,10 +36,12 @@ What each job reads (INPUTS):
 - `replay`: what decides what a change reaches and how a plan carries and
   cuts (REPLAY), which it plans the newest pull requests again with. A push
   to main runs none: ci.yml's own condition leaves it to the night.
-- `outbreak`: Outbreak's Rust tree and its workflows (OUTBREAK), and the PHP
+- `outbreak`: Outbreak's Rust tree and its workflow (OUTBREAK), and the PHP
   the binary talks to (OUTBREAK_BOUNDARY), which its boundary job runs
-  against the binary. A change to the Rust tree alone runs no PHP gate.
-- `outbreak-build`: Outbreak's Rust tree and its workflows.
+  against the binary. A change to the Rust tree alone runs no PHP gate. Its
+  builds, the binary for every platform, run where the Rust tree or its
+  workflow changed, or ci.yml's call of it did, which the `builds` output
+  says. ci.yml calls it on every run, so its `passed` check always reports.
 
 A script under .github/scripts reaches each job that runs it, through the
 jobs of a workflow that job calls too, and any script those import. Every
@@ -80,7 +82,7 @@ LEG_TABLE = json.loads(Path(__file__).resolve().with_name("legs.json").read_text
 RUNNERS = tuple(LEG_TABLE)
 
 # The jobs of ci.yml this script gates, in the workflow's order.
-GATED = ("site", "alone", "guards", "checks", "tests", "lowest", "phar", "image", "runner-contracts", "end-to-end", "outbreak", "outbreak-build", "mutation", "replay")
+GATED = ("site", "alone", "guards", "checks", "tests", "lowest", "phar", "image", "runner-contracts", "end-to-end", "outbreak", "mutation", "replay")
 
 # The job that runs the legs, the end-to-end workflow's jobs by the input that
 # runs each, and the job that decides every output.
@@ -119,9 +121,11 @@ OTHER_GATES = (
     "outbreak/",
 )
 
-# Outbreak's core (ADR-0118): its Rust tree, which `outbreak-build` builds for
-# every platform, and the workflows that build and check it.
-OUTBREAK = ("outbreak/", ".github/workflows/outbreak.yml", ".github/workflows/outbreak-build.yml")
+# Outbreak's core (ADR-0118): its Rust tree, which its builds make for every
+# platform, and the workflow that builds and checks it; and the job of ci.yml
+# that calls it.
+OUTBREAK = ("outbreak/", ".github/workflows/outbreak.yml")
+OUTBREAK_CALLER = "outbreak"
 
 # The PHP the binary talks to, which `outbreak` checks against it: the port,
 # the adapter, the maps the binary reads and writes, and their tests.
@@ -340,7 +344,6 @@ INPUTS: dict[str, Callable[[str], bool]] = {
     "mutation": lambda path: is_program(path) or under(path, SHIPPED_CI),
     "replay": lambda path: under(path, REPLAY),
     "outbreak": lambda path: under(path, OUTBREAK + OUTBREAK_BOUNDARY),
-    "outbreak-build": lambda path: under(path, OUTBREAK),
 }
 
 
@@ -434,7 +437,7 @@ def reaches_runner(path: str, runner: str) -> bool:
 
 
 def everything() -> dict[str, str]:
-    return {"jobs": json.dumps(list(GATED)), "runners": json.dumps(list(RUNNERS)), "warm": "true", "hooks": "true"}
+    return {"jobs": json.dumps(list(GATED)), "runners": json.dumps(list(RUNNERS)), "warm": "true", "hooks": "true", "builds": "true"}
 
 
 def outputs(
@@ -469,9 +472,16 @@ def outputs(
     called = END_TO_END_CALLER in named
     warm = called or runs("warm", lambda path: under(path, RUNTIME + WARM))
     hooks = called or runs("hooks", lambda path: is_program(path) and not path.startswith(TESTS))
+    builds = OUTBREAK_CALLER in named or any(under(path, OUTBREAK) for path in changed)
     gathered = {"runner-contracts": runners != [] or "runner-contracts" in named, END_TO_END_CALLER: warm or hooks}
     run = [job for job in GATED if gathered.get(job, False) or runs(job, INPUTS.get(job, lambda path: False))]
-    return {"jobs": json.dumps(run), "runners": json.dumps(runners), "warm": str(warm).lower(), "hooks": str(hooks).lower()}
+    return {
+        "jobs": json.dumps(run),
+        "runners": json.dumps(runners),
+        "warm": str(warm).lower(),
+        "hooks": str(hooks).lower(),
+        "builds": str(builds).lower(),
+    }
 
 
 def read_workflows(base: str, paths: list[str]) -> dict[str, tuple[str, str]]:

@@ -1,17 +1,36 @@
-# Outbreak's core, the Rust workspace under outbreak/ (ADR-0118), held to
-# herald's standard: formatting, clippy pedantic with every warning denied on
-# every target, the suite, every line covered, the dependency audits, the
-# oldest supported toolchain, every mutant caught in shards, each parser
-# fuzzed, and the boundary: the PHP contract suite of the map engine run
-# against the binary this commit builds. Called by ci.yml where `what changed`
-# lists `outbreak`: on a pull request that reaches the Rust tree or its PHP
-# boundary, and on every push to main and every night. A pull request mutates
-# what its diff touches and fuzzes each target for a minute; main and the
-# night mutate the whole workspace and the night fuzzes for half an hour.
+# Outbreak's core, the Rust workspace under outbreak/ (ADR-0118). Its gates
+# hold it to herald's standard: formatting, clippy pedantic with every warning
+# denied on every target, the suite, every line covered, the dependency
+# audits, the oldest supported toolchain, every mutant caught in shards, each
+# parser fuzzed, and the boundary: the PHP contract suite of the map engine
+# run against the binary this commit builds. Its builds make the binary for
+# every platform the package ships it for: Linux, static against musl, on
+# x86_64 and aarch64; macOS on both; and Windows on x86_64. Each answers
+# `outbreak contract` where it is built, and is uploaded as
+# `outbreak-<platform>` with its SHA-256 beside it.
+#
+# ci.yml calls it on every run, with the gates where `what changed` lists
+# `outbreak` (the Rust tree, its workflow, or the PHP the binary talks to) and
+# the builds where it says `builds` (the Rust tree or its workflow), so
+# `passed` reports on every pull request and main can require it. release.yml
+# calls it for the builds alone, and its draft lays every binary under
+# resources/outbreak with the SHA256SUMS the gate checks each one against. A
+# pull request mutates what its diff touches and fuzzes each target for a
+# minute; main and the night mutate the whole workspace and the night fuzzes
+# for half an hour.
 name: outbreak
 
 on:
   workflow_call:
+    inputs:
+      gates:
+        description: Whether the Rust gates and the boundary run.
+        type: boolean
+        default: true
+      builds:
+        description: Whether the binary is built for every platform.
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -28,6 +47,7 @@ defaults:
 jobs:
   fmt:
     name: fmt
+    if: inputs.gates
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -43,6 +63,7 @@ jobs:
 
   clippy:
     name: clippy
+    if: inputs.gates
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -64,6 +85,7 @@ jobs:
 
   test:
     name: test
+    if: inputs.gates
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -88,6 +110,7 @@ jobs:
   # tests run the binary built for coverage.
   coverage:
     name: coverage
+    if: inputs.gates
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -111,6 +134,7 @@ jobs:
 
   deny:
     name: deny
+    if: inputs.gates
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -127,6 +151,7 @@ jobs:
 
   audit:
     name: audit
+    if: inputs.gates
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -146,6 +171,7 @@ jobs:
   # otherwise hand this job the pinned toolchain.
   msrv:
     name: msrv
+    if: inputs.gates
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -178,6 +204,7 @@ jobs:
   # Any missed mutant fails its shard.
   mutants:
     name: mutants ${{ matrix.shard }}
+    if: inputs.gates
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
@@ -225,6 +252,7 @@ jobs:
   # a map the slicer takes, which must itself be a map it vouches for.
   fuzz:
     name: fuzz ${{ matrix.target }}
+    if: inputs.gates
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -267,6 +295,7 @@ jobs:
   # the gate's PHP gives.
   boundary:
     name: boundary
+    if: inputs.gates
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -294,3 +323,114 @@ jobs:
         if: failure()
         working-directory: .
         run: python3 .github/scripts/gate_summary.py outbreak/boundary
+
+  build:
+    name: build ${{ matrix.platform }}
+    if: inputs.builds
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            target: x86_64-unknown-linux-musl
+            runner: ubuntu-24.04
+            binary: outbreak
+          - platform: linux-aarch64
+            target: aarch64-unknown-linux-musl
+            runner: ubuntu-24.04-arm
+            binary: outbreak
+          - platform: darwin-x86_64
+            target: x86_64-apple-darwin
+            runner: macos-15
+            binary: outbreak
+          - platform: darwin-aarch64
+            target: aarch64-apple-darwin
+            runner: macos-15
+            binary: outbreak
+          - platform: windows-x86_64
+            target: x86_64-pc-windows-msvc
+            runner: windows-2025
+            binary: outbreak.exe
+    defaults:
+      run:
+        shell: bash
+        working-directory: outbreak
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install --yes musl-tools
+      - env:
+          TARGET: ${{ matrix.target }}
+        run: rustup target add "${TARGET}"
+      - env:
+          TARGET: ${{ matrix.target }}
+        run: cargo build --release --locked --package outbreak --target "${TARGET}"
+      - name: Answer the contract, and keep the binary with its SHA-256
+        env:
+          TARGET: ${{ matrix.target }}
+          PLATFORM: ${{ matrix.platform }}
+          BINARY: ${{ matrix.binary }}
+        run: |
+          set -euo pipefail
+          built="target/${TARGET}/release/${BINARY}"
+          said="$("${built}" contract)"
+          if [[ "${said}" != *'"outbreak":1'* ]]; then
+            echo "::error::${built} answered ${said}, not contract 1."
+            exit 1
+          fi
+          mkdir -p "dist/${PLATFORM}"
+          cp "${built}" "dist/${PLATFORM}/${BINARY}"
+          cd dist
+          if command -v sha256sum > /dev/null; then
+            sha256sum "${PLATFORM}/${BINARY}" > "${PLATFORM}/SHA256SUM"
+          else
+            shasum -a 256 "${PLATFORM}/${BINARY}" > "${PLATFORM}/SHA256SUM"
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: outbreak-${{ matrix.platform }}
+          path: outbreak/dist
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        working-directory: .
+        run: python3 .github/scripts/gate_summary.py outbreak/build
+
+  # The check main requires of Outbreak's core: every job this run was asked
+  # for passed. Where it was asked for none it is skipped, which a required
+  # check reads as passed.
+  passed:
+    name: passed
+    needs: [fmt, clippy, test, coverage, deny, audit, msrv, mutants, fuzz, boundary, build]
+    if: ${{ !cancelled() && (inputs.gates || inputs.builds) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - name: every job asked for passed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+          GATES: ${{ inputs.gates }}
+          BUILDS: ${{ inputs.builds }}
+        run: |
+          failed="$(jq -r --argjson gates "${GATES}" --argjson builds "${BUILDS}" \
+            'to_entries[] | select((if .key == "build" then $builds else $gates end) and .value.result != "success")
+              | "\(.key) ended \(.value.result)"' <<< "${NEEDS}")"
+          if [ -n "${failed}" ]; then
+            echo "::error title=outbreak::${failed//$'\n'/; }. Each job's own log says why."
+            exit 1
+          fi
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py outbreak/passed
