@@ -1,13 +1,12 @@
 import { existsSync, statSync } from 'node:fs';
 import { dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { BASE, DOCS, REF, REPOSITORY, isPage, slugOf } from './where.mjs';
+import { BASE, REF, REPOSITORY, pageOf } from './where.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 
 const REPOSITORY_ROOT = resolve(ROOT, '..');
 
-const DOCS_ROOT = resolve(ROOT, DOCS);
 
 const SCHEME = /^[a-z][a-z0-9+.-]*:/i;
 
@@ -24,10 +23,10 @@ function posix(path) {
 }
 
 function isDoc(file) {
-    return typeof file.path === 'string' && file.path.startsWith(DOCS_ROOT + sep);
+    return typeof file.path === 'string' && pageOf(posix(relative(REPOSITORY_ROOT, file.path))) !== null;
 }
 
-/** Where a relative link of a page under `.docs` points on the site, or on GitHub at the ref the site is built from. */
+/** Where a relative link of a page points on the site, or on GitHub at the ref the site is built from. */
 export function target(from, url) {
     const [path, hash] = url.split(/#(.*)/s, 2);
     const absolute = resolve(dirname(from), decodeURI(path));
@@ -38,10 +37,10 @@ export function target(from, url) {
         throw new Error(`${posix(relative(REPOSITORY_ROOT, from))} links ${url}, which is no file of the repository.`);
     }
 
-    const inDocs = posix(relative(DOCS_ROOT, absolute));
+    const page = pageOf(posix(inRepository));
 
-    if (!inDocs.startsWith('..') && isPage(inDocs)) {
-        return `${BASE}/${slugOf(inDocs)}/${fragment}`;
+    if (page !== null) {
+        return `${BASE}/${page}/${fragment}`;
     }
 
     const kind = statSync(absolute).isDirectory() ? 'tree' : 'blob';
@@ -64,7 +63,7 @@ export function dropTitle() {
     };
 }
 
-/** Points each relative link of a page under `.docs` at its page on the site, or at its file on GitHub. */
+/** Points each relative link of a page at its page on the site, or at its file on GitHub. */
 export function rewriteLinks() {
     return (tree, file) => {
         if (!isDoc(file)) {

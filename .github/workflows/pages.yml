@@ -1,7 +1,10 @@
 # The docs site on GitHub Pages, at https://nightworksio.github.io/php-mutation-gate/
-# (ADR-0038): `main`'s docs at the root, while no version is tagged. site.yml
-# builds them with a read-only token, and `deploy` publishes the build over
-# OIDC: it runs no npm and no project code, and no secret is stored. It is
+# (ADR-0038): a copy for each minor at /X.Y/ from its newest tag, main's at
+# /next/, and the newest released minor's, or main's while there is none, at
+# the root. site.yml builds them with a read-only token, and `deploy`
+# publishes the build over OIDC: it runs no npm and no project code, and no
+# secret is stored. A push to main that changes the docs runs it, and so does
+# the release workflow once a release is published, by dispatching it. It is
 # never a required check, so `on.paths` limits it.
 name: pages
 
@@ -11,6 +14,10 @@ on:
     paths:
       - '.docs/**'
       - '.site/**'
+      - 'CONTRIBUTING.md'
+      - 'ARCHITECTURE.md'
+      - 'SECURITY.md'
+      - '.github/scripts/site_copies.py'
       - '.github/scripts/decisions_index.py'
       - '.github/workflows/pages.yml'
       - '.github/workflows/site.yml'

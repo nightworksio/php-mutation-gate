@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Config;
 
 use function is_int;
 
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -19,9 +20,10 @@ use function sprintf;
 /**
  * What a project publishes, and how an organisation's dashboard reads what
  * its projects published: `badge.colors`, the lowest score of each
- * shields.io colour, red below them all, and `badge.trendKept`, the newest
- * entries the trend keeps (ADR-0009); `dashboard.topic`, the
- * topic of the repositories the dashboard shows, and
+ * shields.io colour, red below them all, `badge.logo`, the logo the badges
+ * show: the gate's helix, none, or an SVG file, and `badge.trendKept`, the
+ * newest entries the trend keeps (ADR-0009); `dashboard.topic`, the topic of
+ * the repositories the dashboard shows, and
  * `dashboard.repositories`, those it shows by name (ADR-0024).
  */
 final readonly class Publishing implements Part
@@ -29,9 +31,13 @@ final readonly class Publishing implements Part
     /** The topic of the repositories a dashboard shows where the config names none: the gate's own name. */
     public const string TOPIC = ThisPackage::NAME;
 
+    /** Whether the badges show the gate's helix where the config names no logo. */
+    public const bool LOGO = true;
+
     /** @param Listed<string>|Absent $repositories */
     private function __construct(
         private Table|Absent $colors,
+        private bool|Path|Absent $logo,
         private string|Absent $topic,
         private Listed|Absent $repositories,
         private int|Absent $trendKept,
@@ -41,11 +47,12 @@ final readonly class Publishing implements Part
     /** @param Listed<string>|Absent $repositories */
     public static function of(
         Table|Absent $colors = new Absent(),
+        bool|Path|Absent $logo = new Absent(),
         string|Absent $topic = new Absent(),
         Listed|Absent $repositories = new Absent(),
         int|Absent $trendKept = new Absent(),
     ): self {
-        return new self($colors, $topic, $repositories, $trendKept);
+        return new self($colors, $logo, $topic, $repositories, $trendKept);
     }
 
     public static function none(): self
@@ -55,7 +62,7 @@ final readonly class Publishing implements Part
 
     public static function standard(): self
     {
-        return self::of(colors: self::none()->colors(), topic: self::TOPIC, trendKept: Trend::KEPT);
+        return self::of(colors: self::none()->colors(), logo: self::LOGO, topic: self::TOPIC, trendKept: Trend::KEPT);
     }
 
     /**
@@ -68,6 +75,7 @@ final readonly class Publishing implements Part
         return $later instanceof self
             ? new self(
                 Absent::laid($this->colors, $later->colors),
+                Absent::laid($this->logo, $later->logo),
                 Absent::laid($this->topic, $later->topic),
                 Absent::laid($this->repositories, $later->repositories),
                 Absent::laid($this->trendKept, $later->trendKept),
@@ -91,6 +99,20 @@ final readonly class Publishing implements Part
         return $colors;
     }
 
+    /** `badge.logo`: `true` for the gate's helix, `false` for none, or the path of an SVG file. */
+    public function logo(): bool|Path
+    {
+        return $this->logo instanceof Absent ? self::LOGO : $this->logo;
+    }
+
+    /** `badge.logo` as the badge reporter's `logo` option takes it: a flag, or the SVG file's path from the project. */
+    public function logoOption(): bool|string
+    {
+        $logo = $this->logo();
+
+        return $logo instanceof Path ? $logo->value() : $logo;
+    }
+
     /** `badge.trendKept`: how many of the newest entries the trend keeps. */
     public function trendKept(): int
     {
@@ -98,8 +120,8 @@ final readonly class Publishing implements Part
     }
 
     /**
-     * A reporter's choice; the badge's with `badge.colors`, `badge.trendKept` and this floor for new code laid
-     * beneath its options, so each it sets itself wins, its colours whole, as one scale.
+     * A reporter's choice; the badge's with `badge.colors`, `badge.logo`, `badge.trendKept` and this floor for new
+     * code laid beneath its options, so each it sets itself wins, its colours whole, as one scale.
      */
     public function under(Choice $choice, Floor $newCode): Choice
     {
@@ -108,6 +130,7 @@ final readonly class Publishing implements Part
         return $choice->use()->value() === BuiltinReporter::Badge->value
             ? $choice->over(Json::object(
                 Member::of('colors', $own instanceof NotGiven ? $this->colors()->written() : new Absent()),
+                Member::of('logo', $this->logoOption()),
                 Member::of(Trend::KEPT_OPTION, $this->trendKept()),
                 Member::of('newCode', $newCode->percent()),
             ))
@@ -137,6 +160,7 @@ final readonly class Publishing implements Part
                 'badge',
                 Json::object(
                     Member::of('colors', $this->colors instanceof Table ? $this->colors->written() : $this->colors),
+                    Member::of('logo', $this->logo instanceof Path ? $origin->written($this->logo) : $this->logo),
                     Member::of(Trend::KEPT_OPTION, $this->trendKept),
                 ),
             ),
@@ -157,16 +181,6 @@ final readonly class Publishing implements Part
 
     public function php(PathOrigin $origin): PhpCalls
     {
-        $calls = [];
-
-        foreach ($this->colors instanceof Table ? $this->colors : [] as $colour => $lowest) {
-            $calls[] = sprintf('Badge::colour(%s, %s)', PhpCalls::literal($colour), PhpCalls::literal($lowest));
-        }
-
-        if (is_int($this->trendKept)) {
-            $calls[] = sprintf('Badge::trendKept(%d)', $this->trendKept);
-        }
-
         $topic = $this->topic instanceof Absent
             ? []
             : [sprintf('Dashboard::topic(%s)', PhpCalls::literal($this->topic))];
@@ -174,6 +188,26 @@ final readonly class Publishing implements Part
             ? [sprintf('Dashboard::repositories(%s)', PhpCalls::literals(...$this->repositories))]
             : [];
 
-        return PhpCalls::inWith(...$calls, ...$topic, ...$repositories);
+        return PhpCalls::inWith(...$this->badgePhp($origin), ...$topic, ...$repositories);
+    }
+
+    /** @return list<string> the builder's calls for `badge.colors`, `badge.logo` and `badge.trendKept` */
+    private function badgePhp(PathOrigin $origin): array
+    {
+        $calls = [];
+
+        foreach ($this->colors instanceof Table ? $this->colors : [] as $colour => $lowest) {
+            $calls[] = sprintf('Badge::colour(%s, %s)', PhpCalls::literal($colour), PhpCalls::literal($lowest));
+        }
+
+        $logo = $this->logo instanceof Absent
+            ? []
+            : [sprintf(
+                'Badge::logo(%s)',
+                PhpCalls::literal($this->logo instanceof Path ? $origin->written($this->logo) : $this->logo),
+            )];
+        $kept = is_int($this->trendKept) ? [sprintf('Badge::trendKept(%d)', $this->trendKept)] : [];
+
+        return [...$calls, ...$logo, ...$kept];
     }
 }

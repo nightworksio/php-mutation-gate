@@ -10,6 +10,7 @@ rect for rect, never resampled, recoloured, redrawn or stretched.
 | [`php-mutation-gate-mark.svg`](php-mutation-gate-mark.svg) | The mark: the logo without the name, 576 by 456 | The docs site's logo |
 | [`php-mutation-gate-favicon.svg`](php-mutation-gate-favicon.svg) | The mark, padded to a square | The docs site's icon |
 | [`php-mutation-gate-favicon-32.png`](php-mutation-gate-favicon-32.png), [`-180.png`](php-mutation-gate-favicon-180.png), [`-512.png`](php-mutation-gate-favicon-512.png) | The square mark at 32, 180 and 512 pixels | Browser tabs, home screens and app icons |
+| [`resources/badge/helix.svg`](../../resources/badge/helix.svg) | The helix: a double helix of 14 by 14 pixels in the logo's greens, cream and slate, shipped with the package | The logo beside each badge's label, as shields.io's `logoSvg` |
 | [`php-mutation-gate-social.svg`](php-mutation-gate-social.svg) | The social card, 1280 by 640 | The docs site's Open Graph image, rendered to PNG, and the repository's social preview |
 
 Every colour of the docs site's theme is one of the artwork's fills.

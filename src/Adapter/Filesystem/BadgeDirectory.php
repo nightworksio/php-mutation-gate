@@ -17,10 +17,12 @@ use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Cost\SavingsWindow;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\Badge;
 use NightWorksIO\MutationGate\Core\Report\BadgeColors;
+use NightWorksIO\MutationGate\Core\Report\BadgeLogo;
 use NightWorksIO\MutationGate\Core\Report\Overview;
 use NightWorksIO\MutationGate\Core\Report\Summary;
 use NightWorksIO\MutationGate\Core\Report\Trend;
@@ -35,12 +37,13 @@ use Psr\Clock\ClockInterface;
 
 /**
  * The reporter `badge`: into `--publish-dir`, `badge.json` for shields.io,
- * the trend, `trend.json` with this verdict's entry appended to the one
- * found there and `trend.svg` drawn from it, `savings.json`, what the gate
- * saved in `costs.savingsWindow`, 30 days unless set (ADR-0017), and `summary.json`, what an
- * organisation's dashboard reads (ADR-0024). A run its budget cut short
- * updates none of them (ADR-0009). The command line runs it only for
- * a verdict in CI on the default branch.
+ * with the logo `logo` names, the trend, `trend.json` with this verdict's
+ * entry appended to the one found there and `trend.svg` drawn from it,
+ * `savings.json`, what the gate saved in `costs.savingsWindow`, 30 days
+ * unless set (ADR-0017), and `summary.json`, what an organisation's
+ * dashboard reads (ADR-0024). A run its budget cut short updates none of
+ * them (ADR-0009). The command line runs it only for a verdict in CI on the
+ * default branch.
  *
  * @internal
  */
@@ -64,6 +67,12 @@ final readonly class BadgeDirectory implements Reporter
     /** What `newCode` holds, where it holds anything else. */
     private const string NEW_CODE = 'The floor for new code is a percentage from 0 to 100.';
 
+    /** What `logo` holds, where it holds anything else. */
+    private const string LOGO = 'The badge\'s logo is true for the helix, false for none, or the path of an SVG file.';
+
+    /** What a `logo` file holds, where it holds nothing. */
+    private const string NO_LOGO = 'The badge\'s logo names a file that holds no SVG.';
+
     private const string CUT_SHORT = 'A run its budget cut short updates neither the badge nor the trend.';
 
     private const string SAMPLED = 'A sampled run updates neither the badge nor the trend.';
@@ -76,10 +85,14 @@ final readonly class BadgeDirectory implements Reporter
         private Floor $newCode,
         private SavingsWindow $window,
         private int $kept,
+        private BadgeLogo $logo,
     ) {
     }
 
-    /** Into a directory, with the standard floor for new code and the standard savings window. */
+    /**
+     * Into a directory, with the standard floor for new code, the standard
+     * savings window and the gate's helix as the logo.
+     */
     public static function at(string $path, BadgeColors $colors, string $commit, ClockInterface $clock): self
     {
         return new self(
@@ -90,33 +103,69 @@ final readonly class BadgeDirectory implements Reporter
             Floor::whole(),
             SavingsWindow::standard(),
             Trend::KEPT,
+            self::helix(),
         );
+    }
+
+    /** The gate's own logo, the helix the package ships. */
+    public static function helix(): BadgeLogo
+    {
+        $helix = ReportPath::at(Resources::at(Shipped::Badge))->file(BadgeLogo::HELIX);
+
+        return BadgeLogo::drawn($helix->read());
     }
 
     /** This reporter, with this floor for new code in the summary. */
     public function holdingNewCodeTo(Floor $newCode): self
     {
-        return new self($this->path, $this->colors, $this->commit, $this->clock, $newCode, $this->window, $this->kept);
+        return new self(
+            $this->path,
+            $this->colors,
+            $this->commit,
+            $this->clock,
+            $newCode,
+            $this->window,
+            $this->kept,
+            $this->logo,
+        );
+    }
+
+    /** This reporter, with this logo on its badges. */
+    public function showing(BadgeLogo $logo): self
+    {
+        return new self(
+            $this->path,
+            $this->colors,
+            $this->commit,
+            $this->clock,
+            $this->newCode,
+            $this->window,
+            $this->kept,
+            $logo,
+        );
     }
 
     /**
      * From `path` (the publish directory), `colors` (`badge.colors`),
-     * `newCode` (`floors.newCode`, whole where it is not given),
-     * `savingsWindow` (`costs.savingsWindow`), `trendKept`, the newest
-     * entries the trend keeps, and `commit`, which is otherwise read from
-     * the CI's variables, dated by a clock.
+     * `logo` (`badge.logo`, the helix where it is not given), `newCode`
+     * (`floors.newCode`, whole where it is not given), `savingsWindow`
+     * (`costs.savingsWindow`), `trendKept`, the newest entries the trend
+     * keeps, and `commit`, which is otherwise read from the CI's variables,
+     * dated by a clock.
      */
     public static function configured(Options $options, ClockInterface $clock): self|Invalid
     {
         $path = ReportPath::namedOr($options, self::PATH);
         $colors = self::colorsIn($options);
         $newCode = self::newCodeIn($options);
+        $logo = self::logoIn($options);
         $commit = $options->text(Key::of('commit'));
 
         return match (true) {
             $path instanceof Invalid => $path,
             $colors instanceof Invalid => $colors,
             $newCode instanceof Invalid => $newCode,
+            $logo instanceof Invalid => $logo,
             default => new self(
                 $path,
                 $colors,
@@ -125,6 +174,7 @@ final readonly class BadgeDirectory implements Reporter
                 $newCode,
                 SavingsWindow::in($options),
                 self::keptIn($options),
+                $logo,
             ),
         };
     }
@@ -146,11 +196,12 @@ final readonly class BadgeDirectory implements Reporter
             ->with($verdict, Revision::ref($this->commit), Instant::at($now));
         $saved = $this->window->saved($trend->savedSince($this->window->since($now)));
         $summary = Summary::json($verdict, Revision::ref($this->commit), Instant::at($now), $this->newCode, $saved);
+        $badge = Badge::json(Overview::of($verdict)->score(), $this->colors, $this->logo);
         $written = [
-            $this->path->file(self::BADGE)->write(Badge::json(Overview::of($verdict)->score(), $this->colors)),
+            $this->path->file(self::BADGE)->write($badge),
             $this->path->file(self::TREND)->write($trend->json()),
             $this->path->file(self::SPARKLINE)->write(TrendSvg::of($trend)),
-            $this->path->file(self::SAVINGS)->write(Badge::savings($saved)),
+            $this->path->file(self::SAVINGS)->write(Badge::savings($saved, $this->logo)),
             $this->path->file(self::SUMMARY)->write($summary),
         ];
 
@@ -186,6 +237,31 @@ final readonly class BadgeDirectory implements Reporter
         }
 
         return BadgeColors::of($lowest);
+    }
+
+    private static function logoIn(Options $options): BadgeLogo|Invalid
+    {
+        $shown = $options->flag(Key::of('logo'));
+
+        return match (true) {
+            $shown instanceof NotGiven, $shown === true => self::helix(),
+            $shown === false => BadgeLogo::none(),
+            default => self::logoFileIn($options),
+        };
+    }
+
+    private static function logoFileIn(Options $options): BadgeLogo|Invalid
+    {
+        $file = $options->path(Key::of('logo'));
+
+        return $file instanceof Path ? self::logoAt($file) : Invalid::because(Problem::at('logo', self::LOGO));
+    }
+
+    private static function logoAt(Path $file): BadgeLogo|Invalid
+    {
+        $svg = ReportPath::at($file->value())->read();
+
+        return $svg === '' ? Invalid::because(Problem::at('logo', self::NO_LOGO)) : BadgeLogo::drawn($svg);
     }
 
     private static function newCodeIn(Options $options): Floor|Invalid

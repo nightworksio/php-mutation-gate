@@ -1,0 +1,56 @@
+---
+import Default from '@astrojs/starlight/components/SocialIcons.astro';
+import { COPY, ROOT_BASE } from '../where.mjs';
+---
+
+<mutation-gate-versions data-root={ROOT_BASE} data-copy={COPY}>
+    <select aria-label="Version of the docs" hidden></select>
+</mutation-gate-versions>
+<Default />
+
+<script>
+    /** The picker of the site's copies: `next` and each minor, read from the versions.json the site serves at its root (ADR-0038). */
+    class Versions extends HTMLElement {
+        async connectedCallback() {
+            const root = this.dataset.root ?? '';
+            const copy = this.dataset.copy ?? '';
+            const select = this.querySelector('select');
+            const answer = await fetch(`${root}/versions.json`).catch(() => null);
+
+            if (select === null || answer === null || !answer.ok) {
+                return;
+            }
+
+            const { versions, root: atRoot } = await answer.json();
+            const current = copy === '' ? atRoot : copy.slice(1);
+
+            for (const version of versions) {
+                const option = new Option(version.name === atRoot ? `${version.name} (latest)` : version.name, version.path);
+                option.selected = version.name === current;
+                select.append(option);
+            }
+
+            select.hidden = false;
+            select.addEventListener('change', async () => {
+                const page = location.pathname.slice(`${root}${copy}/`.length);
+                const there = `${root}${select.value}${page}`;
+                const found = await fetch(there, { method: 'HEAD' }).catch(() => null);
+
+                location.assign(found !== null && found.ok ? there : `${root}${select.value}`);
+            });
+        }
+    }
+
+    customElements.define('mutation-gate-versions', Versions);
+</script>
+
+<style>
+    select {
+        background: var(--sl-color-black);
+        color: var(--sl-color-gray-2);
+        border: 1px solid var(--sl-color-gray-5);
+        border-radius: 0.25rem;
+        padding: 0.125rem 0.25rem;
+        font-size: var(--sl-text-sm);
+    }
+</style>

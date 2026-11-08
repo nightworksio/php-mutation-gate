@@ -23,7 +23,7 @@ use function sprintf;
 final readonly class Guide
 {
     /** Where a guide of a version's copy of the site is, by its page, and a section in it. */
-    private const string SECTION = '%s%s/guide/%s/#%s';
+    private const string SECTION = '%s%s/using/%s/#%s';
 
     /** A release's copy of the site: its minor's path. */
     private const string COPY = '/%s';
@@ -35,8 +35,8 @@ final readonly class Guide
     /** A released version, a pre-release included, as Composer spells it, with or without its `v`. */
     private const string RELEASED = '/^v?(?<minor>\d+\.\d+)\.\d+(?:-[0-9A-Za-z.]+)?$/D';
 
-    /** The path of `main`'s pages, which are the site's root while no version is tagged. */
-    private const string UNRELEASED = '';
+    /** The path of `main`'s copy of the site, its next release's pages. */
+    private const string UNRELEASED = '/next';
 
     private function __construct(private string $copy)
     {

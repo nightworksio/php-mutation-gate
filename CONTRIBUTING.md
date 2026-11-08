@@ -40,8 +40,8 @@ Before each push, run the entries for what you changed:
 | anything | `hygiene/typos` and `hygiene/lines` |
 | PHP, `composer.json`, `phpstan.neon`, `phpstan/layers.neon`, `rector.php` or `pint.json` | `checks` and `rules`, and the tests of the code you changed: `vendor/bin/pest <test files>` |
 | Markdown | `hygiene/markdown` and `hygiene/links` |
-| `ARCHITECTURE.md`, `.docs/reference/`, `.docs/guide/ci/` or `.docs/guide/troubleshooting.md` | the Markdown entries, and `composer test`, because tests read them |
-| `.docs/`, `.site/`, `README.md` or what prints a link into the docs | `site/build` |
+| `ARCHITECTURE.md` or `.docs/using/` | the Markdown entries, and `composer test`, because tests read them |
+| `.docs/`, `.site/`, `README.md`, `CONTRIBUTING.md`, `ARCHITECTURE.md`, `SECURITY.md` or what prints a link into the docs | `site/build` |
 | a workflow | `hygiene/actionlint` and `hygiene/zizmor` |
 | `.github/scripts` or `resources/action` | `scripts` |
 
@@ -53,7 +53,7 @@ files share in a class of `tests/Support`. A test that starts a real process
 goes in `tests/Process` instead, mirroring `src` the same way. Its file holds
 the units its tests kill with a `holds:` group on each test, since the gate's
 own config lists `Process` in `tests.holding`
-([holding tests](.docs/guide/concepts/holding-tests.md)).
+([holding tests](.docs/features/holding-tests.md)).
 
 The whole suite runs locally too, more slowly:
 
@@ -158,6 +158,9 @@ A comment whose first line is one of these runs it:
   suite enforces, and `tests/Docs` holds the documentation to the code. The
   gate judges its own mutants by `Unit` and `Plugins`. `Process` and
   `Contract` judge only the units they hold.
+- **CI, the docs and releases** each have a page of their own:
+  [how CI works](.docs/contributing/ci.md), [the docs](.docs/contributing/docs.md)
+  and [releasing](.docs/contributing/releasing.md).
 - **The reusable workflow is generated.** Edit its template,
   `scripts/workflows/mutation-gate/`, and run
   `python3 scripts/workflows/generate.py`, which writes
@@ -183,7 +186,8 @@ A comment whose first line is one of these runs it:
   a plugin, a package of its own under `plugins/<name>`, as `plugins/default`
   is ([ADR-0021](.docs/decisions/0021-mutators-are-written-once-and-first-party-sets-can-leave.md)).
 
-[Writing an adapter](.docs/guide/extending/writing-an-adapter.md) says how a
+[Extending the gate](.docs/extending/README.md) lists every extension point
+with its contract, and [adapters](.docs/extending/adapters.md) says how a
 config names an adapter, and how an adapter reads its options.
 
 ## Maintainers and decisions

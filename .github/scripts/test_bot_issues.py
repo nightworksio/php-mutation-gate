@@ -7,7 +7,7 @@ import fake_github
 
 TABLES = bot_tables.Tables(fake_github.ROOT)
 WEB = fake_github.WEB
-SITE = "https://nightworksio.github.io/php-mutation-gate/0.1/guide/troubleshooting/"
+SITE = "https://nightworksio.github.io/php-mutation-gate/0.1/using/troubleshooting/"
 QUERY = f'repo:{fake_github.REPOSITORY} is:issue "no-tree"'
 
 
@@ -25,7 +25,7 @@ class Reply(unittest.TestCase):
 
         self.assertTrue(said.startswith(f"{bot_issues.MARK}\nIssues that name the same message"))
         self.assertIn("- #9\n- #4", said)
-        self.assertIn(f"[no-tree]({WEB}/blob/main/.docs/guide/troubleshooting.md#no-tree)", said)
+        self.assertIn(f"[no-tree]({WEB}/blob/main/.docs/using/troubleshooting.md#no-tree)", said)
 
 
 class Run(unittest.TestCase):

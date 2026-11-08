@@ -1,14 +1,16 @@
 # The docs site, built from .docs where it stands, with every link into it
 # checked, and the links the gate prints checked against the pages it built
 # (ADR-0038). Called by ci.yml where `scope` says the docs, the site or what
-# prints a link changed, and by pages.yml, which deploys what it builds.
+# prints a link changed, which builds this checkout's docs; and by pages.yml,
+# which builds every copy site_copies.py plans, each from its own ref's tree
+# with this checkout's site project, and deploys them.
 name: site
 
 on:
   workflow_call:
     inputs:
       pages:
-        description: Whether to upload the build as the Pages artifact.
+        description: Whether to build every copy of the site and upload them as the Pages artifact.
         type: boolean
         default: false
 
@@ -26,6 +28,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # Every tag, for the copies a deploy builds.
+          fetch-depth: ${{ inputs.pages && '0' || '1' }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
@@ -36,7 +40,36 @@ jobs:
       # Astro's build, which fails on a link to a file that is not there, and
       # then on a link into the site to a page or an anchor it did not build.
       - id: build
+        if: ${{ !inputs.pages }}
         run: npm run build --prefix .site
+      # Every copy: each built from its ref's own tree with this site project,
+      # into its path under .site/out, with the versions the picker reads at
+      # the root. A tag's pages are not held to this sidebar's order.
+      - id: copies
+        if: ${{ inputs.pages }}
+        env:
+          OUT: .site/out
+          TREE: ${{ runner.temp }}/copy
+        run: |
+          set -euo pipefail
+          mkdir -p "${OUT}"
+          python3 .github/scripts/site_copies.py versions > "${OUT}/versions.json"
+          python3 .github/scripts/site_copies.py plan > "${RUNNER_TEMP}/copies.json"
+          while read -r copy; do
+            path="$(jq -r .path <<<"${copy}")"
+            ref="$(jq -r .ref <<<"${copy}")"
+            strict="$(jq -r .strict <<<"${copy}")"
+            commit="${ref}"
+            if [ "${ref}" = main ]; then commit=HEAD; fi
+            git worktree add --detach "${TREE}" "${commit}"
+            rm -rf "${TREE}/.site"
+            rsync -a --exclude node_modules --exclude dist --exclude out --exclude .astro .site/ "${TREE}/.site/"
+            ln -s "${PWD}/.site/node_modules" "${TREE}/.site/node_modules"
+            SITE_COPY="${path}" SITE_REF="${ref}" SITE_STRICT="${strict}" npm run build --prefix "${TREE}/.site"
+            mkdir -p "${OUT}${path}"
+            cp -R "${TREE}/.site/dist/." "${OUT}${path}/"
+            git worktree remove --force "${TREE}"
+          done < <(jq -c '.[]' "${RUNNER_TEMP}/copies.json")
       - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php-version: ${{ env.PHP_VERSION }}
@@ -44,14 +77,14 @@ jobs:
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
       - id: links
         env:
-          SITE_BUILD: .site/dist
+          SITE_BUILD: ${{ inputs.pages && '.site/out/next' || '.site/dist' }}
         run: |
           mkdir -p evidence/raw
           vendor/bin/pest tests/Docs/PrintedLinksTest.php --log-junit=evidence/raw/site.xml
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         if: ${{ inputs.pages }}
         with:
-          path: .site/dist
+          path: .site/out
       # The job's evidence, whatever the steps above did (ADR-0019).
       - name: evidence
         if: ${{ !cancelled() }}

@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { glob } from 'astro/loaders';
-import { DOCS, SECTIONS, slugOf } from './where.mjs';
+import { ROOT_PAGES, SECTIONS, pageOf } from './where.mjs';
 
 /** A page's title: its first heading, as plain text. */
 export function titleOf(markdown) {
@@ -13,12 +13,12 @@ export function titleOf(markdown) {
     return heading[1].replaceAll('`', '').trim();
 }
 
-/** The pages of `.docs`, read where they stand, each titled by its first heading. */
+/** The pages: every file of `.docs` a section holds, and the root's files that are pages, read where they stand, each titled by its first heading. */
 export function pages() {
     const files = glob({
-        pattern: `{${SECTIONS.join(',')}}/**/*.md`,
-        base: DOCS,
-        generateId: ({ entry }) => slugOf(entry),
+        pattern: [`.docs/{${SECTIONS.join(',')}}/**/*.md`, ...Object.keys(ROOT_PAGES)],
+        base: '..',
+        generateId: ({ entry }) => pageOf(entry),
     });
 
     return {

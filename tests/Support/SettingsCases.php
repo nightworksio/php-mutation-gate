@@ -252,6 +252,7 @@ final readonly class SettingsCases
                 "yellow": 70,
                 "orange": 60
             },
+            "logo": true,
             "trendKept": 500
         },
         "dashboard": {
@@ -369,7 +370,7 @@ final readonly class SettingsCases
             ['use' => 'sarif', 'path' => 'build/mutation.sarif'],
             ['use' => 'Acme\\GateSlack\\SlackReporter', 'with' => ['channel' => '#ci']],
         ],
-        'badge' => ['colors' => ['green' => 95], 'trendKept' => 200],
+        'badge' => ['colors' => ['green' => 95], 'logo' => 'build/logo.svg', 'trendKept' => 200],
         'digest' => ['tests' => 3],
         'comment' => [
             'sections' => ['verdict', 'survivors', 'trees'],

@@ -3,8 +3,8 @@
 An ADR records a decision where a reasonable engineer could have chosen
 otherwise. It gives the alternatives and why they lost, so that revisiting the
 decision starts from evidence rather than from scratch. Together with the
-[README](../../README.md), whose reference tables ADR-0018 moves to
-`.docs/reference/`, the ADRs are the whole of this package's design.
+[README](../../README.md) and the docs under `.docs/`, the ADRs are the whole
+of this package's design.
 There is no separate requirements document, and there are no requirement IDs.
 
 ## Rules

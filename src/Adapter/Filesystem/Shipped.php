@@ -17,6 +17,9 @@ enum Shipped: string
     /** The style and the script of the HTML report's page. */
     case ReportPage = 'report-page';
 
+    /** The logo the badges show. */
+    case Badge = 'badge';
+
     /** The style and the script of an organisation's dashboard page. */
     case DashboardPage = 'dashboard-page';
 }
