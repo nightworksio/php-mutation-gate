@@ -57,6 +57,8 @@ final readonly class Digest
 
     private const string WARN = 'warn %s';
 
+    private const string NOTE = 'note %s';
+
     private const string FILE = '@ %s';
 
     private const string MORE = 'more %d: %s';
@@ -88,6 +90,7 @@ final readonly class Digest
             ...Scores::sets($report),
             ProvenanceLine::of($report->field('provenance')),
             ...self::texts($report->field('warnings'), self::WARN),
+            ...self::texts($report->field('notes'), self::NOTE),
             ...self::grouped($shown->of($survivors)),
             ...$shown->leftOut($survivors) > 0
                 ? [sprintf(self::MORE, $shown->leftOut($survivors), sprintf(self::ALL, $gate->command(Verb::Digest)))]

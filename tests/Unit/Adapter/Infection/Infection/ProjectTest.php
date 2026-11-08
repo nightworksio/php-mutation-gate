@@ -300,7 +300,7 @@ it('runs a shard of the flows on the map the plan handed it, in its own layout, 
     $plan = Planned::of(
         Shard::of(ShardId::of(1), Package::at(Path::root()), Units::of(Planned::money()), Seconds::of(1.0), 'money'),
     );
-    new Handoff(Directory::at($at->root()), HandedMaps::limits())->write($plan, CoverageMap::empty()
+    new Handoff(Directory::at($at->root()), HandedMaps::limits())->write($plan, CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\MoneyTest::adds'))
         ->timed(TestId::of('Tests\MoneyTest::adds'), Seconds::of(0.5)), KillHistory::none(), Unplaced::map());
     $shell = InfectionCases::shell($at, InfectionCases::killed($at));
@@ -459,7 +459,7 @@ it('runs the holding suites too for the mutants the whole suite judges through a
     $plan = Planned::of(
         Shard::of(ShardId::of(1), Package::at(Path::root()), Units::of(Planned::money()), Seconds::of(1.0), 'money'),
     );
-    new Handoff(Directory::at($at->root()), HandedMaps::limits())->write($plan, CoverageMap::empty()
+    new Handoff(Directory::at($at->root()), HandedMaps::limits())->write($plan, CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\MoneyTest::adds'))
         ->timed(TestId::of('Tests\MoneyTest::adds'), Seconds::of(0.5)), KillHistory::none(), Unplaced::map());
     $suites = Narrowing::none()->amongSuites(JudgingSuites::holding(Suites::listed('Unit'), Suites::listed('Process')));
@@ -484,7 +484,7 @@ it('reads the lines no test ran from the report beside the XML coverage, which l
         ->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.gate/planned')));
 
     expect($map instanceof CoverageMap ? [...$map->lineSets(Path::of('src/Money.php'))->missed()] : $map)->toEqual([Line::of(12)])
-        ->and($map instanceof CoverageMap ? [...$map->linesCovered(Path::of('src/Money.php'))] : $map)->toEqual([Line::of(11)]);
+        ->and($map instanceof CoverageMap ? [...$map->lineSets(Path::of('src/Money.php'))->lines()] : $map)->toEqual([Line::of(11)]);
 });
 
 it('cannot judge a coverage run whose report of the lines no test ran is missing or not XML', function (Closure $spoil): void {

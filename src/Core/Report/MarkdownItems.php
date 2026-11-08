@@ -11,7 +11,6 @@ use function implode;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
-use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\GateCommand;
 use NightWorksIO\MutationGate\Core\Hint\Attempt;
 use NightWorksIO\MutationGate\Core\Owner\OwnerGroup;
@@ -88,22 +87,22 @@ final readonly class MarkdownItems
      * @param  list<JudgedMutant|Cluster> $items
      * @return list<string>
      */
-    public static function details(array $items, int $of, GateCommand $gate): array
+    public static function details(array $items, int $of, GateCommand $gate, ItemShown $shown): array
     {
         $blocks = [];
 
         foreach ($items as $item) {
-            $blocks[] = $item instanceof Cluster ? self::clusterDetails($item, $gate) : implode("\n\n", [
+            $blocks[] = $item instanceof Cluster ? self::clusterDetails($item, $gate, $shown) : implode("\n\n", [
                 sprintf(
                     '<details><summary>%s %s, %s</summary>',
                     self::place($item),
                     Escape::text(Mutator::short($item->mutant()->mutator())),
                     MutantText::label($item),
                 ),
-                self::diff($item),
-                Escape::text(self::cut($item->hint()->text())),
-                ...self::attempt($item),
-                Escape::code($item->reproduce($gate)),
+                self::diff($item, $shown),
+                Escape::text($shown->cut($item->hint()->text())),
+                ...self::attempt($item, $shown),
+                ...$shown->reproduces() ? [Escape::code($item->reproduce($gate))] : [],
                 '</details>',
             ]);
         }
@@ -120,16 +119,20 @@ final readonly class MarkdownItems
      * @param  list<JudgedMutant|Cluster> $items
      * @return list<string>
      */
-    public static function table(array $items, int $of, GateCommand $gate): array
+    public static function table(array $items, int $of, GateCommand $gate, ItemShown $shown): array
     {
         if ($items === []) {
             return self::more($of);
         }
 
-        $rows = ['| Mutant | Mutator | Judgement | What the tests miss | Command |', '|---|---|---|---|---|'];
+        $rows = $shown->reproduces()
+            ? ['| Mutant | Mutator | Judgement | What the tests miss | Command |', '|---|---|---|---|---|']
+            : ['| Mutant | Mutator | Judgement | What the tests miss |', '|---|---|---|---|'];
 
         foreach ($items as $item) {
-            $rows[] = $item instanceof Cluster ? self::clusterRow($item, $gate) : self::row($item, $gate);
+            $rows[] = $item instanceof Cluster
+                ? self::clusterRow($item, $gate, $shown)
+                : self::row($item, $gate, $shown);
         }
 
         return [implode("\n", $rows), ...self::more($of - count($items))];
@@ -164,12 +167,12 @@ final readonly class MarkdownItems
         return [implode("\n", $rows), ...self::more($of - count($mutants))];
     }
 
-    private static function clusterDetails(Cluster $cluster, GateCommand $gate): string
+    private static function clusterDetails(Cluster $cluster, GateCommand $gate, ItemShown $shown): string
     {
         $diffs = [];
 
         foreach ($cluster->members() as $member) {
-            $diffs[] = self::diff($member);
+            $diffs[] = self::diff($member, $shown);
         }
 
         return implode("\n\n", [
@@ -180,46 +183,55 @@ final readonly class MarkdownItems
             ),
             ...$diffs,
             Escape::text(ClusterText::hint($cluster)),
-            Escape::code($cluster->stub($gate)),
+            ...$shown->reproduces() ? [Escape::code($cluster->stub($gate))] : [],
             '</details>',
         ]);
     }
 
     /** A mutant's diff as a block of code, cut to the characters one entry shows. */
-    private static function diff(JudgedMutant $judged): string
+    private static function diff(JudgedMutant $judged, ItemShown $shown): string
     {
-        return Escape::block(self::cut(rtrim($judged->mutant()->mutation()->diff(), "\n")), 'diff');
+        return Escape::block($shown->cut(rtrim($judged->mutant()->mutation()->diff(), "\n")), 'diff');
     }
 
-    /** Text cut to the characters one entry shows of it. */
-    private static function cut(string $text): string
-    {
-        return Fit::line($text, self::SHOWN_CHARACTERS);
-    }
-
-    private static function row(JudgedMutant $judged, GateCommand $gate): string
+    private static function row(JudgedMutant $judged, GateCommand $gate, ItemShown $shown): string
     {
         $mutant = $judged->mutant();
 
-        return sprintf(
-            '| %s | %s | %s | %s | %s |',
+        return self::cells(
+            $shown,
             self::place($judged),
             Escape::text(Mutator::short($mutant->mutator())),
             MutantText::label($judged),
-            Escape::text(self::cut(MutantText::hinted($judged))),
+            Escape::text($shown->cut(MutantText::hinted($judged))),
             Escape::code($judged->reproduce($gate)),
         );
     }
 
-    private static function clusterRow(Cluster $cluster, GateCommand $gate): string
+    private static function clusterRow(Cluster $cluster, GateCommand $gate, ItemShown $shown): string
     {
-        return sprintf(
-            '| %s | %s | %s | %s | %s |',
+        return self::cells(
+            $shown,
             self::place($cluster->representative()),
             Escape::text(ClusterText::size($cluster)),
             Label::of($cluster->representative()->judgement()),
             Escape::text(ClusterText::hint($cluster)),
             Escape::code($cluster->stub($gate)),
+        );
+    }
+
+    /** A row of the table: each cell, the command last where the entries show it. */
+    private static function cells(
+        ItemShown $shown,
+        string $place,
+        string $mutator,
+        string $label,
+        string $hint,
+        string $command,
+    ): string {
+        return sprintf(
+            '| %s |',
+            implode(' | ', [$place, $mutator, $label, $hint, ...$shown->reproduces() ? [$command] : []]),
         );
     }
 
@@ -238,10 +250,12 @@ final readonly class MarkdownItems
     }
 
     /** @return list<string> a survivor's concrete way to be killed, after `Try:`, where rules read one (ADR-0101) */
-    private static function attempt(JudgedMutant $mutant): array
+    private static function attempt(JudgedMutant $mutant, ItemShown $shown): array
     {
         $attempt = $mutant->hint()->attempt();
 
-        return is_string($attempt) ? [Escape::text(sprintf(Attempt::SAID, self::cut($attempt)))] : [];
+        return is_string($attempt) && $shown->tries()
+            ? [Escape::text(sprintf(Attempt::SAID, $shown->cut($attempt)))]
+            : [];
     }
 }

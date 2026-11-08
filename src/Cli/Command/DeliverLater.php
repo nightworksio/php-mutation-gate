@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\JobCommands;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Delivery\Stage;
+use NightWorksIO\MutationGate\Core\Proof\LedgerRetention;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -47,7 +48,8 @@ final readonly class DeliverLater
             return $composed;
         }
 
-        $delivery = DeliveryDirectory::of($composed->adapters->project, $stage);
+        $delivery = DeliveryDirectory::of($composed->adapters->project, $stage)
+            ->keeping(LedgerRetention::kept($composed->settings->proofs()->retained()));
         $begun = $delivery->begun();
 
         return $begun instanceof CannotJudge ? $begun : $composed->deliveringLater($delivery);

@@ -66,7 +66,11 @@ final readonly class Memory
 
         return $cap->caps()
             ? self::lifted($cap, $observed->files()->runnerConfig()->phpUnitMemory())
-                ->and(self::near($cap, $observed->asked()->measurement()))
+                ->and(self::near(
+                    $cap,
+                    $observed->asked()->measurement(),
+                    Headroom::times($settings->local()->memoryHeadroom()),
+                ))
             : self::advice(Slug::MemoryUncapped, self::UNCAPPED, self::UNCAPPED_WHY, self::UNCAPPED_FIX);
     }
 
@@ -82,16 +86,16 @@ final readonly class Memory
             : Findings::none();
     }
 
-    private static function near(MemoryCap $cap, Measurement|NotGiven $measured): Findings
+    private static function near(MemoryCap $cap, Measurement|NotGiven $measured, Headroom $headroom): Findings
     {
         $peak = $measured instanceof Measurement ? $measured->peak() : NotGiven::value();
 
-        return $peak instanceof MemoryCap && ! Headroom::standard()->isLeftBy($cap, $peak)
+        return $peak instanceof MemoryCap && ! $headroom->isLeftBy($cap, $peak)
             ? self::advice(
                 Slug::MemoryCapNear,
                 sprintf(self::NEAR, $peak->written(), $cap->written()),
                 self::NEAR_WHY,
-                sprintf(self::NEAR_FIX, Headroom::standard()->neededFor($peak)->written()),
+                sprintf(self::NEAR_FIX, $headroom->neededFor($peak)->written()),
             )
             : Findings::none();
     }

@@ -80,9 +80,9 @@ it('annotates a mutant with the reason its record gives before its hint, as the 
         ));
 });
 
-it('warns of one in a set that passed, and gives every warning of the verdict as a notice', function () use ($printed): void {
+it('warns of one in a set that passed, and gives every note of the verdict as a notice', function () use ($printed): void {
     $verdict = Verdicts::of(Floor::of(0), Verdicts::survivor())
-        ->withWarnings(Warnings::of(Warning::that('src/Kernel.php is run by 412 of 430 tests: nothing holds it.')));
+        ->withWarnings(Warnings::of(Warning::noting('src/Kernel.php is run by 412 of 430 tests: nothing holds it.')));
     $lines = $printed($verdict);
 
     expect($lines)->toHaveCount(2)
@@ -102,7 +102,7 @@ it('annotates every mutant counted as not killed, and nothing else', function ()
         'error Mutant flaky%3A MethodCallRemoval',
         'error Mutant unjudged%3A DecrementInteger',
         'error Mutant too slow to judge%3A Plus',
-        'notice mutation-gate',
+        'warning mutation-gate',
     ]);
 });
 
@@ -118,7 +118,7 @@ it('ranks changed lines first, then sets that failed, and keeps 10 of each level
         $mutants[] = JudgedMutant::of(Verdicts::mutant(sprintf('src/Changed.php:%d', $line), 'Plus', MutatorFamily::None, ''), MutantJudgement::Survived)->within($reach);
     }
 
-    $warnings = Warnings::of(...array_map(static fn(int $at): Warning => Warning::that(sprintf('warning %d', $at)), range(1, 12)));
+    $warnings = Warnings::of(...array_map(static fn(int $at): Warning => Warning::noting(sprintf('warning %d', $at)), range(1, 12)));
     $lines = $printed(Verdicts::of(Floor::of(80), ...$mutants)->withWarnings($warnings));
     $files = array_map(static fn(string $line): string => (string) preg_replace('/^::\w+ file=([^,]*),line=(\d+),.*$/', '$1:$2', $line), array_slice($lines, 0, 10));
 
@@ -127,6 +127,26 @@ it('ranks changed lines first, then sets that failed, and keeps 10 of each level
         ->and($lines[10])->toBe('::notice title=mutation-gate::warning 1')
         ->and($lines[19])->toBe('::notice title=mutation-gate::warning 10');
 });
+
+it('raises each warning at warning level, in the room the warned mutants leave', function (int $survivors, array $warned) use ($printed): void {
+    $mutants = array_map(
+        static fn(int $line): JudgedMutant => JudgedMutant::of(Verdicts::mutant(sprintf('src/Money.php:%d', $line), 'Plus', MutatorFamily::None, ''), MutantJudgement::Survived),
+        $survivors === 0 ? [] : range(1, $survivors),
+    );
+    $lines = $printed(Verdicts::of(Floor::of(0), ...$mutants)->withWarnings(Warnings::of(
+        Warning::that('act on the first'),
+        Warning::that('act on the second'),
+        Warning::noting('worth knowing'),
+    )));
+
+    expect(array_values(array_filter($lines, static fn(string $line): bool => str_contains($line, 'title=mutation-gate'))))
+        ->toBe([...$warned, '::notice title=mutation-gate::worth knowing']);
+})->with([
+    'no survivor' => [0, ['::warning title=mutation-gate::act on the first', '::warning title=mutation-gate::act on the second']],
+    'room for one' => [9, ['::warning title=mutation-gate::act on the first']],
+    'no room' => [10, []],
+    'more warned mutants than the level keeps' => [12, []],
+]);
 
 it('keeps 10 warnings, and writes nothing for a verdict with no survivor', function () use ($printed): void {
     $mutants = [];
@@ -176,9 +196,9 @@ it('ranks a cluster by any member on a changed line, and warns of one in a set t
         ->and($printed($passing)[2])->toStartWith('::warning file=src/Cart.php,line=11,');
 });
 
-it('writes a warning that holds a workflow command as one notice, encoded, which starts no other', function () use ($printed): void {
+it('writes a note that holds a workflow command as one notice, encoded, which starts no other', function () use ($printed): void {
     $verdict = Verdicts::of(Floor::of(0))
-        ->withWarnings(Warnings::of(Warning::that("phpstan said: return.type, x:y%0A\n::error::injected\r\n")));
+        ->withWarnings(Warnings::of(Warning::noting("phpstan said: return.type, x:y%0A\n::error::injected\r\n")));
 
     expect($printed($verdict))->toBe(['::notice title=mutation-gate::phpstan said: return.type, x:y%250A%0A::error::injected%0D%0A']);
 });

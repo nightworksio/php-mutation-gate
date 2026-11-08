@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Native\Warm;
 
 use function exec;
+use function getenv;
 use function hrtime;
 use function implode;
 use function is_int;
 
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
 use NightWorksIO\MutationGate\Core\Runner\MaxRss;
 use NightWorksIO\MutationGate\Core\Runner\Overrun;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
@@ -70,7 +72,7 @@ final readonly class Waiting
                 return $early;
             }
 
-            usleep(Polling::interval()->microseconds());
+            usleep(Polling::told(getenv(ChildVariable::Poll->value))->microseconds());
             [$waited, $status, $held] = $this->looked();
         }
 

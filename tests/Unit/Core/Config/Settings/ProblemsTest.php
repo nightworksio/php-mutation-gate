@@ -329,7 +329,17 @@ it('leaves the options of a class or another extension\'s adapter to it', functi
         ->and($settings->staticCheck()->tool())
         ->toEqual(Choice::of('Acme\\Gate\\Analyser', Configs::options('{"level":9}')))
         ->and(Configs::shown($settings, 'runner'))
-        ->toBe(['use' => 'Acme\\Gate\\Runner', 'with' => ['workers' => 4], 'memory' => '1G']);
+        ->toBe([
+            'use' => 'Acme\\Gate\\Runner',
+            'with' => ['workers' => 4],
+            'withhold' => [],
+            'memory' => '1G',
+            'workers' => 'fork',
+            'pathRules' => 'partitioned',
+            'recycleAfter' => 16,
+            'warmSlack' => '1m',
+            'poll' => 0.01,
+        ]);
 });
 
 it('says whether the store keeps its ledgers on this machine', function (string|array $store, bool $kept): void {

@@ -9,6 +9,7 @@ use function array_key_exists;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
+use NightWorksIO\MutationGate\Core\Change\ProvingRange;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\Detached;
 use NightWorksIO\MutationGate\Core\File\ByPath;
@@ -60,6 +61,7 @@ final readonly class PassedPullRequests implements ChangeSource, Repository
         HttpClientInterface $client,
         array $environment,
         string $check,
+        int $range = ProvingRange::STANDARD,
     ): ChangeSource&Repository {
         $read = static fn(string $name): string => array_key_exists($name, $environment) ? $environment[$name] : '';
         $repository = $read('GITHUB_REPOSITORY');
@@ -74,6 +76,7 @@ final readonly class PassedPullRequests implements ChangeSource, Repository
             $repository,
             $head,
             $check,
+            ProvingRange::of($range),
         );
         $queued = $read('GITHUB_EVENT_NAME') === GitHubPlan::MERGE_GROUP
             ? QueueBranch::parse($read('GITHUB_REF'))

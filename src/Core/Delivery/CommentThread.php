@@ -16,8 +16,10 @@ use NightWorksIO\MutationGate\Core\Written;
 interface CommentThread
 {
     /**
-     * The sticky comment, holding this markdown, written or updated in place; where asked, only over its planned
-     * state, and otherwise left as it is with why (CommentStates::NOT_PLANNED); or why it is not written.
+     * The comment, holding this markdown, written as this says: the one found by its marker updated in place, or
+     * posted where there is none; where asked, only over its planned state, and otherwise left as it is with why
+     * (CommentStates::NOT_PLANNED); where asked, only where the gate has commented before (CommentStates::NOT_THERE);
+     * or why it is not written.
      */
-    public function written(string $markdown, bool $overPlanned): Written|NotWritten;
+    public function written(string $markdown, CommentWrite $write): Written|NotWritten;
 }

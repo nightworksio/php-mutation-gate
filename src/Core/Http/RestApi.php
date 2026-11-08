@@ -52,6 +52,12 @@ final readonly class RestApi
     }
 
     /** The answer to deleting what a path under the base names. */
+    /** The answer to patching what a path under the base names with this JSON document. */
+    public function patch(string $path, Json $document): Reply|CannotJudge
+    {
+        return $this->sent(Request::patch($this->url($path), $document->line()));
+    }
+
     public function delete(string $path): Reply|CannotJudge
     {
         return $this->exchange->answer($this->authorised(Request::delete($this->url($path))));

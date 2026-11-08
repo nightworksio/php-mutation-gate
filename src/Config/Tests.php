@@ -39,11 +39,13 @@ final readonly class Tests implements Setting
     /**
      * The `<testsuite>`s whose tests judge only the units they hold with
      * `#[Holds]` or a `holds:` group, by name, such as a suite of tests that
-     * start real processes: they add to the judges of what they hold.
+     * start real processes: they add to the judges of what they hold. None
+     * says that no suite does, as leaving it out does, and the verdict notes
+     * what that means unless `suggest.emptyHolding` is off.
      */
-    public static function holding(string $first, string ...$more): self
+    public static function holding(string ...$names): self
     {
-        return new self(Json::at('tests.holding', Json::items($first, ...$more)));
+        return new self(Json::at('tests.holding', Json::items(...$names)));
     }
 
     public function written(): Json

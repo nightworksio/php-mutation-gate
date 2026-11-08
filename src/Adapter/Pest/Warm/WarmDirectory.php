@@ -112,7 +112,7 @@ final readonly class WarmDirectory
 
         $reasons = array_filter(array_unique($reasons), static fn(string $reason): bool => $reason !== '');
 
-        return Warnings::of(...array_map(Warning::that(...), $reasons));
+        return Warnings::of(...array_map(Warning::noting(...), $reasons));
     }
 
     /** The directory removed, with every file in it. */

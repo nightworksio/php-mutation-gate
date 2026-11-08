@@ -22,7 +22,7 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
 final readonly class Batching
 {
     /** How much expected work a chunk of a shard that can stop once it cannot pass holds (ADR-0032). */
-    private const int CHUNK_MINUTES = 15;
+    public const int CHUNK_MINUTES = 15;
 
     private function __construct(private Seconds $opening, private Seconds|Unlimited $chunk)
     {
@@ -32,12 +32,6 @@ final readonly class Batching
     public static function opening(Seconds $opening): self
     {
         return new self($opening, Unlimited::time());
-    }
-
-    /** The chunk a shard that can stop once it cannot pass runs its units in (ADR-0008). */
-    public static function chunk(): Seconds
-    {
-        return Seconds::minutes(self::CHUNK_MINUTES);
     }
 
     /** These batches, each ending once the next unit takes it, opening run and all, past this. */

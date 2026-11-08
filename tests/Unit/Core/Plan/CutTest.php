@@ -249,6 +249,19 @@ it('cuts to a target wall time the fewest shards whose overhead and share of the
         2,
     ],
     'more than the most shards there may be' => [fn(): Cut => Cut::toTarget(Seconds::of(150.0), Seconds::of(100.0), 2), 2],
+    'shards.cutAt lower than the overhead asks' => [
+        fn(): Cut => Cut::toTarget(Seconds::of(700.0), Seconds::of(100.0), 20)
+            ->cuttingAt(1.0)
+            ->atMost(20)
+            ->opening(Seconds::of(200.0)),
+        3,
+    ],
+    'shards.cutAt higher than every share' => [
+        fn(): Cut => Cut::toTarget(Seconds::of(700.0), Seconds::of(100.0), 20)
+            ->cuttingAt(5.0)
+            ->opening(Seconds::of(200.0)),
+        1,
+    ],
     'an overhead past the target' => [fn(): Cut => Cut::toTarget(Seconds::of(60.0), Seconds::of(100.0), 3), 3],
     'an overhead just past the target' => [fn(): Cut => Cut::toTarget(Seconds::of(99.5), Seconds::of(100.0), 3), 3],
     'an overhead that fills the target' => [fn(): Cut => Cut::toTarget(Seconds::of(100.0), Seconds::of(100.0), 3), 3],

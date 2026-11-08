@@ -8,6 +8,7 @@ use function array_map;
 
 use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
 use NightWorksIO\MutationGate\Core\Analysis\Unchecked;
+use NightWorksIO\MutationGate\Core\Analysis\UncheckedIds;
 use NightWorksIO\MutationGate\Core\Analysis\UncheckedSurvivor;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -18,7 +19,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
  * What static analysis's checks of a shard's survivors came to: its mutants,
  * each survivor the analyser rejected killed by static analysis, the checks'
  * time and the survivors they left unchecked, the survivors they took up, as
- * they were before it, and those a check that never ran may yet kill.
+ * they were before it, and the ids of those left unchecked, by why.
  *
  * @internal
  */
@@ -28,7 +29,7 @@ final readonly class Checked
         public Mutants $mutants,
         public SurvivorChecks $checks,
         public Mutants $examined,
-        public MutantIds $unsettled,
+        public UncheckedIds $unchecked,
     ) {
     }
 
@@ -41,7 +42,7 @@ final readonly class Checked
             $checks = $checks->leaving(UncheckedSurvivor::of($why, $survivor->location()->file()));
         }
 
-        return new self($mutants, $checks, $survivors, $why->settles() ? MutantIds::none() : self::idsOf($survivors));
+        return new self($mutants, $checks, $survivors, UncheckedIds::none()->and($why, self::idsOf($survivors)));
     }
 
     /** The ids of the survivors the checks took up, killed, passed or left. */

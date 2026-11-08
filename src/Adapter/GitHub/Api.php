@@ -18,6 +18,8 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  */
 final readonly class Api
 {
+    /** GitHub's own API, which a run on an Enterprise server names another in place of. */
+    public const string GITHUB = 'https://api.github.com';
     /** The version of the API the answers are read as. */
     private const string VERSION = '2022-11-28';
 
@@ -26,9 +28,6 @@ final readonly class Api
 
     /** The media type of a file's contents as they are. */
     private const string RAW = 'application/vnd.github.raw';
-
-    /** GitHub's own API, which a run on an Enterprise server names another in place of. */
-    private const string GITHUB = 'https://api.github.com';
 
     private function __construct(private HttpClientInterface $client, private string $url, private string $token)
     {
@@ -71,6 +70,12 @@ final readonly class Api
     public function send(string $method, string $path, array $body): Answer|CannotTell
     {
         return $this->ask($method, $path, ['json' => $body]);
+    }
+
+    /** What GitHub's GraphQL API, at this API's URL, answers this query with; or why it did not. */
+    public function query(string $query): Answer|CannotTell
+    {
+        return $this->ask('POST', '', ['json' => ['query' => $query]]);
     }
 
     /** @param array{json?: array<string, string>} $options */

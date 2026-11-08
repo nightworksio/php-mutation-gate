@@ -42,7 +42,7 @@ function measuredMap(): CoverageMap
 {
     $test = TestId::of('MoneyTest::adds');
 
-    return CoverageMap::empty()
+    return CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(3), $test)
         ->covered(Path::of('src/Kernel/Rates.php'), Line::of(3), $test)
         ->timed($test, Seconds::of(0.5));
@@ -73,7 +73,7 @@ it('measures nothing where no engine counts, or no file of the units is there to
 
     expect(new FirstRuns(Flows::adapters(measuredProject(), [], $runner), StartUpSamples::standard())->measured(measuredMap(), $units))
         ->toEqual(FirstRun::unmeasured())
-        ->and(new FirstRuns($counting, StartUpSamples::standard())->measured(CoverageMap::empty(), Units::of(Unit::file(Path::of('src/Gone.php')))))
+        ->and(new FirstRuns($counting, StartUpSamples::standard())->measured(CoverageMap::of(), Units::of(Unit::file(Path::of('src/Gone.php')))))
         ->toEqual(FirstRun::unmeasured())
         ->and($runner->startedUp())->toBe([]);
 });

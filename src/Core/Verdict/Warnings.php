@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Verdict;
 
+use function array_filter;
 use function array_values;
 
 use ArrayIterator;
@@ -45,6 +46,24 @@ final readonly class Warnings implements Countable, IteratorAggregate
     public function and(self $other): self
     {
         return new self([...$this->warnings, ...$other->warnings]);
+    }
+
+    /** Those someone should act on, as the Warnings of a report lists them. */
+    public function actionable(): self
+    {
+        return new self(array_values(array_filter(
+            $this->warnings,
+            static fn(Warning $warning): bool => ! $warning->isNote(),
+        )));
+    }
+
+    /** Those that ask nothing of anyone, as the Notes of a report lists them. */
+    public function notes(): self
+    {
+        return new self(array_values(array_filter(
+            $this->warnings,
+            static fn(Warning $warning): bool => $warning->isNote(),
+        )));
     }
 
     public function count(): int

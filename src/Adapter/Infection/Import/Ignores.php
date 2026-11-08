@@ -40,7 +40,7 @@ use function strpbrk;
  * entry for its directory. Under a mutator it names that mutator; under a
  * profile, or `global-ignore`, each family the profile holds whole and each
  * other mutator of it by name. Each entry has a reason a person must rewrite,
- * and an end 90 days on. A pattern over source, and one that maps to no
+ * and an end 90 days on, or as many as `--ignores-for` says. A pattern over source, and one that maps to no
  * entry, stays in Infection's config, and `ignores.native: allow` keeps it
  * working.
  *
@@ -48,10 +48,9 @@ use function strpbrk;
  */
 final readonly class Ignores
 {
+    /** How long an imported entry lasts, so none outlives a person's look at it, unless `--ignores-for` says. */
+    public const int DAYS = 90;
     private const string REASON = 'Imported from %s (%s): write the real reason';
-
-    /** How long an imported entry lasts, so none outlives a person's look at it. */
-    private const int DAYS = 90;
 
     private const string KEY = 'mutators.%s';
 
@@ -70,8 +69,9 @@ final readonly class Ignores
         ClassFiles $classes,
         Profiles|Unmapped $profiles,
         DateTimeImmutable $now,
+        int $days = self::DAYS,
     ): Import {
-        $expires = Day::on($now->modify(sprintf('+%d days', self::DAYS)));
+        $expires = Day::on($now->modify(sprintf('+%d days', $days)));
         $import = Import::none();
 
         foreach ($mutators->patterns() as $pattern) {

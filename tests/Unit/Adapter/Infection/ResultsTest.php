@@ -57,7 +57,7 @@ function resultsLimits(Project $project): Limits
 {
     InfectionRun::coverage(sprintf('%s/coverage', $project->root()), $project->root(), [], ['Tests\MoneyTest' => 0.5], []);
     $junit = JUnit::at(DiskPath::of(sprintf('%s/coverage/junit.xml', $project->root())));
-    $map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\MoneyTest::adds'));
+    $map = CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\MoneyTest::adds'));
 
     return Limits::of($map, $junit instanceof JUnit ? $junit : throw new RuntimeException('no JUnit'), LimitBounds::between(Seconds::of(10.0), Seconds::of(10.0)), PatchState::Missing);
 }

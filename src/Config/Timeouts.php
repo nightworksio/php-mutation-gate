@@ -79,6 +79,30 @@ final readonly class Timeouts implements Setting
         return new self(Json::at('timeouts.perTest', value: false));
     }
 
+    /** `timeouts.learned.percentile`: the share of a ledger's kills a learned multiple covers, 0.99 by default. */
+    public static function learnedPercentile(int|float $share): self
+    {
+        return new self(Json::at('timeouts.learned.percentile', $share));
+    }
+
+    /** `timeouts.learned.least`: the least a learned multiple is, 2 by default. */
+    public static function learnedLeast(int|float $multiple): self
+    {
+        return new self(Json::at('timeouts.learned.least', $multiple));
+    }
+
+    /** `timeouts.learned.most`: the most a learned multiple is, 10 by default. */
+    public static function learnedMost(int|float $multiple): self
+    {
+        return new self(Json::at('timeouts.learned.most', $multiple));
+    }
+
+    /** `timeouts.startUp`: what a mutant's run allows for start-up where none was measured. */
+    public static function startUp(string $duration): self
+    {
+        return new self(Json::at('timeouts.startUp', $duration));
+    }
+
     /** `timeouts.testFloor`: the least each test of a run may run, in seconds, where `timeouts.perTest` holds it. */
     public static function testFloor(int $seconds): self
     {

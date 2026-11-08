@@ -13,8 +13,11 @@ use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethods;
 use NightWorksIO\MutationGate\Core\Coverage\HandoffLimits;
 use NightWorksIO\MutationGate\Core\Coverage\KeptMap;
 use NightWorksIO\MutationGate\Core\Coverage\LineTests;
+use NightWorksIO\MutationGate\Core\Coverage\LoadedPackages;
 use NightWorksIO\MutationGate\Core\Coverage\MapLimits;
 use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
+use NightWorksIO\MutationGate\Core\Coverage\ProcessLoads;
+use NightWorksIO\MutationGate\Core\Coverage\TestLoad;
 use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -26,12 +29,13 @@ use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Growth;
 use NightWorksIO\MutationGate\Tests\Support\Gunzipped;
 use NightWorksIO\MutationGate\Tests\Support\GzipBomb;
 use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
 
-$map = static fn(): CoverageMap => CoverageMap::empty()
+$map = static fn(): CoverageMap => CoverageMap::of()
     ->covered(Path::of('src/Money.php'), Line::of(12), TestId::of('MoneyTest::adds'))
     ->covered(Path::of('src/Money.php'), Line::of(12), TestId::of('MoneyTest::subtracts'))
     ->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'))
@@ -83,12 +87,12 @@ it('is map.json.gz in the directory a job hands on', function (): void {
 });
 
 it('writes an empty map as no tests and no files', function (): void {
-    expect(Gunzipped::of(CoverageMapFile::encode(CoverageMap::empty(), Unplaced::map())))->toBe('{"format":1,"tests":[],"files":{}}');
+    expect(Gunzipped::of(CoverageMapFile::encode(CoverageMap::of(), Unplaced::map())))->toBe('{"format":1,"tests":[],"files":{}}');
 });
 
 it('reads back the map it wrote', function () use ($map): void {
     expect(CoverageMapFile::decode(CoverageMapFile::encode($map(), Unplaced::map()), HandedMaps::limits()))->toEqual($map())
-        ->and(CoverageMapFile::decode(CoverageMapFile::encode(CoverageMap::empty(), Unplaced::map()), HandedMaps::limits()))->toEqual(CoverageMap::empty());
+        ->and(CoverageMapFile::decode(CoverageMapFile::encode(CoverageMap::of(), Unplaced::map()), HandedMaps::limits()))->toEqual(CoverageMap::of());
 });
 
 it('writes a shard\'s map: only its files, and every test with its seconds', function () use ($map): void {
@@ -161,7 +165,7 @@ it('reads a test timed at no time at all as timed so', function () use ($file, $
 it('reads tests and files that are not a list and a map as none, and knows each listed test though it covers no line', function () use ($file, $written): void {
     $listed = LineTests::placed(TestIds::of(TestId::of('MoneyTest::adds'), TestId::of('MoneyTest::subtracts'), TestId::of('IdleTest::waits')));
 
-    expect(CoverageMapFile::decode($written([...$file(), 'tests' => 'none', 'files' => 7]), HandedMaps::limits()))->toEqual(CoverageMap::empty())
+    expect(CoverageMapFile::decode($written([...$file(), 'tests' => 'none', 'files' => 7]), HandedMaps::limits()))->toEqual(CoverageMap::of())
         ->and(CoverageMapFile::decode($written([...$file(), 'files' => ['src/Money.php' => 'none']]), HandedMaps::limits()))->toEqual(CoverageMap::placed(
             $listed,
             TimedTest::of('MoneyTest::adds', 0.25),
@@ -308,4 +312,39 @@ it('cannot judge by a small stream that inflates past the limit, and stops soon 
 it('reads a map past the compressed limit as none, without inflating it', function (): void {
     expect(CoverageMapFile::decode(sprintf("\x1f\x8b%s", str_repeat('x', 99)), HandoffLimits::of(100, 1_000, 300)))
         ->toEqual(CannotJudge::because('The coverage map is larger than 100 bytes, so no line of it is read.'));
+});
+
+it('keeps what each process\'s tests loaded through the file, under its map\'s places', function (): void {
+    $map = CoverageMap::of()
+        ->covered(Path::of('src/One.php'), Line::of(3), TestId::of('A::a'))
+        ->covered(Path::of('src/Two.php'), Line::of(3), TestId::of('A::b'))
+        ->loading(LoadedPackages::of(ProcessLoads::of(
+            TestLoad::of('A::a', 'acme/one'),
+            TestLoad::of('A::b')->startingProcesses(),
+        )));
+
+    expect(CoverageMapFile::decode(CoverageMapFile::encode($map, Unplaced::map()), HandedMaps::limits()))->toEqual($map)
+        ->and(Decoded::at(Gunzipped::of(CoverageMapFile::encode($map, Unplaced::map())), 'loads'))
+        ->toBe([[[0, ['acme/one'], false], [1, [], true]]])
+        ->and(Decoded::at(Gunzipped::of(CoverageMapFile::encode(CoverageMap::of(), Unplaced::map())), 'loads'))->toBeNull();
+});
+
+it('keeps what the tests loaded in a map cut to some files, and reads no test past the map\'s', function (): void {
+    $map = CoverageMap::of()
+        ->covered(Path::of('src/One.php'), Line::of(3), TestId::of('A::a'))
+        ->loading(LoadedPackages::of(ProcessLoads::of(TestLoad::of('A::a', 'acme/one'))));
+    $text = (string) json_encode(['format' => 1, 'tests' => [['id' => 'A::a']], 'files' => new stdClass(), 'loads' => [[[0, ['acme/one'], false], [9, ['acme/two'], false]]]]);
+    $read = CoverageMapFile::decode(Gzip::pack($text), HandedMaps::limits());
+
+    expect(Decoded::at(Gunzipped::of(CoverageMapFile::encode($map->onlyFor(Paths::of(Path::of('src/Gone.php'))), Unplaced::map())), 'loads'))
+        ->toBe([[[0, ['acme/one'], false]]])
+        ->and($read instanceof CoverageMap ? $read->loaded() : $read)->toEqual($map->loaded());
+});
+
+it('reads a test whose load says nothing of the processes it started as starting one', function (): void {
+    $text = (string) json_encode(['format' => 1, 'tests' => [['id' => 'A::a']], 'files' => new stdClass(), 'loads' => [[[0, ['acme/one']]]]]);
+    $read = CoverageMapFile::decode(Gzip::pack($text), HandedMaps::limits());
+
+    expect($read instanceof CoverageMap ? $read->loaded() : $read)
+        ->toEqual(LoadedPackages::of(ProcessLoads::of(TestLoad::of('A::a', 'acme/one')->startingProcesses())));
 });

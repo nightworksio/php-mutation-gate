@@ -31,6 +31,21 @@ enum ChildVariable: string
     /** How many times its covering tests' own time a patched runner allows a mutant: `timeouts.multiple` (ADR-0008). */
     case MutantMultiple = 'MUTATION_GATE_MUTANT_MULTIPLE';
 
+    /** How long a run gets to start where nothing measured its start-up, `timeouts.startUp` (see StartUpVariable). */
+    case UnmeasuredStartUp = 'MUTATION_GATE_UNMEASURED_START_UP';
+
+    /** The most compressed bytes of a handed coverage map, `proofs.limits.handoff.packed` (see HandoffLimits). */
+    case HandoffPacked = 'MUTATION_GATE_HANDOFF_PACKED';
+
+    /** The most decompressed bytes of a handed coverage map, `proofs.limits.handoff.unpacked` (see HandoffLimits). */
+    case HandoffUnpacked = 'MUTATION_GATE_HANDOFF_UNPACKED';
+
+    /** How long to wait between looks at a process, `runner.poll`, where the config sets it (see Polling). */
+    case Poll = 'MUTATION_GATE_POLL';
+
+    /** Set where a coverage run records what its tests loaded, under `reach.lockMoves: loaded` (ADR-0115). */
+    case RecordsLoads = 'MUTATION_GATE_RECORDS_LOADS';
+
     /** The file listing the mutators a patched runner leaves out of the files it prunes them in (ADR-0025). */
     case Pruned = 'MUTATION_GATE_PRUNED';
 

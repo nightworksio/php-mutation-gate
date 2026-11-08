@@ -64,7 +64,6 @@ use NightWorksIO\MutationGate\Core\Migration\Migrations;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\OwnArchive;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
-use NightWorksIO\MutationGate\Core\Watch\Poll;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use Psr\Clock\ClockInterface;
 
@@ -156,7 +155,7 @@ final readonly class Console
         $application->addCommand(CoverageCommand::command($composition));
         $application->addCommand(PreCommitCommand::command($composition));
         $application->addCommand(PrePushCommand::command($composition, $environment));
-        $application->addCommand(WatchCommand::command($composition, Waiting::every(Poll::interval())));
+        $application->addCommand(WatchCommand::command($composition, Waiting::between(...)));
         $application->addCommand(ServeCommand::command($composition, $project, $vendor, $forking));
         $application->servedBy(new Serving($composition, $project, self::script()));
         $application->addCommand(ReproduceCommand::command($composition));

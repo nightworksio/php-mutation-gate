@@ -93,7 +93,7 @@ final readonly class LedgerJson
             yield TallyRecord::SECTION => JsonText::compact($tally);
         }
 
-        foreach (LimitsRecord::of($ledger->learned()->limits()) as $section => $items) {
+        foreach (LimitsRecord::of($retention->limitsOf($ledger)) as $section => $items) {
             yield $section => JsonText::compact($items);
         }
 

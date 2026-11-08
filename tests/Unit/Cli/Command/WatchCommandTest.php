@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
@@ -313,4 +314,18 @@ it('takes the options that print for an editor', function () use ($changing): vo
     expect($definition->hasOption('output'))->toBeTrue()
         ->and($definition->hasOption('only'))->toBeTrue()
         ->and($definition->hasOption('changed-since'))->toBeFalse();
+});
+
+it('waits local.watchPoll between two looks', function () use ($changing): void {
+    $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
+    $composition = FlowCommands::watching(FlowCommands::project('"local": {"watchPoll": "7s"}'), $runner, new ProofStoreFake(), $changing());
+    $waited = [];
+
+    FlowCommands::run(WatchCommand::command($composition, static function (Seconds $interval) use (&$waited): bool {
+        $waited[] = $interval;
+
+        return false;
+    }));
+
+    expect($waited)->toEqual([Seconds::of(7.0)]);
 });

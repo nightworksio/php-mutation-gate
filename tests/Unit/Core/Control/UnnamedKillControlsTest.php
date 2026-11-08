@@ -71,7 +71,7 @@ function exitedEach(Mutant ...$mutants): Evidences
 /** A map in which RecordTest::a, timed at two seconds, covers line 3 of `src/Record.php`. */
 function recordMap(): CoverageMap
 {
-    return CoverageMap::empty()
+    return CoverageMap::of()
         ->covered(Path::of('src/Record.php'), Line::of(3), TestId::of('RecordTest::a'))
         ->timed(TestId::of('RecordTest::a'), Seconds::of(2.0));
 }

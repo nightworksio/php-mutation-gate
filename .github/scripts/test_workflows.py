@@ -216,6 +216,7 @@ class Publish(unittest.TestCase):
             environment = {
                 **os.environ,
                 **declared,
+                "PUBLISHED": "the-trend",
                 "PATH": f"{gh}{os.pathsep}{os.environ['PATH']}",
                 "GITHUB_REPOSITORY": "octo/gate",
                 "RUNNER_TEMP": directory,
@@ -238,7 +239,8 @@ class Publish(unittest.TestCase):
             with open(body, encoding="utf-8") as file:
                 put = json.load(file)
             self.assertEqual(trend, base64.b64decode(put["content"]).decode())
-            self.assertEqual(declared["PUBLISHED"], put["branch"])
+            self.assertEqual("the-trend", put["branch"])
+            self.assertIn("PUBLISHED: ${{ inputs.publish-branch }}", [line.strip() for line in lines_of(WORKFLOW)])
             self.assertEqual(declared["MESSAGE"], put["message"])
             self.assertEqual("f", put["sha"])
 
@@ -574,18 +576,17 @@ class Shards(unittest.TestCase):
     def test_a_doomed_shard_fails_its_job_after_its_result_is_kept_and_the_others_stop_only_under_cancel(self):
         lines = job(WORKFLOW, "shard")
         found = steps(lines)
+        running = next(at for at, one in enumerate(found) if any("shard: ${{ matrix.shard.id }}" in line for line in one))
         kept = next(at for at, one in enumerate(found) if "actions/upload-artifact@" in one[0])
-        stopping = next(at for at, one in enumerate(found) if one[0].strip() == "- name: Fail this shard once it cannot pass")
         cancelling = next(line for line in lines if line.startswith("      fail-fast: "))
         outputs = job(WORKFLOW, "plan")
 
         self.assertIn("needs.plan.outputs.fail-fast == 'cancel'", cancelling)
         self.assertIn('["pull_request", "merge_group"]', cancelling)
         self.assertIn("      fail-fast: ${{ steps.config.outputs.fail_fast }}", outputs)
-        self.assertLess(kept, stopping)
-        self.assertTrue(any("gate_action.py\" doomed" in line for line in found[stopping]))
-        self.assertFalse(any("secrets." in line or "github.token" in line for line in found[stopping]))
-        self.assertFalse(runs_project_code(found[stopping]))
+        self.assertLess(running, kept)
+        self.assertTrue(any("if: ${{ !cancelled() }}" in line for line in found[kept]))
+        self.assertFalse(any("gate_action.py\" doomed" in line for one in found for line in one))
 
     def test_every_job_that_runs_mutants_on_the_plan_has_the_plans_coverage_map(self):
         # Each timeout, kill and mutant out of memory is judged by its

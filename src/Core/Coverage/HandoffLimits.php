@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Coverage;
 
 use function ini_parse_quantity;
 use function intdiv;
+use function is_numeric;
 use function is_string;
 use function min;
 
@@ -30,7 +31,7 @@ use function sprintf;
 final readonly class HandoffLimits
 {
     /** The most compressed bytes a handed map is read at. */
-    private const int PACKED = 256_000_000;
+    public const int PACKED = 256_000_000;
 
     /** Bytes of memory reading a map takes for each byte it decompresses to: 436 MB for a map of 18.9 MB. */
     private const int PER_BYTE = 23;
@@ -51,14 +52,24 @@ final readonly class HandoffLimits
     {
     }
 
-    /** The limits for a process with this `memory_limit`, as `ini_get` answers it; -1, or none, is no limit. */
-    public static function under(string|false $memoryLimit): self
-    {
+    /**
+     * The limits for a process with this `memory_limit`, as `ini_get` answers it, -1, or none, being no limit; or
+     * what `proofs.limits.handoff.packed` and `proofs.limits.handoff.unpacked` told it, as `getenv` answers them.
+     */
+    public static function under(
+        string|false $memoryLimit,
+        string|false $packed = false,
+        string|false $unpacked = false,
+    ): self {
         $memory = is_string($memoryLimit) ? ini_parse_quantity($memoryLimit) : null;
 
         return new self(
-            self::PACKED,
-            $memory === null || $memory < 0 ? self::UNLIMITED : intdiv($memory, self::PER_BYTE),
+            is_numeric($packed) ? (int) $packed : self::PACKED,
+            match (true) {
+                is_numeric($unpacked) => (int) $unpacked,
+                $memory === null || $memory < 0 => self::UNLIMITED,
+                default => intdiv($memory, self::PER_BYTE),
+            },
             self::RATIO,
         );
     }

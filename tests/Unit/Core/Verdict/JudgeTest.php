@@ -329,7 +329,7 @@ it('judges each mutant by the tests the kill matrix says cover it, a held unit\'
     $judge = $makeJudge();
     $results = $makeResults();
 
-    $matrix = KillMatrix::of(MatrixKind::FirstKiller, CoverageMap::empty()
+    $matrix = KillMatrix::of(MatrixKind::FirstKiller, CoverageMap::of()
         ->covered(Path::of('app/Kernel.php'), Line::of(2), TestId::of('KernelTest::boots'))
         ->covered(Path::of('app/Http/Middleware/Auth.php'), Line::of(5), TestId::of('AuthTest::checks'))
         ->covered(Path::of('app/Http/Middleware/Auth.php'), Line::of(5), TestId::of('KernelTest::boots')));

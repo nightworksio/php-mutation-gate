@@ -29,20 +29,15 @@ use function sprintf;
 /**
  * What an alert says, in groups under a heading, for a chat to lay out: the
  * failing trees with floor, score and previous score, the failures no floor
- * decides and at most five survivors; why the run cannot judge; each tree
+ * decides and the first survivors; why the run cannot judge; each tree
  * again after a recovery; or each lowered floor with its reason
- * (ADR-0016). Whatever the project wrote is cut to 120 characters.
+ * (ADR-0016). Whatever the project wrote is cut to the reporter's
+ * `lineLength`, and it names as many survivors as its `survivors` say.
  *
  * @internal
  */
 final readonly class AlertLines
 {
-    /** The most survivors an alert names. */
-    public const int SURVIVORS = 5;
-
-    /** The longest text the project wrote an alert repeats, a path or a reason, before it is cut. */
-    private const int LONGEST = 120;
-
     /** A tree's or a set's line: its name, its score, how it stands against its floor, and what it was. */
     private const string LINE = '%s: %s%s%s.';
 
@@ -56,25 +51,35 @@ final readonly class AlertLines
 
     private const string NO_REASON = 'The baseline gives no reason.';
 
+    private function __construct(private Chat $chat, private AlertShape $shape)
+    {
+    }
+
     /**
      * Each group's heading and lines, leaving out a group with none.
      *
      * @return list<array{string, list<string>}>
      */
-    public static function of(Alert $alert, Chat $chat): array
+    public static function of(Alert $alert, Chat $chat, AlertShape $shape): array
+    {
+        return new self($chat, $shape)->groups($alert);
+    }
+
+    /** @return list<array{string, list<string>}> */
+    private function groups(Alert $alert): array
     {
         $verdict = $alert->verdict();
         $groups = match ($alert->event()) {
             AlertEvent::Failed => [
-                ['Below the floor', self::trees($alert, $chat, Judgement::Failed)],
-                ['Security below its floor', self::security($alert, $chat)],
-                ['Owners below their floor', self::ownerFloors($alert, $chat)],
-                ['Failures', self::said($verdict->failures(), $chat)],
-                ['Survivors', self::survivors($alert, $chat)],
+                ['Below the floor', $this->trees($alert, Judgement::Failed)],
+                ['Security below its floor', $this->security($alert)],
+                ['Owners below their floor', $this->ownerFloors($alert)],
+                ['Failures', $this->said($verdict->failures())],
+                ['Survivors', $this->survivors($alert)],
             ],
-            AlertEvent::CannotJudge => [['Why', self::said($verdict->obstacles(), $chat)]],
-            AlertEvent::Recovered => [['Trees', self::trees($alert, $chat, Judgement::Passed)]],
-            AlertEvent::FloorLowered => [['Floors lowered', self::lowered($alert, $chat)]],
+            AlertEvent::CannotJudge => [['Why', $this->said($verdict->obstacles())]],
+            AlertEvent::Recovered => [['Trees', $this->trees($alert, Judgement::Passed)]],
+            AlertEvent::FloorLowered => [['Floors lowered', $this->lowered($alert)]],
         };
         $shown = [];
 
@@ -90,12 +95,12 @@ final readonly class AlertLines
      *
      * @return list<string>
      */
-    private static function trees(Alert $alert, Chat $chat, Judgement $judged): array
+    private function trees(Alert $alert, Judgement $judged): array
     {
         $lines = [];
 
         foreach ($alert->verdict()->trees() as $tree) {
-            $lines = $tree->judgement() === $judged ? [...$lines, self::tree($alert, $tree, $chat)] : $lines;
+            $lines = $tree->judgement() === $judged ? [...$lines, $this->tree($alert, $tree)] : $lines;
         }
 
         return $lines;
@@ -106,7 +111,7 @@ final readonly class AlertLines
      *
      * @return list<string>
      */
-    private static function security(Alert $alert, Chat $chat): array
+    private function security(Alert $alert): array
     {
         $lines = [];
 
@@ -115,9 +120,9 @@ final readonly class AlertLines
             $lines = $set->judgement() === Judgement::Failed
                 ? [...$lines, sprintf(
                     self::LINE,
-                    $chat->text(Fit::line(SetText::securityName($set), self::LONGEST)),
+                    $this->chat->text(Fit::line(SetText::securityName($set), $this->shape->lineLength())),
                     Percent::of($set->score()),
-                    self::against($floor, self::BELOW),
+                    $this->against($floor, self::BELOW),
                     '',
                 )]
                 : $lines;
@@ -131,7 +136,7 @@ final readonly class AlertLines
      *
      * @return list<string>
      */
-    private static function ownerFloors(Alert $alert, Chat $chat): array
+    private function ownerFloors(Alert $alert): array
     {
         $lines = [];
 
@@ -139,9 +144,9 @@ final readonly class AlertLines
             $lines = $owner->judgement() === Judgement::Failed
                 ? [...$lines, sprintf(
                     self::LINE,
-                    $chat->text(Fit::line(SetText::ownerFloorName($owner), self::LONGEST)),
+                    $this->chat->text(Fit::line(SetText::ownerFloorName($owner), $this->shape->lineLength())),
                     Percent::of($owner->score()),
-                    self::against($owner->floor(), self::BELOW),
+                    $this->against($owner->floor(), self::BELOW),
                     '',
                 )]
                 : $lines;
@@ -150,7 +155,7 @@ final readonly class AlertLines
         return $lines;
     }
 
-    private static function tree(Alert $alert, TreeVerdict $tree, Chat $chat): string
+    private function tree(Alert $alert, TreeVerdict $tree): string
     {
         $path = $tree->tree()->path();
         $floor = $tree->floor();
@@ -158,15 +163,15 @@ final readonly class AlertLines
 
         return sprintf(
             self::LINE,
-            $chat->code(Fit::line($path->value(), self::LONGEST)),
+            $this->chat->code(Fit::line($path->value(), $this->shape->lineLength())),
             Percent::of($tree->score()),
-            self::against($floor, $tree->judgement() === Judgement::Failed ? self::BELOW : self::AGAINST),
+            $this->against($floor, $tree->judgement() === Judgement::Failed ? self::BELOW : self::AGAINST),
             $was instanceof Score ? sprintf(self::WAS, Percent::of($was)) : '',
         );
     }
 
     /** How a score stands against a floor, said this way; nothing where no floor holds it. */
-    private static function against(Floor|Exempt|Undeclared $floor, string $standing): string
+    private function against(Floor|Exempt|Undeclared $floor, string $standing): string
     {
         return $floor instanceof Floor ? sprintf($standing, Percent::of($floor)) : '';
     }
@@ -176,7 +181,7 @@ final readonly class AlertLines
      *
      * @return list<string>
      */
-    private static function survivors(Alert $alert, Chat $chat): array
+    private function survivors(Alert $alert): array
     {
         $overview = Overview::of($alert->verdict());
         $failing = [];
@@ -187,27 +192,27 @@ final readonly class AlertLines
 
         $lines = [];
 
-        foreach (array_slice($failing, 0, self::SURVIVORS) as $judged) {
-            $lines[] = self::survivor($judged, $chat);
+        foreach (array_slice($failing, 0, $this->shape->survivors()) as $judged) {
+            $lines[] = $this->survivor($judged);
         }
 
-        return count($failing) > self::SURVIVORS
-            ? [...$lines, Fit::more(count($failing) - self::SURVIVORS)]
+        return count($failing) > $this->shape->survivors()
+            ? [...$lines, Fit::more(count($failing) - $this->shape->survivors())]
             : $lines;
     }
 
-    private static function survivor(JudgedMutant $judged, Chat $chat): string
+    private function survivor(JudgedMutant $judged): string
     {
         $mutant = $judged->mutant();
         $location = $mutant->location();
 
         return sprintf(
             '%s %s, %s',
-            $chat->code(Fit::line(
+            $this->chat->code(Fit::line(
                 sprintf('%s:%d', $location->file()->value(), $location->start()->number()),
-                self::LONGEST,
+                $this->shape->lineLength(),
             )),
-            $chat->text(Fit::line(Mutator::short($mutant->mutator()), self::LONGEST)),
+            $this->chat->text(Fit::line(Mutator::short($mutant->mutator()), $this->shape->lineLength())),
             Label::of($judged->judgement()),
         );
     }
@@ -217,7 +222,7 @@ final readonly class AlertLines
      *
      * @return list<string>
      */
-    private static function lowered(Alert $alert, Chat $chat): array
+    private function lowered(Alert $alert): array
     {
         $lines = [];
 
@@ -225,11 +230,11 @@ final readonly class AlertLines
             $lowering = $floor->lowering();
             $lines[] = sprintf(
                 self::LOWERED,
-                $chat->code(Fit::line($floor->tree()->value(), self::LONGEST)),
+                $this->chat->code(Fit::line($floor->tree()->value(), $this->shape->lineLength())),
                 Percent::of($floor->from()),
                 Percent::of($floor->to()),
                 $lowering instanceof Lowered
-                    ? $chat->text(Fit::line($lowering->reason(), self::LONGEST))
+                    ? $this->chat->text(Fit::line($lowering->reason(), $this->shape->lineLength()))
                     : self::NO_REASON,
             );
         }
@@ -243,12 +248,13 @@ final readonly class AlertLines
      * @param  iterable<Failure|CannotJudge> $items
      * @return list<string>
      */
-    private static function said(iterable $items, Chat $chat): array
+    private function said(iterable $items): array
     {
         $lines = [];
 
         foreach ($items as $item) {
-            $lines[] = $chat->text(Fit::line($item instanceof Failure ? $item->text() : $item->why(), self::LONGEST));
+            $said = $item instanceof Failure ? $item->text() : $item->why();
+            $lines[] = $this->chat->text(Fit::line($said, $this->shape->lineLength()));
         }
 
         return $lines;

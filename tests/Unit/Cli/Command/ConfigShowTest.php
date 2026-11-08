@@ -70,7 +70,7 @@ it('lays the command line over the config file', function () use ($show, $decode
     $shown = $show('Configured', ['--runner' => 'pest', '--report' => ['json:build/mutation.json']]);
 
     expect($decoded($shown->output))->toMatchArray([
-        'runner' => ['use' => 'pest', 'memory' => '1G'],
+        'runner' => ['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01],
         'reports' => [
             ['use' => 'sarif', 'path' => 'build/mutation.sarif'],
             ['use' => 'json', 'path' => 'build/mutation.json'],
@@ -81,7 +81,7 @@ it('lays the command line over the config file', function () use ($show, $decode
 it('shows zero-config where there is no config file', function () use ($show, $decoded): void {
     expect($decoded($show('Laravel')->output))->toMatchArray([
         'preset' => 'laravel',
-        'runner' => ['use' => 'pest', 'memory' => '1G'],
+        'runner' => ['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app']]],
     ]);
 });
@@ -101,7 +101,9 @@ it('prints the effective config in the format --format names', function () use (
         )
         ->and($php)->toContain(
             "    ->preset(Preset::symfony())\n"
-            . "    ->runner(Runner::infection()->cappedAt(MemoryCap::of(1, MemoryUnit::Gigabytes)))\n",
+            . "    ->runner(Runner::infection()->cappedAt(MemoryCap::of(1, MemoryUnit::Gigabytes))"
+            . "->inWorkers(Workers::Fork)->applyingPathRules(PathRuleMode::Partitioned)"
+            . "->paced(Pace::of(recycleAfter: 16, warmSlack: '1m', poll: 0.01)))\n",
         );
 });
 

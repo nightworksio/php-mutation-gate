@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report;
 
+use NightWorksIO\MutationGate\Core\Config\Definition\Duration;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
@@ -56,8 +57,11 @@ final readonly class SummarySchema
                 ],
                 'savings' => [
                     'type' => 'object',
-                    'properties' => ['last30Days' => ReportSchema::SECONDS],
-                    'required' => ['last30Days'],
+                    'properties' => [
+                        'seconds' => ReportSchema::SECONDS,
+                        'window' => ['type' => 'string', 'pattern' => Duration::PATTERN],
+                    ],
+                    'required' => ['seconds', 'window'],
                     'additionalProperties' => false,
                 ],
                 'mutators' => [

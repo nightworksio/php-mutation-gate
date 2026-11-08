@@ -155,6 +155,18 @@ final readonly class ContainerLedger implements EncodesLedgers, ObjectStore, Pro
         );
     }
 
+    public function limitedTo(LedgerLimits $limits): static
+    {
+        return new self(
+            $this->ledgers->within($limits),
+            $this->account,
+            $this->container,
+            $this->publicContainer,
+            $this->defaultBranch,
+            $this->tokens,
+        );
+    }
+
     public function read(Scope $scope): Ledger|Unreadable
     {
         return $this->ledgers->read($this, $scope);

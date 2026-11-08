@@ -20,4 +20,5 @@ enum Off
     case Ordering;
     case Stopping;
     case TimingTests;
+    case WatchingPackages;
 }

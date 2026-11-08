@@ -160,7 +160,7 @@ it('runs a timeout\'s control of a data set\'s rows as its mutant\'s own run ran
         static fn(string $row): TestId => TestId::of(sprintf('P\Tests\MoneySpec::__pest_evaluable_it_answers#dataset "%s"', $row)),
         ['Extenders::whatBecameOf', 'Extenders::install', 'Pausers::whatBecameOf'],
     );
-    $map = CoverageMap::empty()
+    $map = CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(3), $rows[0])
         ->covered(Path::of('src/Tax.php'), Line::of(3), $rows[1], $rows[2]);
     $hung = Mutant::of(

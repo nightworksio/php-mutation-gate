@@ -41,6 +41,12 @@ final readonly class Choice
         return $this->options;
     }
 
+    /** This choice, with these options laid beneath its own: each key its own leave out takes its value there. */
+    public function over(Json $beneath): self
+    {
+        return new self($this->use, $this->options->over($beneath));
+    }
+
     /** As a config writes it: its name alone where it has no options, else `{"use": …, "with": …}`. */
     public function written(): Json|string
     {

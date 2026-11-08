@@ -27,7 +27,7 @@ function timingMap(): CoverageMap
 {
     $test = TestId::of('MoneyTest::adds');
 
-    return CoverageMap::empty()
+    return CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(3), $test)
         ->covered(Path::of('src/Kernel/Rates.php'), Line::of(3), $test);
 }
@@ -49,7 +49,7 @@ it('measures nothing where the units hold no file, or a run of no test cannot ru
     $none = new StartUpTiming(Flows::adapters(Flows::project(), [], $empty), StartUpSamples::standard());
 
     expect($timing->of(timingMap(), Units::of(Unit::file(Path::of('src/Money.php')))))->toBeInstanceOf(Unmeasured::class)
-        ->and($none->of(CoverageMap::empty(), Units::of(Unit::held(Path::of('src/Kernel'), Group::named('holds:src/Kernel')))))
+        ->and($none->of(CoverageMap::of(), Units::of(Unit::held(Path::of('src/Kernel'), Group::named('holds:src/Kernel')))))
         ->toBeInstanceOf(Unmeasured::class)
         ->and($empty->startedUp())->toBe([]);
 });

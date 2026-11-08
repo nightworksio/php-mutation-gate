@@ -13,7 +13,7 @@ use NightWorksIO\MutationGate\Core\Written;
 use function sprintf;
 
 /**
- * A ledger as it is written: what {@see LedgerRetention::standard()} keeps,
+ * A ledger as it is written: what its limits' retention keeps,
  * packed as its codec says, and within the limits a run reads a ledger to (ADR-0013).
  * Retention caps proofs, not bytes, so a project whose units hold many
  * mutants can reach the limits first; then the oldest proofs of those kept
@@ -35,7 +35,7 @@ final readonly class EncodedLedger
      */
     public static function within(Ledger $ledger, LedgerLimits $limits, LedgerCodec $codec): self|CannotJudge
     {
-        $retention = LedgerRetention::standard();
+        $retention = $limits->retention();
         $retained = count($retention->proofsOf($ledger));
         $kept = $retained;
         $text = LedgerJson::text($ledger, $retention);

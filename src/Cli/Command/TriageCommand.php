@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Cli\Command;
 use function count;
 use function intval;
 use function is_string;
+use function max;
 
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
@@ -46,10 +47,7 @@ final readonly class TriageCommand
     /** The runs a triage makes unless asked for another number. */
     private const string RUNS = '5';
 
-    /** The fewest runs that can disagree. */
-    private const int FEWEST = 2;
-
-    private const string REPEAT_WHAT = '--repeat takes a whole number of 2 or more, not "%s".';
+    private const string REPEAT_WHAT = '--repeat takes a whole number of %d or more, not "%s".';
 
     private const string ORDER_WHAT = '--order takes runner or killers-first, not "%s".';
 
@@ -72,13 +70,17 @@ final readonly class TriageCommand
                 description: 'The order of each mutant\'s tests: runner or killers-first, tests.order by default',
             )
             ->setCode(static function (InputInterface $input, OutputInterface $output) use ($composition): int {
-                $runs = self::runs($input);
-                $composed = $runs instanceof CannotJudge ? $runs : $composition->compose($input);
-                $order = $composed instanceof Composed ? self::order($input, $composed) : $composed;
+                $composed = $composition->compose($input);
+
+                if (! $composed instanceof Composed) {
+                    return Failed::because($output, $composed);
+                }
+
+                $runs = self::runs($input, $composed);
+                $order = self::order($input, $composed);
 
                 return match (true) {
                     $runs instanceof CannotJudge => Failed::because($output, $runs),
-                    ! $composed instanceof Composed => Failed::because($output, $composed),
                     ! $order instanceof TestOrder => Failed::because($output, $order),
                     default => self::triaged($composed, $input, $output, $runs, $order),
                 };
@@ -115,14 +117,14 @@ final readonly class TriageCommand
     }
 
     /** @return int<2, max>|CannotJudge */
-    private static function runs(InputInterface $input): int|CannotJudge
+    private static function runs(InputInterface $input, Composed $composed): int|CannotJudge
     {
         $text = CommandText::option($input, self::REPEAT);
-        $runs = intval($text);
+        $fewest = $composed->settings->local()->triageFewest();
 
-        return WholeNumber::isPositive($text) && $runs >= self::FEWEST
-            ? $runs
-            : CannotJudge::because(sprintf(self::REPEAT_WHAT, $text));
+        return WholeNumber::isPositive($text) && intval($text) >= $fewest
+            ? max($fewest, intval($text))
+            : CannotJudge::because(sprintf(self::REPEAT_WHAT, $fewest, $text));
     }
 
     private static function order(InputInterface $input, Composed $composed): TestOrder|CannotJudge

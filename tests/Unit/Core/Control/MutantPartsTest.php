@@ -19,7 +19,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  */
 function partsMap(array $times): CoverageMap
 {
-    $map = CoverageMap::empty();
+    $map = CoverageMap::of();
 
     foreach ($times as $test => $seconds) {
         $map = $map->timed(TestId::of($test), Seconds::of($seconds));

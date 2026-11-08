@@ -5,8 +5,13 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\Config\Listed;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\Judges;
+use NightWorksIO\MutationGate\Core\Coverage\LoadedPackages;
 use NightWorksIO\MutationGate\Core\Coverage\NoMap;
+use NightWorksIO\MutationGate\Core\Coverage\ProcessLoads;
+use NightWorksIO\MutationGate\Core\Coverage\TestLoad;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -14,6 +19,7 @@ use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Reach\Layout;
+use NightWorksIO\MutationGate\Core\Reach\LockLoads;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Reach\Reaching;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
@@ -21,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Reach\Sources;
 use NightWorksIO\MutationGate\Core\Reach\TestRuns;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
@@ -172,6 +179,22 @@ it('reaches only the units whose files the paths entries a config moved match, w
         ->and($reach->reaches(Unit::file(Path::of('packages/core/src/Clock.php'))))->toBeTrue()
         ->and($reach->reaches(Unit::file(Path::of('src/Money.php'))))->toBeFalse()
         ->and($said($reach))->toBe(['`mutation-gate.json` changed what paths sets for `src/Legacy/**`, `packages/core/src/*.php`, so the units they match are reached.']);
+});
+
+it('reaches only the files of the tests that loaded what a lock moved, where it decides as it did at the base', function () use ($reaching, $judges, $said): void {
+    $lock = Path::of('composer.lock');
+    $map = CoverageMap::of()
+        ->covered(Path::of('src/Clock.php'), Line::of(3), TestId::of('A::a'))
+        ->covered(Path::of('src/Money.php'), Line::of(4), TestId::of('B::a'))
+        ->loading(LoadedPackages::of(ProcessLoads::of(TestLoad::of('B::a'), TestLoad::of('A::a', 'acme/one'))));
+    $sources = Sources::none()->decidingAlike($lock)->movingPackages($lock, LockLoads::of(Listed::of('acme/one'), $map));
+
+    $reach = $reaching()->of(Changes::of(Change::modified($lock, Lines::of(Line::of(9)))), $judges(), $sources, TestRuns::wholeFiles());
+
+    expect($reach->isEverywhere())->toBeFalse()
+        ->and($reach->reaches(Unit::file(Path::of('src/Clock.php'))))->toBeTrue()
+        ->and($reach->reaches(Unit::file(Path::of('src/Money.php'))))->toBeFalse()
+        ->and($said($reach))->toBe(['`composer.lock` moved `acme/one`, and the tests that loaded them, or started a process that could have, run 1 files.']);
 });
 
 it('reaches everything where a file that decides how the gate runs was renamed, moved, added or deleted, however alike it reads', function (Change $change, string $said) use ($reaching, $judges): void {

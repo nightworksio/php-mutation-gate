@@ -7,10 +7,14 @@ namespace NightWorksIO\MutationGate\Core\Reach;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\ChangeKind;
 use NightWorksIO\MutationGate\Core\Composer\DecidingPackages;
+use NightWorksIO\MutationGate\Core\Composer\LockMoves;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
+use NightWorksIO\MutationGate\Core\Config\Listed;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
  * Each package's `composer.json` and `composer.lock`, as they decide how the
@@ -24,14 +28,23 @@ use NightWorksIO\MutationGate\Core\File\Path;
  */
 final readonly class DecidingManifests
 {
-    private function __construct(private Packages $packages, private DecidingPackages $deciding)
-    {
+    private function __construct(
+        private Packages $packages,
+        private DecidingPackages $deciding,
+        private CoverageMap $map,
+    ) {
     }
 
     /** The manifests and locks of these packages, deciding by the packages these name. */
     public static function in(Packages $packages, DecidingPackages $deciding): self
     {
-        return new self($packages, $deciding);
+        return new self($packages, $deciding, CoverageMap::of());
+    }
+
+    /** The same, reading what the tests of this map loaded where a lock narrows by it (ADR-0115). */
+    public function measuredBy(CoverageMap $map): self
+    {
+        return new self($this->packages, $this->deciding, $map);
     }
 
     /** Whether a file is the lock of the package that holds it. */
@@ -43,7 +56,10 @@ final readonly class DecidingManifests
     /** Whether a lock, as it was and as it is, decides how the gate runs: a lock that is missing either way does. */
     public function decides(Contents|Missing $before, Contents|Missing $now): bool
     {
-        return ! $before instanceof Contents || ! $now instanceof Contents || $this->deciding->decide($before, $now);
+        return ! $before instanceof Contents
+            || ! $now instanceof Contents
+            || $this->deciding->decide($before, $now)
+            || ($this->deciding->narrowsByLoads() && ! $this->map->loaded()->covers($this->map->tests()));
     }
 
     /** Whether a file is the manifest of the package that holds it. */
@@ -67,8 +83,27 @@ final readonly class DecidingManifests
     public function marking(Sources $sources, Change $change): Sources
     {
         return $change->kind() === ChangeKind::Modified && ! $this->decidesAt($sources, $change->path())
-            ? $sources->decidingAlike($change->path())
+            ? $this->loading($sources->decidingAlike($change->path()), $change->path())
             : $sources;
+    }
+
+    /** These sources, with the packages a lock moved and the files of the tests that loaded them (ADR-0115). */
+    private function loading(Sources $sources, Path $path): Sources
+    {
+        $before = $sources->before($path);
+        $now = $sources->now($path);
+        $moves = $this->deciding->narrowsByLoads()
+            && $this->isLock($path)
+            && $before instanceof Contents
+            && $now instanceof Contents
+                ? LockMoves::between($before, $now)
+                : NotGiven::value();
+
+        if (! $moves instanceof LockMoves) {
+            return $sources;
+        }
+
+        return $sources->movingPackages($path, LockLoads::of(Listed::of(...$moves->packages()), $this->map));
     }
 
     /** Whether a change to a file decides how the gate runs, as a manifest or a lock; any other file does. */

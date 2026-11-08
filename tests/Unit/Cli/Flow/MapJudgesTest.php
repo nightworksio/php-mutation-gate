@@ -15,7 +15,7 @@ use NightWorksIO\MutationGate\Tests\Support\MisbehavingRunner;
 /** A map covering src/Money.php and src/Rate.php, in that order. */
 function judgedMap(): CoverageMap
 {
-    return CoverageMap::empty()
+    return CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'))
         ->covered(Path::of('src/Rate.php'), Line::of(5), TestId::of('RateTest::rounds'));
 }

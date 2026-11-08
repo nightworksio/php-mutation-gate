@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Alert\Delivery;
+use NightWorksIO\MutationGate\Core\Alert\PostLimits;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\StoppedClock;
 use Symfony\Component\HttpClient\MockHttpClient;
@@ -102,4 +104,14 @@ it('says what a service answered on one plain line, so it can start no workflow 
     expect($why)->toBe('Discord answered 400: bad ::error file=src/x.php::owned [31mred[0m end')
         ->and($why)->not->toContain("\n")
         ->and($why)->not->toContain("\e");
+});
+
+it('holds each request and each wait to the limits the reporter is given', function (): void {
+    $answers = [new MockResponse('slow down', ['http_code' => 429, 'response_headers' => ['Retry-After' => '120']]), new MockResponse('ok')];
+    $waited = new ArrayObject();
+
+    expect(deliveryOver($answers, $waited)->within(PostLimits::of(Seconds::of(4.0), Seconds::of(45.0)))->post('https://hooks.example/a', '{}', [], 'Slack'))
+        ->toEqual(Written::to('Slack'))
+        ->and($answers[0]->getRequestOptions()['max_duration'])->toBe(4.0)
+        ->and($waited->getArrayCopy())->toBe([45]);
 });

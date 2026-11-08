@@ -37,6 +37,18 @@ final readonly class ProcessCommand
         );
     }
 
+    /** This script, told these arguments as `$1` and on, run by the shell in a directory. */
+    public static function inShell(string $directory, string $script, string ...$arguments): self
+    {
+        return new self(
+            ProgramArguments::of('sh', '-c', $script, 'sh', ...$arguments),
+            $directory,
+            Environment::none(),
+            Unlimited::time(),
+            NotGiven::value(),
+        );
+    }
+
     /** This command, also told this; where it was told a variable already, it is told this instead. */
     public function with(Environment $environment): self
     {

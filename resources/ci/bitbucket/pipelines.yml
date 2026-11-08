@@ -40,7 +40,8 @@ definitions:
         script:
           - unset %%bitbucketToken%%
           - composer install --no-interaction --no-progress
-          - vendor/bin/mutation-gate run --plan=.mutation-gate/plan.json
+          # Exit 1 is a shard that cannot pass: Bitbucket runs no step after a failed one, so the verdict fails it.
+          - vendor/bin/mutation-gate run --plan=.mutation-gate/plan.json || [ $? -eq 1 ]
         artifacts:
           - .mutation-gate/results/**
     - step: &mutation-verdict

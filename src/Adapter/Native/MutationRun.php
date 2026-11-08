@@ -64,14 +64,6 @@ use function strval;
  */
 final readonly class MutationRun
 {
-    /**
-     * How many runs a batch holds for each place, so that each place has a
-     * queue of runs while a batch runs, and few places stand idle as the
-     * batch's last runs end: with runs alike, about a thirty-second of a
-     * batch's time.
-     */
-    private const int RUNS_PER_PLACE = 16;
-
     public function __construct(
         private Project $project,
         private Engine $engine,
@@ -189,7 +181,7 @@ final readonly class MutationRun
         $batch = PreparedBatch::of(
             $this->run,
             WorkerSlots::of($processes, strval(getmypid())),
-            self::RUNS_PER_PLACE * $processes->count(),
+            $request->pool()->pace()->recycleAfter() * $processes->count(),
             $end,
         );
 

@@ -92,6 +92,11 @@ final readonly class BucketLedger implements Configurable, EncodesLedgers, Proof
         return new self($this->client, $this->bucket, $this->objects, $this->limits, $codec);
     }
 
+    public function limitedTo(LedgerLimits $limits): static
+    {
+        return new self($this->client, $this->bucket, $this->objects, $limits, $this->codec);
+    }
+
     public static function fromOptions(Options $options): self|Invalid
     {
         $bucket = BucketOptions::read($options);
@@ -159,7 +164,7 @@ final readonly class BucketLedger implements Configurable, EncodesLedgers, Proof
 
         $at = sprintf(self::AT, $this->bucket, $key);
         $fetched = $this->fetched($key, $at);
-        $limits = CompanionRead::limitsOf($companion);
+        $limits = CompanionRead::limitsOf($companion, $this->limits);
 
         return match (true) {
             is_string($fetched) && $limits->admitsPacked(Bytes::length($fetched)) => Contents::of($fetched),

@@ -39,7 +39,7 @@ function exactRowsOver(): array
         TestId::of('P\Tests\MoneySpec::__pest_evaluable_it_takes'),
         TestId::of('P\Tests\WalletSpec::__pest_evaluable_it_fills'),
     );
-    $map = CoverageMap::empty();
+    $map = CoverageMap::of();
 
     foreach ($tests as $test) {
         $map = $map->covered(Path::of('src/Money.php'), Line::of(3), $test);
@@ -68,7 +68,7 @@ it('runs every test of the test files a run loaded with no filter, or of every o
 it('runs every test of a map by every test file where its filter cannot pass and the run said nothing of it', function (): void {
     [$files] = exactRowsOver();
     $long = TestIds::of(...array_map(static fn(int $at): TestId => TestId::of(sprintf('P\Tests\MoneySpec::__pest_evaluable_it_adds_%d_%s', $at, str_repeat('x', 300))), range(1, 400)));
-    $map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(3), ...$long)
+    $map = CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(3), ...$long)
         ->covered(Path::of('src/Other.php'), Line::of(3), TestId::of('P\Tests\MoneySpec::__pest_evaluable_it_rounds'));
 
     expect(new ExactRows($files)->of($long, $map, NotGiven::value()))->toEqual(RunTests::loading($map->tests(), WholeSuite::tests()));

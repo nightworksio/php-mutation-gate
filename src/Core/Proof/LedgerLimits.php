@@ -9,6 +9,8 @@ use function max;
 use function min;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Retained;
+use NightWorksIO\MutationGate\Core\Coverage\MapLimits;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Format\Gzip;
 use NightWorksIO\MutationGate\Core\Format\TooLarge;
@@ -27,26 +29,61 @@ use function sprintf;
 final readonly class LedgerLimits
 {
     /** Twice the 5,486,948 bytes a format 3 ledger of 20,000 proofs measured gzipped, past what format 5 needs. */
-    private const int PACKED = 11_000_000;
+    public const int PACKED = 11_000_000;
 
     /** Twice the 18,830,752 bytes that ledger measured decompressed. */
-    private const int UNPACKED = 38_000_000;
+    public const int UNPACKED = 38_000_000;
 
     /** The longest one read over a network may take, in seconds. */
-    private const float SECONDS = 60.0;
+    public const float SECONDS = 60.0;
 
-    private function __construct(private int $packed, private int $unpacked, private float $seconds)
-    {
+    private function __construct(
+        private int $packed,
+        private int $unpacked,
+        private float $seconds,
+        private LedgerRetention $retention,
+        private MapLimits $map,
+    ) {
     }
 
     public static function standard(): self
     {
-        return new self(self::PACKED, self::UNPACKED, self::SECONDS);
+        return self::of(self::PACKED, self::UNPACKED, self::SECONDS);
     }
 
     public static function of(int $packed, int $unpacked, float $seconds): self
     {
-        return new self($packed, $unpacked, $seconds);
+        return new self($packed, $unpacked, $seconds, LedgerRetention::standard(), MapLimits::standard());
+    }
+
+    /** What `proofs.keep` and `proofs.limits` say. */
+    public static function kept(Retained $kept): self
+    {
+        return new self(
+            $kept->ledgerPacked(),
+            $kept->ledgerUnpacked(),
+            $kept->read()->seconds(),
+            LedgerRetention::kept($kept),
+            MapLimits::kept($kept),
+        );
+    }
+
+    /** These limits, a ledger written within them keeping this. */
+    public function keeping(LedgerRetention $retention): self
+    {
+        return new self($this->packed, $this->unpacked, $this->seconds, $retention, $this->map);
+    }
+
+    /** What a ledger written within these limits keeps. */
+    public function retention(): LedgerRetention
+    {
+        return $this->retention;
+    }
+
+    /** How large a kept coverage map may be. */
+    public function map(): MapLimits
+    {
+        return $this->map;
     }
 
     /** Whether a ledger of this many compressed bytes is read. */

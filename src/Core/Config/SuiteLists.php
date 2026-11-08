@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
+use function count;
+
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Test\JudgingSuites;
@@ -41,14 +43,20 @@ final readonly class SuiteLists
         return new self(Absent::laid($this->judging, $later->judging), Absent::laid($this->holding, $later->holding));
     }
 
-    /** The suites they name; every suite judging every unit where neither is set. */
+    /**
+     * The suites they name; every suite judging every unit where neither is
+     * set, and none judging only the units it holds where `tests.holding` is
+     * left out or empty.
+     */
     public function suites(): JudgingSuites
     {
         $judging = Suites::listed(...$this->judging instanceof Listed ? $this->judging : []);
 
-        return $this->holding instanceof Listed
-            ? JudgingSuites::holding($judging, Suites::listed(...$this->holding))
-            : JudgingSuites::judging($judging);
+        return match (true) {
+            ! $this->holding instanceof Listed => JudgingSuites::judging($judging),
+            count($this->holding) === 0 => JudgingSuites::holdingNone($judging),
+            default => JudgingSuites::holding($judging, Suites::listed(...$this->holding)),
+        };
     }
 
     /** `tests.suites` as a config writes it, where it is set. */

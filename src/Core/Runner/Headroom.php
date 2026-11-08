@@ -17,7 +17,7 @@ namespace NightWorksIO\MutationGate\Core\Runner;
 final readonly class Headroom
 {
     /** How many times the suite's peak the cap holds, as standard. */
-    private const int TIMES = 2;
+    public const int TIMES = 2;
 
     private function __construct(private int $times)
     {
@@ -26,6 +26,12 @@ final readonly class Headroom
     public static function standard(): self
     {
         return new self(self::TIMES);
+    }
+
+    /** This many times the suite's peak, as `local.memoryHeadroom` says. */
+    public static function times(int $times): self
+    {
+        return new self($times);
     }
 
     /** Whether the cap leaves the room above the suite's peak: no cap always does. */

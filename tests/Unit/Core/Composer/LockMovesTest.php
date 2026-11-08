@@ -61,3 +61,28 @@ it('cannot tell what moved where either version is not a lock Composer writes', 
     'a list of packages that is an object' => ['{"packages": {"a/b": {}}}', '{"packages": []}'],
     'an entry with no name' => ['{"packages": [{"version": "1.0"}]}', '{"packages": []}'],
 ]);
+
+it('says a move is wide where it added or removed a package, or moved its autoload.files, extra or type', function (array $was, array $is, bool $wide): void {
+    $lock = static fn(array $entry): Contents => Contents::of((string) json_encode(['packages' => [['name' => 'acme/one', ...$entry]]]));
+    $moves = LockMoves::between($lock($was), $lock($is));
+
+    expect($moves instanceof LockMoves && $moves->isWide())->toBe($wide);
+})->with([
+    'a new version' => [['version' => '1.0.0'], ['version' => '1.0.1'], false],
+    'the autoload of its classes' => [['autoload' => ['psr-4' => ['A\\' => 'a']]], ['autoload' => ['psr-4' => ['A\\' => 'b']]], false],
+    'its autoload.files' => [['autoload' => ['files' => ['a.php']]], ['autoload' => ['files' => ['a.php', 'b.php']]], true],
+    'its extra' => [['extra' => ['laravel' => ['providers' => ['A']]]], ['extra' => ['laravel' => ['providers' => ['B']]]], true],
+    'its type' => [['type' => 'library'], ['type' => 'composer-plugin'], true],
+]);
+
+it('says a move is wide where a package came or went, and not where nothing moved', function (): void {
+    $wide = static function (Contents $was, Contents $is): bool {
+        $moves = LockMoves::between($was, $is);
+
+        return $moves instanceof LockMoves && $moves->isWide();
+    };
+
+    expect($wide(Locks::of(['acme/one' => '1.0.0']), Locks::of(['acme/one' => '1.0.0', 'acme/two' => '1.0.0'])))->toBeTrue()
+        ->and($wide(Locks::of(['acme/one' => '1.0.0', 'acme/two' => '1.0.0']), Locks::of(['acme/one' => '1.0.0'])))->toBeTrue()
+        ->and($wide(Locks::of(['acme/one' => '1.0.0']), Locks::of(['acme/one' => '1.0.0'])))->toBeFalse();
+});

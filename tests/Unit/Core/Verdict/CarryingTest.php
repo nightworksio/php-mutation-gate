@@ -148,7 +148,7 @@ $makeNames = static fn(): TestNames => TestNames::none()
     ->with(TestId::of('TaxTest::rounds'), TestName::in(Path::of('tests/TaxTest.php'), 'rounds'))
     ->with(TestId::of('NewTest::adds'), TestName::in(Path::of('tests/NewTest.php'), 'adds'))
     ->with(TestId::of('RateTest::rates'), TestName::in(Path::of('tests/RateTest.php'), 'rates'));
-$makeMap = static fn(): CoverageMap => CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(7), TestId::of('MoneyTest::adds'));
+$makeMap = static fn(): CoverageMap => CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(7), TestId::of('MoneyTest::adds'));
 $makeCarrying = static fn(): Carrying => Carrying::against($makeNow(), carryDigest('base'), $makeNames(), $makeMap(), $makeSince());
 
 it('counts a unit by its newest result where its source and mutant set are unchanged', function () use ($makeCarrying, $makeRecorded): void {

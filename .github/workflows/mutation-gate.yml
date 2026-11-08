@@ -44,6 +44,10 @@ on:
         description: 'PHP extensions to set up besides the defaults, as setup-php takes them, such as "zstd, intl".'
         type: string
         default: ''
+      ini-values:
+        description: 'PHP ini values to set, as setup-php takes them, such as "memory_limit=2G, opcache.enable_cli=1".'
+        type: string
+        default: ''
       runner:
         description: pest, infection, phpunit, phpspec, codeception, testo or a registered runner's name; the config's, or zero-config's, where empty.
         type: string
@@ -74,6 +78,26 @@ on:
           that ran the suite under coverage; where empty, the plan runs the suite under coverage itself.
         type: string
         default: ''
+      plan-timeout:
+        description: How many minutes the plan job may take, which runs the suite under coverage.
+        type: number
+        default: 60
+      shard-timeout:
+        description: How many minutes each shard job may take.
+        type: number
+        default: 360
+      verdict-timeout:
+        description: How many minutes the verdict job may take.
+        type: number
+        default: 30
+      plan-coverage:
+        description: The coverage driver the plan sets up, as setup-php takes it, such as pcov or xdebug.
+        type: string
+        default: pcov
+      publish-branch:
+        description: The branch publish writes the badge and the trend to, and the verdict reads the last trend from.
+        type: string
+        default: mutation-gate
       runs-on:
         description: 'The runner the plan, the shards, the survivors and the verdict run on: a label, such as ubuntu-24.04-arm, or a JSON list of labels a runner must all have, such as ["self-hosted", "linux"].'
         type: string
@@ -143,7 +167,7 @@ env:
   # out of every change and every proof key.
   GATE_ACTION: .mutation-gate/workflow
   # The branch publish writes the badge and the trend to, and the verdict reads the last trend from.
-  PUBLISHED: mutation-gate
+  PUBLISHED: ${{ inputs.publish-branch }}
   # Where the directory store keeps every scope's ledger: the Actions cache.
   LEDGERS: .mutation-gate/ledger
   # Where fetch writes the store's copy of the default branch's ledger, which
@@ -199,6 +223,7 @@ jobs:
         with:
           php-version: ${{ inputs.php-version }}
           extensions: ${{ inputs.extensions }}
+          ini-values: ${{ inputs.ini-values }}
           coverage: none
       - name: Install the gate
         run: bash "${GATE_ACTION}/resources/action/install.sh" "${GATE_ACTION}"
@@ -236,7 +261,7 @@ jobs:
     needs: fetch
     if: ${{ !cancelled() && needs.fetch.result != 'cancelled' }}
     runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
-    timeout-minutes: 60
+    timeout-minutes: ${{ inputs.plan-timeout }}
     # The comment's planned state goes to deliver-plan.
     permissions:
       contents: read
@@ -279,7 +304,8 @@ jobs:
         with:
           php-version: ${{ inputs.php-version }}
           extensions: ${{ inputs.extensions }}
-          coverage: pcov
+          ini-values: ${{ inputs.ini-values }}
+          coverage: ${{ inputs.plan-coverage }}
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
         env:
           COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
@@ -442,6 +468,7 @@ jobs:
         with:
           php-version: ${{ inputs.php-version }}
           extensions: ${{ inputs.extensions }}
+          ini-values: ${{ inputs.ini-values }}
           coverage: none
       - name: Install the gate
         run: bash "${GATE_ACTION}/resources/action/install.sh" "${GATE_ACTION}"
@@ -470,7 +497,7 @@ jobs:
     needs: plan
     if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.shards != '[]' }}
     runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
-    timeout-minutes: 360
+    timeout-minutes: ${{ inputs.shard-timeout }}
     permissions:
       contents: read
     # ADR-0103: a doomed shard fails as `run.failFast` says; under `cancel`
@@ -530,6 +557,7 @@ jobs:
           config: ${{ inputs.config }}
           php-version: ${{ inputs.php-version }}
           extensions: ${{ inputs.extensions }}
+          ini-values: ${{ inputs.ini-values }}
           runner: ${{ inputs.runner }}
           shard: ${{ matrix.shard.id }}
           mode: ${{ inputs.mode }}
@@ -549,11 +577,6 @@ jobs:
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 1
-      # Reads the result alone and runs none of the project's code.
-      - name: Fail this shard once it cannot pass
-        env:
-          RESULT: .mutation-gate/results/${{ matrix.shard.id }}.json
-        run: python3 "${GATE_ACTION}/resources/action/gate_action.py" doomed
 
   # On a pull request whose plan runs a shard, the last run's survivors run
   # again beside the shards, for a signal within minutes (ADR-0020; ADR-0062),
@@ -589,6 +612,7 @@ jobs:
         with:
           php-version: ${{ inputs.php-version }}
           extensions: ${{ inputs.extensions }}
+          ini-values: ${{ inputs.ini-values }}
           coverage: pcov
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
         env:
@@ -844,6 +868,7 @@ jobs:
         with:
           php-version: ${{ inputs.php-version }}
           extensions: ${{ inputs.extensions }}
+          ini-values: ${{ inputs.ini-values }}
           coverage: none
       - name: Install the gate
         run: bash "${GATE_ACTION}/resources/action/install.sh" "${GATE_ACTION}"
@@ -876,7 +901,7 @@ jobs:
     needs: [fetch, plan, shard, survivors, survivors-report]
     if: ${{ !cancelled() && needs.plan.result != 'skipped' }}
     runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
-    timeout-minutes: 30
+    timeout-minutes: ${{ inputs.verdict-timeout }}
     permissions:
       contents: read
       actions: read
@@ -942,6 +967,7 @@ jobs:
         with:
           php-version: ${{ inputs.php-version }}
           extensions: ${{ inputs.extensions }}
+          ini-values: ${{ inputs.ini-values }}
           coverage: none
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
         env:
@@ -1068,14 +1094,14 @@ jobs:
         env:
           GATE: ${{ steps.resolve.outputs.gate }}
           OPTIONS: ${{ steps.resolve.outputs.options }}
+          ACTION_REPORTS: ${{ steps.config.outputs.action_reports }}
         run: |
           set -uo pipefail
           code=0
           mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
+          mapfile -t reports < <(jq -r '.[]' <<< "${ACTION_REPORTS}")
           "${GATE}" verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results \
-            --report=json:.mutation-gate/action/report.json --report=html:.mutation-gate/action/html \
-            --report=digest:.mutation-gate/action/mutation-gate-digest.txt \
-            --deliver-later "${arguments[@]}" || code=$?
+            "${reports[@]}" --deliver-later "${arguments[@]}" || code=$?
           echo "code=${code}" >> "${GITHUB_OUTPUT}"
       # The verdict leaves this scope's ledger and kept coverage map in its
       # delivery; the directory store is this cache, which needs no key, so
@@ -1200,6 +1226,7 @@ jobs:
         with:
           php-version: ${{ inputs.php-version }}
           extensions: ${{ inputs.extensions }}
+          ini-values: ${{ inputs.ini-values }}
           coverage: none
       - name: Install the gate
         run: bash "${GATE_ACTION}/resources/action/install.sh" "${GATE_ACTION}"

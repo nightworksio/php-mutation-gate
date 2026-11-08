@@ -145,7 +145,7 @@ function warmWarnings(MutationResult|CannotJudge $result): array
         : ['cannot judge'];
 }
 
-$makeAddsOnly = static fn(): CoverageMap => CoverageMap::empty()
+$makeAddsOnly = static fn(): CoverageMap => CoverageMap::of()
     ->covered(Path::of('src/Money.php'), Line::of(7), TestId::of('Tests\MoneySpec::adds'));
 $makeBoth = static fn(): CoverageMap => $makeAddsOnly()->covered(Path::of('src/Money.php'), Line::of(5), TestId::of('Tests\MoneySpec::echoes'));
 
@@ -288,7 +288,7 @@ it('gives its workers no deadline where the request has none, and the time left,
 
 it('starts no worker where no mutant has a run', function (): void {
     $shell = killingWorkers();
-    $result = warmMutation(warmLibrary(), $shell)->of(forking(1), CoverageMap::empty(), LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
+    $result = warmMutation(warmLibrary(), $shell)->of(forking(1), CoverageMap::of(), LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
 
     expect($shell->commands())->toBe([])
         ->and(warmVerdicts($result))->toHaveCount(3);

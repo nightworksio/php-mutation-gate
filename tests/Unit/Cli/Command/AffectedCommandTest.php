@@ -37,7 +37,7 @@ const AFFECTED_AT = '0123456789abcdef0123456789abcdef01234567';
  */
 $affected = static function (string $options, ScriptedRunner $runner, Change ...$changes): FlowCommands {
     $project = FlowCommands::project();
-    $map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds'));
+    $map = CoverageMap::of()->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds'));
     Scratch::write($project, '.mutation-gate/coverage/map.json.gz', CoverageMapFile::encode(
         $map,
         MeasuredAt::of(Revision::ref(AFFECTED_AT), dirty: false),

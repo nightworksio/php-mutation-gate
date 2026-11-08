@@ -77,7 +77,7 @@ function askedControls(TimeoutControls $controls): array
 /** A map in which each of these tests covers lines 3 to 5 of `src/Loop.php`. */
 function loopMap(string ...$tests): CoverageMap
 {
-    $map = CoverageMap::empty();
+    $map = CoverageMap::of();
 
     foreach ($tests as $test) {
         $map = $map->covered(Path::of('src/Loop.php'), Line::of(3), TestId::of($test));

@@ -100,6 +100,11 @@ final readonly class PublicLedger implements EncodesLedgers, ProofStore
         return new self($this->exchange, $this->url, $this->objects, $this->limits, $this->readable, $codec);
     }
 
+    public function limitedTo(LedgerLimits $limits): static
+    {
+        return new self($this->exchange, $this->url, $this->objects, $limits, $this->readable, $this->codec);
+    }
+
     /** Reading this scope's ledger alone, the default branch's, the only one a public URL serves. */
     public function onlyReading(Scope $scope): self
     {
@@ -133,7 +138,7 @@ final readonly class PublicLedger implements EncodesLedgers, ProofStore
         }
 
         $url = sprintf('%s/%s', $this->url, LedgerObject::encoded($path));
-        $fetched = $this->exchange->fetch(Request::get($url), CompanionRead::limitsOf($companion), $url);
+        $fetched = $this->exchange->fetch(Request::get($url), CompanionRead::limitsOf($companion, $this->limits), $url);
 
         return match (true) {
             is_string($fetched) => Contents::of($fetched),

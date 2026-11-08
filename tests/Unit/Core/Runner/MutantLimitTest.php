@@ -33,7 +33,7 @@ it('allows a mutant the floor where its covering tests\' own time is not measure
 });
 
 it('allows a mutant Infection\'s own 5 s plus five times its tests\' time, up to Infection\'s cap', function (float $tests, float $limit): void {
-    expect(MutantLimit::infections()->of(Seconds::of($tests), LimitBounds::upTo(Seconds::of(300.0))))->toEqual(Seconds::of($limit));
+    expect(MutantLimit::infections()->of(Seconds::of($tests), LimitBounds::between(Seconds::of(0.0), Seconds::of(300.0))))->toEqual(Seconds::of($limit));
 })->with([
     'tests that take no time' => [0.0, 5.0],
     'tests that take a second' => [1.0, 10.0],
@@ -51,7 +51,7 @@ it('allows a mutant three times the start-up its run measured, in place of 5 s, 
 ]);
 
 it('keeps Infection\'s own 5 s, whatever start-up the run measured', function (): void {
-    $bounds = LimitBounds::upTo(Seconds::of(300.0))->startingIn(Seconds::of(4.0));
+    $bounds = LimitBounds::between(Seconds::of(0.0), Seconds::of(300.0))->startingIn(Seconds::of(4.0));
 
     expect(MutantLimit::infections()->of(Seconds::of(1.0), $bounds))->toEqual(Seconds::of(10.0));
 });
@@ -63,6 +63,14 @@ it('allows a mutant the bounds\' multiple of its tests\' own time, a learned one
         ->and(MutantLimit::standard()->of(Seconds::of(10.0), $bounds->multipliedBy(Learned::Learned)))->toEqual(Seconds::of(33.0))
         ->and(MutantLimit::standard()->of(Seconds::of(10.0), $bounds->multipliedBy(Learned::Learned)->learning(Multiple::of(6.0))))
         ->toEqual(Seconds::of(63.0))
-        ->and(MutantLimit::infections()->of(Seconds::of(10.0), LimitBounds::upTo(Seconds::of(300.0))->multipliedBy(Multiple::of(4.5))))
+        ->and(MutantLimit::infections()->of(Seconds::of(10.0), LimitBounds::between(Seconds::of(0.0), Seconds::of(300.0))->multipliedBy(Multiple::of(4.5))))
         ->toEqual(Seconds::of(55.0));
+});
+
+it('allows what the bounds say a run starts in where nothing measured it, and Infection its own 5 s whatever they say', function (): void {
+    $bounds = LimitBounds::between(Seconds::of(0.0), Seconds::of(300.0), 7.0);
+
+    expect(MutantLimit::standard()->of(Seconds::of(1.0), $bounds))->toEqual(Seconds::of(10.0))
+        ->and(MutantLimit::standard()->of(Seconds::of(1.0), $bounds->startingIn(Seconds::of(1.0))))->toEqual(Seconds::of(6.0))
+        ->and(MutantLimit::infections()->of(Seconds::of(1.0), $bounds))->toEqual(Seconds::of(10.0));
 });

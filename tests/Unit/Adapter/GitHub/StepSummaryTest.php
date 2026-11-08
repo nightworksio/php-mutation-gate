@@ -3,12 +3,16 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\GitHub\StepSummary;
+use NightWorksIO\MutationGate\Core\Config\CommentShows;
 use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\Cost\SavingsWindow;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\Markdown;
 use NightWorksIO\MutationGate\Core\Report\RecheckedMarkdown;
 use NightWorksIO\MutationGate\Core\Report\Trend;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Written;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\Rechecks;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -27,7 +31,7 @@ it('appends the summary to the step\'s', function () use ($clock): void {
     $file = sprintf('%s/summary.md', $root);
 
     expect(StepSummary::appendingTo($file, 'https://github.com/octo/gate/actions/runs/7', $clock())->report(Verdicts::failing()))->toEqual(Written::to($file))
-        ->and(file_get_contents($file))->toBe(sprintf("Earlier step\n%s", Markdown::summary(Verdicts::failing(), 'https://github.com/octo/gate/actions/runs/7', Verdicts::monthAgo())));
+        ->and(file_get_contents($file))->toBe(sprintf("Earlier step\n%s", Markdown::summary(Verdicts::failing(), 'https://github.com/octo/gate/actions/runs/7', SavingsWindow::standard(), Verdicts::clockNow())));
 });
 
 it('says why it wrote none', function () use ($clock): void {
@@ -64,6 +68,25 @@ it('counts what the default branch saved over the 30 days before its clock', fun
     expect(file_get_contents($file))->toContain('In the last 30 days the gate saved 1h 27m of runner time.');
 });
 
+it('counts over the window its options give', function () use ($clock): void {
+    $root = Scratch::directory();
+    $file = sprintf('%s/summary.md', $root);
+    Scratch::write($root, 'summary.md', '');
+    $verdict = Verdicts::failing()->withAccount(Verdicts::account()->after(Trend::decode(
+        '{"format": 1, "runs": [{"commit": "a", "time": "2026-09-20T12:00:00Z", "trees": {}, "runnerSeconds": 60, "fullRunSeconds": 3660}]}',
+    )));
+    $week = SavingsWindow::of(Seconds::days(7));
+    $read = Environment::during(
+        ['GITHUB_STEP_SUMMARY' => $file, 'GITHUB_RUN_ID' => null],
+        static fn(): StepSummary => StepSummary::configured(Configs::options('{"savingsWindow": "7d"}'), $clock()),
+    );
+
+    $read->report($verdict);
+
+    expect($read)->toEqual(StepSummary::appendingTo($file, '', $clock(), $week))
+        ->and(file_get_contents($file))->toContain('In the last 7 days the gate saved 1h 27m of runner time.');
+});
+
 it('appends the re-checked survivors as the comment shows them, so a fork\'s pull request sees them too', function () use ($clock): void {
     $root = Scratch::directory();
     Scratch::write($root, 'summary.md', "Earlier step\n");
@@ -72,7 +95,7 @@ it('appends the re-checked survivors as the comment shows them, so a fork\'s pul
     expect(StepSummary::appendingTo($file, 'https://github.com/octo/gate/actions/runs/7', $clock())->rechecked(Rechecks::mixed()))
         ->toEqual(Written::to($file))
         ->and(file_get_contents($file))
-        ->toBe(sprintf("Earlier step\n%s", RecheckedMarkdown::comment(Rechecks::mixed(), 'https://github.com/octo/gate/actions/runs/7')))
+        ->toBe(sprintf("Earlier step\n%s", RecheckedMarkdown::comment(Rechecks::mixed(), 'https://github.com/octo/gate/actions/runs/7', CommentShows::of())))
         ->and(StepSummary::appendingTo('', '', $clock())->rechecked(Rechecks::mixed()))
         ->toEqual(NotWritten::because('GITHUB_STEP_SUMMARY is not set, so there is no step summary to write.'));
 });

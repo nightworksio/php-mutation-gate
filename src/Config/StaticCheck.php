@@ -88,6 +88,30 @@ final readonly class StaticCheck implements Setting
         return new self(Json::at('staticCheck.testsTime', TestsTime::Covering->value));
     }
 
+    /** `staticCheck.opcache.batch`: the programs one child compiles; 100. */
+    public static function opcacheBatch(int $programs): self
+    {
+        return new self(Json::at('staticCheck.opcache.batch', $programs));
+    }
+
+    /** `staticCheck.opcache.limit`: how long one child may take to compile its programs, such as `1m`. */
+    public static function opcacheLimit(string $duration): self
+    {
+        return new self(Json::at('staticCheck.opcache.limit', $duration));
+    }
+
+    /** `staticCheck.dependents`: how many dependents of a changed file an analyser reads at most, 25 by default. */
+    public static function dependents(int $files): self
+    {
+        return new self(Json::at('staticCheck.dependents', $files));
+    }
+
+    /** `staticCheck.preCheckAfter`: how many checks of a mutator come before its rate decides, 50 by default. */
+    public static function preCheckAfter(int $checks): self
+    {
+        return new self(Json::at('staticCheck.preCheckAfter', $checks));
+    }
+
     public function written(): Json
     {
         return $this->json;

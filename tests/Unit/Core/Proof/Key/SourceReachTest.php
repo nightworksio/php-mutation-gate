@@ -56,7 +56,7 @@ const REACH_FILES = [
 /** What the project's tests ran: Money's test Money and Rate, and Tax's test Tax, Ledger, Iso, Exchange and Fee. */
 function reachMap(): CoverageMap
 {
-    $map = CoverageMap::empty()
+    $map = CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(5), TestId::of('MoneyTest::adds'))
         ->covered(Path::of('src/Rate.php'), Line::of(3), TestId::of('MoneyTest::adds'))
         ->covered(Path::of('src/Template.php'), Line::of(1), TestId::of('MoneyTest::adds'))
@@ -213,7 +213,7 @@ it('reads every file a map shows run, failing closed, where what a unit reaches 
 it('reads the files a unit reaches in one order, whichever order its tests ran them in', function (): void {
     $runs = ['MoneyTest::adds' => ['src/Money.php', 'src/Rate.php'], 'MoneyTest::formats' => ['src/Money.php', 'src/Template.php']];
     $key = static function (string ...$tests) use ($runs): Digest|Unkeyed {
-        $map = CoverageMap::empty();
+        $map = CoverageMap::of();
 
         foreach ($tests as $test) {
             foreach ($runs[$test] as $file) {

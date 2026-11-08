@@ -158,7 +158,7 @@ it('starts fresh the run of a mutant of a file the worker loaded, and warns of i
 
     expect(parentOf($runs[0]))->toBe(getmypid())
         ->and(parentOf($runs[1]))->toBe(getmypid())
-        ->and(WarmDirectory::cleared($results))->toEqual(Warnings::of(Warning::that(sprintf(
+        ->and(WarmDirectory::cleared($results))->toEqual(Warnings::of(Warning::noting(sprintf(
             'The warm worker had loaded %s, which a mutant changes, so its mutants ran fresh.',
             $mutated,
         ))))
@@ -173,7 +173,7 @@ it('starts fresh the first run of a mutant of a file the worker loads as it read
     $run->run();
 
     expect(parentOf($run))->toBe(getmypid())
-        ->and(WarmDirectory::cleared($results))->toEqual(Warnings::of(Warning::that(sprintf(
+        ->and(WarmDirectory::cleared($results))->toEqual(Warnings::of(Warning::noting(sprintf(
             'The warm worker had loaded %s, which a mutant changes, so its mutants ran fresh.',
             $mutated,
         ))));

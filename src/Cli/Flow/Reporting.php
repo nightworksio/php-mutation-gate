@@ -20,9 +20,11 @@ use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
 use NightWorksIO\MutationGate\Core\Config\Choice;
+use NightWorksIO\MutationGate\Core\Config\Definition\CommentKeys;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\Config\Outputs;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Delivery\Commenting;
 use NightWorksIO\MutationGate\Core\Delivery\Deferring;
@@ -169,6 +171,22 @@ final readonly class Reporting
         return $said;
     }
 
+    /** @return list<Reporter>|Invalid|CannotJudge */
+    public function chosenReporters(Settings $settings, RunOn $runOn): array|Invalid|CannotJudge
+    {
+        $reporters = [];
+
+        foreach ([...$this->listed($settings), ...$this->byTheRun($settings, $runOn)] as $reporter) {
+            if (! $reporter instanceof Reporter) {
+                return $reporter;
+            }
+
+            $reporters[] = $reporter;
+        }
+
+        return $reporters;
+    }
+
     /**
      * What a reporter said of what it wrote, or of why it did not; nothing where it writes nothing of it.
      *
@@ -192,22 +210,6 @@ final readonly class Reporting
     private function commented(Closure $now, Closure $later): Written|NotWritten|CannotJudge
     {
         return $this->later instanceof DeliveryDirectory ? $this->later->adding($later) : $now();
-    }
-
-    /** @return list<Reporter>|Invalid|CannotJudge */
-    private function chosenReporters(Settings $settings, RunOn $runOn): array|Invalid|CannotJudge
-    {
-        $reporters = [];
-
-        foreach ([...$this->listed($settings), ...$this->byTheRun($settings, $runOn)] as $reporter) {
-            if (! $reporter instanceof Reporter) {
-                return $reporter;
-            }
-
-            $reporters[] = $reporter;
-        }
-
-        return $reporters;
     }
 
     /** @return list<string> why the reporters cannot be built: each problem at its path, or the one reason */
@@ -237,7 +239,9 @@ final readonly class Reporting
             $options = $path instanceof Path
                 ? $choice->options()->overPath(Key::of('path'), $path)
                 : $choice->options();
-            $reporters[] = $this->chosen->reporter(Choice::of($choice->use()->value(), $options), $index);
+            $use = $choice->use()->value();
+            $shaped = CommentKeys::forReporter($use, $options, $settings->effective()->reports()->comment());
+            $reporters[] = $this->chosen->reporter($this->laid(Choice::of($use, $shaped), $settings), $index);
         }
 
         return $reporters;
@@ -247,36 +251,78 @@ final readonly class Reporting
     private function byTheRun(Settings $settings, RunOn $runOn): array
     {
         $none = Options::none();
-        $badge = Choice::of(
-            BuiltinReporter::Badge->value,
-            Options::of(Json::object(
-                Member::of('colors', $settings->publishing()->colors()->written()),
-                Member::of('newCode', $settings->floors()->newCode()->percent()),
-                ...$this->publishing,
-            )),
+        $badge = $this->laid(
+            Choice::of(BuiltinReporter::Badge->value, Options::of(Json::object(...$this->publishing))),
+            $settings,
         );
 
+        $outputs = $settings->effective()->reports()->outputs();
+        $chosen = $this->chosen;
+
         return [
-            ...$this->onGitHub() ? [
-                $this->chosen->reporterChosenBy(
+            ...$this->written(
+                $outputs,
+                BuiltinReporter::GitHubAnnotations,
+                $this->onGitHub(),
+                static fn(): Reporter|Invalid|CannotJudge => $chosen->reporterChosenBy(
                     Variables::GITHUB_ACTIONS,
                     Choice::of(BuiltinReporter::GitHubAnnotations->value, $none),
                 ),
-                $this->chosen->reporterChosenBy(
+            ),
+            ...$this->written(
+                $outputs,
+                BuiltinReporter::GitHubSummary,
+                $this->onGitHub(),
+                fn(): Reporter|Invalid|CannotJudge => $chosen->reporterChosenBy(
                     Variables::GITHUB_ACTIONS,
-                    Choice::of(BuiltinReporter::GitHubSummary->value, $none),
+                    $this->laid(Choice::of(BuiltinReporter::GitHubSummary->value, $none), $settings),
                 ),
-            ] : [],
-            ...$this->onAPullRequestThatCanBeCommentedOn()
-                ? [$this->chosen->reporterChosenBy(
+            ),
+            ...$this->written(
+                $outputs,
+                BuiltinReporter::GitHubComment,
+                $this->onAPullRequestThatCanBeCommentedOn(),
+                static fn(): Reporter|Invalid|CannotJudge => $chosen->reporterChosenBy(
                     Variables::GITHUB_ACTIONS,
-                    Choice::of(BuiltinReporter::GitHubComment->value, $none),
-                )]
-                : [],
-            ...$this->environment->inCi() && $this->onDefaultBranch($runOn)
-                ? [$this->chosen->reporterChosenBy(BuiltinReporter::Badge->value, $badge)]
-                : [],
+                    Choice::of(
+                        BuiltinReporter::GitHubComment->value,
+                        CommentKeys::forReporter(
+                            BuiltinReporter::GitHubComment->value,
+                            $none,
+                            $settings->effective()->reports()->comment(),
+                        ),
+                    ),
+                ),
+            ),
+            ...$this->written(
+                $outputs,
+                BuiltinReporter::Badge,
+                $this->environment->inCi() && $this->onDefaultBranch($runOn),
+                static fn(): Reporter|Invalid|CannotJudge => $chosen->reporterChosenBy(
+                    BuiltinReporter::Badge->value,
+                    $badge,
+                ),
+            ),
         ];
+    }
+
+    /**
+     * This reporter, where the run is where it writes and `outputs` lets it.
+     *
+     * @param  Closure(): (Reporter|Invalid|CannotJudge) $built
+     * @return list<Reporter|Invalid|CannotJudge>
+     */
+    private function written(Outputs $outputs, BuiltinReporter $reporter, bool $here, Closure $built): array
+    {
+        return $here && $reporter->isAutomaticUnder($outputs) ? [$built()] : [];
+    }
+
+    /** A reporter's choice, with what the run's settings tell the summary and the badge laid beneath its options. */
+    private function laid(Choice $choice, Settings $settings): Choice
+    {
+        $windowed = $settings->shards()->costs()->savingsWindow()->under($choice);
+
+        return $settings->publishing()->under($windowed, $settings->floors()->newCode());
     }
 
     private function onGitHub(): bool

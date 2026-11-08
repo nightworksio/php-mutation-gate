@@ -6,8 +6,12 @@ namespace NightWorksIO\MutationGate\Adapter\Alert;
 
 use function count;
 use function getenv;
+use function is_int;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\Alert\Alerts;
+use NightWorksIO\MutationGate\Core\Alert\AlertShape;
+use NightWorksIO\MutationGate\Core\Alert\PostLimits;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\CiRun;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
@@ -23,6 +27,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\NoTrend;
 use NightWorksIO\MutationGate\Core\Runner\GateSecret;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\Reporter;
@@ -60,6 +65,8 @@ final readonly class AlertReporter implements Deferring, Reporter
         private string $urlEnv,
         private string $secretEnv,
         private ClockInterface $clock,
+        private AlertShape $shape,
+        private PostLimits $limits,
     ) {
     }
 
@@ -77,7 +84,8 @@ final readonly class AlertReporter implements Deferring, Reporter
         return match (true) {
             $urlEnv instanceof Problem => Invalid::because($urlEnv),
             $secretEnv instanceof Problem => Invalid::because($secretEnv),
-            default => self::to($channel, $environment, $delivery, $clock, $urlEnv, $secretEnv),
+            default => self::to($channel, $environment, $delivery, $clock, $urlEnv, $secretEnv)
+                ->shaped(self::shapeOf($options), self::limitsOf($options)),
         };
     }
 
@@ -90,7 +98,31 @@ final readonly class AlertReporter implements Deferring, Reporter
         string $urlEnv,
         string $secretEnv,
     ): self {
-        return new self($channel, $delivery, $environment, $urlEnv, $secretEnv, $clock);
+        return new self(
+            $channel,
+            $delivery,
+            $environment,
+            $urlEnv,
+            $secretEnv,
+            $clock,
+            AlertShape::standard(),
+            PostLimits::standard(),
+        );
+    }
+
+    /** This reporter, saying as much as this shape lets it, and posting within these limits. */
+    public function shaped(AlertShape $shape, PostLimits $limits): self
+    {
+        return new self(
+            $this->channel,
+            $this->delivery,
+            $this->environment,
+            $this->urlEnv,
+            $this->secretEnv,
+            $this->clock,
+            $shape,
+            $limits,
+        );
     }
 
     /** The reporter for this channel in this process's environment, posting over the network. */
@@ -124,8 +156,8 @@ final readonly class AlertReporter implements Deferring, Reporter
         $deferred = $delivery;
 
         foreach (Alerts::of($verdict) as $alert) {
-            $body = $this->channel->message($alert, $run);
-            $deferred = $deferred->withAlert(AlertPost::of($this->channel->reporter(), $body));
+            $body = $this->channel->message($alert, $run, $this->shape);
+            $deferred = $deferred->withAlert(AlertPost::of($this->channel->reporter(), $body)->within($this->limits));
         }
 
         return $deferred;
@@ -141,7 +173,7 @@ final readonly class AlertReporter implements Deferring, Reporter
 
         return $url === ''
             ? NotWritten::because(sprintf(self::NO_URL, $this->urlEnv, $this->channel->said()))
-            : $this->delivery->post($url, $body, $this->headers($body), $this->channel->said());
+            : $this->delivery->within($this->limits)->post($url, $body, $this->headers($body), $this->channel->said());
     }
 
     /**
@@ -168,9 +200,11 @@ final readonly class AlertReporter implements Deferring, Reporter
     {
         $sent = Written::to($this->channel->said());
 
+        $delivery = $this->delivery->within($this->limits);
+
         foreach ($alerts as $alert) {
-            $body = $this->channel->message($alert, $run);
-            $answer = $this->delivery->post($url, $body, $this->headers($body), $this->channel->said());
+            $body = $this->channel->message($alert, $run, $this->shape);
+            $answer = $delivery->post($url, $body, $this->headers($body), $this->channel->said());
             $sent = $sent instanceof NotWritten ? $sent : $answer;
         }
 
@@ -194,5 +228,31 @@ final readonly class AlertReporter implements Deferring, Reporter
         $variable = $options->text(Key::of($option->value));
 
         return $variable instanceof NotGiven ? $otherwise : $variable;
+    }
+
+    private static function shapeOf(Options $options): AlertShape
+    {
+        $standard = AlertShape::standard();
+        $survivors = $options->integer(Key::of(AlertShape::SURVIVORS));
+        $length = $options->integer(Key::of(AlertShape::LINE_LENGTH));
+
+        return AlertShape::of(
+            is_int($survivors) ? $survivors : $standard->survivors(),
+            is_int($length) ? $length : $standard->lineLength(),
+        );
+    }
+
+    private static function limitsOf(Options $options): PostLimits
+    {
+        $standard = PostLimits::standard();
+        $timeout = $options->text(Key::of(PostLimits::TIMEOUT));
+        $wait = $options->text(Key::of(PostLimits::LONGEST_WAIT));
+        $timed = is_string($timeout) ? Seconds::parse($timeout) : $standard->timeout();
+        $waited = is_string($wait) ? Seconds::parse($wait) : $standard->longestWait();
+
+        return PostLimits::of(
+            $timed instanceof Seconds ? $timed : $standard->timeout(),
+            $waited instanceof Seconds ? $waited : $standard->longestWait(),
+        );
     }
 }

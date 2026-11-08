@@ -30,10 +30,10 @@ it('writes every file for the report, lowest first, each with its functions, and
 it('writes the lowest-scoring files it lists for the summary, and nothing where it lists none', function (): void {
     $unscored = Heatmap::of(Heatmaps::tree(80, [['src/Cart.php:3', MutantJudgement::Ignored, false]]), Heatmaps::spans(...));
 
-    expect(HeatmapJson::summary(Heatmaps::fallen()->listing(HeatmapRows::of(files: 1, comment: 0))))->toBe(['heatmap' => [
+    expect(HeatmapJson::summary(Heatmaps::fallen()->listing(HeatmapRows::of(files: 1))))->toBe(['heatmap' => [
         ['path' => 'src/Cart.php', 'score' => 50.0, 'base' => 50.0, 'notKilled' => 1],
     ]])
-        ->and(HeatmapJson::summary(Heatmaps::fallen()->listing(HeatmapRows::of(files: 0, comment: 5))))->toBe([])
+        ->and(HeatmapJson::summary(Heatmaps::fallen()->listing(HeatmapRows::of(files: 0))))->toBe([])
         ->and(HeatmapJson::report($unscored))->toBe(['heatmap' => [['path' => 'src/Cart.php', 'notKilled' => 0, 'functions' => []]]]);
 });
 

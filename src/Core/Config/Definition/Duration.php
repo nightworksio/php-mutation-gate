@@ -19,6 +19,9 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  */
 final readonly class Duration implements Shape
 {
+    /** The pattern a JSON schema holds a written duration to. */
+    public const string PATTERN = '^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$';
+
     public static function written(): self
     {
         return new self();
@@ -42,7 +45,7 @@ final readonly class Duration implements Shape
     {
         return Json::object()
             ->with(Member::of('type', 'string'))
-            ->with(Member::of('pattern', '^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$'));
+            ->with(Member::of('pattern', self::PATTERN));
     }
 
     public function effects(): array

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Config\Retained;
+use NightWorksIO\MutationGate\Core\Cost\ShardsAtOnce;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -20,9 +22,11 @@ use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Proof\Bases;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerRetention;
+use NightWorksIO\MutationGate\Core\Proof\LimitHistory;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Run;
+use NightWorksIO\MutationGate\Core\Runner\Multiple;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
@@ -146,10 +150,45 @@ it('keeps the killers of at most the twenty thousand mutants and five thousand f
         ->withLearned(learnedInTurn(0, 20_000, static fn(int $made): KillHistory => KillHistory::none()->withMutant($id($made), $ranking))
             ->and(learnedInTurn(0, 5_000, static fn(int $made): KillHistory => KillHistory::none()
                 ->withFunction(Enclosing::named(Path::of('src/A.php'), sprintf('f%d', $made)), $ranking))));
-    $kept = LedgerRetention::standard()->killersOf($ledger);
+    $kept = LedgerRetention::kept(Retained::of(killers: 20_000))->killersOf($ledger);
 
-    expect(iterator_count($kept->mutants()))->toBe(20_000)
+    expect(iterator_count(LedgerRetention::standard()->killersOf($ledger)->mutants()))->toBe(20_001)
+        ->and(iterator_count($kept->mutants()))->toBe(20_000)
         ->and(iterator_count($kept->functions()))->toBe(5_000)
         ->and($kept->likelyKillers($id(0), Nameless::code())->count())->toBe(0)
         ->and($kept->likelyKillers($id(20_000), Nameless::code())->count())->toBe(1);
+});
+
+it('keeps one killer, function, kill and run where proofs.keep keeps one of each', function () use ($base): void {
+    $made = array_map(static fn(string $to): MutantId => MutantId::hash(Path::of('src/A.php'), 'Plus', sprintf("-a\n+%s", $to), 0), ['b', 'c']);
+    $ranking = Ranking::of(Kills::of(TestId::of('ATest::a'), 1));
+    $ledger = Ledger::empty()
+        ->withProof(Proof::of(
+            Digest::of(hash('sha256', 'held')),
+            Path::of('src/A.php'),
+            Mutants::of(...array_map(static fn(MutantId $id): Mutant => Mutant::of(
+                $id,
+                'n',
+                Location::of(Path::of('src/A.php'), Line::of(3), Line::of(3)),
+                Mutation::of('Plus', MutatorFamily::Arithmetic, "-a\n+b"),
+                MutantStatus::Killed,
+                Unmeasured::duration(),
+            ), $made)),
+            Run::of('local', Moment::at('2026-09-29T20:00:00Z'), $base(1)),
+        ))
+        ->atBase($base(1))
+        ->withLearned(KillHistory::none()
+            ->withMutant($made[0], $ranking)
+            ->withMutant($made[1], $ranking)
+            ->withFunction(Enclosing::named(Path::of('src/A.php'), 'a'), $ranking)
+            ->withFunction(Enclosing::named(Path::of('src/A.php'), 'b'), $ranking))
+        ->withLearned(LimitHistory::none()
+            ->afterKills(Multiple::of(1.5), Multiple::of(2.0))
+            ->afterRuns(ShardsAtOnce::of(4), ShardsAtOnce::of(6)));
+    $one = LedgerRetention::kept(Retained::of(killers: 1, functions: 1, kills: 1, runs: 1));
+    $killers = $one->killersOf($ledger);
+    $limits = $one->limitsOf($ledger);
+
+    expect([iterator_count($killers->mutants()), iterator_count($killers->functions()), $limits->killCount(), $limits->runCount()])
+        ->toBe([1, 1, 1, 1]);
 });

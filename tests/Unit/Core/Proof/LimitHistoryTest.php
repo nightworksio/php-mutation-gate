@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Config\LearnedBounds;
 use NightWorksIO\MutationGate\Core\Config\LearnedStatistic;
 use NightWorksIO\MutationGate\Core\Cost\ShardsAtOnce;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Order\Bound;
 use NightWorksIO\MutationGate\Core\Proof\LimitHistory;
 use NightWorksIO\MutationGate\Core\Runner\Multiple;
 
@@ -17,7 +19,7 @@ $times = static fn(LimitHistory $history): array => array_map(static fn(Multiple
 $counts = static fn(LimitHistory $history): array => array_map(static fn(ShardsAtOnce $run): int => $run->count(), [...$history->concurrency()]);
 
 it('learns the multiple 99 in 100 kills took over their tests\' own time, kept between 2 and 10', function (array $kills, float $multiple) use ($killed): void {
-    expect($killed(...array_values(array_filter($kills, is_float(...))))->multiple())->toEqual(Multiple::of($multiple));
+    expect($killed(...array_values(array_filter($kills, is_float(...))))->multiple(LearnedBounds::standard()))->toEqual(Multiple::of($multiple));
 })->with([
     'a hundred kills, one slow' => [fn(): array => [...array_fill(0, 99, 3.0), 50.0], 3.0],
     'two hundred kills, two slow' => [fn(): array => [...array_fill(0, 198, 4.0), 6.0, 50.0], 4.0],
@@ -38,7 +40,7 @@ it('learns the pace of kills as the median of their multiples, unbounded', funct
 ]);
 
 it('learns no multiple and no pace from no kill, and no most shards from no run', function (): void {
-    expect(LimitHistory::none()->multiple())->toBeInstanceOf(NotGiven::class)
+    expect(LimitHistory::none()->multiple(LearnedBounds::standard()))->toBeInstanceOf(NotGiven::class)
         ->and(LimitHistory::none()->pace())->toBeInstanceOf(NotGiven::class)
         ->and(LimitHistory::none()->shards(LearnedStatistic::Max))->toBeInstanceOf(NotGiven::class);
 });
@@ -58,16 +60,25 @@ it('learns no kill of no positive multiple and no run of no shard', function () 
         ->and($ran(0)->runCount())->toBe(0);
 });
 
-it('keeps only the newest 2,000 kills and the newest 10 runs', function () use ($killed, $ran, $times, $counts): void {
-    $history = $killed(...array_fill(0, 2000, 9.0))->afterKills(Multiple::of(2.5))->afterRuns(...array_map(ShardsAtOnce::of(...), range(1, 12)));
-    $kept = $times($history);
+it('keeps only the newest kills and runs it is told to', function () use ($killed, $ran, $times, $counts): void {
+    $history = $killed(9.0, 9.0, 9.0)->afterKills(Multiple::of(2.5))->afterRuns(...array_map(ShardsAtOnce::of(...), range(1, 12)));
+    $kept = $history->keepingLast(Bound::atMost(2), Bound::atMost(10));
 
-    expect($history->killCount())->toBe(2000)
-        ->and($kept[1999])->toBe(2.5)
-        ->and($kept[0])->toBe(9.0)
-        ->and($history->runCount())->toBe(10)
-        ->and($counts($history))->toBe(range(3, 12))
-        ->and($counts($ran(...range(1, 11))))->toBe(range(2, 11));
+    expect($times($kept))->toBe([9.0, 2.5])
+        ->and($kept->runCount())->toBe(10)
+        ->and($counts($kept))->toBe(range(3, 12))
+        ->and($history->killCount())->toBe(4)
+        ->and($counts($ran(...range(1, 11))->keepingLast(Bound::atMost(1), Bound::atMost(LimitHistory::RUNS))))->toBe(range(2, 11));
+});
+
+it('reads a learned multiple within the bounds asked', function () use ($killed): void {
+    $history = $killed(1.0, 3.0, 5.0, 20.0);
+
+    expect($history->multiple(LearnedBounds::standard()))->toEqual(Multiple::of(10.0))
+        ->and($history->multiple(LearnedBounds::of(percentile: 0.5)))->toEqual(Multiple::of(3.0))
+        ->and($history->multiple(LearnedBounds::of(percentile: 0.5, least: 4)))->toEqual(Multiple::of(4.0))
+        ->and($history->multiple(LearnedBounds::of(percentile: 1, most: 15)))->toEqual(Multiple::of(15.0))
+        ->and($history->multiple(LearnedBounds::of(percentile: 0)))->toEqual(Multiple::of(2.0));
 });
 
 it('reads another scope\'s kills or runs where this one learned none of them', function () use ($killed): void {

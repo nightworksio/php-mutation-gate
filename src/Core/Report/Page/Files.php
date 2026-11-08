@@ -24,9 +24,6 @@ use function sprintf;
  */
 final readonly class Files
 {
-    /** How many files the overview names; the files below list every one. */
-    public const int SHOWN = 8;
-
     private const string CARD = <<<'HTML'
         <section class="card files" aria-labelledby="files-title">
         <h2 id="files-title">Files judged <span class="count">%d</span></h2>
@@ -47,12 +44,12 @@ final readonly class Files
 
     private const string CLEAN = '<p class="empty">No file has a survivor.</p>';
 
-    public static function html(Mutants $mutants): string
+    public static function html(Mutants $mutants, int $shown): string
     {
         $files = $mutants->files();
         $items = [];
 
-        foreach (array_slice($files, 0, self::SHOWN) as $at => $file) {
+        foreach (array_slice($files, 0, $shown) as $at => $file) {
             $items[] = $file['survivors'] > 0
                 ? sprintf(self::ITEM, $at, Html::text($file['path']), $file['survivors'])
                 : '';
@@ -64,7 +61,11 @@ final readonly class Files
             self::CARD,
             count($files),
             self::changed($mutants),
-            $listed === '' ? self::CLEAN : sprintf(self::LIST, $listed),
+            match (true) {
+                $listed !== '' => sprintf(self::LIST, $listed),
+                $shown === 0 => '',
+                default => self::CLEAN,
+            },
         );
     }
 

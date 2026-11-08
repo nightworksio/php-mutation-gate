@@ -55,7 +55,7 @@ describe('Settings', function (): void {
 
         expect(iterator_to_array($colors->publishing()->colors(), preserve_keys: true))->toBe(['green' => 95])
             ->and(Configs::shown($colors, 'badge', 'colors'))->toBe(['green' => 95])
-            ->and(iterator_to_array($costs->shards()->secondsPerLine(), preserve_keys: true))->toBe(['' => 0.2, 'src' => 1.0])
+            ->and(iterator_to_array($costs->shards()->costs()->secondsPerLine(), preserve_keys: true))->toBe(['' => 0.2, 'src' => 1.0])
             ->and(Configs::shown($costs, 'costs', 'secondsPerLine'))->toBe(['' => 0.2, 'src' => 1]);
     });
 
@@ -79,7 +79,7 @@ describe('Settings', function (): void {
             ->and($settings->reach()->hotPaths()->share())->toBe(0.8)
             ->and($settings->shards()->seconds())->toEqual(Seconds::of(600))
             ->and($settings->shards()->max())->toBe(20)
-            ->and(iterator_to_array($settings->shards()->secondsPerLine(), preserve_keys: true))->toBe(['' => 0.2])
+            ->and(iterator_to_array($settings->shards()->costs()->secondsPerLine(), preserve_keys: true))->toBe(['' => 0.2])
             ->and($settings->ci()->plan())->toEqual(Absent::setting())
             ->and($settings->ci()->defaultBranch())->toEqual(Absent::setting())
             ->and($settings->ci()->check())->toBe('mutation / verdict')
@@ -150,7 +150,7 @@ describe('Settings', function (): void {
             ->and($settings->reach()->hotPaths()->share())->toBe(1.0)
             ->and($settings->shards()->seconds())->toEqual(Seconds::of(900))
             ->and($settings->shards()->max())->toBe(8)
-            ->and(iterator_to_array($settings->shards()->secondsPerLine(), preserve_keys: true))->toBe(['' => 0.25, 'src/Legacy' => 2.0])
+            ->and(iterator_to_array($settings->shards()->costs()->secondsPerLine(), preserve_keys: true))->toBe(['' => 0.25, 'src/Legacy' => 2.0])
             ->and($ci->plan() instanceof Choice ? $ci->plan()->options()->written()->line() : $ci->plan())
             ->toBe('{"template":".gitlab/gate.yml"}')
             ->and($ci->defaultBranch())->toBe('trunk')
@@ -212,16 +212,16 @@ describe('Settings', function (): void {
         ]);
     });
 
-    it('shows the memory cap beside the runner, and what it withholds only where it withholds anything', function (): void {
+    it('shows what the runner withholds, its memory cap, how workers start and how it applies paths', function (): void {
         $withholding = Configs::settings(['runner' => ['use' => 'pest', 'withhold' => ['DEPLOY_*']]]);
 
-        expect(Configs::shown($withholding, 'runner'))->toBe(['use' => 'pest', 'withhold' => ['DEPLOY_*'], 'memory' => '1G'])
+        expect(Configs::shown($withholding, 'runner'))->toBe(['use' => 'pest', 'withhold' => ['DEPLOY_*'], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01])
             ->and(Configs::shown(Configs::settings(['runner' => ['use' => 'pest']]), 'runner'))
-            ->toBe(['use' => 'pest', 'memory' => '1G'])
+            ->toBe(['use' => 'pest', 'withhold' => [], 'memory' => '1G', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01])
             ->and(Configs::shown(Configs::settings(['runner' => ['use' => 'pest', 'memory' => '-1']]), 'runner'))
-            ->toBe(['use' => 'pest', 'memory' => '-1'])
+            ->toBe(['use' => 'pest', 'withhold' => [], 'memory' => '-1', 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01])
             ->and(Configs::shown(Configs::settings(SettingsCases::EVERYTHING), 'runner'))
-            ->toBe(['use' => 'infection', 'withhold' => ['DEPLOY_*', 'COMPOSER_AUTH'], 'memory' => '512M', 'workers' => 'fresh']);
+            ->toBe(['use' => 'infection', 'withhold' => ['DEPLOY_*', 'COMPOSER_AUTH'], 'memory' => '512M', 'workers' => 'fresh', 'pathRules' => 'partitioned', 'recycleAfter' => 8, 'warmSlack' => '2m', 'poll' => 0.05]);
     });
 
     it('refuses a runner that withholds without naming the runner, or withholds anything but names', function (
@@ -262,8 +262,8 @@ describe('Settings', function (): void {
             . '"gitlab":{"template":".gitlab/mutation-gate.yml"},"jenkins":{"definition":"Jenkinsfile"}},'
             . '"extensions":[],"flaky":{"confirmSurvivors":true},"mutators":{"except":[],"sets":[]},"packages":[],'
             . '"pest":{"bootMutants":true,"bootTail":false,"canary":"mutation-canary","patch":false,"schemata":true,"workerOpcache":true},"pruning":{"enabled":true,"window":500},'
-            . '"runner":{"memory":"1G","use":"pest"},"staticCheck":{"seconds":60,"tool":"auto"},"tests":{"order":"killers-first"},'
-            . '"timeouts":{"most":300,"perTest":3,"seconds":10,"testFloor":3,"tighter":{"floor":7,"mutators":["RemoveArrayItem","DecrementInteger","IncrementInteger","ForeachEmptyIterable","UnwrapArrayValues","InstanceOfToTrue","InstanceOfToFalse","TernaryNegated","ArrayItemRemoval","Foreach_","InstanceOf_","Ternary"]}},"treeSource":{"use":"phpunit","with":{"fallback":[]}}}',
+            . '"runner":{"memory":"1G","pathRules":"partitioned","use":"pest","withhold":[],"workers":"fork"},"staticCheck":{"seconds":60,"tool":"auto"},"tests":{"order":"killers-first"},'
+            . '"timeouts":{"learned":{"least":2.0,"most":10.0,"percentile":0.99},"most":300,"multiple":3,"perTest":3,"seconds":10,"startUp":"5s","testFloor":3,"tighter":{"floor":7,"mutators":["RemoveArrayItem","DecrementInteger","IncrementInteger","ForeachEmptyIterable","UnwrapArrayValues","InstanceOfToTrue","InstanceOfToFalse","TernaryNegated","ArrayItemRemoval","Foreach_","InstanceOf_","Ternary"]}},"treeSource":{"use":"phpunit","with":{"fallback":[]}}}',
         )->and(Configs::settings(SettingsCases::EVERYTHING)->canonical())->toBe(
             '{"ci":{"azure":{"definition":"ci/azure.yml"},"bitbucket":{"definition":"ci/bitbucket.yml"},'
             . '"buildkite":{"definition":".buildkite/mutation.yml","step":{"agents":{"queue":"mutation"}}},'
@@ -271,9 +271,9 @@ describe('Settings', function (): void {
             . '"extensions":["Acme\\\\GateSlack\\\\SlackExtension"],"flaky":{"confirmSurvivors":false},'
             . '"mutators":{"except":["acme/RemoveAudit"],"sets":["acme","acme-auth"]},"packages":["packages/*"],'
             . '"pest":{"bootMutants":false,"bootTail":true,"canary":"canary","patch":true,"schemata":false,"workerOpcache":false},"pruning":{"enabled":false,"window":200},'
-            . '"runner":{"memory":"512M","use":"infection","withhold":["DEPLOY_*","COMPOSER_AUTH"],"workers":"fresh"},'
+            . '"runner":{"memory":"512M","pathRules":"partitioned","use":"infection","withhold":["DEPLOY_*","COMPOSER_AUTH"],"workers":"fresh"},'
             . '"staticCheck":{"config":"phpstan.dist.neon","seconds":45,"tool":"phpstan"},'
-            . '"tests":{"holding":["Process"],"order":"killers-first","suites":["Unit","Plugins"]},"timeouts":{"most":120,"perTest":false,"seconds":30,"testFloor":2,"tighter":{"floor":7,"mutators":["RemoveArrayItem","DecrementInteger","IncrementInteger","ForeachEmptyIterable","UnwrapArrayValues","InstanceOfToTrue","InstanceOfToFalse","TernaryNegated","ArrayItemRemoval","Foreach_","InstanceOf_","Ternary"]}},'
+            . '"tests":{"holding":["Process"],"order":"killers-first","suites":["Unit","Plugins"]},"timeouts":{"learned":{"least":3,"most":8,"percentile":0.9},"most":120,"multiple":3,"perTest":false,"seconds":30,"startUp":"9s","testFloor":2,"tighter":{"floor":7,"mutators":["RemoveArrayItem","DecrementInteger","IncrementInteger","ForeachEmptyIterable","UnwrapArrayValues","InstanceOfToTrue","InstanceOfToFalse","TernaryNegated","ArrayItemRemoval","Foreach_","InstanceOf_","Ternary"]}},'
             . '"treeSource":{"use":"phpunit","with":{"fallback":["app","lib"]}},'
             . '"trees":[{"path":"app/Domain"},{"path":"app/Http"},'
             . '{"path":"app/Generated"},{"path":"app/Legacy"}]}',
@@ -288,6 +288,18 @@ describe('Settings', function (): void {
             ->and($canonical(['use' => 'pest', 'memory' => '1024M']))->toBe($default)
             ->and($canonical(['use' => 'pest', 'memory' => '1073741824']))->toBe($default)
             ->and($canonical(['use' => 'pest', 'memory' => '2G']))->not->toBe($default);
+    });
+
+    it('keys a default written out the same as the default left unset, and reads its own effective config back', function (): void {
+        $default = Configs::settings(['runner' => 'pest']);
+        $written = Configs::settings([
+            'runner' => ['use' => 'pest', 'withhold' => [], 'workers' => 'fork', 'pathRules' => 'partitioned', 'recycleAfter' => 16, 'warmSlack' => '1m', 'poll' => 0.01],
+            'timeouts' => ['multiple' => 3],
+            'shards' => ['learnedFrom' => 'max'],
+        ]);
+
+        expect($written->canonical())->toBe($default->canonical())
+            ->and(Configs::effective(Configs::settings(Configs::effective($default))))->toBe(Configs::effective($default));
     });
 
     it('keeps the settings that only judge or report out of the canonical form', function (): void {

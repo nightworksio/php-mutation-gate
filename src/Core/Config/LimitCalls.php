@@ -54,6 +54,15 @@ final readonly class LimitCalls
         };
     }
 
+    /** @return list<string> the builder's call that sets `timeouts.tighter`, where a layer sets it */
+    public static function tighter(TighterSilence|Absent $tighter): array
+    {
+        return $tighter instanceof TighterSilence ? [sprintf(
+            'Timeouts::tighter(%s)',
+            PhpCalls::literals(intval($tighter->floor()->seconds()), ...$tighter),
+        )] : [];
+    }
+
     /** @return list<string> the builder's call that sets `timeouts.multiple`, where a layer sets it */
     public static function multiple(int|float|Learned|Absent $multiple): array
     {

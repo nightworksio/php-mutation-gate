@@ -9,6 +9,7 @@ use function in_array;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
+use NightWorksIO\MutationGate\Core\Cost\SavedLately;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -28,7 +29,7 @@ use function sprintf;
  * A repository's `summary.json` as a dashboard reads it (ADR-0024): the
  * commit and time of its latest verdict on the default branch, the verdict,
  * the project's score, each tree, the floor for new code, what the gate
- * saved over the last 30 days, its costliest mutators (ADR-0076) and its
+ * saved in its savings window, its costliest mutators (ADR-0076) and its
  * lowest-scoring files (ADR-0100), where it names them. Whatever the file holds is the repository's
  * word, so a file not in the shape of `"format": 1` is refused whole.
  *
@@ -52,7 +53,7 @@ final readonly class Published
         private Score|NothingToMutate $score,
         private array $trees,
         private Floor $newCode,
-        private Seconds|NoHistory $saved,
+        private SavedLately|NoHistory $saved,
         private array $mutators,
         private array $files,
     ) {
@@ -112,8 +113,8 @@ final readonly class Published
         return $this->newCode;
     }
 
-    /** What the gate saved over the last 30 days; no history where the repository knew of none. */
-    public function saved(): Seconds|NoHistory
+    /** What the gate saved in the repository's savings window; no history where it knew of none. */
+    public function saved(): SavedLately|NoHistory
     {
         return $this->saved;
     }
@@ -151,7 +152,12 @@ final readonly class Published
             $score->isPresent() ? Score::ofHundredths(self::hundredths($score)) : NothingToMutate::found(),
             array_map(self::tree(...), $summary->field('trees')->items()),
             Floor::ofHundredths(self::hundredths($summary->field('newCode')->field('floor'))),
-            $savings->isPresent() ? Seconds::of(self::seconds($savings->field('last30Days'))) : NoHistory::yet(),
+            $savings->isPresent()
+                ? SavedLately::of(
+                    Seconds::of(self::seconds($savings->field('seconds'))),
+                    PublishedWindow::read($savings->field('window')),
+                )
+                : NoHistory::yet(),
             $mutators->isPresent() ? array_map(self::mutator(...), $mutators->items()) : [],
             $files->isPresent() ? array_map(self::file(...), $files->items()) : [],
         );

@@ -9,15 +9,20 @@ use function array_key_exists;
 use function array_keys;
 
 use BackedEnum;
+use NightWorksIO\MutationGate\Core\Alert\AlertShape;
+use NightWorksIO\MutationGate\Core\Alert\PostLimits;
 use NightWorksIO\MutationGate\Core\Config\AlertOption;
 use NightWorksIO\MutationGate\Core\Config\BuiltinAnalyser;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
+use NightWorksIO\MutationGate\Core\Config\BuiltinCostModel;
 use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\BuiltinStore;
 use NightWorksIO\MutationGate\Core\Config\BuiltinTreeSource;
+use NightWorksIO\MutationGate\Core\Config\BuiltinVersionControl;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\CommentOption;
+use NightWorksIO\MutationGate\Core\Config\CommentSettings;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
@@ -32,7 +37,9 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Report\Page\PageShows;
 use NightWorksIO\MutationGate\Core\Report\ProblemsShown;
+use NightWorksIO\MutationGate\Core\Report\Trend;
 use NightWorksIO\MutationGate\Core\Runner\GateSecret;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 
@@ -95,6 +102,21 @@ final readonly class Builtins
         ], $origin);
     }
 
+    /** The change sources and repositories `versionControl` chooses, which take no options of their own. */
+    public static function versionControls(PathOrigin $origin): self
+    {
+        return self::of([
+            BuiltinVersionControl::Git->value => Section::options(Json::object()),
+            BuiltinVersionControl::GitHub->value => Section::options(Json::object()),
+        ], $origin);
+    }
+
+    /** The cost models `costs.model` chooses; `learned` reads `costs.secondsPerLine`, and no option of its own. */
+    public static function costModels(PathOrigin $origin): self
+    {
+        return self::of([BuiltinCostModel::Learned->value => Section::options(Json::object())], $origin);
+    }
+
     /** The proof stores, whose paths are named from the layer's origin. */
     public static function stores(PathOrigin $origin): self
     {
@@ -142,17 +164,32 @@ final readonly class Builtins
     {
         $judges = Effect::JudgesOrReportsOnly;
         $variable = Text::of('an environment variable name');
+        $posts = [
+            Field::optional(PostLimits::TIMEOUT, Duration::written(), $judges),
+            Field::optional(PostLimits::LONGEST_WAIT, Duration::written(), $judges),
+        ];
+        $lined = [
+            Field::optional(AlertShape::SURVIVORS, Integer::atLeast(0), $judges),
+            Field::optional(AlertShape::LINE_LENGTH, Integer::atLeast(1), $judges),
+        ];
         $chat = static fn(string $url, Json $defaults, Field ...$more): Section => Section::options(
             Json::object(Member::of(AlertOption::UrlEnv->value, $url))->merged($defaults),
             Field::optional(AlertOption::UrlEnv->value, $variable, $judges),
             Field::optional('url', Refused::because(sprintf(self::CREDENTIAL, $url)), $judges),
+            ...$posts,
             ...$more,
         );
 
+        $shaped = Field::optional(
+            CommentKeys::KEY,
+            CommentKeys::section(static fn(CommentSettings $settings): Json => $settings->json()),
+            Effect::JudgesOrReportsOnly,
+        );
         $comment = static fn(string $token): Section => Section::options(
             Json::object(Member::of(CommentOption::TokenEnv->value, $token)),
             Field::optional(CommentOption::TokenEnv->value, $variable, $judges),
             Field::optional('token', Refused::because(sprintf(self::TOKEN, $token)), $judges),
+            $shaped,
         );
 
         return self::of([
@@ -163,7 +200,6 @@ final readonly class Builtins
                 BuiltinReporter::Json,
                 BuiltinReporter::JUnit,
                 BuiltinReporter::Sarif,
-                BuiltinReporter::Html,
                 BuiltinReporter::Stryker,
                 BuiltinReporter::Digest,
                 BuiltinReporter::Tests,
@@ -171,13 +207,19 @@ final readonly class Builtins
                 BuiltinReporter::GitLab,
                 BuiltinReporter::Sonar,
                 BuiltinReporter::BitbucketInsights,
+                BuiltinReporter::AzureSummary,
             ),
-            BuiltinReporter::Slack->value => $chat(GateSecret::SlackUrl->value, Json::object()),
-            BuiltinReporter::Discord->value => $chat(GateSecret::DiscordUrl->value, Json::object()),
+            BuiltinReporter::Slack->value => $chat(GateSecret::SlackUrl->value, Json::object(), ...$lined),
+            BuiltinReporter::Discord->value => $chat(GateSecret::DiscordUrl->value, Json::object(), ...$lined),
             BuiltinReporter::Webhook->value => $chat(
                 GateSecret::WebhookUrl->value,
                 Json::object(Member::of(AlertOption::SecretEnv->value, GateSecret::WebhookSecret->value)),
                 Field::optional(AlertOption::SecretEnv->value, $variable, $judges),
+            ),
+            BuiltinReporter::Html->value => Section::options(
+                Json::object(),
+                Field::optional(PageShows::FILES, Integer::atLeast(0), $judges),
+                Field::optional(PageShows::SURVIVORS, Integer::atLeast(0), $judges),
             ),
             BuiltinReporter::Otlp->value => Section::options(
                 Json::object(),
@@ -189,14 +231,18 @@ final readonly class Builtins
             ),
             BuiltinReporter::GitLabComment->value => $comment(GateSecret::GitLabComment->value),
             BuiltinReporter::BitbucketComment->value => $comment(GateSecret::BitbucketComment->value),
+            BuiltinReporter::AzureComment->value => $comment(GateSecret::AzureComment->value),
+            BuiltinReporter::BuildkiteAnnotation->value => Section::options(Json::object(), $shaped),
             BuiltinReporter::GitHubComment->value => Section::options(
                 Json::object(),
                 Field::optional('identity', Text::of('an account name'), $judges),
+                $shaped,
             ),
             BuiltinReporter::Badge->value => Section::options(
                 Json::object(),
                 Field::optional('colors', NumberMap::of(Number::percent()), $judges),
                 Field::optional('commit', Text::of('a commit'), $judges),
+                Field::optional(Trend::KEPT_OPTION, Integer::atLeast(1), $judges),
             ),
         ], $origin);
     }

@@ -20,7 +20,7 @@ use NightWorksIO\MutationGate\Tests\Support\Growth;
 
 $ids = static fn(TestIds $tests): array => array_map(static fn(TestId $test): string => $test->value(), iterator_to_array($tests, preserve_keys: true));
 
-$map = static fn(): CoverageMap => CoverageMap::empty()
+$map = static fn(): CoverageMap => CoverageMap::of()
     ->covered(Path::of('src/Money.php'), Line::of(12), TestId::of('MoneyTest::adds'))
     ->covered(Path::of('src/Money.php'), Line::of(12), TestId::of('MoneyTest::subtracts'))
     ->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'))
@@ -30,7 +30,7 @@ $map = static fn(): CoverageMap => CoverageMap::empty()
     ->timed(TestId::of('IdleTest::waits'), Seconds::of(1.5));
 
 it('knows nothing to begin with', function () use ($ids): void {
-    $map = CoverageMap::empty();
+    $map = CoverageMap::of();
 
     expect($ids($map->tests()))->toBe([])
         ->and($map->files())->toEqual(Paths::none());
@@ -45,8 +45,8 @@ it('lists every covered file in the order it was first covered', function () use
 })->group('holds:src/Core/Coverage/LineTests.php');
 
 it('lists the covered lines of a file, and none for a file nothing covered', function () use ($map): void {
-    expect($map()->linesCovered(Path::of('src/Money.php')))->toEqual(Lines::of(Line::of(3), Line::of(12), Line::of(20)))
-        ->and($map()->linesCovered(Path::of('src/Other.php')))->toEqual(Lines::none());
+    expect($map()->lineSets(Path::of('src/Money.php'))->lines())->toEqual(Lines::of(Line::of(3), Line::of(12), Line::of(20)))
+        ->and($map()->lineSets(Path::of('src/Other.php'))->lines())->toEqual(Lines::none());
 })->group('holds:src/Core/Coverage/LineTests.php');
 
 it('answers the tests that covered one line', function () use ($map, $ids): void {
@@ -90,7 +90,7 @@ it('answers how long a test took, and says so where it was not timed', function 
 })->group('holds:src/Core/Coverage/LineTests.php');
 
 it('leaves the map it came from as it was', function (): void {
-    $map = CoverageMap::empty();
+    $map = CoverageMap::of();
     $map->covered(Path::of('src/Money.php'), Line::of(1), TestId::of('MoneyTest::adds'));
     $map->timed(TestId::of('MoneyTest::adds'), Seconds::of(1.0));
 
@@ -166,7 +166,7 @@ it('builds and reads a map in time linear in its entries', function (): void {
             $read = count($map->tests());
 
             foreach ($map->files() as $file) {
-                $read += count($map->linesCovered($file)) + count($map->testsCoveringFile($file));
+                $read += count($map->lineSets($file)->lines()) + count($map->testsCoveringFile($file));
             }
 
             return $read;
@@ -178,14 +178,14 @@ it('builds and reads a map in time linear in its entries', function (): void {
 });
 
 it('times the whole suite, test after test, adding nothing for a test it did not time', function (): void {
-    $map = CoverageMap::empty()
+    $map = CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'))
         ->covered(Path::of('src/Money.php'), Line::of(4), TestId::of('MoneyTest::untimed'))
         ->timed(TestId::of('MoneyTest::adds'), Seconds::of(0.25))
         ->timed(TestId::of('IdleTest::waits'), Seconds::of(1.5));
 
     expect($map->suiteDuration())->toEqual(Seconds::of(1.75))
-        ->and(CoverageMap::empty()->suiteDuration())->toEqual(Seconds::of(0.0));
+        ->and(CoverageMap::of()->suiteDuration())->toEqual(Seconds::of(0.0));
 })->group('holds:src/Core/Coverage/LineTests.php');
 
 it('holds each executable line no test ran, never one some test covers, whatever the order it reads them in', function (): void {
@@ -202,11 +202,11 @@ it('holds each executable line no test ran, never one some test covers, whatever
     expect([...$read->lineSets($money)->missed()])->toEqual([Line::of(4)])
         ->and([...$read->lineSets(Path::of('src/Tax.php'))->missed()])->toEqual([Line::of(9)])
         ->and([...$read->lineSets(Path::of('src/Other.php'))->missed()])->toBe([])
-        ->and([...$read->linesCovered($money)])->toEqual([Line::of(5), Line::of(6)])
+        ->and([...$read->lineSets($money)->lines()])->toEqual([Line::of(5), Line::of(6)])
         ->and($read->files())->toEqual(Paths::of($money))
         ->and([...$read->covered($money, Line::of(4), TestId::of('MoneyTest::adds'))->lineSets($money)->missed()])->toBe([])
         ->and(CoverageMap::of(CoveredLine::of($money, 4))->covered($money, Line::of(4), TestId::of('MoneyTest::adds')))
-        ->toEqual(CoverageMap::empty()->covered($money, Line::of(4), TestId::of('MoneyTest::adds')))
+        ->toEqual(CoverageMap::of()->covered($money, Line::of(4), TestId::of('MoneyTest::adds')))
         ->and([...$read->onlyFor(Paths::of($money))->lineSets(Path::of('src/Tax.php'))->missed()])->toBe([])
         ->and([...$read->onlyFor(Paths::of($money))->lineSets($money)->missed()])->toEqual([Line::of(4)])
         ->and($read->timed(TestId::of('MoneyTest::adds'), Seconds::of(1.0))->lineSets($money)->missed())->toEqual($read->lineSets($money)->missed())
@@ -251,7 +251,7 @@ it('names each covered line\'s set of tests alike wherever the set recurs, in as
 });
 
 it('covers a line with several tests at once, each once, knowing those it did not', function () use ($ids): void {
-    $map = CoverageMap::empty()
+    $map = CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(4), TestId::of('MoneyTest::adds'))
         ->covered(Path::of('src/Money.php'), Line::of(4), TestId::of('MoneyTest::adds'), TestId::of('RateTest::reads'));
 

@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Dashboard;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Cost\SavedLately;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Score\Percentage;
 use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Time\Instant;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function strcmp;
 use function usort;
@@ -17,7 +17,7 @@ use function usort;
 /**
  * An organisation's dashboard (ADR-0024): every repository it shows, by
  * name, each with its verdict, its score, the trees below their floors and
- * the time the gate saved it over the last 30 days, and its costliest
+ * the time the gate saved it in its savings window, and its costliest
  * mutators (ADR-0076) and lowest-scoring files (ADR-0100) where it names
  * them, as of an instant; and
  * `dashboard.json`, `"format": 1`, the same as data.
@@ -36,7 +36,7 @@ use function usort;
  *     verdict?: string,
  *     score?: float,
  *     belowFloor?: list<BelowEntry>,
- *     savedLast30Days?: float,
+ *     saved?: array{seconds: float, window: string},
  *     costliestMutators?: list<CostlyMutator>,
  *     lowestFiles?: list<LowFile>,
  *     unpublished?: string,
@@ -122,7 +122,10 @@ final readonly class Dashboard
             'verdict' => $published->verdict()->value,
             ...$score instanceof Score ? ['score' => $score->percent()] : [],
             'belowFloor' => $below,
-            ...$saved instanceof Seconds ? ['savedLast30Days' => $saved->seconds()] : [],
+            ...$saved instanceof SavedLately ? ['saved' => [
+                'seconds' => $saved->saved()->seconds(),
+                'window' => $saved->window()->length()->written(),
+            ]] : [],
             ...$this->mutators($published),
             ...$this->files($published),
         ];

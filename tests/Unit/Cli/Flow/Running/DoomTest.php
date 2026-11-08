@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
+use NightWorksIO\MutationGate\Cli\Flow\ShardLeft;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Budget;
 use NightWorksIO\MutationGate\Config\Equivalence;
@@ -90,6 +91,30 @@ it('stops a pull request\'s shard after the chunk whose survivor makes its run c
     expect($asked($runner))->toBe([['src/Money.php']])
         ->and($unjudged($result))->toBe(['src/Held.php'])
         ->and($doomOf($result))->toBe(['src/Money.php', $moneySurvivor(), 'src', 10_000, 'tree', 'stopped']);
+});
+
+it('answers why the shard\'s job fails where its run cannot pass, and nothing where it still can', function () use (
+    $makeDoomable,
+    $makeOnPullRequest,
+    $makeFloored,
+    $makeMoneySurvivor,
+): void {
+    $doomable = $makeDoomable();
+    $onPullRequest = $makeOnPullRequest();
+    $floored = $makeFloored();
+    $moneySurvivor = $makeMoneySurvivor();
+    $project = Flows::project();
+    $running = new Running(Flows::adapters($project, [], ScriptedRunner::fixture(), $floored(Floor::whole())), $doomable(), Flows::setup());
+
+    $doomed = $running->run(Planned::handedIn($project, $onPullRequest(Planned::oneShard())), ShardId::of(1), Workspace::results());
+    $free = $running->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+
+    expect($doomed instanceof ShardLeft ? $doomed->doomed() : $doomed)->toBe(sprintf(
+        'Shard 1 stopped: mutant %s of src/Money.php survived, and the floor of tree src is 100%%, so its run cannot pass.',
+        $moneySurvivor(),
+    ))
+        ->and($doomed instanceof ShardLeft ? $doomed->said() : $doomed)->toContain('/.mutation-gate/results/1.json')
+        ->and($free instanceof ShardLeft ? $free->doomed() : $free)->toBe('');
 });
 
 it('stops a merge group\'s shard, as a pull request\'s, after the chunk whose survivor makes its run certain to fail', function () use (
@@ -462,10 +487,12 @@ it('runs a pull request\'s shard on past each survivor static analysis kills, ch
         ->and($checker->warmUps())->toHaveCount(1);
 });
 
-it('runs a pull request\'s shard on past a survivor whose static check could not run, which a check may yet kill', function () use (
-    $makeDoomable,
+it('runs a pull request\'s shard on past a survivor whose static check could not run, unless run.failFastWaits waits on nothing', function (
+    Reach $waits,
+    array $asked,
+    string $doomed,
+) use (
     $makeResultIn,
-    $makeUnjudged,
     $makeOnPullRequest,
     $makeFloored,
     $makeAsked,
@@ -480,12 +507,16 @@ it('runs a pull request\'s shard on past a survivor whose static check could not
     }
 
     $checker = new RecordingChecker(new StaticCheckerFake(AnalyserIdentity::of('fake', '1.0.0', Digest::sha256Of('')), Findings::none(), $answers), $project);
+    $settings = Flows::settings(Equivalence::notProvenStatically(), Reach::failFastStopping(), $waits);
 
-    new Running(Flows::adapters($project, [], $runner, $makeFloored()(Floor::whole()), $checker), $makeDoomable()(), Flows::setup())
+    new Running(Flows::adapters($project, [], $runner, $makeFloored()(Floor::whole()), $checker), $settings, Flows::setup())
         ->run(Planned::handedIn($project, $makeOnPullRequest()(Planned::oneShard())), ShardId::of(1), Workspace::results());
     $result = $makeResultIn()($project, 1);
+    $doom = $makeDoomOf()($result);
 
-    expect($makeAsked()($runner))->toBe([['src/Money.php'], ['src/Held.php']])
-        ->and($makeUnjudged()($result))->toBe([])
-        ->and($makeDoomOf()($result))->toBe('undoomed');
-});
+    expect($makeAsked()($runner))->toBe($asked)
+        ->and(is_array($doom) ? $doom[5] : $doom)->toBe($doomed);
+})->with([
+    'waiting on a check that could not run, as by default' => [fn(): Reach => Reach::failFastWaitingOn('out-of-time', 'failed'), [['src/Money.php'], ['src/Held.php']], 'undoomed'],
+    'waiting on nothing' => [fn(): Reach => Reach::failFastWaitingOn(), [['src/Money.php']], 'stopped'],
+]);

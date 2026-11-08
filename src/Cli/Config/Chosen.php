@@ -30,9 +30,12 @@ use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Extension\Extension;
 use NightWorksIO\MutationGate\Extension\Extensions;
+use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\CiPlan;
+use NightWorksIO\MutationGate\Port\CostModel;
 use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Port\Reporter;
+use NightWorksIO\MutationGate\Port\Repository;
 use NightWorksIO\MutationGate\Port\Runner;
 use NightWorksIO\MutationGate\Port\StaticChecker;
 use NightWorksIO\MutationGate\Port\TreeSource;
@@ -76,6 +79,25 @@ final readonly class Chosen
     public function ciPlan(Choice $choice): CiPlan|Invalid|CannotJudge
     {
         return $this->built('ci.plan', CiPlan::class, $choice, Lookup::in($this->extensions)->ciPlan(...));
+    }
+
+    public function costModel(Choice $choice): CostModel|Invalid|CannotJudge
+    {
+        return $this->built('costs.model', CostModel::class, $choice, Lookup::in($this->extensions)->costModel(...));
+    }
+
+    public function changeSource(Choice $choice): ChangeSource|Invalid|CannotJudge
+    {
+        $registered = Lookup::in($this->extensions)->changeSource(...);
+
+        return $this->built('versionControl', ChangeSource::class, $choice, $registered);
+    }
+
+    public function repository(Choice $choice): Repository|Invalid|CannotJudge
+    {
+        $registered = Lookup::in($this->extensions)->repository(...);
+
+        return $this->built('versionControl', Repository::class, $choice, $registered);
     }
 
     /**

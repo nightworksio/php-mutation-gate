@@ -12,7 +12,9 @@ use function array_values;
 use function count;
 
 use NightWorksIO\MutationGate\Core\Alert\AlertEvent;
+use NightWorksIO\MutationGate\Core\Alert\PostLimits;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Comment\Mode;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
 use NightWorksIO\MutationGate\Core\Format\Json;
@@ -63,6 +65,15 @@ final readonly class DeliveryFile
     /** Whether the comment is written only over its planned state. */
     private const string OVER_PLANNED = 'overPlanned';
 
+    /** Whether the comment is written only where the gate has commented before. */
+    private const string EXISTING_ONLY = 'existingOnly';
+
+    /** How the comment meets the comments before it, where it is not the one comment updated in place. */
+    private const string MODE = 'commentMode';
+
+    /** The run whose own comment it is, where each run writes its own. */
+    private const string RUN = 'commentRun';
+
     private const string TRACES = 'traces';
 
     private const string METRICS = 'metrics';
@@ -80,19 +91,20 @@ final readonly class DeliveryFile
             static fn(AlertPost $alert): Json => Json::object(
                 Member::of('channel', $alert->channel()->value),
                 Member::of('body', $alert->body()),
+                ...$alert->limits()->recording(),
             ),
             $delivery->alerts(),
         );
 
-        return Json::object(
+        return Json::object(...[
             Member::of('format', self::FORMAT),
             Member::of(self::LEDGER_KEY, $ledger instanceof LedgerPost ? self::ledgerJson($ledger) : Absent::setting()),
             Member::of('comment', $comment instanceof NotGiven ? Absent::setting() : $comment),
-            Member::of(self::OVER_PLANNED, $delivery->commentsOverPlanned() ? true : Absent::setting()),
+            ...self::writeMembers($delivery->commentWrite()),
             Member::unlessEmpty(self::ALERTS, Json::items(...$alerts)),
             Member::of(self::OTLP, $otlp instanceof OtlpPost ? self::otlpJson($otlp) : Absent::setting()),
             Member::unlessEmpty(self::KEPT, Json::object(...$kept)),
-        )->pretty();
+        ])->pretty();
     }
 
     public static function decode(string $json): Delivery|CannotJudge
@@ -104,17 +116,46 @@ final readonly class DeliveryFile
         }
     }
 
+    /** @return list<Member> how the comment is written, where it is not the one comment updated in place */
+    private static function writeMembers(CommentWrite $write): array
+    {
+        $sticky = $write->mode() === Mode::Sticky;
+
+        return [
+            Member::of(self::OVER_PLANNED, $write->isOverPlanned() ? true : Absent::setting()),
+            Member::of(self::EXISTING_ONLY, $write->isExistingOnly() ? true : Absent::setting()),
+            Member::of(self::MODE, $sticky ? Absent::setting() : $write->mode()->value),
+            Member::of(self::RUN, $sticky ? Absent::setting() : $write->run()),
+        ];
+    }
+
     /**
-     * A delivery, with the comment the delivery holds, written only over its planned state where it says so.
+     * A delivery, with the comment the delivery holds, written as it says.
      *
      * @throws NotInShape
      */
     private static function commentIn(Node $top, Delivery $delivery): Delivery
     {
-        $markdown = $top->field('comment')->text();
-        $overPlanned = $top->field(self::OVER_PLANNED)->isPresent() && $top->field(self::OVER_PLANNED)->boolean();
+        $mode = $top->field(self::MODE);
+        $write = $mode->isPresent()
+            ? CommentWrite::of(self::modeIn($mode), $top->field(self::RUN)->text())
+            : CommentWrite::sticky();
+        $write = self::isSet($top, self::OVER_PLANNED) ? $write->overPlanned() : $write;
+        $write = self::isSet($top, self::EXISTING_ONLY) ? $write->existingOnly() : $write;
 
-        return $overPlanned ? $delivery->withCommentOverPlanned($markdown) : $delivery->withComment($markdown);
+        return $delivery->withComment($top->field('comment')->text(), $write);
+    }
+
+    /** @throws NotInShape */
+    private static function modeIn(Node $mode): Mode
+    {
+        return Mode::tryFrom($mode->text()) ?? throw NotInShape::at($mode->at(), 'a comment mode');
+    }
+
+    /** @throws NotInShape */
+    private static function isSet(Node $top, string $key): bool
+    {
+        return $top->field($key)->isPresent() && $top->field($key)->boolean();
     }
 
     private static function ledgerJson(LedgerPost $ledger): Json
@@ -141,6 +182,9 @@ final readonly class DeliveryFile
             self::LEDGER_KEY,
             'comment',
             self::OVER_PLANNED,
+            self::EXISTING_ONLY,
+            self::MODE,
+            self::RUN,
             self::ALERTS,
             self::OTLP,
             self::KEPT,
@@ -212,7 +256,7 @@ final readonly class DeliveryFile
      */
     private static function alertIn(Node $alert, Delivery $before): AlertPost
     {
-        self::onlyKeys($alert, 'channel', 'body');
+        self::onlyKeys($alert, 'channel', 'body', PostLimits::TIMEOUT, PostLimits::LONGEST_WAIT);
         $channel = BuiltinReporter::tryFrom($alert->field('channel')->text());
 
         if (! $channel instanceof BuiltinReporter || ! $channel->alerts()) {
@@ -220,7 +264,7 @@ final readonly class DeliveryFile
         }
 
         return self::sentTo($channel, $before) < count(AlertEvent::cases())
-            ? AlertPost::of($channel, $alert->field('body')->text())
+            ? AlertPost::of($channel, $alert->field('body')->text())->within(PostLimits::recorded($alert))
             : throw NotInShape::at($alert->at(), self::TOO_MANY);
     }
 

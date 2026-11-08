@@ -62,7 +62,7 @@ final readonly class Remeasured
             }
         }
 
-        return $merged;
+        return $merged->loading($kept->loaded()->and($measured->loaded()));
     }
 
     /**

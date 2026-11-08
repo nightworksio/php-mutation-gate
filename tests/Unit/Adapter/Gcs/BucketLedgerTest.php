@@ -55,9 +55,12 @@ it('puts a scope\'s ledger at its object in the bucket with the token, gzipped, 
 it('reads within the limits it is given', function (): void {
     $cloud = new Cloud();
     BucketLedger::of($cloud->exchange(), 'acme-ledgers', 'gate', FixedTokens::of('t'))->write(Scope::branch('main'), gcsProved());
-    $store = BucketLedger::of($cloud->exchange(), 'acme-ledgers', 'gate', FixedTokens::of('t'))->within(LedgerLimits::of(1_000_000, 10, 60.0));
+    $store = BucketLedger::of($cloud->exchange(), 'acme-ledgers', 'gate', FixedTokens::of('t'));
+    $limits = LedgerLimits::of(1_000_000, 10, 60.0);
 
-    expect(LedgerRead::unread($store->read(Scope::branch('main')))[0])->toBe(UnreadReason::TooLarge);
+    expect(LedgerRead::unread($store->within($limits)->read(Scope::branch('main')))[0])->toBe(UnreadReason::TooLarge)
+        ->and(LedgerRead::unread($store->limitedTo($limits)->read(Scope::branch('main')))[0])->toBe(UnreadReason::TooLarge)
+        ->and($store->read(Scope::branch('main')))->toBeInstanceOf(Ledger::class);
 });
 
 it('names the object it could not read for want of a token', function (): void {

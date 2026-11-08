@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
 /** Two tests: `adds` runs Money and Rate, `doubles` runs Money and Held. */
 function executedMap(): CoverageMap
 {
-    return CoverageMap::empty()
+    return CoverageMap::of()
         ->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'))
         ->covered(Path::of('src/Money.php'), Line::of(4), TestId::of('MoneyTest::adds'))
         ->covered(Path::of('src/Rate.php'), Line::of(7), TestId::of('MoneyTest::adds'))

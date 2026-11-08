@@ -49,7 +49,7 @@ function killedBy(string $file, string $nativeId, MutantStatus $status, string .
 /** A map that times LoopTest::a at two seconds, and LoopTest::b not at all. */
 function killersMap(): CoverageMap
 {
-    return CoverageMap::empty()
+    return CoverageMap::of()
         ->covered(Path::of('src/Loop.php'), Line::of(3), TestId::of('LoopTest::a'))
         ->timed(TestId::of('LoopTest::a'), Seconds::of(2.0));
 }
@@ -194,7 +194,7 @@ it('names, for a kill whose tests fail without it, the tests its control recorde
 ]);
 
 it('controls a kill whose run left its filter out by the test files that run loaded, its limit theirs, not by the file\'s other killers', function (): void {
-    $map = CoverageMap::empty()
+    $map = CoverageMap::of()
         ->covered(Path::of('src/Loop.php'), Line::of(3), TestId::of('LoopTest::a'))
         ->timed(TestId::of('LoopTest::a'), Seconds::of(2.0))
         ->timed(TestId::of('LoopTest::b'), Seconds::of(30.0));

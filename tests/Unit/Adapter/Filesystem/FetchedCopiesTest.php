@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Compression;
@@ -143,10 +144,18 @@ it('writes, keeps and reads companions in the kept store alone', function (): vo
         ->and($copies->companion(Scope::branch('feature'), Companion::Coverage))->toEqual(Contents::of('map'));
 });
 
-it('reads the copies fetch writes into .mutation-gate/fetched', function (): void {
+it('reads the copies fetch writes into the project\'s .mutation-gate/fetched, wherever the gate runs from', function (): void {
     $kept = new ProofStoreFake();
+    $project = Scratch::directory();
+    $fetched = copyProving('src/Money.php', '2026-11-06T09:00:00Z');
+    LedgerDirectory::in(Root::of($project), '.mutation-gate/fetched')->write(Scope::branch('main'), $fetched);
 
-    expect(FetchedCopies::over($kept, Copies::Merged))->toEqual(FetchedCopies::of($kept, LedgerDirectory::at('.mutation-gate/fetched'), Copies::Merged));
+    expect(FetchedCopies::over($kept, Copies::Merged, Root::of($project)))
+        ->toEqual(FetchedCopies::of($kept, LedgerDirectory::in(Root::of($project), '.mutation-gate/fetched'), Copies::Merged))
+        ->and(LedgerRead::ledger(FetchedCopies::over($kept, Copies::Newest, Root::of($project))->read(Scope::branch('main'))))
+        ->toEqual($fetched)
+        ->and(LedgerRead::ledger(FetchedCopies::over($kept, Copies::Newest, Root::of(Scratch::directory()))->read(Scope::branch('main'))))
+        ->toEqual(Ledger::empty());
 });
 
 it('reads the kept store\'s copy and the fetched one, and writes the kept one, as its codec says', function (): void {

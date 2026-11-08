@@ -57,7 +57,7 @@ final readonly class Ignoring
     }
 
     /** @param Listed<Ignored> $entries */
-    public static function of(Listed $entries, DateTimeImmutable $now): self
+    public static function of(Listed $entries, DateTimeImmutable $now, int $notice = Expiry::NOTICE): self
     {
         $applying = [];
         $expired = [];
@@ -72,7 +72,7 @@ final readonly class Ignoring
                 continue;
             }
 
-            $expiry = Expiry::of($expires, $now);
+            $expiry = Expiry::of($expires, $now, $notice);
 
             if ($expiry === Expiry::Expired) {
                 $expired[] = [$entry, $expires];

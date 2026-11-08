@@ -170,7 +170,9 @@ working directory's `vendor`
     `GITHUB_TOKEN`; under GitLab CI to the merge request its own variables
     name, as a note, with `MUTATION_GATE_GITLAB_TOKEN`; and under Bitbucket
     Pipelines to the pull request `BITBUCKET_PR_ID` names, with
-    `MUTATION_GATE_BITBUCKET_TOKEN`. A `with: {tokenEnv: …}` is not read;
+    `MUTATION_GATE_BITBUCKET_TOKEN`; and under Azure Pipelines to the pull
+    request `SYSTEM_PULLREQUEST_PULLREQUESTID` names, with
+    `SYSTEM_ACCESSTOKEN`. A `with: {tokenEnv: …}` is not read;
   - each alert goes to `MUTATION_GATE_SLACK_URL`, `MUTATION_GATE_DISCORD_URL`
     or `MUTATION_GATE_WEBHOOK_URL`, signed with `MUTATION_GATE_WEBHOOK_SECRET`.
     A `with: {urlEnv: …}` or `with: {secretEnv: …}` in the config is not
