@@ -1,0 +1,17 @@
+[package]
+name = "outbreak"
+description = "Outbreak's core: the binary that takes the coverage map's bulk off the gate's PHP."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+flate2.workspace = true
+outbreak-map.workspace = true
+
+[lints]
+workspace = true

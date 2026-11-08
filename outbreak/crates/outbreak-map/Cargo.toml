@@ -1,0 +1,13 @@
+[package]
+name = "outbreak-map"
+description = "The coverage map work Outbreak takes off the gate's PHP: vouching for a map's text, and slicing it."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
