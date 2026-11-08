@@ -202,6 +202,9 @@ services:
                 - src/Adapter/Serve/Connection.php # PHP's sockets are resources, which have no native type
                 - src/Adapter/Serve/Listener.php # PHP's sockets are resources, which have no native type
                 - src/Adapter/Zstd/ZstdProgram.php # proc_open answers a process resource, which has no native type
+                - src/Adapter/Pest/SchemaSwitch.php # a schema's value site carries whatever its expression evaluates to
+                - src/Adapter/Pest/Split/Stream.php # a schema's value site carries whatever its expression evaluates to
+                - src/Adapter/Pest/Split/Unchanged.php # a schema's value site carries whatever its expression evaluates to
             decoders:
                 - src/Core/Format/Node.php
                 - src/Core/Format/Json.php
@@ -220,6 +223,8 @@ services:
                 - src/Adapter/Pest/Warm/Database/Laravel.php # Laravel's container hands its services untyped
                 - src/Adapter/Pest/Warm/Database/LaravelConfig.php # Laravel holds a connection's config untyped
                 - src/Adapter/Pest/Warm/Database/PdoStatements.php # PDO hands a row's values untyped
+                - src/Adapter/Pest/Split/StreamPlan.php # a split stream's plan, as JSON Pest's own process wrote
+                - src/Adapter/Pest/Split/StreamRead.php # a line of a split stream's results, as JSON a stream wrote
                 - tests/Support/Bucket.php
                 - tests/Support/Cloud.php # Symfony's MockHttpClient hands a responder request options untyped
                 - tests/Support/Commands.php

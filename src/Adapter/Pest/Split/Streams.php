@@ -66,6 +66,7 @@ final readonly class Streams
     public static function judge(MutationSuite $suite, array $coveredLines, array $arguments, int $processes): void
     {
         $sites = [];
+        $paths = [];
         $covering = [];
         $byId = [];
         $settings = StreamSettings::fromEnvironment();
@@ -83,6 +84,7 @@ final readonly class Streams
                 }
 
                 $mutant = $test->mutation->id;
+                $paths[$switch[0]] = (string) $test->mutation->file->getRealPath();
                 $sites[$mutant] = [...$switch, $hints->killerOf($mutant, $covered), self::variablesOf($test)];
                 $covering[$mutant] = $covered;
                 $byId[$mutant] = $test;
@@ -96,7 +98,7 @@ final readonly class Streams
         $directory = sprintf('%s/mutation-gate-split-%s', sys_get_temp_dir(), uniqid());
         mkdir($directory, recursive: true);
         Schemata::leftIn($directory);
-        $streaming = new Streaming($directory, $covering, $arguments, $processes, $settings->children());
+        $streaming = new Streaming($directory, $paths, $covering, $arguments, $processes, $settings->children());
         $verdicts = $streaming->pass(1, $sites, StreamVerdicts::none());
         $again = [];
 

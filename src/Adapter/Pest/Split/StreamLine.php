@@ -10,6 +10,8 @@ use const JSON_THROW_ON_ERROR;
 use const JSON_UNESCAPED_SLASHES;
 use const JSON_UNESCAPED_UNICODE;
 
+use function sprintf;
+
 /**
  * One line a split stream writes to its results (ADR-0117): how the parent
  * ended a test, how a child ended its mutant's test, a child it stopped at
@@ -27,11 +29,13 @@ final readonly class StreamLine
 
     public const string CHILD = 'child';
 
-    public const string ENDED = 'ended';
+    public const string ENDED = 'exited';
 
     public const string TIMEOUT = 'timeout';
 
     public const string FALLBACK = 'fallback';
+
+    public const string UNSERVED = 'unserved';
 
     /** The parent ended a test: passed or not, in this many seconds. */
     public static function parent(string $test, bool $passed, float $seconds): string
@@ -63,9 +67,15 @@ final readonly class StreamLine
         return self::line([self::KIND => self::FALLBACK, 't' => $test]);
     }
 
+    /** The stream's process loaded the mutant's file before its schema was served, so it forks nothing of it. */
+    public static function unserved(string $mutant): string
+    {
+        return self::line([self::KIND => self::UNSERVED, 'm' => $mutant]);
+    }
+
     /** @param array<string, string|bool|float|int> $fields */
     private static function line(array $fields): string
     {
-        return json_encode($fields, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n";
+        return sprintf("%s\n", json_encode($fields, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 }

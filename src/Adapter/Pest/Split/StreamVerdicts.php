@@ -13,7 +13,6 @@ use function file_get_contents;
 use function file_put_contents;
 use function getenv;
 use function is_array;
-use function is_bool;
 use function is_file;
 use function is_string;
 use function json_decode;
@@ -28,14 +27,17 @@ use Pest\Mutate\Event\Facade;
 use Pest\Mutate\MutationTest;
 use Pest\Mutate\Support\MutationTestResult;
 
+use function sprintf;
+
 /**
  * What a run's split streams found of each mutant (ADR-0117), read from
  * their results: a test a child failed or ended in, and the parent passed,
  * kills its mutant; a child its limit stopped in a test the parent passed
  * times it out; a mutant every child of passed every covering test the
  * stream reached it in, and whose covering tests the parent all passed,
- * survives. A mutant a covering test of did not run, fail in the parent, or
- * fork nothing in, is left for its own run.
+ * survives. A mutant a covering test of did not run, failed in the parent or
+ * forked nothing in, or whose file a stream loaded before serving its schema,
+ * is left for its own run.
  *
  * @internal
  */
@@ -46,6 +48,9 @@ final class StreamVerdicts
 
     /** @var array<string, true> the tests a stream forked nothing in */
     private array $fallback = [];
+
+    /** @var array<string, true> the mutants a stream loaded the file of before serving its schema */
+    private array $unserved = [];
 
     /** @var array<string, array<string, ChildEnd>> how each child came out of each test, by mutant and test */
     private array $children = [];
@@ -64,7 +69,7 @@ final class StreamVerdicts
             $read = json_decode($line, associative: true);
 
             if (is_array($read)) {
-                $this->take($read);
+                $this->take(StreamRead::of($read));
             }
         }
 
@@ -80,9 +85,7 @@ final class StreamVerdicts
     public function decides(string $mutant, array $covering): bool
     {
         foreach ($covering as $covered) {
-            $ended = $this->children[$mutant][$covered] ?? ChildEnd::Passed;
-
-            if (($this->passed[$covered] ?? false) && $ended !== ChildEnd::Passed) {
+            if ($this->passes($covered) && $this->endOf($mutant, $covered) !== ChildEnd::Passed) {
                 return true;
             }
         }
@@ -98,68 +101,102 @@ final class StreamVerdicts
      */
     public function give(string $mutant, MutationTest $test, array $covering, Facade $events): void
     {
-        $outcome = StreamLine::CHILD;
+        $killer = $this->killerOf($mutant, $covering);
 
+        if ($killer !== '') {
+            $this->note($test, KillerFile::line(RecordEvent::Killed, $killer, Placed::unplaced(0)));
+            $test->updateResult(MutationTestResult::Tested);
+            $events->emitter()->mutationTested($test);
+
+            return;
+        }
+
+        if ($this->timesOut($mutant, $covering)) {
+            $this->note($test, '');
+            $test->updateResult(MutationTestResult::Timeout);
+            $events->emitter()->mutationTimedOut($test);
+
+            return;
+        }
+
+        if (! $this->leavesForItsOwnRun($mutant, $covering)) {
+            $this->note($test, '');
+            $test->updateResult(MutationTestResult::Untested);
+            $events->emitter()->mutationEscaped($test);
+        }
+    }
+
+    /** @param list<string> $covering */
+    private function killerOf(string $mutant, array $covering): string
+    {
         foreach ($covering as $covered) {
-            $ended = $this->children[$mutant][$covered] ?? ChildEnd::Passed;
-
-            if (($this->passed[$covered] ?? false) && $ended->kills()) {
-                $this->killedBy($test, $covered, $events);
-
-                return;
-            }
-
-            if (($this->passed[$covered] ?? false) && $ended === ChildEnd::TimedOut) {
-                $outcome = StreamLine::TIMEOUT;
-            }
-
-            if (! ($this->passed[$covered] ?? false) || array_key_exists($covered, $this->fallback)) {
-                $outcome = $outcome === StreamLine::TIMEOUT ? $outcome : StreamLine::FALLBACK;
+            if ($this->passes($covered) && $this->endOf($mutant, $covered)->kills()) {
+                return $covered;
             }
         }
 
-        match ($outcome) {
-            StreamLine::TIMEOUT => $this->timedOut($test, $events),
-            StreamLine::FALLBACK => null,
-            default => $this->survived($test, $events),
-        };
+        return '';
     }
 
-    /** @param array<mixed> $read */
-    private function take(array $read): void
+    /** @param list<string> $covering */
+    private function timesOut(string $mutant, array $covering): bool
     {
-        $test = is_string($read['t'] ?? null) ? $read['t'] : '';
-        $mutant = is_string($read['m'] ?? null) ? $read['m'] : '';
+        foreach ($covering as $covered) {
+            if ($this->passes($covered) && $this->endOf($mutant, $covered) === ChildEnd::TimedOut) {
+                return true;
+            }
+        }
 
-        match ($read[StreamLine::KIND] ?? null) {
-            StreamLine::PARENT => $this->passed[$test] = is_bool($read['p'] ?? null) && $read['p'] && ($this->passed[$test] ?? true),
-            StreamLine::FALLBACK => $this->fallback[$test] = true,
-            StreamLine::CHILD => $this->children[$mutant][$test] = ($read['f'] ?? false) === true ? ChildEnd::Failed : ChildEnd::Passed,
-            StreamLine::ENDED => $this->children[$mutant][$test] = ChildEnd::Ended,
-            StreamLine::TIMEOUT => $this->children[$mutant][$test] = ChildEnd::TimedOut,
-            default => null,
-        };
+        return false;
     }
 
-    private function killedBy(MutationTest $test, string $killer, Facade $events): void
+    /** @param list<string> $covering */
+    private function leavesForItsOwnRun(string $mutant, array $covering): bool
     {
-        $this->note($test, KillerFile::line(RecordEvent::Killed, $killer, Placed::unplaced(0)));
-        $test->updateResult(MutationTestResult::Tested);
-        $events->emitter()->mutationTested($test);
+        if (array_key_exists($mutant, $this->unserved)) {
+            return true;
+        }
+
+        foreach ($covering as $covered) {
+            if (! $this->passes($covered) || array_key_exists($covered, $this->fallback)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
-    private function timedOut(MutationTest $test, Facade $events): void
+    private function passes(string $test): bool
     {
-        $this->note($test, '');
-        $test->updateResult(MutationTestResult::Timeout);
-        $events->emitter()->mutationTimedOut($test);
+        return array_key_exists($test, $this->passed) && $this->passed[$test];
     }
 
-    private function survived(MutationTest $test, Facade $events): void
+    private function endOf(string $mutant, string $test): ChildEnd
     {
-        $this->note($test, '');
-        $test->updateResult(MutationTestResult::Untested);
-        $events->emitter()->mutationEscaped($test);
+        return array_key_exists($mutant, $this->children) && array_key_exists($test, $this->children[$mutant])
+            ? $this->children[$mutant][$test]
+            : ChildEnd::Passed;
+    }
+
+    private function take(StreamRead $read): void
+    {
+        $end = $read->childEnd();
+
+        if ($read->kind === StreamLine::PARENT) {
+            $this->passed[$read->test] = $read->passed && (! array_key_exists($read->test, $this->passed) || $this->passed[$read->test]);
+        }
+
+        if ($read->kind === StreamLine::FALLBACK) {
+            $this->fallback[$read->test] = true;
+        }
+
+        if ($read->kind === StreamLine::UNSERVED) {
+            $this->unserved[$read->mutant] = true;
+        }
+
+        if ($end instanceof ChildEnd) {
+            $this->children[$read->mutant][$read->test] = $end;
+        }
     }
 
     /** Writes that a stream judged the mutant, and this line, to its killer file, which Pest's own process takes. */
@@ -170,7 +207,7 @@ final class StreamVerdicts
         if (is_string($results) && $results !== '') {
             file_put_contents(
                 KillerFile::beside($results, $test->mutation->modifiedSourcePath),
-                KillerFile::streamed() . $line,
+                sprintf('%s%s', KillerFile::streamed(), $line),
                 FILE_APPEND | LOCK_EX,
             );
         }

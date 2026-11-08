@@ -14,6 +14,7 @@ use function arsort;
 use function asort;
 use function count;
 use function file_put_contents;
+use function getenv;
 use function json_encode;
 
 use const JSON_THROW_ON_ERROR;
@@ -26,7 +27,11 @@ use function min;
 use NightWorksIO\MutationGate\Adapter\Pest\CoveringFiles;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\LoadedMap;
+use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\PerTestVariables;
+use NightWorksIO\MutationGate\Core\Runner\ToldSeconds;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use Pest\Mutate\Plugins\Mutate;
 
 use const PHP_BINARY;
@@ -55,11 +60,13 @@ final readonly class Streaming
     private const string RESULTS = '%s/results-%d-%d.jsonl';
 
     /**
+     * @param array<string, string>       $paths     each schema's source file, by its file key
      * @param array<string, list<string>> $covering  each mutant's covering tests
      * @param list<string>                $arguments the arguments a mutant's own run is started with
      */
     public function __construct(
         private string $directory,
+        private array $paths,
         private array $covering,
         private array $arguments,
         private int $processes,
@@ -149,11 +156,17 @@ final readonly class Streaming
     private function started(int $pass, int $at, string $results, array $planned, array $times, array $files): Process
     {
         $plan = sprintf(self::PLAN, $this->directory, $pass, $at);
+        $perTest = PerTestVariables::read(getenv(GateVariable::TestMultiple->value), getenv(GateVariable::TestFloor->value));
+        $most = ToldSeconds::read(getenv(GateVariable::MutantCap->value));
         file_put_contents($plan, json_encode([
             'results' => $results,
             'sites' => $planned,
+            'paths' => $this->paths,
             'times' => $times,
             'children' => $this->children,
+            'multiple' => $perTest->isOn() ? $perTest->multiple() : 0,
+            'floor' => $perTest->floor()->seconds(),
+            'longest' => ($most instanceof Seconds ? $most : Triage::none()->most())->seconds(),
         ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
         $process = new Process(
             [PHP_BINARY, ...self::runArguments($this->arguments), ...$files],

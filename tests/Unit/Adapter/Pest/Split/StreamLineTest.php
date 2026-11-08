@@ -14,7 +14,7 @@ it('writes each line a stream records as one line of JSON', function (): void {
     ])->toBe([
         "{\"k\":\"parent\",\"t\":\"T::one\",\"p\":true,\"s\":0.5}\n",
         "{\"k\":\"child\",\"m\":\"m\",\"t\":\"T::one\",\"f\":false,\"s\":0.25}\n",
-        "{\"k\":\"ended\",\"m\":\"m\",\"t\":\"T::one\",\"c\":-1}\n",
+        "{\"k\":\"exited\",\"m\":\"m\",\"t\":\"T::one\",\"c\":-1}\n",
         "{\"k\":\"timeout\",\"m\":\"m\",\"t\":\"T::ä/b\"}\n",
         "{\"k\":\"fallback\",\"t\":\"T::one\"}\n",
     ]);

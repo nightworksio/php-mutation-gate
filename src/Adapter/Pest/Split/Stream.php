@@ -5,130 +5,97 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Split;
 
 use function array_key_exists;
+use function array_map;
 
 use Closure;
 
-use function count;
-use function file_get_contents;
+use const FILE_APPEND;
+
 use function file_put_contents;
 use function function_exists;
+use function get_included_files;
 use function hrtime;
-use function is_array;
-use function is_file;
-use function is_float;
-use function is_int;
-use function is_string;
-use function json_decode;
-use function max;
+use function in_array;
+
+use const LOCK_EX;
 
 use NightWorksIO\MutationGate\Adapter\Pest\SchemaSwitch;
 
-use function pcntl_fork;
 use function pcntl_signal;
-use function pcntl_waitpid;
-use function pcntl_wexitstatus;
-use function pcntl_wifexited;
-use function pcntl_wifsignaled;
-use function pcntl_wtermsig;
 use function posix_getpid;
 use function posix_kill;
 use function putenv;
+
+use const SIG_DFL;
+use const SIGKILL;
+use const SIGUSR1;
+
 use function sprintf;
-use function usleep;
 
 /**
- * A split stream's parent (ADR-0117): the unmutated suite runs once, and
- * where a test first reaches the site of a mutant still undecided, the
- * process forks. The child turns that mutant on, finishes only that test and
- * writes how it ended; the parent turns it off, goes on, and writes how each
- * of its own tests ended, which judges every child of that test. It holds no
- * more children at once than it is told, and stops a child that runs past
- * its limit: a multiple of the parent's own time of the same test, or of the
- * coverage map's while the parent is still in that test.
+ * A split stream (ADR-0117): the unmutated suite runs once, and where a test
+ * first reaches the site of a mutant still undecided, the process forks. The
+ * child turns that mutant on, finishes only that test and writes how it
+ * ended; the parent goes on, and writes how each of its own tests ended,
+ * which judges every child of that test.
  *
- * It loads no class of the gate but SchemaSwitch and StreamLine, as every
+ * It loads no class of the gate but its own and SchemaSwitch, as every
  * other may be served a schema whose sites it decides.
  *
  * @internal
  */
 final class Stream
 {
-    /** How long the parent sleeps between looks at children it waits for, in microseconds. */
-    private const int WAIT = 500;
-
     /** Nanoseconds in a second. */
     private const float NANOSECONDS = 1e9;
 
-    /** @var array<string, array<int, array{string, string, array<string, string>}>> each site's mutant, killer and variables, by file key and switch id */
-    private static array $sites = [];
+    private static ?self $stream = null;
 
-    /** @var array<string, float> each test's own time as the coverage map measured it, by its id */
-    private static array $times = [];
+    private string $test = '';
 
-    private static string $results = '';
+    private int $started = 0;
 
-    private static int $most = 1;
+    private bool $failed = false;
 
-    private static float $multiple = 3.0;
+    private bool $forkable = true;
 
-    private static float $floor = 3.0;
+    private bool $deciding = false;
 
-    private static float $longest = 30.0;
-
-    private static string $test = '';
-
-    private static int $started = 0;
-
-    private static bool $failed = false;
-
-    private static bool $forkable = true;
-
-    private static bool $deciding = false;
+    /** The mutant this process runs, in a child; none in the parent. */
+    private string $mutant = '';
 
     /** @var array<string, true> the sites forked in the current test, by file key and switch id */
-    private static array $forked = [];
+    private array $forked = [];
 
     /** @var array<string, true> the mutants a child killed in a test the parent passed, by id */
-    private static array $killed = [];
+    private array $killed = [];
 
     /** @var array<string, bool> whether the parent passed each test it ended, by the test's id */
-    private static array $passed = [];
+    private array $passed = [];
 
     /** @var array<string, list<string>> the mutants a child failed, by the test the parent is still in */
-    private static array $pending = [];
+    private array $pending = [];
 
-    /** @var array<int, array{string, string, int, float|null}> each running child's mutant, test, start and deadline, by pid */
-    private static array $children = [];
-
-    private static string $mutant = '';
-
-    private static int $sockets = 0;
+    private function __construct(private readonly StreamPlan $plan, private readonly Children $children, private int $sockets)
+    {
+    }
 
     /**
-     * Starts a split stream from the plan this file holds; nothing where it
-     * cannot be read, or where PHP cannot fork.
+     * Starts a split stream from the plan this file holds, where PHP can
+     * fork; each mutant of a file the process loaded before its schema was
+     * served is left for its own run.
      */
-    public static function from(string $plan): bool
+    public static function from(string $file): bool
     {
-        if (! function_exists('pcntl_fork') || ! function_exists('posix_kill') || ! is_file($plan)) {
+        $plan = function_exists('pcntl_fork') && function_exists('posix_kill') ? StreamPlan::read($file) : false;
+
+        if ($plan === false) {
             return false;
         }
 
-        $read = json_decode((string) file_get_contents($plan), associative: true);
-
-        if (! is_array($read) || ! is_string($read['results'] ?? null) || ! is_array($read['sites'] ?? null)) {
-            return false;
-        }
-
-        self::$results = $read['results'];
-        self::$sites = self::sitesOf($read['sites']);
-        self::$times = self::timesOf(is_array($read['times'] ?? null) ? $read['times'] : []);
-        self::$most = is_int($read['children'] ?? null) ? max(1, $read['children']) : 1;
-        self::$multiple = self::number($read['multiple'] ?? null, self::$multiple);
-        self::$floor = self::number($read['floor'] ?? null, self::$floor);
-        self::$longest = self::number($read['longest'] ?? null, self::$longest);
-        self::$sockets = Sockets::open();
-        SchemaSwitch::splitting(self::reached(...), self::changed(...));
+        self::$stream = new self($plan, new Children($plan), Sockets::open());
+        self::$stream->unserved(get_included_files());
+        SchemaSwitch::splitting(self::$stream->reached(...), self::$stream->changed(...));
 
         return true;
     }
@@ -136,31 +103,21 @@ final class Stream
     /** A test begins: the sites it reaches are its own, and none of them is forked yet. */
     public static function began(string $test): void
     {
-        self::$test = $test;
-        self::$started = hrtime(as_number: true);
-        self::$failed = false;
-        self::$forked = [];
-        self::$forkable = Sockets::open() <= self::$sockets;
-
-        if (! self::$forkable && self::$mutant === '') {
-            self::write(StreamLine::fallback($test));
-        }
+        self::$stream?->begin($test);
     }
 
     /** The test failed or errored, in this process. */
     public static function failed(): void
     {
-        self::$failed = true;
+        if (self::$stream instanceof self) {
+            self::$stream->failed = true;
+        }
     }
 
     /** The test runs in a process of its own, where no fork reaches it. */
     public static function isolated(): void
     {
-        if (self::$forkable && self::$mutant === '') {
-            self::write(StreamLine::fallback(self::$test));
-        }
-
-        self::$forkable = false;
+        self::$stream?->isolate();
     }
 
     /**
@@ -170,294 +127,165 @@ final class Stream
      */
     public static function ended(): void
     {
-        if (self::$test === '') {
-            return;
-        }
-
-        $seconds = (hrtime(as_number: true) - self::$started) / self::NANOSECONDS;
-
-        if (self::$mutant !== '') {
-            self::write(StreamLine::child(self::$mutant, self::$test, self::$failed, $seconds));
-            pcntl_signal(SIGUSR1, SIG_DFL);
-            posix_kill(posix_getpid(), self::$failed ? SIGUSR1 : SIGKILL);
-        }
-
-        self::write(StreamLine::parent(self::$test, ! self::$failed, $seconds));
-        self::$passed[self::$test] = ! self::$failed;
-
-        foreach (self::$pending[self::$test] ?? [] as $mutant) {
-            self::kill($mutant, self::$test);
-        }
-
-        unset(self::$pending[self::$test]);
-        $limit = max(self::$floor, $seconds * self::$multiple);
-
-        foreach (self::$children as $pid => [$mutant, $test, $started, $deadline]) {
-            if ($test === self::$test && $deadline === null) {
-                self::$children[$pid] = [$mutant, $test, $started, $started / self::NANOSECONDS + $limit];
-            }
-        }
-
-        self::$test = '';
-        self::reap(blocking: false);
+        self::$stream?->end();
     }
 
     /** The run ended: the parent waits for every child, each held to its limit. */
     public static function finished(): void
     {
-        if (self::$mutant !== '') {
+        $stream = self::$stream;
+
+        if (! $stream instanceof self || $stream->mutant !== '') {
             return;
         }
 
-        while (self::$children !== []) {
-            self::reap(blocking: true);
+        while ($stream->children->areRunning()) {
+            $stream->killedBy($stream->children->reaped(blocking: true));
         }
 
         SchemaSwitch::splitting(null);
     }
 
-    /** Whether this execution of a site runs its mutant: in a child forked here, yes; in the parent, never. */
-    private static function reached(string $file, int $id): bool
+    /** @param list<string> $loaded */
+    private function unserved(array $loaded): void
     {
-        return self::forks($file, $id) && self::forked($file, $id);
+        foreach ($this->plan->paths as $key => $path) {
+            if (! in_array($path, $loaded, strict: true) || ! array_key_exists($key, $this->plan->sites)) {
+                continue;
+            }
+
+            foreach ($this->plan->sites[$key] as [$mutant]) {
+                $this->write(StreamLine::unserved($mutant));
+            }
+        }
+    }
+
+    private function begin(string $test): void
+    {
+        $this->test = $test;
+        $this->started = (int) hrtime(as_number: true);
+        $this->failed = false;
+        $this->forked = [];
+        $this->forkable = Sockets::open() <= $this->sockets;
+
+        if (! $this->forkable && $this->mutant === '') {
+            $this->write(StreamLine::fallback($test));
+        }
+    }
+
+    private function isolate(): void
+    {
+        if ($this->forkable && $this->mutant === '') {
+            $this->write(StreamLine::fallback($this->test));
+        }
+
+        $this->forkable = false;
+    }
+
+    private function end(): void
+    {
+        if ($this->test === '') {
+            return;
+        }
+
+        $seconds = ((int) hrtime(as_number: true) - $this->started) / self::NANOSECONDS;
+
+        if ($this->mutant !== '') {
+            $this->write(StreamLine::child($this->mutant, $this->test, $this->failed, $seconds));
+            pcntl_signal(SIGUSR1, SIG_DFL);
+            posix_kill(posix_getpid(), $this->failed ? SIGUSR1 : SIGKILL);
+        }
+
+        $this->write(StreamLine::parent($this->test, ! $this->failed, $seconds));
+        $this->passed[$this->test] = ! $this->failed;
+        $pending = array_key_exists($this->test, $this->pending) ? $this->pending[$this->test] : [];
+        unset($this->pending[$this->test]);
+        $test = $this->test;
+        $this->killedBy(array_map(static fn(string $mutant): array => [$mutant, $test], $pending));
+        $this->children->ended($this->test, $seconds);
+        $this->test = '';
+        $this->killedBy($this->children->reaped(blocking: false));
+    }
+
+    /** Whether this execution of a site runs its mutant: in a child forked here, yes; in the parent, never. */
+    private function reached(string $file, int $id): bool
+    {
+        return $this->forks($file, $id) && $this->fork($file, $id);
     }
 
     /**
      * The value a pure expression's site runs with: the original's, where
      * the stream forks nothing here, or where the mutated code gives the same
-     * value, read under a handler that keeps its errors; and in a child forked
-     * here, the mutated code's.
+     * value; and in a child forked here, the mutated code's.
      *
      * @param Closure(): mixed $mutated
      */
-    private static function changed(string $file, int $id, mixed $value, Closure $mutated): mixed
+    private function changed(string $file, int $id, mixed $value, Closure $mutated): mixed
     {
-        if (! self::forks($file, $id)) {
-            return $value;
-        }
-
-        if (Unchanged::by($value, $mutated)) {
-            return $value;
-        }
-
-        return self::forked($file, $id) ? $mutated() : $value;
+        return $this->forks($file, $id) && ! Unchanged::by($value, $mutated) && $this->fork($file, $id)
+            ? $mutated()
+            : $value;
     }
 
     /** Whether the stream forks a site's mutant at this execution. */
-    private static function forks(string $file, int $id): bool
+    private function forks(string $file, int $id): bool
     {
-        if (
-            self::$deciding
-            || self::$test === ''
-            || ! self::$forkable
-            || array_key_exists(sprintf('%s:%d', $file, $id), self::$forked)
-            || ! array_key_exists($file, self::$sites)
-            || ! array_key_exists($id, self::$sites[$file])
-        ) {
-            return false;
-        }
+        $site = ! $this->deciding && $this->test !== '' && $this->forkable && array_key_exists($file, $this->plan->sites)
+            && ! array_key_exists(sprintf('%s:%d', $file, $id), $this->forked)
+            && array_key_exists($id, $this->plan->sites[$file]) ? $this->plan->sites[$file][$id] : false;
 
-        [$mutant, $killer] = self::$sites[$file][$id];
-
-        return ! array_key_exists($mutant, self::$killed) && ($killer === '' || $killer === self::$test);
+        return $site !== false
+            && ! array_key_exists($site[0], $this->killed)
+            && ($site[1] === '' || $site[1] === $this->test);
     }
 
     /** Forks a site's mutant: true in the child, which runs it, false in the parent. */
-    private static function forked(string $file, int $id): bool
+    private function fork(string $file, int $id): bool
     {
-        [$mutant, , $variables] = self::$sites[$file][$id];
-        self::$deciding = true;
-        self::$forked[sprintf('%s:%d', $file, $id)] = true;
-        $forked = self::fork($mutant, $variables);
-        self::$deciding = false;
+        [$mutant, , $variables] = $this->plan->sites[$file][$id];
+        $this->deciding = true;
+        $this->forked[sprintf('%s:%d', $file, $id)] = true;
+        $pid = $this->children->forked($mutant, $this->test);
+        $this->deciding = false;
 
-        if ($forked) {
-            SchemaSwitch::on($file, $id);
-        }
-
-        return $forked;
-    }
-
-    /**
-     * Forks a child for this mutant, once a place is free: true in the child,
-     * which puts the mutant in the variables its subprocesses inherit, and
-     * false in the parent.
-     *
-     * @param array<string, string> $variables
-     */
-    private static function fork(string $mutant, array $variables): bool
-    {
-        while (count(self::$children) >= self::$most) {
-            self::reap(blocking: true);
-        }
-
-        $pid = pcntl_fork();
-
-        if ($pid === -1) {
+        if ($pid !== 0) {
             return false;
         }
 
-        if ($pid === 0) {
-            self::$mutant = $mutant;
-            self::$children = [];
-            SchemaSwitch::splitting(null);
+        $this->mutant = $mutant;
+        SchemaSwitch::splitting(null);
+        SchemaSwitch::on($file, $id);
 
-            foreach ($variables as $name => $value) {
-                putenv(sprintf('%s=%s', $name, $value));
-            }
-
-            return true;
+        foreach ($variables as $name => $value) {
+            putenv(sprintf('%s=%s', $name, $value));
         }
 
-        self::$children[$pid] = [$mutant, self::$test, hrtime(as_number: true), null];
-
-        return false;
+        return true;
     }
 
     /**
-     * Takes every child that ended, writing how one that wrote nothing ended,
-     * and stops each past its limit; where blocking, waits until at least one
-     * ended or was stopped.
+     * Children failed or ended in these tests: each mutant is killed where the
+     * parent passed its test, or once the parent does.
+     *
+     * @param list<array{string, string}> $failed
      */
-    private static function reap(bool $blocking): void
+    private function killedBy(array $failed): void
     {
-        do {
-            $before = count(self::$children);
+        foreach ($failed as [$mutant, $test]) {
+            if (! array_key_exists($test, $this->passed)) {
+                $this->pending[$test][] = $mutant;
 
-            while (($pid = pcntl_waitpid(-1, $status, WNOHANG)) > 0) {
-                if (array_key_exists($pid, self::$children)) {
-                    [$mutant, $test] = self::$children[$pid];
-                    unset(self::$children[$pid]);
-                    self::endedOf($mutant, $test, $status);
-                }
+                continue;
             }
 
-            self::stopLate();
-
-            if (! $blocking || count(self::$children) < $before || self::$children === []) {
-                return;
-            }
-
-            usleep(self::WAIT);
-        } while (true);
-    }
-
-    /**
-     * Takes how a child ended: one that failed its test kills its mutant where
-     * the parent passed that test, and one that did not stop itself ended in
-     * its test, by an exit, a signal or a crash, which it wrote nothing of.
-     */
-    private static function endedOf(string $mutant, string $test, int $status): void
-    {
-        $signal = pcntl_wifsignaled($status) ? pcntl_wtermsig($status) : 0;
-
-        if ($signal === SIGKILL) {
-            return;
-        }
-
-        if ($signal !== SIGUSR1) {
-            self::write(StreamLine::endedChild($mutant, $test, pcntl_wifexited($status) ? pcntl_wexitstatus($status) : -1));
-        }
-
-        self::kill($mutant, $test);
-    }
-
-    /** A child failed this test: its mutant is killed where the parent passed it, or once the parent does. */
-    private static function kill(string $mutant, string $test): void
-    {
-        if (! array_key_exists($test, self::$passed)) {
-            self::$pending[$test][] = $mutant;
-
-            return;
-        }
-
-        if (self::$passed[$test]) {
-            self::$killed[$mutant] = true;
-        }
-    }
-
-    /** Stops each child past its limit, or past the coverage map's while the parent is still in its test. */
-    private static function stopLate(): void
-    {
-        $now = hrtime(as_number: true) / self::NANOSECONDS;
-
-        foreach (self::$children as $pid => [$mutant, $test, $started, $deadline]) {
-            $limit = $deadline ?? $started / self::NANOSECONDS + self::provisional($test);
-
-            if ($now > $limit) {
-                posix_kill($pid, SIGKILL);
-                pcntl_waitpid($pid, $status);
-                unset(self::$children[$pid]);
-                self::write(StreamLine::timedOut($mutant, $test));
+            if ($this->passed[$test]) {
+                $this->killed[$mutant] = true;
             }
         }
     }
 
-    /** A child's limit while the parent is still in its test: the map's time of that test, or the longest. */
-    private static function provisional(string $test): float
+    private function write(string $line): void
     {
-        return array_key_exists($test, self::$times)
-            ? max(self::$floor, self::$times[$test] * self::$multiple)
-            : self::$longest;
-    }
-
-    private static function write(string $line): void
-    {
-        file_put_contents(self::$results, $line, FILE_APPEND | LOCK_EX);
-    }
-
-    /**
-     * @param  array<mixed>                                                               $sites
-     * @return array<string, array<int, array{string, string, array<string, string>}>>
-     */
-    private static function sitesOf(array $sites): array
-    {
-        $read = [];
-
-        foreach ($sites as $file => $switches) {
-            foreach (is_array($switches) ? $switches : [] as $id => $site) {
-                if (is_array($site) && is_string($site[0] ?? null) && is_string($site[1] ?? null)) {
-                    $read[(string) $file][(int) $id] = [$site[0], $site[1], self::variablesOf($site[2] ?? [])];
-                }
-            }
-        }
-
-        return $read;
-    }
-
-    /** @return array<string, string> */
-    private static function variablesOf(mixed $variables): array
-    {
-        $read = [];
-
-        foreach (is_array($variables) ? $variables : [] as $name => $value) {
-            if (is_string($value)) {
-                $read[(string) $name] = $value;
-            }
-        }
-
-        return $read;
-    }
-
-    /**
-     * @param  array<mixed>          $times
-     * @return array<string, float>
-     */
-    private static function timesOf(array $times): array
-    {
-        $read = [];
-
-        foreach ($times as $test => $seconds) {
-            if (is_float($seconds) || is_int($seconds)) {
-                $read[(string) $test] = (float) $seconds;
-            }
-        }
-
-        return $read;
-    }
-
-    private static function number(mixed $value, float $otherwise): float
-    {
-        return is_float($value) || is_int($value) ? (float) $value : $otherwise;
+        file_put_contents($this->plan->results, $line, FILE_APPEND | LOCK_EX);
     }
 }
