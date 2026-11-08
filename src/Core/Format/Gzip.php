@@ -89,29 +89,26 @@ final readonly class Gzip
         string $named,
         int $most,
     ): string|CannotJudge|TooLarge {
-        $whole = true;
         $parts = [];
         $length = 0;
         $steps = Bytes::chunks($bytes, self::STEP);
         $next = 0;
 
-        while (
-            $whole
-            && $next < count($steps)
-            && $length <= $most
-            && inflate_get_status($inflating) !== ZLIB_STREAM_END
-        ) {
+        while ($next < count($steps) && $length <= $most && inflate_get_status($inflating) !== ZLIB_STREAM_END) {
             $step = self::added($inflating, $steps[$next]);
             $next++;
-            $whole = is_string($step);
-            $text = $whole ? $step : '';
-            $parts[] = $text;
-            $length += Bytes::length($text);
+
+            if ($step === false) {
+                return CannotJudge::because(sprintf(self::NOT_GZIP, $named));
+            }
+
+            $parts[] = $step;
+            $length += Bytes::length($step);
         }
 
         return match (true) {
-            $whole && $length > $most => TooLarge::because(sprintf(self::PAST, $named, $most)),
-            $whole && inflate_get_status($inflating) === ZLIB_STREAM_END => implode('', $parts),
+            $length > $most => TooLarge::because(sprintf(self::PAST, $named, $most)),
+            inflate_get_status($inflating) === ZLIB_STREAM_END => implode('', $parts),
             default => CannotJudge::because(sprintf(self::NOT_GZIP, $named)),
         };
     }
