@@ -237,7 +237,7 @@ it('runs a mutant a narrowed run killed with no killer again with every test fil
 
     $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), new PackageDirectory(), Triage::standard()->bounds())->mutate($request);
     $narrow = array_map(
-        static fn(Command $command): string|false|null => $command->environment()[GateVariable::Narrow->value] ?? null,
+        static fn(Command $command) => $command->environment()[GateVariable::Narrow->value] ?? null,
         $shell->commands(),
     );
 

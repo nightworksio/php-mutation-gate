@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Opcache;
 
-use function array_all;
-
 use PhpParser\Node;
 use PhpParser\Node\Arg;
 use PhpParser\Node\ArrayItem;
@@ -101,6 +99,12 @@ final class Constants extends NodeVisitorAbstract
      */
     private static function allConstant(array $nodes): bool
     {
-        return array_all($nodes, fn(?Node $node): bool => !$node instanceof Node || self::isConstant($node));
+        foreach ($nodes as $node) {
+            if ($node instanceof Node && ! self::isConstant($node)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

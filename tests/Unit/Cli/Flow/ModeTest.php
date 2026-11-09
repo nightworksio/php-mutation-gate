@@ -102,8 +102,8 @@ function modeStanding(Scope $scope, ScopeRuns $runs): array
         : throw new RuntimeException($standing->why());
 }
 
-$lastRun = static fn(string $check = 'check', ?RunProfile $kind = null): ScopeRuns
-    => ScopeRuns::none()->lastRunAt(LastRun::of(JudgedCommits::of('last-run'), $check, $kind ?? RunProfile::standard()));
+$lastRun = static fn(string $check = 'check'): ScopeRuns
+    => ScopeRuns::none()->lastRunAt(LastRun::of(JudgedCommits::of('last-run'), $check, RunProfile::standard()));
 
 it('reads a pull request\'s change from its own last run of the same kind and check, falling back to the default branch it fetched', function () use ($lastRun): void {
     [$ledgers, $standing] = modeStanding(Scope::pullRequest(7), $lastRun());

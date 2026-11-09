@@ -96,11 +96,15 @@ final readonly class LiteralArguments implements Collector
             default => [],
         };
 
-        return array_filter(
-            $reached,
-            static fn(?ExtendedMethodReflection $method): bool => $method instanceof ExtendedMethodReflection
-                && OwnSource::holds((string) $method->getDeclaringClass()->getFileName()),
-        );
+        $own = [];
+
+        foreach ($reached as $method) {
+            if ($method instanceof ExtendedMethodReflection && OwnSource::holds((string) $method->getDeclaringClass()->getFileName())) {
+                $own[] = $method;
+            }
+        }
+
+        return $own;
     }
 
     /**
